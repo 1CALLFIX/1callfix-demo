@@ -36,7 +36,10 @@ class DispatchService
         $alreadyOfferedProviderIds = $booking->dispatchAttempts()
             ->pluck('provider_id');
 
-        $busyProviderIds = Booking::whereIn('status', ['assigned', 'provider_en_route', 'in_progress'])
+        // 'on_hold' counts as busy too — a paused job (awaiting spares, customer
+        // approval, or a provider-side red flag) still ties up that provider,
+        // it's not a signal that they're free for new work.
+        $busyProviderIds = Booking::whereIn('status', ['assigned', 'provider_en_route', 'in_progress', 'on_hold'])
             ->whereNotNull('provider_id')
             ->pluck('provider_id');
 

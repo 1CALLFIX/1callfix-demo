@@ -33,10 +33,14 @@ class Booking extends Model
         'customer_note',
         'start_otp',
         'completion_otp',
-        'completed_at'
+        'completed_at',
+        'hold_category',
+        'hold_reason',
+        'hold_note',
+        'on_hold_since'
     ];
 
-    protected $casts = ['scheduled_at' => 'datetime', 'completed_at' => 'datetime'];
+    protected $casts = ['scheduled_at' => 'datetime', 'completed_at' => 'datetime', 'on_hold_since' => 'datetime'];
     public function franchise() { return $this->belongsTo(Franchise::class); }
     public function zone() { return $this->belongsTo(Zone::class); }
     public function customer() { return $this->belongsTo(User::class, 'customer_id'); }
