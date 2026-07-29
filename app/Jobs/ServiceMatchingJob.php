@@ -1,0 +1,119 @@
+<?php
+
+namespace App\Jobs;
+
+use App\Events\BookingStatusUpdated;
+use App\Events\NewJobOffered;
+use App\Models\Booking;
+use App\Models\DispatchAttempt;
+use App\Services\DispatchService;
+use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Foundation\Bus\Dispatchable;
+use Illuminate\Queue\InteractsWithQueue;
+use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Facades\Log;
+
+/**
+ * The dispatch engine. Adapted from the real matching pattern found in Glover's
+ * RegularOrderMatchingJob, but running against our own MySQL database (via
+ * DispatchService) instead of Firebase Firestore, and scoped by zone.
+ *
+ * Flow per run:
+ *   1. Bail early if the booking is no longer searching (already assigned/cancelled).
+ *   2. Ask DispatchService for up to BATCH_SIZE nearest eligible providers who
+ *      haven't already been offered this booking.
+ *   3. If none found and we've hit MAX_ATTEMPTS_ROUNDS, give up — leave the
+ *      booking in `searching_provider` so it surfaces on the admin's live queue
+ *      for manual assignment. This is the deliberate fallback, not a crash.
+ *   4. Otherwise, create a `dispatch_attempts` row per candidate and broadcast
+ *      NewJobOffered to each — this is what wakes up the provider app.
+ *   5. Mark this round's prior (not-yet-timed-out) attempts as `timeout` if
+ *      their offer window has expired, then re-queue itself after a short
+ *      delay — the "keep re-broadcasting until someone accepts" behavior.
+ */
+class ServiceMatchingJob implements ShouldQueue
+{
+    use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
+
+    /** How many providers get offered the job simultaneously, per round. */
+    private const BATCH_SIZE = 5;
+
+    /** How long a single offer stays open before being marked timed out. */
+    private const OFFER_TIMEOUT_SECONDS = 25;
+
+    /** Safety cap so a booking with zero available providers doesn't loop forever. */
+    private const MAX_ROUNDS = 6;
+
+    public function __construct(
+        public int $bookingId,
+        public int $round = 1,
+    ) {
+    }
+
+    public function handle(DispatchService $dispatchService): void
+    {
+        $booking = Booking::find($this->bookingId);
+
+        // Booking was cancelled, or already got assigned another way
+        // (e.g. manual admin assignment) between rounds — stop here.
+        if (!$booking || $booking->status !== 'searching_provider' && $booking->status !== 'pending') {
+            return;
+        }
+
+        if ($booking->status === 'pending') {
+            $booking->status = 'searching_provider';
+            $booking->save();
+            event(new BookingStatusUpdated($booking));
+        }
+
+        // Close out any offers from the previous round whose window has expired
+        // and nobody responded to.
+        $this->timeoutExpiredAttempts($booking);
+
+        if ($this->round > self::MAX_ROUNDS) {
+            Log::warning("ServiceMatchingJob: exhausted {self::MAX_ROUNDS} rounds for booking [{$booking->id}] with no acceptance — leaving for manual admin assignment.");
+            return;
+        }
+
+        $candidates = $dispatchService->findCandidates($booking, self::BATCH_SIZE);
+
+        if ($candidates->isEmpty()) {
+            // No one available right now — try again shortly, same round count
+            // doesn't increment here since we haven't actually made any offers yet.
+            self::dispatch($this->bookingId, $this->round)
+                ->delay(now()->addSeconds(self::OFFER_TIMEOUT_SECONDS));
+            return;
+        }
+
+        foreach ($candidates as $candidate) {
+            $attempt = DispatchAttempt::create([
+                'booking_id' => $booking->id,
+                'provider_id' => $candidate['provider']->id,
+                'status' => 'notified',
+                'distance_km' => $candidate['distance_km'],
+                'notified_at' => now(),
+            ]);
+
+            event(new NewJobOffered($booking, $attempt));
+
+            // TODO: also push via FCM once Firebase credentials are configured —
+            // the WebSocket broadcast above covers the app-open case, FCM covers
+            // app-closed. See NotificationService (to be added).
+        }
+
+        // Re-check after the offer window closes — if nobody's accepted by then,
+        // this same job body runs again: times out this round's attempts and
+        // tries the next batch of candidates.
+        self::dispatch($this->bookingId, $this->round + 1)
+            ->delay(now()->addSeconds(self::OFFER_TIMEOUT_SECONDS));
+    }
+
+    private function timeoutExpiredAttempts(Booking $booking): void
+    {
+        $booking->dispatchAttempts()
+            ->where('status', 'notified')
+            ->where('notified_at', '<=', now()->subSeconds(self::OFFER_TIMEOUT_SECONDS))
+            ->update(['status' => 'timeout', 'responded_at' => now()]);
+    }
+}
