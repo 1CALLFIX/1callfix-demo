@@ -2,6 +2,12 @@
 
 namespace App\Providers;
 
+use App\Models\Booking;
+use App\Models\Franchise;
+use App\Models\Zone;
+use App\Observers\BookingObserver;
+use App\Observers\FranchiseObserver;
+use App\Observers\ZoneObserver;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -19,6 +25,8 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        //
+        Booking::observe(BookingObserver::class);
+        Franchise::observe(FranchiseObserver::class);
+        Zone::observe(ZoneObserver::class);
     }
 }
