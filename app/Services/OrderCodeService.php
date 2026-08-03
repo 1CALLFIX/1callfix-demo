@@ -32,7 +32,7 @@ class OrderCodeService
         // Atomic upsert + increment in one statement.
         DB::statement(
             'INSERT INTO booking_sequences (franchise_id, sequence_date, last_number, created_at, updated_at)
-             VALUES (?, ?, 1, NOW(), NOW())
+             VALUES (?, ?, LAST_INSERT_ID(1), NOW(), NOW())
              ON DUPLICATE KEY UPDATE last_number = LAST_INSERT_ID(last_number + 1), updated_at = NOW()',
             [$franchise->id, $today]
         );

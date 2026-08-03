@@ -44,6 +44,7 @@ class AcceptBookingAction
             $booking->provider_id = $provider->id;
             $booking->status = 'assigned';
             $booking->start_otp = (string) random_int(1000, 9999);
+            $booking->completion_otp = (string) random_int(1000, 9999);
             $booking->save();
 
             $attempt->status = 'accepted';
