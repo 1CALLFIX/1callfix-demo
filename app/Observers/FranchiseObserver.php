@@ -24,4 +24,17 @@ class FranchiseObserver
             );
         }
     }
+
+    /**
+     * After a franchise is created, give it a default modules row —
+     * services on, everything else off — so every franchise from here on
+     * has a consistent toggle set, no manual step needed.
+     */
+    public function created(Franchise $franchise): void
+    {
+        \App\Models\FranchiseModule::create([
+            'franchise_id' => $franchise->id,
+            'service' => true,
+        ]);
+    }
 }

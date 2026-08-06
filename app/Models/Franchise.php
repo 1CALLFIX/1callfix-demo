@@ -42,4 +42,5 @@ class Franchise extends Model
     public function providers() { return $this->hasMany(Provider::class); }
     public function bookings() { return $this->hasMany(Booking::class); }
     public function servicePricing() { return $this->hasMany(FranchiseServicePricing::class); }
+    public function modules() { return $this->hasOne(FranchiseModule::class); }
 }

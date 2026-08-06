@@ -48,6 +48,7 @@ class Booking extends Model
     public function service() { return $this->belongsTo(Service::class); }
     public function address() { return $this->belongsTo(Address::class); }
     public function options() { return $this->hasMany(BookingOption::class); }
+    public function extraItems() { return $this->hasMany(BookingExtraItem::class); }
     public function statusHistory() { return $this->hasMany(BookingStatusHistory::class); }
     public function dispatchAttempts() { return $this->hasMany(DispatchAttempt::class); }
     public function payment() { return $this->hasOne(Payment::class); }

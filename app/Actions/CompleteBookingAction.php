@@ -46,8 +46,12 @@ class CompleteBookingAction
                 throw new \RuntimeException('Incorrect completion OTP.');
             }
 
+            $approvedExtras = $booking->extraItems()
+                ->where('status', 'approved')
+                ->sum('amount');
+
             $booking->status = 'completed';
-            $booking->price_final = $booking->price_final ?? $booking->price_quoted;
+            $booking->price_final = $booking->price_quoted + $approvedExtras;
             $booking->completed_at = now();
             $booking->save();
 
