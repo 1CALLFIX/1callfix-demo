@@ -29,7 +29,7 @@
                     $navItems = [
                         ['label' => 'Dashboard', 'route' => 'admin.dashboard', 'icon' => 'home', 'active' => true],
                         ['label' => 'Bookings', 'route' => 'admin.bookings.index', 'icon' => 'clipboard', 'active' => true],
-                        ['label' => 'Providers', 'route' => null, 'icon' => 'users', 'active' => false],
+                        ['label' => 'Providers', 'route' => 'admin.providers.index', 'icon' => 'users', 'active' => true],
                         ['label' => 'Zones', 'route' => null, 'icon' => 'map', 'active' => false],
                         ['label' => 'Franchises', 'route' => null, 'icon' => 'building', 'active' => false],
                         ['label' => 'Services', 'route' => null, 'icon' => 'wrench', 'active' => false],
