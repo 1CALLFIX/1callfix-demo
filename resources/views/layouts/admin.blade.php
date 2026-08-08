@@ -31,7 +31,7 @@
                         ['label' => 'Bookings', 'route' => 'admin.bookings.index', 'icon' => 'clipboard', 'active' => true],
                         ['label' => 'Providers', 'route' => 'admin.providers.index', 'icon' => 'users', 'active' => true],
                         ['label' => 'Zones', 'route' => null, 'icon' => 'map', 'active' => false],
-                        ['label' => 'Franchises', 'route' => null, 'icon' => 'building', 'active' => false],
+                        ['label' => 'Franchises', 'route' => 'admin.franchises.index', 'icon' => 'building', 'active' => true],
                         ['label' => 'Services', 'route' => null, 'icon' => 'wrench', 'active' => false],
                         ['label' => 'Banners', 'route' => null, 'icon' => 'megaphone', 'active' => false],
                         ['label' => 'Settings', 'route' => null, 'icon' => 'gear', 'active' => false],
