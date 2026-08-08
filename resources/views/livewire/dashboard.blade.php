@@ -1,6 +1,45 @@
 <div>
     <h1 class="text-2xl font-bold mb-6">Dashboard</h1>
 
+    <div class="flex items-center justify-between mb-3">
+        <div class="text-sm font-semibold text-gray-500">Pipeline this {{ $period }}</div>
+        <div class="flex gap-1 bg-white rounded p-1 shadow-sm">
+            @foreach (['week' => 'This Week', 'month' => 'This Month', 'year' => 'This Year'] as $key => $label)
+                <button wire:click="setPeriod('{{ $key }}')"
+                        class="px-3 py-1 rounded text-xs font-medium {{ $period === $key ? 'bg-slate-900 text-white' : 'text-gray-500 hover:bg-gray-100' }}">
+                    {{ $label }}
+                </button>
+            @endforeach
+        </div>
+    </div>
+
+    <div class="grid grid-cols-3 md:grid-cols-6 gap-3 mb-8">
+        <div class="bg-white rounded-lg shadow-sm p-3 text-center">
+            <div class="text-xs text-gray-500">Searching</div>
+            <div class="text-xl font-bold text-blue-600">{{ $funnel['searching'] }}</div>
+        </div>
+        <div class="bg-white rounded-lg shadow-sm p-3 text-center">
+            <div class="text-xs text-gray-500">Assigned</div>
+            <div class="text-xl font-bold text-indigo-600">{{ $funnel['assigned'] }}</div>
+        </div>
+        <div class="bg-white rounded-lg shadow-sm p-3 text-center">
+            <div class="text-xs text-gray-500">In Progress</div>
+            <div class="text-xl font-bold text-amber-600">{{ $funnel['in_progress'] }}</div>
+        </div>
+        <div class="bg-white rounded-lg shadow-sm p-3 text-center">
+            <div class="text-xs text-gray-500">Completed</div>
+            <div class="text-xl font-bold text-green-600">{{ $funnel['completed'] }}</div>
+        </div>
+        <div class="bg-white rounded-lg shadow-sm p-3 text-center">
+            <div class="text-xs text-gray-500">Cancelled</div>
+            <div class="text-xl font-bold text-red-500">{{ $funnel['cancelled'] }}</div>
+        </div>
+        <div class="bg-white rounded-lg shadow-sm p-3 text-center">
+            <div class="text-xs text-gray-500">Disputed</div>
+            <div class="text-xl font-bold text-red-700">{{ $funnel['disputed'] }}</div>
+        </div>
+    </div>
+
     <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
         <div class="bg-white rounded-lg shadow-sm p-4">
             <div class="text-sm text-gray-500">Bookings Today</div>
