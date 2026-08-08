@@ -30,7 +30,7 @@
                         ['label' => 'Dashboard', 'route' => 'admin.dashboard', 'icon' => 'home', 'active' => true],
                         ['label' => 'Bookings', 'route' => 'admin.bookings.index', 'icon' => 'clipboard', 'active' => true],
                         ['label' => 'Providers', 'route' => 'admin.providers.index', 'icon' => 'users', 'active' => true],
-                        ['label' => 'Zones', 'route' => null, 'icon' => 'map', 'active' => false],
+                        ['label' => 'Zones', 'route' => 'admin.zones.index', 'icon' => 'map', 'active' => true],
                         ['label' => 'Franchises', 'route' => 'admin.franchises.index', 'icon' => 'building', 'active' => true],
                         ['label' => 'Services', 'route' => null, 'icon' => 'wrench', 'active' => false],
                         ['label' => 'Banners', 'route' => null, 'icon' => 'megaphone', 'active' => false],
@@ -62,5 +62,19 @@
     @endauth
 
     @livewireScripts
+
+    @if (config('services.google_maps.key'))
+        {{-- No `callback=` param on purpose: it requires window.initZoneMap to
+             already exist the instant this script finishes loading, which races
+             against our own init and throws "initZoneMap is not a function"
+             whenever the Maps script wins that race. public/js/zone-map.js
+             polls for `window.google.maps` instead.
+             No `libraries=drawing` either — DrawingManager was removed by Google
+             as of Maps JS API v3.65; zone-map.js draws boundaries manually. --}}
+        <script src="https://maps.googleapis.com/maps/api/js?key={{ config('services.google_maps.key') }}" async defer></script>
+        {{-- Deliberately a plain static file, not inline Livewire @script content —
+             see the comment at the top of zone-map.js for why. --}}
+        <script src="{{ asset('js/zone-map.js') }}" defer></script>
+    @endif
 </body>
 </html>

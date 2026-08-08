@@ -8,6 +8,8 @@ use App\Livewire\Providers\Index as ProvidersIndex;
 use App\Livewire\Providers\Show as ProvidersShow;
 use App\Livewire\Franchises\Index as FranchisesIndex;
 use App\Livewire\Franchises\Form as FranchisesForm;
+use App\Livewire\Zones\Index as ZonesIndex;
+use App\Livewire\Zones\Form as ZonesForm;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 
@@ -31,4 +33,7 @@ Route::middleware(['auth', \App\Http\Middleware\EnsureSuperAdmin::class])
         Route::get('/franchises', FranchisesIndex::class)->name('admin.franchises.index');
         Route::get('/franchises/create', FranchisesForm::class)->name('admin.franchises.create');
         Route::get('/franchises/{franchiseId}/edit', FranchisesForm::class)->name('admin.franchises.edit');
+        Route::get('/zones', ZonesIndex::class)->name('admin.zones.index');
+        Route::get('/zones/create', ZonesForm::class)->name('admin.zones.create');
+        Route::get('/zones/{zoneId}/edit', ZonesForm::class)->name('admin.zones.edit');
     });
