@@ -14,6 +14,7 @@ class Form extends Component
     public string $categoryId = '';
     public string $name = '';
     public string $icon = '';
+    public string $image = '';
     public string $description = '';
     public string $sortOrder = '0';
     public bool $isActive = true;
@@ -28,6 +29,7 @@ class Form extends Component
             $this->categoryId = (string) $sub->category_id;
             $this->name = $sub->name;
             $this->icon = $sub->icon ?? '';
+            $this->image = $sub->image ?? '';
             $this->description = $sub->description ?? '';
             $this->sortOrder = (string) $sub->sort_order;
             $this->isActive = $sub->is_active;
@@ -47,15 +49,22 @@ class Form extends Component
 
     public function save(): void
     {
-        $this->validate([
+        $rules = [
             'categoryId' => ['required', 'exists:service_categories,id'],
             'name' => ['required', 'string', 'max:255'],
-        ]);
+        ];
+
+        if ($this->image !== '') {
+            $rules['image'] = ['url', 'max:2048'];
+        }
+
+        $this->validate($rules);
 
         $data = [
             'category_id' => $this->categoryId,
             'name' => $this->name,
             'icon' => $this->icon ?: null,
+            'image' => $this->image ?: null,
             'description' => $this->description ?: null,
             'sort_order' => (int) $this->sortOrder,
             'is_active' => $this->isActive,

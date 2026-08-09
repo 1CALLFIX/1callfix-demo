@@ -6,6 +6,19 @@
     <title>{{ $title ?? '1CallFix Admin' }}</title>
     <script src="https://cdn.tailwindcss.com"></script>
     @livewireStyles
+    {{-- Trix — WYSIWYG editor for Services' description field. CDN, no build
+         step, same convention as Tailwind above. Inert on any page without a
+         <trix-editor> element, so it's fine to load globally rather than gate
+         it per-route. --}}
+    <link rel="stylesheet" href="https://unpkg.com/trix@2.1.6/dist/trix.css">
+    <style>
+        /* Trix's default height is tiny; match our other textareas' rows="3"-ish feel */
+        trix-editor { min-height: 8rem; }
+        /* No upload endpoint wired up yet — hide the attach-files button rather
+           than ship a toolbar control that silently does nothing. Services'
+           existing Cover Image URL field covers the image need for now. */
+        .trix-button-group--file-tools { display: none; }
+    </style>
 </head>
 <body class="bg-gray-100 text-gray-900">
     @auth
@@ -62,6 +75,13 @@
     @endauth
 
     @livewireScripts
+
+    <script src="https://unpkg.com/trix@2.1.6/dist/trix.umd.min.js"></script>
+    <script>
+        // Belt-and-braces alongside the CSS hide above: block drag-and-drop
+        // file attachments too, since there's still no upload endpoint.
+        document.addEventListener('trix-file-accept', (e) => e.preventDefault());
+    </script>
 
     @if (config('services.google_maps.key'))
         {{-- No `callback=` param on purpose: it requires window.initZoneMap to

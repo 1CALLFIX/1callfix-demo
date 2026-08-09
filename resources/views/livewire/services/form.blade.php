@@ -41,7 +41,18 @@
 
         <div>
             <label class="block text-sm font-medium mb-1">Description</label>
-            <textarea wire:model="description" rows="3" class="w-full border rounded px-3 py-2 text-sm"></textarea>
+            {{-- wire:ignore on the whole block: Trix manages this DOM itself (cursor
+                 position, toolbar state), and Livewire's morph-on-update (triggered by
+                 the Category select's wire:model.live above) would otherwise fight it.
+                 The hidden input's wire:model binding still works fine under wire:ignore
+                 — that only stops DOM morphing, not the already-attached Livewire
+                 input-event listener. Trix keeps the hidden input's value in sync and
+                 fires a real 'input' event on every change, which is what wire:model
+                 listens for. --}}
+            <div wire:ignore>
+                <input id="description-trix-input" type="hidden" wire:model="description" value="{{ $description }}">
+                <trix-editor input="description-trix-input" class="w-full border rounded px-3 py-2 text-sm bg-white"></trix-editor>
+            </div>
         </div>
 
         <div class="grid grid-cols-3 gap-4">

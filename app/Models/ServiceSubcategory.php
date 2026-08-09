@@ -13,6 +13,7 @@ class ServiceSubcategory extends Model
         'name',
         'slug',
         'icon',
+        'image',
         'description',
         'sort_order',
         'is_active',

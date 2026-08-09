@@ -36,6 +36,17 @@
             </div>
         </div>
 
+        <div class="flex items-end gap-3">
+            <div class="flex-1">
+                <label class="block text-sm font-medium mb-1">Image URL (optional)</label>
+                <input type="text" wire:model="image" placeholder="https://…" class="w-full border rounded px-3 py-2 text-sm">
+                @error('image') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
+            </div>
+            @if ($image)
+                <img src="{{ $image }}" alt="" class="w-12 h-12 rounded object-cover border">
+            @endif
+        </div>
+
         <div>
             <label class="block text-sm font-medium mb-1">Description (optional)</label>
             <textarea wire:model="description" rows="2" class="w-full border rounded px-3 py-2 text-sm"></textarea>

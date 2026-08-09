@@ -11,12 +11,31 @@
         </div>
     </div>
 
-    <select wire:model.live="categoryId" class="border rounded px-3 py-2 text-sm mb-4">
-        <option value="">All categories</option>
-        @foreach ($categories as $cat)
-            <option value="{{ $cat->id }}">{{ $cat->name }}</option>
-        @endforeach
-    </select>
+    <div class="flex items-center gap-2 mb-4 text-sm flex-wrap">
+        <select wire:model.live="categoryId" class="border rounded px-3 py-2 text-sm">
+            <option value="">All categories</option>
+            @foreach ($categories as $cat)
+                <option value="{{ $cat->id }}">{{ $cat->name }}</option>
+            @endforeach
+        </select>
+        <span class="text-gray-300">|</span>
+        <button type="button" wire:click="exportServices" class="px-3 py-1 border border-gray-300 rounded text-xs hover:bg-gray-50">Export</button>
+        <button type="button" wire:click="toggleImport" class="px-3 py-1 border border-gray-300 rounded text-xs hover:bg-gray-50">
+            {{ $showImport ? 'Cancel Import' : 'Import' }}
+        </button>
+    </div>
+
+    @if ($showImport)
+        <x-import-panel label="Services"
+            file-model="importFile"
+            validate-method="validateServicesImport"
+            commit-method="commitServicesImport"
+            cancel-method="toggleImport"
+            template-method="downloadServicesTemplate"
+            :errors="$importErrors"
+            :rows="$importRows"
+            :message="$importMessage" />
+    @endif
 
     <div class="bg-white rounded-lg shadow-sm overflow-hidden">
         <table class="w-full text-sm">
@@ -52,11 +71,14 @@
                         <td class="px-4 py-2 text-gray-500">{{ str_replace('_', ' ', $service->price_type) }}</td>
                         <td class="px-4 py-2 text-gray-500">{{ $service->duration_estimate_mins }} min</td>
                         <td class="px-4 py-2">
-                            <span @class([
-                                'px-2 py-1 rounded text-xs font-medium',
-                                'bg-green-100 text-green-700' => $service->is_active,
-                                'bg-gray-100 text-gray-700' => ! $service->is_active,
-                            ])>{{ $service->is_active ? 'Active' : 'Inactive' }}</span>
+                            <button type="button" wire:click="toggleActive({{ $service->id }})"
+                                    wire:loading.attr="disabled" wire:target="toggleActive({{ $service->id }})"
+                                    title="Click to {{ $service->is_active ? 'deactivate' : 'activate' }}"
+                                    @class([
+                                        'px-2 py-1 rounded text-xs font-medium cursor-pointer',
+                                        'bg-green-100 text-green-700 hover:bg-green-200' => $service->is_active,
+                                        'bg-gray-100 text-gray-700 hover:bg-gray-200' => ! $service->is_active,
+                                    ])>{{ $service->is_active ? 'Active' : 'Inactive' }}</button>
                         </td>
                         <td class="px-4 py-2">
                             <a href="{{ route('admin.services.edit', $service->id) }}" class="text-blue-600 hover:underline">Edit</a>
