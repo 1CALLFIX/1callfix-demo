@@ -14,9 +14,10 @@ use Maatwebsite\Excel\Concerns\WithMapping;
  * zero remapping. icon/description/sort_order are extra columns Glover's
  * format doesn't have; they round-trip our own exports without data loss but
  * are optional on import (default to null/0 if the sheet doesn't have them).
- * No vendor_type_id column — that's Glover's global cross-vertical
- * classifier; this table is already vertical-scoped by name/design (see
- * PROJECT_HANDOFF.md), so it doesn't apply here.
+ *
+ * `module` is our equivalent of Glover's vendor_type — which vertical the
+ * category belongs to. Optional on import and defaults to 'service', so
+ * pre-module sheets (and Glover's own files) still import unchanged.
  */
 class CategoriesExport implements FromCollection, WithHeadings, WithMapping
 {
@@ -35,7 +36,7 @@ class CategoriesExport implements FromCollection, WithHeadings, WithMapping
 
     public function headings(): array
     {
-        return ['id', 'name', 'is_active', 'image', 'icon', 'description', 'sort_order'];
+        return ['id', 'name', 'module', 'is_active', 'image', 'icon', 'color', 'description', 'sort_order'];
     }
 
     public function map($category): array
@@ -43,9 +44,11 @@ class CategoriesExport implements FromCollection, WithHeadings, WithMapping
         return [
             $category->id,
             $category->name,
+            $category->module,
             $category->is_active ? 1 : 0,
             $category->image,
             $category->icon,
+            $category->color,
             $category->description,
             $category->sort_order,
         ];

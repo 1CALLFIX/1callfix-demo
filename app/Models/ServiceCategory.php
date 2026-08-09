@@ -14,13 +14,19 @@ class ServiceCategory extends Model
 
     protected $fillable = [
         'parent_id',
+        'module',
         'name',
         'slug',
         'icon',
+        'color',
         'image',
         'description',
         'sort_order',
         'is_active'
+    ];
+
+    protected $casts = [
+        'is_active' => 'boolean',
     ];
 
     public function parent() { return $this->belongsTo(ServiceCategory::class, 'parent_id'); } // deprecated, kept for backward compat, unused going forward

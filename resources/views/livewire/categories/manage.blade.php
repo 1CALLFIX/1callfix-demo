@@ -28,95 +28,230 @@
             :message="$categoriesImportMessage" />
     @endif
 
-    {{-- Add New — pinned at the top, list updates live below it, no redirect. --}}
+    {{-- Add New — one line, pinned at the top, list updates live below it. --}}
     <div class="bg-white rounded-lg shadow-sm p-4 mb-6">
         <h2 class="text-sm font-semibold mb-3">Add New Category</h2>
-        <div class="grid grid-cols-1 md:grid-cols-5 gap-3 items-end">
-            <div class="md:col-span-2">
-                <label class="block text-xs font-medium mb-1">Name</label>
+        <div class="flex flex-wrap items-end gap-3">
+            <div class="w-24">
+                <label class="block text-xs font-medium mb-1">Icon <span class="text-red-500">*</span></label>
+                <input type="text" wire:model="icon" placeholder="🔧" class="w-full border rounded px-3 py-2 text-sm">
+            </div>
+            <div class="flex-1 min-w-48">
+                <label class="block text-xs font-medium mb-1">Name <span class="text-red-500">*</span></label>
                 <input type="text" wire:model="name" placeholder="e.g. AC Repair, Electrical" class="w-full border rounded px-3 py-2 text-sm">
-                @error('name') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
             </div>
-            <div>
-                <label class="block text-xs font-medium mb-1">Icon (optional)</label>
-                <input type="text" wire:model="icon" placeholder="emoji or icon class" class="w-full border rounded px-3 py-2 text-sm">
+            <div class="w-44">
+                <label class="block text-xs font-medium mb-1">Module <span class="text-red-500">*</span></label>
+                <select wire:model="module" class="w-full border rounded px-3 py-2 text-sm">
+                    @foreach ($modules as $slug => $label)
+                        <option value="{{ $slug }}">{{ $label }}</option>
+                    @endforeach
+                </select>
             </div>
-            <div>
-                <label class="block text-xs font-medium mb-1">Image URL (optional)</label>
-                <input type="text" wire:model="image" placeholder="https://…" class="w-full border rounded px-3 py-2 text-sm">
-                @error('image') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
+            <div class="w-28">
+                <label class="block text-xs font-medium mb-1">Colour</label>
+                <input type="color" wire:model="color" class="w-full border rounded px-1 py-1 h-[38px]">
             </div>
-            <div>
-                <label class="block text-xs font-medium mb-1">Sort Order</label>
-                <input type="number" wire:model="sortOrder" class="w-full border rounded px-3 py-2 text-sm">
-                @error('sortOrder') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
-            </div>
+            <label class="inline-flex items-center gap-2 text-sm h-[38px]">
+                <input type="checkbox" wire:model="isActive" class="rounded"> Active
+            </label>
+            <button wire:click="save" class="bg-slate-900 text-white px-6 h-[38px] rounded text-sm font-medium hover:bg-slate-800">
+                + Add
+            </button>
         </div>
 
-        <div class="flex items-center justify-between mt-3">
-            <div>
-                <label class="block text-xs font-medium mb-1">Description (optional)</label>
-                <textarea wire:model="description" rows="1" class="w-full md:w-96 border rounded px-3 py-2 text-sm"></textarea>
+        @if ($errors->hasAny(['name', 'icon', 'module', 'color']))
+            <div class="mt-2 space-y-1">
+                @error('icon') <p class="text-red-600 text-xs">{{ $message }}</p> @enderror
+                @error('name') <p class="text-red-600 text-xs">{{ $message }}</p> @enderror
+                @error('module') <p class="text-red-600 text-xs">{{ $message }}</p> @enderror
+                @error('color') <p class="text-red-600 text-xs">{{ $message }}</p> @enderror
             </div>
-            <div class="flex items-center gap-4">
-                <label class="inline-flex items-center gap-2 text-sm">
-                    <input type="checkbox" wire:model="isActive" class="rounded"> Active
-                </label>
-                <button wire:click="save" class="bg-slate-900 text-white px-6 py-2 rounded text-sm font-medium hover:bg-slate-800">
-                    + Add Category
-                </button>
-            </div>
+        @endif
+    </div>
+
+    {{-- List controls: reorder / search / filters / per-page --}}
+    <div class="flex items-center gap-2 mb-3 flex-wrap">
+        <button type="button" wire:click="toggleReorder"
+                @class([
+                    'px-3 py-2 border rounded text-sm',
+                    'bg-slate-900 text-white border-slate-900' => $reorderMode,
+                    'border-gray-300 hover:bg-gray-50' => ! $reorderMode,
+                ])>Reorder</button>
+
+        <input type="text" wire:model.live.debounce.300ms="search" placeholder="Search"
+               class="border border-gray-300 rounded px-3 py-2 text-sm w-56">
+
+        <button type="button" wire:click="$toggle('showFilters')"
+                @class([
+                    'px-3 py-2 border rounded text-sm inline-flex items-center gap-1',
+                    'bg-slate-900 text-white border-slate-900' => $showFilters,
+                    'border-gray-300 hover:bg-gray-50' => ! $showFilters,
+                ])>
+            Filters
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor" class="w-4 h-4">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 3c2.755 0 5.455.232 8.083.678.533.09.917.556.917 1.096v1.044a2.25 2.25 0 01-.659 1.591l-5.432 5.432a2.25 2.25 0 00-.659 1.591v2.927a2.25 2.25 0 01-1.244 2.013L9.75 21v-6.568a2.25 2.25 0 00-.659-1.591L3.659 7.409A2.25 2.25 0 013 5.818V4.774c0-.54.384-1.006.917-1.096A48.32 48.32 0 0112 3z" />
+            </svg>
+        </button>
+
+        <div class="ml-auto">
+            <select wire:model.live="perPage" class="border border-gray-300 rounded px-3 py-2 text-sm">
+                <option value="10">10</option>
+                <option value="25">25</option>
+                <option value="50">50</option>
+                <option value="100">100</option>
+            </select>
         </div>
     </div>
+
+    @if ($showFilters)
+        <div class="bg-white rounded-lg shadow-sm p-3 mb-3 flex items-end gap-3 flex-wrap">
+            <div class="w-52">
+                <label class="block text-xs font-medium mb-1">Module</label>
+                <select wire:model.live="filterModule" class="w-full border rounded px-3 py-2 text-sm">
+                    <option value="">All modules</option>
+                    @foreach ($modules as $slug => $label)
+                        <option value="{{ $slug }}">{{ $label }}</option>
+                    @endforeach
+                </select>
+            </div>
+            <div class="w-44">
+                <label class="block text-xs font-medium mb-1">Status</label>
+                <select wire:model.live="filterActive" class="w-full border rounded px-3 py-2 text-sm">
+                    <option value="">All</option>
+                    <option value="active">Active only</option>
+                    <option value="inactive">Inactive only</option>
+                </select>
+            </div>
+            @if ($filterModule !== '' || $filterActive !== '' || $search !== '')
+                <button type="button" wire:click="$set('filterModule', ''); $set('filterActive', ''); $set('search', '')"
+                        class="text-xs text-blue-600 hover:underline pb-2">Clear all</button>
+            @endif
+        </div>
+    @endif
+
+    @if ($reorderMode)
+        <div class="bg-indigo-50 border border-indigo-100 text-indigo-800 rounded p-3 mb-3 text-xs">
+            Reorder mode: use the ↑ / ↓ arrows to set the order categories appear in the app. Changes save immediately.
+            @if ($filterModule !== '' || $search !== '')
+                <span class="font-medium">Rows are moving within the current search/filter.</span>
+            @endif
+        </div>
+    @endif
 
     <div class="bg-white rounded-lg shadow-sm overflow-hidden">
         <table class="w-full text-sm">
             <thead class="bg-gray-50 text-left text-gray-500">
                 <tr>
-                    <th class="px-4 py-2">Image</th>
+                    <th class="px-4 py-2 w-12">SL</th>
+                    <th class="px-4 py-2 w-20">
+                        <button type="button" wire:click="sortBy('id')" class="inline-flex items-center gap-1 hover:text-gray-800">
+                            ID
+                            @if ($sortField === 'id')
+                                <span class="text-gray-800">{{ $sortDirection === 'asc' ? '▲' : '▼' }}</span>
+                            @else
+                                <span class="text-gray-300">↕</span>
+                            @endif
+                        </button>
+                    </th>
+                    <th class="px-4 py-2">Icon</th>
                     <th class="px-4 py-2">Name</th>
+                    <th class="px-4 py-2">Module</th>
                     <th class="px-4 py-2">Subcategories</th>
-                    <th class="px-4 py-2">Services</th>
                     <th class="px-4 py-2">Active</th>
                     <th class="px-4 py-2">Created At</th>
-                    <th class="px-4 py-2"></th>
+                    <th class="px-4 py-2 text-right">Actions</th>
                 </tr>
             </thead>
             <tbody>
-                @forelse ($categories as $category)
-                    <tr class="border-t hover:bg-gray-50">
+                @forelse ($categories as $i => $category)
+                    <tr class="border-t hover:bg-gray-50" wire:key="cat-{{ $category->id }}">
+                        <td class="px-4 py-2 text-gray-400">{{ $categories->firstItem() + $i }}</td>
+                        <td class="px-4 py-2 text-gray-500">{{ $category->id }}</td>
                         <td class="px-4 py-2">
                             @if ($category->image)
                                 <img src="{{ $category->image }}" alt="" class="w-8 h-8 rounded object-cover">
-                            @elseif ($category->icon)
-                                <span class="text-gray-400">{{ $category->icon }}</span>
                             @else
-                                <span class="text-gray-300">&mdash;</span>
+                                <span class="w-8 h-8 rounded flex items-center justify-center text-base"
+                                      style="background-color: {{ $category->color ?: '#F3F4F6' }}">{{ $category->icon }}</span>
                             @endif
                         </td>
                         <td class="px-4 py-2 font-medium">{{ $category->name }}</td>
+                        <td class="px-4 py-2 text-gray-500">{{ \App\Support\Modules::label($category->module) }}</td>
                         <td class="px-4 py-2 text-gray-500">{{ $category->subcategories_count }}</td>
-                        <td class="px-4 py-2 text-gray-500">{{ $category->services_count }}</td>
                         <td class="px-4 py-2">
-                            <button type="button" wire:click="toggleCategory({{ $category->id }})"
-                                    wire:loading.attr="disabled" wire:target="toggleCategory({{ $category->id }})"
-                                    title="Click to {{ $category->is_active ? 'deactivate' : 'activate' }}"
-                                    @class([
-                                        'px-2 py-1 rounded text-xs font-medium cursor-pointer',
-                                        'bg-green-100 text-green-700 hover:bg-green-200' => $category->is_active,
-                                        'bg-gray-100 text-gray-700 hover:bg-gray-200' => ! $category->is_active,
-                                    ])>{{ $category->is_active ? 'Active' : 'Inactive' }}</button>
+                            @if ($category->is_active)
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor" class="w-5 h-5 text-green-600" title="Active">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                            @else
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor" class="w-5 h-5 text-red-500" title="Inactive">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M9.75 9.75l4.5 4.5m0-4.5l-4.5 4.5M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                            @endif
                         </td>
-                        <td class="px-4 py-2 text-gray-500">{{ $category->created_at->format('d M Y') }}</td>
+                        <td class="px-4 py-2 text-gray-500">{{ $category->created_at?->format('d M Y') }}</td>
                         <td class="px-4 py-2">
-                            <button type="button" wire:click="edit({{ $category->id }})" class="text-blue-600 hover:underline">Edit</button>
+                            <div class="flex items-center gap-1.5 justify-end">
+                                @if ($reorderMode)
+                                    <button type="button" wire:click="moveUp({{ $category->id }})"
+                                            class="w-8 h-8 rounded flex items-center justify-center bg-gray-100 hover:bg-gray-200 text-gray-700"
+                                            title="Move up">↑</button>
+                                    <button type="button" wire:click="moveDown({{ $category->id }})"
+                                            class="w-8 h-8 rounded flex items-center justify-center bg-gray-100 hover:bg-gray-200 text-gray-700"
+                                            title="Move down">↓</button>
+                                @endif
+
+                                <button type="button" wire:click="edit({{ $category->id }})"
+                                        class="w-8 h-8 rounded flex items-center justify-center bg-slate-700 hover:bg-slate-800 text-white" title="Edit">
+                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor" class="w-4 h-4">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z" />
+                                    </svg>
+                                </button>
+
+                                <button type="button" wire:click="toggleCategory({{ $category->id }})"
+                                        wire:loading.attr="disabled" wire:target="toggleCategory({{ $category->id }})"
+                                        @class([
+                                            'w-8 h-8 rounded flex items-center justify-center text-white',
+                                            'bg-red-500 hover:bg-red-600' => $category->is_active,
+                                            'bg-green-500 hover:bg-green-600' => ! $category->is_active,
+                                        ])
+                                        title="{{ $category->is_active ? 'Deactivate' : 'Activate' }}">
+                                    @if ($category->is_active)
+                                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor" class="w-4 h-4">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                                        </svg>
+                                    @else
+                                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor" class="w-4 h-4">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                                        </svg>
+                                    @endif
+                                </button>
+
+                                <button type="button" wire:click="confirmDelete({{ $category->id }})"
+                                        class="w-8 h-8 rounded flex items-center justify-center bg-red-100 hover:bg-red-200 text-red-600" title="Delete">
+                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor" class="w-4 h-4">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
+                                    </svg>
+                                </button>
+                            </div>
                         </td>
                     </tr>
                 @empty
-                    <tr><td colspan="7" class="px-4 py-6 text-center text-gray-400">No categories yet. Add your first one above.</td></tr>
+                    <tr><td colspan="9" class="px-4 py-6 text-center text-gray-400">
+                        @if ($search !== '' || $filterModule !== '' || $filterActive !== '')
+                            No categories match your search or filters.
+                        @else
+                            No categories yet. Add your first one above.
+                        @endif
+                    </td></tr>
                 @endforelse
             </tbody>
         </table>
+    </div>
+
+    <div class="mt-4">
+        {{ $categories->links() }}
     </div>
 
     {{-- Edit modal — a Livewire boolean flag, not a separate route. --}}
@@ -130,37 +265,36 @@
 
                 <div class="space-y-4">
                     <div>
-                        <label class="block text-sm font-medium mb-1">Name</label>
+                        <label class="block text-sm font-medium mb-1">Name <span class="text-red-500">*</span></label>
                         <input type="text" wire:model="editName" class="w-full border rounded px-3 py-2 text-sm">
                         @error('editName') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
                     </div>
 
                     <div class="grid grid-cols-2 gap-4">
                         <div>
-                            <label class="block text-sm font-medium mb-1">Icon (optional)</label>
-                            <input type="text" wire:model="editIcon" class="w-full border rounded px-3 py-2 text-sm">
+                            <label class="block text-sm font-medium mb-1">Icon <span class="text-red-500">*</span></label>
+                            <input type="text" wire:model="editIcon" placeholder="🔧" class="w-full border rounded px-3 py-2 text-sm">
+                            @error('editIcon') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
                         </div>
                         <div>
-                            <label class="block text-sm font-medium mb-1">Sort Order</label>
-                            <input type="number" wire:model="editSortOrder" class="w-full border rounded px-3 py-2 text-sm">
-                            @error('editSortOrder') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
+                            <label class="block text-sm font-medium mb-1">Colour</label>
+                            <div class="flex items-center gap-2">
+                                <input type="color" wire:model.live="editColor" class="border rounded px-1 py-1 h-[38px] w-16">
+                                <span class="w-9 h-9 rounded flex items-center justify-center text-base border"
+                                      style="background-color: {{ $editColor ?: '#F3F4F6' }}">{{ $editIcon }}</span>
+                            </div>
+                            @error('editColor') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
                         </div>
-                    </div>
-
-                    <div class="flex items-end gap-3">
-                        <div class="flex-1">
-                            <label class="block text-sm font-medium mb-1">Image URL (optional)</label>
-                            <input type="text" wire:model="editImage" placeholder="https://…" class="w-full border rounded px-3 py-2 text-sm">
-                            @error('editImage') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
-                        </div>
-                        @if ($editImage)
-                            <img src="{{ $editImage }}" alt="" class="w-12 h-12 rounded object-cover border">
-                        @endif
                     </div>
 
                     <div>
-                        <label class="block text-sm font-medium mb-1">Description (optional)</label>
-                        <textarea wire:model="editDescription" rows="2" class="w-full border rounded px-3 py-2 text-sm"></textarea>
+                        <label class="block text-sm font-medium mb-1">Module <span class="text-red-500">*</span></label>
+                        <select wire:model="editModule" class="w-full border rounded px-3 py-2 text-sm">
+                            @foreach ($modules as $slug => $label)
+                                <option value="{{ $slug }}">{{ $label }}</option>
+                            @endforeach
+                        </select>
+                        @error('editModule') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
                     </div>
 
                     <label class="inline-flex items-center gap-2 text-sm">
@@ -172,6 +306,28 @@
                     <button type="button" wire:click="closeEditModal" class="px-4 py-2 border border-gray-300 rounded text-sm hover:bg-gray-50">Close</button>
                     <button type="button" wire:click="update" class="bg-slate-900 text-white px-6 py-2 rounded text-sm font-medium hover:bg-slate-800">Update</button>
                 </div>
+            </div>
+        </div>
+    @endif
+
+    {{-- Delete confirmation --}}
+    @if ($confirmingDeleteId)
+        <div class="fixed inset-0 bg-black/40 flex items-center justify-center z-40 p-4" wire:click.self="cancelDelete">
+            <div class="bg-white rounded-lg shadow-lg w-full max-w-md p-6">
+                <h3 class="text-lg font-bold mb-2">Delete category?</h3>
+
+                @if ($deleteBlockedReason)
+                    <p class="text-sm text-gray-600 mb-4">{{ $deleteBlockedReason }}</p>
+                    <div class="flex justify-end">
+                        <button type="button" wire:click="cancelDelete" class="px-4 py-2 border border-gray-300 rounded text-sm hover:bg-gray-50">Close</button>
+                    </div>
+                @else
+                    <p class="text-sm text-gray-600 mb-4">This can't be undone.</p>
+                    <div class="flex justify-end gap-2">
+                        <button type="button" wire:click="cancelDelete" class="px-4 py-2 border border-gray-300 rounded text-sm hover:bg-gray-50">Cancel</button>
+                        <button type="button" wire:click="deleteCategory" class="bg-red-600 text-white px-6 py-2 rounded text-sm font-medium hover:bg-red-700">Delete</button>
+                    </div>
+                @endif
             </div>
         </div>
     @endif
