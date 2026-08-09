@@ -109,9 +109,12 @@ Core tables: `franchises`, `zones`, `users`, `addresses`, `service_categories`, 
 - Providers — list with KYC status filter, detail/review page, approve/reject actions
 - Franchises — list (with zone/provider/booking counts, module badges), create/edit form (commission settings, status, all 8 module toggles)
 
-**Navigation:** icon-rail on the left, showing all planned sections — active ones are clickable, unbuilt ones (Zones, Services, Banners, Settings) show as greyed-out placeholders so the full roadmap is visible even before built.
+- Zones — list (franchise, provider/booking counts), create/edit with a hand-rolled click-to-place-point boundary map (`public/js/zone-map.js`; not `google.maps.drawing.DrawingManager`, which Google removed as of Maps JS API v3.65), auto-generated zone code
+- Services/Categories/Subcategories — Categories index (nested subcategory rows inline), Category/Subcategory create/edit, Services index (category/subcategory filter, pagination), Service create/edit. `service_subcategories` is a dedicated table (not self-referencing categories), `services.subcategory_id` is nullable. Replaces Tinker-only seeding.
 
-**Not yet built:** Zones (needs Google Maps JS API — the first genuinely complex UI piece), Services/Categories management, Banners management, Settings.
+**Navigation:** icon-rail on the left, showing all planned sections — active ones are clickable, unbuilt ones (Banners, Settings) show as greyed-out placeholders so the full roadmap is visible even before built.
+
+**Not yet built:** Banners management, Settings.
 
 ---
 
@@ -146,9 +149,7 @@ Core tables: `franchises`, `zones`, `users`, `addresses`, `service_categories`, 
 
 ## 12. What's Next (in order)
 
-1. **Zones** — map-based geography editor (Google Maps JS API + polygon drawing), the next M5 screen
-2. **Services/Categories management** — admin CRUD for what's currently only seeded via Tinker
-3. **Banners management** — admin UI for the ad-revenue banner system (schema already built)
-4. **Settings screen**
-5. **M6/M7** — the two Flutter mobile apps
-6. Only after Service vertical has real, proven revenue: begin Phase 5+ (Parcel, then Food, etc.)
+1. **Banners management** — admin UI for the ad-revenue banner system (schema already built)
+2. **Settings screen**
+3. **M6/M7** — the two Flutter mobile apps
+4. Only after Service vertical has real, proven revenue: begin Phase 5+ (Parcel, then Food, etc.)
