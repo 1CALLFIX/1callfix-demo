@@ -22,7 +22,8 @@ class ServiceCategory extends Model
         'is_active'
     ];
 
-    public function parent() { return $this->belongsTo(ServiceCategory::class, 'parent_id'); }
-    public function children() { return $this->hasMany(ServiceCategory::class, 'parent_id'); }
+    public function parent() { return $this->belongsTo(ServiceCategory::class, 'parent_id'); } // deprecated, kept for backward compat, unused going forward
+    public function children() { return $this->hasMany(ServiceCategory::class, 'parent_id'); } // deprecated, kept for backward compat, unused going forward
+    public function subcategories() { return $this->hasMany(ServiceSubcategory::class, 'category_id'); }
     public function services() { return $this->hasMany(Service::class, 'category_id'); }
 }

@@ -32,7 +32,7 @@
                         ['label' => 'Providers', 'route' => 'admin.providers.index', 'icon' => 'users', 'active' => true],
                         ['label' => 'Zones', 'route' => 'admin.zones.index', 'icon' => 'map', 'active' => true],
                         ['label' => 'Franchises', 'route' => 'admin.franchises.index', 'icon' => 'building', 'active' => true],
-                        ['label' => 'Services', 'route' => null, 'icon' => 'wrench', 'active' => false],
+                        ['label' => 'Services', 'route' => 'admin.services.index', 'icon' => 'wrench', 'active' => true],
                         ['label' => 'Banners', 'route' => null, 'icon' => 'megaphone', 'active' => false],
                         ['label' => 'Settings', 'route' => null, 'icon' => 'gear', 'active' => false],
                     ];

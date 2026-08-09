@@ -15,6 +15,7 @@ class Service extends Model
 
     protected $fillable = [
         'category_id',
+        'subcategory_id',
         'name',
         'slug',
         'description',
@@ -27,6 +28,7 @@ class Service extends Model
     ];
 
     public function category() { return $this->belongsTo(ServiceCategory::class, 'category_id'); }
+    public function subcategory() { return $this->belongsTo(ServiceSubcategory::class, 'subcategory_id'); }
     public function optionGroups() { return $this->hasMany(ServiceOptionGroup::class); }
     public function franchisePricing() { return $this->hasMany(FranchiseServicePricing::class); }
     public function bookings() { return $this->hasMany(Booking::class); }
