@@ -32,9 +32,20 @@
     <div class="bg-white rounded-lg shadow-sm p-4 mb-6">
         <h2 class="text-sm font-semibold mb-3">Add New Category</h2>
         <div class="flex flex-wrap items-end gap-3">
-            <div class="w-24">
+            <div class="w-28">
                 <label class="block text-xs font-medium mb-1">Icon <span class="text-red-500">*</span></label>
-                <input type="text" wire:model="icon" placeholder="🔧" class="w-full border rounded px-3 py-2 text-sm">
+                {{-- Click-to-upload: the real file input is hidden and driven by
+                     this label, so the whole tile is the click target. --}}
+                <label class="relative flex items-center justify-center w-full h-[38px] border border-dashed rounded cursor-pointer hover:bg-gray-50 overflow-hidden"
+                       style="background-color: {{ $color ?: '#F9FAFB' }}">
+                    <input type="file" wire:model="iconFile" accept="image/png,image/jpeg" class="sr-only">
+                    @if ($iconFile)
+                        <img src="{{ $iconFile->temporaryUrl() }}" alt="" class="h-full w-full object-contain">
+                    @else
+                        <span class="text-[11px] text-gray-500" wire:loading.remove wire:target="iconFile">PNG / JPEG</span>
+                    @endif
+                    <span class="text-[11px] text-gray-500" wire:loading wire:target="iconFile">Uploading…</span>
+                </label>
             </div>
             <div class="flex-1 min-w-48">
                 <label class="block text-xs font-medium mb-1">Name <span class="text-red-500">*</span></label>
@@ -60,9 +71,9 @@
             </button>
         </div>
 
-        @if ($errors->hasAny(['name', 'icon', 'module', 'color']))
+        @if ($errors->hasAny(['name', 'iconFile', 'module', 'color']))
             <div class="mt-2 space-y-1">
-                @error('icon') <p class="text-red-600 text-xs">{{ $message }}</p> @enderror
+                @error('iconFile') <p class="text-red-600 text-xs">{{ $message }}</p> @enderror
                 @error('name') <p class="text-red-600 text-xs">{{ $message }}</p> @enderror
                 @error('module') <p class="text-red-600 text-xs">{{ $message }}</p> @enderror
                 @error('color') <p class="text-red-600 text-xs">{{ $message }}</p> @enderror
@@ -169,12 +180,15 @@
                         <td class="px-4 py-2 text-gray-400">{{ $categories->firstItem() + $i }}</td>
                         <td class="px-4 py-2 text-gray-500">{{ $category->id }}</td>
                         <td class="px-4 py-2">
-                            @if ($category->image)
-                                <img src="{{ $category->image }}" alt="" class="w-8 h-8 rounded object-cover">
-                            @else
-                                <span class="w-8 h-8 rounded flex items-center justify-center text-base"
-                                      style="background-color: {{ $category->color ?: '#F3F4F6' }}">{{ $category->icon }}</span>
-                            @endif
+                            <span class="w-9 h-9 rounded border flex items-center justify-center overflow-hidden"
+                                  style="background-color: {{ $category->color ?: '#F9FAFB' }}">
+                                @if ($category->image_url)
+                                    <img src="{{ $category->image_url }}" alt="" class="w-full h-full object-contain">
+                                @else
+                                    {{-- Legacy rows imported before icons were uploads --}}
+                                    <span class="text-base">{{ $category->icon }}</span>
+                                @endif
+                            </span>
                         </td>
                         <td class="px-4 py-2 font-medium">{{ $category->name }}</td>
                         <td class="px-4 py-2 text-gray-500">{{ \App\Support\Modules::label($category->module) }}</td>
@@ -273,16 +287,29 @@
                     <div class="grid grid-cols-2 gap-4">
                         <div>
                             <label class="block text-sm font-medium mb-1">Icon <span class="text-red-500">*</span></label>
-                            <input type="text" wire:model="editIcon" placeholder="🔧" class="w-full border rounded px-3 py-2 text-sm">
-                            @error('editIcon') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
+                            <div class="flex items-center gap-3">
+                                <span class="w-16 h-16 rounded border flex items-center justify-center overflow-hidden shrink-0"
+                                      style="background-color: {{ $editColor ?: '#F9FAFB' }}">
+                                    @if ($editIconFile)
+                                        <img src="{{ $editIconFile->temporaryUrl() }}" alt="" class="h-full w-full object-contain">
+                                    @elseif ($this->editExistingImageUrl)
+                                        <img src="{{ $this->editExistingImageUrl }}" alt="" class="h-full w-full object-contain">
+                                    @else
+                                        <span class="text-[11px] text-gray-400">None</span>
+                                    @endif
+                                </span>
+                                <label class="px-3 py-1.5 border border-blue-400 text-blue-600 rounded text-xs cursor-pointer hover:bg-blue-50">
+                                    <input type="file" wire:model="editIconFile" accept="image/png,image/jpeg" class="sr-only">
+                                    <span wire:loading.remove wire:target="editIconFile">Change</span>
+                                    <span wire:loading wire:target="editIconFile">Uploading…</span>
+                                </label>
+                            </div>
+                            @error('editIconFile') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
                         </div>
                         <div>
                             <label class="block text-sm font-medium mb-1">Colour</label>
-                            <div class="flex items-center gap-2">
-                                <input type="color" wire:model.live="editColor" class="border rounded px-1 py-1 h-[38px] w-16">
-                                <span class="w-9 h-9 rounded flex items-center justify-center text-base border"
-                                      style="background-color: {{ $editColor ?: '#F3F4F6' }}">{{ $editIcon }}</span>
-                            </div>
+                            <input type="color" wire:model.live="editColor" class="border rounded px-1 py-1 h-[38px] w-full">
+                            <p class="text-xs text-gray-400 mt-1">Tile background behind the icon.</p>
                             @error('editColor') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
                         </div>
                     </div>

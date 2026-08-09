@@ -7,6 +7,7 @@ use App\Imports\HeadingRowImport;
 use App\Models\ServiceCategory;
 use App\Support\Modules;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
@@ -30,7 +31,7 @@ class Manage extends Component
     // ordering is set with the Reorder controls on the list instead, so
     // there's no way for the two to disagree.
     public string $name = '';
-    public string $icon = '';
+    public $iconFile = null; // uploaded PNG/JPEG, stored on the `public` disk
     public string $module = Modules::SERVICE;
     public string $color = '#E5E7EB';
     public bool $isActive = true;
@@ -39,7 +40,8 @@ class Manage extends Component
     public bool $showEditModal = false;
     public ?int $editCategoryId = null;
     public string $editName = '';
-    public string $editIcon = '';
+    public $editIconFile = null;          // only set when replacing the icon
+    public ?string $editExistingImage = null; // current icon, kept if no new upload
     public string $editModule = Modules::SERVICE;
     public string $editColor = '#E5E7EB';
     public bool $editIsActive = true;
@@ -93,27 +95,64 @@ class Manage extends Component
     {
         $this->validate([
             'name' => ['required', 'string', 'max:255'],
-            'icon' => ['required', 'string', 'max:255'],
+            'iconFile' => ['required', 'image', 'mimes:png,jpg,jpeg', 'max:2048'],
             'module' => ['required', Rule::in(Modules::slugs())],
             'color' => ['nullable', 'string', 'regex:/^#[0-9A-Fa-f]{6}$/'],
-        ], [], [
-            'icon' => 'icon',
+        ], [
+            'iconFile.required' => 'Please choose an icon image (PNG or JPEG).',
+            'iconFile.max' => 'The icon must be 2 MB or smaller.',
+        ], [
+            'iconFile' => 'icon',
         ]);
 
         ServiceCategory::create([
             'module' => $this->module,
             'name' => $this->name,
             'slug' => Str::slug($this->name).'-'.Str::random(4),
-            'icon' => $this->icon,
+            'image' => $this->storeIcon($this->iconFile),
             'color' => $this->color ?: null,
             // New rows go to the end of the list; Reorder moves them from there.
             'sort_order' => (int) ServiceCategory::max('sort_order') + 1,
             'is_active' => $this->isActive,
         ]);
 
-        $this->reset(['name', 'icon', 'color', 'isActive']);
+        $this->reset(['name', 'iconFile', 'color', 'isActive']);
         $this->color = '#E5E7EB';
         $this->flashMessage = 'Category created.';
+    }
+
+    /** Display URL for the icon already on the category being edited. */
+    public function getEditExistingImageUrlProperty(): ?string
+    {
+        if (! $this->editExistingImage) {
+            return null;
+        }
+
+        if (Str::startsWith($this->editExistingImage, ['http://', 'https://', '//', 'data:'])) {
+            return $this->editExistingImage;
+        }
+
+        return Storage::disk('public')->url($this->editExistingImage);
+    }
+
+    /** Store an uploaded icon on the public disk, return its relative path. */
+    private function storeIcon($file): string
+    {
+        return $file->store('categories', 'public');
+    }
+
+    /**
+     * Delete a previously uploaded icon once it's been replaced or its
+     * category removed. Guarded against legacy imported rows whose `image`
+     * is a full CDN URL rather than a file we own.
+     */
+    private function deleteStoredIcon(?string $image): void
+    {
+        if (! $image || Str::startsWith($image, ['http://', 'https://', '//', 'data:'])) {
+            return;
+        }
+
+        Storage::disk('public')->delete($image);
     }
 
     // ============================== Edit modal ==============================
@@ -124,7 +163,8 @@ class Manage extends Component
 
         $this->editCategoryId = $category->id;
         $this->editName = $category->name;
-        $this->editIcon = $category->icon ?? '';
+        $this->editIconFile = null;
+        $this->editExistingImage = $category->image;
         $this->editModule = $category->module ?? Modules::SERVICE;
         $this->editColor = $category->color ?: '#E5E7EB';
         $this->editIsActive = $category->is_active;
@@ -137,27 +177,46 @@ class Manage extends Component
     {
         $this->validate([
             'editName' => ['required', 'string', 'max:255'],
-            'editIcon' => ['required', 'string', 'max:255'],
+            // Only required if this category has no icon yet — an edit that
+            // isn't changing the picture shouldn't force a re-upload.
+            'editIconFile' => [
+                $this->editExistingImage ? 'nullable' : 'required',
+                'image', 'mimes:png,jpg,jpeg', 'max:2048',
+            ],
             'editModule' => ['required', Rule::in(Modules::slugs())],
             'editColor' => ['nullable', 'string', 'regex:/^#[0-9A-Fa-f]{6}$/'],
+        ], [
+            'editIconFile.required' => 'Please choose an icon image (PNG or JPEG).',
+            'editIconFile.max' => 'The icon must be 2 MB or smaller.',
+        ], [
+            'editIconFile' => 'icon',
         ]);
 
         $category = ServiceCategory::findOrFail($this->editCategoryId);
+
+        $image = $category->image;
+        if ($this->editIconFile) {
+            $image = $this->storeIcon($this->editIconFile);
+            $this->deleteStoredIcon($category->image);
+        }
+
         $category->update([
             'module' => $this->editModule,
             'name' => $this->editName,
-            'icon' => $this->editIcon,
+            'image' => $image,
             'color' => $this->editColor ?: null,
             'is_active' => $this->editIsActive,
         ]);
 
         $this->showEditModal = false;
+        $this->editIconFile = null;
         $this->flashMessage = 'Category updated.';
     }
 
     public function closeEditModal(): void
     {
         $this->showEditModal = false;
+        $this->editIconFile = null;
         $this->resetValidation();
     }
 
@@ -200,7 +259,10 @@ class Manage extends Component
             return;
         }
 
-        ServiceCategory::findOrFail($this->confirmingDeleteId)->delete();
+        $category = ServiceCategory::findOrFail($this->confirmingDeleteId);
+        $image = $category->image;
+        $category->delete();
+        $this->deleteStoredIcon($image);
 
         $this->confirmingDeleteId = null;
         $this->flashMessage = 'Category deleted.';
