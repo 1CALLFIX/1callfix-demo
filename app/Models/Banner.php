@@ -24,9 +24,18 @@ class Banner extends Model
         'mid' => 'Mid — between modules',
     ];
 
+    /**
+     * The targeting axes, in order of how narrow they are. Null on any of
+     * these means "not restricted by this" — a banner with all four null runs
+     * everywhere. Kept as one list so forSlot() and the specificity ranking
+     * can never drift out of sync with each other.
+     */
+    public const TARGET_AXES = ['franchise_id', 'zone_id', 'module', 'category_id'];
+
     protected $fillable = [
         'franchise_id',
         'zone_id',
+        'module',
         'placement',
         'category_id',
         'title',
@@ -55,6 +64,60 @@ class Banner extends Model
     public function scopePlacement($query, string $placement)
     {
         return $query->where('placement', $placement);
+    }
+
+    /**
+     * THE resolver: which banners fill a given slot for a given viewer.
+     *
+     * Every consumer — customer app API, website home screen, admin preview —
+     * must go through this rather than hand-rolling its own where() chain.
+     * That's the whole point: targeting rules live in exactly one place, so
+     * adding a fifth axis (or swapping to a pivot table later) is a change
+     * here and nowhere else. Three near-identical copies quietly disagreeing
+     * is the failure mode this exists to prevent.
+     *
+     * Null on a banner's axis = wildcard, so an untargeted banner shows to
+     * everyone. Null in $context = "the viewer isn't in that scope", which
+     * only matches banners that don't restrict on it.
+     *
+     * Results are ordered most-specific-first (a banner pinned to this exact
+     * category beats a franchise-wide one, which beats a global one), then by
+     * the admin's manual sort_order. Without that, a global house banner
+     * could outrank a slot someone actually paid to target.
+     *
+     * @param  array{franchise_id?:int|null, zone_id?:int|null, module?:string|null, category_id?:int|null}  $context
+     */
+    public function scopeForSlot($query, string $placement, array $context = [])
+    {
+        $query->placement($placement)->currentlyLive();
+
+        foreach (self::TARGET_AXES as $axis) {
+            $value = $context[$axis] ?? null;
+
+            $query->where(function ($q) use ($axis, $value) {
+                $q->whereNull($axis);
+
+                if ($value !== null) {
+                    $q->orWhere($axis, $value);
+                }
+            });
+        }
+
+        // Boolean arithmetic: each non-null axis adds 1, so the banner
+        // restricting on the most axes sorts first.
+        $specificity = collect(self::TARGET_AXES)
+            ->map(fn ($axis) => "($axis is not null)")
+            ->implode(' + ');
+
+        return $query->orderByRaw("({$specificity}) desc")->orderBy('sort_order')->orderBy('id');
+    }
+
+    /** How many axes this banner restricts on — 0 means it runs everywhere. */
+    public function getSpecificityAttribute(): int
+    {
+        return collect(self::TARGET_AXES)
+            ->filter(fn ($axis) => $this->{$axis} !== null)
+            ->count();
     }
 
     /**
@@ -114,15 +177,24 @@ class Banner extends Model
      */
     public function getTargetingAttribute(): string
     {
-        $where = match (true) {
-            (bool) $this->zone => $this->zone->display_name,
-            (bool) $this->franchise => $this->franchise->name,
-            default => 'All franchises',
-        };
+        $parts = [
+            match (true) {
+                (bool) $this->zone => $this->zone->display_name,
+                (bool) $this->franchise => $this->franchise->name,
+                default => 'All franchises',
+            },
+        ];
 
-        return $this->category
-            ? $where.' · '.$this->category->name
-            : $where;
+        // Module is implied by a category, so only worth showing on its own.
+        if ($this->module && ! $this->category) {
+            $parts[] = \App\Support\Modules::label($this->module);
+        }
+
+        if ($this->category) {
+            $parts[] = $this->category->name;
+        }
+
+        return implode(' · ', $parts);
     }
 
     /** Which on-screen slot this occupies, in words. */

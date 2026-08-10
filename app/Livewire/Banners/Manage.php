@@ -32,6 +32,7 @@ class Manage extends Component
     public $imageFile = null;
     public string $link = '';
     public string $placement = 'top';
+    public string $module = '';
     public string $categoryId = '';
     public string $franchiseId = '';
     public string $zoneId = '';
@@ -50,6 +51,7 @@ class Manage extends Component
     public ?string $editExistingImage = null;
     public string $editLink = '';
     public string $editPlacement = 'top';
+    public string $editModule = '';
     public string $editCategoryId = '';
     public string $editFranchiseId = '';
     public string $editZoneId = '';
@@ -73,6 +75,7 @@ class Manage extends Component
     public string $filterZone = '';
     public string $filterCategory = '';
     public string $filterPlacement = ''; // top | mid
+    public string $filterModule = '';
     public string $filterStatus = '';   // live | scheduled | expired | inactive
     public string $filterType = '';     // paid | house
     public bool $showFilters = false;
@@ -87,6 +90,7 @@ class Manage extends Component
     public function updatedFilterZone(): void { $this->resetPage(); }
     public function updatedFilterCategory(): void { $this->resetPage(); }
     public function updatedFilterPlacement(): void { $this->resetPage(); }
+    public function updatedFilterModule(): void { $this->resetPage(); }
     public function updatedFilterStatus(): void { $this->resetPage(); }
     public function updatedFilterType(): void { $this->resetPage(); }
     public function updatedPerPage(): void { $this->resetPage(); }
@@ -109,6 +113,53 @@ class Manage extends Component
     public function updatedEditFranchiseId(): void
     {
         $this->editZoneId = '';
+    }
+
+    // A category already belongs to a module, so the two can contradict each
+    // other ("Food Delivery" + an AC Repair category = matches nothing).
+    // Rather than validate that and make the admin fix it, keep them in sync:
+    // choosing a category adopts its module, and changing the module drops a
+    // category that no longer fits.
+    public function updatedCategoryId(): void
+    {
+        if ($this->categoryId === '') {
+            return;
+        }
+
+        $this->module = ServiceCategory::find($this->categoryId)?->module ?? $this->module;
+    }
+
+    public function updatedModule(): void
+    {
+        if ($this->categoryId === '') {
+            return;
+        }
+
+        $category = ServiceCategory::find($this->categoryId);
+        if ($this->module !== '' && $category && $category->module !== $this->module) {
+            $this->categoryId = '';
+        }
+    }
+
+    public function updatedEditCategoryId(): void
+    {
+        if ($this->editCategoryId === '') {
+            return;
+        }
+
+        $this->editModule = ServiceCategory::find($this->editCategoryId)?->module ?? $this->editModule;
+    }
+
+    public function updatedEditModule(): void
+    {
+        if ($this->editCategoryId === '') {
+            return;
+        }
+
+        $category = ServiceCategory::find($this->editCategoryId);
+        if ($this->editModule !== '' && $category && $category->module !== $this->editModule) {
+            $this->editCategoryId = '';
+        }
     }
 
     public function getZonesProperty()
@@ -146,6 +197,7 @@ class Manage extends Component
             'image' => $this->storeImage($this->imageFile),
             'link' => $this->link ?: null,
             'placement' => $this->placement,
+            'module' => $this->module ?: null,
             'category_id' => $this->categoryId ?: null,
             'franchise_id' => $this->franchiseId ?: null,
             'zone_id' => $this->zoneId ?: null,
@@ -187,6 +239,7 @@ class Manage extends Component
             ],
             $f('link') => ['nullable', 'url', 'max:2048'],
             $f('placement') => ['required', Rule::in(array_keys(Banner::PLACEMENTS))],
+            $f('module') => ['nullable', Rule::in(Modules::slugs())],
             $f('categoryId') => ['nullable', 'exists:service_categories,id'],
             $f('franchiseId') => ['nullable', 'exists:franchises,id'],
             $f('zoneId') => ['nullable', 'exists:zones,id'],
@@ -266,6 +319,7 @@ class Manage extends Component
         $this->editExistingImage = $banner->image;
         $this->editLink = $banner->link ?? '';
         $this->editPlacement = $banner->placement ?? 'top';
+        $this->editModule = $banner->module ?? '';
         $this->editCategoryId = $banner->category_id ? (string) $banner->category_id : '';
         $this->editFranchiseId = $banner->franchise_id ? (string) $banner->franchise_id : '';
         $this->editZoneId = $banner->zone_id ? (string) $banner->zone_id : '';
@@ -299,6 +353,7 @@ class Manage extends Component
             'image' => $image,
             'link' => $this->editLink ?: null,
             'placement' => $this->editPlacement,
+            'module' => $this->editModule ?: null,
             'category_id' => $this->editCategoryId ?: null,
             'franchise_id' => $this->editFranchiseId ?: null,
             'zone_id' => $this->editZoneId ?: null,
@@ -479,6 +534,7 @@ class Manage extends Component
             ->when($this->filterZone !== '', fn ($q) => $q->where('zone_id', $this->filterZone))
             ->when($this->filterCategory !== '', fn ($q) => $q->where('category_id', $this->filterCategory))
             ->when($this->filterPlacement !== '', fn ($q) => $q->where('placement', $this->filterPlacement))
+            ->when($this->filterModule !== '', fn ($q) => $q->where('module', $this->filterModule))
             ->when($this->filterType === 'paid', fn ($q) => $q->whereNotNull('price_paid'))
             ->when($this->filterType === 'house', fn ($q) => $q->whereNull('price_paid'))
             // Status mirrors the badge shown on each row, so filtering by it
@@ -513,6 +569,7 @@ class Manage extends Component
             'franchises' => Franchise::orderBy('name')->get(['id', 'name']),
             'categories' => ServiceCategory::orderBy('module')->orderBy('sort_order')->orderBy('name')->get(['id', 'name', 'module']),
             'placements' => Banner::PLACEMENTS,
+            'modules' => Modules::options(),
             'liveCount' => Banner::currentlyLive()->count(),
             'liveByPlacement' => Banner::currentlyLive()
                 ->groupBy('placement')

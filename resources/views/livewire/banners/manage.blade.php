@@ -82,9 +82,19 @@
         </div>
 
         <div class="flex flex-wrap items-end gap-3 mt-3">
+            <div class="w-44">
+                <label class="block text-xs font-medium mb-1">Module</label>
+                <select wire:model.live="module" class="w-full border rounded px-3 py-2 text-sm">
+                    <option value="">All modules</option>
+                    @foreach ($modules as $slug => $label)
+                        <option value="{{ $slug }}">{{ $label }}</option>
+                    @endforeach
+                </select>
+            </div>
+
             <div class="w-52">
                 <label class="block text-xs font-medium mb-1">Category</label>
-                <select wire:model="categoryId" class="w-full border rounded px-3 py-2 text-sm">
+                <select wire:model.live="categoryId" class="w-full border rounded px-3 py-2 text-sm">
                     <option value="">All categories</option>
                     @foreach ($categories->groupBy('module') as $moduleSlug => $group)
                         <optgroup label="{{ \App\Support\Modules::label($moduleSlug) }}">
@@ -221,6 +231,15 @@
                     <option value="mid">Mid — between modules</option>
                 </select>
             </div>
+            <div class="w-44">
+                <label class="block text-xs font-medium mb-1">Module</label>
+                <select wire:model.live="filterModule" class="w-full border rounded px-3 py-2 text-sm">
+                    <option value="">All modules</option>
+                    @foreach ($modules as $slug => $label)
+                        <option value="{{ $slug }}">{{ $label }}</option>
+                    @endforeach
+                </select>
+            </div>
             <div class="w-52">
                 <label class="block text-xs font-medium mb-1">Category</label>
                 <select wire:model.live="filterCategory" class="w-full border rounded px-3 py-2 text-sm">
@@ -248,8 +267,8 @@
                     <option value="house">House banners</option>
                 </select>
             </div>
-            @if ($filterFranchise !== '' || $filterZone !== '' || $filterCategory !== '' || $filterPlacement !== '' || $filterStatus !== '' || $filterType !== '' || $search !== '')
-                <button type="button" wire:click="$set('filterFranchise', ''); $set('filterZone', ''); $set('filterCategory', ''); $set('filterPlacement', ''); $set('filterStatus', ''); $set('filterType', ''); $set('search', '')"
+            @if ($filterFranchise !== '' || $filterZone !== '' || $filterCategory !== '' || $filterPlacement !== '' || $filterModule !== '' || $filterStatus !== '' || $filterType !== '' || $search !== '')
+                <button type="button" wire:click="$set('filterFranchise', ''); $set('filterZone', ''); $set('filterCategory', ''); $set('filterPlacement', ''); $set('filterModule', ''); $set('filterStatus', ''); $set('filterType', ''); $set('search', '')"
                         class="text-xs text-blue-600 hover:underline pb-2">Clear all</button>
             @endif
         </div>
@@ -258,7 +277,7 @@
     @if ($reorderMode)
         <div class="bg-indigo-50 border border-indigo-100 text-indigo-800 rounded p-3 mb-3 text-xs">
             Reorder mode: use the ↑ / ↓ arrows to set the order banners appear in the app. Changes save immediately.
-            @if ($filterFranchise !== '' || $filterZone !== '' || $filterCategory !== '' || $filterPlacement !== '' || $filterStatus !== '' || $filterType !== '' || $search !== '')
+            @if ($filterFranchise !== '' || $filterZone !== '' || $filterCategory !== '' || $filterPlacement !== '' || $filterModule !== '' || $filterStatus !== '' || $filterType !== '' || $search !== '')
                 <span class="font-medium">Rows are moving within the current search/filter.</span>
             @endif
         </div>
@@ -400,7 +419,7 @@
                     </tr>
                 @empty
                     <tr><td colspan="11" class="px-4 py-6 text-center text-gray-400">
-                        @if ($search !== '' || $filterFranchise !== '' || $filterZone !== '' || $filterCategory !== '' || $filterPlacement !== '' || $filterStatus !== '' || $filterType !== '')
+                        @if ($search !== '' || $filterFranchise !== '' || $filterZone !== '' || $filterCategory !== '' || $filterPlacement !== '' || $filterModule !== '' || $filterStatus !== '' || $filterType !== '')
                             No banners match your search or filters.
                         @else
                             No banners yet. Add your first one above.
@@ -544,8 +563,21 @@
                             @error('editPlacement') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
                         </div>
                         <div>
+                            <label class="block text-sm font-medium mb-1">Module</label>
+                            <select wire:model.live="editModule" class="w-full border rounded px-3 py-2 text-sm">
+                                <option value="">All modules</option>
+                                @foreach ($modules as $slug => $label)
+                                    <option value="{{ $slug }}">{{ $label }}</option>
+                                @endforeach
+                            </select>
+                            @error('editModule') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
                             <label class="block text-sm font-medium mb-1">Category</label>
-                            <select wire:model="editCategoryId" class="w-full border rounded px-3 py-2 text-sm">
+                            <select wire:model.live="editCategoryId" class="w-full border rounded px-3 py-2 text-sm">
                                 <option value="">All categories</option>
                                 @foreach ($categories->groupBy('module') as $moduleSlug => $group)
                                     <optgroup label="{{ \App\Support\Modules::label($moduleSlug) }}">
