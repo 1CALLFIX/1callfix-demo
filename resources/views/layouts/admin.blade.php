@@ -155,6 +155,9 @@
         {{-- Deliberately a plain static file, not inline Livewire @script content —
              see the comment at the top of zone-map.js for why. --}}
         <script src="{{ asset('js/zone-map.js') }}" defer></script>
+        {{-- Single-marker picker for the New Booking modal's address form —
+             see the comment at the top of booking-address-map.js. --}}
+        <script src="{{ asset('js/booking-address-map.js') }}" defer></script>
     @endif
 </body>
 </html>
