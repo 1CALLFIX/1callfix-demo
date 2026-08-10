@@ -217,9 +217,8 @@ class Manage extends Component
             'is_active' => $this->isActive,
             'location_required' => $this->locationRequired,
             'age_restriction' => $this->ageRestriction,
-            'sort_order' => (int) Service::where('category_id', $this->categoryId)
-                ->where('subcategory_id', $this->subcategoryId ?: null)
-                ->max('sort_order') + 1,
+            // New rows go to the end of the list; Reorder moves them from there.
+            'sort_order' => (int) Service::max('sort_order') + 1,
         ]);
 
         $this->reset(['name', 'description', 'basePrice', 'discountPrice', 'coverImageFile', 'isActive', 'ageRestriction']);
@@ -346,17 +345,9 @@ class Manage extends Component
             $this->deleteStoredCover($service->cover_image);
         }
 
-        // Same reasoning as SubCategories: a position only means anything
-        // inside its own category/subcategory group, so a service moved to a
-        // different group goes to the end of the new one.
+        // sort_order is one flat sequence across every service, so moving a
+        // service to a different category leaves its position untouched.
         $newSubcategoryId = $this->editSubcategoryId ?: null;
-        $sortOrder = $service->sort_order;
-        if ((int) $this->editCategoryId !== (int) $service->category_id
-            || (int) $newSubcategoryId !== (int) $service->subcategory_id) {
-            $sortOrder = (int) Service::where('category_id', $this->editCategoryId)
-                ->where('subcategory_id', $newSubcategoryId)
-                ->max('sort_order') + 1;
-        }
 
         $service->update([
             'category_id' => $this->editCategoryId,
@@ -371,7 +362,6 @@ class Manage extends Component
             'is_active' => $this->editIsActive,
             'location_required' => $this->editLocationRequired,
             'age_restriction' => $this->editAgeRestriction,
-            'sort_order' => $sortOrder,
         ]);
 
         $this->showEditModal = false;
@@ -471,18 +461,17 @@ class Manage extends Component
     }
 
     /**
-     * Swap with the neighbouring service in the same category+subcategory
-     * group — that's the list the app actually renders. Services sitting
-     * directly under a category (no subcategory) form their own group.
+     * Swap a service's position with the row above/below it *in the list as
+     * currently filtered* — one flat sequence across every service, matching
+     * Categories\Manage exactly. Filtering and then reordering within that
+     * filter is the normal way to arrange a slice of the list, so the
+     * neighbour comes from the filtered set rather than the global one.
      */
     private function swapWithNeighbour(int $serviceId, int $offset): void
     {
-        $service = Service::findOrFail($serviceId);
+        $this->normalizeSortOrder();
 
-        $this->normalizeSortOrder($service->category_id, $service->subcategory_id);
-
-        $ordered = Service::where('category_id', $service->category_id)
-            ->where('subcategory_id', $service->subcategory_id)
+        $ordered = $this->baseQuery()
             ->orderBy('sort_order')
             ->orderBy('id')
             ->get(['id', 'sort_order']);
@@ -494,7 +483,7 @@ class Manage extends Component
 
         $target = $ordered->get($index + $offset);
         if (! $target) {
-            return;
+            return; // already at the top/bottom of the list
         }
 
         $current = $ordered->get($index);
@@ -505,23 +494,26 @@ class Manage extends Component
         });
     }
 
-    private function normalizeSortOrder(int $categoryId, ?int $subcategoryId): void
+    /**
+     * sort_order defaults to 0 for every row, and imported rows can share
+     * values too — swapping two identical numbers is a no-op, so the arrows
+     * would silently do nothing. Collapse to a clean 1..N sequence (globally,
+     * not per-filter, so positions stay stable across different filters) the
+     * first time an actual move is attempted.
+     */
+    private function normalizeSortOrder(): void
     {
-        $rows = Service::where('category_id', $categoryId)
-            ->where('subcategory_id', $subcategoryId)
-            ->orderBy('sort_order')
-            ->orderBy('id')
-            ->get(['id', 'sort_order']);
+        $all = Service::orderBy('sort_order')->orderBy('id')->get(['id', 'sort_order']);
 
-        $needsNormalising = $rows->pluck('sort_order')->duplicates()->isNotEmpty()
-            || $rows->contains(fn ($row) => (int) $row->sort_order === 0);
+        $needsNormalising = $all->pluck('sort_order')->duplicates()->isNotEmpty()
+            || $all->contains(fn ($row) => (int) $row->sort_order === 0);
 
         if (! $needsNormalising) {
             return;
         }
 
-        DB::transaction(function () use ($rows) {
-            foreach ($rows->values() as $position => $row) {
+        DB::transaction(function () use ($all) {
+            foreach ($all->values() as $position => $row) {
                 Service::whereKey($row->id)->update(['sort_order' => $position + 1]);
             }
         });
@@ -719,20 +711,12 @@ class Manage extends Component
 
     public function render()
     {
-        $query = $this->baseQuery()->with(['category', 'subcategory']);
-
-        if ($this->sortField === 'sort_order') {
-            // Group the way the app renders: by parent category order, then
-            // subcategory, then position within that group.
-            $query->orderBy(
-                ServiceCategory::select('sort_order')->whereColumn('service_categories.id', 'services.category_id'),
-                $this->sortDirection
-            )->orderBy('category_id')->orderBy('subcategory_id')->orderBy('sort_order', $this->sortDirection);
-        } else {
-            $query->orderBy($this->sortField, $this->sortDirection);
-        }
-
-        $services = $query->orderBy('id')->paginate($this->perPage);
+        // One flat running order across all services, same as Categories.
+        $services = $this->baseQuery()
+            ->with(['category', 'subcategory'])
+            ->orderBy($this->sortField, $this->sortDirection)
+            ->orderBy('id')
+            ->paginate($this->perPage);
 
         return view('livewire.services.manage', [
             'services' => $services,

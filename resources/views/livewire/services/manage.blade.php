@@ -232,7 +232,10 @@
 
     @if ($reorderMode)
         <div class="bg-indigo-50 border border-indigo-100 text-indigo-800 rounded p-3 mb-3 text-xs">
-            Reorder mode: the ↑ / ↓ arrows move a service <span class="font-medium">within its own category and subcategory</span> — the list customers see under that heading. Changes save immediately.
+            Reorder mode: use the ↑ / ↓ arrows to set the order services appear in the app. Changes save immediately.
+            @if ($filterModule !== '' || $filterCategory !== '' || $filterSubcategory !== '' || $search !== '')
+                <span class="font-medium">Rows are moving within the current search/filter.</span>
+            @endif
         </div>
     @endif
 
