@@ -46,7 +46,7 @@ class ServicesExport implements FromCollection, WithHeadings, WithMapping
         return [
             'id', 'name', 'description', 'category_id', 'subcategory_id',
             'base_price', 'discount_price', 'price_type', 'duration_estimate_mins',
-            'is_active', 'cover_image', 'slug',
+            'is_active', 'location_required', 'age_restriction', 'cover_image', 'slug',
         ];
     }
 
@@ -63,6 +63,8 @@ class ServicesExport implements FromCollection, WithHeadings, WithMapping
             $service->price_type,
             $service->duration_estimate_mins,
             $service->is_active ? 1 : 0,
+            $service->location_required ? 1 : 0,
+            $service->age_restriction ? 1 : 0,
             $service->cover_image,
             $service->slug,
         ];

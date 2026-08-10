@@ -1,0 +1,743 @@
+<?php
+
+namespace App\Livewire\Services;
+
+use App\Exports\ServicesExport;
+use App\Imports\HeadingRowImport;
+use App\Models\Service;
+use App\Models\ServiceCategory;
+use App\Models\ServiceSubcategory;
+use App\Support\Modules;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Str;
+use Livewire\Component;
+use Livewire\WithFileUploads;
+use Livewire\WithPagination;
+use Maatwebsite\Excel\Facades\Excel;
+
+// Third and last of the catalog screens to move to the one-component pattern
+// (see Categories\Manage). Replaces Services\Index + Services\Form.
+//
+// Validation and the category -> subcategory dependent-dropdown behaviour are
+// carried over from Services\Form unchanged — this is a layout/interaction
+// restructure, not a rules change. The two additions are the ones applied to
+// all three screens: an uploaded cover image (rather than pasting a URL) and
+// a sort_order used by Reorder.
+//
+// Services have far more fields than a category, so the pinned "Add New" form
+// is a compact grid rather than a literal single line, and `description` (the
+// one field needing a rich-text editor) lives in the edit modal only — quick
+// add covers the priced essentials, the modal covers the full record.
+class Manage extends Component
+{
+    use WithFileUploads;
+    use WithPagination;
+
+    // --- "Add New" form ---
+    public string $categoryId = '';
+    public string $subcategoryId = '';
+    public string $name = '';
+    public string $description = '';
+    public string $basePrice = '';
+    public string $discountPrice = '';
+    public string $priceType = 'fixed';
+    public string $durationEstimateMins = '60';
+    public $coverImageFile = null;
+    public bool $isActive = true;
+    public bool $locationRequired = true;
+    public bool $ageRestriction = false;
+    /** Bumped after each save so the add form's Trix editor is rebuilt empty. */
+    public int $addFormKey = 0;
+
+    // --- Edit modal ---
+    public bool $showEditModal = false;
+    public ?int $editServiceId = null;
+    public string $editCategoryId = '';
+    public string $editSubcategoryId = '';
+    public string $editName = '';
+    public string $editDescription = '';
+    public string $editBasePrice = '';
+    public string $editDiscountPrice = '';
+    public string $editPriceType = 'fixed';
+    public string $editDurationEstimateMins = '60';
+    public $editCoverImageFile = null;
+    public ?string $editExistingImage = null;
+    public bool $editIsActive = true;
+    public bool $editLocationRequired = true;
+    public bool $editAgeRestriction = false;
+
+    // --- View details modal (read-only, the eye icon) ---
+    public bool $showViewModal = false;
+    public ?int $viewServiceId = null;
+
+    // --- Delete confirmation ---
+    public ?int $confirmingDeleteId = null;
+    public string $deleteBlockedReason = '';
+    public string $deleteWarning = '';
+
+    // --- List controls ---
+    public string $search = '';
+    public string $filterModule = '';
+    public string $filterCategory = '';
+    public string $filterSubcategory = '';
+    public string $filterActive = '';
+    public bool $showFilters = false;
+    public string $sortField = 'sort_order';
+    public string $sortDirection = 'asc';
+    public int $perPage = 10;
+    public bool $reorderMode = false;
+
+    public string $flashMessage = '';
+
+    // --- Import/export ---
+    public $importFile = null;
+    public bool $showImport = false;
+    public array $importErrors = [];
+    public ?array $importRows = null;
+    public ?string $importMessage = null;
+
+    public function mount(): void
+    {
+        // Deep links like /admin/services?categoryId=5 still work. Read off the
+        // query string rather than typed mount() parameters: this route has no
+        // {categoryId} segment, and Livewire only auto-injects actual route
+        // segments — a same-named mount() arg would silently never be filled.
+        if ($id = request()->query('categoryId')) {
+            $this->filterCategory = (string) $id;
+            $this->showFilters = true;
+        }
+        if ($id = request()->query('subcategoryId')) {
+            $this->filterSubcategory = (string) $id;
+            $this->showFilters = true;
+        }
+    }
+
+    // ===================== Dependent dropdowns (unchanged rules) =====================
+
+    /** Clear the chosen subcategory when the category changes — it no longer applies. */
+    public function updatedCategoryId(): void
+    {
+        $this->subcategoryId = '';
+    }
+
+    public function updatedEditCategoryId(): void
+    {
+        $this->editSubcategoryId = '';
+    }
+
+    public function getSubcategoriesProperty()
+    {
+        if (! $this->categoryId) {
+            return collect();
+        }
+
+        return ServiceSubcategory::where('category_id', $this->categoryId)->orderBy('sort_order')->orderBy('name')->get();
+    }
+
+    public function getEditSubcategoriesProperty()
+    {
+        if (! $this->editCategoryId) {
+            return collect();
+        }
+
+        return ServiceSubcategory::where('category_id', $this->editCategoryId)->orderBy('sort_order')->orderBy('name')->get();
+    }
+
+    /** Subcategory options for the *filter* bar, following the category filter. */
+    public function getFilterSubcategoriesProperty()
+    {
+        if (! $this->filterCategory) {
+            return collect();
+        }
+
+        return ServiceSubcategory::where('category_id', $this->filterCategory)->orderBy('name')->get();
+    }
+
+    public function updatedSearch(): void { $this->resetPage(); }
+    public function updatedFilterModule(): void { $this->resetPage(); }
+    public function updatedFilterActive(): void { $this->resetPage(); }
+    public function updatedFilterSubcategory(): void { $this->resetPage(); }
+
+    public function updatedFilterCategory(): void
+    {
+        $this->filterSubcategory = '';
+        $this->resetPage();
+    }
+
+    public function updatedPerPage(): void { $this->resetPage(); }
+
+    // ============================= Add New =============================
+
+    public function save(): void
+    {
+        // Rules lifted verbatim from the old Services\Form::save().
+        $rules = [
+            'categoryId' => ['required', 'exists:service_categories,id'],
+            'name' => ['required', 'string', 'max:255'],
+            'basePrice' => ['required', 'numeric', 'min:0'],
+            'priceType' => ['required', 'in:fixed,hourly,quote_on_inspection'],
+            'durationEstimateMins' => ['required', 'integer', 'min:1'],
+            'coverImageFile' => ['nullable', 'image', 'mimes:png,jpg,jpeg', 'max:2048'],
+        ];
+
+        // discountPrice is a Livewire string property defaulting to '', not
+        // null — 'nullable' only exempts an actual null, so leaving this field
+        // blank (the normal case) would otherwise fail the 'numeric' rule
+        // against ''. Only validate it at all when something was typed.
+        if ($this->discountPrice !== '') {
+            $rules['discountPrice'] = ['numeric', 'min:0', 'lt:basePrice'];
+        }
+
+        $this->validate($rules, [
+            'coverImageFile.max' => 'The cover image must be 2 MB or smaller.',
+        ], [
+            'categoryId' => 'category',
+            'basePrice' => 'base price',
+            'discountPrice' => 'discount price',
+            'priceType' => 'price type',
+            'durationEstimateMins' => 'duration',
+            'coverImageFile' => 'cover image',
+        ]);
+
+        Service::create([
+            'category_id' => $this->categoryId,
+            'subcategory_id' => $this->subcategoryId ?: null,
+            'name' => $this->name,
+            // services.slug has no uniqueness constraint in the schema, unlike
+            // franchises/categories — a plain slug is enough, no random suffix.
+            'slug' => Str::slug($this->name),
+            'description' => $this->description ?: null,
+            'base_price' => $this->basePrice,
+            'discount_price' => $this->discountPrice !== '' ? $this->discountPrice : null,
+            'price_type' => $this->priceType,
+            'duration_estimate_mins' => $this->durationEstimateMins,
+            'cover_image' => $this->coverImageFile ? $this->storeCover($this->coverImageFile) : null,
+            'is_active' => $this->isActive,
+            'location_required' => $this->locationRequired,
+            'age_restriction' => $this->ageRestriction,
+            'sort_order' => (int) Service::where('category_id', $this->categoryId)
+                ->where('subcategory_id', $this->subcategoryId ?: null)
+                ->max('sort_order') + 1,
+        ]);
+
+        $this->reset(['name', 'description', 'basePrice', 'discountPrice', 'coverImageFile', 'isActive', 'ageRestriction']);
+        $this->priceType = 'fixed';
+        $this->durationEstimateMins = '60';
+        $this->locationRequired = true;
+        // Trix holds its own DOM state, so clearing the property isn't enough
+        // to blank the visible editor — the add form's editor is keyed on this
+        // counter so it gets rebuilt empty after each successful save.
+        $this->addFormKey++;
+        $this->flashMessage = 'Service created.';
+    }
+
+    private function storeCover($file): string
+    {
+        return $file->store('services', 'public');
+    }
+
+    private function deleteStoredCover(?string $image): void
+    {
+        if (! $image || Str::startsWith($image, ['http://', 'https://', '//', 'data:'])) {
+            return;
+        }
+
+        Storage::disk('public')->delete($image);
+    }
+
+    public function getEditExistingImageUrlProperty(): ?string
+    {
+        if (! $this->editExistingImage) {
+            return null;
+        }
+
+        if (Str::startsWith($this->editExistingImage, ['http://', 'https://', '//', 'data:'])) {
+            return $this->editExistingImage;
+        }
+
+        return Storage::disk('public')->url($this->editExistingImage);
+    }
+
+    // ============================== Edit modal ==============================
+
+    public function edit(int $serviceId): void
+    {
+        $service = Service::findOrFail($serviceId);
+
+        $this->editServiceId = $service->id;
+        $this->editCategoryId = (string) $service->category_id;
+        $this->editSubcategoryId = $service->subcategory_id ? (string) $service->subcategory_id : '';
+        $this->editName = $service->name;
+        $this->editDescription = $service->description ?? '';
+        $this->editBasePrice = (string) $service->base_price;
+        $this->editDiscountPrice = $service->discount_price !== null ? (string) $service->discount_price : '';
+        $this->editPriceType = $service->price_type;
+        $this->editDurationEstimateMins = (string) $service->duration_estimate_mins;
+        $this->editCoverImageFile = null;
+        $this->editExistingImage = $service->cover_image;
+        $this->editIsActive = $service->is_active;
+        $this->editLocationRequired = $service->location_required;
+        $this->editAgeRestriction = $service->age_restriction;
+
+        $this->resetValidation();
+        // Edit is also reachable from the details modal's footer — make sure
+        // the two never stack on top of each other.
+        $this->showViewModal = false;
+        $this->showEditModal = true;
+    }
+
+    // ========================= View details (read-only) =========================
+
+    public function view(int $serviceId): void
+    {
+        $this->viewServiceId = $serviceId;
+        $this->showViewModal = true;
+    }
+
+    public function closeViewModal(): void
+    {
+        $this->showViewModal = false;
+        $this->viewServiceId = null;
+    }
+
+    /** The row behind the details modal, loaded fresh so it reflects edits. */
+    public function getViewingServiceProperty(): ?Service
+    {
+        if (! $this->viewServiceId) {
+            return null;
+        }
+
+        return Service::with(['category', 'subcategory'])->find($this->viewServiceId);
+    }
+
+    public function update(): void
+    {
+        $rules = [
+            'editCategoryId' => ['required', 'exists:service_categories,id'],
+            'editName' => ['required', 'string', 'max:255'],
+            'editBasePrice' => ['required', 'numeric', 'min:0'],
+            'editPriceType' => ['required', 'in:fixed,hourly,quote_on_inspection'],
+            'editDurationEstimateMins' => ['required', 'integer', 'min:1'],
+            'editCoverImageFile' => ['nullable', 'image', 'mimes:png,jpg,jpeg', 'max:2048'],
+        ];
+
+        if ($this->editDiscountPrice !== '') {
+            $rules['editDiscountPrice'] = ['numeric', 'min:0', 'lt:editBasePrice'];
+        }
+
+        $this->validate($rules, [
+            'editCoverImageFile.max' => 'The cover image must be 2 MB or smaller.',
+        ], [
+            'editCategoryId' => 'category',
+            'editBasePrice' => 'base price',
+            'editDiscountPrice' => 'discount price',
+            'editPriceType' => 'price type',
+            'editDurationEstimateMins' => 'duration',
+            'editCoverImageFile' => 'cover image',
+        ]);
+
+        $service = Service::findOrFail($this->editServiceId);
+
+        $cover = $service->cover_image;
+        if ($this->editCoverImageFile) {
+            $cover = $this->storeCover($this->editCoverImageFile);
+            $this->deleteStoredCover($service->cover_image);
+        }
+
+        // Same reasoning as SubCategories: a position only means anything
+        // inside its own category/subcategory group, so a service moved to a
+        // different group goes to the end of the new one.
+        $newSubcategoryId = $this->editSubcategoryId ?: null;
+        $sortOrder = $service->sort_order;
+        if ((int) $this->editCategoryId !== (int) $service->category_id
+            || (int) $newSubcategoryId !== (int) $service->subcategory_id) {
+            $sortOrder = (int) Service::where('category_id', $this->editCategoryId)
+                ->where('subcategory_id', $newSubcategoryId)
+                ->max('sort_order') + 1;
+        }
+
+        $service->update([
+            'category_id' => $this->editCategoryId,
+            'subcategory_id' => $newSubcategoryId,
+            'name' => $this->editName,
+            'description' => $this->editDescription ?: null,
+            'base_price' => $this->editBasePrice,
+            'discount_price' => $this->editDiscountPrice !== '' ? $this->editDiscountPrice : null,
+            'price_type' => $this->editPriceType,
+            'duration_estimate_mins' => $this->editDurationEstimateMins,
+            'cover_image' => $cover,
+            'is_active' => $this->editIsActive,
+            'location_required' => $this->editLocationRequired,
+            'age_restriction' => $this->editAgeRestriction,
+            'sort_order' => $sortOrder,
+        ]);
+
+        $this->showEditModal = false;
+        $this->editCoverImageFile = null;
+        $this->flashMessage = 'Service updated.';
+    }
+
+    public function closeEditModal(): void
+    {
+        $this->showEditModal = false;
+        $this->editCoverImageFile = null;
+        $this->resetValidation();
+    }
+
+    public function toggleActive(int $serviceId): void
+    {
+        $service = Service::findOrFail($serviceId);
+        $service->update(['is_active' => ! $service->is_active]);
+    }
+
+    // ============================== Delete ==============================
+
+    public function confirmDelete(int $serviceId): void
+    {
+        $service = Service::withCount('bookings')->findOrFail($serviceId);
+
+        // Unlike categories/subcategories this isn't a hard block: services use
+        // soft deletes, so past bookings keep resolving their service through
+        // the trashed row. Warn about the booking history rather than refuse.
+        $this->deleteBlockedReason = '';
+        $this->confirmingDeleteId = $serviceId;
+        $this->deleteWarning = $service->bookings_count > 0
+            ? 'This service has '.$service->bookings_count.' '.Str::plural('booking', $service->bookings_count).' against it. It will be hidden from the catalog, and that history stays intact.'
+            : '';
+    }
+
+    public function deleteService(): void
+    {
+        if (! $this->confirmingDeleteId) {
+            return;
+        }
+
+        // Soft delete: the file stays put deliberately, since restoring a
+        // trashed service should bring its picture back with it.
+        Service::findOrFail($this->confirmingDeleteId)->delete();
+
+        $this->confirmingDeleteId = null;
+        $this->deleteWarning = '';
+        $this->flashMessage = 'Service deleted.';
+    }
+
+    public function cancelDelete(): void
+    {
+        $this->confirmingDeleteId = null;
+        $this->deleteWarning = '';
+        $this->deleteBlockedReason = '';
+    }
+
+    // ============================== Sorting ==============================
+
+    public function sortBy(string $field): void
+    {
+        if ($this->sortField === $field) {
+            $this->sortDirection = $this->sortDirection === 'asc' ? 'desc' : 'asc';
+        } else {
+            $this->sortField = $field;
+            $this->sortDirection = 'asc';
+        }
+
+        if ($field !== 'sort_order') {
+            $this->reorderMode = false;
+        }
+
+        $this->resetPage();
+    }
+
+    // ============================== Reorder ==============================
+
+    public function toggleReorder(): void
+    {
+        $this->reorderMode = ! $this->reorderMode;
+
+        if ($this->reorderMode) {
+            $this->sortField = 'sort_order';
+            $this->sortDirection = 'asc';
+        }
+    }
+
+    public function moveUp(int $serviceId): void
+    {
+        $this->swapWithNeighbour($serviceId, -1);
+    }
+
+    public function moveDown(int $serviceId): void
+    {
+        $this->swapWithNeighbour($serviceId, 1);
+    }
+
+    /**
+     * Swap with the neighbouring service in the same category+subcategory
+     * group — that's the list the app actually renders. Services sitting
+     * directly under a category (no subcategory) form their own group.
+     */
+    private function swapWithNeighbour(int $serviceId, int $offset): void
+    {
+        $service = Service::findOrFail($serviceId);
+
+        $this->normalizeSortOrder($service->category_id, $service->subcategory_id);
+
+        $ordered = Service::where('category_id', $service->category_id)
+            ->where('subcategory_id', $service->subcategory_id)
+            ->orderBy('sort_order')
+            ->orderBy('id')
+            ->get(['id', 'sort_order']);
+
+        $index = $ordered->search(fn ($row) => $row->id === $serviceId);
+        if ($index === false) {
+            return;
+        }
+
+        $target = $ordered->get($index + $offset);
+        if (! $target) {
+            return;
+        }
+
+        $current = $ordered->get($index);
+
+        DB::transaction(function () use ($current, $target) {
+            Service::whereKey($current->id)->update(['sort_order' => $target->sort_order]);
+            Service::whereKey($target->id)->update(['sort_order' => $current->sort_order]);
+        });
+    }
+
+    private function normalizeSortOrder(int $categoryId, ?int $subcategoryId): void
+    {
+        $rows = Service::where('category_id', $categoryId)
+            ->where('subcategory_id', $subcategoryId)
+            ->orderBy('sort_order')
+            ->orderBy('id')
+            ->get(['id', 'sort_order']);
+
+        $needsNormalising = $rows->pluck('sort_order')->duplicates()->isNotEmpty()
+            || $rows->contains(fn ($row) => (int) $row->sort_order === 0);
+
+        if (! $needsNormalising) {
+            return;
+        }
+
+        DB::transaction(function () use ($rows) {
+            foreach ($rows->values() as $position => $row) {
+                Service::whereKey($row->id)->update(['sort_order' => $position + 1]);
+            }
+        });
+    }
+
+    // ============================= Import/export =============================
+    // Carried over from Services\Index verbatim — import rules, Glover column
+    // aliases and the subcategory-belongs-to-category check are unchanged.
+
+    public function exportServices()
+    {
+        return Excel::download(new ServicesExport, 'services-'.now()->format('Y-m-d').'.xlsx');
+    }
+
+    public function downloadTemplate()
+    {
+        return Excel::download(new ServicesExport(templateOnly: true), 'services-template.xlsx');
+    }
+
+    public function toggleImport(): void
+    {
+        $this->showImport = ! $this->showImport;
+        $this->importFile = null;
+        $this->importErrors = [];
+        $this->importRows = null;
+        $this->importMessage = null;
+    }
+
+    public function validateServicesImport(): void
+    {
+        $this->importErrors = [];
+        $this->importRows = null;
+        $this->importMessage = null;
+
+        $this->validate(['importFile' => ['required', 'file', 'mimes:xlsx,xls,csv']]);
+
+        $reader = new HeadingRowImport;
+        Excel::import($reader, $this->importFile->getRealPath());
+
+        $errors = [];
+        $validRows = [];
+
+        foreach ($reader->rows as $i => $row) {
+            $rowNum = $i + 2;
+
+            // Accept Glover's original column names as aliases so its real
+            // export files import unmodified — see ServicesExport's docblock.
+            $basePrice = $row['base_price'] ?? $row['price'] ?? null;
+            $coverImage = $row['cover_image'] ?? $row['photo'] ?? null;
+            $priceTypeRaw = $row['price_type'] ?? $row['duration'] ?? null;
+
+            $validator = Validator::make([
+                'category_id' => $row['category_id'] ?? null,
+                'subcategory_id' => $this->blankToNull($row['subcategory_id'] ?? null),
+                'name' => $row['name'] ?? null,
+                'base_price' => $basePrice,
+                'discount_price' => $this->blankToNull($row['discount_price'] ?? null),
+            ], [
+                'category_id' => ['required', 'integer', 'exists:service_categories,id'],
+                'subcategory_id' => ['nullable', 'integer', 'exists:service_subcategories,id'],
+                'name' => ['required', 'string', 'max:255'],
+                'base_price' => ['required', 'numeric', 'min:0'],
+                'discount_price' => ['nullable', 'numeric', 'min:0', 'lt:base_price'],
+            ], [
+                'category_id.exists' => 'category_id :input does not exist — import categories first.',
+                'subcategory_id.exists' => 'subcategory_id :input does not exist — import subcategories first.',
+            ]);
+
+            if ($validator->fails()) {
+                foreach ($validator->errors()->messages() as $field => $messages) {
+                    $errors[] = ['row' => $rowNum, 'field' => $field, 'message' => $messages[0]];
+                }
+                continue;
+            }
+
+            // A subcategory must actually belong to the given category — the
+            // same integrity rule the dependent dropdown enforces by hand.
+            $subcategoryId = $this->blankToNull($row['subcategory_id'] ?? null);
+            if ($subcategoryId) {
+                $belongs = ServiceSubcategory::where('id', $subcategoryId)
+                    ->where('category_id', $row['category_id'])
+                    ->exists();
+                if (! $belongs) {
+                    $errors[] = ['row' => $rowNum, 'field' => 'subcategory_id', 'message' => "subcategory_id {$subcategoryId} does not belong to category_id {$row['category_id']}."];
+                    continue;
+                }
+            }
+
+            $validRows[] = [
+                'id' => $this->blankToNull($row['id'] ?? null),
+                'category_id' => $row['category_id'],
+                'subcategory_id' => $subcategoryId,
+                'name' => $row['name'],
+                'description' => $this->blankToNull($row['description'] ?? null),
+                'base_price' => $basePrice,
+                'discount_price' => $this->blankToNull($row['discount_price'] ?? null),
+                'price_type' => $this->normalizePriceType($priceTypeRaw),
+                'duration_estimate_mins' => (int) ($row['duration_estimate_mins'] ?? 60),
+                'is_active' => $this->normalizeBool($row['is_active'] ?? 1),
+                // Both default the same way the column does when the sheet
+                // omits them (a Glover file has neither).
+                'location_required' => $this->normalizeBool($row['location_required'] ?? 1),
+                'age_restriction' => $this->normalizeBool($row['age_restriction'] ?? 0),
+                'cover_image' => $this->blankToNull($coverImage),
+                'sort_order' => (int) ($row['sort_order'] ?? 0),
+            ];
+        }
+
+        if (! empty($errors)) {
+            $this->importErrors = $errors;
+            return;
+        }
+
+        if (empty($validRows)) {
+            $this->importErrors = [['row' => '-', 'field' => 'file', 'message' => 'No data rows found in this file.']];
+            return;
+        }
+
+        $this->importRows = $validRows;
+    }
+
+    public function commitServicesImport(): void
+    {
+        if (empty($this->importRows)) {
+            return;
+        }
+
+        try {
+            DB::transaction(function () {
+                foreach ($this->importRows as $row) {
+                    $id = $row['id'];
+                    unset($row['id']);
+
+                    if ($id) {
+                        Service::updateOrCreate(['id' => $id], $row);
+                    } else {
+                        $row['slug'] = Str::slug($row['name']);
+                        Service::create($row);
+                    }
+                }
+            });
+        } catch (\Throwable $e) {
+            $this->importErrors = [['row' => '-', 'field' => 'commit', 'message' => 'Import failed, nothing was saved: '.$e->getMessage()]];
+            return;
+        }
+
+        $count = count($this->importRows);
+        $this->importMessage = "Imported {$count} ".Str::plural('service', $count).' successfully.';
+        $this->importRows = null;
+        $this->importFile = null;
+    }
+
+    // ============================== Shared helpers ==============================
+
+    private function blankToNull($value)
+    {
+        $value = is_string($value) ? trim($value) : $value;
+        return ($value === '' || $value === null) ? null : $value;
+    }
+
+    private function normalizeBool($value): bool
+    {
+        if (is_bool($value)) {
+            return $value;
+        }
+        $value = strtolower(trim((string) $value));
+        return ! in_array($value, ['0', 'false', 'no', 'inactive', ''], true);
+    }
+
+    /**
+     * Glover's `duration` column holds "fixed" | "starts from" (a
+     * price-display type, not a time span). Anything unrecognised defaults to
+     * fixed rather than failing the row — best-effort mapping, not a contract.
+     */
+    private function normalizePriceType($raw): string
+    {
+        $value = strtolower(trim((string) $raw));
+
+        return match (true) {
+            in_array($value, ['hourly', 'per hour', 'per_hour'], true) => 'hourly',
+            in_array($value, ['starts from', 'starts_from', 'quote_on_inspection', 'quote on inspection'], true) => 'quote_on_inspection',
+            default => 'fixed',
+        };
+    }
+
+    private function baseQuery()
+    {
+        return Service::query()
+            ->when($this->search !== '', fn ($q) => $q->where('name', 'like', '%'.$this->search.'%'))
+            ->when($this->filterCategory !== '', fn ($q) => $q->where('category_id', $this->filterCategory))
+            ->when($this->filterSubcategory !== '', fn ($q) => $q->where('subcategory_id', $this->filterSubcategory))
+            ->when($this->filterModule !== '', fn ($q) => $q->whereHas('category', fn ($c) => $c->where('module', $this->filterModule)))
+            ->when($this->filterActive !== '', fn ($q) => $q->where('is_active', $this->filterActive === 'active'));
+    }
+
+    public function render()
+    {
+        $query = $this->baseQuery()->with(['category', 'subcategory']);
+
+        if ($this->sortField === 'sort_order') {
+            // Group the way the app renders: by parent category order, then
+            // subcategory, then position within that group.
+            $query->orderBy(
+                ServiceCategory::select('sort_order')->whereColumn('service_categories.id', 'services.category_id'),
+                $this->sortDirection
+            )->orderBy('category_id')->orderBy('subcategory_id')->orderBy('sort_order', $this->sortDirection);
+        } else {
+            $query->orderBy($this->sortField, $this->sortDirection);
+        }
+
+        $services = $query->orderBy('id')->paginate($this->perPage);
+
+        return view('livewire.services.manage', [
+            'services' => $services,
+            'categories' => ServiceCategory::orderBy('module')->orderBy('sort_order')->orderBy('name')->get(['id', 'name', 'module']),
+            'modules' => Modules::options(),
+        ])->layout('layouts.admin', ['title' => 'Services']);
+    }
+}

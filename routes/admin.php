@@ -12,8 +12,7 @@ use App\Livewire\Zones\Index as ZonesIndex;
 use App\Livewire\Zones\Form as ZonesForm;
 use App\Livewire\Categories\Manage as CategoriesManage;
 use App\Livewire\Subcategories\Manage as SubcategoriesManage;
-use App\Livewire\Services\Index as ServicesIndex;
-use App\Livewire\Services\Form as ServicesForm;
+use App\Livewire\Services\Manage as ServicesManage;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 
@@ -42,7 +41,5 @@ Route::middleware(['auth', \App\Http\Middleware\EnsureSuperAdmin::class])
         Route::get('/zones/{zoneId}/edit', ZonesForm::class)->name('admin.zones.edit');
         Route::get('/categories', CategoriesManage::class)->name('admin.categories.index');
         Route::get('/subcategories', SubcategoriesManage::class)->name('admin.subcategories.index');
-        Route::get('/services', ServicesIndex::class)->name('admin.services.index');
-        Route::get('/services/create', ServicesForm::class)->name('admin.services.create');
-        Route::get('/services/{serviceId}/edit', ServicesForm::class)->name('admin.services.edit');
+        Route::get('/services', ServicesManage::class)->name('admin.services.index');
     });
