@@ -3,6 +3,7 @@
 namespace App\Livewire\Zones;
 
 use App\Models\Franchise;
+use App\Models\Setting;
 use App\Models\Zone;
 use Illuminate\Support\Str;
 use Livewire\Component;
@@ -64,6 +65,20 @@ class Manage extends Component
 
     public string $flashMessage = '';
 
+    /**
+     * Pre-fills the Add New form's radius from the Settings screen instead
+     * of the hardcoded '8' (kept as the ultimate fallback). Re-read (not
+     * cached on the instance) in save()'s reset step too, since Livewire
+     * only re-runs mount() on the first page load — Setting::get() itself
+     * is what's cached. Does not touch DispatchService's own `?? 8`
+     * fallback, which is unreachable today (the column is NOT NULL with a
+     * DB default) — this only changes what a new zone's form starts at.
+     */
+    public function mount(): void
+    {
+        $this->defaultDispatchRadiusKm = (string) Setting::get('dispatch.default_radius_km', $this->defaultDispatchRadiusKm);
+    }
+
     public function updatedSearch(): void { $this->resetPage(); }
     public function updatedFilterFranchise(): void { $this->resetPage(); }
     public function updatedFilterActive(): void { $this->resetPage(); }
@@ -103,7 +118,7 @@ class Manage extends Component
 
         $this->reset(['name', 'boundaryPolygonJson', 'isActive']);
         $this->isActive = true;
-        $this->defaultDispatchRadiusKm = '8';
+        $this->defaultDispatchRadiusKm = (string) Setting::get('dispatch.default_radius_km', '8');
         $this->flashMessage = 'Zone created.';
     }
 

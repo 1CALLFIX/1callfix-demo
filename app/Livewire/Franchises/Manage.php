@@ -4,6 +4,7 @@ namespace App\Livewire\Franchises;
 
 use App\Models\Franchise;
 use App\Models\FranchiseModule;
+use App\Models\Setting;
 use App\Support\Modules;
 use Illuminate\Support\Str;
 use Livewire\Component;
@@ -79,6 +80,21 @@ class Manage extends Component
 
     public string $flashMessage = '';
 
+    /**
+     * Pre-fills the Add New form from the Settings screen's commission
+     * defaults instead of the hardcoded literals below (kept as the
+     * ultimate fallback for a fresh install with no Setting rows yet).
+     * Re-read (not cached on the instance) in save()'s reset step too,
+     * since Livewire only re-runs mount() on the first page load, not on
+     * every subsequent action — Setting::get() itself is what's cached.
+     */
+    public function mount(): void
+    {
+        $this->commissionModel = Setting::get('commission.default_model', $this->commissionModel);
+        $this->commissionValue = (string) Setting::get('commission.default_value', $this->commissionValue);
+        $this->platformFeePercent = (string) Setting::get('commission.default_platform_fee_percent', $this->platformFeePercent);
+    }
+
     public function updatedSearch(): void { $this->resetPage(); }
     public function updatedFilterStatus(): void { $this->resetPage(); }
     public function updatedPerPage(): void { $this->resetPage(); }
@@ -137,9 +153,11 @@ class Manage extends Component
             ['service' => true] + array_fill_keys(self::TOGGLEABLE, false)
         );
 
-        $this->reset(['name', 'city', 'state', 'commissionValue', 'platformFeePercent']);
+        $this->reset(['name', 'city', 'state']);
         $this->country = 'India';
-        $this->commissionModel = 'revenue_share';
+        $this->commissionModel = Setting::get('commission.default_model', 'revenue_share');
+        $this->commissionValue = (string) Setting::get('commission.default_value', '0');
+        $this->platformFeePercent = (string) Setting::get('commission.default_platform_fee_percent', '0');
         $this->status = 'pending_setup';
         $this->flashMessage = 'Franchise created.';
     }

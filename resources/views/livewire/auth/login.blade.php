@@ -1,6 +1,6 @@
 <div class="min-h-screen flex items-center justify-center -mt-6">
     <div class="bg-white rounded-lg shadow-md p-8 w-full max-w-sm">
-        <h1 class="text-xl font-bold mb-6 text-center">1CallFix Admin</h1>
+        <h1 class="text-xl font-bold mb-6 text-center">{{ \App\Models\Setting::get('branding.platform_name', '1CallFix Admin') }}</h1>
 
         @if ($error)
             <div class="bg-red-50 text-red-700 text-sm rounded p-3 mb-4">

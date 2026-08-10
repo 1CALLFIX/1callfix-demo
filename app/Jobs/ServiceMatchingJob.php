@@ -6,6 +6,7 @@ use App\Events\BookingStatusUpdated;
 use App\Events\NewJobOffered;
 use App\Models\Booking;
 use App\Models\DispatchAttempt;
+use App\Models\Setting;
 use App\Services\DispatchService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -36,14 +37,29 @@ class ServiceMatchingJob implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
+    /**
+     * Tuning values below are admin-editable via the Settings screen
+     * (Setting::get, cached) — same defaults as before that screen existed,
+     * so behaviour is unchanged until an admin actually edits one.
+     */
+
     /** How many providers get offered the job simultaneously, per round. */
-    private const BATCH_SIZE = 5;
+    private function batchSize(): int
+    {
+        return (int) Setting::get('dispatch.offer_batch_size', 5);
+    }
 
     /** How long a single offer stays open before being marked timed out. */
-    private const OFFER_TIMEOUT_SECONDS = 25;
+    private function offerTimeoutSeconds(): int
+    {
+        return (int) Setting::get('dispatch.offer_timeout_seconds', 25);
+    }
 
     /** Safety cap so a booking with zero available providers doesn't loop forever. */
-    private const MAX_ROUNDS = 6;
+    private function maxRounds(): int
+    {
+        return (int) Setting::get('dispatch.max_rounds', 6);
+    }
 
     public function __construct(
         public int $bookingId,
@@ -71,18 +87,21 @@ class ServiceMatchingJob implements ShouldQueue
         // and nobody responded to.
         $this->timeoutExpiredAttempts($booking);
 
-        if ($this->round > self::MAX_ROUNDS) {
-            Log::warning("ServiceMatchingJob: exhausted {self::MAX_ROUNDS} rounds for booking [{$booking->id}] with no acceptance — leaving for manual admin assignment.");
+        $maxRounds = $this->maxRounds();
+
+        if ($this->round > $maxRounds) {
+            Log::warning("ServiceMatchingJob: exhausted {$maxRounds} rounds for booking [{$booking->id}] with no acceptance — leaving for manual admin assignment.");
             return;
         }
 
-        $candidates = $dispatchService->findCandidates($booking, self::BATCH_SIZE);
+        $offerTimeoutSeconds = $this->offerTimeoutSeconds();
+        $candidates = $dispatchService->findCandidates($booking, $this->batchSize());
 
         if ($candidates->isEmpty()) {
             // No one available right now — try again shortly, same round count
             // doesn't increment here since we haven't actually made any offers yet.
             self::dispatch($this->bookingId, $this->round)
-                ->delay(now()->addSeconds(self::OFFER_TIMEOUT_SECONDS));
+                ->delay(now()->addSeconds($offerTimeoutSeconds));
             return;
         }
 
@@ -106,14 +125,14 @@ class ServiceMatchingJob implements ShouldQueue
         // this same job body runs again: times out this round's attempts and
         // tries the next batch of candidates.
         self::dispatch($this->bookingId, $this->round + 1)
-            ->delay(now()->addSeconds(self::OFFER_TIMEOUT_SECONDS));
+            ->delay(now()->addSeconds($offerTimeoutSeconds));
     }
 
     private function timeoutExpiredAttempts(Booking $booking): void
     {
         $booking->dispatchAttempts()
             ->where('status', 'notified')
-            ->where('notified_at', '<=', now()->subSeconds(self::OFFER_TIMEOUT_SECONDS))
+            ->where('notified_at', '<=', now()->subSeconds($this->offerTimeoutSeconds()))
             ->update(['status' => 'timeout', 'responded_at' => now()]);
     }
 }

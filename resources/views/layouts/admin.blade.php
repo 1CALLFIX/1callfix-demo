@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>{{ $title ?? '1CallFix Admin' }}</title>
+    <title>{{ $title ?? \App\Models\Setting::get('branding.platform_name', '1CallFix Admin') }}</title>
     <script src="https://cdn.tailwindcss.com"></script>
     @livewireStyles
     {{-- Trix — WYSIWYG editor for Services' description field. CDN, no build
@@ -56,8 +56,8 @@
                         <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
                     </svg>
                 </button>
-                <div class="font-bold text-lg">1CallFix Admin</div>
-                <span class="text-xs bg-slate-700 px-2 py-0.5 rounded">Nellore</span>
+                <div class="font-bold text-lg">{{ \App\Models\Setting::get('branding.platform_name', '1CallFix Admin') }}</div>
+                <span class="text-xs bg-slate-700 px-2 py-0.5 rounded">{{ \App\Models\Setting::get('branding.operating_city_label', 'Nellore') }}</span>
             </div>
             <div class="flex items-center gap-4 text-sm">
                 <span class="text-gray-300">{{ auth()->user()->name }}</span>
@@ -79,7 +79,7 @@
                         ['label' => 'Franchises', 'route' => 'admin.franchises.index', 'icon' => 'building', 'active' => true],
                         ['label' => 'Services', 'route' => 'admin.services.index', 'icon' => 'wrench', 'active' => true],
                         ['label' => 'Banners', 'route' => 'admin.banners.index', 'icon' => 'megaphone', 'active' => true],
-                        ['label' => 'Settings', 'route' => null, 'icon' => 'gear', 'active' => false],
+                        ['label' => 'Settings', 'route' => 'admin.settings.index', 'icon' => 'gear', 'active' => true],
                     ];
                 @endphp
 
