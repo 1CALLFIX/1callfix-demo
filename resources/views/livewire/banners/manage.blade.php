@@ -1,0 +1,548 @@
+@php
+    $statusStyles = [
+        'live' => 'bg-green-100 text-green-700',
+        'scheduled' => 'bg-blue-100 text-blue-700',
+        'expired' => 'bg-amber-100 text-amber-700',
+        'inactive' => 'bg-gray-100 text-gray-600',
+    ];
+@endphp
+
+<div>
+    <h1 class="text-2xl font-bold mb-4">Banners</h1>
+
+    {{-- Ad-revenue headline numbers: this table doubles as the ad slot ledger. --}}
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">
+        <div class="bg-white rounded-lg shadow-sm p-4">
+            <p class="text-xs text-gray-500">Showing right now</p>
+            <p class="text-2xl font-bold">{{ $liveCount }}</p>
+        </div>
+        <div class="bg-white rounded-lg shadow-sm p-4">
+            <p class="text-xs text-gray-500">Paid slots expiring in 7 days</p>
+            <p @class(['text-2xl font-bold', 'text-amber-600' => $expiringSoon > 0])>{{ $expiringSoon }}</p>
+        </div>
+        <div class="bg-white rounded-lg shadow-sm p-4">
+            <p class="text-xs text-gray-500">Ad revenue booked (all time)</p>
+            <p class="text-2xl font-bold">₹{{ number_format($paidRevenue, 2) }}</p>
+        </div>
+    </div>
+
+    @if ($flashMessage)
+        <div class="bg-green-50 text-green-700 rounded p-3 mb-4 text-sm">{{ $flashMessage }}</div>
+    @endif
+
+    {{-- Add New — pinned at the top, list updates live below it. --}}
+    <div class="bg-white rounded-lg shadow-sm p-4 mb-6">
+        <h2 class="text-sm font-semibold mb-3">Add New Banner</h2>
+
+        <div class="flex flex-wrap items-end gap-3">
+            <div class="w-28">
+                <label class="block text-xs font-medium mb-1">Image <span class="text-red-500">*</span></label>
+                <label class="relative flex items-center justify-center w-full h-[38px] border border-dashed rounded cursor-pointer hover:bg-gray-50 overflow-hidden bg-gray-50">
+                    <input type="file" wire:model="imageFile" accept="image/png,image/jpeg" class="sr-only">
+                    @if ($imageFile)
+                        <img src="{{ $imageFile->temporaryUrl() }}" alt="" class="h-full w-full object-contain">
+                    @else
+                        <span class="text-[11px] text-gray-500" wire:loading.remove wire:target="imageFile">PNG / JPEG</span>
+                    @endif
+                    <span class="text-[11px] text-gray-500" wire:loading wire:target="imageFile">Uploading…</span>
+                </label>
+            </div>
+
+            <div class="flex-1 min-w-48">
+                <label class="block text-xs font-medium mb-1">Title <span class="text-red-500">*</span></label>
+                <input type="text" wire:model="title" placeholder="e.g. Monsoon AC Service Offer" class="w-full border rounded px-3 py-2 text-sm">
+            </div>
+
+            <div class="flex-1 min-w-48">
+                <label class="block text-xs font-medium mb-1">Link</label>
+                <input type="text" wire:model="link" placeholder="https://…" class="w-full border rounded px-3 py-2 text-sm">
+            </div>
+
+            <div class="w-44">
+                <label class="block text-xs font-medium mb-1">Franchise</label>
+                <select wire:model.live="franchiseId" class="w-full border rounded px-3 py-2 text-sm">
+                    <option value="">All franchises</option>
+                    @foreach ($franchises as $f)
+                        <option value="{{ $f->id }}">{{ $f->name }}</option>
+                    @endforeach
+                </select>
+            </div>
+
+            <div class="w-44">
+                <label class="block text-xs font-medium mb-1">Zone</label>
+                <select wire:model="zoneId" class="w-full border rounded px-3 py-2 text-sm" @disabled(! $franchiseId)>
+                    <option value="">{{ $franchiseId ? 'Whole franchise' : 'Pick a franchise first' }}</option>
+                    @foreach ($this->zones as $z)
+                        <option value="{{ $z->id }}">{{ $z->display_name }}</option>
+                    @endforeach
+                </select>
+            </div>
+        </div>
+
+        <div class="flex flex-wrap items-end gap-3 mt-3">
+            <div class="w-52">
+                <label class="block text-xs font-medium mb-1">Starts</label>
+                <input type="datetime-local" wire:model="startsAt" class="w-full border rounded px-3 py-2 text-sm">
+            </div>
+            <div class="w-52">
+                <label class="block text-xs font-medium mb-1">Expires</label>
+                <input type="datetime-local" wire:model="expiresAt" class="w-full border rounded px-3 py-2 text-sm">
+            </div>
+            <div class="w-44">
+                <label class="block text-xs font-medium mb-1">Advertiser</label>
+                <input type="text" wire:model="advertiserName" placeholder="Leave blank = house" class="w-full border rounded px-3 py-2 text-sm">
+            </div>
+            <div class="w-44">
+                <label class="block text-xs font-medium mb-1">Advertiser contact</label>
+                <input type="text" wire:model="advertiserContact" placeholder="Phone or email" class="w-full border rounded px-3 py-2 text-sm">
+            </div>
+            <div class="w-36">
+                <label class="block text-xs font-medium mb-1">Price paid (₹)</label>
+                <input type="number" step="0.01" wire:model="pricePaid" class="w-full border rounded px-3 py-2 text-sm">
+            </div>
+
+            <label class="inline-flex items-center gap-2 text-sm h-[38px]">
+                <input type="checkbox" wire:model="isActive" class="rounded"> Active
+            </label>
+
+            <button wire:click="save" class="bg-slate-900 text-white px-6 h-[38px] rounded text-sm font-medium hover:bg-slate-800 ml-auto">
+                + Add
+            </button>
+        </div>
+
+        <p class="text-xs text-gray-400 mt-2">
+            Leave dates blank for an always-on banner. Leave <span class="font-medium">Price paid</span> blank for a house banner (your own promo) — filling it in marks the slot as sold and counts toward ad revenue.
+        </p>
+
+        @if ($errors->any())
+            <div class="mt-2 space-y-1">
+                @foreach ($errors->all() as $error)
+                    <p class="text-red-600 text-xs">{{ $error }}</p>
+                @endforeach
+            </div>
+        @endif
+    </div>
+
+    {{-- List controls --}}
+    <div class="flex items-center gap-2 mb-3 flex-wrap">
+        <button type="button" wire:click="toggleReorder"
+                @class([
+                    'px-3 py-2 border rounded text-sm',
+                    'bg-slate-900 text-white border-slate-900' => $reorderMode,
+                    'border-gray-300 hover:bg-gray-50' => ! $reorderMode,
+                ])>Reorder</button>
+
+        <input type="text" wire:model.live.debounce.300ms="search" placeholder="Search title or advertiser"
+               class="border border-gray-300 rounded px-3 py-2 text-sm w-64">
+
+        <button type="button" wire:click="$toggle('showFilters')"
+                @class([
+                    'px-3 py-2 border rounded text-sm inline-flex items-center gap-1',
+                    'bg-slate-900 text-white border-slate-900' => $showFilters,
+                    'border-gray-300 hover:bg-gray-50' => ! $showFilters,
+                ])>
+            Filters
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor" class="w-4 h-4">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 3c2.755 0 5.455.232 8.083.678.533.09.917.556.917 1.096v1.044a2.25 2.25 0 01-.659 1.591l-5.432 5.432a2.25 2.25 0 00-.659 1.591v2.927a2.25 2.25 0 01-1.244 2.013L9.75 21v-6.568a2.25 2.25 0 00-.659-1.591L3.659 7.409A2.25 2.25 0 013 5.818V4.774c0-.54.384-1.006.917-1.096A48.32 48.32 0 0112 3z" />
+            </svg>
+        </button>
+
+        <div class="ml-auto">
+            <select wire:model.live="perPage" class="border border-gray-300 rounded px-3 py-2 text-sm">
+                <option value="10">10</option>
+                <option value="25">25</option>
+                <option value="50">50</option>
+                <option value="100">100</option>
+            </select>
+        </div>
+    </div>
+
+    @if ($showFilters)
+        <div class="bg-white rounded-lg shadow-sm p-3 mb-3 flex items-end gap-3 flex-wrap">
+            <div class="w-48">
+                <label class="block text-xs font-medium mb-1">Franchise</label>
+                <select wire:model.live="filterFranchise" class="w-full border rounded px-3 py-2 text-sm">
+                    <option value="">All franchises</option>
+                    @foreach ($franchises as $f)
+                        <option value="{{ $f->id }}">{{ $f->name }}</option>
+                    @endforeach
+                </select>
+            </div>
+            <div class="w-52">
+                <label class="block text-xs font-medium mb-1">Zone</label>
+                <select wire:model.live="filterZone" class="w-full border rounded px-3 py-2 text-sm" @disabled(! $filterFranchise)>
+                    <option value="">{{ $filterFranchise ? 'All zones' : 'Pick a franchise first' }}</option>
+                    @foreach ($this->filterZones as $z)
+                        <option value="{{ $z->id }}">{{ $z->display_name }}</option>
+                    @endforeach
+                </select>
+            </div>
+            <div class="w-40">
+                <label class="block text-xs font-medium mb-1">Status</label>
+                <select wire:model.live="filterStatus" class="w-full border rounded px-3 py-2 text-sm">
+                    <option value="">All</option>
+                    <option value="live">Live</option>
+                    <option value="scheduled">Scheduled</option>
+                    <option value="expired">Expired</option>
+                    <option value="inactive">Inactive</option>
+                </select>
+            </div>
+            <div class="w-40">
+                <label class="block text-xs font-medium mb-1">Type</label>
+                <select wire:model.live="filterType" class="w-full border rounded px-3 py-2 text-sm">
+                    <option value="">All</option>
+                    <option value="paid">Paid ad slots</option>
+                    <option value="house">House banners</option>
+                </select>
+            </div>
+            @if ($filterFranchise !== '' || $filterZone !== '' || $filterStatus !== '' || $filterType !== '' || $search !== '')
+                <button type="button" wire:click="$set('filterFranchise', ''); $set('filterZone', ''); $set('filterStatus', ''); $set('filterType', ''); $set('search', '')"
+                        class="text-xs text-blue-600 hover:underline pb-2">Clear all</button>
+            @endif
+        </div>
+    @endif
+
+    @if ($reorderMode)
+        <div class="bg-indigo-50 border border-indigo-100 text-indigo-800 rounded p-3 mb-3 text-xs">
+            Reorder mode: use the ↑ / ↓ arrows to set the order banners appear in the app. Changes save immediately.
+            @if ($filterFranchise !== '' || $filterZone !== '' || $filterStatus !== '' || $filterType !== '' || $search !== '')
+                <span class="font-medium">Rows are moving within the current search/filter.</span>
+            @endif
+        </div>
+    @endif
+
+    <div class="bg-white rounded-lg shadow-sm overflow-x-auto">
+        <table class="w-full text-sm">
+            <thead class="bg-gray-50 text-left text-gray-500">
+                <tr>
+                    <th class="px-4 py-2 w-12">SL</th>
+                    <th class="px-4 py-2 w-20">
+                        <button type="button" wire:click="sortBy('id')" class="inline-flex items-center gap-1 hover:text-gray-800">
+                            ID
+                            @if ($sortField === 'id')
+                                <span class="text-gray-800">{{ $sortDirection === 'asc' ? '▲' : '▼' }}</span>
+                            @else
+                                <span class="text-gray-300">↕</span>
+                            @endif
+                        </button>
+                    </th>
+                    <th class="px-4 py-2">Banner</th>
+                    <th class="px-4 py-2">Title</th>
+                    <th class="px-4 py-2">Placement</th>
+                    <th class="px-4 py-2">Window</th>
+                    <th class="px-4 py-2">Advertiser</th>
+                    <th class="px-4 py-2">Price</th>
+                    <th class="px-4 py-2">Status</th>
+                    <th class="px-4 py-2 text-right">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                @forelse ($banners as $i => $banner)
+                    <tr class="border-t hover:bg-gray-50" wire:key="banner-{{ $banner->id }}">
+                        <td class="px-4 py-2 text-gray-400">{{ $banners->firstItem() + $i }}</td>
+                        <td class="px-4 py-2 text-gray-500">{{ $banner->id }}</td>
+                        <td class="px-4 py-2">
+                            <span class="w-24 h-10 rounded border flex items-center justify-center overflow-hidden bg-gray-50">
+                                @if ($banner->image_url)
+                                    <img src="{{ $banner->image_url }}" alt="" class="w-full h-full object-cover">
+                                @else
+                                    <span class="text-[10px] text-gray-300">—</span>
+                                @endif
+                            </span>
+                        </td>
+                        <td class="px-4 py-2 font-medium">
+                            {{ $banner->title }}
+                            @if ($banner->link)
+                                <a href="{{ $banner->link }}" target="_blank" rel="noopener noreferrer"
+                                   class="block text-xs text-blue-600 hover:underline truncate max-w-[14rem]">{{ $banner->link }}</a>
+                            @endif
+                        </td>
+                        <td class="px-4 py-2 text-gray-500">{{ $banner->placement }}</td>
+                        <td class="px-4 py-2 text-gray-500 text-xs">
+                            @if ($banner->starts_at || $banner->expires_at)
+                                {{ $banner->starts_at?->format('d M Y') ?? 'Any time' }}
+                                &rarr;
+                                {{ $banner->expires_at?->format('d M Y') ?? 'No end' }}
+                            @else
+                                <span class="text-gray-400">Always on</span>
+                            @endif
+                        </td>
+                        <td class="px-4 py-2 text-gray-500">
+                            {{ $banner->advertiser_name ?? '—' }}
+                            @if ($banner->advertiser_contact)
+                                <span class="block text-xs text-gray-400">{{ $banner->advertiser_contact }}</span>
+                            @endif
+                        </td>
+                        <td class="px-4 py-2">
+                            @if ($banner->is_paid)
+                                ₹{{ number_format($banner->price_paid, 2) }}
+                            @else
+                                <span class="text-xs text-gray-400">House</span>
+                            @endif
+                        </td>
+                        <td class="px-4 py-2">
+                            <span @class(['px-2 py-1 rounded text-xs font-medium capitalize', $statusStyles[$banner->status]])>
+                                {{ $banner->status }}
+                            </span>
+                        </td>
+                        <td class="px-4 py-2">
+                            <div class="flex items-center gap-1.5 justify-end">
+                                @if ($reorderMode)
+                                    <button type="button" wire:click="moveUp({{ $banner->id }})"
+                                            class="w-8 h-8 rounded flex items-center justify-center bg-gray-100 hover:bg-gray-200 text-gray-700" title="Move up">↑</button>
+                                    <button type="button" wire:click="moveDown({{ $banner->id }})"
+                                            class="w-8 h-8 rounded flex items-center justify-center bg-gray-100 hover:bg-gray-200 text-gray-700" title="Move down">↓</button>
+                                @endif
+
+                                <button type="button" wire:click="view({{ $banner->id }})"
+                                        class="w-8 h-8 rounded flex items-center justify-center bg-amber-500 hover:bg-amber-600 text-white" title="View details">
+                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor" class="w-4 h-4">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" />
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                    </svg>
+                                </button>
+
+                                <button type="button" wire:click="edit({{ $banner->id }})"
+                                        class="w-8 h-8 rounded flex items-center justify-center bg-slate-700 hover:bg-slate-800 text-white" title="Edit">
+                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor" class="w-4 h-4">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z" />
+                                    </svg>
+                                </button>
+
+                                <button type="button" wire:click="toggleActive({{ $banner->id }})"
+                                        wire:loading.attr="disabled" wire:target="toggleActive({{ $banner->id }})"
+                                        @class([
+                                            'w-8 h-8 rounded flex items-center justify-center text-white',
+                                            'bg-red-500 hover:bg-red-600' => $banner->is_active,
+                                            'bg-green-500 hover:bg-green-600' => ! $banner->is_active,
+                                        ])
+                                        title="{{ $banner->is_active ? 'Deactivate' : 'Activate' }}">
+                                    @if ($banner->is_active)
+                                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor" class="w-4 h-4">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                                        </svg>
+                                    @else
+                                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor" class="w-4 h-4">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                                        </svg>
+                                    @endif
+                                </button>
+
+                                <button type="button" wire:click="confirmDelete({{ $banner->id }})"
+                                        class="w-8 h-8 rounded flex items-center justify-center bg-red-100 hover:bg-red-200 text-red-600" title="Delete">
+                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor" class="w-4 h-4">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
+                                    </svg>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                @empty
+                    <tr><td colspan="10" class="px-4 py-6 text-center text-gray-400">
+                        @if ($search !== '' || $filterFranchise !== '' || $filterZone !== '' || $filterStatus !== '' || $filterType !== '')
+                            No banners match your search or filters.
+                        @else
+                            No banners yet. Add your first one above.
+                        @endif
+                    </td></tr>
+                @endforelse
+            </tbody>
+        </table>
+    </div>
+
+    <div class="mt-4">
+        {{ $banners->links() }}
+    </div>
+
+    {{-- View details modal --}}
+    @if ($showViewModal && $this->viewingBanner)
+        @php $b = $this->viewingBanner; @endphp
+        <div class="fixed inset-0 bg-black/40 flex items-center justify-center z-40 p-4 overflow-y-auto" wire:click.self="closeViewModal">
+            <div class="bg-white rounded-lg shadow-lg w-full max-w-xl p-6 my-8">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-lg font-bold">Banner Details</h3>
+                    <button type="button" wire:click="closeViewModal" class="text-gray-400 hover:text-gray-600">✕</button>
+                </div>
+
+                <div class="space-y-4 text-sm">
+                    @if ($b->image_url)
+                        <img src="{{ $b->image_url }}" alt="" class="w-full rounded border">
+                    @endif
+
+                    <div>
+                        <p class="text-xs text-gray-500">Title</p>
+                        <p class="font-semibold">{{ $b->title }}</p>
+                    </div>
+
+                    @if ($b->link)
+                        <div>
+                            <p class="text-xs text-gray-500">Link</p>
+                            <a href="{{ $b->link }}" target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:underline break-all">{{ $b->link }}</a>
+                        </div>
+                    @endif
+
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <p class="text-xs text-gray-500">Placement</p>
+                            <p>{{ $b->placement }}</p>
+                        </div>
+                        <div>
+                            <p class="text-xs text-gray-500">Status</p>
+                            <span @class(['px-2 py-0.5 rounded text-xs font-medium capitalize', $statusStyles[$b->status]])>{{ $b->status }}</span>
+                        </div>
+                        <div>
+                            <p class="text-xs text-gray-500">Starts</p>
+                            <p>{{ $b->starts_at?->format('d M Y, H:i') ?? 'Any time' }}</p>
+                        </div>
+                        <div>
+                            <p class="text-xs text-gray-500">Expires</p>
+                            <p>{{ $b->expires_at?->format('d M Y, H:i') ?? 'No end date' }}</p>
+                        </div>
+                        <div>
+                            <p class="text-xs text-gray-500">Advertiser</p>
+                            <p>{{ $b->advertiser_name ?? '—' }}</p>
+                        </div>
+                        <div>
+                            <p class="text-xs text-gray-500">Contact</p>
+                            <p>{{ $b->advertiser_contact ?? '—' }}</p>
+                        </div>
+                        <div>
+                            <p class="text-xs text-gray-500">Type</p>
+                            <p>{{ $b->is_paid ? 'Paid ad slot' : 'House banner' }}</p>
+                        </div>
+                        <div>
+                            <p class="text-xs text-gray-500">Price paid</p>
+                            <p class="font-medium">{{ $b->is_paid ? '₹'.number_format($b->price_paid, 2) : '—' }}</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex justify-end gap-2 pt-6">
+                    <button type="button" wire:click="edit({{ $b->id }})" class="px-4 py-2 border border-gray-300 rounded text-sm hover:bg-gray-50">Edit</button>
+                    <button type="button" wire:click="closeViewModal" class="bg-slate-900 text-white px-6 py-2 rounded text-sm font-medium hover:bg-slate-800">Close</button>
+                </div>
+            </div>
+        </div>
+    @endif
+
+    {{-- Edit modal --}}
+    @if ($showEditModal)
+        <div class="fixed inset-0 bg-black/40 flex items-center justify-center z-40 p-4 overflow-y-auto" wire:click.self="closeEditModal">
+            <div class="bg-white rounded-lg shadow-lg w-full max-w-2xl p-6 my-8">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-lg font-bold">Edit Banner</h3>
+                    <button type="button" wire:click="closeEditModal" class="text-gray-400 hover:text-gray-600">✕</button>
+                </div>
+
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Title <span class="text-red-500">*</span></label>
+                        <input type="text" wire:model="editTitle" class="w-full border rounded px-3 py-2 text-sm">
+                        @error('editTitle') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Image <span class="text-red-500">*</span></label>
+                        <div class="flex items-center gap-3">
+                            <span class="w-32 h-16 rounded border flex items-center justify-center overflow-hidden shrink-0 bg-gray-50">
+                                @if ($editImageFile)
+                                    <img src="{{ $editImageFile->temporaryUrl() }}" alt="" class="h-full w-full object-cover">
+                                @elseif ($this->editExistingImageUrl)
+                                    <img src="{{ $this->editExistingImageUrl }}" alt="" class="h-full w-full object-cover">
+                                @else
+                                    <span class="text-[11px] text-gray-400">None</span>
+                                @endif
+                            </span>
+                            <label class="px-3 py-1.5 border border-blue-400 text-blue-600 rounded text-xs cursor-pointer hover:bg-blue-50">
+                                <input type="file" wire:model="editImageFile" accept="image/png,image/jpeg" class="sr-only">
+                                <span wire:loading.remove wire:target="editImageFile">Change</span>
+                                <span wire:loading wire:target="editImageFile">Uploading…</span>
+                            </label>
+                        </div>
+                        @error('editImageFile') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Link</label>
+                        <input type="text" wire:model="editLink" placeholder="https://…" class="w-full border rounded px-3 py-2 text-sm">
+                        @error('editLink') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium mb-1">Franchise</label>
+                            <select wire:model.live="editFranchiseId" class="w-full border rounded px-3 py-2 text-sm">
+                                <option value="">All franchises</option>
+                                @foreach ($franchises as $f)
+                                    <option value="{{ $f->id }}">{{ $f->name }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium mb-1">Zone</label>
+                            <select wire:model="editZoneId" class="w-full border rounded px-3 py-2 text-sm" @disabled(! $editFranchiseId)>
+                                <option value="">{{ $editFranchiseId ? 'Whole franchise' : 'Pick a franchise first' }}</option>
+                                @foreach ($this->editZones as $z)
+                                    <option value="{{ $z->id }}">{{ $z->display_name }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium mb-1">Starts</label>
+                            <input type="datetime-local" wire:model="editStartsAt" class="w-full border rounded px-3 py-2 text-sm">
+                            @error('editStartsAt') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium mb-1">Expires</label>
+                            <input type="datetime-local" wire:model="editExpiresAt" class="w-full border rounded px-3 py-2 text-sm">
+                            @error('editExpiresAt') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-3 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium mb-1">Advertiser</label>
+                            <input type="text" wire:model="editAdvertiserName" class="w-full border rounded px-3 py-2 text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium mb-1">Contact</label>
+                            <input type="text" wire:model="editAdvertiserContact" class="w-full border rounded px-3 py-2 text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium mb-1">Price paid (₹)</label>
+                            <input type="number" step="0.01" wire:model="editPricePaid" class="w-full border rounded px-3 py-2 text-sm">
+                            <p class="text-xs text-gray-400 mt-1">Blank = house banner.</p>
+                            @error('editPricePaid') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
+                        </div>
+                    </div>
+
+                    <label class="inline-flex items-center gap-2 text-sm">
+                        <input type="checkbox" wire:model="editIsActive" class="rounded"> Active
+                    </label>
+                </div>
+
+                <div class="flex justify-end gap-2 pt-6">
+                    <button type="button" wire:click="closeEditModal" class="px-4 py-2 border border-gray-300 rounded text-sm hover:bg-gray-50">Close</button>
+                    <button type="button" wire:click="update" class="bg-slate-900 text-white px-6 py-2 rounded text-sm font-medium hover:bg-slate-800">Update</button>
+                </div>
+            </div>
+        </div>
+    @endif
+
+    {{-- Delete confirmation --}}
+    @if ($confirmingDeleteId)
+        <div class="fixed inset-0 bg-black/40 flex items-center justify-center z-40 p-4" wire:click.self="cancelDelete">
+            <div class="bg-white rounded-lg shadow-lg w-full max-w-md p-6">
+                <h3 class="text-lg font-bold mb-2">Delete banner?</h3>
+                <p class="text-sm text-gray-600 mb-4">This can't be undone — the image file is removed too.</p>
+                <div class="flex justify-end gap-2">
+                    <button type="button" wire:click="cancelDelete" class="px-4 py-2 border border-gray-300 rounded text-sm hover:bg-gray-50">Cancel</button>
+                    <button type="button" wire:click="deleteBanner" class="bg-red-600 text-white px-6 py-2 rounded text-sm font-medium hover:bg-red-700">Delete</button>
+                </div>
+            </div>
+        </div>
+    @endif
+</div>

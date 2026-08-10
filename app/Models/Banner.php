@@ -4,6 +4,8 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 class Banner extends Model
 {
@@ -34,6 +36,67 @@ class Banner extends Model
 
     public function franchise() { return $this->belongsTo(Franchise::class); }
     public function zone() { return $this->belongsTo(Zone::class); }
+
+    /**
+     * Uploaded banners hold a path on the `public` disk; anything seeded or
+     * imported may hold a full URL. Resolve both — same contract as
+     * ServiceCategory::image_url.
+     */
+    public function getImageUrlAttribute(): ?string
+    {
+        if (! $this->image) {
+            return null;
+        }
+
+        if (Str::startsWith($this->image, ['http://', 'https://', '//', 'data:'])) {
+            return $this->image;
+        }
+
+        return Storage::disk('public')->url($this->image);
+    }
+
+    /**
+     * Where a banner sits in its lifecycle, for the admin list badge:
+     * inactive (switched off) > scheduled (window hasn't opened) >
+     * expired (window closed) > live. Deliberately mirrors scopeCurrentlyLive
+     * so the badge and the "live" filter can never disagree.
+     */
+    public function getStatusAttribute(): string
+    {
+        if (! $this->is_active) {
+            return 'inactive';
+        }
+
+        if ($this->starts_at && $this->starts_at->isFuture()) {
+            return 'scheduled';
+        }
+
+        if ($this->expires_at && $this->expires_at->isPast()) {
+            return 'expired';
+        }
+
+        return 'live';
+    }
+
+    /** True for a sold ad slot, false for a house/own-promo banner. */
+    public function getIsPaidAttribute(): bool
+    {
+        return $this->price_paid !== null;
+    }
+
+    /** Human placement summary: zone beats franchise beats everywhere. */
+    public function getPlacementAttribute(): string
+    {
+        if ($this->zone) {
+            return $this->zone->display_name;
+        }
+
+        if ($this->franchise) {
+            return $this->franchise->name;
+        }
+
+        return 'All franchises';
+    }
 
     /**
      * Banners that should actually be shown right now: active flag on,

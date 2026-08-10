@@ -46,7 +46,7 @@
                         ['label' => 'Zones', 'route' => 'admin.zones.index', 'icon' => 'map', 'active' => true],
                         ['label' => 'Franchises', 'route' => 'admin.franchises.index', 'icon' => 'building', 'active' => true],
                         ['label' => 'Services', 'route' => 'admin.services.index', 'icon' => 'wrench', 'active' => true],
-                        ['label' => 'Banners', 'route' => null, 'icon' => 'megaphone', 'active' => false],
+                        ['label' => 'Banners', 'route' => 'admin.banners.index', 'icon' => 'megaphone', 'active' => true],
                         ['label' => 'Settings', 'route' => null, 'icon' => 'gear', 'active' => false],
                     ];
                 @endphp

@@ -1,0 +1,489 @@
+<?php
+
+namespace App\Livewire\Banners;
+
+use App\Models\Banner;
+use App\Models\Franchise;
+use App\Models\Zone;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
+use Livewire\Component;
+use Livewire\WithFileUploads;
+use Livewire\WithPagination;
+
+// Same one-screen pattern as the catalog screens (Categories\Manage): inline
+// add form pinned at the top, live list below, edit in a modal, one route.
+//
+// `banners` is not purely decorative — it doubles as the ad-revenue table.
+// A row with a price_paid is a sold slot; a row without one is a house banner
+// (our own promo). That distinction drives the Type filter and the revenue
+// summary rather than a separate boolean, matching how the schema was built.
+class Manage extends Component
+{
+    use WithFileUploads;
+    use WithPagination;
+
+    // --- "Add New" form ---
+    public string $title = '';
+    public $imageFile = null;
+    public string $link = '';
+    public string $franchiseId = '';
+    public string $zoneId = '';
+    public string $startsAt = '';
+    public string $expiresAt = '';
+    public string $advertiserName = '';
+    public string $advertiserContact = '';
+    public string $pricePaid = '';
+    public bool $isActive = true;
+
+    // --- Edit modal ---
+    public bool $showEditModal = false;
+    public ?int $editBannerId = null;
+    public string $editTitle = '';
+    public $editImageFile = null;
+    public ?string $editExistingImage = null;
+    public string $editLink = '';
+    public string $editFranchiseId = '';
+    public string $editZoneId = '';
+    public string $editStartsAt = '';
+    public string $editExpiresAt = '';
+    public string $editAdvertiserName = '';
+    public string $editAdvertiserContact = '';
+    public string $editPricePaid = '';
+    public bool $editIsActive = true;
+
+    // --- View details modal ---
+    public bool $showViewModal = false;
+    public ?int $viewBannerId = null;
+
+    // --- Delete confirmation ---
+    public ?int $confirmingDeleteId = null;
+
+    // --- List controls ---
+    public string $search = '';
+    public string $filterFranchise = '';
+    public string $filterZone = '';
+    public string $filterStatus = '';   // live | scheduled | expired | inactive
+    public string $filterType = '';     // paid | house
+    public bool $showFilters = false;
+    public string $sortField = 'sort_order';
+    public string $sortDirection = 'asc';
+    public int $perPage = 10;
+    public bool $reorderMode = false;
+
+    public string $flashMessage = '';
+
+    public function updatedSearch(): void { $this->resetPage(); }
+    public function updatedFilterZone(): void { $this->resetPage(); }
+    public function updatedFilterStatus(): void { $this->resetPage(); }
+    public function updatedFilterType(): void { $this->resetPage(); }
+    public function updatedPerPage(): void { $this->resetPage(); }
+
+    public function updatedFilterFranchise(): void
+    {
+        // A zone from a different franchise would contradict the new franchise
+        // filter and return nothing — clear it.
+        $this->filterZone = '';
+        $this->resetPage();
+    }
+
+    // Zones belong to a franchise, so picking one narrows the other. Blank
+    // franchise means the banner runs everywhere, which also means no zone.
+    public function updatedFranchiseId(): void
+    {
+        $this->zoneId = '';
+    }
+
+    public function updatedEditFranchiseId(): void
+    {
+        $this->editZoneId = '';
+    }
+
+    public function getZonesProperty()
+    {
+        return $this->zonesFor($this->franchiseId);
+    }
+
+    public function getEditZonesProperty()
+    {
+        return $this->zonesFor($this->editFranchiseId);
+    }
+
+    public function getFilterZonesProperty()
+    {
+        return $this->zonesFor($this->filterFranchise);
+    }
+
+    private function zonesFor(string $franchiseId)
+    {
+        if ($franchiseId === '') {
+            return collect();
+        }
+
+        return Zone::where('franchise_id', $franchiseId)->orderBy('name')->get();
+    }
+
+    // ============================= Add New =============================
+
+    public function save(): void
+    {
+        $this->validate($this->rules(), $this->messages(), $this->attributes());
+
+        Banner::create([
+            'title' => $this->title,
+            'image' => $this->storeImage($this->imageFile),
+            'link' => $this->link ?: null,
+            'franchise_id' => $this->franchiseId ?: null,
+            'zone_id' => $this->zoneId ?: null,
+            'starts_at' => $this->startsAt ?: null,
+            'expires_at' => $this->expiresAt ?: null,
+            'advertiser_name' => $this->advertiserName ?: null,
+            'advertiser_contact' => $this->advertiserContact ?: null,
+            // Left blank = house banner, not a sold slot. Deliberately null
+            // rather than 0 so "free" and "unsold" stay distinguishable.
+            'price_paid' => $this->pricePaid !== '' ? $this->pricePaid : null,
+            'is_active' => $this->isActive,
+            'sort_order' => (int) Banner::max('sort_order') + 1,
+        ]);
+
+        $this->reset([
+            'title', 'imageFile', 'link', 'startsAt', 'expiresAt',
+            'advertiserName', 'advertiserContact', 'pricePaid', 'isActive',
+        ]);
+        $this->isActive = true;
+        $this->flashMessage = 'Banner created.';
+    }
+
+    /**
+     * Shared by add and edit — the `edit` prefix is applied by the caller so
+     * the two forms can't drift apart on rules.
+     */
+    private function rules(string $prefix = ''): array
+    {
+        $f = fn (string $name) => $prefix === '' ? $name : $prefix.ucfirst($name);
+
+        return [
+            $f('title') => ['required', 'string', 'max:255'],
+            // Required on create; on edit only when there's no image yet.
+            $f('imageFile') => [
+                $prefix !== '' && $this->editExistingImage ? 'nullable' : 'required',
+                'image', 'mimes:png,jpg,jpeg', 'max:2048',
+            ],
+            $f('link') => ['nullable', 'url', 'max:2048'],
+            $f('franchiseId') => ['nullable', 'exists:franchises,id'],
+            $f('zoneId') => ['nullable', 'exists:zones,id'],
+            $f('startsAt') => ['nullable', 'date'],
+            // A window that ends before it starts is always a typo.
+            $f('expiresAt') => ['nullable', 'date', 'after_or_equal:'.$f('startsAt')],
+            $f('advertiserName') => ['nullable', 'string', 'max:255'],
+            $f('advertiserContact') => ['nullable', 'string', 'max:255'],
+            $f('pricePaid') => ['nullable', 'numeric', 'min:0'],
+        ];
+    }
+
+    private function messages(string $prefix = ''): array
+    {
+        $f = fn (string $name) => $prefix === '' ? $name : $prefix.ucfirst($name);
+
+        return [
+            $f('imageFile').'.required' => 'Please choose a banner image (PNG or JPEG).',
+            $f('imageFile').'.max' => 'The banner image must be 2 MB or smaller.',
+            $f('link').'.url' => 'The link must be a full URL, including https://',
+            $f('expiresAt').'.after_or_equal' => 'The end date cannot be before the start date.',
+        ];
+    }
+
+    private function attributes(string $prefix = ''): array
+    {
+        $f = fn (string $name) => $prefix === '' ? $name : $prefix.ucfirst($name);
+
+        return [
+            $f('imageFile') => 'image',
+            $f('franchiseId') => 'franchise',
+            $f('zoneId') => 'zone',
+            $f('startsAt') => 'start date',
+            $f('expiresAt') => 'end date',
+            $f('advertiserName') => 'advertiser name',
+            $f('advertiserContact') => 'advertiser contact',
+            $f('pricePaid') => 'price paid',
+        ];
+    }
+
+    private function storeImage($file): string
+    {
+        return $file->store('banners', 'public');
+    }
+
+    private function deleteStoredImage(?string $image): void
+    {
+        if (! $image || Str::startsWith($image, ['http://', 'https://', '//', 'data:'])) {
+            return;
+        }
+
+        Storage::disk('public')->delete($image);
+    }
+
+    public function getEditExistingImageUrlProperty(): ?string
+    {
+        if (! $this->editExistingImage) {
+            return null;
+        }
+
+        if (Str::startsWith($this->editExistingImage, ['http://', 'https://', '//', 'data:'])) {
+            return $this->editExistingImage;
+        }
+
+        return Storage::disk('public')->url($this->editExistingImage);
+    }
+
+    // ============================== Edit modal ==============================
+
+    public function edit(int $bannerId): void
+    {
+        $banner = Banner::findOrFail($bannerId);
+
+        $this->editBannerId = $banner->id;
+        $this->editTitle = $banner->title;
+        $this->editImageFile = null;
+        $this->editExistingImage = $banner->image;
+        $this->editLink = $banner->link ?? '';
+        $this->editFranchiseId = $banner->franchise_id ? (string) $banner->franchise_id : '';
+        $this->editZoneId = $banner->zone_id ? (string) $banner->zone_id : '';
+        // datetime-local inputs want Y-m-d\TH:i, not Eloquent's default format.
+        $this->editStartsAt = $banner->starts_at?->format('Y-m-d\TH:i') ?? '';
+        $this->editExpiresAt = $banner->expires_at?->format('Y-m-d\TH:i') ?? '';
+        $this->editAdvertiserName = $banner->advertiser_name ?? '';
+        $this->editAdvertiserContact = $banner->advertiser_contact ?? '';
+        $this->editPricePaid = $banner->price_paid !== null ? (string) $banner->price_paid : '';
+        $this->editIsActive = $banner->is_active;
+
+        $this->resetValidation();
+        $this->showViewModal = false;
+        $this->showEditModal = true;
+    }
+
+    public function update(): void
+    {
+        $this->validate($this->rules('edit'), $this->messages('edit'), $this->attributes('edit'));
+
+        $banner = Banner::findOrFail($this->editBannerId);
+
+        $image = $banner->image;
+        if ($this->editImageFile) {
+            $image = $this->storeImage($this->editImageFile);
+            $this->deleteStoredImage($banner->image);
+        }
+
+        $banner->update([
+            'title' => $this->editTitle,
+            'image' => $image,
+            'link' => $this->editLink ?: null,
+            'franchise_id' => $this->editFranchiseId ?: null,
+            'zone_id' => $this->editZoneId ?: null,
+            'starts_at' => $this->editStartsAt ?: null,
+            'expires_at' => $this->editExpiresAt ?: null,
+            'advertiser_name' => $this->editAdvertiserName ?: null,
+            'advertiser_contact' => $this->editAdvertiserContact ?: null,
+            'price_paid' => $this->editPricePaid !== '' ? $this->editPricePaid : null,
+            'is_active' => $this->editIsActive,
+        ]);
+
+        $this->showEditModal = false;
+        $this->editImageFile = null;
+        $this->flashMessage = 'Banner updated.';
+    }
+
+    public function closeEditModal(): void
+    {
+        $this->showEditModal = false;
+        $this->editImageFile = null;
+        $this->resetValidation();
+    }
+
+    public function toggleActive(int $bannerId): void
+    {
+        $banner = Banner::findOrFail($bannerId);
+        $banner->update(['is_active' => ! $banner->is_active]);
+    }
+
+    // ========================= View details (read-only) =========================
+
+    public function view(int $bannerId): void
+    {
+        $this->viewBannerId = $bannerId;
+        $this->showViewModal = true;
+    }
+
+    public function closeViewModal(): void
+    {
+        $this->showViewModal = false;
+        $this->viewBannerId = null;
+    }
+
+    public function getViewingBannerProperty(): ?Banner
+    {
+        if (! $this->viewBannerId) {
+            return null;
+        }
+
+        return Banner::with(['franchise', 'zone'])->find($this->viewBannerId);
+    }
+
+    // ============================== Delete ==============================
+
+    public function confirmDelete(int $bannerId): void
+    {
+        $this->confirmingDeleteId = $bannerId;
+    }
+
+    public function deleteBanner(): void
+    {
+        if (! $this->confirmingDeleteId) {
+            return;
+        }
+
+        // banners has no soft deletes and nothing references it, so this is a
+        // real delete — take the image with it rather than orphaning the file.
+        $banner = Banner::findOrFail($this->confirmingDeleteId);
+        $image = $banner->image;
+        $banner->delete();
+        $this->deleteStoredImage($image);
+
+        $this->confirmingDeleteId = null;
+        $this->flashMessage = 'Banner deleted.';
+    }
+
+    public function cancelDelete(): void
+    {
+        $this->confirmingDeleteId = null;
+    }
+
+    // ============================== Sorting ==============================
+
+    public function sortBy(string $field): void
+    {
+        if ($this->sortField === $field) {
+            $this->sortDirection = $this->sortDirection === 'asc' ? 'desc' : 'asc';
+        } else {
+            $this->sortField = $field;
+            $this->sortDirection = 'asc';
+        }
+
+        if ($field !== 'sort_order') {
+            $this->reorderMode = false;
+        }
+
+        $this->resetPage();
+    }
+
+    // ============================== Reorder ==============================
+    // Flat and global, same as every other admin screen — the arrows swap with
+    // the immediate neighbour in the currently filtered list.
+
+    public function toggleReorder(): void
+    {
+        $this->reorderMode = ! $this->reorderMode;
+
+        if ($this->reorderMode) {
+            $this->sortField = 'sort_order';
+            $this->sortDirection = 'asc';
+        }
+    }
+
+    public function moveUp(int $bannerId): void
+    {
+        $this->swapWithNeighbour($bannerId, -1);
+    }
+
+    public function moveDown(int $bannerId): void
+    {
+        $this->swapWithNeighbour($bannerId, 1);
+    }
+
+    private function swapWithNeighbour(int $bannerId, int $offset): void
+    {
+        $this->normalizeSortOrder();
+
+        $ordered = $this->baseQuery()->orderBy('sort_order')->orderBy('id')->get(['id', 'sort_order']);
+
+        $index = $ordered->search(fn ($row) => $row->id === $bannerId);
+        if ($index === false) {
+            return;
+        }
+
+        $target = $ordered->get($index + $offset);
+        if (! $target) {
+            return; // already at the top/bottom of the list
+        }
+
+        $current = $ordered->get($index);
+
+        DB::transaction(function () use ($current, $target) {
+            Banner::whereKey($current->id)->update(['sort_order' => $target->sort_order]);
+            Banner::whereKey($target->id)->update(['sort_order' => $current->sort_order]);
+        });
+    }
+
+    private function normalizeSortOrder(): void
+    {
+        $all = Banner::orderBy('sort_order')->orderBy('id')->get(['id', 'sort_order']);
+
+        $needsNormalising = $all->pluck('sort_order')->duplicates()->isNotEmpty()
+            || $all->contains(fn ($row) => (int) $row->sort_order === 0);
+
+        if (! $needsNormalising) {
+            return;
+        }
+
+        DB::transaction(function () use ($all) {
+            foreach ($all->values() as $position => $row) {
+                Banner::whereKey($row->id)->update(['sort_order' => $position + 1]);
+            }
+        });
+    }
+
+    // ============================== Query ==============================
+
+    private function baseQuery()
+    {
+        $now = now();
+
+        return Banner::query()
+            ->when($this->search !== '', fn ($q) => $q->where(function ($w) {
+                $w->where('title', 'like', '%'.$this->search.'%')
+                  ->orWhere('advertiser_name', 'like', '%'.$this->search.'%');
+            }))
+            ->when($this->filterFranchise !== '', fn ($q) => $q->where('franchise_id', $this->filterFranchise))
+            ->when($this->filterZone !== '', fn ($q) => $q->where('zone_id', $this->filterZone))
+            ->when($this->filterType === 'paid', fn ($q) => $q->whereNotNull('price_paid'))
+            ->when($this->filterType === 'house', fn ($q) => $q->whereNull('price_paid'))
+            // Status mirrors the badge shown on each row, so filtering by it
+            // returns exactly the rows carrying that badge.
+            ->when($this->filterStatus === 'inactive', fn ($q) => $q->where('is_active', false))
+            ->when($this->filterStatus === 'live', fn ($q) => $q->currentlyLive())
+            ->when($this->filterStatus === 'scheduled', fn ($q) => $q->where('is_active', true)
+                ->whereNotNull('starts_at')->where('starts_at', '>', $now))
+            ->when($this->filterStatus === 'expired', fn ($q) => $q->where('is_active', true)
+                ->whereNotNull('expires_at')->where('expires_at', '<', $now));
+    }
+
+    public function render()
+    {
+        $banners = $this->baseQuery()
+            ->with(['franchise', 'zone'])
+            ->orderBy($this->sortField, $this->sortDirection)
+            ->orderBy('id')
+            ->paginate($this->perPage);
+
+        return view('livewire.banners.manage', [
+            'banners' => $banners,
+            'franchises' => Franchise::orderBy('name')->get(['id', 'name']),
+            // Headline numbers for the ad-revenue side of this table: what's
+            // showing right now, and what lapses in the next week.
+            'liveCount' => Banner::currentlyLive()->count(),
+            'expiringSoon' => Banner::expiringSoon(7)->count(),
+            'paidRevenue' => (float) Banner::whereNotNull('price_paid')->sum('price_paid'),
+        ])->layout('layouts.admin', ['title' => 'Banners']);
+    }
+}
