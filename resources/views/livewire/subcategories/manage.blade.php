@@ -157,7 +157,10 @@
 
     @if ($reorderMode)
         <div class="bg-indigo-50 border border-indigo-100 text-indigo-800 rounded p-3 mb-3 text-xs">
-            Reorder mode: the ↑ / ↓ arrows move a subcategory <span class="font-medium">within its own category</span> — that's the order it appears in under that category in the app. Changes save immediately.
+            Reorder mode: use the ↑ / ↓ arrows to set the order subcategories appear in the app. Changes save immediately.
+            @if ($filterModule !== '' || $filterCategory !== '' || $search !== '')
+                <span class="font-medium">Rows are moving within the current search/filter.</span>
+            @endif
         </div>
     @endif
 
@@ -221,10 +224,10 @@
                                 @if ($reorderMode)
                                     <button type="button" wire:click="moveUp({{ $sub->id }})"
                                             class="w-8 h-8 rounded flex items-center justify-center bg-gray-100 hover:bg-gray-200 text-gray-700"
-                                            title="Move up within {{ $sub->category?->name }}">↑</button>
+                                            title="Move up">↑</button>
                                     <button type="button" wire:click="moveDown({{ $sub->id }})"
                                             class="w-8 h-8 rounded flex items-center justify-center bg-gray-100 hover:bg-gray-200 text-gray-700"
-                                            title="Move down within {{ $sub->category?->name }}">↓</button>
+                                            title="Move down">↓</button>
                                 @endif
 
                                 <button type="button" wire:click="edit({{ $sub->id }})"

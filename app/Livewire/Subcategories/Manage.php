@@ -21,11 +21,17 @@ use Maatwebsite\Excel\Facades\Excel;
 // top, live list below, edit in a modal, single route. Replaces the old
 // Subcategories\Form (create/edit pages).
 //
-// The one real difference from Categories: a subcategory's ordering only
-// means anything *within its own parent category* (that's how the app renders
-// them), so sort_order is normalised and swapped per-category rather than
-// globally. Module isn't stored here at all — it's inherited from the parent
-// category, shown read-only, and filterable via that relation.
+// Reorder uses one flat sort_order across every subcategory, identical to
+// Categories and Services: the arrows swap the clicked row with its immediate
+// neighbour in the currently-filtered list, regardless of parent category.
+// (This was originally scoped per parent category, on the reasoning that a
+// subcategory's position only matters within its own category — but that made
+// the arrows silently skip rows whenever a neighbour belonged elsewhere, and
+// left this screen behaving differently from the other two for no visible
+// reason.)
+//
+// Module isn't stored here at all — it's inherited from the parent category,
+// shown read-only, and filterable via that relation.
 class Manage extends Component
 {
     use WithFileUploads;
@@ -126,8 +132,8 @@ class Manage extends Component
             'name' => $this->name,
             'slug' => Str::slug($this->name).'-'.Str::random(4),
             'image' => $this->storeIcon($this->iconFile),
-            // Lands at the end of its own category's list; Reorder moves it.
-            'sort_order' => (int) ServiceSubcategory::where('category_id', $this->categoryId)->max('sort_order') + 1,
+            // New rows go to the end of the list; Reorder moves them from there.
+            'sort_order' => (int) ServiceSubcategory::max('sort_order') + 1,
             'is_active' => $this->isActive,
         ]);
 
@@ -205,19 +211,12 @@ class Manage extends Component
             $this->deleteStoredIcon($sub->image);
         }
 
-        // Moving to a different category makes the old position meaningless —
-        // send it to the end of the new category rather than keeping a number
-        // that collides with whatever already sits there.
-        $sortOrder = $sub->sort_order;
-        if ((int) $this->editCategoryId !== (int) $sub->category_id) {
-            $sortOrder = (int) ServiceSubcategory::where('category_id', $this->editCategoryId)->max('sort_order') + 1;
-        }
-
+        // sort_order is one flat sequence across every subcategory, so moving
+        // one to a different category leaves its position untouched.
         $sub->update([
             'category_id' => $this->editCategoryId,
             'name' => $this->editName,
             'image' => $image,
-            'sort_order' => $sortOrder,
             'is_active' => $this->editIsActive,
         ]);
 
@@ -317,18 +316,17 @@ class Manage extends Component
     }
 
     /**
-     * Swap with the neighbouring row *inside the same parent category* — a
-     * subcategory's order only affects where it sits within that category in
-     * the app, so moving it past a different category's rows would be
-     * meaningless. At the top/bottom of its own category the arrows no-op.
+     * Swap a subcategory's position with the row above/below it *in the list
+     * as currently filtered* — one flat sequence across every subcategory,
+     * matching Categories\Manage and Services\Manage. Filtering and then
+     * reordering within that filter is the normal way to arrange a slice of
+     * the list, so the neighbour comes from the filtered set.
      */
     private function swapWithNeighbour(int $subcategoryId, int $offset): void
     {
-        $sub = ServiceSubcategory::findOrFail($subcategoryId);
+        $this->normalizeSortOrder();
 
-        $this->normalizeSortOrder($sub->category_id);
-
-        $ordered = ServiceSubcategory::where('category_id', $sub->category_id)
+        $ordered = $this->baseQuery()
             ->orderBy('sort_order')
             ->orderBy('id')
             ->get(['id', 'sort_order']);
@@ -340,7 +338,7 @@ class Manage extends Component
 
         $target = $ordered->get($index + $offset);
         if (! $target) {
-            return;
+            return; // already at the top/bottom of the list
         }
 
         $current = $ordered->get($index);
@@ -352,26 +350,25 @@ class Manage extends Component
     }
 
     /**
-     * Collapse one category's subcategories to a clean 1..N run. Imported and
-     * legacy rows all share sort_order 0, and swapping two identical numbers
-     * is a no-op that would make the arrows look broken.
+     * sort_order defaults to 0 for every row, and imported rows can share
+     * values too — swapping two identical numbers is a no-op, so the arrows
+     * would silently do nothing. Collapse to a clean 1..N sequence (globally,
+     * not per-filter, so positions stay stable across different filters) the
+     * first time an actual move is attempted.
      */
-    private function normalizeSortOrder(int $categoryId): void
+    private function normalizeSortOrder(): void
     {
-        $rows = ServiceSubcategory::where('category_id', $categoryId)
-            ->orderBy('sort_order')
-            ->orderBy('id')
-            ->get(['id', 'sort_order']);
+        $all = ServiceSubcategory::orderBy('sort_order')->orderBy('id')->get(['id', 'sort_order']);
 
-        $needsNormalising = $rows->pluck('sort_order')->duplicates()->isNotEmpty()
-            || $rows->contains(fn ($row) => (int) $row->sort_order === 0);
+        $needsNormalising = $all->pluck('sort_order')->duplicates()->isNotEmpty()
+            || $all->contains(fn ($row) => (int) $row->sort_order === 0);
 
         if (! $needsNormalising) {
             return;
         }
 
-        DB::transaction(function () use ($rows) {
-            foreach ($rows->values() as $position => $row) {
+        DB::transaction(function () use ($all) {
+            foreach ($all->values() as $position => $row) {
                 ServiceSubcategory::whereKey($row->id)->update(['sort_order' => $position + 1]);
             }
         });
@@ -515,20 +512,13 @@ class Manage extends Component
 
     public function render()
     {
-        $query = $this->baseQuery()->with('category')->withCount('services');
-
-        // Default view mirrors how the app renders them: grouped by their
-        // parent category's own order, then by position within it.
-        if ($this->sortField === 'sort_order') {
-            $query->orderBy(
-                ServiceCategory::select('sort_order')->whereColumn('service_categories.id', 'service_subcategories.category_id'),
-                $this->sortDirection
-            )->orderBy('category_id')->orderBy('sort_order', $this->sortDirection);
-        } else {
-            $query->orderBy($this->sortField, $this->sortDirection);
-        }
-
-        $subcategories = $query->orderBy('id')->paginate($this->perPage);
+        // One flat running order across all subcategories, same as Categories.
+        $subcategories = $this->baseQuery()
+            ->with('category')
+            ->withCount('services')
+            ->orderBy($this->sortField, $this->sortDirection)
+            ->orderBy('id')
+            ->paginate($this->perPage);
 
         return view('livewire.subcategories.manage', [
             'subcategories' => $subcategories,
