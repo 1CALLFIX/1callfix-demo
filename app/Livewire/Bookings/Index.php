@@ -22,13 +22,13 @@ class Index extends Component
 
     protected $queryString = ['statusFilter', 'search'];
 
-    // ========================= New Booking modal =========================
-    // Services vertical only, per the Master Context doc §47 — this drives
-    // the real app/Actions/CreateBookingAction.php pipeline (order code,
-    // pricing, ServiceMatchingJob dispatch), it is not a parallel booking
-    // implementation. Nothing here bypasses that Action.
-
-    public bool $showNewBookingModal = false;
+    // ============================ New Booking ============================
+    // Same one-screen pattern as Categories/Subcategories/Services: an "Add
+    // New" panel pinned at the top of the page, list live below it — no
+    // modal. Services vertical only, per the Master Context doc §47 — this
+    // drives the real app/Actions/CreateBookingAction.php pipeline (order
+    // code, pricing, ServiceMatchingJob dispatch), it is not a parallel
+    // booking implementation. Nothing here bypasses that Action.
 
     // --- Customer: search existing, or create inline ---
     public string $customerSearch = '';
@@ -61,7 +61,7 @@ class Index extends Component
     public string $paymentMethod = 'online';
     public string $customerNote = '';
 
-    // --- Success banner after creation (code + link, list stays put) ---
+    // --- Success banner after creation (code + link, form clears, list stays put) ---
     public ?array $newBookingFlash = null;
 
     public function updatingStatusFilter()
@@ -99,19 +99,12 @@ class Index extends Component
         ])->layout('layouts.admin', ['title' => 'Bookings']);
     }
 
-    // ============================ Open / close ============================
+    // ============================ Reset form ============================
 
-    public function openNewBookingModal(): void
+    public function clearNewBookingForm(): void
     {
         $this->resetNewBookingForm();
         $this->newBookingFlash = null;
-        $this->showNewBookingModal = true;
-    }
-
-    public function closeNewBookingModal(): void
-    {
-        $this->showNewBookingModal = false;
-        $this->resetValidation();
     }
 
     private function resetNewBookingForm(): void
@@ -346,7 +339,6 @@ class Index extends Component
         ]);
 
         $this->newBookingFlash = ['code' => $booking->code, 'id' => $booking->id];
-        $this->showNewBookingModal = false;
         $this->resetNewBookingForm();
         $this->resetPage();
     }
