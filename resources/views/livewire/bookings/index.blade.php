@@ -96,7 +96,7 @@
             </div>
 
             <div class="w-32">
-                <label class="block text-xs font-medium mb-1">Price (₹) <span class="text-red-500">*</span></label>
+                <label class="block text-xs font-medium mb-1">Price ({{ $currencySymbol }}) <span class="text-red-500">*</span></label>
                 <input type="number" step="0.01" wire:model="priceQuoted" class="w-full border rounded px-3 py-2 text-sm">
                 @error('priceQuoted') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
             </div>
@@ -264,7 +264,7 @@
                                 {{ str_replace('_', ' ', $booking->status) }}
                             </span>
                         </td>
-                        <td class="px-4 py-2">₹{{ number_format($booking->price_final ?? $booking->price_quoted, 2) }}</td>
+                        <td class="px-4 py-2">{{ $currencySymbol }}{{ number_format($booking->price_final ?? $booking->price_quoted, 2) }}</td>
                         <td class="px-4 py-2 text-gray-500">{{ $booking->created_at->diffForHumans() }}</td>
                         <td class="px-4 py-2">
                             <a href="{{ route('admin.bookings.show', $booking->id) }}" class="text-blue-600 hover:underline">View</a>

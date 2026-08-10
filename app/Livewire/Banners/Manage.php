@@ -5,6 +5,7 @@ namespace App\Livewire\Banners;
 use App\Models\Banner;
 use App\Models\Franchise;
 use App\Models\ServiceCategory;
+use App\Models\Setting;
 use App\Models\Zone;
 use App\Support\Modules;
 use Illuminate\Support\Facades\DB;
@@ -578,6 +579,7 @@ class Manage extends Component
             'expiringSoon' => Banner::expiringSoon(7)->count(),
             'revenueByPlacement' => $revenueByPlacement,
             'paidRevenue' => (float) Banner::whereNotNull('price_paid')->sum('price_paid'),
+            'currencySymbol' => Setting::get('locale.currency_symbol', '₹'),
         ])->layout('layouts.admin', ['title' => 'Banners']);
     }
 }

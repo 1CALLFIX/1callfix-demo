@@ -6,6 +6,7 @@ use App\Events\BookingStatusUpdated;
 use App\Models\Booking;
 use App\Models\DispatchAttempt;
 use App\Models\Provider;
+use App\Models\Setting;
 use Illuminate\Support\Facades\DB;
 
 class AdminReassignBookingAction
@@ -27,9 +28,14 @@ class AdminReassignBookingAction
 
             $booking->provider_id = $provider->id;
             if (in_array($booking->status, ['pending', 'searching_provider'], true)) {
+                // Same admin-editable OTP length as AcceptBookingAction.
+                $otpLength = (int) Setting::get('booking.otp_length', 4);
+                $otpMin = (int) (10 ** ($otpLength - 1));
+                $otpMax = (int) (10 ** $otpLength) - 1;
+
                 $booking->status = 'assigned';
-                $booking->start_otp = $booking->start_otp ?: (string) random_int(1000, 9999);
-                $booking->completion_otp = $booking->completion_otp ?: (string) random_int(1000, 9999);
+                $booking->start_otp = $booking->start_otp ?: (string) random_int($otpMin, $otpMax);
+                $booking->completion_otp = $booking->completion_otp ?: (string) random_int($otpMin, $otpMax);
             }
             $booking->save();
 

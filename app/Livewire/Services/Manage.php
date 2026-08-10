@@ -7,6 +7,7 @@ use App\Imports\HeadingRowImport;
 use App\Models\Service;
 use App\Models\ServiceCategory;
 use App\Models\ServiceSubcategory;
+use App\Models\Setting;
 use App\Support\Modules;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -722,6 +723,7 @@ class Manage extends Component
             'services' => $services,
             'categories' => ServiceCategory::orderBy('module')->orderBy('sort_order')->orderBy('name')->get(['id', 'name', 'module']),
             'modules' => Modules::options(),
+            'currencySymbol' => Setting::get('locale.currency_symbol', '₹'),
         ])->layout('layouts.admin', ['title' => 'Services']);
     }
 }

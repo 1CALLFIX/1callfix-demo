@@ -6,6 +6,7 @@ use App\Events\BookingStatusUpdated;
 use App\Models\Booking;
 use App\Models\DispatchAttempt;
 use App\Models\Provider;
+use App\Models\Setting;
 use Illuminate\Support\Facades\DB;
 
 class AcceptBookingAction
@@ -40,11 +41,16 @@ class AcceptBookingAction
                 throw new \RuntimeException('This job offer is no longer available (expired or already withdrawn).');
             }
 
-            // Assign
+            // Assign. OTP length is admin-editable via Settings (default 4,
+            // same as before that screen existed) — see Booking Settings.
+            $otpLength = (int) Setting::get('booking.otp_length', 4);
+            $otpMin = (int) (10 ** ($otpLength - 1));
+            $otpMax = (int) (10 ** $otpLength) - 1;
+
             $booking->provider_id = $provider->id;
             $booking->status = 'assigned';
-            $booking->start_otp = (string) random_int(1000, 9999);
-            $booking->completion_otp = (string) random_int(1000, 9999);
+            $booking->start_otp = (string) random_int($otpMin, $otpMax);
+            $booking->completion_otp = (string) random_int($otpMin, $otpMax);
             $booking->save();
 
             $attempt->status = 'accepted';

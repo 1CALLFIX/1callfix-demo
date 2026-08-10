@@ -52,12 +52,12 @@
             <div class="font-semibold mb-2">Provider & Payment</div>
             <dl class="text-sm space-y-1">
                 <div class="flex justify-between"><dt class="text-gray-500">Provider</dt><dd>{{ $booking->provider?->user?->name ?? '— unassigned —' }}</dd></div>
-                <div class="flex justify-between"><dt class="text-gray-500">Price quoted</dt><dd>₹{{ number_format($booking->price_quoted, 2) }}</dd></div>
-                <div class="flex justify-between"><dt class="text-gray-500">Price final</dt><dd>{{ $booking->price_final ? '₹'.number_format($booking->price_final, 2) : '—' }}</dd></div>
+                <div class="flex justify-between"><dt class="text-gray-500">Price quoted</dt><dd>{{ $this->currencySymbol }}{{ number_format($booking->price_quoted, 2) }}</dd></div>
+                <div class="flex justify-between"><dt class="text-gray-500">Price final</dt><dd>{{ $booking->price_final ? $this->currencySymbol.number_format($booking->price_final, 2) : '—' }}</dd></div>
                 <div class="flex justify-between"><dt class="text-gray-500">Payment status</dt><dd>{{ $booking->payment_status }}</dd></div>
                 @if ($booking->commission)
-                    <div class="flex justify-between"><dt class="text-gray-500">Provider commission</dt><dd>₹{{ number_format($booking->commission->provider_commission, 2) }}</dd></div>
-                    <div class="flex justify-between"><dt class="text-gray-500">Platform commission</dt><dd>₹{{ number_format($booking->commission->platform_commission, 2) }}</dd></div>
+                    <div class="flex justify-between"><dt class="text-gray-500">Provider commission</dt><dd>{{ $this->currencySymbol }}{{ number_format($booking->commission->provider_commission, 2) }}</dd></div>
+                    <div class="flex justify-between"><dt class="text-gray-500">Platform commission</dt><dd>{{ $this->currencySymbol }}{{ number_format($booking->commission->platform_commission, 2) }}</dd></div>
                 @endif
             </dl>
         </div>
@@ -74,7 +74,7 @@
                     @foreach ($booking->extraItems as $item)
                         <tr class="border-t">
                             <td class="py-1.5">{{ $item->description }}</td>
-                            <td class="py-1.5">₹{{ number_format($item->amount, 2) }}</td>
+                            <td class="py-1.5">{{ $this->currencySymbol }}{{ number_format($item->amount, 2) }}</td>
                             <td class="py-1.5">
                                 <span @class([
                                     'px-2 py-0.5 rounded text-xs',

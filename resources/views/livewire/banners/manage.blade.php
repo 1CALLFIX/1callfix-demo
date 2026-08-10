@@ -16,14 +16,14 @@
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
         <div class="bg-white rounded-lg shadow-sm p-4 border-l-4 border-indigo-500">
             <p class="text-xs text-gray-500">Top slot — home hero</p>
-            <p class="text-2xl font-bold">₹{{ number_format($revenueByPlacement['top']->total ?? 0, 2) }}</p>
+            <p class="text-2xl font-bold">{{ $currencySymbol }}{{ number_format($revenueByPlacement['top']->total ?? 0, 2) }}</p>
             <p class="text-xs text-gray-400 mt-0.5">
                 {{ $revenueByPlacement['top']->slots ?? 0 }} sold · {{ $liveByPlacement['top'] ?? 0 }} live now
             </p>
         </div>
         <div class="bg-white rounded-lg shadow-sm p-4 border-l-4 border-teal-500">
             <p class="text-xs text-gray-500">Mid slot — between modules</p>
-            <p class="text-2xl font-bold">₹{{ number_format($revenueByPlacement['mid']->total ?? 0, 2) }}</p>
+            <p class="text-2xl font-bold">{{ $currencySymbol }}{{ number_format($revenueByPlacement['mid']->total ?? 0, 2) }}</p>
             <p class="text-xs text-gray-400 mt-0.5">
                 {{ $revenueByPlacement['mid']->slots ?? 0 }} sold · {{ $liveByPlacement['mid'] ?? 0 }} live now
             </p>
@@ -34,7 +34,7 @@
         </div>
         <div class="bg-white rounded-lg shadow-sm p-4">
             <p class="text-xs text-gray-500">Total ad revenue booked</p>
-            <p class="text-2xl font-bold">₹{{ number_format($paidRevenue, 2) }}</p>
+            <p class="text-2xl font-bold">{{ $currencySymbol }}{{ number_format($paidRevenue, 2) }}</p>
             <p class="text-xs text-gray-400 mt-0.5">{{ $liveCount }} banners showing now</p>
         </div>
     </div>
@@ -143,7 +143,7 @@
                 <input type="text" wire:model="advertiserContact" placeholder="Phone or email" class="w-full border rounded px-3 py-2 text-sm">
             </div>
             <div class="w-36">
-                <label class="block text-xs font-medium mb-1">Price paid (₹)</label>
+                <label class="block text-xs font-medium mb-1">Price paid ({{ $currencySymbol }})</label>
                 <input type="number" step="0.01" wire:model="pricePaid" class="w-full border rounded px-3 py-2 text-sm">
             </div>
 
@@ -355,7 +355,7 @@
                         </td>
                         <td class="px-4 py-2">
                             @if ($banner->is_paid)
-                                ₹{{ number_format($banner->price_paid, 2) }}
+                                {{ $currencySymbol }}{{ number_format($banner->price_paid, 2) }}
                             @else
                                 <span class="text-xs text-gray-400">House</span>
                             @endif
@@ -496,7 +496,7 @@
                         </div>
                         <div>
                             <p class="text-xs text-gray-500">Price paid</p>
-                            <p class="font-medium">{{ $b->is_paid ? '₹'.number_format($b->price_paid, 2) : '—' }}</p>
+                            <p class="font-medium">{{ $b->is_paid ? $currencySymbol.number_format($b->price_paid, 2) : '—' }}</p>
                         </div>
                     </div>
                 </div>
@@ -635,7 +635,7 @@
                             <input type="text" wire:model="editAdvertiserContact" class="w-full border rounded px-3 py-2 text-sm">
                         </div>
                         <div>
-                            <label class="block text-sm font-medium mb-1">Price paid (₹)</label>
+                            <label class="block text-sm font-medium mb-1">Price paid ({{ $currencySymbol }})</label>
                             <input type="number" step="0.01" wire:model="editPricePaid" class="w-full border rounded px-3 py-2 text-sm">
                             <p class="text-xs text-gray-400 mt-1">Blank = house banner.</p>
                             @error('editPricePaid') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror

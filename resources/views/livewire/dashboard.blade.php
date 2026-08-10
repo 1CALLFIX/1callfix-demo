@@ -55,7 +55,7 @@
         </div>
         <div class="bg-white rounded-lg shadow-sm p-4">
             <div class="text-sm text-gray-500">Revenue Today</div>
-            <div class="text-2xl font-bold">₹{{ number_format($stats['revenue_today'], 2) }}</div>
+            <div class="text-2xl font-bold">{{ $currencySymbol }}{{ number_format($stats['revenue_today'], 2) }}</div>
         </div>
         <div class="bg-white rounded-lg shadow-sm p-4">
             <div class="text-sm text-gray-500">Providers Online</div>
@@ -99,7 +99,7 @@
                                 {{ str_replace('_', ' ', $booking->status) }}
                             </span>
                         </td>
-                        <td class="px-4 py-2">₹{{ number_format($booking->price_final ?? $booking->price_quoted, 2) }}</td>
+                        <td class="px-4 py-2">{{ $currencySymbol }}{{ number_format($booking->price_final ?? $booking->price_quoted, 2) }}</td>
                     </tr>
                 @empty
                     <tr><td colspan="6" class="px-4 py-6 text-center text-gray-400">No bookings yet.</td></tr>

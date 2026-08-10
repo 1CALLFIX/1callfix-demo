@@ -5,6 +5,7 @@ namespace App\Livewire;
 use App\Models\Booking;
 use App\Models\Provider;
 use App\Models\Franchise;
+use App\Models\Setting;
 use Livewire\Component;
 
 class Dashboard extends Component
@@ -61,7 +62,9 @@ class Dashboard extends Component
             ->take(10)
             ->get();
 
-        return view('livewire.dashboard', compact('stats', 'funnel', 'recentBookings'))
+        $currencySymbol = Setting::get('locale.currency_symbol', '₹');
+
+        return view('livewire.dashboard', compact('stats', 'funnel', 'recentBookings', 'currencySymbol'))
             ->layout('layouts.admin', ['title' => 'Dashboard']);
     }
 }

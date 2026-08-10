@@ -6,6 +6,7 @@ use App\Actions\AdminCancelBookingAction;
 use App\Actions\AdminReassignBookingAction;
 use App\Models\Booking;
 use App\Models\Provider;
+use App\Models\Setting;
 use Livewire\Component;
 
 class Show extends Component
@@ -31,6 +32,11 @@ class Show extends Component
             ->where('zone_id', $this->booking->zone_id)
             ->where('is_active', true)
             ->get();
+    }
+
+    public function getCurrencySymbolProperty(): string
+    {
+        return Setting::get('locale.currency_symbol', '₹');
     }
 
     public function reassign(AdminReassignBookingAction $action)

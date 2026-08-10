@@ -3,6 +3,7 @@
 namespace App\Actions;
 
 use App\Models\BookingExtraItem;
+use App\Models\Setting;
 use Illuminate\Support\Facades\DB;
 
 class RespondToExtraWorkAction
@@ -36,7 +37,7 @@ class RespondToExtraWorkAction
             $item->save();
 
             $note = $approved
-                ? "Extra work approved: {$item->description} (₹{$item->amount})"
+                ? 'Extra work approved: '.$item->description.' ('.Setting::get('locale.currency_symbol', '₹').$item->amount.')'
                 : "Extra work declined: {$item->description}";
 
             (new ResumeBookingAction())->execute($booking->id, $note);

@@ -7,6 +7,7 @@ use App\Models\Address;
 use App\Models\Booking;
 use App\Models\FranchiseServicePricing;
 use App\Models\Service;
+use App\Models\Setting;
 use App\Models\User;
 use App\Models\Zone;
 use Illuminate\Support\Str;
@@ -96,6 +97,7 @@ class Index extends Component
                 ->get(),
             'services' => Service::where('is_active', true)->orderBy('name')->get(),
             'mapsConfigured' => (bool) config('services.google_maps.key'),
+            'currencySymbol' => Setting::get('locale.currency_symbol', '₹'),
         ])->layout('layouts.admin', ['title' => 'Bookings']);
     }
 
@@ -307,6 +309,10 @@ class Index extends Component
 
     public function createBooking(): void
     {
+        // How far ahead a scheduled booking may be placed — admin-editable via
+        // the Booking Settings tab, default 14 days.
+        $maxScheduleDays = (int) Setting::get('booking.max_schedule_days_ahead', 14);
+
         $this->validate([
             'selectedCustomerId' => ['required', 'integer', 'exists:users,id'],
             'selectedZoneId' => ['required', 'integer', 'exists:zones,id'],
@@ -314,7 +320,11 @@ class Index extends Component
             'selectedServiceId' => ['required', 'integer', 'exists:services,id'],
             'priceQuoted' => ['required', 'numeric', 'min:0'],
             'paymentMethod' => ['required', 'in:online,cash,wallet'],
-            'scheduledAt' => [$this->bookingType === 'scheduled' ? 'required' : 'nullable', 'date', 'after:now'],
+            'scheduledAt' => [
+                $this->bookingType === 'scheduled' ? 'required' : 'nullable',
+                'date', 'after:now',
+                'before_or_equal:'.now()->addDays($maxScheduleDays)->toDateTimeString(),
+            ],
         ], [], [
             'selectedCustomerId' => 'customer',
             'selectedZoneId' => 'zone',

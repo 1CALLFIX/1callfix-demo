@@ -5,6 +5,7 @@ namespace App\Actions;
 use App\Models\Booking;
 use App\Models\BookingExtraItem;
 use App\Models\Provider;
+use App\Models\Setting;
 use Illuminate\Support\Facades\DB;
 
 class ProposeExtraWorkAction
@@ -46,10 +47,12 @@ class ProposeExtraWorkAction
             // Reuse the existing hold action — this genuinely is the same
             // "customer_side, awaiting_customer_approval" situation the hold
             // layer was built for, not a separate mechanism.
+            $currencySymbol = Setting::get('locale.currency_symbol', '₹');
+
             (new PlaceBookingOnHoldAction())->execute(
                 $bookingId,
                 'awaiting_customer_approval',
-                "Extra work proposed: {$description} (₹{$amount})"
+                "Extra work proposed: {$description} ({$currencySymbol}{$amount})"
             );
 
             return $item;

@@ -99,11 +99,11 @@
                 </select>
             </div>
             <div class="w-32">
-                <label class="block text-xs font-medium mb-1">Price (₹) <span class="text-red-500">*</span></label>
+                <label class="block text-xs font-medium mb-1">Price ({{ $currencySymbol }}) <span class="text-red-500">*</span></label>
                 <input type="number" step="0.01" wire:model="basePrice" class="w-full border rounded px-3 py-2 text-sm">
             </div>
             <div class="w-36">
-                <label class="block text-xs font-medium mb-1">Discount Price (₹)</label>
+                <label class="block text-xs font-medium mb-1">Discount Price ({{ $currencySymbol }})</label>
                 <input type="number" step="0.01" wire:model="discountPrice" class="w-full border rounded px-3 py-2 text-sm">
             </div>
             <div class="w-32">
@@ -289,10 +289,10 @@
                             {{ $service->price_type_label }}
                             <span class="block text-xs text-gray-400">{{ $service->duration_estimate_mins }} min</span>
                         </td>
-                        <td class="px-4 py-2">₹{{ number_format($service->base_price, 2) }}</td>
+                        <td class="px-4 py-2">{{ $currencySymbol }}{{ number_format($service->base_price, 2) }}</td>
                         <td class="px-4 py-2">
                             @if ($service->discount_price)
-                                <span class="text-green-700 font-medium">₹{{ number_format($service->discount_price, 2) }}</span>
+                                <span class="text-green-700 font-medium">{{ $currencySymbol }}{{ number_format($service->discount_price, 2) }}</span>
                             @else
                                 <span class="text-gray-300">—</span>
                             @endif
@@ -416,11 +416,11 @@
                         </div>
                         <div>
                             <p class="text-xs text-gray-500">Price</p>
-                            <p class="font-medium">₹{{ number_format($svc->base_price, 2) }}</p>
+                            <p class="font-medium">{{ $currencySymbol }}{{ number_format($svc->base_price, 2) }}</p>
                         </div>
                         <div>
                             <p class="text-xs text-gray-500">Discount Price</p>
-                            <p>{{ $svc->discount_price ? '₹'.number_format($svc->discount_price, 2) : '—' }}</p>
+                            <p>{{ $svc->discount_price ? $currencySymbol.number_format($svc->discount_price, 2) : '—' }}</p>
                         </div>
                         <div>
                             <p class="text-xs text-gray-500">Duration Type</p>
@@ -551,12 +551,12 @@
                             </select>
                         </div>
                         <div>
-                            <label class="block text-sm font-medium mb-1">Price (₹) <span class="text-red-500">*</span></label>
+                            <label class="block text-sm font-medium mb-1">Price ({{ $currencySymbol }}) <span class="text-red-500">*</span></label>
                             <input type="number" step="0.01" wire:model="editBasePrice" class="w-full border rounded px-3 py-2 text-sm">
                             @error('editBasePrice') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
                         </div>
                         <div>
-                            <label class="block text-sm font-medium mb-1">Discount (₹)</label>
+                            <label class="block text-sm font-medium mb-1">Discount ({{ $currencySymbol }})</label>
                             <input type="number" step="0.01" wire:model="editDiscountPrice" class="w-full border rounded px-3 py-2 text-sm">
                             @error('editDiscountPrice') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
                         </div>
