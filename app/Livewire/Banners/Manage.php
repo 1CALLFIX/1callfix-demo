@@ -4,10 +4,13 @@ namespace App\Livewire\Banners;
 
 use App\Models\Banner;
 use App\Models\Franchise;
+use App\Models\ServiceCategory;
 use App\Models\Zone;
+use App\Support\Modules;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 use Livewire\Component;
 use Livewire\WithFileUploads;
 use Livewire\WithPagination;
@@ -28,6 +31,8 @@ class Manage extends Component
     public string $title = '';
     public $imageFile = null;
     public string $link = '';
+    public string $placement = 'top';
+    public string $categoryId = '';
     public string $franchiseId = '';
     public string $zoneId = '';
     public string $startsAt = '';
@@ -44,6 +49,8 @@ class Manage extends Component
     public $editImageFile = null;
     public ?string $editExistingImage = null;
     public string $editLink = '';
+    public string $editPlacement = 'top';
+    public string $editCategoryId = '';
     public string $editFranchiseId = '';
     public string $editZoneId = '';
     public string $editStartsAt = '';
@@ -64,6 +71,8 @@ class Manage extends Component
     public string $search = '';
     public string $filterFranchise = '';
     public string $filterZone = '';
+    public string $filterCategory = '';
+    public string $filterPlacement = ''; // top | mid
     public string $filterStatus = '';   // live | scheduled | expired | inactive
     public string $filterType = '';     // paid | house
     public bool $showFilters = false;
@@ -76,6 +85,8 @@ class Manage extends Component
 
     public function updatedSearch(): void { $this->resetPage(); }
     public function updatedFilterZone(): void { $this->resetPage(); }
+    public function updatedFilterCategory(): void { $this->resetPage(); }
+    public function updatedFilterPlacement(): void { $this->resetPage(); }
     public function updatedFilterStatus(): void { $this->resetPage(); }
     public function updatedFilterType(): void { $this->resetPage(); }
     public function updatedPerPage(): void { $this->resetPage(); }
@@ -134,6 +145,8 @@ class Manage extends Component
             'title' => $this->title,
             'image' => $this->storeImage($this->imageFile),
             'link' => $this->link ?: null,
+            'placement' => $this->placement,
+            'category_id' => $this->categoryId ?: null,
             'franchise_id' => $this->franchiseId ?: null,
             'zone_id' => $this->zoneId ?: null,
             'starts_at' => $this->startsAt ?: null,
@@ -147,6 +160,8 @@ class Manage extends Component
             'sort_order' => (int) Banner::max('sort_order') + 1,
         ]);
 
+        // placement/franchise/zone/category are deliberately kept — adding a
+        // run of banners for the same slot and target is the common case.
         $this->reset([
             'title', 'imageFile', 'link', 'startsAt', 'expiresAt',
             'advertiserName', 'advertiserContact', 'pricePaid', 'isActive',
@@ -171,6 +186,8 @@ class Manage extends Component
                 'image', 'mimes:png,jpg,jpeg', 'max:2048',
             ],
             $f('link') => ['nullable', 'url', 'max:2048'],
+            $f('placement') => ['required', Rule::in(array_keys(Banner::PLACEMENTS))],
+            $f('categoryId') => ['nullable', 'exists:service_categories,id'],
             $f('franchiseId') => ['nullable', 'exists:franchises,id'],
             $f('zoneId') => ['nullable', 'exists:zones,id'],
             $f('startsAt') => ['nullable', 'date'],
@@ -248,6 +265,8 @@ class Manage extends Component
         $this->editImageFile = null;
         $this->editExistingImage = $banner->image;
         $this->editLink = $banner->link ?? '';
+        $this->editPlacement = $banner->placement ?? 'top';
+        $this->editCategoryId = $banner->category_id ? (string) $banner->category_id : '';
         $this->editFranchiseId = $banner->franchise_id ? (string) $banner->franchise_id : '';
         $this->editZoneId = $banner->zone_id ? (string) $banner->zone_id : '';
         // datetime-local inputs want Y-m-d\TH:i, not Eloquent's default format.
@@ -279,6 +298,8 @@ class Manage extends Component
             'title' => $this->editTitle,
             'image' => $image,
             'link' => $this->editLink ?: null,
+            'placement' => $this->editPlacement,
+            'category_id' => $this->editCategoryId ?: null,
             'franchise_id' => $this->editFranchiseId ?: null,
             'zone_id' => $this->editZoneId ?: null,
             'starts_at' => $this->editStartsAt ?: null,
@@ -456,6 +477,8 @@ class Manage extends Component
             }))
             ->when($this->filterFranchise !== '', fn ($q) => $q->where('franchise_id', $this->filterFranchise))
             ->when($this->filterZone !== '', fn ($q) => $q->where('zone_id', $this->filterZone))
+            ->when($this->filterCategory !== '', fn ($q) => $q->where('category_id', $this->filterCategory))
+            ->when($this->filterPlacement !== '', fn ($q) => $q->where('placement', $this->filterPlacement))
             ->when($this->filterType === 'paid', fn ($q) => $q->whereNotNull('price_paid'))
             ->when($this->filterType === 'house', fn ($q) => $q->whereNull('price_paid'))
             // Status mirrors the badge shown on each row, so filtering by it
@@ -471,18 +494,32 @@ class Manage extends Component
     public function render()
     {
         $banners = $this->baseQuery()
-            ->with(['franchise', 'zone'])
+            ->with(['franchise', 'zone', 'category'])
             ->orderBy($this->sortField, $this->sortDirection)
             ->orderBy('id')
             ->paginate($this->perPage);
 
+        // Revenue is split by slot because the two are sold at different
+        // rates — a single combined total would hide which inventory is
+        // actually earning.
+        $revenueByPlacement = Banner::whereNotNull('price_paid')
+            ->groupBy('placement')
+            ->selectRaw('placement, sum(price_paid) as total, count(*) as slots')
+            ->get()
+            ->keyBy('placement');
+
         return view('livewire.banners.manage', [
             'banners' => $banners,
             'franchises' => Franchise::orderBy('name')->get(['id', 'name']),
-            // Headline numbers for the ad-revenue side of this table: what's
-            // showing right now, and what lapses in the next week.
+            'categories' => ServiceCategory::orderBy('module')->orderBy('sort_order')->orderBy('name')->get(['id', 'name', 'module']),
+            'placements' => Banner::PLACEMENTS,
             'liveCount' => Banner::currentlyLive()->count(),
+            'liveByPlacement' => Banner::currentlyLive()
+                ->groupBy('placement')
+                ->selectRaw('placement, count(*) as total')
+                ->pluck('total', 'placement'),
             'expiringSoon' => Banner::expiringSoon(7)->count(),
+            'revenueByPlacement' => $revenueByPlacement,
             'paidRevenue' => (float) Banner::whereNotNull('price_paid')->sum('price_paid'),
         ])->layout('layouts.admin', ['title' => 'Banners']);
     }

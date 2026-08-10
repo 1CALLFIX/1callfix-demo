@@ -13,9 +13,22 @@ class Banner extends Model
 
     protected $table = 'banners';
 
+    /**
+     * The sellable ad slots. `top` is the home-screen hero carousel (premium
+     * rate); `mid` is the strip between modules, about half-way down the
+     * scroll (standard rate). Adding a slot here is all that's needed to
+     * offer it — the admin screen builds its dropdowns and filters from this.
+     */
+    public const PLACEMENTS = [
+        'top' => 'Top — home hero carousel',
+        'mid' => 'Mid — between modules',
+    ];
+
     protected $fillable = [
         'franchise_id',
         'zone_id',
+        'placement',
+        'category_id',
         'title',
         'image',
         'link',
@@ -36,6 +49,13 @@ class Banner extends Model
 
     public function franchise() { return $this->belongsTo(Franchise::class); }
     public function zone() { return $this->belongsTo(Zone::class); }
+    public function category() { return $this->belongsTo(ServiceCategory::class, 'category_id'); }
+
+    /** Banners for one on-screen slot, e.g. Banner::placement('top'). */
+    public function scopePlacement($query, string $placement)
+    {
+        return $query->where('placement', $placement);
+    }
 
     /**
      * Uploaded banners hold a path on the `public` disk; anything seeded or
@@ -84,18 +104,37 @@ class Banner extends Model
         return $this->price_paid !== null;
     }
 
-    /** Human placement summary: zone beats franchise beats everywhere. */
-    public function getPlacementAttribute(): string
+    /**
+     * Human summary of WHO sees this banner — the geography half (zone beats
+     * franchise beats everywhere), optionally narrowed to one category.
+     *
+     * Named `targeting`, not `placement`: `placement` is the column holding
+     * which on-screen slot the banner occupies (top vs mid), which is a
+     * different question from who it's shown to.
+     */
+    public function getTargetingAttribute(): string
     {
-        if ($this->zone) {
-            return $this->zone->display_name;
-        }
+        $where = match (true) {
+            (bool) $this->zone => $this->zone->display_name,
+            (bool) $this->franchise => $this->franchise->name,
+            default => 'All franchises',
+        };
 
-        if ($this->franchise) {
-            return $this->franchise->name;
-        }
+        return $this->category
+            ? $where.' · '.$this->category->name
+            : $where;
+    }
 
-        return 'All franchises';
+    /** Which on-screen slot this occupies, in words. */
+    public function getPlacementLabelAttribute(): string
+    {
+        return self::PLACEMENTS[$this->placement] ?? $this->placement;
+    }
+
+    /** Short form for narrow table cells. */
+    public function getPlacementShortAttribute(): string
+    {
+        return $this->placement === 'top' ? 'Top' : 'Mid';
     }
 
     /**

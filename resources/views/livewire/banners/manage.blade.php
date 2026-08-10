@@ -10,19 +10,32 @@
 <div>
     <h1 class="text-2xl font-bold mb-4">Banners</h1>
 
-    {{-- Ad-revenue headline numbers: this table doubles as the ad slot ledger. --}}
-    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">
-        <div class="bg-white rounded-lg shadow-sm p-4">
-            <p class="text-xs text-gray-500">Showing right now</p>
-            <p class="text-2xl font-bold">{{ $liveCount }}</p>
+    {{-- Ad-revenue headline numbers, split by slot: the two are sold at
+         different rates, so a single combined total would hide which
+         inventory is actually earning. --}}
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+        <div class="bg-white rounded-lg shadow-sm p-4 border-l-4 border-indigo-500">
+            <p class="text-xs text-gray-500">Top slot — home hero</p>
+            <p class="text-2xl font-bold">₹{{ number_format($revenueByPlacement['top']->total ?? 0, 2) }}</p>
+            <p class="text-xs text-gray-400 mt-0.5">
+                {{ $revenueByPlacement['top']->slots ?? 0 }} sold · {{ $liveByPlacement['top'] ?? 0 }} live now
+            </p>
+        </div>
+        <div class="bg-white rounded-lg shadow-sm p-4 border-l-4 border-teal-500">
+            <p class="text-xs text-gray-500">Mid slot — between modules</p>
+            <p class="text-2xl font-bold">₹{{ number_format($revenueByPlacement['mid']->total ?? 0, 2) }}</p>
+            <p class="text-xs text-gray-400 mt-0.5">
+                {{ $revenueByPlacement['mid']->slots ?? 0 }} sold · {{ $liveByPlacement['mid'] ?? 0 }} live now
+            </p>
         </div>
         <div class="bg-white rounded-lg shadow-sm p-4">
             <p class="text-xs text-gray-500">Paid slots expiring in 7 days</p>
             <p @class(['text-2xl font-bold', 'text-amber-600' => $expiringSoon > 0])>{{ $expiringSoon }}</p>
         </div>
         <div class="bg-white rounded-lg shadow-sm p-4">
-            <p class="text-xs text-gray-500">Ad revenue booked (all time)</p>
+            <p class="text-xs text-gray-500">Total ad revenue booked</p>
             <p class="text-2xl font-bold">₹{{ number_format($paidRevenue, 2) }}</p>
+            <p class="text-xs text-gray-400 mt-0.5">{{ $liveCount }} banners showing now</p>
         </div>
     </div>
 
@@ -58,6 +71,31 @@
                 <input type="text" wire:model="link" placeholder="https://…" class="w-full border rounded px-3 py-2 text-sm">
             </div>
 
+            <div class="w-52">
+                <label class="block text-xs font-medium mb-1">Slot <span class="text-red-500">*</span></label>
+                <select wire:model="placement" class="w-full border rounded px-3 py-2 text-sm">
+                    @foreach ($placements as $value => $label)
+                        <option value="{{ $value }}">{{ $label }}</option>
+                    @endforeach
+                </select>
+            </div>
+        </div>
+
+        <div class="flex flex-wrap items-end gap-3 mt-3">
+            <div class="w-52">
+                <label class="block text-xs font-medium mb-1">Category</label>
+                <select wire:model="categoryId" class="w-full border rounded px-3 py-2 text-sm">
+                    <option value="">All categories</option>
+                    @foreach ($categories->groupBy('module') as $moduleSlug => $group)
+                        <optgroup label="{{ \App\Support\Modules::label($moduleSlug) }}">
+                            @foreach ($group as $cat)
+                                <option value="{{ $cat->id }}">{{ $cat->name }}</option>
+                            @endforeach
+                        </optgroup>
+                    @endforeach
+                </select>
+            </div>
+
             <div class="w-44">
                 <label class="block text-xs font-medium mb-1">Franchise</label>
                 <select wire:model.live="franchiseId" class="w-full border rounded px-3 py-2 text-sm">
@@ -77,9 +115,7 @@
                     @endforeach
                 </select>
             </div>
-        </div>
 
-        <div class="flex flex-wrap items-end gap-3 mt-3">
             <div class="w-52">
                 <label class="block text-xs font-medium mb-1">Starts</label>
                 <input type="datetime-local" wire:model="startsAt" class="w-full border rounded px-3 py-2 text-sm">
@@ -177,6 +213,23 @@
                     @endforeach
                 </select>
             </div>
+            <div class="w-44">
+                <label class="block text-xs font-medium mb-1">Slot</label>
+                <select wire:model.live="filterPlacement" class="w-full border rounded px-3 py-2 text-sm">
+                    <option value="">All slots</option>
+                    <option value="top">Top — home hero</option>
+                    <option value="mid">Mid — between modules</option>
+                </select>
+            </div>
+            <div class="w-52">
+                <label class="block text-xs font-medium mb-1">Category</label>
+                <select wire:model.live="filterCategory" class="w-full border rounded px-3 py-2 text-sm">
+                    <option value="">All categories</option>
+                    @foreach ($categories as $cat)
+                        <option value="{{ $cat->id }}">{{ $cat->name }}</option>
+                    @endforeach
+                </select>
+            </div>
             <div class="w-40">
                 <label class="block text-xs font-medium mb-1">Status</label>
                 <select wire:model.live="filterStatus" class="w-full border rounded px-3 py-2 text-sm">
@@ -195,8 +248,8 @@
                     <option value="house">House banners</option>
                 </select>
             </div>
-            @if ($filterFranchise !== '' || $filterZone !== '' || $filterStatus !== '' || $filterType !== '' || $search !== '')
-                <button type="button" wire:click="$set('filterFranchise', ''); $set('filterZone', ''); $set('filterStatus', ''); $set('filterType', ''); $set('search', '')"
+            @if ($filterFranchise !== '' || $filterZone !== '' || $filterCategory !== '' || $filterPlacement !== '' || $filterStatus !== '' || $filterType !== '' || $search !== '')
+                <button type="button" wire:click="$set('filterFranchise', ''); $set('filterZone', ''); $set('filterCategory', ''); $set('filterPlacement', ''); $set('filterStatus', ''); $set('filterType', ''); $set('search', '')"
                         class="text-xs text-blue-600 hover:underline pb-2">Clear all</button>
             @endif
         </div>
@@ -205,7 +258,7 @@
     @if ($reorderMode)
         <div class="bg-indigo-50 border border-indigo-100 text-indigo-800 rounded p-3 mb-3 text-xs">
             Reorder mode: use the ↑ / ↓ arrows to set the order banners appear in the app. Changes save immediately.
-            @if ($filterFranchise !== '' || $filterZone !== '' || $filterStatus !== '' || $filterType !== '' || $search !== '')
+            @if ($filterFranchise !== '' || $filterZone !== '' || $filterCategory !== '' || $filterPlacement !== '' || $filterStatus !== '' || $filterType !== '' || $search !== '')
                 <span class="font-medium">Rows are moving within the current search/filter.</span>
             @endif
         </div>
@@ -228,7 +281,8 @@
                     </th>
                     <th class="px-4 py-2">Banner</th>
                     <th class="px-4 py-2">Title</th>
-                    <th class="px-4 py-2">Placement</th>
+                    <th class="px-4 py-2">Slot</th>
+                    <th class="px-4 py-2">Targeting</th>
                     <th class="px-4 py-2">Window</th>
                     <th class="px-4 py-2">Advertiser</th>
                     <th class="px-4 py-2">Price</th>
@@ -257,7 +311,14 @@
                                    class="block text-xs text-blue-600 hover:underline truncate max-w-[14rem]">{{ $banner->link }}</a>
                             @endif
                         </td>
-                        <td class="px-4 py-2 text-gray-500">{{ $banner->placement }}</td>
+                        <td class="px-4 py-2">
+                            <span @class([
+                                'px-2 py-1 rounded text-xs font-medium',
+                                'bg-indigo-100 text-indigo-700' => $banner->placement === 'top',
+                                'bg-teal-100 text-teal-700' => $banner->placement !== 'top',
+                            ])>{{ $banner->placement_short }}</span>
+                        </td>
+                        <td class="px-4 py-2 text-gray-500 text-xs">{{ $banner->targeting }}</td>
                         <td class="px-4 py-2 text-gray-500 text-xs">
                             @if ($banner->starts_at || $banner->expires_at)
                                 {{ $banner->starts_at?->format('d M Y') ?? 'Any time' }}
@@ -338,8 +399,8 @@
                         </td>
                     </tr>
                 @empty
-                    <tr><td colspan="10" class="px-4 py-6 text-center text-gray-400">
-                        @if ($search !== '' || $filterFranchise !== '' || $filterZone !== '' || $filterStatus !== '' || $filterType !== '')
+                    <tr><td colspan="11" class="px-4 py-6 text-center text-gray-400">
+                        @if ($search !== '' || $filterFranchise !== '' || $filterZone !== '' || $filterCategory !== '' || $filterPlacement !== '' || $filterStatus !== '' || $filterType !== '')
                             No banners match your search or filters.
                         @else
                             No banners yet. Add your first one above.
@@ -383,8 +444,12 @@
 
                     <div class="grid grid-cols-2 gap-4">
                         <div>
-                            <p class="text-xs text-gray-500">Placement</p>
-                            <p>{{ $b->placement }}</p>
+                            <p class="text-xs text-gray-500">Slot</p>
+                            <p>{{ $b->placement_label }}</p>
+                        </div>
+                        <div>
+                            <p class="text-xs text-gray-500">Targeting</p>
+                            <p>{{ $b->targeting }}</p>
                         </div>
                         <div>
                             <p class="text-xs text-gray-500">Status</p>
@@ -466,6 +531,32 @@
                         <label class="block text-sm font-medium mb-1">Link</label>
                         <input type="text" wire:model="editLink" placeholder="https://…" class="w-full border rounded px-3 py-2 text-sm">
                         @error('editLink') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium mb-1">Slot <span class="text-red-500">*</span></label>
+                            <select wire:model="editPlacement" class="w-full border rounded px-3 py-2 text-sm">
+                                @foreach ($placements as $value => $label)
+                                    <option value="{{ $value }}">{{ $label }}</option>
+                                @endforeach
+                            </select>
+                            @error('editPlacement') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium mb-1">Category</label>
+                            <select wire:model="editCategoryId" class="w-full border rounded px-3 py-2 text-sm">
+                                <option value="">All categories</option>
+                                @foreach ($categories->groupBy('module') as $moduleSlug => $group)
+                                    <optgroup label="{{ \App\Support\Modules::label($moduleSlug) }}">
+                                        @foreach ($group as $cat)
+                                            <option value="{{ $cat->id }}">{{ $cat->name }}</option>
+                                        @endforeach
+                                    </optgroup>
+                                @endforeach
+                            </select>
+                            @error('editCategoryId') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
+                        </div>
                     </div>
 
                     <div class="grid grid-cols-2 gap-4">
