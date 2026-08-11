@@ -25,6 +25,9 @@
                         @endforeach
                     </div>
                 @endif
+                <button type="button" wire:click="toggleNewUserForm" class="text-xs text-blue-600 hover:underline mt-1">
+                    {{ $showNewUserForm ? '− Cancel' : '+ New staff user' }}
+                </button>
             </div>
 
             <div class="w-56">
@@ -102,6 +105,43 @@
 
             <button type="button" wire:click="assign" class="bg-slate-900 text-white px-6 h-[38px] rounded text-sm font-medium hover:bg-slate-800">+ Assign</button>
         </div>
+
+        @if ($showNewUserForm)
+            <div class="mt-4 pt-4 border-t">
+                <h3 class="text-xs font-semibold text-gray-500 mb-2">New Staff User</h3>
+                <div class="flex flex-wrap items-end gap-3">
+                    <div class="w-52">
+                        <label class="block text-xs font-medium mb-1">Name <span class="text-red-500">*</span></label>
+                        <input type="text" wire:model="newUserName" class="w-full border rounded px-3 py-2 text-sm">
+                        @error('newUserName') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
+                    </div>
+                    <div class="w-40">
+                        <label class="block text-xs font-medium mb-1">Phone <span class="text-red-500">*</span></label>
+                        <input type="text" wire:model="newUserPhone" class="w-full border rounded px-3 py-2 text-sm">
+                        @error('newUserPhone') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
+                    </div>
+                    <div class="w-52">
+                        <label class="block text-xs font-medium mb-1">Email</label>
+                        <input type="email" wire:model="newUserEmail" class="w-full border rounded px-3 py-2 text-sm">
+                        @error('newUserEmail') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
+                    </div>
+                    <div class="w-40">
+                        <label class="block text-xs font-medium mb-1">Password <span class="text-red-500">*</span></label>
+                        <input type="password" wire:model="newUserPassword" class="w-full border rounded px-3 py-2 text-sm">
+                        @error('newUserPassword') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
+                    </div>
+                    <div class="w-44">
+                        <label class="block text-xs font-medium mb-1">Account type</label>
+                        <select wire:model="newUserAccountType" class="w-full border rounded px-3 py-2 text-sm">
+                            <option value="zone_manager">Zone Manager</option>
+                            <option value="franchise_owner">Franchise Owner</option>
+                            <option value="super_admin">Super Admin</option>
+                        </select>
+                    </div>
+                    <button type="button" wire:click="createUser" class="bg-blue-600 text-white px-6 h-[38px] rounded text-sm font-medium hover:bg-blue-700">Create</button>
+                </div>
+            </div>
+        @endif
     </div>
 
     {{-- Current assignments --}}

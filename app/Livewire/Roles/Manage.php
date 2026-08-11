@@ -38,6 +38,22 @@ class Manage extends Component
 
     public ?int $confirmingRevokeId = null;
 
+    // --- Inline "+ New staff user" quick-add — there was nowhere else in
+    // the admin panel to create the User record in the first place before
+    // it could be granted a role here. Same inline-quick-add-since-there's-
+    // nowhere-else-yet pattern as Franchises\Manage's Country/City forms.
+    // Gated at global scope only (not per-scope like assign/revoke) since
+    // minting a brand-new staff identity is a coarser act than granting an
+    // existing one a scoped role — the account alone grants no admin
+    // access until a RoleAssignment is made, but only a global roles.manage
+    // holder can mint one at all.
+    public bool $showNewUserForm = false;
+    public string $newUserName = '';
+    public string $newUserPhone = '';
+    public string $newUserEmail = '';
+    public string $newUserPassword = '';
+    public string $newUserAccountType = 'zone_manager';
+
     public function getMatchingUsersProperty()
     {
         if (mb_strlen($this->userSearch) < 2) {
@@ -55,6 +71,55 @@ class Manage extends Component
     {
         $this->selectedUserId = $userId;
         $this->userSearch = User::find($userId)?->name ?? '';
+    }
+
+    public function toggleNewUserForm(): void
+    {
+        $this->showNewUserForm = ! $this->showNewUserForm;
+        $this->reset(['newUserName', 'newUserPhone', 'newUserEmail', 'newUserPassword']);
+        $this->newUserAccountType = 'zone_manager';
+        $this->resetValidation(['newUserName', 'newUserPhone', 'newUserEmail', 'newUserPassword', 'newUserAccountType']);
+    }
+
+    public function createUser(): void
+    {
+        if (! auth()->user()->hasPermission('roles.manage')) {
+            $this->flashType = 'error';
+            $this->flashMessage = 'You do not have permission to create staff accounts.';
+            return;
+        }
+
+        $this->validate([
+            'newUserName' => ['required', 'string', 'max:255'],
+            'newUserPhone' => ['required', 'string', 'max:20', 'unique:users,phone'],
+            'newUserEmail' => ['nullable', 'email', 'max:255', 'unique:users,email'],
+            'newUserPassword' => ['required', 'string', 'min:8'],
+            'newUserAccountType' => ['required', 'in:franchise_owner,zone_manager,super_admin'],
+        ], [], [
+            'newUserName' => 'name', 'newUserPhone' => 'phone', 'newUserEmail' => 'email',
+            'newUserPassword' => 'password', 'newUserAccountType' => 'account type',
+        ]);
+
+        $user = User::create([
+            'uuid' => (string) \Illuminate\Support\Str::uuid(),
+            'name' => $this->newUserName,
+            'phone' => $this->newUserPhone,
+            'email' => $this->newUserEmail ?: null,
+            'password' => bcrypt($this->newUserPassword),
+            'role' => $this->newUserAccountType,
+            'status' => 'active',
+        ]);
+
+        // Feed straight into the assign form below — creating a staff
+        // account with no role_assignment yet is a dead end on its own.
+        $this->selectedUserId = $user->id;
+        $this->userSearch = $user->name;
+        $this->showNewUserForm = false;
+        $this->reset(['newUserName', 'newUserPhone', 'newUserEmail', 'newUserPassword']);
+        $this->newUserAccountType = 'zone_manager';
+
+        $this->flashType = 'success';
+        $this->flashMessage = 'Staff account created — now assign a role below.';
     }
 
     public function updatedScopeType(): void
