@@ -13,6 +13,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 /**
@@ -71,17 +72,56 @@ class ServiceMatchingJob implements ShouldQueue
 
     public function handle(DispatchService $dispatchService): void
     {
-        $booking = Booking::find($this->bookingId);
+        // Claim the booking under a row lock before touching status — every
+        // other booking-mutating Action in this app (AcceptBookingAction,
+        // CompleteBookingAction, AdminCancelBookingAction, ...) already does
+        // this; this job's own pending -> searching_provider transition was
+        // the one exception, and an unlocked read-then-write here could lose
+        // a concurrent, legitimate AcceptBookingAction's result in a classic
+        // read-then-blind-write race (found live during Phase B0.3
+        // verification, investigated, and fixed here — see
+        // PHASE_B0_3_DISPATCH_POLYMORPHISM.md's follow-up notes). The lock is
+        // released as soon as this transaction commits; nothing below it
+        // needs to stay inside it.
+        $result = DB::transaction(function () {
+            $booking = Booking::lockForUpdate()->find($this->bookingId);
 
-        // Booking was cancelled, or already got assigned another way
-        // (e.g. manual admin assignment) between rounds — stop here.
-        if (!$booking || $booking->status !== 'searching_provider' && $booking->status !== 'pending') {
+            // Booking was cancelled, or already got assigned another way
+            // (e.g. a real acceptance, or manual admin assignment) between
+            // rounds — stop here. Checked AFTER acquiring the lock, not
+            // before, so this can't act on stale data.
+            if (!$booking || $booking->status !== 'searching_provider' && $booking->status !== 'pending') {
+                return null;
+            }
+
+            $justStartedSearching = false;
+
+            if ($booking->status === 'pending') {
+                $booking->status = 'searching_provider';
+                $booking->save();
+
+                $booking->statusHistory()->create([
+                    'status' => 'searching_provider',
+                    'note' => 'Dispatch started — searching for an eligible provider',
+                    'changed_at' => now(),
+                ]);
+
+                $justStartedSearching = true;
+            }
+
+            return [$booking->fresh(), $justStartedSearching];
+        });
+
+        [$booking, $justStartedSearching] = $result ?? [null, false];
+
+        if (!$booking) {
             return;
         }
 
-        if ($booking->status === 'pending') {
-            $booking->status = 'searching_provider';
-            $booking->save();
+        // Only fire on the real pending -> searching_provider transition —
+        // matches the original behavior exactly; later rounds (already
+        // searching_provider) don't re-fire this event.
+        if ($justStartedSearching) {
             event(new BookingStatusUpdated($booking));
         }
 
