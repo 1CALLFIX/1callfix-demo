@@ -499,6 +499,26 @@
                         </select>
                     </div>
 
+                    <div class="border-t pt-4 relative">
+                        <label class="block text-sm font-medium mb-1">Owner</label>
+                        <p class="text-xs text-gray-400 mb-2">Who this franchise's revenue share (see Commission Defaults) gets credited to, once a booking completes.</p>
+                        <div class="flex items-center gap-2">
+                            <input type="text" wire:model.live="editOwnerSearch" placeholder="Search name or phone..." class="flex-1 border rounded px-3 py-2 text-sm" autocomplete="off">
+                            @if ($editOwnerUserId)
+                                <button type="button" wire:click="clearEditOwner" class="text-xs text-red-600 hover:underline whitespace-nowrap">Clear</button>
+                            @endif
+                        </div>
+                        @if ($editOwnerSearch && $this->matchingOwners->isNotEmpty() && ! $editOwnerUserId)
+                            <div class="absolute z-10 bg-white border rounded shadow-sm mt-1 w-full max-h-48 overflow-y-auto">
+                                @foreach ($this->matchingOwners as $u)
+                                    <button type="button" wire:click="selectEditOwner({{ $u->id }})" class="block w-full text-left px-3 py-2 text-sm hover:bg-gray-50">
+                                        {{ $u->name }} <span class="text-gray-400">— {{ $u->phone }}</span>
+                                    </button>
+                                @endforeach
+                            </div>
+                        @endif
+                    </div>
+
                     <div class="border-t pt-4">
                         <label class="block text-sm font-medium mb-1">Modules</label>
                         <p class="text-xs text-gray-400 mb-2">

@@ -15,6 +15,7 @@ use App\Livewire\Banners\Manage as BannersManage;
 use App\Livewire\Settings\Manage as SettingsManage;
 use App\Livewire\Cms\Manage as CmsManage;
 use App\Livewire\Roles\Manage as RolesManage;
+use App\Livewire\Payouts\Manage as PayoutsManage;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 
@@ -27,7 +28,7 @@ Route::post('/admin/logout', function () {
     return redirect()->route('admin.login');
 })->middleware('auth')->name('admin.logout');
 
-Route::middleware(['auth', \App\Http\Middleware\EnsureSuperAdmin::class])
+Route::middleware(['auth', \App\Http\Middleware\EnsureHasAdminAccess::class])
     ->prefix('admin')
     ->group(function () {
         Route::get('/dashboard', Dashboard::class)->name('admin.dashboard');
@@ -44,4 +45,5 @@ Route::middleware(['auth', \App\Http\Middleware\EnsureSuperAdmin::class])
         Route::get('/settings', SettingsManage::class)->name('admin.settings.index');
         Route::get('/cms', CmsManage::class)->name('admin.cms.index');
         Route::get('/roles', RolesManage::class)->name('admin.roles.index');
+        Route::get('/payouts', PayoutsManage::class)->name('admin.payouts.index');
     });

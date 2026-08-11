@@ -36,7 +36,7 @@ class CommissionService
             return $existing;
         }
 
-        $booking->loadMissing(['franchise', 'provider.user']);
+        $booking->loadMissing(['franchise.owner', 'provider.user']);
         $franchise = $booking->franchise;
         $total = (float) ($booking->price_final ?? $booking->price_quoted);
 
@@ -62,6 +62,21 @@ class CommissionService
                     $providerCommission,
                     reason: "Earnings for booking {$booking->code}",
                     ref: "booking:{$booking->id}:provider-earning"
+                );
+            }
+
+            // Franchise revenue share -> the franchise owner's wallet, same
+            // mechanism as the provider's earning above (reusing
+            // WalletService, not a second ledger). If no owner is assigned
+            // yet (Franchises\Manage's Edit modal), the share is still
+            // recorded on this Commission row for later settlement once one
+            // is — it just isn't credited anywhere until then.
+            if ($booking->franchise && $booking->franchise->owner_user_id && $franchiseCommission > 0) {
+                $this->walletService->credit(
+                    $booking->franchise->owner,
+                    $franchiseCommission,
+                    reason: "Franchise revenue share for booking {$booking->code}",
+                    ref: "booking:{$booking->id}:franchise-earning"
                 );
             }
 

@@ -55,14 +55,19 @@ use Livewire\Component;
 // App\Livewire\Roles\Manage. A user-search + scope-assignment workflow
 // doesn't fit this component's per-tab-form shape; same reasoning that put
 // CMS on its own screen instead of a Settings tab.
+//
+// Finance/Settlement and Disbursement graduated the same way, to
+// admin.payouts.index — franchise revenue share is now credited to the
+// franchise owner's wallet at completion (CommissionService, same
+// mechanism as the provider's share), and PayoutService turns wallet
+// balance into a tracked payout request through to paid/failed.
 class Manage extends Component
 {
     public const PLACEHOLDER_TABS = [
         'mobile_apps' => ['label' => 'Mobile Apps', 'note' => 'Country picker, app links, upgrade prompts — no mobile apps exist yet (M6/M7 haven\'t started).'],
         'vendor' => ['label' => 'Vendor / Provider', 'note' => 'Provider self-registration rules, KYC requirements, verified badges — the Providers screen already covers approve/reject; broader policy config isn\'t built yet. No self-registration route exists (confirmed by audit) since there\'s no provider-facing app yet.'],
         'customer' => ['label' => 'Customer', 'note' => 'Registration rules, profile requirements, per-customer limits — no generalized customer-config surface exists yet (no customer-facing app to register through).'],
-        'wallet' => ['label' => 'Wallet / Ledger', 'note' => 'Wallet limits, payout thresholds — WalletService exists but has no admin-configurable rules yet.'],
-        'finance_settlement' => ['label' => 'Finance / Settlement', 'note' => 'Commission rates by scope are now real (see Commission Defaults\' scope picker above) — but disbursement/payout timing has nothing to configure: there is no SettlementService, informally or otherwise (confirmed by audit). Building real money-movement logic (franchise/platform share payout) needs its own scoped design, not something to improvise here.'],
+        'wallet' => ['label' => 'Wallet / Ledger', 'note' => 'Wallet limits (min top-up, max balance) — WalletService itself is real and now feeds Payouts (see admin.payouts.index); admin-configurable limits on top of it aren\'t built yet.'],
         'notifications' => ['label' => 'Notifications / Communication', 'note' => 'No SMS gateway or push-delivery service is wired up (ServiceMatchingJob has a standing TODO for FCM). BookingStatusUpdated/NewJobOffered ARE real ShouldBroadcast events — see the Websocket tab — but nothing subscribes a phone/email to receive them outside a websocket connection.'],
         'ui_home_screen' => ['label' => 'UI / Home Screen', 'note' => 'Banner position/vendor layout/widget visibility — there\'s no customer-facing home screen yet to configure (M6 not started).'],
         'priority_ranking' => ['label' => 'Priority / Ranking', 'note' => 'Search/listing sort rules — nothing customer-facing exists yet to rank.'],
@@ -71,7 +76,6 @@ class Manage extends Component
         'in_app_support' => ['label' => 'In-App Support', 'note' => 'Support widget/link config for a mobile app that doesn\'t exist yet.'],
         'subscriptions_membership' => ['label' => 'Subscriptions / Membership', 'note' => 'subscription_plans and provider_subscriptions tables exist with zero consumers anywhere (confirmed by audit) — no provider app to sell a package through, no customer app to sell Prime through.'],
         'loyalty_referral' => ['label' => 'Loyalty / Referral', 'note' => 'loyalty_points and referrals tables exist with zero consumers anywhere (confirmed by audit). Awarding real points/referral bonuses on booking completion would add new financial side-effects next to tested Commission/Wallet code with no specified point values or referral amounts to build against — not guessing at that here.'],
-        'disbursement' => ['label' => 'Disbursement', 'note' => 'Payout timing/splits — payouts/payment_accounts tables exist (confirmed by audit), commission is split and credited to the provider\'s wallet at completion, but franchise/platform shares are never paid out anywhere. Needs a dedicated SettlementService design pass, not improvised here — queued next.'],
         'app_upgrade' => ['label' => 'App Upgrade', 'note' => 'Independent version gating per app (customer/partner/rider) — queued: the force-update contract (Setting-driven min version + API endpoint) is real backend work regardless of app status, just not built yet.'],
         'advanced_system' => ['label' => 'Advanced / System', 'note' => 'Feature flags, queue behaviour, cache rules — no admin-facing surface for any of this exists yet.'],
     ];

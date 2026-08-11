@@ -79,6 +79,13 @@ class Manage extends Component
     /** slug => bool, for the toggleable verticals above. */
     public array $editModules = [];
 
+    // --- Edit modal: owner assignment (needed for SettlementService to have
+    // someone real to credit the franchise's revenue share to; edit-only,
+    // same reasoning as module toggles above — not a decision to make while
+    // still typing the franchise's name). ---
+    public string $editOwnerSearch = '';
+    public ?int $editOwnerUserId = null;
+
     // --- Edit modal: inline quick-add for Country/City ---
     public bool $showEditNewCountryForm = false;
     public string $editNewCountryName = '';
@@ -289,6 +296,9 @@ class Manage extends Component
             ->mapWithKeys(fn ($slug) => [$slug => (bool) ($franchise->modules->{$slug} ?? false)])
             ->all();
 
+        $this->editOwnerUserId = $franchise->owner_user_id;
+        $this->editOwnerSearch = $franchise->owner?->name ?? '';
+
         $this->showEditNewCountryForm = false;
         $this->showEditNewCityForm = false;
         $this->resetValidation();
@@ -306,6 +316,7 @@ class Manage extends Component
             'country_id' => $this->editCountryId,
             'city_id' => $this->editCityId,
             'state' => $this->editState ?: null,
+            'owner_user_id' => $this->editOwnerUserId,
             'commission_model' => $this->editCommissionModel,
             'commission_value' => $this->editCommissionValue,
             'platform_fee_percent' => $this->editPlatformFeePercent,
@@ -321,6 +332,31 @@ class Manage extends Component
 
         $this->showEditModal = false;
         $this->flashMessage = 'Franchise updated.';
+    }
+
+    public function getMatchingOwnersProperty()
+    {
+        if (mb_strlen($this->editOwnerSearch) < 2) {
+            return collect();
+        }
+
+        return \App\Models\User::where('name', 'like', "%{$this->editOwnerSearch}%")
+            ->orWhere('phone', 'like', "%{$this->editOwnerSearch}%")
+            ->orderBy('name')
+            ->limit(8)
+            ->get();
+    }
+
+    public function selectEditOwner(int $userId): void
+    {
+        $this->editOwnerUserId = $userId;
+        $this->editOwnerSearch = \App\Models\User::find($userId)?->name ?? '';
+    }
+
+    public function clearEditOwner(): void
+    {
+        $this->editOwnerUserId = null;
+        $this->editOwnerSearch = '';
     }
 
     public function closeEditModal(): void
