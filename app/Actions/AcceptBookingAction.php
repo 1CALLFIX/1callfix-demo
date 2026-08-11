@@ -9,6 +9,7 @@ use App\Models\Provider;
 use App\Models\Setting;
 use App\Notifications\BookingStatusNotification;
 use App\Notifications\Support\ChannelResolver;
+use App\Services\WalletService;
 use Illuminate\Support\Facades\DB;
 
 class AcceptBookingAction
@@ -23,10 +24,14 @@ class AcceptBookingAction
      * instead of both silently succeeding and corrupting the booking.
      *
      * @throws \RuntimeException if the offer is no longer valid (expired,
-     *         already accepted by someone else, or already withdrawn)
+     *         already accepted by someone else, or already withdrawn), or
+     *         if the provider's wallet balance is below the configured
+     *         wallet.provider_min_balance_to_accept_jobs for their scope
      */
     public function execute(int $bookingId, Provider $provider): Booking
     {
+        $this->assertMeetsMinimumWalletBalance($provider);
+
         $booking = DB::transaction(function () use ($bookingId, $provider) {
             $booking = Booking::lockForUpdate()->findOrFail($bookingId);
 
@@ -83,5 +88,34 @@ class AcceptBookingAction
         }
 
         return $booking;
+    }
+
+    /**
+     * A credit-worthiness gate, not a payment — the provider's own wallet
+     * balance (topped up from commission earnings) has to stay above this
+     * floor to keep accepting new jobs. 0 (the default) means no gate.
+     * Checked before the transaction starts — this isn't part of the
+     * booking's own atomicity, just an eligibility pre-check.
+     */
+    private function assertMeetsMinimumWalletBalance(Provider $provider): void
+    {
+        $scope = array_filter([
+            'zone_id' => $provider->zone_id,
+            'franchise_id' => $provider->franchise_id,
+            'city_id' => $provider->franchise?->city_id,
+            'country_id' => $provider->franchise?->country_id,
+        ]);
+
+        $minBalance = (float) Setting::get('wallet.provider_min_balance_to_accept_jobs', '0', $scope);
+
+        if ($minBalance <= 0) {
+            return;
+        }
+
+        $balance = app(WalletService::class)->balance($provider->user);
+
+        if ($balance < $minBalance) {
+            throw new \RuntimeException("Your wallet balance ({$balance}) is below the minimum ({$minBalance}) required to accept new jobs.");
+        }
     }
 }

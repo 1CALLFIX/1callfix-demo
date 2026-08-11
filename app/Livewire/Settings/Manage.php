@@ -70,13 +70,21 @@ use Livewire\Component;
 // anywhere, same as before, but the full event -> channel -> adapter flow
 // is real and logged to notification_logs). This tab only controls which
 // channels are attempted, per scope.
+//
+// Wallet/Ledger graduated once real consumers existed to enforce it
+// against: customer top-up (App\Services\WalletTopUpService, backed by the
+// same Razorpay order/webhook path booking payments use — see
+// payments.purpose) and payout min/max (App\Services\PayoutService). A
+// provider's minimum-balance-to-accept-jobs gate lives in
+// AcceptBookingAction. "Maximum wallet balance" is enforced only against
+// voluntary top-ups, not automatic commission earnings — a balance cap
+// must never cause an earned commission credit to be rejected/lost.
 class Manage extends Component
 {
     public const PLACEHOLDER_TABS = [
         'mobile_apps' => ['label' => 'Mobile Apps', 'note' => 'Country picker, app links, upgrade prompts — no mobile apps exist yet (M6/M7 haven\'t started).'],
         'vendor' => ['label' => 'Vendor / Provider', 'note' => 'Provider self-registration rules, KYC requirements, verified badges — the Providers screen already covers approve/reject; broader policy config isn\'t built yet. No self-registration route exists (confirmed by audit) since there\'s no provider-facing app yet.'],
         'customer' => ['label' => 'Customer', 'note' => 'Registration rules, profile requirements, per-customer limits — no generalized customer-config surface exists yet (no customer-facing app to register through).'],
-        'wallet' => ['label' => 'Wallet / Ledger', 'note' => 'Wallet limits (min top-up, max balance) — WalletService itself is real and now feeds Payouts (see admin.payouts.index); admin-configurable limits on top of it aren\'t built yet.'],
         'ui_home_screen' => ['label' => 'UI / Home Screen', 'note' => 'Banner position/vendor layout/widget visibility — there\'s no customer-facing home screen yet to configure (M6 not started).'],
         'priority_ranking' => ['label' => 'Priority / Ranking', 'note' => 'Search/listing sort rules — nothing customer-facing exists yet to rank.'],
         'dynamic_links' => ['label' => 'Dynamic Links', 'note' => 'iOS/Android deep-link scheme, package names, SHA256 — meaningless without a mobile app to link into.'],
@@ -115,6 +123,18 @@ class Manage extends Component
     public string $cancellationFreeMinutes = '15';
     public string $cancellationFeeType = 'flat';
     public string $cancellationFeeValue = '0';
+
+    // --- Wallet (WalletTopUpService, AcceptBookingAction, PayoutService) ---
+    public string $walletCustomerMinTopup = '100';
+    public string $walletCustomerMaxTopup = '10000';
+    public string $walletCustomerMaxBalance = '50000';
+    public string $walletCustomerDailyTopupLimit = '20000';
+    public string $walletCustomerMonthlyTopupLimit = '100000';
+    public string $walletProviderMinBalanceToAcceptJobs = '0';
+    public string $walletProviderMinPayoutAmount = '0';
+    public string $walletProviderMaxPayoutAmount = '0';
+    public string $walletFranchiseMinPayoutAmount = '0';
+    public string $walletFranchiseMaxPayoutAmount = '0';
 
     // --- Notifications (ChannelResolver, consumed by every Notification class) ---
     public bool $notifyMail = true;
@@ -224,6 +244,17 @@ class Manage extends Component
         $this->cancellationFreeMinutes = (string) Setting::get('cancellation.free_minutes', '15', $scope);
         $this->cancellationFeeType = Setting::get('cancellation.fee_type', 'flat', $scope);
         $this->cancellationFeeValue = (string) Setting::get('cancellation.fee_value', '0', $scope);
+
+        $this->walletCustomerMinTopup = (string) Setting::get('wallet.customer_min_topup', '100', $scope);
+        $this->walletCustomerMaxTopup = (string) Setting::get('wallet.customer_max_topup', '10000', $scope);
+        $this->walletCustomerMaxBalance = (string) Setting::get('wallet.customer_max_balance', '50000', $scope);
+        $this->walletCustomerDailyTopupLimit = (string) Setting::get('wallet.customer_daily_topup_limit', '20000', $scope);
+        $this->walletCustomerMonthlyTopupLimit = (string) Setting::get('wallet.customer_monthly_topup_limit', '100000', $scope);
+        $this->walletProviderMinBalanceToAcceptJobs = (string) Setting::get('wallet.provider_min_balance_to_accept_jobs', '0', $scope);
+        $this->walletProviderMinPayoutAmount = (string) Setting::get('wallet.provider_min_payout_amount', '0', $scope);
+        $this->walletProviderMaxPayoutAmount = (string) Setting::get('wallet.provider_max_payout_amount', '0', $scope);
+        $this->walletFranchiseMinPayoutAmount = (string) Setting::get('wallet.franchise_min_payout_amount', '0', $scope);
+        $this->walletFranchiseMaxPayoutAmount = (string) Setting::get('wallet.franchise_max_payout_amount', '0', $scope);
 
         $configuredChannels = explode(',', Setting::get('notifications.channels', 'mail', $scope));
         $this->notifyMail = in_array('mail', $configuredChannels, true);
@@ -352,6 +383,58 @@ class Manage extends Component
         Setting::set('cancellation.fee_value', $this->cancellationFeeValue, $scopeType, $scopeId);
 
         $this->flashMessage = 'Refund / Cancellation settings saved'.($scopeType === 'global' ? '.' : " for this {$scopeType}.");
+    }
+
+    /** Real consumers: App\Services\WalletTopUpService (customer fields), App\Actions\AcceptBookingAction (min balance), App\Services\PayoutService (payout min/max). */
+    public function saveWallet(): void
+    {
+        $this->validate([
+            'walletCustomerMinTopup' => ['required', 'numeric', 'min:0'],
+            'walletCustomerMaxTopup' => ['required', 'numeric', 'gt:walletCustomerMinTopup'],
+            'walletCustomerMaxBalance' => ['required', 'numeric', 'min:0'],
+            'walletCustomerDailyTopupLimit' => ['required', 'numeric', 'min:0'],
+            'walletCustomerMonthlyTopupLimit' => ['required', 'numeric', 'gte:walletCustomerDailyTopupLimit'],
+            'walletProviderMinBalanceToAcceptJobs' => ['required', 'numeric', 'min:0'],
+            'walletProviderMinPayoutAmount' => ['required', 'numeric', 'min:0'],
+            'walletProviderMaxPayoutAmount' => ['required', 'numeric', 'min:0'],
+            'walletFranchiseMinPayoutAmount' => ['required', 'numeric', 'min:0'],
+            'walletFranchiseMaxPayoutAmount' => ['required', 'numeric', 'min:0'],
+        ], [], [
+            'walletCustomerMinTopup' => 'minimum top-up', 'walletCustomerMaxTopup' => 'maximum top-up',
+            'walletCustomerMaxBalance' => 'maximum wallet balance', 'walletCustomerDailyTopupLimit' => 'daily top-up limit',
+            'walletCustomerMonthlyTopupLimit' => 'monthly top-up limit',
+            'walletProviderMinBalanceToAcceptJobs' => 'minimum balance to accept jobs',
+            'walletProviderMinPayoutAmount' => 'provider minimum payout', 'walletProviderMaxPayoutAmount' => 'provider maximum payout',
+            'walletFranchiseMinPayoutAmount' => 'franchise minimum payout', 'walletFranchiseMaxPayoutAmount' => 'franchise maximum payout',
+        ]);
+
+        if ((float) $this->walletProviderMaxPayoutAmount > 0 && (float) $this->walletProviderMaxPayoutAmount < (float) $this->walletProviderMinPayoutAmount) {
+            $this->addError('walletProviderMaxPayoutAmount', 'Maximum payout must be greater than the minimum (or 0 for no cap).');
+            return;
+        }
+        if ((float) $this->walletFranchiseMaxPayoutAmount > 0 && (float) $this->walletFranchiseMaxPayoutAmount < (float) $this->walletFranchiseMinPayoutAmount) {
+            $this->addError('walletFranchiseMaxPayoutAmount', 'Maximum payout must be greater than the minimum (or 0 for no cap).');
+            return;
+        }
+
+        [$scopeType, $scopeId] = $this->scopeTypeAndId();
+
+        foreach ([
+            'wallet.customer_min_topup' => $this->walletCustomerMinTopup,
+            'wallet.customer_max_topup' => $this->walletCustomerMaxTopup,
+            'wallet.customer_max_balance' => $this->walletCustomerMaxBalance,
+            'wallet.customer_daily_topup_limit' => $this->walletCustomerDailyTopupLimit,
+            'wallet.customer_monthly_topup_limit' => $this->walletCustomerMonthlyTopupLimit,
+            'wallet.provider_min_balance_to_accept_jobs' => $this->walletProviderMinBalanceToAcceptJobs,
+            'wallet.provider_min_payout_amount' => $this->walletProviderMinPayoutAmount,
+            'wallet.provider_max_payout_amount' => $this->walletProviderMaxPayoutAmount,
+            'wallet.franchise_min_payout_amount' => $this->walletFranchiseMinPayoutAmount,
+            'wallet.franchise_max_payout_amount' => $this->walletFranchiseMaxPayoutAmount,
+        ] as $key => $value) {
+            Setting::set($key, $value, $scopeType, $scopeId);
+        }
+
+        $this->flashMessage = 'Wallet settings saved'.($scopeType === 'global' ? '.' : " for this {$scopeType}.");
     }
 
     /** Real consumer: App\Notifications\Support\ChannelResolver, called from every BookingStatus/PaymentStatus/PayoutStatus dispatch site. */

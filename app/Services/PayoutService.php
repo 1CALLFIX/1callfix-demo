@@ -2,8 +2,10 @@
 
 namespace App\Services;
 
+use App\Models\Franchise;
 use App\Models\Payout;
 use App\Models\Provider;
+use App\Models\Setting;
 use App\Models\User;
 use App\Notifications\PayoutStatusNotification;
 use App\Notifications\Support\ChannelResolver;
@@ -45,6 +47,8 @@ class PayoutService
         if ($amount <= 0) {
             throw new \InvalidArgumentException('Payout amount must be positive.');
         }
+
+        $this->assertWithinPayoutLimits($payeeType, $payeeId, $amount);
 
         $user = $this->resolvePayeeUser($payeeType, $payeeId);
 
@@ -116,6 +120,52 @@ class PayoutService
 
             $user->notify(new PayoutStatusNotification('failed', $payout->fresh(), ChannelResolver::resolve()));
         });
+    }
+
+    /**
+     * wallet.provider_min/max_payout_amount or wallet.franchise_min/max_
+     * payout_amount, resolved against the payee's own geography (a
+     * provider's franchise/zone, or the franchise a franchise_owner
+     * actually owns) — same Setting cascade every other scoped rule uses.
+     * 0 for the max means "no cap" (the seeded default).
+     */
+    private function assertWithinPayoutLimits(string $payeeType, int $payeeId, float $amount): void
+    {
+        $scope = $this->payoutScope($payeeType, $payeeId);
+        $prefix = $payeeType === 'provider' ? 'wallet.provider' : 'wallet.franchise';
+
+        $min = (float) Setting::get("{$prefix}_min_payout_amount", '0', $scope);
+        $max = (float) Setting::get("{$prefix}_max_payout_amount", '0', $scope);
+
+        if ($amount < $min) {
+            throw new \RuntimeException("Payout amount must be at least {$min}.");
+        }
+
+        if ($max > 0 && $amount > $max) {
+            throw new \RuntimeException("Payout amount cannot exceed {$max}.");
+        }
+    }
+
+    private function payoutScope(string $payeeType, int $payeeId): array
+    {
+        if ($payeeType === 'provider') {
+            $provider = Provider::with('franchise')->find($payeeId);
+
+            return $provider ? array_filter([
+                'zone_id' => $provider->zone_id,
+                'franchise_id' => $provider->franchise_id,
+                'city_id' => $provider->franchise?->city_id,
+                'country_id' => $provider->franchise?->country_id,
+            ]) : [];
+        }
+
+        $franchise = Franchise::where('owner_user_id', $payeeId)->first();
+
+        return $franchise ? array_filter([
+            'franchise_id' => $franchise->id,
+            'city_id' => $franchise->city_id,
+            'country_id' => $franchise->country_id,
+        ]) : [];
     }
 
     public function resolvePayeeUser(string $payeeType, int $payeeId): User

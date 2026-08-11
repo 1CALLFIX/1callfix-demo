@@ -9,6 +9,7 @@ use App\Notifications\PaymentStatusNotification;
 use App\Notifications\Support\ChannelResolver;
 use Illuminate\Http\Request;
 use App\Services\RazorpayService;
+use App\Services\WalletTopUpService;
 use Illuminate\Support\Facades\Log;
 
 class PaymentController extends Controller
@@ -135,7 +136,8 @@ class PaymentController extends Controller
         }
 
         // Idempotency guard — if we've already processed this as captured,
-        // do nothing further (prevents double-marking on webhook retries).
+        // do nothing further (prevents double-marking on webhook retries,
+        // and double-crediting a wallet top-up).
         if ($payment->status === 'captured') {
             return;
         }
@@ -144,6 +146,12 @@ class PaymentController extends Controller
         $payment->gateway_payment_id = $razorpayPaymentId;
         $payment->captured_at = now();
         $payment->save();
+
+        // Wallet top-up: credit the wallet, no booking involved.
+        if ($payment->purpose === 'wallet_topup') {
+            app(WalletTopUpService::class)->creditWalletForCapturedTopUp($payment);
+            return;
+        }
 
         $booking = $payment->booking;
         $booking->payment_status = 'paid';
@@ -166,6 +174,10 @@ class PaymentController extends Controller
         if ($payment && $payment->status !== 'captured') {
             $payment->status = 'failed';
             $payment->save();
+
+            if ($payment->purpose === 'wallet_topup') {
+                return; // nothing was ever credited — no booking, nothing to notify
+            }
 
             $booking = $payment->booking;
             if ($booking && $booking->customer) {

@@ -14,6 +14,8 @@ class Payment extends Model
 
     protected $fillable = [
         'booking_id',
+        'purpose',
+        'user_id',
         'payment_method_id',
         'amount',
         'gateway',
@@ -28,4 +30,6 @@ class Payment extends Model
     protected $casts = ['captured_at' => 'datetime'];
     public function booking() { return $this->belongsTo(Booking::class); }
     public function method() { return $this->belongsTo(PaymentMethod::class, 'payment_method_id'); }
+    /** Only set for purpose = 'wallet_topup' -- booking-purpose payments derive the customer via booking->customer instead. */
+    public function user() { return $this->belongsTo(User::class); }
 }

@@ -22,7 +22,7 @@ use App\Notifications\Support\ChannelResolver;
  */
 class CancellationService
 {
-    public function __construct(private RazorpayService $razorpay)
+    public function __construct(private RazorpayService $razorpay, private WalletService $walletService)
     {
     }
 
@@ -59,12 +59,15 @@ class CancellationService
 
     /**
      * If the booking has a captured payment, refunds (amount paid - fee)
-     * through Razorpay and records it on the existing payments/bookings
-     * columns. No-op for an unpaid booking — there's nothing to refund,
-     * and today 'cash'/'wallet' payment_method bookings never get a
-     * captured Payment row in the first place (only the Razorpay
-     * create-order/webhook path does), so this only ever fires for real
-     * online payments.
+     * and records it on the existing payments/bookings columns. No-op for
+     * an unpaid booking — there's nothing to refund, and 'cash' bookings
+     * never get a captured Payment row in the first place. 'online'
+     * (Razorpay) and 'wallet' payment_method bookings both DO get one
+     * (see PaymentController::handlePaymentCaptured() and
+     * CreateBookingAction::payWithWallet()) — Payment.gateway distinguishes
+     * which refund path applies: Razorpay's API for a real gateway
+     * payment, or a straight wallet credit (WalletService, not a direct
+     * balance mutation) for a wallet payment — nothing external to refund.
      */
     public function refundIfPaid(Booking $booking, float $fee): void
     {
@@ -87,11 +90,20 @@ class CancellationService
             return;
         }
 
-        $this->razorpay->refund(
-            $payment->gateway_payment_id,
-            $refundAmount,
-            "Booking {$booking->code} cancelled"
-        );
+        if ($payment->gateway === 'wallet') {
+            $this->walletService->credit(
+                $booking->customer,
+                $refundAmount,
+                reason: "Refund for cancelled booking {$booking->code}",
+                ref: "booking:{$booking->id}:wallet-refund"
+            );
+        } else {
+            $this->razorpay->refund(
+                $payment->gateway_payment_id,
+                $refundAmount,
+                "Booking {$booking->code} cancelled"
+            );
+        }
 
         $payment->refunded_amount = $refundAmount;
         $payment->status = 'refunded';

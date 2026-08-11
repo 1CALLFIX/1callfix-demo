@@ -29,20 +29,33 @@ class RazorpayService
      */
     public function createOrder(Booking $booking): array
     {
+        return $this->createRawOrder(
+            (float) $booking->price_quoted,
+            $booking->code,
+            ['booking_id' => $booking->id, 'franchise_id' => $booking->franchise_id],
+        );
+    }
+
+    /**
+     * The general form createOrder() (booking payments) and
+     * WalletTopUpService (wallet top-ups) both build on — a Razorpay order
+     * doesn't require a Booking, just an amount, a receipt reference and
+     * some notes. Extracted here rather than duplicated so both callers
+     * share one place that talks to Razorpay's orders API.
+     */
+    public function createRawOrder(float $amountRupees, string $receipt, array $notes = []): array
+    {
         $response = Http::withBasicAuth($this->keyId, $this->keySecret)
             ->post('https://api.razorpay.com/v1/orders', [
-                'amount' => (int) round($booking->price_quoted * 100),
+                'amount' => (int) round($amountRupees * 100),
                 'currency' => 'INR',
-                'receipt' => $booking->code,
-                'notes' => [
-                    'booking_id' => $booking->id,
-                    'franchise_id' => $booking->franchise_id,
-                ],
+                'receipt' => $receipt,
+                'notes' => $notes,
             ]);
 
         if (!$response->successful()) {
             throw new \RuntimeException(
-                "Razorpay order creation failed for booking [{$booking->id}]: " . $response->body()
+                "Razorpay order creation failed for receipt [{$receipt}]: " . $response->body()
             );
         }
 

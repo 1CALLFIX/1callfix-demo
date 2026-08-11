@@ -6,6 +6,7 @@
         'booking' => 'Booking',
         'cancellation' => 'Refund / Cancellation',
         'payment' => 'Payment',
+        'wallet' => 'Wallet',
         'notifications' => 'Notifications',
         'locale' => 'Locale & Currency',
         'branding' => 'Platform / Branding',
@@ -265,6 +266,83 @@
             @error('paymentOnlineEnabled') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
             <div class="flex justify-end pt-4 mt-4 border-t">
                 <button type="button" wire:click="savePayment" class="bg-slate-900 text-white px-6 py-2 rounded text-sm font-medium hover:bg-slate-800">Save Payment Settings</button>
+            </div>
+
+        {{-- Wallet — customer top-up limits (WalletTopUpService), provider min-balance-to-accept-jobs (AcceptBookingAction), payout min/max (PayoutService). --}}
+        @elseif ($activeTab === 'wallet')
+            <div class="mb-4">
+                <h3 class="text-sm font-semibold mb-1">Customer Top-Up</h3>
+                <p class="text-xs text-gray-400 mb-3">Enforced in WalletTopUpService before a Razorpay order is even created — a direct API call can't bypass these.</p>
+                <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
+                    <div>
+                        <label class="block text-xs font-medium mb-1">Min top-up @if ($scoped) <x-setting-override-badge :overridden="in_array('wallet.customer_min_topup', $this->overriddenKeys)" setting-key="wallet.customer_min_topup" /> @endif</label>
+                        <input type="number" step="0.01" wire:model="walletCustomerMinTopup" class="w-full border rounded px-3 py-2 text-sm">
+                        @error('walletCustomerMinTopup') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium mb-1">Max top-up @if ($scoped) <x-setting-override-badge :overridden="in_array('wallet.customer_max_topup', $this->overriddenKeys)" setting-key="wallet.customer_max_topup" /> @endif</label>
+                        <input type="number" step="0.01" wire:model="walletCustomerMaxTopup" class="w-full border rounded px-3 py-2 text-sm">
+                        @error('walletCustomerMaxTopup') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium mb-1">Max wallet balance @if ($scoped) <x-setting-override-badge :overridden="in_array('wallet.customer_max_balance', $this->overriddenKeys)" setting-key="wallet.customer_max_balance" /> @endif</label>
+                        <input type="number" step="0.01" wire:model="walletCustomerMaxBalance" class="w-full border rounded px-3 py-2 text-sm">
+                        @error('walletCustomerMaxBalance') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium mb-1">Daily top-up limit @if ($scoped) <x-setting-override-badge :overridden="in_array('wallet.customer_daily_topup_limit', $this->overriddenKeys)" setting-key="wallet.customer_daily_topup_limit" /> @endif</label>
+                        <input type="number" step="0.01" wire:model="walletCustomerDailyTopupLimit" class="w-full border rounded px-3 py-2 text-sm">
+                        @error('walletCustomerDailyTopupLimit') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium mb-1">Monthly top-up limit @if ($scoped) <x-setting-override-badge :overridden="in_array('wallet.customer_monthly_topup_limit', $this->overriddenKeys)" setting-key="wallet.customer_monthly_topup_limit" /> @endif</label>
+                        <input type="number" step="0.01" wire:model="walletCustomerMonthlyTopupLimit" class="w-full border rounded px-3 py-2 text-sm">
+                        @error('walletCustomerMonthlyTopupLimit') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
+                    </div>
+                </div>
+            </div>
+
+            <div class="mb-4 border-t pt-4">
+                <h3 class="text-sm font-semibold mb-1">Provider</h3>
+                <p class="text-xs text-gray-400 mb-3">"Riders/Drivers" are Provider rows in this schema (no separate rider entity) — this rule covers both. Minimum balance is enforced in AcceptBookingAction before a job can be accepted; payout min/max in PayoutService::request(). 0 = no minimum / no cap.</p>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                        <label class="block text-xs font-medium mb-1">Min balance to accept jobs @if ($scoped) <x-setting-override-badge :overridden="in_array('wallet.provider_min_balance_to_accept_jobs', $this->overriddenKeys)" setting-key="wallet.provider_min_balance_to_accept_jobs" /> @endif</label>
+                        <input type="number" step="0.01" wire:model="walletProviderMinBalanceToAcceptJobs" class="w-full border rounded px-3 py-2 text-sm">
+                        @error('walletProviderMinBalanceToAcceptJobs') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium mb-1">Min payout amount @if ($scoped) <x-setting-override-badge :overridden="in_array('wallet.provider_min_payout_amount', $this->overriddenKeys)" setting-key="wallet.provider_min_payout_amount" /> @endif</label>
+                        <input type="number" step="0.01" wire:model="walletProviderMinPayoutAmount" class="w-full border rounded px-3 py-2 text-sm">
+                        @error('walletProviderMinPayoutAmount') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium mb-1">Max payout amount (0 = no cap) @if ($scoped) <x-setting-override-badge :overridden="in_array('wallet.provider_max_payout_amount', $this->overriddenKeys)" setting-key="wallet.provider_max_payout_amount" /> @endif</label>
+                        <input type="number" step="0.01" wire:model="walletProviderMaxPayoutAmount" class="w-full border rounded px-3 py-2 text-sm">
+                        @error('walletProviderMaxPayoutAmount') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
+                    </div>
+                </div>
+            </div>
+
+            <div class="mb-4 border-t pt-4">
+                <h3 class="text-sm font-semibold mb-1">Franchise</h3>
+                <p class="text-xs text-gray-400 mb-3">Enforced in PayoutService::request() for payee_type = franchise_owner.</p>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-medium mb-1">Min payout amount @if ($scoped) <x-setting-override-badge :overridden="in_array('wallet.franchise_min_payout_amount', $this->overriddenKeys)" setting-key="wallet.franchise_min_payout_amount" /> @endif</label>
+                        <input type="number" step="0.01" wire:model="walletFranchiseMinPayoutAmount" class="w-full border rounded px-3 py-2 text-sm">
+                        @error('walletFranchiseMinPayoutAmount') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium mb-1">Max payout amount (0 = no cap) @if ($scoped) <x-setting-override-badge :overridden="in_array('wallet.franchise_max_payout_amount', $this->overriddenKeys)" setting-key="wallet.franchise_max_payout_amount" /> @endif</label>
+                        <input type="number" step="0.01" wire:model="walletFranchiseMaxPayoutAmount" class="w-full border rounded px-3 py-2 text-sm">
+                        @error('walletFranchiseMaxPayoutAmount') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex justify-end pt-4 mt-4 border-t">
+                <button type="button" wire:click="saveWallet" class="bg-slate-900 text-white px-6 py-2 rounded text-sm font-medium hover:bg-slate-800">Save Wallet Settings</button>
             </div>
 
         {{-- Notifications — which channels App\Notifications\Support\ChannelResolver hands back to every dispatch site. --}}
