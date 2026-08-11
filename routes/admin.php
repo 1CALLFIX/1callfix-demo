@@ -9,6 +9,7 @@ use App\Livewire\Providers\Show as ProvidersShow;
 use App\Livewire\Workers\Index as WorkersIndex;
 use App\Livewire\Workers\Show as WorkersShow;
 use App\Livewire\Franchises\Manage as FranchisesManage;
+use App\Livewire\Geography\Manage as GeographyManage;
 use App\Livewire\Zones\Manage as ZonesManage;
 use App\Livewire\Categories\Manage as CategoriesManage;
 use App\Livewire\Subcategories\Manage as SubcategoriesManage;
@@ -43,6 +44,7 @@ Route::middleware(['auth', \App\Http\Middleware\EnsureHasAdminAccess::class])
         Route::get('/providers/{providerId}', ProvidersShow::class)->name('admin.providers.show');
         Route::get('/workers', WorkersIndex::class)->name('admin.workers.index');
         Route::get('/workers/{workerId}', WorkersShow::class)->name('admin.workers.show');
+        Route::get('/geography', GeographyManage::class)->name('admin.geography.index');
         Route::get('/franchises', FranchisesManage::class)->name('admin.franchises.index');
         Route::get('/zones', ZonesManage::class)->name('admin.zones.index');
         Route::get('/categories', CategoriesManage::class)->name('admin.categories.index');
