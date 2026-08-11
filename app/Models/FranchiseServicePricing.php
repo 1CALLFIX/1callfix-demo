@@ -19,6 +19,8 @@ class FranchiseServicePricing extends Model
         'is_offered'
     ];
 
+    protected $casts = ['is_offered' => 'boolean'];
+
     public function franchise() { return $this->belongsTo(Franchise::class); }
     public function service() { return $this->belongsTo(Service::class); }
 }
