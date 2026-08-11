@@ -29,11 +29,20 @@ use Livewire\Component;
 // one — the resolver already supports it the moment a second module needs it.
 //
 // Every REAL tab's fields are wired to something that actually reads them —
-// see the comment above each group below. Everything else renders as a
-// greyed-out "coming soon" panel via PLACEHOLDER_TABS, each with a one-line
-// reason: no infrastructure exists yet for any of them (no Vendor system,
-// no Wallet UI, no notification service, no SMS/Websocket, no CMS, no
-// scoped RBAC, no mobile apps), and shipping controls that configure
+// see the comment above each group below. As of this pass that's ten tabs:
+// Dispatch, Commission Defaults, Booking, Locale & Currency, Branding, Maps
+// (read-only status), General/System (Maintenance Mode, gates the booking
+// API routes via EnsureNotInMaintenanceMode), Payment (which methods the
+// New Booking modal offers — not gateway credentials, those stay in .env),
+// Website/CMS (a real screen at admin.cms.index — content_pages/faqs had
+// schema and zero consumers), and Websocket (read-only status — the
+// BookingStatusUpdated/NewJobOffered events genuinely implement
+// ShouldBroadcast, but BROADCAST_CONNECTION is "log", not a connected
+// realtime service).
+//
+// Everything else renders as a greyed-out "coming soon" panel via
+// PLACEHOLDER_TABS, each with a one-line reason grounded in this
+// codebase's actual state, not a guess — shipping controls that configure
 // nothing violates the project's own Definition of Done. Two are
 // deliberately still placeholders despite having real schema:
 // Refund/Cancellation (cancellation_policies exists, but
@@ -45,26 +54,22 @@ use Livewire\Component;
 class Manage extends Component
 {
     public const PLACEHOLDER_TABS = [
-        'general_system' => ['label' => 'General / System', 'note' => 'Maintenance mode, timezone — no maintenance-mode feature or per-request timezone handling exists yet (the whole app runs in UTC today). Business name/city label are covered by the Branding tab above, not here.'],
         'mobile_apps' => ['label' => 'Mobile Apps', 'note' => 'Country picker, app links, upgrade prompts — no mobile apps exist yet (M6/M7 haven\'t started).'],
-        'vendor' => ['label' => 'Vendor / Provider', 'note' => 'Provider self-registration rules, KYC requirements, verified badges — the Providers screen already covers approve/reject; broader policy config isn\'t built yet.'],
-        'customer' => ['label' => 'Customer', 'note' => 'Registration rules, profile requirements, per-customer limits — no generalized customer-config surface exists yet.'],
-        'payment' => ['label' => 'Payment', 'note' => 'Razorpay mode/keys currently live in .env (config/services.php) — intentionally not duplicated into an editable DB setting for a payment credential. A real multi-gateway abstraction is a project on the scale of RazorpayService itself, not a settings screen.'],
+        'vendor' => ['label' => 'Vendor / Provider', 'note' => 'Provider self-registration rules, KYC requirements, verified badges — the Providers screen already covers approve/reject; broader policy config isn\'t built yet. No self-registration route exists (confirmed by audit) since there\'s no provider-facing app yet.'],
+        'customer' => ['label' => 'Customer', 'note' => 'Registration rules, profile requirements, per-customer limits — no generalized customer-config surface exists yet (no customer-facing app to register through).'],
         'wallet' => ['label' => 'Wallet / Ledger', 'note' => 'Wallet limits, payout thresholds — WalletService exists but has no admin-configurable rules yet.'],
-        'finance_settlement' => ['label' => 'Finance / Settlement', 'note' => 'Commission rates by scope are now real (see Commission Defaults\' scope picker above) — but disbursement/payout timing has nothing to configure: there is no SettlementService, informally or otherwise (confirmed by audit).'],
-        'refund_cancellation' => ['label' => 'Refund / Cancellation', 'note' => 'cancellation_policies table exists (free_cancellation_minutes, fee_type, fee_value) but AdminCancelBookingAction doesn\'t enforce it yet — needs that logic built first (and a decision on how a fee interacts with an already-captured Razorpay payment), not just a settings editor.'],
-        'notifications' => ['label' => 'Notifications / Communication', 'note' => 'No SMS gateway, push notification service, or WhatsApp integration is wired up yet — ServiceMatchingJob has a standing TODO for FCM.'],
-        'websocket' => ['label' => 'Websocket / Realtime', 'note' => 'No realtime/websocket server exists in this codebase.'],
+        'finance_settlement' => ['label' => 'Finance / Settlement', 'note' => 'Commission rates by scope are now real (see Commission Defaults\' scope picker above) — but disbursement/payout timing has nothing to configure: there is no SettlementService, informally or otherwise (confirmed by audit). Building real money-movement logic (franchise/platform share payout) needs its own scoped design, not something to improvise here.'],
+        'refund_cancellation' => ['label' => 'Refund / Cancellation', 'note' => 'cancellation_policies table exists (free_cancellation_minutes, fee_type, fee_value) but AdminCancelBookingAction doesn\'t enforce it yet — needs a decision on the elapsed-time reference point and how a fee interacts with an already-captured Razorpay payment before this can be wired in, not just a settings editor.'],
+        'notifications' => ['label' => 'Notifications / Communication', 'note' => 'No SMS gateway or push-delivery service is wired up (ServiceMatchingJob has a standing TODO for FCM). BookingStatusUpdated/NewJobOffered ARE real ShouldBroadcast events — see the Websocket tab — but nothing subscribes a phone/email to receive them outside a websocket connection.'],
         'ui_home_screen' => ['label' => 'UI / Home Screen', 'note' => 'Banner position/vendor layout/widget visibility — there\'s no customer-facing home screen yet to configure (M6 not started).'],
         'priority_ranking' => ['label' => 'Priority / Ranking', 'note' => 'Search/listing sort rules — nothing customer-facing exists yet to rank.'],
-        'website_cms' => ['label' => 'Website / CMS', 'note' => 'content_pages and faqs tables exist with no admin screen yet.'],
-        'mail_sms' => ['label' => 'Mail / SMS', 'note' => 'Mail transport is configured via .env (config/mail.php); no SMS gateway is integrated. No admin-editable mail/SMS settings exist yet.'],
+        'mail_sms' => ['label' => 'Mail / SMS', 'note' => 'Mail transport is configured via .env (config/mail.php); no SMS gateway is integrated anywhere in the codebase. No admin-editable mail/SMS settings exist yet.'],
         'dynamic_links' => ['label' => 'Dynamic Links', 'note' => 'iOS/Android deep-link scheme, package names, SHA256 — meaningless without a mobile app to link into.'],
         'in_app_support' => ['label' => 'In-App Support', 'note' => 'Support widget/link config for a mobile app that doesn\'t exist yet.'],
-        'subscriptions_membership' => ['label' => 'Subscriptions / Membership', 'note' => 'subscription_plans and provider_subscriptions tables exist with zero consumers anywhere (confirmed by audit).'],
-        'loyalty_referral' => ['label' => 'Loyalty / Referral', 'note' => 'loyalty_points and referrals tables exist with zero consumers anywhere (confirmed by audit).'],
+        'subscriptions_membership' => ['label' => 'Subscriptions / Membership', 'note' => 'subscription_plans and provider_subscriptions tables exist with zero consumers anywhere (confirmed by audit) — no provider app to sell a package through, no customer app to sell Prime through.'],
+        'loyalty_referral' => ['label' => 'Loyalty / Referral', 'note' => 'loyalty_points and referrals tables exist with zero consumers anywhere (confirmed by audit). Awarding real points/referral bonuses on booking completion would add new financial side-effects next to tested Commission/Wallet code with no specified point values or referral amounts to build against — not guessing at that here.'],
         'disbursement' => ['label' => 'Disbursement', 'note' => 'Payout timing/splits — no disbursement logic exists; commission is split and credited to the provider\'s wallet at completion, but franchise/platform shares are never paid out anywhere.'],
-        'roles_permissions' => ['label' => 'Roles / Permissions', 'note' => 'Access is currently one flat super_admin check (EnsureSuperAdmin) — no scoped roles exist. Blocked on Rule 9\'s rewrite (what RBAC actually means in this codebase, not Glover\'s).'],
+        'roles_permissions' => ['label' => 'Roles / Permissions', 'note' => 'Access is currently one flat super_admin check (EnsureSuperAdmin) — confirmed again: no Role or Permission model/table exists anywhere in this codebase. Blocked on Rule 9\'s rewrite (what RBAC actually means in this codebase, not Glover\'s) — building one now would be creating the first RBAC system, not extending one, contradicting the explicit instruction not to build a second.'],
         'app_upgrade' => ['label' => 'App Upgrade', 'note' => 'Independent version gating per app (customer/partner/rider) — none of those apps exist yet.'],
         'advanced_system' => ['label' => 'Advanced / System', 'note' => 'Feature flags, queue behaviour, cache rules — no admin-facing surface for any of this exists yet.'],
     ];
@@ -99,6 +104,14 @@ class Manage extends Component
     // --- Platform / Branding (admin header, <title>, login page) ---
     public string $brandingPlatformName = '1CallFix Admin';
     public string $brandingOperatingCityLabel = 'Nellore';
+
+    // --- General / System (EnsureNotInMaintenanceMode middleware, routes/api.php) ---
+    public string $systemMaintenanceMode = '0';
+
+    // --- Payment (New Booking modal's payment-method dropdown) ---
+    public string $paymentOnlineEnabled = '1';
+    public string $paymentCashEnabled = '1';
+    public string $paymentWalletEnabled = '1';
 
     public string $flashMessage = '';
 
@@ -188,6 +201,12 @@ class Manage extends Component
 
         $this->brandingPlatformName = Setting::get('branding.platform_name', '1CallFix Admin', $scope);
         $this->brandingOperatingCityLabel = Setting::get('branding.operating_city_label', 'Nellore', $scope);
+
+        $this->systemMaintenanceMode = (string) Setting::get('system.maintenance_mode', '0', $scope);
+
+        $this->paymentOnlineEnabled = (string) Setting::get('payment.online_enabled', '1', $scope);
+        $this->paymentCashEnabled = (string) Setting::get('payment.cash_enabled', '1', $scope);
+        $this->paymentWalletEnabled = (string) Setting::get('payment.wallet_enabled', '1', $scope);
     }
 
     /** Keys with a real override AT the exact picked scope (not inherited) — drives the "overridden here" badge. */
@@ -312,6 +331,55 @@ class Manage extends Component
         $this->flashMessage = 'Branding settings saved'.($scopeType === 'global' ? '.' : " for this {$scopeType}.");
     }
 
+    /**
+     * Real consumer: app/Http/Middleware/EnsureNotInMaintenanceMode.php,
+     * applied to the booking-operation API routes in routes/api.php.
+     */
+    public function saveGeneralSystem(): void
+    {
+        $this->validate([
+            'systemMaintenanceMode' => ['required', 'in:0,1'],
+        ], [], [
+            'systemMaintenanceMode' => 'maintenance mode',
+        ]);
+
+        [$scopeType, $scopeId] = $this->scopeTypeAndId();
+
+        Setting::set('system.maintenance_mode', $this->systemMaintenanceMode, $scopeType, $scopeId);
+
+        $this->flashMessage = 'General / System settings saved'.($scopeType === 'global' ? '.' : " for this {$scopeType}.");
+    }
+
+    /**
+     * Real consumer: the New Booking modal's payment-method dropdown
+     * (app/Livewire/Bookings/Index.php) only offers methods enabled here,
+     * and createBooking() re-validates the submission against the same
+     * enabled set. Gateway credentials/mode stay in .env, untouched — this
+     * only controls which of the three existing methods a customer is
+     * offered, not how Razorpay itself is configured.
+     */
+    public function savePayment(): void
+    {
+        $this->validate([
+            'paymentOnlineEnabled' => ['required', 'in:0,1'],
+            'paymentCashEnabled' => ['required', 'in:0,1'],
+            'paymentWalletEnabled' => ['required', 'in:0,1'],
+        ]);
+
+        if ($this->paymentOnlineEnabled === '0' && $this->paymentCashEnabled === '0' && $this->paymentWalletEnabled === '0') {
+            $this->addError('paymentOnlineEnabled', 'At least one payment method must stay enabled.');
+            return;
+        }
+
+        [$scopeType, $scopeId] = $this->scopeTypeAndId();
+
+        Setting::set('payment.online_enabled', $this->paymentOnlineEnabled, $scopeType, $scopeId);
+        Setting::set('payment.cash_enabled', $this->paymentCashEnabled, $scopeType, $scopeId);
+        Setting::set('payment.wallet_enabled', $this->paymentWalletEnabled, $scopeType, $scopeId);
+
+        $this->flashMessage = 'Payment settings saved'.($scopeType === 'global' ? '.' : " for this {$scopeType}.");
+    }
+
     public function render()
     {
         return view('livewire.settings.manage', [
@@ -324,6 +392,9 @@ class Manage extends Component
                 ? Zone::where('franchise_id', $this->scopeFranchiseId)->where('is_active', true)->orderBy('name')->get()
                 : collect(),
             'mapsConfigured' => (bool) config('services.google_maps.key'),
+            'broadcastDriver' => config('broadcasting.default', env('BROADCAST_CONNECTION', 'log')),
+            'cmsPageCount' => \App\Models\ContentPage::count(),
+            'cmsFaqCount' => \App\Models\Faq::count(),
         ])->layout('layouts.admin', ['title' => 'Settings']);
     }
 }

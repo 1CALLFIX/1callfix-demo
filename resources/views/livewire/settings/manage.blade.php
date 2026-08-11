@@ -1,11 +1,15 @@
 @php
     $realTabs = [
+        'general_system' => 'General / System',
         'dispatch' => 'Dispatch',
         'commission' => 'Commission Defaults',
         'booking' => 'Booking',
+        'payment' => 'Payment',
         'locale' => 'Locale & Currency',
         'branding' => 'Platform / Branding',
         'maps' => 'Maps',
+        'websocket' => 'Websocket',
+        'website_cms' => 'Website / CMS',
     ];
     $placeholder = \App\Livewire\Settings\Manage::PLACEHOLDER_TABS[$activeTab] ?? null;
     $scoped = $scopeType !== 'global';
@@ -100,8 +104,26 @@
 
     <div class="bg-white rounded-lg shadow-sm p-4 max-w-3xl">
 
+        {{-- General / System — Maintenance Mode gates the booking API routes
+             (accept/complete/pay) via EnsureNotInMaintenanceMode. Scope-aware:
+             a franchise/zone override here only pauses that scope, resolved
+             from the booking's own franchise_id/zone_id at request time. --}}
+        @if ($activeTab === 'general_system')
+            <p class="text-xs text-gray-400 mb-3">Maintenance mode pauses the booking-operation API routes (accept / complete / pay) — used by the provider app, not the admin panel itself, which stays reachable so you can turn this back off. The Razorpay webhook is never paused. Timezone/per-request locale handling isn't built yet — the app runs in UTC.</p>
+            <div>
+                <label class="block text-xs font-medium mb-1">Maintenance mode @if ($scoped) <x-setting-override-badge :overridden="in_array('system.maintenance_mode', $this->overriddenKeys)" setting-key="system.maintenance_mode" /> @endif</label>
+                <select wire:model="systemMaintenanceMode" class="w-48 border rounded px-3 py-2 text-sm">
+                    <option value="0">Off</option>
+                    <option value="1">On — pause booking operations</option>
+                </select>
+                @error('systemMaintenanceMode') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
+            </div>
+            <div class="flex justify-end pt-4 mt-4 border-t">
+                <button type="button" wire:click="saveGeneralSystem" class="bg-slate-900 text-white px-6 py-2 rounded text-sm font-medium hover:bg-slate-800">Save General / System Settings</button>
+            </div>
+
         {{-- Dispatch — feeds ServiceMatchingJob's tuning values directly. --}}
-        @if ($activeTab === 'dispatch')
+        @elseif ($activeTab === 'dispatch')
             <p class="text-xs text-gray-400 mb-3">Tuning for the automatic provider-matching engine. Changes apply to the next dispatch run — bookings already searching keep their in-flight timing.</p>
             <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div>
@@ -181,6 +203,39 @@
                 <button type="button" wire:click="saveBooking" class="bg-slate-900 text-white px-6 py-2 rounded text-sm font-medium hover:bg-slate-800">Save Booking Settings</button>
             </div>
 
+        {{-- Payment — which methods the New Booking modal offers. Gateway
+             credentials/mode stay in .env; a real multi-gateway abstraction
+             is out of scope (comparable in size to RazorpayService itself). --}}
+        @elseif ($activeTab === 'payment')
+            <p class="text-xs text-gray-400 mb-3">Controls which payment methods the New Booking modal offers — not gateway configuration. Razorpay credentials/mode live in <code>.env</code> (<code>config/services.php</code>), intentionally not duplicated into an editable DB row.</p>
+            <div class="grid grid-cols-3 gap-4">
+                <div>
+                    <label class="block text-xs font-medium mb-1">Online (Razorpay) @if ($scoped) <x-setting-override-badge :overridden="in_array('payment.online_enabled', $this->overriddenKeys)" setting-key="payment.online_enabled" /> @endif</label>
+                    <select wire:model="paymentOnlineEnabled" class="w-full border rounded px-3 py-2 text-sm">
+                        <option value="1">Enabled</option>
+                        <option value="0">Disabled</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-medium mb-1">Cash @if ($scoped) <x-setting-override-badge :overridden="in_array('payment.cash_enabled', $this->overriddenKeys)" setting-key="payment.cash_enabled" /> @endif</label>
+                    <select wire:model="paymentCashEnabled" class="w-full border rounded px-3 py-2 text-sm">
+                        <option value="1">Enabled</option>
+                        <option value="0">Disabled</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-medium mb-1">Wallet @if ($scoped) <x-setting-override-badge :overridden="in_array('payment.wallet_enabled', $this->overriddenKeys)" setting-key="payment.wallet_enabled" /> @endif</label>
+                    <select wire:model="paymentWalletEnabled" class="w-full border rounded px-3 py-2 text-sm">
+                        <option value="1">Enabled</option>
+                        <option value="0">Disabled</option>
+                    </select>
+                </div>
+            </div>
+            @error('paymentOnlineEnabled') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
+            <div class="flex justify-end pt-4 mt-4 border-t">
+                <button type="button" wire:click="savePayment" class="bg-slate-900 text-white px-6 py-2 rounded text-sm font-medium hover:bg-slate-800">Save Payment Settings</button>
+            </div>
+
         {{-- Locale & Currency — the ₹ symbol shown across every admin money field. --}}
         @elseif ($activeTab === 'locale')
             <p class="text-xs text-gray-400 mb-3">Currency symbol shown across the admin panel (Bookings, Services, Banners, Dashboard). This changes display only — every money column stays a fixed 2-decimal figure, not a multi-currency conversion.</p>
@@ -229,6 +284,33 @@
             @unless ($mapsConfigured)
                 <p class="text-xs text-amber-700 bg-amber-50 rounded p-2 mt-3">Set GOOGLE_MAPS_API_KEY on the server and both maps fall back to plain lat/lng number fields — see zone-map.blade.php / address-map.blade.php.</p>
             @endunless
+
+        {{-- Websocket / Realtime — real, read-only. BookingStatusUpdated and
+             NewJobOffered genuinely implement ShouldBroadcast with real
+             private channels and payloads (app/Events/) — this shows
+             whether a driver is actually connected to deliver them. --}}
+        @elseif ($activeTab === 'websocket')
+            <p class="text-xs text-gray-400 mb-3">BROADCAST_CONNECTION lives in <code>.env</code> — shown here as status only. <code>BookingStatusUpdated</code> and <code>NewJobOffered</code> (<code>app/Events/</code>) both implement <code>ShouldBroadcast</code> with real private channels (<code>booking.&#123;id&#125;</code>, <code>provider.&#123;id&#125;.new-job</code>) and payloads today — what's missing is a connected realtime service to actually deliver them.</p>
+            <div class="flex items-center gap-3">
+                <span @class([
+                    'px-2 py-1 rounded text-xs font-medium',
+                    'bg-green-100 text-green-700' => ! in_array($broadcastDriver, ['log', 'null']),
+                    'bg-amber-100 text-amber-700' => in_array($broadcastDriver, ['log', 'null']),
+                ])>Driver: {{ $broadcastDriver }}</span>
+                @if (in_array($broadcastDriver, ['log', 'null']))
+                    <span class="text-xs text-gray-500">Events fire and get logged, but nothing is actually pushed over a websocket connection yet.</span>
+                @endif
+            </div>
+
+        {{-- Website / CMS — points at the real screen (admin.cms.index).
+             Pages/FAQs are records to manage, not toggles, so they get their
+             own {Module}\Manage-style screen rather than living in Settings. --}}
+        @elseif ($activeTab === 'website_cms')
+            <p class="text-xs text-gray-400 mb-3">Pages and FAQs are records to manage, not settings to toggle — they live on their own screen, following the same pattern as Categories/Zones.</p>
+            <div class="flex items-center gap-4">
+                <span class="text-sm">{{ $cmsPageCount }} {{ \Illuminate\Support\Str::plural('page', $cmsPageCount) }}, {{ $cmsFaqCount }} {{ \Illuminate\Support\Str::plural('FAQ', $cmsFaqCount) }}</span>
+                <a href="{{ route('admin.cms.index') }}" class="bg-slate-900 text-white px-4 py-2 rounded text-sm font-medium hover:bg-slate-800">Open Website / CMS →</a>
+            </div>
 
         {{-- Not built yet — no inputs, since nothing in the app reads a
              setting here. Named honestly, with the reason, rather than

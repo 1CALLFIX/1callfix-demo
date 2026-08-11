@@ -75,6 +75,27 @@ class Index extends Component
         $this->resetPage();
     }
 
+    /**
+     * Real consumer for Settings > Payment's enabled-methods toggles.
+     * Falls back to all three if every method were somehow disabled at
+     * once (savePayment() on the Settings screen already refuses to save
+     * that state, but this stays defensive rather than offering an empty
+     * dropdown if a scope override ever produces it).
+     */
+    private function enabledPaymentMethods(): array
+    {
+        $methods = [
+            'online' => 'Online',
+            'cash' => 'Cash',
+            'wallet' => 'Wallet',
+        ];
+
+        $enabled = array_filter($methods, fn ($label, $slug) =>
+            Setting::get("payment.{$slug}_enabled", '1') === '1', ARRAY_FILTER_USE_BOTH);
+
+        return $enabled ?: $methods;
+    }
+
     public function render()
     {
         $bookings = Booking::with(['customer', 'service', 'provider.user'])
@@ -98,6 +119,7 @@ class Index extends Component
             'services' => Service::where('is_active', true)->orderBy('name')->get(),
             'mapsConfigured' => (bool) config('services.google_maps.key'),
             'currencySymbol' => Setting::get('locale.currency_symbol', '₹'),
+            'enabledPaymentMethods' => $this->enabledPaymentMethods(),
         ])->layout('layouts.admin', ['title' => 'Bookings']);
     }
 
@@ -313,13 +335,18 @@ class Index extends Component
         // the Booking Settings tab, default 14 days.
         $maxScheduleDays = (int) Setting::get('booking.max_schedule_days_ahead', 14);
 
+        // Re-validated server-side against the Settings > Payment toggles,
+        // not just filtered out of the dropdown — a disabled method must be
+        // rejected even if submitted directly, not merely hidden from view.
+        $enabledMethods = implode(',', array_keys($this->enabledPaymentMethods()));
+
         $this->validate([
             'selectedCustomerId' => ['required', 'integer', 'exists:users,id'],
             'selectedZoneId' => ['required', 'integer', 'exists:zones,id'],
             'selectedAddressId' => ['required', 'integer', 'exists:addresses,id'],
             'selectedServiceId' => ['required', 'integer', 'exists:services,id'],
             'priceQuoted' => ['required', 'numeric', 'min:0'],
-            'paymentMethod' => ['required', 'in:online,cash,wallet'],
+            'paymentMethod' => ['required', "in:{$enabledMethods}"],
             'scheduledAt' => [
                 $this->bookingType === 'scheduled' ? 'required' : 'nullable',
                 'date', 'after:now',

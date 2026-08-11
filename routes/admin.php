@@ -13,6 +13,7 @@ use App\Livewire\Subcategories\Manage as SubcategoriesManage;
 use App\Livewire\Services\Manage as ServicesManage;
 use App\Livewire\Banners\Manage as BannersManage;
 use App\Livewire\Settings\Manage as SettingsManage;
+use App\Livewire\Cms\Manage as CmsManage;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 
@@ -40,4 +41,5 @@ Route::middleware(['auth', \App\Http\Middleware\EnsureSuperAdmin::class])
         Route::get('/services', ServicesManage::class)->name('admin.services.index');
         Route::get('/banners', BannersManage::class)->name('admin.banners.index');
         Route::get('/settings', SettingsManage::class)->name('admin.settings.index');
+        Route::get('/cms', CmsManage::class)->name('admin.cms.index');
     });

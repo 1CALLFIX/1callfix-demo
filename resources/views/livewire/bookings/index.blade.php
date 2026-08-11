@@ -191,9 +191,9 @@
             <div class="w-40">
                 <label class="block text-xs font-medium mb-1">Payment method</label>
                 <select wire:model="paymentMethod" class="w-full border rounded px-3 py-2 text-sm">
-                    <option value="online">Online</option>
-                    <option value="cash">Cash</option>
-                    <option value="wallet">Wallet</option>
+                    @foreach ($enabledPaymentMethods as $slug => $label)
+                        <option value="{{ $slug }}">{{ $label }}</option>
+                    @endforeach
                 </select>
                 @error('paymentMethod') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
             </div>
