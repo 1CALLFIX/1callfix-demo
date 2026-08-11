@@ -9,7 +9,7 @@ class NotificationLog extends Model
     protected $table = 'notification_logs';
 
     protected $fillable = [
-        'notifiable_type', 'notifiable_id', 'channel',
+        'notifiable_type', 'notifiable_id', 'campaign_id', 'channel',
         'notification_type', 'event', 'status', 'error', 'sent_at',
     ];
 
@@ -18,5 +18,10 @@ class NotificationLog extends Model
     public function notifiable()
     {
         return $this->morphTo();
+    }
+
+    public function campaign()
+    {
+        return $this->belongsTo(NotificationCampaign::class, 'campaign_id');
     }
 }

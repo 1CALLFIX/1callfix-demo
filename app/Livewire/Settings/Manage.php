@@ -120,6 +120,7 @@ class Manage extends Component
     public bool $notifyMail = true;
     public bool $notifySms = false;
     public bool $notifyPush = false;
+    public bool $notifyInApp = false;
 
     // --- Locale & Currency (display symbol used across admin money fields) ---
     public string $localeCurrencySymbol = '₹';
@@ -228,6 +229,7 @@ class Manage extends Component
         $this->notifyMail = in_array('mail', $configuredChannels, true);
         $this->notifySms = in_array('sms', $configuredChannels, true);
         $this->notifyPush = in_array('push', $configuredChannels, true);
+        $this->notifyInApp = in_array('in_app', $configuredChannels, true);
 
         $this->localeCurrencySymbol = Setting::get('locale.currency_symbol', '₹', $scope);
 
@@ -359,6 +361,7 @@ class Manage extends Component
             $this->notifyMail ? 'mail' : null,
             $this->notifySms ? 'sms' : null,
             $this->notifyPush ? 'push' : null,
+            $this->notifyInApp ? 'in_app' : null,
         ]);
 
         [$scopeType, $scopeId] = $this->scopeTypeAndId();

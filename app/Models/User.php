@@ -44,6 +44,7 @@ class User extends Authenticatable
     public function bookings() { return $this->hasMany(Booking::class, 'customer_id'); }
     public function wallet() { return $this->hasOne(Wallet::class); }
     public function ownedFranchises() { return $this->hasMany(Franchise::class, 'owner_user_id'); }
+    public function protectionPlans() { return $this->hasMany(UserProtectionPlan::class); }
     public function roleAssignments() { return $this->hasMany(RoleAssignment::class); }
 
     public function routeNotificationForSms(): ?string { return $this->phone; }

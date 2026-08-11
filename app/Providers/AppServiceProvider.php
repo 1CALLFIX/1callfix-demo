@@ -57,6 +57,7 @@ class AppServiceProvider extends ServiceProvider
             NotificationLog::create([
                 'notifiable_type' => get_class($event->notifiable),
                 'notifiable_id' => $event->notifiable->getKey(),
+                'campaign_id' => method_exists($event->notification, 'campaignId') ? $event->notification->campaignId() : null,
                 'channel' => $this->normalizeChannelName($event->channel),
                 'notification_type' => get_class($event->notification),
                 'event' => method_exists($event->notification, 'eventKey') ? $event->notification->eventKey() : null,
@@ -69,6 +70,7 @@ class AppServiceProvider extends ServiceProvider
             NotificationLog::create([
                 'notifiable_type' => get_class($event->notifiable),
                 'notifiable_id' => $event->notifiable->getKey(),
+                'campaign_id' => method_exists($event->notification, 'campaignId') ? $event->notification->campaignId() : null,
                 'channel' => $this->normalizeChannelName($event->channel),
                 'notification_type' => get_class($event->notification),
                 'event' => method_exists($event->notification, 'eventKey') ? $event->notification->eventKey() : null,
@@ -84,6 +86,7 @@ class AppServiceProvider extends ServiceProvider
         return match ($channel) {
             SmsChannel::class => 'sms',
             PushChannel::class => 'push',
+            'database' => 'in_app',
             default => is_string($channel) ? $channel : class_basename($channel),
         };
     }

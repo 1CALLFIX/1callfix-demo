@@ -270,7 +270,7 @@
         {{-- Notifications — which channels App\Notifications\Support\ChannelResolver hands back to every dispatch site. --}}
         @elseif ($activeTab === 'notifications')
             <p class="text-xs text-gray-400 mb-3">Controls which channels booking/payment/payout notifications attempt. Mail uses <code>config/mail.php</code> (log driver unless real SMTP is configured); SMS and Push have no real gateway configured yet — both log to <code>notification_logs</code> via a fake adapter so the internal flow is fully real and testable, without sending an actual message.</p>
-            <div class="grid grid-cols-3 gap-4">
+            <div class="grid grid-cols-4 gap-4">
                 <label class="flex items-center gap-2 text-sm">
                     <input type="checkbox" wire:model="notifyMail" class="rounded"> Mail
                 </label>
@@ -279,6 +279,9 @@
                 </label>
                 <label class="flex items-center gap-2 text-sm">
                     <input type="checkbox" wire:model="notifyPush" class="rounded"> Push
+                </label>
+                <label class="flex items-center gap-2 text-sm">
+                    <input type="checkbox" wire:model="notifyInApp" class="rounded"> In-app
                 </label>
             </div>
             @if ($scoped) <p class="text-xs text-gray-400 mt-2"><x-setting-override-badge :overridden="in_array('notifications.channels', $this->overriddenKeys)" setting-key="notifications.channels" /></p> @endif
