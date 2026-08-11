@@ -19,6 +19,7 @@ class Booking extends Model
         'zone_id',
         'customer_id',
         'provider_id',
+        'assigned_worker_id',
         'service_id',
         'address_id',
         'status',
@@ -46,6 +47,8 @@ class Booking extends Model
     public function zone() { return $this->belongsTo(Zone::class); }
     public function customer() { return $this->belongsTo(User::class, 'customer_id'); }
     public function provider() { return $this->belongsTo(Provider::class); }
+    /** Phase B0.2 — who is physically executing this booking, if delegated. provider_id (accountable Partner) is unaffected either way. */
+    public function assignedWorker() { return $this->belongsTo(FieldWorker::class, 'assigned_worker_id'); }
     public function service() { return $this->belongsTo(Service::class); }
     public function address() { return $this->belongsTo(Address::class); }
     public function options() { return $this->hasMany(BookingOption::class); }

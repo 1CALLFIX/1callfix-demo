@@ -27,6 +27,12 @@ Route::middleware(['auth:sanctum', \App\Http\Middleware\EnsureNotInMaintenanceMo
     Route::post('/subscriptions/{id}/upgrade', [\App\Http\Controllers\API\SubscriptionController::class, 'upgrade']);
     Route::post('/subscriptions/{id}/downgrade', [\App\Http\Controllers\API\SubscriptionController::class, 'downgrade']);
     Route::post('/subscriptions/{id}/renew-now', [\App\Http\Controllers\API\SubscriptionController::class, 'renewNow']);
+
+    // Phase B0.2 — Service Partner -> Worker delegation.
+    Route::get('/worker/jobs', [\App\Http\Controllers\API\WorkerJobController::class, 'index']);
+    Route::post('/worker/jobs/{booking}/start', [\App\Http\Controllers\API\WorkerJobController::class, 'start']);
+    Route::post('/worker/jobs/{booking}/complete', [\App\Http\Controllers\API\WorkerJobController::class, 'complete']);
+    Route::post('/partner/workers/assign-booking', [\App\Http\Controllers\API\PartnerWorkerController::class, 'assignBooking']);
 });
 
 // No auth middleware — this is a server-to-server callback from Razorpay,

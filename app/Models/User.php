@@ -40,6 +40,8 @@ class User extends Authenticatable
     public function franchise() { return $this->belongsTo(Franchise::class); }
     public function zone() { return $this->belongsTo(Zone::class); }
     public function providerProfile() { return $this->hasOne(Provider::class); }
+    /** The universal field-execution profile — distinct from providerProfile(). A User may hold either, both, or neither depending on their real role. */
+    public function fieldWorkerProfile() { return $this->hasOne(FieldWorker::class); }
     public function addresses() { return $this->hasMany(Address::class); }
     public function bookings() { return $this->hasMany(Booking::class, 'customer_id'); }
     public function wallet() { return $this->hasOne(Wallet::class); }

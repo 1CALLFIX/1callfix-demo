@@ -27,6 +27,15 @@ class AdminReassignBookingAction
             $previousProviderId = $booking->provider_id;
 
             $booking->provider_id = $provider->id;
+            // Phase B0.2: a worker assignment made under the OLD provider
+            // doesn't carry over to a different one — avoids a stale
+            // assigned_worker_id pointing at a worker who isn't even on
+            // the new provider's team. No-op when reassigning to the same
+            // provider (existing admin reassignment behavior otherwise
+            // unchanged).
+            if ($previousProviderId !== $provider->id) {
+                $booking->assigned_worker_id = null;
+            }
             if (in_array($booking->status, ['pending', 'searching_provider'], true)) {
                 // Same admin-editable OTP length as AcceptBookingAction.
                 $otpLength = (int) Setting::get('booking.otp_length', 4);
