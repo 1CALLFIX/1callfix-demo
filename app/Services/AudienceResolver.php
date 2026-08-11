@@ -132,15 +132,24 @@ class AudienceResolver
     {
         $query = User::query();
 
+        // Three different places geography lives depending on WHO the user
+        // is: users.zone_id/franchise_id directly (staff, and franchise_owner
+        // via ownedFranchises -- covered by users.franchise_id), the
+        // providers row (providers.zone_id/franchise_id -- a provider's own
+        // users.zone_id is typically unset), or the customer's saved
+        // addresses. "Everyone" has to check all three, or providers/
+        // customers silently vanish from a scoped all-audience broadcast.
         if ($zoneId !== null) {
             $query->where(function ($q) use ($zoneId) {
-                $q->where('zone_id', $zoneId) // staff/providers with a direct zone_id
-                    ->orWhereHas('addresses', fn ($a) => $a->where('zone_id', $zoneId)); // customers
+                $q->where('zone_id', $zoneId)
+                    ->orWhereHas('addresses', fn ($a) => $a->where('zone_id', $zoneId))
+                    ->orWhereHas('providerProfile', fn ($p) => $p->where('zone_id', $zoneId));
             });
         } elseif ($franchiseIds !== null) {
             $query->where(function ($q) use ($franchiseIds) {
                 $q->whereIn('franchise_id', $franchiseIds)
-                    ->orWhereHas('addresses', fn ($a) => $a->whereIn('franchise_id', $franchiseIds));
+                    ->orWhereHas('addresses', fn ($a) => $a->whereIn('franchise_id', $franchiseIds))
+                    ->orWhereHas('providerProfile', fn ($p) => $p->whereIn('franchise_id', $franchiseIds));
             });
         }
 
