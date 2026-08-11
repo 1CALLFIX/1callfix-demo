@@ -13,32 +13,54 @@ class Setting extends Model
     protected $table = 'settings';
 
     protected $fillable = [
-        'franchise_id',
+        'scope_type',
+        'scope_id',
         'key',
         'value'
     ];
-    public function franchise() { return $this->belongsTo(Franchise::class); }
+
+    /** Resolution order when a scope hint is given — most specific first. */
+    private const SCOPE_ORDER = ['franchise', 'zone', 'module', 'city', 'country'];
 
     /**
-     * Global settings only (franchise_id IS NULL) — the column stays nullable
-     * for a future franchise-override cascade (Master Context doc §14), but
-     * nothing builds that cascade yet, so every read/write here is global.
+     * Global → Country → City → Zone → Module → Franchise cascade (master
+     * doc §14). Every existing call site uses the two-argument form
+     * (no `$scope`), which resolves to global only — identical behaviour to
+     * before this cascade existed, so nothing that already calls
+     * Setting::get()/set() needs to change.
      *
-     * Cached forever per key since this is read from layouts/admin.blade.php
-     * on every admin page load; set() busts just that key.
+     * `$scope` keys are `{level}_id`, e.g. ['franchise_id' => 3, 'zone_id' => 7].
+     * Only levels present and non-empty in `$scope` are checked, in
+     * SCOPE_ORDER, before falling back to global. Cached forever per
+     * resolved key — layouts/admin.blade.php reads a global key on every
+     * admin page load — and set() busts just that one key.
      */
-    public static function get(string $key, $default = null)
+    public static function get(string $key, $default = null, array $scope = [])
     {
-        $value = cache()->rememberForever("setting:{$key}", fn () =>
-            static::whereNull('franchise_id')->where('key', $key)->value('value')
-        );
+        $chain = [];
+        foreach (self::SCOPE_ORDER as $level) {
+            if (! empty($scope["{$level}_id"])) {
+                $chain[] = [$level, $scope["{$level}_id"]];
+            }
+        }
+        $chain[] = ['global', null];
 
-        return $value ?? $default;
+        foreach ($chain as [$scopeType, $scopeId]) {
+            $value = cache()->rememberForever("setting:{$scopeType}:{$scopeId}:{$key}", fn () =>
+                static::where('scope_type', $scopeType)->where('scope_id', $scopeId)->where('key', $key)->value('value')
+            );
+
+            if ($value !== null) {
+                return $value;
+            }
+        }
+
+        return $default;
     }
 
-    public static function set(string $key, $value): void
+    public static function set(string $key, $value, string $scopeType = 'global', ?int $scopeId = null): void
     {
-        static::updateOrCreate(['franchise_id' => null, 'key' => $key], ['value' => $value]);
-        cache()->forget("setting:{$key}");
+        static::updateOrCreate(['scope_type' => $scopeType, 'scope_id' => $scopeId, 'key' => $key], ['value' => $value]);
+        cache()->forget("setting:{$scopeType}:{$scopeId}:{$key}");
     }
 }

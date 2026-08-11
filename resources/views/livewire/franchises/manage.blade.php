@@ -22,19 +22,73 @@
                 <label class="block text-xs font-medium mb-1">Name <span class="text-red-500">*</span></label>
                 <input type="text" wire:model="name" placeholder="e.g. Nellore" class="w-full border rounded px-3 py-2 text-sm">
             </div>
-            <div class="w-40">
-                <label class="block text-xs font-medium mb-1">City <span class="text-red-500">*</span></label>
-                <input type="text" wire:model="city" class="w-full border rounded px-3 py-2 text-sm">
+            <div class="w-44">
+                <label class="block text-xs font-medium mb-1">Country <span class="text-red-500">*</span></label>
+                <select wire:model.live="countryId" class="w-full border rounded px-3 py-2 text-sm">
+                    <option value="">Select…</option>
+                    @foreach ($countries as $c)
+                        <option value="{{ $c->id }}">{{ $c->name }}</option>
+                    @endforeach
+                </select>
+                @error('countryId') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
             </div>
-            <div class="w-40">
+            <div class="w-44">
+                <label class="block text-xs font-medium mb-1">City <span class="text-red-500">*</span></label>
+                <select wire:model="cityId" class="w-full border rounded px-3 py-2 text-sm" @disabled(! $countryId)>
+                    <option value="">{{ $countryId ? 'Select…' : 'Pick a country first' }}</option>
+                    @foreach ($cities as $c)
+                        <option value="{{ $c->id }}">{{ $c->name }}</option>
+                    @endforeach
+                </select>
+                @error('cityId') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
+            </div>
+            <div class="w-32">
                 <label class="block text-xs font-medium mb-1">State</label>
                 <input type="text" wire:model="state" class="w-full border rounded px-3 py-2 text-sm">
             </div>
-            <div class="w-32">
-                <label class="block text-xs font-medium mb-1">Country <span class="text-red-500">*</span></label>
-                <input type="text" wire:model="country" class="w-full border rounded px-3 py-2 text-sm">
-            </div>
+            <button type="button" wire:click="toggleNewCountryForm" class="text-xs text-blue-600 hover:underline h-[38px]">
+                {{ $showNewCountryForm ? 'Cancel' : '+ New country' }}
+            </button>
+            <button type="button" wire:click="toggleNewCityForm" class="text-xs text-blue-600 hover:underline h-[38px]">
+                {{ $showNewCityForm ? 'Cancel' : '+ New city' }}
+            </button>
         </div>
+
+        @if ($showNewCountryForm)
+            <div class="flex flex-wrap items-end gap-3 mt-3 bg-gray-50 border rounded p-3">
+                <div class="w-44">
+                    <input type="text" wire:model="newCountryName" placeholder="Country name" class="w-full border rounded px-3 py-2 text-sm">
+                    @error('newCountryName') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
+                </div>
+                <div class="w-24">
+                    <input type="text" wire:model="newCountryCode" placeholder="Code (IN)" maxlength="2" class="w-full border rounded px-3 py-2 text-sm">
+                    @error('newCountryCode') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
+                </div>
+                <div class="w-28">
+                    <input type="text" wire:model="newCountryCurrencyCode" placeholder="Currency" maxlength="3" class="w-full border rounded px-3 py-2 text-sm">
+                    @error('newCountryCurrencyCode') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
+                </div>
+                <div class="w-40">
+                    <input type="text" wire:model="newCountryTimezone" placeholder="Timezone" class="w-full border rounded px-3 py-2 text-sm">
+                    @error('newCountryTimezone') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
+                </div>
+                <button type="button" wire:click="createCountry" class="bg-slate-900 text-white px-4 h-[38px] rounded text-xs font-medium hover:bg-slate-800">
+                    Create country
+                </button>
+            </div>
+        @endif
+
+        @if ($showNewCityForm)
+            <div class="flex flex-wrap items-end gap-3 mt-3 bg-gray-50 border rounded p-3">
+                <div class="w-56">
+                    <input type="text" wire:model="newCityName" placeholder="City name" class="w-full border rounded px-3 py-2 text-sm">
+                    @error('newCityName') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
+                </div>
+                <button type="button" wire:click="createCity" class="bg-slate-900 text-white px-4 h-[38px] rounded text-xs font-medium hover:bg-slate-800">
+                    Create city
+                </button>
+            </div>
+        @endif
 
         <div class="flex flex-wrap items-end gap-3 mt-3">
             <div class="w-48">
@@ -170,10 +224,10 @@
                         <td class="px-4 py-2 font-medium">{{ $franchise->name }}</td>
                         <td class="px-4 py-2 text-gray-500 font-mono text-xs">{{ $franchise->code ?? '—' }}</td>
                         <td class="px-4 py-2 text-gray-500">
-                            {{ $franchise->city }}
-                            @if ($franchise->state)
-                                <span class="block text-xs text-gray-400">{{ $franchise->state }}</span>
-                            @endif
+                            {{ $franchise->city?->name ?? '—' }}
+                            <span class="block text-xs text-gray-400">
+                                {{ collect([$franchise->state, $franchise->country?->name])->filter()->implode(', ') }}
+                            </span>
                         </td>
                         <td class="px-4 py-2 text-gray-500 text-xs">
                             {{ str_replace('_', ' ', $franchise->commission_model) }}
@@ -280,7 +334,7 @@
                     <div class="grid grid-cols-2 gap-4">
                         <div>
                             <p class="text-xs text-gray-500">Location</p>
-                            <p>{{ collect([$f->city, $f->state, $f->country])->filter()->implode(', ') }}</p>
+                            <p>{{ collect([$f->city?->name, $f->state, $f->country?->name])->filter()->implode(', ') }}</p>
                         </div>
                         <div>
                             <p class="text-xs text-gray-500">Commission</p>
@@ -343,19 +397,75 @@
 
                     <div class="grid grid-cols-3 gap-4">
                         <div>
+                            <label class="block text-sm font-medium mb-1">Country <span class="text-red-500">*</span></label>
+                            <select wire:model.live="editCountryId" class="w-full border rounded px-3 py-2 text-sm">
+                                <option value="">Select…</option>
+                                @foreach ($countries as $c)
+                                    <option value="{{ $c->id }}">{{ $c->name }}</option>
+                                @endforeach
+                            </select>
+                            @error('editCountryId') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
+                        </div>
+                        <div>
                             <label class="block text-sm font-medium mb-1">City <span class="text-red-500">*</span></label>
-                            <input type="text" wire:model="editCity" class="w-full border rounded px-3 py-2 text-sm">
-                            @error('editCity') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
+                            <select wire:model="editCityId" class="w-full border rounded px-3 py-2 text-sm" @disabled(! $editCountryId)>
+                                <option value="">{{ $editCountryId ? 'Select…' : 'Pick a country first' }}</option>
+                                @foreach ($editCities as $c)
+                                    <option value="{{ $c->id }}">{{ $c->name }}</option>
+                                @endforeach
+                            </select>
+                            @error('editCityId') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
                         </div>
                         <div>
                             <label class="block text-sm font-medium mb-1">State</label>
                             <input type="text" wire:model="editState" class="w-full border rounded px-3 py-2 text-sm">
                         </div>
-                        <div>
-                            <label class="block text-sm font-medium mb-1">Country <span class="text-red-500">*</span></label>
-                            <input type="text" wire:model="editCountry" class="w-full border rounded px-3 py-2 text-sm">
-                        </div>
                     </div>
+
+                    <div class="flex gap-4">
+                        <button type="button" wire:click="toggleEditNewCountryForm" class="text-xs text-blue-600 hover:underline">
+                            {{ $showEditNewCountryForm ? 'Cancel' : '+ New country' }}
+                        </button>
+                        <button type="button" wire:click="toggleEditNewCityForm" class="text-xs text-blue-600 hover:underline">
+                            {{ $showEditNewCityForm ? 'Cancel' : '+ New city' }}
+                        </button>
+                    </div>
+
+                    @if ($showEditNewCountryForm)
+                        <div class="flex flex-wrap items-end gap-3 bg-gray-50 border rounded p-3">
+                            <div class="w-44">
+                                <input type="text" wire:model="editNewCountryName" placeholder="Country name" class="w-full border rounded px-3 py-2 text-sm">
+                                @error('editNewCountryName') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
+                            </div>
+                            <div class="w-24">
+                                <input type="text" wire:model="editNewCountryCode" placeholder="Code (IN)" maxlength="2" class="w-full border rounded px-3 py-2 text-sm">
+                                @error('editNewCountryCode') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
+                            </div>
+                            <div class="w-28">
+                                <input type="text" wire:model="editNewCountryCurrencyCode" placeholder="Currency" maxlength="3" class="w-full border rounded px-3 py-2 text-sm">
+                                @error('editNewCountryCurrencyCode') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
+                            </div>
+                            <div class="w-40">
+                                <input type="text" wire:model="editNewCountryTimezone" placeholder="Timezone" class="w-full border rounded px-3 py-2 text-sm">
+                                @error('editNewCountryTimezone') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
+                            </div>
+                            <button type="button" wire:click="createEditCountry" class="bg-slate-900 text-white px-4 h-[38px] rounded text-xs font-medium hover:bg-slate-800">
+                                Create country
+                            </button>
+                        </div>
+                    @endif
+
+                    @if ($showEditNewCityForm)
+                        <div class="flex flex-wrap items-end gap-3 bg-gray-50 border rounded p-3">
+                            <div class="w-56">
+                                <input type="text" wire:model="editNewCityName" placeholder="City name" class="w-full border rounded px-3 py-2 text-sm">
+                                @error('editNewCityName') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
+                            </div>
+                            <button type="button" wire:click="createEditCity" class="bg-slate-900 text-white px-4 h-[38px] rounded text-xs font-medium hover:bg-slate-800">
+                                Create city
+                            </button>
+                        </div>
+                    @endif
 
                     <div class="grid grid-cols-4 gap-3">
                         <div class="col-span-2">

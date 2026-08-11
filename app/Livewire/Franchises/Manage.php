@@ -2,6 +2,8 @@
 
 namespace App\Livewire\Franchises;
 
+use App\Models\City;
+use App\Models\Country;
 use App\Models\Franchise;
 use App\Models\FranchiseModule;
 use App\Models\Setting;
@@ -13,7 +15,7 @@ use Livewire\WithPagination;
 // Same one-screen pattern as the other Manage screens: add form pinned at the
 // top, live list below, edit + read-only detail modals, one route.
 //
-// Two shape notes:
+// Shape notes:
 //
 // - No Reorder. Franchises are operating units, not a merchandised list, and
 //   `franchises` has no sort_order column — same reasoning as Zones.
@@ -22,6 +24,12 @@ use Livewire\WithPagination;
 //   are eight of them and every vertical except Service is unbuilt, so a new
 //   franchise gets Service on and the rest off; turning others on is a later,
 //   deliberate act rather than something to decide while typing a city name.
+//
+// - Country/City are dropdowns backed by real tables (not free text) as of
+//   the geography foundation work — cascading the same way Services'
+//   category/subcategory picker does. Each carries a small inline "+ New"
+//   form (same pattern as the New Booking modal's customer/address quick-add)
+//   since there's nowhere else yet to create a Country or City.
 class Manage extends Component
 {
     use WithPagination;
@@ -39,28 +47,46 @@ class Manage extends Component
 
     // --- "Add New" form ---
     public string $name = '';
-    public string $city = '';
+    public ?int $countryId = null;
+    public ?int $cityId = null;
     public string $state = '';
-    public string $country = 'India';
     public string $commissionModel = 'revenue_share';
     public string $commissionValue = '0';
     public string $platformFeePercent = '0';
     public string $status = 'pending_setup';
+
+    // --- Add New: inline quick-add for Country/City ---
+    public bool $showNewCountryForm = false;
+    public string $newCountryName = '';
+    public string $newCountryCode = '';
+    public string $newCountryCurrencyCode = 'INR';
+    public string $newCountryTimezone = 'Asia/Kolkata';
+    public bool $showNewCityForm = false;
+    public string $newCityName = '';
 
     // --- Edit modal ---
     public bool $showEditModal = false;
     public ?int $editFranchiseId = null;
     public string $editName = '';
     public string $editCode = '';
-    public string $editCity = '';
+    public ?int $editCountryId = null;
+    public ?int $editCityId = null;
     public string $editState = '';
-    public string $editCountry = 'India';
     public string $editCommissionModel = 'revenue_share';
     public string $editCommissionValue = '0';
     public string $editPlatformFeePercent = '0';
     public string $editStatus = 'pending_setup';
     /** slug => bool, for the toggleable verticals above. */
     public array $editModules = [];
+
+    // --- Edit modal: inline quick-add for Country/City ---
+    public bool $showEditNewCountryForm = false;
+    public string $editNewCountryName = '';
+    public string $editNewCountryCode = '';
+    public string $editNewCountryCurrencyCode = 'INR';
+    public string $editNewCountryTimezone = 'Asia/Kolkata';
+    public bool $showEditNewCityForm = false;
+    public string $editNewCityName = '';
 
     // --- View details modal ---
     public bool $showViewModal = false;
@@ -99,15 +125,19 @@ class Manage extends Component
     public function updatedFilterStatus(): void { $this->resetPage(); }
     public function updatedPerPage(): void { $this->resetPage(); }
 
+    /** Changing the country invalidates whatever city was picked for the old one. */
+    public function updatedCountryId(): void { $this->cityId = null; }
+    public function updatedEditCountryId(): void { $this->editCityId = null; }
+
     private function rules(string $prefix = ''): array
     {
         $f = fn (string $name) => $prefix === '' ? $name : $prefix.ucfirst($name);
 
         return [
             $f('name') => ['required', 'string', 'max:255'],
-            $f('city') => ['required', 'string', 'max:255'],
+            $f('countryId') => ['required', 'integer', 'exists:countries,id'],
+            $f('cityId') => ['required', 'integer', 'exists:cities,id'],
             $f('state') => ['nullable', 'string', 'max:255'],
-            $f('country') => ['required', 'string', 'max:255'],
             $f('commissionModel') => ['required', 'in:revenue_share,flat_fee,subscription_only'],
             $f('commissionValue') => ['required', 'numeric', 'min:0'],
             $f('platformFeePercent') => ['required', 'numeric', 'min:0', 'max:100'],
@@ -120,6 +150,8 @@ class Manage extends Component
         $f = fn (string $name) => $prefix === '' ? $name : $prefix.ucfirst($name);
 
         return [
+            $f('countryId') => 'country',
+            $f('cityId') => 'city',
             $f('commissionModel') => 'commission model',
             $f('commissionValue') => 'commission value',
             $f('platformFeePercent') => 'platform fee',
@@ -137,9 +169,9 @@ class Manage extends Component
         $franchise = Franchise::create([
             'name' => $this->name,
             'slug' => Str::slug($this->name).'-'.Str::random(4),
-            'city' => $this->city,
+            'country_id' => $this->countryId,
+            'city_id' => $this->cityId,
             'state' => $this->state ?: null,
-            'country' => $this->country,
             'commission_model' => $this->commissionModel,
             'commission_value' => $this->commissionValue,
             'platform_fee_percent' => $this->platformFeePercent,
@@ -153,13 +185,73 @@ class Manage extends Component
             ['service' => true] + array_fill_keys(self::TOGGLEABLE, false)
         );
 
-        $this->reset(['name', 'city', 'state']);
-        $this->country = 'India';
+        $this->reset(['name', 'countryId', 'cityId', 'state']);
         $this->commissionModel = Setting::get('commission.default_model', 'revenue_share');
         $this->commissionValue = (string) Setting::get('commission.default_value', '0');
         $this->platformFeePercent = (string) Setting::get('commission.default_platform_fee_percent', '0');
         $this->status = 'pending_setup';
         $this->flashMessage = 'Franchise created.';
+    }
+
+    // ------------------------- Add New: quick-add Country/City -------------------------
+
+    public function toggleNewCountryForm(): void
+    {
+        $this->showNewCountryForm = ! $this->showNewCountryForm;
+        $this->reset(['newCountryName', 'newCountryCode']);
+        $this->newCountryCurrencyCode = 'INR';
+        $this->newCountryTimezone = 'Asia/Kolkata';
+        $this->resetValidation(['newCountryName', 'newCountryCode', 'newCountryCurrencyCode', 'newCountryTimezone']);
+    }
+
+    public function createCountry(): void
+    {
+        $this->validate([
+            'newCountryName' => ['required', 'string', 'max:255'],
+            'newCountryCode' => ['required', 'string', 'size:2', 'unique:countries,code'],
+            'newCountryCurrencyCode' => ['required', 'string', 'size:3'],
+            'newCountryTimezone' => ['required', 'string', 'max:64'],
+        ], [], [
+            'newCountryName' => 'name', 'newCountryCode' => 'code',
+            'newCountryCurrencyCode' => 'currency code', 'newCountryTimezone' => 'timezone',
+        ]);
+
+        $country = Country::create([
+            'name' => $this->newCountryName,
+            'code' => strtoupper($this->newCountryCode),
+            'currency_code' => strtoupper($this->newCountryCurrencyCode),
+            'default_timezone' => $this->newCountryTimezone,
+            'is_active' => true,
+        ]);
+
+        $this->countryId = $country->id;
+        $this->cityId = null;
+        $this->showNewCountryForm = false;
+    }
+
+    public function toggleNewCityForm(): void
+    {
+        if (! $this->countryId) {
+            $this->addError('countryId', 'Pick a country first — the new city is placed inside it.');
+            return;
+        }
+
+        $this->showNewCityForm = ! $this->showNewCityForm;
+        $this->newCityName = '';
+        $this->resetValidation(['newCityName', 'countryId']);
+    }
+
+    public function createCity(): void
+    {
+        $this->validate([
+            'countryId' => ['required', 'integer', 'exists:countries,id'],
+            'newCityName' => ['required', 'string', 'max:255'],
+        ], [], ['countryId' => 'country', 'newCityName' => 'city']);
+
+        $city = City::create(['country_id' => $this->countryId, 'name' => $this->newCityName, 'is_active' => true]);
+
+        $this->cityId = $city->id;
+        $this->showNewCityForm = false;
     }
 
     // ============================== Edit modal ==============================
@@ -171,9 +263,9 @@ class Manage extends Component
         $this->editFranchiseId = $franchise->id;
         $this->editName = $franchise->name;
         $this->editCode = $franchise->code ?? '';
-        $this->editCity = $franchise->city;
+        $this->editCountryId = $franchise->country_id;
+        $this->editCityId = $franchise->city_id;
         $this->editState = $franchise->state ?? '';
-        $this->editCountry = $franchise->country;
         $this->editCommissionModel = $franchise->commission_model;
         $this->editCommissionValue = (string) $franchise->commission_value;
         $this->editPlatformFeePercent = (string) $franchise->platform_fee_percent;
@@ -183,6 +275,8 @@ class Manage extends Component
             ->mapWithKeys(fn ($slug) => [$slug => (bool) ($franchise->modules->{$slug} ?? false)])
             ->all();
 
+        $this->showEditNewCountryForm = false;
+        $this->showEditNewCityForm = false;
         $this->resetValidation();
         $this->showViewModal = false;
         $this->showEditModal = true;
@@ -195,9 +289,9 @@ class Manage extends Component
         $franchise = Franchise::findOrFail($this->editFranchiseId);
         $franchise->update([
             'name' => $this->editName,
-            'city' => $this->editCity,
+            'country_id' => $this->editCountryId,
+            'city_id' => $this->editCityId,
             'state' => $this->editState ?: null,
-            'country' => $this->editCountry,
             'commission_model' => $this->editCommissionModel,
             'commission_value' => $this->editCommissionValue,
             'platform_fee_percent' => $this->editPlatformFeePercent,
@@ -219,6 +313,67 @@ class Manage extends Component
     {
         $this->showEditModal = false;
         $this->resetValidation();
+    }
+
+    // ------------------------- Edit modal: quick-add Country/City -------------------------
+
+    public function toggleEditNewCountryForm(): void
+    {
+        $this->showEditNewCountryForm = ! $this->showEditNewCountryForm;
+        $this->reset(['editNewCountryName', 'editNewCountryCode']);
+        $this->editNewCountryCurrencyCode = 'INR';
+        $this->editNewCountryTimezone = 'Asia/Kolkata';
+        $this->resetValidation(['editNewCountryName', 'editNewCountryCode', 'editNewCountryCurrencyCode', 'editNewCountryTimezone']);
+    }
+
+    public function createEditCountry(): void
+    {
+        $this->validate([
+            'editNewCountryName' => ['required', 'string', 'max:255'],
+            'editNewCountryCode' => ['required', 'string', 'size:2', 'unique:countries,code'],
+            'editNewCountryCurrencyCode' => ['required', 'string', 'size:3'],
+            'editNewCountryTimezone' => ['required', 'string', 'max:64'],
+        ], [], [
+            'editNewCountryName' => 'name', 'editNewCountryCode' => 'code',
+            'editNewCountryCurrencyCode' => 'currency code', 'editNewCountryTimezone' => 'timezone',
+        ]);
+
+        $country = Country::create([
+            'name' => $this->editNewCountryName,
+            'code' => strtoupper($this->editNewCountryCode),
+            'currency_code' => strtoupper($this->editNewCountryCurrencyCode),
+            'default_timezone' => $this->editNewCountryTimezone,
+            'is_active' => true,
+        ]);
+
+        $this->editCountryId = $country->id;
+        $this->editCityId = null;
+        $this->showEditNewCountryForm = false;
+    }
+
+    public function toggleEditNewCityForm(): void
+    {
+        if (! $this->editCountryId) {
+            $this->addError('editCountryId', 'Pick a country first — the new city is placed inside it.');
+            return;
+        }
+
+        $this->showEditNewCityForm = ! $this->showEditNewCityForm;
+        $this->editNewCityName = '';
+        $this->resetValidation(['editNewCityName', 'editCountryId']);
+    }
+
+    public function createEditCity(): void
+    {
+        $this->validate([
+            'editCountryId' => ['required', 'integer', 'exists:countries,id'],
+            'editNewCityName' => ['required', 'string', 'max:255'],
+        ], [], ['editCountryId' => 'country', 'editNewCityName' => 'city']);
+
+        $city = City::create(['country_id' => $this->editCountryId, 'name' => $this->editNewCityName, 'is_active' => true]);
+
+        $this->editCityId = $city->id;
+        $this->showEditNewCityForm = false;
     }
 
     /**
@@ -251,7 +406,7 @@ class Manage extends Component
             return null;
         }
 
-        return Franchise::with('modules')
+        return Franchise::with(['modules', 'city.country'])
             ->withCount(['zones', 'providers', 'bookings'])
             ->find($this->viewFranchiseId);
     }
@@ -318,10 +473,10 @@ class Manage extends Component
             ->when($this->search !== '', fn ($q) => $q->where(function ($w) {
                 $w->where('name', 'like', '%'.$this->search.'%')
                   ->orWhere('code', 'like', '%'.$this->search.'%')
-                  ->orWhere('city', 'like', '%'.$this->search.'%');
+                  ->orWhereHas('city', fn ($c) => $c->where('name', 'like', '%'.$this->search.'%'));
             }))
             ->when($this->filterStatus !== '', fn ($q) => $q->where('status', $this->filterStatus))
-            ->with('modules')
+            ->with(['modules', 'city', 'country'])
             ->withCount(['zones', 'providers', 'bookings'])
             ->orderBy($this->sortField, $this->sortDirection)
             ->orderBy('id')
@@ -329,6 +484,13 @@ class Manage extends Component
 
         return view('livewire.franchises.manage', [
             'franchises' => $franchises,
+            'countries' => Country::where('is_active', true)->orderBy('name')->get(),
+            'cities' => $this->countryId
+                ? City::where('country_id', $this->countryId)->where('is_active', true)->orderBy('name')->get()
+                : collect(),
+            'editCities' => $this->editCountryId
+                ? City::where('country_id', $this->editCountryId)->where('is_active', true)->orderBy('name')->get()
+                : collect(),
             'toggleable' => collect(self::TOGGLEABLE)
                 ->mapWithKeys(fn ($slug) => [$slug => Modules::label($slug)])
                 ->all(),

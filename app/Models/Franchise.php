@@ -17,9 +17,9 @@ class Franchise extends Model
         'name',
         'slug',
         'code',
-        'city',
+        'country_id',
+        'city_id',
         'state',
-        'country',
         'owner_user_id',
         'commission_model',
         'commission_value',
@@ -37,6 +37,8 @@ class Franchise extends Model
     }
 
     public function owner() { return $this->belongsTo(User::class, 'owner_user_id'); }
+    public function country() { return $this->belongsTo(Country::class); }
+    public function city() { return $this->belongsTo(City::class); }
     public function zones() { return $this->hasMany(Zone::class); }
     public function users() { return $this->hasMany(User::class); }
     public function providers() { return $this->hasMany(Provider::class); }
