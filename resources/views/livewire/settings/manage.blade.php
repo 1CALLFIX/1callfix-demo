@@ -7,6 +7,7 @@
         'cancellation' => 'Refund / Cancellation',
         'payment' => 'Payment',
         'wallet' => 'Wallet',
+        'ranking' => 'Priority / Ranking',
         'notifications' => 'Notifications',
         'locale' => 'Locale & Currency',
         'branding' => 'Platform / Branding',
@@ -345,6 +346,92 @@
 
             <div class="flex justify-end pt-4 mt-4 border-t">
                 <button type="button" wire:click="saveWallet" class="bg-slate-900 text-white px-6 py-2 rounded text-sm font-medium hover:bg-slate-800">Save Wallet Settings</button>
+            </div>
+
+        {{-- Priority / Ranking — governs provider ordering in DispatchService::findCandidates() and GET /api/providers/nearby. "Riders" use the same Provider rows. --}}
+        @elseif ($activeTab === 'ranking')
+            @php $rankingCriteria = ['priority' => 'Priority (manual)', 'rating' => 'Rating', 'distance' => 'Distance', 'orders' => 'Orders completed', 'subscription' => 'Active subscription']; @endphp
+            <p class="text-xs text-gray-400 mb-3">Ranks eligible providers for job dispatch and nearby-browse. Eligibility (zone, online, KYC-approved, radius, availability) is filtered first — ranking never reorders in an ineligible provider. Default (Distance, ascending) is identical to the app's original dispatch behaviour.</p>
+
+            <div class="mb-4">
+                <label class="block text-xs font-medium mb-1">Mode @if ($scoped) <x-setting-override-badge :overridden="in_array('ranking.providers.mode', $this->overriddenKeys)" setting-key="ranking.providers.mode" /> @endif</label>
+                <select wire:model.live="rankingMode" class="w-64 border rounded px-3 py-2 text-sm">
+                    <option value="sequential">Sequential (Primary / Secondary / Tertiary)</option>
+                    <option value="weighted">Weighted score</option>
+                </select>
+            </div>
+
+            @if ($rankingMode === 'sequential')
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                    <div>
+                        <label class="block text-xs font-medium mb-1">Primary <span class="text-red-500">*</span></label>
+                        <div class="flex gap-2">
+                            <select wire:model="rankingPrimaryCriterion" class="flex-1 border rounded px-2 py-2 text-sm">
+                                @foreach ($rankingCriteria as $key => $label) <option value="{{ $key }}">{{ $label }}</option> @endforeach
+                            </select>
+                            <select wire:model="rankingPrimaryDirection" class="border rounded px-2 py-2 text-sm">
+                                <option value="asc">Asc</option>
+                                <option value="desc">Desc</option>
+                            </select>
+                        </div>
+                        @error('rankingPrimaryCriterion') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium mb-1">Secondary</label>
+                        <div class="flex gap-2">
+                            <select wire:model="rankingSecondaryCriterion" class="flex-1 border rounded px-2 py-2 text-sm">
+                                <option value="">None</option>
+                                @foreach ($rankingCriteria as $key => $label) <option value="{{ $key }}">{{ $label }}</option> @endforeach
+                            </select>
+                            <select wire:model="rankingSecondaryDirection" class="border rounded px-2 py-2 text-sm">
+                                <option value="asc">Asc</option>
+                                <option value="desc">Desc</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium mb-1">Tertiary</label>
+                        <div class="flex gap-2">
+                            <select wire:model="rankingTertiaryCriterion" class="flex-1 border rounded px-2 py-2 text-sm">
+                                <option value="">None</option>
+                                @foreach ($rankingCriteria as $key => $label) <option value="{{ $key }}">{{ $label }}</option> @endforeach
+                            </select>
+                            <select wire:model="rankingTertiaryDirection" class="border rounded px-2 py-2 text-sm">
+                                <option value="asc">Asc</option>
+                                <option value="desc">Desc</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                @error('rankingSecondaryCriterion') <p class="text-red-600 text-xs mb-3">{{ $message }}</p> @enderror
+            @else
+                <p class="text-xs text-gray-400 mb-2">Each candidate is scored 0–1 per criterion (rating uses a fixed 0–5 scale; the rest are relative to the current candidate set) then combined by these weights — they don't need to add to 100, only their proportion to each other matters. All-zero falls back to distance-ascending.</p>
+                <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-4">
+                    <div>
+                        <label class="block text-xs font-medium mb-1">Priority</label>
+                        <input type="number" step="1" min="0" wire:model="rankingWeightPriority" class="w-full border rounded px-3 py-2 text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium mb-1">Rating</label>
+                        <input type="number" step="1" min="0" wire:model="rankingWeightRating" class="w-full border rounded px-3 py-2 text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium mb-1">Distance</label>
+                        <input type="number" step="1" min="0" wire:model="rankingWeightDistance" class="w-full border rounded px-3 py-2 text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium mb-1">Orders</label>
+                        <input type="number" step="1" min="0" wire:model="rankingWeightOrders" class="w-full border rounded px-3 py-2 text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium mb-1">Subscription</label>
+                        <input type="number" step="1" min="0" wire:model="rankingWeightSubscription" class="w-full border rounded px-3 py-2 text-sm">
+                    </div>
+                </div>
+            @endif
+
+            <div class="flex justify-end pt-4 mt-4 border-t">
+                <button type="button" wire:click="saveRanking" class="bg-slate-900 text-white px-6 py-2 rounded text-sm font-medium hover:bg-slate-800">Save Ranking Settings</button>
             </div>
 
         {{-- Notifications — which channels App\Notifications\Support\ChannelResolver hands back to every dispatch site. --}}

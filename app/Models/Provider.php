@@ -27,6 +27,7 @@ class Provider extends Model
         'current_lng',
         'location_updated_at',
         'rating_avg',
+        'priority',
         'jobs_completed',
         'is_active'
     ];

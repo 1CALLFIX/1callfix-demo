@@ -4,12 +4,25 @@ namespace App\Services;
 
 use App\Models\Booking;
 use App\Models\Provider;
+use App\Models\Service;
+use App\Models\Zone;
+use App\Services\Ranking\RankingConfigResolver;
+use App\Services\Ranking\RankingEngine;
 use Illuminate\Support\Collection;
 
 class DispatchService
 {
+    public function __construct(
+        private RankingEngine $rankingEngine,
+        private RankingConfigResolver $rankingConfigResolver,
+    ) {
+    }
+
     /**
-     * Find eligible providers for a booking, ranked nearest-first.
+     * Find eligible providers for a booking, ranked by the admin-configured
+     * provider ranking rule for this booking's scope (see Settings >
+     * Ranking) — distance-ascending only by default, identical to this
+     * method's behaviour before the ranking engine existed.
      *
      * Eligibility:
      *   - Same zone as the booking
@@ -24,7 +37,7 @@ class DispatchService
      */
     public function findCandidates(Booking $booking, int $limit = 5): Collection
     {
-        $booking->loadMissing(['zone', 'address', 'service']);
+        $booking->loadMissing(['zone', 'address', 'service', 'franchise']);
 
         if (!$booking->zone || !$booking->address) {
             return collect();
@@ -43,37 +56,89 @@ class DispatchService
             ->whereNotNull('provider_id')
             ->pluck('provider_id');
 
-        $candidates = Provider::query()
-            ->where('zone_id', $booking->zone_id)
+        $candidates = $this->eligibleQuery($booking->zone_id, $categoryId)
+            ->whereNotIn('id', $alreadyOfferedProviderIds)
+            ->whereNotIn('id', $busyProviderIds)
+            ->get()
+            ->filter(fn (Provider $provider) => $this->hasSkill($provider, $categoryId))
+            ->map(fn (Provider $provider) => $this->withDistance($provider, (float) $booking->address->lat, (float) $booking->address->lng))
+            ->filter(fn ($c) => $c['distance_km'] <= $radiusKm);
+
+        $scope = array_filter([
+            'zone_id' => $booking->zone_id,
+            'franchise_id' => $booking->franchise_id,
+            'city_id' => $booking->franchise?->city_id,
+            'country_id' => $booking->franchise?->country_id,
+        ]);
+
+        return $this->rankAndLimit($candidates, $scope, $radiusKm, $limit);
+    }
+
+    /**
+     * Read-only "browse nearby providers" — the customer-facing counterpart
+     * to findCandidates() above: same eligibility/ranking machinery, but no
+     * booking exists yet, so the busy/already-offered exclusions (which
+     * only make sense against a specific booking) don't apply. Used by
+     * GET /api/providers/nearby — the second real ranking consumer,
+     * alongside dispatch itself.
+     */
+    public function nearbyForService(Service $service, Zone $zone, float $lat, float $lng, int $limit = 20): Collection
+    {
+        $radiusKm = $zone->default_dispatch_radius_km ?? 8;
+        $categoryId = $service->category_id;
+
+        $candidates = $this->eligibleQuery($zone->id, $categoryId)
+            ->get()
+            ->filter(fn (Provider $provider) => $this->hasSkill($provider, $categoryId))
+            ->map(fn (Provider $provider) => $this->withDistance($provider, $lat, $lng))
+            ->filter(fn ($c) => $c['distance_km'] <= $radiusKm);
+
+        $zone->loadMissing('franchise');
+        $scope = array_filter([
+            'zone_id' => $zone->id,
+            'franchise_id' => $zone->franchise_id,
+            'city_id' => $zone->franchise?->city_id,
+            'country_id' => $zone->franchise?->country_id,
+        ]);
+
+        return $this->rankAndLimit($candidates, $scope, $radiusKm, $limit);
+    }
+
+    private function eligibleQuery(int $zoneId, int $categoryId)
+    {
+        return Provider::query()
+            ->with(['subscriptions', 'user'])
+            ->where('zone_id', $zoneId)
             ->where('is_online', true)
             ->where('is_active', true)
             ->where('kyc_status', 'approved')
-            ->whereNotIn('id', $alreadyOfferedProviderIds)
-            ->whereNotIn('id', $busyProviderIds)
             ->whereNotNull('current_lat')
-            ->whereNotNull('current_lng')
-            ->get()
-            ->filter(function (Provider $provider) use ($categoryId) {
-                $skills = $provider->skills ?? [];
-                return in_array($categoryId, $skills, strict: false);
-            })
-            ->map(function (Provider $provider) use ($booking) {
-                return [
-                    'provider' => $provider,
-                    'distance_km' => $this->haversineKm(
-                        (float) $booking->address->lat,
-                        (float) $booking->address->lng,
-                        (float) $provider->current_lat,
-                        (float) $provider->current_lng,
-                    ),
-                ];
-            })
-            ->filter(fn ($c) => $c['distance_km'] <= $radiusKm)
-            ->sortBy('distance_km')
+            ->whereNotNull('current_lng');
+    }
+
+    private function hasSkill(Provider $provider, int $categoryId): bool
+    {
+        $skills = $provider->skills ?? [];
+
+        return in_array($categoryId, $skills, strict: false);
+    }
+
+    private function withDistance(Provider $provider, float $lat, float $lng): array
+    {
+        return [
+            'provider' => $provider,
+            'distance_km' => $this->haversineKm($lat, $lng, (float) $provider->current_lat, (float) $provider->current_lng),
+        ];
+    }
+
+    private function rankAndLimit(Collection $candidates, array $scope, float $radiusKm, int $limit): Collection
+    {
+        $config = $this->rankingConfigResolver->resolve('providers', $scope);
+
+        return $this->rankingEngine
+            ->rank($candidates->values(), $config, $radiusKm)
             ->take($limit)
             ->values();
-
-        return $candidates;
     }
 
     /**

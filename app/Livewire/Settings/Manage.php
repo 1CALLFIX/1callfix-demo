@@ -7,6 +7,7 @@ use App\Models\Country;
 use App\Models\Franchise;
 use App\Models\Setting;
 use App\Models\Zone;
+use App\Services\Ranking\RankingConfigResolver;
 use Livewire\Component;
 
 // One config hub, not a list — unlike the catalog {Module}\Manage screens,
@@ -71,6 +72,15 @@ use Livewire\Component;
 // is real and logged to notification_logs). This tab only controls which
 // channels are attempted, per scope.
 //
+// Priority/Ranking graduated once a real consumer existed to change: this
+// codebase's ONE real ranking consumer, DispatchService::findCandidates()
+// (provider matching), plus a new customer-facing GET /api/providers/nearby
+// (App\Services\Ranking\RankingEngine + RankingConfigResolver). Default
+// config (distance ascending only) preserves DispatchService's exact prior
+// behaviour until an admin actually changes it. "Riders" ranking uses the
+// same config -- Provider is the only actor entity in this schema, same
+// note as Wallet's provider settings.
+//
 // Wallet/Ledger graduated once real consumers existed to enforce it
 // against: customer top-up (App\Services\WalletTopUpService, backed by the
 // same Razorpay order/webhook path booking payments use — see
@@ -86,7 +96,6 @@ class Manage extends Component
         'vendor' => ['label' => 'Vendor / Provider', 'note' => 'Provider self-registration rules, KYC requirements, verified badges — the Providers screen already covers approve/reject; broader policy config isn\'t built yet. No self-registration route exists (confirmed by audit) since there\'s no provider-facing app yet.'],
         'customer' => ['label' => 'Customer', 'note' => 'Registration rules, profile requirements, per-customer limits — no generalized customer-config surface exists yet (no customer-facing app to register through).'],
         'ui_home_screen' => ['label' => 'UI / Home Screen', 'note' => 'Banner position/vendor layout/widget visibility — there\'s no customer-facing home screen yet to configure (M6 not started).'],
-        'priority_ranking' => ['label' => 'Priority / Ranking', 'note' => 'Search/listing sort rules — nothing customer-facing exists yet to rank.'],
         'dynamic_links' => ['label' => 'Dynamic Links', 'note' => 'iOS/Android deep-link scheme, package names, SHA256 — meaningless without a mobile app to link into.'],
         'in_app_support' => ['label' => 'In-App Support', 'note' => 'Support widget/link config for a mobile app that doesn\'t exist yet.'],
         'subscriptions_membership' => ['label' => 'Subscriptions / Membership', 'note' => 'subscription_plans and provider_subscriptions tables exist with zero consumers anywhere (confirmed by audit) — no provider app to sell a package through, no customer app to sell Prime through.'],
@@ -135,6 +144,20 @@ class Manage extends Component
     public string $walletProviderMaxPayoutAmount = '0';
     public string $walletFranchiseMinPayoutAmount = '0';
     public string $walletFranchiseMaxPayoutAmount = '0';
+
+    // --- Priority / Ranking (RankingEngine, consumed by DispatchService + /api/providers/nearby) ---
+    public string $rankingMode = 'sequential';
+    public string $rankingPrimaryCriterion = 'distance';
+    public string $rankingPrimaryDirection = 'asc';
+    public string $rankingSecondaryCriterion = '';
+    public string $rankingSecondaryDirection = 'asc';
+    public string $rankingTertiaryCriterion = '';
+    public string $rankingTertiaryDirection = 'asc';
+    public string $rankingWeightPriority = '0';
+    public string $rankingWeightRating = '0';
+    public string $rankingWeightDistance = '100';
+    public string $rankingWeightOrders = '0';
+    public string $rankingWeightSubscription = '0';
 
     // --- Notifications (ChannelResolver, consumed by every Notification class) ---
     public bool $notifyMail = true;
@@ -255,6 +278,21 @@ class Manage extends Component
         $this->walletProviderMaxPayoutAmount = (string) Setting::get('wallet.provider_max_payout_amount', '0', $scope);
         $this->walletFranchiseMinPayoutAmount = (string) Setting::get('wallet.franchise_min_payout_amount', '0', $scope);
         $this->walletFranchiseMaxPayoutAmount = (string) Setting::get('wallet.franchise_max_payout_amount', '0', $scope);
+
+        $rankingConfig = app(RankingConfigResolver::class)->resolve('providers', $scope);
+        $this->rankingMode = $rankingConfig['mode'];
+        $sequentialSlots = array_values($rankingConfig['sequential']);
+        $this->rankingPrimaryCriterion = $sequentialSlots[0]['key'] ?? 'distance';
+        $this->rankingPrimaryDirection = $sequentialSlots[0]['direction'] ?? 'asc';
+        $this->rankingSecondaryCriterion = $sequentialSlots[1]['key'] ?? '';
+        $this->rankingSecondaryDirection = $sequentialSlots[1]['direction'] ?? 'asc';
+        $this->rankingTertiaryCriterion = $sequentialSlots[2]['key'] ?? '';
+        $this->rankingTertiaryDirection = $sequentialSlots[2]['direction'] ?? 'asc';
+        $this->rankingWeightPriority = (string) $rankingConfig['weights']['priority'];
+        $this->rankingWeightRating = (string) $rankingConfig['weights']['rating'];
+        $this->rankingWeightDistance = (string) $rankingConfig['weights']['distance'];
+        $this->rankingWeightOrders = (string) $rankingConfig['weights']['orders'];
+        $this->rankingWeightSubscription = (string) $rankingConfig['weights']['subscription'];
 
         $configuredChannels = explode(',', Setting::get('notifications.channels', 'mail', $scope));
         $this->notifyMail = in_array('mail', $configuredChannels, true);
@@ -383,6 +421,52 @@ class Manage extends Component
         Setting::set('cancellation.fee_value', $this->cancellationFeeValue, $scopeType, $scopeId);
 
         $this->flashMessage = 'Refund / Cancellation settings saved'.($scopeType === 'global' ? '.' : " for this {$scopeType}.");
+    }
+
+    /** Real consumers: App\Services\DispatchService::findCandidates() (dispatch) and ::nearbyForService() (GET /api/providers/nearby), via RankingEngine/RankingConfigResolver. */
+    public function saveRanking(): void
+    {
+        if (! auth()->user()->hasPermission('settings.manage')) {
+            $this->addError('permission', 'You do not have permission to manage ranking settings.');
+            return;
+        }
+
+        $this->validate([
+            'rankingMode' => ['required', 'in:sequential,weighted'],
+            'rankingPrimaryCriterion' => ['required', 'in:'.implode(',', RankingConfigResolver::CRITERIA)],
+            'rankingSecondaryCriterion' => ['nullable', 'in:'.implode(',', RankingConfigResolver::CRITERIA)],
+            'rankingTertiaryCriterion' => ['nullable', 'in:'.implode(',', RankingConfigResolver::CRITERIA)],
+            'rankingWeightPriority' => ['required', 'numeric', 'min:0'],
+            'rankingWeightRating' => ['required', 'numeric', 'min:0'],
+            'rankingWeightDistance' => ['required', 'numeric', 'min:0'],
+            'rankingWeightOrders' => ['required', 'numeric', 'min:0'],
+            'rankingWeightSubscription' => ['required', 'numeric', 'min:0'],
+        ], [], ['rankingPrimaryCriterion' => 'primary criterion']);
+
+        $slots = collect([
+            ['key' => $this->rankingPrimaryCriterion, 'direction' => $this->rankingPrimaryDirection],
+            ['key' => $this->rankingSecondaryCriterion, 'direction' => $this->rankingSecondaryDirection],
+            ['key' => $this->rankingTertiaryCriterion, 'direction' => $this->rankingTertiaryDirection],
+        ])->filter(fn ($s) => $s['key'] !== '');
+
+        if ($slots->pluck('key')->unique()->count() !== $slots->count()) {
+            $this->addError('rankingSecondaryCriterion', 'Each ranking criterion can only be used once (primary/secondary/tertiary).');
+            return;
+        }
+
+        [$scopeType, $scopeId] = $this->scopeTypeAndId();
+
+        Setting::set('ranking.providers.mode', $this->rankingMode, $scopeType, $scopeId);
+        Setting::set('ranking.providers.sequential', $slots->map(fn ($s) => "{$s['key']}:{$s['direction']}")->implode(','), $scopeType, $scopeId);
+        Setting::set('ranking.providers.weights', json_encode([
+            'priority' => (float) $this->rankingWeightPriority,
+            'rating' => (float) $this->rankingWeightRating,
+            'distance' => (float) $this->rankingWeightDistance,
+            'orders' => (float) $this->rankingWeightOrders,
+            'subscription' => (float) $this->rankingWeightSubscription,
+        ]), $scopeType, $scopeId);
+
+        $this->flashMessage = 'Ranking settings saved'.($scopeType === 'global' ? '.' : " for this {$scopeType}.");
     }
 
     /** Real consumers: App\Services\WalletTopUpService (customer fields), App\Actions\AcceptBookingAction (min balance), App\Services\PayoutService (payout min/max). */

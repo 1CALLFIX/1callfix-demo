@@ -41,6 +41,14 @@
                 <div class="flex justify-between"><dt class="text-gray-500">Jobs completed</dt><dd>{{ $provider->jobs_completed }}</dd></div>
                 <div class="flex justify-between"><dt class="text-gray-500">Rating</dt><dd>{{ number_format($provider->rating_avg, 2) }} / 5</dd></div>
                 <div class="flex justify-between"><dt class="text-gray-500">Currently online</dt><dd>{{ $provider->is_online ? 'Yes' : 'No' }}</dd></div>
+                <div class="flex justify-between items-center pt-2 border-t mt-2">
+                    <dt class="text-gray-500">Ranking priority</dt>
+                    <dd class="flex items-center gap-2">
+                        <input type="number" min="0" max="1000" wire:model="priorityInput" class="w-20 border rounded px-2 py-1 text-sm text-right">
+                        <button type="button" wire:click="updatePriority" class="text-xs bg-slate-900 text-white px-3 py-1.5 rounded hover:bg-slate-800">Save</button>
+                    </dd>
+                </div>
+                @error('priorityInput') <p class="text-red-600 text-xs text-right">{{ $message }}</p> @enderror
             </dl>
         </div>
     </div>
