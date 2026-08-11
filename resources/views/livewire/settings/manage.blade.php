@@ -5,8 +5,10 @@
         'booking' => 'Booking',
         'locale' => 'Locale & Currency',
         'branding' => 'Platform / Branding',
+        'maps' => 'Maps',
     ];
     $placeholder = \App\Livewire\Settings\Manage::PLACEHOLDER_TABS[$activeTab] ?? null;
+    $scoped = $scopeType !== 'global';
 @endphp
 
 <div>
@@ -15,6 +17,64 @@
     @if ($flashMessage)
         <div class="bg-green-50 text-green-700 rounded p-3 mb-4 text-sm">{{ $flashMessage }}</div>
     @endif
+
+    {{-- Scope picker — the real Control Plane behaviour. Global by default;
+         drilling into a Country/City/Franchise/Zone makes the five real
+         tabs below read/write an override at exactly that scope, falling
+         back to whatever's set broader when nothing's overridden here. --}}
+    <div class="bg-white rounded-lg shadow-sm p-4 mb-4 max-w-3xl">
+        <label class="block text-xs font-medium mb-2">Scope</label>
+        <div class="flex flex-wrap gap-2 mb-3">
+            @foreach (['global' => 'Global', 'country' => 'Country', 'city' => 'City', 'franchise' => 'Franchise', 'zone' => 'Zone'] as $key => $label)
+                <button type="button" wire:click="$set('scopeType', '{{ $key }}')"
+                        @class([
+                            'px-3 py-1.5 rounded text-sm',
+                            'bg-slate-900 text-white' => $scopeType === $key,
+                            'bg-gray-100 text-gray-600 hover:bg-gray-200' => $scopeType !== $key,
+                        ])>{{ $label }}</button>
+            @endforeach
+        </div>
+
+        @if ($scopeType === 'country')
+            <select wire:model.live="scopeCountryId" class="border rounded px-3 py-2 text-sm w-64">
+                <option value="">Select a country…</option>
+                @foreach ($scopeCountries as $c) <option value="{{ $c->id }}">{{ $c->name }}</option> @endforeach
+            </select>
+        @elseif ($scopeType === 'city')
+            <div class="flex gap-2">
+                <select wire:model.live="scopeCountryId" class="border rounded px-3 py-2 text-sm w-56">
+                    <option value="">Country…</option>
+                    @foreach ($scopeCountries as $c) <option value="{{ $c->id }}">{{ $c->name }}</option> @endforeach
+                </select>
+                <select wire:model.live="scopeCityId" class="border rounded px-3 py-2 text-sm w-56" @disabled(! $scopeCountryId)>
+                    <option value="">{{ $scopeCountryId ? 'City…' : 'Pick a country first' }}</option>
+                    @foreach ($scopeCities as $c) <option value="{{ $c->id }}">{{ $c->name }}</option> @endforeach
+                </select>
+            </div>
+        @elseif ($scopeType === 'franchise')
+            <select wire:model.live="scopeFranchiseId" class="border rounded px-3 py-2 text-sm w-64">
+                <option value="">Select a franchise…</option>
+                @foreach ($scopeFranchises as $f) <option value="{{ $f->id }}">{{ $f->name }} ({{ $f->code }})</option> @endforeach
+            </select>
+        @elseif ($scopeType === 'zone')
+            <div class="flex gap-2">
+                <select wire:model.live="scopeFranchiseId" class="border rounded px-3 py-2 text-sm w-56">
+                    <option value="">Franchise…</option>
+                    @foreach ($scopeFranchises as $f) <option value="{{ $f->id }}">{{ $f->name }} ({{ $f->code }})</option> @endforeach
+                </select>
+                <select wire:model.live="scopeZoneId" class="border rounded px-3 py-2 text-sm w-56" @disabled(! $scopeFranchiseId)>
+                    <option value="">{{ $scopeFranchiseId ? 'Zone…' : 'Pick a franchise first' }}</option>
+                    @foreach ($scopeZones as $z) <option value="{{ $z->id }}">{{ $z->name }}</option> @endforeach
+                </select>
+            </div>
+        @endif
+
+        @if ($scoped)
+            <p class="text-xs text-gray-400 mt-2">
+                Fields below show the effective value — this scope's own override, or inherited from a broader one. Saving writes an override at exactly this scope; it never changes the broader value.
+            </p>
+        @endif
+    </div>
 
     {{-- Tab bar — real tabs first, then placeholders (greyed, "soon" tag),
          so the full eventual shape of a mature settings hub is visible
@@ -45,25 +105,25 @@
             <p class="text-xs text-gray-400 mb-3">Tuning for the automatic provider-matching engine. Changes apply to the next dispatch run — bookings already searching keep their in-flight timing.</p>
             <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div>
-                    <label class="block text-xs font-medium mb-1">Offer batch size</label>
+                    <label class="block text-xs font-medium mb-1">Offer batch size @if ($scoped) <x-setting-override-badge :overridden="in_array('dispatch.offer_batch_size', $this->overriddenKeys)" setting-key="dispatch.offer_batch_size" /> @endif</label>
                     <input type="number" step="1" wire:model="dispatchOfferBatchSize" class="w-full border rounded px-3 py-2 text-sm">
                     <p class="text-[11px] text-gray-400 mt-1">Providers offered at once</p>
                     @error('dispatchOfferBatchSize') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
                 </div>
                 <div>
-                    <label class="block text-xs font-medium mb-1">Offer timeout (sec)</label>
+                    <label class="block text-xs font-medium mb-1">Offer timeout (sec) @if ($scoped) <x-setting-override-badge :overridden="in_array('dispatch.offer_timeout_seconds', $this->overriddenKeys)" setting-key="dispatch.offer_timeout_seconds" /> @endif</label>
                     <input type="number" step="1" wire:model="dispatchOfferTimeoutSeconds" class="w-full border rounded px-3 py-2 text-sm">
                     <p class="text-[11px] text-gray-400 mt-1">Before an offer expires</p>
                     @error('dispatchOfferTimeoutSeconds') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
                 </div>
                 <div>
-                    <label class="block text-xs font-medium mb-1">Max rounds</label>
+                    <label class="block text-xs font-medium mb-1">Max rounds @if ($scoped) <x-setting-override-badge :overridden="in_array('dispatch.max_rounds', $this->overriddenKeys)" setting-key="dispatch.max_rounds" /> @endif</label>
                     <input type="number" step="1" wire:model="dispatchMaxRounds" class="w-full border rounded px-3 py-2 text-sm">
                     <p class="text-[11px] text-gray-400 mt-1">Before falling to manual queue</p>
                     @error('dispatchMaxRounds') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
                 </div>
                 <div>
-                    <label class="block text-xs font-medium mb-1">Default radius (km)</label>
+                    <label class="block text-xs font-medium mb-1">Default radius (km) @if ($scoped) <x-setting-override-badge :overridden="in_array('dispatch.default_radius_km', $this->overriddenKeys)" setting-key="dispatch.default_radius_km" /> @endif</label>
                     <input type="number" step="1" wire:model="dispatchDefaultRadiusKm" class="w-full border rounded px-3 py-2 text-sm">
                     <p class="text-[11px] text-gray-400 mt-1">Pre-fill for new zones only</p>
                     @error('dispatchDefaultRadiusKm') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
@@ -78,7 +138,7 @@
             <p class="text-xs text-gray-400 mb-3">Pre-fills the Add New Franchise form. Franchises already created keep their own commission settings — edit those individually from the Franchises screen.</p>
             <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
-                    <label class="block text-xs font-medium mb-1">Commission model</label>
+                    <label class="block text-xs font-medium mb-1">Commission model @if ($scoped) <x-setting-override-badge :overridden="in_array('commission.default_model', $this->overriddenKeys)" setting-key="commission.default_model" /> @endif</label>
                     <select wire:model="commissionDefaultModel" class="w-full border rounded px-3 py-2 text-sm">
                         <option value="revenue_share">Revenue Share</option>
                         <option value="flat_fee">Flat Fee</option>
@@ -87,12 +147,12 @@
                     @error('commissionDefaultModel') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
                 </div>
                 <div>
-                    <label class="block text-xs font-medium mb-1">Commission value</label>
+                    <label class="block text-xs font-medium mb-1">Commission value @if ($scoped) <x-setting-override-badge :overridden="in_array('commission.default_value', $this->overriddenKeys)" setting-key="commission.default_value" /> @endif</label>
                     <input type="number" step="0.01" wire:model="commissionDefaultValue" class="w-full border rounded px-3 py-2 text-sm">
                     @error('commissionDefaultValue') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
                 </div>
                 <div>
-                    <label class="block text-xs font-medium mb-1">Platform fee (%)</label>
+                    <label class="block text-xs font-medium mb-1">Platform fee (%) @if ($scoped) <x-setting-override-badge :overridden="in_array('commission.default_platform_fee_percent', $this->overriddenKeys)" setting-key="commission.default_platform_fee_percent" /> @endif</label>
                     <input type="number" step="0.01" wire:model="commissionDefaultPlatformFeePercent" class="w-full border rounded px-3 py-2 text-sm">
                     @error('commissionDefaultPlatformFeePercent') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
                 </div>
@@ -107,12 +167,12 @@
             <p class="text-xs text-gray-400 mb-3">OTP length feeds the start/completion OTPs generated when a provider is assigned. Schedule window bounds how far ahead a booking can be scheduled from the New Booking form.</p>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                    <label class="block text-xs font-medium mb-1">OTP length (digits)</label>
+                    <label class="block text-xs font-medium mb-1">OTP length (digits) @if ($scoped) <x-setting-override-badge :overridden="in_array('booking.otp_length', $this->overriddenKeys)" setting-key="booking.otp_length" /> @endif</label>
                     <input type="number" step="1" wire:model="bookingOtpLength" class="w-full border rounded px-3 py-2 text-sm">
                     @error('bookingOtpLength') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
                 </div>
                 <div>
-                    <label class="block text-xs font-medium mb-1">Max schedule days ahead</label>
+                    <label class="block text-xs font-medium mb-1">Max schedule days ahead @if ($scoped) <x-setting-override-badge :overridden="in_array('booking.max_schedule_days_ahead', $this->overriddenKeys)" setting-key="booking.max_schedule_days_ahead" /> @endif</label>
                     <input type="number" step="1" wire:model="bookingMaxScheduleDaysAhead" class="w-full border rounded px-3 py-2 text-sm">
                     @error('bookingMaxScheduleDaysAhead') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
                 </div>
@@ -126,7 +186,7 @@
             <p class="text-xs text-gray-400 mb-3">Currency symbol shown across the admin panel (Bookings, Services, Banners, Dashboard). This changes display only — every money column stays a fixed 2-decimal figure, not a multi-currency conversion.</p>
             <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
-                    <label class="block text-xs font-medium mb-1">Currency symbol</label>
+                    <label class="block text-xs font-medium mb-1">Currency symbol @if ($scoped) <x-setting-override-badge :overridden="in_array('locale.currency_symbol', $this->overriddenKeys)" setting-key="locale.currency_symbol" /> @endif</label>
                     <input type="text" wire:model="localeCurrencySymbol" class="w-full border rounded px-3 py-2 text-sm" maxlength="5">
                     @error('localeCurrencySymbol') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
                 </div>
@@ -140,12 +200,12 @@
             <p class="text-xs text-gray-400 mb-3">Shown in the admin header, browser tab title, and login page.</p>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                    <label class="block text-xs font-medium mb-1">Platform name</label>
+                    <label class="block text-xs font-medium mb-1">Platform name @if ($scoped) <x-setting-override-badge :overridden="in_array('branding.platform_name', $this->overriddenKeys)" setting-key="branding.platform_name" /> @endif</label>
                     <input type="text" wire:model="brandingPlatformName" class="w-full border rounded px-3 py-2 text-sm">
                     @error('brandingPlatformName') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
                 </div>
                 <div>
-                    <label class="block text-xs font-medium mb-1">Operating city label</label>
+                    <label class="block text-xs font-medium mb-1">Operating city label @if ($scoped) <x-setting-override-badge :overridden="in_array('branding.operating_city_label', $this->overriddenKeys)" setting-key="branding.operating_city_label" /> @endif</label>
                     <input type="text" wire:model="brandingOperatingCityLabel" class="w-full border rounded px-3 py-2 text-sm">
                     @error('brandingOperatingCityLabel') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
                 </div>
@@ -153,6 +213,22 @@
             <div class="flex justify-end pt-4 mt-4 border-t">
                 <button type="button" wire:click="saveBranding" class="bg-slate-900 text-white px-6 py-2 rounded text-sm font-medium hover:bg-slate-800">Save Branding Settings</button>
             </div>
+
+        {{-- Maps — real, but read-only: the API key is a credential and stays
+             in .env, never duplicated into an editable DB row. --}}
+        @elseif ($activeTab === 'maps')
+            <p class="text-xs text-gray-400 mb-3">Google Maps JS API key lives in <code>.env</code> (<code>GOOGLE_MAPS_API_KEY</code>) — a credential, so it's shown here as status only, never as an editable field.</p>
+            <div class="flex items-center gap-3">
+                <span @class([
+                    'px-2 py-1 rounded text-xs font-medium',
+                    'bg-green-100 text-green-700' => $mapsConfigured,
+                    'bg-red-100 text-red-700' => ! $mapsConfigured,
+                ])>{{ $mapsConfigured ? 'Configured' : 'Not configured' }}</span>
+                <span class="text-xs text-gray-500">Used by: Zones' boundary map, the New Booking modal's address picker</span>
+            </div>
+            @unless ($mapsConfigured)
+                <p class="text-xs text-amber-700 bg-amber-50 rounded p-2 mt-3">Set GOOGLE_MAPS_API_KEY on the server and both maps fall back to plain lat/lng number fields — see zone-map.blade.php / address-map.blade.php.</p>
+            @endunless
 
         {{-- Not built yet — no inputs, since nothing in the app reads a
              setting here. Named honestly, with the reason, rather than

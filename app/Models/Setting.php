@@ -19,8 +19,15 @@ class Setting extends Model
         'value'
     ];
 
-    /** Resolution order when a scope hint is given — most specific first. */
-    private const SCOPE_ORDER = ['franchise', 'zone', 'module', 'city', 'country'];
+    /**
+     * Resolution order when a scope hint is given — most specific first.
+     * Zone outranks franchise deliberately: zones.franchise_id makes Zone
+     * the child (many zones per franchise), so a zone-level override is
+     * more specific than its parent franchise's, not less — fixed here
+     * before any caller passes both hints at once (e.g. resolving a
+     * setting for a booking, which carries both franchise_id and zone_id).
+     */
+    private const SCOPE_ORDER = ['zone', 'franchise', 'module', 'city', 'country'];
 
     /**
      * Global → Country → City → Zone → Module → Franchise cascade (master
@@ -61,6 +68,22 @@ class Setting extends Model
     public static function set(string $key, $value, string $scopeType = 'global', ?int $scopeId = null): void
     {
         static::updateOrCreate(['scope_type' => $scopeType, 'scope_id' => $scopeId, 'key' => $key], ['value' => $value]);
+        cache()->forget("setting:{$scopeType}:{$scopeId}:{$key}");
+    }
+
+    /**
+     * Does an override exist at this EXACT scope — no cascading. Backs the
+     * Settings screen's "overridden here" vs "inherited" indicator, and
+     * clearOverride()'s ability to know whether there's anything to clear.
+     */
+    public static function existsAt(string $key, string $scopeType, ?int $scopeId): bool
+    {
+        return static::where('scope_type', $scopeType)->where('scope_id', $scopeId)->where('key', $key)->exists();
+    }
+
+    public static function clear(string $key, string $scopeType, ?int $scopeId): void
+    {
+        static::where('scope_type', $scopeType)->where('scope_id', $scopeId)->where('key', $key)->delete();
         cache()->forget("setting:{$scopeType}:{$scopeId}:{$key}");
     }
 }
