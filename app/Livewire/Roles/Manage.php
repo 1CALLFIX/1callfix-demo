@@ -74,6 +74,12 @@ class Manage extends Component
         };
     }
 
+    /** ['franchise_id' => 5] shape hasPermission()/AuthorizationService expect — [] for global. */
+    private function scopeArrayFor(string $scopeType, ?int $scopeId): array
+    {
+        return $scopeType === 'global' ? [] : array_filter(["{$scopeType}_id" => $scopeId]);
+    }
+
     public function assign(): void
     {
         $this->validate([
@@ -86,6 +92,18 @@ class Manage extends Component
         if ($scopeType !== 'global' && ! $scopeId) {
             $this->flashType = 'error';
             $this->flashMessage = 'Pick a '.$scopeType.' to scope this assignment to.';
+            return;
+        }
+
+        // Was completely unguarded — any admin-panel actor (any single
+        // role_assignment at any scope) could grant anyone super_admin at
+        // global scope. Same pattern as every other gated action in this
+        // app: check roles.manage at the scope the NEW assignment targets,
+        // so a franchise-scoped roles.manage holder can only grant roles
+        // within their own franchise, never escalate to global.
+        if (! auth()->user()->hasPermission('roles.manage', $this->scopeArrayFor($scopeType, $scopeId))) {
+            $this->flashType = 'error';
+            $this->flashMessage = 'You do not have permission to assign roles at this scope.';
             return;
         }
 
@@ -123,7 +141,19 @@ class Manage extends Component
             return;
         }
 
-        RoleAssignment::findOrFail($this->confirmingRevokeId)->delete();
+        $assignment = RoleAssignment::findOrFail($this->confirmingRevokeId);
+
+        // Same check as assign(), against the assignment's own scope — a
+        // franchise-scoped roles.manage holder can revoke roles inside
+        // their own franchise, never a global or another franchise's grant.
+        if (! auth()->user()->hasPermission('roles.manage', $this->scopeArrayFor($assignment->scope_type, $assignment->scope_id))) {
+            $this->confirmingRevokeId = null;
+            $this->flashType = 'error';
+            $this->flashMessage = 'You do not have permission to revoke a role assignment at this scope.';
+            return;
+        }
+
+        $assignment->delete();
         $this->confirmingRevokeId = null;
         $this->flashType = 'success';
         $this->flashMessage = 'Role assignment revoked.';
