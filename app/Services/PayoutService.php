@@ -5,6 +5,8 @@ namespace App\Services;
 use App\Models\Payout;
 use App\Models\Provider;
 use App\Models\User;
+use App\Notifications\PayoutStatusNotification;
+use App\Notifications\Support\ChannelResolver;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
@@ -84,6 +86,9 @@ class PayoutService
         }
 
         $payout->update(['status' => 'paid', 'gateway_ref' => $gatewayRef, 'processed_at' => now()]);
+
+        $user = $this->resolvePayeeUser($payout->payee_type, $payout->payee_id);
+        $user->notify(new PayoutStatusNotification('paid', $payout->fresh(), ChannelResolver::resolve()));
     }
 
     /**
@@ -108,6 +113,8 @@ class PayoutService
             );
 
             $payout->update(['status' => 'failed', 'processed_at' => now()]);
+
+            $user->notify(new PayoutStatusNotification('failed', $payout->fresh(), ChannelResolver::resolve()));
         });
     }
 

@@ -4,6 +4,8 @@ namespace App\Actions;
 
 use App\Events\BookingStatusUpdated;
 use App\Models\Booking;
+use App\Notifications\BookingStatusNotification;
+use App\Notifications\Support\ChannelResolver;
 use App\Services\CancellationService;
 use Illuminate\Support\Facades\DB;
 
@@ -45,6 +47,11 @@ class AdminCancelBookingAction
         // transaction, doesn't hold the booking row lock during an external
         // Razorpay API call.
         $this->cancellationService->refundIfPaid($booking, (float) $booking->cancellation_fee);
+
+        if ($booking->customer) {
+            $channels = ChannelResolver::resolve(['zone_id' => $booking->zone_id, 'franchise_id' => $booking->franchise_id]);
+            $booking->customer->notify(new BookingStatusNotification('cancelled', $booking, $channels));
+        }
 
         return $booking->fresh();
     }

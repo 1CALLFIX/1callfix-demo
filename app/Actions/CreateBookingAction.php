@@ -5,6 +5,8 @@ namespace App\Actions;
 use App\Jobs\ServiceMatchingJob;
 use App\Models\Booking;
 use App\Models\Service;
+use App\Notifications\BookingStatusNotification;
+use App\Notifications\Support\ChannelResolver;
 
 class CreateBookingAction
 {
@@ -31,6 +33,11 @@ class CreateBookingAction
         ]);
 
         ServiceMatchingJob::dispatch($booking->id);
+
+        if ($booking->customer) {
+            $channels = ChannelResolver::resolve(['zone_id' => $booking->zone_id, 'franchise_id' => $booking->franchise_id]);
+            $booking->customer->notify(new BookingStatusNotification('created', $booking, $channels));
+        }
 
         return $booking;
     }

@@ -6,6 +6,7 @@
         'booking' => 'Booking',
         'cancellation' => 'Refund / Cancellation',
         'payment' => 'Payment',
+        'notifications' => 'Notifications',
         'locale' => 'Locale & Currency',
         'branding' => 'Platform / Branding',
         'maps' => 'Maps',
@@ -264,6 +265,25 @@
             @error('paymentOnlineEnabled') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
             <div class="flex justify-end pt-4 mt-4 border-t">
                 <button type="button" wire:click="savePayment" class="bg-slate-900 text-white px-6 py-2 rounded text-sm font-medium hover:bg-slate-800">Save Payment Settings</button>
+            </div>
+
+        {{-- Notifications — which channels App\Notifications\Support\ChannelResolver hands back to every dispatch site. --}}
+        @elseif ($activeTab === 'notifications')
+            <p class="text-xs text-gray-400 mb-3">Controls which channels booking/payment/payout notifications attempt. Mail uses <code>config/mail.php</code> (log driver unless real SMTP is configured); SMS and Push have no real gateway configured yet — both log to <code>notification_logs</code> via a fake adapter so the internal flow is fully real and testable, without sending an actual message.</p>
+            <div class="grid grid-cols-3 gap-4">
+                <label class="flex items-center gap-2 text-sm">
+                    <input type="checkbox" wire:model="notifyMail" class="rounded"> Mail
+                </label>
+                <label class="flex items-center gap-2 text-sm">
+                    <input type="checkbox" wire:model="notifySms" class="rounded"> SMS
+                </label>
+                <label class="flex items-center gap-2 text-sm">
+                    <input type="checkbox" wire:model="notifyPush" class="rounded"> Push
+                </label>
+            </div>
+            @if ($scoped) <p class="text-xs text-gray-400 mt-2"><x-setting-override-badge :overridden="in_array('notifications.channels', $this->overriddenKeys)" setting-key="notifications.channels" /></p> @endif
+            <div class="flex justify-end pt-4 mt-4 border-t">
+                <button type="button" wire:click="saveNotifications" class="bg-slate-900 text-white px-6 py-2 rounded text-sm font-medium hover:bg-slate-800">Save Notification Settings</button>
             </div>
 
         {{-- Locale & Currency — the ₹ symbol shown across every admin money field. --}}

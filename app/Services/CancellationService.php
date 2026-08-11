@@ -5,6 +5,8 @@ namespace App\Services;
 use App\Models\Booking;
 use App\Models\Payment;
 use App\Models\Setting;
+use App\Notifications\PaymentStatusNotification;
+use App\Notifications\Support\ChannelResolver;
 
 /**
  * Cancellation policy resolution + the fee/refund calculation it drives.
@@ -97,5 +99,10 @@ class CancellationService
 
         $booking->payment_status = $refundAmount >= (float) $payment->amount ? 'refunded' : 'partially_refunded';
         $booking->save();
+
+        if ($booking->customer) {
+            $channels = ChannelResolver::resolve(['zone_id' => $booking->zone_id, 'franchise_id' => $booking->franchise_id]);
+            $booking->customer->notify(new PaymentStatusNotification('refunded', $booking, $channels, $refundAmount));
+        }
     }
 }

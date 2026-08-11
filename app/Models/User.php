@@ -5,12 +5,14 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
 
 class User extends Authenticatable
 {
     use HasApiTokens;
     use HasFactory;
+    use Notifiable;
     use SoftDeletes;
 
     protected $table = 'users';
@@ -43,6 +45,9 @@ class User extends Authenticatable
     public function wallet() { return $this->hasOne(Wallet::class); }
     public function ownedFranchises() { return $this->hasMany(Franchise::class, 'owner_user_id'); }
     public function roleAssignments() { return $this->hasMany(RoleAssignment::class); }
+
+    public function routeNotificationForSms(): ?string { return $this->phone; }
+    public function routeNotificationForPush(): ?string { return $this->fcm_token; }
 
     /** @see \App\Services\AuthorizationService::can() */
     public function hasPermission(string $permission, array $scope = []): bool

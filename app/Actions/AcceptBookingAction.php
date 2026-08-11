@@ -7,6 +7,8 @@ use App\Models\Booking;
 use App\Models\DispatchAttempt;
 use App\Models\Provider;
 use App\Models\Setting;
+use App\Notifications\BookingStatusNotification;
+use App\Notifications\Support\ChannelResolver;
 use Illuminate\Support\Facades\DB;
 
 class AcceptBookingAction
@@ -25,7 +27,7 @@ class AcceptBookingAction
      */
     public function execute(int $bookingId, Provider $provider): Booking
     {
-        return DB::transaction(function () use ($bookingId, $provider) {
+        $booking = DB::transaction(function () use ($bookingId, $provider) {
             $booking = Booking::lockForUpdate()->findOrFail($bookingId);
 
             if ($booking->provider_id !== null) {
@@ -74,5 +76,12 @@ class AcceptBookingAction
 
             return $booking->fresh();
         });
+
+        if ($booking->customer) {
+            $channels = ChannelResolver::resolve(['zone_id' => $booking->zone_id, 'franchise_id' => $booking->franchise_id]);
+            $booking->customer->notify(new BookingStatusNotification('assigned', $booking, $channels));
+        }
+
+        return $booking;
     }
 }

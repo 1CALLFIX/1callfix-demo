@@ -5,6 +5,8 @@ namespace App\Actions;
 use App\Events\BookingStatusUpdated;
 use App\Models\Booking;
 use App\Models\Provider;
+use App\Notifications\BookingStatusNotification;
+use App\Notifications\Support\ChannelResolver;
 use App\Services\CommissionService;
 use Illuminate\Support\Facades\DB;
 
@@ -74,6 +76,11 @@ class CompleteBookingAction
         // transaction and wallet crediting, and we don't want to hold the
         // booking row lock any longer than necessary.
         $this->commissionService->applyForBooking($booking);
+
+        if ($booking->customer) {
+            $channels = ChannelResolver::resolve(['zone_id' => $booking->zone_id, 'franchise_id' => $booking->franchise_id]);
+            $booking->customer->notify(new BookingStatusNotification('completed', $booking, $channels));
+        }
 
         return $booking;
     }

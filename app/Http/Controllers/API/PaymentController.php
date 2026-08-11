@@ -5,6 +5,8 @@ namespace App\Http\Controllers\API;
 use App\Http\Controllers\Controller;
 use App\Models\Booking;
 use App\Models\Payment;
+use App\Notifications\PaymentStatusNotification;
+use App\Notifications\Support\ChannelResolver;
 use Illuminate\Http\Request;
 use App\Services\RazorpayService;
 use Illuminate\Support\Facades\Log;
@@ -146,6 +148,11 @@ class PaymentController extends Controller
         $booking = $payment->booking;
         $booking->payment_status = 'paid';
         $booking->save();
+
+        if ($booking->customer) {
+            $channels = ChannelResolver::resolve(['zone_id' => $booking->zone_id, 'franchise_id' => $booking->franchise_id]);
+            $booking->customer->notify(new PaymentStatusNotification('completed', $booking, $channels));
+        }
     }
 
     private function handlePaymentFailed(array $payload): void
@@ -159,6 +166,12 @@ class PaymentController extends Controller
         if ($payment && $payment->status !== 'captured') {
             $payment->status = 'failed';
             $payment->save();
+
+            $booking = $payment->booking;
+            if ($booking && $booking->customer) {
+                $channels = ChannelResolver::resolve(['zone_id' => $booking->zone_id, 'franchise_id' => $booking->franchise_id]);
+                $booking->customer->notify(new PaymentStatusNotification('failed', $booking, $channels));
+            }
         }
     }
 }

@@ -61,6 +61,15 @@ use Livewire\Component;
 // franchise owner's wallet at completion (CommissionService, same
 // mechanism as the provider's share), and PayoutService turns wallet
 // balance into a tracked payout request through to paid/failed.
+//
+// Notifications / Communication and Mail / SMS merged into one real tab
+// here ("Notifications") once App\Notifications existed: BookingStatus/
+// PaymentStatus/PayoutStatus Notification classes route through the
+// built-in mail channel plus custom SmsChannel/PushChannel (backed by
+// LogSmsAdapter/LogPushAdapter — no real SMS/push provider is configured
+// anywhere, same as before, but the full event -> channel -> adapter flow
+// is real and logged to notification_logs). This tab only controls which
+// channels are attempted, per scope.
 class Manage extends Component
 {
     public const PLACEHOLDER_TABS = [
@@ -68,10 +77,8 @@ class Manage extends Component
         'vendor' => ['label' => 'Vendor / Provider', 'note' => 'Provider self-registration rules, KYC requirements, verified badges — the Providers screen already covers approve/reject; broader policy config isn\'t built yet. No self-registration route exists (confirmed by audit) since there\'s no provider-facing app yet.'],
         'customer' => ['label' => 'Customer', 'note' => 'Registration rules, profile requirements, per-customer limits — no generalized customer-config surface exists yet (no customer-facing app to register through).'],
         'wallet' => ['label' => 'Wallet / Ledger', 'note' => 'Wallet limits (min top-up, max balance) — WalletService itself is real and now feeds Payouts (see admin.payouts.index); admin-configurable limits on top of it aren\'t built yet.'],
-        'notifications' => ['label' => 'Notifications / Communication', 'note' => 'No SMS gateway or push-delivery service is wired up (ServiceMatchingJob has a standing TODO for FCM). BookingStatusUpdated/NewJobOffered ARE real ShouldBroadcast events — see the Websocket tab — but nothing subscribes a phone/email to receive them outside a websocket connection.'],
         'ui_home_screen' => ['label' => 'UI / Home Screen', 'note' => 'Banner position/vendor layout/widget visibility — there\'s no customer-facing home screen yet to configure (M6 not started).'],
         'priority_ranking' => ['label' => 'Priority / Ranking', 'note' => 'Search/listing sort rules — nothing customer-facing exists yet to rank.'],
-        'mail_sms' => ['label' => 'Mail / SMS', 'note' => 'Mail transport is configured via .env (config/mail.php); no SMS gateway is integrated anywhere in the codebase. No admin-editable mail/SMS settings exist yet.'],
         'dynamic_links' => ['label' => 'Dynamic Links', 'note' => 'iOS/Android deep-link scheme, package names, SHA256 — meaningless without a mobile app to link into.'],
         'in_app_support' => ['label' => 'In-App Support', 'note' => 'Support widget/link config for a mobile app that doesn\'t exist yet.'],
         'subscriptions_membership' => ['label' => 'Subscriptions / Membership', 'note' => 'subscription_plans and provider_subscriptions tables exist with zero consumers anywhere (confirmed by audit) — no provider app to sell a package through, no customer app to sell Prime through.'],
@@ -108,6 +115,11 @@ class Manage extends Component
     public string $cancellationFreeMinutes = '15';
     public string $cancellationFeeType = 'flat';
     public string $cancellationFeeValue = '0';
+
+    // --- Notifications (ChannelResolver, consumed by every Notification class) ---
+    public bool $notifyMail = true;
+    public bool $notifySms = false;
+    public bool $notifyPush = false;
 
     // --- Locale & Currency (display symbol used across admin money fields) ---
     public string $localeCurrencySymbol = '₹';
@@ -211,6 +223,11 @@ class Manage extends Component
         $this->cancellationFreeMinutes = (string) Setting::get('cancellation.free_minutes', '15', $scope);
         $this->cancellationFeeType = Setting::get('cancellation.fee_type', 'flat', $scope);
         $this->cancellationFeeValue = (string) Setting::get('cancellation.fee_value', '0', $scope);
+
+        $configuredChannels = explode(',', Setting::get('notifications.channels', 'mail', $scope));
+        $this->notifyMail = in_array('mail', $configuredChannels, true);
+        $this->notifySms = in_array('sms', $configuredChannels, true);
+        $this->notifyPush = in_array('push', $configuredChannels, true);
 
         $this->localeCurrencySymbol = Setting::get('locale.currency_symbol', '₹', $scope);
 
@@ -333,6 +350,22 @@ class Manage extends Component
         Setting::set('cancellation.fee_value', $this->cancellationFeeValue, $scopeType, $scopeId);
 
         $this->flashMessage = 'Refund / Cancellation settings saved'.($scopeType === 'global' ? '.' : " for this {$scopeType}.");
+    }
+
+    /** Real consumer: App\Notifications\Support\ChannelResolver, called from every BookingStatus/PaymentStatus/PayoutStatus dispatch site. */
+    public function saveNotifications(): void
+    {
+        $channels = array_filter([
+            $this->notifyMail ? 'mail' : null,
+            $this->notifySms ? 'sms' : null,
+            $this->notifyPush ? 'push' : null,
+        ]);
+
+        [$scopeType, $scopeId] = $this->scopeTypeAndId();
+
+        Setting::set('notifications.channels', implode(',', $channels) ?: 'mail', $scopeType, $scopeId);
+
+        $this->flashMessage = 'Notification settings saved'.($scopeType === 'global' ? '.' : " for this {$scopeType}.");
     }
 
     public function saveLocale(): void
