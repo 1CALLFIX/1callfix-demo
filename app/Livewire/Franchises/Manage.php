@@ -168,11 +168,15 @@ class Manage extends Component
         // Zone/City/Franchise-scoped role has no franchises.manage grant
         // that covers this (there's no franchise yet to scope to), so only
         // global (Super Admin) or the matching country_id assignment passes.
-        abort_unless(
-            auth()->user()->hasPermission('franchises.manage', ['country_id' => $this->countryId]),
-            403,
-            'You do not have permission to create a franchise in this country.'
-        );
+        // Livewire's own error bag rather than abort() -- an HTTP abort
+        // inside a component action doesn't round-trip as a normal PHP
+        // exception through Livewire::test()'s in-process call lifecycle,
+        // and addError() is the idiom the rest of this component already
+        // uses for validate()'s own failures.
+        if (! auth()->user()->hasPermission('franchises.manage', ['country_id' => $this->countryId])) {
+            $this->addError('permission', 'You do not have permission to create a franchise in this country.');
+            return;
+        }
 
         // slug is required by the schema; FranchiseObserver auto-generates
         // `code` from the name (first 3 letters, numeric suffix on collision).

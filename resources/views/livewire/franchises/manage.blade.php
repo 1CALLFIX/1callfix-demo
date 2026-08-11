@@ -13,6 +13,8 @@
         <div class="bg-green-50 text-green-700 rounded p-3 mb-4 text-sm">{{ $flashMessage }}</div>
     @endif
 
+    @error('permission') <div class="bg-red-50 text-red-700 rounded p-3 mb-4 text-sm">{{ $message }}</div> @enderror
+
     {{-- Add New — pinned at the top, list updates live below it. --}}
     <div class="bg-white rounded-lg shadow-sm p-4 mb-6">
         <h2 class="text-sm font-semibold mb-3">Add New Franchise</h2>
