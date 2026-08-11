@@ -160,17 +160,33 @@ class Manage extends Component
         ]));
     }
 
-    /** notification.broadcast (or .direct for a specific user) checked against the CHOSEN scope — a Country Admin can't target a different country. */
+    /**
+     * notification.send AND (notification.broadcast or .direct for a
+     * specific user), both checked against the CHOSEN scope — not a global/
+     * empty scope hint, since a scoped role's grants (e.g. a Country Admin's
+     * country-scoped assignment) only cover requests carrying that same
+     * scope. A Country Admin can send within their own country but not
+     * target a different one, and can't send at all without a scope-
+     * covering grant on notification.send either.
+     */
     private function authorizeSend(): bool
     {
+        $scopeHint = $this->scopeHintForAuthorization();
+
         if ($this->recipientType === 'specific_user') {
-            return auth()->user()->hasPermission('notification.direct');
+            return auth()->user()->hasPermission('notification.send', $scopeHint)
+                && auth()->user()->hasPermission('notification.direct', $scopeHint);
         }
 
-        [$scopeType, $scopeId] = $this->resolvedScope();
-        $scopeHint = $scopeType === 'global' ? [] : ["{$scopeType}_id" => $scopeId];
+        return auth()->user()->hasPermission('notification.send', $scopeHint)
+            && auth()->user()->hasPermission('notification.broadcast', $scopeHint);
+    }
 
-        return auth()->user()->hasPermission('notification.broadcast', $scopeHint);
+    private function scopeHintForAuthorization(): array
+    {
+        [$scopeType, $scopeId] = $this->resolvedScope();
+
+        return $scopeType === 'global' ? [] : ["{$scopeType}_id" => $scopeId];
     }
 
     private function validated(): array
@@ -184,7 +200,7 @@ class Manage extends Component
 
     public function sendNow(): void
     {
-        if (! auth()->user()->hasPermission('notification.send') || ! $this->authorizeSend()) {
+        if (! $this->authorizeSend()) {
             $this->flashType = 'error';
             $this->flashMessage = 'You do not have permission to send to this audience/scope.';
             return;
@@ -217,7 +233,8 @@ class Manage extends Component
 
     public function scheduleSend(): void
     {
-        if (! auth()->user()->hasPermission('notification.schedule') || ! $this->authorizeSend()) {
+        $scopeHint = $this->scopeHintForAuthorization();
+        if (! auth()->user()->hasPermission('notification.schedule', $scopeHint) || ! $this->authorizeSend()) {
             $this->flashType = 'error';
             $this->flashMessage = 'You do not have permission to schedule for this audience/scope.';
             return;
