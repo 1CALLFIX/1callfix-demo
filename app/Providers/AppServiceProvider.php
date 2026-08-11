@@ -10,6 +10,8 @@ use App\Models\NotificationLog;
 use App\Models\Zone;
 use App\Notifications\Adapters\LogPushAdapter;
 use App\Notifications\Adapters\LogSmsAdapter;
+use App\Notifications\Channels\PushChannel;
+use App\Notifications\Channels\SmsChannel;
 use App\Observers\BookingObserver;
 use App\Observers\FranchiseObserver;
 use App\Observers\ZoneObserver;
@@ -47,11 +49,15 @@ class AppServiceProvider extends ServiceProvider
         // built-in 'mail', or our custom SmsChannel/PushChannel) into
         // notification_logs -- the real audit trail behind the Notifications
         // Settings tab, rather than each channel/adapter logging it itself.
+        // Laravel hands the channel back as either the literal string 'mail'
+        // or the FQCN of a custom channel class (SmsChannel::class) -- both
+        // via() and this listener need to agree on that shape, so it's
+        // normalized to a short code here for a readable audit trail.
         Event::listen(function (NotificationSent $event) {
             NotificationLog::create([
                 'notifiable_type' => get_class($event->notifiable),
                 'notifiable_id' => $event->notifiable->getKey(),
-                'channel' => is_string($event->channel) ? $event->channel : class_basename($event->channel),
+                'channel' => $this->normalizeChannelName($event->channel),
                 'notification_type' => get_class($event->notification),
                 'event' => method_exists($event->notification, 'eventKey') ? $event->notification->eventKey() : null,
                 'status' => 'sent',
@@ -63,7 +69,7 @@ class AppServiceProvider extends ServiceProvider
             NotificationLog::create([
                 'notifiable_type' => get_class($event->notifiable),
                 'notifiable_id' => $event->notifiable->getKey(),
-                'channel' => is_string($event->channel) ? $event->channel : class_basename($event->channel),
+                'channel' => $this->normalizeChannelName($event->channel),
                 'notification_type' => get_class($event->notification),
                 'event' => method_exists($event->notification, 'eventKey') ? $event->notification->eventKey() : null,
                 'status' => 'failed',
@@ -71,5 +77,14 @@ class AppServiceProvider extends ServiceProvider
                 'sent_at' => now(),
             ]);
         });
+    }
+
+    private function normalizeChannelName(mixed $channel): string
+    {
+        return match ($channel) {
+            SmsChannel::class => 'sms',
+            PushChannel::class => 'push',
+            default => is_string($channel) ? $channel : class_basename($channel),
+        };
     }
 }
