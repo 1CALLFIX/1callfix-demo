@@ -22,6 +22,7 @@ use App\Livewire\Settings\Manage as SettingsManage;
 use App\Livewire\Cms\Manage as CmsManage;
 use App\Livewire\Roles\Manage as RolesManage;
 use App\Livewire\Payouts\Manage as PayoutsManage;
+use App\Livewire\WalletLedger\Index as WalletLedgerIndex;
 use App\Livewire\NotificationCenter\Manage as NotificationCenterManage;
 use App\Livewire\Plans\Manage as PlansManage;
 use App\Livewire\Subscriptions\Index as SubscriptionsIndex;
@@ -61,6 +62,7 @@ Route::middleware(['auth', \App\Http\Middleware\EnsureHasAdminAccess::class])
         Route::get('/cms', CmsManage::class)->name('admin.cms.index');
         Route::get('/roles', RolesManage::class)->name('admin.roles.index');
         Route::get('/payouts', PayoutsManage::class)->name('admin.payouts.index');
+        Route::get('/wallet-ledger', WalletLedgerIndex::class)->name('admin.wallet-ledger.index');
         Route::get('/notifications', NotificationCenterManage::class)->name('admin.notifications.index');
         Route::get('/plans', PlansManage::class)->name('admin.plans.index');
         Route::get('/subscriptions', SubscriptionsIndex::class)->name('admin.subscriptions.index');
