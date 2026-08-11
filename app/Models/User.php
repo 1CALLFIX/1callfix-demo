@@ -46,6 +46,9 @@ class User extends Authenticatable
     public function ownedFranchises() { return $this->hasMany(Franchise::class, 'owner_user_id'); }
     public function protectionPlans() { return $this->hasMany(UserProtectionPlan::class); }
     public function roleAssignments() { return $this->hasMany(RoleAssignment::class); }
+    public function loyaltyPoints() { return $this->hasMany(LoyaltyPoint::class); }
+    public function referralsMade() { return $this->hasMany(Referral::class, 'referrer_id'); }
+    public function referralReceived() { return $this->hasOne(Referral::class, 'referred_id'); }
 
     public function routeNotificationForSms(): ?string { return $this->phone; }
     public function routeNotificationForPush(): ?string { return $this->fcm_token; }

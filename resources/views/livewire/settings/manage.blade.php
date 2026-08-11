@@ -8,6 +8,7 @@
         'payment' => 'Payment',
         'wallet' => 'Wallet',
         'ranking' => 'Priority / Ranking',
+        'loyalty' => 'Loyalty / Referral',
         'notifications' => 'Notifications',
         'locale' => 'Locale & Currency',
         'branding' => 'Platform / Branding',
@@ -432,6 +433,68 @@
 
             <div class="flex justify-end pt-4 mt-4 border-t">
                 <button type="button" wire:click="saveRanking" class="bg-slate-900 text-white px-6 py-2 rounded text-sm font-medium hover:bg-slate-800">Save Ranking Settings</button>
+            </div>
+
+        {{-- Loyalty / Referral — real consumers: App\Services\LoyaltyService (CompleteBookingAction), App\Services\ReferralService. Values below are development defaults, not approved commercial numbers. --}}
+        @elseif ($activeTab === 'loyalty')
+            <div class="mb-4">
+                <h3 class="text-sm font-semibold mb-1">Loyalty Points</h3>
+                <p class="text-xs text-gray-400 mb-3">Earned automatically on booking completion (customer per rupee spent, provider a flat amount per job). Redeeming converts points into a real wallet credit at the rate below — not a second balance system.</p>
+                <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
+                    <div>
+                        <label class="block text-xs font-medium mb-1">Customer points / ₹ spent @if ($scoped) <x-setting-override-badge :overridden="in_array('loyalty.customer_points_per_currency_unit', $this->overriddenKeys)" setting-key="loyalty.customer_points_per_currency_unit" /> @endif</label>
+                        <input type="number" step="0.001" wire:model="loyaltyCustomerPointsPerCurrencyUnit" class="w-full border rounded px-3 py-2 text-sm">
+                        @error('loyaltyCustomerPointsPerCurrencyUnit') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium mb-1">Provider points / job @if ($scoped) <x-setting-override-badge :overridden="in_array('loyalty.provider_points_per_completed_job', $this->overriddenKeys)" setting-key="loyalty.provider_points_per_completed_job" /> @endif</label>
+                        <input type="number" step="1" wire:model="loyaltyProviderPointsPerCompletedJob" class="w-full border rounded px-3 py-2 text-sm">
+                        @error('loyaltyProviderPointsPerCompletedJob') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium mb-1">Points per ₹ (redemption) @if ($scoped) <x-setting-override-badge :overridden="in_array('loyalty.points_per_rupee_redemption', $this->overriddenKeys)" setting-key="loyalty.points_per_rupee_redemption" /> @endif</label>
+                        <input type="number" step="1" min="1" wire:model="loyaltyPointsPerRupeeRedemption" class="w-full border rounded px-3 py-2 text-sm">
+                        @error('loyaltyPointsPerRupeeRedemption') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium mb-1">Minimum redemption @if ($scoped) <x-setting-override-badge :overridden="in_array('loyalty.min_redemption_points', $this->overriddenKeys)" setting-key="loyalty.min_redemption_points" /> @endif</label>
+                        <input type="number" step="1" wire:model="loyaltyMinRedemptionPoints" class="w-full border rounded px-3 py-2 text-sm">
+                        @error('loyaltyMinRedemptionPoints') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium mb-1">Points expiry (days, 0 = never) @if ($scoped) <x-setting-override-badge :overridden="in_array('loyalty.points_expiry_days', $this->overriddenKeys)" setting-key="loyalty.points_expiry_days" /> @endif</label>
+                        <input type="number" step="1" wire:model="loyaltyPointsExpiryDays" class="w-full border rounded px-3 py-2 text-sm">
+                        @error('loyaltyPointsExpiryDays') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
+                    </div>
+                </div>
+            </div>
+
+            <div class="mb-4 border-t pt-4">
+                <h3 class="text-sm font-semibold mb-1">Referral</h3>
+                <p class="text-xs text-gray-400 mb-3">Rewards the referrer when the referred customer completes their first-ever booking. Amounts below are development defaults — not approved commercial values.</p>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                        <label class="block text-xs font-medium mb-1">Reward type @if ($scoped) <x-setting-override-badge :overridden="in_array('referral.reward_type', $this->overriddenKeys)" setting-key="referral.reward_type" /> @endif</label>
+                        <select wire:model="referralRewardType" class="w-full border rounded px-3 py-2 text-sm">
+                            <option value="wallet">Wallet credit</option>
+                            <option value="points">Loyalty points</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium mb-1">Wallet reward amount @if ($scoped) <x-setting-override-badge :overridden="in_array('referral.reward_amount', $this->overriddenKeys)" setting-key="referral.reward_amount" /> @endif</label>
+                        <input type="number" step="0.01" wire:model="referralRewardAmount" class="w-full border rounded px-3 py-2 text-sm">
+                        @error('referralRewardAmount') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium mb-1">Points reward amount @if ($scoped) <x-setting-override-badge :overridden="in_array('referral.reward_points', $this->overriddenKeys)" setting-key="referral.reward_points" /> @endif</label>
+                        <input type="number" step="1" wire:model="referralRewardPoints" class="w-full border rounded px-3 py-2 text-sm">
+                        @error('referralRewardPoints') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex justify-end pt-4 mt-4 border-t">
+                <button type="button" wire:click="saveLoyalty" class="bg-slate-900 text-white px-6 py-2 rounded text-sm font-medium hover:bg-slate-800">Save Loyalty / Referral Settings</button>
             </div>
 
         {{-- Notifications — which channels App\Notifications\Support\ChannelResolver hands back to every dispatch site. --}}

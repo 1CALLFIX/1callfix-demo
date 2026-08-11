@@ -16,8 +16,11 @@ class LoyaltyPoint extends Model
         'user_id',
         'points',
         'reason',
-        'booking_id'
+        'booking_id',
+        'expires_at'
     ];
+
+    protected $casts = ['expires_at' => 'datetime'];
 
     public function user() { return $this->belongsTo(User::class); }
     public function booking() { return $this->belongsTo(Booking::class); }

@@ -5,15 +5,21 @@ namespace App\Actions;
 use App\Events\BookingStatusUpdated;
 use App\Models\Booking;
 use App\Models\Provider;
+use App\Models\Setting;
 use App\Notifications\BookingStatusNotification;
 use App\Notifications\Support\ChannelResolver;
 use App\Services\CommissionService;
+use App\Services\LoyaltyService;
+use App\Services\ReferralService;
 use Illuminate\Support\Facades\DB;
 
 class CompleteBookingAction
 {
-    public function __construct(private CommissionService $commissionService)
-    {
+    public function __construct(
+        private CommissionService $commissionService,
+        private LoyaltyService $loyaltyService,
+        private ReferralService $referralService,
+    ) {
     }
 
     /**
@@ -77,8 +83,34 @@ class CompleteBookingAction
         // booking row lock any longer than necessary.
         $this->commissionService->applyForBooking($booking);
 
+        $scope = array_filter([
+            'zone_id' => $booking->zone_id,
+            'franchise_id' => $booking->franchise_id,
+            'city_id' => $booking->franchise?->city_id,
+            'country_id' => $booking->franchise?->country_id,
+        ]);
+
+        // Loyalty points: customer earns per rupee spent, provider earns a
+        // flat amount per completed job -- same "outside the lock, its own
+        // transaction" placement as commission above. Both are idempotent
+        // per (user, booking, reason) — see LoyaltyService::earn().
+        $customerRate = (float) Setting::get('loyalty.customer_points_per_currency_unit', '0.01', $scope);
+        $customerPoints = (int) floor((float) $booking->price_final * $customerRate);
         if ($booking->customer) {
-            $channels = ChannelResolver::resolve(['zone_id' => $booking->zone_id, 'franchise_id' => $booking->franchise_id]);
+            $this->loyaltyService->earn($booking->customer, $customerPoints, 'booking_completed', $booking, $scope);
+        }
+
+        $providerPoints = (int) Setting::get('loyalty.provider_points_per_completed_job', '5', $scope);
+        if ($booking->provider && $booking->provider->user) {
+            $this->loyaltyService->earn($booking->provider->user, $providerPoints, 'booking_completed', $booking, $scope);
+        }
+
+        // Referral qualification: does this booking make the customer's
+        // referral "count" (their first-ever completed booking)?
+        $this->referralService->qualifyFromCompletedBooking($booking, $scope);
+
+        if ($booking->customer) {
+            $channels = ChannelResolver::resolve($scope);
             $booking->customer->notify(new BookingStatusNotification('completed', $booking, $channels));
         }
 

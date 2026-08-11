@@ -8,6 +8,7 @@ use App\Models\Booking;
 use App\Models\Franchise;
 use App\Models\NotificationLog;
 use App\Models\Review;
+use App\Models\User;
 use App\Models\Zone;
 use App\Notifications\Adapters\LogPushAdapter;
 use App\Notifications\Adapters\LogSmsAdapter;
@@ -16,6 +17,7 @@ use App\Notifications\Channels\SmsChannel;
 use App\Observers\BookingObserver;
 use App\Observers\FranchiseObserver;
 use App\Observers\ReviewObserver;
+use App\Observers\UserObserver;
 use App\Observers\ZoneObserver;
 use Illuminate\Notifications\Events\NotificationFailed;
 use Illuminate\Notifications\Events\NotificationSent;
@@ -47,6 +49,7 @@ class AppServiceProvider extends ServiceProvider
         Franchise::observe(FranchiseObserver::class);
         Zone::observe(ZoneObserver::class);
         Review::observe(ReviewObserver::class);
+        User::observe(UserObserver::class);
 
         // One listener records every notification attempt (any channel: the
         // built-in 'mail', or our custom SmsChannel/PushChannel) into

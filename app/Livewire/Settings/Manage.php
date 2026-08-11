@@ -89,6 +89,15 @@ use Livewire\Component;
 // AcceptBookingAction. "Maximum wallet balance" is enforced only against
 // voluntary top-ups, not automatic commission earnings — a balance cap
 // must never cause an earned commission credit to be rejected/lost.
+//
+// Loyalty/Referral graduated once App\Services\LoyaltyService/
+// ReferralService existed as real consumers of loyalty_points/referrals
+// (both previously zero-consumer, confirmed by audit). Earning is wired
+// into CompleteBookingAction (customer per-rupee, provider per-job);
+// redemption is real money via the existing WalletService, not a second
+// balance system. Referral qualification (a referred customer's first
+// completed booking) rewards the referrer via wallet OR points, admin's
+// choice — reuses the same two systems either way.
 class Manage extends Component
 {
     public const PLACEHOLDER_TABS = [
@@ -99,7 +108,6 @@ class Manage extends Component
         'dynamic_links' => ['label' => 'Dynamic Links', 'note' => 'iOS/Android deep-link scheme, package names, SHA256 — meaningless without a mobile app to link into.'],
         'in_app_support' => ['label' => 'In-App Support', 'note' => 'Support widget/link config for a mobile app that doesn\'t exist yet.'],
         'subscriptions_membership' => ['label' => 'Subscriptions / Membership', 'note' => 'subscription_plans and provider_subscriptions tables exist with zero consumers anywhere (confirmed by audit) — no provider app to sell a package through, no customer app to sell Prime through.'],
-        'loyalty_referral' => ['label' => 'Loyalty / Referral', 'note' => 'loyalty_points and referrals tables exist with zero consumers anywhere (confirmed by audit). Awarding real points/referral bonuses on booking completion would add new financial side-effects next to tested Commission/Wallet code with no specified point values or referral amounts to build against — not guessing at that here.'],
         'app_upgrade' => ['label' => 'App Upgrade', 'note' => 'Independent version gating per app (customer/partner/rider) — queued: the force-update contract (Setting-driven min version + API endpoint) is real backend work regardless of app status, just not built yet.'],
         'advanced_system' => ['label' => 'Advanced / System', 'note' => 'Feature flags, queue behaviour, cache rules — no admin-facing surface for any of this exists yet.'],
     ];
@@ -158,6 +166,16 @@ class Manage extends Component
     public string $rankingWeightDistance = '100';
     public string $rankingWeightOrders = '0';
     public string $rankingWeightSubscription = '0';
+
+    // --- Loyalty / Referral (LoyaltyService/ReferralService, consumed by CompleteBookingAction) ---
+    public string $loyaltyCustomerPointsPerCurrencyUnit = '0.01';
+    public string $loyaltyProviderPointsPerCompletedJob = '5';
+    public string $loyaltyPointsPerRupeeRedemption = '10';
+    public string $loyaltyMinRedemptionPoints = '100';
+    public string $loyaltyPointsExpiryDays = '365';
+    public string $referralRewardType = 'wallet';
+    public string $referralRewardAmount = '50';
+    public string $referralRewardPoints = '100';
 
     // --- Notifications (ChannelResolver, consumed by every Notification class) ---
     public bool $notifyMail = true;
@@ -293,6 +311,15 @@ class Manage extends Component
         $this->rankingWeightDistance = (string) $rankingConfig['weights']['distance'];
         $this->rankingWeightOrders = (string) $rankingConfig['weights']['orders'];
         $this->rankingWeightSubscription = (string) $rankingConfig['weights']['subscription'];
+
+        $this->loyaltyCustomerPointsPerCurrencyUnit = (string) Setting::get('loyalty.customer_points_per_currency_unit', '0.01', $scope);
+        $this->loyaltyProviderPointsPerCompletedJob = (string) Setting::get('loyalty.provider_points_per_completed_job', '5', $scope);
+        $this->loyaltyPointsPerRupeeRedemption = (string) Setting::get('loyalty.points_per_rupee_redemption', '10', $scope);
+        $this->loyaltyMinRedemptionPoints = (string) Setting::get('loyalty.min_redemption_points', '100', $scope);
+        $this->loyaltyPointsExpiryDays = (string) Setting::get('loyalty.points_expiry_days', '365', $scope);
+        $this->referralRewardType = Setting::get('referral.reward_type', 'wallet', $scope);
+        $this->referralRewardAmount = (string) Setting::get('referral.reward_amount', '50', $scope);
+        $this->referralRewardPoints = (string) Setting::get('referral.reward_points', '100', $scope);
 
         $configuredChannels = explode(',', Setting::get('notifications.channels', 'mail', $scope));
         $this->notifyMail = in_array('mail', $configuredChannels, true);
@@ -467,6 +494,48 @@ class Manage extends Component
         ]), $scopeType, $scopeId);
 
         $this->flashMessage = 'Ranking settings saved'.($scopeType === 'global' ? '.' : " for this {$scopeType}.");
+    }
+
+    /** Real consumers: App\Services\LoyaltyService (earn/redeem, wired into CompleteBookingAction), App\Services\ReferralService (qualification reward). */
+    public function saveLoyalty(): void
+    {
+        if (! auth()->user()->hasPermission('settings.manage')) {
+            $this->addError('permission', 'You do not have permission to manage loyalty/referral settings.');
+            return;
+        }
+
+        $this->validate([
+            'loyaltyCustomerPointsPerCurrencyUnit' => ['required', 'numeric', 'min:0'],
+            'loyaltyProviderPointsPerCompletedJob' => ['required', 'integer', 'min:0'],
+            'loyaltyPointsPerRupeeRedemption' => ['required', 'integer', 'min:1'],
+            'loyaltyMinRedemptionPoints' => ['required', 'integer', 'min:0'],
+            'loyaltyPointsExpiryDays' => ['required', 'integer', 'min:0'],
+            'referralRewardType' => ['required', 'in:wallet,points'],
+            'referralRewardAmount' => ['required', 'numeric', 'min:0'],
+            'referralRewardPoints' => ['required', 'integer', 'min:0'],
+        ], [], [
+            'loyaltyCustomerPointsPerCurrencyUnit' => 'customer earn rate', 'loyaltyProviderPointsPerCompletedJob' => 'provider earn rate',
+            'loyaltyPointsPerRupeeRedemption' => 'redemption rate', 'loyaltyMinRedemptionPoints' => 'minimum redemption',
+            'loyaltyPointsExpiryDays' => 'points expiry', 'referralRewardType' => 'referral reward type',
+            'referralRewardAmount' => 'referral wallet reward', 'referralRewardPoints' => 'referral points reward',
+        ]);
+
+        [$scopeType, $scopeId] = $this->scopeTypeAndId();
+
+        foreach ([
+            'loyalty.customer_points_per_currency_unit' => $this->loyaltyCustomerPointsPerCurrencyUnit,
+            'loyalty.provider_points_per_completed_job' => $this->loyaltyProviderPointsPerCompletedJob,
+            'loyalty.points_per_rupee_redemption' => $this->loyaltyPointsPerRupeeRedemption,
+            'loyalty.min_redemption_points' => $this->loyaltyMinRedemptionPoints,
+            'loyalty.points_expiry_days' => $this->loyaltyPointsExpiryDays,
+            'referral.reward_type' => $this->referralRewardType,
+            'referral.reward_amount' => $this->referralRewardAmount,
+            'referral.reward_points' => $this->referralRewardPoints,
+        ] as $key => $value) {
+            Setting::set($key, $value, $scopeType, $scopeId);
+        }
+
+        $this->flashMessage = 'Loyalty / Referral settings saved'.($scopeType === 'global' ? '.' : " for this {$scopeType}.");
     }
 
     /** Real consumers: App\Services\WalletTopUpService (customer fields), App\Actions\AcceptBookingAction (min balance), App\Services\PayoutService (payout min/max). */

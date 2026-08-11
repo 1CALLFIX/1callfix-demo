@@ -15,6 +15,8 @@ Route::middleware(['auth:sanctum', \App\Http\Middleware\EnsureNotInMaintenanceMo
     Route::get('/wallet', [\App\Http\Controllers\API\WalletController::class, 'show']);
     Route::post('/wallet/topup', [\App\Http\Controllers\API\WalletController::class, 'topUp']);
     Route::get('/providers/nearby', [\App\Http\Controllers\API\ProviderDiscoveryController::class, 'nearby']);
+    Route::get('/loyalty', [\App\Http\Controllers\API\LoyaltyController::class, 'show']);
+    Route::post('/loyalty/redeem', [\App\Http\Controllers\API\LoyaltyController::class, 'redeem']);
 });
 
 // No auth middleware — this is a server-to-server callback from Razorpay,
