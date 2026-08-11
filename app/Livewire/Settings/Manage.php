@@ -388,6 +388,15 @@ class Manage extends Component
     /** Real consumers: App\Services\WalletTopUpService (customer fields), App\Actions\AcceptBookingAction (min balance), App\Services\PayoutService (payout min/max). */
     public function saveWallet(): void
     {
+        // settings.manage has existed in the RBAC catalog since the RBAC
+        // phase but was never actually enforced anywhere in Settings\Manage
+        // -- enforcing it here, on this new tab, rather than retrofitting
+        // the other nine existing tabs in the same pass.
+        if (! auth()->user()->hasPermission('settings.manage')) {
+            $this->addError('permission', 'You do not have permission to manage wallet settings.');
+            return;
+        }
+
         $this->validate([
             'walletCustomerMinTopup' => ['required', 'numeric', 'min:0'],
             'walletCustomerMaxTopup' => ['required', 'numeric', 'gt:walletCustomerMinTopup'],

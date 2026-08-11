@@ -25,6 +25,8 @@
         <div class="bg-green-50 text-green-700 rounded p-3 mb-4 text-sm">{{ $flashMessage }}</div>
     @endif
 
+    @error('permission') <div class="bg-red-50 text-red-700 rounded p-3 mb-4 text-sm">{{ $message }}</div> @enderror
+
     {{-- Scope picker — the real Control Plane behaviour. Global by default;
          drilling into a Country/City/Franchise/Zone makes the five real
          tabs below read/write an override at exactly that scope, falling
