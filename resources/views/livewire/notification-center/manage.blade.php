@@ -68,9 +68,9 @@
             </div>
             <div>
                 <label class="block text-xs font-medium mb-1">Message <span class="text-red-500">*</span></label>
-                <textarea wire:model="message" rows="3" placeholder="Hi {{ '{{name}}' }}, book AC service this week and save ₹200." class="w-full border rounded px-3 py-2 text-sm"></textarea>
+                <textarea wire:model="message" rows="3" placeholder="Hi @{{name}}, book AC service this week and save ₹200." class="w-full border rounded px-3 py-2 text-sm"></textarea>
                 @error('message') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
-                <p class="text-xs text-gray-400 mt-1">Supports {{ '{{name}}' }} / {{ '{{phone}}' }} — substituted per recipient.</p>
+                <p class="text-xs text-gray-400 mt-1">Supports @{{name}} / @{{phone}} — substituted per recipient.</p>
             </div>
             <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
                 <div>
