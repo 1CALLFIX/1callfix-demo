@@ -42,4 +42,11 @@ class User extends Authenticatable
     public function bookings() { return $this->hasMany(Booking::class, 'customer_id'); }
     public function wallet() { return $this->hasOne(Wallet::class); }
     public function ownedFranchises() { return $this->hasMany(Franchise::class, 'owner_user_id'); }
+    public function roleAssignments() { return $this->hasMany(RoleAssignment::class); }
+
+    /** @see \App\Services\AuthorizationService::can() */
+    public function hasPermission(string $permission, array $scope = []): bool
+    {
+        return app(\App\Services\AuthorizationService::class)->can($this, $permission, $scope);
+    }
 }

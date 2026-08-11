@@ -43,15 +43,18 @@ use Livewire\Component;
 // Everything else renders as a greyed-out "coming soon" panel via
 // PLACEHOLDER_TABS, each with a one-line reason grounded in this
 // codebase's actual state, not a guess — shipping controls that configure
-// nothing violates the project's own Definition of Done. Roles/Permissions
-// is the one still deliberately a placeholder despite adjacent real work —
-// blocked on the settings doc's Rule 9 rewrite (this app has one flat
-// super_admin check today, not the granular RBAC the doc describes).
+// nothing violates the project's own Definition of Done.
 //
 // Refund/Cancellation graduated to a real tab once the four cancellation
 // business rules (timer reference point, paid-booking refund behaviour,
 // seeded default, admin-only scope) were confirmed — see
 // App\Services\CancellationService, wired into AdminCancelBookingAction.
+//
+// Roles/Permissions graduated to its own screen (admin.roles.index, not a
+// tab here) — see App\Services\AuthorizationService and
+// App\Livewire\Roles\Manage. A user-search + scope-assignment workflow
+// doesn't fit this component's per-tab-form shape; same reasoning that put
+// CMS on its own screen instead of a Settings tab.
 class Manage extends Component
 {
     public const PLACEHOLDER_TABS = [
@@ -68,9 +71,8 @@ class Manage extends Component
         'in_app_support' => ['label' => 'In-App Support', 'note' => 'Support widget/link config for a mobile app that doesn\'t exist yet.'],
         'subscriptions_membership' => ['label' => 'Subscriptions / Membership', 'note' => 'subscription_plans and provider_subscriptions tables exist with zero consumers anywhere (confirmed by audit) — no provider app to sell a package through, no customer app to sell Prime through.'],
         'loyalty_referral' => ['label' => 'Loyalty / Referral', 'note' => 'loyalty_points and referrals tables exist with zero consumers anywhere (confirmed by audit). Awarding real points/referral bonuses on booking completion would add new financial side-effects next to tested Commission/Wallet code with no specified point values or referral amounts to build against — not guessing at that here.'],
-        'disbursement' => ['label' => 'Disbursement', 'note' => 'Payout timing/splits — no disbursement logic exists; commission is split and credited to the provider\'s wallet at completion, but franchise/platform shares are never paid out anywhere.'],
-        'roles_permissions' => ['label' => 'Roles / Permissions', 'note' => 'Access is currently one flat super_admin check (EnsureSuperAdmin) — confirmed again: no Role or Permission model/table exists anywhere in this codebase. Blocked on Rule 9\'s rewrite (what RBAC actually means in this codebase, not Glover\'s) — building one now would be creating the first RBAC system, not extending one, contradicting the explicit instruction not to build a second.'],
-        'app_upgrade' => ['label' => 'App Upgrade', 'note' => 'Independent version gating per app (customer/partner/rider) — none of those apps exist yet.'],
+        'disbursement' => ['label' => 'Disbursement', 'note' => 'Payout timing/splits — payouts/payment_accounts tables exist (confirmed by audit), commission is split and credited to the provider\'s wallet at completion, but franchise/platform shares are never paid out anywhere. Needs a dedicated SettlementService design pass, not improvised here — queued next.'],
+        'app_upgrade' => ['label' => 'App Upgrade', 'note' => 'Independent version gating per app (customer/partner/rider) — queued: the force-update contract (Setting-driven min version + API endpoint) is real backend work regardless of app status, just not built yet.'],
         'advanced_system' => ['label' => 'Advanced / System', 'note' => 'Feature flags, queue behaviour, cache rules — no admin-facing surface for any of this exists yet.'],
     ];
 

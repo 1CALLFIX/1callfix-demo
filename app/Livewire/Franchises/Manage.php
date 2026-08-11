@@ -164,6 +164,16 @@ class Manage extends Component
     {
         $this->validate($this->rules(), [], $this->attributes());
 
+        // A Country Admin may create franchises in their own country; a
+        // Zone/City/Franchise-scoped role has no franchises.manage grant
+        // that covers this (there's no franchise yet to scope to), so only
+        // global (Super Admin) or the matching country_id assignment passes.
+        abort_unless(
+            auth()->user()->hasPermission('franchises.manage', ['country_id' => $this->countryId]),
+            403,
+            'You do not have permission to create a franchise in this country.'
+        );
+
         // slug is required by the schema; FranchiseObserver auto-generates
         // `code` from the name (first 3 letters, numeric suffix on collision).
         $franchise = Franchise::create([

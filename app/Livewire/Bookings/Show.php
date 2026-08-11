@@ -39,8 +39,32 @@ class Show extends Component
         return Setting::get('locale.currency_symbol', '₹');
     }
 
+    /**
+     * The booking's own position in the geography cascade — matches the
+     * `{level}_id` shape both Setting::get() and AuthorizationService::can()
+     * already expect, so a Zone/City/Country/Franchise Admin's role
+     * assignment against this booking's franchise resolves correctly.
+     */
+    private function bookingScope(): array
+    {
+        $this->booking->loadMissing('franchise');
+
+        return array_filter([
+            'zone_id' => $this->booking->zone_id,
+            'franchise_id' => $this->booking->franchise_id,
+            'city_id' => $this->booking->franchise?->city_id,
+            'country_id' => $this->booking->franchise?->country_id,
+        ]);
+    }
+
     public function reassign(AdminReassignBookingAction $action)
     {
+        if (! auth()->user()->hasPermission('bookings.reassign', $this->bookingScope())) {
+            $this->flashType = 'error';
+            $this->flashMessage = 'You do not have permission to reassign this booking.';
+            return;
+        }
+
         if (!$this->selectedProviderId) {
             $this->flashType = 'error';
             $this->flashMessage = 'Select a provider first.';
@@ -61,6 +85,12 @@ class Show extends Component
 
     public function cancel(AdminCancelBookingAction $action)
     {
+        if (! auth()->user()->hasPermission('bookings.cancel', $this->bookingScope())) {
+            $this->flashType = 'error';
+            $this->flashMessage = 'You do not have permission to cancel this booking.';
+            return;
+        }
+
         if (!$this->cancelReason) {
             $this->flashType = 'error';
             $this->flashMessage = 'Enter a cancellation reason.';
