@@ -4,7 +4,9 @@ namespace App\Livewire\Bookings;
 
 use App\Actions\AdminCancelBookingAction;
 use App\Actions\AdminReassignBookingAction;
+use App\Actions\AssignBookingToWorkerAction;
 use App\Models\Booking;
+use App\Models\PartnerWorker;
 use App\Models\Provider;
 use App\Models\Setting;
 use Livewire\Component;
@@ -14,13 +16,14 @@ class Show extends Component
     public Booking $booking;
     public string $selectedProviderId = '';
     public string $cancelReason = '';
+    public string $selectedWorkerId = '';
     public string $flashMessage = '';
     public string $flashType = 'success';
 
     public function mount(int $bookingId)
     {
         $this->booking = Booking::with([
-            'customer', 'service', 'provider.user', 'address', 'zone', 'franchise',
+            'customer', 'service', 'provider.user', 'assignedWorker.user', 'address', 'zone', 'franchise',
             'dispatchAttempts.provider.user', 'extraItems', 'payment', 'commission',
             'statusHistory' => fn ($q) => $q->orderBy('changed_at'),
         ])->findOrFail($bookingId);
@@ -32,6 +35,34 @@ class Show extends Component
             ->where('zone_id', $this->booking->zone_id)
             ->where('is_active', true)
             ->get();
+    }
+
+    /**
+     * Workers on the booking's own accepting Provider's team — the same
+     * "active partner_workers link" eligibility AssignBookingToWorkerAction
+     * itself enforces server-side; this is just a reasonable candidate
+     * list for the dropdown, not the final authority (the Action re-checks
+     * everything, including the capability match this list doesn't
+     * pre-filter on, on submit).
+     */
+    public function getAvailableWorkersProperty()
+    {
+        if (! $this->booking->provider_id) {
+            return collect();
+        }
+
+        return PartnerWorker::with('fieldWorker.user')
+            ->where('provider_id', $this->booking->provider_id)
+            ->where('status', 'active')
+            ->get()
+            ->pluck('fieldWorker')
+            ->filter();
+    }
+
+    public function canAssignWorker(): bool
+    {
+        return (bool) $this->booking->provider_id
+            && in_array($this->booking->status, ['assigned', 'provider_en_route'], true);
     }
 
     public function getCurrencySymbolProperty(): string
@@ -77,6 +108,39 @@ class Show extends Component
             $this->flashType = 'success';
             $this->flashMessage = 'Booking reassigned successfully.';
             $this->selectedProviderId = '';
+        } catch (\Throwable $e) {
+            $this->flashType = 'error';
+            $this->flashMessage = $e->getMessage();
+        }
+    }
+
+    /**
+     * Admin-initiated worker delegation — the same AssignBookingToWorkerAction
+     * (unmodified) the Partner-facing API already uses (Phase B0.2). Reuses
+     * bookings.reassign rather than a new permission: "who is doing this
+     * job" is the same admin capability whether it's a different Provider
+     * or a Worker on the current one's team.
+     */
+    public function assignWorker(AssignBookingToWorkerAction $action)
+    {
+        if (! auth()->user()->hasPermission('bookings.reassign', $this->bookingScope())) {
+            $this->flashType = 'error';
+            $this->flashMessage = 'You do not have permission to assign a worker to this booking.';
+            return;
+        }
+
+        if (! $this->selectedWorkerId) {
+            $this->flashType = 'error';
+            $this->flashMessage = 'Select a worker first.';
+            return;
+        }
+
+        try {
+            $this->booking = $action->execute($this->booking->id, $this->booking->provider, (int) $this->selectedWorkerId);
+            $this->booking->load(['assignedWorker.user', 'statusHistory']);
+            $this->flashType = 'success';
+            $this->flashMessage = 'Worker assigned.';
+            $this->selectedWorkerId = '';
         } catch (\Throwable $e) {
             $this->flashType = 'error';
             $this->flashMessage = $e->getMessage();

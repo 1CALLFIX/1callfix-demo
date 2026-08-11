@@ -52,6 +52,7 @@
             <div class="font-semibold mb-2">Provider & Payment</div>
             <dl class="text-sm space-y-1">
                 <div class="flex justify-between"><dt class="text-gray-500">Provider</dt><dd>{{ $booking->provider?->user?->name ?? '— unassigned —' }}</dd></div>
+                <div class="flex justify-between"><dt class="text-gray-500">Assigned worker</dt><dd>{{ $booking->assignedWorker?->user?->name ?? '— provider performing personally —' }}</dd></div>
                 <div class="flex justify-between"><dt class="text-gray-500">Price quoted</dt><dd>{{ $this->currencySymbol }}{{ number_format($booking->price_quoted, 2) }}</dd></div>
                 <div class="flex justify-between"><dt class="text-gray-500">Price final</dt><dd>{{ $booking->price_final ? $this->currencySymbol.number_format($booking->price_final, 2) : '—' }}</dd></div>
                 <div class="flex justify-between"><dt class="text-gray-500">Payment status</dt><dd>{{ $booking->payment_status }}</dd></div>
@@ -128,6 +129,25 @@
                     <button wire:click="reassign" class="bg-slate-900 text-white px-4 py-2 rounded text-sm whitespace-nowrap">Assign</button>
                 </div>
             </div>
+
+            @if ($this->canAssignWorker())
+                <div class="bg-white rounded-lg shadow-sm p-4">
+                    <div class="font-semibold mb-2">Assign to a Field Worker</div>
+                    @if ($this->availableWorkers->isEmpty())
+                        <p class="text-sm text-gray-400">This provider has no active workers on their team yet.</p>
+                    @else
+                        <div class="flex gap-2">
+                            <select wire:model="selectedWorkerId" class="flex-1 border rounded px-3 py-2 text-sm">
+                                <option value="">Select a worker...</option>
+                                @foreach ($this->availableWorkers as $w)
+                                    <option value="{{ $w->id }}">{{ $w->user->name ?? 'Worker #'.$w->id }} ({{ $w->is_online ? 'online' : 'offline' }})</option>
+                                @endforeach
+                            </select>
+                            <button wire:click="assignWorker" class="bg-slate-900 text-white px-4 py-2 rounded text-sm whitespace-nowrap">Assign</button>
+                        </div>
+                    @endif
+                </div>
+            @endif
 
             <div class="bg-white rounded-lg shadow-sm p-4">
                 <div class="font-semibold mb-2 text-red-700">Cancel Booking</div>
