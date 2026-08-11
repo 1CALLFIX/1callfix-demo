@@ -27,12 +27,22 @@ return new class extends Migration
         DB::table('settings')->whereNotNull('franchise_id')->update(['scope_type' => 'franchise']);
         DB::statement('UPDATE settings SET scope_id = franchise_id WHERE franchise_id IS NOT NULL');
 
+        // Drop the FK constraint FIRST — MySQL/InnoDB was reusing the
+        // (franchise_id, key) unique index as the FK's required index (it
+        // starts with the FK column, so no separate index got created for
+        // it), so dropping that unique index before the FK fails with
+        // "needed in a foreign key constraint". Dropping the FK first frees
+        // it up; only then can the unique index and the column safely go.
+        Schema::table('settings', function (Blueprint $table) {
+            $table->dropForeign(['franchise_id']);
+        });
+
         Schema::table('settings', function (Blueprint $table) {
             $table->dropUnique(['franchise_id', 'key']);
         });
 
         Schema::table('settings', function (Blueprint $table) {
-            $table->dropConstrainedForeignId('franchise_id');
+            $table->dropColumn('franchise_id');
         });
 
         Schema::table('settings', function (Blueprint $table) {
