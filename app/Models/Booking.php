@@ -30,6 +30,7 @@ class Booking extends Model
         'coupon_id',
         'cancellation_reason_id',
         'cancellation_note',
+        'cancellation_fee',
         'customer_note',
         'start_otp',
         'completion_otp',

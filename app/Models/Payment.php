@@ -21,6 +21,7 @@ class Payment extends Model
         'gateway_payment_id',
         'gateway_signature',
         'status',
+        'refunded_amount',
         'captured_at'
     ];
 

@@ -43,14 +43,15 @@ use Livewire\Component;
 // Everything else renders as a greyed-out "coming soon" panel via
 // PLACEHOLDER_TABS, each with a one-line reason grounded in this
 // codebase's actual state, not a guess — shipping controls that configure
-// nothing violates the project's own Definition of Done. Two are
-// deliberately still placeholders despite having real schema:
-// Refund/Cancellation (cancellation_policies exists, but
-// AdminCancelBookingAction doesn't enforce it — needs that logic built
-// first, and how it should interact with captured payments/refunds is an
-// open decision, not something to guess at here) and Roles/Permissions
-// (blocked on the settings doc's Rule 9 rewrite — this app has one flat
+// nothing violates the project's own Definition of Done. Roles/Permissions
+// is the one still deliberately a placeholder despite adjacent real work —
+// blocked on the settings doc's Rule 9 rewrite (this app has one flat
 // super_admin check today, not the granular RBAC the doc describes).
+//
+// Refund/Cancellation graduated to a real tab once the four cancellation
+// business rules (timer reference point, paid-booking refund behaviour,
+// seeded default, admin-only scope) were confirmed — see
+// App\Services\CancellationService, wired into AdminCancelBookingAction.
 class Manage extends Component
 {
     public const PLACEHOLDER_TABS = [
@@ -59,7 +60,6 @@ class Manage extends Component
         'customer' => ['label' => 'Customer', 'note' => 'Registration rules, profile requirements, per-customer limits — no generalized customer-config surface exists yet (no customer-facing app to register through).'],
         'wallet' => ['label' => 'Wallet / Ledger', 'note' => 'Wallet limits, payout thresholds — WalletService exists but has no admin-configurable rules yet.'],
         'finance_settlement' => ['label' => 'Finance / Settlement', 'note' => 'Commission rates by scope are now real (see Commission Defaults\' scope picker above) — but disbursement/payout timing has nothing to configure: there is no SettlementService, informally or otherwise (confirmed by audit). Building real money-movement logic (franchise/platform share payout) needs its own scoped design, not something to improvise here.'],
-        'refund_cancellation' => ['label' => 'Refund / Cancellation', 'note' => 'cancellation_policies table exists (free_cancellation_minutes, fee_type, fee_value) but AdminCancelBookingAction doesn\'t enforce it yet — needs a decision on the elapsed-time reference point and how a fee interacts with an already-captured Razorpay payment before this can be wired in, not just a settings editor.'],
         'notifications' => ['label' => 'Notifications / Communication', 'note' => 'No SMS gateway or push-delivery service is wired up (ServiceMatchingJob has a standing TODO for FCM). BookingStatusUpdated/NewJobOffered ARE real ShouldBroadcast events — see the Websocket tab — but nothing subscribes a phone/email to receive them outside a websocket connection.'],
         'ui_home_screen' => ['label' => 'UI / Home Screen', 'note' => 'Banner position/vendor layout/widget visibility — there\'s no customer-facing home screen yet to configure (M6 not started).'],
         'priority_ranking' => ['label' => 'Priority / Ranking', 'note' => 'Search/listing sort rules — nothing customer-facing exists yet to rank.'],
@@ -97,6 +97,11 @@ class Manage extends Component
     // --- Booking (OTP generators, scheduling window) ---
     public string $bookingOtpLength = '4';
     public string $bookingMaxScheduleDaysAhead = '14';
+
+    // --- Refund / Cancellation (CancellationService, via AdminCancelBookingAction) ---
+    public string $cancellationFreeMinutes = '15';
+    public string $cancellationFeeType = 'flat';
+    public string $cancellationFeeValue = '0';
 
     // --- Locale & Currency (display symbol used across admin money fields) ---
     public string $localeCurrencySymbol = '₹';
@@ -197,6 +202,10 @@ class Manage extends Component
         $this->bookingOtpLength = (string) Setting::get('booking.otp_length', '4', $scope);
         $this->bookingMaxScheduleDaysAhead = (string) Setting::get('booking.max_schedule_days_ahead', '14', $scope);
 
+        $this->cancellationFreeMinutes = (string) Setting::get('cancellation.free_minutes', '15', $scope);
+        $this->cancellationFeeType = Setting::get('cancellation.fee_type', 'flat', $scope);
+        $this->cancellationFeeValue = (string) Setting::get('cancellation.fee_value', '0', $scope);
+
         $this->localeCurrencySymbol = Setting::get('locale.currency_symbol', '₹', $scope);
 
         $this->brandingPlatformName = Setting::get('branding.platform_name', '1CallFix Admin', $scope);
@@ -296,6 +305,28 @@ class Manage extends Component
         Setting::set('booking.max_schedule_days_ahead', $this->bookingMaxScheduleDaysAhead, $scopeType, $scopeId);
 
         $this->flashMessage = 'Booking settings saved'.($scopeType === 'global' ? '.' : " for this {$scopeType}.");
+    }
+
+    /** Real consumer: App\Services\CancellationService::calculateFee(), called from AdminCancelBookingAction. */
+    public function saveCancellation(): void
+    {
+        $this->validate([
+            'cancellationFreeMinutes' => ['required', 'integer', 'min:0', 'max:1440'],
+            'cancellationFeeType' => ['required', 'in:flat,percent'],
+            'cancellationFeeValue' => ['required', 'numeric', 'min:0'],
+        ], [], [
+            'cancellationFreeMinutes' => 'free cancellation window',
+            'cancellationFeeType' => 'fee type',
+            'cancellationFeeValue' => 'fee value',
+        ]);
+
+        [$scopeType, $scopeId] = $this->scopeTypeAndId();
+
+        Setting::set('cancellation.free_minutes', $this->cancellationFreeMinutes, $scopeType, $scopeId);
+        Setting::set('cancellation.fee_type', $this->cancellationFeeType, $scopeType, $scopeId);
+        Setting::set('cancellation.fee_value', $this->cancellationFeeValue, $scopeType, $scopeId);
+
+        $this->flashMessage = 'Refund / Cancellation settings saved'.($scopeType === 'global' ? '.' : " for this {$scopeType}.");
     }
 
     public function saveLocale(): void

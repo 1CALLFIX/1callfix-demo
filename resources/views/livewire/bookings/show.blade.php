@@ -55,6 +55,9 @@
                 <div class="flex justify-between"><dt class="text-gray-500">Price quoted</dt><dd>{{ $this->currencySymbol }}{{ number_format($booking->price_quoted, 2) }}</dd></div>
                 <div class="flex justify-between"><dt class="text-gray-500">Price final</dt><dd>{{ $booking->price_final ? $this->currencySymbol.number_format($booking->price_final, 2) : '—' }}</dd></div>
                 <div class="flex justify-between"><dt class="text-gray-500">Payment status</dt><dd>{{ $booking->payment_status }}</dd></div>
+                @if (! is_null($booking->cancellation_fee))
+                    <div class="flex justify-between"><dt class="text-gray-500">Cancellation fee</dt><dd>{{ $this->currencySymbol }}{{ number_format($booking->cancellation_fee, 2) }}</dd></div>
+                @endif
                 @if ($booking->commission)
                     <div class="flex justify-between"><dt class="text-gray-500">Provider commission</dt><dd>{{ $this->currencySymbol }}{{ number_format($booking->commission->provider_commission, 2) }}</dd></div>
                     <div class="flex justify-between"><dt class="text-gray-500">Platform commission</dt><dd>{{ $this->currencySymbol }}{{ number_format($booking->commission->platform_commission, 2) }}</dd></div>

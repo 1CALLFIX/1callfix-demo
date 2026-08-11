@@ -80,4 +80,26 @@ class RazorpayService
 
         return hash_equals($expectedSignature, $signature);
     }
+
+    /**
+     * Refunds part or all of a captured payment — used by CancellationService
+     * when a cancellation fee leaves a remaining refundable amount. Amount
+     * is sent in paise, same conversion createOrder() uses.
+     */
+    public function refund(string $razorpayPaymentId, float $amountRupees, string $reason = ''): array
+    {
+        $response = Http::withBasicAuth($this->keyId, $this->keySecret)
+            ->post("https://api.razorpay.com/v1/payments/{$razorpayPaymentId}/refund", [
+                'amount' => (int) round($amountRupees * 100),
+                'notes' => ['reason' => $reason],
+            ]);
+
+        if (!$response->successful()) {
+            throw new \RuntimeException(
+                "Razorpay refund failed for payment [{$razorpayPaymentId}]: " . $response->body()
+            );
+        }
+
+        return $response->json();
+    }
 }

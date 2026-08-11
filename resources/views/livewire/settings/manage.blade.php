@@ -4,6 +4,7 @@
         'dispatch' => 'Dispatch',
         'commission' => 'Commission Defaults',
         'booking' => 'Booking',
+        'cancellation' => 'Refund / Cancellation',
         'payment' => 'Payment',
         'locale' => 'Locale & Currency',
         'branding' => 'Platform / Branding',
@@ -201,6 +202,35 @@
             </div>
             <div class="flex justify-end pt-4 mt-4 border-t">
                 <button type="button" wire:click="saveBooking" class="bg-slate-900 text-white px-6 py-2 rounded text-sm font-medium hover:bg-slate-800">Save Booking Settings</button>
+            </div>
+
+        {{-- Refund / Cancellation — real consumer: CancellationService,
+             called from AdminCancelBookingAction. Timer measured from
+             booking.created_at (confirmed decision), not provider assignment. --}}
+        @elseif ($activeTab === 'cancellation')
+            <p class="text-xs text-gray-400 mb-3">Free cancellation window is measured from when the booking was created. Beyond it, the fee applies — flat amount or a percentage of the quoted price. If the booking was already paid via Razorpay, the remaining amount (paid − fee) is refunded automatically; an unpaid booking triggers no refund attempt.</p>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                    <label class="block text-xs font-medium mb-1">Free cancellation (minutes) @if ($scoped) <x-setting-override-badge :overridden="in_array('cancellation.free_minutes', $this->overriddenKeys)" setting-key="cancellation.free_minutes" /> @endif</label>
+                    <input type="number" step="1" wire:model="cancellationFreeMinutes" class="w-full border rounded px-3 py-2 text-sm">
+                    @error('cancellationFreeMinutes') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
+                </div>
+                <div>
+                    <label class="block text-xs font-medium mb-1">Fee type @if ($scoped) <x-setting-override-badge :overridden="in_array('cancellation.fee_type', $this->overriddenKeys)" setting-key="cancellation.fee_type" /> @endif</label>
+                    <select wire:model="cancellationFeeType" class="w-full border rounded px-3 py-2 text-sm">
+                        <option value="flat">Flat amount</option>
+                        <option value="percent">Percent of quoted price</option>
+                    </select>
+                    @error('cancellationFeeType') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
+                </div>
+                <div>
+                    <label class="block text-xs font-medium mb-1">Fee value @if ($scoped) <x-setting-override-badge :overridden="in_array('cancellation.fee_value', $this->overriddenKeys)" setting-key="cancellation.fee_value" /> @endif</label>
+                    <input type="number" step="0.01" wire:model="cancellationFeeValue" class="w-full border rounded px-3 py-2 text-sm">
+                    @error('cancellationFeeValue') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
+                </div>
+            </div>
+            <div class="flex justify-end pt-4 mt-4 border-t">
+                <button type="button" wire:click="saveCancellation" class="bg-slate-900 text-white px-6 py-2 rounded text-sm font-medium hover:bg-slate-800">Save Refund / Cancellation Settings</button>
             </div>
 
         {{-- Payment — which methods the New Booking modal offers. Gateway
