@@ -89,6 +89,10 @@ class RenewalService
     {
         DB::transaction(function () use ($subscription) {
             $subscription = Subscription::lockForUpdate()->findOrFail($subscription->id);
+            // Re-read plan() AFTER applyPendingChange() (called by the caller
+            // before this) may have already swapped plan_id -- this is
+            // deliberately the CURRENT plan, not the one the closing
+            // balances were granted under.
             $plan = $subscription->plan()->with('entitlements')->first();
 
             $newStart = $subscription->current_period_end ?? now();
@@ -96,23 +100,44 @@ class RenewalService
 
             $oldBalances = EntitlementBalance::where('subscription_id', $subscription->id)->where('status', 'current')->get();
 
+            // Rollover only carries between two balances backed by the SAME
+            // plan_entitlement_id — i.e. only when the plan itself didn't
+            // change this period. When an upgrade/downgrade was just applied
+            // (see RenewalService::processOne()'s applyPendingChange() call),
+            // the new plan's entitlement IDs never match the old plan's —
+            // the old balance's remainder is closed out/forfeited via the
+            // same auditable 'expire' event a rollover_policy=none close
+            // uses, never silently carried into a different plan's benefit
+            // definition. The new period's balances always come from the
+            // CURRENT plan's own entitlements, not the previous plan's.
+            $rolloverByEntitlementId = [];
             foreach ($oldBalances as $old) {
-                $entitlement = $old->planEntitlement;
-                [$rolloverQty, $rolloverVal] = $this->computeRollover($old, $entitlement);
+                $stillOnSamePlan = $plan->entitlements->contains('id', $old->plan_entitlement_id);
+                [$rolloverQty, $rolloverVal] = $stillOnSamePlan
+                    ? $this->computeRollover($old, $old->planEntitlement)
+                    : [0, 0.0];
+                $rolloverByEntitlementId[$old->plan_entitlement_id] = [$rolloverQty, $rolloverVal];
 
                 $remainingQty = max(0, $old->remainingQuantity());
                 $remainingVal = max(0, $old->remainingMonetaryValue());
-                if (($remainingQty > $rolloverQty || $remainingVal > $rolloverVal)) {
+                if ($remainingQty > $rolloverQty || $remainingVal > $rolloverVal) {
                     $this->usageService->expire(
                         $old,
                         max(0, $remainingQty - $rolloverQty),
                         max(0, $remainingVal - $rolloverVal),
-                        'Period closed, rollover_policy='.$entitlement->rollover_policy
+                        $stillOnSamePlan
+                            ? 'Period closed, rollover_policy='.$old->planEntitlement->rollover_policy
+                            : 'Plan changed at renewal — previous entitlement definition no longer applies'
                     );
                 }
 
                 $old->status = 'closed';
                 $old->save();
+            }
+
+            foreach ($plan->entitlements as $entitlement) {
+                [$rolloverQty, $rolloverVal] = $rolloverByEntitlementId[$entitlement->id] ?? [0, 0.0];
+                $oldMatch = $oldBalances->firstWhere('plan_entitlement_id', $entitlement->id);
 
                 $new = EntitlementBalance::create([
                     'subscription_id' => $subscription->id,
@@ -129,8 +154,8 @@ class RenewalService
                     'status' => 'current',
                 ]);
 
-                if ($rolloverQty > 0 || $rolloverVal > 0) {
-                    $this->usageService->rollover($old, $new, $rolloverQty, $rolloverVal);
+                if ($oldMatch && ($rolloverQty > 0 || $rolloverVal > 0)) {
+                    $this->usageService->rollover($oldMatch, $new, $rolloverQty, $rolloverVal);
                 }
             }
 
