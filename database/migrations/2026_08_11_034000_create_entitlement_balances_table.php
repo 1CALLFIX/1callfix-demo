@@ -31,7 +31,7 @@ return new class extends Migration
             $table->enum('status', ['current', 'closed'])->default('current');
             $table->timestamps();
 
-            $table->index(['subscription_id', 'plan_entitlement_id', 'status']);
+            $table->index(['subscription_id', 'plan_entitlement_id', 'status'], 'entitlement_balances_sub_ent_status_idx');
         });
     }
 
