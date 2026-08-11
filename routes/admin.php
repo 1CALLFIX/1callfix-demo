@@ -6,6 +6,8 @@ use App\Livewire\Bookings\Index as BookingsIndex;
 use App\Livewire\Bookings\Show as BookingsShow;
 use App\Livewire\Providers\Index as ProvidersIndex;
 use App\Livewire\Providers\Show as ProvidersShow;
+use App\Livewire\Workers\Index as WorkersIndex;
+use App\Livewire\Workers\Show as WorkersShow;
 use App\Livewire\Franchises\Manage as FranchisesManage;
 use App\Livewire\Zones\Manage as ZonesManage;
 use App\Livewire\Categories\Manage as CategoriesManage;
@@ -39,6 +41,8 @@ Route::middleware(['auth', \App\Http\Middleware\EnsureHasAdminAccess::class])
         Route::get('/bookings/{bookingId}', BookingsShow::class)->name('admin.bookings.show');
         Route::get('/providers', ProvidersIndex::class)->name('admin.providers.index');
         Route::get('/providers/{providerId}', ProvidersShow::class)->name('admin.providers.show');
+        Route::get('/workers', WorkersIndex::class)->name('admin.workers.index');
+        Route::get('/workers/{workerId}', WorkersShow::class)->name('admin.workers.show');
         Route::get('/franchises', FranchisesManage::class)->name('admin.franchises.index');
         Route::get('/zones', ZonesManage::class)->name('admin.zones.index');
         Route::get('/categories', CategoriesManage::class)->name('admin.categories.index');

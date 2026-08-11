@@ -75,6 +75,7 @@
                         ['label' => 'Dashboard', 'route' => 'admin.dashboard', 'icon' => 'home', 'active' => true],
                         ['label' => 'Bookings', 'route' => 'admin.bookings.index', 'icon' => 'clipboard', 'active' => true],
                         ['label' => 'Providers', 'route' => 'admin.providers.index', 'icon' => 'users', 'active' => true],
+                        ['label' => 'Workers', 'route' => 'admin.workers.index', 'icon' => 'users', 'active' => true],
                         ['label' => 'Zones', 'route' => 'admin.zones.index', 'icon' => 'map', 'active' => true],
                         ['label' => 'Franchises', 'route' => 'admin.franchises.index', 'icon' => 'building', 'active' => true],
                         ['label' => 'Services', 'route' => 'admin.services.index', 'icon' => 'wrench', 'active' => true],
