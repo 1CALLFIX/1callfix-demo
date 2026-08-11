@@ -104,7 +104,13 @@ class DispatchService
         return $this->rankAndLimit($candidates, $scope, $radiusKm, $limit);
     }
 
-    private function eligibleQuery(int $zoneId, int $categoryId)
+    /**
+     * Phase B0.3: widened from private to protected — a visibility-only
+     * change so a future, separately-approved worker-aware dispatcher can
+     * reuse this eligibility/ranking primitive without duplicating it.
+     * Behavior is completely unchanged.
+     */
+    protected function eligibleQuery(int $zoneId, int $categoryId)
     {
         return Provider::query()
             ->with(['subscriptions', 'user'])
@@ -116,14 +122,16 @@ class DispatchService
             ->whereNotNull('current_lng');
     }
 
-    private function hasSkill(Provider $provider, int $categoryId): bool
+    /** Phase B0.3: private -> protected, visibility-only (see eligibleQuery()'s note above). */
+    protected function hasSkill(Provider $provider, int $categoryId): bool
     {
         $skills = $provider->skills ?? [];
 
         return in_array($categoryId, $skills, strict: false);
     }
 
-    private function withDistance(Provider $provider, float $lat, float $lng): array
+    /** Phase B0.3: private -> protected, visibility-only (see eligibleQuery()'s note above). */
+    protected function withDistance(Provider $provider, float $lat, float $lng): array
     {
         return [
             'provider' => $provider,
@@ -131,7 +139,8 @@ class DispatchService
         ];
     }
 
-    private function rankAndLimit(Collection $candidates, array $scope, float $radiusKm, int $limit): Collection
+    /** Phase B0.3: private -> protected, visibility-only (see eligibleQuery()'s note above). */
+    protected function rankAndLimit(Collection $candidates, array $scope, float $radiusKm, int $limit): Collection
     {
         $config = $this->rankingConfigResolver->resolve('providers', $scope);
 
