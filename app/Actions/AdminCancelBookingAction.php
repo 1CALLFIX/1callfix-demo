@@ -7,22 +7,32 @@ use App\Models\Booking;
 use App\Notifications\BookingStatusNotification;
 use App\Notifications\Support\ChannelResolver;
 use App\Services\CancellationService;
+use App\Services\Plans\EntitlementService;
 use Illuminate\Support\Facades\DB;
 
 class AdminCancelBookingAction
 {
-    public function __construct(private CancellationService $cancellationService)
-    {
+    /** Statuses that count as "before work began" — same boundary CompleteBookingAction's completable-from set implicitly treats as post-service. Used to decide entitlement reversal (approved plan §7). */
+    private const PRE_SERVICE_STATUSES = ['pending', 'searching_provider', 'assigned', 'provider_en_route'];
+
+    public function __construct(
+        private CancellationService $cancellationService,
+        private EntitlementService $entitlementService,
+    ) {
     }
 
     public function execute(int $bookingId, string $reason): Booking
     {
-        $booking = DB::transaction(function () use ($bookingId, $reason) {
+        $statusBeforeCancel = null;
+
+        $booking = DB::transaction(function () use ($bookingId, $reason, &$statusBeforeCancel) {
             $booking = Booking::lockForUpdate()->findOrFail($bookingId);
 
             if (in_array($booking->status, ['completed', 'cancelled'], true)) {
                 throw new \RuntimeException("Booking is already {$booking->status}, cannot cancel.");
             }
+
+            $statusBeforeCancel = $booking->status;
 
             $fee = $this->cancellationService->calculateFee($booking);
 
@@ -47,6 +57,16 @@ class AdminCancelBookingAction
         // transaction, doesn't hold the booking row lock during an external
         // Razorpay API call.
         $this->cancellationService->refundIfPaid($booking, (float) $booking->cancellation_fee);
+
+        // Plan Engine: reverse any customer-side entitlement consumed at
+        // booking_created, but ONLY for a pre-service cancellation — the
+        // same status boundary this action already recognizes as "before
+        // work began" (approved plan §7). Cancelling after in_progress/
+        // on_hold never auto-reverses; a support agent can still adjust()
+        // manually. No-op if nothing was ever consumed for this booking.
+        if (in_array($statusBeforeCancel, self::PRE_SERVICE_STATUSES, true)) {
+            $this->entitlementService->reverseForCancelledBooking($booking);
+        }
 
         if ($booking->customer) {
             $channels = ChannelResolver::resolve(['zone_id' => $booking->zone_id, 'franchise_id' => $booking->franchise_id]);

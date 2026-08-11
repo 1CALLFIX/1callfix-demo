@@ -17,6 +17,8 @@ use App\Livewire\Cms\Manage as CmsManage;
 use App\Livewire\Roles\Manage as RolesManage;
 use App\Livewire\Payouts\Manage as PayoutsManage;
 use App\Livewire\NotificationCenter\Manage as NotificationCenterManage;
+use App\Livewire\Plans\Manage as PlansManage;
+use App\Livewire\Subscriptions\Index as SubscriptionsIndex;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 
@@ -48,4 +50,6 @@ Route::middleware(['auth', \App\Http\Middleware\EnsureHasAdminAccess::class])
         Route::get('/roles', RolesManage::class)->name('admin.roles.index');
         Route::get('/payouts', PayoutsManage::class)->name('admin.payouts.index');
         Route::get('/notifications', NotificationCenterManage::class)->name('admin.notifications.index');
+        Route::get('/plans', PlansManage::class)->name('admin.plans.index');
+        Route::get('/subscriptions', SubscriptionsIndex::class)->name('admin.subscriptions.index');
     });

@@ -82,6 +82,8 @@
                         ['label' => 'Website / CMS', 'route' => 'admin.cms.index', 'icon' => 'document', 'active' => true],
                         ['label' => 'Payouts', 'route' => 'admin.payouts.index', 'icon' => 'banknotes', 'active' => true],
                         ['label' => 'Notification Center', 'route' => 'admin.notifications.index', 'icon' => 'bell', 'active' => true],
+                        ['label' => 'Plans & Memberships', 'route' => 'admin.plans.index', 'icon' => 'sparkles', 'active' => true],
+                        ['label' => 'Subscriptions', 'route' => 'admin.subscriptions.index', 'icon' => 'ticket', 'active' => true],
                         ['label' => 'Roles & Permissions', 'route' => 'admin.roles.index', 'icon' => 'shield', 'active' => true],
                         ['label' => 'Settings', 'route' => 'admin.settings.index', 'icon' => 'gear', 'active' => true],
                     ];

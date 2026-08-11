@@ -2,6 +2,8 @@
 
 namespace App\Services\Ranking;
 
+use App\Models\Subscription;
+use App\Models\User;
 use Illuminate\Support\Collection;
 
 /**
@@ -15,6 +17,16 @@ use Illuminate\Support\Collection;
  *  - weighted: each criterion normalized to 0..1, combined by its
  *    configured weight into one blended score, highest first. Deliberately
  *    NOT a machine-learning model — a plain, auditable weighted sum.
+ *
+ * The 'subscription' criterion reads the Plan Engine's real
+ * subscriptions/plans tables (approved plan §20 — the old
+ * provider_subscriptions-backed boolean is superseded), NOT a flat
+ * has-a-subscription boolean: it's the NUMERIC value of the provider's
+ * active Provider Package plan's 'priority'-type entitlement (its
+ * plan_entitlements.quantity, treated as a tier's priority-boost score) —
+ * so a higher-tier package genuinely outranks a lower-tier one, and a
+ * provider with no package (or an expired one) contributes 0, exactly as
+ * before the Plan Engine existed. See resolvePlanPriority().
  *
  * @param  Collection<int, array{provider: \App\Models\Provider, distance_km: float}>  $candidates
  */
@@ -58,15 +70,16 @@ class RankingEngine
 
         $maxPriority = max(1, $candidates->max(fn ($c) => $c['provider']->priority ?? 0));
         $maxOrders = max(1, $candidates->max(fn ($c) => $c['provider']->jobs_completed ?? 0));
+        $maxPlanPriority = max(1.0, $candidates->max(fn ($c) => $this->resolvePlanPriority($c['provider'])));
 
         return $candidates
-            ->map(function ($c) use ($weights, $totalWeight, $radiusKm, $maxPriority, $maxOrders) {
+            ->map(function ($c) use ($weights, $totalWeight, $radiusKm, $maxPriority, $maxOrders, $maxPlanPriority) {
                 $normalized = [
                     'priority' => ($c['provider']->priority ?? 0) / $maxPriority,
                     'rating' => min(1, max(0, ($c['provider']->rating_avg ?? 0) / 5)),
                     'distance' => $radiusKm > 0 ? max(0, 1 - (($c['distance_km'] ?? 0) / $radiusKm)) : 0,
                     'orders' => ($c['provider']->jobs_completed ?? 0) / $maxOrders,
-                    'subscription' => $this->hasActiveSubscription($c['provider']) ? 1 : 0,
+                    'subscription' => $this->resolvePlanPriority($c['provider']) / $maxPlanPriority,
                 ];
 
                 $score = 0;
@@ -89,19 +102,41 @@ class RankingEngine
             'rating' => (float) ($candidate['provider']->rating_avg ?? 0),
             'distance' => (float) ($candidate['distance_km'] ?? PHP_FLOAT_MAX),
             'orders' => (float) ($candidate['provider']->jobs_completed ?? 0),
-            'subscription' => $this->hasActiveSubscription($candidate['provider']) ? 1.0 : 0.0,
+            'subscription' => $this->resolvePlanPriority($candidate['provider']),
             default => 0.0,
         };
     }
 
-    private function hasActiveSubscription($provider): bool
+    /**
+     * Highest 'priority'-type entitlement value across the provider's
+     * active/grace_period Provider Package subscriptions — 0 if they hold
+     * none, an expired one, or no matching entitlement. A provider with two
+     * stacked packages doesn't double-count: this is a max, not a sum,
+     * matching PlanStackingResolver's "one deterministic winner" spirit for
+     * a single ranking signal.
+     */
+    private function resolvePlanPriority($provider): float
     {
-        if (! $provider->relationLoaded('subscriptions')) {
-            $provider->load('subscriptions');
+        if (! $provider->user_id) {
+            return 0.0;
         }
 
-        return $provider->subscriptions->contains(
-            fn ($s) => $s->status === 'successful' && (! $s->expires_at || $s->expires_at->isFuture())
-        );
+        $subscriptions = Subscription::where('subscribable_type', User::class)
+            ->where('subscribable_id', $provider->user_id)
+            ->whereIn('status', ['active', 'grace_period'])
+            ->with(['plan.entitlements' => fn ($q) => $q->where('entitlement_type', 'priority')])
+            ->get();
+
+        $best = 0.0;
+        foreach ($subscriptions as $subscription) {
+            foreach ($subscription->plan->entitlements as $entitlement) {
+                if (! $entitlement->isUsable()) {
+                    continue;
+                }
+                $best = max($best, (float) ($entitlement->quantity ?? 0));
+            }
+        }
+
+        return $best;
     }
 }

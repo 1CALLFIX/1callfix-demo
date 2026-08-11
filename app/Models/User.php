@@ -49,6 +49,8 @@ class User extends Authenticatable
     public function loyaltyPoints() { return $this->hasMany(LoyaltyPoint::class); }
     public function referralsMade() { return $this->hasMany(Referral::class, 'referrer_id'); }
     public function referralReceived() { return $this->hasOne(Referral::class, 'referred_id'); }
+    /** Plan Engine subscriptions (Customer Prime / Provider Package) — named distinctly from Provider::subscriptions() (the old provider_subscriptions table). */
+    public function planSubscriptions() { return $this->morphMany(\App\Models\Subscription::class, 'subscribable'); }
 
     public function routeNotificationForSms(): ?string { return $this->phone; }
     public function routeNotificationForPush(): ?string { return $this->fcm_token; }

@@ -16,6 +16,7 @@ class Payment extends Model
         'booking_id',
         'purpose',
         'user_id',
+        'plan_subscription_id',
         'payment_method_id',
         'amount',
         'gateway',
@@ -32,4 +33,6 @@ class Payment extends Model
     public function method() { return $this->belongsTo(PaymentMethod::class, 'payment_method_id'); }
     /** Only set for purpose = 'wallet_topup' -- booking-purpose payments derive the customer via booking->customer instead. */
     public function user() { return $this->belongsTo(User::class); }
+    /** Only set for purpose = 'plan_subscription'. */
+    public function planSubscription() { return $this->belongsTo(Subscription::class, 'plan_subscription_id'); }
 }

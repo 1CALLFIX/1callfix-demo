@@ -9,11 +9,16 @@ use App\Models\Service;
 use App\Models\Setting;
 use App\Notifications\BookingStatusNotification;
 use App\Notifications\Support\ChannelResolver;
+use App\Services\Plans\EntitlementService;
 use App\Services\WalletService;
 use Illuminate\Support\Facades\DB;
 
 class CreateBookingAction
 {
+    public function __construct(private EntitlementService $entitlementService)
+    {
+    }
+
     /**
      * Creates a booking (booking.code is auto-filled by BookingObserver) and
      * immediately queues the dispatch job. This is the entry point M3 hangs off —
@@ -31,8 +36,9 @@ class CreateBookingAction
     {
         $service = Service::findOrFail($data['service_id']);
         $paymentMethod = $data['payment_method'] ?? 'online';
+        $basePrice = (float) ($data['price_quoted'] ?? $service->base_price);
 
-        $booking = DB::transaction(function () use ($data, $service, $paymentMethod) {
+        $booking = DB::transaction(function () use ($data, $service, $paymentMethod, $basePrice) {
             $booking = Booking::create([
                 'franchise_id' => $data['franchise_id'],
                 'zone_id' => $data['zone_id'],
@@ -41,10 +47,23 @@ class CreateBookingAction
                 'address_id' => $data['address_id'],
                 'status' => 'pending',
                 'scheduled_at' => $data['scheduled_at'] ?? null,
-                'price_quoted' => $data['price_quoted'] ?? $service->base_price,
+                'price_quoted' => $basePrice,
                 'payment_method' => $paymentMethod,
                 'customer_note' => $data['customer_note'] ?? null,
             ]);
+
+            // Plan Engine: a Customer Prime-style entitlement can adjust the
+            // price right here, at booking_created (approved plan §6/§11) —
+            // additive to Service.base_price/FranchiseServicePricing, never a
+            // parallel pricing path. Null means no applicable/usable plan;
+            // today's price stands unchanged.
+            if ($booking->customer) {
+                $adjustment = $this->entitlementService->resolveAndConsumeForBooking($booking->customer, $basePrice, $booking);
+                if ($adjustment) {
+                    $booking->price_quoted = $adjustment['adjusted_price'];
+                    $booking->save();
+                }
+            }
 
             if ($paymentMethod === 'wallet') {
                 $this->payWithWallet($booking);

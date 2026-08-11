@@ -8,6 +8,7 @@ use App\Models\Payment;
 use App\Notifications\PaymentStatusNotification;
 use App\Notifications\Support\ChannelResolver;
 use Illuminate\Http\Request;
+use App\Services\Plans\SubscriptionService;
 use App\Services\RazorpayService;
 use App\Services\WalletTopUpService;
 use Illuminate\Support\Facades\Log;
@@ -153,6 +154,15 @@ class PaymentController extends Controller
             return;
         }
 
+        // Plan subscription purchase/renewal: activate the subscription, no
+        // booking involved — same idempotency guard pattern as the top-up
+        // branch above (SubscriptionService::activateAfterPayment() is a
+        // no-op if the subscription isn't still pending_payment).
+        if ($payment->purpose === 'plan_subscription') {
+            app(SubscriptionService::class)->activateAfterPayment($payment);
+            return;
+        }
+
         $booking = $payment->booking;
         $booking->payment_status = 'paid';
         $booking->save();
@@ -177,6 +187,11 @@ class PaymentController extends Controller
 
             if ($payment->purpose === 'wallet_topup') {
                 return; // nothing was ever credited — no booking, nothing to notify
+            }
+
+            if ($payment->purpose === 'plan_subscription') {
+                app(SubscriptionService::class)->failPayment($payment);
+                return; // subscription stays unactivated/unusable — no booking involved
             }
 
             $booking = $payment->booking;
