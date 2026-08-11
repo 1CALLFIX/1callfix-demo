@@ -27,6 +27,8 @@ use Illuminate\Support\Facades\Log;
  *   3. If none found and we've hit MAX_ATTEMPTS_ROUNDS, give up — leave the
  *      booking in `searching_provider` so it surfaces on the admin's live queue
  *      for manual assignment. This is the deliberate fallback, not a crash.
+ *      (Round increments on EVERY re-dispatch, including "found nobody this
+ *      time" — not just after actually making offers, or this cap never fires.)
  *   4. Otherwise, create a `dispatch_attempts` row per candidate and broadcast
  *      NewJobOffered to each — this is what wakes up the provider app.
  *   5. Mark this round's prior (not-yet-timed-out) attempts as `timeout` if
@@ -98,9 +100,15 @@ class ServiceMatchingJob implements ShouldQueue
         $candidates = $dispatchService->findCandidates($booking, $this->batchSize());
 
         if ($candidates->isEmpty()) {
-            // No one available right now — try again shortly, same round count
-            // doesn't increment here since we haven't actually made any offers yet.
-            self::dispatch($this->bookingId, $this->round)
+            // Round DOES increment here too -- confirmed bug, found via the
+            // queue infrastructure audit: leaving it unincremented meant
+            // maxRounds() (whose own docblock promises "doesn't loop
+            // forever") never actually fired for a booking with zero
+            // eligible providers, since $this->round would stay at 1
+            // forever and never exceed $maxRounds. Reproduced live: booking
+            // #10 looped every offerTimeoutSeconds indefinitely once a
+            // worker actually started consuming the queue.
+            self::dispatch($this->bookingId, $this->round + 1)
                 ->delay(now()->addSeconds($offerTimeoutSeconds));
             return;
         }
