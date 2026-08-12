@@ -1,6 +1,6 @@
 # 1CallFix — Final System Test Matrix
 
-Baseline: commit `939b270`. All rows below are real, executed tests — no "tested" entry exists without a corresponding test file/method. Executed against an isolated SQLite database, never production. Full suite: **101 passed, 0 failed, 256 assertions**, confirmed stable across 5 consecutive runs.
+Baseline: commit `9e8dd98` (updated in place from `939b270` across a second work program the same day — see the new rows below, appended not rewritten). All rows below are real, executed tests — no "tested" entry exists without a corresponding test file/method. Executed against an isolated SQLite database, never production. Full suite: **121 passed, 0 failed, 308 assertions**, confirmed stable across repeated runs including a fully fresh `git clone`/`composer install`/migrate/test cycle.
 
 Legend: **METHOD** — `AT` automated test (PHPUnit/Livewire) · `RO` read-only production inspection · `CODE` static code inspection only (no automated test).
 
@@ -65,12 +65,18 @@ Legend: **METHOD** — `AT` automated test (PHPUnit/Livewire) · `RO` read-only 
 | Referral | No pending referral | system | — | clean no-op | AT | PASS | `test_a_customer_with_no_referral_qualifying_is_a_no_op` |
 | Database | Full migration chain from scratch | — | — | 122 migrations apply clean | AT (via test harness itself) | PASS | verified via `migrate`+`migrate:rollback`+re-`migrate` round-trip, this session |
 | Database | Orphan/integrity sweep | — | production | 0 issues across 24 checks | RO | PASS (weak — near-zero data, see caveat) | `PRODUCTION_READINESS_AUDIT.md` §3 |
+| Database | Orphan/integrity sweep at real scale | — | isolated QA DB, 776 records | 0 issues across 7 checks; 80/80 commissions match completed bookings; 19/19 wallets reconcile exactly | AT (`qa:seed` + direct query verification) | PASS | `QA_DATA_INTEGRITY_REPORT.md` |
+| API | Booking accept | unauthenticated / wrong actor type / valid provider / no real offer / race-to-accept | — | 401/403/200/409/409 | AT (real HTTP `postJson`) | PASS | `DispatchApiTest` (7 tests) |
+| API | Booking complete | valid provider / wrong OTP | — | 200 with commission credited / 409 | AT (real HTTP) | PASS | `DispatchApiTest` |
+| API | Worker jobs list | unauthenticated / wrong actor type / own jobs only | — | 401/403/200 excluding other workers' jobs | AT (real HTTP) | PASS | `WorkerJobApiTest` (7 tests) |
+| API | Worker job start/complete | correct worker / wrong worker (IDOR) / wrong OTP / missing OTP | — | 200/403 untouched/409/422 | AT (real HTTP) | PASS | `WorkerJobApiTest` |
+| RBAC | Franchises update/toggleStatus/delete | no permission / correct country scope / wrong country / super_admin | country | denied/allowed/denied/allowed | AT | PASS | `FranchisesAuthorizationTest` (6 tests) — regression for a live HIGH-severity gap found and fixed this session |
 
 ## Coverage Summary
 
-**TOTAL TESTS:** 101
-**TOTAL ASSERTIONS:** 256
-**PASSED:** 101
+**TOTAL TESTS:** 121
+**TOTAL ASSERTIONS:** 308
+**PASSED:** 121
 **FAILED:** 0
 **BLOCKED:** 0
 
@@ -78,27 +84,29 @@ Legend: **METHOD** — `AT` automated test (PHPUnit/Livewire) · `RO` read-only 
 TOTAL: 24 (Livewire module folders)
 PASSED (functional QA per Phase 4 of the QA program — full 27-point-per-screen matrix): 0
 FAILED: 0
-NOT APPLICABLE / NOT ATTEMPTED: 24 — the exhaustive per-screen QA matrix (load/search/filter/sort/CRUD/confirmation/empty-state/loading-state/unauthorized-access/direct-HTTP-access per screen) was not run this session. RBAC enforcement on the mutation actions of 6 of these screens (Zones, Categories, Subcategories, Services, Banners, CMS) plus part of Bookings **is** covered by the RBAC test rows above — that is authorization coverage, not full functional QA.
+NOT APPLICABLE / NOT ATTEMPTED: 24 — the exhaustive per-screen QA matrix (load/search/filter/sort/CRUD/confirmation/empty-state/loading-state/unauthorized-access/direct-HTTP-access per screen) was not run. RBAC enforcement on the mutation actions of 7 of these screens (Zones, Categories, Subcategories, Services, Banners, CMS, Franchises) plus part of Bookings **is** covered by the RBAC test rows above — that is authorization coverage, not full functional QA.
 
 **APIs:**
-TOTAL: not inventoried this session (routes/api.php exists, not itemized)
-TESTED: 0 dedicated API-endpoint tests (Worker delegation is tested at the Action layer, not through `WorkerJobController`/`PartnerWorkerController` HTTP endpoints directly)
+TOTAL: 24 (fully inventoried — see `API_INVENTORY.md`)
+TESTED (real HTTP-level): 14 tests across 2 of 24 routes (`accept`, `complete`, `worker/jobs` index/start/complete) — auth, IDOR, race-to-accept, wrong/missing OTP, financial correctness all verified via actual `postJson()`/`getJson()` calls, not Action-layer calls dressed up as API tests
+TESTED (underlying Action/Service only, not HTTP layer): 6 more routes' business logic (`PlanController`/`SubscriptionController`'s `PlanEngineSmokeTest` coverage, `PartnerWorkerController`'s `AssignBookingToWorkerActionTest` coverage)
+UNTESTED AT ANY LAYER: 14 (mostly read-only GET endpoints with no meaningful side effect, plus the Razorpay-dependent payment/wallet-topup endpoints, which cannot be meaningfully tested without live or mocked gateway credentials this program will not fake)
 FAILED: 0
-NOT APPLICABLE: unknown until inventoried
+NOT APPLICABLE: 0
 
 **DATABASE TABLES:**
-TOTAL: not exhaustively re-counted this session (119+ migrations, several add-column migrations rather than new tables)
-COVERED (integrity-checked): 24 relationships across ~20 tables (see `PRODUCTION_READINESS_AUDIT.md` §3)
-INTENTIONALLY EMPTY: `bookings`, `payments`, `commissions`, `wallets`, `subscriptions`, `plans`, `role_assignments` and others — production is pre-launch, confirmed via read-only count, not a defect
-DORMANT/DEFERRED: `coupons`/`coupon_usages` (infrastructure retained, FK completed this session, no commercial feature built on top), `franchise_payout_ledger`, `franchise_applications`, `sos_alerts`, `activity_log` (all confirmed zero-consumer in prior audits, untouched this session)
+TOTAL: not exhaustively re-counted (122 migrations, several add-column rather than new tables)
+COVERED (integrity-checked): 24 relationship checks against production (near-empty, weak evidence) + 7 relationship checks against a real 776-record QA dataset (strong evidence — see `QA_DATA_INTEGRITY_REPORT.md`)
+INTENTIONALLY EMPTY (production): `bookings`, `payments`, `commissions`, `wallets`, `subscriptions`, `plans`, `role_assignments` and others — production is pre-launch, confirmed via read-only count, not a defect
+DORMANT/DEFERRED: `coupons`/`coupon_usages`, `franchise_payout_ledger`, `franchise_applications`, `sos_alerts`, `activity_log` (all confirmed zero-consumer in prior audits, untouched)
 
 **ROLES:**
 TOTAL: 7 system roles (`super_admin`, `country_admin`, `city_admin`, `zone_admin`, `franchise_owner`, `operator`, `support`)
-TESTED: scope mechanics tested via purpose-built single-permission test roles (not the 7 system roles directly, which bundle many permissions) — the underlying `AuthorizationService::can()`/`canAnywhere()` mechanics they all share are fully exercised
+TESTED: scope mechanics tested via purpose-built single-permission test roles (not the 7 system roles directly, which bundle many permissions) — the underlying `AuthorizationService::can()`/`canAnywhere()` mechanics they all share are fully exercised. Also: one real instance of each role seeded and role-assigned for real by the QA data factory (`qa:seed`).
 
 **SCOPES:**
-TOTAL: 6 (`global`, `country`, `city`, `zone`, `module`, `franchise`)
-TESTED: `global`, `franchise`, `city` directly exercised with both allow and cross-scope-deny cases; `country`/`zone`/`module` exercised only incidentally (scope array construction verified, not a dedicated positive-case test for each)
+TOTAL: 6 (`global`, `country`, `city`, `zone`, `module`, `franchise`) — see `RBAC_SCOPE_MATRIX.md` for the full resolution model
+TESTED: `global`, `franchise`, `city`, and now `country` (via `FranchisesAuthorizationTest`) directly exercised with both allow and cross-scope-deny cases; `zone` exercised via `bookings.create`; `module` not exercised — zero permissions in the current catalog are actually scoped by it in practice
 
 **PRINT TEMPLATES:**
 TOTAL: 0 (system does not exist)
@@ -108,11 +116,11 @@ TESTED: 0
 TOTAL: 0 browser-driven flows attempted
 PASSED: 0
 FAILED: 0
-(Full multi-step business flows ARE covered end-to-end at the Action/Service layer — e.g. `BookingFsmTest` walks accept→start→complete→commission — but this is not the same as a QA-web-app-driven or browser-driven E2E test, which was not built.)
+(Full multi-step business flows ARE covered end-to-end — at the Action/Service layer via `BookingFsmTest`/`PlanEngineSmokeTest`, and now at the HTTP layer too via `DispatchApiTest`'s accept→complete round trip — but this is not the same as a QA-web-app-driven or browser-driven E2E test, which was not built. No separate MySQL QA database is available in this environment either, which also rules out true multi-process concurrency load testing beyond the lock-outcome tests already in place.)
 
 **SECURITY:**
 CRITICAL: 0 found (bounded scope — see `PRODUCTION_READINESS_AUDIT.md` §4)
-HIGH: 0 found (bounded scope)
+HIGH: 1 found and FIXED this session (`Franchises\Manage` update/toggleStatus/delete had zero authorization check — see `FranchisesAuthorizationTest`), 0 unresolved
 MEDIUM: 0 found
 LOW: 0 found
 INFORMATIONAL: 1 — `SESSION_ENCRYPT=false` in `.env.example` (standard Laravel default, not unique to this app, noted for completeness)

@@ -2,7 +2,7 @@
 
 **This is the authoritative current-state document.** Where it conflicts with `PROJECT_HANDOFF.md` or anything else, this document wins — `PROJECT_HANDOFF.md` predates most of what's described below and is marked HISTORICAL at the bottom of this file. Verified against the actual repository and, where noted, direct read-only inspection of the production database — not against memory or old planning docs.
 
-**Baseline for everything below:** commit `da7c5b4` on `main`, 2026-08-12. (Originally written at `e2a169e` the same day; updated in place rather than superseded, since the same session's continuation — see `PRODUCTION_READINESS_AUDIT.md` and `FINAL_SYSTEM_TEST_MATRIX.md` for the fuller QA-program writeup of what was added after `e2a169e`.)
+**Baseline for everything below:** commit `9e8dd98` on `main`, 2026-08-12. (Originally written at `e2a169e` the same day, updated in place through two further work programs — see `PRODUCTION_READINESS_AUDIT.md`, `FINAL_SYSTEM_TEST_MATRIX.md`, `QA_DATA_INTEGRITY_REPORT.md`, `API_INVENTORY.md`, and `RBAC_SCOPE_MATRIX.md` for the fuller writeup of everything added after `e2a169e`.)
 
 Labels used throughout: **[IMPLEMENTED]** shipped and in the codebase · **[VERIFIED]** implemented AND confirmed by an automated test or direct inspection this session · **[PARTIAL]** exists but incomplete · **[DEFERRED]** deliberately not built yet · **[OPEN BUSINESS DECISION]** needs a human call · **[FUTURE]** planned, not started.
 
@@ -121,15 +121,18 @@ Production is at commit `ba0635a`, confirmed via direct SSH check at the end of 
 
 **Before this session:** two Laravel stub tests (`tests/Unit/ExampleTest.php`, `tests/Feature/ExampleTest.php`), and — critically — the full migration chain could not even run against the configured test database (see §16). Effectively zero real regression coverage existed, and the tooling to build any hadn't been verified to work at all.
 
-**After this session (continued across two work programs the same day):** 101 real, executed, passing tests (256 assertions), covering:
+**After this session (continued across three work programs the same day):** 121 real, executed, passing tests (308 assertions), covering:
 - RBAC enforcement for all 7 newly-closed gaps + cross-scope denial cases + Super Admin bypass regression (44 tests)
 - The `Roles::assign()/revoke()` privilege-escalation fix, previously uncovered (6 tests)
+- **A live HIGH-severity gap found and fixed in the third program: `Franchises\Manage::update()/toggleStatus()/deleteFranchise()` had zero authorization check** (6 tests)
 - Commission idempotency, including the new DB constraint (3 tests)
 - Worker delegation authorization boundaries — every case the makeover brief names (12 tests)
 - Booking FSM: Start/Complete/AdminCancel/AdminReassign transition boundaries, including duplicate-completion and extra-work pricing (16 tests)
 - Dispatch race regression — direct test for `1e108ff`, previously zero coverage (4 tests)
 - Plan Engine smoke suite — Phase A untouched, includes a direct regression test for the renewal-upgrade bug `4f92fdf` (6 tests)
 - Loyalty (7 tests) and Referral (7 tests)
+- **New in the third program:** real HTTP-level API tests (14 tests) — `DispatchApiTest`/`WorkerJobApiTest`, actual `postJson()`/`getJson()` calls through the full route/middleware/controller pipeline, not Action-layer calls dressed up as API tests. First HTTP-level coverage this codebase has ever had.
+- **New in the third program:** a real, disposable QA data factory (`qa:seed`/`qa:clean`) producing the exact target dataset at scale (776 records, 200 bookings across every FSM-reachable status, 30 subscriptions) — see `QA_DATA_INTEGRITY_REPORT.md`. Financial reconciliation proven at that scale: 80/80 commissions match completed bookings exactly, 19/19 wallets reconcile exactly, 0 orphans.
 
 All executed against an isolated SQLite database on the production server's own filesystem (never against production data, never against local MySQL), via a throwaway checkout cloned/pulled from GitHub — read-only against the live directory, never modified it. Stability confirmed across 5 consecutive full-suite runs after fixing a real flaky-fixture bug found along the way (countries.code collision — see the `8f1d0ae` commit). A second real bug was found and fixed via this testing: `RazorpayService`'s constructor crashed with an uncaught `TypeError` on any environment without Razorpay credentials configured (`.env.example` has none), which crashed `AdminCancelBookingAction` even for bookings that were never paid.
 
