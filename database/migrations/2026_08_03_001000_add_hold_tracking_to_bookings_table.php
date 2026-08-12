@@ -2,7 +2,6 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 // Adds on-hold tracking to bookings, split into two categories:
@@ -29,14 +28,21 @@ return new class extends Migration
             $table->timestamp('on_hold_since')->nullable()->after('hold_note');
         });
 
-        // bookings.status is a plain MySQL enum column — add 'on_hold' as a
-        // valid value alongside the existing ones via a raw MODIFY COLUMN.
-        DB::statement("
-            ALTER TABLE bookings MODIFY COLUMN status ENUM(
-                'pending','searching_provider','assigned','provider_en_route',
-                'in_progress','on_hold','completed','cancelled','disputed'
-            ) NOT NULL DEFAULT 'pending'
-        ");
+        // bookings.status gains 'on_hold' as a valid value alongside the
+        // existing ones. Laravel's native change() (no doctrine/dbal needed
+        // since Laravel 9+) compiles to the equivalent raw ALTER on MySQL and
+        // to SQLite's own table-rebuild strategy on SQLite — this used to be
+        // a MySQL-only raw MODIFY COLUMN statement, which made the whole
+        // migration chain (and therefore the automated test suite, which
+        // runs against sqlite :memory: per phpunit.xml) impossible to run
+        // from scratch. Same resulting column on MySQL; no production impact
+        // since this migration has already run for real.
+        Schema::table('bookings', function (Blueprint $table) {
+            $table->enum('status', [
+                'pending', 'searching_provider', 'assigned', 'provider_en_route',
+                'in_progress', 'on_hold', 'completed', 'cancelled', 'disputed',
+            ])->default('pending')->change();
+        });
     }
 
     public function down(): void
@@ -45,11 +51,11 @@ return new class extends Migration
             $table->dropColumn(['hold_category', 'hold_reason', 'hold_note', 'on_hold_since']);
         });
 
-        DB::statement("
-            ALTER TABLE bookings MODIFY COLUMN status ENUM(
-                'pending','searching_provider','assigned','provider_en_route',
-                'in_progress','completed','cancelled','disputed'
-            ) NOT NULL DEFAULT 'pending'
-        ");
+        Schema::table('bookings', function (Blueprint $table) {
+            $table->enum('status', [
+                'pending', 'searching_provider', 'assigned', 'provider_en_route',
+                'in_progress', 'completed', 'cancelled', 'disputed',
+            ])->default('pending')->change();
+        });
     }
 };
