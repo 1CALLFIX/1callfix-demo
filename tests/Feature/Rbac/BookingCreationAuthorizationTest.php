@@ -93,24 +93,18 @@ class BookingCreationAuthorizationTest extends TestCase
 
         $this->assertDatabaseHas('addresses', ['address_line' => 'Test Address', 'zone_id' => $zone->id]);
 
-        $component->set('selectedServiceId', $service->id)->set('priceQuoted', '200');
+        // OrderCodeService was MySQL-only (raw upsert) as of when this test
+        // was first written, which forced this test to only verify the
+        // permission gate and expect the downstream query to fail on
+        // sqlite. Since fixed (driver-aware — sqlite gets an equivalent
+        // lockForUpdate() path with the same atomicity guarantee, MySQL
+        // unchanged), the full flow now genuinely completes end-to-end.
+        $component->set('selectedServiceId', $service->id)
+            ->set('priceQuoted', '200')
+            ->call('createBooking')
+            ->assertHasNoErrors();
 
-        // createBooking()'s own permission gate is what this test verifies.
-        // Past that gate, CreateBookingAction reaches OrderCodeService,
-        // which uses a raw MySQL "INSERT ... ON DUPLICATE KEY UPDATE ...
-        // LAST_INSERT_ID()" upsert for atomic, race-safe daily sequence
-        // numbering — deliberate, documented concurrency behavior this
-        // suite does not touch, and one with no sqlite equivalent. Confirm
-        // we got past the RBAC gate (no 'permission' error) rather than
-        // asserting the sqlite-incompatible query itself succeeds.
-        try {
-            $component->call('createBooking');
-            $this->fail('Expected OrderCodeService\'s MySQL-only upsert to throw on sqlite.');
-        } catch (\Illuminate\Database\QueryException $e) {
-            $this->assertStringContainsString('booking_sequences', $e->getMessage());
-        }
-
-        $component->assertHasNoErrors('permission');
+        $this->assertDatabaseHas('bookings', ['zone_id' => $zone->id, 'price_quoted' => 200]);
     }
 
     public function test_zone_scoped_grant_does_not_cover_a_different_zone(): void
