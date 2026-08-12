@@ -36,11 +36,15 @@ class AssignBookingToWorkerActionTest extends TestCase
     private ServiceCategory $category;
     private Service $service;
 
+    /** Same countries.code uniqueness fix as RbacTestHelpers/CommissionIdempotencyTest — see there for why. */
+    private static int $countryCodeCounter = 0;
+
     protected function setUp(): void
     {
         parent::setUp();
 
-        $country = Country::create(['name' => 'Testland', 'code' => 'T'.Str::random(1), 'currency_code' => 'INR', 'default_timezone' => 'Asia/Kolkata', 'is_active' => true]);
+        $countryCode = strtoupper(str_pad(base_convert((string) self::$countryCodeCounter++, 10, 36), 2, '0', STR_PAD_LEFT));
+        $country = Country::create(['name' => 'Testland', 'code' => $countryCode, 'currency_code' => 'INR', 'default_timezone' => 'Asia/Kolkata', 'is_active' => true]);
         $city = City::create(['country_id' => $country->id, 'name' => 'City '.Str::random(6), 'is_active' => true]);
         $this->franchise = Franchise::create([
             'name' => 'Franchise', 'slug' => Str::slug('franchise-'.Str::random(8)),

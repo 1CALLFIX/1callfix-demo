@@ -29,10 +29,20 @@ class CommissionIdempotencyTest extends TestCase
 {
     use RefreshDatabase;
 
+    /**
+     * countries.code is string(2) — Str::random(1) (62 possibilities) was
+     * flaky under a suite that creates many countries per run. A
+     * process-lifetime counter over base-36 guarantees uniqueness without
+     * relying on randomness.
+     */
+    private static int $countryCodeCounter = 0;
+
     private function makeCompletedBooking(): Booking
     {
+        $code = strtoupper(str_pad(base_convert((string) self::$countryCodeCounter++, 10, 36), 2, '0', STR_PAD_LEFT));
+
         $country = Country::create([
-            'name' => 'Testland', 'code' => 'T'.Str::random(1),
+            'name' => 'Testland', 'code' => $code,
             'currency_code' => 'INR', 'default_timezone' => 'Asia/Kolkata', 'is_active' => true,
         ]);
         $city = City::create(['country_id' => $country->id, 'name' => 'Test City '.Str::random(6), 'is_active' => true]);

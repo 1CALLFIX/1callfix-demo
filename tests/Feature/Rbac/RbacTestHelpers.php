@@ -19,10 +19,23 @@ use Illuminate\Support\Str;
  */
 trait RbacTestHelpers
 {
+    /**
+     * countries.code is string(2) — a single random character (62
+     * possibilities) collides often enough across a suite that creates
+     * dozens of countries (some single tests create 2+ of their own, e.g.
+     * "does not cover a different franchise/city" cases), and Str::random()
+     * isn't seeded deterministically per test. A process-lifetime counter
+     * over base-36 guarantees uniqueness for the life of the test run
+     * without relying on randomness at all.
+     */
+    private static int $countryCodeCounter = 0;
+
     protected function makeCountry(): Country
     {
+        $code = strtoupper(str_pad(base_convert((string) self::$countryCodeCounter++, 10, 36), 2, '0', STR_PAD_LEFT));
+
         return Country::create([
-            'name' => 'Testland', 'code' => 'T'.Str::random(1),
+            'name' => 'Testland', 'code' => $code,
             'currency_code' => 'INR', 'default_timezone' => 'Asia/Kolkata', 'is_active' => true,
         ]);
     }
