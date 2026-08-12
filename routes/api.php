@@ -7,6 +7,36 @@ Route::get('/user', function (Request $request) {
     return $request->user();
 })->middleware('auth:sanctum');
 
+// Authentication foundation (Customer/Partner/Worker) — see
+// AUTHENTICATION_ARCHITECTURE.md/OTP_ARCHITECTURE.md/QR_SCAN_ARCHITECTURE.md.
+// otp/request and otp/verify are unauthenticated by necessity (this is how
+// a Sanctum token is obtained in the first place — nothing else in this
+// API previously issued one). Throttled: OTP requests are the one endpoint
+// where an attacker could otherwise force real SMS cost / brute-force a
+// short code.
+Route::prefix('auth')->group(function () {
+    Route::post('/otp/request', [\App\Http\Controllers\API\AuthController::class, 'requestOtp'])->middleware('throttle:5,1');
+    Route::post('/otp/verify', [\App\Http\Controllers\API\AuthController::class, 'verifyOtp'])->middleware('throttle:10,1');
+
+    // QR device pairing — create/status/claim are unauthenticated by
+    // necessity (the initiating side, e.g. a desktop, has no session yet;
+    // that's the entire point of this flow) but authenticated by
+    // possession of poll_token instead, which is never rendered into the
+    // QR image itself. confirm() is the one QR endpoint requiring
+    // auth:sanctum — only an already-logged-in mobile session can vouch
+    // for a pairing challenge.
+    Route::post('/qr/create', [\App\Http\Controllers\API\QrAuthController::class, 'create'])->middleware('throttle:10,1');
+    Route::get('/qr/status', [\App\Http\Controllers\API\QrAuthController::class, 'status'])->middleware('throttle:60,1');
+    Route::post('/qr/claim', [\App\Http\Controllers\API\QrAuthController::class, 'claim'])->middleware('throttle:20,1');
+    Route::post('/qr/revoke', [\App\Http\Controllers\API\QrAuthController::class, 'revoke'])->middleware('throttle:20,1');
+
+    Route::middleware('auth:sanctum')->group(function () {
+        Route::post('/logout', [\App\Http\Controllers\API\AuthController::class, 'logout']);
+        Route::post('/device', [\App\Http\Controllers\API\AuthController::class, 'registerDevice']);
+        Route::post('/qr/confirm', [\App\Http\Controllers\API\QrAuthController::class, 'confirm'])->middleware('throttle:20,1');
+    });
+});
+
 Route::middleware(['auth:sanctum', \App\Http\Middleware\EnsureNotInMaintenanceMode::class])->group(function () {
     Route::post('/bookings/{booking}/accept', [\App\Http\Controllers\API\DispatchController::class, 'accept']);
     Route::post('/bookings/{booking}/complete', [\App\Http\Controllers\API\DispatchController::class, 'complete']);
