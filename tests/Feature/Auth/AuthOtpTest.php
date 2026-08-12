@@ -256,4 +256,22 @@ class AuthOtpTest extends TestCase
 
         $this->assertSame('test-push-token-123', $customer->fresh()->fcm_token);
     }
+
+    /**
+     * Rate limiting (Part 21) — verified as a real HTTP behavior, not
+     * assumed from the route declaration. Empirically confirmed on the
+     * server this session outside of the test suite too (5 requests
+     * succeed, 6th+ return 429) before writing this as a permanent
+     * regression.
+     */
+    public function test_otp_request_is_rate_limited_per_ip(): void
+    {
+        for ($i = 0; $i < 5; $i++) {
+            $this->postJson('/api/auth/otp/request', ['phone' => '9'.fake()->unique()->numerify('#########'), 'actor_type' => 'customer'])
+                ->assertOk();
+        }
+
+        $this->postJson('/api/auth/otp/request', ['phone' => '9'.fake()->unique()->numerify('#########'), 'actor_type' => 'customer'])
+            ->assertStatus(429);
+    }
 }
