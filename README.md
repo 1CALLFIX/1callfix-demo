@@ -1,58 +1,78 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# 1CallFix
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+A franchise-ready, multi-vertical home-services marketplace backend + Admin Panel, built for 1CallFix Solutions Pvt Ltd. Laravel 13 + Livewire 4.
 
-## About Laravel
+**For the authoritative, up-to-date description of what's actually built, what's tested, and what's left — read [`PROJECT_CURRENT_STATE.md`](PROJECT_CURRENT_STATE.md) first.** This README is a setup/reference guide; that document is the source of truth on project state.
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+## What this is
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+One codebase, multiple potential verticals (Service, Parcel, Taxi, Food, Grocery, Pharmacy, Commerce, Bookings — toggleable per franchise via `franchise_modules`). **Service is the only live vertical.** The booking pipeline — Customer → Dispatch → Provider/Worker → Completion → Commission → Wallet → Loyalty → Referral — is real, integrated, and covered by an automated regression suite (see Testing below).
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+## Tech stack
 
-## Learning Laravel
+- **Laravel 13**, PHP 8.3+
+- **Livewire 4** — the entire Admin Panel; no separate frontend build, Tailwind via CDN
+- **MySQL** in production; automated tests run against **SQLite `:memory:`**
+- **Sanctum** — API token auth for mobile clients
+- **maatwebsite/excel** — catalog CSV/XLSX import-export
+- Queue: `database` driver, Supervisor-managed worker in production
+- **Razorpay** — payments (test mode)
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
-
-In addition, [Laracasts](https://laracasts.com) contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
-
-You can also watch bite-sized lessons with real-world projects on [Laravel Learn](https://laravel.com/learn), where you will be guided through building a Laravel application from scratch while learning PHP fundamentals.
-
-## Agentic Development
-
-Laravel's predictable structure and conventions make it ideal for AI coding agents like Claude Code, Cursor, and GitHub Copilot. Install [Laravel Boost](https://laravel.com/docs/ai) to supercharge your AI workflow:
+## Setup
 
 ```bash
-composer require laravel/boost --dev
-
-php artisan boost:install
+composer install
+cp .env.example .env
+php artisan key:generate
+php artisan migrate
 ```
 
-Boost provides your agent 15+ tools and skills that help agents build Laravel applications while following best practices.
+For local development, `.env.example` already defaults to `DB_CONNECTION=sqlite` — no MySQL setup required to get the app booting. Point `DB_*` at a real MySQL instance for anything beyond quick local checks.
 
-## Contributing
+## Environment requirements
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+- PHP 8.3+, `pdo_sqlite` + `sqlite3` extensions (required for the test suite), MySQL for production-like use
+- Composer 2.x
+- A queue worker running (`php artisan queue:work`) for dispatch (`ServiceMatchingJob`) and notification delivery to actually process
 
-## Code of Conduct
+## Migrations
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+Standard Laravel migrations, `database/migrations/`. All migrations are additive by convention — historical migrations are not modified except where a migration's SQL wasn't portable across drivers (see `PROJECT_CURRENT_STATE.md` §16 for the one case where this happened and why). Every migration has a working `down()` — verify with:
 
-## Security Vulnerabilities
+```bash
+php artisan migrate
+php artisan migrate:rollback --step=N
+php artisan migrate
+```
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+## Testing
 
-## License
+```bash
+php artisan test
+```
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+Runs against SQLite `:memory:` (configured in `phpunit.xml`) — never against your local MySQL database or production. The suite covers RBAC enforcement and scope resolution, a privilege-escalation regression, commission idempotency, and Worker delegation authorization boundaries. See `PROJECT_CURRENT_STATE.md` §19 for exactly what's covered and what isn't yet.
+
+## Queues
+
+```bash
+php artisan queue:work
+```
+
+`ServiceMatchingJob` (the dispatch engine) is a self-requeuing queued job — it needs a live worker to make any progress. In production this runs under Supervisor.
+
+## Roles
+
+Seven system roles, scope-aware (`global/country/city/zone/module/franchise`): `super_admin`, `country_admin`, `city_admin`, `zone_admin`, `franchise_owner`, `operator`, `support`. See `AuthorizationService` and the Roles & Permissions admin screen. Full detail in `PROJECT_CURRENT_STATE.md` §13.
+
+## Current modules (Admin Panel)
+
+Dashboard, Bookings, Providers, Workers, Franchises, Franchise Pricing, Zones, Geography, Categories, Subcategories, Services, Customers, Roles & Permissions, Wallet Ledger, Loyalty & Referrals, Commissions, Payouts, Banners, CMS, Notification Center, Plans, Subscriptions.
+
+## Deployment notes
+
+Production deployment is a manual, controlled operation — not automated from this repository. Never run `php artisan migrate` against production without first checking it against a disposable database. See `PROJECT_CURRENT_STATE.md` §2 and §18 for current production state.
+
+## Roadmap
+
+Parcel is the next planned vertical, not yet implemented. The Worker/Rider foundation, polymorphic dispatch primitives, WalletService, and RBAC are all built to be reusable by it without a foundation rebuild. See `PROJECT_CURRENT_STATE.md` §23.

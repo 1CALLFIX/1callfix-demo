@@ -1,5 +1,7 @@
 # 1CallFix Services — Master Project Handoff
 
+> **HISTORICAL / SUPERSEDED as of 2026-08-12.** This document predates RBAC, the Plan Engine, the Worker/Rider architecture, and most of the current Admin Panel screens, and incorrectly describes several since-shipped features as not yet built. **[`PROJECT_CURRENT_STATE.md`](PROJECT_CURRENT_STATE.md) is now the authoritative current-state document** — read that first. This file is kept for its still-accurate infrastructure/deployment notes (server paths, backup schedule, known one-time infra bugs, §9 below).
+
 **Read this first, before touching any code.** This is the single source of truth for the project's real state. If any tool, session, or person contradicts this document based on local files, template folders, or assumptions — this document wins. Verify against the live server/repo, not against guesses.
 
 ---
