@@ -2,7 +2,7 @@
 
 **This is the authoritative current-state document.** Where it conflicts with `PROJECT_HANDOFF.md` or anything else, this document wins — `PROJECT_HANDOFF.md` predates most of what's described below and is marked HISTORICAL at the bottom of this file. Verified against the actual repository and, where noted, direct read-only inspection of the production database — not against memory or old planning docs.
 
-**Baseline for everything below:** commit `9e8dd98` on `main`, 2026-08-12. (Originally written at `e2a169e` the same day, updated in place through two further work programs — see `PRODUCTION_READINESS_AUDIT.md`, `FINAL_SYSTEM_TEST_MATRIX.md`, `QA_DATA_INTEGRITY_REPORT.md`, `API_INVENTORY.md`, and `RBAC_SCOPE_MATRIX.md` for the fuller writeup of everything added after `e2a169e`.)
+**Baseline for everything below:** commit `f5bdd50` on `main`, 2026-08-13. (Originally written at `e2a169e` 2026-08-12, updated in place through three further work programs — see `PRODUCTION_READINESS_AUDIT.md`, `FINAL_SYSTEM_TEST_MATRIX.md`, `QA_DATA_INTEGRITY_REPORT.md`, `API_INVENTORY.md`, `RBAC_SCOPE_MATRIX.md`, and the seven new `AUTH_FORENSIC_DISCOVERY.md`/`AUTHENTICATION_ARCHITECTURE.md`/`OTP_ARCHITECTURE.md`/`QR_SCAN_ARCHITECTURE.md`/`NOTIFICATION_ARCHITECTURE.md`/`OTP_DELIVERY_MATRIX.md`/`GLOVER_VS_1CALLFIX_AUTH_AUDIT.md` documents for the fuller writeup of everything added since.)
 
 Labels used throughout: **[IMPLEMENTED]** shipped and in the codebase · **[VERIFIED]** implemented AND confirmed by an automated test or direct inspection this session · **[PARTIAL]** exists but incomplete · **[DEFERRED]** deliberately not built yet · **[OPEN BUSINESS DECISION]** needs a human call · **[FUTURE]** planned, not started.
 
@@ -92,9 +92,26 @@ A separate, more severe pre-existing gap (`Roles\Manage::assign()/revoke()` had 
 
 `AssignBookingToWorkerAction` (Phase B0.2) enforces every boundary the makeover brief lists: booking ownership, assignable-status window, worker active/inactive, active team-link required, capability match (including a `null`-scoped capability matching any Service category). **This session added 12 real tests covering every one of these boundaries — all passed on the first run**, confirming the implementation was already correct; this closes the "proven only by a manual test cycle" gap for this specific action. [IMPLEMENTED] [VERIFIED]
 
+## 14.5. Authentication Foundation — Customer/Partner/Worker login, OTP, QR pairing (new)
+
+**Full detail in `AUTHENTICATION_ARCHITECTURE.md`, `OTP_ARCHITECTURE.md`, `QR_SCAN_ARCHITECTURE.md`, `NOTIFICATION_ARCHITECTURE.md`, `OTP_DELIVERY_MATRIX.md`, `AUTH_FORENSIC_DISCOVERY.md`, `GLOVER_VS_1CALLFIX_AUTH_AUDIT.md`.** Before this session, `routes/api.php` required `auth:sanctum` on every route with nothing that ever issued the first token — Customer/Partner/Worker login was **NOT IMPLEMENTED** in any form.
+
+**Now implemented and tested (26 tests, 99 assertions):**
+- `POST /api/auth/otp/request` + `/otp/verify` — shared OTP login for all three actor types (`actor_type: customer|provider|field_worker`), one implementation, not three. Customer self-registers on first verified login; Provider/Worker must already have an approved profile (KYC-gating preserved, never bypassed by OTP login). Enumeration-safe (identical response whether or not a provider/worker account exists), rate-limited (`throttle:5,1`, verified empirically both outside and inside the test suite).
+- `POST /api/auth/logout`, `POST /api/auth/device` (single-device push token registration — see the known limitation below).
+- `POST /api/auth/qr/create` + `/qr/status` + `/qr/confirm` + `/qr/claim` + `/qr/revoke` — QR "login with the app" device pairing, brand new (zero QR code existed anywhere before this session). Two distinct opaque tokens per challenge (`qr_token` for the rendered image, `poll_token` for the initiating side only) specifically so a photo of the displayed QR can never be used to steal the resulting session — the single most important security decision in this design.
+
+**The shared login OTP engine** hardens the previously-dormant, zero-consumer `otps` table (hashed code storage, attempt lockout, resend cooldown, full audit trail) — **the existing Service booking OTP (`bookings.start_otp`/`completion_otp`) is completely untouched**, a deliberate Option-C hybrid decision (`OTP_ARCHITECTURE.md`), not a redesign.
+
+**Real, previously-undocumented gap found and NOT silently patched:** the Service booking start/completion OTP is generated and verified correctly but is **never actually delivered to the customer** by any channel — not SMS, not push, not any admin screen. Traced exhaustively this session, flagged in the remaining-work list below, not fixed (fixing it means adding a notification call inside `AcceptBookingAction`, which deserves more deliberate review than a same-session drive-by edit).
+
+**Known limitation, stated plainly:** `users.fcm_token` is a single nullable column — no `devices` table, no real multi-device support. Registering a second device silently overwrites the first.
+
+**Explicit pre-production requirement:** a real SMS/push provider must be configured (`AppServiceProvider::register()`'s two binding lines) before this login flow reaches real users — until then, `LogSmsAdapter` writes OTP codes to the server log (safe in this dev/QA environment, unsafe in production).
+
 ## 15. Current APIs
 
-`routes/api.php` exists (Sanctum-protected, mobile-facing). **Not audited this session** — Priority 5 of the work order (API/error/performance) was not reached. No Customer App endpoints beyond what already exists were added; no future-vertical endpoints were added.
+`routes/api.php`: 24 routes, fully inventoried (`API_INVENTORY.md`), plus 9 new authentication routes this session (not yet added to that inventory document — see remaining work). Sanctum-protected except the new `/auth/*` endpoints (unauthenticated by necessity — that's how a token is obtained) and the pre-existing Razorpay webhook (signature-verified instead). No Customer App business-logic endpoints beyond authentication were added; no future-vertical endpoints were added.
 
 ## 16. Current Database Architecture
 
@@ -121,7 +138,8 @@ Production is at commit `ba0635a`, confirmed via direct SSH check at the end of 
 
 **Before this session:** two Laravel stub tests (`tests/Unit/ExampleTest.php`, `tests/Feature/ExampleTest.php`), and — critically — the full migration chain could not even run against the configured test database (see §16). Effectively zero real regression coverage existed, and the tooling to build any hadn't been verified to work at all.
 
-**After this session (continued across three work programs the same day):** 121 real, executed, passing tests (308 assertions), covering:
+**After this session (continued across four work programs across two days):** 147 real, executed, passing tests (407 assertions), covering:
+- **New in the fourth program:** the login OTP + QR device-pairing authentication foundation (26 tests, 99 assertions) — Customer/Partner/Worker login, enumeration safety, lockout/expiry/resend, rate limiting (verified empirically, not assumed), full QR pairing lifecycle including replay protection and the two-token security design. Zero regression against the existing Service booking OTP flow.
 - RBAC enforcement for all 7 newly-closed gaps + cross-scope denial cases + Super Admin bypass regression (44 tests)
 - The `Roles::assign()/revoke()` privilege-escalation fix, previously uncovered (6 tests)
 - **A live HIGH-severity gap found and fixed in the third program: `Franchises\Manage::update()/toggleStatus()/deleteFranchise()` had zero authorization check** (6 tests)
@@ -165,23 +183,29 @@ Parcel is next, explicitly not implemented this session or before. `FieldWorker`
 
 ## 24. Remaining Work (priority order)
 
-All P1 testing-gap items from the original list (Dispatch race, Booking FSM, Provider self-completion, Admin reassignment, Plan Engine smoke, Loyalty, Referral) are **done** as of `da7c5b4` — see `FINAL_SYSTEM_TEST_MATRIX.md`. What's left:
+All P1 testing-gap items from the original list (Dispatch race, Booking FSM, Provider self-completion, Admin reassignment, Plan Engine smoke, Loyalty, Referral) are **done** — see `FINAL_SYSTEM_TEST_MATRIX.md`. The authentication foundation (login OTP, QR pairing) is now also **done** — see §14.5. What's left:
 
-**P1 — Admin UI design system** (largest remaining scope — not started at all: no shared components, 24 screens each styled independently)
+**P1 — Deliver the Service booking OTP to the customer** (real gap found this session — `AcceptBookingAction` generates it, nothing sends it to the customer by any channel; see `AUTH_FORENSIC_DISCOVERY.md`/`OTP_ARCHITECTURE.md`)
 
-**P2 — API/error handling audit** (no dedicated endpoint tests, no systematic IDOR/response-format sweep)
+**P2 — Configure a real SMS/push provider before the new login flow reaches real users** (currently `LogSmsAdapter`/`LogPushAdapter` — safe for dev/QA, logs plaintext OTP codes, must be swapped before production use — see `NOTIFICATION_ARCHITECTURE.md`)
 
-**P3 — Printing system** (does not exist — no print views, no PDF generation, for any document type)
+**P3 — Admin UI design system** (largest remaining scope — not started at all: no shared components, 24 screens each styled independently)
 
-**P4 — QA web app** (does not exist — no standalone frontend connected to the real backend for role-based journey testing)
+**P4 — API/error handling audit for the pre-existing 24 business-logic routes** (2 of 24 have HTTP-level tests; the new 9 auth routes are fully tested — see `API_INVENTORY.md`, not yet updated with the new routes)
 
-**P5 — Performance profiling under real load** (query-usage-based index justification was done; live profiling was not)
+**P5 — Printing system** (does not exist — no print views, no PDF generation, for any document type)
 
-**P6 — Browser-driven E2E** (no Playwright/Chrome-automation-driven multi-actor journey has been run; the equivalent business logic IS covered at the Action/Service layer by the test suite, which is not the same thing)
+**P6 — QA web app** (does not exist — no standalone frontend connected to the real backend for role-based journey testing)
+
+**P7 — Performance profiling under real load** (query-usage-based index justification was done; live profiling was not)
+
+**P8 — Browser-driven E2E** (no Playwright/Chrome-automation-driven multi-actor journey has been run)
+
+**P9 — Multi-device support** (`users.fcm_token` is a single column, no `devices` table — a real schema expansion, deliberately not attempted this session)
 
 ## 25. Exact Current Phase / Status
 
-**RBAC hardening: COMPLETE and tested.** **DB hardening: COMPLETE and tested.** **Automated regression foundation: SUBSTANTIAL, real and passing** — 101 tests covering RBAC, Booking FSM, dispatch race safety, worker delegation, financial idempotency, Plan Engine (Phase A untouched), Loyalty, and Referral; still not the exhaustive per-screen/per-API coverage a full production-readiness program calls for. **Admin UI makeover: NOT STARTED** — largest remaining scope. **API audit: NOT STARTED.** **Printing system: NOT STARTED.** **QA web app: NOT STARTED.** **Documentation reset: this document + `PRODUCTION_READINESS_AUDIT.md` + `FINAL_SYSTEM_TEST_MATRIX.md`.** **Full realistic end-to-end verification: business-logic-level coverage exists (e.g. `BookingFsmTest` walks accept→start→complete→commission), browser/QA-app-driven E2E does not.** **Official verdict: NOT READY for the next stage (mobile apps + website) without qualification — see `PRODUCTION_READINESS_AUDIT.md` §28 for the precise blockers and a qualified recommendation (backend/RBAC/financial foundation is solid enough to support parallel API-first mobile development).**
+**RBAC hardening: COMPLETE and tested.** **DB hardening: COMPLETE and tested.** **Authentication foundation (login OTP + QR device pairing): COMPLETE and tested** — Customer/Partner/Worker login all share one implementation, zero regression against the existing Service booking OTP, two real pre-production requirements documented (deliver booking OTP to customer; configure a real SMS/push provider). **Automated regression foundation: SUBSTANTIAL, real and passing** — 147 tests covering RBAC, Booking FSM, dispatch race safety, worker delegation, financial idempotency, Plan Engine (Phase A untouched), Loyalty, Referral, and now authentication/OTP/QR; still not the exhaustive per-screen/per-API coverage a full production-readiness program calls for. **Admin UI makeover: NOT STARTED** — largest remaining scope. **Printing system: NOT STARTED.** **QA web app: NOT STARTED.** **Documentation: this document + `PRODUCTION_READINESS_AUDIT.md` + `FINAL_SYSTEM_TEST_MATRIX.md` + the six new authentication documents.** **Official verdict: NOT READY for the next stage (mobile apps + website) without qualification** — but the authentication foundation specifically, the thing this session's mission was scoped to, is genuinely ready: real, tested, documented, with its two remaining pre-production requirements named precisely rather than hidden.
 
 ---
 
