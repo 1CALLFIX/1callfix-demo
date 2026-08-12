@@ -202,6 +202,13 @@ class Manage extends Component
             'coverImageFile' => 'cover image',
         ]);
 
+        // services carries no franchise column — it's shared catalog data,
+        // same global-only treatment as Categories\Manage.
+        if (! auth()->user()->hasPermission('services.manage')) {
+            $this->addError('permission', 'You do not have permission to manage services.');
+            return;
+        }
+
         Service::create([
             'category_id' => $this->categoryId,
             'subcategory_id' => $this->subcategoryId ?: null,
@@ -338,6 +345,11 @@ class Manage extends Component
             'editCoverImageFile' => 'cover image',
         ]);
 
+        if (! auth()->user()->hasPermission('services.manage')) {
+            $this->addError('permission', 'You do not have permission to manage services.');
+            return;
+        }
+
         $service = Service::findOrFail($this->editServiceId);
 
         $cover = $service->cover_image;
@@ -379,6 +391,11 @@ class Manage extends Component
 
     public function toggleActive(int $serviceId): void
     {
+        if (! auth()->user()->hasPermission('services.manage')) {
+            $this->addError('permission', 'You do not have permission to manage services.');
+            return;
+        }
+
         $service = Service::findOrFail($serviceId);
         $service->update(['is_active' => ! $service->is_active]);
     }
@@ -402,6 +419,12 @@ class Manage extends Component
     public function deleteService(): void
     {
         if (! $this->confirmingDeleteId) {
+            return;
+        }
+
+        if (! auth()->user()->hasPermission('services.manage')) {
+            $this->addError('permission', 'You do not have permission to manage services.');
+            $this->confirmingDeleteId = null;
             return;
         }
 
@@ -470,6 +493,11 @@ class Manage extends Component
      */
     private function swapWithNeighbour(int $serviceId, int $offset): void
     {
+        if (! auth()->user()->hasPermission('services.manage')) {
+            $this->addError('permission', 'You do not have permission to reorder services.');
+            return;
+        }
+
         $this->normalizeSortOrder();
 
         $ordered = $this->baseQuery()
@@ -639,6 +667,11 @@ class Manage extends Component
     public function commitServicesImport(): void
     {
         if (empty($this->importRows)) {
+            return;
+        }
+
+        if (! auth()->user()->hasPermission('services.manage')) {
+            $this->importErrors = [['row' => '-', 'field' => 'permission', 'message' => 'You do not have permission to import services.']];
             return;
         }
 

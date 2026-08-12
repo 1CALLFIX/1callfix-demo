@@ -8,6 +8,8 @@
         </div>
     @endif
 
+    @error('permission') <div class="bg-red-50 text-red-700 rounded p-3 mb-4 text-sm">{{ $message }}</div> @enderror
+
     {{-- New Booking — pinned at the top, same one-screen pattern as
          Categories/Subcategories/Services (Add New panel, list live below,
          no modal). Services vertical only. Drives the real

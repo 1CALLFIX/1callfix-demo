@@ -187,11 +187,39 @@ class Manage extends Component
         return Zone::where('franchise_id', $franchiseId)->orderBy('name')->get();
     }
 
+    /**
+     * A banner's franchise_id is a targeting axis, not just ownership: blank
+     * means "runs everywhere" (platform-wide reach), a specific id means
+     * "only that franchise". So the permission check mirrors that exactly —
+     * a franchise-scoped banners.manage holder can manage banners targeted
+     * at their own franchise, but only a global grant can create or touch a
+     * platform-wide one. Same shape as Zones\Manage::franchiseScope().
+     */
+    private function targetScope(?int $franchiseId): array
+    {
+        if (! $franchiseId) {
+            return [];
+        }
+
+        $franchise = Franchise::find($franchiseId);
+
+        return array_filter([
+            'franchise_id' => $franchise?->id,
+            'city_id' => $franchise?->city_id,
+            'country_id' => $franchise?->country_id,
+        ]);
+    }
+
     // ============================= Add New =============================
 
     public function save(): void
     {
         $this->validate($this->rules(), $this->messages(), $this->attributes());
+
+        if (! auth()->user()->hasPermission('banners.manage', $this->targetScope($this->franchiseId ? (int) $this->franchiseId : null))) {
+            $this->addError('permission', 'You do not have permission to create a banner for this target.');
+            return;
+        }
 
         Banner::create([
             'title' => $this->title,
@@ -343,6 +371,14 @@ class Manage extends Component
 
         $banner = Banner::findOrFail($this->editBannerId);
 
+        // Checked against the banner's CURRENT target, not the one it's
+        // being edited to — same "authority over where it lives right now"
+        // rule as Zones\Manage::update().
+        if (! auth()->user()->hasPermission('banners.manage', $this->targetScope($banner->franchise_id))) {
+            $this->addError('permission', 'You do not have permission to edit this banner.');
+            return;
+        }
+
         $image = $banner->image;
         if ($this->editImageFile) {
             $image = $this->storeImage($this->editImageFile);
@@ -381,6 +417,12 @@ class Manage extends Component
     public function toggleActive(int $bannerId): void
     {
         $banner = Banner::findOrFail($bannerId);
+
+        if (! auth()->user()->hasPermission('banners.manage', $this->targetScope($banner->franchise_id))) {
+            $this->addError('permission', 'You do not have permission to change this banner.');
+            return;
+        }
+
         $banner->update(['is_active' => ! $banner->is_active]);
     }
 
@@ -423,6 +465,13 @@ class Manage extends Component
         // banners has no soft deletes and nothing references it, so this is a
         // real delete — take the image with it rather than orphaning the file.
         $banner = Banner::findOrFail($this->confirmingDeleteId);
+
+        if (! auth()->user()->hasPermission('banners.manage', $this->targetScope($banner->franchise_id))) {
+            $this->addError('permission', 'You do not have permission to delete this banner.');
+            $this->confirmingDeleteId = null;
+            return;
+        }
+
         $image = $banner->image;
         $banner->delete();
         $this->deleteStoredImage($image);
@@ -480,6 +529,13 @@ class Manage extends Component
 
     private function swapWithNeighbour(int $bannerId, int $offset): void
     {
+        $banner = Banner::find($bannerId);
+
+        if (! $banner || ! auth()->user()->hasPermission('banners.manage', $this->targetScope($banner->franchise_id))) {
+            $this->addError('permission', 'You do not have permission to reorder this banner.');
+            return;
+        }
+
         $this->normalizeSortOrder();
 
         $ordered = $this->baseQuery()->orderBy('sort_order')->orderBy('id')->get(['id', 'sort_order']);

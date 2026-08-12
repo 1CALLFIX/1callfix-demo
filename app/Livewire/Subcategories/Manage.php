@@ -127,6 +127,17 @@ class Manage extends Component
             'categoryId' => 'category',
         ]);
 
+        // Subcategories have no permission of their own — the seeded
+        // categories.manage label is explicitly "Manage categories &
+        // subcategories", so it's the one permission meant to govern both,
+        // not a gap to fill with a new slug. Same global-only scope as
+        // Categories\Manage (service_subcategories carries no franchise
+        // column either).
+        if (! auth()->user()->hasPermission('categories.manage')) {
+            $this->addError('permission', 'You do not have permission to manage subcategories.');
+            return;
+        }
+
         ServiceSubcategory::create([
             'category_id' => $this->categoryId,
             'name' => $this->name,
@@ -203,6 +214,11 @@ class Manage extends Component
             'editCategoryId' => 'category',
         ]);
 
+        if (! auth()->user()->hasPermission('categories.manage')) {
+            $this->addError('permission', 'You do not have permission to manage subcategories.');
+            return;
+        }
+
         $sub = ServiceSubcategory::findOrFail($this->editSubcategoryId);
 
         $image = $sub->image;
@@ -234,6 +250,11 @@ class Manage extends Component
 
     public function toggleSubcategory(int $subcategoryId): void
     {
+        if (! auth()->user()->hasPermission('categories.manage')) {
+            $this->addError('permission', 'You do not have permission to manage subcategories.');
+            return;
+        }
+
         $sub = ServiceSubcategory::findOrFail($subcategoryId);
         $sub->update(['is_active' => ! $sub->is_active]);
     }
@@ -257,6 +278,12 @@ class Manage extends Component
     public function deleteSubcategory(): void
     {
         if (! $this->confirmingDeleteId || $this->deleteBlockedReason) {
+            return;
+        }
+
+        if (! auth()->user()->hasPermission('categories.manage')) {
+            $this->addError('permission', 'You do not have permission to manage subcategories.');
+            $this->confirmingDeleteId = null;
             return;
         }
 
@@ -324,6 +351,11 @@ class Manage extends Component
      */
     private function swapWithNeighbour(int $subcategoryId, int $offset): void
     {
+        if (! auth()->user()->hasPermission('categories.manage')) {
+            $this->addError('permission', 'You do not have permission to reorder subcategories.');
+            return;
+        }
+
         $this->normalizeSortOrder();
 
         $ordered = $this->baseQuery()
@@ -456,6 +488,11 @@ class Manage extends Component
     public function commitSubcategoriesImport(): void
     {
         if (empty($this->importRows)) {
+            return;
+        }
+
+        if (! auth()->user()->hasPermission('categories.manage')) {
+            $this->importErrors = [['row' => '-', 'field' => 'permission', 'message' => 'You do not have permission to import subcategories.']];
             return;
         }
 

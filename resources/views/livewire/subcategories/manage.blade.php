@@ -18,6 +18,8 @@
         <div class="bg-green-50 text-green-700 rounded p-3 mb-4 text-sm">{{ $flashMessage }}</div>
     @endif
 
+    @error('permission') <div class="bg-red-50 text-red-700 rounded p-3 mb-4 text-sm">{{ $message }}</div> @enderror
+
     @if ($showImport)
         <x-import-panel label="Subcategories"
             file-model="importFile"

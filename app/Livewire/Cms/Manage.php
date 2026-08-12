@@ -60,6 +60,13 @@ class Manage extends Component
             'pageContent' => ['nullable', 'string'],
         ], [], ['pageSlug' => 'slug', 'pageTitle' => 'title']);
 
+        // content_pages/faqs carry no franchise column — platform-wide
+        // content, same global-only scope as geography.manage.
+        if (! auth()->user()->hasPermission('cms.manage')) {
+            $this->addError('permission', 'You do not have permission to manage CMS content.');
+            return;
+        }
+
         ContentPage::create([
             'slug' => $this->pageSlug,
             'title' => $this->pageTitle,
@@ -91,6 +98,11 @@ class Manage extends Component
             'editPageContent' => ['nullable', 'string'],
         ], [], ['editPageSlug' => 'slug', 'editPageTitle' => 'title']);
 
+        if (! auth()->user()->hasPermission('cms.manage')) {
+            $this->addError('permission', 'You do not have permission to manage CMS content.');
+            return;
+        }
+
         ContentPage::findOrFail($this->editPageId)->update([
             'slug' => $this->editPageSlug,
             'title' => $this->editPageTitle,
@@ -116,6 +128,12 @@ class Manage extends Component
             return;
         }
 
+        if (! auth()->user()->hasPermission('cms.manage')) {
+            $this->addError('permission', 'You do not have permission to manage CMS content.');
+            $this->confirmingDeletePageId = null;
+            return;
+        }
+
         ContentPage::findOrFail($this->confirmingDeletePageId)->delete();
         $this->confirmingDeletePageId = null;
         $this->flashMessage = 'Page deleted.';
@@ -130,6 +148,11 @@ class Manage extends Component
             'faqQuestion' => ['required', 'string', 'max:255'],
             'faqAnswer' => ['required', 'string'],
         ], [], ['faqQuestion' => 'question', 'faqAnswer' => 'answer']);
+
+        if (! auth()->user()->hasPermission('cms.manage')) {
+            $this->addError('permission', 'You do not have permission to manage CMS content.');
+            return;
+        }
 
         Faq::create([
             'category' => $this->faqCategory ?: null,
@@ -165,6 +188,11 @@ class Manage extends Component
             'editFaqAnswer' => ['required', 'string'],
         ], [], ['editFaqQuestion' => 'question', 'editFaqAnswer' => 'answer']);
 
+        if (! auth()->user()->hasPermission('cms.manage')) {
+            $this->addError('permission', 'You do not have permission to manage CMS content.');
+            return;
+        }
+
         Faq::findOrFail($this->editFaqId)->update([
             'category' => $this->editFaqCategory ?: null,
             'question' => $this->editFaqQuestion,
@@ -184,6 +212,11 @@ class Manage extends Component
 
     public function toggleFaqActive(int $faqId): void
     {
+        if (! auth()->user()->hasPermission('cms.manage')) {
+            $this->addError('permission', 'You do not have permission to manage CMS content.');
+            return;
+        }
+
         $faq = Faq::findOrFail($faqId);
         $faq->update(['is_active' => ! $faq->is_active]);
     }
@@ -194,6 +227,12 @@ class Manage extends Component
     public function deleteFaq(): void
     {
         if (! $this->confirmingDeleteFaqId) {
+            return;
+        }
+
+        if (! auth()->user()->hasPermission('cms.manage')) {
+            $this->addError('permission', 'You do not have permission to manage CMS content.');
+            $this->confirmingDeleteFaqId = null;
             return;
         }
 

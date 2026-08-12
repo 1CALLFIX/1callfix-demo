@@ -62,4 +62,10 @@ class User extends Authenticatable
     {
         return app(\App\Services\AuthorizationService::class)->can($this, $permission, $scope);
     }
+
+    /** @see \App\Services\AuthorizationService::canAnywhere() */
+    public function hasPermissionAnywhere(string $permission): bool
+    {
+        return app(\App\Services\AuthorizationService::class)->canAnywhere($this, $permission);
+    }
 }

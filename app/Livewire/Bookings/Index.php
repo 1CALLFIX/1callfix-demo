@@ -76,6 +76,23 @@ class Index extends Component
     }
 
     /**
+     * A zone's position in the geography cascade — same shape as
+     * Bookings\Show::bookingScope(), built from a Zone rather than an
+     * existing Booking since none exists yet at this point in the flow.
+     */
+    private function zoneScope(Zone $zone): array
+    {
+        $zone->loadMissing('franchise');
+
+        return array_filter([
+            'zone_id' => $zone->id,
+            'franchise_id' => $zone->franchise_id,
+            'city_id' => $zone->franchise?->city_id,
+            'country_id' => $zone->franchise?->country_id,
+        ]);
+    }
+
+    /**
      * Real consumer for Settings > Payment's enabled-methods toggles.
      * Falls back to all three if every method were somehow disabled at
      * once (savePayment() on the Settings screen already refuses to save
@@ -202,6 +219,17 @@ class Index extends Component
 
     public function createCustomer(): void
     {
+        // Customers are global records (no franchise column), and this step
+        // runs before a zone is necessarily chosen — there's no specific
+        // target to scope against yet. canAnywhere() confirms the user holds
+        // bookings.create in at least one assignment (blocking a Support-only
+        // actor, who never gets it); the real, scoped check happens at
+        // createBooking() below once a zone is actually picked.
+        if (! auth()->user()->hasPermissionAnywhere('bookings.create')) {
+            $this->addError('permission', 'You do not have permission to create bookings.');
+            return;
+        }
+
         $this->validate([
             'newCustomerName' => ['required', 'string', 'max:255'],
             'newCustomerPhone' => ['required', 'string', 'max:20', 'unique:users,phone'],
@@ -271,6 +299,11 @@ class Index extends Component
         }
 
         $zone = Zone::findOrFail($this->selectedZoneId);
+
+        if (! auth()->user()->hasPermission('bookings.create', $this->zoneScope($zone))) {
+            $this->addError('permission', 'You do not have permission to create bookings in this zone.');
+            return;
+        }
 
         $address = Address::create([
             'user_id' => $this->selectedCustomerId,
@@ -362,6 +395,11 @@ class Index extends Component
         ]);
 
         $zone = Zone::findOrFail($this->selectedZoneId);
+
+        if (! auth()->user()->hasPermission('bookings.create', $this->zoneScope($zone))) {
+            $this->addError('permission', 'You do not have permission to create bookings in this zone.');
+            return;
+        }
 
         $booking = app(CreateBookingAction::class)->execute([
             'franchise_id' => $zone->franchise_id,

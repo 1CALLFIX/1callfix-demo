@@ -105,6 +105,15 @@ class Manage extends Component
             'iconFile' => 'icon',
         ]);
 
+        // Catalog data (service_categories/service_subcategories/services)
+        // carries no franchise/city/country column — it's shared across the
+        // whole platform, not per-franchise — so there is no partial scope
+        // to check against. Same global-only treatment as geography.manage.
+        if (! auth()->user()->hasPermission('categories.manage')) {
+            $this->addError('permission', 'You do not have permission to manage categories.');
+            return;
+        }
+
         ServiceCategory::create([
             'module' => $this->module,
             'name' => $this->name,
@@ -192,6 +201,11 @@ class Manage extends Component
             'editIconFile' => 'icon',
         ]);
 
+        if (! auth()->user()->hasPermission('categories.manage')) {
+            $this->addError('permission', 'You do not have permission to manage categories.');
+            return;
+        }
+
         $category = ServiceCategory::findOrFail($this->editCategoryId);
 
         $image = $category->image;
@@ -223,6 +237,11 @@ class Manage extends Component
     // Inline tick/cross toggle — no page reload.
     public function toggleCategory(int $categoryId): void
     {
+        if (! auth()->user()->hasPermission('categories.manage')) {
+            $this->addError('permission', 'You do not have permission to manage categories.');
+            return;
+        }
+
         $category = ServiceCategory::findOrFail($categoryId);
         $category->update(['is_active' => ! $category->is_active]);
     }
@@ -256,6 +275,12 @@ class Manage extends Component
     public function deleteCategory(): void
     {
         if (! $this->confirmingDeleteId || $this->deleteBlockedReason) {
+            return;
+        }
+
+        if (! auth()->user()->hasPermission('categories.manage')) {
+            $this->addError('permission', 'You do not have permission to manage categories.');
+            $this->confirmingDeleteId = null;
             return;
         }
 
@@ -326,6 +351,11 @@ class Manage extends Component
      */
     private function swapWithNeighbour(int $categoryId, int $offset): void
     {
+        if (! auth()->user()->hasPermission('categories.manage')) {
+            $this->addError('permission', 'You do not have permission to reorder categories.');
+            return;
+        }
+
         $this->normalizeSortOrder();
 
         $ordered = $this->baseQuery()
@@ -462,6 +492,11 @@ class Manage extends Component
     public function commitCategoriesImport(): void
     {
         if (empty($this->categoriesImportRows)) {
+            return;
+        }
+
+        if (! auth()->user()->hasPermission('categories.manage')) {
+            $this->categoriesImportErrors = [['row' => '-', 'field' => 'permission', 'message' => 'You do not have permission to import categories.']];
             return;
         }
 

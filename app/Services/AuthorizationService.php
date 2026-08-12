@@ -49,6 +49,27 @@ class AuthorizationService
         return false;
     }
 
+    /**
+     * True if ANY of the user's role assignments grant this permission, in
+     * any scope at all — for gating a scope-agnostic prerequisite step (e.g.
+     * creating a customer record before a zone/franchise has been chosen)
+     * where the real, scoped enforcement happens at the next step instead
+     * (e.g. Bookings\Index::createBooking()'s own can() call, scoped to the
+     * chosen zone). Not a bypass of scoping: it only answers "does this user
+     * hold this permission anywhere", never "does it cover a specific
+     * target" — every action that actually touches scoped data still goes
+     * through can() with a real scope.
+     */
+    public function canAnywhere(User $user, string $permission): bool
+    {
+        if ($user->role === 'super_admin') {
+            return true;
+        }
+
+        return $user->roleAssignments()->with('role.permissions')->get()
+            ->contains(fn ($assignment) => $assignment->role->permissions->contains('slug', $permission));
+    }
+
     private function scopeCovers(string $scopeType, ?int $scopeId, array $requestedScope): bool
     {
         if ($scopeType === 'global') {

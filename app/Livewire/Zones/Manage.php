@@ -79,6 +79,37 @@ class Manage extends Component
         $this->defaultDispatchRadiusKm = (string) Setting::get('dispatch.default_radius_km', $this->defaultDispatchRadiusKm);
     }
 
+    /**
+     * A zone's position in the geography cascade — same shape
+     * AuthorizationService::can() and Setting::get() already expect, so a
+     * Country/City Admin's role assignment (both are seeded with
+     * zones.manage; zone belongs to a franchise, which carries city_id and
+     * country_id directly) resolves correctly against it. Mirrors
+     * Bookings\Show::bookingScope() exactly.
+     */
+    private function franchiseScope(int $franchiseId): array
+    {
+        $franchise = Franchise::find($franchiseId);
+
+        return array_filter([
+            'franchise_id' => $franchise?->id,
+            'city_id' => $franchise?->city_id,
+            'country_id' => $franchise?->country_id,
+        ]);
+    }
+
+    private function zoneScope(Zone $zone): array
+    {
+        $zone->loadMissing('franchise');
+
+        return array_filter([
+            'zone_id' => $zone->id,
+            'franchise_id' => $zone->franchise_id,
+            'city_id' => $zone->franchise?->city_id,
+            'country_id' => $zone->franchise?->country_id,
+        ]);
+    }
+
     public function updatedSearch(): void { $this->resetPage(); }
     public function updatedFilterFranchise(): void { $this->resetPage(); }
     public function updatedFilterActive(): void { $this->resetPage(); }
@@ -96,6 +127,11 @@ class Manage extends Component
             'franchiseId' => 'franchise',
             'defaultDispatchRadiusKm' => 'dispatch radius',
         ]);
+
+        if (! auth()->user()->hasPermission('zones.manage', $this->franchiseScope((int) $this->franchiseId))) {
+            $this->addError('permission', 'You do not have permission to create a zone in this franchise.');
+            return;
+        }
 
         $points = $this->decodePolygon($this->boundaryPolygonJson);
 
@@ -178,6 +214,17 @@ class Manage extends Component
         }
 
         $zone = Zone::findOrFail($this->editZoneId);
+
+        // Checked against the zone's CURRENT franchise, not the one being
+        // moved to — an admin needs authority over where the zone already
+        // lives to touch it at all. Moving it elsewhere is still allowed by
+        // that same grant (this screen has no per-target-franchise transfer
+        // control), matching every other Manage screen's edit check.
+        if (! auth()->user()->hasPermission('zones.manage', $this->zoneScope($zone))) {
+            $this->addError('permission', 'You do not have permission to edit this zone.');
+            return;
+        }
+
         $zone->update([
             'franchise_id' => $this->editFranchiseId,
             'name' => $this->editName,
@@ -201,6 +248,12 @@ class Manage extends Component
     public function toggleActive(int $zoneId): void
     {
         $zone = Zone::findOrFail($zoneId);
+
+        if (! auth()->user()->hasPermission('zones.manage', $this->zoneScope($zone))) {
+            $this->addError('permission', 'You do not have permission to change this zone.');
+            return;
+        }
+
         $zone->update(['is_active' => ! $zone->is_active]);
     }
 
@@ -257,7 +310,15 @@ class Manage extends Component
             return;
         }
 
-        Zone::findOrFail($this->confirmingDeleteId)->delete();
+        $zone = Zone::findOrFail($this->confirmingDeleteId);
+
+        if (! auth()->user()->hasPermission('zones.manage', $this->zoneScope($zone))) {
+            $this->addError('permission', 'You do not have permission to delete this zone.');
+            $this->confirmingDeleteId = null;
+            return;
+        }
+
+        $zone->delete();
 
         $this->confirmingDeleteId = null;
         $this->flashMessage = 'Zone deleted.';
