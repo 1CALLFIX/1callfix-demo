@@ -1,0 +1,111 @@
+<?php
+
+namespace Tests\Feature\Rbac;
+
+use App\Livewire\Franchises\Manage;
+use App\Models\Franchise;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Livewire\Livewire;
+use Tests\TestCase;
+
+/**
+ * Regression coverage for a real, live gap found while writing
+ * RBAC_SCOPE_MATRIX.md this session: Franchises\Manage::save() has always
+ * checked franchises.manage, but update()/toggleStatus()/deleteFranchise()
+ * never did — any authenticated admin-panel actor could edit commission
+ * rates, toggle a franchise active/inactive, or delete one, with zero
+ * permission check. Fixed in the same commit as this test.
+ */
+class FranchisesAuthorizationTest extends TestCase
+{
+    use RefreshDatabase;
+    use RbacTestHelpers;
+
+    public function test_update_denied_without_permission(): void
+    {
+        $franchise = $this->makeFranchise();
+        $actor = $this->makeUserWithNoPermissions();
+
+        Livewire::actingAs($actor)->test(Manage::class)
+            ->set('editFranchiseId', $franchise->id)
+            ->set('editName', 'Renamed')
+            ->set('editCountryId', $franchise->country_id)
+            ->set('editCityId', $franchise->city_id)
+            ->set('editCommissionModel', 'revenue_share')
+            ->set('editCommissionValue', '99')
+            ->set('editPlatformFeePercent', '99')
+            ->set('editStatus', 'active')
+            ->call('update')
+            ->assertHasErrors(['permission']);
+
+        $this->assertDatabaseMissing('franchises', ['id' => $franchise->id, 'commission_value' => 99]);
+    }
+
+    public function test_update_allowed_with_correct_country_scope(): void
+    {
+        $franchise = $this->makeFranchise();
+        $actor = $this->makeUserWithPermission('franchises.manage', 'country', $franchise->country_id);
+
+        Livewire::actingAs($actor)->test(Manage::class)
+            ->set('editFranchiseId', $franchise->id)
+            ->set('editName', 'Renamed')
+            ->set('editCountryId', $franchise->country_id)
+            ->set('editCityId', $franchise->city_id)
+            ->set('editCommissionModel', 'revenue_share')
+            ->set('editCommissionValue', '15')
+            ->set('editPlatformFeePercent', '5')
+            ->set('editStatus', 'active')
+            ->call('update')
+            ->assertHasNoErrors();
+
+        $this->assertDatabaseHas('franchises', ['id' => $franchise->id, 'commission_value' => 15]);
+    }
+
+    public function test_toggle_status_denied_without_permission(): void
+    {
+        $franchise = $this->makeFranchise();
+        $actor = $this->makeUserWithNoPermissions();
+
+        Livewire::actingAs($actor)->test(Manage::class)
+            ->call('toggleStatus', $franchise->id)
+            ->assertHasErrors(['permission']);
+
+        $this->assertSame('active', $franchise->fresh()->status);
+    }
+
+    public function test_delete_denied_without_permission(): void
+    {
+        $franchise = $this->makeFranchise();
+        $actor = $this->makeUserWithNoPermissions();
+
+        Livewire::actingAs($actor)->test(Manage::class)
+            ->set('confirmingDeleteId', $franchise->id)
+            ->call('deleteFranchise')
+            ->assertHasErrors(['permission']);
+
+        $this->assertDatabaseHas('franchises', ['id' => $franchise->id]);
+    }
+
+    public function test_wrong_country_scope_is_denied(): void
+    {
+        $ownFranchise = $this->makeFranchise();
+        $otherFranchise = $this->makeFranchise();
+        $actor = $this->makeUserWithPermission('franchises.manage', 'country', $ownFranchise->country_id);
+
+        Livewire::actingAs($actor)->test(Manage::class)
+            ->call('toggleStatus', $otherFranchise->id)
+            ->assertHasErrors(['permission']);
+    }
+
+    public function test_super_admin_bypasses_scope_entirely(): void
+    {
+        $franchise = $this->makeFranchise();
+        $admin = $this->makeSuperAdmin();
+
+        Livewire::actingAs($admin)->test(Manage::class)
+            ->call('toggleStatus', $franchise->id)
+            ->assertHasNoErrors();
+
+        $this->assertSame('inactive', $franchise->fresh()->status);
+    }
+}

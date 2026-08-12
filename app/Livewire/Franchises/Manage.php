@@ -311,6 +311,20 @@ class Manage extends Component
         $this->validate($this->rules('edit'), [], $this->attributes('edit'));
 
         $franchise = Franchise::findOrFail($this->editFranchiseId);
+
+        // Was completely unguarded (found during the RBAC_SCOPE_MATRIX.md
+        // read-through) -- save() has always checked franchises.manage but
+        // update()/toggleStatus()/deleteFranchise() never did, meaning any
+        // authenticated admin-panel actor could edit commission rates,
+        // toggle status, or delete a franchise with zero permission check.
+        // Checked against the franchise's CURRENT country -- same "authority
+        // over where it lives now" rule as every other edit-action check
+        // this program added (Zones/Banners).
+        if (! auth()->user()->hasPermission('franchises.manage', ['country_id' => $franchise->country_id])) {
+            $this->addError('permission', 'You do not have permission to edit this franchise.');
+            return;
+        }
+
         $franchise->update([
             'name' => $this->editName,
             'country_id' => $this->editCountryId,
@@ -433,6 +447,12 @@ class Manage extends Component
     public function toggleStatus(int $franchiseId): void
     {
         $franchise = Franchise::findOrFail($franchiseId);
+
+        if (! auth()->user()->hasPermission('franchises.manage', ['country_id' => $franchise->country_id])) {
+            $this->addError('permission', 'You do not have permission to change this franchise.');
+            return;
+        }
+
         $franchise->update(['status' => $franchise->status === 'active' ? 'inactive' : 'active']);
     }
 
@@ -491,7 +511,15 @@ class Manage extends Component
             return;
         }
 
-        Franchise::findOrFail($this->confirmingDeleteId)->delete();
+        $franchise = Franchise::findOrFail($this->confirmingDeleteId);
+
+        if (! auth()->user()->hasPermission('franchises.manage', ['country_id' => $franchise->country_id])) {
+            $this->addError('permission', 'You do not have permission to delete this franchise.');
+            $this->confirmingDeleteId = null;
+            return;
+        }
+
+        $franchise->delete();
 
         $this->confirmingDeleteId = null;
         $this->flashMessage = 'Franchise deleted.';
