@@ -2,7 +2,7 @@
 
 **This is the authoritative current-state document.** Where it conflicts with `PROJECT_HANDOFF.md` or anything else, this document wins — `PROJECT_HANDOFF.md` predates most of what's described below and is marked HISTORICAL at the bottom of this file. Verified against the actual repository and, where noted, direct read-only inspection of the production database — not against memory or old planning docs.
 
-**Baseline for everything below:** commit `e2a169e` on `main`, 2026-08-12.
+**Baseline for everything below:** commit `da7c5b4` on `main`, 2026-08-12. (Originally written at `e2a169e` the same day; updated in place rather than superseded, since the same session's continuation — see `PRODUCTION_READINESS_AUDIT.md` and `FINAL_SYSTEM_TEST_MATRIX.md` for the fuller QA-program writeup of what was added after `e2a169e`.)
 
 Labels used throughout: **[IMPLEMENTED]** shipped and in the codebase · **[VERIFIED]** implemented AND confirmed by an automated test or direct inspection this session · **[PARTIAL]** exists but incomplete · **[DEFERRED]** deliberately not built yet · **[OPEN BUSINESS DECISION]** needs a human call · **[FUTURE]** planned, not started.
 
@@ -115,26 +115,32 @@ One narrower, separate SQLite-only quirk was found (not fixed, out of scope): `2
 
 ## 18. Current Deployment State
 
-Production is at commit `ba0635a` as of the start of this session (unverified whether it has since been updated — this session did not deploy anything to it; see §25). This session's 6 commits (`97c186d` through `e2a169e`) are pushed to `origin/main` on GitHub but **not deployed to production** — per the mission brief's production-safety rules, deployment remains a separate, controlled, human-triggered operation.
+Production is at commit `ba0635a`, confirmed via direct SSH check at the end of this session (`git status --short` clean, `git log -1` = `ba0635a`) — unchanged from the start of this session. This session's commits (`97c186d` through `da7c5b4`) are pushed to `origin/main` on GitHub but **not deployed to production** — per the mission brief's production-safety rules, deployment remains a separate, controlled, human-triggered operation.
 
 ## 19. Testing — Before and After This Session
 
 **Before this session:** two Laravel stub tests (`tests/Unit/ExampleTest.php`, `tests/Feature/ExampleTest.php`), and — critically — the full migration chain could not even run against the configured test database (see §16). Effectively zero real regression coverage existed, and the tooling to build any hadn't been verified to work at all.
 
-**After this session:** 61 real, executed, passing tests (160 assertions), covering:
+**After this session (continued across two work programs the same day):** 101 real, executed, passing tests (256 assertions), covering:
 - RBAC enforcement for all 7 newly-closed gaps + cross-scope denial cases + Super Admin bypass regression (44 tests)
 - The `Roles::assign()/revoke()` privilege-escalation fix, previously uncovered (6 tests)
 - Commission idempotency, including the new DB constraint (3 tests)
 - Worker delegation authorization boundaries — every case the makeover brief names (12 tests)
+- Booking FSM: Start/Complete/AdminCancel/AdminReassign transition boundaries, including duplicate-completion and extra-work pricing (16 tests)
+- Dispatch race regression — direct test for `1e108ff`, previously zero coverage (4 tests)
+- Plan Engine smoke suite — Phase A untouched, includes a direct regression test for the renewal-upgrade bug `4f92fdf` (6 tests)
+- Loyalty (7 tests) and Referral (7 tests)
 
-All executed against an isolated SQLite `:memory:` database (never against production or any real MySQL data), via a throwaway checkout cloned locally from the production `.git` on the same server — read-only against the live directory, never modified it. **Not yet covered** (see §24): Booking FSM transition tests, Provider self-completion, Admin reassignment, Wallet ledger discipline beyond commission crediting, Plan Engine smoke tests, Loyalty/Referral, Dispatch race regression (the fix exists, the test doesn't yet), Admin Panel authorization beyond what's listed above.
+All executed against an isolated SQLite database on the production server's own filesystem (never against production data, never against local MySQL), via a throwaway checkout cloned/pulled from GitHub — read-only against the live directory, never modified it. Stability confirmed across 5 consecutive full-suite runs after fixing a real flaky-fixture bug found along the way (countries.code collision — see the `8f1d0ae` commit). A second real bug was found and fixed via this testing: `RazorpayService`'s constructor crashed with an uncaught `TypeError` on any environment without Razorpay credentials configured (`.env.example` has none), which crashed `AdminCancelBookingAction` even for bookings that were never paid.
+
+**Full detail, including the itemized test matrix and a production-readiness verdict, is in `FINAL_SYSTEM_TEST_MATRIX.md` and `PRODUCTION_READINESS_AUDIT.md`** — read those for the authoritative "what's tested, what's not" breakdown rather than relying on this summary alone. Still not covered: dedicated API-endpoint tests, browser-driven E2E, the full 27-point-per-screen Admin UI functional QA matrix.
 
 ## 20. Known Limitations
 
 - Admin UI has no shared design system (§12).
-- API layer unaudited (§15).
-- Production data volume is effectively zero — every "verified on production" claim in this and prior sessions' commit messages should be read as "verified against a system with no real customer load," not battle-tested at scale.
-- The dispatch-race fix and several other financially/operationally significant fixes from prior sessions have no automated regression coverage yet.
+- API layer unaudited (§15) — no dedicated endpoint tests exist.
+- No print system, no QA web app, no browser-driven E2E test — all entirely unstarted, see `PRODUCTION_READINESS_AUDIT.md`.
+- Production data volume is effectively zero — every "verified on production" claim in this and prior sessions' commit messages should be read as "verified against a system with no real customer load," not battle-tested at scale. Confirmed again via a 24-check read-only integrity sweep this session (zero issues found, but on near-empty tables — see `PRODUCTION_READINESS_AUDIT.md` §3).
 
 ## 21. Mobile App Boundary
 
@@ -156,22 +162,23 @@ Parcel is next, explicitly not implemented this session or before. `FieldWorker`
 
 ## 24. Remaining Work (priority order)
 
-**P1 — Testing gaps with real financial/safety exposure:**
-- Dispatch race regression test (the fix exists, `1e108ff`, zero automated coverage)
-- Booking FSM transition tests (locked/authorized/auditable, per Part 8 of the brief)
-- Provider self-completion + Admin reassignment tests
+All P1 testing-gap items from the original list (Dispatch race, Booking FSM, Provider self-completion, Admin reassignment, Plan Engine smoke, Loyalty, Referral) are **done** as of `da7c5b4` — see `FINAL_SYSTEM_TEST_MATRIX.md`. What's left:
 
-**P2 — Admin UI design system** (Priority 4/5 of the work order — not started, largest remaining scope)
+**P1 — Admin UI design system** (largest remaining scope — not started at all: no shared components, 24 screens each styled independently)
 
-**P3 — API/error handling/performance audit** (Priority 5/6 — not started)
+**P2 — API/error handling audit** (no dedicated endpoint tests, no systematic IDOR/response-format sweep)
 
-**P4 — Remaining test areas:** Plan Engine smoke tests, Loyalty/Referral, wider Wallet ledger discipline
+**P3 — Printing system** (does not exist — no print views, no PDF generation, for any document type)
 
-**P5 — README replacement** (this session wrote this document; `README.md` is still the stock Laravel boilerplate as of this commit)
+**P4 — QA web app** (does not exist — no standalone frontend connected to the real backend for role-based journey testing)
+
+**P5 — Performance profiling under real load** (query-usage-based index justification was done; live profiling was not)
+
+**P6 — Browser-driven E2E** (no Playwright/Chrome-automation-driven multi-actor journey has been run; the equivalent business logic IS covered at the Action/Service layer by the test suite, which is not the same thing)
 
 ## 25. Exact Current Phase / Status
 
-**RBAC hardening (Slice 2): COMPLETE and tested.** **DB hardening (Slice 3): COMPLETE and tested.** **Automated regression foundation (Slice 4): STARTED, real and passing, not exhaustive** — 61 tests is a genuine foundation, not the full coverage the brief's test matrix calls for. **Admin UI makeover (Slices 7-8): NOT STARTED.** **API/error/performance hardening (Slice 9): NOT STARTED.** **Documentation reset (Slice 10): this document.** **Full integration verification (Slice 11): NOT ATTEMPTED** — no realistic multi-actor end-to-end run (Part 23 of the brief) was performed this session.
+**RBAC hardening: COMPLETE and tested.** **DB hardening: COMPLETE and tested.** **Automated regression foundation: SUBSTANTIAL, real and passing** — 101 tests covering RBAC, Booking FSM, dispatch race safety, worker delegation, financial idempotency, Plan Engine (Phase A untouched), Loyalty, and Referral; still not the exhaustive per-screen/per-API coverage a full production-readiness program calls for. **Admin UI makeover: NOT STARTED** — largest remaining scope. **API audit: NOT STARTED.** **Printing system: NOT STARTED.** **QA web app: NOT STARTED.** **Documentation reset: this document + `PRODUCTION_READINESS_AUDIT.md` + `FINAL_SYSTEM_TEST_MATRIX.md`.** **Full realistic end-to-end verification: business-logic-level coverage exists (e.g. `BookingFsmTest` walks accept→start→complete→commission), browser/QA-app-driven E2E does not.** **Official verdict: NOT READY for the next stage (mobile apps + website) without qualification — see `PRODUCTION_READINESS_AUDIT.md` §28 for the precise blockers and a qualified recommendation (backend/RBAC/financial foundation is solid enough to support parallel API-first mobile development).**
 
 ---
 
