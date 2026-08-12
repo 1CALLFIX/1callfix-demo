@@ -7,9 +7,22 @@ use Illuminate\Support\Facades\Http;
 
 class RazorpayService
 {
-    private string $keyId;
-    private string $keySecret;
-    private string $webhookSecret;
+    // Nullable, not string: config('services.razorpay.*') is null on any
+    // environment without Razorpay credentials set (.env.example has no
+    // RAZORPAY_* entries at all) — a plain `string` property crashed
+    // construction itself with an uncaught TypeError the instant ANYTHING
+    // that depends on this service (e.g. CancellationService, injected
+    // into AdminCancelBookingAction) was resolved from the container, even
+    // for a cancellation that never actually calls Razorpay (found via
+    // testing this session: cancelling an unpaid booking crashed hard).
+    // The API-calling methods below still fail loudly and clearly if
+    // actually invoked without real credentials — Razorpay's API rejects
+    // an unauthenticated request, which already surfaces as a RuntimeException
+    // via the existing !$response->successful() check — just no longer at
+    // construction time for code paths that never reach Razorpay at all.
+    private ?string $keyId;
+    private ?string $keySecret;
+    private ?string $webhookSecret;
 
     public function __construct()
     {
