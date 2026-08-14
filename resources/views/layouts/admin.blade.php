@@ -90,6 +90,7 @@
                         ['label' => 'Notification Center', 'route' => 'admin.notifications.index', 'icon' => 'bell', 'active' => true],
                         ['label' => 'Plans & Memberships', 'route' => 'admin.plans.index', 'icon' => 'sparkles', 'active' => true],
                         ['label' => 'Subscriptions', 'route' => 'admin.subscriptions.index', 'icon' => 'ticket', 'active' => true],
+                        ['label' => 'Operations', 'route' => 'admin.operations.index', 'icon' => 'activity', 'active' => true],
                         ['label' => 'Roles & Permissions', 'route' => 'admin.roles.index', 'icon' => 'shield', 'active' => true],
                         ['label' => 'Settings', 'route' => 'admin.settings.index', 'icon' => 'gear', 'active' => true],
                     ];
