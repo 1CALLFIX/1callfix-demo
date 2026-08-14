@@ -44,6 +44,9 @@ Route::middleware(['auth:sanctum', \App\Http\Middleware\EnsureNotInMaintenanceMo
     Route::post('/bookings/{booking}/pay/confirm', [\App\Http\Controllers\API\PaymentController::class, 'confirm']);
     Route::get('/wallet', [\App\Http\Controllers\API\WalletController::class, 'show']);
     Route::post('/wallet/topup', [\App\Http\Controllers\API\WalletController::class, 'topUp']);
+    Route::get('/bookings/{bookingId}/chat/{withUserId}', [\App\Http\Controllers\API\ChatController::class, 'index']);
+    Route::post('/bookings/{bookingId}/chat', [\App\Http\Controllers\API\ChatController::class, 'store']);
+    Route::get('/chat/attachments/{messageId}', [\App\Http\Controllers\API\ChatController::class, 'attachment']);
     Route::get('/providers/nearby', [\App\Http\Controllers\API\ProviderDiscoveryController::class, 'nearby']);
     Route::get('/loyalty', [\App\Http\Controllers\API\LoyaltyController::class, 'show']);
     Route::post('/loyalty/redeem', [\App\Http\Controllers\API\LoyaltyController::class, 'redeem']);
