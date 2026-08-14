@@ -8,9 +8,9 @@ Labels: **IMPLEMENTED** shipped and wired · **VERIFIED** confirmed by an automa
 
 ## 1. Git state
 
-- **HEAD:** `447ea55` — continuing the "FINAL EOD AUTONOMOUS COMPLETION MISSION" from baseline `6b7c36e` (306/306), all local to `main`, none pushed/deployed.
+- **HEAD:** `642d582` — continuing the "FINAL EOD AUTONOMOUS COMPLETION MISSION" from baseline `6b7c36e` (306/306), all local to `main`, none pushed/deployed.
 - **Production:** unchanged at `ba0635a` throughout.
-- **Full suite progression this segment:** 306/306 → 340/340 (Performance Campaigns) → 384/384 (KYC engine) → 406/406 (Compensation) → 422/422 (Chat) → 436/436 (Documents). 0 failures/errors/warnings at every checkpoint.
+- **Full suite progression this segment:** 306/306 → 340/340 (Performance Campaigns) → 384/384 (KYC engine) → 406/406 (Compensation) → 422/422 (Chat) → 436/436 (Documents) → 458/458 (Notification Center). 0 failures/errors/warnings at every checkpoint.
 
 ## 2. This segment's commits
 
@@ -19,6 +19,7 @@ Labels: **IMPLEMENTED** shipped and wired · **VERIFIED** confirmed by an automa
 3. **`cd174cc` — Tips/waiting/rain/overtime/peak/night compensation.** Overtime/night/peak auto-computed from real booking timestamps; rain/waiting admin-triggered only (no real data source exists to auto-derive them); tips move money customer-wallet→provider-wallet atomically. Every rate defaults to 0 (no invented values). Hooked into `CompleteBookingAction`. 22 tests.
 4. **`a0b7b15` — Universal Chat.** `chat_messages` existed since P2 but was fully dormant. Built `ChatService` (participant-derivation + IDOR guard), `ChatController` (Sanctum API), private authorization-gated attachments. Supports Customer↔Partner, Customer↔Worker, Partner↔Worker — all three combinations naturally derived from real booking data. 16 tests.
 5. **`447ea55` — Printing/Document Engine (user-directed continuation).** No PDF library existed anywhere in the repo; added `barryvdh/laravel-dompdf` per explicit user choice. One normalized view-model + one Blade template renders invoices/receipts for all three real Payment purposes (booking/wallet_topup/plan_subscription). Idempotent per-country-per-year numbering (row-locked sequence). Admin download reuses `payments.view`'s existing row-level scope; customer self-service API endpoint checks real payer ownership. 14 tests.
+6. **`642d582` — Notification/Communication Center completeness (user-directed continuation).** Templates CRUD, Delivery Logs browser, Provider Status panel (adapter binding visibility, never exposes credentials), a real working `resendToFailedRecipients()` retry, and the in-app notification read API (Laravel's `database` channel had zero read-side despite being fully write-wired). All were real gaps where backend/permissions already existed but no UI/API consumed them. 22 tests.
 
 ## 3. Full backend/admin capability snapshot (this segment's additions — see `PROJECT_CURRENT_STATE.md` for everything from prior sessions)
 
@@ -35,11 +36,11 @@ Labels: **IMPLEMENTED** shipped and wired · **VERIFIED** confirmed by an automa
 | Tips | [IMPLEMENTED] [VERIFIED] |
 | Universal Chat (Customer/Partner/Worker) | [IMPLEMENTED] [VERIFIED] |
 | Printing/Document Engine (invoices/receipts, real PDF) | [IMPLEMENTED] [VERIFIED] |
-| Notification Center completeness audit | [NOT AUDITED this segment] |
+| Notification Center: templates CRUD, delivery logs, provider status, retry, in-app read API | [IMPLEMENTED] [VERIFIED] |
 | CMS / Glover-6amMart parity / QA data / financial reconciliation / API-E2E security sweep / international readiness / performance-scale / final capability matrix | [NOT STARTED this segment] |
 
 ## 4. Do not confuse these
 
-- All five commits above (seven including doc syncs) are **COMMITTED** to local `main` and **TEST-VERIFIED** (full suite run before each).
+- All six commits above (eight including doc syncs) are **COMMITTED** to local `main` and **TEST-VERIFIED** (full suite run before each).
 - Nothing this segment is **PUSHED**, **DEPLOYED**, or **PRODUCTION VERIFIED** — production remains `ba0635a`, untouched.
-- Mission phases 8–20 (Notification Center completeness, Payment admin completion, Operations expansion, Admin menu/settings audit, CMS, Glover/6amMart parity, QA data, financial reconciliation, API/E2E security, international readiness, performance/scale, final capability matrix, final release-readiness audit) are **NOT STARTED, NOT CLAIMED COMPLETE**.
+- Mission phases 9–20 (Payment admin completion, Operations expansion, Admin menu/settings audit, CMS, Glover/6amMart parity, QA data, financial reconciliation, API/E2E security, international readiness, performance/scale, final capability matrix, final release-readiness audit) are **NOT STARTED, NOT CLAIMED COMPLETE**.

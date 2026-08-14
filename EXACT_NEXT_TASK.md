@@ -1,6 +1,8 @@
 # Exact Next Task
 
-**Current HEAD:** `447ea55` — Phase 7 (Printing/Document Engine) now complete, per explicit user follow-up request. Added `barryvdh/laravel-dompdf` (no PDF library existed before; user chose this over a no-dependency HTML-print alternative). Real invoice/receipt PDFs for all three Payment purposes (booking/wallet_topup/plan_subscription), idempotent numbering, admin + customer-self-service authorization. 14 tests. Full suite: **436/436, 959 assertions.**
+**Current HEAD:** `642d582` — Phase 8 (Notification/Communication Center completeness) now complete, per explicit user follow-up request. Real gaps closed, not just documented: Templates CRUD (permission existed, zero UI), Delivery Logs browser (permission existed, zero UI beyond Operations' failure-only slice), Provider Status panel (which SMS/push adapter is bound, never exposes credentials), a real working `resendToFailedRecipients()` retry (idempotent, targets only currently-still-failing recipients), and the in-app notification read API (Laravel's own `database` channel was fully wired to write but had zero read-side anywhere). 22 tests. Full suite: **458/458, 997 assertions.**
+
+**Phase 7 (Printing/Document Engine)** — `447ea55`. Added `barryvdh/laravel-dompdf` (no PDF library existed before; user chose this over a no-dependency HTML-print alternative). Real invoice/receipt PDFs for all three Payment purposes (booking/wallet_topup/plan_subscription), idempotent numbering, admin + customer-self-service authorization. 14 tests.
 
 --- prior segment summary below (Phases 1-6), still accurate ---
 
@@ -24,8 +26,6 @@
 ## What remains (honest, per the mission's own 20-phase priority order)
 
 **Not started this segment:**
-- Phase 7 — Printing/Document Engine (invoices/receipts/booking documents, PDF).
-- Phase 8 — Notification/Communication Center completeness audit (beyond what Operations already surfaces).
 - Phase 9 — Payment Admin completion (`payment_methods`/`payment_accounts` UI — still gated on the consolidation decision, risk register item 11).
 - Phase 10 — Operations/Troubleshoot expansion.
 - Phase 11 — Admin Menu/Settings completeness audit against the reference checklist.
@@ -41,4 +41,4 @@
 
 ## Exact next action (current)
 
-Phase 7 is done. Continue in mission priority order: **Phase 8 — Notification/Communication Center completeness audit** (SMS/Email/Push/FCM/in-app provider status, templates, delivery logs, failures/retry — beyond what Operations already surfaces). Audit-style phase: map EXISTS/PARTIAL/MISSING against the reference checklist before building anything new.
+Phases 7 and 8 are done. Continue in mission priority order: **Phase 9 — Payment Admin completion** (`payment_methods`/`payment_accounts` admin UI — still gated on the consolidation decision, risk register item 11; resolve or re-confirm before building). Then Phase 10 (Operations/Troubleshoot expansion), Phase 11 (Admin Menu/Settings completeness audit), and onward per the priority list below.
