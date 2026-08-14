@@ -7,10 +7,12 @@ use App\Models\Booking;
 use App\Models\DispatchAttempt;
 use App\Models\Provider;
 use App\Models\Setting;
+use App\Notifications\BookingOtpNotification;
 use App\Notifications\BookingStatusNotification;
 use App\Notifications\Support\ChannelResolver;
 use App\Services\WalletService;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class AcceptBookingAction
 {
@@ -84,10 +86,56 @@ class AcceptBookingAction
 
         if ($booking->customer) {
             $channels = ChannelResolver::resolve(['zone_id' => $booking->zone_id, 'franchise_id' => $booking->franchise_id]);
-            $booking->customer->notify(new BookingStatusNotification('assigned', $booking, $channels));
+
+            // Same isolation as the OTP sends below, and for the same
+            // reason: this call goes through the identical channel/adapter
+            // pipeline (SmsChannel/PushChannel -> the bound SmsAdapter/
+            // PushAdapter), so a gateway outage here is just as real a
+            // possibility as it is for the OTPs. It was previously sent
+            // bare, so a transport failure on THIS call alone would have
+            // thrown before either OTP send below ever ran — turning a
+            // delivery hiccup into a fully broken (uncaught exception)
+            // acceptance despite the booking itself already being
+            // committed. Guarded the same way: outside the transaction,
+            // individually try/caught, failure only logged.
+            $this->sendStatusNotification($booking, 'assigned', $channels);
+
+            // Closes the gap AUTH_FORENSIC_DISCOVERY.md found: both codes
+            // were generated right above but never actually delivered to
+            // the customer by any channel. Sent here — not inside
+            // StartBookingAction — because that step is explicitly
+            // optional for Provider self-completion (see its own
+            // docblock); acceptance is the one point BOTH the self-perform
+            // and Worker-delegation paths always pass through, so this is
+            // the only place that guarantees delivery either way. Outside
+            // the transaction above (booking is already committed), and
+            // individually try/caught so a notification failure can never
+            // roll back or corrupt the already-successful acceptance —
+            // the OTPs remain fully valid and verifiable even if this send
+            // fails; the failure is only logged, never silently swallowed.
+            $this->sendOtpNotification($booking, 'start', $booking->start_otp, $channels);
+            $this->sendOtpNotification($booking, 'completion', $booking->completion_otp, $channels);
         }
 
         return $booking;
+    }
+
+    private function sendStatusNotification(Booking $booking, string $event, array $channels): void
+    {
+        try {
+            $booking->customer->notify(new BookingStatusNotification($event, $booking, $channels));
+        } catch (\Throwable $e) {
+            Log::error("Failed to deliver booking {$event} status notification for booking [{$booking->id}]: ".$e->getMessage());
+        }
+    }
+
+    private function sendOtpNotification(Booking $booking, string $type, string $code, array $channels): void
+    {
+        try {
+            $booking->customer->notify(new BookingOtpNotification($booking, $type, $code, $channels));
+        } catch (\Throwable $e) {
+            Log::error("Failed to deliver booking {$type} OTP notification for booking [{$booking->id}]: ".$e->getMessage());
+        }
     }
 
     /**

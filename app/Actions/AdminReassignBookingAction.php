@@ -7,7 +7,10 @@ use App\Models\Booking;
 use App\Models\DispatchAttempt;
 use App\Models\Provider;
 use App\Models\Setting;
+use App\Notifications\BookingOtpNotification;
+use App\Notifications\Support\ChannelResolver;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class AdminReassignBookingAction
 {
@@ -20,7 +23,9 @@ class AdminReassignBookingAction
      */
     public function execute(int $bookingId, int $providerId, string $adminNote = ''): Booking
     {
-        return DB::transaction(function () use ($bookingId, $providerId, $adminNote) {
+        $freshlyGeneratedOtps = false;
+
+        $booking = DB::transaction(function () use ($bookingId, $providerId, $adminNote, &$freshlyGeneratedOtps) {
             $booking = Booking::lockForUpdate()->findOrFail($bookingId);
             $provider = Provider::findOrFail($providerId);
 
@@ -43,8 +48,18 @@ class AdminReassignBookingAction
                 $otpMax = (int) (10 ** $otpLength) - 1;
 
                 $booking->status = 'assigned';
-                $booking->start_otp = $booking->start_otp ?: (string) random_int($otpMin, $otpMax);
-                $booking->completion_otp = $booking->completion_otp ?: (string) random_int($otpMin, $otpMax);
+                // ?: only fills a value that isn't already set — the flag
+                // below tracks whether THIS call is what generated it (a
+                // reassignment onto an already-OTP'd booking must not
+                // re-notify the customer with a code they already have).
+                if (! $booking->start_otp) {
+                    $booking->start_otp = (string) random_int($otpMin, $otpMax);
+                    $freshlyGeneratedOtps = true;
+                }
+                if (! $booking->completion_otp) {
+                    $booking->completion_otp = (string) random_int($otpMin, $otpMax);
+                    $freshlyGeneratedOtps = true;
+                }
             }
             $booking->save();
 
@@ -69,5 +84,27 @@ class AdminReassignBookingAction
 
             return $booking->fresh();
         });
+
+        // Same delivery this session added to AcceptBookingAction's own
+        // OTP generation — this action is a separate, legitimate path to
+        // a booking's FIRST OTP assignment (the admin live-queue manual-
+        // assign case), so it needs the same customer delivery, gated to
+        // only fire when this call is what actually generated the codes.
+        if ($freshlyGeneratedOtps && $booking->customer) {
+            $channels = ChannelResolver::resolve(['zone_id' => $booking->zone_id, 'franchise_id' => $booking->franchise_id]);
+            $this->sendOtpNotification($booking, 'start', $booking->start_otp, $channels);
+            $this->sendOtpNotification($booking, 'completion', $booking->completion_otp, $channels);
+        }
+
+        return $booking;
+    }
+
+    private function sendOtpNotification(Booking $booking, string $type, string $code, array $channels): void
+    {
+        try {
+            $booking->customer->notify(new BookingOtpNotification($booking, $type, $code, $channels));
+        } catch (\Throwable $e) {
+            Log::error("Failed to deliver booking {$type} OTP notification for booking [{$booking->id}]: ".$e->getMessage());
+        }
     }
 }
