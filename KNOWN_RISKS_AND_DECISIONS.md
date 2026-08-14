@@ -184,6 +184,39 @@ Format per item: **Issue** · Current behavior · Risk · Why unresolved · Busi
 - **Affected modules:** Partner/Worker delegation (Phase B0.2), future Worker self-service mobile app.
 - **Blocked:** Yes, on the authorization-model decision.
 
+## 17. No Terms & Conditions / Privacy Policy content exists
+
+- **Issue:** Phase 12's audit confirmed `Cms\Manage` (Pages/FAQs, `content_pages`/`faqs`) is a fully working admin CRUD screen, and Phase 12 gave it a real public read path (`GET /api/pages/{slug}`, `GET /api/faqs`) — but no seeder, migration, or admin action has ever created a Terms & Conditions or Privacy Policy row. A fresh install has zero pages. No signup/login flow anywhere in the codebase references an "I agree to Terms" checkbox or link, and the one public web route (`GET /`) still renders the stock, unmodified Laravel `welcome.blade.php` scaffold.
+- **Current behavior:** The admin screen and the new public API are both ready to serve this content the moment an admin creates it — but nothing has, and nothing links to it yet.
+- **Risk:** Low today (dev-only, no real users/signups), but a genuine compliance gap the moment real user registration goes live — most jurisdictions require Terms/Privacy to be presented at signup.
+- **Why unresolved:** Writing real Terms & Conditions / Privacy Policy text is a legal/business decision (jurisdiction-specific, needs actual legal review), not an engineering gap — inventing placeholder legal text here would be worse than leaving it honestly empty, since a fabricated legal document could be mistaken for a real one.
+- **Business decision required:** Legal/compliance sign-off on actual Terms & Conditions / Privacy Policy text, then create the pages via the existing admin screen and wire a reference into the signup flow once one exists.
+- **Safe current default:** Left empty; the admin CRUD + public API are ready the moment real content exists.
+- **Affected modules:** CMS (Pages), future Customer/Partner signup flow.
+- **Blocked:** Yes, on legal content and a signup flow to reference it from — neither exists yet.
+
+## 18. Content layer is single-locale only; `users.preferred_language` is dead schema
+
+- **Issue:** Phase 12's audit found no locale/language column anywhere in the content layer — `content_pages`, `faqs`, `service_categories`, `service_subcategories`, `services`, `banners` all store exactly one language's text per row, no translation table. Separately, `users.preferred_language` (seeded default `'en'` since the original users migration) is never read anywhere in `app/` — confirmed by grep, zero consumers. The Settings "Locale" tab (`locale.currency_symbol`) is currency-display-only, explicitly documented as such in its own tab copy — there is no language-selection control anywhere in the admin panel.
+- **Current behavior:** The entire app (admin panel and the new Phase 12 public content API) is English-only in practice; `preferred_language` is collected but has no effect on anything.
+- **Risk:** Low today (single-market dev state), but real the moment the platform expands to a market needing a second language — every content model would need a translation strategy (extra locale-suffixed columns vs. a separate translations table) decided before content, not after.
+- **Why unresolved:** Multi-language support is an architecture-wide decision (which models need it, which translation strategy, whether it's admin-authored or professionally translated) spanning far more than CMS — not something a content audit should decide unilaterally.
+- **Business decision required:** Whether/when multi-language support is needed, and which translation architecture to use.
+- **Safe current default:** Single-locale (English) throughout; no structural blocker to adding translations later.
+- **Affected modules:** CMS, Categories/Subcategories/Services, Banners, and potentially every other content-bearing model.
+- **Blocked:** Yes, on a market-expansion/localization decision.
+
+## 19. Soft-deleted `Service` cover images can accumulate as orphans
+
+- **Issue:** Phase 12's audit confirmed `Service` uses `SoftDeletes`, and `deleteService()` deliberately does NOT delete the stored cover image file (documented in-code: "the file stays put deliberately, since restoring a trashed service should bring its picture back with it") — correct behavior for a *soft* delete. But no purge/prune job exists anywhere that ever hard-deletes an old soft-deleted `Service` row, so this is a narrow, currently-inert accumulation path: if such a job is ever added, it would need its own image-cleanup step, since none exists today.
+- **Current behavior:** Soft-deleted services keep their cover image on disk indefinitely, by design; nothing hard-deletes a `Service` row today, so no image is currently orphaned in practice.
+- **Risk:** Very low — no live consequence until a purge job is built, at which point it's a one-line addition, not a redesign.
+- **Why unresolved:** Building a purge/retention job for soft-deleted records is a separate, unscoped feature — not part of a content audit.
+- **Business decision required:** None — purely a reminder for whoever eventually builds a soft-delete purge job to also clean up the associated cover image.
+- **Safe current default:** No action needed until a purge job exists.
+- **Affected modules:** Services catalog.
+- **Blocked:** No — not currently active; just a note for future work.
+
 ---
 
-*Last updated: 2026-08-14, mission Phase 11 (Admin Menu/Settings completeness audit) — through commit range covering Phase 11.*
+*Last updated: 2026-08-14, mission Phase 12 (CMS/content audit) — through commit range covering Phase 12.*
