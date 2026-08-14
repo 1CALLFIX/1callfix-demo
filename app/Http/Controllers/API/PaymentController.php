@@ -6,13 +6,10 @@ use App\Contracts\PaymentGateway;
 use App\Http\Controllers\Controller;
 use App\Models\Booking;
 use App\Models\Payment;
+use App\Models\PaymentWebhookLog;
 use App\Models\Setting;
-use App\Notifications\PaymentStatusNotification;
-use App\Notifications\Support\ChannelResolver;
 use Illuminate\Http\Request;
-use App\Services\Plans\SubscriptionService;
-use App\Services\WalletTopUpService;
-use Illuminate\Support\Facades\DB;
+use App\Services\Payments\RazorpayWebhookHandler;
 use Illuminate\Support\Facades\Log;
 
 class PaymentController extends Controller
@@ -100,133 +97,55 @@ class PaymentController extends Controller
      * Idempotent: Razorpay retries webhooks on any non-2xx response, so this
      * must be safe to receive the same event more than once.
      */
-    public function webhook(Request $request, PaymentGateway $gateway)
+    public function webhook(Request $request, PaymentGateway $gateway, RazorpayWebhookHandler $handler)
     {
         $rawPayload = $request->getContent();
         $signature = $request->header('X-Razorpay-Signature', '');
+        $signatureValid = $gateway->verifyWebhookSignature($rawPayload, $signature);
+        $payload = json_decode($rawPayload, true) ?? [];
+        $event = $payload['event'] ?? null;
 
-        if (!$gateway->verifyWebhookSignature($rawPayload, $signature)) {
+        // Every receipt is logged regardless of outcome (Operations
+        // expansion, mission Phase 10) -- an invalid signature or an
+        // unmatched order_id used to be only a Log::warning() line, not
+        // queryable/browsable anywhere and, worse, silently unrecoverable
+        // since a 200 response tells Razorpay to stop retrying.
+        if (! $signatureValid) {
             Log::warning('Razorpay webhook signature verification failed.');
+            PaymentWebhookLog::create([
+                'event' => $event, 'signature_valid' => false, 'processed' => false,
+                'outcome' => 'invalid_signature', 'payload' => $payload,
+            ]);
+
             return response()->json(['message' => 'Invalid signature.'], 400);
         }
 
-        $payload = json_decode($rawPayload, true);
-        $event = $payload['event'] ?? null;
+        $orderId = $payload['payload']['payment']['entity']['order_id'] ?? null;
+        $paymentIdFromPayload = $payload['payload']['payment']['entity']['id'] ?? null;
 
+        $result = ['outcome' => 'unhandled_event', 'payment' => null];
         if ($event === 'payment.captured') {
-            $this->handlePaymentCaptured($payload);
+            $result = $handler->handleCaptured($payload);
         } elseif ($event === 'payment.failed') {
-            $this->handlePaymentFailed($payload);
+            $result = $handler->handleFailed($payload);
         }
         // Other event types (refund.processed, etc.) are logged but not
         // handled yet — safe to ignore until those flows are built.
 
+        PaymentWebhookLog::create([
+            'event' => $event, 'gateway_order_id' => $orderId, 'gateway_payment_id' => $paymentIdFromPayload,
+            'payment_id' => $result['payment']?->id, 'signature_valid' => true,
+            'processed' => in_array($result['outcome'], ['captured', 'failed', 'already_processed'], true),
+            'outcome' => $result['outcome'], 'payload' => $payload,
+        ]);
+
         // Always return 200 for any recognized, signature-valid webhook,
         // even for event types we don't act on — a non-2xx tells Razorpay
         // to keep retrying forever, which we don't want for events we're
-        // intentionally not handling.
+        // intentionally not handling. 'unmatched_order' is the one real
+        // gap this can't self-heal (nothing to retry against locally) --
+        // it's now visible in the webhook log for admin reprocessing
+        // instead of silently vanishing.
         return response()->json(['status' => 'ok']);
-    }
-
-    private function handlePaymentCaptured(array $payload): void
-    {
-        $razorpayOrderId = $payload['payload']['payment']['entity']['order_id'] ?? null;
-        $razorpayPaymentId = $payload['payload']['payment']['entity']['id'] ?? null;
-
-        if (!$razorpayOrderId) {
-            return;
-        }
-
-        // Gateways (Razorpay included) retry webhook delivery on any non-2xx
-        // response, and can genuinely deliver the same event concurrently
-        // (two in-flight requests, not just sequential retries) -- the plain
-        // "read status, then write" the idempotency guard below used to do
-        // has a real TOCTOU window where both requests could read
-        // status !== 'captured' before either writes. lockForUpdate() inside
-        // a transaction closes it, the same row-locking convention every
-        // booking-mutating Action in this codebase already uses.
-        $alreadyCaptured = DB::transaction(function () use ($razorpayOrderId, $razorpayPaymentId, &$payment) {
-            $payment = Payment::where('gateway_order_id', $razorpayOrderId)->lockForUpdate()->first();
-
-            if (!$payment) {
-                return null;
-            }
-
-            // Idempotency guard — if we've already processed this as
-            // captured, do nothing further (prevents double-marking on
-            // webhook retries, and double-crediting a wallet top-up).
-            if ($payment->status === 'captured') {
-                return true;
-            }
-
-            $payment->status = 'captured';
-            $payment->gateway_payment_id = $razorpayPaymentId;
-            $payment->captured_at = now();
-            $payment->save();
-
-            return false;
-        });
-
-        if (!$payment) {
-            Log::warning("Razorpay webhook: no local payment found for order [{$razorpayOrderId}].");
-            return;
-        }
-
-        if ($alreadyCaptured) {
-            return;
-        }
-
-        // Wallet top-up: credit the wallet, no booking involved.
-        if ($payment->purpose === 'wallet_topup') {
-            app(WalletTopUpService::class)->creditWalletForCapturedTopUp($payment);
-            return;
-        }
-
-        // Plan subscription purchase/renewal: activate the subscription, no
-        // booking involved — same idempotency guard pattern as the top-up
-        // branch above (SubscriptionService::activateAfterPayment() is a
-        // no-op if the subscription isn't still pending_payment).
-        if ($payment->purpose === 'plan_subscription') {
-            app(SubscriptionService::class)->activateAfterPayment($payment);
-            return;
-        }
-
-        $booking = $payment->booking;
-        $booking->payment_status = 'paid';
-        $booking->save();
-
-        if ($booking->customer) {
-            $channels = ChannelResolver::resolve(['zone_id' => $booking->zone_id, 'franchise_id' => $booking->franchise_id]);
-            $booking->customer->notify(new PaymentStatusNotification('completed', $booking, $channels));
-        }
-    }
-
-    private function handlePaymentFailed(array $payload): void
-    {
-        $razorpayOrderId = $payload['payload']['payment']['entity']['order_id'] ?? null;
-        if (!$razorpayOrderId) {
-            return;
-        }
-
-        $payment = Payment::where('gateway_order_id', $razorpayOrderId)->first();
-        if ($payment && $payment->status !== 'captured') {
-            $payment->status = 'failed';
-            $payment->save();
-
-            if ($payment->purpose === 'wallet_topup') {
-                return; // nothing was ever credited — no booking, nothing to notify
-            }
-
-            if ($payment->purpose === 'plan_subscription') {
-                app(SubscriptionService::class)->failPayment($payment);
-                return; // subscription stays unactivated/unusable — no booking involved
-            }
-
-            $booking = $payment->booking;
-            if ($booking && $booking->customer) {
-                $channels = ChannelResolver::resolve(['zone_id' => $booking->zone_id, 'franchise_id' => $booking->franchise_id]);
-                $booking->customer->notify(new PaymentStatusNotification('failed', $booking, $channels));
-            }
-        }
     }
 }

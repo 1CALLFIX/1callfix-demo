@@ -115,6 +115,9 @@ class PaymentGatewayTest extends TestCase
 
         $this->assertSame('paid', $booking->fresh()->payment_status);
         $this->assertDatabaseHas('payments', ['booking_id' => $booking->id, 'status' => 'captured']);
+        $this->assertDatabaseHas('payment_webhook_logs', [
+            'gateway_order_id' => 'order_booking_1', 'outcome' => 'captured', 'signature_valid' => 1, 'processed' => 1,
+        ]);
     }
 
     public function test_a_customer_cannot_create_a_payment_order_for_someone_elses_booking(): void
@@ -188,6 +191,7 @@ class PaymentGatewayTest extends TestCase
 
         $this->assertNotSame('active', $subscription->fresh()->status);
         $this->assertDatabaseHas('payments', ['plan_subscription_id' => $subscription->id, 'status' => 'failed']);
+        $this->assertDatabaseHas('payment_webhook_logs', ['gateway_order_id' => 'order_sub_fail_1', 'outcome' => 'failed']);
     }
 
     // ============================== 5. Webhook signature validation ==============================
@@ -204,6 +208,7 @@ class PaymentGatewayTest extends TestCase
 
         $this->assertDatabaseHas('payments', ['booking_id' => $booking->id, 'status' => 'pending']);
         $this->assertNotSame('paid', $booking->fresh()->payment_status);
+        $this->assertDatabaseHas('payment_webhook_logs', ['outcome' => 'invalid_signature', 'signature_valid' => 0, 'processed' => 0]);
     }
 
     public function test_webhook_with_no_signature_header_is_rejected(): void
@@ -230,6 +235,8 @@ class PaymentGatewayTest extends TestCase
 
         $this->assertSame(500.0, (float) Wallet::where('user_id', $customer->id)->value('balance'), 'A retried/duplicate webhook must not double-credit.');
         $this->assertSame(1, \App\Models\WalletTransaction::whereHas('wallet', fn ($q) => $q->where('user_id', $customer->id))->count());
+        $this->assertSame(2, \App\Models\PaymentWebhookLog::where('gateway_order_id', 'order_topup_dup_1')->count());
+        $this->assertDatabaseHas('payment_webhook_logs', ['gateway_order_id' => 'order_topup_dup_1', 'outcome' => 'already_processed']);
     }
 
     public function test_duplicate_capture_webhook_sends_only_one_notification(): void

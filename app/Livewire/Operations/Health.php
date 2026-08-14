@@ -5,9 +5,16 @@ namespace App\Livewire\Operations;
 use App\Contracts\PushAdapter;
 use App\Contracts\SmsAdapter;
 use App\Models\NotificationLog;
+use App\Models\PaymentWebhookLog;
+use App\Models\ScheduledTaskRun;
 use App\Models\Setting;
 use App\Notifications\Adapters\LogPushAdapter;
 use App\Notifications\Adapters\LogSmsAdapter;
+use App\Services\ActivityLogger;
+use App\Services\Operations\DispatchHealthService;
+use App\Services\Operations\ReconciliationService;
+use App\Services\Operations\StuckBookingService;
+use App\Services\Payments\RazorpayWebhookHandler;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Livewire\Component;
@@ -29,6 +36,14 @@ use Livewire\WithPagination;
  * NOT included here -- that would require a genuinely new capability
  * (either installing Telescope or building a dedicated exception log),
  * which is a separate decision, not silently faked as data by this screen.
+ *
+ * Extended (mission Phase 10 -- Operations expansion) with the four pieces
+ * the original screen didn't cover: reconciliation warnings, dispatch
+ * health, stuck bookings, scheduled-task run history, and a payment
+ * webhook log browser with a reprocess action. Every mutating action here
+ * (retry/discard/reprocess) is now recorded to ActivityLog -- the real,
+ * previously-unused audit trail this session wired in specifically for
+ * these Operations mutations.
  */
 class Health extends Component
 {
@@ -36,6 +51,9 @@ class Health extends Component
 
     public string $flashMessage = '';
     public string $flashType = 'success';
+
+    /** @var string 'all'|'unprocessed'|'processed' */
+    public string $webhookFilter = 'all';
 
     /** operations.view was seeded (2026_08_14_001000) specifically for this screen. */
     public function mount(): void
@@ -63,6 +81,7 @@ class Health extends Component
         }
 
         Artisan::call('queue:retry', ['id' => [$uuid]]);
+        ActivityLogger::log(auth()->user(), 'failed_job', 0, "Retried failed job {$uuid}", ['uuid' => $uuid]);
         $this->flashType = 'success';
         $this->flashMessage = "Job {$uuid} re-queued.";
     }
@@ -77,8 +96,49 @@ class Health extends Component
         }
 
         DB::table('failed_jobs')->where('uuid', $uuid)->delete();
+        ActivityLogger::log(auth()->user(), 'failed_job', 0, "Discarded failed job {$uuid}", ['uuid' => $uuid]);
         $this->flashType = 'success';
         $this->flashMessage = "Job {$uuid} discarded.";
+    }
+
+    /**
+     * Re-runs a previously logged Razorpay webhook receipt through the SAME
+     * idempotent RazorpayWebhookHandler the live endpoint uses (extracted
+     * verbatim for exactly this purpose) — for events that arrived before
+     * their local Payment row existed (`unmatched_order`) or that weren't
+     * acted on (`unhandled_event`), or a signature that's since been
+     * re-verified as trustworthy (`invalid_signature`, e.g. after rotating
+     * the wrong webhook secret back). Does nothing to rows already
+     * terminally processed (captured/failed/already_processed) — those
+     * aren't offered a reprocess button in the view at all.
+     */
+    public function reprocessWebhook(int $id): void
+    {
+        if (! $this->canManage()) {
+            $this->flashType = 'error';
+            $this->flashMessage = 'You do not have permission to manage operations.';
+            return;
+        }
+
+        $log = PaymentWebhookLog::findOrFail($id);
+        $handler = app(RazorpayWebhookHandler::class);
+
+        $result = match ($log->event) {
+            'payment.captured' => $handler->handleCaptured($log->payload),
+            'payment.failed' => $handler->handleFailed($log->payload),
+            default => ['outcome' => 'unhandled_event', 'payment' => null],
+        };
+
+        $log->update([
+            'payment_id' => $result['payment']?->id ?? $log->payment_id,
+            'processed' => in_array($result['outcome'], ['captured', 'failed', 'already_processed'], true),
+            'outcome' => $result['outcome'],
+        ]);
+
+        ActivityLogger::logModel(auth()->user(), $log, "Reprocessed webhook log #{$log->id}", ['new_outcome' => $result['outcome']]);
+
+        $this->flashType = in_array($result['outcome'], ['captured', 'failed'], true) ? 'success' : 'error';
+        $this->flashMessage = "Webhook log #{$log->id} reprocessed — outcome: {$result['outcome']}.";
     }
 
     private function healthChecks(): array
@@ -129,6 +189,16 @@ class Health extends Component
             ->limit(50)
             ->get();
 
+        $webhookLogsQuery = PaymentWebhookLog::query()->latest('created_at');
+        if ($this->webhookFilter === 'unprocessed') {
+            $webhookLogsQuery->where('processed', false);
+        } elseif ($this->webhookFilter === 'processed') {
+            $webhookLogsQuery->where('processed', true);
+        }
+        $webhookLogs = $webhookLogsQuery->paginate(15, ['*'], 'webhookLogsPage');
+
+        $scheduledTaskRuns = ScheduledTaskRun::latest('created_at')->limit(30)->get();
+
         return view('livewire.operations.health', [
             'failedJobs' => $failedJobs,
             'failedJobsCount' => DB::table('failed_jobs')->count(),
@@ -136,6 +206,12 @@ class Health extends Component
             'notificationFailureCount' => NotificationLog::where('status', 'failed')->count(),
             'checks' => $this->healthChecks(),
             'canManage' => $this->canManage(),
+            'reconciliation' => app(ReconciliationService::class)->detect(),
+            'dispatchHealth' => app(DispatchHealthService::class)->stats(auth()->user()),
+            'stuckBookings' => app(StuckBookingService::class)->detect(auth()->user()),
+            'scheduledTaskRuns' => $scheduledTaskRuns,
+            'webhookLogs' => $webhookLogs,
+            'webhookLogsCount' => PaymentWebhookLog::count(),
         ])->layout('layouts.admin', ['title' => 'Operations']);
     }
 }
