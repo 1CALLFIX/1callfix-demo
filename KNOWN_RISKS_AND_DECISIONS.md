@@ -140,6 +140,28 @@ Format per item: **Issue** · Current behavior · Risk · Why unresolved · Busi
 - **Affected modules:** (future) Flash Sale engine, Coupons, Plan Engine.
 - **Blocked:** No — safe default (no stacking) lets the engine ship without inventing a stacking policy.
 
+## 13. Does the 30-day KYC deadline / withdrawal restriction apply to Riders/Workers?
+
+- **Issue:** The EOD mission brief's own 30-day-deadline/withdrawal-restriction text names "Partner" specifically, throughout, and never once says Rider/Worker for that particular policy (Phase 2's document/video requirements ARE written for both actors). `kyc_deadline_at`/`kyc_reminder_stage`/`kyc_video_status` were added to `providers` only; `field_workers` got only the widened `kyc_status` enum.
+- **Current behavior:** A FieldWorker can have an indefinitely-incomplete KYC with no deadline, no reminders, and (there being no FieldWorker payout path in `PayoutService` at all today — only `provider`/`franchise_owner`) no withdrawal-restriction enforcement point to even attach to.
+- **Risk:** Low today (FieldWorkers aren't paid out directly through `PayoutService` at all yet — they earn via `PartnerWorker`/Provider delegation, per Phase B0.1/B0.2's own architecture), but real the moment a direct FieldWorker payout path is ever built.
+- **Why unresolved:** Extending the identical policy to Workers is a real, undecided product question (should worker withdrawal follow the same 30-day rule, a different one, or none at all), not an engineering gap.
+- **Business decision required:** Whether/how the 30-day deadline and withdrawal restriction apply to Riders/Workers.
+- **Safe current default:** No restriction applied to Workers; the architecture (`KycWithdrawalPolicyService`, `kyc_withdrawal_exceptions`) is directly reusable for FieldWorker the moment this is decided and a Worker payout path exists.
+- **Affected modules:** KYC engine, Worker/Rider architecture, Payouts (once built).
+- **Blocked:** Yes, on the policy decision; not blocked by anything structural.
+
+## 14. Per-country KYC document requirements
+
+- **Issue:** `kyc_document_requirements` seeded a single GLOBAL (country_id = null) default set — id_proof/address_proof/bank_details required, business_proof/tax_document/skill_certificate/police_verification/driving_licence/vehicle_document not required — built from the document TYPE NAMES the pre-existing schema comments already used, not invented, but the required/not-required split and any real per-country variation are both admin judgment calls.
+- **Current behavior:** Every country currently gets the identical global default until an admin adds a country-specific override row.
+- **Risk:** Low — admin-correctable per-country at any time via the `kyc_document_requirements` table (no admin UI for editing it yet — read-only via `KycDocumentService::requirementsFor()` today; only a direct DB/tinker edit or a future settings-screen addition can change it).
+- **Why unresolved:** Real per-country compliance requirements (e.g. is a police verification legally mandatory in country X) need local legal/compliance input this session can't supply.
+- **Business decision required:** Confirm/adjust the required-document list per country as real compliance requirements become known.
+- **Safe current default:** The seeded global set stands; structurally ready for per-country overrides.
+- **Affected modules:** KYC engine.
+- **Blocked:** No — safe default in place; refinement only.
+
 ---
 
-*Last updated: 2026-08-14, start of the full-day autonomous session (baseline commit `6e4c8e7`).*
+*Last updated: 2026-08-14, full-day autonomous session (baseline commit `6e4c8e7`) — through commit `ac816a8` (KYC engine).*
