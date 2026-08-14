@@ -2,6 +2,8 @@
 
 **This document supersedes the previous checkpoint.** It reflects the repository as of this session. Where it conflicts with `PROJECT_CURRENT_STATE.md`, this document is more current for the specific items it covers; `PROJECT_CURRENT_STATE.md` remains authoritative for everything else until it is next synced.
 
+**2026-08-14, FINAL EOD MISSION addendum — HEAD `3430197`.** Continuing from `6b7c36e` (306/306): `d1e7995` Performance/Growth Campaign Engine (34 tests) and `ac816a8`+`3430197` KYC completeness/video/withdrawal-restriction/support-request engine (44 tests). Full suite now **384/384, 883 assertions**. See `EXACT_NEXT_TASK.md`'s top section for the complete rundown. Everything below this point is the PRIOR checkpoint, kept for history.
+
 Labels: **IMPLEMENTED** shipped and wired · **VERIFIED** confirmed by an automated test this session · **PARTIAL** exists but incomplete · **MISSING** does not exist · **BUSINESS DECISION** needs a human call, not an engineering one · **UNREACHABLE** code that would be dead given current guards elsewhere.
 
 ---

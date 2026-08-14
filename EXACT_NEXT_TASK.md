@@ -1,6 +1,15 @@
 # Exact Next Task
 
-**Current HEAD:** `c800ef8` (five new commits since the last checkpoint sync, all on `main`, none pushed/deployed to production — production remains `ba0635a`, untouched)
+**Current HEAD:** `3430197` — continuing the FINAL EOD AUTONOMOUS COMPLETION MISSION from baseline `6b7c36e` (306/306). Two large milestones landed this segment:
+
+1. **`d1e7995`** — Performance/Growth Campaign Engine (mission Phase 1). Configurable audience/scope/metric/qualification/reward architecture for Franchise/Partner/Worker/Customer incentive campaigns, reusing Wallet/Loyalty/Badge as the only payout rails, approve-then-disburse separation of duties, 34 tests. See its own commit message for full detail.
+2. **`ac816a8`** + **`3430197`** (docs) — Partner/Worker KYC completeness, verification video, 30-day deadline, withdrawal restriction, franchise support-request workflow (mission Phases 2/3/4, built as one engine). Document security overhaul (closed a real raw-`<a href>` public-link gap), configurable required-document list, video requirement for Partner KYC, live-derived (never-boolean) withdrawal eligibility enforced at `PayoutService::request()`, franchise-raises/central-admin-decides support requests creating auditable time-bound exceptions. 44 tests. Two new risk-register items (13, 14).
+
+Full suite: **384/384 passing, 883 assertions, 0 failures/errors/warnings.**
+
+--- superseded below: prior checkpoint content retained for history ---
+
+**Previous HEAD:** `c800ef8` (five new commits since the last checkpoint sync, all on `main`, none pushed/deployed to production — production remains `ba0635a`, untouched)
 
 ## What was completed in the "FULL-DAY AUTONOMOUS BACKEND + ADMIN COMPLETION MISSION" session (2026-08-14, continuation)
 
@@ -38,6 +47,6 @@ Genuine continuation from `6e4c8e7` (Payment Gateway abstraction). Five independ
 - Phase 20 — Performance/scale audit (N+1, indexes, caching).
 - Phase 21 — Final admin capability matrix.
 
-## Exact next action
+## Exact next action (current, supersedes the paragraph above)
 
-Continue in mission priority order: Phase 4 (Performance/Growth Campaign engine) is the next genuinely independent, safely-startable slice — build the configurable campaign/eligibility/target/progress/ranking/approval *architecture* without inventing reward amounts or target metrics (both are logged as pending business decisions, same discipline as this session's three completed phases). Alternatively, if reward/target values become available, that removes the blocker entirely.
+Continue in the new mission's priority order: **Phase 5 — Tips + waiting/rain/overtime/peak/night compensation.** Audit for any existing compensation model (none found in earlier forensic passes — confirm again before building), then build the configurable rule/ledger architecture (reusing WalletService, never a direct balance edit) WITHOUT inventing actual rates — those are logged as pending business decisions. Remaining phases after that, in order: 6 Universal Chat, 7 Printing/Document Engine, 8 Notification Center audit, 9 Payment Admin completion, 10 Operations/Troubleshoot expansion, 11 Admin Menu/Settings completeness audit, 12 CMS audit, 13 Glover/6amMart parity audit, 14 QA/realistic data, 15 Financial reconciliation, 16 API/IDOR/E2E security audit, 17 Multi-country/international readiness, 18 Performance/scale audit, 19 Final capability matrix, 20 Final release-readiness audit.
