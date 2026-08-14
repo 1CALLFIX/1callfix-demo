@@ -1,6 +1,8 @@
 # Exact Next Task
 
-**Current HEAD:** `a0b7b15` (six commits this segment, all on `main`, none pushed/deployed — production remains `ba0635a`, untouched)
+**Current HEAD:** `447ea55` — Phase 7 (Printing/Document Engine) now complete, per explicit user follow-up request. Added `barryvdh/laravel-dompdf` (no PDF library existed before; user chose this over a no-dependency HTML-print alternative). Real invoice/receipt PDFs for all three Payment purposes (booking/wallet_topup/plan_subscription), idempotent numbering, admin + customer-self-service authorization. 14 tests. Full suite: **436/436, 959 assertions.**
+
+--- prior segment summary below (Phases 1-6), still accurate ---
 
 ## What was completed this segment ("FINAL EOD AUTONOMOUS COMPLETION MISSION", continuing from baseline `6b7c36e`)
 
@@ -37,6 +39,6 @@
 - Phase 19 — Final admin capability matrix.
 - Phase 20 — Final release-readiness audit.
 
-## Exact next action
+## Exact next action (current)
 
-Continue in mission priority order: **Phase 7 — Printing/Document Engine.** Audit for an existing PDF library already in `composer.json` before adding one; build a reusable invoice/receipt renderer for bookings/payments/subscriptions, authorization-checked, no duplicate rendering engine.
+Phase 7 is done. Continue in mission priority order: **Phase 8 — Notification/Communication Center completeness audit** (SMS/Email/Push/FCM/in-app provider status, templates, delivery logs, failures/retry — beyond what Operations already surfaces). Audit-style phase: map EXISTS/PARTIAL/MISSING against the reference checklist before building anything new.
