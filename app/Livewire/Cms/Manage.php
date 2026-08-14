@@ -8,13 +8,19 @@ use Illuminate\Support\Str;
 use Livewire\Component;
 
 // Website / CMS — the settings doc's category #18. content_pages and faqs
-// both had schema and zero consumers anywhere in the codebase (confirmed
-// by audit), so this is a genuinely missing admin screen, not a settings
-// tab: pages/FAQs are records to manage, not toggles to flip, so it
-// follows the same {Module}\Manage one-screen pattern as Categories/Zones
-// rather than living inside Settings\Manage. Two sections in one
-// component (Pages, FAQs) since both tables are small and simple enough
-// not to need their own separate screens.
+// both had schema and zero consumers anywhere in the codebase when this
+// screen was originally built, so this is a genuinely missing admin
+// screen, not a settings tab: pages/FAQs are records to manage, not
+// toggles to flip, so it follows the same {Module}\Manage one-screen
+// pattern as Categories/Zones rather than living inside Settings\Manage.
+// Two sections in one component (Pages, FAQs) since both tables are small
+// and simple enough not to need their own separate screens.
+//
+// Phase 12 (CMS/content audit) added a real consumer for the first time —
+// GET /api/pages/{slug} and GET /api/faqs (App\Http\Controllers\API\
+// ContentController) — and content_pages gained an is_active column
+// (matching faqs, which already had one) so a page can be drafted here
+// without immediately being publicly reachable.
 class Manage extends Component
 {
     /**
@@ -34,6 +40,7 @@ class Manage extends Component
     public string $pageSlug = '';
     public string $pageTitle = '';
     public string $pageContent = '';
+    public bool $pageIsActive = true;
 
     // --- Pages: edit ---
     public bool $showEditPageModal = false;
@@ -41,6 +48,7 @@ class Manage extends Component
     public string $editPageSlug = '';
     public string $editPageTitle = '';
     public string $editPageContent = '';
+    public bool $editPageIsActive = true;
 
     // --- FAQs: add ---
     public string $faqCategory = '';
@@ -82,9 +90,11 @@ class Manage extends Component
             'slug' => $this->pageSlug,
             'title' => $this->pageTitle,
             'content' => $this->pageContent ?: null,
+            'is_active' => $this->pageIsActive,
         ]);
 
         $this->reset(['pageSlug', 'pageTitle', 'pageContent']);
+        $this->pageIsActive = true;
         $this->flashMessage = 'Page created.';
     }
 
@@ -96,6 +106,7 @@ class Manage extends Component
         $this->editPageSlug = $page->slug;
         $this->editPageTitle = $page->title;
         $this->editPageContent = $page->content ?? '';
+        $this->editPageIsActive = $page->is_active;
 
         $this->resetValidation();
         $this->showEditPageModal = true;
@@ -118,6 +129,7 @@ class Manage extends Component
             'slug' => $this->editPageSlug,
             'title' => $this->editPageTitle,
             'content' => $this->editPageContent ?: null,
+            'is_active' => $this->editPageIsActive,
         ]);
 
         $this->showEditPageModal = false;
@@ -128,6 +140,18 @@ class Manage extends Component
     {
         $this->showEditPageModal = false;
         $this->resetValidation();
+    }
+
+    /** Same pattern as toggleFaqActive() — quick publish/unpublish from the list, no modal round-trip needed. */
+    public function togglePageActive(int $pageId): void
+    {
+        if (! auth()->user()->hasPermission('cms.manage')) {
+            $this->addError('permission', 'You do not have permission to manage CMS content.');
+            return;
+        }
+
+        $page = ContentPage::findOrFail($pageId);
+        $page->update(['is_active' => ! $page->is_active]);
     }
 
     public function confirmDeletePage(int $pageId): void { $this->confirmingDeletePageId = $pageId; }

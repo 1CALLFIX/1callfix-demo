@@ -15,6 +15,9 @@ class ContentPage extends Model
     protected $fillable = [
         'slug',
         'title',
-        'content'
+        'content',
+        'is_active'
     ];
+
+    protected $casts = ['is_active' => 'boolean'];
 }

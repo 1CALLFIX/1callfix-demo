@@ -38,6 +38,9 @@
                 <label class="block text-xs font-medium mb-1">Content</label>
                 <textarea wire:model="pageContent" rows="4" class="w-full border rounded px-3 py-2 text-sm"></textarea>
             </div>
+            <label class="inline-flex items-center gap-2 text-sm mt-3">
+                <input type="checkbox" wire:model="pageIsActive" class="rounded"> Published (reachable via <code>GET /api/pages/{slug}</code> as soon as saved)
+            </label>
             <div class="flex justify-end mt-3">
                 <button type="button" wire:click="savePage" class="bg-slate-900 text-white px-6 h-[38px] rounded text-sm font-medium hover:bg-slate-800">+ Add Page</button>
             </div>
@@ -49,6 +52,7 @@
                     <tr>
                         <th class="px-4 py-2">Slug</th>
                         <th class="px-4 py-2">Title</th>
+                        <th class="px-4 py-2">Status</th>
                         <th class="px-4 py-2">Updated</th>
                         <th class="px-4 py-2 text-right">Actions</th>
                     </tr>
@@ -58,6 +62,12 @@
                         <tr class="border-t hover:bg-gray-50" wire:key="page-{{ $page->id }}">
                             <td class="px-4 py-2 font-mono text-xs text-gray-500">{{ $page->slug }}</td>
                             <td class="px-4 py-2 font-medium">{{ $page->title }}</td>
+                            <td class="px-4 py-2">
+                                <button type="button" wire:click="togglePageActive({{ $page->id }})"
+                                        @class(['px-2 py-1 rounded text-xs font-medium', 'bg-green-100 text-green-700' => $page->is_active, 'bg-gray-100 text-gray-600' => ! $page->is_active])>
+                                    {{ $page->is_active ? 'Published' : 'Draft' }}
+                                </button>
+                            </td>
                             <td class="px-4 py-2 text-gray-500">{{ $page->updated_at->diffForHumans() }}</td>
                             <td class="px-4 py-2 text-right">
                                 <button type="button" wire:click="editPage({{ $page->id }})" class="text-xs text-blue-600 hover:underline mr-3">Edit</button>
@@ -65,7 +75,7 @@
                             </td>
                         </tr>
                     @empty
-                        <tr><td colspan="4" class="px-4 py-6 text-center text-gray-400">No pages yet. Add your first one above.</td></tr>
+                        <tr><td colspan="5" class="px-4 py-6 text-center text-gray-400">No pages yet. Add your first one above.</td></tr>
                     @endforelse
                 </tbody>
             </table>
@@ -154,6 +164,9 @@
                         <label class="block text-sm font-medium mb-1">Content</label>
                         <textarea wire:model="editPageContent" rows="6" class="w-full border rounded px-3 py-2 text-sm"></textarea>
                     </div>
+                    <label class="inline-flex items-center gap-2 text-sm">
+                        <input type="checkbox" wire:model="editPageIsActive" class="rounded"> Published
+                    </label>
                 </div>
                 <div class="flex justify-end gap-2 pt-6">
                     <button type="button" wire:click="closeEditPageModal" class="px-4 py-2 border border-gray-300 rounded text-sm hover:bg-gray-50">Close</button>

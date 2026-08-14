@@ -37,6 +37,14 @@ Route::prefix('auth')->group(function () {
     });
 });
 
+// Public content (mission Phase 12 — CMS/content audit). Unauthenticated
+// by design, same reasoning as /auth/otp/* above — Terms/Privacy/FAQs/
+// banners are pre-login content on every reference app this one is
+// benchmarked against.
+Route::get('/pages/{slug}', [\App\Http\Controllers\API\ContentController::class, 'page']);
+Route::get('/faqs', [\App\Http\Controllers\API\ContentController::class, 'faqs']);
+Route::get('/banners', [\App\Http\Controllers\API\ContentController::class, 'banners']);
+
 Route::middleware(['auth:sanctum', \App\Http\Middleware\EnsureNotInMaintenanceMode::class])->group(function () {
     Route::post('/bookings/{booking}/accept', [\App\Http\Controllers\API\DispatchController::class, 'accept']);
     Route::post('/bookings/{booking}/complete', [\App\Http\Controllers\API\DispatchController::class, 'complete']);
