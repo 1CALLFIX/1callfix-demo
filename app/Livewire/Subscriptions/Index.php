@@ -26,6 +26,12 @@ class Index extends Component
     public string $adjustMonetaryDelta = '0';
     public string $adjustReason = '';
 
+    /** subscriptions.view was seeded (2026_08_11_038000) but never checked on this list screen (only the mutating actions check subscriptions.manage) -- see Commissions\Index's identical fix for the full reasoning. */
+    public function mount(): void
+    {
+        abort_unless(auth()->user()->hasPermissionAnywhere('subscriptions.view'), 403, 'You do not have permission to view subscriptions.');
+    }
+
     private function scopeHint(Subscription $subscription): array
     {
         return $subscription->plan?->authorizationScopeHint() ?? [];

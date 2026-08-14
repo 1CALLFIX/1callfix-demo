@@ -20,8 +20,11 @@ class Show extends Component
     public string $flashMessage = '';
     public string $flashType = 'success';
 
+    /** bookings.view was seeded (2026_08_11_016000) but never checked on this detail screen (only the reassign/cancel actions were gated) -- see Commissions\Index's identical fix for the full reasoning. */
     public function mount(int $bookingId)
     {
+        abort_unless(auth()->user()->hasPermissionAnywhere('bookings.view'), 403, 'You do not have permission to view bookings.');
+
         $this->booking = Booking::with([
             'customer', 'service', 'provider.user', 'assignedWorker.user', 'address', 'zone', 'franchise',
             'dispatchAttempts.provider.user', 'extraItems', 'payment', 'commission',

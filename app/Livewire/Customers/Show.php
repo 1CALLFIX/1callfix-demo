@@ -12,8 +12,11 @@ class Show extends Component
     public string $flashMessage = '';
     public string $flashType = 'success';
 
+    /** customers.view was seeded (2026_08_11_049000) but never checked on this detail screen (only toggleSuspended() was gated, via customers.manage) -- see Commissions\Index's identical fix for the full reasoning. */
     public function mount(int $customerId)
     {
+        abort_unless(auth()->user()->hasPermissionAnywhere('customers.view'), 403, 'You do not have permission to view customers.');
+
         $this->customer = User::where('role', 'customer')
             ->with(['franchise', 'zone', 'addresses'])
             ->findOrFail($customerId);

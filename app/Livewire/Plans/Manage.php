@@ -38,6 +38,12 @@ class Manage extends Component
     public ?int $entQuantity = null;
     public ?string $entMonetaryValue = null;
     public ?string $entPercentageValue = null;
+
+    /** plans.view was seeded (2026_08_11_038000) but never checked on this screen (only the mutating actions check plans.manage) -- see Commissions\Index's identical fix for the full reasoning. */
+    public function mount(): void
+    {
+        abort_unless(auth()->user()->hasPermissionAnywhere('plans.view'), 403, 'You do not have permission to view plans.');
+    }
     public string $entUsagePeriod = 'monthly';
     public string $entConsumptionTrigger = 'booking_created';
     public string $entRolloverPolicy = 'none';

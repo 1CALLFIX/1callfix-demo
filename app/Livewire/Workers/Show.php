@@ -19,8 +19,11 @@ class Show extends Component
     public string $newCapabilityType = 'service_technician';
     public ?int $newCapabilityServiceCategoryId = null;
 
+    /** workers.view was seeded (2026_08_11_047000) but never checked on this detail screen (only approve/reject were gated, via canReview()'s workers.review_kyc) -- see Commissions\Index's identical fix for the full reasoning. */
     public function mount(int $workerId)
     {
+        abort_unless(auth()->user()->hasPermissionAnywhere('workers.view'), 403, 'You do not have permission to view workers.');
+
         $this->fieldWorker = FieldWorker::with(['user', 'zone', 'franchise', 'documents', 'capabilities.serviceCategory', 'partnerLinks.provider.user'])
             ->findOrFail($workerId);
     }

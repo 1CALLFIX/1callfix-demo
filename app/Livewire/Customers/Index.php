@@ -17,6 +17,12 @@ class Index extends Component
 
     protected $queryString = ['search', 'statusFilter'];
 
+    /** customers.view was seeded (2026_08_11_049000) but never checked -- see Commissions\Index's identical fix for the full reasoning. Distinct from customers.manage, which already gates Customers\Show's suspend/reactivate action. */
+    public function mount(): void
+    {
+        abort_unless(auth()->user()->hasPermissionAnywhere('customers.view'), 403, 'You do not have permission to view customers.');
+    }
+
     public function updatingSearch() { $this->resetPage(); }
     public function updatingStatusFilter() { $this->resetPage(); }
 

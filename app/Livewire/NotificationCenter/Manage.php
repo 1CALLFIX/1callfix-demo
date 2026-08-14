@@ -31,6 +31,12 @@ class Manage extends Component
 
     public string $section = 'compose'; // compose|campaigns|meetings
 
+    /** notification.view was seeded (2026_08_11_024000) but never checked on this screen (only the compose/schedule/campaign/meeting actions check their own specific permissions) -- see Commissions\Index's identical fix for the full reasoning. */
+    public function mount(): void
+    {
+        abort_unless(auth()->user()->hasPermissionAnywhere('notification.view'), 403, 'You do not have permission to view the notification center.');
+    }
+
     // --- Compose ---
     public string $category = 'business';
     public string $type = 'promotion';

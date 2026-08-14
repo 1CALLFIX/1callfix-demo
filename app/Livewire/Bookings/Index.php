@@ -23,6 +23,12 @@ class Index extends Component
 
     protected $queryString = ['statusFilter', 'search'];
 
+    /** bookings.view was seeded (2026_08_11_016000) but never checked on this list screen (only the createBooking() panel checks bookings.create) -- see Commissions\Index's identical fix for the full reasoning. */
+    public function mount(): void
+    {
+        abort_unless(auth()->user()->hasPermissionAnywhere('bookings.view'), 403, 'You do not have permission to view bookings.');
+    }
+
     // ============================ New Booking ============================
     // Same one-screen pattern as Categories/Subcategories/Services: an "Add
     // New" panel pinned at the top of the page, list live below it — no

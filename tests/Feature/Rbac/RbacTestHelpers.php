@@ -121,4 +121,33 @@ trait RbacTestHelpers
 
         return $user;
     }
+
+    /**
+     * Grants an EXISTING actor an additional permission via a second
+     * role_assignment, on top of whatever makeUserWithPermission()/
+     * makeUserWithNoPermissions() already gave them — for tests that need a
+     * realistic multi-permission actor (e.g. holds a screen's entry .view
+     * permission plus, separately, the narrower action permission under
+     * test), the same way every real seeded system role bundles several
+     * permissions rather than holding exactly one.
+     */
+    protected function grantPermission(User $user, string $permissionSlug, string $scopeType = 'global', ?int $scopeId = null): void
+    {
+        $permission = Permission::firstOrCreate(['slug' => $permissionSlug], ['label' => $permissionSlug, 'group' => 'Test']);
+
+        $role = Role::create([
+            'name' => 'Test Role '.Str::random(6),
+            'slug' => 'test-role-'.Str::random(8),
+            'description' => 'Test-only role granting '.$permissionSlug,
+            'is_system' => false,
+        ]);
+        $role->permissions()->attach($permission->id);
+
+        RoleAssignment::create([
+            'user_id' => $user->id,
+            'role_id' => $role->id,
+            'scope_type' => $scopeType,
+            'scope_id' => $scopeId,
+        ]);
+    }
 }

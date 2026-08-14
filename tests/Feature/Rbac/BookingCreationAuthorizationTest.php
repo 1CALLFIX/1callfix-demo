@@ -17,6 +17,15 @@ use Tests\TestCase;
  * "does this user hold bookings.create in ANY assignment" — while
  * addNewAddress/createBooking are properly zone-scoped once a zone exists,
  * mirroring Bookings\Show::bookingScope().
+ *
+ * Every actor below also holds bookings.view -- Bookings\Index::mount() now
+ * requires it to even open the screen (bookings.view was seeded but never
+ * checked; same-session fix, see Commissions\Index's identical one).
+ * Without it every actor here would 403 at mount() before ever reaching
+ * createCustomer/addNewAddress/createBooking, testing the wrong boundary.
+ * Every real seeded role that holds bookings.create also holds bookings.view
+ * (they're always granted together) -- granting both here mirrors a real
+ * actor, not a shortcut.
  */
 class BookingCreationAuthorizationTest extends TestCase
 {
@@ -39,6 +48,7 @@ class BookingCreationAuthorizationTest extends TestCase
         // support role holds bookings.view only, per the seeder — never
         // bookings.create — this must be blocked outright.
         $actor = $this->makeUserWithNoPermissions();
+        $this->grantPermission($actor, 'bookings.view');
 
         Livewire::actingAs($actor)->test(Index::class)
             ->set('newCustomerName', 'Blocked Customer')
@@ -55,6 +65,7 @@ class BookingCreationAuthorizationTest extends TestCase
         // context yet, so ANY assignment holding bookings.create suffices.
         $franchise = $this->makeFranchise();
         $actor = $this->makeUserWithPermission('bookings.create', 'franchise', $franchise->id);
+        $this->grantPermission($actor, 'bookings.view');
 
         Livewire::actingAs($actor)->test(Index::class)
             ->set('newCustomerName', 'Allowed Customer')
@@ -78,6 +89,7 @@ class BookingCreationAuthorizationTest extends TestCase
             'is_active' => true, 'location_required' => true, 'age_restriction' => false, 'sort_order' => 1,
         ]);
         $actor = $this->makeUserWithPermission('bookings.create', 'zone', $zone->id);
+        $this->grantPermission($actor, 'bookings.view');
 
         $component = Livewire::actingAs($actor)->test(Index::class)
             ->set('newCustomerName', 'Zone Customer')
@@ -112,6 +124,7 @@ class BookingCreationAuthorizationTest extends TestCase
         $ownZone = $this->makeZone();
         $otherZone = $this->makeZone();
         $actor = $this->makeUserWithPermission('bookings.create', 'zone', $ownZone->id);
+        $this->grantPermission($actor, 'bookings.view');
 
         Livewire::actingAs($actor)->test(Index::class)
             ->set('newCustomerName', 'Cross Zone Customer')

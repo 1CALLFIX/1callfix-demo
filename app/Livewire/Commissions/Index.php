@@ -25,6 +25,24 @@ class Index extends Component
 
     protected $queryString = ['search', 'franchiseFilter', 'fromDate', 'toDate'];
 
+    /**
+     * commissions.view was seeded (2026_08_11_053000) specifically so this
+     * screen could be gated, but nothing ever actually checked it -- ANY
+     * authenticated admin-panel actor (anyone who clears EnsureHasAdminAccess,
+     * e.g. a Support role with only banners.manage) could see every
+     * franchise's full commission split. hasPermissionAnywhere(), not a
+     * specific scope: this is a cross-franchise list with no per-row scope
+     * filter (like every other Index screen in this codebase), so the gate
+     * mirrors the existing "prerequisite, not full row-scoping" reasoning
+     * AuthorizationService::canAnywhere() already documents for
+     * Bookings\Index::createBooking(). Full per-franchise/zone row filtering
+     * of this ledger is a separate, larger enhancement, not invented here.
+     */
+    public function mount(): void
+    {
+        abort_unless(auth()->user()->hasPermissionAnywhere('commissions.view'), 403, 'You do not have permission to view commissions.');
+    }
+
     public function updatingSearch() { $this->resetPage(); }
     public function updatingFranchiseFilter() { $this->resetPage(); }
     public function updatingFromDate() { $this->resetPage(); }

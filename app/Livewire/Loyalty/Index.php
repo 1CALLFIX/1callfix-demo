@@ -24,6 +24,12 @@ class Index extends Component
 
     protected $queryString = ['activeTab', 'search', 'referralStatusFilter'];
 
+    /** loyalty.view was seeded (2026_08_11_052000) but never checked -- see Commissions\Index's identical fix for the full reasoning. */
+    public function mount(): void
+    {
+        abort_unless(auth()->user()->hasPermissionAnywhere('loyalty.view'), 403, 'You do not have permission to view loyalty points & referrals.');
+    }
+
     public function updatingSearch() { $this->resetPage(); }
     public function updatingReferralStatusFilter() { $this->resetPage(); }
 

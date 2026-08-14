@@ -25,6 +25,12 @@ class Index extends Component
 
     protected $queryString = ['search', 'typeFilter', 'statusFilter', 'fromDate', 'toDate'];
 
+    /** wallets.view was seeded (2026_08_11_051000) but never checked -- see Commissions\Index's identical fix for the full reasoning. */
+    public function mount(): void
+    {
+        abort_unless(auth()->user()->hasPermissionAnywhere('wallets.view'), 403, 'You do not have permission to view the wallet ledger.');
+    }
+
     public function updatingSearch() { $this->resetPage(); }
     public function updatingTypeFilter() { $this->resetPage(); }
     public function updatingStatusFilter() { $this->resetPage(); }

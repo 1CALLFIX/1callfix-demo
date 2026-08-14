@@ -12,6 +12,12 @@ class Dashboard extends Component
 {
     public string $period = 'week'; // week | month | year
 
+    /** dashboard.view was seeded (2026_08_11_016000) but never checked -- see Commissions\Index's identical fix for the full reasoning. Exposes today's revenue and franchise-wide operational counts. */
+    public function mount(): void
+    {
+        abort_unless(auth()->user()->hasPermissionAnywhere('dashboard.view'), 403, 'You do not have permission to view the dashboard.');
+    }
+
     public function setPeriod(string $period)
     {
         $this->period = $period;

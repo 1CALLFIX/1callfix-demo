@@ -14,6 +14,12 @@ class Index extends Component
 
     protected $queryString = ['statusFilter'];
 
+    /** providers.view was seeded (2026_08_11_016000) but never checked -- see Commissions\Index's identical fix for the full reasoning. Not granted to the Operator role by design (its grant list stops at bookings.*), so Operator now correctly loses access here rather than before, when nothing enforced it. */
+    public function mount(): void
+    {
+        abort_unless(auth()->user()->hasPermissionAnywhere('providers.view'), 403, 'You do not have permission to view providers.');
+    }
+
     public function updatingStatusFilter()
     {
         $this->resetPage();

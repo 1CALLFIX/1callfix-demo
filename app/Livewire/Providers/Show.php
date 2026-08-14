@@ -14,8 +14,11 @@ class Show extends Component
     public string $flashMessage = '';
     public string $flashType = 'success';
 
+    /** providers.view was seeded (2026_08_11_016000) but never checked on this detail screen (only approve/reject/updatePriority were gated, via canReview()'s providers.review_kyc) -- see Commissions\Index's identical fix for the full reasoning. */
     public function mount(int $providerId)
     {
+        abort_unless(auth()->user()->hasPermissionAnywhere('providers.view'), 403, 'You do not have permission to view providers.');
+
         $this->provider = Provider::with(['user', 'zone', 'franchise', 'documents'])
             ->findOrFail($providerId);
         $this->priorityInput = (string) $this->provider->priority;

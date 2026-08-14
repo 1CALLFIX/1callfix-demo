@@ -26,6 +26,17 @@ use Tests\TestCase;
  * Franchises\Manage etc. in this same suite) — assertions here match that
  * actual component behavior rather than the addError() pattern used
  * elsewhere in this directory.
+ *
+ * Every actor below is also granted providers.view (in addition to whatever
+ * review_kyc grant, or lack of one, the test is actually exercising) --
+ * Providers\Show::mount() now requires it to even open the screen (see
+ * AcceptBookingAction... no, see Providers\Index's own fix, same session:
+ * providers.view was seeded but never checked). Without it every actor here
+ * would 403 at mount() before ever reaching approve()/reject(), which would
+ * test the wrong boundary. providers.view and providers.review_kyc are
+ * deliberately separate permissions in the real seed data too (e.g. the
+ * `support` role holds providers.view but never providers.review_kyc) --
+ * granting both here mirrors a real actor, not a shortcut.
  */
 class ProvidersReviewAuthorizationTest extends TestCase
 {
@@ -59,6 +70,7 @@ class ProvidersReviewAuthorizationTest extends TestCase
     {
         $provider = $this->makeProvider();
         $actor = $this->makeUserWithNoPermissions();
+        $this->grantPermission($actor, 'providers.view');
 
         $component = Livewire::actingAs($actor)->test(Show::class, ['providerId' => $provider->id])
             ->call('approve');
@@ -71,6 +83,7 @@ class ProvidersReviewAuthorizationTest extends TestCase
     {
         $provider = $this->makeProvider();
         $actor = $this->makeUserWithNoPermissions();
+        $this->grantPermission($actor, 'providers.view');
 
         $component = Livewire::actingAs($actor)->test(Show::class, ['providerId' => $provider->id])
             ->set('rejectionReason', 'Incomplete documents')
@@ -84,6 +97,7 @@ class ProvidersReviewAuthorizationTest extends TestCase
     {
         $provider = $this->makeProvider();
         $actor = $this->makeUserWithPermission('providers.review_kyc', 'franchise', $provider->franchise_id);
+        $this->grantPermission($actor, 'providers.view');
 
         $component = Livewire::actingAs($actor)->test(Show::class, ['providerId' => $provider->id])
             ->call('approve');
@@ -97,6 +111,7 @@ class ProvidersReviewAuthorizationTest extends TestCase
         $ownFranchise = $this->makeFranchise();
         $provider = $this->makeProvider();
         $actor = $this->makeUserWithPermission('providers.review_kyc', 'franchise', $ownFranchise->id);
+        $this->grantPermission($actor, 'providers.view');
 
         $component = Livewire::actingAs($actor)->test(Show::class, ['providerId' => $provider->id])
             ->call('approve');
@@ -121,6 +136,7 @@ class ProvidersReviewAuthorizationTest extends TestCase
     {
         $provider = $this->makeProvider();
         $actor = $this->makeUserWithNoPermissions();
+        $this->grantPermission($actor, 'providers.view');
 
         $component = Livewire::actingAs($actor)->test(Show::class, ['providerId' => $provider->id])
             ->set('priorityInput', '5')

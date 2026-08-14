@@ -15,6 +15,12 @@ class Index extends Component
 
     protected $queryString = ['statusFilter'];
 
+    /** workers.view was seeded (2026_08_11_047000) but never checked -- see Commissions\Index's identical fix for the full reasoning. */
+    public function mount(): void
+    {
+        abort_unless(auth()->user()->hasPermissionAnywhere('workers.view'), 403, 'You do not have permission to view workers.');
+    }
+
     public function updatingStatusFilter()
     {
         $this->resetPage();
