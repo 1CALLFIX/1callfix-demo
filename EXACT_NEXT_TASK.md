@@ -1,61 +1,52 @@
 # Exact Next Task
 
-**Current HEAD:** `a2c443a` (nothing committed since)
+**Current HEAD:** `53d6203` (all three commits below are on `main`, none pushed/deployed to production — production remains `ba0635a`, untouched)
 
-## What was completed this session (continued across two work programs)
+## What was completed in the "FINAL AUTONOMOUS BACKEND + ADMIN COMPLETION MISSION" session (2026-08-14)
 
-1. Full read-only forensic audit of everything after checkpoint `b95b58d` (git state, auth/OTP/QR code verified line-by-line against its own docs, admin panel + API inventory, database/domain table inventory, testing/printing/parity audit) — no false claims found; two new gaps surfaced (`Providers\Show::approve()` missing a permission check; `Auth\Login::submit()` hard-rejecting non-`super_admin` roles).
-2. Finished the interrupted booking-OTP-delivery task: added `BookingOtpNotification::toMail()` (a real bug — the notification had no `toMail()`, and the *default* `notifications.channels` Setting is `'mail'`, so delivery was silently failing under default settings) and wrote `tests/Feature/Booking/BookingOtpDeliveryTest.php` (6 tests).
-3. **(Second program, OFFLINE-SAFE only, no PHP runtime available)** Closed both Group A gaps named above:
-   - Fixed `Providers\Show::approve()`/`reject()` — had **zero** authorization check (any admin-panel user, any role/scope, could approve/reject KYC). Extracted `canReview()` mirroring `Workers\Show::canReview()` exactly (that screen was built later and got the check; this one was left behind). Added `tests/Feature/Rbac/ProvidersReviewAuthorizationTest.php` (6 tests). A quick static sweep of all 20 Livewire admin components (mutator-method vs. permission-check heuristic, then manual read of every flagged file) found no other instance of this pattern — this was the one real outlier.
-   - Fixed `Auth\Login::submit()` — confirmed via user decision this session that scoped admins (Country/City/Zone Admin, Franchise Owner, Operator, Support) *should* be able to log in. Root cause: `EnsureHasAdminAccess` (the middleware on every real `/admin` route) was already updated to admit "`super_admin` OR holds ≥1 `role_assignments` row" — its own docblock says so explicitly — but `Login::submit()`'s inline check was never updated to match, so scoped admins could authenticate correctly and still never reach the panel they were provisioned for. Fixed by mirroring `EnsureHasAdminAccess`'s exact predicate. Added `tests/Feature/Auth/AdminLoginAccessTest.php` (4 tests: super_admin unchanged, no-role-assignment user still rejected, scoped-admin-with-role-assignment now succeeds, wrong-password still rejected first).
+This is a genuine continuation, not a restart. Three independently verified, independently committed milestones:
 
-## What was tested
+1. **`ce46e3f`** — Fixed the real cause of the `BookingOtpDeliveryTest` failure reported at session start: `AcceptBookingAction`'s `BookingStatusNotification` send was the one customer notification NOT wrapped in the established try/catch-and-log pattern, so a real channel-adapter failure crashed the whole acceptance flow before either OTP send below it ever ran. Fixed by extracting `sendStatusNotification()`, mirroring the existing `sendOtpNotification()` pattern exactly. Also carried forward and verified the two Group A fixes from the prior session (scoped-admin login, Providers KYC authorization).
+2. **`09061a2`** — Forensic sweep of every `hasPermission()` call site in `app/Livewire` found that mutating actions were universally authorized, but **viewing was not**: 12 `.view` permissions had been seeded across prior sessions (each with an explicit "this screen should check it" comment in its own migration) but none were ever wired up. Any actor who merely cleared `EnsureHasAdminAccess` could view full cross-franchise commission splits, the wallet ledger, loyalty/referral data, and every customer's PII. Fixed across 15 screens (Dashboard, Bookings, Providers, Workers, Customers, Commissions, WalletLedger, Loyalty, Subscriptions, Plans, NotificationCenter).
+3. **`53d6203`** — Built the Operations/Troubleshoot admin screen the mission's own special instruction asked to specifically investigate. Confirmed genuinely absent (no failed-job visibility, no notification-failure visibility, no health indicators anywhere), despite the underlying data already existing (`failed_jobs`, `notification_logs`). New `/admin/operations`: failed-job list + retry/discard, last 50 notification delivery failures, and a system health panel (DB/queue/cache/mail driver, SMS/push provider — flags the dev-only Log adapters explicitly, storage writability, maintenance mode).
 
-**Not yet execution-verified — still true for all of the above, including this session's two new fixes.** No PHP runtime exists in this sandbox (no `php` on PATH, `vendor/` has no `laravel`/`illuminate` packages installed — see `CURRENT_MASTER_CHECKPOINT.md` §4). All four fixes (OTP `toMail()`, `Providers\Show`, `Auth\Login`) and their three test files (16 tests total) are statically reasoned and cross-checked against the codebase's own established patterns (`Workers\Show::canReview()`, `EnsureHasAdminAccess`, `BookingStatusNotification::toMail()`), not execution-confirmed. You are running the tests and will report back.
+**Test suite progression this session:** 163/163 → 166/166 → 173/173 passed. Every milestone was run (full suite, not just its own filter) before committing. 0 failures, 0 errors, 0 warnings at every checkpoint. Nothing was committed until green.
 
-## What remains (Phases 2–30 of the completion mission, sequenced)
+## What was audited but NOT changed (real evidence gathered, documented honestly rather than guessed at)
 
-Nothing below has been started. Suggested order, grouped by what depends on what:
+- **Payment Gateway (Phase 12):** Razorpay integration is real and fairly mature — order creation, checkout-signature verification, webhook-signature verification, idempotent capture/failed handling (covers booking payments, wallet top-ups, and plan subscriptions), refund method. **Gap:** single-provider only — `RazorpayService` is a concrete class, not behind a shared gateway interface/contract, and there is no admin UI to configure gateway credentials (they come from `.env`/`config/services.php` only). Extracting a `PaymentGatewayInterface` + a Settings > Payment Gateway admin tab (secrets via Laravel's encrypted config, never source) is real, scoped, buildable work — not started this session (see Remaining Work below). Not blocked by a business decision — Razorpay as the vendor was already decided by a prior session.
+- **Referral engine (Phase 5):** `ReferralService`/`Referral` model are real but Customer→Customer only (`referrer_id`/`referred_id` both plain `users`, qualification = referred user's first completed booking as a customer). No cross-actor (Partner↔Customer, Partner↔Worker, etc.) referral logic exists. No anti-fraud signals (device/payment/address linkage) exist. This is the real starting point for Phase 5 — not started this session.
+- **Campaign engine:** `CampaignService`/`NotificationCampaign` exist but are a **notification broadcast** engine (compose → audience → send), not a performance/growth **incentive** engine with targets/progress/ranking/rewards. Phase 6 as described in the mission brief is genuinely unbuilt.
+- **Badge engine:** `ProviderBadge` exists but is a bare pivot (`provider_id`, `badge` string, `awarded_at`) — not a configurable NEW/POPULAR/TRENDING catalog-badge engine with priority/styling/expiry/scope. Phase 7 as described is genuinely unbuilt.
+- **Chat:** `ChatMessage` model exists (`booking_id`, `sender_id`, `receiver_id`, `message`, `attachment_url`, `read_at`) but has zero controller/service/authorization/route anywhere — a dormant, unused model. Phase 9 is genuinely unbuilt.
+- **Tips/compensation:** No tip, waiting-compensation, rain-compensation, or peak/night-compensation model or logic exists anywhere. Phase 8 is genuinely unbuilt.
+- **Printing:** Confirmed absent (0 matches for print/invoice/PDF anywhere in `app/`), matching `PROJECT_CURRENT_STATE.md`'s own prior finding.
 
-**Group A — close out the auth foundation properly**
-1. Confirm `BookingOtpDeliveryTest`, `ProvidersReviewAuthorizationTest`, and `AdminLoginAccessTest` all pass, and the full suite has zero regressions (blocking everything else — see above), then commit all of it as one coherent close-out of the auth foundation's open items.
-2. ~~Fix the two gaps found this session~~ — **done, pending execution verification (see above):** `Providers\Show::approve()`/`reject()` permission check added; `Auth\Login`'s role restriction fixed per your explicit decision this session (scoped admins should be able to log in) — mirrors `EnsureHasAdminAccess`'s existing predicate exactly, no new business rule invented.
-3. Configure a real SMS/push provider before the login-OTP flow is usable outside a dev log (business decision: which provider — Twilio/MSG91/Fast2SMS for SMS, FCM for push).
+## What remains (honest categorization, not invented)
 
-**Group B — universal proof/verification + chat (Phases 4, 11)**
-4. Design `CHAT_ARCHITECTURE.md` properly before writing code — the privacy boundaries (Customer must never see Partner↔Worker internal messages; wrong-actor denial on every pair) are a real authorization surface, not a CRUD screen; get this reviewed before it's built, given it's new schema + new RBAC surface.
-5. Universal Proof/Verification engine — reuse the existing OTP/QR primitives rather than building a third mechanism; scope to Service start/completion only (Parcel/Taxi/Food stay out per the mission's own Phase 11 boundary).
+**Category 1 — safely buildable now, no business decision needed:**
+- Payment Gateway abstraction (`PaymentGatewayInterface` + admin config tab) — vendor already chosen, just needs the generalization work.
+- Badge engine (config-driven labels, no money involved).
+- Per-row scope filtering for the 15 screens fixed in `09061a2` (currently gated on "holds the `.view` permission anywhere", not filtered to the viewer's own franchise/zone/country — a real, separate, larger enhancement, explicitly flagged in that commit's own message).
+- API/security hardening sweep (Phase 21) — no dedicated pass done this session beyond the RBAC view-gap closure.
 
-**Group C — the financial/incentive engines (Phases 5, 6, 8, 9) — highest risk, lowest urgency**
-6. Universal Referral/Recruitment engine with the configurable 30-day + 2–3-transaction qualification rule and anti-fraud — this is real money logic; build it as its own reviewable slice with its own test suite before touching Performance Campaigns.
-7. Performance/Growth Incentive engine (Franchise/Partner/Rider/Customer campaigns) — depends on nothing in #6, can be built in parallel by a separate effort if needed.
-8. Tip Engine + Extra Compensation Engine — both flow through the existing wallet/ledger, never touch balances directly.
+**Category 2 — implemented and working, but incomplete for full mission scope:**
+- Referral engine (Customer↔Customer only, no cross-actor, no anti-fraud).
+- Payment Gateway (single-provider, no abstraction).
 
-**Group D — merchandising + operational UX (Phases 7, 10, 12, 13, 14)**
-9. Badge/NEW-item engine (config-driven, admin-controlled, auto-expiry) — low financial risk, safe to parallelize with Group C.
-10. Smart Job Rescue (risk-level dispatch visibility) — read-mostly, no financial writes, relatively low risk.
-11. Service "no work found" outcome — needs a real business decision first (visit-charge policy), flag as **OPEN BUSINESS DECISION** until then.
-12. Worker/skill matching test coverage — add missing tests to the *existing* dispatch logic, do not rewrite it.
-13. Technician tracking/ETA — audit first; if no real GPS backend exists, document that honestly rather than build a fake tracker.
+**Category 3 — business decision required before implementation (do not invent):**
+- Final referral reward amounts/points beyond the existing `Setting`-driven defaults.
+- Campaign/incentive reward values, targets, ranking rules for a real performance-campaign engine.
+- Tip/compensation rate structures.
+- Worker compensation model (carried forward from the prior session's own Open Business Decisions list).
+- Coupon system's real customer-facing launch decision (carried forward, unchanged).
 
-**Group E — platform completion (Phases 16–19, 27)**
-14. Admin UI design system (largest single remaining scope per every prior audit — 24+ screens individually styled).
-15. Printing architecture (does not exist at all today — no PDF library, no print views, for any document type).
-16. HTTP-level tests for the 10 untested API routes found this session (Wallet, Loyalty, Plans, all Subscription self-service routes, Payment create-order/confirm, Provider Discovery).
-17. Security pass on whatever new surface Groups B–D actually add (chat privacy, referral fraud, campaign reward abuse) — do this per-feature as it's built, not as one giant audit at the end.
+**Category 4 — blocked by external dependency:**
+- Real SMS/push provider configuration (still `LogSmsAdapter`/`LogPushAdapter`, safe for dev/QA, unsafe for production — carried forward, unchanged).
+- A real second payment provider, if one is ever chosen, needs real credentials.
 
-**Group F — parity + QA (Phases 15, 20–25)**
-18. `MASTER_FEATURE_PARITY_MATRIX.md` — genuinely blocked until real Glover/6ammart reference material is provided; the one existing attempt (`GLOVER_VS_1CALLFIX_AUTH_AUDIT.md`) states plainly that no such material was ever accessible. Cannot be honestly completed without it.
-19. Expand `qa:seed`/`qa:clean` to cover whatever of Groups B–D actually gets built (referrals, campaigns, chat, tips) — do this alongside each feature, not as a separate pass.
+**Category 5 — not started, large independent programs (unchanged from before this session):** Chat, Tips/Compensation, Badge engine (real one, not the KYC pivot), Campaign/Performance-Incentive engine (real one, not the notification broadcaster), Printing, Admin UI design system, Glover/6amMart full parity audit, multi-country/i18n audit, subscriptions/commercial engine audit, catalog/POS audit.
 
-## Exact next command/task
+## Exact next action
 
-1. In an environment with PHP 8.3 + the real vendor install, run:
-   - `php artisan test --filter=BookingOtpDeliveryTest`
-   - `php artisan test --filter=ProvidersReviewAuthorizationTest`
-   - `php artisan test --filter=AdminLoginAccessTest`
-   - `php artisan test` for the full suite (expect 153 + 6 + 4 = 163 passing, 0 failures, 0 regressions)
-   and report the output.
-2. Once confirmed green: commit `BookingOtpNotification::toMail()` + `Providers\Show`'s `canReview()` fix + `Auth\Login`'s admin-access fix + all three new test files as one coherent commit (or split by concern if you prefer smaller commits — all three are independent, non-overlapping fixes), closing out every open item this session's forensic audit found.
-3. After that, Group A is fully closed except #3 (real SMS/push provider — a business decision, not engineering). Pick that, or explicitly approve starting Group B/C — each of those is a real, separately-scoped engineering task that deserves its own session rather than being bundled into a single autonomous run.
+Pick ONE of Category 1's items and build it as its own coherent, tested, committed slice — same discipline as this session's three milestones (forensic-check the existing code first, never assume from docs, test before committing, one coherent milestone per commit). Recommended order given what's already been touched this session: (1) per-row scope filtering for the 15 `.view`-gated screens (closes the loop on this session's own biggest fix), (2) Payment Gateway abstraction, (3) Badge engine.
