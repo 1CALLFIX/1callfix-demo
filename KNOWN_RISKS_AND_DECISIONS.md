@@ -162,6 +162,28 @@ Format per item: **Issue** · Current behavior · Risk · Why unresolved · Busi
 - **Affected modules:** KYC engine.
 - **Blocked:** No — safe default in place; refinement only.
 
+## 15. No admin chat-moderation screen exists
+
+- **Issue:** Universal Chat (`ChatService`/`ChatController`, mission Phase 6) is a real, fully-wired Customer↔Partner/Customer↔Worker/Partner↔Worker messaging API — but it has zero admin-facing surface. No `admin/chat*` route or `App\Livewire\Chat\*` component exists anywhere. Phase 11's audit found it incorrectly listed under `CURRENT_MASTER_CHECKPOINT.md`'s "admin capability snapshot" table, which reads as an admin capability when it isn't one — corrected in that doc, but the underlying gap (support staff have no way to view a conversation to investigate a dispute) is real and unresolved.
+- **Current behavior:** Conversations are fully functional between real actors but invisible to admin/support — the only escape hatch is a raw DB query.
+- **Risk:** Low today (no live disputes reported since this is dev-only), but a genuine support/moderation gap once real users are on the platform.
+- **Why unresolved:** A real admin chat-moderation screen (conversation list, thread view, likely per-booking scoping and IDOR guards matching `ChatService`'s own authorization) is a new, non-trivial feature — out of scope for a menu/settings *audit* to build silently.
+- **Business/scope decision required:** Whether and when to build an admin chat-moderation screen, and what moderation actions (if any — read-only viewing vs. the ability to intervene) it should support.
+- **Safe current default:** Not built; not claimed complete anywhere in the docs after this correction.
+- **Affected modules:** Universal Chat, Operations/Troubleshoot (a natural home for it once built).
+- **Blocked:** Yes, on a scope/priority decision — not blocked by anything structural.
+
+## 16. `partner.workers.assign` has no permission check in `PartnerWorkerController`
+
+- **Issue:** Phase 11's audit found `partner.workers.assign` seeded (`2026_08_11_044000_seed_worker_foundation_permissions.php`) with a comment explaining it and 5 sibling `worker.*`/`partner.workers.manage` permissions exist "so the next implementation slice has an authorization layer to check against, not because anything enforces them yet." `PartnerWorkerController::assignBooking()` (the real, working endpoint this permission was clearly meant for) performs zero `hasPermission()` check — it relies entirely on `$request->user()->providerProfile` (only a provider account can call it) plus `AssignBookingToWorkerAction`'s own ownership checks (the booking and worker must belong to that same partner).
+- **Why NOT fixed in Phase 11:** The 5 sibling permissions' own seeding comment makes clear these are for a Partner/Worker-facing authorization layer *distinct from* the admin-panel RBAC `RoleAssignment` system (built for admin staff — super_admin/country_admin/.../support — not for Provider-role mobile-app accounts). No real Provider account has ever been granted an RBAC role assignment, and no such Partner-authorization-layer design exists yet. Adding a `hasPermission('partner.workers.assign')` check today would either (a) silently lock out every real provider from a working feature, or (b) require inventing a grant-everyone-by-default policy — both are business/architecture decisions this audit should surface, not invent.
+- **Current behavior:** The endpoint is safe from cross-partner IDOR (ownership is checked), just not gated by the seeded permission concept.
+- **Risk:** Low — the real authorization boundary (ownership) is already enforced; what's missing is the permission-based layer the migration anticipated, not a live security hole.
+- **Business decision required:** Whether Partner/Worker-facing actions should ever go through the admin RBAC system, or need their own, separate authorization model — then wire `partner.workers.assign` (and the other 5 seeded-but-unused `worker.*` permissions) accordingly.
+- **Safe current default:** Ownership-based authorization stays as the enforcement boundary until that decision is made.
+- **Affected modules:** Partner/Worker delegation (Phase B0.2), future Worker self-service mobile app.
+- **Blocked:** Yes, on the authorization-model decision.
+
 ---
 
-*Last updated: 2026-08-14, full-day autonomous session (baseline commit `6e4c8e7`) — through commit `ac816a8` (KYC engine).*
+*Last updated: 2026-08-14, mission Phase 11 (Admin Menu/Settings completeness audit) — through commit range covering Phase 11.*
