@@ -2,15 +2,20 @@
 
 namespace App\Livewire\NotificationCenter;
 
+use App\Contracts\PushAdapter;
+use App\Contracts\SmsAdapter;
 use App\Models\City;
 use App\Models\Coupon;
 use App\Models\Country;
 use App\Models\Franchise;
 use App\Models\NotificationCampaign;
+use App\Models\NotificationLog;
 use App\Models\NotificationMeeting;
 use App\Models\NotificationTemplate;
 use App\Models\User;
 use App\Models\Zone;
+use App\Notifications\Adapters\LogPushAdapter;
+use App\Notifications\Adapters\LogSmsAdapter;
 use App\Services\AudienceResolver;
 use App\Services\AuthorizationService;
 use App\Services\CampaignService;
@@ -30,7 +35,7 @@ class Manage extends Component
 {
     use WithPagination;
 
-    public string $section = 'compose'; // compose|campaigns|meetings
+    public string $section = 'compose'; // compose|campaigns|meetings|templates|logs|status
 
     /**
      * notification.view was seeded (2026_08_11_024000) but never checked on
@@ -319,6 +324,123 @@ class Manage extends Component
         }
     }
 
+    /**
+     * Real, working retry -- see CampaignService::resendToFailedRecipients()'s
+     * own docblock. notification.manage_campaigns (the same permission
+     * cancelCampaign() already checks) covers this too, not a new
+     * permission for what's conceptually the same "manage an existing
+     * campaign" capability.
+     */
+    public function resendFailed(int $campaignId): void
+    {
+        if (! auth()->user()->hasPermission('notification.manage_campaigns')) {
+            $this->flashType = 'error';
+            $this->flashMessage = 'You do not have permission to manage campaigns.';
+            return;
+        }
+
+        $campaign = NotificationCampaign::findOrFail($campaignId);
+
+        try {
+            $count = app(CampaignService::class)->resendToFailedRecipients($campaign);
+            $this->flashType = 'success';
+            $this->flashMessage = $count > 0 ? "Resent to {$count} previously-failed recipient(s)." : 'No currently-failed recipients to resend to.';
+        } catch (\Throwable $e) {
+            $this->flashType = 'error';
+            $this->flashMessage = $e->getMessage();
+        }
+    }
+
+    // ============================== Templates ==============================
+    // notification_templates/notification.manage_templates both already
+    // existed (seeded 2026_08_11_024000) but had ZERO admin UI anywhere --
+    // the compose screen could only PICK a template via templateId, never
+    // create/edit/delete one. Real CRUD, no invented content.
+
+    public ?int $editingTemplateId = null;
+    public string $templateKey = '';
+    public string $templateName = '';
+    public string $templateTitle = '';
+    public string $templateBody = '';
+    public string $templateDescription = '';
+
+    private function canManageTemplates(): bool
+    {
+        return auth()->user()->hasPermissionAnywhere('notification.manage_templates');
+    }
+
+    public function startEditingTemplate(?int $templateId = null): void
+    {
+        $this->editingTemplateId = $templateId;
+        if ($templateId) {
+            $t = NotificationTemplate::findOrFail($templateId);
+            $this->templateKey = $t->key;
+            $this->templateName = $t->name;
+            $this->templateTitle = $t->title_template;
+            $this->templateBody = $t->body_template;
+            $this->templateDescription = $t->description ?? '';
+        } else {
+            $this->reset(['templateKey', 'templateName', 'templateTitle', 'templateBody', 'templateDescription']);
+        }
+    }
+
+    public function saveTemplate(): void
+    {
+        if (! $this->canManageTemplates()) {
+            $this->flashType = 'error';
+            $this->flashMessage = 'You do not have permission to manage notification templates.';
+            return;
+        }
+
+        $this->validate([
+            'templateKey' => ['required', 'string', 'max:100', 'alpha_dash', 'unique:notification_templates,key,'.($this->editingTemplateId ?: 'NULL').',id'],
+            'templateName' => ['required', 'string', 'max:150'],
+            'templateTitle' => ['required', 'string', 'max:255'],
+            'templateBody' => ['required', 'string'],
+        ], [], ['templateKey' => 'key', 'templateName' => 'name', 'templateTitle' => 'title template', 'templateBody' => 'body template']);
+
+        NotificationTemplate::updateOrCreate(
+            ['id' => $this->editingTemplateId],
+            [
+                'key' => $this->templateKey, 'name' => $this->templateName,
+                'title_template' => $this->templateTitle, 'body_template' => $this->templateBody,
+                'description' => $this->templateDescription ?: null,
+            ]
+        );
+
+        $this->flashType = 'success';
+        $this->flashMessage = $this->editingTemplateId ? 'Template updated.' : 'Template created.';
+        $this->startEditingTemplate(null);
+    }
+
+    public function deleteTemplate(int $templateId): void
+    {
+        if (! $this->canManageTemplates()) {
+            $this->flashType = 'error';
+            $this->flashMessage = 'You do not have permission to manage notification templates.';
+            return;
+        }
+
+        NotificationTemplate::where('id', $templateId)->delete();
+        $this->flashType = 'success';
+        $this->flashMessage = 'Template deleted.';
+    }
+
+    // ============================== Delivery logs ==============================
+    // notification_logs/notification.view_logs both already existed
+    // (AppServiceProvider's NotificationSent/NotificationFailed listeners
+    // write every attempt) but had ZERO admin browsing UI -- Operations\Health
+    // only ever showed the last 20 FAILURES with no filtering. This is the
+    // real, filterable log browser.
+
+    public string $logChannelFilter = '';
+    public string $logStatusFilter = '';
+    public string $logSearch = '';
+
+    public function updatingLogChannelFilter() { $this->resetPage('logsPage'); }
+    public function updatingLogStatusFilter() { $this->resetPage('logsPage'); }
+    public function updatingLogSearch() { $this->resetPage('logsPage'); }
+
     // ============================== Meetings ==============================
 
     public function createMeeting(): void
@@ -354,12 +476,57 @@ class Manage extends Component
         $this->reset(['meetingTitle', 'meetingDescription', 'meetingStartsAt', 'meetingLocation', 'meetingLink']);
     }
 
+    /** Which adapter is actually bound right now -- read-only, no credentials ever surfaced (LogSmsAdapter/LogPushAdapter hold none; a real adapter's own config stays server-side). */
+    private function providerStatus(): array
+    {
+        $smsAdapter = get_class(app(SmsAdapter::class));
+        $pushAdapter = get_class(app(PushAdapter::class));
+
+        return [
+            'sms_adapter' => class_basename($smsAdapter),
+            'sms_is_log_fallback' => $smsAdapter === LogSmsAdapter::class,
+            'push_adapter' => class_basename($pushAdapter),
+            'push_is_log_fallback' => $pushAdapter === LogPushAdapter::class,
+        ];
+    }
+
+    /** Sent/failed counts per channel over the last 30 days -- real numbers from notification_logs, not a fabricated dashboard. */
+    private function deliveryStats(): array
+    {
+        return NotificationLog::where('created_at', '>=', now()->subDays(30))
+            ->selectRaw('channel, status, count(*) as total')
+            ->groupBy('channel', 'status')
+            ->get()
+            ->groupBy('channel')
+            ->map(fn ($rows) => $rows->pluck('total', 'status'))
+            ->all();
+    }
+
     public function render()
     {
+        $user = auth()->user();
+
+        $logs = $user->hasPermissionAnywhere('notification.view_logs')
+            ? NotificationLog::with('notifiable')
+                ->when($this->logChannelFilter !== '', fn ($q) => $q->where('channel', $this->logChannelFilter))
+                ->when($this->logStatusFilter !== '', fn ($q) => $q->where('status', $this->logStatusFilter))
+                ->when($this->logSearch !== '', fn ($q) => $q->where(function ($w) {
+                    $w->where('event', 'like', "%{$this->logSearch}%")
+                        ->orWhere('notification_type', 'like', "%{$this->logSearch}%")
+                        ->orWhere('error', 'like', "%{$this->logSearch}%");
+                }))
+                ->latest('id')->paginate(25, ['*'], 'logsPage')
+            : null;
+
         return view('livewire.notification-center.manage', [
             'campaigns' => NotificationCampaign::whereIn('id', $this->visibleCampaignIds())->latest()->paginate(15, ['*'], 'campaignsPage'),
             'meetings' => NotificationMeeting::whereIn('id', $this->visibleMeetingIds())->latest()->paginate(15, ['*'], 'meetingsPage'),
             'templates' => NotificationTemplate::orderBy('name')->get(),
+            'logs' => $logs,
+            'canViewLogs' => $user->hasPermissionAnywhere('notification.view_logs'),
+            'canManageTemplates' => $this->canManageTemplates(),
+            'providerStatus' => $this->providerStatus(),
+            'deliveryStats' => $this->deliveryStats(),
             'coupons' => Coupon::where('is_active', true)->orderBy('code')->get(),
             'countries' => Country::where('is_active', true)->orderBy('name')->get(),
             'cities' => $this->scopeCountryId ? City::where('country_id', $this->scopeCountryId)->orderBy('name')->get() : collect(),

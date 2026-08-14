@@ -48,6 +48,10 @@ Route::middleware(['auth:sanctum', \App\Http\Middleware\EnsureNotInMaintenanceMo
     Route::post('/bookings/{bookingId}/chat', [\App\Http\Controllers\API\ChatController::class, 'store']);
     Route::get('/chat/attachments/{messageId}', [\App\Http\Controllers\API\ChatController::class, 'attachment']);
     Route::get('/payments/{paymentId}/document', [\App\Http\Controllers\API\DocumentController::class, 'paymentDocument']);
+    Route::get('/notifications', [\App\Http\Controllers\API\InAppNotificationController::class, 'index']);
+    Route::get('/notifications/unread-count', [\App\Http\Controllers\API\InAppNotificationController::class, 'unreadCount']);
+    Route::post('/notifications/{id}/read', [\App\Http\Controllers\API\InAppNotificationController::class, 'markRead']);
+    Route::post('/notifications/read-all', [\App\Http\Controllers\API\InAppNotificationController::class, 'markAllRead']);
     Route::get('/providers/nearby', [\App\Http\Controllers\API\ProviderDiscoveryController::class, 'nearby']);
     Route::get('/loyalty', [\App\Http\Controllers\API\LoyaltyController::class, 'show']);
     Route::post('/loyalty/redeem', [\App\Http\Controllers\API\LoyaltyController::class, 'redeem']);

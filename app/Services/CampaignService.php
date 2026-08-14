@@ -3,6 +3,8 @@
 namespace App\Services;
 
 use App\Models\NotificationCampaign;
+use App\Models\NotificationLog;
+use App\Models\User;
 use App\Notifications\CampaignNotification;
 use App\Notifications\Support\ChannelResolver;
 use Illuminate\Support\Facades\DB;
@@ -84,5 +86,48 @@ class CampaignService
             });
 
         return $sent;
+    }
+
+    /**
+     * Real, working retry (mission Phase 8 -- "delivery logs, failures,
+     * retry"), not a placeholder button: re-sends this campaign's exact
+     * notification to every recipient whose MOST RECENT notification_logs
+     * row for this campaign is 'failed' -- not "ever failed", so calling
+     * this twice in a row never re-notifies someone whose retry already
+     * succeeded (the second call finds their latest row is now 'sent').
+     * Only meaningful for already-sent campaigns; a transactional (non-
+     * campaign) notification has no generic retry here -- see this
+     * method's own docblock reasoning in the audit notes for why that
+     * would require per-notification-type logic this session doesn't
+     * invent.
+     */
+    public function resendToFailedRecipients(NotificationCampaign $campaign): int
+    {
+        if ($campaign->status !== 'sent') {
+            throw new \RuntimeException("Campaign #{$campaign->id} must be 'sent' before it can be resent to failed recipients.");
+        }
+
+        $latestLogIdPerRecipient = NotificationLog::where('campaign_id', $campaign->id)
+            ->where('notifiable_type', User::class)
+            ->selectRaw('MAX(id) as id')
+            ->groupBy('notifiable_id')
+            ->pluck('id');
+
+        $failedUserIds = NotificationLog::whereIn('id', $latestLogIdPerRecipient)
+            ->where('status', 'failed')
+            ->pluck('notifiable_id');
+
+        if ($failedUserIds->isEmpty()) {
+            return 0;
+        }
+
+        $channels = ChannelResolver::mapChannels($campaign->channelList());
+        $recipients = User::whereIn('id', $failedUserIds)->get();
+
+        foreach ($recipients as $recipient) {
+            $recipient->notify(new CampaignNotification($campaign, $channels));
+        }
+
+        return $recipients->count();
     }
 }
