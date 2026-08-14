@@ -31,6 +31,7 @@
                     <th class="px-4 py-2">Status</th>
                     <th class="px-4 py-2">Refunded</th>
                     <th class="px-4 py-2">Date</th>
+                    <th class="px-4 py-2">Document</th>
                 </tr>
             </thead>
             <tbody>
@@ -72,9 +73,10 @@
                         </td>
                         <td class="px-4 py-2 font-mono text-gray-500">{{ $p->refunded_amount ? '₹'.number_format($p->refunded_amount, 2) : '—' }}</td>
                         <td class="px-4 py-2 text-gray-500 whitespace-nowrap">{{ $p->created_at->format('d M Y, h:i A') }}</td>
+                        <td class="px-4 py-2"><a href="{{ route('admin.documents.payments.show', $p->id) }}" target="_blank" class="text-blue-600 hover:underline text-xs">View</a></td>
                     </tr>
                 @empty
-                    <tr><td colspan="8" class="px-4 py-6 text-center text-gray-400">No payments match your filters.</td></tr>
+                    <tr><td colspan="9" class="px-4 py-6 text-center text-gray-400">No payments match your filters.</td></tr>
                 @endforelse
             </tbody>
         </table>

@@ -85,4 +85,5 @@ Route::middleware(['auth', \App\Http\Middleware\EnsureHasAdminAccess::class])
         Route::get('/kyc/documents/provider/{documentId}', [\App\Http\Controllers\Admin\KycDocumentController::class, 'providerDocument'])->name('admin.kyc.documents.provider');
         Route::get('/kyc/documents/field-worker/{documentId}', [\App\Http\Controllers\Admin\KycDocumentController::class, 'fieldWorkerDocument'])->name('admin.kyc.documents.field-worker');
         Route::get('/kyc/videos/{videoId}', [\App\Http\Controllers\Admin\KycDocumentController::class, 'verificationVideo'])->name('admin.kyc.videos.show');
+        Route::get('/documents/payments/{paymentId}', [\App\Http\Controllers\Admin\DocumentController::class, 'paymentDocument'])->name('admin.documents.payments.show');
     });
