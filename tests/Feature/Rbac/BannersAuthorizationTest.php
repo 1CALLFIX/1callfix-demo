@@ -28,16 +28,18 @@ class BannersAuthorizationTest extends TestCase
         Storage::fake('public');
     }
 
-    public function test_user_without_permission_cannot_create_banner(): void
+    /**
+     * Since Phase 11 (Admin Menu/Settings completeness audit) added a
+     * mount()-level banners.manage gate to this whole screen (it never had
+     * a separate .view permission), an actor with zero permissions is now
+     * denied at mount() with a 403 — never reaches save() to trigger its
+     * own action-level check below.
+     */
+    public function test_user_without_permission_cannot_view_or_create_banner(): void
     {
         $actor = $this->makeUserWithNoPermissions();
 
-        Livewire::actingAs($actor)->test(Manage::class)
-            ->set('title', 'Blocked Banner')
-            ->set('imageFile', UploadedFile::fake()->image('banner.png'))
-            ->set('placement', 'top')
-            ->call('save')
-            ->assertHasErrors(['permission']);
+        Livewire::actingAs($actor)->test(Manage::class)->assertForbidden();
 
         $this->assertDatabaseMissing('banners', ['title' => 'Blocked Banner']);
     }
@@ -112,10 +114,7 @@ class BannersAuthorizationTest extends TestCase
         ]);
         $actor = $this->makeUserWithNoPermissions();
 
-        Livewire::actingAs($actor)->test(Manage::class)
-            ->set('confirmingDeleteId', $banner->id)
-            ->call('deleteBanner')
-            ->assertHasErrors(['permission']);
+        Livewire::actingAs($actor)->test(Manage::class)->assertForbidden();
 
         $this->assertDatabaseHas('banners', ['id' => $banner->id]);
     }

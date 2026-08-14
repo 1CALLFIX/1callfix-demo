@@ -123,6 +123,11 @@ class Manage extends Component
      */
     public function mount(): void
     {
+        // No view-level check existed at all — only write actions checked
+        // franchises.manage (Phase 11 audit finding, same bug class
+        // addendum #1 already fixed on 15 other screens).
+        abort_unless(auth()->user()->hasPermissionAnywhere('franchises.manage'), 403, 'You do not have permission to view franchises.');
+
         $this->commissionModel = Setting::get('commission.default_model', $this->commissionModel);
         $this->commissionValue = (string) Setting::get('commission.default_value', $this->commissionValue);
         $this->platformFeePercent = (string) Setting::get('commission.default_platform_fee_percent', $this->platformFeePercent);

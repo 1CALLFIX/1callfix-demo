@@ -31,15 +31,17 @@ class CategoriesAuthorizationTest extends TestCase
         Storage::fake('public');
     }
 
-    public function test_user_without_permission_cannot_create_category(): void
+    /**
+     * Since Phase 11 added a mount()-level categories.manage gate to this
+     * whole screen (it never had a separate .view permission), an actor
+     * with zero permissions is now denied at mount() — never reaches
+     * save() to trigger its own action-level check.
+     */
+    public function test_user_without_permission_cannot_view_or_create_category(): void
     {
         $actor = $this->makeUserWithNoPermissions();
 
-        Livewire::actingAs($actor)->test(CategoriesManage::class)
-            ->set('name', 'Blocked Category')
-            ->set('iconFile', UploadedFile::fake()->image('icon.png'))
-            ->call('save')
-            ->assertHasErrors(['permission']);
+        Livewire::actingAs($actor)->test(CategoriesManage::class)->assertForbidden();
 
         $this->assertDatabaseMissing('service_categories', ['name' => 'Blocked Category']);
     }
@@ -79,10 +81,7 @@ class CategoriesAuthorizationTest extends TestCase
         ]);
         $actor = $this->makeUserWithNoPermissions();
 
-        Livewire::actingAs($actor)->test(CategoriesManage::class)
-            ->set('confirmingDeleteId', $category->id)
-            ->call('deleteCategory')
-            ->assertHasErrors(['permission']);
+        Livewire::actingAs($actor)->test(CategoriesManage::class)->assertForbidden();
 
         $this->assertDatabaseHas('service_categories', ['id' => $category->id]);
     }
@@ -113,12 +112,7 @@ class CategoriesAuthorizationTest extends TestCase
         ]);
         $actor = $this->makeUserWithNoPermissions();
 
-        Livewire::actingAs($actor)->test(SubcategoriesManage::class)
-            ->set('categoryId', (string) $category->id)
-            ->set('name', 'Blocked Subcategory')
-            ->set('iconFile', UploadedFile::fake()->image('icon.png'))
-            ->call('save')
-            ->assertHasErrors(['permission']);
+        Livewire::actingAs($actor)->test(SubcategoriesManage::class)->assertForbidden();
 
         $this->assertDatabaseMissing('service_subcategories', ['name' => 'Blocked Subcategory']);
     }
@@ -135,9 +129,7 @@ class CategoriesAuthorizationTest extends TestCase
         ]);
         $actor = $this->makeUserWithNoPermissions();
 
-        Livewire::actingAs($actor)->test(SubcategoriesManage::class)
-            ->call('toggleSubcategory', $subcategory->id)
-            ->assertHasErrors(['permission']);
+        Livewire::actingAs($actor)->test(SubcategoriesManage::class)->assertForbidden();
 
         $this->assertTrue($subcategory->fresh()->is_active);
     }

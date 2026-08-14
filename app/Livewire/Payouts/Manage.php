@@ -21,6 +21,19 @@ class Manage extends Component
 {
     use WithPagination;
 
+    /**
+     * No view-level check existed at all — only write actions checked
+     * payouts.manage (Phase 11 audit finding, same bug class addendum #1
+     * already fixed on 15 other screens). This is a particularly serious
+     * instance of the gap: real payout requests/amounts were browsable by
+     * any admin-panel actor of any role. No separate payouts.view
+     * permission was ever seeded, so this reuses payouts.manage.
+     */
+    public function mount(): void
+    {
+        abort_unless(auth()->user()->hasPermissionAnywhere('payouts.manage'), 403, 'You do not have permission to view payouts.');
+    }
+
     public string $payeeType = 'provider'; // provider|franchise_owner
     public string $payeeSearch = '';
     public ?int $selectedPayeeId = null;

@@ -37,6 +37,18 @@ class Manage extends Component
     use WithFileUploads;
     use WithPagination;
 
+    /**
+     * No view-level check existed at all — only write actions checked
+     * categories.manage (subcategories reuse the categories permission
+     * slug, same as every write action in this file) (Phase 11 audit
+     * finding, same bug class addendum #1 already fixed on 15 other
+     * screens).
+     */
+    public function mount(): void
+    {
+        abort_unless(auth()->user()->hasPermissionAnywhere('categories.manage'), 403, 'You do not have permission to view subcategories.');
+    }
+
     // --- "Add New" form ---
     public string $name = '';
     public $iconFile = null;

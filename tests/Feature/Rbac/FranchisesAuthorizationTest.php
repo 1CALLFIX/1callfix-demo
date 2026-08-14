@@ -21,22 +21,18 @@ class FranchisesAuthorizationTest extends TestCase
     use RefreshDatabase;
     use RbacTestHelpers;
 
+    /**
+     * Since Phase 11 added a mount()-level franchises.manage gate to this
+     * whole screen (it never had a separate .view permission), an actor
+     * with zero permissions is now denied at mount() — never reaches
+     * update() to trigger its own action-level check.
+     */
     public function test_update_denied_without_permission(): void
     {
         $franchise = $this->makeFranchise();
         $actor = $this->makeUserWithNoPermissions();
 
-        Livewire::actingAs($actor)->test(Manage::class)
-            ->set('editFranchiseId', $franchise->id)
-            ->set('editName', 'Renamed')
-            ->set('editCountryId', $franchise->country_id)
-            ->set('editCityId', $franchise->city_id)
-            ->set('editCommissionModel', 'revenue_share')
-            ->set('editCommissionValue', '99')
-            ->set('editPlatformFeePercent', '99')
-            ->set('editStatus', 'active')
-            ->call('update')
-            ->assertHasErrors(['permission']);
+        Livewire::actingAs($actor)->test(Manage::class)->assertForbidden();
 
         $this->assertDatabaseMissing('franchises', ['id' => $franchise->id, 'commission_value' => 99]);
     }
@@ -66,9 +62,7 @@ class FranchisesAuthorizationTest extends TestCase
         $franchise = $this->makeFranchise();
         $actor = $this->makeUserWithNoPermissions();
 
-        Livewire::actingAs($actor)->test(Manage::class)
-            ->call('toggleStatus', $franchise->id)
-            ->assertHasErrors(['permission']);
+        Livewire::actingAs($actor)->test(Manage::class)->assertForbidden();
 
         $this->assertSame('active', $franchise->fresh()->status);
     }
@@ -78,10 +72,7 @@ class FranchisesAuthorizationTest extends TestCase
         $franchise = $this->makeFranchise();
         $actor = $this->makeUserWithNoPermissions();
 
-        Livewire::actingAs($actor)->test(Manage::class)
-            ->set('confirmingDeleteId', $franchise->id)
-            ->call('deleteFranchise')
-            ->assertHasErrors(['permission']);
+        Livewire::actingAs($actor)->test(Manage::class)->assertForbidden();
 
         $this->assertDatabaseHas('franchises', ['id' => $franchise->id]);
     }

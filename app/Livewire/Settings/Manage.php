@@ -107,7 +107,6 @@ class Manage extends Component
         'ui_home_screen' => ['label' => 'UI / Home Screen', 'note' => 'Banner position/vendor layout/widget visibility — there\'s no customer-facing home screen yet to configure (M6 not started).'],
         'dynamic_links' => ['label' => 'Dynamic Links', 'note' => 'iOS/Android deep-link scheme, package names, SHA256 — meaningless without a mobile app to link into.'],
         'in_app_support' => ['label' => 'In-App Support', 'note' => 'Support widget/link config for a mobile app that doesn\'t exist yet.'],
-        'subscriptions_membership' => ['label' => 'Subscriptions / Membership', 'note' => 'subscription_plans and provider_subscriptions tables exist with zero consumers anywhere (confirmed by audit) — no provider app to sell a package through, no customer app to sell Prime through.'],
         'app_upgrade' => ['label' => 'App Upgrade', 'note' => 'Independent version gating per app (customer/partner/rider) — queued: the force-update contract (Setting-driven min version + API endpoint) is real backend work regardless of app status, just not built yet.'],
         'advanced_system' => ['label' => 'Advanced / System', 'note' => 'Feature flags, queue behaviour, cache rules — no admin-facing surface for any of this exists yet.'],
     ];
@@ -176,6 +175,15 @@ class Manage extends Component
     public string $referralRewardType = 'wallet';
     public string $referralRewardAmount = '50';
     public string $referralRewardPoints = '100';
+    /**
+     * Read via `Setting::get('referral.pending_expiry_days', '', [])` —
+     * ReferralService passes a hardcoded empty scope (not the picked scope
+     * like every sibling field above), so this ALWAYS writes/reads at
+     * Global regardless of the scope picker, and the field is disabled
+     * whenever a non-global scope is picked (Phase 11 audit finding: this
+     * key was read by real code with no admin UI at all).
+     */
+    public string $referralPendingExpiryDays = '';
 
     // --- Notifications (ChannelResolver, consumed by every Notification class) ---
     public bool $notifyMail = true;
@@ -198,10 +206,89 @@ class Manage extends Component
     public string $paymentCashEnabled = '1';
     public string $paymentWalletEnabled = '1';
 
+    /**
+     * KYC (Phase 11 audit finding: all four keys below were read by real,
+     * already-wired code — KycWithdrawalPolicyService, KycVerificationVideoService,
+     * KycDocumentService, ReviewProviderKycAction — with no admin UI at
+     * all, silently stuck on their hardcoded fallback default forever).
+     * Scope-aware: each consumer is called with the real
+     * franchise/zone-derived scope of the provider/payout in question (see
+     * PayoutService::payoutScope(), Providers\Show), same cascade as every
+     * other tab.
+     */
+    public string $kycWithdrawalRestrictionEnabled = '1';
+    public string $kycRequireVerificationVideo = '1';
+    public string $kycMaxDocumentSizeMb = '10';
+    public string $kycMaxVideoSizeMb = '50';
+
+    /**
+     * Compensation (Phase 11 audit finding: all ten keys below are read by
+     * CompensationService — wired into CompleteBookingAction since Phase 5
+     * — with no admin UI, so every rate was permanently stuck at its 0/-1
+     * "disabled" default no matter what an admin wanted). Every rate still
+     * defaults to 0 / every window to -1 (disabled) here too — this only
+     * adds the ability to change them, it does not invent values.
+     */
+    public string $compensationOvertimeRatePerMinute = '0';
+    public string $compensationOvertimeThresholdMinutes = '0';
+    public string $compensationNightWindowStartHour = '-1';
+    public string $compensationNightWindowEndHour = '-1';
+    public string $compensationNightFlatAmount = '0';
+    public string $compensationPeakWindowStartHour = '-1';
+    public string $compensationPeakWindowEndHour = '-1';
+    public string $compensationPeakFlatAmount = '0';
+    public string $compensationRainFlatAmount = '0';
+    public string $compensationWaitingRatePerMinute = '0';
+
+    /**
+     * Security / OTP (Phase 11 audit finding: OtpService/QrChallengeService
+     * call `Setting::get('auth.otp_length', 6)` etc. with NO scope
+     * argument at all — genuinely global-only, unlike every field above.
+     * The scope picker above this tab is ignored entirely; saveSecurity()
+     * always writes to Global.
+     */
+    public string $authOtpLength = '6';
+    public string $authOtpExpirySeconds = '300';
+    public string $authOtpResendCooldownSeconds = '30';
+    public string $authOtpMaxAttempts = '5';
+    public string $authQrChallengeExpirySeconds = '120';
+
+    /**
+     * Operations (Phase 11 audit finding: StuckBookingService/
+     * DispatchHealthService both call Setting::get() with no scope
+     * argument — genuinely global-only, same as Security/OTP above. The
+     * scope picker is ignored; saveOperations() always writes to Global.
+     */
+    public string $opsStuckThresholdSearchingProvider = '30';
+    public string $opsStuckThresholdAssigned = '60';
+    public string $opsStuckThresholdProviderEnRoute = '60';
+    public string $opsStuckThresholdInProgress = '240';
+    public string $opsStuckThresholdOnHold = '1440';
+    public string $opsDispatchOfferResponseTimeoutMinutes = '2';
+
+    /**
+     * Subscriptions (Phase 11 audit finding: RenewalService calls
+     * `Setting::get('plan.grace_period_days', '0', [])` — hardcoded empty
+     * scope, global-only. Replaces the stale "subscriptions_membership"
+     * placeholder, whose own note ("zero consumers anywhere") was no
+     * longer true — RenewalService is a real, already-wired consumer.
+     */
+    public string $subscriptionsGracePeriodDays = '0';
+
     public string $flashMessage = '';
 
     public function mount(): void
     {
+        // No view-level check existed at all — settings.manage has existed
+        // in the RBAC catalog since the RBAC phase but was only enforced on
+        // 3 of the 10 real tabs' save*() methods (saveRanking/saveLoyalty/
+        // saveWallet), and never at all on view (Phase 11 audit finding,
+        // same bug class addendum #1 already fixed on 15 other screens).
+        // Gating the whole screen here means every save*() method is now
+        // implicitly covered too — the 3 existing per-method checks are
+        // left in place as harmless defense-in-depth.
+        abort_unless(auth()->user()->hasPermissionAnywhere('settings.manage'), 403, 'You do not have permission to view settings.');
+
         $this->loadFields();
     }
 
@@ -320,6 +407,7 @@ class Manage extends Component
         $this->referralRewardType = Setting::get('referral.reward_type', 'wallet', $scope);
         $this->referralRewardAmount = (string) Setting::get('referral.reward_amount', '50', $scope);
         $this->referralRewardPoints = (string) Setting::get('referral.reward_points', '100', $scope);
+        $this->referralPendingExpiryDays = (string) Setting::get('referral.pending_expiry_days', '', []);
 
         $configuredChannels = explode(',', Setting::get('notifications.channels', 'mail', $scope));
         $this->notifyMail = in_array('mail', $configuredChannels, true);
@@ -337,6 +425,39 @@ class Manage extends Component
         $this->paymentOnlineEnabled = (string) Setting::get('payment.online_enabled', '1', $scope);
         $this->paymentCashEnabled = (string) Setting::get('payment.cash_enabled', '1', $scope);
         $this->paymentWalletEnabled = (string) Setting::get('payment.wallet_enabled', '1', $scope);
+
+        $this->kycWithdrawalRestrictionEnabled = (string) (int) Setting::get('kyc.withdrawal_restriction_enabled', '1', $scope);
+        $this->kycRequireVerificationVideo = (string) (int) Setting::get('kyc.require_verification_video', '1', $scope);
+        $this->kycMaxDocumentSizeMb = (string) Setting::get('kyc.max_document_size_mb', '10', $scope);
+        $this->kycMaxVideoSizeMb = (string) Setting::get('kyc.max_video_size_mb', '50', $scope);
+
+        $this->compensationOvertimeRatePerMinute = (string) Setting::get('compensation.overtime_rate_per_minute', '0', $scope);
+        $this->compensationOvertimeThresholdMinutes = (string) Setting::get('compensation.overtime_threshold_minutes', '0', $scope);
+        $this->compensationNightWindowStartHour = (string) Setting::get('compensation.night_window_start_hour', '-1', $scope);
+        $this->compensationNightWindowEndHour = (string) Setting::get('compensation.night_window_end_hour', '-1', $scope);
+        $this->compensationNightFlatAmount = (string) Setting::get('compensation.night_flat_amount', '0', $scope);
+        $this->compensationPeakWindowStartHour = (string) Setting::get('compensation.peak_window_start_hour', '-1', $scope);
+        $this->compensationPeakWindowEndHour = (string) Setting::get('compensation.peak_window_end_hour', '-1', $scope);
+        $this->compensationPeakFlatAmount = (string) Setting::get('compensation.peak_flat_amount', '0', $scope);
+        $this->compensationRainFlatAmount = (string) Setting::get('compensation.rain_flat_amount', '0', $scope);
+        $this->compensationWaitingRatePerMinute = (string) Setting::get('compensation.waiting_rate_per_minute', '0', $scope);
+
+        // Global-only (no scope argument at their call sites) — always read
+        // at Global regardless of the picker above.
+        $this->authOtpLength = (string) Setting::get('auth.otp_length', '6');
+        $this->authOtpExpirySeconds = (string) Setting::get('auth.otp_expiry_seconds', '300');
+        $this->authOtpResendCooldownSeconds = (string) Setting::get('auth.otp_resend_cooldown_seconds', '30');
+        $this->authOtpMaxAttempts = (string) Setting::get('auth.otp_max_attempts', '5');
+        $this->authQrChallengeExpirySeconds = (string) Setting::get('auth.qr_challenge_expiry_seconds', '120');
+
+        $this->opsStuckThresholdSearchingProvider = (string) Setting::get('operations.stuck_threshold_minutes.searching_provider', '30');
+        $this->opsStuckThresholdAssigned = (string) Setting::get('operations.stuck_threshold_minutes.assigned', '60');
+        $this->opsStuckThresholdProviderEnRoute = (string) Setting::get('operations.stuck_threshold_minutes.provider_en_route', '60');
+        $this->opsStuckThresholdInProgress = (string) Setting::get('operations.stuck_threshold_minutes.in_progress', '240');
+        $this->opsStuckThresholdOnHold = (string) Setting::get('operations.stuck_threshold_minutes.on_hold', '1440');
+        $this->opsDispatchOfferResponseTimeoutMinutes = (string) Setting::get('dispatch.offer_response_timeout_minutes', '2');
+
+        $this->subscriptionsGracePeriodDays = (string) Setting::get('plan.grace_period_days', '0');
     }
 
     /** Keys with a real override AT the exact picked scope (not inherited) — drives the "overridden here" badge. */
@@ -513,11 +634,13 @@ class Manage extends Component
             'referralRewardType' => ['required', 'in:wallet,points'],
             'referralRewardAmount' => ['required', 'numeric', 'min:0'],
             'referralRewardPoints' => ['required', 'integer', 'min:0'],
+            'referralPendingExpiryDays' => ['nullable', 'integer', 'min:1'],
         ], [], [
             'loyaltyCustomerPointsPerCurrencyUnit' => 'customer earn rate', 'loyaltyProviderPointsPerCompletedJob' => 'provider earn rate',
             'loyaltyPointsPerRupeeRedemption' => 'redemption rate', 'loyaltyMinRedemptionPoints' => 'minimum redemption',
             'loyaltyPointsExpiryDays' => 'points expiry', 'referralRewardType' => 'referral reward type',
             'referralRewardAmount' => 'referral wallet reward', 'referralRewardPoints' => 'referral points reward',
+            'referralPendingExpiryDays' => 'pending referral expiry',
         ]);
 
         [$scopeType, $scopeId] = $this->scopeTypeAndId();
@@ -534,6 +657,11 @@ class Manage extends Component
         ] as $key => $value) {
             Setting::set($key, $value, $scopeType, $scopeId);
         }
+
+        // ReferralService reads this with a hardcoded empty scope ([]) —
+        // always writes Global, regardless of the picker, so it's never a
+        // dead "override" that the consumer would silently never see.
+        Setting::set('referral.pending_expiry_days', $this->referralPendingExpiryDays, 'global', null);
 
         $this->flashMessage = 'Loyalty / Referral settings saved'.($scopeType === 'global' ? '.' : " for this {$scopeType}.");
     }
@@ -696,6 +824,199 @@ class Manage extends Component
         Setting::set('payment.wallet_enabled', $this->paymentWalletEnabled, $scopeType, $scopeId);
 
         $this->flashMessage = 'Payment settings saved'.($scopeType === 'global' ? '.' : " for this {$scopeType}.");
+    }
+
+    /**
+     * Real consumers: KycWithdrawalPolicyService::explain() (withdrawal
+     * gate), KycVerificationVideoService::submit() (video size cap),
+     * KycDocumentService (document size cap), ReviewProviderKycAction
+     * (video-required-for-approval gate). All four had real, wired
+     * consumers with zero admin UI before this (Phase 11 audit finding).
+     */
+    public function saveKyc(): void
+    {
+        if (! auth()->user()->hasPermission('settings.manage')) {
+            $this->addError('permission', 'You do not have permission to manage KYC settings.');
+            return;
+        }
+
+        $this->validate([
+            'kycWithdrawalRestrictionEnabled' => ['required', 'in:0,1'],
+            'kycRequireVerificationVideo' => ['required', 'in:0,1'],
+            'kycMaxDocumentSizeMb' => ['required', 'numeric', 'min:1', 'max:100'],
+            'kycMaxVideoSizeMb' => ['required', 'numeric', 'min:1', 'max:500'],
+        ], [], [
+            'kycMaxDocumentSizeMb' => 'max document size', 'kycMaxVideoSizeMb' => 'max video size',
+        ]);
+
+        [$scopeType, $scopeId] = $this->scopeTypeAndId();
+
+        foreach ([
+            'kyc.withdrawal_restriction_enabled' => $this->kycWithdrawalRestrictionEnabled,
+            'kyc.require_verification_video' => $this->kycRequireVerificationVideo,
+            'kyc.max_document_size_mb' => $this->kycMaxDocumentSizeMb,
+            'kyc.max_video_size_mb' => $this->kycMaxVideoSizeMb,
+        ] as $key => $value) {
+            Setting::set($key, $value, $scopeType, $scopeId);
+        }
+
+        $this->flashMessage = 'KYC settings saved'.($scopeType === 'global' ? '.' : " for this {$scopeType}.");
+    }
+
+    /**
+     * Real consumer: App\Services\CompensationService, wired into
+     * CompleteBookingAction since mission Phase 5 (tips/waiting/rain/
+     * overtime/peak/night). Every rate defaulted to 0 / every window to -1
+     * (disabled) with zero admin UI to ever change them (Phase 11 audit
+     * finding) — this only adds the ability to configure them, values
+     * below stay at the same safe defaults until an admin changes them.
+     */
+    public function saveCompensation(): void
+    {
+        if (! auth()->user()->hasPermission('settings.manage')) {
+            $this->addError('permission', 'You do not have permission to manage compensation settings.');
+            return;
+        }
+
+        $this->validate([
+            'compensationOvertimeRatePerMinute' => ['required', 'numeric', 'min:0'],
+            'compensationOvertimeThresholdMinutes' => ['required', 'integer', 'min:0'],
+            'compensationNightWindowStartHour' => ['required', 'integer', 'min:-1', 'max:23'],
+            'compensationNightWindowEndHour' => ['required', 'integer', 'min:-1', 'max:23'],
+            'compensationNightFlatAmount' => ['required', 'numeric', 'min:0'],
+            'compensationPeakWindowStartHour' => ['required', 'integer', 'min:-1', 'max:23'],
+            'compensationPeakWindowEndHour' => ['required', 'integer', 'min:-1', 'max:23'],
+            'compensationPeakFlatAmount' => ['required', 'numeric', 'min:0'],
+            'compensationRainFlatAmount' => ['required', 'numeric', 'min:0'],
+            'compensationWaitingRatePerMinute' => ['required', 'numeric', 'min:0'],
+        ], [], [
+            'compensationOvertimeRatePerMinute' => 'overtime rate', 'compensationOvertimeThresholdMinutes' => 'overtime threshold',
+            'compensationNightWindowStartHour' => 'night window start', 'compensationNightWindowEndHour' => 'night window end',
+            'compensationNightFlatAmount' => 'night flat amount',
+            'compensationPeakWindowStartHour' => 'peak window start', 'compensationPeakWindowEndHour' => 'peak window end',
+            'compensationPeakFlatAmount' => 'peak flat amount',
+            'compensationRainFlatAmount' => 'rain flat amount', 'compensationWaitingRatePerMinute' => 'waiting rate',
+        ]);
+
+        [$scopeType, $scopeId] = $this->scopeTypeAndId();
+
+        foreach ([
+            'compensation.overtime_rate_per_minute' => $this->compensationOvertimeRatePerMinute,
+            'compensation.overtime_threshold_minutes' => $this->compensationOvertimeThresholdMinutes,
+            'compensation.night_window_start_hour' => $this->compensationNightWindowStartHour,
+            'compensation.night_window_end_hour' => $this->compensationNightWindowEndHour,
+            'compensation.night_flat_amount' => $this->compensationNightFlatAmount,
+            'compensation.peak_window_start_hour' => $this->compensationPeakWindowStartHour,
+            'compensation.peak_window_end_hour' => $this->compensationPeakWindowEndHour,
+            'compensation.peak_flat_amount' => $this->compensationPeakFlatAmount,
+            'compensation.rain_flat_amount' => $this->compensationRainFlatAmount,
+            'compensation.waiting_rate_per_minute' => $this->compensationWaitingRatePerMinute,
+        ] as $key => $value) {
+            Setting::set($key, $value, $scopeType, $scopeId);
+        }
+
+        $this->flashMessage = 'Compensation settings saved'.($scopeType === 'global' ? '.' : " for this {$scopeType}.");
+    }
+
+    /**
+     * Real consumers: OtpService (login/verification OTP), QrChallengeService
+     * (device-pairing QR). Both call Setting::get() with NO scope argument
+     * at all — genuinely global-only, unlike every scoped tab above — so
+     * this always writes Global regardless of the scope picker (Phase 11
+     * audit finding: real, wired security parameters with zero admin UI).
+     */
+    public function saveSecurity(): void
+    {
+        if (! auth()->user()->hasPermission('settings.manage')) {
+            $this->addError('permission', 'You do not have permission to manage security settings.');
+            return;
+        }
+
+        $this->validate([
+            'authOtpLength' => ['required', 'integer', 'min:4', 'max:8'],
+            'authOtpExpirySeconds' => ['required', 'integer', 'min:30', 'max:3600'],
+            'authOtpResendCooldownSeconds' => ['required', 'integer', 'min:10', 'max:600'],
+            'authOtpMaxAttempts' => ['required', 'integer', 'min:1', 'max:20'],
+            'authQrChallengeExpirySeconds' => ['required', 'integer', 'min:30', 'max:600'],
+        ], [], [
+            'authOtpLength' => 'OTP length', 'authOtpExpirySeconds' => 'OTP expiry',
+            'authOtpResendCooldownSeconds' => 'OTP resend cooldown', 'authOtpMaxAttempts' => 'OTP max attempts',
+            'authQrChallengeExpirySeconds' => 'QR challenge expiry',
+        ]);
+
+        foreach ([
+            'auth.otp_length' => $this->authOtpLength,
+            'auth.otp_expiry_seconds' => $this->authOtpExpirySeconds,
+            'auth.otp_resend_cooldown_seconds' => $this->authOtpResendCooldownSeconds,
+            'auth.otp_max_attempts' => $this->authOtpMaxAttempts,
+            'auth.qr_challenge_expiry_seconds' => $this->authQrChallengeExpirySeconds,
+        ] as $key => $value) {
+            Setting::set($key, $value, 'global', null);
+        }
+
+        $this->flashMessage = 'Security / OTP settings saved (global — these are read without a scope by their consumers).';
+    }
+
+    /**
+     * Real consumers: StuckBookingService, DispatchHealthService (both
+     * mission Phase 10 — Operations expansion). Both call Setting::get()
+     * with NO scope argument — global-only, same as Security/OTP above.
+     * Phase 11 audit finding: these thresholds had zero admin UI, only
+     * reachable via a direct DB/tinker edit.
+     */
+    public function saveOperations(): void
+    {
+        if (! auth()->user()->hasPermission('settings.manage')) {
+            $this->addError('permission', 'You do not have permission to manage operations settings.');
+            return;
+        }
+
+        $this->validate([
+            'opsStuckThresholdSearchingProvider' => ['required', 'integer', 'min:1'],
+            'opsStuckThresholdAssigned' => ['required', 'integer', 'min:1'],
+            'opsStuckThresholdProviderEnRoute' => ['required', 'integer', 'min:1'],
+            'opsStuckThresholdInProgress' => ['required', 'integer', 'min:1'],
+            'opsStuckThresholdOnHold' => ['required', 'integer', 'min:1'],
+            'opsDispatchOfferResponseTimeoutMinutes' => ['required', 'integer', 'min:1'],
+        ], [], [
+            'opsStuckThresholdSearchingProvider' => 'searching-provider threshold', 'opsStuckThresholdAssigned' => 'assigned threshold',
+            'opsStuckThresholdProviderEnRoute' => 'en-route threshold', 'opsStuckThresholdInProgress' => 'in-progress threshold',
+            'opsStuckThresholdOnHold' => 'on-hold threshold', 'opsDispatchOfferResponseTimeoutMinutes' => 'dispatch offer response timeout',
+        ]);
+
+        foreach ([
+            'operations.stuck_threshold_minutes.searching_provider' => $this->opsStuckThresholdSearchingProvider,
+            'operations.stuck_threshold_minutes.assigned' => $this->opsStuckThresholdAssigned,
+            'operations.stuck_threshold_minutes.provider_en_route' => $this->opsStuckThresholdProviderEnRoute,
+            'operations.stuck_threshold_minutes.in_progress' => $this->opsStuckThresholdInProgress,
+            'operations.stuck_threshold_minutes.on_hold' => $this->opsStuckThresholdOnHold,
+            'dispatch.offer_response_timeout_minutes' => $this->opsDispatchOfferResponseTimeoutMinutes,
+        ] as $key => $value) {
+            Setting::set($key, $value, 'global', null);
+        }
+
+        $this->flashMessage = 'Operations settings saved (global — these are read without a scope by their consumers).';
+    }
+
+    /**
+     * Real consumer: App\Services\Plans\RenewalService, called with a
+     * hardcoded empty scope ([]) — global-only. Replaces the stale
+     * "subscriptions_membership" placeholder (Phase 11 audit finding).
+     */
+    public function saveSubscriptions(): void
+    {
+        if (! auth()->user()->hasPermission('settings.manage')) {
+            $this->addError('permission', 'You do not have permission to manage subscription settings.');
+            return;
+        }
+
+        $this->validate([
+            'subscriptionsGracePeriodDays' => ['required', 'integer', 'min:0', 'max:90'],
+        ], [], ['subscriptionsGracePeriodDays' => 'grace period']);
+
+        Setting::set('plan.grace_period_days', $this->subscriptionsGracePeriodDays, 'global', null);
+
+        $this->flashMessage = 'Subscription settings saved (global — read without a scope by RenewalService).';
     }
 
     public function render()

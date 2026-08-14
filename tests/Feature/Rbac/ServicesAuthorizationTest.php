@@ -27,17 +27,18 @@ class ServicesAuthorizationTest extends TestCase
         ]);
     }
 
-    public function test_user_without_permission_cannot_create_service(): void
+    /**
+     * Since Phase 11 added a mount()-level services.manage gate to this
+     * whole screen (it never had a separate .view permission), an actor
+     * with zero permissions is now denied at mount() — never reaches
+     * save() to trigger its own action-level check.
+     */
+    public function test_user_without_permission_cannot_view_or_create_service(): void
     {
         $category = $this->makeCategory();
         $actor = $this->makeUserWithNoPermissions();
 
-        Livewire::actingAs($actor)->test(Manage::class)
-            ->set('categoryId', (string) $category->id)
-            ->set('name', 'Blocked Service')
-            ->set('basePrice', '100')
-            ->call('save')
-            ->assertHasErrors(['permission']);
+        Livewire::actingAs($actor)->test(Manage::class)->assertForbidden();
 
         $this->assertDatabaseMissing('services', ['name' => 'Blocked Service']);
     }
@@ -67,9 +68,7 @@ class ServicesAuthorizationTest extends TestCase
         ]);
         $actor = $this->makeUserWithNoPermissions();
 
-        Livewire::actingAs($actor)->test(Manage::class)
-            ->call('toggleActive', $service->id)
-            ->assertHasErrors(['permission']);
+        Livewire::actingAs($actor)->test(Manage::class)->assertForbidden();
 
         $this->assertTrue($service->fresh()->is_active);
     }
@@ -84,10 +83,7 @@ class ServicesAuthorizationTest extends TestCase
         ]);
         $actor = $this->makeUserWithNoPermissions();
 
-        Livewire::actingAs($actor)->test(Manage::class)
-            ->set('confirmingDeleteId', $service->id)
-            ->call('deleteService')
-            ->assertHasErrors(['permission']);
+        Livewire::actingAs($actor)->test(Manage::class)->assertForbidden();
 
         $this->assertDatabaseHas('services', ['id' => $service->id, 'deleted_at' => null]);
     }

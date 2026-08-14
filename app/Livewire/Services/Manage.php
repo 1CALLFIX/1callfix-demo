@@ -101,6 +101,11 @@ class Manage extends Component
 
     public function mount(): void
     {
+        // No view-level check existed at all — only write actions checked
+        // services.manage (Phase 11 audit finding, same bug class
+        // addendum #1 already fixed on 15 other screens).
+        abort_unless(auth()->user()->hasPermissionAnywhere('services.manage'), 403, 'You do not have permission to view services.');
+
         // Deep links like /admin/services?categoryId=5 still work. Read off the
         // query string rather than typed mount() parameters: this route has no
         // {categoryId} segment, and Livewire only auto-injects actual route

@@ -28,6 +28,20 @@ class Manage extends Component
     use WithFileUploads;
     use WithPagination;
 
+    /**
+     * This screen previously had no view-level check at all — only the
+     * write actions (save/update/delete) checked banners.manage, meaning
+     * any admin-panel actor of any role could browse it (Phase 11 audit
+     * finding, same bug class addendum #1 already fixed on 15 other
+     * screens). No separate banners.view permission was ever seeded, so
+     * this reuses banners.manage — consistent with every write action
+     * already requiring it.
+     */
+    public function mount(): void
+    {
+        abort_unless(auth()->user()->hasPermissionAnywhere('banners.manage'), 403, 'You do not have permission to view banners.');
+    }
+
     // --- "Add New" form ---
     public string $title = '';
     public $imageFile = null;

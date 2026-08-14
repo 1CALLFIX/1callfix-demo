@@ -26,6 +26,17 @@ class Manage extends Component
     use WithFileUploads;
     use WithPagination;
 
+    /**
+     * No view-level check existed at all — only write actions checked
+     * categories.manage (Phase 11 audit finding, same bug class addendum
+     * #1 already fixed on 15 other screens). No separate categories.view
+     * permission was ever seeded, so this reuses categories.manage.
+     */
+    public function mount(): void
+    {
+        abort_unless(auth()->user()->hasPermissionAnywhere('categories.manage'), 403, 'You do not have permission to view categories.');
+    }
+
     // --- "Add New" form (one line, pinned at top) ---
     // No sort_order field on purpose: new categories land at the end and
     // ordering is set with the Reorder controls on the list instead, so

@@ -18,15 +18,17 @@ class CmsAuthorizationTest extends TestCase
     use RefreshDatabase;
     use RbacTestHelpers;
 
-    public function test_user_without_permission_cannot_create_page(): void
+    /**
+     * Since Phase 11 added a mount()-level cms.manage gate to this whole
+     * screen (it never had a separate .view permission), an actor with
+     * zero permissions is now denied at mount() — never reaches savePage()
+     * to trigger its own action-level check.
+     */
+    public function test_user_without_permission_cannot_view_or_create_page(): void
     {
         $actor = $this->makeUserWithNoPermissions();
 
-        Livewire::actingAs($actor)->test(Manage::class)
-            ->set('pageSlug', 'blocked-page')
-            ->set('pageTitle', 'Blocked Page')
-            ->call('savePage')
-            ->assertHasErrors(['permission']);
+        Livewire::actingAs($actor)->test(Manage::class)->assertForbidden();
 
         $this->assertDatabaseMissing('content_pages', ['slug' => 'blocked-page']);
     }
@@ -60,11 +62,7 @@ class CmsAuthorizationTest extends TestCase
     {
         $actor = $this->makeUserWithNoPermissions();
 
-        Livewire::actingAs($actor)->test(Manage::class)
-            ->set('faqQuestion', 'Blocked question?')
-            ->set('faqAnswer', 'Blocked answer.')
-            ->call('saveFaq')
-            ->assertHasErrors(['permission']);
+        Livewire::actingAs($actor)->test(Manage::class)->assertForbidden();
 
         $this->assertDatabaseMissing('faqs', ['question' => 'Blocked question?']);
     }
@@ -74,10 +72,7 @@ class CmsAuthorizationTest extends TestCase
         $faq = Faq::create(['question' => 'Q', 'answer' => 'A', 'sort_order' => 1, 'is_active' => true]);
         $actor = $this->makeUserWithNoPermissions();
 
-        Livewire::actingAs($actor)->test(Manage::class)
-            ->set('confirmingDeleteFaqId', $faq->id)
-            ->call('deleteFaq')
-            ->assertHasErrors(['permission']);
+        Livewire::actingAs($actor)->test(Manage::class)->assertForbidden();
 
         $this->assertDatabaseHas('faqs', ['id' => $faq->id]);
     }
@@ -87,10 +82,7 @@ class CmsAuthorizationTest extends TestCase
         $page = ContentPage::create(['slug' => 'existing-page', 'title' => 'Existing Page']);
         $actor = $this->makeUserWithNoPermissions();
 
-        Livewire::actingAs($actor)->test(Manage::class)
-            ->set('confirmingDeletePageId', $page->id)
-            ->call('deletePage')
-            ->assertHasErrors(['permission']);
+        Livewire::actingAs($actor)->test(Manage::class)->assertForbidden();
 
         $this->assertDatabaseHas('content_pages', ['id' => $page->id]);
     }

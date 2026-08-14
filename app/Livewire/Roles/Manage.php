@@ -23,6 +23,19 @@ class Manage extends Component
 {
     use WithPagination;
 
+    /**
+     * No view-level check existed at all — only write actions checked
+     * roles.manage (Phase 11 audit finding, same bug class addendum #1
+     * already fixed on 15 other screens). A particularly serious instance:
+     * the entire RBAC role-assignment matrix was browsable by any
+     * admin-panel actor of any role. No separate roles.view permission was
+     * ever seeded, so this reuses roles.manage.
+     */
+    public function mount(): void
+    {
+        abort_unless(auth()->user()->hasPermissionAnywhere('roles.manage'), 403, 'You do not have permission to view roles & permissions.');
+    }
+
     public string $userSearch = '';
     public ?int $selectedUserId = null;
     public ?int $roleId = null;

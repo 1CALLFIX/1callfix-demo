@@ -32,6 +32,17 @@ class Manage extends Component
     public function mount(int $franchiseId): void
     {
         $this->franchise = Franchise::findOrFail($franchiseId);
+
+        // No view-level check existed at all — only save() checked
+        // franchise_pricing.manage (Phase 11 audit finding, same bug class
+        // addendum #1 already fixed on 15 other screens). Scoped to this
+        // specific franchise, same as canManage() below.
+        abort_unless(
+            auth()->user()->hasPermission('franchise_pricing.manage', ['franchise_id' => $this->franchise->id]),
+            403,
+            'You do not have permission to view pricing for this franchise.'
+        );
+
         $this->loadRows();
     }
 

@@ -17,6 +17,17 @@ use Livewire\Component;
 // not to need their own separate screens.
 class Manage extends Component
 {
+    /**
+     * No view-level check existed at all — only write actions checked
+     * cms.manage (Phase 11 audit finding, same bug class addendum #1
+     * already fixed on 15 other screens). No separate cms.view permission
+     * was ever seeded, so this reuses cms.manage.
+     */
+    public function mount(): void
+    {
+        abort_unless(auth()->user()->hasPermissionAnywhere('cms.manage'), 403, 'You do not have permission to view CMS content.');
+    }
+
     public string $section = 'pages'; // pages|faqs
 
     // --- Pages: add ---

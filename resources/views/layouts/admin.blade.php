@@ -71,34 +71,52 @@
         <div class="flex">
             <nav id="admin-sidebar" class="bg-slate-800 min-h-[calc(100vh-52px)] flex flex-col items-center py-4 gap-1 sticky top-[52px] shrink-0">
                 @php
+                    // Each item's 'permission' is the SAME slug (or list of
+                    // slugs, any-of) its target screen's own mount() now
+                    // enforces — kept in sync by hand since no shared
+                    // route->permission registry exists in this codebase
+                    // (Phase 11 audit finding: previously every item was
+                    // shown to every admin-panel actor regardless of role,
+                    // e.g. a read-only `support` user saw Payouts and Roles
+                    // & Permissions identically to a Super Admin). This
+                    // only hides links a user can't open anyway — it is
+                    // NOT the enforcement boundary, each screen's own
+                    // mount() check still is.
                     $navItems = [
-                        ['label' => 'Dashboard', 'route' => 'admin.dashboard', 'icon' => 'home', 'active' => true],
-                        ['label' => 'Bookings', 'route' => 'admin.bookings.index', 'icon' => 'clipboard', 'active' => true],
-                        ['label' => 'Customers', 'route' => 'admin.customers.index', 'icon' => 'users', 'active' => true],
-                        ['label' => 'Providers', 'route' => 'admin.providers.index', 'icon' => 'users', 'active' => true],
-                        ['label' => 'Workers', 'route' => 'admin.workers.index', 'icon' => 'users', 'active' => true],
-                        ['label' => 'Zones', 'route' => 'admin.zones.index', 'icon' => 'map', 'active' => true],
-                        ['label' => 'Geography', 'route' => 'admin.geography.index', 'icon' => 'map', 'active' => true],
-                        ['label' => 'Franchises', 'route' => 'admin.franchises.index', 'icon' => 'building', 'active' => true],
-                        ['label' => 'Services', 'route' => 'admin.services.index', 'icon' => 'wrench', 'active' => true],
-                        ['label' => 'Banners', 'route' => 'admin.banners.index', 'icon' => 'megaphone', 'active' => true],
-                        ['label' => 'Badges', 'route' => 'admin.badges.index', 'icon' => 'tag', 'active' => true],
-                        ['label' => 'Flash Sales', 'route' => 'admin.flash-sales.index', 'icon' => 'bolt', 'active' => true],
-                        ['label' => 'Performance Campaigns', 'route' => 'admin.performance-campaigns.index', 'icon' => 'trophy', 'active' => true],
-                        ['label' => 'KYC Support Requests', 'route' => 'admin.kyc.support-requests.index', 'icon' => 'shield', 'active' => true],
-                        ['label' => 'Website / CMS', 'route' => 'admin.cms.index', 'icon' => 'document', 'active' => true],
-                        ['label' => 'Payouts', 'route' => 'admin.payouts.index', 'icon' => 'banknotes', 'active' => true],
-                        ['label' => 'Wallet Ledger', 'route' => 'admin.wallet-ledger.index', 'icon' => 'banknotes', 'active' => true],
-                        ['label' => 'Loyalty & Referrals', 'route' => 'admin.loyalty.index', 'icon' => 'sparkles', 'active' => true],
-                        ['label' => 'Commissions', 'route' => 'admin.commissions.index', 'icon' => 'banknotes', 'active' => true],
-                        ['label' => 'Payments', 'route' => 'admin.payments.index', 'icon' => 'banknotes', 'active' => true],
-                        ['label' => 'Notification Center', 'route' => 'admin.notifications.index', 'icon' => 'bell', 'active' => true],
-                        ['label' => 'Plans & Memberships', 'route' => 'admin.plans.index', 'icon' => 'sparkles', 'active' => true],
-                        ['label' => 'Subscriptions', 'route' => 'admin.subscriptions.index', 'icon' => 'ticket', 'active' => true],
-                        ['label' => 'Operations', 'route' => 'admin.operations.index', 'icon' => 'activity', 'active' => true],
-                        ['label' => 'Roles & Permissions', 'route' => 'admin.roles.index', 'icon' => 'shield', 'active' => true],
-                        ['label' => 'Settings', 'route' => 'admin.settings.index', 'icon' => 'gear', 'active' => true],
+                        ['label' => 'Dashboard', 'route' => 'admin.dashboard', 'icon' => 'home', 'active' => true, 'permission' => 'dashboard.view'],
+                        ['label' => 'Bookings', 'route' => 'admin.bookings.index', 'icon' => 'clipboard', 'active' => true, 'permission' => 'bookings.view'],
+                        ['label' => 'Customers', 'route' => 'admin.customers.index', 'icon' => 'users', 'active' => true, 'permission' => 'customers.view'],
+                        ['label' => 'Providers', 'route' => 'admin.providers.index', 'icon' => 'users', 'active' => true, 'permission' => 'providers.view'],
+                        ['label' => 'Workers', 'route' => 'admin.workers.index', 'icon' => 'users', 'active' => true, 'permission' => 'workers.view'],
+                        ['label' => 'Zones', 'route' => 'admin.zones.index', 'icon' => 'map', 'active' => true, 'permission' => 'zones.manage'],
+                        ['label' => 'Geography', 'route' => 'admin.geography.index', 'icon' => 'map', 'active' => true, 'permission' => 'geography.manage'],
+                        ['label' => 'Franchises', 'route' => 'admin.franchises.index', 'icon' => 'building', 'active' => true, 'permission' => 'franchises.manage'],
+                        ['label' => 'Services', 'route' => 'admin.services.index', 'icon' => 'wrench', 'active' => true, 'permission' => 'services.manage'],
+                        ['label' => 'Categories', 'route' => 'admin.categories.index', 'icon' => 'wrench', 'active' => true, 'permission' => 'categories.manage'],
+                        ['label' => 'Subcategories', 'route' => 'admin.subcategories.index', 'icon' => 'wrench', 'active' => true, 'permission' => 'categories.manage'],
+                        ['label' => 'Banners', 'route' => 'admin.banners.index', 'icon' => 'megaphone', 'active' => true, 'permission' => 'banners.manage'],
+                        ['label' => 'Badges', 'route' => 'admin.badges.index', 'icon' => 'tag', 'active' => true, 'permission' => 'badges.view'],
+                        ['label' => 'Flash Sales', 'route' => 'admin.flash-sales.index', 'icon' => 'bolt', 'active' => true, 'permission' => 'flash_sales.view'],
+                        ['label' => 'Performance Campaigns', 'route' => 'admin.performance-campaigns.index', 'icon' => 'trophy', 'active' => true, 'permission' => 'performance_campaigns.view'],
+                        ['label' => 'KYC Support Requests', 'route' => 'admin.kyc.support-requests.index', 'icon' => 'shield', 'active' => true, 'permission' => ['kyc.support_requests.create', 'kyc.support_requests.decide']],
+                        ['label' => 'Website / CMS', 'route' => 'admin.cms.index', 'icon' => 'document', 'active' => true, 'permission' => 'cms.manage'],
+                        ['label' => 'Payouts', 'route' => 'admin.payouts.index', 'icon' => 'banknotes', 'active' => true, 'permission' => 'payouts.manage'],
+                        ['label' => 'Wallet Ledger', 'route' => 'admin.wallet-ledger.index', 'icon' => 'banknotes', 'active' => true, 'permission' => 'wallets.view'],
+                        ['label' => 'Loyalty & Referrals', 'route' => 'admin.loyalty.index', 'icon' => 'sparkles', 'active' => true, 'permission' => 'loyalty.view'],
+                        ['label' => 'Commissions', 'route' => 'admin.commissions.index', 'icon' => 'banknotes', 'active' => true, 'permission' => 'commissions.view'],
+                        ['label' => 'Payments', 'route' => 'admin.payments.index', 'icon' => 'banknotes', 'active' => true, 'permission' => 'payments.view'],
+                        ['label' => 'Notification Center', 'route' => 'admin.notifications.index', 'icon' => 'bell', 'active' => true, 'permission' => 'notification.view'],
+                        ['label' => 'Plans & Memberships', 'route' => 'admin.plans.index', 'icon' => 'sparkles', 'active' => true, 'permission' => 'plans.view'],
+                        ['label' => 'Subscriptions', 'route' => 'admin.subscriptions.index', 'icon' => 'ticket', 'active' => true, 'permission' => 'subscriptions.view'],
+                        ['label' => 'Operations', 'route' => 'admin.operations.index', 'icon' => 'activity', 'active' => true, 'permission' => 'operations.view'],
+                        ['label' => 'Roles & Permissions', 'route' => 'admin.roles.index', 'icon' => 'shield', 'active' => true, 'permission' => 'roles.manage'],
+                        ['label' => 'Settings', 'route' => 'admin.settings.index', 'icon' => 'gear', 'active' => true, 'permission' => 'settings.manage'],
                     ];
+
+                    $canSeeNavItem = fn ($item) => collect((array) $item['permission'])
+                        ->contains(fn ($p) => auth()->user()->hasPermissionAnywhere($p));
+
+                    $navItems = array_values(array_filter($navItems, $canSeeNavItem));
                 @endphp
 
                 @foreach ($navItems as $item)

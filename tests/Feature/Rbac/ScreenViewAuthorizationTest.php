@@ -2,21 +2,33 @@
 
 namespace Tests\Feature\Rbac;
 
+use App\Livewire\Banners\Manage as BannersManage;
 use App\Livewire\Bookings\Index as BookingsIndex;
 use App\Livewire\Bookings\Show as BookingsShow;
+use App\Livewire\Categories\Manage as CategoriesManage;
+use App\Livewire\Cms\Manage as CmsManage;
 use App\Livewire\Commissions\Index as CommissionsIndex;
 use App\Livewire\Customers\Index as CustomersIndex;
 use App\Livewire\Customers\Show as CustomersShow;
 use App\Livewire\Dashboard;
+use App\Livewire\Franchises\Manage as FranchisesManage;
+use App\Livewire\FranchisePricing\Manage as FranchisePricingManage;
+use App\Livewire\Geography\Manage as GeographyManage;
 use App\Livewire\Loyalty\Index as LoyaltyIndex;
 use App\Livewire\NotificationCenter\Manage as NotificationCenterManage;
+use App\Livewire\Payouts\Manage as PayoutsManage;
 use App\Livewire\Plans\Manage as PlansManage;
 use App\Livewire\Providers\Index as ProvidersIndex;
 use App\Livewire\Providers\Show as ProvidersShow;
+use App\Livewire\Roles\Manage as RolesManage;
+use App\Livewire\Services\Manage as ServicesManage;
+use App\Livewire\Settings\Manage as SettingsManage;
+use App\Livewire\Subcategories\Manage as SubcategoriesManage;
 use App\Livewire\Subscriptions\Index as SubscriptionsIndex;
 use App\Livewire\WalletLedger\Index as WalletLedgerIndex;
 use App\Livewire\Workers\Index as WorkersIndex;
 use App\Livewire\Workers\Show as WorkersShow;
+use App\Livewire\Zones\Manage as ZonesManage;
 use App\Models\FieldWorker;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
@@ -46,6 +58,15 @@ use Tests\TestCase;
  * full row-scoping" reason) since none of these screens filter their
  * results by the viewer's own scope yet — that per-row scoping is a
  * separate, larger enhancement, not invented here.
+ *
+ * Extended (Phase 11 — Admin Menu/Settings completeness audit) with 12 MORE
+ * screens found to have exactly the same gap: Banners, Categories, Cms,
+ * Geography, Payouts, Roles, Subcategories, Franchises, FranchisePricing,
+ * Services, Settings, Zones. These never even had a dedicated `.view`
+ * permission seeded (only a `.manage` slug, already required by every
+ * write action on each screen) — so, unlike the first batch above, each
+ * reuses its own `.manage` slug as the view gate rather than inventing a
+ * new permission concept.
  */
 class ScreenViewAuthorizationTest extends TestCase
 {
@@ -89,6 +110,18 @@ class ScreenViewAuthorizationTest extends TestCase
             'Subscriptions\\Index' => ['subscriptions.view', fn ($actor) => Livewire::actingAs($actor)->test(SubscriptionsIndex::class)],
             'Plans\\Manage' => ['plans.view', fn ($actor) => Livewire::actingAs($actor)->test(PlansManage::class)],
             'NotificationCenter\\Manage' => ['notification.view', fn ($actor) => Livewire::actingAs($actor)->test(NotificationCenterManage::class)],
+            'Banners\\Manage' => ['banners.manage', fn ($actor) => Livewire::actingAs($actor)->test(BannersManage::class)],
+            'Categories\\Manage' => ['categories.manage', fn ($actor) => Livewire::actingAs($actor)->test(CategoriesManage::class)],
+            'Cms\\Manage' => ['cms.manage', fn ($actor) => Livewire::actingAs($actor)->test(CmsManage::class)],
+            'Geography\\Manage' => ['geography.manage', fn ($actor) => Livewire::actingAs($actor)->test(GeographyManage::class)],
+            'Payouts\\Manage' => ['payouts.manage', fn ($actor) => Livewire::actingAs($actor)->test(PayoutsManage::class)],
+            'Roles\\Manage' => ['roles.manage', fn ($actor) => Livewire::actingAs($actor)->test(RolesManage::class)],
+            'Subcategories\\Manage' => ['categories.manage', fn ($actor) => Livewire::actingAs($actor)->test(SubcategoriesManage::class)],
+            'Franchises\\Manage' => ['franchises.manage', fn ($actor) => Livewire::actingAs($actor)->test(FranchisesManage::class)],
+            'FranchisePricing\\Manage' => ['franchise_pricing.manage', fn ($actor) => Livewire::actingAs($actor)->test(FranchisePricingManage::class, ['franchiseId' => $scenario['franchise']->id])],
+            'Services\\Manage' => ['services.manage', fn ($actor) => Livewire::actingAs($actor)->test(ServicesManage::class)],
+            'Settings\\Manage' => ['settings.manage', fn ($actor) => Livewire::actingAs($actor)->test(SettingsManage::class)],
+            'Zones\\Manage' => ['zones.manage', fn ($actor) => Livewire::actingAs($actor)->test(ZonesManage::class)],
         ];
     }
 

@@ -17,17 +17,18 @@ class ZonesAuthorizationTest extends TestCase
     use RefreshDatabase;
     use RbacTestHelpers;
 
-    public function test_user_without_permission_cannot_create_zone(): void
+    /**
+     * Since Phase 11 added a mount()-level zones.manage gate to this whole
+     * screen (it never had a separate .view permission), an actor with
+     * zero permissions is now denied at mount() — never reaches save() to
+     * trigger its own action-level check.
+     */
+    public function test_user_without_permission_cannot_view_or_create_zone(): void
     {
         $franchise = $this->makeFranchise();
         $actor = $this->makeUserWithNoPermissions();
 
-        Livewire::actingAs($actor)->test(Manage::class)
-            ->set('franchiseId', (string) $franchise->id)
-            ->set('name', 'Blocked Zone')
-            ->set('boundaryPolygonJson', json_encode([['lat' => 1, 'lng' => 1], ['lat' => 2, 'lng' => 2], ['lat' => 3, 'lng' => 3]]))
-            ->call('save')
-            ->assertHasErrors(['permission']);
+        Livewire::actingAs($actor)->test(Manage::class)->assertForbidden();
 
         $this->assertDatabaseMissing('zones', ['name' => 'Blocked Zone']);
     }
@@ -104,9 +105,7 @@ class ZonesAuthorizationTest extends TestCase
         ]);
         $actor = $this->makeUserWithNoPermissions();
 
-        Livewire::actingAs($actor)->test(Manage::class)
-            ->call('toggleActive', $zone->id)
-            ->assertHasErrors(['permission']);
+        Livewire::actingAs($actor)->test(Manage::class)->assertForbidden();
 
         $this->assertTrue($zone->fresh()->is_active);
     }
@@ -121,10 +120,7 @@ class ZonesAuthorizationTest extends TestCase
         ]);
         $actor = $this->makeUserWithNoPermissions();
 
-        Livewire::actingAs($actor)->test(Manage::class)
-            ->set('confirmingDeleteId', $zone->id)
-            ->call('deleteZone')
-            ->assertHasErrors(['permission']);
+        Livewire::actingAs($actor)->test(Manage::class)->assertForbidden();
 
         $this->assertDatabaseHas('zones', ['id' => $zone->id]);
     }

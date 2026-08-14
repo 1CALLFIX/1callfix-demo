@@ -16,6 +16,17 @@ use Livewire\Component;
  */
 class Manage extends Component
 {
+    /**
+     * No view-level check existed at all — only write actions checked
+     * geography.manage (Phase 11 audit finding, same bug class addendum
+     * #1 already fixed on 15 other screens). No separate geography.view
+     * permission was ever seeded, so this reuses geography.manage.
+     */
+    public function mount(): void
+    {
+        abort_unless(auth()->user()->hasPermissionAnywhere('geography.manage'), 403, 'You do not have permission to view geography.');
+    }
+
     // --- New country form ---
     public string $name = '';
     public string $code = '';

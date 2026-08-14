@@ -9,6 +9,11 @@
         'wallet' => 'Wallet',
         'ranking' => 'Priority / Ranking',
         'loyalty' => 'Loyalty / Referral',
+        'kyc' => 'KYC',
+        'compensation' => 'Compensation',
+        'security' => 'Security / OTP',
+        'operations' => 'Operations',
+        'subscriptions' => 'Subscriptions',
         'notifications' => 'Notifications',
         'locale' => 'Locale & Currency',
         'branding' => 'Platform / Branding',
@@ -513,11 +518,231 @@
                         <input type="number" step="1" wire:model="referralRewardPoints" class="w-full border rounded px-3 py-2 text-sm">
                         @error('referralRewardPoints') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
                     </div>
+                    <div>
+                        <label class="block text-xs font-medium mb-1">Pending expiry (days, blank = never)</label>
+                        <input type="number" step="1" min="1" wire:model="referralPendingExpiryDays" class="w-full border rounded px-3 py-2 text-sm" @disabled($scoped)>
+                        <p class="text-[11px] text-gray-400 mt-1">Global only — ReferralService reads this without a scope, so the picker above doesn't apply to this one field.</p>
+                        @error('referralPendingExpiryDays') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
+                    </div>
                 </div>
             </div>
 
             <div class="flex justify-end pt-4 mt-4 border-t">
                 <button type="button" wire:click="saveLoyalty" class="bg-slate-900 text-white px-6 py-2 rounded text-sm font-medium hover:bg-slate-800">Save Loyalty / Referral Settings</button>
+            </div>
+
+        {{-- KYC — real consumers: KycWithdrawalPolicyService (withdrawal
+             gate), KycVerificationVideoService / KycDocumentService (upload
+             size caps), ReviewProviderKycAction (video-required gate). All
+             four were previously reachable only via a direct DB/tinker edit. --}}
+        @elseif ($activeTab === 'kyc')
+            <p class="text-xs text-gray-400 mb-3">Controls Partner KYC enforcement: whether an unverified provider is blocked from withdrawing, whether a verification video is required before approval, and upload size caps for documents/video.</p>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                <div>
+                    <label class="block text-xs font-medium mb-1">Withdrawal restriction @if ($scoped) <x-setting-override-badge :overridden="in_array('kyc.withdrawal_restriction_enabled', $this->overriddenKeys)" setting-key="kyc.withdrawal_restriction_enabled" /> @endif</label>
+                    <select wire:model="kycWithdrawalRestrictionEnabled" class="w-full border rounded px-3 py-2 text-sm">
+                        <option value="1">Enabled — unverified providers can't withdraw</option>
+                        <option value="0">Disabled</option>
+                    </select>
+                    @error('kycWithdrawalRestrictionEnabled') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
+                </div>
+                <div>
+                    <label class="block text-xs font-medium mb-1">Verification video required @if ($scoped) <x-setting-override-badge :overridden="in_array('kyc.require_verification_video', $this->overriddenKeys)" setting-key="kyc.require_verification_video" /> @endif</label>
+                    <select wire:model="kycRequireVerificationVideo" class="w-full border rounded px-3 py-2 text-sm">
+                        <option value="1">Required for approval</option>
+                        <option value="0">Not required</option>
+                    </select>
+                    @error('kycRequireVerificationVideo') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
+                </div>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-xs font-medium mb-1">Max document size (MB) @if ($scoped) <x-setting-override-badge :overridden="in_array('kyc.max_document_size_mb', $this->overriddenKeys)" setting-key="kyc.max_document_size_mb" /> @endif</label>
+                    <input type="number" step="1" wire:model="kycMaxDocumentSizeMb" class="w-full border rounded px-3 py-2 text-sm">
+                    @error('kycMaxDocumentSizeMb') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
+                </div>
+                <div>
+                    <label class="block text-xs font-medium mb-1">Max video size (MB) @if ($scoped) <x-setting-override-badge :overridden="in_array('kyc.max_video_size_mb', $this->overriddenKeys)" setting-key="kyc.max_video_size_mb" /> @endif</label>
+                    <input type="number" step="1" wire:model="kycMaxVideoSizeMb" class="w-full border rounded px-3 py-2 text-sm">
+                    @error('kycMaxVideoSizeMb') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
+                </div>
+            </div>
+            <div class="flex justify-end pt-4 mt-4 border-t">
+                <button type="button" wire:click="saveKyc" class="bg-slate-900 text-white px-6 py-2 rounded text-sm font-medium hover:bg-slate-800">Save KYC Settings</button>
+            </div>
+
+        {{-- Compensation — real consumer: CompensationService, wired into
+             CompleteBookingAction since mission Phase 5. Overtime/night/peak
+             auto-compute from real booking timestamps; rain/waiting are
+             admin-triggered only (no real data source exists to auto-derive
+             them) — this tab only sets the RATES, not who gets paid when. --}}
+        @elseif ($activeTab === 'compensation')
+            <p class="text-xs text-gray-400 mb-3">Every rate defaults to 0 and every time window to -1 (disabled) — nothing pays out until set here. Overtime/night/peak are auto-computed at booking completion from real timestamps; rain/waiting are only ever applied manually by an admin from the booking's own screen (no automatic data source exists for either).</p>
+            <div class="mb-4">
+                <h3 class="text-sm font-semibold mb-1">Overtime</h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-medium mb-1">Rate per minute @if ($scoped) <x-setting-override-badge :overridden="in_array('compensation.overtime_rate_per_minute', $this->overriddenKeys)" setting-key="compensation.overtime_rate_per_minute" /> @endif</label>
+                        <input type="number" step="0.01" wire:model="compensationOvertimeRatePerMinute" class="w-full border rounded px-3 py-2 text-sm">
+                        @error('compensationOvertimeRatePerMinute') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium mb-1">Grace threshold (minutes) @if ($scoped) <x-setting-override-badge :overridden="in_array('compensation.overtime_threshold_minutes', $this->overriddenKeys)" setting-key="compensation.overtime_threshold_minutes" /> @endif</label>
+                        <input type="number" step="1" wire:model="compensationOvertimeThresholdMinutes" class="w-full border rounded px-3 py-2 text-sm">
+                        @error('compensationOvertimeThresholdMinutes') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
+                    </div>
+                </div>
+            </div>
+            <div class="mb-4 border-t pt-4">
+                <h3 class="text-sm font-semibold mb-1">Night window</h3>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                        <label class="block text-xs font-medium mb-1">Start hour (0-23, -1 = off) @if ($scoped) <x-setting-override-badge :overridden="in_array('compensation.night_window_start_hour', $this->overriddenKeys)" setting-key="compensation.night_window_start_hour" /> @endif</label>
+                        <input type="number" step="1" wire:model="compensationNightWindowStartHour" class="w-full border rounded px-3 py-2 text-sm">
+                        @error('compensationNightWindowStartHour') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium mb-1">End hour (0-23, -1 = off) @if ($scoped) <x-setting-override-badge :overridden="in_array('compensation.night_window_end_hour', $this->overriddenKeys)" setting-key="compensation.night_window_end_hour" /> @endif</label>
+                        <input type="number" step="1" wire:model="compensationNightWindowEndHour" class="w-full border rounded px-3 py-2 text-sm">
+                        @error('compensationNightWindowEndHour') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium mb-1">Flat amount @if ($scoped) <x-setting-override-badge :overridden="in_array('compensation.night_flat_amount', $this->overriddenKeys)" setting-key="compensation.night_flat_amount" /> @endif</label>
+                        <input type="number" step="0.01" wire:model="compensationNightFlatAmount" class="w-full border rounded px-3 py-2 text-sm">
+                        @error('compensationNightFlatAmount') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
+                    </div>
+                </div>
+            </div>
+            <div class="mb-4 border-t pt-4">
+                <h3 class="text-sm font-semibold mb-1">Peak window</h3>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                        <label class="block text-xs font-medium mb-1">Start hour (0-23, -1 = off) @if ($scoped) <x-setting-override-badge :overridden="in_array('compensation.peak_window_start_hour', $this->overriddenKeys)" setting-key="compensation.peak_window_start_hour" /> @endif</label>
+                        <input type="number" step="1" wire:model="compensationPeakWindowStartHour" class="w-full border rounded px-3 py-2 text-sm">
+                        @error('compensationPeakWindowStartHour') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium mb-1">End hour (0-23, -1 = off) @if ($scoped) <x-setting-override-badge :overridden="in_array('compensation.peak_window_end_hour', $this->overriddenKeys)" setting-key="compensation.peak_window_end_hour" /> @endif</label>
+                        <input type="number" step="1" wire:model="compensationPeakWindowEndHour" class="w-full border rounded px-3 py-2 text-sm">
+                        @error('compensationPeakWindowEndHour') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium mb-1">Flat amount @if ($scoped) <x-setting-override-badge :overridden="in_array('compensation.peak_flat_amount', $this->overriddenKeys)" setting-key="compensation.peak_flat_amount" /> @endif</label>
+                        <input type="number" step="0.01" wire:model="compensationPeakFlatAmount" class="w-full border rounded px-3 py-2 text-sm">
+                        @error('compensationPeakFlatAmount') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
+                    </div>
+                </div>
+            </div>
+            <div class="mb-4 border-t pt-4">
+                <h3 class="text-sm font-semibold mb-1">Rain / Waiting (admin-triggered only)</h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-medium mb-1">Rain flat amount @if ($scoped) <x-setting-override-badge :overridden="in_array('compensation.rain_flat_amount', $this->overriddenKeys)" setting-key="compensation.rain_flat_amount" /> @endif</label>
+                        <input type="number" step="0.01" wire:model="compensationRainFlatAmount" class="w-full border rounded px-3 py-2 text-sm">
+                        @error('compensationRainFlatAmount') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium mb-1">Waiting rate per minute @if ($scoped) <x-setting-override-badge :overridden="in_array('compensation.waiting_rate_per_minute', $this->overriddenKeys)" setting-key="compensation.waiting_rate_per_minute" /> @endif</label>
+                        <input type="number" step="0.01" wire:model="compensationWaitingRatePerMinute" class="w-full border rounded px-3 py-2 text-sm">
+                        @error('compensationWaitingRatePerMinute') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
+                    </div>
+                </div>
+            </div>
+            <div class="flex justify-end pt-4 mt-4 border-t">
+                <button type="button" wire:click="saveCompensation" class="bg-slate-900 text-white px-6 py-2 rounded text-sm font-medium hover:bg-slate-800">Save Compensation Settings</button>
+            </div>
+
+        {{-- Security / OTP — real consumers: OtpService, QrChallengeService.
+             GLOBAL ONLY: both read Setting::get() with no scope argument at
+             all, so the scope picker above is ignored on this tab. --}}
+        @elseif ($activeTab === 'security')
+            <p class="text-xs text-gray-400 mb-3">Login/verification OTP and QR device-pairing parameters. <strong>Global only</strong> — these are read without a scope by their consumers, so the scope picker above this tab has no effect here.</p>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                    <label class="block text-xs font-medium mb-1">OTP length (digits)</label>
+                    <input type="number" step="1" wire:model="authOtpLength" class="w-full border rounded px-3 py-2 text-sm">
+                    @error('authOtpLength') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
+                </div>
+                <div>
+                    <label class="block text-xs font-medium mb-1">OTP expiry (seconds)</label>
+                    <input type="number" step="1" wire:model="authOtpExpirySeconds" class="w-full border rounded px-3 py-2 text-sm">
+                    @error('authOtpExpirySeconds') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
+                </div>
+                <div>
+                    <label class="block text-xs font-medium mb-1">OTP resend cooldown (seconds)</label>
+                    <input type="number" step="1" wire:model="authOtpResendCooldownSeconds" class="w-full border rounded px-3 py-2 text-sm">
+                    @error('authOtpResendCooldownSeconds') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
+                </div>
+                <div>
+                    <label class="block text-xs font-medium mb-1">OTP max attempts</label>
+                    <input type="number" step="1" wire:model="authOtpMaxAttempts" class="w-full border rounded px-3 py-2 text-sm">
+                    @error('authOtpMaxAttempts') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
+                </div>
+                <div>
+                    <label class="block text-xs font-medium mb-1">QR challenge expiry (seconds)</label>
+                    <input type="number" step="1" wire:model="authQrChallengeExpirySeconds" class="w-full border rounded px-3 py-2 text-sm">
+                    @error('authQrChallengeExpirySeconds') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
+                </div>
+            </div>
+            <div class="flex justify-end pt-4 mt-4 border-t">
+                <button type="button" wire:click="saveSecurity" class="bg-slate-900 text-white px-6 py-2 rounded text-sm font-medium hover:bg-slate-800">Save Security / OTP Settings</button>
+            </div>
+
+        {{-- Operations — real consumers: StuckBookingService,
+             DispatchHealthService (mission Phase 10). GLOBAL ONLY: both read
+             Setting::get() with no scope argument. --}}
+        @elseif ($activeTab === 'operations')
+            <p class="text-xs text-gray-400 mb-3">Thresholds for the Operations screen's stuck-booking and stale-offer detection. <strong>Global only</strong> — read without a scope by their consumers, so the scope picker above has no effect here.</p>
+            <div class="grid grid-cols-2 md:grid-cols-3 gap-4 mb-4">
+                <div>
+                    <label class="block text-xs font-medium mb-1">Searching provider (minutes)</label>
+                    <input type="number" step="1" wire:model="opsStuckThresholdSearchingProvider" class="w-full border rounded px-3 py-2 text-sm">
+                    @error('opsStuckThresholdSearchingProvider') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
+                </div>
+                <div>
+                    <label class="block text-xs font-medium mb-1">Assigned (minutes)</label>
+                    <input type="number" step="1" wire:model="opsStuckThresholdAssigned" class="w-full border rounded px-3 py-2 text-sm">
+                    @error('opsStuckThresholdAssigned') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
+                </div>
+                <div>
+                    <label class="block text-xs font-medium mb-1">Provider en route (minutes)</label>
+                    <input type="number" step="1" wire:model="opsStuckThresholdProviderEnRoute" class="w-full border rounded px-3 py-2 text-sm">
+                    @error('opsStuckThresholdProviderEnRoute') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
+                </div>
+                <div>
+                    <label class="block text-xs font-medium mb-1">In progress (minutes)</label>
+                    <input type="number" step="1" wire:model="opsStuckThresholdInProgress" class="w-full border rounded px-3 py-2 text-sm">
+                    @error('opsStuckThresholdInProgress') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
+                </div>
+                <div>
+                    <label class="block text-xs font-medium mb-1">On hold (minutes)</label>
+                    <input type="number" step="1" wire:model="opsStuckThresholdOnHold" class="w-full border rounded px-3 py-2 text-sm">
+                    @error('opsStuckThresholdOnHold') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
+                </div>
+                <div>
+                    <label class="block text-xs font-medium mb-1">Dispatch offer response timeout (minutes)</label>
+                    <input type="number" step="1" wire:model="opsDispatchOfferResponseTimeoutMinutes" class="w-full border rounded px-3 py-2 text-sm">
+                    @error('opsDispatchOfferResponseTimeoutMinutes') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
+                </div>
+            </div>
+            <div class="flex justify-end pt-4 mt-4 border-t">
+                <button type="button" wire:click="saveOperations" class="bg-slate-900 text-white px-6 py-2 rounded text-sm font-medium hover:bg-slate-800">Save Operations Settings</button>
+            </div>
+
+        {{-- Subscriptions — real consumer: RenewalService (past-due grace
+             period). GLOBAL ONLY. Replaces the old "subscriptions_membership"
+             placeholder, whose "zero consumers" note was no longer accurate. --}}
+        @elseif ($activeTab === 'subscriptions')
+            <p class="text-xs text-gray-400 mb-3">How many days a subscription stays active past its due date before RenewalService lapses it. <strong>Global only</strong> — read without a scope by its consumer. Plan definitions and per-subscriber management live on their own screens (Plans &amp; Memberships, Subscriptions).</p>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                    <label class="block text-xs font-medium mb-1">Grace period (days)</label>
+                    <input type="number" step="1" wire:model="subscriptionsGracePeriodDays" class="w-full border rounded px-3 py-2 text-sm">
+                    @error('subscriptionsGracePeriodDays') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
+                </div>
+            </div>
+            <div class="flex justify-end pt-4 mt-4 border-t">
+                <button type="button" wire:click="saveSubscriptions" class="bg-slate-900 text-white px-6 py-2 rounded text-sm font-medium hover:bg-slate-800">Save Subscription Settings</button>
             </div>
 
         {{-- Notifications — which channels App\Notifications\Support\ChannelResolver hands back to every dispatch site. --}}

@@ -295,6 +295,49 @@ class CompensationEngineTest extends TestCase
         app(TipService::class)->addTip($booking->fresh(), $booking->customer, 20);
     }
 
+    /**
+     * Phase 11 audit finding: TipService had zero callers anywhere in
+     * app/or routes/ despite the service itself being fully built and
+     * tested above via direct instantiation — POST /api/bookings/{id}/tip
+     * is the real, reachable entry point a customer app would call.
+     */
+    public function test_tip_api_endpoint_moves_money_and_returns_the_tip(): void
+    {
+        $booking = $this->completedBooking();
+        app(WalletService::class)->credit($booking->customer, 200, 'test seed');
+
+        $this->actingAs($booking->customer, 'sanctum')
+            ->postJson("/api/bookings/{$booking->id}/tip", ['amount' => 50])
+            ->assertOk()
+            ->assertJsonPath('tip.amount', 50);
+
+        $this->assertSame(150.0, app(WalletService::class)->balance($booking->customer));
+        $this->assertSame(50.0, app(WalletService::class)->balance($booking->provider->user));
+    }
+
+    public function test_tip_api_endpoint_rejects_someone_elses_booking(): void
+    {
+        $booking = $this->completedBooking();
+        $otherCustomer = $this->makeCustomer();
+        app(WalletService::class)->credit($otherCustomer, 200, 'test seed');
+
+        $this->actingAs($otherCustomer, 'sanctum')
+            ->postJson("/api/bookings/{$booking->id}/tip", ['amount' => 50])
+            ->assertStatus(422);
+
+        $this->assertSame(0.0, app(WalletService::class)->balance($booking->provider->user));
+    }
+
+    public function test_tip_api_endpoint_rejects_a_non_positive_amount(): void
+    {
+        $booking = $this->completedBooking();
+        app(WalletService::class)->credit($booking->customer, 200, 'test seed');
+
+        $this->actingAs($booking->customer, 'sanctum')
+            ->postJson("/api/bookings/{$booking->id}/tip", ['amount' => 0])
+            ->assertStatus(422);
+    }
+
     // ============================== End-to-end integration ==============================
 
     public function test_complete_booking_action_triggers_automatic_compensation(): void

@@ -76,6 +76,11 @@ class Manage extends Component
      */
     public function mount(): void
     {
+        // No view-level check existed at all — only write actions checked
+        // zones.manage (Phase 11 audit finding, same bug class addendum #1
+        // already fixed on 15 other screens).
+        abort_unless(auth()->user()->hasPermissionAnywhere('zones.manage'), 403, 'You do not have permission to view zones.');
+
         $this->defaultDispatchRadiusKm = (string) Setting::get('dispatch.default_radius_km', $this->defaultDispatchRadiusKm);
     }
 
