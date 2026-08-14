@@ -49,7 +49,7 @@ class Show extends Component
             ->scopeQuery(Booking::query(), auth()->user(), 'bookings.view', $columns)
             ->with([
                 'customer', 'service', 'provider.user', 'assignedWorker.user', 'address', 'zone', 'franchise',
-                'dispatchAttempts.provider.user', 'extraItems', 'payment', 'commission',
+                'dispatchAttempts.provider.user', 'extraItems', 'payment', 'commission', 'compensations',
                 'statusHistory' => fn ($q) => $q->orderBy('changed_at'),
             ])->find($bookingId);
 
@@ -196,6 +196,41 @@ class Show extends Component
             $this->flashType = 'success';
             $this->flashMessage = 'Booking cancelled.';
             $this->cancelReason = '';
+        } catch (\Throwable $e) {
+            $this->flashType = 'error';
+            $this->flashMessage = $e->getMessage();
+        }
+    }
+
+    public string $compensationType = 'rain';
+    public string $compensationMinutes = '';
+
+    /**
+     * Manual compensation (rain/waiting only — overtime/night/peak are
+     * fully automatic, applied at CompleteBookingAction time, never
+     * triggerable here). bookings.compensate is its own permission,
+     * separate from bookings.cancel/reassign — see its seed migration.
+     */
+    public function applyCompensation(\App\Services\CompensationService $service)
+    {
+        if (! auth()->user()->hasPermission('bookings.compensate', $this->bookingScope())) {
+            $this->flashType = 'error';
+            $this->flashMessage = 'You do not have permission to apply compensation to this booking.';
+            return;
+        }
+
+        try {
+            $service->applyManual(
+                $this->booking,
+                $this->compensationType,
+                auth()->user(),
+                $this->compensationMinutes !== '' ? (int) $this->compensationMinutes : null,
+                $this->bookingScope(),
+            );
+            $this->booking->load('compensations');
+            $this->flashType = 'success';
+            $this->flashMessage = 'Compensation applied.';
+            $this->compensationMinutes = '';
         } catch (\Throwable $e) {
             $this->flashType = 'error';
             $this->flashMessage = $e->getMessage();

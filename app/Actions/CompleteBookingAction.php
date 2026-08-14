@@ -9,6 +9,7 @@ use App\Models\Setting;
 use App\Notifications\BookingStatusNotification;
 use App\Notifications\Support\ChannelResolver;
 use App\Services\CommissionService;
+use App\Services\CompensationService;
 use App\Services\LoyaltyService;
 use App\Services\ReferralService;
 use Illuminate\Support\Facades\DB;
@@ -19,6 +20,7 @@ class CompleteBookingAction
         private CommissionService $commissionService,
         private LoyaltyService $loyaltyService,
         private ReferralService $referralService,
+        private CompensationService $compensationService,
     ) {
     }
 
@@ -77,18 +79,24 @@ class CompleteBookingAction
             return $booking->fresh();
         });
 
-        // Commission split runs after the completion transaction commits —
-        // deliberately outside the lock above, since it does its own
-        // transaction and wallet crediting, and we don't want to hold the
-        // booking row lock any longer than necessary.
-        $this->commissionService->applyForBooking($booking);
-
         $scope = array_filter([
             'zone_id' => $booking->zone_id,
             'franchise_id' => $booking->franchise_id,
             'city_id' => $booking->franchise?->city_id,
             'country_id' => $booking->franchise?->country_id,
         ]);
+
+        // Auto-computed compensation (overtime/night/peak) — same
+        // "outside the lock, own transaction, idempotent" placement as
+        // commission below. No-ops entirely while every rate stays at its
+        // Setting-driven default of 0.
+        $this->compensationService->applyAutomaticForBooking($booking, $scope);
+
+        // Commission split runs after the completion transaction commits —
+        // deliberately outside the lock above, since it does its own
+        // transaction and wallet crediting, and we don't want to hold the
+        // booking row lock any longer than necessary.
+        $this->commissionService->applyForBooking($booking);
 
         // Loyalty points: customer earns per rupee spent, provider earns a
         // flat amount per completed job -- same "outside the lock, its own

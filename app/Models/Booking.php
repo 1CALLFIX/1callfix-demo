@@ -57,6 +57,7 @@ class Booking extends Model
     public function dispatchAttempts() { return $this->hasMany(DispatchAttempt::class); }
     public function payment() { return $this->hasOne(Payment::class); }
     public function commission() { return $this->hasOne(Commission::class); }
+    public function compensations() { return $this->hasMany(BookingCompensation::class); }
     public function review() { return $this->hasOne(Review::class); }
     public function cancellationReason() { return $this->belongsTo(CancellationReason::class); }
 }

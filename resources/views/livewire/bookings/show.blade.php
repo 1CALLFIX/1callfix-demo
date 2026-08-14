@@ -67,6 +67,32 @@
         </div>
     </div>
 
+    @if ($booking->status === 'completed')
+        <div class="bg-white rounded-lg shadow-sm p-4 mb-6">
+            <div class="font-semibold mb-2">Compensation</div>
+            @if ($booking->compensations->isNotEmpty())
+                <table class="w-full text-sm mb-3">
+                    <thead class="text-left text-gray-500"><tr><th class="py-1">Type</th><th class="py-1">Amount</th></tr></thead>
+                    <tbody>
+                        @foreach ($booking->compensations as $c)
+                            <tr class="border-t"><td class="py-1.5 capitalize">{{ $c->type }}</td><td class="py-1.5">{{ $this->currencySymbol }}{{ number_format($c->amount, 2) }}</td></tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            @endif
+            <div class="flex items-end gap-2">
+                <div>
+                    <label class="block text-xs font-medium mb-1">Apply (manual only)</label>
+                    <select wire:model="compensationType" class="border rounded px-2 py-1.5 text-sm"><option value="rain">Rain</option><option value="waiting">Waiting</option></select>
+                </div>
+                @if ($compensationType === 'waiting')
+                    <div><label class="block text-xs font-medium mb-1">Minutes</label><input type="number" wire:model="compensationMinutes" class="w-24 border rounded px-2 py-1.5 text-sm"></div>
+                @endif
+                <button type="button" wire:click="applyCompensation" class="bg-slate-900 text-white px-4 py-1.5 rounded text-sm">Apply</button>
+            </div>
+        </div>
+    @endif
+
     @if ($booking->extraItems->isNotEmpty())
         <div class="bg-white rounded-lg shadow-sm p-4 mb-6">
             <div class="font-semibold mb-2">Extra Work Items</div>
