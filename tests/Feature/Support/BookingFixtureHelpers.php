@@ -6,6 +6,7 @@ use App\Models\Address;
 use App\Models\Booking;
 use App\Models\City;
 use App\Models\Country;
+use App\Models\FieldWorker;
 use App\Models\Franchise;
 use App\Models\Provider;
 use App\Models\Service;
@@ -86,6 +87,19 @@ trait BookingFixtureHelpers
         return Provider::create([
             'user_id' => $user->id, 'franchise_id' => $franchise->id, 'zone_id' => $zone->id,
             'provider_type' => 'independent', 'kyc_status' => 'approved', 'is_active' => true, 'is_online' => true,
+        ]);
+    }
+
+    protected function makeFieldWorkerIn(Franchise $franchise, Zone $zone): FieldWorker
+    {
+        $user = User::create([
+            'uuid' => (string) Str::uuid(), 'name' => 'Worker', 'phone' => '9'.fake()->unique()->numerify('#########'),
+            'role' => 'field_worker', 'status' => 'active', 'franchise_id' => $franchise->id, 'zone_id' => $zone->id,
+        ]);
+
+        return FieldWorker::create([
+            'user_id' => $user->id, 'franchise_id' => $franchise->id, 'zone_id' => $zone->id,
+            'kyc_status' => 'approved', 'is_active' => true, 'is_online' => true,
         ]);
     }
 
