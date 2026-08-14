@@ -2,10 +2,11 @@
 
 namespace App\Services;
 
+use App\Contracts\PaymentGateway;
 use App\Models\Booking;
 use Illuminate\Support\Facades\Http;
 
-class RazorpayService
+class RazorpayService implements PaymentGateway
 {
     // Nullable, not string: config('services.razorpay.*') is null on any
     // environment without Razorpay credentials set (.env.example has no
@@ -29,6 +30,40 @@ class RazorpayService
         $this->keyId = config('services.razorpay.key_id');
         $this->keySecret = config('services.razorpay.key_secret');
         $this->webhookSecret = config('services.razorpay.webhook_secret');
+    }
+
+    public function identifier(): string
+    {
+        return 'razorpay';
+    }
+
+    public function displayName(): string
+    {
+        return 'Razorpay';
+    }
+
+    public function isConfigured(): bool
+    {
+        return filled($this->keyId) && filled($this->keySecret) && filled($this->webhookSecret);
+    }
+
+    /**
+     * Razorpay's own key_id already encodes mode in its prefix
+     * (rzp_test_.../rzp_live_...) -- masking everything after the first 12
+     * characters keeps that mode signal visible to an admin while never
+     * showing the full public key, and never touches key_secret/
+     * webhookSecret at all (those never leave this class).
+     */
+    public function maskedPublicIdentifier(): ?string
+    {
+        if (! $this->keyId) {
+            return null;
+        }
+
+        $visible = substr($this->keyId, 0, 12);
+        $remaining = max(strlen($this->keyId) - strlen($visible), 4);
+
+        return $visible.str_repeat('•', min($remaining, 12));
     }
 
     /**

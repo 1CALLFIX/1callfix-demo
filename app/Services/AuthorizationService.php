@@ -107,7 +107,12 @@ class AuthorizationService
      * @param  array  $columns  e.g. ['zone_id' => 'zone_id', 'franchise_id' => 'franchise_id', 'city_id' => 'franchise.city_id', 'country_id' => 'franchise.country_id']
      *                          Only include the scope levels this model can actually be filtered by —
      *                          an assignment whose scope_type has no matching key is simply skipped
-     *                          (same "no key, no cover" rule scopeCovers() uses).
+     *                          (same "no key, no cover" rule scopeCovers() uses). A value may also be
+     *                          an array of candidate paths, OR'd together -- for a model like Payment
+     *                          that reaches its geography through ONE OF SEVERAL relations depending
+     *                          on the row (booking.* for a booking payment, user.* for a wallet top-up
+     *                          or subscription payment; the other relation is simply null on that row,
+     *                          so its whereHas() harmlessly never matches).
      */
     public function scopeQuery(Builder $query, User $user, string $permission, array $columns): Builder
     {
@@ -139,15 +144,18 @@ class AuthorizationService
 
         return $query->where(function ($outer) use ($coveringAssignments, $columns) {
             foreach ($coveringAssignments as $assignment) {
-                $column = $columns["{$assignment->scope_type}_id"];
-                $lastDot = strrpos($column, '.');
+                $candidates = (array) $columns["{$assignment->scope_type}_id"];
 
-                if ($lastDot === false) {
-                    $outer->orWhere($column, $assignment->scope_id);
-                } else {
-                    $relation = substr($column, 0, $lastDot);
-                    $relationColumn = substr($column, $lastDot + 1);
-                    $outer->orWhereHas($relation, fn ($r) => $r->where($relationColumn, $assignment->scope_id));
+                foreach ($candidates as $column) {
+                    $lastDot = strrpos($column, '.');
+
+                    if ($lastDot === false) {
+                        $outer->orWhere($column, $assignment->scope_id);
+                    } else {
+                        $relation = substr($column, 0, $lastDot);
+                        $relationColumn = substr($column, $lastDot + 1);
+                        $outer->orWhereHas($relation, fn ($r) => $r->where($relationColumn, $assignment->scope_id));
+                    }
                 }
             }
         });

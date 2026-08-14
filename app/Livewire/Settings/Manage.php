@@ -700,6 +700,16 @@ class Manage extends Component
 
     public function render()
     {
+        // Read-only gateway identity/status for the Payment tab -- which
+        // provider is bound (App\Providers\AppServiceProvider), whether it
+        // has real credentials configured, and a masked (never secret)
+        // fragment of its public key, so an admin can confirm the gateway
+        // is live-configured without ever seeing key_secret/webhook_secret,
+        // which never leave RazorpayService. Gateway credentials themselves
+        // still live only in .env, exactly as the existing Payment tab's
+        // own docblock already states -- this only surfaces their STATUS.
+        $gateway = app(\App\Contracts\PaymentGateway::class);
+
         return view('livewire.settings.manage', [
             'scopeCountries' => Country::where('is_active', true)->orderBy('name')->get(),
             'scopeCities' => $this->scopeCountryId
@@ -713,6 +723,9 @@ class Manage extends Component
             'broadcastDriver' => config('broadcasting.default', env('BROADCAST_CONNECTION', 'log')),
             'cmsPageCount' => \App\Models\ContentPage::count(),
             'cmsFaqCount' => \App\Models\Faq::count(),
+            'paymentGatewayName' => $gateway->displayName(),
+            'paymentGatewayConfigured' => $gateway->isConfigured(),
+            'paymentGatewayMaskedKey' => $gateway->maskedPublicIdentifier(),
         ])->layout('layouts.admin', ['title' => 'Settings']);
     }
 }

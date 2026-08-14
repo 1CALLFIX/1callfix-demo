@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Contracts\PaymentGateway;
 use App\Contracts\PushAdapter;
 use App\Contracts\SmsAdapter;
 use App\Models\Booking;
@@ -19,6 +20,7 @@ use App\Observers\FranchiseObserver;
 use App\Observers\ReviewObserver;
 use App\Observers\UserObserver;
 use App\Observers\ZoneObserver;
+use App\Services\RazorpayService;
 use Illuminate\Notifications\Events\NotificationFailed;
 use Illuminate\Notifications\Events\NotificationSent;
 use Illuminate\Support\Facades\Event;
@@ -38,6 +40,14 @@ class AppServiceProvider extends ServiceProvider
         // else (channels, Notification classes, call sites) needs to change.
         $this->app->bind(SmsAdapter::class, LogSmsAdapter::class);
         $this->app->bind(PushAdapter::class, LogPushAdapter::class);
+
+        // Razorpay IS the real, already-selected provider (unlike SMS/push
+        // above) -- this binding is the abstraction boundary, not a stand-in:
+        // every consumer (PaymentController, WalletTopUpService,
+        // SubscriptionService, CancellationService) now depends on
+        // PaymentGateway, not RazorpayService directly, so a second provider
+        // is a new bound class here, not a change to any of them.
+        $this->app->bind(PaymentGateway::class, RazorpayService::class);
     }
 
     /**

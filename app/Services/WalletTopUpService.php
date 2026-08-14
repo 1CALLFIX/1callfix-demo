@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Contracts\PaymentGateway;
 use App\Models\Payment;
 use App\Models\Setting;
 use App\Models\User;
@@ -10,7 +11,7 @@ use Illuminate\Support\Str;
 /**
  * The customer-initiated half of the wallet: requests a top-up, subject to
  * the configurable wallet.* limits below, then hands off to the SAME
- * Razorpay order/webhook path booking payments already use (payments.
+ * gateway order/webhook path booking payments already use (payments.
  * purpose = 'wallet_topup' distinguishes the two — see PaymentController::
  * handlePaymentCaptured()). No parallel payment record type, no second
  * gateway integration.
@@ -22,7 +23,7 @@ use Illuminate\Support\Str;
  */
 class WalletTopUpService
 {
-    public function __construct(private RazorpayService $razorpay, private WalletService $walletService)
+    public function __construct(private PaymentGateway $gateway, private WalletService $walletService)
     {
     }
 
@@ -34,6 +35,15 @@ class WalletTopUpService
     {
         if ($amount <= 0) {
             throw new \InvalidArgumentException('Top-up amount must be positive.');
+        }
+
+        // Wallet top-up is, by definition, a gateway payment -- there's no
+        // other way to add funds -- so it's gated by the SAME payment.
+        // online_enabled Setting the New Booking modal's dropdown and
+        // PaymentController::createOrder() now also check, not a second,
+        // invented toggle.
+        if (Setting::get('payment.online_enabled', '1', $scope) !== '1') {
+            throw new \RuntimeException('Online payments are currently disabled.');
         }
 
         $min = (float) Setting::get('wallet.customer_min_topup', '100', $scope);
@@ -67,13 +77,13 @@ class WalletTopUpService
             throw new \RuntimeException("This top-up would exceed this month's limit of {$monthlyLimit}.");
         }
 
-        $order = $this->razorpay->createRawOrder($amount, 'topup-'.Str::random(8), ['user_id' => $user->id, 'purpose' => 'wallet_topup']);
+        $order = $this->gateway->createRawOrder($amount, 'topup-'.Str::random(8), ['user_id' => $user->id, 'purpose' => 'wallet_topup']);
 
         $payment = Payment::create([
             'user_id' => $user->id,
             'purpose' => 'wallet_topup',
             'amount' => $amount,
-            'gateway' => 'razorpay',
+            'gateway' => $this->gateway->identifier(),
             'gateway_order_id' => $order['razorpay_order_id'],
             'status' => 'pending',
         ]);

@@ -2,26 +2,28 @@
 
 namespace App\Http\Controllers\API;
 
+use App\Contracts\PaymentGateway;
 use App\Http\Controllers\Controller;
 use App\Models\Booking;
 use App\Models\Payment;
+use App\Models\Setting;
 use App\Notifications\PaymentStatusNotification;
 use App\Notifications\Support\ChannelResolver;
 use Illuminate\Http\Request;
 use App\Services\Plans\SubscriptionService;
-use App\Services\RazorpayService;
 use App\Services\WalletTopUpService;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 class PaymentController extends Controller
 {
     /**
      * POST /api/v1/bookings/{booking}/pay/create-order
-     * Called by the customer app right before showing Razorpay's checkout
-     * screen. Creates a local `payments` row in `pending` status and a
-     * matching Razorpay order.
+     * Called by the customer app right before showing the gateway's
+     * checkout screen. Creates a local `payments` row in `pending` status
+     * and a matching gateway order.
      */
-    public function createOrder(Request $request, int $bookingId, RazorpayService $razorpay)
+    public function createOrder(Request $request, int $bookingId, PaymentGateway $gateway)
     {
         $booking = Booking::findOrFail($bookingId);
 
@@ -29,12 +31,17 @@ class PaymentController extends Controller
             return response()->json(['message' => 'Not your booking.'], 403);
         }
 
-        $order = $razorpay->createOrder($booking);
+        $scope = array_filter(['zone_id' => $booking->zone_id, 'franchise_id' => $booking->franchise_id]);
+        if (Setting::get('payment.online_enabled', '1', $scope) !== '1') {
+            return response()->json(['message' => 'Online payments are currently disabled.'], 422);
+        }
+
+        $order = $gateway->createOrder($booking);
 
         $payment = Payment::create([
             'booking_id' => $booking->id,
             'amount' => $booking->price_quoted,
-            'gateway' => 'razorpay',
+            'gateway' => $gateway->identifier(),
             'gateway_order_id' => $order['razorpay_order_id'],
             'status' => 'pending',
         ]);
@@ -57,7 +64,7 @@ class PaymentController extends Controller
      * actual source of truth (this call can be spoofed by a modified client;
      * the webhook, being server-to-server, cannot).
      */
-    public function confirm(Request $request, int $bookingId, RazorpayService $razorpay)
+    public function confirm(Request $request, int $bookingId, PaymentGateway $gateway)
     {
         $validated = $request->validate([
             'razorpay_order_id' => 'required|string',
@@ -65,7 +72,7 @@ class PaymentController extends Controller
             'razorpay_signature' => 'required|string',
         ]);
 
-        $verified = $razorpay->verifyPaymentSignature(
+        $verified = $gateway->verifyPaymentSignature(
             $validated['razorpay_order_id'],
             $validated['razorpay_payment_id'],
             $validated['razorpay_signature'],
@@ -93,12 +100,12 @@ class PaymentController extends Controller
      * Idempotent: Razorpay retries webhooks on any non-2xx response, so this
      * must be safe to receive the same event more than once.
      */
-    public function webhook(Request $request, RazorpayService $razorpay)
+    public function webhook(Request $request, PaymentGateway $gateway)
     {
         $rawPayload = $request->getContent();
         $signature = $request->header('X-Razorpay-Signature', '');
 
-        if (!$razorpay->verifyWebhookSignature($rawPayload, $signature)) {
+        if (!$gateway->verifyWebhookSignature($rawPayload, $signature)) {
             Log::warning('Razorpay webhook signature verification failed.');
             return response()->json(['message' => 'Invalid signature.'], 400);
         }
@@ -130,23 +137,44 @@ class PaymentController extends Controller
             return;
         }
 
-        $payment = Payment::where('gateway_order_id', $razorpayOrderId)->first();
+        // Gateways (Razorpay included) retry webhook delivery on any non-2xx
+        // response, and can genuinely deliver the same event concurrently
+        // (two in-flight requests, not just sequential retries) -- the plain
+        // "read status, then write" the idempotency guard below used to do
+        // has a real TOCTOU window where both requests could read
+        // status !== 'captured' before either writes. lockForUpdate() inside
+        // a transaction closes it, the same row-locking convention every
+        // booking-mutating Action in this codebase already uses.
+        $alreadyCaptured = DB::transaction(function () use ($razorpayOrderId, $razorpayPaymentId, &$payment) {
+            $payment = Payment::where('gateway_order_id', $razorpayOrderId)->lockForUpdate()->first();
+
+            if (!$payment) {
+                return null;
+            }
+
+            // Idempotency guard — if we've already processed this as
+            // captured, do nothing further (prevents double-marking on
+            // webhook retries, and double-crediting a wallet top-up).
+            if ($payment->status === 'captured') {
+                return true;
+            }
+
+            $payment->status = 'captured';
+            $payment->gateway_payment_id = $razorpayPaymentId;
+            $payment->captured_at = now();
+            $payment->save();
+
+            return false;
+        });
+
         if (!$payment) {
             Log::warning("Razorpay webhook: no local payment found for order [{$razorpayOrderId}].");
             return;
         }
 
-        // Idempotency guard — if we've already processed this as captured,
-        // do nothing further (prevents double-marking on webhook retries,
-        // and double-crediting a wallet top-up).
-        if ($payment->status === 'captured') {
+        if ($alreadyCaptured) {
             return;
         }
-
-        $payment->status = 'captured';
-        $payment->gateway_payment_id = $razorpayPaymentId;
-        $payment->captured_at = now();
-        $payment->save();
 
         // Wallet top-up: credit the wallet, no booking involved.
         if ($payment->purpose === 'wallet_topup') {

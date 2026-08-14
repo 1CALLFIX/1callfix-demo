@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Contracts\PaymentGateway;
 use App\Models\Booking;
 use App\Models\Payment;
 use App\Models\Setting;
@@ -22,7 +23,7 @@ use App\Notifications\Support\ChannelResolver;
  */
 class CancellationService
 {
-    public function __construct(private RazorpayService $razorpay, private WalletService $walletService)
+    public function __construct(private PaymentGateway $gateway, private WalletService $walletService)
     {
     }
 
@@ -98,7 +99,7 @@ class CancellationService
                 ref: "booking:{$booking->id}:wallet-refund"
             );
         } else {
-            $this->razorpay->refund(
+            $this->gateway->refund(
                 $payment->gateway_payment_id,
                 $refundAmount,
                 "Booking {$booking->code} cancelled"

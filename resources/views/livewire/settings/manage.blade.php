@@ -239,11 +239,34 @@
                 <button type="button" wire:click="saveCancellation" class="bg-slate-900 text-white px-6 py-2 rounded text-sm font-medium hover:bg-slate-800">Save Refund / Cancellation Settings</button>
             </div>
 
-        {{-- Payment — which methods the New Booking modal offers. Gateway
-             credentials/mode stay in .env; a real multi-gateway abstraction
-             is out of scope (comparable in size to RazorpayService itself). --}}
+        {{-- Payment — which methods the New Booking modal offers, plus the
+             active gateway's read-only status. Credentials themselves stay
+             in .env (never duplicated into an editable/visible DB row) --
+             behind a PaymentGateway abstraction (App\Contracts\PaymentGateway,
+             bound in AppServiceProvider) so a second provider is a new
+             binding, not a rewrite of this screen or its consumers. --}}
         @elseif ($activeTab === 'payment')
-            <p class="text-xs text-gray-400 mb-3">Controls which payment methods the New Booking modal offers — not gateway configuration. Razorpay credentials/mode live in <code>.env</code> (<code>config/services.php</code>), intentionally not duplicated into an editable DB row.</p>
+            <p class="text-xs text-gray-400 mb-3">Controls which payment methods the New Booking modal offers, and which provider is currently active. Gateway credentials themselves live only in <code>.env</code> (<code>config/services.php</code>), never shown here.</p>
+
+            <div class="bg-gray-50 rounded p-4 mb-4 flex items-center gap-6 text-sm">
+                <div>
+                    <div class="text-xs text-gray-400 mb-0.5">Active gateway</div>
+                    <div class="font-medium">{{ $paymentGatewayName }}</div>
+                </div>
+                <div>
+                    <div class="text-xs text-gray-400 mb-0.5">Status</div>
+                    <span @class(['px-2 py-0.5 rounded text-xs', 'bg-green-100 text-green-700' => $paymentGatewayConfigured, 'bg-red-100 text-red-700' => ! $paymentGatewayConfigured])>
+                        {{ $paymentGatewayConfigured ? 'Configured' : 'Not configured' }}
+                    </span>
+                </div>
+                @if ($paymentGatewayMaskedKey)
+                    <div>
+                        <div class="text-xs text-gray-400 mb-0.5">Public key</div>
+                        <div class="font-mono text-xs">{{ $paymentGatewayMaskedKey }}</div>
+                    </div>
+                @endif
+            </div>
+
             <div class="grid grid-cols-3 gap-4">
                 <div>
                     <label class="block text-xs font-medium mb-1">Online (Razorpay) @if ($scoped) <x-setting-override-badge :overridden="in_array('payment.online_enabled', $this->overriddenKeys)" setting-key="payment.online_enabled" /> @endif</label>

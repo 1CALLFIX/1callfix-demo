@@ -2,21 +2,22 @@
 
 namespace App\Services\Plans;
 
+use App\Contracts\PaymentGateway;
 use App\Models\BusinessAccount;
 use App\Models\EntitlementBalance;
 use App\Models\Payment;
 use App\Models\Plan;
+use App\Models\Setting;
 use App\Models\Subscription;
 use App\Models\User;
 use App\Notifications\Support\ChannelResolver;
 use App\Notifications\SubscriptionStatusNotification;
-use App\Services\RazorpayService;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 /**
- * Full subscription lifecycle. Purchase reuses the EXACT Razorpay
+ * Full subscription lifecycle. Purchase reuses the EXACT gateway
  * order/webhook path WalletTopUpService generalized (payments.purpose =
  * 'plan_subscription') — no second payment system, no second gateway
  * integration (approved plan §13).
@@ -25,7 +26,7 @@ class SubscriptionService
 {
     public function __construct(
         private EligibilityService $eligibilityService,
-        private RazorpayService $razorpay,
+        private PaymentGateway $gateway,
     ) {
     }
 
@@ -212,7 +213,14 @@ class SubscriptionService
 
     private function createSubscriptionPaymentOrder(Subscription $subscription, Plan $plan, string $receipt): array
     {
-        $order = $this->razorpay->createRawOrder(
+        // Plans are frequently global (no natural franchise/zone context to
+        // scope this Setting lookup by), unlike booking/wallet payments --
+        // same payment.online_enabled toggle, global default only.
+        if (Setting::get('payment.online_enabled', '1') !== '1') {
+            throw new \RuntimeException('Online payments are currently disabled.');
+        }
+
+        $order = $this->gateway->createRawOrder(
             (float) $plan->price,
             $receipt,
             ['subscription_id' => $subscription->id, 'purpose' => 'plan_subscription']
@@ -227,7 +235,7 @@ class SubscriptionService
             'purpose' => 'plan_subscription',
             'plan_subscription_id' => $subscription->id,
             'amount' => $plan->price,
-            'gateway' => 'razorpay',
+            'gateway' => $this->gateway->identifier(),
             'gateway_order_id' => $order['razorpay_order_id'],
             'status' => 'pending',
         ]);
