@@ -1,40 +1,45 @@
 # 1CallFix — Current Master Checkpoint
 
-**This document supersedes the previous read-only audit conversation.** It reflects the repository as of this session. Where it conflicts with `PROJECT_CURRENT_STATE.md`, this document is more current for the specific items it covers; `PROJECT_CURRENT_STATE.md` remains authoritative for everything else until it is next synced.
+**This document supersedes the previous checkpoint.** It reflects the repository as of this session. Where it conflicts with `PROJECT_CURRENT_STATE.md`, this document is more current for the specific items it covers; `PROJECT_CURRENT_STATE.md` remains authoritative for everything else until it is next synced.
 
-Labels: **IMPLEMENTED** shipped and wired · **INTEGRATED** wired into the real flow it serves · **TESTED** covered by an automated test · **DOCUMENTED** described in a `.md` file · **PARTIAL** exists but incomplete · **MISSING** does not exist · **BUSINESS DECISION** needs a human call, not an engineering one.
+Labels: **IMPLEMENTED** shipped and wired · **VERIFIED** confirmed by an automated test this session · **PARTIAL** exists but incomplete · **MISSING** does not exist · **BUSINESS DECISION** needs a human call, not an engineering one · **UNREACHABLE** code that would be dead given current guards elsewhere.
 
 ---
 
-## 1. Git state at the start of this session
+## 1. Git state
 
-- **HEAD at session start:** `a2c443a`
-- **HEAD now:** `53d6203` — three new commits (`ce46e3f`, `09061a2`, `53d6203`), all local to `main`, none pushed or deployed. Production remains `ba0635a`, untouched throughout.
-- **Full suite progression, verified before every commit (not assumed):** 163/163 → 166/166 → 173/173, 0 failures/errors/warnings at each checkpoint.
+- **HEAD:** `c800ef8` — five new commits since `6e4c8e7` (the last checkpoint), all local to `main`, none pushed or deployed.
+- **Production:** unchanged at `ba0635a` throughout.
+- **Full suite progression, verified before every commit:** 226/226 → 251/251 → 293/293 → 306/306, 0 failures/errors/warnings at each checkpoint.
 
-## 2. This session's three commits
+## 2. This session's five commits (continuing the "full-day autonomous mission")
 
-**`ce46e3f` — Notification isolation + Group A carry-forward**
-The reported `BookingOtpDeliveryTest` failure traced to `AcceptBookingAction`'s `BookingStatusNotification` send being the one customer notification NOT wrapped in the codebase's own established try/catch-and-log pattern — a real channel-adapter failure crashed the entire acceptance flow before either guarded OTP send ran. Fixed by extracting `sendStatusNotification()` alongside the existing `sendOtpNotification()`. Test's own `Log::shouldHaveReceived('error')` count corrected from `->twice()` to `->times(3)` to match the now-complete, verified behavior (all three post-transaction notifications isolated, not two). Also verified and preserved the two Group A fixes already in the working tree (`Auth\Login` scoped-admin access, `Providers\Show` KYC authorization).
+**`d5c56c3` — `KNOWN_RISKS_AND_DECISIONS.md`** [IMPLEMENTED] — persistent, cross-session register of every unresolved business-decision blocker found by direct repository inspection. 12 items at last count, each with issue/current behavior/risk/why unresolved/decision required/safe default/affected modules/blocked status.
 
-**`09061a2` — Systemic RBAC view-permission enforcement** [IMPLEMENTED] [VERIFIED]
-A full sweep of every `hasPermission()` call site in `app/Livewire` (28 components) found mutating actions universally authorized, but 12 seeded `.view` permissions (`dashboard.view`, `bookings.view`, `providers.view`, `workers.view`, `commissions.view`, `wallets.view`, `loyalty.view`, `customers.view`, `subscriptions.view`, `plans.view`, `notification.view`) were never actually checked anywhere — confirmed by reading each permission's own seeding migration, several of which explicitly commented "this screen should check it." Any actor clearing `EnsureHasAdminAccess` could view full cross-franchise commission splits, the wallet ledger, loyalty/referral data, and every customer's PII regardless of role/scope. Fixed with a `mount()`-level `hasPermissionAnywhere()` gate on all 15 affected screens. New `ScreenViewAuthorizationTest` (3 tests × 15 screens × deny/allow/super-admin-bypass = 45 assertions). Two pre-existing RBAC test fixtures corrected to grant the realistic permission pairing their actors were missing.
+**`579d0d1` — Universal Badge Engine** [IMPLEMENTED] [VERIFIED, 25 tests] — `badges` (definition: label/styling/priority/mode/rule config) + `badge_assignments` (polymorphic entity, Plan-shaped scope). NEW is the one badge with a real automatic rule (`recently_created`, admin-configurable `within_days`), evaluated live with no persisted row and no cron dependency — "automatic disappearance" falls out of the rule check itself. POPULAR/TRENDING/FEATURED/BEST_VALUE/LIMITED/FLASH_SALE ship manual — no existing popularity/trending statistics engine exists to honestly automate them (confirmed: `RankingEngine` is provider-dispatch ranking, a different domain). `/admin/badges`, `badges.view`/`badges.manage` permissions, scope-checked mutations.
 
-**Known, explicitly-flagged limitation of this fix:** the gate is `hasPermissionAnywhere()` ("holds the permission somewhere"), not per-row scope filtering — a Zone Admin holding `commissions.view` scoped to their own zone can now enter the Commissions screen, but still sees every franchise's commissions, not just their own zone's. None of these 15 screens filter query results by the viewer's scope today (pre-existing behavior, not introduced by this fix). Real per-row scoping is a separate, larger enhancement — not invented or guessed at here.
+**`7aad4cc` — Flash Sale Engine** [IMPLEMENTED] [VERIFIED, 42 tests — exceeds the mission's 25-scenario requirement] — `flash_sales` + `flash_sale_targets` + `flash_sale_redemptions`. Full lifecycle with an explicit transition guard map; server-time-authoritative activeness (`FlashSale::isCurrentlyActive()` re-derived from `starts_at`/`ends_at`+`status` on every read, verified via time travel in tests, never trusting a stale status column). Integrates into the existing pricing cascade (base/discount price → `FranchiseServicePricing` override → flash sale) as one more layer, not a parallel system. Concurrency-safe redemption (`DB::transaction()`+`lockForUpdate()` on the sale row, same convention as `AcceptBookingAction`'s own offer-race guard). Duplicate-target and overlapping-active-sale prevention. `/admin/flash-sales`, `flash_sales.view`/`flash_sales.manage`, scope-checked mutations. Default-to-no-stacking with coupons/Plan Engine (risk register item 12).
 
-**`53d6203` — Operations/Troubleshoot admin screen** [IMPLEMENTED] [VERIFIED]
-The mission's own special instruction named this as a specific investigation target. Confirmed genuinely absent via grep sweep (only one false-positive match for "health"/"operations"/"failed_jobs" across all of `app/`). Built `/admin/operations`: failed-job list with Retry (Laravel's own `queue:retry`) and Discard, last 50 `notification_logs` failures (already populated in production via `AppServiceProvider`'s existing `NotificationSent`/`NotificationFailed` listeners — a real, pre-existing audit trail nothing had ever surfaced), and a health panel (DB connectivity, queue/cache/mail driver, SMS/push provider — explicitly flags the dev-only `LogSmsAdapter`/`LogPushAdapter`, storage writability, maintenance-mode state). New `operations.view`/`operations.manage` permissions, super-admin-only by default (same pattern as every prior permission round). Deliberately excludes a "recent exceptions" panel — no Sentry/Flare/Telescope-class package is installed in this codebase (checked `composer.json` directly), so faking that data or silently picking a new dependency was avoided; flagged as a real gap instead. `OperationsHealthTest`, 7 tests / 11 assertions.
+**`c800ef8` — Referral engine hardening** [IMPLEMENTED] [VERIFIED, 14 new tests + 7 pre-existing re-confirmed] — Two real forensic findings shaped this slice's actual scope (see `EXACT_NEXT_TASK.md`): cross-actor qualification and cancellation-based clawback are both genuinely out of reach today (one a pending business decision, one dead code given existing guards) — neither was built or invented. What shipped instead: opt-in pending-referral expiry (`referral.pending_expiry_days` Setting, default off) with a new `referrals:expire-due` housekeeping command that can never race a legitimate reward; admin-driven manual fraud flag (`ReferralService::flagAsFraud()`) with wallet clawback via the existing `WalletService::debit()` (gracefully handling an already-spent balance, never crashing, never going negative), extending the *existing* `Loyalty\Index` Referrals tab with a new `loyalty.manage` permission rather than a new screen.
 
-## 3. Audited this session, not changed (real evidence, not guesses)
+## 3. Full backend/admin capability snapshot (this session's additions layered onto the prior checkpoint's own findings — see `PROJECT_CURRENT_STATE.md` for everything not touched this session)
 
-See `EXACT_NEXT_TASK.md` §"What was audited but NOT changed" for the full writeup (Payment Gateway maturity/gaps, Referral engine's real Customer-only scope, Campaign engine's real notification-broadcast-only scope, Badge engine's real KYC-pivot-only scope, Chat's dormant unused model, Tips/Compensation's total absence, Printing's confirmed absence).
+| Capability | Status |
+|---|---|
+| Row-level admin screen scoping (15 screens) | [IMPLEMENTED] [VERIFIED] — prior session |
+| Operations/Troubleshoot | [IMPLEMENTED] [VERIFIED] — prior session |
+| Payment Gateway abstraction + admin config/visibility | [IMPLEMENTED] [VERIFIED] — prior session |
+| Universal Badge Engine | [IMPLEMENTED] [VERIFIED] — this session |
+| Flash Sale Engine | [IMPLEMENTED] [VERIFIED] — this session |
+| Referral engine (Customer↔Customer only) + manual fraud review + opt-in expiry | [IMPLEMENTED] [VERIFIED] — this session hardened it |
+| Referral engine (cross-actor) | [BUSINESS DECISION] — qualification semantics undefined |
+| Performance/Growth Campaign engine | [MISSING] — next in mission priority order |
+| Tips/Compensation | [MISSING] |
+| Universal Chat | [MISSING] — model exists, dormant |
+| Printing/Document Engine | [MISSING] |
 
-## 4. Everything else in the full mission (Groups B–F, per the mission brief's 31 phases)
+## 4. Do not confuse these
 
-**Not started this session**, same honest boundary as every prior checkpoint: a full-fledged Referral/Campaign/Tip/Chat/Printing/Admin-design-system/Glover-parity program is realistically many independent, separately-reviewable engineering slices — attempting all of them in one unverified pass would risk exactly the "false claims of completion" every version of this mission has explicitly forbidden. Sequenced honestly in `EXACT_NEXT_TASK.md`'s "Exact next action" section.
-
-## 5. Do not confuse these
-
-- All three commits above are **COMMITTED** to local `main` and **TEST-VERIFIED** (full suite, not just their own filter, run before each commit).
-- Nothing this session is **PUSHED**, **DEPLOYED**, or **PRODUCTION VERIFIED** — production remains `ba0635a`, untouched, exactly as instructed.
-- The 28 remaining mission phases are **NOT STARTED, NOT CLAIMED COMPLETE** — see `EXACT_NEXT_TASK.md`'s 5-category breakdown for exactly what's buildable now vs. genuinely blocked on a business/vendor decision.
+- All five commits above are **COMMITTED** to local `main` and **TEST-VERIFIED** (full suite run before each, not just a filtered subset).
+- Nothing this session is **PUSHED**, **DEPLOYED**, or **PRODUCTION VERIFIED** — production remains `ba0635a`, untouched.
+- Phases 4–21 of the full mission brief are **NOT STARTED, NOT CLAIMED COMPLETE** — see `EXACT_NEXT_TASK.md` for the exact remaining list and recommended next action.
