@@ -1,6 +1,12 @@
 <div>
     <h1 class="text-2xl font-bold mb-4">Loyalty & Referrals</h1>
 
+    @if ($flashMessage)
+        <div @class(['rounded px-4 py-2 mb-4 text-sm', 'bg-green-50 text-green-700' => $flashType === 'success', 'bg-red-50 text-red-700' => $flashType === 'error'])>
+            {{ $flashMessage }}
+        </div>
+    @endif
+
     <div class="flex gap-1 mb-4 border-b">
         <button type="button" wire:click="setTab('points')"
                 @class(['px-4 py-2 text-sm font-medium border-b-2 -mb-px', 'border-slate-900 text-slate-900' => $activeTab === 'points', 'border-transparent text-gray-500 hover:text-gray-700' => $activeTab !== 'points'])>
@@ -68,6 +74,8 @@
                 <option value="">All statuses</option>
                 <option value="pending">Pending</option>
                 <option value="rewarded">Rewarded</option>
+                <option value="expired">Expired</option>
+                <option value="fraud_flagged">Fraud flagged</option>
             </select>
         </div>
 
@@ -81,24 +89,44 @@
                         <th class="px-4 py-2">Reward</th>
                         <th class="px-4 py-2">Qualifying booking</th>
                         <th class="px-4 py-2">Date</th>
+                        @if ($canManageAnywhere ?? false)
+                            <th class="px-4 py-2">Actions</th>
+                        @endif
                     </tr>
                 </thead>
                 <tbody>
                     @forelse ($referrals as $r)
-                        <tr class="border-t hover:bg-gray-50">
+                        <tr class="border-t hover:bg-gray-50 align-top">
                             <td class="px-4 py-2">{{ $r->referrer->name ?? '—' }} <span class="text-gray-400">({{ $r->referrer->phone ?? '—' }})</span></td>
                             <td class="px-4 py-2">{{ $r->referred->name ?? '—' }} <span class="text-gray-400">({{ $r->referred->phone ?? '—' }})</span></td>
                             <td class="px-4 py-2">
-                                <span @class(['px-2 py-0.5 rounded text-xs', 'bg-amber-100 text-amber-700' => $r->status === 'pending', 'bg-green-100 text-green-700' => $r->status === 'rewarded'])>
-                                    {{ ucfirst($r->status) }}
+                                <span @class(['px-2 py-0.5 rounded text-xs', 'bg-amber-100 text-amber-700' => $r->status === 'pending', 'bg-green-100 text-green-700' => $r->status === 'rewarded', 'bg-gray-100 text-gray-500' => $r->status === 'expired', 'bg-red-100 text-red-700' => $r->status === 'fraud_flagged'])>
+                                    {{ str_replace('_', ' ', ucfirst($r->status)) }}
                                 </span>
+                                @if ($r->reversed_at)
+                                    <div class="text-xs text-gray-400 mt-1">{{ $r->reversal_note }}</div>
+                                @endif
                             </td>
                             <td class="px-4 py-2 font-mono text-gray-500">{{ $r->reward_amount ? '₹'.number_format($r->reward_amount, 2) : '—' }}</td>
                             <td class="px-4 py-2 text-gray-400">{{ $r->qualifyingBooking->code ?? '—' }}</td>
                             <td class="px-4 py-2 text-gray-500">{{ $r->created_at->format('d M Y, h:i A') }}</td>
+                            @if ($canManageAnywhere ?? false)
+                                <td class="px-4 py-2">
+                                    @if ($r->status !== 'fraud_flagged')
+                                        <button type="button" wire:click="startFlagging({{ $r->id }})" class="text-red-600 hover:underline text-xs">Flag as fraud</button>
+                                    @endif
+                                    @if ($flaggingReferralId === $r->id)
+                                        <div class="mt-2">
+                                            <textarea wire:model="fraudNotes" rows="2" placeholder="Reason (required)" class="w-48 border rounded px-2 py-1 text-xs"></textarea>
+                                            @error('fraudNotes')<p class="text-red-600 text-xs">{{ $message }}</p>@enderror
+                                            <button type="button" wire:click="flagFraud" class="block mt-1 text-red-700 font-medium text-xs">Confirm flag</button>
+                                        </div>
+                                    @endif
+                                </td>
+                            @endif
                         </tr>
                     @empty
-                        <tr><td colspan="6" class="px-4 py-6 text-center text-gray-400">No referrals match your search.</td></tr>
+                        <tr><td colspan="{{ ($canManageAnywhere ?? false) ? 7 : 6 }}" class="px-4 py-6 text-center text-gray-400">No referrals match your search.</td></tr>
                     @endforelse
                 </tbody>
             </table>

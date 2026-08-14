@@ -31,10 +31,13 @@ Format per item: **Issue** · Current behavior · Risk · Why unresolved · Busi
 ## 3. Anti-fraud signals for referrals
 
 - **Issue:** No device/payment/address linkage detection, no velocity-anomaly detection, no duplicate-account detection exists anywhere in `ReferralService`.
-- **Current behavior:** Only two checks exist: no self-referral (`referrer_id !== newUser->id`), and one referral per referred user (DB-unique-enforced).
-- **Risk:** A referral reward engine without fraud signals is a genuine abuse vector once real reward money is involved (fake accounts farming rewards).
+- **Current behavior:** Self-referral is blocked, one referral per referred user is DB-unique-enforced, and (as of the full-day mission session, Phase 3) an admin can now **manually** flag any referral as fraud — `ReferralService::flagAsFraud()`, `Loyalty\Index`'s Referrals tab — which claws back the wallet credit via `WalletService::debit()` if it was already rewarded (gracefully recording, not crashing on, an already-spent balance). This is a manual REVIEW mechanism, not automatic DETECTION.
+- **Risk:** Still real — nothing flags a suspicious referral proactively; an admin has to already suspect one to act on it.
 - **Why unresolved:** Real fraud-signal thresholds (what device-linkage pattern counts as suspicious, what velocity is "anomalous") are themselves judgment calls that need product/risk-team input, not invented by an engineering pass.
-- **Business decision required:** Which fraud signals to check, and at what threshold; what happens on a flagged referral (auto-block vs. manual review queue).
+- **Business decision required:** Which automatic fraud signals to check, and at what threshold; whether a flagged referral should ever auto-block vs. always require manual review (manual review is what exists today).
+- **Safe current default:** Manual flagging only, no automatic detection, no invented thresholds.
+- **Affected modules:** Referral engine, Wallet.
+- **Blocked:** Partially — manual review tooling is done; automatic detection is blocked on the threshold decision above.
 - **Safe current default:** None — this is a real gap, not a policy choice with a safe default.
 - **Affected modules:** Referral engine, Wallet (reward payout).
 - **Blocked:** Yes, for anything beyond basic architecture (a review-queue *mechanism* is buildable without inventing the actual fraud rules).
@@ -115,6 +118,7 @@ Format per item: **Issue** · Current behavior · Risk · Why unresolved · Busi
 - **Safe current default:** No post-completion refund path exists, so no clawback is needed yet. Documented here so it isn't silently invented if that path is ever built.
 - **Affected modules:** Commission, Payment, Wallet.
 - **Blocked:** N/A today (unreachable path); blocks only a *future* feature.
+- **Update (full-day mission Phase 3):** The identical unreachable-path finding applies to referral reward clawback-on-booking-cancellation — a referral only qualifies off a `completed` booking (`ReferralService::qualifyFromCompletedBooking()`), and a `completed` booking can't be cancelled (same `AdminCancelBookingAction` guard). Referral clawback WAS built this session, but only as an admin-driven manual fraud-flag action (`ReferralService::flagAsFraud()`, reachable anytime, not gated on a booking-cancellation path) — not as an automatic reaction to a cancellation that can't currently happen. If a post-completion refund/dispute path is ever built, both this item's commission question AND a parallel "does a legitimate (non-fraud) refund also reverse the referral reward it indirectly funded" question should be resolved together.
 
 ## 11. `payment_methods` / `payment_accounts` admin UI
 

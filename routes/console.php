@@ -21,3 +21,10 @@ Schedule::command('campaigns:dispatch-due')->everyMinute();
 // (unlike campaign dispatch, which needs minute precision for scheduled
 // sends) -- see RenewalService. Same schedule:run cron caveat as above.
 Schedule::command('plans:renew-due')->hourly();
+
+// Referral Engine: expires pending referrals past their opt-in
+// referral.pending_expiry_days window (housekeeping only -- see
+// ReferralService::expirePendingReferrals()'s own docblock for why this
+// can never race a legitimate reward). Daily is enough granularity for a
+// day-scale expiry window; same schedule:run cron caveat as above.
+Schedule::command('referrals:expire-due')->daily();

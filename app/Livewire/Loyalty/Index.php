@@ -5,6 +5,7 @@ namespace App\Livewire\Loyalty;
 use App\Models\LoyaltyPoint;
 use App\Models\Referral;
 use App\Services\AuthorizationService;
+use App\Services\ReferralService;
 use Livewire\Component;
 use Livewire\WithPagination;
 
@@ -21,7 +22,14 @@ class Index extends Component
 
     public string $activeTab = 'points'; // points|referrals
     public string $search = '';
-    public string $referralStatusFilter = ''; // '' | pending | rewarded
+    public string $referralStatusFilter = ''; // '' | pending | rewarded | expired | fraud_flagged
+
+    // --- Fraud flag form ---
+    public ?int $flaggingReferralId = null;
+    public string $fraudNotes = '';
+
+    public string $flashMessage = '';
+    public string $flashType = 'success';
 
     protected $queryString = ['activeTab', 'search', 'referralStatusFilter'];
 
@@ -49,6 +57,47 @@ class Index extends Component
         $this->resetPage();
     }
 
+    public function startFlagging(int $referralId): void
+    {
+        $this->flaggingReferralId = $referralId;
+        $this->fraudNotes = '';
+    }
+
+    /**
+     * loyalty.manage was seeded (2026_08_14_012000) specifically for this
+     * new mutation -- checked against the REFERRAL's own referrer scope
+     * (same reasoning the .view row-scoping above already uses: the
+     * reward accrued to the referrer, so that's whose scope governs who
+     * can act on it), not just "holds loyalty.manage anywhere".
+     */
+    public function flagFraud(ReferralService $service): void
+    {
+        $referral = Referral::with('referrer')->findOrFail($this->flaggingReferralId);
+        $referral->loadMissing('referrer.franchise');
+
+        $scope = array_filter([
+            'zone_id' => $referral->referrer?->zone_id,
+            'franchise_id' => $referral->referrer?->franchise_id,
+            'city_id' => $referral->referrer?->franchise?->city_id,
+            'country_id' => $referral->referrer?->franchise?->country_id,
+        ]);
+
+        if (! auth()->user()->hasPermission('loyalty.manage', $scope)) {
+            $this->flashType = 'error';
+            $this->flashMessage = 'You do not have permission to manage this referral.';
+            return;
+        }
+
+        $this->validate(['fraudNotes' => ['required', 'string', 'max:500']]);
+
+        $service->flagAsFraud($referral, auth()->user(), $this->fraudNotes);
+
+        $this->flashType = 'success';
+        $this->flashMessage = 'Referral flagged as fraud.';
+        $this->flaggingReferralId = null;
+        $this->fraudNotes = '';
+    }
+
     public function render()
     {
         if ($this->activeTab === 'referrals') {
@@ -70,6 +119,7 @@ class Index extends Component
                 'points' => null,
                 'totalPointsEarned' => null,
                 'totalPointsRedeemed' => null,
+                'canManageAnywhere' => auth()->user()->hasPermissionAnywhere('loyalty.manage'),
             ])->layout('layouts.admin', ['title' => 'Loyalty & Referrals']);
         }
 

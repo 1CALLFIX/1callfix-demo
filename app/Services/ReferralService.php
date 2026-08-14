@@ -48,11 +48,83 @@ class ReferralService
             return null; // already referred once -- also enforced by the DB unique index
         }
 
+        // referral.pending_expiry_days is opt-in (default null = never
+        // expires) -- an admin who wants pending referrals to lapse after
+        // N days can turn it on; nothing is silently invented as a
+        // mandatory window. Global scope only: createFromSignup() has no
+        // franchise/zone context to resolve a scoped override against (the
+        // new user frequently doesn't have one yet either -- see
+        // BookingFixtureHelpers::makeCustomer()'s own comment on this).
+        $expiryDays = Setting::get('referral.pending_expiry_days', '', []);
+        $expiresAt = $expiryDays !== '' ? now()->addDays((int) $expiryDays) : null;
+
         return Referral::create([
             'referrer_id' => $referrer->id,
             'referred_id' => $newUser->id,
             'status' => 'pending',
+            'expires_at' => $expiresAt,
         ]);
+    }
+
+    /**
+     * Called by the ExpireReferrals scheduled command (housekeeping only —
+     * qualifyFromCompletedBooking() ALSO independently re-checks status via
+     * its own 'pending' guard, so a referral that's actually about to
+     * qualify in the same moment this runs can never be expired out from
+     * under a legitimate reward; expiring only ever removes a referral
+     * from FUTURE eligibility, never reverses one already rewarded).
+     *
+     * @return int how many were expired, for the command's summary output
+     */
+    public function expirePendingReferrals(): int
+    {
+        return Referral::where('status', 'pending')
+            ->whereNotNull('expires_at')
+            ->where('expires_at', '<=', now())
+            ->update(['status' => 'expired']);
+    }
+
+    /**
+     * Admin-driven manual fraud flag — no automatic detection (the real
+     * signal thresholds are a genuine pending business decision, see
+     * KNOWN_RISKS_AND_DECISIONS.md item 3). If the referral was already
+     * 'rewarded', attempts a wallet clawback via the same WalletService
+     * every other reward/refund path in this codebase uses — if the
+     * referrer no longer has the balance (already spent it),
+     * WalletService::debit() refuses to take them negative, and that
+     * failure is recorded honestly in reversal_note rather than silently
+     * swallowed or allowed to crash the flagging action itself.
+     */
+    public function flagAsFraud(Referral $referral, User $admin, string $notes): Referral
+    {
+        $wasRewarded = $referral->status === 'rewarded';
+        $clawbackNote = null;
+
+        if ($wasRewarded && (float) $referral->reward_amount > 0) {
+            try {
+                $this->walletService->debit(
+                    $referral->referrer,
+                    (float) $referral->reward_amount,
+                    reason: "Referral reward clawback (flagged as fraud): {$notes}",
+                    ref: "referral:{$referral->id}:clawback"
+                );
+                $clawbackNote = "Reward of {$referral->reward_amount} clawed back from wallet.";
+            } catch (\Throwable $e) {
+                $clawbackNote = "Clawback attempted but failed (referrer balance insufficient): {$e->getMessage()}";
+            }
+        }
+
+        $referral->status = 'fraud_flagged';
+        $referral->fraud_flagged_at = now();
+        $referral->fraud_flagged_by = $admin->id;
+        $referral->fraud_notes = $notes;
+        if ($wasRewarded) {
+            $referral->reversed_at = now();
+            $referral->reversal_note = $clawbackNote;
+        }
+        $referral->save();
+
+        return $referral->fresh();
     }
 
     /**
