@@ -1,6 +1,8 @@
 # Exact Next Task
 
-**Current HEAD:** `642d582` — Phase 8 (Notification/Communication Center completeness) now complete, per explicit user follow-up request. Real gaps closed, not just documented: Templates CRUD (permission existed, zero UI), Delivery Logs browser (permission existed, zero UI beyond Operations' failure-only slice), Provider Status panel (which SMS/push adapter is bound, never exposes credentials), a real working `resendToFailedRecipients()` retry (idempotent, targets only currently-still-failing recipients), and the in-app notification read API (Laravel's own `database` channel was fully wired to write but had zero read-side anywhere). 22 tests. Full suite: **458/458, 997 assertions.**
+**Current HEAD:** `8d44153` — Phase 9 (Payment Admin completion) now complete, per explicit user follow-up request. `payment_accounts` existed and was already READ by PayoutService/Payouts\Manage but had ZERO write path — added `PaymentAccountService` (create/update/setDefault/delete/verify, verification always admin-only, detail changes reset verification), a self-service API, admin verification UI on the existing Payouts screen, and closed an IDOR-adjacent gap in `PayoutService::request()` (a supplied payment_account_id is now checked to actually belong to the payee). `payment_methods` (the other table risk-register item 11 names) stays deliberately untouched — still blocked on its own consolidation decision. 22 tests. Full suite: **480/480, 1025 assertions.**
+
+**Phase 8 (Notification/Communication Center completeness)** — `642d582`. Real gaps closed, not just documented: Templates CRUD (permission existed, zero UI), Delivery Logs browser (permission existed, zero UI beyond Operations' failure-only slice), Provider Status panel (which SMS/push adapter is bound, never exposes credentials), a real working `resendToFailedRecipients()` retry (idempotent, targets only currently-still-failing recipients), and the in-app notification read API (Laravel's own `database` channel was fully wired to write but had zero read-side anywhere). 22 tests. Full suite: **458/458, 997 assertions.**
 
 **Phase 7 (Printing/Document Engine)** — `447ea55`. Added `barryvdh/laravel-dompdf` (no PDF library existed before; user chose this over a no-dependency HTML-print alternative). Real invoice/receipt PDFs for all three Payment purposes (booking/wallet_topup/plan_subscription), idempotent numbering, admin + customer-self-service authorization. 14 tests.
 
@@ -26,7 +28,6 @@
 ## What remains (honest, per the mission's own 20-phase priority order)
 
 **Not started this segment:**
-- Phase 9 — Payment Admin completion (`payment_methods`/`payment_accounts` UI — still gated on the consolidation decision, risk register item 11).
 - Phase 10 — Operations/Troubleshoot expansion.
 - Phase 11 — Admin Menu/Settings completeness audit against the reference checklist.
 - Phase 12 — CMS/content audit.
@@ -41,4 +42,4 @@
 
 ## Exact next action (current)
 
-Phases 7 and 8 are done. Continue in mission priority order: **Phase 9 — Payment Admin completion** (`payment_methods`/`payment_accounts` admin UI — still gated on the consolidation decision, risk register item 11; resolve or re-confirm before building). Then Phase 10 (Operations/Troubleshoot expansion), Phase 11 (Admin Menu/Settings completeness audit), and onward per the priority list below.
+Phases 7, 8, and 9 are done. Continue in mission priority order: **Phase 10 — Operations/Troubleshoot expansion** (failed jobs, queues, scheduler, webhook failures, stuck bookings, reconciliation warnings — beyond the existing `/admin/operations` screen). Then Phase 11 (Admin Menu/Settings completeness audit) and onward per the priority list below.
