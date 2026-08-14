@@ -92,9 +92,15 @@ trait BookingFixtureHelpers
 
     protected function makeFieldWorkerIn(Franchise $franchise, Zone $zone): FieldWorker
     {
+        // users.role has no 'field_worker' value -- QaSeeder's own
+        // seedWorkers() establishes 'provider' as the role tag for
+        // FieldWorker-linked users too (role is a coarse actor-type tag;
+        // FieldWorker itself, not users.role, is what actually
+        // distinguishes a worker), mirrored here rather than inventing a
+        // new enum value.
         $user = User::create([
             'uuid' => (string) Str::uuid(), 'name' => 'Worker', 'phone' => '9'.fake()->unique()->numerify('#########'),
-            'role' => 'field_worker', 'status' => 'active', 'franchise_id' => $franchise->id, 'zone_id' => $zone->id,
+            'role' => 'provider', 'status' => 'active', 'franchise_id' => $franchise->id, 'zone_id' => $zone->id,
         ]);
 
         return FieldWorker::create([

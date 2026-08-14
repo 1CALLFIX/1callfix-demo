@@ -51,6 +51,7 @@ class FieldWorker extends Model
     public function zone() { return $this->belongsTo(Zone::class); }
     public function capabilities() { return $this->hasMany(FieldWorkerCapability::class); }
     public function documents() { return $this->hasMany(FieldWorkerDocument::class); }
+    public function currentDocuments() { return $this->documents()->where('is_current', true); }
 
     /** Every Partner relationship this worker has, whatever its status — see PartnerWorker::status. */
     public function partnerLinks() { return $this->hasMany(PartnerWorker::class); }

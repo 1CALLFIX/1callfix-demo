@@ -82,9 +82,14 @@ class Show extends Component
             return;
         }
 
-        $this->provider = $action->approve($this->provider->id);
-        $this->flashType = 'success';
-        $this->flashMessage = 'Provider approved. They can now go online and receive job offers.';
+        try {
+            $this->provider = $action->approve($this->provider->id);
+            $this->flashType = 'success';
+            $this->flashMessage = 'Provider approved. They can now go online and receive job offers.';
+        } catch (\Throwable $e) {
+            $this->flashType = 'error';
+            $this->flashMessage = $e->getMessage();
+        }
     }
 
     public function reject(ReviewProviderKycAction $action)
@@ -110,7 +115,14 @@ class Show extends Component
 
     public function render()
     {
-        return view('livewire.providers.show')
-            ->layout('layouts.admin', ['title' => 'Review Provider']);
+        $explanation = app(\App\Services\Kyc\KycWithdrawalPolicyService::class)->explain($this->provider, array_filter([
+            'zone_id' => $this->provider->zone_id,
+            'franchise_id' => $this->provider->franchise_id,
+        ]));
+
+        return view('livewire.providers.show', [
+            'withdrawalRestricted' => $explanation['restricted'],
+            'withdrawalReason' => $explanation['reason'],
+        ])->layout('layouts.admin', ['title' => 'Review Provider']);
     }
 }

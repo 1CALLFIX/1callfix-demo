@@ -9,6 +9,7 @@ use App\Models\Setting;
 use App\Models\User;
 use App\Notifications\PayoutStatusNotification;
 use App\Notifications\Support\ChannelResolver;
+use App\Services\Kyc\KycWithdrawalPolicyService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
@@ -31,8 +32,10 @@ use Illuminate\Support\Str;
  */
 class PayoutService
 {
-    public function __construct(private WalletService $walletService)
-    {
+    public function __construct(
+        private WalletService $walletService,
+        private KycWithdrawalPolicyService $kycWithdrawalPolicy,
+    ) {
     }
 
     /**
@@ -49,6 +52,7 @@ class PayoutService
         }
 
         $this->assertWithinPayoutLimits($payeeType, $payeeId, $amount);
+        $this->assertKycWithdrawalAllowed($payeeType, $payeeId);
 
         $user = $this->resolvePayeeUser($payeeType, $payeeId);
 
@@ -143,6 +147,29 @@ class PayoutService
 
         if ($max > 0 && $amount > $max) {
             throw new \RuntimeException("Payout amount cannot exceed {$max}.");
+        }
+    }
+
+    /**
+     * The actual enforcement point for the KYC withdrawal restriction
+     * policy (mission Phase 3) — earnings keep accruing to the wallet via
+     * CommissionService regardless of KYC state (never touched), but a
+     * request to turn that balance into a real payout is refused here once
+     * the provider is genuinely overdue and holds no active exception.
+     * franchise_owner payouts are NOT subject to this — the mission's own
+     * 30-day/withdrawal-restriction text is Partner-specific throughout.
+     */
+    private function assertKycWithdrawalAllowed(string $payeeType, int $payeeId): void
+    {
+        if ($payeeType !== 'provider') {
+            return;
+        }
+
+        $provider = Provider::findOrFail($payeeId);
+        $explanation = $this->kycWithdrawalPolicy->explain($provider, $this->payoutScope($payeeType, $payeeId));
+
+        if ($explanation['restricted']) {
+            throw new \RuntimeException('Withdrawals are temporarily restricted until KYC is completed. Contact your Franchise Office for assistance.');
         }
     }
 

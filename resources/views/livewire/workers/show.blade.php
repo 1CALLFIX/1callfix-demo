@@ -99,13 +99,13 @@
     </div>
 
     <div class="bg-white rounded-lg shadow-sm p-4 mb-6">
-        <div class="font-semibold mb-2">Submitted Documents ({{ $fieldWorker->documents->count() }})</div>
-        @if ($fieldWorker->documents->isEmpty())
+        <div class="font-semibold mb-2">Submitted Documents ({{ $fieldWorker->currentDocuments->count() }})</div>
+        @if ($fieldWorker->currentDocuments->isEmpty())
             <p class="text-sm text-gray-400">No documents uploaded yet.</p>
         @else
             <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
-                @foreach ($fieldWorker->documents as $doc)
-                    <a href="{{ $doc->file_url }}" target="_blank" class="border rounded p-3 text-center hover:bg-gray-50">
+                @foreach ($fieldWorker->currentDocuments as $doc)
+                    <a href="{{ route('admin.kyc.documents.field-worker', $doc->id) }}" target="_blank" class="border rounded p-3 text-center hover:bg-gray-50">
                         <div class="text-xs font-medium mb-1">{{ str_replace('_', ' ', $doc->type) }}</div>
                         <div class="text-xs text-gray-400">{{ $doc->status }}</div>
                     </a>

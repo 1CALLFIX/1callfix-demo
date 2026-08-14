@@ -28,3 +28,4 @@ Schedule::command('plans:renew-due')->hourly();
 // can never race a legitimate reward). Daily is enough granularity for a
 // day-scale expiry window; same schedule:run cron caveat as above.
 Schedule::command('referrals:expire-due')->daily();
+Schedule::command('kyc:send-reminders')->daily();

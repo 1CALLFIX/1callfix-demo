@@ -5,6 +5,7 @@ use App\Livewire\Badges\Manage as BadgesManage;
 use App\Livewire\Dashboard;
 use App\Livewire\FlashSales\Manage as FlashSalesManage;
 use App\Livewire\PerformanceCampaigns\Manage as PerformanceCampaignsManage;
+use App\Livewire\Kyc\SupportRequests as KycSupportRequestsManage;
 use App\Livewire\Bookings\Index as BookingsIndex;
 use App\Livewire\Bookings\Show as BookingsShow;
 use App\Livewire\Providers\Index as ProvidersIndex;
@@ -80,4 +81,8 @@ Route::middleware(['auth', \App\Http\Middleware\EnsureHasAdminAccess::class])
         Route::get('/plans', PlansManage::class)->name('admin.plans.index');
         Route::get('/subscriptions', SubscriptionsIndex::class)->name('admin.subscriptions.index');
         Route::get('/operations', OperationsHealth::class)->name('admin.operations.index');
+        Route::get('/kyc/support-requests', KycSupportRequestsManage::class)->name('admin.kyc.support-requests.index');
+        Route::get('/kyc/documents/provider/{documentId}', [\App\Http\Controllers\Admin\KycDocumentController::class, 'providerDocument'])->name('admin.kyc.documents.provider');
+        Route::get('/kyc/documents/field-worker/{documentId}', [\App\Http\Controllers\Admin\KycDocumentController::class, 'fieldWorkerDocument'])->name('admin.kyc.documents.field-worker');
+        Route::get('/kyc/videos/{videoId}', [\App\Http\Controllers\Admin\KycDocumentController::class, 'verificationVideo'])->name('admin.kyc.videos.show');
     });

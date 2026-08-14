@@ -54,19 +54,39 @@
     </div>
 
     <div class="bg-white rounded-lg shadow-sm p-4 mb-6">
-        <div class="font-semibold mb-2">Submitted Documents ({{ $provider->documents->count() }})</div>
-        @if ($provider->documents->isEmpty())
+        <div class="flex items-center justify-between mb-2">
+            <div class="font-semibold">Withdrawal eligibility</div>
+            <span @class(['px-2 py-0.5 rounded text-xs', 'bg-red-100 text-red-700' => $withdrawalRestricted, 'bg-green-100 text-green-700' => ! $withdrawalRestricted])>
+                {{ $withdrawalRestricted ? 'Restricted' : 'Eligible' }}
+            </span>
+        </div>
+        <p class="text-xs text-gray-400">{{ str_replace('_', ' ', $withdrawalReason) }}@if($provider->kyc_deadline_at) &middot; KYC deadline: {{ $provider->kyc_deadline_at->format('d M Y') }}@endif</p>
+    </div>
+
+    <div class="bg-white rounded-lg shadow-sm p-4 mb-6">
+        <div class="font-semibold mb-2">Submitted Documents ({{ $provider->currentDocuments->count() }})</div>
+        @if ($provider->currentDocuments->isEmpty())
             <p class="text-sm text-gray-400">No documents uploaded yet.</p>
         @else
             <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
-                @foreach ($provider->documents as $doc)
-                    <a href="{{ $doc->file_url }}" target="_blank"
+                @foreach ($provider->currentDocuments as $doc)
+                    <a href="{{ route('admin.kyc.documents.provider', $doc->id) }}" target="_blank"
                        class="border rounded p-3 text-center hover:bg-gray-50">
                         <div class="text-xs font-medium mb-1">{{ str_replace('_', ' ', $doc->type) }}</div>
                         <div class="text-xs text-gray-400">{{ $doc->status }}</div>
                     </a>
                 @endforeach
             </div>
+        @endif
+    </div>
+
+    <div class="bg-white rounded-lg shadow-sm p-4 mb-6">
+        <div class="font-semibold mb-2">Verification video</div>
+        @if ($provider->latestVerificationVideo)
+            <a href="{{ route('admin.kyc.videos.show', $provider->latestVerificationVideo->id) }}" target="_blank" class="text-sm text-blue-600 hover:underline">View submitted video</a>
+            <span class="text-xs text-gray-400 ml-2">Status: {{ $provider->latestVerificationVideo->status }}</span>
+        @else
+            <p class="text-sm text-gray-400">No verification video submitted yet.</p>
         @endif
     </div>
 

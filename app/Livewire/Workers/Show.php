@@ -60,10 +60,15 @@ class Show extends Component
             return;
         }
 
-        $this->fieldWorker = $action->approve($this->fieldWorker->id);
-        $this->fieldWorker->load('documents');
-        $this->flashType = 'success';
-        $this->flashMessage = 'Worker approved. They can now go online and be assigned jobs.';
+        try {
+            $this->fieldWorker = $action->approve($this->fieldWorker->id);
+            $this->fieldWorker->load('documents');
+            $this->flashType = 'success';
+            $this->flashMessage = 'Worker approved. They can now go online and be assigned jobs.';
+        } catch (\Throwable $e) {
+            $this->flashType = 'error';
+            $this->flashMessage = $e->getMessage();
+        }
     }
 
     public function reject(ReviewFieldWorkerKycAction $action)

@@ -66,6 +66,32 @@ class ProvidersReviewAuthorizationTest extends TestCase
         ]);
     }
 
+    /**
+     * ReviewProviderKycAction::approve() now enforces the mission's own
+     * "documents verified + video verified = KYC approved" gate (full-day
+     * EOD mission Phase 2) -- a provider with no approved documents/video
+     * can no longer be approved regardless of the reviewer's permission.
+     * Tests below that exercise the SUCCESS path (permission is correct)
+     * need a provider that's actually complete, so they keep testing the
+     * scope/permission boundary they were written for rather than
+     * incidentally failing on the new completeness check.
+     */
+    private function satisfyKycRequirements(Provider $provider): void
+    {
+        foreach (['id_proof', 'address_proof', 'bank_details'] as $type) {
+            \App\Models\ProviderDocument::create([
+                'provider_id' => $provider->id, 'type' => $type, 'file_url' => 'legacy', 'disk_path' => "kyc/providers/{$provider->id}/{$type}/f.pdf",
+                'status' => 'approved', 'is_current' => true,
+            ]);
+        }
+
+        \App\Models\KycVerificationVideo::create([
+            'provider_id' => $provider->id, 'disk_path' => "kyc/providers/{$provider->id}/verification-video/v.mp4", 'status' => 'approved',
+        ]);
+
+        $provider->update(['kyc_video_status' => 'approved']);
+    }
+
     public function test_approve_denied_without_permission(): void
     {
         $provider = $this->makeProvider();
@@ -96,6 +122,7 @@ class ProvidersReviewAuthorizationTest extends TestCase
     public function test_approve_allowed_with_correct_franchise_scope(): void
     {
         $provider = $this->makeProvider();
+        $this->satisfyKycRequirements($provider);
         $actor = $this->makeUserWithPermission('providers.review_kyc', 'franchise', $provider->franchise_id);
         $this->grantPermission($actor, 'providers.view');
 
@@ -123,6 +150,7 @@ class ProvidersReviewAuthorizationTest extends TestCase
     public function test_super_admin_bypasses_scope_entirely(): void
     {
         $provider = $this->makeProvider();
+        $this->satisfyKycRequirements($provider);
         $admin = $this->makeSuperAdmin();
 
         $component = Livewire::actingAs($admin)->test(Show::class, ['providerId' => $provider->id])

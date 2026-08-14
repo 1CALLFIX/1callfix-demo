@@ -21,6 +21,9 @@ class Provider extends Model
         'parent_provider_id',
         'skills',
         'kyc_status',
+        'kyc_deadline_at',
+        'kyc_reminder_stage',
+        'kyc_video_status',
         'credit_balance',
         'is_online',
         'current_lat',
@@ -32,13 +35,18 @@ class Provider extends Model
         'is_active'
     ];
 
-    protected $casts = ['skills' => 'array', 'is_online' => 'boolean', 'location_updated_at' => 'datetime'];
+    protected $casts = ['skills' => 'array', 'is_online' => 'boolean', 'location_updated_at' => 'datetime', 'kyc_deadline_at' => 'datetime'];
     public function user() { return $this->belongsTo(User::class); }
     public function franchise() { return $this->belongsTo(Franchise::class); }
     public function zone() { return $this->belongsTo(Zone::class); }
     public function parent() { return $this->belongsTo(Provider::class, 'parent_provider_id'); }
     public function technicians() { return $this->hasMany(Provider::class, 'parent_provider_id'); }
     public function documents() { return $this->hasMany(ProviderDocument::class); }
+    public function currentDocuments() { return $this->documents()->where('is_current', true); }
+    public function verificationVideos() { return $this->hasMany(KycVerificationVideo::class); }
+    public function latestVerificationVideo() { return $this->hasOne(KycVerificationVideo::class)->latestOfMany(); }
+    public function withdrawalExceptions() { return $this->hasMany(KycWithdrawalException::class); }
+    public function kycSupportRequests() { return $this->hasMany(KycSupportRequest::class); }
     public function subscriptions() { return $this->hasMany(ProviderSubscription::class); }
     public function bookings() { return $this->hasMany(Booking::class); }
     public function reviews() { return $this->hasMany(Review::class); }
