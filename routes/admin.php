@@ -1,6 +1,7 @@
 <?php
 
 use App\Livewire\Auth\Login;
+use App\Livewire\Badges\Manage as BadgesManage;
 use App\Livewire\Dashboard;
 use App\Livewire\Bookings\Index as BookingsIndex;
 use App\Livewire\Bookings\Show as BookingsShow;
@@ -62,6 +63,7 @@ Route::middleware(['auth', \App\Http\Middleware\EnsureHasAdminAccess::class])
         Route::get('/subcategories', SubcategoriesManage::class)->name('admin.subcategories.index');
         Route::get('/services', ServicesManage::class)->name('admin.services.index');
         Route::get('/banners', BannersManage::class)->name('admin.banners.index');
+        Route::get('/badges', BadgesManage::class)->name('admin.badges.index');
         Route::get('/settings', SettingsManage::class)->name('admin.settings.index');
         Route::get('/cms', CmsManage::class)->name('admin.cms.index');
         Route::get('/roles', RolesManage::class)->name('admin.roles.index');

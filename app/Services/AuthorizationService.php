@@ -74,7 +74,16 @@ class AuthorizationService
             ->contains(fn ($assignment) => $assignment->role->permissions->contains('slug', $permission));
     }
 
-    private function scopeCovers(string $scopeType, ?int $scopeId, array $requestedScope): bool
+    /**
+     * Pure geography-covers-target check, no RBAC/User involved -- public
+     * because it's reused for non-permission "does this scoped ROW apply to
+     * this target location" questions too (e.g. BadgeService checking
+     * whether a zone-scoped badge assignment applies to a customer viewing
+     * from that zone), not only for can()'s own permission-grant check
+     * above. One implementation of "what does global/country/city/zone/
+     * franchise scope-covers actually mean" for the whole codebase.
+     */
+    public function scopeCovers(string $scopeType, ?int $scopeId, array $requestedScope): bool
     {
         if ($scopeType === 'global') {
             return true;
