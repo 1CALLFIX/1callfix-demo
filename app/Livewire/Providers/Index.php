@@ -3,6 +3,7 @@
 namespace App\Livewire\Providers;
 
 use App\Models\Provider;
+use App\Services\AuthorizationService;
 use Livewire\Component;
 use Livewire\WithPagination;
 
@@ -25,14 +26,22 @@ class Index extends Component
         $this->resetPage();
     }
 
+    private function scopeColumns(): array
+    {
+        return ['zone_id' => 'zone_id', 'franchise_id' => 'franchise_id', 'city_id' => 'franchise.city_id', 'country_id' => 'franchise.country_id'];
+    }
+
     public function render()
     {
-        $providers = Provider::with(['user', 'zone', 'documents'])
+        $scoped = fn ($query) => app(AuthorizationService::class)->scopeQuery($query, auth()->user(), 'providers.view', $this->scopeColumns());
+
+        $providers = $scoped(Provider::with(['user', 'zone', 'documents']))
             ->when($this->statusFilter, fn ($q) => $q->where('kyc_status', $this->statusFilter))
             ->latest()
             ->paginate(20);
 
-        $counts = Provider::selectRaw('kyc_status, count(*) as total')
+        $counts = $scoped(Provider::query())
+            ->selectRaw('kyc_status, count(*) as total')
             ->groupBy('kyc_status')
             ->pluck('total', 'kyc_status');
 

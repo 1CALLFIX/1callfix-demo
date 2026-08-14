@@ -41,46 +41,11 @@ class Plan extends Model
      */
     public function authorizationScopeHint(): array
     {
-        if ($this->scope_type === 'global' || ! $this->scope_id) {
-            return [];
-        }
-
-        return match ($this->scope_type) {
-            'franchise' => $this->franchiseAncestry(Franchise::find($this->scope_id)),
-            'zone' => $this->zoneAncestry(Zone::find($this->scope_id)),
-            'city' => ['city_id' => $this->scope_id],
-            'country' => ['country_id' => $this->scope_id],
-            default => [],
-        };
-    }
-
-    private function franchiseAncestry(?Franchise $franchise): array
-    {
-        if (! $franchise) {
-            return [];
-        }
-
-        return array_filter([
-            'franchise_id' => $franchise->id,
-            'city_id' => $franchise->city_id,
-            'country_id' => $franchise->country_id,
-        ]);
-    }
-
-    private function zoneAncestry(?Zone $zone): array
-    {
-        if (! $zone) {
-            return [];
-        }
-
-        $franchise = $zone->franchise;
-
-        return array_filter([
-            'zone_id' => $zone->id,
-            'franchise_id' => $zone->franchise_id,
-            'city_id' => $franchise?->city_id,
-            'country_id' => $franchise?->country_id,
-        ]);
+        // Delegates to AuthorizationService::ancestryFor() -- the exact same
+        // franchise/zone ancestry walk this method used to do inline, now
+        // shared with NotificationCampaign/NotificationMeeting's identical
+        // scope_type/scope_id shape rather than re-implemented per model.
+        return app(\App\Services\AuthorizationService::class)->ancestryFor($this->scope_type, $this->scope_id);
     }
 
     /** Shared by SubscriptionService (activate/renewNow) and RenewalService (renewPeriod) — one place computes a billing cycle's end. */

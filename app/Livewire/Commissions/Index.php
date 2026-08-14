@@ -4,6 +4,7 @@ namespace App\Livewire\Commissions;
 
 use App\Models\Commission;
 use App\Models\Franchise;
+use App\Services\AuthorizationService;
 use Livewire\Component;
 use Livewire\WithPagination;
 
@@ -35,8 +36,14 @@ class Index extends Component
      * filter (like every other Index screen in this codebase), so the gate
      * mirrors the existing "prerequisite, not full row-scoping" reasoning
      * AuthorizationService::canAnywhere() already documents for
-     * Bookings\Index::createBooking(). Full per-franchise/zone row filtering
-     * of this ledger is a separate, larger enhancement, not invented here.
+     * Bookings\Index::createBooking().
+     *
+     * Row-level scoping (was deferred here, now closed): commissions carries
+     * no zone_id/franchise_id of its own -- only booking_id -- so baseQuery()
+     * scopes through the booking relation (booking.zone_id/booking.
+     * franchise_id/booking.franchise.city_id/booking.franchise.country_id),
+     * the same ancestry every other booking-derived screen this session
+     * scoped uses.
      */
     public function mount(): void
     {
@@ -50,7 +57,11 @@ class Index extends Component
 
     private function baseQuery()
     {
-        return Commission::with(['booking.franchise', 'booking.provider.user'])
+        $columns = ['zone_id' => 'booking.zone_id', 'franchise_id' => 'booking.franchise_id', 'city_id' => 'booking.franchise.city_id', 'country_id' => 'booking.franchise.country_id'];
+
+        return app(AuthorizationService::class)
+            ->scopeQuery(Commission::query(), auth()->user(), 'commissions.view', $columns)
+            ->with(['booking.franchise', 'booking.provider.user'])
             ->when($this->search !== '', fn ($q) => $q->whereHas('booking', fn ($b) => $b
                 ->where('code', 'like', "%{$this->search}%")
                 ->orWhereHas('provider.user', fn ($p) => $p->where('name', 'like', "%{$this->search}%"))))
@@ -72,9 +83,18 @@ class Index extends Component
 
         $commissions = $this->baseQuery()->latest()->paginate(25);
 
+        // The filter dropdown itself must not offer a franchise whose
+        // commissions the viewer can't actually see -- same permission,
+        // Franchise's own id/city_id/country_id (+ zones.id for a zone-scoped
+        // grant, via the franchise's own zones() relation).
+        $franchiseColumns = ['franchise_id' => 'id', 'city_id' => 'city_id', 'country_id' => 'country_id', 'zone_id' => 'zones.id'];
+        $franchises = app(AuthorizationService::class)
+            ->scopeQuery(Franchise::query(), auth()->user(), 'commissions.view', $franchiseColumns)
+            ->orderBy('name')->get();
+
         return view('livewire.commissions.index', [
             'commissions' => $commissions,
-            'franchises' => Franchise::orderBy('name')->get(),
+            'franchises' => $franchises,
             'providerTotal' => (float) ($totals->provider_total ?? 0),
             'franchiseTotal' => (float) ($totals->franchise_total ?? 0),
             'platformTotal' => (float) ($totals->platform_total ?? 0),

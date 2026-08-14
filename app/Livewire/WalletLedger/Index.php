@@ -3,6 +3,7 @@
 namespace App\Livewire\WalletLedger;
 
 use App\Models\WalletTransaction;
+use App\Services\AuthorizationService;
 use Livewire\Component;
 use Livewire\WithPagination;
 
@@ -25,7 +26,15 @@ class Index extends Component
 
     protected $queryString = ['search', 'typeFilter', 'statusFilter', 'fromDate', 'toDate'];
 
-    /** wallets.view was seeded (2026_08_11_051000) but never checked -- see Commissions\Index's identical fix for the full reasoning. */
+    /**
+     * wallets.view was seeded (2026_08_11_051000) but never checked -- see
+     * Commissions\Index's identical fix for the full reasoning.
+     *
+     * Row-level scoping (was deferred here, now closed): wallet_transactions
+     * carries no geography of its own -- only wallet_id -- so baseQuery()
+     * scopes through wallet.user (the wallet owner's own zone_id/franchise_id
+     * columns, plus wallet.user.franchise.city_id/country_id).
+     */
     public function mount(): void
     {
         abort_unless(auth()->user()->hasPermissionAnywhere('wallets.view'), 403, 'You do not have permission to view the wallet ledger.');
@@ -39,7 +48,11 @@ class Index extends Component
 
     private function baseQuery()
     {
-        return WalletTransaction::with('wallet.user')
+        $columns = ['zone_id' => 'wallet.user.zone_id', 'franchise_id' => 'wallet.user.franchise_id', 'city_id' => 'wallet.user.franchise.city_id', 'country_id' => 'wallet.user.franchise.country_id'];
+
+        return app(AuthorizationService::class)
+            ->scopeQuery(WalletTransaction::query(), auth()->user(), 'wallets.view', $columns)
+            ->with('wallet.user')
             ->when($this->search !== '', fn ($q) => $q->whereHas('wallet.user', fn ($w) => $w
                 ->where('name', 'like', "%{$this->search}%")
                 ->orWhere('phone', 'like', "%{$this->search}%")))

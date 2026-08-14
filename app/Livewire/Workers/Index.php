@@ -3,6 +3,7 @@
 namespace App\Livewire\Workers;
 
 use App\Models\FieldWorker;
+use App\Services\AuthorizationService;
 use Livewire\Component;
 use Livewire\WithPagination;
 
@@ -26,14 +27,22 @@ class Index extends Component
         $this->resetPage();
     }
 
+    private function scopeColumns(): array
+    {
+        return ['zone_id' => 'zone_id', 'franchise_id' => 'franchise_id', 'city_id' => 'franchise.city_id', 'country_id' => 'franchise.country_id'];
+    }
+
     public function render()
     {
-        $workers = FieldWorker::with(['user', 'zone', 'documents', 'capabilities'])
+        $scoped = fn ($query) => app(AuthorizationService::class)->scopeQuery($query, auth()->user(), 'workers.view', $this->scopeColumns());
+
+        $workers = $scoped(FieldWorker::with(['user', 'zone', 'documents', 'capabilities']))
             ->when($this->statusFilter, fn ($q) => $q->where('kyc_status', $this->statusFilter))
             ->latest()
             ->paginate(20);
 
-        $counts = FieldWorker::selectRaw('kyc_status, count(*) as total')
+        $counts = $scoped(FieldWorker::query())
+            ->selectRaw('kyc_status, count(*) as total')
             ->groupBy('kyc_status')
             ->pluck('total', 'kyc_status');
 

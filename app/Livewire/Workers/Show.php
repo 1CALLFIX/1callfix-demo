@@ -5,6 +5,7 @@ namespace App\Livewire\Workers;
 use App\Actions\ReviewFieldWorkerKycAction;
 use App\Models\FieldWorker;
 use App\Models\FieldWorkerCapability;
+use App\Services\AuthorizationService;
 use App\Support\WorkerTypes;
 use Livewire\Component;
 
@@ -24,8 +25,18 @@ class Show extends Component
     {
         abort_unless(auth()->user()->hasPermissionAnywhere('workers.view'), 403, 'You do not have permission to view workers.');
 
-        $this->fieldWorker = FieldWorker::with(['user', 'zone', 'franchise', 'documents', 'capabilities.serviceCategory', 'partnerLinks.provider.user'])
-            ->findOrFail($workerId);
+        $columns = ['zone_id' => 'zone_id', 'franchise_id' => 'franchise_id', 'city_id' => 'franchise.city_id', 'country_id' => 'franchise.country_id'];
+
+        // ->first() + abort_if(), not findOrFail() -- see Bookings\Show::mount()'s
+        // identical comment for why ModelNotFoundException isn't safe here.
+        $fieldWorker = app(AuthorizationService::class)
+            ->scopeQuery(FieldWorker::query(), auth()->user(), 'workers.view', $columns)
+            ->with(['user', 'zone', 'franchise', 'documents', 'capabilities.serviceCategory', 'partnerLinks.provider.user'])
+            ->find($workerId);
+
+        abort_if(! $fieldWorker, 404);
+
+        $this->fieldWorker = $fieldWorker;
     }
 
     public function workerTypeOptions(): array

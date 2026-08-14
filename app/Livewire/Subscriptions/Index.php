@@ -6,6 +6,7 @@ use App\Models\BusinessAccount;
 use App\Models\EntitlementBalance;
 use App\Models\Subscription;
 use App\Models\User;
+use App\Services\AuthorizationService;
 use App\Services\Plans\SubscriptionService;
 use App\Services\Plans\UsageService;
 use Livewire\Component;
@@ -26,7 +27,16 @@ class Index extends Component
     public string $adjustMonetaryDelta = '0';
     public string $adjustReason = '';
 
-    /** subscriptions.view was seeded (2026_08_11_038000) but never checked on this list screen (only the mutating actions check subscriptions.manage) -- see Commissions\Index's identical fix for the full reasoning. */
+    /**
+     * subscriptions.view was seeded (2026_08_11_038000) but never checked on
+     * this list screen (only the mutating actions check subscriptions.manage)
+     * -- see Commissions\Index's identical fix for the full reasoning.
+     *
+     * Row-level scoping (was deferred here, now closed): a subscription
+     * carries no geography of its own, so visibility follows its plan's --
+     * see Subscription::authorizationScopeHint(), the exact same basis
+     * scopeHint() below (used by the mutation actions) already computed.
+     */
     public function mount(): void
     {
         abort_unless(auth()->user()->hasPermissionAnywhere('subscriptions.view'), 403, 'You do not have permission to view subscriptions.');
@@ -34,7 +44,7 @@ class Index extends Component
 
     private function scopeHint(Subscription $subscription): array
     {
-        return $subscription->plan?->authorizationScopeHint() ?? [];
+        return $subscription->authorizationScopeHint();
     }
 
     public function pause(int $id, SubscriptionService $service): void
@@ -125,9 +135,26 @@ class Index extends Component
         return 'Unknown actor';
     }
 
+    /**
+     * Lightweight id+plan projection first (plan-linked commerce data,
+     * inherently far smaller than transactional tables like bookings), same
+     * "filter-then-whereIn, not filter-after-paginate" reasoning as
+     * Plans\Manage::visiblePlanIds() so pagination/counts stay correct.
+     */
+    private function visibleSubscriptionIds(): array
+    {
+        $candidates = Subscription::query()->select('id', 'plan_id')->with('plan:id,scope_type,scope_id')->get();
+
+        return app(AuthorizationService::class)
+            ->visibleAmong($candidates, auth()->user(), 'subscriptions.view')
+            ->pluck('id')
+            ->all();
+    }
+
     public function render()
     {
-        $query = Subscription::with(['plan', 'entitlementBalances' => fn ($q) => $q->where('status', 'current')])->latest();
+        $query = Subscription::whereIn('id', $this->visibleSubscriptionIds())
+            ->with(['plan', 'entitlementBalances' => fn ($q) => $q->where('status', 'current')])->latest();
         if ($this->statusFilter) {
             $query->where('status', $this->statusFilter);
         }

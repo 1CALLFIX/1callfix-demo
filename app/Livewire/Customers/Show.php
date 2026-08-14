@@ -3,6 +3,7 @@
 namespace App\Livewire\Customers;
 
 use App\Models\User;
+use App\Services\AuthorizationService;
 use App\Services\WalletService;
 use Livewire\Component;
 
@@ -17,9 +18,19 @@ class Show extends Component
     {
         abort_unless(auth()->user()->hasPermissionAnywhere('customers.view'), 403, 'You do not have permission to view customers.');
 
-        $this->customer = User::where('role', 'customer')
+        $columns = ['zone_id' => 'zone_id', 'franchise_id' => 'franchise_id', 'city_id' => 'franchise.city_id', 'country_id' => 'franchise.country_id'];
+
+        // ->first() + abort_if(), not findOrFail() -- see Bookings\Show::mount()'s
+        // identical comment for why ModelNotFoundException isn't safe here.
+        $customer = app(AuthorizationService::class)
+            ->scopeQuery(User::query(), auth()->user(), 'customers.view', $columns)
+            ->where('role', 'customer')
             ->with(['franchise', 'zone', 'addresses'])
-            ->findOrFail($customerId);
+            ->find($customerId);
+
+        abort_if(! $customer, 404);
+
+        $this->customer = $customer;
     }
 
     public function getWalletBalanceProperty(): float

@@ -29,6 +29,12 @@ class NotificationCampaign extends Model
     public function specificUser() { return $this->belongsTo(User::class, 'specific_user_id'); }
     public function logs() { return $this->hasMany(NotificationLog::class, 'campaign_id'); }
 
+    /** Ancestor-inclusive scope hint for AuthorizationService::can()/scopeQuery() — same pattern as Plan::authorizationScopeHint(), shared via AuthorizationService::ancestryFor() rather than reimplemented. */
+    public function authorizationScopeHint(): array
+    {
+        return app(\App\Services\AuthorizationService::class)->ancestryFor($this->scope_type, $this->scope_id);
+    }
+
     /** Same scope-hint shape AudienceResolver/Setting::get() expect. */
     public function audienceSpec(): array
     {

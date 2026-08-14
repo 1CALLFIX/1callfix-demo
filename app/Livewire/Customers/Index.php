@@ -3,6 +3,7 @@
 namespace App\Livewire\Customers;
 
 use App\Models\User;
+use App\Services\AuthorizationService;
 use App\Services\WalletService;
 use Livewire\Component;
 use Livewire\WithPagination;
@@ -28,7 +29,10 @@ class Index extends Component
 
     public function render()
     {
-        $customers = User::where('role', 'customer')
+        $columns = ['zone_id' => 'zone_id', 'franchise_id' => 'franchise_id', 'city_id' => 'franchise.city_id', 'country_id' => 'franchise.country_id'];
+        $scoped = app(AuthorizationService::class)->scopeQuery(User::query(), auth()->user(), 'customers.view', $columns);
+
+        $customers = $scoped->where('role', 'customer')
             ->when($this->search, fn ($q) => $q->where(fn ($qq) => $qq
                 ->where('name', 'like', "%{$this->search}%")
                 ->orWhere('phone', 'like', "%{$this->search}%")

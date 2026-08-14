@@ -4,6 +4,7 @@ namespace App\Livewire\Plans;
 
 use App\Models\Plan;
 use App\Models\PlanEntitlement;
+use App\Services\AuthorizationService;
 use App\Services\Plans\PlanService;
 use Livewire\Component;
 use Livewire\WithPagination;
@@ -214,9 +215,32 @@ class Manage extends Component
         return $plan->authorizationScopeHint();
     }
 
+    /**
+     * plans.view was seeded but never row-scoped: unlike the geography-column
+     * screens, a Plan carries its OWN single (scope_type, scope_id) pair, not
+     * separate zone_id/franchise_id/city_id/country_id columns -- the exact
+     * shape Plan::authorizationScopeHint() already decomposes for the
+     * existing save()/toggleActive()/addEntitlement() mutation checks.
+     * AuthorizationService::visibleAmong() reuses that same hint for VIEWING:
+     * a lightweight id+scope projection is fetched first (the plan catalog
+     * is inherently small -- tens of rows, not thousands), filtered here,
+     * then whereIn()'d before the real paginated query runs, so pagination
+     * and counts stay correct rather than being computed before this filter.
+     */
+    private function visiblePlanIds(): array
+    {
+        $candidates = Plan::query()->select('id', 'scope_type', 'scope_id')->get();
+
+        return app(AuthorizationService::class)
+            ->visibleAmong($candidates, auth()->user(), 'plans.view')
+            ->pluck('id')
+            ->all();
+    }
+
     public function render()
     {
-        $plans = Plan::with('entitlements')->withCount('subscriptions')->latest()->paginate(15);
+        $plans = Plan::whereIn('id', $this->visiblePlanIds())
+            ->with('entitlements')->withCount('subscriptions')->latest()->paginate(15);
 
         return view('livewire.plans.manage', ['plans' => $plans])
             ->layout('layouts.admin', ['title' => 'Plans & Memberships']);

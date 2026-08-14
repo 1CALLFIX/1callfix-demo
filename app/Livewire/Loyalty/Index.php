@@ -4,6 +4,7 @@ namespace App\Livewire\Loyalty;
 
 use App\Models\LoyaltyPoint;
 use App\Models\Referral;
+use App\Services\AuthorizationService;
 use Livewire\Component;
 use Livewire\WithPagination;
 
@@ -24,7 +25,16 @@ class Index extends Component
 
     protected $queryString = ['activeTab', 'search', 'referralStatusFilter'];
 
-    /** loyalty.view was seeded (2026_08_11_052000) but never checked -- see Commissions\Index's identical fix for the full reasoning. */
+    /**
+     * loyalty.view was seeded (2026_08_11_052000) but never checked -- see
+     * Commissions\Index's identical fix for the full reasoning.
+     *
+     * Row-level scoping (was deferred here, now closed): loyalty_points
+     * scopes through its own earner (user.*); referrals scopes through the
+     * REFERRER (referrer.*) -- the reward accrues to them, matching
+     * ReferralService's own "reward the referrer" reasoning, not the
+     * referred-in customer who may belong to a different scope entirely.
+     */
     public function mount(): void
     {
         abort_unless(auth()->user()->hasPermissionAnywhere('loyalty.view'), 403, 'You do not have permission to view loyalty points & referrals.');
@@ -42,7 +52,11 @@ class Index extends Component
     public function render()
     {
         if ($this->activeTab === 'referrals') {
-            $referrals = Referral::with(['referrer', 'referred', 'qualifyingBooking'])
+            $referralColumns = ['zone_id' => 'referrer.zone_id', 'franchise_id' => 'referrer.franchise_id', 'city_id' => 'referrer.franchise.city_id', 'country_id' => 'referrer.franchise.country_id'];
+
+            $referrals = app(AuthorizationService::class)
+                ->scopeQuery(Referral::query(), auth()->user(), 'loyalty.view', $referralColumns)
+                ->with(['referrer', 'referred', 'qualifyingBooking'])
                 ->when($this->search !== '', fn ($q) => $q->where(function ($w) {
                     $w->whereHas('referrer', fn ($r) => $r->where('name', 'like', "%{$this->search}%")->orWhere('phone', 'like', "%{$this->search}%"))
                       ->orWhereHas('referred', fn ($r) => $r->where('name', 'like', "%{$this->search}%")->orWhere('phone', 'like', "%{$this->search}%"));
@@ -59,7 +73,11 @@ class Index extends Component
             ])->layout('layouts.admin', ['title' => 'Loyalty & Referrals']);
         }
 
-        $pointsQuery = LoyaltyPoint::with(['user', 'booking'])
+        $pointsColumns = ['zone_id' => 'user.zone_id', 'franchise_id' => 'user.franchise_id', 'city_id' => 'user.franchise.city_id', 'country_id' => 'user.franchise.country_id'];
+
+        $pointsQuery = app(AuthorizationService::class)
+            ->scopeQuery(LoyaltyPoint::query(), auth()->user(), 'loyalty.view', $pointsColumns)
+            ->with(['user', 'booking'])
             ->when($this->search !== '', fn ($q) => $q->whereHas('user', fn ($u) => $u
                 ->where('name', 'like', "%{$this->search}%")
                 ->orWhere('phone', 'like', "%{$this->search}%")));

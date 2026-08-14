@@ -10,6 +10,7 @@ use App\Models\Service;
 use App\Models\Setting;
 use App\Models\User;
 use App\Models\Zone;
+use App\Services\AuthorizationService;
 use Illuminate\Support\Str;
 use Livewire\Component;
 use Livewire\WithPagination;
@@ -119,15 +120,30 @@ class Index extends Component
         return $enabled ?: $methods;
     }
 
+    /**
+     * zone_id/franchise_id are direct Booking columns; city_id/country_id
+     * only resolve through the booking's franchise -- same ancestry
+     * Bookings\Show::bookingScope() already builds per-row for the
+     * reassign/cancel checks, expressed here as a column map so
+     * AuthorizationService::scopeQuery() can filter the LIST the same way.
+     */
+    private function bookingScopeColumns(): array
+    {
+        return ['zone_id' => 'zone_id', 'franchise_id' => 'franchise_id', 'city_id' => 'franchise.city_id', 'country_id' => 'franchise.country_id'];
+    }
+
     public function render()
     {
-        $bookings = Booking::with(['customer', 'service', 'provider.user'])
+        $scoped = fn ($query) => app(AuthorizationService::class)->scopeQuery($query, auth()->user(), 'bookings.view', $this->bookingScopeColumns());
+
+        $bookings = $scoped(Booking::with(['customer', 'service', 'provider.user']))
             ->when($this->statusFilter, fn ($q) => $q->where('status', $this->statusFilter))
             ->when($this->search, fn ($q) => $q->where('code', 'like', "%{$this->search}%"))
             ->latest()
             ->paginate(20);
 
-        $statusCounts = Booking::selectRaw('status, count(*) as total')
+        $statusCounts = $scoped(Booking::query())
+            ->selectRaw('status, count(*) as total')
             ->groupBy('status')
             ->pluck('total', 'status');
 

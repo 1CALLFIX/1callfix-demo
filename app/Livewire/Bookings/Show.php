@@ -9,6 +9,7 @@ use App\Models\Booking;
 use App\Models\PartnerWorker;
 use App\Models\Provider;
 use App\Models\Setting;
+use App\Services\AuthorizationService;
 use Livewire\Component;
 
 class Show extends Component
@@ -20,16 +21,41 @@ class Show extends Component
     public string $flashMessage = '';
     public string $flashType = 'success';
 
-    /** bookings.view was seeded (2026_08_11_016000) but never checked on this detail screen (only the reassign/cancel actions were gated) -- see Commissions\Index's identical fix for the full reasoning. */
+    /**
+     * bookings.view was seeded (2026_08_11_016000) but never checked on this
+     * detail screen (only the reassign/cancel actions were gated) -- see
+     * Commissions\Index's identical fix for the full reasoning.
+     *
+     * Row-level: a direct /admin/bookings/{id} visit for a booking outside
+     * the viewer's own scope must not bypass the list screen's own
+     * filtering -- scopeQuery() is applied to the lookup itself (not
+     * checked after the fact), so an out-of-scope id 404s exactly like a
+     * nonexistent one, rather than leaking the booking's existence via a
+     * 403 or, worse, rendering it.
+     */
     public function mount(int $bookingId)
     {
         abort_unless(auth()->user()->hasPermissionAnywhere('bookings.view'), 403, 'You do not have permission to view bookings.');
 
-        $this->booking = Booking::with([
-            'customer', 'service', 'provider.user', 'assignedWorker.user', 'address', 'zone', 'franchise',
-            'dispatchAttempts.provider.user', 'extraItems', 'payment', 'commission',
-            'statusHistory' => fn ($q) => $q->orderBy('changed_at'),
-        ])->findOrFail($bookingId);
+        $columns = ['zone_id' => 'zone_id', 'franchise_id' => 'franchise_id', 'city_id' => 'franchise.city_id', 'country_id' => 'franchise.country_id'];
+
+        // ->first() + abort_if(), not findOrFail() -- Eloquent's
+        // ModelNotFoundException isn't in Livewire's own exception-bypass
+        // list (only NotFoundHttpException/HttpException/AuthorizationException
+        // are, see ExtendedCompilerEngine::shouldBypassExceptionForLivewire()),
+        // so it would render as an opaque wrapped error instead of a clean
+        // 404 -- abort(404) is a NotFoundHttpException, always bypassed.
+        $booking = app(AuthorizationService::class)
+            ->scopeQuery(Booking::query(), auth()->user(), 'bookings.view', $columns)
+            ->with([
+                'customer', 'service', 'provider.user', 'assignedWorker.user', 'address', 'zone', 'franchise',
+                'dispatchAttempts.provider.user', 'extraItems', 'payment', 'commission',
+                'statusHistory' => fn ($q) => $q->orderBy('changed_at'),
+            ])->find($bookingId);
+
+        abort_if(! $booking, 404);
+
+        $this->booking = $booking;
     }
 
     public function getAvailableProvidersProperty()

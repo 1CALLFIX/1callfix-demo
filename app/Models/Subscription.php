@@ -45,4 +45,16 @@ class Subscription extends Model
     {
         return in_array($this->status, ['active', 'grace_period'], true);
     }
+
+    /**
+     * A subscription has no geography of its own -- visibility follows its
+     * PLAN's, the same basis Subscriptions\Index's own pause/resume/cancel/
+     * renewNow/confirmAdjust mutation checks already use (previously computed
+     * inline in that component as scopeHint(); relocated here, unchanged,
+     * so AuthorizationService::visibleAmong() can reuse it for viewing too).
+     */
+    public function authorizationScopeHint(): array
+    {
+        return $this->plan?->authorizationScopeHint() ?? [];
+    }
 }

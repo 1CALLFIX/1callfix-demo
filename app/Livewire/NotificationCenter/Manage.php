@@ -12,6 +12,7 @@ use App\Models\NotificationTemplate;
 use App\Models\User;
 use App\Models\Zone;
 use App\Services\AudienceResolver;
+use App\Services\AuthorizationService;
 use App\Services\CampaignService;
 use App\Services\MeetingService;
 use App\Support\Modules;
@@ -31,10 +32,35 @@ class Manage extends Component
 
     public string $section = 'compose'; // compose|campaigns|meetings
 
-    /** notification.view was seeded (2026_08_11_024000) but never checked on this screen (only the compose/schedule/campaign/meeting actions check their own specific permissions) -- see Commissions\Index's identical fix for the full reasoning. */
+    /**
+     * notification.view was seeded (2026_08_11_024000) but never checked on
+     * this screen (only the compose/schedule/campaign/meeting actions check
+     * their own specific permissions) -- see Commissions\Index's identical
+     * fix for the full reasoning.
+     *
+     * Row-level scoping (was deferred here, now closed): campaigns/meetings
+     * each carry their OWN single (scope_type, scope_id) pair, the exact
+     * Plan-shaped pattern NotificationCampaign::authorizationScopeHint()/
+     * NotificationMeeting::authorizationScopeHint() now expose -- filtered
+     * the same "small catalog, filter-then-whereIn" way as Plans\Manage.
+     */
     public function mount(): void
     {
         abort_unless(auth()->user()->hasPermissionAnywhere('notification.view'), 403, 'You do not have permission to view the notification center.');
+    }
+
+    private function visibleCampaignIds(): array
+    {
+        $candidates = NotificationCampaign::query()->select('id', 'scope_type', 'scope_id')->get();
+
+        return app(AuthorizationService::class)->visibleAmong($candidates, auth()->user(), 'notification.view')->pluck('id')->all();
+    }
+
+    private function visibleMeetingIds(): array
+    {
+        $candidates = NotificationMeeting::query()->select('id', 'scope_type', 'scope_id')->get();
+
+        return app(AuthorizationService::class)->visibleAmong($candidates, auth()->user(), 'notification.view')->pluck('id')->all();
     }
 
     // --- Compose ---
@@ -331,8 +357,8 @@ class Manage extends Component
     public function render()
     {
         return view('livewire.notification-center.manage', [
-            'campaigns' => NotificationCampaign::latest()->paginate(15, ['*'], 'campaignsPage'),
-            'meetings' => NotificationMeeting::latest()->paginate(15, ['*'], 'meetingsPage'),
+            'campaigns' => NotificationCampaign::whereIn('id', $this->visibleCampaignIds())->latest()->paginate(15, ['*'], 'campaignsPage'),
+            'meetings' => NotificationMeeting::whereIn('id', $this->visibleMeetingIds())->latest()->paginate(15, ['*'], 'meetingsPage'),
             'templates' => NotificationTemplate::orderBy('name')->get(),
             'coupons' => Coupon::where('is_active', true)->orderBy('code')->get(),
             'countries' => Country::where('is_active', true)->orderBy('name')->get(),

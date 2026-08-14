@@ -4,6 +4,7 @@ namespace App\Livewire\Providers;
 
 use App\Actions\ReviewProviderKycAction;
 use App\Models\Provider;
+use App\Services\AuthorizationService;
 use Livewire\Component;
 
 class Show extends Component
@@ -19,8 +20,18 @@ class Show extends Component
     {
         abort_unless(auth()->user()->hasPermissionAnywhere('providers.view'), 403, 'You do not have permission to view providers.');
 
-        $this->provider = Provider::with(['user', 'zone', 'franchise', 'documents'])
-            ->findOrFail($providerId);
+        $columns = ['zone_id' => 'zone_id', 'franchise_id' => 'franchise_id', 'city_id' => 'franchise.city_id', 'country_id' => 'franchise.country_id'];
+
+        // ->first() + abort_if(), not findOrFail() -- see Bookings\Show::mount()'s
+        // identical comment for why ModelNotFoundException isn't safe here.
+        $provider = app(AuthorizationService::class)
+            ->scopeQuery(Provider::query(), auth()->user(), 'providers.view', $columns)
+            ->with(['user', 'zone', 'franchise', 'documents'])
+            ->find($providerId);
+
+        abort_if(! $provider, 404);
+
+        $this->provider = $provider;
         $this->priorityInput = (string) $this->provider->priority;
     }
 
