@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Franchise;
+use App\Models\PaymentAccount;
 use App\Models\Payout;
 use App\Models\Provider;
 use App\Models\Setting;
@@ -55,6 +56,7 @@ class PayoutService
         $this->assertKycWithdrawalAllowed($payeeType, $payeeId);
 
         $user = $this->resolvePayeeUser($payeeType, $payeeId);
+        $this->assertPaymentAccountBelongsToPayee($paymentAccountId, $user);
 
         return DB::transaction(function () use ($payeeType, $payeeId, $amount, $paymentAccountId, $user) {
             // Debit first (throws on insufficient balance) — a Payout row
@@ -170,6 +172,26 @@ class PayoutService
 
         if ($explanation['restricted']) {
             throw new \RuntimeException('Withdrawals are temporarily restricted until KYC is completed. Contact your Franchise Office for assistance.');
+        }
+    }
+
+    /**
+     * A supplied payment_account_id must actually belong to the resolved
+     * payee -- prevents a payout ever being attributed to someone else's
+     * bank/UPI account (an IDOR-adjacent integrity bug, not just a UX
+     * nicety, since PaymentAccount previously had no write path at all
+     * and this is the first real enforcement point for it).
+     */
+    private function assertPaymentAccountBelongsToPayee(?int $paymentAccountId, User $payeeUser): void
+    {
+        if (! $paymentAccountId) {
+            return;
+        }
+
+        $belongs = PaymentAccount::where('id', $paymentAccountId)->where('user_id', $payeeUser->id)->exists();
+
+        if (! $belongs) {
+            throw new \RuntimeException('This payment account does not belong to the selected payee.');
         }
     }
 

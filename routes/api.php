@@ -52,6 +52,11 @@ Route::middleware(['auth:sanctum', \App\Http\Middleware\EnsureNotInMaintenanceMo
     Route::get('/notifications/unread-count', [\App\Http\Controllers\API\InAppNotificationController::class, 'unreadCount']);
     Route::post('/notifications/{id}/read', [\App\Http\Controllers\API\InAppNotificationController::class, 'markRead']);
     Route::post('/notifications/read-all', [\App\Http\Controllers\API\InAppNotificationController::class, 'markAllRead']);
+    Route::get('/payment-accounts', [\App\Http\Controllers\API\PaymentAccountController::class, 'index']);
+    Route::post('/payment-accounts', [\App\Http\Controllers\API\PaymentAccountController::class, 'store']);
+    Route::put('/payment-accounts/{id}', [\App\Http\Controllers\API\PaymentAccountController::class, 'update']);
+    Route::post('/payment-accounts/{id}/set-default', [\App\Http\Controllers\API\PaymentAccountController::class, 'setDefault']);
+    Route::delete('/payment-accounts/{id}', [\App\Http\Controllers\API\PaymentAccountController::class, 'destroy']);
     Route::get('/providers/nearby', [\App\Http\Controllers\API\ProviderDiscoveryController::class, 'nearby']);
     Route::get('/loyalty', [\App\Http\Controllers\API\LoyaltyController::class, 'show']);
     Route::post('/loyalty/redeem', [\App\Http\Controllers\API\LoyaltyController::class, 'redeem']);

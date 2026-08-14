@@ -52,7 +52,7 @@
                     <select wire:model="paymentAccountId" class="w-full border rounded px-3 py-2 text-sm">
                         <option value="">None on file</option>
                         @foreach ($this->payeePaymentAccounts as $acc)
-                            <option value="{{ $acc->id }}">{{ strtoupper($acc->account_type) }} — {{ $acc->upi_id ?: $acc->account_number }}</option>
+                            <option value="{{ $acc->id }}">{{ strtoupper($acc->account_type) }} — {{ $acc->upi_id ?: $acc->account_number }}{{ $acc->is_verified ? '' : ' (unverified)' }}</option>
                         @endforeach
                     </select>
                 </div>
@@ -60,6 +60,32 @@
 
             <button type="button" wire:click="request" class="bg-slate-900 text-white px-6 h-[38px] rounded text-sm font-medium hover:bg-slate-800">Request Payout</button>
         </div>
+
+        @if ($selectedPayeeId && $this->payeePaymentAccounts->isNotEmpty())
+            <div class="mt-4 pt-4 border-t">
+                <div class="text-xs font-medium text-gray-500 uppercase mb-2">Payee's settlement accounts</div>
+                <div class="space-y-1">
+                    @foreach ($this->payeePaymentAccounts as $acc)
+                        <div class="flex items-center justify-between text-sm border rounded px-3 py-2">
+                            <div>
+                                {{ strtoupper($acc->account_type) }} — {{ $acc->upi_id ?: $acc->account_number }}
+                                @if ($acc->is_default)<span class="text-xs text-gray-400 ml-1">(default)</span>@endif
+                                @if ($acc->is_verified)
+                                    <span class="px-2 py-0.5 rounded text-xs bg-green-100 text-green-700 ml-2">Verified</span>
+                                @else
+                                    <span class="px-2 py-0.5 rounded text-xs bg-amber-100 text-amber-700 ml-2">Unverified</span>
+                                @endif
+                            </div>
+                            @if ($acc->is_verified)
+                                <button type="button" wire:click="unverifyPaymentAccount({{ $acc->id }})" class="text-xs text-red-600 hover:underline">Revoke verification</button>
+                            @else
+                                <button type="button" wire:click="verifyPaymentAccount({{ $acc->id }})" class="text-xs text-green-700 hover:underline">Verify</button>
+                            @endif
+                        </div>
+                    @endforeach
+                </div>
+            </div>
+        @endif
     </div>
 
     {{-- Payout list --}}

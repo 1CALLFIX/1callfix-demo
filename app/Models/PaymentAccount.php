@@ -22,5 +22,9 @@ class PaymentAccount extends Model
         'is_verified',
         'is_default'
     ];
+
+    protected $casts = ['is_verified' => 'boolean', 'is_default' => 'boolean'];
+
     public function user() { return $this->belongsTo(User::class); }
+    public function payouts() { return $this->hasMany(Payout::class); }
 }

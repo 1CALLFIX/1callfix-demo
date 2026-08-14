@@ -169,6 +169,39 @@ class Manage extends Component
         }
     }
 
+    /**
+     * Verification is always an admin action (payment_accounts had zero
+     * write path before this session -- see PaymentAccountService's own
+     * docblock). Reuses payouts.manage rather than a new permission --
+     * this is part of the same "get a payee ready to actually be paid"
+     * capability the rest of this screen already gates that way.
+     */
+    public function verifyPaymentAccount(int $accountId, \App\Services\PaymentAccountService $service): void
+    {
+        if (! auth()->user()->hasPermission('payouts.manage')) {
+            $this->flashType = 'error';
+            $this->flashMessage = 'You do not have permission to verify payment accounts.';
+            return;
+        }
+
+        $service->verify(\App\Models\PaymentAccount::findOrFail($accountId));
+        $this->flashType = 'success';
+        $this->flashMessage = 'Payment account verified.';
+    }
+
+    public function unverifyPaymentAccount(int $accountId, \App\Services\PaymentAccountService $service): void
+    {
+        if (! auth()->user()->hasPermission('payouts.manage')) {
+            $this->flashType = 'error';
+            $this->flashMessage = 'You do not have permission to unverify payment accounts.';
+            return;
+        }
+
+        $service->unverify(\App\Models\PaymentAccount::findOrFail($accountId));
+        $this->flashType = 'success';
+        $this->flashMessage = 'Payment account verification revoked.';
+    }
+
     private function payeeLabel(Payout $payout): string
     {
         if ($payout->payee_type === 'provider') {
