@@ -3,6 +3,7 @@
 use App\Livewire\Auth\Login;
 use App\Livewire\Badges\Manage as BadgesManage;
 use App\Livewire\Dashboard;
+use App\Livewire\FlashSales\Manage as FlashSalesManage;
 use App\Livewire\Bookings\Index as BookingsIndex;
 use App\Livewire\Bookings\Show as BookingsShow;
 use App\Livewire\Providers\Index as ProvidersIndex;
@@ -64,6 +65,7 @@ Route::middleware(['auth', \App\Http\Middleware\EnsureHasAdminAccess::class])
         Route::get('/services', ServicesManage::class)->name('admin.services.index');
         Route::get('/banners', BannersManage::class)->name('admin.banners.index');
         Route::get('/badges', BadgesManage::class)->name('admin.badges.index');
+        Route::get('/flash-sales', FlashSalesManage::class)->name('admin.flash-sales.index');
         Route::get('/settings', SettingsManage::class)->name('admin.settings.index');
         Route::get('/cms', CmsManage::class)->name('admin.cms.index');
         Route::get('/roles', RolesManage::class)->name('admin.roles.index');
