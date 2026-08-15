@@ -195,7 +195,16 @@ class PayoutService
         }
     }
 
-    private function payoutScope(string $payeeType, int $payeeId): array
+    /**
+     * Made public for Phase 21 item TECH-1 (row-level franchise scope for
+     * Payouts\Manage/PayoutsExport) — this method already correctly resolves
+     * a single payout's own franchise/zone/city/country hint from its
+     * payee_type/payee_id discriminator (used internally for Setting
+     * lookups); Payout::authorizationScopeHint() now reuses it as-is rather
+     * than re-implementing the same provider→franchise / franchise_owner→
+     * owned-franchise resolution a second time.
+     */
+    public function payoutScope(string $payeeType, int $payeeId): array
     {
         if ($payeeType === 'provider') {
             $provider = Provider::with('franchise')->find($payeeId);

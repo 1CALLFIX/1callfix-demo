@@ -79,8 +79,12 @@ class DataExportTest extends TestCase
             'payee_type' => 'franchise_owner', 'payee_id' => $scenario['customer']->id, 'payment_account_id' => $account->id,
             'amount' => 500, 'status' => 'pending', 'period_start' => now()->subDays(7), 'period_end' => now(),
         ]);
+        $viewer = $this->makeUserWithPermission('payouts.manage', 'global');
 
-        $mapped = (new PayoutsExport)->map($payout->fresh(['paymentAccount']));
+        // map() is a pure per-row transform, independent of collection()'s
+        // own scope filtering -- any viewer works here, same as before this
+        // phase's TECH-1 fix (only the constructor gained a required arg).
+        $mapped = (new PayoutsExport($viewer))->map($payout->fresh(['paymentAccount']));
         $settlementColumn = $mapped[6];
 
         $this->assertStringNotContainsString('1234567890123456', $settlementColumn);
@@ -92,10 +96,47 @@ class DataExportTest extends TestCase
     {
         $scenario = $this->makeBookingScenario();
         $payout = Payout::create(['payee_type' => 'franchise_owner', 'payee_id' => $scenario['customer']->id, 'amount' => 777.50, 'status' => 'paid', 'period_start' => now()->subDays(7), 'period_end' => now()]);
+        $viewer = $this->makeUserWithPermission('payouts.manage', 'global');
 
-        $mapped = (new PayoutsExport)->map($payout);
+        $mapped = (new PayoutsExport($viewer))->map($payout);
 
         $this->assertEquals(777.50, $mapped[2]);
         $this->assertSame('paid', $mapped[5]);
+    }
+
+    /**
+     * Phase 21 item TECH-1: PayoutsExport previously deliberately matched
+     * Payouts\Manage's own then-unscoped render() -- both are now scoped
+     * together in the same pass, mirroring CommissionsExport's own
+     * constructor-injection + AuthorizationService pattern exactly.
+     */
+    public function test_payouts_export_only_includes_the_viewers_own_franchise(): void
+    {
+        $ownScenario = $this->makeBookingScenario();
+        $otherScenario = $this->makeBookingScenario();
+        $myPayout = Payout::create(['payee_type' => 'provider', 'payee_id' => $ownScenario['provider']->id, 'amount' => 100, 'status' => 'pending', 'period_start' => now()->subDays(7), 'period_end' => now()]);
+        $otherPayout = Payout::create(['payee_type' => 'provider', 'payee_id' => $otherScenario['provider']->id, 'amount' => 200, 'status' => 'pending', 'period_start' => now()->subDays(7), 'period_end' => now()]);
+
+        $viewer = $this->makeUserWithPermission('payouts.manage', 'franchise', $ownScenario['franchise']->id);
+
+        $rows = (new PayoutsExport($viewer))->collection();
+
+        $this->assertTrue($rows->contains('id', $myPayout->id));
+        $this->assertFalse($rows->contains('id', $otherPayout->id));
+    }
+
+    public function test_payouts_export_shows_everything_for_a_global_grant(): void
+    {
+        $scenarioA = $this->makeBookingScenario();
+        $scenarioB = $this->makeBookingScenario();
+        $payoutA = Payout::create(['payee_type' => 'provider', 'payee_id' => $scenarioA['provider']->id, 'amount' => 100, 'status' => 'pending', 'period_start' => now()->subDays(7), 'period_end' => now()]);
+        $payoutB = Payout::create(['payee_type' => 'provider', 'payee_id' => $scenarioB['provider']->id, 'amount' => 200, 'status' => 'pending', 'period_start' => now()->subDays(7), 'period_end' => now()]);
+
+        $viewer = $this->makeUserWithPermission('payouts.manage', 'global');
+
+        $rows = (new PayoutsExport($viewer))->collection();
+
+        $this->assertTrue($rows->contains('id', $payoutA->id));
+        $this->assertTrue($rows->contains('id', $payoutB->id));
     }
 }

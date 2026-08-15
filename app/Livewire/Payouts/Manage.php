@@ -7,6 +7,7 @@ use App\Models\PaymentAccount;
 use App\Models\Payout;
 use App\Models\Provider;
 use App\Models\User;
+use App\Services\AuthorizationService;
 use App\Services\PayoutService;
 use App\Services\WalletService;
 use Livewire\Component;
@@ -129,12 +130,16 @@ class Manage extends Component
 
     public function markProcessing(int $payoutId, PayoutService $service): void
     {
-        if (! auth()->user()->hasPermission('payouts.manage')) {
+        $payout = Payout::findOrFail($payoutId);
+
+        if (! auth()->user()->hasPermission('payouts.manage', $payout->authorizationScopeHint())) {
+            $this->flashType = 'error';
+            $this->flashMessage = 'You do not have permission to modify this payout.';
             return;
         }
 
         try {
-            $service->markProcessing(Payout::findOrFail($payoutId));
+            $service->markProcessing($payout);
             $this->flashType = 'success';
             $this->flashMessage = 'Payout marked processing.';
         } catch (\Throwable $e) {
@@ -151,14 +156,18 @@ class Manage extends Component
 
     public function confirmMarkPaid(PayoutService $service): void
     {
-        if (! auth()->user()->hasPermission('payouts.manage')) {
+        $payout = Payout::findOrFail($this->markingPaidId);
+
+        if (! auth()->user()->hasPermission('payouts.manage', $payout->authorizationScopeHint())) {
+            $this->flashType = 'error';
+            $this->flashMessage = 'You do not have permission to modify this payout.';
             return;
         }
 
         $this->validate(['gatewayRefInput' => ['required', 'string', 'max:255']], [], ['gatewayRefInput' => 'transfer reference']);
 
         try {
-            $service->markPaid(Payout::findOrFail($this->markingPaidId), $this->gatewayRefInput);
+            $service->markPaid($payout, $this->gatewayRefInput);
             $this->markingPaidId = null;
             $this->flashType = 'success';
             $this->flashMessage = 'Payout marked paid.';
@@ -170,12 +179,16 @@ class Manage extends Component
 
     public function markFailed(int $payoutId, PayoutService $service): void
     {
-        if (! auth()->user()->hasPermission('payouts.manage')) {
+        $payout = Payout::findOrFail($payoutId);
+
+        if (! auth()->user()->hasPermission('payouts.manage', $payout->authorizationScopeHint())) {
+            $this->flashType = 'error';
+            $this->flashMessage = 'You do not have permission to modify this payout.';
             return;
         }
 
         try {
-            $service->markFailed(Payout::findOrFail($payoutId), 'Marked failed by admin');
+            $service->markFailed($payout, 'Marked failed by admin');
             $this->flashType = 'success';
             $this->flashMessage = 'Payout marked failed — amount refunded to wallet.';
         } catch (\Throwable $e) {
@@ -231,20 +244,44 @@ class Manage extends Component
     /**
      * Mission Phase 14 (Operations Import/Export completeness) — the real
      * reference product's "Payouts" export. Never exports raw banking
-     * details — see PayoutsExport's docblock, including the scope note
-     * (this deliberately matches render()'s own current unscoped
-     * behavior; a franchise-scoped payouts.manage grant seeing every
-     * payout is a real, separately-logged gap, not something this export
-     * silently fixes or worsens).
+     * details — see PayoutsExport's docblock. Phase 21 item TECH-1: now
+     * reuses the same row-level franchise scope render() applies, passing
+     * the acting user through, matching CommissionsExport's own
+     * constructor-injection convention — a franchise-scoped payouts.manage
+     * grant's export contains only their own franchise's payouts.
      */
     public function exportPayouts()
     {
-        return Excel::download(new PayoutsExport, 'payouts-'.now()->format('Y-m-d').'.xlsx');
+        return Excel::download(new PayoutsExport(auth()->user()), 'payouts-'.now()->format('Y-m-d').'.xlsx');
+    }
+
+    /**
+     * Phase 21 item TECH-1. Payout's payee_type/payee_id is a manual
+     * discriminator, not a real Eloquent relation (see
+     * PayoutService::resolvePayeeUser()), so AuthorizationService::
+     * scopeQuery()'s generic relation-traversal can't reach it directly --
+     * same shape Plan/NotificationCampaign already solve via
+     * authorizationScopeHint() + visibleAmong(), reused here rather than
+     * inventing a new mechanism. Mirrors Plans\Manage::visiblePlanIds()
+     * exactly: a lightweight id+payee_type+payee_id projection fetched
+     * first (payout REQUESTS, not bookings -- inherently small), filtered
+     * here, then whereIn()'d before the real paginated query runs, so
+     * pagination/counts stay correct rather than being computed before
+     * this filter.
+     */
+    private function visiblePayoutIds(): array
+    {
+        $candidates = Payout::query()->select('id', 'payee_type', 'payee_id')->get();
+
+        return app(AuthorizationService::class)
+            ->visibleAmong($candidates, auth()->user(), 'payouts.manage')
+            ->pluck('id')
+            ->all();
     }
 
     public function render()
     {
-        $payouts = Payout::latest()->paginate(15);
+        $payouts = Payout::whereIn('id', $this->visiblePayoutIds())->latest()->paginate(15);
         $payouts->getCollection()->transform(function ($p) {
             $p->display_label = $this->payeeLabel($p);
             return $p;

@@ -5,6 +5,7 @@ namespace App\Exports;
 use App\Models\Payout;
 use App\Models\Provider;
 use App\Models\User;
+use App\Services\AuthorizationService;
 use Maatwebsite\Excel\Concerns\FromCollection;
 use Maatwebsite\Excel\Concerns\WithHeadings;
 use Maatwebsite\Excel\Concerns\WithMapping;
@@ -15,25 +16,33 @@ use Maatwebsite\Excel\Concerns\WithMapping;
  * only (App\Models\Payout, already the source of truth Payouts\Manage
  * reads/writes) — never a recalculated figure.
  *
- * Scope note: matches Payouts\Manage's OWN current (unscoped) behavior —
- * `payouts.manage` is a global-oriented permission in this codebase (per
- * the Phase 11 audit convention for "sensitive config" screens with no
- * separate franchise-scoped .view), and the existing screen itself shows
- * every payout to anyone who can open it, with no row-level franchise
- * filter. This export deliberately does not invent stricter scoping than
- * the screen it exports from — that inconsistency (a franchise-scoped
- * payouts.manage grant can view the screen but the screen doesn't itself
- * filter by scope) is a real, pre-existing gap, logged in
- * KNOWN_RISKS_AND_DECISIONS.md rather than silently changed here.
+ * Row-level scope (Phase 21 item TECH-1): reuses the same
+ * AuthorizationService::visibleAmong() + Payout::authorizationScopeHint()
+ * pattern Payouts\Manage::visiblePayoutIds() uses, with the acting user
+ * passed in — a franchise-scoped viewer's export contains only their own
+ * franchise's payouts, matching CommissionsExport's own constructor-
+ * injection convention exactly. (Previously this deliberately matched the
+ * screen's own then-unscoped behavior — both are now scoped together in
+ * the same pass, not left inconsistent.)
  *
  * Never includes raw banking details — PaymentAccount::masked_account_number
  * (last 4 digits only), never account_number/ifsc.
  */
 class PayoutsExport implements FromCollection, WithHeadings, WithMapping
 {
+    public function __construct(private User $viewer)
+    {
+    }
+
     public function collection()
     {
-        return Payout::with('paymentAccount')->latest()->get();
+        $candidates = Payout::query()->select('id', 'payee_type', 'payee_id')->get();
+
+        $visibleIds = app(AuthorizationService::class)
+            ->visibleAmong($candidates, $this->viewer, 'payouts.manage')
+            ->pluck('id');
+
+        return Payout::whereIn('id', $visibleIds)->with('paymentAccount')->latest()->get();
     }
 
     public function headings(): array

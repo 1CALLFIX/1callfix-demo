@@ -10,6 +10,7 @@ use App\Livewire\Customers\Show as CustomersShow;
 use App\Livewire\Dashboard;
 use App\Livewire\Loyalty\Index as LoyaltyIndex;
 use App\Livewire\NotificationCenter\Manage as NotificationCenterManage;
+use App\Livewire\Payouts\Manage as PayoutsManage;
 use App\Livewire\Plans\Manage as PlansManage;
 use App\Livewire\Providers\Index as ProvidersIndex;
 use App\Livewire\Providers\Show as ProvidersShow;
@@ -22,6 +23,7 @@ use App\Models\FieldWorker;
 use App\Models\LoyaltyPoint;
 use App\Models\NotificationCampaign;
 use App\Models\NotificationMeeting;
+use App\Models\Payout;
 use App\Models\Plan;
 use App\Models\Referral;
 use App\Models\Subscription;
@@ -306,6 +308,121 @@ class RowLevelScopeAuthorizationTest extends TestCase
 
         $this->assertContains($mine['franchise']->id, $franchiseIds);
         $this->assertNotContains($other['franchise']->id, $franchiseIds);
+    }
+
+    // ============================== Payouts (Phase 21 item TECH-1) ==============================
+
+    private function makePayoutFor($provider, float $amount = 500): Payout
+    {
+        return Payout::create([
+            'payee_type' => 'provider', 'payee_id' => $provider->id,
+            'amount' => $amount, 'status' => 'pending',
+            'period_start' => now()->subDays(7), 'period_end' => now(),
+        ]);
+    }
+
+    public function test_payouts_index_shows_only_the_actors_own_zone(): void
+    {
+        [$mine, $other] = $this->makeTwoWorlds();
+        $myPayout = $this->makePayoutFor($mine['provider']);
+        $otherPayout = $this->makePayoutFor($other['provider']);
+        $actor = $this->makeUserWithPermission('payouts.manage', 'zone', $mine['zone']->id);
+
+        $component = Livewire::actingAs($actor)->test(PayoutsManage::class);
+
+        $ids = $component->viewData('payouts')->pluck('id')->all();
+        $this->assertContains($myPayout->id, $ids);
+        $this->assertNotContains($otherPayout->id, $ids);
+    }
+
+    public function test_payouts_index_a_global_scoped_grant_sees_every_payout(): void
+    {
+        [$mine, $other] = $this->makeTwoWorlds();
+        $myPayout = $this->makePayoutFor($mine['provider']);
+        $otherPayout = $this->makePayoutFor($other['provider']);
+        $actor = $this->makeUserWithPermission('payouts.manage', 'global');
+
+        $ids = Livewire::actingAs($actor)->test(PayoutsManage::class)
+            ->viewData('payouts')->pluck('id')->all();
+
+        $this->assertContains($myPayout->id, $ids);
+        $this->assertContains($otherPayout->id, $ids);
+    }
+
+    public function test_super_admin_sees_every_zones_payout(): void
+    {
+        [$mine, $other] = $this->makeTwoWorlds();
+        $myPayout = $this->makePayoutFor($mine['provider']);
+        $otherPayout = $this->makePayoutFor($other['provider']);
+        $admin = $this->makeSuperAdmin();
+
+        $ids = Livewire::actingAs($admin)->test(PayoutsManage::class)
+            ->viewData('payouts')->pluck('id')->all();
+
+        $this->assertContains($myPayout->id, $ids);
+        $this->assertContains($otherPayout->id, $ids);
+    }
+
+    /**
+     * Row-level scope was never just a render()/list-hiding concern here --
+     * markProcessing()/confirmMarkPaid()/markFailed() all previously
+     * accepted any payout id from any actor holding payouts.manage
+     * ANYWHERE, regardless of scope, since the permission check never
+     * looked at the specific record. Proves a zone-scoped actor cannot
+     * bypass the list by calling a write action directly with an
+     * out-of-scope payout's real id -- the same "direct record access via
+     * a Livewire action" bypass class this file's own bottom section
+     * already proves for view-only-vs-mutation, applied here to a
+     * scope-level (not permission-level) boundary.
+     */
+    public function test_mark_processing_denied_for_a_payout_outside_the_actors_zone(): void
+    {
+        [$mine, $other] = $this->makeTwoWorlds();
+        $otherPayout = $this->makePayoutFor($other['provider']);
+        $actor = $this->makeUserWithPermission('payouts.manage', 'zone', $mine['zone']->id);
+
+        Livewire::actingAs($actor)->test(PayoutsManage::class)
+            ->call('markProcessing', $otherPayout->id);
+
+        $this->assertSame('pending', $otherPayout->fresh()->status, 'an out-of-scope payout must not be mutated even via a direct Livewire action call');
+    }
+
+    public function test_mark_failed_denied_for_a_payout_outside_the_actors_zone(): void
+    {
+        [$mine, $other] = $this->makeTwoWorlds();
+        $otherPayout = $this->makePayoutFor($other['provider']);
+        $actor = $this->makeUserWithPermission('payouts.manage', 'zone', $mine['zone']->id);
+
+        Livewire::actingAs($actor)->test(PayoutsManage::class)
+            ->call('markFailed', $otherPayout->id);
+
+        $this->assertSame('pending', $otherPayout->fresh()->status);
+    }
+
+    public function test_confirm_mark_paid_denied_for_a_payout_outside_the_actors_zone(): void
+    {
+        [$mine, $other] = $this->makeTwoWorlds();
+        $otherPayout = $this->makePayoutFor($other['provider']);
+        $actor = $this->makeUserWithPermission('payouts.manage', 'zone', $mine['zone']->id);
+
+        Livewire::actingAs($actor)->test(PayoutsManage::class)
+            ->call('startMarkPaid', $otherPayout->id)
+            ->set('gatewayRefInput', 'TXN123')
+            ->call('confirmMarkPaid');
+
+        $this->assertSame('pending', $otherPayout->fresh()->status);
+    }
+
+    public function test_mark_processing_still_succeeds_for_a_payout_inside_the_actors_zone(): void
+    {
+        [$mine] = $this->makeTwoWorlds();
+        $myPayout = $this->makePayoutFor($mine['provider']);
+        $actor = $this->makeUserWithPermission('payouts.manage', 'zone', $mine['zone']->id);
+
+        Livewire::actingAs($actor)->test(PayoutsManage::class)
+            ->call('markProcessing', $myPayout->id);
+
+        $this->assertSame('processing', $myPayout->fresh()->status, 'the scope fix must not also block legitimate in-scope actions');
     }
 
     // ============================== Wallet Ledger ==============================
