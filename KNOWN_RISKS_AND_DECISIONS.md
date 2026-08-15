@@ -286,16 +286,16 @@ Format per item: **Issue** · Current behavior · Risk · Why unresolved · Busi
 - **Affected modules:** Authentication foundation (`AuthController`, `QrAuthController`), all Sanctum-protected API routes.
 - **Blocked:** No — straightforward to implement once the expiration policy is decided; the per-device revoke list is a real but bounded new feature (`personal_access_tokens` already has everything needed — `name`, `last_used_at`, `created_at` — to list and let a user pick one to delete).
 
-## 25. Production `APP_DEBUG` state is unverified from this session
+## 25. Production `APP_DEBUG` is enabled — CONFIRMED ACTIVE
 
-- **Issue:** `.env.example` ships `APP_DEBUG=true`. This repository has no automated or documented check confirming the REAL production `.env` (on `srv1422426.hstgr.cloud`, per `PROJECT_CURRENT_STATE.md` §2) has `APP_DEBUG=false`. If it doesn't, any unhandled exception on a live, internet-facing endpoint renders Laravel's full debug page — stack trace, file paths, and (via `bootstrap/app.php`'s `shouldRenderJsonWhen()`) a JSON equivalent for every `/api/*` route — to any caller who can trigger a 500, not just an admin.
-- **Current behavior:** Unknown as of this audit — no SSH/production access was exercised this session to check the real value (deliberately: checking or changing a live production `.env` is exactly the kind of outward-facing, hard-to-reverse action this mission's own rules require explicit confirmation for, not a drive-by check bundled into an unrelated audit).
-- **Risk:** High if the real value is `true` — this is the single highest-severity item in this entire register if so, since it could already be leaking internal paths/config/query structure (though not credentials directly, per `config/logging.php`/`.env` never being included in a rendered exception's visible output) to the public internet right now. Unknown/low if it's already `false`, which is the standard, expected production setting.
-- **Why unresolved:** Requires a real production check (or a deploy of a corrected `.env`), not a code change — this codebase has no mechanism to verify or enforce it remotely, and this session had no standing authorization to inspect or modify the live production environment.
-- **Business decision required:** None — this is a pure operational verification, not a product decision. Whoever next has production access should run `grep APP_DEBUG /path/to/.env` on the server and confirm `false`, exactly as a prior session's own `git status`/`git log` production check (§18) already did for deployment state.
-- **Safe current default:** `.env.example`'s `true` is fine (it's a local-dev template, never deployed as-is) — the real risk is entirely in whether production's actual `.env` was ever corrected from a default/example value.
+- **Issue:** `.env.example` ships `APP_DEBUG=true`. Every unhandled exception on a live, internet-facing endpoint renders Laravel's full debug page — stack trace, file paths, and (via `bootstrap/app.php`'s `shouldRenderJsonWhen()`) a JSON equivalent for every `/api/*` route — to any caller who can trigger a 500, not just an admin.
+- **Current behavior — VERIFIED LIVE on 2026-08-15** via read-only SSH to the real production server (`callf1207@srv1422426.hstgr.cloud`, `/home/1callfix.com/public_html/api/`): `.env` has `APP_ENV=production` and **`APP_DEBUG=true`**. Config is NOT cached (`bootstrap/cache/config.php` does not exist), so there is no cache-vs-file ambiguity — Laravel reads `.env` fresh on every request. Confirmed via Laravel's own `php artisan about`: `Environment: production`, **`Debug Mode: ENABLED`**. Production is at commit `ba0635a7e5878a42cd67b3cbf382440d580bcb90` ("Admin: Commissions browser"), matching every doc in this repo that has cited that commit, with a clean `git status` (no server-side drift). No secrets or full `.env` contents were captured or printed during this check — only the two `APP_ENV`/`APP_DEBUG` lines.
+- **Risk: CONFIRMED HIGH, not hypothetical.** This is the single highest-severity item in this entire register, active right now: any 500 on `api.1callfix.com` — web admin or `/api/*` — currently leaks internal file paths, stack traces, and query bindings to any caller who triggers one, not just an admin.
+- **Why unresolved:** Deliberately not fixed automatically by this same read-only verification pass, per the explicit instruction it was performed under — editing a live production `.env` is exactly the kind of outward-facing, hard-to-reverse action requiring separate, explicit authorization, not something to bundle into a verification check.
+- **Business decision required:** None — pure operational fix, one line.
+- **Safe/recommended remediation (not performed):** SSH in as `callf1207` (never `root`, per this project's own documented convention), edit `.env` in place, flip `APP_DEBUG=true` → `false`. No `config:clear`/`config:cache` needed since config isn't cached — takes effect on the next request immediately. Also restart the Supervisor-managed queue worker (`onecallfix-worker`) — it's a long-lived PHP process that loaded `.env` at its own start and would keep the old value in memory until restarted, independent of the web-facing fix. Reversible, no code deploy, doesn't touch the deployed commit.
 - **Affected modules:** Whole application — every route, admin and API alike.
-- **Blocked:** Yes — needs production server access this session did not have/use.
+- **Blocked:** No longer blocked on access — verified. Blocked only on the actual one-line fix being explicitly authorized and performed.
 
 ## 26. Admin screens hardcode the ₹ symbol instead of reading the already-built, admin-configurable `locale.currency_symbol` Setting
 
@@ -332,4 +332,4 @@ Format per item: **Issue** · Current behavior · Risk · Why unresolved · Busi
 
 ---
 
-*Last updated: 2026-08-15, mission Phase 18 (performance/scale audit).*
+*Last updated: 2026-08-15 — item 25 (production `APP_DEBUG`) verified CONFIRMED ACTIVE via read-only production SSH check, post-mission (mission's own 20 phases completed as of Phase 20).*
