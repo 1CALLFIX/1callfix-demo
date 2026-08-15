@@ -67,7 +67,7 @@
                 </div>
             @endif
             <div>
-                <label class="block text-xs font-medium mb-1">Price (₹)</label>
+                <label class="block text-xs font-medium mb-1">Price ({{ $currencySymbol }})</label>
                 <input type="number" step="0.01" wire:model="price" class="w-full border rounded px-3 py-2 text-sm">
             </div>
             <div>
@@ -110,7 +110,7 @@
                         <td class="px-4 py-2 text-gray-500">{{ ucwords(str_replace('_', ' ', $p->plan_family)) }}</td>
                         <td class="px-4 py-2 text-gray-500">{{ ucwords(str_replace('_', ' ', $p->eligible_actor_type)) }}</td>
                         <td class="px-4 py-2 text-gray-500">{{ ucfirst($p->scope_type) }}{{ $p->scope_id ? ' #'.$p->scope_id : '' }}</td>
-                        <td class="px-4 py-2 font-mono">₹{{ number_format($p->price, 2) }}/{{ $p->billing_cycle }}</td>
+                        <td class="px-4 py-2 font-mono">{{ $currencySymbol }}{{ number_format($p->price, 2) }}/{{ $p->billing_cycle }}</td>
                         <td class="px-4 py-2">{{ $p->subscriptions_count }}</td>
                         <td class="px-4 py-2">
                             <span @class(['px-2 py-0.5 rounded text-xs', 'bg-green-100 text-green-700' => $p->is_active, 'bg-gray-100 text-gray-500' => !$p->is_active])>
@@ -131,7 +131,7 @@
                                             <th class="pr-3 py-1">Type</th>
                                             <th class="pr-3 py-1">Module</th>
                                             <th class="pr-3 py-1">Qty</th>
-                                            <th class="pr-3 py-1">₹ value</th>
+                                            <th class="pr-3 py-1">{{ $currencySymbol }} value</th>
                                             <th class="pr-3 py-1">% value</th>
                                             <th class="pr-3 py-1">Trigger</th>
                                             <th class="pr-3 py-1">Rollover</th>
@@ -145,7 +145,7 @@
                                                 <td class="pr-3 py-1">{{ str_replace('_', ' ', $e->entitlement_type) }}</td>
                                                 <td class="pr-3 py-1">{{ $e->module ?? '—' }}</td>
                                                 <td class="pr-3 py-1">{{ $e->quantity ?? '—' }}</td>
-                                                <td class="pr-3 py-1">{{ $e->monetary_value !== null ? '₹'.number_format($e->monetary_value, 2) : '—' }}</td>
+                                                <td class="pr-3 py-1">{{ $e->monetary_value !== null ? $currencySymbol.number_format($e->monetary_value, 2) : '—' }}</td>
                                                 <td class="pr-3 py-1">{{ $e->percentage_value !== null ? $e->percentage_value.'%' : '—' }}</td>
                                                 <td class="pr-3 py-1">{{ str_replace('_', ' ', $e->consumption_trigger) }}</td>
                                                 <td class="pr-3 py-1">{{ $e->rollover_policy }}</td>
@@ -181,7 +181,7 @@
                                         <input type="number" wire:model="entQuantity" class="w-full border rounded px-2 py-1.5 text-xs">
                                     </div>
                                     <div>
-                                        <label class="block text-xs mb-1">₹ value</label>
+                                        <label class="block text-xs mb-1">{{ $currencySymbol }} value</label>
                                         <input type="number" step="0.01" wire:model="entMonetaryValue" class="w-full border rounded px-2 py-1.5 text-xs">
                                     </div>
                                     <div>

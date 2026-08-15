@@ -72,7 +72,7 @@
                             @if ($sale->is_currently_active)<span class="px-2 py-0.5 rounded text-xs ml-1 bg-emerald-600 text-white">Currently active</span>@endif
                         </div>
                         <div class="text-sm text-gray-500">
-                            {{ $sale->discount_type === 'percent' ? $sale->discount_value.'% off' : '₹'.number_format($sale->discount_value, 2).' off' }}
+                            {{ $sale->discount_type === 'percent' ? $sale->discount_value.'% off' : $currencySymbol.number_format($sale->discount_value, 2).' off' }}
                             @if ($sale->remaining_quantity !== null) · {{ $sale->remaining_quantity }} left @endif
                         </div>
                     </div>
@@ -153,9 +153,9 @@
                             <td class="px-4 py-2">{{ $r->flashSale->name ?? '—' }}</td>
                             <td class="px-4 py-2">{{ $r->service->name ?? '—' }}</td>
                             <td class="px-4 py-2">{{ $r->user->name ?? '—' }}</td>
-                            <td class="px-4 py-2 font-mono">₹{{ number_format($r->original_price, 2) }}</td>
-                            <td class="px-4 py-2 font-mono">₹{{ number_format($r->final_price, 2) }}</td>
-                            <td class="px-4 py-2 font-mono text-green-700">₹{{ number_format($r->discount_applied, 2) }}</td>
+                            <td class="px-4 py-2 font-mono">{{ $currencySymbol }}{{ number_format($r->original_price, 2) }}</td>
+                            <td class="px-4 py-2 font-mono">{{ $currencySymbol }}{{ number_format($r->final_price, 2) }}</td>
+                            <td class="px-4 py-2 font-mono text-green-700">{{ $currencySymbol }}{{ number_format($r->discount_applied, 2) }}</td>
                             <td class="px-4 py-2 text-gray-500 whitespace-nowrap">{{ $r->created_at->format('d M Y, h:i A') }}</td>
                         </tr>
                     @empty

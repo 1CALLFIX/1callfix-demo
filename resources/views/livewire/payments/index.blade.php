@@ -54,7 +54,7 @@
                                 <span class="text-gray-400 text-xs">{{ $p->booking->code }}</span>
                             @endif
                         </td>
-                        <td class="px-4 py-2 font-mono">₹{{ number_format($p->amount, 2) }}</td>
+                        <td class="px-4 py-2 font-mono">{{ $currencySymbol }}{{ number_format($p->amount, 2) }}</td>
                         <td class="px-4 py-2 text-gray-500">{{ ucfirst($p->gateway ?? '—') }}</td>
                         <td class="px-4 py-2 text-gray-400 font-mono text-xs">
                             {{ $p->gateway_order_id ?? '—' }}
@@ -71,7 +71,7 @@
                                 'bg-blue-100 text-blue-700' => $p->status === 'refunded',
                             ])>{{ ucfirst($p->status) }}</span>
                         </td>
-                        <td class="px-4 py-2 font-mono text-gray-500">{{ $p->refunded_amount ? '₹'.number_format($p->refunded_amount, 2) : '—' }}</td>
+                        <td class="px-4 py-2 font-mono text-gray-500">{{ $p->refunded_amount ? $currencySymbol.number_format($p->refunded_amount, 2) : '—' }}</td>
                         <td class="px-4 py-2 text-gray-500 whitespace-nowrap">{{ $p->created_at->format('d M Y, h:i A') }}</td>
                         <td class="px-4 py-2"><a href="{{ route('admin.documents.payments.show', $p->id) }}" target="_blank" class="text-blue-600 hover:underline text-xs">View</a></td>
                     </tr>

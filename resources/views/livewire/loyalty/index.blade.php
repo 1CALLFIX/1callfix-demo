@@ -107,7 +107,7 @@
                                     <div class="text-xs text-gray-400 mt-1">{{ $r->reversal_note }}</div>
                                 @endif
                             </td>
-                            <td class="px-4 py-2 font-mono text-gray-500">{{ $r->reward_amount ? '₹'.number_format($r->reward_amount, 2) : '—' }}</td>
+                            <td class="px-4 py-2 font-mono text-gray-500">{{ $r->reward_amount ? $currencySymbol.number_format($r->reward_amount, 2) : '—' }}</td>
                             <td class="px-4 py-2 text-gray-400">{{ $r->qualifyingBooking->code ?? '—' }}</td>
                             <td class="px-4 py-2 text-gray-500">{{ $r->created_at->format('d M Y, h:i A') }}</td>
                             @if ($canManageAnywhere ?? false)

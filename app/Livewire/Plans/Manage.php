@@ -4,6 +4,7 @@ namespace App\Livewire\Plans;
 
 use App\Models\Plan;
 use App\Models\PlanEntitlement;
+use App\Models\Setting;
 use App\Services\AuthorizationService;
 use App\Services\Plans\PlanService;
 use Livewire\Component;
@@ -242,7 +243,10 @@ class Manage extends Component
         $plans = Plan::whereIn('id', $this->visiblePlanIds())
             ->with('entitlements')->withCount('subscriptions')->latest()->paginate(15);
 
-        return view('livewire.plans.manage', ['plans' => $plans])
+        return view('livewire.plans.manage', [
+            'plans' => $plans,
+            'currencySymbol' => Setting::get('locale.currency_symbol', '₹'),
+        ])
             ->layout('layouts.admin', ['title' => 'Plans & Memberships']);
     }
 }

@@ -5,6 +5,7 @@ namespace App\Livewire\Commissions;
 use App\Exports\CommissionsExport;
 use App\Models\Commission;
 use App\Models\Franchise;
+use App\Models\Setting;
 use App\Services\AuthorizationService;
 use Livewire\Component;
 use Livewire\WithPagination;
@@ -112,6 +113,7 @@ class Index extends Component
             'providerTotal' => (float) ($totals->provider_total ?? 0),
             'franchiseTotal' => (float) ($totals->franchise_total ?? 0),
             'platformTotal' => (float) ($totals->platform_total ?? 0),
+            'currencySymbol' => Setting::get('locale.currency_symbol', '₹'),
         ])->layout('layouts.admin', ['title' => 'Commissions']);
     }
 }

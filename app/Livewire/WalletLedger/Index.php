@@ -2,6 +2,7 @@
 
 namespace App\Livewire\WalletLedger;
 
+use App\Models\Setting;
 use App\Models\WalletTransaction;
 use App\Services\AuthorizationService;
 use Livewire\Component;
@@ -75,6 +76,7 @@ class Index extends Component
             'transactions' => $transactions,
             'totalCredit' => (float) ($totals->total_credit ?? 0),
             'totalDebit' => (float) ($totals->total_debit ?? 0),
+            'currencySymbol' => Setting::get('locale.currency_symbol', '₹'),
         ])->layout('layouts.admin', ['title' => 'Wallet Ledger']);
     }
 }

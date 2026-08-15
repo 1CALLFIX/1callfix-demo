@@ -4,6 +4,7 @@ namespace App\Livewire\Payments;
 
 use App\Contracts\PaymentGateway;
 use App\Models\Payment;
+use App\Models\Setting;
 use App\Services\AuthorizationService;
 use Livewire\Component;
 use Livewire\WithPagination;
@@ -81,6 +82,7 @@ class Index extends Component
         return view('livewire.payments.index', [
             'payments' => $payments,
             'gatewayDisplayName' => $gateway->displayName(),
+            'currencySymbol' => Setting::get('locale.currency_symbol', '₹'),
         ])->layout('layouts.admin', ['title' => 'Payments']);
     }
 }

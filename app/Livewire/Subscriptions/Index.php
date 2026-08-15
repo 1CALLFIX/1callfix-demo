@@ -4,6 +4,7 @@ namespace App\Livewire\Subscriptions;
 
 use App\Models\BusinessAccount;
 use App\Models\EntitlementBalance;
+use App\Models\Setting;
 use App\Models\Subscription;
 use App\Models\User;
 use App\Services\AuthorizationService;
@@ -164,7 +165,9 @@ class Index extends Component
             return $s;
         });
 
-        return view('livewire.subscriptions.index', ['subscriptions' => $subscriptions])
-            ->layout('layouts.admin', ['title' => 'Subscriptions']);
+        return view('livewire.subscriptions.index', [
+            'subscriptions' => $subscriptions,
+            'currencySymbol' => Setting::get('locale.currency_symbol', '₹'),
+        ])->layout('layouts.admin', ['title' => 'Subscriptions']);
     }
 }

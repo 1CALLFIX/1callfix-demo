@@ -32,7 +32,7 @@
                         <td class="px-4 py-2">{{ $customer->phone }}</td>
                         <td class="px-4 py-2 text-gray-500">{{ $customer->franchise->name ?? '—' }}</td>
                         <td class="px-4 py-2">{{ $customer->bookings_count }}</td>
-                        <td class="px-4 py-2 font-mono">₹{{ number_format($customer->wallet_balance, 2) }}</td>
+                        <td class="px-4 py-2 font-mono">{{ $currencySymbol }}{{ number_format($customer->wallet_balance, 2) }}</td>
                         <td class="px-4 py-2">
                             <span @class([
                                 'px-2 py-0.5 rounded text-xs',

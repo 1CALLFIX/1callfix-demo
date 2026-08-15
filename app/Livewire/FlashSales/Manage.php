@@ -6,6 +6,7 @@ use App\Models\Badge;
 use App\Models\FlashSale;
 use App\Models\FlashSaleTarget;
 use App\Models\Service;
+use App\Models\Setting;
 use App\Services\AuthorizationService;
 use App\Services\FlashSaleService;
 use Illuminate\Support\Carbon;
@@ -265,6 +266,7 @@ class Manage extends Component
             'franchises' => \App\Models\Franchise::orderBy('name')->get(),
             'zones' => $this->scopeFranchiseId ? \App\Models\Zone::where('franchise_id', $this->scopeFranchiseId)->orderBy('name')->get() : collect(),
             'badges' => Badge::where('mode', 'manual')->orderBy('label')->get(),
+            'currencySymbol' => Setting::get('locale.currency_symbol', '₹'),
         ])->layout('layouts.admin', ['title' => 'Flash Sales']);
     }
 }

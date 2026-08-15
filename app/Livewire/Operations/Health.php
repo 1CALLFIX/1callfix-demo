@@ -212,6 +212,7 @@ class Health extends Component
             'scheduledTaskRuns' => $scheduledTaskRuns,
             'webhookLogs' => $webhookLogs,
             'webhookLogsCount' => PaymentWebhookLog::count(),
+            'currencySymbol' => Setting::get('locale.currency_symbol', '₹'),
         ])->layout('layouts.admin', ['title' => 'Operations']);
     }
 }

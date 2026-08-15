@@ -4,6 +4,7 @@ namespace App\Livewire\PerformanceCampaigns;
 
 use App\Models\Badge;
 use App\Models\PerformanceCampaign;
+use App\Models\Setting;
 use App\Services\AuthorizationService;
 use App\Services\Campaigns\CampaignMetricResolver;
 use App\Services\PerformanceCampaignService;
@@ -232,6 +233,7 @@ class Manage extends Component
             'franchises' => \App\Models\Franchise::orderBy('name')->get(),
             'zones' => $this->scopeFranchiseId ? \App\Models\Zone::where('franchise_id', $this->scopeFranchiseId)->orderBy('name')->get() : collect(),
             'badges' => Badge::where('mode', 'manual')->orderBy('label')->get(),
+            'currencySymbol' => Setting::get('locale.currency_symbol', '₹'),
         ])->layout('layouts.admin', ['title' => 'Performance Campaigns']);
     }
 }

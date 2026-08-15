@@ -4,6 +4,7 @@ namespace App\Livewire\Loyalty;
 
 use App\Models\LoyaltyPoint;
 use App\Models\Referral;
+use App\Models\Setting;
 use App\Services\AuthorizationService;
 use App\Services\ReferralService;
 use Livewire\Component;
@@ -120,6 +121,7 @@ class Index extends Component
                 'totalPointsEarned' => null,
                 'totalPointsRedeemed' => null,
                 'canManageAnywhere' => auth()->user()->hasPermissionAnywhere('loyalty.manage'),
+                'currencySymbol' => Setting::get('locale.currency_symbol', '₹'),
             ])->layout('layouts.admin', ['title' => 'Loyalty & Referrals']);
         }
 

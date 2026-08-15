@@ -6,6 +6,7 @@ use App\Exports\PayoutsExport;
 use App\Models\PaymentAccount;
 use App\Models\Payout;
 use App\Models\Provider;
+use App\Models\Setting;
 use App\Models\User;
 use App\Services\AuthorizationService;
 use App\Services\PayoutService;
@@ -287,7 +288,9 @@ class Manage extends Component
             return $p;
         });
 
-        return view('livewire.payouts.manage', ['payouts' => $payouts])
-            ->layout('layouts.admin', ['title' => 'Payouts']);
+        return view('livewire.payouts.manage', [
+            'payouts' => $payouts,
+            'currencySymbol' => Setting::get('locale.currency_symbol', '₹'),
+        ])->layout('layouts.admin', ['title' => 'Payouts']);
     }
 }

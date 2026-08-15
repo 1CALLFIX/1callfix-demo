@@ -4,15 +4,15 @@
     <div class="grid grid-cols-2 md:grid-cols-3 gap-4 mb-4">
         <div class="bg-white rounded-lg shadow-sm p-4">
             <div class="text-xs text-gray-500 mb-1">Total credits (filtered)</div>
-            <div class="text-xl font-semibold text-green-700 font-mono">₹{{ number_format($totalCredit, 2) }}</div>
+            <div class="text-xl font-semibold text-green-700 font-mono">{{ $currencySymbol }}{{ number_format($totalCredit, 2) }}</div>
         </div>
         <div class="bg-white rounded-lg shadow-sm p-4">
             <div class="text-xs text-gray-500 mb-1">Total debits (filtered)</div>
-            <div class="text-xl font-semibold text-red-700 font-mono">₹{{ number_format($totalDebit, 2) }}</div>
+            <div class="text-xl font-semibold text-red-700 font-mono">{{ $currencySymbol }}{{ number_format($totalDebit, 2) }}</div>
         </div>
         <div class="bg-white rounded-lg shadow-sm p-4">
             <div class="text-xs text-gray-500 mb-1">Net (filtered)</div>
-            <div class="text-xl font-semibold font-mono">₹{{ number_format($totalCredit - $totalDebit, 2) }}</div>
+            <div class="text-xl font-semibold font-mono">{{ $currencySymbol }}{{ number_format($totalCredit - $totalDebit, 2) }}</div>
         </div>
     </div>
 
@@ -52,7 +52,7 @@
                     <tr class="border-t hover:bg-gray-50">
                         <td class="px-4 py-2">{{ $t->wallet->user->name ?? '—' }} <span class="text-gray-400">({{ $t->wallet->user->phone ?? '—' }})</span></td>
                         <td class="px-4 py-2 font-mono @if($t->is_credit) text-green-700 @else text-red-700 @endif">
-                            {{ $t->is_credit ? '+' : '−' }}₹{{ number_format($t->amount, 2) }}
+                            {{ $t->is_credit ? '+' : '−' }}{{ $currencySymbol }}{{ number_format($t->amount, 2) }}
                         </td>
                         <td class="px-4 py-2">
                             <span @class(['px-2 py-0.5 rounded text-xs', 'bg-green-100 text-green-700' => $t->is_credit, 'bg-red-100 text-red-700' => ! $t->is_credit])>

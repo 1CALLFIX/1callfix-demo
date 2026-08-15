@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Customers;
 
+use App\Models\Setting;
 use App\Models\User;
 use App\Services\AuthorizationService;
 use App\Services\WalletService;
@@ -48,7 +49,9 @@ class Index extends Component
             return $c;
         });
 
-        return view('livewire.customers.index', compact('customers'))
+        $currencySymbol = Setting::get('locale.currency_symbol', '₹');
+
+        return view('livewire.customers.index', compact('customers', 'currencySymbol'))
             ->layout('layouts.admin', ['title' => 'Customers']);
     }
 }

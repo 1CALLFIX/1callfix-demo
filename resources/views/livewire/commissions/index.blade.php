@@ -7,15 +7,15 @@
     <div class="grid grid-cols-2 md:grid-cols-3 gap-4 mb-4">
         <div class="bg-white rounded-lg shadow-sm p-4">
             <div class="text-xs text-gray-500 mb-1">Provider earnings (filtered)</div>
-            <div class="text-xl font-semibold font-mono">₹{{ number_format($providerTotal, 2) }}</div>
+            <div class="text-xl font-semibold font-mono">{{ $currencySymbol }}{{ number_format($providerTotal, 2) }}</div>
         </div>
         <div class="bg-white rounded-lg shadow-sm p-4">
             <div class="text-xs text-gray-500 mb-1">Franchise revenue share (filtered)</div>
-            <div class="text-xl font-semibold font-mono">₹{{ number_format($franchiseTotal, 2) }}</div>
+            <div class="text-xl font-semibold font-mono">{{ $currencySymbol }}{{ number_format($franchiseTotal, 2) }}</div>
         </div>
         <div class="bg-white rounded-lg shadow-sm p-4">
             <div class="text-xs text-gray-500 mb-1">Platform commission (filtered)</div>
-            <div class="text-xl font-semibold font-mono">₹{{ number_format($platformTotal, 2) }}</div>
+            <div class="text-xl font-semibold font-mono">{{ $currencySymbol }}{{ number_format($platformTotal, 2) }}</div>
         </div>
     </div>
 
@@ -51,9 +51,9 @@
                         <td class="px-4 py-2 font-mono text-xs">{{ $c->booking->code ?? '—' }}</td>
                         <td class="px-4 py-2 text-gray-500">{{ $c->booking->franchise->name ?? '—' }}</td>
                         <td class="px-4 py-2 text-gray-500">{{ $c->booking->provider->user->name ?? '—' }}</td>
-                        <td class="px-4 py-2 font-mono">₹{{ number_format($c->provider_commission, 2) }}</td>
-                        <td class="px-4 py-2 font-mono">₹{{ number_format($c->franchise_commission, 2) }}</td>
-                        <td class="px-4 py-2 font-mono">₹{{ number_format($c->platform_commission, 2) }}</td>
+                        <td class="px-4 py-2 font-mono">{{ $currencySymbol }}{{ number_format($c->provider_commission, 2) }}</td>
+                        <td class="px-4 py-2 font-mono">{{ $currencySymbol }}{{ number_format($c->franchise_commission, 2) }}</td>
+                        <td class="px-4 py-2 font-mono">{{ $currencySymbol }}{{ number_format($c->platform_commission, 2) }}</td>
                         <td class="px-4 py-2 text-gray-500">{{ $c->created_at->format('d M Y, h:i A') }}</td>
                     </tr>
                 @empty

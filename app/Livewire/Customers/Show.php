@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Customers;
 
+use App\Models\Setting;
 use App\Models\User;
 use App\Services\AuthorizationService;
 use App\Services\WalletService;
@@ -36,6 +37,12 @@ class Show extends Component
     public function getWalletBalanceProperty(): float
     {
         return app(WalletService::class)->balance($this->customer);
+    }
+
+    /** Phase 21 item TECH-2 -- matches Bookings\Show::getCurrencySymbolProperty() exactly. */
+    public function getCurrencySymbolProperty(): string
+    {
+        return Setting::get('locale.currency_symbol', '₹');
     }
 
     public function getRecentBookingsProperty()

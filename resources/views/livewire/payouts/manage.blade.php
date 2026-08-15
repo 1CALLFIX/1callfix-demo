@@ -38,7 +38,7 @@
                 @endif
                 @if ($selectedPayeeId)
                     <p class="text-xs text-gray-500 mt-1">
-                        Selected: {{ $selectedPayeeLabel }} — wallet balance: ₹{{ number_format($this->payeeWalletBalance ?? 0, 2) }}
+                        Selected: {{ $selectedPayeeLabel }} — wallet balance: {{ $currencySymbol }}{{ number_format($this->payeeWalletBalance ?? 0, 2) }}
                     </p>
                 @endif
             </div>
@@ -108,7 +108,7 @@
                 @forelse ($payouts as $p)
                     <tr class="border-t hover:bg-gray-50" wire:key="payout-{{ $p->id }}">
                         <td class="px-4 py-2">{{ $p->display_label }}</td>
-                        <td class="px-4 py-2 font-mono">₹{{ number_format($p->amount, 2) }}</td>
+                        <td class="px-4 py-2 font-mono">{{ $currencySymbol }}{{ number_format($p->amount, 2) }}</td>
                         <td class="px-4 py-2">
                             <span @class([
                                 'px-2 py-0.5 rounded text-xs',

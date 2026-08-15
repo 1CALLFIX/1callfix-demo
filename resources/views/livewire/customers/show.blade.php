@@ -35,7 +35,7 @@
         <div class="bg-white rounded-lg shadow-sm p-4">
             <div class="font-semibold mb-2">Wallet & Addresses</div>
             <dl class="text-sm space-y-1">
-                <div class="flex justify-between"><dt class="text-gray-500">Wallet balance</dt><dd class="font-mono">₹{{ number_format($this->walletBalance, 2) }}</dd></div>
+                <div class="flex justify-between"><dt class="text-gray-500">Wallet balance</dt><dd class="font-mono">{{ $this->currencySymbol }}{{ number_format($this->walletBalance, 2) }}</dd></div>
                 <div class="flex justify-between"><dt class="text-gray-500">Saved addresses</dt><dd>{{ $customer->addresses->count() }}</dd></div>
             </dl>
             @if ($customer->addresses->isNotEmpty())

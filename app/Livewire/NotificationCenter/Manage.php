@@ -12,6 +12,7 @@ use App\Models\NotificationCampaign;
 use App\Models\NotificationLog;
 use App\Models\NotificationMeeting;
 use App\Models\NotificationTemplate;
+use App\Models\Setting;
 use App\Models\User;
 use App\Models\Zone;
 use App\Notifications\Adapters\LogPushAdapter;
@@ -533,6 +534,7 @@ class Manage extends Component
             'franchises' => Franchise::where('status', 'active')->orderBy('name')->get(),
             'zones' => $this->scopeFranchiseId ? Zone::where('franchise_id', $this->scopeFranchiseId)->orderBy('name')->get() : collect(),
             'moduleOptions' => Modules::ALL,
+            'currencySymbol' => Setting::get('locale.currency_symbol', '₹'),
         ])->layout('layouts.admin', ['title' => 'Notification Center']);
     }
 }

@@ -95,7 +95,7 @@
                     </div>
                     <div class="text-sm text-gray-500">
                         {{ $campaign->qualification_mode === 'threshold' ? 'Target ≥ '.number_format($campaign->target_value, 2) : 'Top '.$campaign->top_n }}
-                        · Reward: {{ $campaign->reward_type === 'badge' ? ($campaign->badge->label ?? 'Badge') : number_format($campaign->reward_value, 2).' '.($campaign->reward_type === 'wallet_credit' ? '₹' : 'pts') }}
+                        · Reward: {{ $campaign->reward_type === 'badge' ? ($campaign->badge->label ?? 'Badge') : number_format($campaign->reward_value, 2).' '.($campaign->reward_type === 'wallet_credit' ? $currencySymbol : 'pts') }}
                     </div>
                 </div>
                 <div class="text-xs text-gray-400 mt-1">

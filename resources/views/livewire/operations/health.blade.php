@@ -141,7 +141,7 @@
                 <div class="font-medium text-gray-700 mb-2">Wallet top-ups captured without credit ({{ $reconciliation['wallet_topups_captured_without_credit']->count() }})</div>
                 @forelse ($reconciliation['wallet_topups_captured_without_credit'] as $payment)
                     <div class="text-xs text-gray-500 border-t py-1.5">
-                        Payment #{{ $payment->id }} — {{ $payment->user->name ?? 'Unknown user' }}, ₹{{ number_format($payment->amount, 2) }}
+                        Payment #{{ $payment->id }} — {{ $payment->user->name ?? 'Unknown user' }}, {{ $currencySymbol }}{{ number_format($payment->amount, 2) }}
                     </div>
                 @empty
                     <div class="text-xs text-gray-400">None.</div>

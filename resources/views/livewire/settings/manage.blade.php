@@ -470,7 +470,7 @@
                 <p class="text-xs text-gray-400 mb-3">Earned automatically on booking completion (customer per rupee spent, provider a flat amount per job). Redeeming converts points into a real wallet credit at the rate below — not a second balance system.</p>
                 <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
                     <div>
-                        <label class="block text-xs font-medium mb-1">Customer points / ₹ spent @if ($scoped) <x-setting-override-badge :overridden="in_array('loyalty.customer_points_per_currency_unit', $this->overriddenKeys)" setting-key="loyalty.customer_points_per_currency_unit" /> @endif</label>
+                        <label class="block text-xs font-medium mb-1">Customer points / {{ $localeCurrencySymbol }} spent @if ($scoped) <x-setting-override-badge :overridden="in_array('loyalty.customer_points_per_currency_unit', $this->overriddenKeys)" setting-key="loyalty.customer_points_per_currency_unit" /> @endif</label>
                         <input type="number" step="0.001" wire:model="loyaltyCustomerPointsPerCurrencyUnit" class="w-full border rounded px-3 py-2 text-sm">
                         @error('loyaltyCustomerPointsPerCurrencyUnit') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
                     </div>
@@ -480,7 +480,7 @@
                         @error('loyaltyProviderPointsPerCompletedJob') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
                     </div>
                     <div>
-                        <label class="block text-xs font-medium mb-1">Points per ₹ (redemption) @if ($scoped) <x-setting-override-badge :overridden="in_array('loyalty.points_per_rupee_redemption', $this->overriddenKeys)" setting-key="loyalty.points_per_rupee_redemption" /> @endif</label>
+                        <label class="block text-xs font-medium mb-1">Points per {{ $localeCurrencySymbol }} (redemption) @if ($scoped) <x-setting-override-badge :overridden="in_array('loyalty.points_per_rupee_redemption', $this->overriddenKeys)" setting-key="loyalty.points_per_rupee_redemption" /> @endif</label>
                         <input type="number" step="1" min="1" wire:model="loyaltyPointsPerRupeeRedemption" class="w-full border rounded px-3 py-2 text-sm">
                         @error('loyaltyPointsPerRupeeRedemption') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
                     </div>

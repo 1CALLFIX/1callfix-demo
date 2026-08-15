@@ -57,11 +57,11 @@
                             @forelse ($s->entitlementBalances as $b)
                                 <div class="text-xs mb-1">
                                     {{ str_replace('_', ' ', $b->planEntitlement->entitlement_type) }}:
-                                    qty {{ $b->remainingQuantity() }} / ₹{{ number_format($b->remainingMonetaryValue(), 2) }}
+                                    qty {{ $b->remainingQuantity() }} / {{ $currencySymbol }}{{ number_format($b->remainingMonetaryValue(), 2) }}
                                     @if ($adjustingBalanceId === $b->id)
                                         <div class="mt-1 flex gap-1 items-center">
                                             <input type="number" wire:model="adjustQuantityDelta" placeholder="qty Δ" class="w-16 border rounded px-1 py-0.5 text-xs">
-                                            <input type="number" step="0.01" wire:model="adjustMonetaryDelta" placeholder="₹ Δ" class="w-16 border rounded px-1 py-0.5 text-xs">
+                                            <input type="number" step="0.01" wire:model="adjustMonetaryDelta" placeholder="{{ $currencySymbol }} Δ" class="w-16 border rounded px-1 py-0.5 text-xs">
                                             <input type="text" wire:model="adjustReason" placeholder="reason" class="w-24 border rounded px-1 py-0.5 text-xs">
                                             <button type="button" wire:click="confirmAdjust" class="text-green-600 hover:underline">Save</button>
                                         </div>
