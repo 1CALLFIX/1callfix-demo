@@ -95,4 +95,46 @@ class LoyaltyServiceTest extends TestCase
 
         $this->assertSame(0, $service->balance($customer));
     }
+
+    /**
+     * Phase 15 (financial reconciliation audit) finding: redeem()'s
+     * balance check used to run BEFORE its transaction opened, against an
+     * unlocked SUM() — two concurrent redemptions for the same user could
+     * both read a sufficient balance and both succeed, driving the
+     * aggregate ledger negative. Fixed by moving the check inside the
+     * transaction, behind a lockForUpdate() on the user's own ledger rows
+     * (same guarantee WalletService::applyTransaction() already gives
+     * wallets.balance). PHPUnit is single-threaded, so this can't fire two
+     * real concurrent redeem() calls — same honest limitation
+     * ServiceMatchingJobRaceTest's own docblock already states for its
+     * race — what these tests CAN and do verify is that the fix didn't
+     * change redeem()'s observable behavior for the normal (non-racing)
+     * case, including the exact boundary the balance check enforces.
+     */
+    public function test_redeeming_exactly_the_full_balance_succeeds(): void
+    {
+        $customer = $this->makeCustomer();
+        $loyalty = app(LoyaltyService::class);
+        $loyalty->earn($customer, 100, 'promo');
+
+        $result = $loyalty->redeem($customer, 100);
+
+        $this->assertSame(0, $result['new_balance']);
+        $this->assertSame(0, $loyalty->balance($customer));
+    }
+
+    public function test_redeem_never_leaves_a_negative_balance_on_the_reconciliation_check(): void
+    {
+        $customer = $this->makeCustomer();
+        $loyalty = app(LoyaltyService::class);
+        $loyalty->earn($customer, 500, 'promo');
+
+        $loyalty->redeem($customer, 200);
+        $loyalty->redeem($customer, 100);
+
+        $flagged = (new \App\Services\Operations\ReconciliationService)->detect()['negative_loyalty_balances']
+            ->firstWhere('user_id', $customer->id);
+        $this->assertNull($flagged, 'Two sequential, correctly-guarded redemptions must never show up as a reconciliation drift.');
+        $this->assertSame(200, $loyalty->balance($customer));
+    }
 }

@@ -72,6 +72,18 @@ class LoyaltyService
      * Throws on insufficient balance or below the configured minimum --
      * enforced here, not just in a UI form, so a direct API call can't
      * bypass it.
+     *
+     * Phase 15 (financial reconciliation audit) finding: the balance check
+     * used to run BEFORE the transaction opened, against an unlocked
+     * SUM() -- two concurrent redeem() calls for the same user could both
+     * read a sufficient balance, both pass, and both credit the wallet,
+     * driving the aggregate loyalty balance negative (real money credited
+     * against points that were never really there). WalletService's own
+     * applyTransaction() already closes the equivalent race for
+     * wallets.balance with a row lock; loyalty_points has no stored
+     * counter to lock (balance is a live SUM(), by design), so the lock
+     * here is acquired on the ledger rows themselves instead -- a
+     * concurrent redeem() for the same user blocks until this one commits.
      */
     public function redeem(User $user, int $points, array $scope = []): array
     {
@@ -84,15 +96,20 @@ class LoyaltyService
             throw new \RuntimeException("Minimum redemption is {$minRedemption} points.");
         }
 
-        $balance = $this->balance($user);
-        if ($points > $balance) {
-            throw new \RuntimeException("Insufficient points balance: has {$balance}, requested {$points}.");
-        }
-
         $pointsPerRupee = max(1, (int) Setting::get('loyalty.points_per_rupee_redemption', '10', $scope));
         $rupees = round($points / $pointsPerRupee, 2);
 
         return DB::transaction(function () use ($user, $points, $rupees, $scope) {
+            // Locks every ledger row this user's balance is computed from
+            // -- a second, concurrent redeem() for the same user blocks
+            // here until this transaction commits or rolls back.
+            LoyaltyPoint::where('user_id', $user->id)->lockForUpdate()->get();
+
+            $balance = $this->balance($user);
+            if ($points > $balance) {
+                throw new \RuntimeException("Insufficient points balance: has {$balance}, requested {$points}.");
+            }
+
             LoyaltyPoint::create([
                 'user_id' => $user->id,
                 'points' => -$points,

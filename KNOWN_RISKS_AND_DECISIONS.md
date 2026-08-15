@@ -264,6 +264,17 @@ Format per item: **Issue** · Current behavior · Risk · Why unresolved · Busi
 - **Affected modules:** Payouts, Payouts export.
 - **Blocked:** No — straightforward to fix, just not done in this pass.
 
+## 23. `referrals`/`performance_campaign_participants` cascade-delete on their reward-source user/campaign (currently unreachable)
+
+- **Issue:** Mission Phase 15's financial reconciliation audit found `referrals.referrer_id`/`referred_id` and (by the same pattern) `performance_campaign_participants`' parent FK are `cascadeOnDelete()`. If a `User` who was a *rewarded* referrer (or a `PerformanceCampaign` with disbursed participants) were ever hard-deleted, the row explaining *why* a real wallet credit happened would disappear while the wallet history itself would not — the ledger would still be internally consistent (WalletService's own transaction row survives), but the audit trail justifying it would be gone.
+- **Current behavior:** Not reachable — grepped the entire `app/` tree for any production code path that hard-deletes a `User` or a `PerformanceCampaign`; none exists (the only place either is force-deleted is `QaCleaner::destroy()`, which is manifest-scoped test/demo cleanup and deliberately wipes `wallet_transactions` in the same pass, so it stays internally consistent).
+- **Risk:** None today; real only if a future admin "delete user"/"delete campaign" action is ever built without also considering what it does to reward-audit history.
+- **Why unresolved:** Same class of finding as item 10 ("unreachable path... flagged for the record, not fixed") — there is nothing to fix today, only something to remember if the reachability changes.
+- **Business decision required:** None now. If a hard-delete-user (or hard-delete-campaign) admin action is ever built, decide then whether it should be blocked while reward history exists, or whether the referral/participant row should be preserved (e.g. nulled FK + snapshot) instead of cascaded away.
+- **Safe current default:** No change needed — the cascade is otherwise correct relational behavior (e.g. GDPR-style user deletion), just worth remembering has this side effect.
+- **Affected modules:** Referral engine, Performance/Growth Campaign engine, Wallet.
+- **Blocked:** N/A today (unreachable path); blocks only a *future* feature, same framing as item 10.
+
 ---
 
-*Last updated: 2026-08-15, mission Phase 14 (Master Catalog Import + Operations Import/Export completeness audit).*
+*Last updated: 2026-08-15, mission Phase 15 (financial reconciliation audit).*
