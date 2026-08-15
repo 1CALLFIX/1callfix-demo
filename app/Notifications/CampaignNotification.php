@@ -5,6 +5,7 @@ namespace App\Notifications;
 use App\Models\NotificationCampaign;
 use App\Services\TemplateRenderer;
 use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 
@@ -17,8 +18,22 @@ use Illuminate\Notifications\Notification;
  * time via TemplateRenderer, same as the transactional notifications'
  * per-event copy — this is the "one delivery architecture, two sources"
  * the corrected rule asked for, not a second notification system.
+ *
+ * Mission Phase 18 (performance/scale audit) finding: `use Queueable`
+ * (needed for onQueue()/delay() to exist at all) was already present, but
+ * the class never actually implemented ShouldQueue -- the one line that
+ * turns it on -- so it stayed fully synchronous. CampaignService::send()
+ * loops `$recipient->notify(new CampaignNotification(...))` over every
+ * resolved recipient in-process; for a campaign sized at even a few
+ * thousand recipients, that's a few thousand blocking SMS/push HTTP calls
+ * inside a single Livewire admin request (NotificationCenter\Manage's own
+ * "Send Now" action) or a single DispatchDueCampaigns scheduler tick --
+ * a real request-timeout/scheduler-overrun risk, not a hypothetical one.
+ * BookingStatusNotification and SubscriptionStatusNotification already
+ * implement ShouldQueue; this brings the one bulk-fanout notification in
+ * line with that same, already-established precedent.
  */
-class CampaignNotification extends Notification
+class CampaignNotification extends Notification implements ShouldQueue
 {
     use Queueable;
 

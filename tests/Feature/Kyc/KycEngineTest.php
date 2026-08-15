@@ -558,6 +558,28 @@ class KycEngineTest extends TestCase
         $this->assertSame('reminder', $provider->fresh()->kyc_reminder_stage);
     }
 
+    /**
+     * Mission Phase 18 (performance/scale audit) finding: KycNotification
+     * had `use Queueable` but never `implements ShouldQueue` -- same gap
+     * CampaignNotification had (see its own docblock). dispatchDue()
+     * already chunkById(200)s its provider scan, so it was never a memory
+     * risk, but every notify() inside a chunk still ran fully
+     * synchronously. Proves the fix actually queues rather than sending
+     * inline during the cron tick.
+     */
+    public function test_reminder_notification_is_queued_not_sent_inline(): void
+    {
+        \Illuminate\Support\Facades\Queue::fake();
+
+        [, , $franchise, $zone] = $this->makeFranchiseTree();
+        $provider = $this->makeProviderIn($franchise, $zone);
+        $provider->update(['kyc_status' => 'pending', 'kyc_deadline_at' => now()->addDays(9)]);
+
+        app(KycReminderService::class)->dispatchDue();
+
+        \Illuminate\Support\Facades\Queue::assertPushed(\Illuminate\Notifications\SendQueuedNotifications::class);
+    }
+
     public function test_reminder_never_resends_same_stage(): void
     {
         [, , $franchise, $zone] = $this->makeFranchiseTree();

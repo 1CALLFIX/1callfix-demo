@@ -10,6 +10,8 @@ use App\Models\User;
 use App\Services\CampaignService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Notifications\DatabaseNotification;
+use Illuminate\Notifications\SendQueuedNotifications;
+use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Str;
 use Livewire\Livewire;
 use Tests\Feature\Rbac\RbacTestHelpers;
@@ -173,6 +175,31 @@ class NotificationCenterAuditTest extends TestCase
         $stats = $component->viewData('deliveryStats');
         $this->assertSame(2, $stats['mail']['sent']);
         $this->assertSame(1, $stats['mail']['failed']);
+    }
+
+    // ============================== Campaign send queuing (mission Phase 18) ==============================
+
+    /**
+     * Phase 18 (performance/scale audit) finding: CampaignNotification had
+     * `use Queueable` but never `implements ShouldQueue`, so
+     * CampaignService::send()'s `foreach ($recipients as $r) { $r->notify(...) }`
+     * ran every recipient's send fully synchronously, in-process, inside
+     * whatever request/command triggered it — a real timeout risk for any
+     * campaign with more than a handful of recipients. Proves the fix
+     * actually queues, not just that send() still returns a sent campaign
+     * (that alone would pass unchanged with a Queue::fake() bypass here).
+     */
+    public function test_campaign_send_queues_recipient_notifications_instead_of_sending_inline(): void
+    {
+        Queue::fake();
+
+        $campaign = $this->makeCampaign(['status' => 'draft']);
+        $this->makeUser();
+        $this->makeUser();
+
+        app(CampaignService::class)->send($campaign->fresh());
+
+        Queue::assertPushed(SendQueuedNotifications::class);
     }
 
     // ============================== Resend to failed recipients ==============================

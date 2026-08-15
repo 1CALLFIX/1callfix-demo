@@ -3,6 +3,7 @@
 namespace App\Notifications;
 
 use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 
@@ -10,8 +11,18 @@ use Illuminate\Notifications\Notification;
  * Covers every KYC/withdrawal-restriction lifecycle event — one class,
  * matching LoyaltyPointsNotification/PayoutStatusNotification's own
  * multi-event pattern rather than a notification class per event.
+ *
+ * Mission Phase 18 (performance/scale audit) finding: the only OTHER real
+ * bulk-notify loop found alongside CampaignNotification's (see that
+ * class's own docblock) — KycReminderService::dispatchDue() (the daily
+ * reminder-milestone cron) already `chunkById(200, ...)`s its provider
+ * scan, so it was never a memory risk, but every notify() inside that
+ * chunk still ran fully synchronously. Lower severity than Campaign's (a
+ * scheduled command overrunning its own tick isn't a live HTTP request
+ * timing out), but the same bug shape, found while investigating the
+ * first one — implements ShouldQueue for the same reason.
  */
-class KycNotification extends Notification
+class KycNotification extends Notification implements ShouldQueue
 {
     use Queueable;
 

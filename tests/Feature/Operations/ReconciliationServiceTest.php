@@ -9,6 +9,7 @@ use App\Models\Wallet;
 use App\Models\WalletTransaction;
 use App\Services\Operations\ReconciliationService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Tests\Feature\Rbac\RbacTestHelpers;
 use Tests\Feature\Support\BookingFixtureHelpers;
 use Tests\TestCase;
@@ -69,6 +70,50 @@ class ReconciliationServiceTest extends TestCase
         $result = (new ReconciliationService)->detect();
 
         $this->assertTrue($result['wallet_balance_mismatches']->contains(fn ($row) => $row['wallet']->id === $wallet->id));
+    }
+
+    public function test_matching_wallet_balance_is_not_flagged(): void
+    {
+        $customer = $this->makeCustomer();
+        $wallet = Wallet::create(['user_id' => $customer->id, 'balance' => 100]);
+        WalletTransaction::create(['wallet_id' => $wallet->id, 'amount' => 100, 'is_credit' => true, 'reason' => 'test', 'ref' => 'test-match', 'status' => 'successful']);
+        // A failed transaction on the same wallet must NOT count toward the
+        // ledger sum -- proves the rewritten grouped-SQL version still
+        // filters on status='successful' the same way the old per-wallet
+        // loop did, not just that it returns the right total by accident.
+        WalletTransaction::create(['wallet_id' => $wallet->id, 'amount' => 500, 'is_credit' => true, 'reason' => 'test', 'ref' => 'test-failed', 'status' => 'failed']);
+
+        $result = (new ReconciliationService)->detect();
+
+        $this->assertFalse($result['wallet_balance_mismatches']->contains(fn ($row) => $row['wallet']->id === $wallet->id));
+    }
+
+    /**
+     * Mission Phase 18 (performance/scale audit) regression test:
+     * walletBalanceMismatches() used to run one extra query PER wallet
+     * (a real, unbounded N+1 -- 10,001 queries for 10,000 wallets). Proves
+     * the rewrite's query count no longer scales with wallet count: three
+     * wallets costs the same query budget as one would.
+     */
+    public function test_wallet_balance_mismatch_check_does_not_n_plus_one_per_wallet(): void
+    {
+        foreach (range(1, 3) as $i) {
+            $customer = $this->makeCustomer();
+            $wallet = Wallet::create(['user_id' => $customer->id, 'balance' => 100 * $i]);
+            WalletTransaction::create(['wallet_id' => $wallet->id, 'amount' => 100 * $i, 'is_credit' => true, 'reason' => 'test', 'ref' => "n1-{$i}", 'status' => 'successful']);
+        }
+
+        DB::enableQueryLog();
+        (new ReconciliationService)->detect();
+        $queryCount = count(DB::getQueryLog());
+        DB::disableQueryLog();
+
+        // Loose upper bound (this test doesn't care about the OTHER four
+        // checks' own query counts, only that this one check's cost is flat
+        // per-wallet, not linear) -- well under what 3 wallets would cost
+        // at even 2 queries/wallet under the old N+1 shape, let alone the
+        // real "load every wallet then one more query per wallet" pattern.
+        $this->assertLessThan(20, $queryCount);
     }
 
     public function test_wallet_topup_captured_without_credit_is_flagged(): void

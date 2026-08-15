@@ -54,19 +54,36 @@ class ReconciliationService
             ->get();
     }
 
-    /** wallets.balance is a stored running total (WalletService keeps it in sync under a row lock on every transaction) -- if it ever drifts from SUM(wallet_transactions), something bypassed WalletService. Flags mismatches beyond a tiny float-rounding tolerance. */
+    /**
+     * wallets.balance is a stored running total (WalletService keeps it in
+     * sync under a row lock on every transaction) -- if it ever drifts from
+     * SUM(wallet_transactions), something bypassed WalletService. Flags
+     * mismatches beyond a tiny float-rounding tolerance.
+     *
+     * Mission Phase 18 (performance/scale audit) finding: this used to load
+     * EVERY wallet, then run one additional `->transactions()->get()->sum()`
+     * query PER wallet -- a real, unbounded N+1 (unlike this check's four
+     * sibling checks, none of which have a per-row query loop) that would
+     * mean 10,001 queries for 10,000 wallets on every single Operations/
+     * Troubleshoot page load. Rewritten to one grouped SQL aggregate
+     * (backed by the new wallet_transactions (status, wallet_id) index) --
+     * same per-wallet comparison, same tolerance, same output shape.
+     */
     private function walletBalanceMismatches(): Collection
     {
+        $ledgerSums = WalletTransaction::query()
+            ->where('status', 'successful')
+            ->selectRaw('wallet_id, SUM(CASE WHEN is_credit = 1 THEN amount ELSE -amount END) as ledger_sum')
+            ->groupBy('wallet_id')
+            ->pluck('ledger_sum', 'wallet_id');
+
         return Wallet::with('user')
             ->get()
-            ->map(function (Wallet $wallet) {
-                $ledgerSum = $wallet->transactions()
-                    ->where('status', 'successful')
-                    ->get()
-                    ->sum(fn ($t) => $t->is_credit ? (float) $t->amount : -(float) $t->amount);
-
-                return ['wallet' => $wallet, 'stored_balance' => (float) $wallet->balance, 'ledger_sum' => round($ledgerSum, 2)];
-            })
+            ->map(fn (Wallet $wallet) => [
+                'wallet' => $wallet,
+                'stored_balance' => (float) $wallet->balance,
+                'ledger_sum' => round((float) ($ledgerSums[$wallet->id] ?? 0), 2),
+            ])
             ->filter(fn ($row) => abs($row['stored_balance'] - $row['ledger_sum']) > 0.01)
             ->values();
     }
