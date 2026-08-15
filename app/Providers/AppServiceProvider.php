@@ -21,9 +21,12 @@ use App\Observers\ReviewObserver;
 use App\Observers\UserObserver;
 use App\Observers\ZoneObserver;
 use App\Services\RazorpayService;
+use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Http\Request;
 use Illuminate\Notifications\Events\NotificationFailed;
 use Illuminate\Notifications\Events\NotificationSent;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -55,6 +58,24 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // Mission Phase 16 (API/security/E2E hardening sweep) finding:
+        // routes/api.php had NO general-purpose rate limiter at all --
+        // bootstrap/app.php never called $middleware->throttleApi(), and
+        // nothing anywhere registered a limiter named 'api'. Only the 6
+        // auth/OTP/QR routes were throttled (their own explicit per-route
+        // throttle:X,1). Every other authenticated route -- wallet top-up,
+        // loyalty redeem, payment order creation, chat, reviews, tips,
+        // subscriptions -- could be called at unlimited request volume by
+        // any valid Sanctum token. Laravel's own standard "api" starter-kit
+        // default (60/min, keyed per authenticated user or per IP for
+        // guests) is applied here rather than an invented number -- an
+        // honest engineering default, not a business decision. Wired onto
+        // the actual 'api' route group via $middleware->throttleApi() in
+        // bootstrap/app.php.
+        RateLimiter::for('api', function (Request $request) {
+            return Limit::perMinute(60)->by($request->user()?->id ?: $request->ip());
+        });
+
         Booking::observe(BookingObserver::class);
         Franchise::observe(FranchiseObserver::class);
         Zone::observe(ZoneObserver::class);

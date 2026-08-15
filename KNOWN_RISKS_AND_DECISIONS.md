@@ -275,6 +275,28 @@ Format per item: **Issue** · Current behavior · Risk · Why unresolved · Busi
 - **Affected modules:** Referral engine, Performance/Growth Campaign engine, Wallet.
 - **Blocked:** N/A today (unreachable path); blocks only a *future* feature, same framing as item 10.
 
+## 24. Sanctum API tokens never expire, and there is no "sign out other devices" action
+
+- **Issue:** `config/sanctum.php`'s `expiration` is `null` (never expires) and `AuthController::logout()` only deletes `$request->user()->currentAccessToken()` — the ONE token used to make that call. Every other token ever issued to that user (a lost phone, an old reinstall, a stolen device) stays valid forever unless an admin manually deletes rows from `personal_access_tokens` directly in the database.
+- **Current behavior:** OTP login and QR claim both issue a token via `$user->createToken(...)` with no TTL. A user has no in-app way to revoke a token they no longer control.
+- **Risk:** Real but bounded — exploiting it requires already having obtained a valid token (e.g. a lost/stolen unlocked phone, or a token leaked some other way); it's a "how long does the damage last" risk, not a new way in. Every endpoint that token can reach is still subject to this mission's own IDOR/ownership guards (Phase 16 audit above).
+- **Why unresolved:** Mobile session lifetime is a genuine product decision (how long should "stay logged in" last for a Customer/Partner/Worker app?) tangled with a real feature gap (no `GET /api/auth/sessions` + `DELETE /api/auth/sessions/{id}` "sign out other devices" UI exists to revoke a specific token yet) — building the revoke-list feature without first deciding the expiration policy would just be guessing at both halves of the same problem.
+- **Business decision required:** Should tokens expire (and after how long — hours for a high-security context, weeks/months for a convenience-first consumer app)? Should there be a "sign out everywhere" / per-device session list, matching the multi-device gap already logged in `AUTHENTICATION_ARCHITECTURE.md` (single `fcm_token` column, no `devices` table)?
+- **Safe current default:** Unchanged (`expiration: null`) — this file records the gap; nothing here silently added an expiration value that could log real users out without warning.
+- **Affected modules:** Authentication foundation (`AuthController`, `QrAuthController`), all Sanctum-protected API routes.
+- **Blocked:** No — straightforward to implement once the expiration policy is decided; the per-device revoke list is a real but bounded new feature (`personal_access_tokens` already has everything needed — `name`, `last_used_at`, `created_at` — to list and let a user pick one to delete).
+
+## 25. Production `APP_DEBUG` state is unverified from this session
+
+- **Issue:** `.env.example` ships `APP_DEBUG=true`. This repository has no automated or documented check confirming the REAL production `.env` (on `srv1422426.hstgr.cloud`, per `PROJECT_CURRENT_STATE.md` §2) has `APP_DEBUG=false`. If it doesn't, any unhandled exception on a live, internet-facing endpoint renders Laravel's full debug page — stack trace, file paths, and (via `bootstrap/app.php`'s `shouldRenderJsonWhen()`) a JSON equivalent for every `/api/*` route — to any caller who can trigger a 500, not just an admin.
+- **Current behavior:** Unknown as of this audit — no SSH/production access was exercised this session to check the real value (deliberately: checking or changing a live production `.env` is exactly the kind of outward-facing, hard-to-reverse action this mission's own rules require explicit confirmation for, not a drive-by check bundled into an unrelated audit).
+- **Risk:** High if the real value is `true` — this is the single highest-severity item in this entire register if so, since it could already be leaking internal paths/config/query structure (though not credentials directly, per `config/logging.php`/`.env` never being included in a rendered exception's visible output) to the public internet right now. Unknown/low if it's already `false`, which is the standard, expected production setting.
+- **Why unresolved:** Requires a real production check (or a deploy of a corrected `.env`), not a code change — this codebase has no mechanism to verify or enforce it remotely, and this session had no standing authorization to inspect or modify the live production environment.
+- **Business decision required:** None — this is a pure operational verification, not a product decision. Whoever next has production access should run `grep APP_DEBUG /path/to/.env` on the server and confirm `false`, exactly as a prior session's own `git status`/`git log` production check (§18) already did for deployment state.
+- **Safe current default:** `.env.example`'s `true` is fine (it's a local-dev template, never deployed as-is) — the real risk is entirely in whether production's actual `.env` was ever corrected from a default/example value.
+- **Affected modules:** Whole application — every route, admin and API alike.
+- **Blocked:** Yes — needs production server access this session did not have/use.
+
 ---
 
-*Last updated: 2026-08-15, mission Phase 15 (financial reconciliation audit).*
+*Last updated: 2026-08-15, mission Phase 16 (API/security/E2E hardening sweep).*

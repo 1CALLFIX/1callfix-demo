@@ -18,6 +18,12 @@ return Application::configure(basePath: dirname(__DIR__))
             fn () => route('admin.login')
         );
 
+        // Mission Phase 16 -- see AppServiceProvider::boot()'s docblock for
+        // the finding this closes. Applies Laravel's standard throttle:api
+        // middleware (using the 'api' limiter registered there) to every
+        // route in routes/api.php.
+        $middleware->throttleApi();
+
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(
