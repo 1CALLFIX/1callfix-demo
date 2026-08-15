@@ -34,6 +34,7 @@ use App\Livewire\Operations\Health as OperationsHealth;
 use App\Livewire\Payments\Index as PaymentsIndex;
 use App\Livewire\Plans\Manage as PlansManage;
 use App\Livewire\Subscriptions\Index as SubscriptionsIndex;
+use App\Livewire\Chat\Manage as ChatManage;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 
@@ -81,6 +82,8 @@ Route::middleware(['auth', \App\Http\Middleware\EnsureHasAdminAccess::class])
         Route::get('/plans', PlansManage::class)->name('admin.plans.index');
         Route::get('/subscriptions', SubscriptionsIndex::class)->name('admin.subscriptions.index');
         Route::get('/operations', OperationsHealth::class)->name('admin.operations.index');
+        Route::get('/chat', ChatManage::class)->name('admin.chat.index');
+        Route::get('/chat/attachments/{messageId}', [\App\Http\Controllers\Admin\ChatAttachmentController::class, 'show'])->name('admin.chat.attachments.show');
         Route::get('/kyc/support-requests', KycSupportRequestsManage::class)->name('admin.kyc.support-requests.index');
         Route::get('/kyc/documents/provider/{documentId}', [\App\Http\Controllers\Admin\KycDocumentController::class, 'providerDocument'])->name('admin.kyc.documents.provider');
         Route::get('/kyc/documents/field-worker/{documentId}', [\App\Http\Controllers\Admin\KycDocumentController::class, 'fieldWorkerDocument'])->name('admin.kyc.documents.field-worker');

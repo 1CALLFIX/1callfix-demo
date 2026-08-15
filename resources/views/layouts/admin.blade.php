@@ -99,6 +99,7 @@
                         ['label' => 'Flash Sales', 'route' => 'admin.flash-sales.index', 'icon' => 'bolt', 'active' => true, 'permission' => 'flash_sales.view'],
                         ['label' => 'Performance Campaigns', 'route' => 'admin.performance-campaigns.index', 'icon' => 'trophy', 'active' => true, 'permission' => 'performance_campaigns.view'],
                         ['label' => 'KYC Support Requests', 'route' => 'admin.kyc.support-requests.index', 'icon' => 'shield', 'active' => true, 'permission' => ['kyc.support_requests.create', 'kyc.support_requests.decide']],
+                        ['label' => 'Chat', 'route' => 'admin.chat.index', 'icon' => 'chat', 'active' => true, 'permission' => 'chat.view'],
                         ['label' => 'Website / CMS', 'route' => 'admin.cms.index', 'icon' => 'document', 'active' => true, 'permission' => 'cms.manage'],
                         ['label' => 'Payouts', 'route' => 'admin.payouts.index', 'icon' => 'banknotes', 'active' => true, 'permission' => 'payouts.manage'],
                         ['label' => 'Wallet Ledger', 'route' => 'admin.wallet-ledger.index', 'icon' => 'banknotes', 'active' => true, 'permission' => 'wallets.view'],

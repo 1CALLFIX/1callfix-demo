@@ -137,4 +137,28 @@ class ChatService
             ->whereNull('read_at')
             ->update(['read_at' => now()]);
     }
+
+    /**
+     * Phase 21 item TECH-4 (Option A only — read-only admin viewer).
+     * Deliberately NOT built on top of isParticipant()/conversation() —
+     * those methods' whole point is rejecting anyone who isn't a genuine
+     * party to the booking, which an admin/support viewer never is. This
+     * returns every message on the booking, full stop, and carries NO
+     * authorization check of its own: the caller (App\Livewire\Chat\Manage)
+     * is responsible for establishing that the acting admin is actually
+     * authorized to see THIS booking (chat.view + AuthorizationService::
+     * scopeQuery() row-level scope) before ever calling this — matching
+     * the same "screen owns its own scope, service just returns data"
+     * boundary every other admin screen in this codebase already uses.
+     * Read-only: never marks anything read, never mutates a message —
+     * that would misrepresent the real participants' own read state to
+     * each other on behalf of someone who never actually read it.
+     */
+    public function adminConversation(Booking $booking): Collection
+    {
+        return ChatMessage::where('booking_id', $booking->id)
+            ->with(['sender', 'receiver'])
+            ->orderBy('created_at')
+            ->get();
+    }
 }

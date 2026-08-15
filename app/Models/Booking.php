@@ -55,6 +55,8 @@ class Booking extends Model
     public function extraItems() { return $this->hasMany(BookingExtraItem::class); }
     public function statusHistory() { return $this->hasMany(BookingStatusHistory::class); }
     public function dispatchAttempts() { return $this->hasMany(DispatchAttempt::class); }
+    /** Phase 21 item TECH-4 -- ChatMessage::booking() already existed since Phase 6; this is just the missing inverse side, not a schema change. */
+    public function chatMessages() { return $this->hasMany(ChatMessage::class); }
     public function payment() { return $this->hasOne(Payment::class); }
     public function commission() { return $this->hasOne(Commission::class); }
     public function compensations() { return $this->hasMany(BookingCompensation::class); }
