@@ -460,7 +460,7 @@ class Manage extends Component
             return null;
         }
 
-        return Banner::with(['franchise', 'zone'])->find($this->viewBannerId);
+        return Banner::with(['franchise.country', 'zone'])->find($this->viewBannerId);
     }
 
     // ============================== Delete ==============================
@@ -621,7 +621,7 @@ class Manage extends Component
     public function render()
     {
         $banners = $this->baseQuery()
-            ->with(['franchise', 'zone', 'category'])
+            ->with(['franchise.country', 'zone', 'category'])
             ->orderBy($this->sortField, $this->sortDirection)
             ->orderBy('id')
             ->paginate($this->perPage);

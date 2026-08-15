@@ -53,7 +53,7 @@ class Index extends Component
 
         return app(AuthorizationService::class)
             ->scopeQuery(WalletTransaction::query(), auth()->user(), 'wallets.view', $columns)
-            ->with('wallet.user')
+            ->with('wallet.user.franchise.country')
             ->when($this->search !== '', fn ($q) => $q->whereHas('wallet.user', fn ($w) => $w
                 ->where('name', 'like', "%{$this->search}%")
                 ->orWhere('phone', 'like', "%{$this->search}%")))

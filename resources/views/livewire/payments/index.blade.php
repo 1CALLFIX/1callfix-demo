@@ -72,7 +72,7 @@
                             ])>{{ ucfirst($p->status) }}</span>
                         </td>
                         <td class="px-4 py-2 font-mono text-gray-500">{{ $p->refunded_amount ? $currencySymbol.number_format($p->refunded_amount, 2) : '—' }}</td>
-                        <td class="px-4 py-2 text-gray-500 whitespace-nowrap">{{ $p->created_at->format('d M Y, h:i A') }}</td>
+                        <td class="px-4 py-2 text-gray-500 whitespace-nowrap">{{ app(\App\Services\TimezoneResolver::class)->format($p->created_at, $p->booking?->franchise ?? $p->user?->franchise, 'd M Y, h:i A') }}</td>
                         <td class="px-4 py-2"><a href="{{ route('admin.documents.payments.show', $p->id) }}" target="_blank" class="text-blue-600 hover:underline text-xs">View</a></td>
                     </tr>
                 @empty

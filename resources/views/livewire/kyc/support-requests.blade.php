@@ -44,7 +44,7 @@
                         <span class="text-gray-400 text-xs ml-2">{{ $r->franchise->name ?? '—' }}</span>
                         <span @class(['px-2 py-0.5 rounded text-xs ml-2', 'bg-gray-100 text-gray-600' => $r->status === 'open', 'bg-green-100 text-green-700' => $r->status === 'approved', 'bg-red-100 text-red-700' => $r->status === 'rejected', 'bg-amber-100 text-amber-700' => $r->status === 'more_info_requested', 'bg-slate-200 text-slate-600' => $r->status === 'closed'])>{{ ucfirst(str_replace('_', ' ', $r->status)) }}</span>
                     </div>
-                    <span class="text-xs text-gray-400">{{ ucfirst($r->urgency) }} urgency &middot; {{ $r->created_at->format('d M Y') }}</span>
+                    <span class="text-xs text-gray-400">{{ ucfirst($r->urgency) }} urgency &middot; {{ app(\App\Services\TimezoneResolver::class)->format($r->created_at, $r->franchise, 'd M Y') }}</span>
                 </div>
                 <p class="text-sm text-gray-600 mt-2">{{ $r->reason }}</p>
                 @if ($r->assistance_provided)<p class="text-xs text-gray-400 mt-1">Assistance: {{ $r->assistance_provided }}</p>@endif

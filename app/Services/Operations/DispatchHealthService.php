@@ -32,7 +32,7 @@ class DispatchHealthService
         $staleOffers = DispatchAttempt::where('status', 'notified')
             ->where('notified_at', '<', $staleCutoff)
             ->whereHas('booking', fn ($q) => $authz->scopeQuery($q, $user, 'operations.view', $columns))
-            ->with(['booking', 'provider.user'])
+            ->with(['booking.franchise.country', 'provider.user'])
             ->latest('notified_at')
             ->limit(50)
             ->get();

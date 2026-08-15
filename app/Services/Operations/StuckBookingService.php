@@ -47,6 +47,7 @@ class StuckBookingService
 
             $authz->scopeQuery(Booking::query(), $user, 'operations.view', $columns)
                 ->where('status', $status)
+                ->with('franchise.country')
                 ->get()
                 ->each(function (Booking $booking) use (&$stuck, $status, $cutoff, $thresholdMinutes) {
                     $enteredAt = $this->statusEnteredAt($booking, $status);
@@ -63,6 +64,7 @@ class StuckBookingService
         $authz->scopeQuery(Booking::query(), $user, 'operations.view', $columns)
             ->whereNotNull('on_hold_since')
             ->where('on_hold_since', '<', now()->subMinutes($holdThreshold))
+            ->with('franchise.country')
             ->get()
             ->each(function (Booking $booking) use (&$stuck, $holdThreshold) {
                 $stuck->push([

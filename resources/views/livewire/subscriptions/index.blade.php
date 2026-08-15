@@ -52,7 +52,7 @@
                                 <span class="text-xs text-gray-400 block">cancels at period end</span>
                             @endif
                         </td>
-                        <td class="px-4 py-2 text-gray-500">{{ $s->current_period_end?->format('Y-m-d') ?? '—' }}</td>
+                        <td class="px-4 py-2 text-gray-500">{{ $s->current_period_end ? app(\App\Services\TimezoneResolver::class)->format($s->current_period_end, $s->subscribable?->franchise, 'Y-m-d') : '—' }}</td>
                         <td class="px-4 py-2">
                             @forelse ($s->entitlementBalances as $b)
                                 <div class="text-xs mb-1">

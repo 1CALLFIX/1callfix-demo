@@ -24,7 +24,7 @@
                 <div class="flex justify-between"><dt class="text-gray-500">Phone</dt><dd>{{ $customer->phone }}</dd></div>
                 <div class="flex justify-between"><dt class="text-gray-500">Email</dt><dd>{{ $customer->email ?? '—' }}</dd></div>
                 <div class="flex justify-between"><dt class="text-gray-500">Franchise / Zone</dt><dd>{{ $customer->franchise->name ?? '—' }} / {{ $customer->zone->name ?? '—' }}</dd></div>
-                <div class="flex justify-between"><dt class="text-gray-500">Joined</dt><dd>{{ $customer->created_at->format('d M Y, h:i A') }}</dd></div>
+                <div class="flex justify-between"><dt class="text-gray-500">Joined</dt><dd>{{ app(\App\Services\TimezoneResolver::class)->format($customer->created_at, $customer->franchise, 'd M Y, h:i A') }}</dd></div>
                 <div class="flex justify-between items-center pt-2 border-t mt-2">
                     <dt class="text-gray-500">Account</dt>
                     <dd><button type="button" wire:click="toggleSuspended" class="text-xs bg-slate-900 text-white px-3 py-1.5 rounded hover:bg-slate-800">{{ $customer->status === 'suspended' ? 'Reactivate' : 'Suspend' }}</button></dd>
@@ -61,7 +61,7 @@
                         <td class="px-4 py-2">{{ $booking->service->name ?? '—' }}</td>
                         <td class="px-4 py-2 text-gray-500">{{ $booking->provider->user->name ?? '— unassigned —' }}</td>
                         <td class="px-4 py-2">{{ str_replace('_', ' ', $booking->status) }}</td>
-                        <td class="px-4 py-2 text-gray-500">{{ $booking->created_at->format('d M Y') }}</td>
+                        <td class="px-4 py-2 text-gray-500">{{ app(\App\Services\TimezoneResolver::class)->format($booking->created_at, $booking->franchise, 'd M Y') }}</td>
                         <td class="px-4 py-2"><a href="{{ route('admin.bookings.show', $booking->id) }}" class="text-blue-600 hover:underline">View</a></td>
                     </tr>
                 @empty

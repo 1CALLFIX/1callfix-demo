@@ -342,9 +342,9 @@
                         <td class="px-4 py-2 text-gray-500 text-xs">{{ $banner->targeting }}</td>
                         <td class="px-4 py-2 text-gray-500 text-xs">
                             @if ($banner->starts_at || $banner->expires_at)
-                                {{ $banner->starts_at?->format('d M Y') ?? 'Any time' }}
+                                {{ $banner->starts_at ? app(\App\Services\TimezoneResolver::class)->format($banner->starts_at, $banner->franchise, 'd M Y') : 'Any time' }}
                                 &rarr;
-                                {{ $banner->expires_at?->format('d M Y') ?? 'No end' }}
+                                {{ $banner->expires_at ? app(\App\Services\TimezoneResolver::class)->format($banner->expires_at, $banner->franchise, 'd M Y') : 'No end' }}
                             @else
                                 <span class="text-gray-400">Always on</span>
                             @endif
@@ -478,11 +478,11 @@
                         </div>
                         <div>
                             <p class="text-xs text-gray-500">Starts</p>
-                            <p>{{ $b->starts_at?->format('d M Y, H:i') ?? 'Any time' }}</p>
+                            <p>{{ $b->starts_at ? app(\App\Services\TimezoneResolver::class)->format($b->starts_at, $b->franchise, 'd M Y, H:i') : 'Any time' }}</p>
                         </div>
                         <div>
                             <p class="text-xs text-gray-500">Expires</p>
-                            <p>{{ $b->expires_at?->format('d M Y, H:i') ?? 'No end date' }}</p>
+                            <p>{{ $b->expires_at ? app(\App\Services\TimezoneResolver::class)->format($b->expires_at, $b->franchise, 'd M Y, H:i') : 'No end date' }}</p>
                         </div>
                         <div>
                             <p class="text-xs text-gray-500">Advertiser</p>

@@ -155,7 +155,7 @@ class Index extends Component
     public function render()
     {
         $query = Subscription::whereIn('id', $this->visibleSubscriptionIds())
-            ->with(['plan', 'entitlementBalances' => fn ($q) => $q->where('status', 'current')])->latest();
+            ->with(['plan', 'subscribable.franchise.country', 'entitlementBalances' => fn ($q) => $q->where('status', 'current')])->latest();
         if ($this->statusFilter) {
             $query->where('status', $this->statusFilter);
         }

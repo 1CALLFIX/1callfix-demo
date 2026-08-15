@@ -30,7 +30,7 @@
             <dl class="text-sm space-y-1">
                 <div class="flex justify-between"><dt class="text-gray-500">Phone</dt><dd>{{ $fieldWorker->user->phone ?? '—' }}</dd></div>
                 <div class="flex justify-between"><dt class="text-gray-500">Franchise / Zone</dt><dd>{{ $fieldWorker->franchise->name ?? '—' }} / {{ $fieldWorker->zone->name ?? '—' }}</dd></div>
-                <div class="flex justify-between"><dt class="text-gray-500">Applied</dt><dd>{{ $fieldWorker->created_at->format('d M Y, h:i A') }}</dd></div>
+                <div class="flex justify-between"><dt class="text-gray-500">Applied</dt><dd>{{ app(\App\Services\TimezoneResolver::class)->format($fieldWorker->created_at, $fieldWorker->franchise, 'd M Y, h:i A') }}</dd></div>
                 <div class="flex justify-between items-center pt-2 border-t mt-2">
                     <dt class="text-gray-500">Active</dt>
                     <dd><button type="button" wire:click="toggleActive" class="text-xs bg-slate-900 text-white px-3 py-1.5 rounded hover:bg-slate-800">{{ $fieldWorker->is_active ? 'Deactivate' : 'Activate' }}</button></dd>

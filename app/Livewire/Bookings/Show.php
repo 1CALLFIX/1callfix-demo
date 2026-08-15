@@ -48,7 +48,7 @@ class Show extends Component
         $booking = app(AuthorizationService::class)
             ->scopeQuery(Booking::query(), auth()->user(), 'bookings.view', $columns)
             ->with([
-                'customer', 'service', 'provider.user', 'assignedWorker.user', 'address', 'zone', 'franchise',
+                'customer', 'service', 'provider.user', 'assignedWorker.user', 'address', 'zone', 'franchise.country',
                 'dispatchAttempts.provider.user', 'extraItems', 'payment', 'commission', 'compensations',
                 'statusHistory' => fn ($q) => $q->orderBy('changed_at'),
             ])->find($bookingId);

@@ -133,7 +133,7 @@
                             <td class="py-1.5">{{ $attempt->provider?->user?->name ?? '#'.$attempt->provider_id }}</td>
                             <td class="py-1.5">{{ $attempt->status }}</td>
                             <td class="py-1.5">{{ $attempt->distance_km }} km</td>
-                            <td class="py-1.5 text-gray-500">{{ $attempt->notified_at }}</td>
+                            <td class="py-1.5 text-gray-500">{{ app(\App\Services\TimezoneResolver::class)->format($attempt->notified_at, $booking->franchise, 'Y-m-d H:i:s') }}</td>
                         </tr>
                     @endforeach
                 </tbody>
@@ -191,7 +191,7 @@
         <div class="space-y-2 text-sm">
             @foreach ($booking->statusHistory as $entry)
                 <div class="flex gap-3 border-t pt-2 first:border-t-0 first:pt-0">
-                    <div class="text-gray-500 w-40 shrink-0">{{ $entry->changed_at }}</div>
+                    <div class="text-gray-500 w-40 shrink-0">{{ app(\App\Services\TimezoneResolver::class)->format($entry->changed_at, $booking->franchise, 'Y-m-d H:i:s') }}</div>
                     <div>
                         <span class="font-medium">{{ str_replace('_', ' ', $entry->status) }}</span>
                         @if ($entry->note) — <span class="text-gray-600">{{ $entry->note }}</span> @endif

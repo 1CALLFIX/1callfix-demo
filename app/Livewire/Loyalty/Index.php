@@ -106,7 +106,7 @@ class Index extends Component
 
             $referrals = app(AuthorizationService::class)
                 ->scopeQuery(Referral::query(), auth()->user(), 'loyalty.view', $referralColumns)
-                ->with(['referrer', 'referred', 'qualifyingBooking'])
+                ->with(['referrer.franchise.country', 'referred', 'qualifyingBooking'])
                 ->when($this->search !== '', fn ($q) => $q->where(function ($w) {
                     $w->whereHas('referrer', fn ($r) => $r->where('name', 'like', "%{$this->search}%")->orWhere('phone', 'like', "%{$this->search}%"))
                       ->orWhereHas('referred', fn ($r) => $r->where('name', 'like', "%{$this->search}%")->orWhere('phone', 'like', "%{$this->search}%"));
@@ -129,7 +129,7 @@ class Index extends Component
 
         $pointsQuery = app(AuthorizationService::class)
             ->scopeQuery(LoyaltyPoint::query(), auth()->user(), 'loyalty.view', $pointsColumns)
-            ->with(['user', 'booking'])
+            ->with(['user.franchise.country', 'booking'])
             ->when($this->search !== '', fn ($q) => $q->whereHas('user', fn ($u) => $u
                 ->where('name', 'like', "%{$this->search}%")
                 ->orWhere('phone', 'like', "%{$this->search}%")));

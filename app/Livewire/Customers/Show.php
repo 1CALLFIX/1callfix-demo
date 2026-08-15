@@ -26,7 +26,7 @@ class Show extends Component
         $customer = app(AuthorizationService::class)
             ->scopeQuery(User::query(), auth()->user(), 'customers.view', $columns)
             ->where('role', 'customer')
-            ->with(['franchise', 'zone', 'addresses'])
+            ->with(['franchise.country', 'zone', 'addresses'])
             ->find($customerId);
 
         abort_if(! $customer, 404);
@@ -47,7 +47,7 @@ class Show extends Component
 
     public function getRecentBookingsProperty()
     {
-        return $this->customer->bookings()->with(['service', 'provider.user'])->latest()->limit(20)->get();
+        return $this->customer->bookings()->with(['service', 'provider.user', 'franchise.country'])->latest()->limit(20)->get();
     }
 
     public function toggleSuspended(): void

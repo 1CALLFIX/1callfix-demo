@@ -256,7 +256,7 @@ class Manage extends Component
             return $sale;
         });
 
-        $redemptions = \App\Models\FlashSaleRedemption::with(['flashSale', 'service', 'user'])->latest()->limit(100)->get();
+        $redemptions = \App\Models\FlashSaleRedemption::with(['flashSale', 'service', 'user.franchise.country'])->latest()->limit(100)->get();
 
         return view('livewire.flash-sales.manage', [
             'sales' => $sales,

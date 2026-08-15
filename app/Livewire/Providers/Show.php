@@ -26,7 +26,7 @@ class Show extends Component
         // identical comment for why ModelNotFoundException isn't safe here.
         $provider = app(AuthorizationService::class)
             ->scopeQuery(Provider::query(), auth()->user(), 'providers.view', $columns)
-            ->with(['user', 'zone', 'franchise', 'documents'])
+            ->with(['user', 'zone', 'franchise.country', 'documents'])
             ->find($providerId);
 
         abort_if(! $provider, 404);

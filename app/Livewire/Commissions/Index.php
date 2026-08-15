@@ -76,7 +76,7 @@ class Index extends Component
 
         return app(AuthorizationService::class)
             ->scopeQuery(Commission::query(), auth()->user(), 'commissions.view', $columns)
-            ->with(['booking.franchise', 'booking.provider.user'])
+            ->with(['booking.franchise.country', 'booking.provider.user'])
             ->when($this->search !== '', fn ($q) => $q->whereHas('booking', fn ($b) => $b
                 ->where('code', 'like', "%{$this->search}%")
                 ->orWhereHas('provider.user', fn ($p) => $p->where('name', 'like', "%{$this->search}%"))))

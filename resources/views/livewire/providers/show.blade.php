@@ -31,7 +31,7 @@
                 <div class="flex justify-between"><dt class="text-gray-500">Type</dt><dd>{{ ucfirst($provider->provider_type) }}</dd></div>
                 <div class="flex justify-between"><dt class="text-gray-500">Franchise / Zone</dt><dd>{{ $provider->franchise->name ?? '—' }} / {{ $provider->zone->name ?? '—' }}</dd></div>
                 <div class="flex justify-between"><dt class="text-gray-500">Skills (category IDs)</dt><dd>{{ implode(', ', $provider->skills ?? []) }}</dd></div>
-                <div class="flex justify-between"><dt class="text-gray-500">Applied</dt><dd>{{ $provider->created_at->format('d M Y, h:i A') }}</dd></div>
+                <div class="flex justify-between"><dt class="text-gray-500">Applied</dt><dd>{{ app(\App\Services\TimezoneResolver::class)->format($provider->created_at, $provider->franchise, 'd M Y, h:i A') }}</dd></div>
             </dl>
         </div>
 
@@ -60,7 +60,7 @@
                 {{ $withdrawalRestricted ? 'Restricted' : 'Eligible' }}
             </span>
         </div>
-        <p class="text-xs text-gray-400">{{ str_replace('_', ' ', $withdrawalReason) }}@if($provider->kyc_deadline_at) &middot; KYC deadline: {{ $provider->kyc_deadline_at->format('d M Y') }}@endif</p>
+        <p class="text-xs text-gray-400">{{ str_replace('_', ' ', $withdrawalReason) }}@if($provider->kyc_deadline_at) &middot; KYC deadline: {{ app(\App\Services\TimezoneResolver::class)->format($provider->kyc_deadline_at, $provider->franchise, 'd M Y') }}@endif</p>
     </div>
 
     <div class="bg-white rounded-lg shadow-sm p-4 mb-6">
@@ -108,7 +108,7 @@
                         @if ($review->provider_reply)
                             <p class="text-xs text-gray-400 mt-1 pl-3 border-l-2">Provider reply: {{ $review->provider_reply }}</p>
                         @endif
-                        <div class="text-[11px] text-gray-400 mt-1">{{ $review->created_at->format('d M Y') }}</div>
+                        <div class="text-[11px] text-gray-400 mt-1">{{ app(\App\Services\TimezoneResolver::class)->format($review->created_at, $provider->franchise, 'd M Y') }}</div>
                     </div>
                 @endforeach
             </div>

@@ -31,7 +31,7 @@ class Show extends Component
         // identical comment for why ModelNotFoundException isn't safe here.
         $fieldWorker = app(AuthorizationService::class)
             ->scopeQuery(FieldWorker::query(), auth()->user(), 'workers.view', $columns)
-            ->with(['user', 'zone', 'franchise', 'documents', 'capabilities.serviceCategory', 'partnerLinks.provider.user'])
+            ->with(['user', 'zone', 'franchise.country', 'documents', 'capabilities.serviceCategory', 'partnerLinks.provider.user'])
             ->find($workerId);
 
         abort_if(! $fieldWorker, 404);

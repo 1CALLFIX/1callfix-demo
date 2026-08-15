@@ -171,7 +171,7 @@
                 @forelse ($dispatchHealth['stale_offers'] as $attempt)
                     <div class="text-xs text-gray-500 border-t py-1.5">
                         <a href="{{ route('admin.bookings.show', $attempt->booking_id) }}" class="text-blue-600 hover:underline">Booking #{{ $attempt->booking_id }}</a>
-                        — offered to {{ $attempt->provider->user->name ?? 'Unknown provider' }} at {{ $attempt->notified_at?->format('d M, h:i A') }}
+                        — offered to {{ $attempt->provider->user->name ?? 'Unknown provider' }} at {{ app(\App\Services\TimezoneResolver::class)->format($attempt->notified_at, $attempt->booking?->franchise, 'd M, h:i A') }}
                     </div>
                 @empty
                     <div class="text-xs text-gray-400">None.</div>
@@ -211,7 +211,7 @@
                     <tr class="border-t hover:bg-gray-50">
                         <td class="px-4 py-2"><a href="{{ route('admin.bookings.show', $row['booking']->id) }}" class="text-blue-600 hover:underline">#{{ $row['booking']->id }}</a></td>
                         <td class="px-4 py-2 text-gray-500">{{ $row['status'] }}</td>
-                        <td class="px-4 py-2 text-gray-500 whitespace-nowrap">{{ $row['stuck_since']->format('d M Y, h:i A') }}</td>
+                        <td class="px-4 py-2 text-gray-500 whitespace-nowrap">{{ app(\App\Services\TimezoneResolver::class)->format($row['stuck_since'], $row['booking']->franchise, 'd M Y, h:i A') }}</td>
                         <td class="px-4 py-2 text-red-700 font-medium">{{ $row['minutes_stuck'] }}m</td>
                         <td class="px-4 py-2 text-gray-400">{{ $row['threshold_minutes'] }}m</td>
                     </tr>

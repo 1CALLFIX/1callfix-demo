@@ -65,7 +65,7 @@ class Index extends Component
     {
         $payments = app(AuthorizationService::class)
             ->scopeQuery(Payment::query(), auth()->user(), 'payments.view', $this->scopeColumns())
-            ->with(['booking.customer', 'user'])
+            ->with(['booking.customer', 'booking.franchise.country', 'user.franchise.country'])
             ->when($this->purposeFilter !== '', fn ($q) => $q->where('purpose', $this->purposeFilter))
             ->when($this->statusFilter !== '', fn ($q) => $q->where('status', $this->statusFilter))
             ->when($this->search !== '', fn ($q) => $q->where(function ($w) {

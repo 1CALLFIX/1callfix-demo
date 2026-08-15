@@ -117,9 +117,9 @@ class SupportRequests extends Component
         $user = auth()->user();
 
         $requests = $user->hasPermissionAnywhere('kyc.support_requests.decide') && $user->role === 'super_admin'
-            ? KycSupportRequest::with(['provider.user', 'franchise', 'raisedBy'])->latest()->get()
+            ? KycSupportRequest::with(['provider.user', 'franchise.country', 'raisedBy'])->latest()->get()
             : $authz->visibleAmong(
-                KycSupportRequest::with(['provider.user', 'franchise', 'raisedBy'])->latest()->get(),
+                KycSupportRequest::with(['provider.user', 'franchise.country', 'raisedBy'])->latest()->get(),
                 $user,
                 $user->hasPermissionAnywhere('kyc.support_requests.decide') ? 'kyc.support_requests.decide' : 'kyc.support_requests.create',
             );
