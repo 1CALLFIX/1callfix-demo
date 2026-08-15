@@ -286,16 +286,30 @@ Format per item: **Issue** · Current behavior · Risk · Why unresolved · Busi
 - **Affected modules:** Authentication foundation (`AuthController`, `QrAuthController`), all Sanctum-protected API routes.
 - **Blocked:** No — straightforward to implement once the expiration policy is decided; the per-device revoke list is a real but bounded new feature (`personal_access_tokens` already has everything needed — `name`, `last_used_at`, `created_at` — to list and let a user pick one to delete).
 
-## 25. Production `APP_DEBUG` is enabled — CONFIRMED ACTIVE
+## 25. Production `APP_DEBUG` — REMEDIATED / RESOLVED (2026-08-15)
 
-- **Issue:** `.env.example` ships `APP_DEBUG=true`. Every unhandled exception on a live, internet-facing endpoint renders Laravel's full debug page — stack trace, file paths, and (via `bootstrap/app.php`'s `shouldRenderJsonWhen()`) a JSON equivalent for every `/api/*` route — to any caller who can trigger a 500, not just an admin.
-- **Current behavior — VERIFIED LIVE on 2026-08-15** via read-only SSH to the real production server (`callf1207@srv1422426.hstgr.cloud`, `/home/1callfix.com/public_html/api/`): `.env` has `APP_ENV=production` and **`APP_DEBUG=true`**. Config is NOT cached (`bootstrap/cache/config.php` does not exist), so there is no cache-vs-file ambiguity — Laravel reads `.env` fresh on every request. Confirmed via Laravel's own `php artisan about`: `Environment: production`, **`Debug Mode: ENABLED`**. Production is at commit `ba0635a7e5878a42cd67b3cbf382440d580bcb90` ("Admin: Commissions browser"), matching every doc in this repo that has cited that commit, with a clean `git status` (no server-side drift). No secrets or full `.env` contents were captured or printed during this check — only the two `APP_ENV`/`APP_DEBUG` lines.
-- **Risk: CONFIRMED HIGH, not hypothetical.** This is the single highest-severity item in this entire register, active right now: any 500 on `api.1callfix.com` — web admin or `/api/*` — currently leaks internal file paths, stack traces, and query bindings to any caller who triggers one, not just an admin.
-- **Why unresolved:** Deliberately not fixed automatically by this same read-only verification pass, per the explicit instruction it was performed under — editing a live production `.env` is exactly the kind of outward-facing, hard-to-reverse action requiring separate, explicit authorization, not something to bundle into a verification check.
-- **Business decision required:** None — pure operational fix, one line.
-- **Safe/recommended remediation (not performed):** SSH in as `callf1207` (never `root`, per this project's own documented convention), edit `.env` in place, flip `APP_DEBUG=true` → `false`. No `config:clear`/`config:cache` needed since config isn't cached — takes effect on the next request immediately. Also restart the Supervisor-managed queue worker (`onecallfix-worker`) — it's a long-lived PHP process that loaded `.env` at its own start and would keep the old value in memory until restarted, independent of the web-facing fix. Reversible, no code deploy, doesn't touch the deployed commit.
-- **Affected modules:** Whole application — every route, admin and API alike.
-- **Blocked:** No longer blocked on access — verified. Blocked only on the actual one-line fix being explicitly authorized and performed.
+- **Issue (historical):** `.env.example` ships `APP_DEBUG=true`. Every unhandled exception on a live, internet-facing endpoint rendered Laravel's full debug page — stack trace, file paths, and (via `bootstrap/app.php`'s `shouldRenderJsonWhen()`) a JSON equivalent for every `/api/*` route — to any caller who could trigger a 500, not just an admin.
+- **Timeline:**
+  1. **Verified CONFIRMED ACTIVE** via read-only SSH (`callf1207@srv1422426.hstgr.cloud`, `/home/1callfix.com/public_html/api/`): `.env` had `APP_DEBUG=true`, config not cached (no cache-vs-file ambiguity), `php artisan about` independently confirmed `Debug Mode: ENABLED` at runtime.
+  2. **Explicit, separate authorization was then given to fix it.** Remediated the same day, same session, under that explicit authorization — not bundled into the original read-only verification pass.
+- **Remediation performed:**
+  - Recorded the pre-change deployed commit (`ba0635a7e5878a42cd67b3cbf382440d580bcb90`, "Admin: Commissions browser") and confirmed target host (`api.1callfix.com` / `srv1422426.hstgr.cloud`).
+  - Backed up `.env` in place (`cp -p .env .env.backup_20260815_110632`, `chmod 600`) before any edit — no content printed.
+  - Changed **only** `APP_DEBUG=true` → `APP_DEBUG=false`, via an anchored `sed` replacing that exact line and nothing else — confirmed via `diff` against the backup that exactly one line changed (value redacted in the diff output itself, never printed).
+  - `.env` line count unchanged (72 lines before and after); no other variable touched.
+  - No `config:clear`/`config:cache` was needed — config was never cached, so the web tier (OpenLiteSpeed/LSAPI) picks up `.env` fresh on every request already.
+  - `callf1207` has no `supervisorctl`/`sudo` access (confirmed, permission denied — consistent with this project's own "avoid `root`" convention), so the long-running Supervisor-managed queue workers were restarted via Laravel's own standard, non-privileged mechanism instead: `php artisan queue:restart`. Verified via `ps` that the app's own `api/artisan queue:work` processes were relaunched with fresh PIDs/near-zero uptime afterward (the old ~18-25 hour-uptime processes were gone). One incidental, out-of-scope finding along the way: the server also runs queue-worker processes for an unrelated, much older codebase at `/home/1callfix.com/public_html/artisan` (dated 2021, a different app entirely, sharing the same parent directory) — correctly untouched, since `queue:restart`'s signal only reaches workers bootstrapped from the `api/` app's own cache, and this remediation was scoped to the `api/` app only.
+- **Verification after the fix:**
+  - `.env`: `APP_DEBUG=false` (confirmed).
+  - `php artisan about`: `Debug Mode: OFF` (confirmed, effective runtime).
+  - Production health: `GET https://api.1callfix.com/` → `200`, `GET /admin/login` → `200`.
+  - **Live debug-exposure test** (safe, no side effects, no real data touched): `GET /api/this-route-does-not-exist-debug-check-xyz123` with `Accept: application/json` → `404` with body `{"message": "The route ... could not be found."}` — no `exception`/`file`/`line`/`trace` fields present, which is exactly what `APP_DEBUG=false` produces (a debug-enabled response would include all four). This is real, empirical proof via a live HTTP request, not just config inspection.
+  - Deployed commit unchanged (`ba0635a7e5878a42cd67b3cbf382440d580bcb90`) and server-side `git status` clean except for the new `.env.backup_*` file — confirms **no application code was deployed or modified**, only the runtime `.env`.
+- **Risk: RESOLVED.** No longer active. The production debug-page information-disclosure exposure this item tracked is closed and verified closed via a live request, not just a config read.
+- **Business decision required:** None — this was a pure operational fix.
+- **Affected modules:** Whole application — every route, admin and API alike. All now confirmed rendering clean, non-debug error responses.
+- **Blocked:** No. Closed.
+- **Residual note:** The `.env` backup (`/home/1callfix.com/public_html/api/.env.backup_20260815_110632`) remains on the server for rollback if ever needed — not committed to git (server-local only), permissions locked to the owner.
 
 ## 26. Admin screens hardcode the ₹ symbol instead of reading the already-built, admin-configurable `locale.currency_symbol` Setting
 
@@ -332,4 +346,4 @@ Format per item: **Issue** · Current behavior · Risk · Why unresolved · Busi
 
 ---
 
-*Last updated: 2026-08-15 — item 25 (production `APP_DEBUG`) verified CONFIRMED ACTIVE via read-only production SSH check, post-mission (mission's own 20 phases completed as of Phase 20).*
+*Last updated: 2026-08-15 — item 25 (production `APP_DEBUG`) verified CONFIRMED ACTIVE via read-only production SSH check, then REMEDIATED/RESOLVED the same day under separate explicit authorization (see item 25 for the full change/verification trail). Post-mission (mission's own 20 phases completed as of Phase 20). This is the register's first resolved item — every other item remains open exactly as last assessed.*

@@ -92,7 +92,7 @@ Grouped by disposition rather than repeated in full here (see that file for the 
 
 **Confirmed unreachable given current code (no action needed unless a future change reopens the path):** 23 (`referrals`/`performance_campaign_participants` cascade-delete on booking).
 
-**Confirmed active (verified after this document was originally written, via a separate read-only production check the same day):** 25 (production `APP_DEBUG` — real production `.env` has `APP_DEBUG=true`, confirmed at runtime via `php artisan about`'s `Debug Mode: ENABLED`, config not cached so no ambiguity. Single highest-severity item in the register, now confirmed rather than suspected — see `KNOWN_RISKS_AND_DECISIONS.md` item 25 and `FINAL_RELEASE_READINESS_AUDIT.md` §15 for the safe one-line remediation, not yet performed).
+**Resolved (verified after this document was originally written, then fixed the same day under separate explicit authorizations for the check and the fix):** 25 (production `APP_DEBUG` — first verified CONFIRMED ACTIVE via read-only production SSH, then remediated: `.env` changed `true`→`false`, queue workers restarted via `php artisan queue:restart`, fix confirmed via `php artisan about` AND a live HTTP request showing no debug fields on a real 404 response. Was the single highest-severity item in the register; now the register's first resolved item — see `KNOWN_RISKS_AND_DECISIONS.md` item 25 for the complete trail).
 
 **Historical vendor-selection evidence (not open questions, precedent already found):** 8 (SMS/push — Firebase+MSG91 confirmed as real prior choice).
 
