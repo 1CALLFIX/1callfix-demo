@@ -51,6 +51,8 @@ Route::middleware(['auth:sanctum', \App\Http\Middleware\EnsureNotInMaintenanceMo
     Route::post('/bookings/{booking}/pay/create-order', [\App\Http\Controllers\API\PaymentController::class, 'createOrder']);
     Route::post('/bookings/{booking}/pay/confirm', [\App\Http\Controllers\API\PaymentController::class, 'confirm']);
     Route::post('/bookings/{bookingId}/tip', [\App\Http\Controllers\API\TipController::class, 'store']);
+    Route::post('/bookings/{bookingId}/review', [\App\Http\Controllers\API\ReviewController::class, 'store']);
+    Route::post('/reviews/{reviewId}/reply', [\App\Http\Controllers\API\ReviewController::class, 'reply']);
     Route::get('/wallet', [\App\Http\Controllers\API\WalletController::class, 'show']);
     Route::post('/wallet/topup', [\App\Http\Controllers\API\WalletController::class, 'topUp']);
     Route::get('/bookings/{bookingId}/chat/{withUserId}', [\App\Http\Controllers\API\ChatController::class, 'index']);

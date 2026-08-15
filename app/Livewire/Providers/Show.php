@@ -123,6 +123,12 @@ class Show extends Component
         return view('livewire.providers.show', [
             'withdrawalRestricted' => $explanation['restricted'],
             'withdrawalReason' => $explanation['reason'],
+            // Phase 13 (Glover/6amMart parity audit) — reviews had a
+            // rating_avg field shown on this screen since Phase 1 but no
+            // real review ever existed to produce one (see
+            // ReviewService's docblock). Now that a write path exists,
+            // surface the actual rows here too, not just the rollup.
+            'recentReviews' => $this->provider->reviews()->with('customer')->latest()->limit(10)->get(),
         ])->layout('layouts.admin', ['title' => 'Review Provider']);
     }
 }

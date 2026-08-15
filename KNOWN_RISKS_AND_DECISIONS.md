@@ -16,6 +16,7 @@ Format per item: **Issue** · Current behavior · Risk · Why unresolved · Busi
 - **Safe current default:** Existing `Setting`-driven values stand; configurable, not hardcoded in code.
 - **Affected modules:** Referral engine, Loyalty, Wallet.
 - **Blocked:** No — engineering architecture is complete and correct; only the *number* is pending.
+- **Phase 13 evidence (Glover/6amMart/1CallFix-1.8.10 parity audit — see `GLOVER_6AMMART_PARITY_AUDIT.md`):** a real prior 1CallFix production database (`DB_1cal_app_1.8.10.sql`) shows the actual value once shipped was **₹10 flat**, awarded on registration (not first completed booking), with the referral system enabled — but the `referrals` table in that dump has zero rows, meaning it was configured and never actually paid out. 6amMart's own shipped default is `0`/off. Presented as evidence only; the code default remains unchanged.
 
 ## 2. Cross-actor referral scope
 
@@ -63,6 +64,7 @@ Format per item: **Issue** · Current behavior · Risk · Why unresolved · Busi
 - **Safe current default:** N/A — configurable rule architecture can be built now (Phase 5), with all rates left at `Setting`-driven defaults of 0 (no effect) until set.
 - **Affected modules:** New Compensation engine, Wallet, Worker/Provider payout.
 - **Blocked:** Yes, for the actual rates; the ledger-safe architecture is buildable now.
+- **Phase 13 evidence:** confirmed unresolved everywhere checked. The real 1CallFix 1.8.10 database's `orders.tip` column exists and every single historical row is `0.00`; a full-text search of its 267 real config rows found zero tip/waiting/rain/overtime/peak/night rate keys. Glover and 6amMart both also ship these at 0/off. No reference — including a real prior deployment of this exact product — has ever resolved this.
 
 ## 6. Worker compensation model
 
@@ -74,6 +76,7 @@ Format per item: **Issue** · Current behavior · Risk · Why unresolved · Busi
 - **Safe current default:** N/A.
 - **Affected modules:** Worker/Rider architecture, Wallet, Commission.
 - **Blocked:** Yes, entirely — no safe partial architecture exists yet because the shape of the decision itself is undefined.
+- **Phase 13 evidence:** the 1.8.10 dump shows a driver-commission rate WAS configured (`driversCommission='12'`, i.e. 12%) but **every single real `commissions` row shows `driver_commission=0.00`** — it was set but never actually applied to a real order. Caveat: that dump's "driver" is a delivery/taxi driver paid a flat percentage per order, a materially different actor/model than 1CallFix's FieldWorker-delegated-by-Partner architecture — this is a data point, not an answer.
 
 ## 7. Coupon system's customer-facing launch decision
 
@@ -85,6 +88,7 @@ Format per item: **Issue** · Current behavior · Risk · Why unresolved · Busi
 - **Safe current default:** Stays dormant.
 - **Affected modules:** Coupons, Bookings, (new) Flash Sale engine if it integrates with coupons.
 - **Blocked:** Yes, entirely product-gated.
+- **Phase 13 evidence:** both Glover and 6amMart have coupons *live and customer-facing* (Glover: `GET /coupons/{code}` wired, real `coupon_product`/`coupon_vendor`/`coupon_user` targeting pivots; 6amMart: live at checkout). The real 1CallFix 1.8.10 database had the identical schema built with **zero rows** — coupons were never launched in the one real prior deployment of this product either. Confirms this is a genuine standing product decision, not something competitor precedent resolves.
 
 ## 8. Real SMS / push provider
 
@@ -96,6 +100,7 @@ Format per item: **Issue** · Current behavior · Risk · Why unresolved · Busi
 - **Safe current default:** `LogSmsAdapter`/`LogPushAdapter`, explicitly documented as dev/QA-only everywhere they're referenced (Operations screen flags this too).
 - **Affected modules:** OTP (login + booking), all transactional/marketing notifications.
 - **Blocked:** Yes — architecture (the `SmsAdapter`/`PushAdapter` contracts) is already in place and ready for a real binding the moment credentials exist.
+- **Phase 13 evidence — the strongest resolution found in this audit:** the real 1CallFix 1.8.10 database shows the vendor decision was **already made in a real prior deployment**: OTP via **Firebase** (real project id `onecallfix-6b538`), SMS via **MSG91** + **GatewayAPI** (both `is_active=1` in the real `sms_gateways` table), push via **FCM**. 1CallFix already had a real Firebase project and an MSG91 relationship. The embedded server auth token is expired, so current credentials still need procuring — but the *vendor* decision this item asks for has real precedent, unlike almost every other item in this register.
 
 ## 9. Second payment provider
 
@@ -107,6 +112,7 @@ Format per item: **Issue** · Current behavior · Risk · Why unresolved · Busi
 - **Safe current default:** Razorpay only, real credentials in `.env`, never source.
 - **Affected modules:** Payment.
 - **Blocked:** Yes, entirely vendor/procurement-gated. Architecture is ready.
+- **Phase 13 evidence:** the real 1CallFix 1.8.10 database confirms Razorpay-only was the deliberate real-deployment posture too — of 13 gateways configured in its `payment_methods` table (Stripe, Paystack, Flutterwave, PayPal, PayTm, PayU, Billplz, others), only **Cash, RazorPay, and Wallet Balance** were ever `is_active=1`. This downgrades the item from "open decision" to "confirmed prior-deployment precedent for the current single-provider posture."
 
 ## 10. Commission clawback on refund
 
@@ -130,6 +136,7 @@ Format per item: **Issue** · Current behavior · Risk · Why unresolved · Busi
 - **Safe current default:** Left as-is; not surfaced in the admin panel to avoid presenting two competing controls for the same concept.
 - **Affected modules:** Payment, Settings.
 - **Blocked:** Yes, on the consolidation decision above.
+- **Phase 13 evidence:** in the real 1CallFix 1.8.10 database, `payment_methods` was unambiguously the **sole** source of truth — it held `is_active` enablement, real credentials, AND per-method behavior flags (`is_cash`/`use_taxi`/`use_wallet`/`allow_pickup`/`min_order`/`max_order`) that a boolean setting can't express. **No parallel `payment.*_enabled` setting existed anywhere** in that deployment's 267 real config rows. It also had a `payment_method_vendor` pivot for per-vendor (≈ per-franchise) method availability — real precedent for exactly the "distinct purpose" this item hypothesized. This materially favors "retire the Settings toggles, `payment_methods` is the real source of truth" — but retiring the Phase-11-built `payment.*_enabled` fields is a real behavior change to the live New-Booking-modal flow, so it's recorded as evidence, not executed unilaterally.
 
 ## 12. Flash Sale × Coupon × Badge stacking rules
 
@@ -139,6 +146,7 @@ Format per item: **Issue** · Current behavior · Risk · Why unresolved · Busi
 - **Safe current default:** Default to `exclusive` (no stacking) unless/until decided, mirroring `Plan.stacking_strategy`'s own existing `exclusive` default.
 - **Affected modules:** (future) Flash Sale engine, Coupons, Plan Engine.
 - **Blocked:** No — safe default (no stacking) lets the engine ship without inventing a stacking policy.
+- **Phase 13 evidence:** confirmed empty in all three references checked (Glover, 6amMart, and the real 1CallFix 1.8.10 database) — no stacking rule, and in the 1.8.10 case no badge concept at all existed. The `exclusive` default remains the only real-world-precedented answer.
 
 ## 13. Does the 30-day KYC deadline / withdrawal restriction apply to Riders/Workers?
 
@@ -150,6 +158,7 @@ Format per item: **Issue** · Current behavior · Risk · Why unresolved · Busi
 - **Safe current default:** No restriction applied to Workers; the architecture (`KycWithdrawalPolicyService`, `kyc_withdrawal_exceptions`) is directly reusable for FieldWorker the moment this is decided and a Worker payout path exists.
 - **Affected modules:** KYC engine, Worker/Rider architecture, Payouts (once built).
 - **Blocked:** Yes, on the policy decision; not blocked by anything structural.
+- **Phase 13 evidence:** the real 1CallFix 1.8.10 database's entire KYC apparatus was one generic `document_requests` queue (`status`/`model_type`/`model_id` only) — no deadline column, no reminder stage, no verification video, no withdrawal restriction, no actor differentiation at all, for Partners or Workers. The question this item asks was never even posed in the one real prior deployment, because no deadline existed for anyone. 1CallFix's current KYC engine is already materially ahead of anything either reference app or the real prior deployment ever had.
 
 ## 14. Per-country KYC document requirements
 
@@ -161,6 +170,7 @@ Format per item: **Issue** · Current behavior · Risk · Why unresolved · Busi
 - **Safe current default:** The seeded global set stands; structurally ready for per-country overrides.
 - **Affected modules:** KYC engine.
 - **Blocked:** No — safe default in place; refinement only.
+- **Phase 13 evidence:** no per-country requirement structure existed at all in the real 1CallFix 1.8.10 database's KYC schema (see item 13's evidence — it had no requirement config of any kind). One relevant signal: `settings.appCountryCode='INTERNATIONAL,GH'` shows a real two-country (India + Ghana) ambition existed at the time — worth flagging, since a real second-country KYC answer would then be needed, not just a single global default.
 
 ## 15. No admin chat-moderation screen exists
 
@@ -172,6 +182,7 @@ Format per item: **Issue** · Current behavior · Risk · Why unresolved · Busi
 - **Safe current default:** Not built; not claimed complete anywhere in the docs after this correction.
 - **Affected modules:** Universal Chat, Operations/Troubleshoot (a natural home for it once built).
 - **Blocked:** Yes, on a scope/priority decision — not blocked by anything structural.
+- **Phase 13 evidence:** the real 1CallFix 1.8.10 database seeded a `view-order-chat` permission (chat itself ran on Firebase/Firestore, outside MySQL, so no message table exists in the dump) — real precedent that admin visibility into conversations was an explicit product concept, scoped **per-order**, matching the natural per-booking scoping `ChatService` already derives from. Separately, that deployment also had per-actor-pair voice calling (`ui.call.canCustomerVendorCall`/`canCustomerDriverCall`/`canDriverVendorCall`, all enabled) with no 1CallFix equivalent — an unlogged, unrelated gap worth a mental note, not added as a new item here since it's a bigger feature question than this register's per-item format suits.
 
 ## 16. `partner.workers.assign` has no permission check in `PartnerWorkerController`
 
@@ -183,6 +194,7 @@ Format per item: **Issue** · Current behavior · Risk · Why unresolved · Busi
 - **Safe current default:** Ownership-based authorization stays as the enforcement boundary until that decision is made.
 - **Affected modules:** Partner/Worker delegation (Phase B0.2), future Worker self-service mobile app.
 - **Blocked:** Yes, on the authorization-model decision.
+- **Phase 13 evidence:** the real 1CallFix 1.8.10 database's answer to "should Partner/Worker actions go through the admin RBAC system" was **yes** — it used ONE unified permission system for every actor (admins, vendor managers, drivers, customers all drew from the same 6 roles), and its 108-row `permissions` table mixed admin-panel and actor-facing capabilities in one namespace (`my-earning`, `my-subscription`, `view-my-bookings`, `order-assign-driver` alongside admin permissions). Real prior art for extending `AuthorizationService` to Provider accounts rather than building a separate authorization layer — but the actual default-grant policy for Provider accounts is still a decision for a human to make, not inferred from a different codebase's choice.
 
 ## 17. No Terms & Conditions / Privacy Policy content exists
 
@@ -194,6 +206,7 @@ Format per item: **Issue** · Current behavior · Risk · Why unresolved · Busi
 - **Safe current default:** Left empty; the admin CRUD + public API are ready the moment real content exists.
 - **Affected modules:** CMS (Pages), future Customer/Partner signup flow.
 - **Blocked:** Yes, on legal content and a signup flow to reference it from — neither exists yet.
+- **Phase 13 evidence — escalates this item's real-world stakes:** the real 1CallFix 1.8.10 database confirms Terms & Conditions / Privacy Policy content was **never written, even with a live Play Store app already shipping** (`com.call.customer`). Real marketing copy existed (About Us, Contact Us, driver/vendor join descriptions, real support contact `info@1callfix.com` / `+91 9014 609 609`) — legal content specifically was the one thing never authored. This is not a rebuild omission; it's a standing company-level gap that predates this codebase and was never closed in a real production deployment.
 
 ## 18. Content layer is single-locale only; `users.preferred_language` is dead schema
 
@@ -205,6 +218,7 @@ Format per item: **Issue** · Current behavior · Risk · Why unresolved · Busi
 - **Safe current default:** Single-locale (English) throughout; no structural blocker to adding translations later.
 - **Affected modules:** CMS, Categories/Subcategories/Services, Banners, and potentially every other content-bearing model.
 - **Blocked:** Yes, on a market-expansion/localization decision.
+- **Phase 13 evidence:** the real 1CallFix 1.8.10 database had a real translation *architecture* already in place — every content-bearing column (`services.name`, `categories.name`, `vendor_types.name`, etc.) stored a JSON-per-locale object (`'{"en":"Split AC General Service"}'`), the same pattern `spatie/laravel-translatable` uses, applied consistently. **But only `en` was ever populated in any row of any table** — the architecture-vs-content split this item describes is exactly what the real deployment lived with too: locale-ready columns, zero non-English content. Also notable: `appCountryCode='INTERNATIONAL,GH'` shows a Ghana expansion was contemplated with no non-English content ever built for it. Real precedent for "JSON-column translations, not a separate table" if/when this is decided — not built speculatively now.
 
 ## 19. Soft-deleted `Service` cover images can accumulate as orphans
 
@@ -219,4 +233,4 @@ Format per item: **Issue** · Current behavior · Risk · Why unresolved · Busi
 
 ---
 
-*Last updated: 2026-08-14, mission Phase 12 (CMS/content audit) — through commit range covering Phase 12.*
+*Last updated: 2026-08-15, mission Phase 13 (Glover/6amMart parity audit) — see `GLOVER_6AMMART_PARITY_AUDIT.md` for the full writeup this session's evidence notes are drawn from.*

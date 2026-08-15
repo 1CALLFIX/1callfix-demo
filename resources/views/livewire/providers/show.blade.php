@@ -90,6 +90,31 @@
         @endif
     </div>
 
+    <div class="bg-white rounded-lg shadow-sm p-4 mb-6">
+        <div class="font-semibold mb-2">Recent Reviews (showing last {{ $recentReviews->count() }})</div>
+        @if ($recentReviews->isEmpty())
+            <p class="text-sm text-gray-400">No reviews yet.</p>
+        @else
+            <div class="space-y-3">
+                @foreach ($recentReviews as $review)
+                    <div class="border-t pt-3 first:border-t-0 first:pt-0">
+                        <div class="flex items-center justify-between">
+                            <div class="text-sm font-medium">{{ $review->customer->name ?? 'Customer #'.$review->customer_id }}</div>
+                            <div class="text-amber-500 text-sm">{{ str_repeat('★', $review->rating) }}{{ str_repeat('☆', 5 - $review->rating) }}</div>
+                        </div>
+                        @if ($review->comment)
+                            <p class="text-sm text-gray-600 mt-1">{{ $review->comment }}</p>
+                        @endif
+                        @if ($review->provider_reply)
+                            <p class="text-xs text-gray-400 mt-1 pl-3 border-l-2">Provider reply: {{ $review->provider_reply }}</p>
+                        @endif
+                        <div class="text-[11px] text-gray-400 mt-1">{{ $review->created_at->format('d M Y') }}</div>
+                    </div>
+                @endforeach
+            </div>
+        @endif
+    </div>
+
     @if ($provider->kyc_status === 'pending')
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div class="bg-white rounded-lg shadow-sm p-4">
