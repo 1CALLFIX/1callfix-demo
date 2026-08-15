@@ -319,6 +319,17 @@ Format per item: **Issue** · Current behavior · Risk · Why unresolved · Busi
 - **Affected modules:** Entire admin panel display layer.
 - **Blocked:** No — real, closeable follow-up work, and arguably the highest-value item in this register for actual day-to-day admin usability, just not attempted in this pass given its size and the lack of a safety net to verify ~dozens of individual timestamp displays correctly.
 
+## 28. `CampaignService::send()`/`resendToFailedRecipients()` load the entire resolved audience into memory in one `->get()` rather than chunking
+
+- **Issue:** Both methods run `$recipients = $this->audienceResolver->resolve(...)->get();` (or `User::whereIn('id', $failedUserIds)->get()`) then loop, hydrating every matching recipient as an Eloquent model in a single PHP array before sending a single notification. `KycReminderService::dispatchDue()` — the one other real bulk-notify loop this same audit phase found — already uses `chunkById(200, ...)` for exactly this reason; `CampaignService` never adopted that pattern.
+- **Current behavior:** A campaign targeting the entire customer base (recipient_type `everyone`) loads every matching `users` row into memory at once. Mission Phase 18 (performance/scale audit) already fixed the more severe half of this same code path — `CampaignNotification` now implements `ShouldQueue`, so the actual SMS/push/mail delivery no longer blocks the request/command that calls `send()` — but the audience is still hydrated in one shot before that loop even starts.
+- **Risk:** Low-to-medium and shrinking as the user base grows: at today's scale this is a non-issue (a few thousand rows costs low-single-digit MB); it only becomes a real memory-limit risk at an audience size well beyond 1CallFix's current single-country footprint. Not a correctness bug — the recipient list itself is still 100% accurate either way.
+- **Why unresolved:** A mechanical, low-risk rewrite (chunkById + accumulate a count instead of `$recipients->count()`), but touches the exact send/resend paths this same phase just changed behavior in (ShouldQueue) — deliberately not stacking a second behavioral change onto the same methods in the same pass without its own dedicated test pass, per this mission's own consistent "one real change per pass, tested" discipline.
+- **Business decision required:** None — pure engineering follow-up, pick up whenever audience size actually approaches a scale where this matters.
+- **Safe current default:** Unchanged (`->get()` then loop) — safe at every audience size 1CallFix has today.
+- **Affected modules:** `App\Services\CampaignService::send()` and `::resendToFailedRecipients()`.
+- **Blocked:** No — real, closeable follow-up, just not bundled into this pass.
+
 ---
 
-*Last updated: 2026-08-15, mission Phase 17 (multi-country/international readiness audit).*
+*Last updated: 2026-08-15, mission Phase 18 (performance/scale audit).*
