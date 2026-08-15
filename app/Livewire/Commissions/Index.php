@@ -2,11 +2,13 @@
 
 namespace App\Livewire\Commissions;
 
+use App\Exports\CommissionsExport;
 use App\Models\Commission;
 use App\Models\Franchise;
 use App\Services\AuthorizationService;
 use Livewire\Component;
 use Livewire\WithPagination;
+use Maatwebsite\Excel\Facades\Excel;
 
 /**
  * commissions has been a real, actively-written ledger since
@@ -48,6 +50,18 @@ class Index extends Component
     public function mount(): void
     {
         abort_unless(auth()->user()->hasPermissionAnywhere('commissions.view'), 403, 'You do not have permission to view commissions.');
+    }
+
+    /**
+     * Mission Phase 14 (Operations Import/Export completeness) — the real
+     * reference product's "Earnings" export, mapped onto this ledger.
+     * Reuses the viewer's own row-level scope (see CommissionsExport's
+     * docblock) — no separate permission check needed beyond mount()'s,
+     * same convention as the catalog screens' existing Export buttons.
+     */
+    public function exportCommissions()
+    {
+        return Excel::download(new CommissionsExport(auth()->user()), 'commissions-'.now()->format('Y-m-d').'.xlsx');
     }
 
     public function updatingSearch() { $this->resetPage(); }

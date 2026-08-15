@@ -29,13 +29,15 @@ class SubcategoriesExport implements FromCollection, WithHeadings, WithMapping
 
     public function headings(): array
     {
-        return ['id', 'name', 'is_active', 'image', 'category_id', 'icon', 'description', 'sort_order'];
+        return ['id', 'external_id', 'name', 'is_active', 'image', 'category_id', 'icon', 'description', 'sort_order'];
     }
 
+    /** `id`/`category_id` are informational only on export now — see CategoriesExport::map()'s docblock. */
     public function map($sub): array
     {
         return [
             $sub->id,
+            $sub->external_id,
             $sub->name,
             $sub->is_active ? 1 : 0,
             $sub->image,

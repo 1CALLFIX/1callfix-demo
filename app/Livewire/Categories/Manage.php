@@ -4,11 +4,12 @@ namespace App\Livewire\Categories;
 
 use App\Exports\CategoriesExport;
 use App\Imports\HeadingRowImport;
+use App\Models\CatalogImportRun;
 use App\Models\ServiceCategory;
+use App\Services\Catalog\CategoryImporter;
 use App\Support\Modules;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Livewire\Component;
@@ -79,6 +80,8 @@ class Manage extends Component
     public array $categoriesImportErrors = [];
     public ?array $categoriesImportRows = null;
     public ?string $categoriesImportMessage = null;
+    public bool $categoriesDeactivateMissing = false;
+    public ?CatalogImportRun $categoriesImportRun = null;
 
     public function updatedSearch(): void
     {
@@ -441,65 +444,40 @@ class Manage extends Component
         $this->categoriesImportErrors = [];
         $this->categoriesImportRows = null;
         $this->categoriesImportMessage = null;
+        $this->categoriesDeactivateMissing = false;
+        $this->categoriesImportRun = null;
     }
 
+    /**
+     * VALIDATE -> RELATIONSHIP CHECK -> DUPLICATE CHECK -> PRICE/IMAGE
+     * CHECK -> PREVIEW, all via CategoryImporter (mission Phase 14 —
+     * Master Catalog Import). Field-level rules live in the importer now,
+     * not here, so Categories/Subcategories/Services all go through the
+     * same real pipeline instead of three near-identical inline copies.
+     */
     public function validateCategoriesImport(): void
     {
         $this->categoriesImportErrors = [];
         $this->categoriesImportRows = null;
         $this->categoriesImportMessage = null;
+        $this->categoriesImportRun = null;
 
         $this->validate(['categoriesImportFile' => ['required', 'file', 'mimes:xlsx,xls,csv']]);
 
         $reader = new HeadingRowImport;
         Excel::import($reader, $this->categoriesImportFile->getRealPath());
 
-        $errors = [];
-        $validRows = [];
+        $result = (new CategoryImporter)->validateRows($reader->rows);
 
-        foreach ($reader->rows as $i => $row) {
-            $rowNum = $i + 2; // +1 for zero-index, +1 for the header row itself
-            $validator = Validator::make($row->toArray(), [
-                'name' => ['required', 'string', 'max:255'],
-                'module' => ['nullable', Rule::in(Modules::slugs())],
-                'is_active' => ['nullable'],
-                'image' => ['nullable', 'string', 'max:2048'],
-                'sort_order' => ['nullable', 'integer'],
-            ]);
-
-            if ($validator->fails()) {
-                foreach ($validator->errors()->messages() as $field => $messages) {
-                    $errors[] = ['row' => $rowNum, 'field' => $field, 'message' => $messages[0]];
-                }
-                continue;
-            }
-
-            $validRows[] = [
-                'id' => $this->blankToNull($row['id'] ?? null),
-                'module' => $this->blankToNull($row['module'] ?? null) ?? Modules::SERVICE,
-                'name' => $row['name'],
-                'is_active' => $this->normalizeBool($row['is_active'] ?? 1),
-                'image' => $this->blankToNull($row['image'] ?? null),
-                'icon' => $this->blankToNull($row['icon'] ?? null),
-                'color' => $this->blankToNull($row['color'] ?? null),
-                'description' => $this->blankToNull($row['description'] ?? null),
-                'sort_order' => (int) ($row['sort_order'] ?? 0),
-            ];
-        }
-
-        if (! empty($errors)) {
-            $this->categoriesImportErrors = $errors;
+        if (! empty($result['errors'])) {
+            $this->categoriesImportErrors = $result['errors'];
             return;
         }
 
-        if (empty($validRows)) {
-            $this->categoriesImportErrors = [['row' => '-', 'field' => 'file', 'message' => 'No data rows found in this file.']];
-            return;
-        }
-
-        $this->categoriesImportRows = $validRows;
+        $this->categoriesImportRows = $result['previewRows'];
     }
 
+    /** CONFIRM -> TRANSACTION-SAFE IMPORT -> IMPORT REPORT. */
     public function commitCategoriesImport(): void
     {
         if (empty($this->categoriesImportRows)) {
@@ -511,50 +489,23 @@ class Manage extends Component
             return;
         }
 
-        try {
-            DB::transaction(function () {
-                foreach ($this->categoriesImportRows as $row) {
-                    $id = $row['id'];
-                    unset($row['id']);
+        $fileName = $this->categoriesImportFile?->getClientOriginalName();
 
-                    if ($id) {
-                        // Preserve the source file's id (matters for Glover files —
-                        // subcategories.xlsx references these same category ids, so
-                        // keeping them lets all three sheets import as one linked set).
-                        ServiceCategory::updateOrCreate(['id' => $id], $row);
-                    } else {
-                        $row['slug'] = Str::slug($row['name']).'-'.Str::random(4);
-                        ServiceCategory::create($row);
-                    }
-                }
-            });
-        } catch (\Throwable $e) {
-            $this->categoriesImportErrors = [['row' => '-', 'field' => 'commit', 'message' => 'Import failed, nothing was saved: '.$e->getMessage()]];
+        $this->categoriesImportRun = (new CategoryImporter)->commit(
+            $this->categoriesImportRows, auth()->user(), $fileName, $this->categoriesDeactivateMissing
+        );
+
+        if ($this->categoriesImportRun->status === 'failed') {
+            $this->categoriesImportErrors = [['row' => '-', 'field' => 'commit', 'message' => 'Import failed, nothing was saved.']];
             return;
         }
 
-        $count = count($this->categoriesImportRows);
-        $this->categoriesImportMessage = "Imported {$count} ".Str::plural('category', $count).' successfully.';
+        $this->categoriesImportMessage = 'Import complete.';
         $this->categoriesImportRows = null;
         $this->categoriesImportFile = null;
     }
 
     // ============================== Shared helpers ==============================
-
-    private function blankToNull($value)
-    {
-        $value = is_string($value) ? trim($value) : $value;
-        return ($value === '' || $value === null) ? null : $value;
-    }
-
-    private function normalizeBool($value): bool
-    {
-        if (is_bool($value)) {
-            return $value;
-        }
-        $value = strtolower(trim((string) $value));
-        return ! in_array($value, ['0', 'false', 'no', 'inactive', ''], true);
-    }
 
     /** Search + filters, shared by the list query and the reorder neighbour lookup. */
     private function baseQuery()

@@ -36,13 +36,20 @@ class CategoriesExport implements FromCollection, WithHeadings, WithMapping
 
     public function headings(): array
     {
-        return ['id', 'name', 'module', 'is_active', 'image', 'icon', 'color', 'description', 'sort_order'];
+        return ['id', 'external_id', 'name', 'module', 'is_active', 'image', 'icon', 'color', 'description', 'sort_order'];
     }
 
+    /**
+     * `id` is informational only on export now (mission Phase 14 — Master
+     * Catalog Import decouples the real PK from any source system's
+     * identity) — re-importing this file matches existing rows via
+     * `external_id`, never by forcing `id` back onto a row.
+     */
     public function map($category): array
     {
         return [
             $category->id,
+            $category->external_id,
             $category->name,
             $category->module,
             $category->is_active ? 1 : 0,

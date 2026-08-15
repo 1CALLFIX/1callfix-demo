@@ -18,6 +18,7 @@ class Service extends Model
     protected $fillable = [
         'category_id',
         'subcategory_id',
+        'external_id',
         'name',
         'slug',
         'description',

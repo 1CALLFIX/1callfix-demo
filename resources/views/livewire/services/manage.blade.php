@@ -24,9 +24,11 @@
             commit-method="commitServicesImport"
             cancel-method="toggleImport"
             template-method="downloadTemplate"
+            deactivate-missing-model="deactivateMissing"
             :errors="$importErrors"
             :rows="$importRows"
-            :message="$importMessage" />
+            :message="$importMessage"
+            :run="$importRun" />
     @endif
 
     {{-- Add New — pinned at the top, list updates live below it. --}}

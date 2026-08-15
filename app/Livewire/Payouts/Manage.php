@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Payouts;
 
+use App\Exports\PayoutsExport;
 use App\Models\PaymentAccount;
 use App\Models\Payout;
 use App\Models\Provider;
@@ -10,6 +11,7 @@ use App\Services\PayoutService;
 use App\Services\WalletService;
 use Livewire\Component;
 use Livewire\WithPagination;
+use Maatwebsite\Excel\Facades\Excel;
 
 // Disbursement — the missing half of Commission: CommissionService already
 // credits provider/franchise-owner wallets in real time at booking
@@ -224,6 +226,20 @@ class Manage extends Component
 
         $u = User::find($payout->payee_id);
         return $u ? $u->name.' (franchise owner)' : 'User #'.$payout->payee_id.' (franchise owner)';
+    }
+
+    /**
+     * Mission Phase 14 (Operations Import/Export completeness) — the real
+     * reference product's "Payouts" export. Never exports raw banking
+     * details — see PayoutsExport's docblock, including the scope note
+     * (this deliberately matches render()'s own current unscoped
+     * behavior; a franchise-scoped payouts.manage grant seeing every
+     * payout is a real, separately-logged gap, not something this export
+     * silently fixes or worsens).
+     */
+    public function exportPayouts()
+    {
+        return Excel::download(new PayoutsExport, 'payouts-'.now()->format('Y-m-d').'.xlsx');
     }
 
     public function render()

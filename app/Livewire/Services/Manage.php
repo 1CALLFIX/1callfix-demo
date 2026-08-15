@@ -4,14 +4,15 @@ namespace App\Livewire\Services;
 
 use App\Exports\ServicesExport;
 use App\Imports\HeadingRowImport;
+use App\Models\CatalogImportRun;
 use App\Models\Service;
 use App\Models\ServiceCategory;
 use App\Models\ServiceSubcategory;
 use App\Models\Setting;
+use App\Services\Catalog\ServiceImporter;
 use App\Support\Modules;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use Livewire\Component;
 use Livewire\WithFileUploads;
@@ -98,6 +99,8 @@ class Manage extends Component
     public array $importErrors = [];
     public ?array $importRows = null;
     public ?string $importMessage = null;
+    public bool $deactivateMissing = false;
+    public ?CatalogImportRun $importRun = null;
 
     public function mount(): void
     {
@@ -554,8 +557,10 @@ class Manage extends Component
     }
 
     // ============================= Import/export =============================
-    // Carried over from Services\Index verbatim — import rules, Glover column
-    // aliases and the subcategory-belongs-to-category check are unchanged.
+    // Delegates to ServiceImporter/CatalogImporter (mission Phase 14 —
+    // Master Catalog Import) — Glover column aliases and the
+    // subcategory-belongs-to-category check now live there, shared with
+    // the same real pipeline Categories/Subcategories use.
 
     public function exportServices()
     {
@@ -574,6 +579,8 @@ class Manage extends Component
         $this->importErrors = [];
         $this->importRows = null;
         $this->importMessage = null;
+        $this->deactivateMissing = false;
+        $this->importRun = null;
     }
 
     public function validateServicesImport(): void
@@ -581,92 +588,21 @@ class Manage extends Component
         $this->importErrors = [];
         $this->importRows = null;
         $this->importMessage = null;
+        $this->importRun = null;
 
         $this->validate(['importFile' => ['required', 'file', 'mimes:xlsx,xls,csv']]);
 
         $reader = new HeadingRowImport;
         Excel::import($reader, $this->importFile->getRealPath());
 
-        $errors = [];
-        $validRows = [];
+        $result = (new ServiceImporter)->validateRows($reader->rows);
 
-        foreach ($reader->rows as $i => $row) {
-            $rowNum = $i + 2;
-
-            // Accept Glover's original column names as aliases so its real
-            // export files import unmodified — see ServicesExport's docblock.
-            $basePrice = $row['base_price'] ?? $row['price'] ?? null;
-            $coverImage = $row['cover_image'] ?? $row['photo'] ?? null;
-            $priceTypeRaw = $row['price_type'] ?? $row['duration'] ?? null;
-
-            $validator = Validator::make([
-                'category_id' => $row['category_id'] ?? null,
-                'subcategory_id' => $this->blankToNull($row['subcategory_id'] ?? null),
-                'name' => $row['name'] ?? null,
-                'base_price' => $basePrice,
-                'discount_price' => $this->blankToNull($row['discount_price'] ?? null),
-            ], [
-                'category_id' => ['required', 'integer', 'exists:service_categories,id'],
-                'subcategory_id' => ['nullable', 'integer', 'exists:service_subcategories,id'],
-                'name' => ['required', 'string', 'max:255'],
-                'base_price' => ['required', 'numeric', 'min:0'],
-                'discount_price' => ['nullable', 'numeric', 'min:0', 'lt:base_price'],
-            ], [
-                'category_id.exists' => 'category_id :input does not exist — import categories first.',
-                'subcategory_id.exists' => 'subcategory_id :input does not exist — import subcategories first.',
-            ]);
-
-            if ($validator->fails()) {
-                foreach ($validator->errors()->messages() as $field => $messages) {
-                    $errors[] = ['row' => $rowNum, 'field' => $field, 'message' => $messages[0]];
-                }
-                continue;
-            }
-
-            // A subcategory must actually belong to the given category — the
-            // same integrity rule the dependent dropdown enforces by hand.
-            $subcategoryId = $this->blankToNull($row['subcategory_id'] ?? null);
-            if ($subcategoryId) {
-                $belongs = ServiceSubcategory::where('id', $subcategoryId)
-                    ->where('category_id', $row['category_id'])
-                    ->exists();
-                if (! $belongs) {
-                    $errors[] = ['row' => $rowNum, 'field' => 'subcategory_id', 'message' => "subcategory_id {$subcategoryId} does not belong to category_id {$row['category_id']}."];
-                    continue;
-                }
-            }
-
-            $validRows[] = [
-                'id' => $this->blankToNull($row['id'] ?? null),
-                'category_id' => $row['category_id'],
-                'subcategory_id' => $subcategoryId,
-                'name' => $row['name'],
-                'description' => $this->blankToNull($row['description'] ?? null),
-                'base_price' => $basePrice,
-                'discount_price' => $this->blankToNull($row['discount_price'] ?? null),
-                'price_type' => $this->normalizePriceType($priceTypeRaw),
-                'duration_estimate_mins' => (int) ($row['duration_estimate_mins'] ?? 60),
-                'is_active' => $this->normalizeBool($row['is_active'] ?? 1),
-                // Both default the same way the column does when the sheet
-                // omits them (a Glover file has neither).
-                'location_required' => $this->normalizeBool($row['location_required'] ?? 1),
-                'age_restriction' => $this->normalizeBool($row['age_restriction'] ?? 0),
-                'cover_image' => $this->blankToNull($coverImage),
-                'sort_order' => (int) ($row['sort_order'] ?? 0),
-            ];
-        }
-
-        if (! empty($errors)) {
-            $this->importErrors = $errors;
+        if (! empty($result['errors'])) {
+            $this->importErrors = $result['errors'];
             return;
         }
 
-        if (empty($validRows)) {
-            $this->importErrors = [['row' => '-', 'field' => 'file', 'message' => 'No data rows found in this file.']];
-            return;
-        }
-
-        $this->importRows = $validRows;
+        $this->importRows = $result['previewRows'];
     }
 
     public function commitServicesImport(): void
@@ -680,63 +616,23 @@ class Manage extends Component
             return;
         }
 
-        try {
-            DB::transaction(function () {
-                foreach ($this->importRows as $row) {
-                    $id = $row['id'];
-                    unset($row['id']);
+        $fileName = $this->importFile?->getClientOriginalName();
 
-                    if ($id) {
-                        Service::updateOrCreate(['id' => $id], $row);
-                    } else {
-                        $row['slug'] = Str::slug($row['name']);
-                        Service::create($row);
-                    }
-                }
-            });
-        } catch (\Throwable $e) {
-            $this->importErrors = [['row' => '-', 'field' => 'commit', 'message' => 'Import failed, nothing was saved: '.$e->getMessage()]];
+        $this->importRun = (new ServiceImporter)->commit(
+            $this->importRows, auth()->user(), $fileName, $this->deactivateMissing
+        );
+
+        if ($this->importRun->status === 'failed') {
+            $this->importErrors = [['row' => '-', 'field' => 'commit', 'message' => 'Import failed, nothing was saved.']];
             return;
         }
 
-        $count = count($this->importRows);
-        $this->importMessage = "Imported {$count} ".Str::plural('service', $count).' successfully.';
+        $this->importMessage = 'Import complete.';
         $this->importRows = null;
         $this->importFile = null;
     }
 
     // ============================== Shared helpers ==============================
-
-    private function blankToNull($value)
-    {
-        $value = is_string($value) ? trim($value) : $value;
-        return ($value === '' || $value === null) ? null : $value;
-    }
-
-    private function normalizeBool($value): bool
-    {
-        if (is_bool($value)) {
-            return $value;
-        }
-        $value = strtolower(trim((string) $value));
-        return ! in_array($value, ['0', 'false', 'no', 'inactive', ''], true);
-    }
-
-    /**
-     * Glover's `duration` column holds "fixed" | "starts from" (a
-     * price-display type, not a time span). Anything unrecognised defaults to
-     * fixed rather than failing the row — best-effort mapping, not a contract.
-     */
-    private function normalizePriceType($raw): string
-    {
-        $value = strtolower(trim((string) $raw));
-
-        return match (true) {
-            in_array($value, ['hourly', 'per hour', 'per_hour'], true) => 'hourly',
-            in_array($value, ['starts from', 'starts_from', 'quote_on_inspection', 'quote on inspection'], true) => 'quote_on_inspection',
-            default => 'fixed',
-        };
-    }
 
     private function baseQuery()
     {

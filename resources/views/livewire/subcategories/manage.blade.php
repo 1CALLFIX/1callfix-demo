@@ -27,9 +27,11 @@
             commit-method="commitSubcategoriesImport"
             cancel-method="toggleImport"
             template-method="downloadTemplate"
+            deactivate-missing-model="deactivateMissing"
             :errors="$importErrors"
             :rows="$importRows"
-            :message="$importMessage" />
+            :message="$importMessage"
+            :run="$importRun" />
     @endif
 
     {{-- Add New — one line, pinned at the top, list updates live below it. --}}

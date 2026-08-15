@@ -44,16 +44,18 @@ class ServicesExport implements FromCollection, WithHeadings, WithMapping
     public function headings(): array
     {
         return [
-            'id', 'name', 'description', 'category_id', 'subcategory_id',
+            'id', 'external_id', 'name', 'description', 'category_id', 'subcategory_id',
             'base_price', 'discount_price', 'price_type', 'duration_estimate_mins',
             'is_active', 'location_required', 'age_restriction', 'cover_image', 'slug',
         ];
     }
 
+    /** `id`/`category_id`/`subcategory_id` are informational only on export now — see CategoriesExport::map()'s docblock. */
     public function map($service): array
     {
         return [
             $service->id,
+            $service->external_id,
             $service->name,
             $service->description,
             $service->category_id,

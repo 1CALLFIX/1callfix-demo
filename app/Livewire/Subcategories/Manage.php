@@ -4,12 +4,13 @@ namespace App\Livewire\Subcategories;
 
 use App\Exports\SubcategoriesExport;
 use App\Imports\HeadingRowImport;
+use App\Models\CatalogImportRun;
 use App\Models\ServiceCategory;
 use App\Models\ServiceSubcategory;
+use App\Services\Catalog\SubcategoryImporter;
 use App\Support\Modules;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Livewire\Component;
@@ -87,6 +88,8 @@ class Manage extends Component
     public array $importErrors = [];
     public ?array $importRows = null;
     public ?string $importMessage = null;
+    public bool $deactivateMissing = false;
+    public ?CatalogImportRun $importRun = null;
 
     public function updatedSearch(): void
     {
@@ -437,64 +440,31 @@ class Manage extends Component
         $this->importErrors = [];
         $this->importRows = null;
         $this->importMessage = null;
+        $this->deactivateMissing = false;
+        $this->importRun = null;
     }
 
+    /** See CategoryImporter/CatalogImporter — same real pipeline (mission Phase 14 — Master Catalog Import). */
     public function validateSubcategoriesImport(): void
     {
         $this->importErrors = [];
         $this->importRows = null;
         $this->importMessage = null;
+        $this->importRun = null;
 
         $this->validate(['importFile' => ['required', 'file', 'mimes:xlsx,xls,csv']]);
 
         $reader = new HeadingRowImport;
         Excel::import($reader, $this->importFile->getRealPath());
 
-        $errors = [];
-        $validRows = [];
+        $result = (new SubcategoryImporter)->validateRows($reader->rows);
 
-        foreach ($reader->rows as $i => $row) {
-            $rowNum = $i + 2;
-            $validator = Validator::make($row->toArray(), [
-                'name' => ['required', 'string', 'max:255'],
-                'category_id' => ['required', 'integer', 'exists:service_categories,id'],
-                'is_active' => ['nullable'],
-                'image' => ['nullable', 'string', 'max:2048'],
-                'sort_order' => ['nullable', 'integer'],
-            ], [
-                'category_id.exists' => 'category_id :input does not exist — import categories first, or check the id.',
-            ]);
-
-            if ($validator->fails()) {
-                foreach ($validator->errors()->messages() as $field => $messages) {
-                    $errors[] = ['row' => $rowNum, 'field' => $field, 'message' => $messages[0]];
-                }
-                continue;
-            }
-
-            $validRows[] = [
-                'id' => $this->blankToNull($row['id'] ?? null),
-                'category_id' => $row['category_id'],
-                'name' => $row['name'],
-                'is_active' => $this->normalizeBool($row['is_active'] ?? 1),
-                'image' => $this->blankToNull($row['image'] ?? null),
-                'icon' => $this->blankToNull($row['icon'] ?? null),
-                'description' => $this->blankToNull($row['description'] ?? null),
-                'sort_order' => (int) ($row['sort_order'] ?? 0),
-            ];
-        }
-
-        if (! empty($errors)) {
-            $this->importErrors = $errors;
+        if (! empty($result['errors'])) {
+            $this->importErrors = $result['errors'];
             return;
         }
 
-        if (empty($validRows)) {
-            $this->importErrors = [['row' => '-', 'field' => 'file', 'message' => 'No data rows found in this file.']];
-            return;
-        }
-
-        $this->importRows = $validRows;
+        $this->importRows = $result['previewRows'];
     }
 
     public function commitSubcategoriesImport(): void
@@ -508,47 +478,23 @@ class Manage extends Component
             return;
         }
 
-        try {
-            DB::transaction(function () {
-                foreach ($this->importRows as $row) {
-                    $id = $row['id'];
-                    unset($row['id']);
+        $fileName = $this->importFile?->getClientOriginalName();
 
-                    if ($id) {
-                        ServiceSubcategory::updateOrCreate(['id' => $id], $row);
-                    } else {
-                        $row['slug'] = Str::slug($row['name']).'-'.Str::random(4);
-                        ServiceSubcategory::create($row);
-                    }
-                }
-            });
-        } catch (\Throwable $e) {
-            $this->importErrors = [['row' => '-', 'field' => 'commit', 'message' => 'Import failed, nothing was saved: '.$e->getMessage()]];
+        $this->importRun = (new SubcategoryImporter)->commit(
+            $this->importRows, auth()->user(), $fileName, $this->deactivateMissing
+        );
+
+        if ($this->importRun->status === 'failed') {
+            $this->importErrors = [['row' => '-', 'field' => 'commit', 'message' => 'Import failed, nothing was saved.']];
             return;
         }
 
-        $count = count($this->importRows);
-        $this->importMessage = "Imported {$count} ".Str::plural('subcategory', $count).' successfully.';
+        $this->importMessage = 'Import complete.';
         $this->importRows = null;
         $this->importFile = null;
     }
 
     // ============================== Shared helpers ==============================
-
-    private function blankToNull($value)
-    {
-        $value = is_string($value) ? trim($value) : $value;
-        return ($value === '' || $value === null) ? null : $value;
-    }
-
-    private function normalizeBool($value): bool
-    {
-        if (is_bool($value)) {
-            return $value;
-        }
-        $value = strtolower(trim((string) $value));
-        return ! in_array($value, ['0', 'false', 'no', 'inactive', ''], true);
-    }
 
     private function baseQuery()
     {

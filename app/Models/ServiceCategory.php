@@ -16,6 +16,7 @@ class ServiceCategory extends Model
 
     protected $fillable = [
         'parent_id',
+        'external_id',
         'module',
         'name',
         'slug',

@@ -1,5 +1,8 @@
 <div>
-    <h1 class="text-2xl font-bold mb-4">Commissions</h1>
+    <div class="flex items-center justify-between mb-4">
+        <h1 class="text-2xl font-bold">Commissions</h1>
+        <button type="button" wire:click="exportCommissions" class="px-3 py-1.5 border border-gray-300 rounded text-xs hover:bg-gray-50">Export</button>
+    </div>
 
     <div class="grid grid-cols-2 md:grid-cols-3 gap-4 mb-4">
         <div class="bg-white rounded-lg shadow-sm p-4">

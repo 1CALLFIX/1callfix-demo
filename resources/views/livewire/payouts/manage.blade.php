@@ -1,5 +1,8 @@
 <div>
-    <h1 class="text-2xl font-bold mb-1">Payouts</h1>
+    <div class="flex items-center justify-between mb-1">
+        <h1 class="text-2xl font-bold">Payouts</h1>
+        <button type="button" wire:click="exportPayouts" class="px-3 py-1.5 border border-gray-300 rounded text-xs hover:bg-gray-50">Export</button>
+    </div>
     <p class="text-sm text-gray-500 mb-4">Provider/franchise-owner earnings are credited to their wallet automatically on booking completion. Requesting a payout here holds that amount out of their spendable balance; mark it paid once the transfer is actually made (bank/UPI, outside this system).</p>
 
     @if ($flashMessage)

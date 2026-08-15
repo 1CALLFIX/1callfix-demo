@@ -24,4 +24,6 @@ class Payout extends Model
         'processed_at'
     ];
     protected $casts = ['period_start' => 'date', 'period_end' => 'date', 'processed_at' => 'datetime'];
+
+    public function paymentAccount() { return $this->belongsTo(PaymentAccount::class); }
 }
