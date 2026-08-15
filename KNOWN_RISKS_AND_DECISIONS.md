@@ -45,26 +45,26 @@ Format per item: **Issue** · Current behavior · Risk · Why unresolved · Busi
 
 ## 4. Performance/Growth Campaign reward values & targets
 
-- **Issue:** No real Performance/Growth Campaign engine exists (the existing `CampaignService`/`NotificationCampaign` is a notification-broadcast engine, unrelated).
-- **Current behavior:** N/A — not built.
-- **Risk:** N/A until built.
-- **Why unresolved:** Target metrics (e.g., "10 bookings in 30 days"), ranking rules, and reward amounts are commercial decisions.
-- **Business decision required:** Target metrics per actor type, ranking/tie-break rules, reward values, approval workflow.
-- **Safe current default:** N/A — configurable architecture can be built without inventing these numbers (Phase 4 of the current mission).
-- **Affected modules:** New Campaign/Incentive engine, Wallet.
-- **Blocked:** Yes, for reward values/targets specifically; the configurable *shape* is buildable now.
+- **Issue:** The Performance/Growth Campaign engine's real target metrics, ranking rules, and reward amounts are commercial decisions made per campaign, not a platform-wide default. **(Corrected 2026-08-15, Phase 21 item DOC-1: this line previously read "No real Performance/Growth Campaign engine exists... not built" — stale since mission Phase 1 built the engine. See `PHASE_21_RELEASE_CANDIDATE_BACKLOG.md` §0, contradiction C2.)**
+- **Current behavior:** The engine itself is real and built (`PerformanceCampaign`/`PerformanceCampaignService`, `admin.performance-campaigns.index` route, `PerformanceCampaignEngineTest`, 34 tests — mission Phase 1). Admins can create and launch real campaigns today; each campaign's actual target/ranking/reward values are whatever the creating admin enters at creation time — there is no invented platform-wide number to be wrong.
+- **Risk:** Low — the architecture doesn't force a wrong number; it's on whoever launches a real campaign to enter deliberate values.
+- **Why unresolved:** Target metrics (e.g., "10 bookings in 30 days"), ranking rules, and reward amounts are commercial decisions made fresh for each real campaign.
+- **Business decision required:** Target metrics per actor type, ranking/tie-break rules, reward values, approval workflow — for each real campaign as it's launched.
+- **Safe current default:** N/A — there is no single platform-wide default; each campaign is admin-authored at creation.
+- **Affected modules:** `App\Models\PerformanceCampaign`, `App\Services\PerformanceCampaignService`, `App\Livewire\PerformanceCampaigns\Manage`, Wallet/Loyalty/Badge (reward disbursement rails).
+- **Blocked:** No — the engine is complete and usable. This item now tracks only that real campaign values are a per-launch business decision, not an engineering gap.
 
 ## 5. Tips / Compensation rate structures
 
-- **Issue:** No tip, waiting-compensation, rain-compensation, overtime, peak, or night-compensation model exists anywhere in the schema.
-- **Current behavior:** N/A — not built.
-- **Risk:** N/A until built.
+- **Issue:** The compensation engine's real ₹/minute waiting rate, rain surcharge %, overtime multiplier, and other rates are commercial/labor decisions, not a platform-wide default. **(Corrected 2026-08-15, Phase 21 item DOC-1: this line previously read "No tip/waiting/rain/overtime/peak/night-compensation model exists... not built" — stale since mission Phase 5 built the engine. See `PHASE_21_RELEASE_CANDIDATE_BACKLOG.md` §0, contradiction C3.)**
+- **Current behavior:** The engine itself is real and built (`booking_compensations` table; overtime/night/peak auto-computed from real booking timestamps; rain/waiting admin-triggered; tips move real money customer-wallet→provider-wallet via `WalletService`; hooked into `CompleteBookingAction` — mission Phase 5, 22 tests). Every rate remains at its `Setting`-driven `0` (no effect) default until an admin sets it.
+- **Risk:** Low — the safe-zero defaults mean nothing is invented; a real rate only ever takes effect once an admin deliberately configures it.
 - **Why unresolved:** Actual rates (₹/minute waiting, rain surcharge %, overtime multiplier, etc.) are commercial/labor decisions.
 - **Business decision required:** Every rate above, plus which of these apply per country/franchise.
-- **Safe current default:** N/A — configurable rule architecture can be built now (Phase 5), with all rates left at `Setting`-driven defaults of 0 (no effect) until set.
-- **Affected modules:** New Compensation engine, Wallet, Worker/Provider payout.
-- **Blocked:** Yes, for the actual rates; the ledger-safe architecture is buildable now.
-- **Phase 13 evidence:** confirmed unresolved everywhere checked. The real 1CallFix 1.8.10 database's `orders.tip` column exists and every single historical row is `0.00`; a full-text search of its 267 real config rows found zero tip/waiting/rain/overtime/peak/night rate keys. Glover and 6amMart both also ship these at 0/off. No reference — including a real prior deployment of this exact product — has ever resolved this.
+- **Safe current default:** All rates remain at their `Setting`-driven `0` (no effect) default until a real value is set.
+- **Affected modules:** `App\Actions\CompleteBookingAction`, `Setting` keys under `compensation.*`, Wallet, Worker/Provider payout.
+- **Blocked:** No — the ledger-safe architecture is complete and live. This item now tracks only that real rate values are a business decision, not an engineering gap.
+- **Phase 13 evidence:** confirmed unresolved everywhere checked (the rate VALUES, not the engine — see the correction above). The real 1CallFix 1.8.10 database's `orders.tip` column exists and every single historical row is `0.00`; a full-text search of its 267 real config rows found zero tip/waiting/rain/overtime/peak/night rate keys. Glover and 6amMart both also ship these at 0/off. No reference — including a real prior deployment of this exact product — has ever resolved this.
 
 ## 6. Worker compensation model
 
@@ -140,12 +140,12 @@ Format per item: **Issue** · Current behavior · Risk · Why unresolved · Busi
 
 ## 12. Flash Sale × Coupon × Badge stacking rules
 
-- **Issue:** (Anticipatory — logged before Flash Sale engine is built.) Once a Flash Sale engine exists, how it interacts with Coupons (item 7) and Plan Engine discounts (`stacking_strategy`) needs a rule.
-- **Current behavior:** N/A — not built yet.
+- **Issue:** How the Flash Sale engine interacts with Coupons (item 7) and Plan Engine discounts (`Plan.stacking_strategy`) needs a rule. **(Corrected 2026-08-15, Phase 21 item DOC-1: this line previously read "Anticipatory — logged before Flash Sale engine is built... not built yet" — stale; the Flash Sale and Badge engines have existed since before this mission's own baseline. See `PHASE_21_RELEASE_CANDIDATE_BACKLOG.md` §0, contradiction C4.)**
+- **Current behavior:** The Flash Sale engine itself is real and built (`FlashSale` model, `admin.flash-sales.index` route, `FlashSaleEngineTest`) — but a direct code check this pass confirms `App\Models\FlashSale` has **no `stacking_strategy` column or equivalent guard at all**, unlike `Plan`, which does. This item's own previously-proposed "safe default: `exclusive`" was never actually implemented in code — there is currently no enforced stacking rule between a Flash Sale price and anything else (Coupons are dormant/unlaunched per item 7, so the only real interaction surface today is Flash Sale × Plan discounts, and nothing in code currently prevents both applying at once).
 - **Business decision required:** Can a flash-sale price stack with a coupon? With a Plan Engine member discount? Which wins if both apply?
-- **Safe current default:** Default to `exclusive` (no stacking) unless/until decided, mirroring `Plan.stacking_strategy`'s own existing `exclusive` default.
-- **Affected modules:** (future) Flash Sale engine, Coupons, Plan Engine.
-- **Blocked:** No — safe default (no stacking) lets the engine ship without inventing a stacking policy.
+- **Safe current default:** Intended to default to `exclusive` (no stacking), mirroring `Plan.stacking_strategy`'s own `exclusive` default — **not yet implemented in code as of this correction**; flagged as a real, small follow-up (see `PHASE_21_RELEASE_CANDIDATE_BACKLOG.md` item BD-12) rather than assumed safe.
+- **Affected modules:** `App\Models\FlashSale`, `App\Models\Plan` (`stacking_strategy`), Coupons (dormant, item 7).
+- **Blocked:** No for deciding the rule; the actual `exclusive`-default guard is a small, well-scoped implementation task once confirmed as the intended interim behavior.
 - **Phase 13 evidence:** confirmed empty in all three references checked (Glover, 6amMart, and the real 1CallFix 1.8.10 database) — no stacking rule, and in the 1.8.10 case no badge concept at all existed. The `exclusive` default remains the only real-world-precedented answer.
 
 ## 13. Does the 30-day KYC deadline / withdrawal restriction apply to Riders/Workers?
@@ -313,7 +313,7 @@ Format per item: **Issue** · Current behavior · Risk · Why unresolved · Busi
 
 ## 26. Admin screens hardcode the ₹ symbol instead of reading the already-built, admin-configurable `locale.currency_symbol` Setting
 
-- **Issue:** `countries.currency_code` (ISO 4217, e.g. `INR`) has existed since the Geography schema and is manageable in `Geography\Manage`, but is never read anywhere for display or calculation. Separately, `Setting::get('locale.currency_symbol', '₹', $scope)` is a REAL, already-built, scope-cascaded, admin-editable Setting (visible in `Settings\Manage`'s own screen) — but `App\Services\Documents\DocumentService` (invoices/receipts) is its only consumer. A repo-wide search found roughly 16 other admin Blade views (Bookings, Payouts, Commissions, Wallet Ledger, Loyalty, Customers, Plans, Subscriptions, Flash Sales, Performance Campaigns, Operations Health, Notification Center, Payments) hardcode the literal `₹` character directly instead of reading that same Setting.
+- **Issue:** `countries.currency_code` (ISO 4217, e.g. `INR`) has existed since the Geography schema and is manageable in `Geography\Manage`, but is never read anywhere for display or calculation. Separately, `Setting::get('locale.currency_symbol', '₹', $scope)` is a REAL, already-built, scope-cascaded, admin-editable Setting (visible in `Settings\Manage`'s own screen) — but `App\Services\Documents\DocumentService` (invoices/receipts) is its only consumer. A repo-wide search found roughly 16 other admin Blade views hardcode the literal `₹` character directly instead of reading that same Setting. **(Corrected 2026-08-15, Phase 21 item DOC-1: a fresh repo-wide grep found exactly 14, not "roughly 16" — Commissions, Customers (index + show), Flash Sales, Loyalty, Notification Center, Operations Health, Payments, Payouts, Performance Campaigns, Plans, Settings, Subscriptions, Wallet Ledger. Bookings, originally named in this item, does NOT currently contain a hardcoded `₹` in either of its two views — re-checked directly, zero matches. Immaterial to the finding's substance, corrected for accuracy. See `PHASE_21_RELEASE_CANDIDATE_BACKLOG.md` §0, contradiction C5, and item TECH-2 for the full file list.)**
 - **Current behavior:** Every admin screen except invoice/receipt PDFs shows a hardcoded ₹, regardless of what an admin sets `locale.currency_symbol` to at any scope. Changing the Setting today would make invoices show one currency symbol and every other screen show a different, unchanged one — an inconsistency that's currently invisible only because 1CallFix is single-currency (India/₹) in practice.
 - **Risk:** Low today (cosmetically harmless while the real, only-ever-used currency is INR) but a real, same-pattern-as-before orphaned-mechanism gap: this is the identical shape of bug this mission has repeatedly found and fixed elsewhere (Tips, Reviews, in-app notifications — a real capability built and tested in one place, silently unused everywhere else).
 - **Why unresolved:** Bounded and mechanical (swap a hardcoded literal for the existing Setting call, per Livewire component, using each screen's own correct scope), but touches ~16 files with zero display-string test coverage protecting against a mistake — deliberately not attempted in the same pass as this phase's broader audit, per the same "don't bundle a wide, low-test-coverage retrofit into an unrelated audit" caution this mission has applied consistently (KYC video, backup feature, etc.).
@@ -346,4 +346,4 @@ Format per item: **Issue** · Current behavior · Risk · Why unresolved · Busi
 
 ---
 
-*Last updated: 2026-08-15 — item 25 (production `APP_DEBUG`) verified CONFIRMED ACTIVE via read-only production SSH check, then REMEDIATED/RESOLVED the same day under separate explicit authorization (see item 25 for the full change/verification trail). Post-mission (mission's own 20 phases completed as of Phase 20). This is the register's first resolved item — every other item remains open exactly as last assessed.*
+*Last updated: 2026-08-15 — Phase 21 item DOC-1: corrected stale "engine not built" framing in items 4, 5, and 12 (the underlying engines have existed since mission Phase 1/Phase 5/before-this-mission respectively; only the real business values/rules they name remain genuinely open — see `PHASE_21_RELEASE_CANDIDATE_BACKLOG.md` §0, contradictions C2–C4), and corrected item 26's file count from "roughly 16" to a verified 14 (contradiction C5). No business decision was resolved or invented by these corrections — only factually stale prose was fixed. Earlier the same day: item 25 (production `APP_DEBUG`) verified CONFIRMED ACTIVE via read-only production SSH check, then REMEDIATED/RESOLVED under separate explicit authorization (see item 25 for the full trail) — the register's first resolved item. Every other item remains open exactly as last assessed.*
