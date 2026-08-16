@@ -8,6 +8,7 @@ use App\Contracts\SmsAdapter;
 use App\Models\Booking;
 use App\Models\Franchise;
 use App\Models\NotificationLog;
+use App\Models\ParcelOrder;
 use App\Models\Review;
 use App\Models\User;
 use App\Models\Zone;
@@ -20,6 +21,7 @@ use App\Notifications\Channels\PushChannel;
 use App\Notifications\Channels\SmsChannel;
 use App\Observers\BookingObserver;
 use App\Observers\FranchiseObserver;
+use App\Observers\ParcelOrderObserver;
 use App\Observers\ReviewObserver;
 use App\Observers\UserObserver;
 use App\Observers\ZoneObserver;
@@ -91,6 +93,7 @@ class AppServiceProvider extends ServiceProvider
         });
 
         Booking::observe(BookingObserver::class);
+        ParcelOrder::observe(ParcelOrderObserver::class);
         Franchise::observe(FranchiseObserver::class);
         Zone::observe(ZoneObserver::class);
         Review::observe(ReviewObserver::class);

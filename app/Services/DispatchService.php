@@ -3,6 +3,9 @@
 namespace App\Services;
 
 use App\Models\Booking;
+use App\Models\DispatchAttempt;
+use App\Models\FieldWorker;
+use App\Models\ParcelOrder;
 use App\Models\Provider;
 use App\Models\Service;
 use App\Models\Zone;
@@ -102,6 +105,90 @@ class DispatchService
         ]);
 
         return $this->rankAndLimit($candidates, $scope, $radiusKm, $limit);
+    }
+
+    /**
+     * Phase 22.4 (Parcel) — the worker-aware dispatcher Phase B0.3's own
+     * migration comment anticipated ("a future, separately-approved
+     * worker-aware dispatcher can reuse this eligibility/ranking
+     * primitive"). Reuses `RankingEngine`/`rankAndLimit()` completely
+     * unchanged — including passing FieldWorker candidates under the same
+     * `'provider'` array key `findCandidates()` uses, deliberately: a
+     * direct re-read of RankingEngine found it keyed to `$c['provider']->
+     * {priority,rating_avg,jobs_completed,user_id}` specifically (not a
+     * generic "candidate" concept, despite its own docblock's broader
+     * framing) — `FieldWorker` already carries the identical
+     * `rating_avg`/`jobs_completed`/`user_id` columns Provider does (Phase
+     * B0.1, built with exactly this kind of reuse in mind), and Eloquent
+     * silently returns null for the one column it lacks (`priority`),
+     * which the engine already treats as `?? 0`. This is genuine "same
+     * engine" reuse (the mission's own instruction), not a coincidence of
+     * matching names — verified against the real ranking logic, not
+     * assumed. `findCandidates()` above is completely untouched.
+     *
+     * Eligibility, deliberately parallel to findCandidates()'s own list:
+     *   - Same zone as the order's pickup address
+     *   - Online right now, KYC approved, account active
+     *   - Holds the 'parcel_rider' capability (App\Support\WorkerTypes —
+     *     already seeded, not invented for this phase)
+     *   - Not already offered this specific order
+     *   - Not currently tied up on another active parcel order
+     *   - Within the zone's dispatch radius of the pickup address
+     *
+     * @return Collection<int, array{provider: FieldWorker, distance_km: float}>
+     */
+    public function findWorkerCandidates(ParcelOrder $order, int $limit = 5): Collection
+    {
+        $order->loadMissing(['zone', 'pickupAddress', 'franchise']);
+
+        if (! $order->zone || ! $order->pickupAddress) {
+            return collect();
+        }
+
+        $radiusKm = $order->zone->default_dispatch_radius_km ?? 8;
+
+        $alreadyOfferedWorkerIds = DispatchAttempt::where('dispatchable_type', ParcelOrder::class)
+            ->where('dispatchable_id', $order->id)
+            ->where('notifiable_type', FieldWorker::class)
+            ->pluck('notifiable_id');
+
+        $busyWorkerIds = ParcelOrder::whereIn('status', ['assigned', 'worker_en_route_pickup', 'picked_up', 'en_route_dropoff'])
+            ->whereNotNull('assigned_worker_id')
+            ->pluck('assigned_worker_id');
+
+        $candidates = FieldWorker::query()
+            ->where('zone_id', $order->zone_id)
+            ->where('is_online', true)
+            ->where('is_active', true)
+            ->where('kyc_status', 'approved')
+            ->whereNotNull('current_lat')
+            ->whereNotNull('current_lng')
+            ->whereHas('capabilities', fn ($q) => $q->where('capability_type', 'parcel_rider'))
+            ->whereNotIn('id', $alreadyOfferedWorkerIds)
+            ->whereNotIn('id', $busyWorkerIds)
+            ->get()
+            ->map(fn (FieldWorker $worker) => [
+                'provider' => $worker,
+                'distance_km' => $this->haversineKm(
+                    (float) $order->pickupAddress->lat, (float) $order->pickupAddress->lng,
+                    (float) $worker->current_lat, (float) $worker->current_lng
+                ),
+            ])
+            ->filter(fn ($c) => $c['distance_km'] <= $radiusKm);
+
+        $scope = array_filter([
+            'zone_id' => $order->zone_id,
+            'franchise_id' => $order->franchise_id,
+            'city_id' => $order->franchise?->city_id,
+            'country_id' => $order->franchise?->country_id,
+        ]);
+
+        $config = $this->rankingConfigResolver->resolve('field_workers', $scope);
+
+        return $this->rankingEngine
+            ->rank(collect($candidates)->values(), $config, $radiusKm)
+            ->take($limit)
+            ->values();
     }
 
     /**

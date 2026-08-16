@@ -1,57 +1,53 @@
-# Phase 22.4 — Parcel: Technical Design (design only, NOT implemented)
+# Phase 22.4 — Parcel: Implementation Record
 
-**Status: DESIGNED, not built.** This is the safest-reversible-technical-preparation step for the next real implementation phase — a concrete, evidence-based schema and reuse plan, so implementation can proceed directly next session without re-deriving it. Nothing in this document has been migrated, coded, or tested; no risk to any existing data or behavior.
+**Status: CORE LIFECYCLE IMPLEMENTED AND TESTED. Ships fully disabled** (`modules.is_implemented` for `parcel` remains `false` — deliberately not flipped by this phase, per Phase 22.1's own hard gate and this document's own "last step, not an early one" instruction). This document originally shipped as a design-only deliverable; this revision replaces it with what was actually built, including the real deviations from the original design found while building it — the second real `Orderable` implementer this mission always intended Parcel to be.
 
-Per Phase 22.2's decision, Parcel gets its own dedicated order table (`parcel_orders`), not a row in `bookings` — matching Glover's own real precedent of giving Taxi a separate order table rather than forcing it through a shared one.
+---
 
-## What's genuinely reusable today, verified by re-reading the actual code (not assumed)
+## What changed from the original design, and why
 
-| Engine | Reusable as-is? | Evidence |
-|---|---|---|
-| `WalletService` | **Yes, fully.** | Keyed to `User`, zero `Booking` coupling. |
-| `FieldWorker`/`FieldWorkerCapability`/`PartnerWorker` | **Yes, fully.** | Already actor-generic (Phase B0.1), built explicitly anticipating Parcel. |
-| `RankingEngine`/`RankingConfigResolver` | **Yes.** | Distance/rule-based ranking, no Service coupling. |
-| `AuthorizationService` | **Yes, fully.** | Scope-generic. |
-| `NotificationTemplate`/`OtpService`/adapters | **Yes, fully.** | Recipient/channel-generic. |
-| `dispatch_attempts` (worker side) | **Yes** — `notifiable_type/id` polymorphic (Provider vs FieldWorker). | Phase 22.2's own correction to the original Phase 22 audit. |
-| `dispatch_attempts` (order side) | **No** — `booking_id` is a hard FK to `bookings`. | Same correction. Parcel needs its own dispatch-ledger table, shaped identically, OR a future decision to polymorphize `booking_id` too (not undertaken here — a second schema decision, deliberately deferred rather than bundled into this one). |
-| `CommissionService::applyForBooking(Booking $booking)` | **No, as written.** | Reads `$booking->price_final`/`$booking->provider`/`$booking->franchise->owner` by name. Needs a real second implementer (this phase) to inform whether it becomes `applyForOrder(Orderable $order)` or gets a parallel, narrower method — a decision for the actual implementation session, not guessed here. |
-| `CreateBookingAction`'s module-activation guard pattern | **Directly reusable as a pattern, not as code.** | `CreateParcelOrderAction` should call `ModuleActivationService::isActive('parcel', ...)` the identical way, guaranteeing Parcel ships disabled by default (it already is — `modules.is_implemented` for `parcel` is `false`, Phase 22.1). |
+The original design proposed a fully separate `parcel_dispatch_attempts`/`parcel_commissions` shadow-table family. Building the real thing found a better, evidence-based answer for two of those three tables:
 
-## Proposed schema (design only — field list, not final migration SQL)
+- **Dispatch**: `dispatch_attempts.notifiable_type`/`notifiable_id` (Phase B0.3, worker side) turned out to be real, tested, and directly reusable for a `FieldWorker` candidate — confirmed by re-reading `RankingEngine` itself, not assumed. Rather than a separate table, this phase added the ORDER-side polymorphic counterpart (`dispatchable_type`/`dispatchable_id`) to the SAME `dispatch_attempts` table, loosening `booking_id`/`provider_id` to nullable (both purely additive — every existing row already has real values for both). `DispatchService::findCandidates()` (Service) is byte-for-byte unchanged; the new `findWorkerCandidates()` (Parcel) is an additive sibling method.
+- **Commission**: `commissions` already had precedent for "plain nullable FK per concrete type, not full polymorphism" — confirmed by `payments.plan_subscription_id`'s own existing pattern. Added `commissions.parcel_order_id` (nullable, unique) the same way, rather than a separate table.
+- **Status history**: the original design's instinct — a dedicated `parcel_order_status_history` table, not a change to `booking_status_history` — held up and was built exactly as designed. This one genuinely didn't need generalizing; it's a simple, cheap-to-duplicate, single-purpose table.
+- **Order numbering**: built exactly as designed (`parcel_order_sequences`, its own atomic counter, `-PCL-` in the code format) — `OrderCodeService` was generalized by extracting its one genuinely shared piece (the atomic per-franchise-per-day increment) into a private helper, with the code FORMAT itself staying a decision each public method makes independently.
+- **Payment**: `payments` already had an established purpose-discriminator + purpose-specific-nullable-FK pattern (`purpose='wallet_topup'` → `user_id`, `purpose='plan_subscription'` → `plan_subscription_id`). Added `'parcel_order'` as a fourth purpose value + `parcel_order_id`, following that exact precedent.
+- **Worker actor model** — the design doc originally flagged this as an open business decision. Building the real thing found it isn't one: `App\Support\WorkerTypes::ALL` already includes a seeded `parcel_rider` capability type (Phase B0.1), and `dispatch_attempts.notifiable_type/id`'s own migration comment explicitly named "platform-direct dispatch (future Parcel/Taxi)" as its reason for existing. This is architectural precedent already committed to, not a new decision — Parcel workers are `FieldWorker`s holding the `parcel_rider` capability, exactly as the existing codebase's own comments anticipated.
 
-`parcel_orders`:
-- `id`, `code` (own numbering via `OrderCodeService`, parcel-prefixed)
-- `franchise_id`, `zone_id` (same convention as `bookings`)
-- `customer_id`
-- `pickup_address_id`, `dropoff_address_id` — **both FK to the existing `Address` model**, reused as-is (already franchise/zone/lat/lng-shaped, zero new address concept needed)
-- `assigned_worker_id` (nullable FK to `field_workers`, mirrors `bookings.assigned_worker_id`)
-- package details: `package_description`, `package_weight_kg` (nullable), `package_size` (enum: small/medium/large — a genuine business-policy question for real pricing tiers, left open)
-- `status` enum: `pending, searching_worker, assigned, worker_en_route_pickup, picked_up, en_route_dropoff, delivered, cancelled, disputed` — deliberately mirrors `bookings.status`'s own shape/naming convention rather than inventing a different vocabulary, with pickup/dropoff as the two-sided analogue of Service's single provider-arrives-and-works model
-- `price_quoted`, `price_final`, `payment_status`, `payment_method` — identical shape to `bookings`
-- `pickup_otp`, `delivery_otp` — mirrors `bookings.start_otp`/`completion_otp` exactly (two OTPs instead of one, since Parcel has two customer-facing handoff events, not one)
-- `cancellation_reason_id`, `cancellation_note`, `cancellation_fee`
-- `completed_at`, timestamps, soft deletes
+## What stayed genuinely separate, and why
 
-`parcel_order_status_history` — mirrors `booking_status_history` exactly, same reasoning as everywhere else in this design (proven shape, no invention).
+- **`parcel_orders`** — its own table, exactly as designed (Phase 22.2's Option A decision). `bookings.service_id` was never touched.
+- **`ParcelDispatchJob`** — a separate class from `ServiceMatchingJob`, not a generalized "OrderMatchingJob." The two jobs share a SHAPE (round-limited, row-locked, self-requeuing) but operate on structurally different models/events/Setting namespaces throughout — forcing one shared class would mean either a large parameter surface or runtime type-checking scattered through the body, the exact "generalize because names are similar" trap this mission's own instructions warn against.
+- **`CommissionService::applyForParcelOrder()`** — a sibling method to `applyForBooking()`, not a generalized `applyForOrder(Orderable)`. The two share their real split-calculate-credit logic in shape, but Parcel has no Plan-Entitlement rate-override concept (FieldWorkers don't hold Provider entitlements) — threading a permanently-null parameter through a "generalized" signature would be worse than two honest, slightly-overlapping methods.
+- **`CancellationService`** — DID get a genuinely shared private helper (`calculateFeeGeneric()`) for the one calculation that's identical for both verticals (free-window + flat/percent fee), while `refundIfPaid()`/`refundIfPaidForParcelOrder()` stayed separate (different notification classes, different Payment-purpose lookups).
+- **`ParcelOrderStatusNotification`** — a new class, not a generalized `BookingStatusNotification`. Combines what `BookingStatusNotification` and `PaymentStatusNotification` separately cover for Service into one class, since Parcel's notification surface is smaller.
 
-`parcel_dispatch_attempts` — mirrors `dispatch_attempts`' shape (worker-side polymorphic from day one, learning from Phase 22.2's correction rather than repeating the original table's now-known limitation).
+## What was deliberately NOT built this phase (real, honest scope boundaries)
 
-**`ParcelOrder implements Orderable`** — same zero-risk pattern as `Booking`, `moduleCode()` returns `'parcel'`.
+- **Live Razorpay ('online') payment capture for Parcel.** `PaymentController::createOrder()`/`confirm()` are hard-typed to `Booking` today. `CreateParcelOrderAction` accepts `payment_method: 'online'` and stores it, but nothing captures a real gateway payment for it yet — **this is not a Parcel-specific shortfall**: Service's own `CreateBookingAction` doesn't handle 'online' payment capture inline either; that's always been a separate two-step flow (`PaymentController::createOrder()` then `confirm()`, called by a customer app that doesn't exist in this repository — `PROJECT_CURRENT_STATE.md §21`). `payment_method: 'wallet'` is fully implemented and tested end-to-end (debit, `Payment` row, order marked paid). `payment_method: 'cash'` needs no gateway and works as a stored value, same as Service.
+- **Customer-facing REST API for order creation.** Confirmed by reading `routes/api.php` directly: **no such endpoint exists for Service bookings either** — `Bookings\Index::createBooking()` (an admin/operator Livewire action) is the only real order-creation entry point in this entire codebase, consistent with 1CallFix's real call-center-driven business model (the product's own name). Parcel's admin creation panel (`ParcelOrders\Manage`) mirrors this exact precedent rather than inventing a customer API surface Service itself doesn't have.
+- **Chat for Parcel.** `chat_messages.booking_id` is a hard, non-nullable FK — confirmed by reading its migration directly. Per this document's own original instruction ("do not force Parcel into Booking simply to reuse chat... document the limitation"), Parcel chat was not built. No schema change was made to `chat_messages`.
+- **Finer-grained tracking states.** `worker_en_route_pickup`/`en_route_dropoff` are real enum values on `parcel_orders.status` but have no dedicated transition action in this slice — `picked_up` is directly reachable from `assigned`, `delivered` from `picked_up`. A future rider-app increment can add lightweight status-update actions for these without any schema change.
+- **Loyalty/referral integration for Parcel deliveries.** No evidence-backed decision exists that a delivered parcel should earn loyalty points or qualify a referral the way a completed Service booking does (`KNOWN_RISKS_AND_DECISIONS.md` items 1/2 are Service/Customer-referral-specific) — extending them would be inventing a new business rule, not implementing an existing one.
+- **Package pricing tiers.** `parcel.base_fare`/`parcel.per_kg_rate` Settings exist, default to `0`/`0` (the same "no invented values" discipline as every compensation/tip rate in this codebase) — a real commercial pricing model remains an open business decision.
 
-## What this design deliberately leaves undecided (real business/product decisions, not engineering gaps)
+## Business decisions still required (not invented, not guessed)
 
-- **Package size/weight pricing tiers** — no real numbers exist anywhere in this codebase's history or the Glover reference for this specific product's parcel pricing (Glover's own `PackageTypePricing` exists but its actual rates are Glover's, not 1CallFix's — not adoptable as a default per the mission's "do not invent business decisions" rule).
-- **Whether a Parcel "worker" is a `FieldWorker` (platform-direct) or requires a `Provider`-style accountable business first** — `FieldWorker` already supports platform-direct workers (Phase B0.1), so this is architecturally ready either way; which one 1CallFix actually wants for Parcel specifically is unset.
-- **Cancellation fee policy, distinct from Service's own configured cancellation policy** — `CancellationPolicy`/`CancellationReason` exist and are reusable as tables, but Parcel-specific fee amounts are not.
+**BUSINESS DECISION REQUIRED:** Real parcel pricing model (base fare, per-kg rate, size-tier multipliers).
+**EXACT VALUE/CHOICE NEEDED:** `parcel.base_fare`, `parcel.per_kg_rate` real currency values (and whether `package_size` should carry its own multiplier).
+**WHY CODE CANNOT SAFELY DECIDE:** These are commercial values with real revenue impact, no different in kind from the tip/compensation rates this codebase has always left at a safe `0` default until a human sets them.
+**SAFE TECHNICAL WORK COMPLETED:** The configurable infrastructure is real, tested, and Setting-scope-cascaded (`CreateParcelOrderAction::quote()`) — a real value can be set today with zero code change.
+**BLOCKED COMPONENT:** Nothing is blocked — every rate defaults to 0, exactly matching this mission's own "deploy disabled first" philosophy at the pricing layer too, independent of the module-activation gate.
 
-## Recommended next implementation session's order of work
+## Data migration safety (verified, not just claimed)
 
-1. Migrations for the three new tables above (purely additive, zero risk to `bookings` or anything referencing it).
-2. `ParcelOrder implements Orderable`.
-3. Real design decision (informed by this table now existing): does `CommissionService`/`WalletService`'s Booking-coupling get generalized to `Orderable`, or does Parcel get a thin, explicit `ParcelCommissionService` that calls the same underlying `WalletService::credit()`/`debit()` primitives directly? Both are legitimate; deciding requires looking at the actual shape of the resulting code, not guessing from a design doc.
-4. `CreateParcelOrderAction`, gated by `ModuleActivationService::isActive('parcel', ...)` (already false everywhere — ships disabled automatically, no extra step needed).
-5. Dispatch integration reusing `RankingEngine` + the new `parcel_dispatch_attempts` table.
-6. Tests, at the same density this mission has held throughout (lifecycle, authorization, row-scope, edge cases).
-7. Admin screen (`ParcelOrders\Manage` or similar) once the backend is proven.
-8. `modules.is_implemented` for `parcel` flips to `true` only once all of the above is real and tested — per Phase 22.1's own hard gate, this is the literal switch that turns Parcel from "registered" to "operational," and it should be the last step, not an early one.
+All 7 migrations in this phase are additive:
+- 3 new tables (`parcel_orders`, `parcel_order_status_history`, `parcel_order_sequences`) — no existing table touched.
+- `commissions`/`payments`/`dispatch_attempts` each gained new nullable columns, and had one or two existing columns loosened from `NOT NULL` to nullable (`booking_id` on all three, `provider_id` on `dispatch_attempts`, `purpose` enum widened on `payments`). Every existing row in every one of these tables already has real, non-null values for the loosened columns — confirmed by direct schema/migration inspection, not assumed — so this is additive in practice, not just in intent.
+- Verified via the actual test suite running these migrations fresh every run (SQLite `:memory:`), not just by reading the migration files: **[see FINAL REPORT for the exact post-Parcel test count]**.
+- No production migration was run. Production remains at `ba0635a`, untouched.
+
+## Module activation status (verified, not just claimed)
+
+`ModuleActivationEnforcementTest`-equivalent coverage exists for Parcel specifically: `test_creating_a_parcel_order_is_blocked_while_the_module_is_not_implemented` proves the REAL shipped default (`is_implemented=false`) blocks order creation — not just that the mechanism is correct in isolation. A second test proves an explicit franchise-level deactivation also blocks creation even once the module is implemented, and a third proves the default create-path succeeds once both `is_implemented` and an explicit activation row are set — mirroring the exact two-step reality a real admin would go through via the `/admin/modules` screen (Phase 22.1).

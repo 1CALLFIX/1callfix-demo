@@ -4,8 +4,10 @@ namespace App\Services;
 
 use App\Contracts\PaymentGateway;
 use App\Models\Booking;
+use App\Models\ParcelOrder;
 use App\Models\Payment;
 use App\Models\Setting;
+use App\Notifications\ParcelOrderStatusNotification;
 use App\Notifications\PaymentStatusNotification;
 use App\Notifications\Support\ChannelResolver;
 
@@ -35,24 +37,57 @@ class CancellationService
     {
         $booking->loadMissing('franchise');
 
-        $scope = array_filter([
-            'zone_id' => $booking->zone_id,
-            'franchise_id' => $booking->franchise_id,
-            'city_id' => $booking->franchise?->city_id,
-            'country_id' => $booking->franchise?->country_id,
-        ]);
+        return $this->calculateFeeGeneric(
+            array_filter([
+                'zone_id' => $booking->zone_id,
+                'franchise_id' => $booking->franchise_id,
+                'city_id' => $booking->franchise?->city_id,
+                'country_id' => $booking->franchise?->country_id,
+            ]),
+            $booking->created_at,
+            (float) ($booking->price_quoted ?? 0)
+        );
+    }
 
+    /**
+     * Phase 22.4 (Parcel) — the same cancellation-fee policy (free window +
+     * flat/percent fee, admin-configurable via the identical Setting keys)
+     * applied to a ParcelOrder. Extracted the genuinely shared calculation
+     * (elapsed time vs. free window, flat-or-percent, capped at the quoted
+     * price) into calculateFeeGeneric() below rather than duplicating it —
+     * unlike CommissionService, there's no Parcel-specific wrinkle here at
+     * all (no entitlement-override-equivalent exists for cancellation fees
+     * on either vertical), so a real shared private helper is the correct
+     * minimal abstraction, not a coincidence-of-names one.
+     */
+    public function calculateFeeForParcelOrder(ParcelOrder $order): float
+    {
+        $order->loadMissing('franchise');
+
+        return $this->calculateFeeGeneric(
+            array_filter([
+                'zone_id' => $order->zone_id,
+                'franchise_id' => $order->franchise_id,
+                'city_id' => $order->franchise?->city_id,
+                'country_id' => $order->franchise?->country_id,
+            ]),
+            $order->created_at,
+            (float) ($order->price_quoted ?? 0)
+        );
+    }
+
+    private function calculateFeeGeneric(array $scope, \Illuminate\Support\Carbon $createdAt, float $basis): float
+    {
         $freeMinutes = (int) Setting::get('cancellation.free_minutes', '15', $scope);
         $feeType = Setting::get('cancellation.fee_type', 'flat', $scope);
         $feeValue = (float) Setting::get('cancellation.fee_value', '0', $scope);
 
-        $elapsedMinutes = $booking->created_at->diffInMinutes(now());
+        $elapsedMinutes = $createdAt->diffInMinutes(now());
 
         if ($elapsedMinutes <= $freeMinutes) {
             return 0.0;
         }
 
-        $basis = (float) ($booking->price_quoted ?? 0);
         $fee = $feeType === 'percent' ? round($basis * $feeValue / 100, 2) : $feeValue;
 
         return round(min($fee, $basis), 2);
@@ -116,6 +151,63 @@ class CancellationService
         if ($booking->customer) {
             $channels = ChannelResolver::resolve(['zone_id' => $booking->zone_id, 'franchise_id' => $booking->franchise_id]);
             $booking->customer->notify(new PaymentStatusNotification('refunded', $booking, $channels, $refundAmount));
+        }
+    }
+
+    /**
+     * Phase 22.4 (Parcel) — the ParcelOrder counterpart to refundIfPaid()
+     * above. Kept as a separate method (not a generalized refundIfPaid(
+     * Orderable $order, ...)) because PaymentStatusNotification's own
+     * constructor is Booking-typed — generalizing that notification class
+     * too, with zero second real consumer to design its interface against
+     * beyond this one call site, would be exactly the premature
+     * abstraction Phase 22.2 already declined to do speculatively. Parcel
+     * gets its own ParcelOrderStatusNotification instead (mirrors
+     * BookingStatusNotification's shape) — see that class for the refund
+     * copy.
+     */
+    public function refundIfPaidForParcelOrder(ParcelOrder $order, float $fee): void
+    {
+        $payment = Payment::where('parcel_order_id', $order->id)
+            ->where('status', 'captured')
+            ->latest()
+            ->first();
+
+        if (!$payment) {
+            return;
+        }
+
+        $refundAmount = round(max((float) $payment->amount - $fee, 0), 2);
+
+        if ($refundAmount <= 0) {
+            return;
+        }
+
+        if ($payment->gateway === 'wallet') {
+            $this->walletService->credit(
+                $order->customer,
+                $refundAmount,
+                reason: "Refund for cancelled parcel order {$order->code}",
+                ref: "parcel_order:{$order->id}:wallet-refund"
+            );
+        } else {
+            $this->gateway->refund(
+                $payment->gateway_payment_id,
+                $refundAmount,
+                "Parcel order {$order->code} cancelled"
+            );
+        }
+
+        $payment->refunded_amount = $refundAmount;
+        $payment->status = 'refunded';
+        $payment->save();
+
+        $order->payment_status = $refundAmount >= (float) $payment->amount ? 'refunded' : 'partially_refunded';
+        $order->save();
+
+        if ($order->customer) {
+            $channels = ChannelResolver::resolve(['zone_id' => $order->zone_id, 'franchise_id' => $order->franchise_id]);
+            $order->customer->notify(new ParcelOrderStatusNotification('refunded', $order, $channels, $refundAmount));
         }
     }
 }

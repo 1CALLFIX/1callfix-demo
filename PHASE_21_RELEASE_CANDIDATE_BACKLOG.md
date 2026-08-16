@@ -1,5 +1,7 @@
 # Phase 21 — Release Candidate Hardening Backlog
 
+**Addendum (2026-08-16):** Phase 21's own backlog items are unchanged by this note. The mission continued past Phase 21 into a new numbered series (Phase 22 — platform capability audit, Module Activation Foundation, Order Engine architecture decision, Parcel) under a separate "Full Autonomous Platform Build Mission" brief — see `CURRENT_MASTER_CHECKPOINT.md`'s own commit-log entries 33 onward for that work. This document remains the authoritative record for the Phase 21 items it actually covers.
+
 **Status: PLANNING DOCUMENT ONLY. No code was changed, no production system was touched, and no business questions were asked to produce this document.** Everything below is derived from direct inspection of the actual repository (migrations, models, controllers, Livewire components, config files, tests) reconciled against the six existing audit documents. Where a document's claim couldn't be independently confirmed in code, that is stated explicitly rather than assumed.
 
 **Source documents reconciled:** `FINAL_RELEASE_READINESS_AUDIT.md`, `KNOWN_RISKS_AND_DECISIONS.md` (28 items), `CURRENT_MASTER_CHECKPOINT.md`, `FINAL_ADMIN_CAPABILITY_MATRIX.md`, `PRODUCTION_READINESS_AUDIT.md` (2026-08-12 baseline, formally superseded), plus the Phase 1–20 narrative entries inside `CURRENT_MASTER_CHECKPOINT.md §2` for anything an open item references.

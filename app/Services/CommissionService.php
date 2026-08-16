@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Booking;
 use App\Models\Commission;
 use App\Models\EntitlementBalance;
+use App\Models\ParcelOrder;
 use App\Services\Plans\EntitlementService;
 use App\Services\Plans\UsageService;
 use Illuminate\Support\Facades\DB;
@@ -111,6 +112,72 @@ class CommissionService
                         'Commission rate adjusted via '.$rateOverride['entitlement']->entitlement_type.' for booking '.$booking->code
                     );
                 }
+            }
+
+            return $commission;
+        });
+    }
+
+    /**
+     * Phase 22.4 (Parcel) — the second real Orderable implementer, per
+     * Phase 22.2's own plan. Built by extracting the smallest genuinely
+     * shared piece from applyForBooking() above (the split-calculate +
+     * commission-row + wallet-credit sequence) rather than forcing this
+     * whole class behind an `Orderable`-typed method signature: Parcel has
+     * no Plan-Entitlement commission-rate-override concept (that's a
+     * Provider/Plan-Engine specific mechanism — FieldWorkers don't hold
+     * Provider entitlements), so `applyForParcelOrder()` simply never
+     * computes one, rather than threading a permanently-null parameter
+     * through a "generalized" applyForBooking(). Idempotent the same way
+     * (a `Commission` row already existing for this parcel order is a
+     * no-op), via the new `commissions.parcel_order_id` unique constraint
+     * (migration 2026_08_17_004000) backstopping the same application-level
+     * check `applyForBooking()` already relies on.
+     */
+    public function applyForParcelOrder(ParcelOrder $order): Commission
+    {
+        $existing = Commission::where('parcel_order_id', $order->id)->first();
+        if ($existing) {
+            return $existing;
+        }
+
+        $order->loadMissing(['franchise.owner', 'assignedWorker.user']);
+        $franchise = $order->franchise;
+        $total = (float) ($order->price_final ?? $order->price_quoted);
+
+        $platformFeePercent = $franchise->platform_fee_percent;
+        $platformCommission = round($total * ($platformFeePercent / 100), 2);
+
+        $franchiseCommission = $franchise->commission_model === 'revenue_share'
+            ? round($total * ($franchise->commission_value / 100), 2)
+            : 0.0;
+
+        $workerCommission = round($total - $platformCommission - $franchiseCommission, 2);
+
+        return DB::transaction(function () use ($order, $workerCommission, $franchiseCommission, $platformCommission) {
+            $commission = Commission::create([
+                'parcel_order_id' => $order->id,
+                'provider_commission' => $workerCommission, // reusing the same column Service uses for its "earner" share -- see this method's own docblock for why this is a FieldWorker's share here, not a Provider's
+                'franchise_commission' => $franchiseCommission,
+                'platform_commission' => $platformCommission,
+            ]);
+
+            if ($order->assignedWorker && $order->assignedWorker->user && $workerCommission > 0) {
+                $this->walletService->credit(
+                    $order->assignedWorker->user,
+                    $workerCommission,
+                    reason: "Earnings for parcel order {$order->code}",
+                    ref: "parcel_order:{$order->id}:worker-earning"
+                );
+            }
+
+            if ($order->franchise && $order->franchise->owner_user_id && $franchiseCommission > 0) {
+                $this->walletService->credit(
+                    $order->franchise->owner,
+                    $franchiseCommission,
+                    reason: "Franchise revenue share for parcel order {$order->code}",
+                    ref: "parcel_order:{$order->id}:franchise-earning"
+                );
             }
 
             return $commission;

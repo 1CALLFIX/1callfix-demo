@@ -87,6 +87,16 @@ Route::middleware(['auth:sanctum', \App\Http\Middleware\EnsureNotInMaintenanceMo
     Route::post('/worker/jobs/{booking}/start', [\App\Http\Controllers\API\WorkerJobController::class, 'start']);
     Route::post('/worker/jobs/{booking}/complete', [\App\Http\Controllers\API\WorkerJobController::class, 'complete']);
     Route::post('/partner/workers/assign-booking', [\App\Http\Controllers\API\PartnerWorkerController::class, 'assignBooking']);
+
+    // Phase 22.4 — Parcel rider (FieldWorker, capability_type='parcel_rider')
+    // job flow. Same shape as WorkerJobController above. Gated end-to-end
+    // by ModuleActivationService inside CreateParcelOrderAction -- these
+    // action-execution endpoints have no orders to act on at all while the
+    // module stays disabled, since none can ever be created.
+    Route::get('/worker/parcel-orders', [\App\Http\Controllers\API\ParcelWorkerJobController::class, 'index']);
+    Route::post('/worker/parcel-orders/{parcelOrderId}/accept', [\App\Http\Controllers\API\ParcelWorkerJobController::class, 'accept']);
+    Route::post('/worker/parcel-orders/{parcelOrderId}/pickup', [\App\Http\Controllers\API\ParcelWorkerJobController::class, 'pickup']);
+    Route::post('/worker/parcel-orders/{parcelOrderId}/deliver', [\App\Http\Controllers\API\ParcelWorkerJobController::class, 'deliver']);
 });
 
 // No auth middleware — this is a server-to-server callback from Razorpay,

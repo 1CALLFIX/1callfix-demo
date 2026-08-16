@@ -23,6 +23,7 @@ namespace App\Support;
 class Modules
 {
     public const SERVICE = 'service';
+    public const PARCEL = 'parcel';
 
     /** slug => display label, in rollout order */
     public const ALL = [

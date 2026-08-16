@@ -14,6 +14,7 @@ class Payment extends Model
 
     protected $fillable = [
         'booking_id',
+        'parcel_order_id',
         'purpose',
         'user_id',
         'plan_subscription_id',
@@ -35,4 +36,6 @@ class Payment extends Model
     public function user() { return $this->belongsTo(User::class); }
     /** Only set for purpose = 'plan_subscription'. */
     public function planSubscription() { return $this->belongsTo(Subscription::class, 'plan_subscription_id'); }
+    /** Phase 22.4 -- only set for purpose = 'parcel_order', following the exact same one-column-per-purpose pattern as planSubscription() above. */
+    public function parcelOrder() { return $this->belongsTo(ParcelOrder::class); }
 }
