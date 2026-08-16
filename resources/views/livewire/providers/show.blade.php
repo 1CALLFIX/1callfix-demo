@@ -3,14 +3,9 @@
 
     <div class="flex items-center justify-between mt-2 mb-4">
         <h1 class="text-2xl font-bold">{{ $provider->user->name ?? 'Provider #'.$provider->id }}</h1>
-        <span @class([
-            'px-3 py-1.5 rounded text-sm font-medium',
-            'bg-amber-100 text-amber-700' => $provider->kyc_status === 'pending',
-            'bg-green-100 text-green-700' => $provider->kyc_status === 'approved',
-            'bg-red-100 text-red-700' => $provider->kyc_status === 'rejected',
-        ])>
+        <x-ui.badge size="lg" :color="match($provider->kyc_status) { 'pending' => 'amber', 'approved' => 'green', 'rejected' => 'red', default => 'gray' }">
             {{ ucfirst($provider->kyc_status) }}
-        </span>
+        </x-ui.badge>
     </div>
 
     @if ($flashMessage)
@@ -24,7 +19,7 @@
     @endif
 
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-        <div class="bg-white rounded-lg shadow-sm p-4">
+        <x-ui.card>
             <div class="font-semibold mb-2">Details</div>
             <dl class="text-sm space-y-1">
                 <div class="flex justify-between"><dt class="text-gray-500">Phone</dt><dd>{{ $provider->user->phone ?? '—' }}</dd></div>
@@ -33,9 +28,9 @@
                 <div class="flex justify-between"><dt class="text-gray-500">Skills (category IDs)</dt><dd>{{ implode(', ', $provider->skills ?? []) }}</dd></div>
                 <div class="flex justify-between"><dt class="text-gray-500">Applied</dt><dd>{{ app(\App\Services\TimezoneResolver::class)->format($provider->created_at, $provider->franchise, 'd M Y, h:i A') }}</dd></div>
             </dl>
-        </div>
+        </x-ui.card>
 
-        <div class="bg-white rounded-lg shadow-sm p-4">
+        <x-ui.card>
             <div class="font-semibold mb-2">Track Record</div>
             <dl class="text-sm space-y-1">
                 <div class="flex justify-between"><dt class="text-gray-500">Jobs completed</dt><dd>{{ $provider->jobs_completed }}</dd></div>
@@ -45,25 +40,25 @@
                     <dt class="text-gray-500">Ranking priority</dt>
                     <dd class="flex items-center gap-2">
                         <input type="number" min="0" max="1000" wire:model="priorityInput" class="w-20 border rounded px-2 py-1 text-sm text-right">
-                        <button type="button" wire:click="updatePriority" class="text-xs bg-slate-900 text-white px-3 py-1.5 rounded hover:bg-slate-800">Save</button>
+                        <x-ui.button size="sm" wire:click="updatePriority">Save</x-ui.button>
                     </dd>
                 </div>
                 @error('priorityInput') <p class="text-red-600 text-xs text-right">{{ $message }}</p> @enderror
             </dl>
-        </div>
+        </x-ui.card>
     </div>
 
-    <div class="bg-white rounded-lg shadow-sm p-4 mb-6">
+    <x-ui.card class="mb-6">
         <div class="flex items-center justify-between mb-2">
             <div class="font-semibold">Withdrawal eligibility</div>
-            <span @class(['px-2 py-0.5 rounded text-xs', 'bg-red-100 text-red-700' => $withdrawalRestricted, 'bg-green-100 text-green-700' => ! $withdrawalRestricted])>
+            <x-ui.badge :color="$withdrawalRestricted ? 'red' : 'green'">
                 {{ $withdrawalRestricted ? 'Restricted' : 'Eligible' }}
-            </span>
+            </x-ui.badge>
         </div>
         <p class="text-xs text-gray-400">{{ str_replace('_', ' ', $withdrawalReason) }}@if($provider->kyc_deadline_at) &middot; KYC deadline: {{ app(\App\Services\TimezoneResolver::class)->format($provider->kyc_deadline_at, $provider->franchise, 'd M Y') }}@endif</p>
-    </div>
+    </x-ui.card>
 
-    <div class="bg-white rounded-lg shadow-sm p-4 mb-6">
+    <x-ui.card class="mb-6">
         <div class="font-semibold mb-2">Submitted Documents ({{ $provider->currentDocuments->count() }})</div>
         @if ($provider->currentDocuments->isEmpty())
             <p class="text-sm text-gray-400">No documents uploaded yet.</p>
@@ -78,9 +73,9 @@
                 @endforeach
             </div>
         @endif
-    </div>
+    </x-ui.card>
 
-    <div class="bg-white rounded-lg shadow-sm p-4 mb-6">
+    <x-ui.card class="mb-6">
         <div class="font-semibold mb-2">Verification video</div>
         @if ($provider->latestVerificationVideo)
             <a href="{{ route('admin.kyc.videos.show', $provider->latestVerificationVideo->id) }}" target="_blank" class="text-sm text-blue-600 hover:underline">View submitted video</a>
@@ -88,9 +83,9 @@
         @else
             <p class="text-sm text-gray-400">No verification video submitted yet.</p>
         @endif
-    </div>
+    </x-ui.card>
 
-    <div class="bg-white rounded-lg shadow-sm p-4 mb-6">
+    <x-ui.card class="mb-6">
         <div class="font-semibold mb-2">Recent Reviews (showing last {{ $recentReviews->count() }})</div>
         @if ($recentReviews->isEmpty())
             <p class="text-sm text-gray-400">No reviews yet.</p>
@@ -113,26 +108,26 @@
                 @endforeach
             </div>
         @endif
-    </div>
+    </x-ui.card>
 
     @if ($provider->kyc_status === 'pending')
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div class="bg-white rounded-lg shadow-sm p-4">
+            <x-ui.card>
                 <div class="font-semibold mb-2 text-green-700">Approve</div>
                 <p class="text-sm text-gray-500 mb-3">Provider will be able to go online and receive job offers immediately.</p>
-                <button wire:click="approve" class="w-full bg-green-600 text-white rounded py-2 text-sm font-medium hover:bg-green-700">
+                <x-ui.button variant="success" size="lg" class="w-full" wire:click="approve">
                     Approve Provider
-                </button>
-            </div>
+                </x-ui.button>
+            </x-ui.card>
 
-            <div class="bg-white rounded-lg shadow-sm p-4">
+            <x-ui.card>
                 <div class="font-semibold mb-2 text-red-700">Reject</div>
                 <input type="text" wire:model="rejectionReason" placeholder="Reason for rejection..."
                        class="w-full border rounded px-3 py-2 text-sm mb-3">
-                <button wire:click="reject" class="w-full bg-red-600 text-white rounded py-2 text-sm font-medium hover:bg-red-700">
+                <x-ui.button variant="danger" size="lg" class="w-full" wire:click="reject">
                     Reject Provider
-                </button>
-            </div>
+                </x-ui.button>
+            </x-ui.card>
         </div>
     @endif
 </div>

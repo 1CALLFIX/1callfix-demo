@@ -2,18 +2,39 @@
 
 namespace Tests\Feature\Ui;
 
+use App\Livewire\Chat\Manage as ChatManage;
 use App\Livewire\Commissions\Index as CommissionsIndex;
 use App\Livewire\Customers\Index as CustomersIndex;
 use App\Livewire\Customers\Show as CustomersShow;
+use App\Livewire\Dashboard;
+use App\Livewire\FranchisePricing\Manage as FranchisePricingManage;
+use App\Livewire\Geography\Manage as GeographyManage;
+use App\Livewire\Kyc\SupportRequests as KycSupportRequests;
+use App\Livewire\Loyalty\Index as LoyaltyIndex;
 use App\Livewire\Payments\Index as PaymentsIndex;
+use App\Livewire\Payouts\Manage as PayoutsManage;
 use App\Livewire\Providers\Index as ProvidersIndex;
+use App\Livewire\Providers\Show as ProvidersShow;
+use App\Livewire\Subscriptions\Index as SubscriptionsIndex;
 use App\Livewire\WalletLedger\Index as WalletLedgerIndex;
 use App\Livewire\Workers\Index as WorkersIndex;
+use App\Livewire\Workers\Show as WorkersShow;
+use App\Models\ChatMessage;
 use App\Models\Commission;
+use App\Models\Country;
+use App\Models\EntitlementBalance;
+use App\Models\LoyaltyPoint;
 use App\Models\Payment;
+use App\Models\Payout;
+use App\Models\Plan;
+use App\Models\PlanEntitlement;
+use App\Models\Referral;
+use App\Models\Subscription;
+use App\Models\User;
 use App\Models\Wallet;
 use App\Models\WalletTransaction;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Str;
 use Livewire\Livewire;
 use Tests\Feature\Rbac\RbacTestHelpers;
 use Tests\Feature\Support\BookingFixtureHelpers;
@@ -211,5 +232,250 @@ class AdminScreensDesignSystemMigrationTest extends TestCase
         $component->set('purposeFilter', 'booking')
             ->assertSee($scenario['booking']->code)
             ->assertDontSee($topupOrderId);
+    }
+
+    // ========================================================================
+    // Second increment (2026-08-16) -- 10 more screens: FranchisePricing\
+    // Manage, Kyc\SupportRequests, Chat\Manage, Subscriptions\Index,
+    // Dashboard, Geography\Manage, Workers\Show, Loyalty\Index, Providers\
+    // Show, Payouts\Manage. Payouts\Manage is also the first real screen to
+    // wire x-ui.modal (the "Mark Paid" transfer-reference confirmation,
+    // previously an inline table-row input with no cancel affordance).
+    // ========================================================================
+
+    // --- FranchisePricing\Manage -----------------------------------------
+
+    public function test_franchise_pricing_manage_renders_service_row_and_save_button_is_wired(): void
+    {
+        $scenario = $this->makeBookingScenario();
+        $admin = $this->makeSuperAdmin();
+
+        $component = Livewire::actingAs($admin)->test(FranchisePricingManage::class, ['franchiseId' => $scenario['franchise']->id]);
+        $component->assertSee($scenario['service']->name)
+            ->assertSeeHtml('wire:click="saveRow('.$scenario['service']->id.')"');
+    }
+
+    // --- Kyc\SupportRequests -----------------------------------------------
+
+    public function test_kyc_support_requests_renders_open_request_and_decide_actions_are_wired(): void
+    {
+        $scenario = $this->makeBookingScenario();
+        $request = \App\Models\KycSupportRequest::create([
+            'provider_id' => $scenario['provider']->id, 'franchise_id' => $scenario['franchise']->id,
+            'raised_by' => $scenario['provider']->user_id, 'reason' => 'Needs urgent withdrawal',
+            'urgency' => 'high', 'status' => 'open',
+        ]);
+        $admin = $this->makeSuperAdmin();
+
+        $component = Livewire::actingAs($admin)->test(KycSupportRequests::class);
+        $component->assertSee('Needs urgent withdrawal')
+            ->assertSee('High urgency');
+
+        // Key interaction: "Decide" is a real wire:click, and the three
+        // decision buttons that appear afterward reach the real decide()
+        // method with the real request id + outcome.
+        $component->call('startDeciding', $request->id)
+            ->assertSeeHtml('wire:click="decide('.$request->id.", 'approved')\"");
+    }
+
+    // --- Chat\Manage ---------------------------------------------------------
+
+    public function test_chat_manage_renders_conversation_list_and_view_opens_the_real_thread(): void
+    {
+        $scenario = $this->makeBookingScenario('assigned');
+        ChatMessage::create([
+            'booking_id' => $scenario['booking']->id, 'sender_id' => $scenario['customer']->id,
+            'receiver_id' => $scenario['provider']->user_id, 'message' => 'Distinctive chat text',
+        ]);
+        $admin = $this->makeSuperAdmin();
+
+        $component = Livewire::actingAs($admin)->test(ChatManage::class);
+        $component->assertSee($scenario['booking']->code);
+
+        // Key interaction: selectBooking() is real, row-authorized, and
+        // switches the same component into the thread view showing the
+        // real message.
+        $component->call('selectBooking', $scenario['booking']->id)
+            ->assertSee('Distinctive chat text');
+    }
+
+    // --- Subscriptions\Index ------------------------------------------------
+
+    public function test_subscriptions_index_renders_active_subscription_and_status_filter_switches_results(): void
+    {
+        $customer = $this->makeCustomer();
+        $plan = Plan::create([
+            'name' => 'Test Plan', 'slug' => 'test-plan-'.uniqid(),
+            'plan_family' => 'customer_membership', 'scope_type' => 'global',
+            'eligible_actor_type' => 'customer', 'billing_cycle' => 'monthly',
+            'price' => 199, 'stacking_strategy' => 'exclusive', 'is_active' => true,
+        ]);
+        $entitlement = PlanEntitlement::create([
+            'plan_id' => $plan->id, 'entitlement_type' => 'monetary_allowance',
+            'monetary_value' => 500, 'usage_period' => 'monthly',
+            'consumption_trigger' => 'booking_created', 'rollover_policy' => 'none',
+        ]);
+        $subscription = Subscription::create([
+            'subscribable_type' => User::class, 'subscribable_id' => $customer->id,
+            'plan_id' => $plan->id, 'status' => 'active',
+            'current_period_start' => now(), 'current_period_end' => now()->addMonth(),
+        ]);
+        EntitlementBalance::create([
+            'subscription_id' => $subscription->id, 'plan_entitlement_id' => $entitlement->id,
+            'period_start' => now(), 'period_end' => now()->addMonth(),
+            'granted_monetary_value' => 500, 'status' => 'current',
+        ]);
+        $admin = $this->makeSuperAdmin();
+
+        $component = Livewire::actingAs($admin)->test(SubscriptionsIndex::class);
+        $component->assertSee('active')
+            ->assertSeeHtml('wire:click="pause('.$subscription->id.')"');
+
+        // Key interaction: the status filter narrows the result set.
+        $component->set('statusFilter', 'cancelled')
+            ->assertDontSee($customer->name);
+    }
+
+    // --- Dashboard -------------------------------------------------------
+
+    public function test_dashboard_renders_pipeline_and_period_switch_still_calls_setPeriod(): void
+    {
+        $scenario = $this->makeBookingScenario('completed');
+        $scenario['booking']->update(['price_final' => 777]);
+        $admin = $this->makeSuperAdmin();
+
+        $component = Livewire::actingAs($admin)->test(Dashboard::class);
+        $component->assertSee($scenario['booking']->code);
+
+        // Key interaction: the period tab buttons are real wire:click
+        // actions reaching the real setPeriod() method.
+        $component->call('setPeriod', 'month');
+        $this->assertSame('month', $component->get('period'));
+    }
+
+    // --- Geography\Manage ----------------------------------------------------
+
+    public function test_geography_manage_renders_country_and_toggle_active_reaches_real_method(): void
+    {
+        $country = Country::create(['name' => 'Zzyx Country', 'code' => 'ZZ', 'currency_code' => 'ZZZ', 'default_timezone' => 'UTC', 'is_active' => true]);
+        $admin = $this->makeSuperAdmin();
+
+        $component = Livewire::actingAs($admin)->test(GeographyManage::class);
+        $component->assertSee('Zzyx Country')
+            ->assertSee('active');
+
+        // Key interaction: the toggle button is a real wire:click reaching
+        // toggleCountryActive(), which actually flips real DB state.
+        $component->call('toggleCountryActive', $country->id);
+
+        $this->assertFalse($country->fresh()->is_active);
+        $component->assertSee('inactive');
+    }
+
+    // --- Workers\Show --------------------------------------------------------
+
+    public function test_workers_show_renders_details_card_and_toggle_active_reaches_real_method(): void
+    {
+        $scenario = $this->makeBookingScenario();
+        $worker = $this->makeFieldWorkerIn($scenario['franchise'], $scenario['zone']);
+        $admin = $this->makeSuperAdmin();
+
+        $component = Livewire::actingAs($admin)->test(WorkersShow::class, ['workerId' => $worker->id]);
+        $component->assertSee($worker->user->phone)
+            ->assertSee('Active');
+
+        // Key interaction: the x-ui.button wired to toggleActive() still
+        // calls the real Livewire method and flips real DB state.
+        $component->call('toggleActive');
+
+        $this->assertFalse($worker->fresh()->is_active);
+        $component->assertSee('Inactive');
+    }
+
+    // --- Loyalty\Index -------------------------------------------------------
+
+    public function test_loyalty_index_renders_points_tab_and_referrals_tab_flag_action_is_wired(): void
+    {
+        $scenario = $this->makeBookingScenario();
+        LoyaltyPoint::create(['user_id' => $scenario['customer']->id, 'points' => 25, 'reason' => 'booking_completed']);
+        $referred = $this->makeCustomer();
+        $referral = Referral::create(['referrer_id' => $scenario['customer']->id, 'referred_id' => $referred->id, 'status' => 'pending']);
+        $admin = $this->makeSuperAdmin();
+
+        $component = Livewire::actingAs($admin)->test(LoyaltyIndex::class);
+        $component->assertSee('25');
+
+        // Key interaction: switching tabs is a real wire:click reaching
+        // setTab(), and the "Flag as fraud" ghost button on the referrals
+        // tab is wired to the real startFlagging() method.
+        $component->call('setTab', 'referrals')
+            ->assertSeeHtml('wire:click="startFlagging('.$referral->id.')"');
+    }
+
+    // --- Providers\Show ------------------------------------------------------
+
+    public function test_providers_show_renders_details_card_and_priority_save_is_wired(): void
+    {
+        $scenario = $this->makeBookingScenario();
+        $admin = $this->makeSuperAdmin();
+
+        $component = Livewire::actingAs($admin)->test(ProvidersShow::class, ['providerId' => $scenario['provider']->id]);
+        $component->assertSee($scenario['provider']->user->phone)
+            ->assertSeeHtml('wire:click="updatePriority"');
+    }
+
+    // --- Payouts\Manage (also the first real x-ui.modal wiring) -----------
+
+    public function test_payouts_manage_renders_pending_payout_and_mark_paid_modal_reaches_the_same_methods(): void
+    {
+        $scenario = $this->makeBookingScenario();
+        $payout = Payout::create([
+            'payee_type' => 'provider', 'payee_id' => $scenario['provider']->id,
+            'amount' => 500, 'status' => 'pending',
+            'period_start' => now()->subDays(7), 'period_end' => now(),
+        ]);
+        $admin = $this->makeSuperAdmin();
+
+        $component = Livewire::actingAs($admin)->test(PayoutsManage::class);
+        $component->assertSee('500.00', false)
+            ->assertSee('pending');
+
+        // Key interaction: startMarkPaid() opens the same modal-driven
+        // flow the inline input used to (identical method/property names
+        // -- RowLevelScopeAuthorizationTest calls these directly and is
+        // unaffected), and confirmMarkPaid() still moves the real payout
+        // to 'paid' via PayoutService.
+        $component->call('startMarkPaid', $payout->id)
+            ->assertSet('markingPaidId', $payout->id)
+            ->assertSeeHtml('wire:click="confirmMarkPaid"')
+            ->set('gatewayRefInput', 'TXN-999')
+            ->call('confirmMarkPaid');
+
+        $this->assertSame('paid', $payout->fresh()->status);
+        $component->assertSet('markingPaidId', null);
+    }
+
+    public function test_payouts_manage_mark_paid_modal_cancel_is_wired_and_resets_state(): void
+    {
+        $scenario = $this->makeBookingScenario();
+        $payout = Payout::create([
+            'payee_type' => 'provider', 'payee_id' => $scenario['provider']->id,
+            'amount' => 500, 'status' => 'pending',
+            'period_start' => now()->subDays(7), 'period_end' => now(),
+        ]);
+        $admin = $this->makeSuperAdmin();
+
+        $component = Livewire::actingAs($admin)->test(PayoutsManage::class)
+            ->call('startMarkPaid', $payout->id)
+            ->assertSet('markingPaidId', $payout->id);
+
+        // Key interaction: the modal's Cancel button and its backdrop/X
+        // (both wired to the same $onClose="cancelMarkPaid") reach the new
+        // cancelMarkPaid() method, closing the modal without mutating the
+        // payout.
+        $component->call('cancelMarkPaid')
+            ->assertSet('markingPaidId', null);
+
+        $this->assertSame('pending', $payout->fresh()->status);
     }
 }

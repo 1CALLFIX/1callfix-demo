@@ -8,7 +8,7 @@
         </div>
     @endif
 
-    <div class="bg-white rounded-lg shadow-sm p-4 mb-6">
+    <x-ui.card class="mb-6">
         <h2 class="text-sm font-semibold mb-3">New Country</h2>
         <div class="flex flex-wrap items-end gap-3">
             <div>
@@ -31,44 +31,43 @@
                 <input type="text" wire:model="defaultTimezone" placeholder="Asia/Kolkata" class="w-40 border rounded px-3 py-2 text-sm">
                 @error('defaultTimezone') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
             </div>
-            <button type="button" wire:click="saveCountry" class="bg-slate-900 text-white px-6 h-[38px] rounded text-sm font-medium hover:bg-slate-800">Add Country</button>
+            <x-ui.button class="h-[38px]" wire:click="saveCountry">Add Country</x-ui.button>
         </div>
-    </div>
+    </x-ui.card>
 
-    <div class="bg-white rounded-lg shadow-sm overflow-hidden">
-        <table class="w-full text-sm">
-            <thead class="bg-gray-50 text-left text-gray-500">
-                <tr>
-                    <th class="px-4 py-2">Country</th>
-                    <th class="px-4 py-2">Code</th>
-                    <th class="px-4 py-2">Currency</th>
-                    <th class="px-4 py-2">Timezone</th>
-                    <th class="px-4 py-2">Cities</th>
-                    <th class="px-4 py-2">Franchises</th>
-                    <th class="px-4 py-2">Status</th>
-                    <th class="px-4 py-2 text-right">Actions</th>
+    <x-ui.table>
+        <thead class="bg-gray-50 text-left text-gray-500">
+            <tr>
+                <th class="px-4 py-2">Country</th>
+                <th class="px-4 py-2">Code</th>
+                <th class="px-4 py-2">Currency</th>
+                <th class="px-4 py-2">Timezone</th>
+                <th class="px-4 py-2">Cities</th>
+                <th class="px-4 py-2">Franchises</th>
+                <th class="px-4 py-2">Status</th>
+                <th class="px-4 py-2 text-right">Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            @forelse ($countries as $country)
+                <tr class="border-t hover:bg-gray-50" wire:key="country-{{ $country->id }}">
+                    <td class="px-4 py-2 font-medium">{{ $country->name }}</td>
+                    <td class="px-4 py-2 font-mono">{{ $country->code }}</td>
+                    <td class="px-4 py-2">{{ $country->currency_code }}</td>
+                    <td class="px-4 py-2 text-gray-500">{{ $country->default_timezone }}</td>
+                    <td class="px-4 py-2">{{ $country->cities_count }}</td>
+                    <td class="px-4 py-2">{{ $country->franchises_count }}</td>
+                    <td class="px-4 py-2">
+                        <x-ui.badge :color="$country->is_active ? 'green' : 'gray'">
+                            {{ $country->is_active ? 'active' : 'inactive' }}
+                        </x-ui.badge>
+                    </td>
+                    <td class="px-4 py-2 text-right whitespace-nowrap">
+                        <x-ui.button variant="ghost" class="mr-3" wire:click="expand({{ $country->id }})">{{ $expandedCountryId === $country->id ? 'Hide cities' : 'Cities' }}</x-ui.button>
+                        <x-ui.button variant="ghost" color="gray" class="mr-3" wire:click="toggleCountryActive({{ $country->id }})">{{ $country->is_active ? 'Deactivate' : 'Activate' }}</x-ui.button>
+                        <x-ui.button variant="ghost" color="red" wire:click="deleteCountry({{ $country->id }})" wire:confirm="Delete this country?">Delete</x-ui.button>
+                    </td>
                 </tr>
-            </thead>
-            <tbody>
-                @forelse ($countries as $country)
-                    <tr class="border-t hover:bg-gray-50" wire:key="country-{{ $country->id }}">
-                        <td class="px-4 py-2 font-medium">{{ $country->name }}</td>
-                        <td class="px-4 py-2 font-mono">{{ $country->code }}</td>
-                        <td class="px-4 py-2">{{ $country->currency_code }}</td>
-                        <td class="px-4 py-2 text-gray-500">{{ $country->default_timezone }}</td>
-                        <td class="px-4 py-2">{{ $country->cities_count }}</td>
-                        <td class="px-4 py-2">{{ $country->franchises_count }}</td>
-                        <td class="px-4 py-2">
-                            <span @class(['px-2 py-0.5 rounded text-xs', 'bg-green-100 text-green-700' => $country->is_active, 'bg-gray-100 text-gray-500' => !$country->is_active])>
-                                {{ $country->is_active ? 'active' : 'inactive' }}
-                            </span>
-                        </td>
-                        <td class="px-4 py-2 text-right whitespace-nowrap">
-                            <button type="button" wire:click="expand({{ $country->id }})" class="text-xs text-blue-600 hover:underline mr-3">{{ $expandedCountryId === $country->id ? 'Hide cities' : 'Cities' }}</button>
-                            <button type="button" wire:click="toggleCountryActive({{ $country->id }})" class="text-xs text-gray-600 hover:underline mr-3">{{ $country->is_active ? 'Deactivate' : 'Activate' }}</button>
-                            <button type="button" wire:click="deleteCountry({{ $country->id }})" wire:confirm="Delete this country?" class="text-xs text-red-600 hover:underline">Delete</button>
-                        </td>
-                    </tr>
                     @if ($expandedCountryId === $country->id)
                         <tr class="border-t bg-gray-50" wire:key="country-{{ $country->id }}-cities">
                             <td colspan="8" class="px-4 py-4">
@@ -81,8 +80,8 @@
                                                 <td class="pr-3 py-1">{{ $city->franchises_count }}</td>
                                                 <td class="pr-3 py-1">{{ $city->is_active ? 'active' : 'inactive' }}</td>
                                                 <td class="pr-3 py-1 text-right whitespace-nowrap">
-                                                    <button type="button" wire:click="toggleCityActive({{ $city->id }})" class="text-blue-600 hover:underline mr-2">{{ $city->is_active ? 'Deactivate' : 'Activate' }}</button>
-                                                    <button type="button" wire:click="deleteCity({{ $city->id }})" wire:confirm="Delete this city?" class="text-red-600 hover:underline">Delete</button>
+                                                    <x-ui.button variant="ghost" class="mr-2" wire:click="toggleCityActive({{ $city->id }})">{{ $city->is_active ? 'Deactivate' : 'Activate' }}</x-ui.button>
+                                                    <x-ui.button variant="ghost" color="red" wire:click="deleteCity({{ $city->id }})" wire:confirm="Delete this city?">Delete</x-ui.button>
                                                 </td>
                                             </tr>
                                         @empty
@@ -96,7 +95,7 @@
                                         <input type="text" wire:model="cityName" class="border rounded px-2 py-1.5 text-xs w-48">
                                         @error('cityName') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
                                     </div>
-                                    <button type="button" wire:click="saveCity" class="bg-slate-900 text-white px-4 h-8 rounded text-xs font-medium hover:bg-slate-800">Add City</button>
+                                    <x-ui.button size="sm" wire:click="saveCity">Add City</x-ui.button>
                                 </div>
                             </td>
                         </tr>
@@ -105,6 +104,5 @@
                     <tr><td colspan="8" class="px-4 py-6 text-center text-gray-400">No countries yet.</td></tr>
                 @endforelse
             </tbody>
-        </table>
-    </div>
+    </x-ui.table>
 </div>

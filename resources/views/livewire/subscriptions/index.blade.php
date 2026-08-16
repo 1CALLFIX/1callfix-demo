@@ -22,36 +22,37 @@
         </select>
     </div>
 
-    <div class="bg-white rounded-lg shadow-sm overflow-hidden">
-        <table class="w-full text-sm">
-            <thead class="bg-gray-50 text-left text-gray-500">
-                <tr>
-                    <th class="px-4 py-2">Subscriber</th>
-                    <th class="px-4 py-2">Plan</th>
-                    <th class="px-4 py-2">Status</th>
-                    <th class="px-4 py-2">Period end</th>
-                    <th class="px-4 py-2">Balances</th>
-                    <th class="px-4 py-2 text-right">Actions</th>
-                </tr>
-            </thead>
-            <tbody>
-                @forelse ($subscriptions as $s)
-                    <tr class="border-t hover:bg-gray-50 align-top" wire:key="sub-{{ $s->id }}">
-                        <td class="px-4 py-2">{{ $s->display_label }}</td>
-                        <td class="px-4 py-2">{{ $s->plan?->name ?? '—' }}</td>
-                        <td class="px-4 py-2">
-                            <span @class([
-                                'px-2 py-0.5 rounded text-xs',
-                                'bg-gray-100 text-gray-700' => $s->status === 'pending_payment',
-                                'bg-green-100 text-green-700' => in_array($s->status, ['active']),
-                                'bg-amber-100 text-amber-700' => in_array($s->status, ['grace_period', 'past_due', 'paused']),
-                                'bg-red-100 text-red-700' => in_array($s->status, ['expired', 'failed']),
-                                'bg-slate-100 text-slate-700' => $s->status === 'cancelled',
-                            ])>{{ str_replace('_', ' ', $s->status) }}</span>
-                            @if ($s->cancelled_at && $s->status === 'active')
-                                <span class="text-xs text-gray-400 block">cancels at period end</span>
-                            @endif
-                        </td>
+    <x-ui.table>
+        <x-slot:footer>{{ $subscriptions->links() }}</x-slot:footer>
+
+        <thead class="bg-gray-50 text-left text-gray-500">
+            <tr>
+                <th class="px-4 py-2">Subscriber</th>
+                <th class="px-4 py-2">Plan</th>
+                <th class="px-4 py-2">Status</th>
+                <th class="px-4 py-2">Period end</th>
+                <th class="px-4 py-2">Balances</th>
+                <th class="px-4 py-2 text-right">Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            @forelse ($subscriptions as $s)
+                <tr class="border-t hover:bg-gray-50 align-top" wire:key="sub-{{ $s->id }}">
+                    <td class="px-4 py-2">{{ $s->display_label }}</td>
+                    <td class="px-4 py-2">{{ $s->plan?->name ?? '—' }}</td>
+                    <td class="px-4 py-2">
+                        <x-ui.badge :color="match(true) {
+                            $s->status === 'pending_payment' => 'gray',
+                            in_array($s->status, ['active']) => 'green',
+                            in_array($s->status, ['grace_period', 'past_due', 'paused']) => 'amber',
+                            in_array($s->status, ['expired', 'failed']) => 'red',
+                            $s->status === 'cancelled' => 'slate',
+                            default => 'gray',
+                        }">{{ str_replace('_', ' ', $s->status) }}</x-ui.badge>
+                        @if ($s->cancelled_at && $s->status === 'active')
+                            <span class="text-xs text-gray-400 block">cancels at period end</span>
+                        @endif
+                    </td>
                         <td class="px-4 py-2 text-gray-500">{{ $s->current_period_end ? app(\App\Services\TimezoneResolver::class)->format($s->current_period_end, $s->subscribable?->franchise, 'Y-m-d') : '—' }}</td>
                         <td class="px-4 py-2">
                             @forelse ($s->entitlementBalances as $b)
@@ -75,12 +76,12 @@
                         </td>
                         <td class="px-4 py-2 text-right whitespace-nowrap">
                             @if ($s->status === 'active')
-                                <button type="button" wire:click="pause({{ $s->id }})" class="text-xs text-gray-600 hover:underline mr-2">Pause</button>
-                                <button type="button" wire:click="cancel({{ $s->id }})" wire:confirm="Cancel this subscription at period end?" class="text-xs text-red-600 hover:underline">Cancel</button>
+                                <x-ui.button variant="ghost" color="gray" class="mr-2" wire:click="pause({{ $s->id }})">Pause</x-ui.button>
+                                <x-ui.button variant="ghost" color="red" wire:click="cancel({{ $s->id }})" wire:confirm="Cancel this subscription at period end?">Cancel</x-ui.button>
                             @elseif ($s->status === 'paused')
-                                <button type="button" wire:click="resume({{ $s->id }})" class="text-xs text-green-600 hover:underline">Resume</button>
+                                <x-ui.button variant="ghost" color="green" wire:click="resume({{ $s->id }})">Resume</x-ui.button>
                             @elseif (in_array($s->status, ['past_due', 'grace_period', 'expired']))
-                                <button type="button" wire:click="renewNow({{ $s->id }})" class="text-xs text-blue-600 hover:underline">Renew now</button>
+                                <x-ui.button variant="ghost" wire:click="renewNow({{ $s->id }})">Renew now</x-ui.button>
                             @endif
                         </td>
                     </tr>
@@ -88,7 +89,5 @@
                     <tr><td colspan="6" class="px-4 py-6 text-center text-gray-400">No subscriptions yet.</td></tr>
                 @endforelse
             </tbody>
-        </table>
-        <div class="px-4 py-3 border-t">{{ $subscriptions->links() }}</div>
-    </div>
+    </x-ui.table>
 </div>

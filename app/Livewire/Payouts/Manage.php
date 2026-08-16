@@ -155,6 +155,20 @@ class Manage extends Component
         $this->gatewayRefInput = '';
     }
 
+    /**
+     * Phase 21 item TECH-6 (second increment). Additive -- the inline
+     * "mark paid" input never had a cancel affordance before the modal
+     * migration (startMarkPaid() was the only way in, confirmMarkPaid()
+     * the only way out). Wired onto x-ui.modal's $onClose (backdrop click
+     * and the X button) plus the modal's own Cancel button. Resets the
+     * same two properties startMarkPaid() itself resets -- no new state.
+     */
+    public function cancelMarkPaid(): void
+    {
+        $this->markingPaidId = null;
+        $this->gatewayRefInput = '';
+    }
+
     public function confirmMarkPaid(PayoutService $service): void
     {
         $payout = Payout::findOrFail($this->markingPaidId);

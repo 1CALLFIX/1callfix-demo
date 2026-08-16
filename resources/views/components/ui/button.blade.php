@@ -3,6 +3,7 @@
     'size' => 'md',
     'type' => 'button',
     'href' => null,
+    'color' => null,
 ])
 
 {{--
@@ -18,6 +19,15 @@
     instead of a <button> when $href is given, for screens that link to a
     show/detail page rather than firing a Livewire action — same classes
     either way so the two look identical.
+
+    Second increment (more screens migrated): $color is an optional
+    text-color override, meaningful only for variant="ghost" — several
+    unmigrated screens use the identical underline-text-link shape for
+    non-blue row actions (Geography\Manage's red "Delete", Loyalty\Index's
+    red "Flag as fraud", Payouts\Manage's green "Verify"/red "Mark Failed"),
+    not just the blue "View"/"Review" links the first increment covered.
+    Omitting $color keeps every existing ghost caller's blue text unchanged
+    — purely additive, no prior call site is affected.
 --}}
 
 @php
@@ -25,7 +35,15 @@
         'primary' => 'bg-slate-900 text-white hover:bg-slate-800 focus-visible:outline-slate-900',
         'secondary' => 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50 focus-visible:outline-gray-400',
         'danger' => 'bg-red-600 text-white hover:bg-red-700 focus-visible:outline-red-600',
+        'success' => 'bg-green-600 text-white hover:bg-green-700 focus-visible:outline-green-600',
         'ghost' => 'bg-transparent text-blue-600 hover:underline px-0 py-0 font-normal',
+    ];
+
+    $ghostColors = [
+        'blue' => 'text-blue-600 hover:underline',
+        'red' => 'text-red-600 hover:underline',
+        'green' => 'text-green-600 hover:underline',
+        'gray' => 'text-gray-600 hover:underline',
     ];
 
     $sizes = [
@@ -39,7 +57,9 @@
     $ghostTextSizes = ['sm' => 'text-xs', 'md' => 'text-sm', 'lg' => 'text-sm'];
 
     $base = 'inline-flex items-center justify-center gap-1.5 rounded font-medium transition disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2';
-    $variantClass = $variants[$variant] ?? $variants['primary'];
+    $variantClass = $variant === 'ghost'
+        ? 'bg-transparent px-0 py-0 font-normal '.($ghostColors[$color] ?? $ghostColors['blue'])
+        : ($variants[$variant] ?? $variants['primary']);
     $sizeClass = $variant === 'ghost'
         ? ($ghostTextSizes[$size] ?? $ghostTextSizes['md'])
         : ($sizes[$size] ?? $sizes['md']);

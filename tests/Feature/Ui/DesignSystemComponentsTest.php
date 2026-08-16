@@ -35,7 +35,22 @@ class DesignSystemComponentsTest extends TestCase
     {
         $this->blade('<x-ui.button variant="secondary">X</x-ui.button>')->assertSee('border-gray-300', false);
         $this->blade('<x-ui.button variant="danger">X</x-ui.button>')->assertSee('bg-red-600', false);
+        $this->blade('<x-ui.button variant="success">X</x-ui.button>')->assertSee('bg-green-600', false);
         $this->blade('<x-ui.button variant="ghost">X</x-ui.button>')->assertSee('hover:underline', false);
+    }
+
+    /**
+     * Second increment (more screens migrated) — $color is an optional
+     * text-color override for variant="ghost" only, additive to the first
+     * increment's fixed-blue ghost. Omitting it keeps every existing ghost
+     * call site's blue text unchanged (the second assertion below).
+     */
+    public function test_ghost_button_color_override_covers_non_blue_row_actions(): void
+    {
+        $this->blade('<x-ui.button variant="ghost" color="red">Delete</x-ui.button>')->assertSee('text-red-600', false);
+        $this->blade('<x-ui.button variant="ghost" color="green">Verify</x-ui.button>')->assertSee('text-green-600', false);
+        $this->blade('<x-ui.button variant="ghost" color="gray">Deactivate</x-ui.button>')->assertSee('text-gray-600', false);
+        $this->blade('<x-ui.button variant="ghost">View</x-ui.button>')->assertSee('text-blue-600', false);
     }
 
     public function test_button_renders_as_an_anchor_when_href_is_given(): void
