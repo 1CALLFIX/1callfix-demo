@@ -18,7 +18,7 @@
     </div>
 
     @if ($section === 'compose')
-        <div class="bg-white rounded-lg shadow-sm p-4 mb-6 space-y-4">
+        <x-ui.card class="mb-6 space-y-4">
             <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
                 <div>
                     <label class="block text-xs font-medium mb-1">Category</label>
@@ -57,7 +57,7 @@
                             @foreach ($templates as $t) <option value="{{ $t->id }}">{{ $t->name }}</option> @endforeach
                         </select>
                     </div>
-                    <button type="button" wire:click="applyTemplate" class="border rounded px-4 h-[38px] text-sm hover:bg-gray-50">Apply</button>
+                    <x-ui.button variant="secondary" wire:click="applyTemplate" class="h-[38px]">Apply</x-ui.button>
                 </div>
             @endif
 
@@ -207,17 +207,17 @@
 
             <div class="flex justify-end gap-2 pt-2">
                 @if ($scheduledAt)
-                    <button type="button" wire:click="scheduleSend" class="bg-slate-900 text-white px-6 py-2 rounded text-sm font-medium hover:bg-slate-800">Schedule</button>
+                    <x-ui.button wire:click="scheduleSend">Schedule</x-ui.button>
                 @else
-                    <button type="button" wire:click="sendNow" class="bg-slate-900 text-white px-6 py-2 rounded text-sm font-medium hover:bg-slate-800">Send Now</button>
+                    <x-ui.button wire:click="sendNow">Send Now</x-ui.button>
                 @endif
             </div>
-        </div>
+        </x-ui.card>
     @endif
 
     @if ($section === 'campaigns')
-        <div class="bg-white rounded-lg shadow-sm overflow-hidden">
-            <table class="w-full text-sm">
+        <x-ui.table>
+            <x-slot:footer>{{ $campaigns->links() }}</x-slot:footer>
                 <thead class="bg-gray-50 text-left text-gray-500">
                     <tr>
                         <th class="px-4 py-2">Title</th>
@@ -238,22 +238,25 @@
                             <td class="px-4 py-2 text-gray-500">{{ $c->recipient_type }} / {{ $c->scope_type }}</td>
                             <td class="px-4 py-2 text-gray-500">{{ $c->channels }}</td>
                             <td class="px-4 py-2">
-                                <span @class([
-                                    'px-2 py-0.5 rounded text-xs',
-                                    'bg-gray-100 text-gray-700' => in_array($c->status, ['draft']),
-                                    'bg-blue-100 text-blue-700' => in_array($c->status, ['scheduled', 'sending']),
-                                    'bg-green-100 text-green-700' => $c->status === 'sent',
-                                    'bg-red-100 text-red-700' => in_array($c->status, ['failed', 'cancelled']),
-                                ])>{{ $c->status }}</span>
+                                @php
+                                    $campaignBadgeColor = match (true) {
+                                        in_array($c->status, ['draft']) => 'gray',
+                                        in_array($c->status, ['scheduled', 'sending']) => 'blue',
+                                        $c->status === 'sent' => 'green',
+                                        in_array($c->status, ['failed', 'cancelled']) => 'red',
+                                        default => 'gray',
+                                    };
+                                @endphp
+                                <x-ui.badge :color="$campaignBadgeColor">{{ $c->status }}</x-ui.badge>
                             </td>
                             <td class="px-4 py-2">{{ $c->recipient_count }}</td>
                             <td class="px-4 py-2 text-gray-500">{{ $c->sent_at?->diffForHumans() ?? $c->scheduled_at?->diffForHumans() ?? $c->created_at->diffForHumans() }}</td>
                             <td class="px-4 py-2 text-right">
                                 @if (in_array($c->status, ['draft', 'scheduled']))
-                                    <button type="button" wire:click="cancelCampaign({{ $c->id }})" class="text-xs text-red-600 hover:underline">Cancel</button>
+                                    <x-ui.button variant="ghost" color="red" wire:click="cancelCampaign({{ $c->id }})">Cancel</x-ui.button>
                                 @endif
                                 @if ($c->status === 'sent')
-                                    <button type="button" wire:click="resendFailed({{ $c->id }})" wire:confirm="Resend to every currently-failed recipient?" class="text-xs text-amber-600 hover:underline">Resend failed</button>
+                                    <x-ui.button variant="ghost" color="amber" wire:click="resendFailed({{ $c->id }})" wire:confirm="Resend to every currently-failed recipient?">Resend failed</x-ui.button>
                                 @endif
                             </td>
                         </tr>
@@ -261,13 +264,11 @@
                         <tr><td colspan="8" class="px-4 py-6 text-center text-gray-400">No campaigns yet.</td></tr>
                     @endforelse
                 </tbody>
-            </table>
-            <div class="px-4 py-3 border-t">{{ $campaigns->links() }}</div>
-        </div>
+        </x-ui.table>
     @endif
 
     @if ($section === 'meetings')
-        <div class="bg-white rounded-lg shadow-sm p-4 mb-6 space-y-3">
+        <x-ui.card class="mb-6 space-y-3">
             <h2 class="text-sm font-semibold">Schedule a Meeting / Announcement</h2>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div>
@@ -331,12 +332,12 @@
                 </div>
             </div>
             <div class="flex justify-end pt-2">
-                <button type="button" wire:click="createMeeting" class="bg-slate-900 text-white px-6 py-2 rounded text-sm font-medium hover:bg-slate-800">Schedule Meeting</button>
+                <x-ui.button wire:click="createMeeting">Schedule Meeting</x-ui.button>
             </div>
-        </div>
+        </x-ui.card>
 
-        <div class="bg-white rounded-lg shadow-sm overflow-hidden">
-            <table class="w-full text-sm">
+        <x-ui.table>
+            <x-slot:footer>{{ $meetings->links() }}</x-slot:footer>
                 <thead class="bg-gray-50 text-left text-gray-500">
                     <tr>
                         <th class="px-4 py-2">Title</th>
@@ -361,14 +362,12 @@
                         <tr><td colspan="6" class="px-4 py-6 text-center text-gray-400">No meetings scheduled yet.</td></tr>
                     @endforelse
                 </tbody>
-            </table>
-            <div class="px-4 py-3 border-t">{{ $meetings->links() }}</div>
-        </div>
+        </x-ui.table>
     @endif
 
     @if ($section === 'templates')
         @if ($canManageTemplates)
-            <div class="bg-white rounded-lg shadow-sm p-4 mb-6">
+            <x-ui.card class="mb-6">
                 <h2 class="text-sm font-semibold text-gray-500 uppercase mb-3">{{ $editingTemplateId ? 'Edit template' : 'New template' }}</h2>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
                     <div><label class="block text-xs font-medium mb-1">Key (unique, machine-readable)</label><input type="text" wire:model="templateKey" class="w-full border rounded px-3 py-2 text-sm">@error('templateKey')<p class="text-red-600 text-xs mt-1">{{ $message }}</p>@enderror</div>
@@ -378,14 +377,13 @@
                     <div class="md:col-span-2"><label class="block text-xs font-medium mb-1">Description</label><input type="text" wire:model="templateDescription" class="w-full border rounded px-3 py-2 text-sm"></div>
                 </div>
                 <div class="flex justify-end gap-2 pt-4 mt-4 border-t">
-                    @if ($editingTemplateId)<button type="button" wire:click="startEditingTemplate" class="text-sm text-gray-500">Cancel edit</button>@endif
-                    <button type="button" wire:click="saveTemplate" class="bg-slate-900 text-white px-6 py-2 rounded text-sm font-medium hover:bg-slate-800">{{ $editingTemplateId ? 'Update' : 'Create' }} Template</button>
+                    @if ($editingTemplateId)<x-ui.button variant="ghost" color="gray" wire:click="startEditingTemplate">Cancel edit</x-ui.button>@endif
+                    <x-ui.button wire:click="saveTemplate">{{ $editingTemplateId ? 'Update' : 'Create' }} Template</x-ui.button>
                 </div>
-            </div>
+            </x-ui.card>
         @endif
 
-        <div class="bg-white rounded-lg shadow-sm overflow-hidden">
-            <table class="w-full text-sm">
+        <x-ui.table>
                 <thead class="bg-gray-50 text-left text-gray-500"><tr><th class="px-4 py-2">Key</th><th class="px-4 py-2">Name</th><th class="px-4 py-2">Title template</th><th class="px-4 py-2 text-right">Actions</th></tr></thead>
                 <tbody>
                     @forelse ($templates as $t)
@@ -395,8 +393,8 @@
                             <td class="px-4 py-2 text-gray-500">{{ \Illuminate\Support\Str::limit($t->title_template, 60) }}</td>
                             <td class="px-4 py-2 text-right">
                                 @if ($canManageTemplates)
-                                    <button type="button" wire:click="startEditingTemplate({{ $t->id }})" class="text-xs text-blue-600 hover:underline mr-3">Edit</button>
-                                    <button type="button" wire:click="deleteTemplate({{ $t->id }})" wire:confirm="Delete this template?" class="text-xs text-red-600 hover:underline">Delete</button>
+                                    <x-ui.button variant="ghost" class="mr-3" wire:click="startEditingTemplate({{ $t->id }})">Edit</x-ui.button>
+                                    <x-ui.button variant="ghost" color="red" wire:click="deleteTemplate({{ $t->id }})" wire:confirm="Delete this template?">Delete</x-ui.button>
                                 @endif
                             </td>
                         </tr>
@@ -404,8 +402,7 @@
                         <tr><td colspan="4" class="px-4 py-6 text-center text-gray-400">No templates yet.</td></tr>
                     @endforelse
                 </tbody>
-            </table>
-        </div>
+        </x-ui.table>
     @endif
 
     @if ($section === 'logs')
@@ -422,8 +419,8 @@
                     <option value="">All statuses</option><option value="sent">Sent</option><option value="failed">Failed</option>
                 </select>
             </div>
-            <div class="bg-white rounded-lg shadow-sm overflow-hidden">
-                <table class="w-full text-sm">
+            <x-ui.table>
+                <x-slot:footer>{{ $logs->links() }}</x-slot:footer>
                     <thead class="bg-gray-50 text-left text-gray-500"><tr><th class="px-4 py-2">Recipient</th><th class="px-4 py-2">Channel</th><th class="px-4 py-2">Type / Event</th><th class="px-4 py-2">Status</th><th class="px-4 py-2">Error</th><th class="px-4 py-2">Sent</th></tr></thead>
                     <tbody>
                         @forelse ($logs as $l)
@@ -432,7 +429,7 @@
                                 <td class="px-4 py-2 text-gray-500">{{ $l->channel }}</td>
                                 <td class="px-4 py-2 text-gray-500">{{ $l->notification_type }} / {{ $l->event }}</td>
                                 <td class="px-4 py-2">
-                                    <span @class(['px-2 py-0.5 rounded text-xs', 'bg-green-100 text-green-700' => $l->status === 'sent', 'bg-red-100 text-red-700' => $l->status === 'failed'])>{{ $l->status }}</span>
+                                    <x-ui.badge :color="$l->status === 'sent' ? 'green' : 'red'">{{ $l->status }}</x-ui.badge>
                                 </td>
                                 <td class="px-4 py-2 text-red-500 text-xs">{{ \Illuminate\Support\Str::limit($l->error, 60) }}</td>
                                 <td class="px-4 py-2 text-gray-500 whitespace-nowrap">{{ $l->sent_at?->diffForHumans() ?? $l->created_at->diffForHumans() }}</td>
@@ -441,36 +438,32 @@
                             <tr><td colspan="6" class="px-4 py-6 text-center text-gray-400">No delivery logs match your filters.</td></tr>
                         @endforelse
                     </tbody>
-                </table>
-                <div class="px-4 py-3 border-t">{{ $logs->links() }}</div>
-            </div>
+            </x-ui.table>
         @endif
     @endif
 
     @if ($section === 'status')
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div class="bg-white rounded-lg shadow-sm p-4">
-                <h2 class="text-sm font-semibold text-gray-500 uppercase mb-3">Provider bindings</h2>
+            <x-ui.card title="Provider bindings">
                 <p class="text-xs text-gray-400 mb-3">Which adapter is actually wired up right now. No credentials are ever shown here.</p>
                 <dl class="text-sm space-y-2">
                     <div class="flex justify-between items-center">
                         <dt>SMS</dt>
                         <dd class="flex items-center gap-2">
                             {{ $providerStatus['sms_adapter'] }}
-                            @if ($providerStatus['sms_is_log_fallback'])<span class="px-2 py-0.5 rounded text-xs bg-amber-100 text-amber-700">Dev/log fallback — not real delivery</span>@else<span class="px-2 py-0.5 rounded text-xs bg-green-100 text-green-700">Real provider bound</span>@endif
+                            @if ($providerStatus['sms_is_log_fallback'])<x-ui.badge color="amber">Dev/log fallback — not real delivery</x-ui.badge>@else<x-ui.badge color="green">Real provider bound</x-ui.badge>@endif
                         </dd>
                     </div>
                     <div class="flex justify-between items-center">
                         <dt>Push</dt>
                         <dd class="flex items-center gap-2">
                             {{ $providerStatus['push_adapter'] }}
-                            @if ($providerStatus['push_is_log_fallback'])<span class="px-2 py-0.5 rounded text-xs bg-amber-100 text-amber-700">Dev/log fallback — not real delivery</span>@else<span class="px-2 py-0.5 rounded text-xs bg-green-100 text-green-700">Real provider bound</span>@endif
+                            @if ($providerStatus['push_is_log_fallback'])<x-ui.badge color="amber">Dev/log fallback — not real delivery</x-ui.badge>@else<x-ui.badge color="green">Real provider bound</x-ui.badge>@endif
                         </dd>
                     </div>
                 </dl>
-            </div>
-            <div class="bg-white rounded-lg shadow-sm p-4">
-                <h2 class="text-sm font-semibold text-gray-500 uppercase mb-3">Delivery stats (last 30 days)</h2>
+            </x-ui.card>
+            <x-ui.card title="Delivery stats (last 30 days)">
                 <table class="w-full text-sm">
                     <thead class="text-left text-gray-500"><tr><th class="py-1">Channel</th><th class="py-1">Sent</th><th class="py-1">Failed</th></tr></thead>
                     <tbody>
@@ -481,7 +474,7 @@
                         @endforelse
                     </tbody>
                 </table>
-            </div>
+            </x-ui.card>
         </div>
     @endif
 </div>

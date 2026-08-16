@@ -1,4 +1,4 @@
-@php
+﻿@php
     $realTabs = [
         'general_system' => 'General / System',
         'dispatch' => 'Dispatch',
@@ -38,7 +38,7 @@
          drilling into a Country/City/Franchise/Zone makes the five real
          tabs below read/write an override at exactly that scope, falling
          back to whatever's set broader when nothing's overridden here. --}}
-    <div class="bg-white rounded-lg shadow-sm p-4 mb-4 max-w-3xl">
+    <x-ui.card class="mb-4 max-w-3xl">
         <label class="block text-xs font-medium mb-2">Scope</label>
         <div class="flex flex-wrap gap-2 mb-3">
             @foreach (['global' => 'Global', 'country' => 'Country', 'city' => 'City', 'franchise' => 'Franchise', 'zone' => 'Zone'] as $key => $label)
@@ -90,7 +90,7 @@
                 Fields below show the effective value — this scope's own override, or inherited from a broader one. Saving writes an override at exactly this scope; it never changes the broader value.
             </p>
         @endif
-    </div>
+    </x-ui.card>
 
     {{-- Tab bar — real tabs first, then placeholders (greyed, "soon" tag),
          so the full eventual shape of a mature settings hub is visible
@@ -114,7 +114,7 @@
         @endforeach
     </div>
 
-    <div class="bg-white rounded-lg shadow-sm p-4 max-w-3xl">
+    <x-ui.card class="max-w-3xl">
 
         {{-- General / System — Maintenance Mode gates the booking API routes
              (accept/complete/pay) via EnsureNotInMaintenanceMode. Scope-aware:
@@ -131,7 +131,7 @@
                 @error('systemMaintenanceMode') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
             </div>
             <div class="flex justify-end pt-4 mt-4 border-t">
-                <button type="button" wire:click="saveGeneralSystem" class="bg-slate-900 text-white px-6 py-2 rounded text-sm font-medium hover:bg-slate-800">Save General / System Settings</button>
+                <x-ui.button wire:click="saveGeneralSystem">Save General / System Settings</x-ui.button>
             </div>
 
         {{-- Dispatch — feeds ServiceMatchingJob's tuning values directly. --}}
@@ -164,7 +164,7 @@
                 </div>
             </div>
             <div class="flex justify-end pt-4 mt-4 border-t">
-                <button type="button" wire:click="saveDispatch" class="bg-slate-900 text-white px-6 py-2 rounded text-sm font-medium hover:bg-slate-800">Save Dispatch Settings</button>
+                <x-ui.button wire:click="saveDispatch">Save Dispatch Settings</x-ui.button>
             </div>
 
         {{-- Commission Defaults — pre-fills Franchises' Add New form. --}}
@@ -192,7 +192,7 @@
                 </div>
             </div>
             <div class="flex justify-end pt-4 mt-4 border-t">
-                <button type="button" wire:click="saveCommission" class="bg-slate-900 text-white px-6 py-2 rounded text-sm font-medium hover:bg-slate-800">Save Commission Defaults</button>
+                <x-ui.button wire:click="saveCommission">Save Commission Defaults</x-ui.button>
             </div>
 
         {{-- Booking — OTP generators (AcceptBookingAction, AdminReassignBookingAction)
@@ -212,7 +212,7 @@
                 </div>
             </div>
             <div class="flex justify-end pt-4 mt-4 border-t">
-                <button type="button" wire:click="saveBooking" class="bg-slate-900 text-white px-6 py-2 rounded text-sm font-medium hover:bg-slate-800">Save Booking Settings</button>
+                <x-ui.button wire:click="saveBooking">Save Booking Settings</x-ui.button>
             </div>
 
         {{-- Refund / Cancellation — real consumer: CancellationService,
@@ -241,7 +241,7 @@
                 </div>
             </div>
             <div class="flex justify-end pt-4 mt-4 border-t">
-                <button type="button" wire:click="saveCancellation" class="bg-slate-900 text-white px-6 py-2 rounded text-sm font-medium hover:bg-slate-800">Save Refund / Cancellation Settings</button>
+                <x-ui.button wire:click="saveCancellation">Save Refund / Cancellation Settings</x-ui.button>
             </div>
 
         {{-- Payment — which methods the New Booking modal offers, plus the
@@ -260,9 +260,9 @@
                 </div>
                 <div>
                     <div class="text-xs text-gray-400 mb-0.5">Status</div>
-                    <span @class(['px-2 py-0.5 rounded text-xs', 'bg-green-100 text-green-700' => $paymentGatewayConfigured, 'bg-red-100 text-red-700' => ! $paymentGatewayConfigured])>
+                    <x-ui.badge :color="$paymentGatewayConfigured ? 'green' : 'red'">
                         {{ $paymentGatewayConfigured ? 'Configured' : 'Not configured' }}
-                    </span>
+                    </x-ui.badge>
                 </div>
                 @if ($paymentGatewayMaskedKey)
                     <div>
@@ -297,7 +297,7 @@
             </div>
             @error('paymentOnlineEnabled') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
             <div class="flex justify-end pt-4 mt-4 border-t">
-                <button type="button" wire:click="savePayment" class="bg-slate-900 text-white px-6 py-2 rounded text-sm font-medium hover:bg-slate-800">Save Payment Settings</button>
+                <x-ui.button wire:click="savePayment">Save Payment Settings</x-ui.button>
             </div>
 
         {{-- Wallet — customer top-up limits (WalletTopUpService), provider min-balance-to-accept-jobs (AcceptBookingAction), payout min/max (PayoutService). --}}
@@ -374,7 +374,7 @@
             </div>
 
             <div class="flex justify-end pt-4 mt-4 border-t">
-                <button type="button" wire:click="saveWallet" class="bg-slate-900 text-white px-6 py-2 rounded text-sm font-medium hover:bg-slate-800">Save Wallet Settings</button>
+                <x-ui.button wire:click="saveWallet">Save Wallet Settings</x-ui.button>
             </div>
 
         {{-- Priority / Ranking — governs provider ordering in DispatchService::findCandidates() and GET /api/providers/nearby. "Riders" use the same Provider rows. --}}
@@ -460,7 +460,7 @@
             @endif
 
             <div class="flex justify-end pt-4 mt-4 border-t">
-                <button type="button" wire:click="saveRanking" class="bg-slate-900 text-white px-6 py-2 rounded text-sm font-medium hover:bg-slate-800">Save Ranking Settings</button>
+                <x-ui.button wire:click="saveRanking">Save Ranking Settings</x-ui.button>
             </div>
 
         {{-- Loyalty / Referral — real consumers: App\Services\LoyaltyService (CompleteBookingAction), App\Services\ReferralService. Values below are development defaults, not approved commercial numbers. --}}
@@ -528,7 +528,7 @@
             </div>
 
             <div class="flex justify-end pt-4 mt-4 border-t">
-                <button type="button" wire:click="saveLoyalty" class="bg-slate-900 text-white px-6 py-2 rounded text-sm font-medium hover:bg-slate-800">Save Loyalty / Referral Settings</button>
+                <x-ui.button wire:click="saveLoyalty">Save Loyalty / Referral Settings</x-ui.button>
             </div>
 
         {{-- KYC — real consumers: KycWithdrawalPolicyService (withdrawal
@@ -568,7 +568,7 @@
                 </div>
             </div>
             <div class="flex justify-end pt-4 mt-4 border-t">
-                <button type="button" wire:click="saveKyc" class="bg-slate-900 text-white px-6 py-2 rounded text-sm font-medium hover:bg-slate-800">Save KYC Settings</button>
+                <x-ui.button wire:click="saveKyc">Save KYC Settings</x-ui.button>
             </div>
 
         {{-- Compensation — real consumer: CompensationService, wired into
@@ -649,7 +649,7 @@
                 </div>
             </div>
             <div class="flex justify-end pt-4 mt-4 border-t">
-                <button type="button" wire:click="saveCompensation" class="bg-slate-900 text-white px-6 py-2 rounded text-sm font-medium hover:bg-slate-800">Save Compensation Settings</button>
+                <x-ui.button wire:click="saveCompensation">Save Compensation Settings</x-ui.button>
             </div>
 
         {{-- Security / OTP — real consumers: OtpService, QrChallengeService.
@@ -685,7 +685,7 @@
                 </div>
             </div>
             <div class="flex justify-end pt-4 mt-4 border-t">
-                <button type="button" wire:click="saveSecurity" class="bg-slate-900 text-white px-6 py-2 rounded text-sm font-medium hover:bg-slate-800">Save Security / OTP Settings</button>
+                <x-ui.button wire:click="saveSecurity">Save Security / OTP Settings</x-ui.button>
             </div>
 
         {{-- Operations — real consumers: StuckBookingService,
@@ -726,7 +726,7 @@
                 </div>
             </div>
             <div class="flex justify-end pt-4 mt-4 border-t">
-                <button type="button" wire:click="saveOperations" class="bg-slate-900 text-white px-6 py-2 rounded text-sm font-medium hover:bg-slate-800">Save Operations Settings</button>
+                <x-ui.button wire:click="saveOperations">Save Operations Settings</x-ui.button>
             </div>
 
         {{-- Subscriptions — real consumer: RenewalService (past-due grace
@@ -742,7 +742,7 @@
                 </div>
             </div>
             <div class="flex justify-end pt-4 mt-4 border-t">
-                <button type="button" wire:click="saveSubscriptions" class="bg-slate-900 text-white px-6 py-2 rounded text-sm font-medium hover:bg-slate-800">Save Subscription Settings</button>
+                <x-ui.button wire:click="saveSubscriptions">Save Subscription Settings</x-ui.button>
             </div>
 
         {{-- Notifications — which channels App\Notifications\Support\ChannelResolver hands back to every dispatch site. --}}
@@ -764,7 +764,7 @@
             </div>
             @if ($scoped) <p class="text-xs text-gray-400 mt-2"><x-setting-override-badge :overridden="in_array('notifications.channels', $this->overriddenKeys)" setting-key="notifications.channels" /></p> @endif
             <div class="flex justify-end pt-4 mt-4 border-t">
-                <button type="button" wire:click="saveNotifications" class="bg-slate-900 text-white px-6 py-2 rounded text-sm font-medium hover:bg-slate-800">Save Notification Settings</button>
+                <x-ui.button wire:click="saveNotifications">Save Notification Settings</x-ui.button>
             </div>
 
         {{-- Locale & Currency — the ₹ symbol shown across every admin money field. --}}
@@ -778,7 +778,7 @@
                 </div>
             </div>
             <div class="flex justify-end pt-4 mt-4 border-t">
-                <button type="button" wire:click="saveLocale" class="bg-slate-900 text-white px-6 py-2 rounded text-sm font-medium hover:bg-slate-800">Save Locale Settings</button>
+                <x-ui.button wire:click="saveLocale">Save Locale Settings</x-ui.button>
             </div>
 
         {{-- Platform / Branding — admin header, <title>, login page. --}}
@@ -797,7 +797,7 @@
                 </div>
             </div>
             <div class="flex justify-end pt-4 mt-4 border-t">
-                <button type="button" wire:click="saveBranding" class="bg-slate-900 text-white px-6 py-2 rounded text-sm font-medium hover:bg-slate-800">Save Branding Settings</button>
+                <x-ui.button wire:click="saveBranding">Save Branding Settings</x-ui.button>
             </div>
 
         {{-- Maps — real, but read-only: the API key is a credential and stays
@@ -805,11 +805,7 @@
         @elseif ($activeTab === 'maps')
             <p class="text-xs text-gray-400 mb-3">Google Maps JS API key lives in <code>.env</code> (<code>GOOGLE_MAPS_API_KEY</code>) — a credential, so it's shown here as status only, never as an editable field.</p>
             <div class="flex items-center gap-3">
-                <span @class([
-                    'px-2 py-1 rounded text-xs font-medium',
-                    'bg-green-100 text-green-700' => $mapsConfigured,
-                    'bg-red-100 text-red-700' => ! $mapsConfigured,
-                ])>{{ $mapsConfigured ? 'Configured' : 'Not configured' }}</span>
+                <x-ui.badge size="lg" :color="$mapsConfigured ? 'green' : 'red'">{{ $mapsConfigured ? 'Configured' : 'Not configured' }}</x-ui.badge>
                 <span class="text-xs text-gray-500">Used by: Zones' boundary map, the New Booking modal's address picker</span>
             </div>
             @unless ($mapsConfigured)
@@ -823,11 +819,7 @@
         @elseif ($activeTab === 'websocket')
             <p class="text-xs text-gray-400 mb-3">BROADCAST_CONNECTION lives in <code>.env</code> — shown here as status only. <code>BookingStatusUpdated</code> and <code>NewJobOffered</code> (<code>app/Events/</code>) both implement <code>ShouldBroadcast</code> with real private channels (<code>booking.&#123;id&#125;</code>, <code>provider.&#123;id&#125;.new-job</code>) and payloads today — what's missing is a connected realtime service to actually deliver them.</p>
             <div class="flex items-center gap-3">
-                <span @class([
-                    'px-2 py-1 rounded text-xs font-medium',
-                    'bg-green-100 text-green-700' => ! in_array($broadcastDriver, ['log', 'null']),
-                    'bg-amber-100 text-amber-700' => in_array($broadcastDriver, ['log', 'null']),
-                ])>Driver: {{ $broadcastDriver }}</span>
+                <x-ui.badge size="lg" :color="in_array($broadcastDriver, ['log', 'null']) ? 'amber' : 'green'">Driver: {{ $broadcastDriver }}</x-ui.badge>
                 @if (in_array($broadcastDriver, ['log', 'null']))
                     <span class="text-xs text-gray-500">Events fire and get logged, but nothing is actually pushed over a websocket connection yet.</span>
                 @endif
@@ -840,7 +832,7 @@
             <p class="text-xs text-gray-400 mb-3">Pages and FAQs are records to manage, not settings to toggle — they live on their own screen, following the same pattern as Categories/Zones.</p>
             <div class="flex items-center gap-4">
                 <span class="text-sm">{{ $cmsPageCount }} {{ \Illuminate\Support\Str::plural('page', $cmsPageCount) }}, {{ $cmsFaqCount }} {{ \Illuminate\Support\Str::plural('FAQ', $cmsFaqCount) }}</span>
-                <a href="{{ route('admin.cms.index') }}" class="bg-slate-900 text-white px-4 py-2 rounded text-sm font-medium hover:bg-slate-800">Open Website / CMS →</a>
+                <x-ui.button href="{{ route('admin.cms.index') }}">Open Website / CMS →</x-ui.button>
             </div>
 
         {{-- Not built yet — no inputs, since nothing in the app reads a
@@ -852,5 +844,5 @@
                 <p class="text-xs text-gray-400 mt-2 max-w-md mx-auto">{{ $placeholder['note'] }}</p>
             </div>
         @endif
-    </div>
+    </x-ui.card>
 </div>

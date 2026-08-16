@@ -5,10 +5,10 @@
             <h1 class="text-2xl font-bold mt-1">SubCategories</h1>
         </div>
         <div class="flex gap-2 text-sm">
-            <button type="button" wire:click="exportSubcategories" class="px-3 py-1.5 border border-gray-300 rounded text-xs hover:bg-gray-50">Export</button>
-            <button type="button" wire:click="toggleImport" class="px-3 py-1.5 border border-gray-300 rounded text-xs hover:bg-gray-50">
+            <x-ui.button variant="secondary" size="sm" wire:click="exportSubcategories">Export</x-ui.button>
+            <x-ui.button variant="secondary" size="sm" wire:click="toggleImport">
                 {{ $showImport ? 'Cancel Import' : 'Import' }}
-            </button>
+            </x-ui.button>
         </div>
     </div>
 
@@ -35,7 +35,7 @@
     @endif
 
     {{-- Add New — one line, pinned at the top, list updates live below it. --}}
-    <div class="bg-white rounded-lg shadow-sm p-4 mb-6">
+    <x-ui.card class="mb-6">
         <h2 class="text-sm font-semibold mb-3">Add New SubCategory</h2>
         <div class="flex flex-wrap items-end gap-3">
             <div class="w-28">
@@ -70,9 +70,7 @@
             <label class="inline-flex items-center gap-2 text-sm h-[38px]">
                 <input type="checkbox" wire:model="isActive" class="rounded"> Active
             </label>
-            <button wire:click="save" class="bg-slate-900 text-white px-6 h-[38px] rounded text-sm font-medium hover:bg-slate-800">
-                + Add
-            </button>
+            <x-ui.button wire:click="save" class="h-[38px] px-6">+ Add</x-ui.button>
         </div>
 
         @if ($errors->hasAny(['name', 'iconFile', 'categoryId']))
@@ -88,7 +86,7 @@
                 No categories exist yet — <a href="{{ route('admin.categories.index') }}" class="underline">create one first</a>, a subcategory has to sit under one.
             </p>
         @endif
-    </div>
+    </x-ui.card>
 
     {{-- List controls: reorder / search / filters / per-page --}}
     <div class="flex items-center gap-2 mb-3 flex-wrap">
@@ -168,9 +166,9 @@
         </div>
     @endif
 
-    <div class="bg-white rounded-lg shadow-sm overflow-hidden">
-        <table class="w-full text-sm">
-            <thead class="bg-gray-50 text-left text-gray-500">
+    <x-ui.table>
+        <x-slot:footer>{{ $subcategories->links() }}</x-slot:footer>
+        <thead class="bg-gray-50 text-left text-gray-500">
                 <tr>
                     <th class="px-4 py-2 w-12">SL</th>
                     <th class="px-4 py-2 w-20">
@@ -279,22 +277,10 @@
                     </td></tr>
                 @endforelse
             </tbody>
-        </table>
-    </div>
-
-    <div class="mt-4">
-        {{ $subcategories->links() }}
-    </div>
+    </x-ui.table>
 
     {{-- Edit modal — a Livewire boolean flag, not a separate route. --}}
-    @if ($showEditModal)
-        <div class="fixed inset-0 bg-black/40 flex items-center justify-center z-40 p-4" wire:click.self="closeEditModal">
-            <div class="bg-white rounded-lg shadow-lg w-full max-w-lg p-6">
-                <div class="flex items-center justify-between mb-4">
-                    <h3 class="text-lg font-bold">Edit SubCategory</h3>
-                    <button type="button" wire:click="closeEditModal" class="text-gray-400 hover:text-gray-600">✕</button>
-                </div>
-
+    <x-ui.modal :show="$showEditModal" title="Edit SubCategory" onClose="closeEditModal" maxWidth="lg">
                 <div class="space-y-4">
                     <div>
                         <label class="block text-sm font-medium mb-1">Name <span class="text-red-500">*</span></label>
@@ -343,32 +329,24 @@
                 </div>
 
                 <div class="flex justify-end gap-2 pt-6">
-                    <button type="button" wire:click="closeEditModal" class="px-4 py-2 border border-gray-300 rounded text-sm hover:bg-gray-50">Close</button>
-                    <button type="button" wire:click="update" class="bg-slate-900 text-white px-6 py-2 rounded text-sm font-medium hover:bg-slate-800">Update</button>
+                    <x-ui.button variant="secondary" wire:click="closeEditModal">Close</x-ui.button>
+                    <x-ui.button wire:click="update">Update</x-ui.button>
                 </div>
-            </div>
-        </div>
-    @endif
+    </x-ui.modal>
 
     {{-- Delete confirmation --}}
-    @if ($confirmingDeleteId)
-        <div class="fixed inset-0 bg-black/40 flex items-center justify-center z-40 p-4" wire:click.self="cancelDelete">
-            <div class="bg-white rounded-lg shadow-lg w-full max-w-md p-6">
-                <h3 class="text-lg font-bold mb-2">Delete subcategory?</h3>
-
+    <x-ui.modal :show="(bool) $confirmingDeleteId" title="Delete subcategory?" onClose="cancelDelete">
                 @if ($deleteBlockedReason)
                     <p class="text-sm text-gray-600 mb-4">{{ $deleteBlockedReason }}</p>
                     <div class="flex justify-end">
-                        <button type="button" wire:click="cancelDelete" class="px-4 py-2 border border-gray-300 rounded text-sm hover:bg-gray-50">Close</button>
+                        <x-ui.button variant="secondary" wire:click="cancelDelete">Close</x-ui.button>
                     </div>
                 @else
                     <p class="text-sm text-gray-600 mb-4">This can't be undone.</p>
                     <div class="flex justify-end gap-2">
-                        <button type="button" wire:click="cancelDelete" class="px-4 py-2 border border-gray-300 rounded text-sm hover:bg-gray-50">Cancel</button>
-                        <button type="button" wire:click="deleteSubcategory" class="bg-red-600 text-white px-6 py-2 rounded text-sm font-medium hover:bg-red-700">Delete</button>
+                        <x-ui.button variant="secondary" wire:click="cancelDelete">Cancel</x-ui.button>
+                        <x-ui.button variant="danger" wire:click="deleteSubcategory">Delete</x-ui.button>
                     </div>
                 @endif
-            </div>
-        </div>
-    @endif
+    </x-ui.modal>
 </div>

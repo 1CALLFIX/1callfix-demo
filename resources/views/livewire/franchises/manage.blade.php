@@ -1,8 +1,8 @@
 @php
-    $statusStyles = [
-        'active' => 'bg-green-100 text-green-700',
-        'inactive' => 'bg-gray-100 text-gray-600',
-        'pending_setup' => 'bg-amber-100 text-amber-700',
+    $statusBadgeColors = [
+        'active' => 'green',
+        'inactive' => 'gray',
+        'pending_setup' => 'amber',
     ];
 @endphp
 
@@ -16,7 +16,7 @@
     @error('permission') <div class="bg-red-50 text-red-700 rounded p-3 mb-4 text-sm">{{ $message }}</div> @enderror
 
     {{-- Add New — pinned at the top, list updates live below it. --}}
-    <div class="bg-white rounded-lg shadow-sm p-4 mb-6">
+    <x-ui.card class="mb-6">
         <h2 class="text-sm font-semibold mb-3">Add New Franchise</h2>
 
         <div class="flex flex-wrap items-end gap-3">
@@ -48,12 +48,12 @@
                 <label class="block text-xs font-medium mb-1">State</label>
                 <input type="text" wire:model="state" class="w-full border rounded px-3 py-2 text-sm">
             </div>
-            <button type="button" wire:click="toggleNewCountryForm" class="text-xs text-blue-600 hover:underline h-[38px]">
+            <x-ui.button variant="ghost" class="h-[38px]" wire:click="toggleNewCountryForm">
                 {{ $showNewCountryForm ? 'Cancel' : '+ New country' }}
-            </button>
-            <button type="button" wire:click="toggleNewCityForm" class="text-xs text-blue-600 hover:underline h-[38px]">
+            </x-ui.button>
+            <x-ui.button variant="ghost" class="h-[38px]" wire:click="toggleNewCityForm">
                 {{ $showNewCityForm ? 'Cancel' : '+ New city' }}
-            </button>
+            </x-ui.button>
         </div>
 
         @if ($showNewCountryForm)
@@ -74,9 +74,7 @@
                     <input type="text" wire:model="newCountryTimezone" placeholder="Timezone" class="w-full border rounded px-3 py-2 text-sm">
                     @error('newCountryTimezone') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
                 </div>
-                <button type="button" wire:click="createCountry" class="bg-slate-900 text-white px-4 h-[38px] rounded text-xs font-medium hover:bg-slate-800">
-                    Create country
-                </button>
+                <x-ui.button size="sm" class="h-[38px]" wire:click="createCountry">Create country</x-ui.button>
             </div>
         @endif
 
@@ -86,9 +84,7 @@
                     <input type="text" wire:model="newCityName" placeholder="City name" class="w-full border rounded px-3 py-2 text-sm">
                     @error('newCityName') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
                 </div>
-                <button type="button" wire:click="createCity" class="bg-slate-900 text-white px-4 h-[38px] rounded text-xs font-medium hover:bg-slate-800">
-                    Create city
-                </button>
+                <x-ui.button size="sm" class="h-[38px]" wire:click="createCity">Create city</x-ui.button>
             </div>
         @endif
 
@@ -118,9 +114,7 @@
                 </select>
             </div>
 
-            <button wire:click="save" class="bg-slate-900 text-white px-6 h-[38px] rounded text-sm font-medium hover:bg-slate-800 ml-auto">
-                + Add
-            </button>
+            <x-ui.button wire:click="save" class="h-[38px] px-6 ml-auto">+ Add</x-ui.button>
         </div>
 
         <p class="text-xs text-gray-400 mt-2">
@@ -135,7 +129,7 @@
                 @endforeach
             </div>
         @endif
-    </div>
+    </x-ui.card>
 
     {{-- List controls --}}
     <div class="flex items-center gap-2 mb-3 flex-wrap">
@@ -248,9 +242,9 @@
                             @endif
                         </td>
                         <td class="px-4 py-2">
-                            <span @class(['px-2 py-1 rounded text-xs font-medium', $statusStyles[$franchise->status] ?? 'bg-gray-100 text-gray-600'])>
+                            <x-ui.badge :color="$statusBadgeColors[$franchise->status] ?? 'gray'">
                                 {{ str_replace('_', ' ', $franchise->status) }}
-                            </span>
+                            </x-ui.badge>
                         </td>
                         <td class="px-4 py-2">
                             <div class="flex items-center gap-1.5 justify-end">
@@ -324,20 +318,14 @@
     {{-- View details modal --}}
     @if ($showViewModal && $this->viewingFranchise)
         @php $f = $this->viewingFranchise; @endphp
-        <div class="fixed inset-0 bg-black/40 flex items-center justify-center z-40 p-4 overflow-y-auto" wire:click.self="closeViewModal">
-            <div class="bg-white rounded-lg shadow-lg w-full max-w-lg p-6 my-8">
-                <div class="flex items-center justify-between mb-4">
-                    <h3 class="text-lg font-bold">Franchise Details</h3>
-                    <button type="button" wire:click="closeViewModal" class="text-gray-400 hover:text-gray-600">✕</button>
-                </div>
-
+        <x-ui.modal :show="true" title="Franchise Details" onClose="closeViewModal" maxWidth="lg">
                 <div class="space-y-4 text-sm">
                     <div class="flex items-center gap-3">
                         <p class="font-semibold text-base">{{ $f->name }}</p>
                         <span class="font-mono text-xs text-gray-500">{{ $f->code }}</span>
-                        <span @class(['px-2 py-0.5 rounded text-xs font-medium', $statusStyles[$f->status] ?? 'bg-gray-100'])>
+                        <x-ui.badge :color="$statusBadgeColors[$f->status] ?? 'gray'">
                             {{ str_replace('_', ' ', $f->status) }}
-                        </span>
+                        </x-ui.badge>
                     </div>
 
                     <div class="grid grid-cols-2 gap-4">
@@ -375,22 +363,15 @@
                 </div>
 
                 <div class="flex justify-end gap-2 pt-6">
-                    <button type="button" wire:click="edit({{ $f->id }})" class="px-4 py-2 border border-gray-300 rounded text-sm hover:bg-gray-50">Edit</button>
-                    <button type="button" wire:click="closeViewModal" class="bg-slate-900 text-white px-6 py-2 rounded text-sm font-medium hover:bg-slate-800">Close</button>
+                    <x-ui.button variant="secondary" wire:click="edit({{ $f->id }})">Edit</x-ui.button>
+                    <x-ui.button wire:click="closeViewModal">Close</x-ui.button>
                 </div>
-            </div>
-        </div>
+        </x-ui.modal>
     @endif
 
     {{-- Edit modal --}}
     @if ($showEditModal)
-        <div class="fixed inset-0 bg-black/40 flex items-center justify-center z-40 p-4 overflow-y-auto" wire:click.self="closeEditModal">
-            <div class="bg-white rounded-lg shadow-lg w-full max-w-2xl p-6 my-8">
-                <div class="flex items-center justify-between mb-4">
-                    <h3 class="text-lg font-bold">Edit Franchise</h3>
-                    <button type="button" wire:click="closeEditModal" class="text-gray-400 hover:text-gray-600">✕</button>
-                </div>
-
+        <x-ui.modal :show="true" title="Edit Franchise" onClose="closeEditModal" maxWidth="2xl">
                 <div class="space-y-4">
                     <div class="grid grid-cols-2 gap-4">
                         <div>
@@ -432,12 +413,12 @@
                     </div>
 
                     <div class="flex gap-4">
-                        <button type="button" wire:click="toggleEditNewCountryForm" class="text-xs text-blue-600 hover:underline">
+                        <x-ui.button variant="ghost" wire:click="toggleEditNewCountryForm">
                             {{ $showEditNewCountryForm ? 'Cancel' : '+ New country' }}
-                        </button>
-                        <button type="button" wire:click="toggleEditNewCityForm" class="text-xs text-blue-600 hover:underline">
+                        </x-ui.button>
+                        <x-ui.button variant="ghost" wire:click="toggleEditNewCityForm">
                             {{ $showEditNewCityForm ? 'Cancel' : '+ New city' }}
-                        </button>
+                        </x-ui.button>
                     </div>
 
                     @if ($showEditNewCountryForm)
@@ -458,9 +439,7 @@
                                 <input type="text" wire:model="editNewCountryTimezone" placeholder="Timezone" class="w-full border rounded px-3 py-2 text-sm">
                                 @error('editNewCountryTimezone') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
                             </div>
-                            <button type="button" wire:click="createEditCountry" class="bg-slate-900 text-white px-4 h-[38px] rounded text-xs font-medium hover:bg-slate-800">
-                                Create country
-                            </button>
+                            <x-ui.button size="sm" class="h-[38px]" wire:click="createEditCountry">Create country</x-ui.button>
                         </div>
                     @endif
 
@@ -470,9 +449,7 @@
                                 <input type="text" wire:model="editNewCityName" placeholder="City name" class="w-full border rounded px-3 py-2 text-sm">
                                 @error('editNewCityName') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
                             </div>
-                            <button type="button" wire:click="createEditCity" class="bg-slate-900 text-white px-4 h-[38px] rounded text-xs font-medium hover:bg-slate-800">
-                                Create city
-                            </button>
+                            <x-ui.button size="sm" class="h-[38px]" wire:click="createEditCity">Create city</x-ui.button>
                         </div>
                     @endif
 
@@ -512,7 +489,7 @@
                         <div class="flex items-center gap-2">
                             <input type="text" wire:model.live="editOwnerSearch" placeholder="Search name or phone..." class="flex-1 border rounded px-3 py-2 text-sm" autocomplete="off">
                             @if ($editOwnerUserId)
-                                <button type="button" wire:click="clearEditOwner" class="text-xs text-red-600 hover:underline whitespace-nowrap">Clear</button>
+                                <x-ui.button variant="ghost" color="red" class="whitespace-nowrap" wire:click="clearEditOwner">Clear</x-ui.button>
                             @endif
                         </div>
                         @if ($editOwnerSearch && $this->matchingOwners->isNotEmpty() && ! $editOwnerUserId)
@@ -545,32 +522,25 @@
                 </div>
 
                 <div class="flex justify-end gap-2 pt-6">
-                    <button type="button" wire:click="closeEditModal" class="px-4 py-2 border border-gray-300 rounded text-sm hover:bg-gray-50">Close</button>
-                    <button type="button" wire:click="update" class="bg-slate-900 text-white px-6 py-2 rounded text-sm font-medium hover:bg-slate-800">Update</button>
+                    <x-ui.button variant="secondary" wire:click="closeEditModal">Close</x-ui.button>
+                    <x-ui.button wire:click="update">Update</x-ui.button>
                 </div>
-            </div>
-        </div>
+        </x-ui.modal>
     @endif
 
     {{-- Delete confirmation --}}
-    @if ($confirmingDeleteId)
-        <div class="fixed inset-0 bg-black/40 flex items-center justify-center z-40 p-4" wire:click.self="cancelDelete">
-            <div class="bg-white rounded-lg shadow-lg w-full max-w-md p-6">
-                <h3 class="text-lg font-bold mb-2">Delete franchise?</h3>
-
+    <x-ui.modal :show="(bool) $confirmingDeleteId" title="Delete franchise?" onClose="cancelDelete">
                 @if ($deleteBlockedReason)
                     <p class="text-sm text-gray-600 mb-4">{{ $deleteBlockedReason }}</p>
                     <div class="flex justify-end">
-                        <button type="button" wire:click="cancelDelete" class="px-4 py-2 border border-gray-300 rounded text-sm hover:bg-gray-50">Close</button>
+                        <x-ui.button variant="secondary" wire:click="cancelDelete">Close</x-ui.button>
                     </div>
                 @else
                     <p class="text-sm text-gray-600 mb-4">This can't be undone.</p>
                     <div class="flex justify-end gap-2">
-                        <button type="button" wire:click="cancelDelete" class="px-4 py-2 border border-gray-300 rounded text-sm hover:bg-gray-50">Cancel</button>
-                        <button type="button" wire:click="deleteFranchise" class="bg-red-600 text-white px-6 py-2 rounded text-sm font-medium hover:bg-red-700">Delete</button>
+                        <x-ui.button variant="secondary" wire:click="cancelDelete">Cancel</x-ui.button>
+                        <x-ui.button variant="danger" wire:click="deleteFranchise">Delete</x-ui.button>
                     </div>
                 @endif
-            </div>
-        </div>
-    @endif
+    </x-ui.modal>
 </div>

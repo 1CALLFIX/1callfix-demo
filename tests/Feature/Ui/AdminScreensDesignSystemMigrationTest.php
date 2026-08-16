@@ -4,8 +4,10 @@ namespace Tests\Feature\Ui;
 
 use App\Livewire\Auth\Login as AuthLogin;
 use App\Livewire\Badges\Manage as BadgesManage;
+use App\Livewire\Banners\Manage as BannersManage;
 use App\Livewire\Bookings\Index as BookingsIndex;
 use App\Livewire\Bookings\Show as BookingsShow;
+use App\Livewire\Categories\Manage as CategoriesManage;
 use App\Livewire\Chat\Manage as ChatManage;
 use App\Livewire\Cms\Manage as CmsManage;
 use App\Livewire\Commissions\Index as CommissionsIndex;
@@ -13,10 +15,12 @@ use App\Livewire\Customers\Index as CustomersIndex;
 use App\Livewire\Customers\Show as CustomersShow;
 use App\Livewire\Dashboard;
 use App\Livewire\FlashSales\Manage as FlashSalesManage;
+use App\Livewire\Franchises\Manage as FranchisesManage;
 use App\Livewire\FranchisePricing\Manage as FranchisePricingManage;
 use App\Livewire\Geography\Manage as GeographyManage;
 use App\Livewire\Kyc\SupportRequests as KycSupportRequests;
 use App\Livewire\Loyalty\Index as LoyaltyIndex;
+use App\Livewire\NotificationCenter\Manage as NotificationCenterManage;
 use App\Livewire\Operations\Health as OperationsHealth;
 use App\Livewire\Payments\Index as PaymentsIndex;
 use App\Livewire\Payouts\Manage as PayoutsManage;
@@ -25,11 +29,16 @@ use App\Livewire\Plans\Manage as PlansManage;
 use App\Livewire\Providers\Index as ProvidersIndex;
 use App\Livewire\Providers\Show as ProvidersShow;
 use App\Livewire\Roles\Manage as RolesManage;
+use App\Livewire\Services\Manage as ServicesManage;
+use App\Livewire\Settings\Manage as SettingsManage;
+use App\Livewire\Subcategories\Manage as SubcategoriesManage;
 use App\Livewire\Subscriptions\Index as SubscriptionsIndex;
 use App\Livewire\WalletLedger\Index as WalletLedgerIndex;
 use App\Livewire\Workers\Index as WorkersIndex;
 use App\Livewire\Workers\Show as WorkersShow;
+use App\Livewire\Zones\Manage as ZonesManage;
 use App\Models\Badge;
+use App\Models\Banner;
 use App\Models\ChatMessage;
 use App\Models\Commission;
 use App\Models\ContentPage;
@@ -38,6 +47,7 @@ use App\Models\EntitlementBalance;
 use App\Models\Faq;
 use App\Models\FlashSale;
 use App\Models\LoyaltyPoint;
+use App\Models\NotificationCampaign;
 use App\Models\Payment;
 use App\Models\Payout;
 use App\Models\PerformanceCampaign;
@@ -47,6 +57,9 @@ use App\Models\PlanEntitlement;
 use App\Models\Referral;
 use App\Models\Role;
 use App\Models\RoleAssignment;
+use App\Models\ServiceCategory;
+use App\Models\ServiceSubcategory;
+use App\Models\Setting;
 use App\Models\Subscription;
 use App\Models\User;
 use App\Models\Wallet;
@@ -761,5 +774,185 @@ class AdminScreensDesignSystemMigrationTest extends TestCase
 
         $this->assertSame('scheduled', $sale->fresh()->status);
         $component->assertSee('Scheduled');
+    }
+
+    // ========================================================================
+    // Fourth increment (2026-08-16) -- the final 8 screens: Categories\
+    // Manage, Subcategories\Manage, Zones\Manage, Franchises\Manage,
+    // Services\Manage, Banners\Manage, NotificationCenter\Manage, Settings\
+    // Manage. This closes TECH-6 at 35/35 real Livewire admin screens
+    // migrated. Zones\Manage, Franchises\Manage, Services\Manage, and
+    // Banners\Manage deliberately keep their main list table as plain HTML
+    // (not x-ui.table) -- all four need overflow-x-auto for horizontal
+    // scroll on their wide, many-column tables, which would conflict with
+    // x-ui.table's fixed overflow-hidden shell; their Add-New panels,
+    // status pills, and view/edit/delete modals are still migrated. Their
+    // per-row icon action buttons (Edit/Toggle/Delete, a compact square
+    // icon shape shared identically across all 6 catalog-style screens)
+    // are also deliberately left as plain HTML rather than forcing a new
+    // icon-button variant onto the shared component for a shape it was
+    // never designed for -- same restraint as Geography\Manage's nested
+    // table and Roles\Manage's one-off button in earlier increments.
+    // ========================================================================
+
+    // --- Categories\Manage -----------------------------------------------
+
+    public function test_categories_manage_renders_category_and_toggle_active_reaches_real_method(): void
+    {
+        $category = ServiceCategory::create([
+            'module' => 'service', 'name' => 'Zzyx Category', 'slug' => 'zzyx-category-'.Str::random(6),
+            'image' => 'categories/zzyx.png', 'sort_order' => 1, 'is_active' => true,
+        ]);
+        $admin = $this->makeSuperAdmin();
+
+        $component = Livewire::actingAs($admin)->test(CategoriesManage::class);
+        $component->assertSee('Zzyx Category');
+
+        // Key interaction: the inline toggle icon button is a real
+        // wire:click reaching toggleCategory(), flipping real DB state.
+        $component->call('toggleCategory', $category->id);
+
+        $this->assertFalse($category->fresh()->is_active);
+    }
+
+    // --- Subcategories\Manage ----------------------------------------------
+
+    public function test_subcategories_manage_renders_subcategory_and_toggle_active_reaches_real_method(): void
+    {
+        $category = ServiceCategory::create([
+            'module' => 'service', 'name' => 'Zzyx Parent', 'slug' => 'zzyx-parent-'.Str::random(6),
+            'image' => 'categories/zzyx.png', 'sort_order' => 1, 'is_active' => true,
+        ]);
+        $sub = ServiceSubcategory::create([
+            'category_id' => $category->id, 'name' => 'Zzyx Subcategory', 'slug' => 'zzyx-sub-'.Str::random(6),
+            'image' => 'subcategories/zzyx.png', 'sort_order' => 1, 'is_active' => true,
+        ]);
+        $admin = $this->makeSuperAdmin();
+
+        $component = Livewire::actingAs($admin)->test(SubcategoriesManage::class);
+        $component->assertSee('Zzyx Subcategory');
+
+        $component->call('toggleSubcategory', $sub->id);
+
+        $this->assertFalse($sub->fresh()->is_active);
+    }
+
+    // --- Zones\Manage --------------------------------------------------------
+
+    public function test_zones_manage_renders_zone_and_toggle_active_reaches_real_method(): void
+    {
+        $scenario = $this->makeBookingScenario();
+        $scenario['zone']->update(['name' => 'Zzyx Zone']);
+        $admin = $this->makeSuperAdmin();
+
+        $component = Livewire::actingAs($admin)->test(ZonesManage::class);
+        $component->assertSee('Zzyx Zone');
+
+        // Key interaction: the x-ui.card "Add New Zone" panel and the view/
+        // edit/delete x-ui.modal dialogs are the migrated parts of this
+        // screen; the per-row toggle icon button (left plain HTML, see the
+        // block comment above) still reaches the real toggleActive() method.
+        $component->call('toggleActive', $scenario['zone']->id);
+
+        $this->assertFalse($scenario['zone']->fresh()->is_active);
+    }
+
+    // --- Franchises\Manage -----------------------------------------------
+
+    public function test_franchises_manage_renders_franchise_and_toggle_status_reaches_real_method(): void
+    {
+        $scenario = $this->makeBookingScenario();
+        $scenario['franchise']->update(['name' => 'Zzyx Franchise', 'status' => 'active']);
+        $admin = $this->makeSuperAdmin();
+
+        $component = Livewire::actingAs($admin)->test(FranchisesManage::class);
+        $component->assertSee('Zzyx Franchise')
+            ->assertSee('active');
+
+        $component->call('toggleStatus', $scenario['franchise']->id);
+
+        $this->assertSame('inactive', $scenario['franchise']->fresh()->status);
+        $component->assertSee('inactive');
+    }
+
+    // --- Services\Manage -----------------------------------------------------
+
+    public function test_services_manage_renders_service_and_toggle_active_reaches_real_method(): void
+    {
+        $scenario = $this->makeBookingScenario();
+        $scenario['service']->update(['name' => 'Zzyx Service']);
+        $admin = $this->makeSuperAdmin();
+
+        $component = Livewire::actingAs($admin)->test(ServicesManage::class);
+        $component->assertSee('Zzyx Service');
+
+        $component->call('toggleActive', $scenario['service']->id);
+
+        $this->assertFalse($scenario['service']->fresh()->is_active);
+    }
+
+    // --- Banners\Manage ------------------------------------------------------
+
+    public function test_banners_manage_renders_banner_and_toggle_active_reaches_real_method(): void
+    {
+        $banner = Banner::create([
+            'module' => 'service', 'placement' => 'top', 'title' => 'Zzyx Banner',
+            'image' => 'banners/zzyx.png', 'sort_order' => 1, 'is_active' => true,
+        ]);
+        $admin = $this->makeSuperAdmin();
+
+        $component = Livewire::actingAs($admin)->test(BannersManage::class);
+        $component->assertSee('Zzyx Banner');
+
+        // Key interaction: the x-ui.badge status pill and x-ui.card revenue
+        // tiles are the migrated parts; the per-row toggle icon button
+        // (left plain HTML) still reaches the real toggleActive() method.
+        $component->call('toggleActive', $banner->id);
+
+        $this->assertFalse($banner->fresh()->is_active);
+    }
+
+    // --- NotificationCenter\Manage --------------------------------------------
+
+    public function test_notification_center_manage_renders_campaign_and_cancel_reaches_real_method(): void
+    {
+        $admin = $this->makeSuperAdmin();
+        $campaign = NotificationCampaign::create([
+            'category' => 'business', 'type' => 'promotion', 'title' => 'Zzyx Campaign',
+            'message' => 'Zzyx message body', 'recipient_type' => 'everyone', 'scope_type' => 'global',
+            'channels' => 'mail', 'priority' => 'normal', 'status' => 'scheduled',
+            'scheduled_at' => now()->addHour(), 'created_by' => $admin->id,
+        ]);
+
+        $component = Livewire::actingAs($admin)->test(NotificationCenterManage::class);
+        $component->set('section', 'campaigns')
+            ->assertSee('Zzyx Campaign');
+
+        // Key interaction: the x-ui.badge status pill and x-ui.button ghost
+        // "Cancel" action reach the real cancelCampaign() method.
+        $component->call('cancelCampaign', $campaign->id);
+
+        $this->assertSame('cancelled', $campaign->fresh()->status);
+    }
+
+    // --- Settings\Manage (the largest screen, 856 lines) --------------------
+
+    public function test_settings_manage_renders_dispatch_tab_and_save_reaches_real_method(): void
+    {
+        $admin = $this->makeSuperAdmin();
+
+        // Dispatch is the default activeTab, so no tab switch is needed to
+        // reach it -- the x-ui.card scope-picker and tab-content wrapper,
+        // plus all 17 "Save ... Settings" buttons across every real tab,
+        // are the migrated parts of this screen.
+        $component = Livewire::actingAs($admin)->test(SettingsManage::class);
+        $component->assertSeeHtml('wire:click="saveDispatch"');
+
+        // Key interaction: the x-ui.button save action still reaches the
+        // real saveDispatch() method and writes a real global Setting row.
+        $component->set('dispatchOfferBatchSize', 7)
+            ->call('saveDispatch');
+
+        $this->assertSame(7, (int) Setting::get('dispatch.offer_batch_size', 0, []));
     }
 }

@@ -16,7 +16,7 @@
     @endunless
 
     {{-- Add New — fields left, boundary map right, mirroring the reference panel. --}}
-    <div class="bg-white rounded-lg shadow-sm p-4 mb-6">
+    <x-ui.card class="mb-6">
         <h2 class="text-sm font-semibold mb-3">Add New Zone</h2>
 
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -50,9 +50,7 @@
                     <label class="inline-flex items-center gap-2 text-sm">
                         <input type="checkbox" wire:model="isActive" class="rounded"> Active
                     </label>
-                    <button wire:click="save" class="bg-slate-900 text-white px-6 h-[38px] rounded text-sm font-medium hover:bg-slate-800">
-                        + Add Zone
-                    </button>
+                    <x-ui.button wire:click="save" class="h-[38px] px-6">+ Add Zone</x-ui.button>
                 </div>
             </div>
 
@@ -63,7 +61,7 @@
                 @error('boundaryPolygonJson') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
             </div>
         </div>
-    </div>
+    </x-ui.card>
 
     {{-- List controls --}}
     <div class="flex items-center gap-2 mb-3 flex-wrap">
@@ -248,13 +246,7 @@
     {{-- View details modal --}}
     @if ($showViewModal && $this->viewingZone)
         @php $z = $this->viewingZone; @endphp
-        <div class="fixed inset-0 bg-black/40 flex items-center justify-center z-40 p-4 overflow-y-auto" wire:click.self="closeViewModal">
-            <div class="bg-white rounded-lg shadow-lg w-full max-w-lg p-6 my-8">
-                <div class="flex items-center justify-between mb-4">
-                    <h3 class="text-lg font-bold">Zone Details</h3>
-                    <button type="button" wire:click="closeViewModal" class="text-gray-400 hover:text-gray-600">✕</button>
-                </div>
-
+        <x-ui.modal :show="true" title="Zone Details" onClose="closeViewModal" maxWidth="lg">
                 <div class="space-y-4 text-sm">
                     <div>
                         <p class="text-xs text-gray-500">Name</p>
@@ -298,22 +290,16 @@
                 </div>
 
                 <div class="flex justify-end gap-2 pt-6">
-                    <button type="button" wire:click="edit({{ $z->id }})" class="px-4 py-2 border border-gray-300 rounded text-sm hover:bg-gray-50">Edit</button>
-                    <button type="button" wire:click="closeViewModal" class="bg-slate-900 text-white px-6 py-2 rounded text-sm font-medium hover:bg-slate-800">Close</button>
+                    <x-ui.button variant="secondary" wire:click="edit({{ $z->id }})">Edit</x-ui.button>
+                    <x-ui.button wire:click="closeViewModal">Close</x-ui.button>
                 </div>
-            </div>
-        </div>
+        </x-ui.modal>
     @endif
 
     {{-- Edit modal — carries its own map instance, see components/zone-map.blade.php --}}
     @if ($showEditModal)
-        <div class="fixed inset-0 bg-black/40 flex items-center justify-center z-40 p-4 overflow-y-auto" wire:click.self="closeEditModal">
-            <div class="bg-white rounded-lg shadow-lg w-full max-w-3xl p-6 my-8" wire:key="edit-zone-{{ $editZoneId }}">
-                <div class="flex items-center justify-between mb-4">
-                    <h3 class="text-lg font-bold">Edit Zone</h3>
-                    <button type="button" wire:click="closeEditModal" class="text-gray-400 hover:text-gray-600">✕</button>
-                </div>
-
+        <x-ui.modal :show="true" title="Edit Zone" onClose="closeEditModal" maxWidth="3xl">
+            <div wire:key="edit-zone-{{ $editZoneId }}">
                 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
                     <div class="space-y-3">
                         <div>
@@ -357,32 +343,26 @@
                 </div>
 
                 <div class="flex justify-end gap-2 pt-6">
-                    <button type="button" wire:click="closeEditModal" class="px-4 py-2 border border-gray-300 rounded text-sm hover:bg-gray-50">Close</button>
-                    <button type="button" wire:click="update" class="bg-slate-900 text-white px-6 py-2 rounded text-sm font-medium hover:bg-slate-800">Update</button>
+                    <x-ui.button variant="secondary" wire:click="closeEditModal">Close</x-ui.button>
+                    <x-ui.button wire:click="update">Update</x-ui.button>
                 </div>
             </div>
-        </div>
+        </x-ui.modal>
     @endif
 
     {{-- Delete confirmation --}}
-    @if ($confirmingDeleteId)
-        <div class="fixed inset-0 bg-black/40 flex items-center justify-center z-40 p-4" wire:click.self="cancelDelete">
-            <div class="bg-white rounded-lg shadow-lg w-full max-w-md p-6">
-                <h3 class="text-lg font-bold mb-2">Delete zone?</h3>
-
+    <x-ui.modal :show="(bool) $confirmingDeleteId" title="Delete zone?" onClose="cancelDelete">
                 @if ($deleteBlockedReason)
                     <p class="text-sm text-gray-600 mb-4">{{ $deleteBlockedReason }}</p>
                     <div class="flex justify-end">
-                        <button type="button" wire:click="cancelDelete" class="px-4 py-2 border border-gray-300 rounded text-sm hover:bg-gray-50">Close</button>
+                        <x-ui.button variant="secondary" wire:click="cancelDelete">Close</x-ui.button>
                     </div>
                 @else
                     <p class="text-sm text-gray-600 mb-4">This can't be undone.</p>
                     <div class="flex justify-end gap-2">
-                        <button type="button" wire:click="cancelDelete" class="px-4 py-2 border border-gray-300 rounded text-sm hover:bg-gray-50">Cancel</button>
-                        <button type="button" wire:click="deleteZone" class="bg-red-600 text-white px-6 py-2 rounded text-sm font-medium hover:bg-red-700">Delete</button>
+                        <x-ui.button variant="secondary" wire:click="cancelDelete">Cancel</x-ui.button>
+                        <x-ui.button variant="danger" wire:click="deleteZone">Delete</x-ui.button>
                     </div>
                 @endif
-            </div>
-        </div>
-    @endif
+    </x-ui.modal>
 </div>

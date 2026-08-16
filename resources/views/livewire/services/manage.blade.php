@@ -2,10 +2,10 @@
     <div class="flex items-center justify-between mb-4">
         <h1 class="text-2xl font-bold">Services</h1>
         <div class="flex gap-2 text-sm">
-            <button type="button" wire:click="exportServices" class="px-3 py-1.5 border border-gray-300 rounded text-xs hover:bg-gray-50">Export</button>
-            <button type="button" wire:click="toggleImport" class="px-3 py-1.5 border border-gray-300 rounded text-xs hover:bg-gray-50">
+            <x-ui.button variant="secondary" size="sm" wire:click="exportServices">Export</x-ui.button>
+            <x-ui.button variant="secondary" size="sm" wire:click="toggleImport">
                 {{ $showImport ? 'Cancel Import' : 'Import' }}
-            </button>
+            </x-ui.button>
         </div>
     </div>
 
@@ -32,7 +32,7 @@
     @endif
 
     {{-- Add New — pinned at the top, list updates live below it. --}}
-    <div class="bg-white rounded-lg shadow-sm p-4 mb-6">
+    <x-ui.card class="mb-6">
         <h2 class="text-sm font-semibold mb-3">Add New Service</h2>
 
         <div class="flex flex-wrap items-end gap-3">
@@ -128,9 +128,7 @@
                 <input type="checkbox" wire:model="isActive" class="rounded"> Active
             </label>
 
-            <button wire:click="save" class="bg-slate-900 text-white px-6 h-[38px] rounded text-sm font-medium hover:bg-slate-800 ml-auto">
-                + Add
-            </button>
+            <x-ui.button wire:click="save" class="h-[38px] px-6 ml-auto">+ Add</x-ui.button>
         </div>
 
         @if ($ageRestriction)
@@ -154,7 +152,7 @@
                 No categories exist yet — <a href="{{ route('admin.categories.index') }}" class="underline">create one first</a>.
             </p>
         @endif
-    </div>
+    </x-ui.card>
 
     {{-- List controls --}}
     <div class="flex items-center gap-2 mb-3 flex-wrap">
@@ -386,13 +384,7 @@
     {{-- View details modal — read-only, the eye icon. --}}
     @if ($showViewModal && $this->viewingService)
         @php $svc = $this->viewingService; @endphp
-        <div class="fixed inset-0 bg-black/40 flex items-center justify-center z-40 p-4 overflow-y-auto" wire:click.self="closeViewModal">
-            <div class="bg-white rounded-lg shadow-lg w-full max-w-xl p-6 my-8">
-                <div class="flex items-center justify-between mb-4">
-                    <h3 class="text-lg font-bold">Service Details</h3>
-                    <button type="button" wire:click="closeViewModal" class="text-gray-400 hover:text-gray-600">✕</button>
-                </div>
-
+        <x-ui.modal :show="true" title="Service Details" onClose="closeViewModal" maxWidth="xl">
                 <div class="space-y-4 text-sm">
                     <div>
                         <p class="text-xs text-gray-500">Name</p>
@@ -460,22 +452,16 @@
                 </div>
 
                 <div class="flex justify-end gap-2 pt-6">
-                    <button type="button" wire:click="edit({{ $svc->id }})" class="px-4 py-2 border border-gray-300 rounded text-sm hover:bg-gray-50">Edit</button>
-                    <button type="button" wire:click="closeViewModal" class="bg-slate-900 text-white px-6 py-2 rounded text-sm font-medium hover:bg-slate-800">Close</button>
+                    <x-ui.button variant="secondary" wire:click="edit({{ $svc->id }})">Edit</x-ui.button>
+                    <x-ui.button wire:click="closeViewModal">Close</x-ui.button>
                 </div>
-            </div>
-        </div>
+        </x-ui.modal>
     @endif
 
     {{-- Edit modal --}}
     @if ($showEditModal)
-        <div class="fixed inset-0 bg-black/40 flex items-center justify-center z-40 p-4 overflow-y-auto" wire:click.self="closeEditModal">
-            <div class="bg-white rounded-lg shadow-lg w-full max-w-2xl p-6 my-8" wire:key="edit-service-{{ $editServiceId }}">
-                <div class="flex items-center justify-between mb-4">
-                    <h3 class="text-lg font-bold">Edit Service</h3>
-                    <button type="button" wire:click="closeEditModal" class="text-gray-400 hover:text-gray-600">✕</button>
-                </div>
-
+        <x-ui.modal :show="true" title="Edit Service" onClose="closeEditModal" maxWidth="2xl">
+            <div wire:key="edit-service-{{ $editServiceId }}">
                 <div class="space-y-4">
                     <div class="grid grid-cols-2 gap-4">
                         <div>
@@ -589,19 +575,15 @@
                 </div>
 
                 <div class="flex justify-end gap-2 pt-6">
-                    <button type="button" wire:click="closeEditModal" class="px-4 py-2 border border-gray-300 rounded text-sm hover:bg-gray-50">Close</button>
-                    <button type="button" wire:click="update" class="bg-slate-900 text-white px-6 py-2 rounded text-sm font-medium hover:bg-slate-800">Update</button>
+                    <x-ui.button variant="secondary" wire:click="closeEditModal">Close</x-ui.button>
+                    <x-ui.button wire:click="update">Update</x-ui.button>
                 </div>
             </div>
-        </div>
+        </x-ui.modal>
     @endif
 
     {{-- Delete confirmation --}}
-    @if ($confirmingDeleteId)
-        <div class="fixed inset-0 bg-black/40 flex items-center justify-center z-40 p-4" wire:click.self="cancelDelete">
-            <div class="bg-white rounded-lg shadow-lg w-full max-w-md p-6">
-                <h3 class="text-lg font-bold mb-2">Delete service?</h3>
-
+    <x-ui.modal :show="(bool) $confirmingDeleteId" title="Delete service?" onClose="cancelDelete">
                 @if ($deleteWarning)
                     <p class="text-sm text-gray-600 mb-4">{{ $deleteWarning }}</p>
                 @else
@@ -609,10 +591,8 @@
                 @endif
 
                 <div class="flex justify-end gap-2">
-                    <button type="button" wire:click="cancelDelete" class="px-4 py-2 border border-gray-300 rounded text-sm hover:bg-gray-50">Cancel</button>
-                    <button type="button" wire:click="deleteService" class="bg-red-600 text-white px-6 py-2 rounded text-sm font-medium hover:bg-red-700">Delete</button>
+                    <x-ui.button variant="secondary" wire:click="cancelDelete">Cancel</x-ui.button>
+                    <x-ui.button variant="danger" wire:click="deleteService">Delete</x-ui.button>
                 </div>
-            </div>
-        </div>
-    @endif
+    </x-ui.modal>
 </div>

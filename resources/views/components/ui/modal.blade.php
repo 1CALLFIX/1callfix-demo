@@ -29,6 +29,11 @@
         'lg' => 'max-w-lg',
         'xl' => 'max-w-xl',
         '2xl' => 'max-w-2xl',
+        // Fourth increment (Zones\Manage): the Edit Zone modal carries a real
+        // 2-column form + boundary map side-by-side (x-zone-map) and needs
+        // more room than 2xl gives it -- additive, no prior maxWidth call
+        // site is affected.
+        '3xl' => 'max-w-3xl',
     ];
 
     $maxWidthClass = $maxWidths[$maxWidth] ?? $maxWidths['md'];

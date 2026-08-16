@@ -1,9 +1,9 @@
 @php
-    $statusStyles = [
-        'live' => 'bg-green-100 text-green-700',
-        'scheduled' => 'bg-blue-100 text-blue-700',
-        'expired' => 'bg-amber-100 text-amber-700',
-        'inactive' => 'bg-gray-100 text-gray-600',
+    $statusBadgeColors = [
+        'live' => 'green',
+        'scheduled' => 'blue',
+        'expired' => 'amber',
+        'inactive' => 'gray',
     ];
 @endphp
 
@@ -14,29 +14,29 @@
          different rates, so a single combined total would hide which
          inventory is actually earning. --}}
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
-        <div class="bg-white rounded-lg shadow-sm p-4 border-l-4 border-indigo-500">
+        <x-ui.card class="border-l-4 border-indigo-500">
             <p class="text-xs text-gray-500">Top slot — home hero</p>
             <p class="text-2xl font-bold">{{ $currencySymbol }}{{ number_format($revenueByPlacement['top']->total ?? 0, 2) }}</p>
             <p class="text-xs text-gray-400 mt-0.5">
                 {{ $revenueByPlacement['top']->slots ?? 0 }} sold · {{ $liveByPlacement['top'] ?? 0 }} live now
             </p>
-        </div>
-        <div class="bg-white rounded-lg shadow-sm p-4 border-l-4 border-teal-500">
+        </x-ui.card>
+        <x-ui.card class="border-l-4 border-teal-500">
             <p class="text-xs text-gray-500">Mid slot — between modules</p>
             <p class="text-2xl font-bold">{{ $currencySymbol }}{{ number_format($revenueByPlacement['mid']->total ?? 0, 2) }}</p>
             <p class="text-xs text-gray-400 mt-0.5">
                 {{ $revenueByPlacement['mid']->slots ?? 0 }} sold · {{ $liveByPlacement['mid'] ?? 0 }} live now
             </p>
-        </div>
-        <div class="bg-white rounded-lg shadow-sm p-4">
+        </x-ui.card>
+        <x-ui.card>
             <p class="text-xs text-gray-500">Paid slots expiring in 7 days</p>
             <p @class(['text-2xl font-bold', 'text-amber-600' => $expiringSoon > 0])>{{ $expiringSoon }}</p>
-        </div>
-        <div class="bg-white rounded-lg shadow-sm p-4">
+        </x-ui.card>
+        <x-ui.card>
             <p class="text-xs text-gray-500">Total ad revenue booked</p>
             <p class="text-2xl font-bold">{{ $currencySymbol }}{{ number_format($paidRevenue, 2) }}</p>
             <p class="text-xs text-gray-400 mt-0.5">{{ $liveCount }} banners showing now</p>
-        </div>
+        </x-ui.card>
     </div>
 
     @if ($flashMessage)
@@ -46,7 +46,7 @@
     @error('permission') <div class="bg-red-50 text-red-700 rounded p-3 mb-4 text-sm">{{ $message }}</div> @enderror
 
     {{-- Add New — pinned at the top, list updates live below it. --}}
-    <div class="bg-white rounded-lg shadow-sm p-4 mb-6">
+    <x-ui.card class="mb-6">
         <h2 class="text-sm font-semibold mb-3">Add New Banner</h2>
 
         <div class="flex flex-wrap items-end gap-3">
@@ -153,9 +153,7 @@
                 <input type="checkbox" wire:model="isActive" class="rounded"> Active
             </label>
 
-            <button wire:click="save" class="bg-slate-900 text-white px-6 h-[38px] rounded text-sm font-medium hover:bg-slate-800 ml-auto">
-                + Add
-            </button>
+            <x-ui.button wire:click="save" class="h-[38px] px-6 ml-auto">+ Add</x-ui.button>
         </div>
 
         <p class="text-xs text-gray-400 mt-2">
@@ -169,7 +167,7 @@
                 @endforeach
             </div>
         @endif
-    </div>
+    </x-ui.card>
 
     {{-- List controls --}}
     <div class="flex items-center gap-2 mb-3 flex-wrap">
@@ -363,9 +361,9 @@
                             @endif
                         </td>
                         <td class="px-4 py-2">
-                            <span @class(['px-2 py-1 rounded text-xs font-medium capitalize', $statusStyles[$banner->status]])>
+                            <x-ui.badge :color="$statusBadgeColors[$banner->status] ?? 'gray'" class="capitalize">
                                 {{ $banner->status }}
-                            </span>
+                            </x-ui.badge>
                         </td>
                         <td class="px-4 py-2">
                             <div class="flex items-center gap-1.5 justify-end">
@@ -439,13 +437,7 @@
     {{-- View details modal --}}
     @if ($showViewModal && $this->viewingBanner)
         @php $b = $this->viewingBanner; @endphp
-        <div class="fixed inset-0 bg-black/40 flex items-center justify-center z-40 p-4 overflow-y-auto" wire:click.self="closeViewModal">
-            <div class="bg-white rounded-lg shadow-lg w-full max-w-xl p-6 my-8">
-                <div class="flex items-center justify-between mb-4">
-                    <h3 class="text-lg font-bold">Banner Details</h3>
-                    <button type="button" wire:click="closeViewModal" class="text-gray-400 hover:text-gray-600">✕</button>
-                </div>
-
+        <x-ui.modal :show="true" title="Banner Details" onClose="closeViewModal" maxWidth="xl">
                 <div class="space-y-4 text-sm">
                     @if ($b->image_url)
                         <img src="{{ $b->image_url }}" alt="" class="w-full rounded border">
@@ -474,7 +466,7 @@
                         </div>
                         <div>
                             <p class="text-xs text-gray-500">Status</p>
-                            <span @class(['px-2 py-0.5 rounded text-xs font-medium capitalize', $statusStyles[$b->status]])>{{ $b->status }}</span>
+                            <x-ui.badge :color="$statusBadgeColors[$b->status] ?? 'gray'" class="capitalize">{{ $b->status }}</x-ui.badge>
                         </div>
                         <div>
                             <p class="text-xs text-gray-500">Starts</p>
@@ -504,22 +496,15 @@
                 </div>
 
                 <div class="flex justify-end gap-2 pt-6">
-                    <button type="button" wire:click="edit({{ $b->id }})" class="px-4 py-2 border border-gray-300 rounded text-sm hover:bg-gray-50">Edit</button>
-                    <button type="button" wire:click="closeViewModal" class="bg-slate-900 text-white px-6 py-2 rounded text-sm font-medium hover:bg-slate-800">Close</button>
+                    <x-ui.button variant="secondary" wire:click="edit({{ $b->id }})">Edit</x-ui.button>
+                    <x-ui.button wire:click="closeViewModal">Close</x-ui.button>
                 </div>
-            </div>
-        </div>
+        </x-ui.modal>
     @endif
 
     {{-- Edit modal --}}
     @if ($showEditModal)
-        <div class="fixed inset-0 bg-black/40 flex items-center justify-center z-40 p-4 overflow-y-auto" wire:click.self="closeEditModal">
-            <div class="bg-white rounded-lg shadow-lg w-full max-w-2xl p-6 my-8">
-                <div class="flex items-center justify-between mb-4">
-                    <h3 class="text-lg font-bold">Edit Banner</h3>
-                    <button type="button" wire:click="closeEditModal" class="text-gray-400 hover:text-gray-600">✕</button>
-                </div>
-
+        <x-ui.modal :show="true" title="Edit Banner" onClose="closeEditModal" maxWidth="2xl">
                 <div class="space-y-4">
                     <div>
                         <label class="block text-sm font-medium mb-1">Title <span class="text-red-500">*</span></label>
@@ -650,24 +635,18 @@
                 </div>
 
                 <div class="flex justify-end gap-2 pt-6">
-                    <button type="button" wire:click="closeEditModal" class="px-4 py-2 border border-gray-300 rounded text-sm hover:bg-gray-50">Close</button>
-                    <button type="button" wire:click="update" class="bg-slate-900 text-white px-6 py-2 rounded text-sm font-medium hover:bg-slate-800">Update</button>
+                    <x-ui.button variant="secondary" wire:click="closeEditModal">Close</x-ui.button>
+                    <x-ui.button wire:click="update">Update</x-ui.button>
                 </div>
-            </div>
-        </div>
+        </x-ui.modal>
     @endif
 
     {{-- Delete confirmation --}}
-    @if ($confirmingDeleteId)
-        <div class="fixed inset-0 bg-black/40 flex items-center justify-center z-40 p-4" wire:click.self="cancelDelete">
-            <div class="bg-white rounded-lg shadow-lg w-full max-w-md p-6">
-                <h3 class="text-lg font-bold mb-2">Delete banner?</h3>
+    <x-ui.modal :show="(bool) $confirmingDeleteId" title="Delete banner?" onClose="cancelDelete">
                 <p class="text-sm text-gray-600 mb-4">This can't be undone — the image file is removed too.</p>
                 <div class="flex justify-end gap-2">
-                    <button type="button" wire:click="cancelDelete" class="px-4 py-2 border border-gray-300 rounded text-sm hover:bg-gray-50">Cancel</button>
-                    <button type="button" wire:click="deleteBanner" class="bg-red-600 text-white px-6 py-2 rounded text-sm font-medium hover:bg-red-700">Delete</button>
+                    <x-ui.button variant="secondary" wire:click="cancelDelete">Cancel</x-ui.button>
+                    <x-ui.button variant="danger" wire:click="deleteBanner">Delete</x-ui.button>
                 </div>
-            </div>
-        </div>
-    @endif
+    </x-ui.modal>
 </div>
