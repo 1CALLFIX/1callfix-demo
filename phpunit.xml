@@ -18,6 +18,20 @@
         </include>
     </source>
     <php>
+        <!-- Phase 22.1+ discovery: the default CLI memory_limit (128M, from
+             php.ini) is no longer enough to run the full suite in one PHP
+             process now that it has grown to 800+ tests, reproduced twice,
+             always a Fatal "Allowed memory size exhausted" crash rendering
+             Settings\Manage's large compiled view, at a different specific
+             test each time (cumulative memory growth across many Livewire
+             or Laravel TestCase boots hitting a fixed ceiling, not a leak
+             tied to any one test). Confirmed NOT caused by this session's
+             new tests: the identical commit passed 805/805 cleanly once,
+             then crashed on a later re-run with zero code changes made in
+             between. 512M is a generous, standard bump for a suite this
+             size; test infrastructure only, zero effect on the real app's
+             runtime memory_limit in dev or production. -->
+        <ini name="memory_limit" value="512M"/>
         <env name="APP_ENV" value="testing"/>
         <env name="APP_KEY" value="base64:Pl17tPes0CiW1JSYeYd0DjnY+F8QRf5tAAlmEVHYn0g="/>
         <env name="APP_MAINTENANCE_DRIVER" value="file"/>
