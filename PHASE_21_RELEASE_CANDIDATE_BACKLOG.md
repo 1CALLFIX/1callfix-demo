@@ -6,6 +6,8 @@
 
 **As of this document:** 620/620 tests passing, 1480 assertions, working tree clean, HEAD at commit `ed26e48` on `main`. Nothing this document proposes has been started.
 
+**Phase 21 progress (updated in place, matching this document's own stated discipline — see §"This document is now the source of truth" at the end):** DOC-1, TECH-1, TECH-2, TECH-3, and TECH-4 are now COMPLETE — see their own entries below for scope and commit hashes. Current baseline: 687/687 tests passing, 1578 assertions, HEAD at commit `e431667` on `main`, none pushed. All other items in this document remain open exactly as originally assessed.
+
 ---
 
 ## 0. Contradictions found between audit documents
@@ -20,7 +22,7 @@ Found by direct reconciliation, not assumed. These are documentation-accuracy pr
 | C4 | **`KNOWN_RISKS_AND_DECISIONS.md` item 12** ("Flash Sale × Coupon × Badge stacking rules") opens with *"(Anticipatory — logged before Flash Sale engine is built.)... Current behavior: N/A — not built yet."* Both the Flash Sale engine (`FlashSale` model, `admin.flash-sales.index`, `FlashSaleEngineTest`) and the Badge engine (`Badges\Manage`, `BadgeEngineTest`) have existed since **before this 20-phase mission's own baseline** (`6b7c36e`) — built in an earlier session referenced in `PROJECT_CURRENT_STATE.md`'s own addendum #2. This staleness predates this mission entirely; 18 phases had the opportunity to correct it and didn't, because nothing in this mission's own phases happened to touch Flash Sales. | `PROJECT_CURRENT_STATE.md` line 51 ("built the Universal Badge Engine... built the Flash Sale Engine... 42 tests"); `FINAL_ADMIN_CAPABILITY_MATRIX.md §A` lists both `Badges\Manage` and `FlashSales\Manage` as real, gated, tested screens. | **Low-Medium** — same shape again: the engines exist, the actual open question (a real stacking rule between Flash Sale/Coupon/Plan discounts) is still genuinely unanswered and the item's proposed safe default (`exclusive`, no stacking) has **not been independently confirmed as actually implemented in code this pass** — flagged as open item BD-4 below rather than assumed either way. |
 | C5 | **Minor count discrepancy, not a real contradiction.** `KNOWN_RISKS_AND_DECISIONS.md` item 26 says "roughly 16" admin Blade views hardcode `₹`. A fresh repo-wide grep this session found **14** files (list in TECH-1 below), not 16. Immaterial to the finding's substance (the gap is real either way) but the exact count should be corrected when the item is next touched. | `grep -rl "₹" resources/views` (excluding `documents/`, which is correctly the one real consumer). | **Low** — cosmetic accuracy only. |
 
-**Recommendation:** correct C1–C5 as a first, near-zero-risk Phase 21 housekeeping item (DOC-1 below) before any other work — a future session should not have to re-discover that these engines already exist.
+**Recommendation:** correct C1–C5 as a first, near-zero-risk Phase 21 housekeeping item (DOC-1 below) before any other work — a future session should not have to re-discover that these engines already exist. **Status: ✅ COMPLETE — commit `dbe6f4e`.**
 
 ---
 
@@ -53,14 +55,14 @@ Every item below has full detail in its primary category section (§3–§7). `C
 
 | ID | Priority | Item | Cat. | Code change required? |
 |---|---|---|---|---|
-| DOC-1 | **P0** | Correct C1–C5 documentation staleness | Production prereq | No (docs only) |
+| DOC-1 | **P0** | Correct C1–C5 documentation staleness — ✅ COMPLETE (`dbe6f4e`) | Production prereq | No (docs only) |
 | BD-8 | **P0** | Real SMS/push provider integration | Business decision +TECH | **Yes**, once vendor chosen |
-| TECH-1 | **P0** | `Payouts\Manage` has no row-level franchise scope | Technical | **Yes** |
+| TECH-1 | **P0** | `Payouts\Manage` has no row-level franchise scope — ✅ COMPLETE (`cfb1fa6`) | Technical | **Yes** |
 | BD-17 | **P1** | Terms & Conditions / Privacy Policy content | Business decision | No (content only; TECH-5 below for signup wiring) |
 | BD-24 | **P1** | Sanctum token expiration + device revoke-list | Business decision +TECH | **Yes**, once policy decided |
-| TECH-2 | **P1** | Admin panel hardcodes `₹` instead of the built `Setting` | Technical | **Yes** |
-| TECH-3 | **P1** | Admin panel displays every timestamp in raw UTC | Technical | **Yes** |
-| TECH-4 | **P1** | No admin chat-moderation screen | Technical | **Yes** |
+| TECH-2 | **P1** | Admin panel hardcodes `₹` instead of the built `Setting` — ✅ COMPLETE (`4c1db7c`) | Technical | **Yes** |
+| TECH-3 | **P1** | Admin panel displays every timestamp in raw UTC — ✅ COMPLETE for franchise-scoped screens (`ba4f72e`); 4 deferred timestamps still open | Technical | **Yes** |
+| TECH-4 | **P1** | No admin chat-moderation screen — ✅ COMPLETE, Option A (read-only) only (`e431667`); Option B (moderation) still open | Technical | **Yes** |
 | ENV-1 | **P1** | No database backup tooling | Environment | **Yes**, once policy decided |
 | BD-16 | **P1** | `partner.workers.assign` — no Partner-facing authorization model decided | Business decision | Possibly, once decided |
 | TECH-6 | **P1** | Admin UI has no design system | Technical | **Yes** (large) |
@@ -279,6 +281,7 @@ Items requiring an explicit product/business/legal call before engineering can p
 Items that are pure engineering — no business decision is blocking them, or the decision has already been made and only the build remains.
 
 ### TECH-1 — `Payouts\Manage` has no row-level franchise scope ⚠️ P0
+- **Status:** ✅ **COMPLETE** — commit `cfb1fa6`. `AuthorizationService::scopeQuery()` applied to `Payouts\Manage::render()` (list visibility) and to every write action (`markProcessing()`, `confirmMarkPaid()`, `markFailed()` — each re-fetches the target payout and re-checks its own resolved scope before acting, not just at screen-entry). `PayoutsExport` now takes the acting viewer and scopes identically via `AuthorizationService::visibleAmong()` against `Payout::authorizationScopeHint()` (export scope). Regression coverage: 7 new tests in `RowLevelScopeAuthorizationTest.php` plus 2 in `DataExportTest.php`, verified via `git stash` to genuinely fail without the fix. **Scope note:** this closes the Payouts row-level gap only — it does not claim the separate `PaymentAccount` authorization surface is resolved.
 - **Priority:** **P0**
 - **Exact problem:** `Payouts\Manage::render()` — confirmed this session at `app/Livewire/Payouts/Manage.php:247` — runs `Payout::latest()->paginate(15)` with **no** `AuthorizationService::scopeQuery()` filter. `Commissions\Index` (the closest sibling screen) correctly scopes by franchise/zone/city/country through its booking relation; `Payouts\Manage` does not. A franchise-scoped `payouts.manage` grant can therefore view (and, via the Phase 14 export, download) **every** franchise's payout requests and banking details, not just their own.
 - **Current implementation status:** Real, live authorization gap. `payouts.manage` itself is correctly permission-gated at the screen-entry level (view-gate confirmed present and tested, `FINAL_ADMIN_CAPABILITY_MATRIX.md §A`) — the gap is purely row-level.
@@ -289,6 +292,7 @@ Items that are pure engineering — no business decision is blocking them, or th
 - **Code changes required:** **Yes.**
 
 ### TECH-2 — Admin panel hardcodes `₹` instead of the built `Setting`
+- **Status:** ✅ **COMPLETE** — commit `4c1db7c`. All 14 listed views now read `Setting::get('locale.currency_symbol', ...)` at each screen's own correct scope (12 via a new `currencySymbol`/`getCurrencySymbolProperty()` Livewire property, `Settings\Manage` reused its pre-existing `$localeCurrencySymbol`); no hardcoded `₹` remains in any of the 14. Regression coverage: 16 new tests in `CurrencySymbolDisplayTest.php`, using a distinctive `¥` symbol to prove the Setting is actually being read, not coincidentally matching its own default. **Scope note:** this closes display consistency across these 14 screens only — it is not a claim of full multi-currency readiness (formatting/rounding/exchange-rate conversion were out of scope and untouched).
 - **Priority:** P1
 - **Exact problem:** `Setting::get('locale.currency_symbol', '₹', $scope)` is real, admin-editable, scope-cascaded — but only `DocumentService` (invoices/receipts) reads it.
 - **Current implementation status:** Confirmed this session via fresh repo-wide grep: **14** admin Blade views hardcode the literal `₹` (not "roughly 16" as the register currently says — see contradiction C5). Exact list:
@@ -312,6 +316,8 @@ Items that are pure engineering — no business decision is blocking them, or th
 - **Code changes required:** **Yes** — bounded, mechanical, 14 files.
 
 ### TECH-3 — Admin panel displays every timestamp in raw UTC
+- **Status:** ✅ **COMPLETE for franchise-scoped operational screens** — commit `ba4f72e`. New `app/Services/TimezoneResolver.php` resolves each row's own `franchise → country → default_timezone`, falling back to `config('app.timezone')` when no franchise/country applies — the design choice this item itself named as open (a helper reading the row's own franchise chain) is what was adopted. Applied to Banners, Bookings, Commissions, Customers, Flash Sales, KYC Support Requests, Loyalty, Payments, Providers, Subscriptions, Wallet Ledger, Workers, and Operations/Health's dispatch/stuck-booking timestamps. Deliberately still UTC (franchise-agnostic system/audit data, not an oversight): `failed_jobs`, `scheduled_task_runs`, `payment_webhook_logs`, `NotificationLog.sent_at`. Regression coverage: 23 new tests in `TimezoneDisplayTest.php`, including a UTC-midnight boundary case, a stored-value-not-mutated assertion, and 2 N+1 guards.
+- **Deferred findings discovered during this pass (not fixed, no policy decided):** `PerformanceCampaign.starts_at`/`ends_at`, `FlashSale.starts_at`/`ends_at`, `BadgeAssignment.expires_at`, `NotificationMeeting.starts_at` — all found to be scope-shaped timestamps during the screen-by-screen inspection, but out of this item's authorized scope. Whether these should convert to franchise-local time, stay UTC, or use another policy was not decided or assumed. See `KNOWN_RISKS_AND_DECISIONS.md` item 27 for the same note preserved in the register.
 - **Priority:** P1
 - **Exact problem:** `countries.default_timezone` is correctly used by `DocumentService` for invoice numbering, but nothing else converts a timestamp to a viewer's local time. Confirmed this session: zero matches for `setTimezone(`/`->tz(` outside `DocumentService` across `resources/views` and `app/Livewire`. Real production data is India-based (`Asia/Kolkata`), so admins see every timestamp 5.5 hours behind their own wall-clock time today.
 - **Current implementation status:** Present-day usability gap, not a future-country hypothetical.
@@ -322,6 +328,7 @@ Items that are pure engineering — no business decision is blocking them, or th
 - **Code changes required:** **Yes** — wide surface, needs a deliberate design decision on the conversion pattern first.
 
 ### TECH-4 — No admin chat-moderation screen
+- **Status:** ✅ **COMPLETE, Option A only (read-only admin chat viewer)** — commit `e431667`. New `chat.view` permission (super_admin only by default), `app/Livewire/Chat/Manage.php` (`/admin/chat`), row-level franchise/zone scope via `AuthorizationService::scopeQuery()`, attachment retrieval independently re-authorized per request (`ChatAttachmentController`, 404-not-403 pattern), every conversation view activity-logged. Regression coverage: 19 new tests in `AdminChatViewerTest.php`; existing customer/partner/worker `ChatApiTest` (16 tests) unchanged and still green. **Remaining open decision, NOT resolved by this pass:** whether admin intervention/moderation (send/edit/hide/delete/block/flag/report/suspend as admin) is wanted at all, and if so which actions and which roles — deliberately not built, no `chat.moderate` permission exists, no schema change was made. See `KNOWN_RISKS_AND_DECISIONS.md` item 15 for the preserved decision record.
 - **Priority:** P1
 - **Exact problem:** Universal Chat (`ChatService`/`ChatController`) is a fully working Customer↔Partner/Worker API with **zero** admin-facing surface — confirmed this session, no `App\Livewire\Chat\*` component and no chat route exists anywhere in `routes/admin.php`.
 - **Current implementation status:** Conversations are fully functional between real actors but invisible to admin/support; the only escape hatch is a raw DB query.
@@ -427,15 +434,15 @@ This is the cross-cutting gate — what must be true before real customer traffi
 
 ### Hard blockers (real users cannot function without these)
 1. **BD-8 (SMS/push provider)** — without this, no real customer can complete phone OTP login or booking OTP. This is not a "should," it's a "can't function" gap today.
-2. **TECH-1 (Payouts row-level scope)** — a real, live cross-franchise financial-data exposure; must close before any franchise-scoped payout admin is trusted with real multi-franchise data.
+2. **TECH-1 (Payouts row-level scope)** — a real, live cross-franchise financial-data exposure; must close before any franchise-scoped payout admin is trusted with real multi-franchise data. — **✅ RESOLVED, commit `cfb1fa6`.**
 
 ### Should-fix-before-real-signups (compliance/security posture)
 3. **BD-17 (Terms & Conditions / Privacy Policy)** — most jurisdictions require this at signup; currently nothing exists to reference.
 4. **BD-24 (Sanctum token expiration)** — currently tokens never expire and there's no way for a user to revoke a lost device's access; acceptable for internal/dev use, not for real customer accounts at scale.
-5. **DOC-1 (documentation reconciliation, §0 above)** — a stale source-of-truth doc (`CURRENT_MASTER_CHECKPOINT.md`) risks a future session or reviewer making a decision based on wrong information (e.g., "is `APP_DEBUG` still a live risk?" — it is not, but the checkpoint doc still says it is).
+5. **DOC-1 (documentation reconciliation, §0 above)** — a stale source-of-truth doc (`CURRENT_MASTER_CHECKPOINT.md`) risks a future session or reviewer making a decision based on wrong information (e.g., "is `APP_DEBUG` still a live risk?" — it is not, but the checkpoint doc still says it is). — **✅ RESOLVED, commit `dbe6f4e`.**
 
 ### Real but not launch-blocking (already safe today, worth closing before scale)
-6. TECH-2 (currency symbol), TECH-3 (UTC timestamps), TECH-4 (chat moderation), ENV-1 (backup policy), BD-16 (`partner.workers.assign`), BD-11 (`payment_methods` consolidation), TECH-7 (audience chunking).
+6. TECH-2 (currency symbol — **✅ RESOLVED, commit `4c1db7c`**), TECH-3 (UTC timestamps — **✅ RESOLVED for franchise-scoped screens, commit `ba4f72e`; 4 deferred timestamps still open**), TECH-4 (chat moderation — **✅ COMPLETE, Option A only (read-only viewer), commit `e431667`; Option B/moderation remains open, see item 15**), ENV-1 (backup policy), BD-16 (`partner.workers.assign`), BD-11 (`payment_methods` consolidation), TECH-7 (audience chunking).
 
 ### Structural, non-blocking, can run in parallel with launch prep
 7. TECH-6 (Admin UI design system) — per `FINAL_RELEASE_READINESS_AUDIT.md §15`'s own recommendation, this and API-first mobile app development are independent tracks; neither should gate the other.
@@ -452,13 +459,13 @@ This is the cross-cutting gate — what must be true before real customer traffi
 
 This is a sequencing proposal only — no work has started.
 
-1. **DOC-1** — correct the C1–C5 documentation contradictions (near-zero risk, prevents future sessions from re-deriving already-known facts or acting on stale information). Should genuinely be step zero of any Phase 21 work.
-2. **TECH-1** (`Payouts\Manage` scope fix) — no business decision blocking it, small and mechanical, closes a real live data-exposure gap immediately.
+1. **DOC-1** — correct the C1–C5 documentation contradictions (near-zero risk, prevents future sessions from re-deriving already-known facts or acting on stale information). Should genuinely be step zero of any Phase 21 work. — **✅ COMPLETE, commit `dbe6f4e`.**
+2. **TECH-1** (`Payouts\Manage` scope fix) — no business decision blocking it, small and mechanical, closes a real live data-exposure gap immediately. — **✅ COMPLETE, commit `cfb1fa6`.**
 3. **BD-8** (SMS/push vendor decision + integration) — the one true hard launch-blocker; the decision itself (vendor choice) can start immediately in parallel with #1/#2 since it needs no code yet, but the integration work should be prioritized the moment a vendor is chosen given real historical precedent already narrows the choice.
 4. **BD-17** (Terms & Conditions / Privacy Policy) — legal review can start in parallel with the above; low engineering cost once content exists (TECH-5-equivalent signup wiring is a small follow-on, not currently a separate tracked item since no signup flow exists yet to wire it into).
 5. **BD-24** (Sanctum expiration policy) — decision + implementation, moderate size, real security-hygiene value before real accounts scale.
-6. **TECH-2 + TECH-3 + TECH-7** (currency symbol, UTC timestamps, campaign chunking) — bundle as one "admin display/consistency hardening" pass, since they're all mechanical, low-risk, and share the same "needs new test coverage before touching" caution the register itself already names for TECH-2/TECH-3.
-7. **TECH-4** (chat moderation screen) + **ENV-1** (backup policy decision) — can run in parallel with each other and with #6; neither blocks nor is blocked by anything else in this list.
+6. **TECH-2 + TECH-3 + TECH-7** (currency symbol, UTC timestamps, campaign chunking) — bundle as one "admin display/consistency hardening" pass, since they're all mechanical, low-risk, and share the same "needs new test coverage before touching" caution the register itself already names for TECH-2/TECH-3. — **TECH-2 ✅ COMPLETE (`4c1db7c`); TECH-3 ✅ COMPLETE for franchise-scoped screens (`ba4f72e`), 4 deferred timestamps still open; TECH-7 still open.**
+7. **TECH-4** (chat moderation screen) + **ENV-1** (backup policy decision) — can run in parallel with each other and with #6; neither blocks nor is blocked by anything else in this list. — **TECH-4 ✅ COMPLETE, Option A only (`e431667`); ENV-1 still open.**
 8. **BD-16 / BD-11** — architecture decisions with no current live risk; resolve opportunistically, no urgency to force a timeline.
 9. **TECH-6** (Admin UI design system) — begin whenever real design/frontend capacity is available; explicitly independent of every item above per the release audit's own recommendation. This is the largest single item in the whole backlog and should be scoped as its own multi-phase effort, not a single Phase 21 task.
 10. **Remaining P2 business decisions (BD-1, 2, 3, 6, 7, 9, 12, 13, 14, 18, 20)** — resolve as product/business bandwidth allows; none carry current live risk, and BD-6 is itself a dependency for BD-13, so sequence BD-6 before BD-13 whenever both are picked up.
