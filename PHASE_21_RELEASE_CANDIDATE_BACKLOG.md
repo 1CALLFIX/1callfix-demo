@@ -67,7 +67,7 @@ Every item below has full detail in its primary category section (§3–§7). `C
 | BD-16 | **P1** | `partner.workers.assign` — no Partner-facing authorization model decided | Business decision | Possibly, once decided |
 | TECH-6 | **P1** | Admin UI has no design system | Technical | **Yes** (large) |
 | BD-11 | **P1** | `payment_methods` vs `payment.*_enabled` consolidation | Business decision | Possibly, once decided |
-| TECH-7 | **P2** | `CampaignService` audience resolution not chunked | Technical | **Yes** (small) |
+| TECH-7 | **P2** | `CampaignService` audience resolution not chunked — ✅ COMPLETE (`df4e186`) | Technical | **Yes** (small) |
 | BD-1 | **P2** | Referral reward values | Business decision | No |
 | BD-2 | **P2** | Cross-actor referral scope | Business decision | Yes, once decided |
 | BD-3 | **P2** | Anti-fraud signals for referrals | Business decision | Yes, once decided |
@@ -207,12 +207,12 @@ Items requiring an explicit product/business/legal call before engineering can p
 ### BD-12 — Flash Sale × Coupon × Badge stacking rules
 - **Priority:** P2
 - **Exact problem:** No decided rule for whether a flash-sale price can stack with a coupon or a Plan Engine member discount (see contradiction C4 — the engines this item anticipated now exist).
-- **Current implementation status:** **Needs verification, not assumed either way this pass** — whether `FlashSale`'s actual code currently defaults to `exclusive` (no stacking), matching `Plan.stacking_strategy`'s own default, was not re-confirmed in this session's code inspection.
-- **Affected modules/files:** `app/Models/FlashSale.php`, `app/Models/Plan.php` (`stacking_strategy`), Coupons (dormant, BD-7).
-- **Dependency:** BD-7 if coupons launch.
-- **Recommended action:** First, verify in code whether an actual stacking guard exists today (a quick read, not a decision). Then decide the real policy if/when Coupons (BD-7) ever launches alongside Flash Sales.
-- **Acceptance criteria:** Documented current behavior + a real decision once relevant.
-- **Code changes required:** To verify: no. To change the policy: possibly.
+- **Current implementation status (verified 2026-08-16, read-only, no code changed):** Confirmed `App\Models\FlashSale` has **no `stacking_strategy` column or equivalent guard at all**, unlike `Plan`, which does — there is no enforced stacking rule in code today. `FlashSaleService::priceFor()`'s own docblock documents an informal default-to-no-stacking against `FranchiseServicePricing` (a flash sale price "wins outright rather than stacking with the franchise override"), but that is the pricing-cascade layering, not a real stacking guard against Plan discounts. **More significantly, this verification also found `FlashSaleService::priceFor()`/`::redeem()` are never actually called from the real booking-creation path at all (`CreateBookingAction` only ever applies the Plan Engine's own entitlement discount)** — so the Flash-Sale-vs-Plan stacking question this item asks about cannot currently occur in a real booking either way. Logged as its own new finding, `KNOWN_RISKS_AND_DECISIONS.md` item 29, since it's a materially different (and larger) gap than what this item originally asked to verify.
+- **Affected modules/files:** `app/Models/FlashSale.php`, `app/Models/Plan.php` (`stacking_strategy`), Coupons (dormant, BD-7), `app/Actions/CreateBookingAction.php` (item 29).
+- **Dependency:** BD-7 if coupons launch. Item 29 (Flash Sale wiring) is now itself a prerequisite for this stacking question to have any live-booking consequence.
+- **Recommended action:** Decide the real stacking policy (Flash Sale × Plan, since Coupons remain dormant) — needed before item 29's wiring gap can be closed correctly, not just mechanically.
+- **Acceptance criteria:** Documented current behavior (done, above) + a real decision once relevant.
+- **Code changes required:** To verify: no (done). To change the policy: possibly, and only meaningful once item 29 is also addressed.
 
 ### BD-13 — 30-day KYC deadline / withdrawal restriction for Riders/Workers
 - **Priority:** P2
@@ -349,6 +349,7 @@ Items that are pure engineering — no business decision is blocking them, or th
 - **Code changes required:** **Yes** — large.
 
 ### TECH-7 — `CampaignService` audience resolution not chunked
+- **Status:** ✅ **COMPLETE** — commit `df4e186`. Both `send()` and `resendToFailedRecipients()` rewritten to `chunkById(200, ...)`, matching `KycReminderService::dispatchDue()`'s own established pattern. 3 new regression tests, including a query-count assertion (205 recipients → exactly 2 SELECTs against `users`, not 1), verified via `git stash` to genuinely fail without the fix.
 - **Priority:** P2
 - **Exact problem:** `CampaignService::send()` (line 47) and `::resendToFailedRecipients()` (line 125) — confirmed unchanged this session — both still call `->get()` to hydrate the entire resolved audience into memory before looping, rather than `chunkById()` like `KycReminderService::dispatchDue()` already does.
 - **Current implementation status:** Low-to-medium severity, shrinking in urgency as-is: Phase 18 already fixed the more severe half of this same code path (`CampaignNotification` now implements `ShouldQueue`, so the loop itself is fast — just dispatching queue jobs, not blocking on delivery). Only the audience hydration remains unchunked.
@@ -442,7 +443,7 @@ This is the cross-cutting gate — what must be true before real customer traffi
 5. **DOC-1 (documentation reconciliation, §0 above)** — a stale source-of-truth doc (`CURRENT_MASTER_CHECKPOINT.md`) risks a future session or reviewer making a decision based on wrong information (e.g., "is `APP_DEBUG` still a live risk?" — it is not, but the checkpoint doc still says it is). — **✅ RESOLVED, commit `dbe6f4e`.**
 
 ### Real but not launch-blocking (already safe today, worth closing before scale)
-6. TECH-2 (currency symbol — **✅ RESOLVED, commit `4c1db7c`**), TECH-3 (UTC timestamps — **✅ RESOLVED for franchise-scoped screens, commit `ba4f72e`; 4 deferred timestamps still open**), TECH-4 (chat moderation — **✅ COMPLETE, Option A only (read-only viewer), commit `e431667`; Option B/moderation remains open, see item 15**), ENV-1 (backup policy), BD-16 (`partner.workers.assign`), BD-11 (`payment_methods` consolidation), TECH-7 (audience chunking).
+6. TECH-2 (currency symbol — **✅ RESOLVED, commit `4c1db7c`**), TECH-3 (UTC timestamps — **✅ RESOLVED for franchise-scoped screens, commit `ba4f72e`; 4 deferred timestamps still open**), TECH-4 (chat moderation — **✅ COMPLETE, Option A only (read-only viewer), commit `e431667`; Option B/moderation remains open, see item 15**), TECH-7 (audience chunking — **✅ RESOLVED, commit `df4e186`**), ENV-1 (backup policy), BD-16 (`partner.workers.assign`), BD-11 (`payment_methods` consolidation).
 
 ### Structural, non-blocking, can run in parallel with launch prep
 7. TECH-6 (Admin UI design system) — per `FINAL_RELEASE_READINESS_AUDIT.md §15`'s own recommendation, this and API-first mobile app development are independent tracks; neither should gate the other.
@@ -464,7 +465,7 @@ This is a sequencing proposal only — no work has started.
 3. **BD-8** (SMS/push vendor decision + integration) — the one true hard launch-blocker; the decision itself (vendor choice) can start immediately in parallel with #1/#2 since it needs no code yet, but the integration work should be prioritized the moment a vendor is chosen given real historical precedent already narrows the choice.
 4. **BD-17** (Terms & Conditions / Privacy Policy) — legal review can start in parallel with the above; low engineering cost once content exists (TECH-5-equivalent signup wiring is a small follow-on, not currently a separate tracked item since no signup flow exists yet to wire it into).
 5. **BD-24** (Sanctum expiration policy) — decision + implementation, moderate size, real security-hygiene value before real accounts scale.
-6. **TECH-2 + TECH-3 + TECH-7** (currency symbol, UTC timestamps, campaign chunking) — bundle as one "admin display/consistency hardening" pass, since they're all mechanical, low-risk, and share the same "needs new test coverage before touching" caution the register itself already names for TECH-2/TECH-3. — **TECH-2 ✅ COMPLETE (`4c1db7c`); TECH-3 ✅ COMPLETE for franchise-scoped screens (`ba4f72e`), 4 deferred timestamps still open; TECH-7 still open.**
+6. **TECH-2 + TECH-3 + TECH-7** (currency symbol, UTC timestamps, campaign chunking) — bundle as one "admin display/consistency hardening" pass, since they're all mechanical, low-risk, and share the same "needs new test coverage before touching" caution the register itself already names for TECH-2/TECH-3. — **TECH-2 ✅ COMPLETE (`4c1db7c`); TECH-3 ✅ COMPLETE for franchise-scoped screens (`ba4f72e`), 4 deferred timestamps still open; TECH-7 ✅ COMPLETE (`df4e186`).**
 7. **TECH-4** (chat moderation screen) + **ENV-1** (backup policy decision) — can run in parallel with each other and with #6; neither blocks nor is blocked by anything else in this list. — **TECH-4 ✅ COMPLETE, Option A only (`e431667`); ENV-1 still open.**
 8. **BD-16 / BD-11** — architecture decisions with no current live risk; resolve opportunistically, no urgency to force a timeline.
 9. **TECH-6** (Admin UI design system) — begin whenever real design/frontend capacity is available; explicitly independent of every item above per the release audit's own recommendation. This is the largest single item in the whole backlog and should be scoped as its own multi-phase effort, not a single Phase 21 task.
