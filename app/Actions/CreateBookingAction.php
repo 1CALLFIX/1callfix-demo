@@ -2,21 +2,27 @@
 
 namespace App\Actions;
 
+use App\Exceptions\ModuleNotActiveException;
 use App\Jobs\ServiceMatchingJob;
 use App\Models\Booking;
+use App\Models\Franchise;
 use App\Models\Payment;
 use App\Models\Service;
 use App\Models\Setting;
 use App\Notifications\BookingStatusNotification;
 use App\Notifications\Support\ChannelResolver;
+use App\Services\ModuleActivationService;
 use App\Services\Plans\EntitlementService;
 use App\Services\WalletService;
+use App\Support\Modules;
 use Illuminate\Support\Facades\DB;
 
 class CreateBookingAction
 {
-    public function __construct(private EntitlementService $entitlementService)
-    {
+    public function __construct(
+        private EntitlementService $entitlementService,
+        private ModuleActivationService $moduleActivation,
+    ) {
     }
 
     /**
@@ -37,6 +43,27 @@ class CreateBookingAction
         $service = Service::findOrFail($data['service_id']);
         $paymentMethod = $data['payment_method'] ?? 'online';
         $basePrice = (float) ($data['price_quoted'] ?? $service->base_price);
+
+        // Phase 22.1 (Module Activation Foundation) — the real enforcement
+        // point PHASE_22_PLATFORM_CAPABILITY_RECOVERY_AUDIT.md §16 named as
+        // missing: a stored activation flag that no code ever checked. This
+        // is the ONE place every booking (customer app, admin panel, or a
+        // Tinker test alike, per this method's own docblock) is created, so
+        // it's the right single choke point rather than duplicating the
+        // check across every caller. franchise->country_id/city_id are
+        // pulled in specifically so a country- or city-level deactivation
+        // (which no `franchise_id`-only check could ever see) is honored
+        // too, not just franchise/zone.
+        $franchise = Franchise::findOrFail($data['franchise_id']);
+        $scope = [
+            'zone_id' => $data['zone_id'] ?? null,
+            'franchise_id' => $franchise->id,
+            'city_id' => $franchise->city_id,
+            'country_id' => $franchise->country_id,
+        ];
+        if (! $this->moduleActivation->isActive(Modules::SERVICE, $scope)) {
+            throw new ModuleNotActiveException(Modules::SERVICE);
+        }
 
         $booking = DB::transaction(function () use ($data, $service, $paymentMethod, $basePrice) {
             $booking = Booking::create([

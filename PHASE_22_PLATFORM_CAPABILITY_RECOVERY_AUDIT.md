@@ -4,6 +4,8 @@
 
 **Baseline verified this session:** HEAD `8cd0618`, working tree clean, branch `main`. Full suite: **778/778 passing, 1,799 assertions, 0 failures** (`php artisan test`, re-run at the start of this audit). Production unchanged at `ba0635a`. Nothing in this document required a code change to produce, so this baseline is also the end-of-session baseline.
 
+**Addendum (Phase 22.1, same continued mission):** the §3/§6/§11/§16 findings below (no Country→City→Zone→Franchise module-activation cascade; `franchise_modules` unread by any code; no Modules admin screen) are now **RESOLVED** — see `PHASE_22_1_MODULE_ACTIVATION_FOUNDATION.md`. This audit document's own findings are left exactly as originally written below (an audit is a point-in-time record, not something to rewrite after the fact); read them together with that follow-up document for current state.
+
 ---
 
 ## 1. Executive Summary

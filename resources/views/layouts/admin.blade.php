@@ -91,6 +91,7 @@
                         ['label' => 'Zones', 'route' => 'admin.zones.index', 'icon' => 'map', 'active' => true, 'permission' => 'zones.manage'],
                         ['label' => 'Geography', 'route' => 'admin.geography.index', 'icon' => 'map', 'active' => true, 'permission' => 'geography.manage'],
                         ['label' => 'Franchises', 'route' => 'admin.franchises.index', 'icon' => 'building', 'active' => true, 'permission' => 'franchises.manage'],
+                        ['label' => 'Modules', 'route' => 'admin.modules.index', 'icon' => 'gear', 'active' => true, 'permission' => 'modules.manage'],
                         ['label' => 'Services', 'route' => 'admin.services.index', 'icon' => 'wrench', 'active' => true, 'permission' => 'services.manage'],
                         ['label' => 'Categories', 'route' => 'admin.categories.index', 'icon' => 'wrench', 'active' => true, 'permission' => 'categories.manage'],
                         ['label' => 'Subcategories', 'route' => 'admin.subcategories.index', 'icon' => 'wrench', 'active' => true, 'permission' => 'categories.manage'],
