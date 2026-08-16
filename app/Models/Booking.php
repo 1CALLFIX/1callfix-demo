@@ -2,11 +2,19 @@
 
 namespace App\Models;
 
+use App\Contracts\Orderable;
+use App\Support\Modules;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
-class Booking extends Model
+/**
+ * Phase 22.2: implements Orderable — see PHASE_22_2_ORDER_ENGINE_
+ * ARCHITECTURE_DECISION.md. Every method below is a one-line delegation to
+ * a column this class already had; this is a zero-behavior-change addition,
+ * not a refactor.
+ */
+class Booking extends Model implements Orderable
 {
     use HasFactory;
     use SoftDeletes;
@@ -62,4 +70,14 @@ class Booking extends Model
     public function compensations() { return $this->hasMany(BookingCompensation::class); }
     public function review() { return $this->hasOne(Review::class); }
     public function cancellationReason() { return $this->belongsTo(CancellationReason::class); }
+
+    // ============================== Orderable ==============================
+
+    public function moduleCode(): string { return Modules::SERVICE; }
+    public function orderCode(): string { return $this->code; }
+    public function orderFranchiseId(): int { return $this->franchise_id; }
+    public function orderZoneId(): ?int { return $this->zone_id; }
+    public function orderCustomerId(): int { return $this->customer_id; }
+    public function orderTotalPrice(): float { return (float) ($this->price_final ?? $this->price_quoted); }
+    public function orderStatus(): string { return $this->status; }
 }
