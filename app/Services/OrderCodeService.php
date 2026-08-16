@@ -53,6 +53,14 @@ class OrderCodeService
         return sprintf('%s-TXI-%s-%08d', strtoupper($franchise->code), now()->format('dm'), $sequenceNumber);
     }
 
+    /** Phase 22.7 (Property Rental) -- own counter, own table, `-PRP-` segment. Same reasoning as generateForParcel() above. */
+    public function generateForPropertyReservation(Franchise $franchise): string
+    {
+        $sequenceNumber = $this->incrementSequence('property_reservation_sequences', $franchise);
+
+        return sprintf('%s-PRP-%s-%08d', strtoupper($franchise->code), now()->format('dm'), $sequenceNumber);
+    }
+
     /**
      * The genuinely shared, concurrency-safe primitive both formats above
      * are built on — extracted here rather than duplicated, since this is

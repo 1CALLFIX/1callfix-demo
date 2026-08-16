@@ -6,10 +6,12 @@ use App\Contracts\PaymentGateway;
 use App\Models\Booking;
 use App\Models\ParcelOrder;
 use App\Models\Payment;
+use App\Models\PropertyReservation;
 use App\Models\Setting;
 use App\Models\TaxiRide;
 use App\Notifications\ParcelOrderStatusNotification;
 use App\Notifications\PaymentStatusNotification;
+use App\Notifications\PropertyReservationStatusNotification;
 use App\Notifications\Support\ChannelResolver;
 use App\Notifications\TaxiRideStatusNotification;
 
@@ -93,6 +95,47 @@ class CancellationService
             $ride->created_at,
             (float) ($ride->price_quoted ?? 0)
         );
+    }
+
+    /**
+     * Phase 22.7 (Property Rental) — deliberately NOT routed through
+     * `calculateFeeGeneric()` above: that helper's semantics are "elapsed
+     * time since the order was CREATED," which fits a same-day Service/
+     * Parcel/Taxi job but not a real-world rental cancellation policy,
+     * whose natural question is "how far before CHECK-IN was this
+     * cancelled." Forcing rental cancellation through the creation-elapsed
+     * helper would silently answer the wrong question, not a genuine
+     * simplification — so this method follows the SAME architectural
+     * pattern (Setting-driven, no dedicated `cancellation_policies` table
+     * row per this codebase's own established precedent — see
+     * `properties` migration's own docblock) with rental-appropriate
+     * semantics instead.
+     */
+    public function calculateFeeForPropertyReservation(PropertyReservation $reservation): float
+    {
+        $reservation->loadMissing('franchise');
+
+        $scope = array_filter([
+            'zone_id' => $reservation->zone_id,
+            'franchise_id' => $reservation->franchise_id,
+            'city_id' => $reservation->franchise?->city_id,
+            'country_id' => $reservation->franchise?->country_id,
+        ]);
+
+        $freeHoursBeforeCheckIn = (int) Setting::get('rental.free_cancellation_hours_before_checkin', '48', $scope);
+        $feeType = Setting::get('rental.cancellation_fee_type', 'flat', $scope);
+        $feeValue = (float) Setting::get('rental.cancellation_fee_value', '0', $scope);
+
+        $hoursUntilCheckIn = now()->diffInHours($reservation->check_in_date->startOfDay(), false);
+
+        if ($hoursUntilCheckIn >= $freeHoursBeforeCheckIn) {
+            return 0.0;
+        }
+
+        $basis = (float) ($reservation->price_quoted ?? 0);
+        $fee = $feeType === 'percent' ? round($basis * $feeValue / 100, 2) : $feeValue;
+
+        return round(min($fee, $basis), 2);
     }
 
     private function calculateFeeGeneric(array $scope, \Illuminate\Support\Carbon $createdAt, float $basis): float
@@ -273,6 +316,52 @@ class CancellationService
         if ($ride->customer) {
             $channels = ChannelResolver::resolve(['zone_id' => $ride->zone_id, 'franchise_id' => $ride->franchise_id]);
             $ride->customer->notify(new TaxiRideStatusNotification('refunded', $ride, $channels, $refundAmount));
+        }
+    }
+
+    /** Phase 22.7 (Property Rental) — the PropertyReservation counterpart to refundIfPaidForTaxiRide() above, same reasoning. */
+    public function refundIfPaidForPropertyReservation(PropertyReservation $reservation, float $fee): void
+    {
+        $payment = Payment::where('property_reservation_id', $reservation->id)
+            ->where('status', 'captured')
+            ->latest()
+            ->first();
+
+        if (!$payment) {
+            return;
+        }
+
+        $refundAmount = round(max((float) $payment->amount - $fee, 0), 2);
+
+        if ($refundAmount <= 0) {
+            return;
+        }
+
+        if ($payment->gateway === 'wallet') {
+            $this->walletService->credit(
+                $reservation->customer,
+                $refundAmount,
+                reason: "Refund for cancelled reservation {$reservation->code}",
+                ref: "property_reservation:{$reservation->id}:wallet-refund"
+            );
+        } else {
+            $this->gateway->refund(
+                $payment->gateway_payment_id,
+                $refundAmount,
+                "Reservation {$reservation->code} cancelled"
+            );
+        }
+
+        $payment->refunded_amount = $refundAmount;
+        $payment->status = 'refunded';
+        $payment->save();
+
+        $reservation->payment_status = $refundAmount >= (float) $payment->amount ? 'refunded' : 'partially_refunded';
+        $reservation->save();
+
+        if ($reservation->customer) {
+            $channels = ChannelResolver::resolve(['zone_id' => $reservation->zone_id, 'franchise_id' => $reservation->franchise_id]);
+            $reservation->customer->notify(new PropertyReservationStatusNotification('refunded', $reservation, $channels, $refundAmount));
         }
     }
 }

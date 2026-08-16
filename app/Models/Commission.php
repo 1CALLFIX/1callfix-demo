@@ -16,15 +16,19 @@ class Commission extends Model
         'booking_id',
         'parcel_order_id',
         'taxi_ride_id',
+        'property_reservation_id',
         'provider_commission',
         'franchise_commission',
         'platform_commission'
     ];
     public function booking() { return $this->belongsTo(Booking::class); }
 
-    /** Phase 22.4 -- the Parcel counterpart to booking(). Exactly one of booking_id/parcel_order_id/taxi_ride_id is ever set on a given row. */
+    /** Phase 22.4 -- the Parcel counterpart to booking(). Exactly one of booking_id/parcel_order_id/taxi_ride_id/property_reservation_id is ever set on a given row. */
     public function parcelOrder() { return $this->belongsTo(ParcelOrder::class); }
 
     /** Phase 22.6 -- the Taxi counterpart. */
     public function taxiRide() { return $this->belongsTo(TaxiRide::class); }
+
+    /** Phase 22.7 -- the Property Rental counterpart. */
+    public function propertyReservation() { return $this->belongsTo(PropertyReservation::class); }
 }

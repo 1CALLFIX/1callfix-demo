@@ -1,0 +1,61 @@
+<?php
+
+namespace App\Models;
+
+use App\Contracts\Orderable;
+use App\Support\Modules;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
+
+/**
+ * Phase 22.7 (Property Rental) — the fourth `Orderable` implementer.
+ * `moduleCode()` returns `car_rental` (the module slug covering the whole
+ * Rental family, `App\Support\Modules::ALL` — Property/Vehicle/Self-Drive/
+ * Machine-Tools all share one module today; see
+ * `PHASE_22_PLATFORM_CAPABILITY_RECOVERY_AUDIT.md §5` for why this wasn't
+ * split into a `property_rental` sub-slug — no evidence supports that
+ * split yet).
+ */
+class PropertyReservation extends Model implements Orderable
+{
+    use HasFactory;
+    use SoftDeletes;
+
+    protected $table = 'property_reservations';
+
+    protected $fillable = [
+        'code', 'franchise_id', 'zone_id', 'customer_id', 'property_id',
+        'check_in_date', 'check_out_date', 'number_of_nights', 'number_of_guests',
+        'status', 'price_quoted', 'price_final', 'payment_status', 'payment_method',
+        'cancellation_reason_id', 'cancellation_note', 'cancellation_fee',
+        'special_requests', 'confirmed_at', 'checked_in_at', 'completed_at',
+    ];
+
+    protected $casts = [
+        'check_in_date' => 'date',
+        'check_out_date' => 'date',
+        'confirmed_at' => 'datetime',
+        'checked_in_at' => 'datetime',
+        'completed_at' => 'datetime',
+    ];
+
+    public function franchise() { return $this->belongsTo(Franchise::class); }
+    public function zone() { return $this->belongsTo(Zone::class); }
+    public function customer() { return $this->belongsTo(User::class, 'customer_id'); }
+    public function property() { return $this->belongsTo(Property::class); }
+    public function statusHistory() { return $this->hasMany(PropertyReservationStatusHistory::class); }
+    public function cancellationReason() { return $this->belongsTo(CancellationReason::class); }
+    public function commission() { return $this->hasOne(Commission::class); }
+    public function payments() { return $this->hasMany(Payment::class); }
+
+    // ============================== Orderable ==============================
+
+    public function moduleCode(): string { return Modules::CAR_RENTAL; }
+    public function orderCode(): string { return $this->code; }
+    public function orderFranchiseId(): int { return $this->franchise_id; }
+    public function orderZoneId(): ?int { return $this->zone_id; }
+    public function orderCustomerId(): int { return $this->customer_id; }
+    public function orderTotalPrice(): float { return (float) ($this->price_final ?? $this->price_quoted); }
+    public function orderStatus(): string { return $this->status; }
+}

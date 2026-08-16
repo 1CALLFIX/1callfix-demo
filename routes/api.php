@@ -45,6 +45,15 @@ Route::get('/pages/{slug}', [\App\Http\Controllers\API\ContentController::class,
 Route::get('/faqs', [\App\Http\Controllers\API\ContentController::class, 'faqs']);
 Route::get('/banners', [\App\Http\Controllers\API\ContentController::class, 'banners']);
 
+// Phase 22.7 -- Property Rental browse/search. Public by the same
+// reasoning as the content routes above: a real customer browses
+// properties before logging in (the same real-world shape Glover's own
+// public property-search evidence confirms), same as every other
+// pre-login discovery surface in this codebase.
+Route::get('/properties', [\App\Http\Controllers\API\PropertyController::class, 'index']);
+Route::get('/properties/{propertyId}', [\App\Http\Controllers\API\PropertyController::class, 'show']);
+Route::get('/properties/{propertyId}/availability', [\App\Http\Controllers\API\PropertyController::class, 'availability']);
+
 Route::middleware(['auth:sanctum', \App\Http\Middleware\EnsureNotInMaintenanceMode::class])->group(function () {
     Route::post('/bookings/{booking}/accept', [\App\Http\Controllers\API\DispatchController::class, 'accept']);
     Route::post('/bookings/{booking}/complete', [\App\Http\Controllers\API\DispatchController::class, 'complete']);
@@ -69,6 +78,12 @@ Route::middleware(['auth:sanctum', \App\Http\Middleware\EnsureNotInMaintenanceMo
     Route::post('/payment-accounts/{id}/set-default', [\App\Http\Controllers\API\PaymentAccountController::class, 'setDefault']);
     Route::delete('/payment-accounts/{id}', [\App\Http\Controllers\API\PaymentAccountController::class, 'destroy']);
     Route::get('/providers/nearby', [\App\Http\Controllers\API\ProviderDiscoveryController::class, 'nearby']);
+
+    // Phase 22.7 -- Property Rental (authenticated actions only -- browse
+    // is public, see below).
+    Route::post('/properties/{propertyId}/reservations', [\App\Http\Controllers\API\PropertyReservationController::class, 'store']);
+    Route::get('/reservations/mine', [\App\Http\Controllers\API\PropertyReservationController::class, 'mine']);
+    Route::get('/reservations/{reservationId}', [\App\Http\Controllers\API\PropertyReservationController::class, 'show']);
     Route::get('/loyalty', [\App\Http\Controllers\API\LoyaltyController::class, 'show']);
     Route::post('/loyalty/redeem', [\App\Http\Controllers\API\LoyaltyController::class, 'redeem']);
 

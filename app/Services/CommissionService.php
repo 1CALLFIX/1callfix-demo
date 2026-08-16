@@ -6,6 +6,7 @@ use App\Models\Booking;
 use App\Models\Commission;
 use App\Models\EntitlementBalance;
 use App\Models\ParcelOrder;
+use App\Models\PropertyReservation;
 use App\Models\TaxiRide;
 use App\Services\Plans\EntitlementService;
 use App\Services\Plans\UsageService;
@@ -170,21 +171,51 @@ class CommissionService
     }
 
     /**
-     * The real shared core behind applyForParcelOrder()/applyForTaxiRide()
-     * — split calculation + Commission row + wallet credits for a
-     * FieldWorker-executed order. Deliberately NOT shared with
-     * applyForBooking() (Service) above — that method's Plan-Entitlement
-     * commission-rate-override resolution has no FieldWorker equivalent,
-     * and threading a permanently-unused parameter through this helper
-     * just to unify three methods instead of two would be exactly the
-     * "generalize because names are similar" trap the mission's own
-     * instructions warn against, not a genuine simplification.
+     * Phase 22.7 (Property Rental) — the fourth caller, and the first
+     * whose "earner" is a `Provider` (the property's owner) rather than a
+     * `FieldWorker`. Verified this still fits the shared helper below
+     * before widening its type hint: both `FieldWorker` and `Provider`
+     * expose the identical `->user` relation the helper actually uses —
+     * nothing else about either type is read. Deliberately still NOT
+     * routed through `applyForBooking()`'s own Plan-Entitlement rate-
+     * override path — that's a Service/Plan-Engine-specific mechanism
+     * (the Plan Engine is explicitly frozen/untouched elsewhere in this
+     * codebase's history) with no evidence it should extend to Property
+     * owners; inventing that extension here would be a real, unasked-for
+     * scope expansion, not a safe generalization.
+     */
+    public function applyForPropertyReservation(PropertyReservation $reservation): Commission
+    {
+        $reservation->loadMissing(['franchise.owner', 'property.provider.user']);
+
+        return $this->applyForFieldWorkerOrder(
+            identifyingColumn: 'property_reservation_id', identifyingId: $reservation->id,
+            franchise: $reservation->franchise, worker: $reservation->property?->provider,
+            total: (float) ($reservation->price_final ?? $reservation->price_quoted),
+            orderCode: $reservation->code, orderLabel: 'property reservation',
+        );
+    }
+
+    /**
+     * The real shared core behind applyForParcelOrder()/applyForTaxiRide()/
+     * applyForPropertyReservation() — split calculation + Commission row +
+     * wallet credits for a non-Booking order's "earner." Deliberately NOT
+     * shared with applyForBooking() (Service) above — that method's
+     * Plan-Entitlement commission-rate-override resolution has no
+     * equivalent here, and threading a permanently-unused parameter
+     * through this helper just to unify every method instead of the three
+     * that already share this exact shape would be the "generalize
+     * because names are similar" trap the mission's own instructions warn
+     * against, not a genuine simplification. `$worker`'s type widened to
+     * `FieldWorker|Provider` for Phase 22.7 — verified safe (see
+     * applyForPropertyReservation()'s own docblock above) rather than
+     * assumed.
      */
     private function applyForFieldWorkerOrder(
         string $identifyingColumn,
         int $identifyingId,
         \App\Models\Franchise $franchise,
-        ?\App\Models\FieldWorker $worker,
+        \App\Models\FieldWorker|\App\Models\Provider|null $worker,
         float $total,
         string $orderCode,
         string $orderLabel

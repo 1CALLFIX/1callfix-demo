@@ -16,6 +16,7 @@ class Payment extends Model
         'booking_id',
         'parcel_order_id',
         'taxi_ride_id',
+        'property_reservation_id',
         'purpose',
         'user_id',
         'plan_subscription_id',
@@ -41,4 +42,6 @@ class Payment extends Model
     public function parcelOrder() { return $this->belongsTo(ParcelOrder::class); }
     /** Phase 22.6 -- only set for purpose = 'taxi_ride'. */
     public function taxiRide() { return $this->belongsTo(TaxiRide::class); }
+    /** Phase 22.7 -- only set for purpose = 'property_reservation'. */
+    public function propertyReservation() { return $this->belongsTo(PropertyReservation::class); }
 }
