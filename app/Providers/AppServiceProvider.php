@@ -11,8 +11,11 @@ use App\Models\NotificationLog;
 use App\Models\Review;
 use App\Models\User;
 use App\Models\Zone;
+use App\Notifications\Adapters\FirebaseFcmPushAdapter;
+use App\Notifications\Adapters\GatewayApiSmsAdapter;
 use App\Notifications\Adapters\LogPushAdapter;
 use App\Notifications\Adapters\LogSmsAdapter;
+use App\Notifications\Adapters\Msg91SmsAdapter;
 use App\Notifications\Channels\PushChannel;
 use App\Notifications\Channels\SmsChannel;
 use App\Observers\BookingObserver;
@@ -36,13 +39,24 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        // No real SMS/push provider is configured anywhere in this codebase
-        // (confirmed by audit) -- bind the log-based fake adapters so the
-        // full event -> channel -> adapter flow is real and testable today.
-        // Swap these two bindings for real provider adapters later; nothing
-        // else (channels, Notification classes, call sites) needs to change.
-        $this->app->bind(SmsAdapter::class, LogSmsAdapter::class);
-        $this->app->bind(PushAdapter::class, LogPushAdapter::class);
+        // BD-8: real adapters now exist (Msg91SmsAdapter, GatewayApiSmsAdapter,
+        // FirebaseFcmPushAdapter) but none is auto-selected -- config('services.sms.driver')
+        // / config('services.push.driver') (SMS_DRIVER/PUSH_DRIVER env) decide, both
+        // defaulting to 'log' so nothing changes in any environment that
+        // hasn't deliberately set them + real credentials. See
+        // KNOWN_RISKS_AND_DECISIONS.md item 8 for why the vendor choice
+        // itself is not made here. Nothing above this binding (SmsChannel/
+        // PushChannel, the Notification classes, OtpService) needs to
+        // change regardless of which driver is selected.
+        $this->app->bind(SmsAdapter::class, fn ($app) => match (config('services.sms.driver', 'log')) {
+            'msg91' => $app->make(Msg91SmsAdapter::class),
+            'gatewayapi' => $app->make(GatewayApiSmsAdapter::class),
+            default => $app->make(LogSmsAdapter::class),
+        });
+        $this->app->bind(PushAdapter::class, fn ($app) => match (config('services.push.driver', 'log')) {
+            'fcm' => $app->make(FirebaseFcmPushAdapter::class),
+            default => $app->make(LogPushAdapter::class),
+        });
 
         // Razorpay IS the real, already-selected provider (unlike SMS/push
         // above) -- this binding is the abstraction boundary, not a stand-in:
