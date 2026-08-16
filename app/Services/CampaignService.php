@@ -44,16 +44,26 @@ class CampaignService
         $campaign->update(['status' => 'sending']);
 
         $channels = ChannelResolver::mapChannels($campaign->channelList());
-        $recipients = $this->audienceResolver->resolve($campaign->audienceSpec())->get();
 
-        foreach ($recipients as $recipient) {
-            $recipient->notify(new CampaignNotification($campaign, $channels));
-        }
+        // Phase 21 item TECH-7: chunked instead of one ->get(), matching
+        // KycReminderService::dispatchDue()'s own established pattern --
+        // a large audience no longer has to be fully hydrated into memory
+        // before the first notify() call. CampaignNotification already
+        // implements ShouldQueue (Phase 18), so this loop itself was never
+        // the timeout risk; only the audience hydration was.
+        $recipientCount = 0;
+        $this->audienceResolver->resolve($campaign->audienceSpec())
+            ->chunkById(200, function ($recipients) use ($campaign, $channels, &$recipientCount) {
+                foreach ($recipients as $recipient) {
+                    $recipient->notify(new CampaignNotification($campaign, $channels));
+                }
+                $recipientCount += $recipients->count();
+            });
 
         $campaign->update([
             'status' => 'sent',
             'sent_at' => now(),
-            'recipient_count' => $recipients->count(),
+            'recipient_count' => $recipientCount,
         ]);
 
         return $campaign->fresh();
@@ -122,12 +132,18 @@ class CampaignService
         }
 
         $channels = ChannelResolver::mapChannels($campaign->channelList());
-        $recipients = User::whereIn('id', $failedUserIds)->get();
 
-        foreach ($recipients as $recipient) {
-            $recipient->notify(new CampaignNotification($campaign, $channels));
-        }
+        // Same chunking as send() above (Phase 21 item TECH-7) -- a failed
+        // recipient list can be just as large as the original audience.
+        $resentCount = 0;
+        User::whereIn('id', $failedUserIds)
+            ->chunkById(200, function ($recipients) use ($campaign, $channels, &$resentCount) {
+                foreach ($recipients as $recipient) {
+                    $recipient->notify(new CampaignNotification($campaign, $channels));
+                }
+                $resentCount += $recipients->count();
+            });
 
-        return $recipients->count();
+        return $resentCount;
     }
 }

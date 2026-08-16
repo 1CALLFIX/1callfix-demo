@@ -202,6 +202,85 @@ class NotificationCenterAuditTest extends TestCase
         Queue::assertPushed(SendQueuedNotifications::class);
     }
 
+    // ============================== Audience chunking (Phase 21 item TECH-7) ==============================
+
+    /**
+     * `CampaignService::send()` (mission Phase 8/Phase 18) and
+     * `resendToFailedRecipients()` both used to hydrate the entire resolved
+     * audience into memory in one `->get()` before looping -- real but
+     * low-severity-today, logged as risk register item 28 rather than
+     * stacking a second behavioral change onto Phase 18's just-fixed
+     * ShouldQueue methods. Phase 21 item TECH-7 rewrote both to
+     * `chunkById(200, ...)`, matching `KycReminderService::dispatchDue()`'s
+     * own established pattern. This proves the fix's actual mechanism --
+     * `users` gets queried in ceil(N/200) chunked SELECTs, not one -- for an
+     * audience that crosses the 200-row chunk boundary, not just that the
+     * final count is still correct (which would pass unchanged against the
+     * old single ->get() too).
+     */
+    public function test_campaign_send_chunks_the_audience_query_across_the_chunk_boundary(): void
+    {
+        Queue::fake();
+        \Illuminate\Support\Facades\DB::enableQueryLog();
+
+        $campaign = $this->makeCampaign(['status' => 'draft']);
+        for ($i = 0; $i < 205; $i++) {
+            $this->makeUser();
+        }
+
+        \Illuminate\Support\Facades\DB::flushQueryLog();
+        $sent = app(CampaignService::class)->send($campaign->fresh());
+
+        $usersSelects = collect(\Illuminate\Support\Facades\DB::getQueryLog())
+            ->filter(fn ($q) => str_contains($q['query'], 'select * from "users"') || str_contains($q['query'], 'select * from `users`'))
+            ->count();
+        \Illuminate\Support\Facades\DB::disableQueryLog();
+
+        // 205 recipients over a 200-row chunk -> exactly 2 SELECTs against
+        // `users` (200 + 5), never 1 (the old unchunked behavior) and never
+        // one-per-row (a naive N+1 rewrite would be worse, not better).
+        $this->assertSame(2, $usersSelects);
+        $this->assertSame(205, $sent->recipient_count);
+        Queue::assertPushed(SendQueuedNotifications::class, 205);
+    }
+
+    public function test_campaign_send_recipient_count_is_correct_exactly_at_the_chunk_boundary(): void
+    {
+        Queue::fake();
+
+        $campaign = $this->makeCampaign(['status' => 'draft']);
+        for ($i = 0; $i < 200; $i++) {
+            $this->makeUser();
+        }
+
+        $sent = app(CampaignService::class)->send($campaign->fresh());
+
+        $this->assertSame(200, $sent->recipient_count);
+        Queue::assertPushed(SendQueuedNotifications::class, 200);
+    }
+
+    public function test_resend_to_failed_recipients_chunks_across_the_chunk_boundary(): void
+    {
+        Queue::fake();
+
+        $campaign = $this->makeCampaign();
+        $recipientIds = [];
+        for ($i = 0; $i < 205; $i++) {
+            $user = $this->makeUser();
+            $recipientIds[] = $user->id;
+            NotificationLog::create([
+                'notifiable_type' => User::class, 'notifiable_id' => $user->id, 'campaign_id' => $campaign->id,
+                'channel' => 'mail', 'notification_type' => 'CampaignNotification', 'event' => 'campaign.sent',
+                'status' => 'failed', 'sent_at' => now(),
+            ]);
+        }
+
+        $count = app(CampaignService::class)->resendToFailedRecipients($campaign);
+
+        $this->assertSame(205, $count);
+        Queue::assertPushed(SendQueuedNotifications::class, 205);
+    }
+
     // ============================== Resend to failed recipients ==============================
 
     private function makeCampaign(array $overrides = []): NotificationCampaign
