@@ -6,6 +6,7 @@ use App\Models\Booking;
 use App\Models\Commission;
 use App\Models\EntitlementBalance;
 use App\Models\ParcelOrder;
+use App\Models\TaxiRide;
 use App\Services\Plans\EntitlementService;
 use App\Services\Plans\UsageService;
 use Illuminate\Support\Facades\DB;
@@ -136,17 +137,64 @@ class CommissionService
      */
     public function applyForParcelOrder(ParcelOrder $order): Commission
     {
-        $existing = Commission::where('parcel_order_id', $order->id)->first();
+        $order->loadMissing(['franchise.owner', 'assignedWorker.user']);
+
+        return $this->applyForFieldWorkerOrder(
+            identifyingColumn: 'parcel_order_id', identifyingId: $order->id,
+            franchise: $order->franchise, worker: $order->assignedWorker,
+            total: (float) ($order->price_final ?? $order->price_quoted),
+            orderCode: $order->code, orderLabel: 'parcel order',
+        );
+    }
+
+    /**
+     * Phase 22.6 (Taxi) — the second real caller of the field-worker
+     * commission split, which is what earned it a real shared private
+     * helper (`applyForFieldWorkerOrder()` below) rather than a third
+     * near-identical copy-paste of `applyForParcelOrder()`'s own body.
+     * This is the exact "generalize once real repetition exists" moment
+     * this codebase's own principle describes — the abstraction is
+     * extracted FROM two real, working implementations, not designed
+     * ahead of them.
+     */
+    public function applyForTaxiRide(TaxiRide $ride): Commission
+    {
+        $ride->loadMissing(['franchise.owner', 'assignedWorker.user']);
+
+        return $this->applyForFieldWorkerOrder(
+            identifyingColumn: 'taxi_ride_id', identifyingId: $ride->id,
+            franchise: $ride->franchise, worker: $ride->assignedWorker,
+            total: (float) ($ride->price_final ?? $ride->price_quoted),
+            orderCode: $ride->code, orderLabel: 'taxi ride',
+        );
+    }
+
+    /**
+     * The real shared core behind applyForParcelOrder()/applyForTaxiRide()
+     * — split calculation + Commission row + wallet credits for a
+     * FieldWorker-executed order. Deliberately NOT shared with
+     * applyForBooking() (Service) above — that method's Plan-Entitlement
+     * commission-rate-override resolution has no FieldWorker equivalent,
+     * and threading a permanently-unused parameter through this helper
+     * just to unify three methods instead of two would be exactly the
+     * "generalize because names are similar" trap the mission's own
+     * instructions warn against, not a genuine simplification.
+     */
+    private function applyForFieldWorkerOrder(
+        string $identifyingColumn,
+        int $identifyingId,
+        \App\Models\Franchise $franchise,
+        ?\App\Models\FieldWorker $worker,
+        float $total,
+        string $orderCode,
+        string $orderLabel
+    ): Commission {
+        $existing = Commission::where($identifyingColumn, $identifyingId)->first();
         if ($existing) {
             return $existing;
         }
 
-        $order->loadMissing(['franchise.owner', 'assignedWorker.user']);
-        $franchise = $order->franchise;
-        $total = (float) ($order->price_final ?? $order->price_quoted);
-
-        $platformFeePercent = $franchise->platform_fee_percent;
-        $platformCommission = round($total * ($platformFeePercent / 100), 2);
+        $platformCommission = round($total * ($franchise->platform_fee_percent / 100), 2);
 
         $franchiseCommission = $franchise->commission_model === 'revenue_share'
             ? round($total * ($franchise->commission_value / 100), 2)
@@ -154,29 +202,29 @@ class CommissionService
 
         $workerCommission = round($total - $platformCommission - $franchiseCommission, 2);
 
-        return DB::transaction(function () use ($order, $workerCommission, $franchiseCommission, $platformCommission) {
+        return DB::transaction(function () use ($identifyingColumn, $identifyingId, $worker, $franchise, $workerCommission, $franchiseCommission, $platformCommission, $orderCode, $orderLabel) {
             $commission = Commission::create([
-                'parcel_order_id' => $order->id,
-                'provider_commission' => $workerCommission, // reusing the same column Service uses for its "earner" share -- see this method's own docblock for why this is a FieldWorker's share here, not a Provider's
+                $identifyingColumn => $identifyingId,
+                'provider_commission' => $workerCommission, // reusing the same column Service uses for its "earner" share -- a FieldWorker's share here, not a Provider's
                 'franchise_commission' => $franchiseCommission,
                 'platform_commission' => $platformCommission,
             ]);
 
-            if ($order->assignedWorker && $order->assignedWorker->user && $workerCommission > 0) {
+            if ($worker && $worker->user && $workerCommission > 0) {
                 $this->walletService->credit(
-                    $order->assignedWorker->user,
+                    $worker->user,
                     $workerCommission,
-                    reason: "Earnings for parcel order {$order->code}",
-                    ref: "parcel_order:{$order->id}:worker-earning"
+                    reason: "Earnings for {$orderLabel} {$orderCode}",
+                    ref: "{$identifyingColumn}:{$identifyingId}:worker-earning"
                 );
             }
 
-            if ($order->franchise && $order->franchise->owner_user_id && $franchiseCommission > 0) {
+            if ($franchise->owner_user_id && $franchiseCommission > 0) {
                 $this->walletService->credit(
-                    $order->franchise->owner,
+                    $franchise->owner,
                     $franchiseCommission,
-                    reason: "Franchise revenue share for parcel order {$order->code}",
-                    ref: "parcel_order:{$order->id}:franchise-earning"
+                    reason: "Franchise revenue share for {$orderLabel} {$orderCode}",
+                    ref: "{$identifyingColumn}:{$identifyingId}:franchise-earning"
                 );
             }
 

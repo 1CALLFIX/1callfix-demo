@@ -24,6 +24,7 @@ class Modules
 {
     public const SERVICE = 'service';
     public const PARCEL = 'parcel';
+    public const TAXI = 'taxi';
 
     /** slug => display label, in rollout order */
     public const ALL = [

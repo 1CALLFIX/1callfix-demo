@@ -93,6 +93,7 @@
                         ['label' => 'Franchises', 'route' => 'admin.franchises.index', 'icon' => 'building', 'active' => true, 'permission' => 'franchises.manage'],
                         ['label' => 'Modules', 'route' => 'admin.modules.index', 'icon' => 'gear', 'active' => true, 'permission' => 'modules.manage'],
                         ['label' => 'Parcel Orders', 'route' => 'admin.parcel-orders.index', 'icon' => 'clipboard', 'active' => true, 'permission' => 'parcel_orders.view'],
+                        ['label' => 'Taxi Rides', 'route' => 'admin.taxi-rides.index', 'icon' => 'clipboard', 'active' => true, 'permission' => 'taxi_rides.view'],
                         ['label' => 'Services', 'route' => 'admin.services.index', 'icon' => 'wrench', 'active' => true, 'permission' => 'services.manage'],
                         ['label' => 'Categories', 'route' => 'admin.categories.index', 'icon' => 'wrench', 'active' => true, 'permission' => 'categories.manage'],
                         ['label' => 'Subcategories', 'route' => 'admin.subcategories.index', 'icon' => 'wrench', 'active' => true, 'permission' => 'categories.manage'],

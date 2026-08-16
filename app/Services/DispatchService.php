@@ -8,6 +8,7 @@ use App\Models\FieldWorker;
 use App\Models\ParcelOrder;
 use App\Models\Provider;
 use App\Models\Service;
+use App\Models\TaxiRide;
 use App\Models\Zone;
 use App\Services\Ranking\RankingConfigResolver;
 use App\Services\Ranking\RankingEngine;
@@ -145,8 +146,6 @@ class DispatchService
             return collect();
         }
 
-        $radiusKm = $order->zone->default_dispatch_radius_km ?? 8;
-
         $alreadyOfferedWorkerIds = DispatchAttempt::where('dispatchable_type', ParcelOrder::class)
             ->where('dispatchable_id', $order->id)
             ->where('notifiable_type', FieldWorker::class)
@@ -156,32 +155,101 @@ class DispatchService
             ->whereNotNull('assigned_worker_id')
             ->pluck('assigned_worker_id');
 
+        return $this->rankedFieldWorkerCandidates(
+            capabilityType: 'parcel_rider',
+            zoneId: $order->zone_id,
+            excludeWorkerIds: $alreadyOfferedWorkerIds->merge($busyWorkerIds),
+            pickupLat: (float) $order->pickupAddress->lat,
+            pickupLng: (float) $order->pickupAddress->lng,
+            radiusKm: $order->zone->default_dispatch_radius_km ?? 8,
+            scope: array_filter([
+                'zone_id' => $order->zone_id, 'franchise_id' => $order->franchise_id,
+                'city_id' => $order->franchise?->city_id, 'country_id' => $order->franchise?->country_id,
+            ]),
+            limit: $limit,
+        );
+    }
+
+    /**
+     * Phase 22.6 (Taxi) — the second real consumer of the worker-dispatch
+     * pattern `findWorkerCandidates()` (Parcel) established, and the
+     * moment this codebase's own "generalize only where real repetition
+     * exists" principle actually applies: extracted the truly-shared core
+     * (`rankedFieldWorkerCandidates()` below) once a second real caller
+     * existed to validate the abstraction against, rather than guessing it
+     * ahead of time. What stayed different per vertical, deliberately:
+     * the capability type, and — the part that genuinely can't be
+     * generalized without a much larger parameter surface — what "busy"
+     * means (a different table, a different status vocabulary, for each).
+     *
+     * @return Collection<int, array{provider: FieldWorker, distance_km: float}>
+     */
+    public function findTaxiDriverCandidates(TaxiRide $ride, int $limit = 5): Collection
+    {
+        $ride->loadMissing(['zone', 'pickupAddress', 'franchise']);
+
+        if (! $ride->zone || ! $ride->pickupAddress) {
+            return collect();
+        }
+
+        $alreadyOfferedWorkerIds = DispatchAttempt::where('dispatchable_type', TaxiRide::class)
+            ->where('dispatchable_id', $ride->id)
+            ->where('notifiable_type', FieldWorker::class)
+            ->pluck('notifiable_id');
+
+        $busyWorkerIds = TaxiRide::whereIn('status', ['assigned', 'driver_en_route', 'trip_started'])
+            ->whereNotNull('assigned_worker_id')
+            ->pluck('assigned_worker_id');
+
+        return $this->rankedFieldWorkerCandidates(
+            capabilityType: 'taxi_driver',
+            zoneId: $ride->zone_id,
+            excludeWorkerIds: $alreadyOfferedWorkerIds->merge($busyWorkerIds),
+            pickupLat: (float) $ride->pickupAddress->lat,
+            pickupLng: (float) $ride->pickupAddress->lng,
+            radiusKm: $ride->zone->default_dispatch_radius_km ?? 8,
+            scope: array_filter([
+                'zone_id' => $ride->zone_id, 'franchise_id' => $ride->franchise_id,
+                'city_id' => $ride->franchise?->city_id, 'country_id' => $ride->franchise?->country_id,
+            ]),
+            limit: $limit,
+        );
+    }
+
+    /**
+     * The real shared core behind findWorkerCandidates()/
+     * findTaxiDriverCandidates() — eligible-FieldWorker query, distance
+     * filter, and ranking, parameterized by exactly the things that
+     * genuinely differ (capability, exclusion set, pickup point) rather
+     * than by vertical. Reuses RankingEngine/RankingConfigResolver
+     * completely as-is, same as findWorkerCandidates()'s own original
+     * "same engine" reasoning.
+     */
+    private function rankedFieldWorkerCandidates(
+        string $capabilityType,
+        int $zoneId,
+        Collection $excludeWorkerIds,
+        float $pickupLat,
+        float $pickupLng,
+        float $radiusKm,
+        array $scope,
+        int $limit
+    ): Collection {
         $candidates = FieldWorker::query()
-            ->where('zone_id', $order->zone_id)
+            ->where('zone_id', $zoneId)
             ->where('is_online', true)
             ->where('is_active', true)
             ->where('kyc_status', 'approved')
             ->whereNotNull('current_lat')
             ->whereNotNull('current_lng')
-            ->whereHas('capabilities', fn ($q) => $q->where('capability_type', 'parcel_rider'))
-            ->whereNotIn('id', $alreadyOfferedWorkerIds)
-            ->whereNotIn('id', $busyWorkerIds)
+            ->whereHas('capabilities', fn ($q) => $q->where('capability_type', $capabilityType))
+            ->whereNotIn('id', $excludeWorkerIds)
             ->get()
             ->map(fn (FieldWorker $worker) => [
                 'provider' => $worker,
-                'distance_km' => $this->haversineKm(
-                    (float) $order->pickupAddress->lat, (float) $order->pickupAddress->lng,
-                    (float) $worker->current_lat, (float) $worker->current_lng
-                ),
+                'distance_km' => $this->haversineKm($pickupLat, $pickupLng, (float) $worker->current_lat, (float) $worker->current_lng),
             ])
             ->filter(fn ($c) => $c['distance_km'] <= $radiusKm);
-
-        $scope = array_filter([
-            'zone_id' => $order->zone_id,
-            'franchise_id' => $order->franchise_id,
-            'city_id' => $order->franchise?->city_id,
-            'country_id' => $order->franchise?->country_id,
-        ]);
 
         $config = $this->rankingConfigResolver->resolve('field_workers', $scope);
 

@@ -97,6 +97,13 @@ Route::middleware(['auth:sanctum', \App\Http\Middleware\EnsureNotInMaintenanceMo
     Route::post('/worker/parcel-orders/{parcelOrderId}/accept', [\App\Http\Controllers\API\ParcelWorkerJobController::class, 'accept']);
     Route::post('/worker/parcel-orders/{parcelOrderId}/pickup', [\App\Http\Controllers\API\ParcelWorkerJobController::class, 'pickup']);
     Route::post('/worker/parcel-orders/{parcelOrderId}/deliver', [\App\Http\Controllers\API\ParcelWorkerJobController::class, 'deliver']);
+
+    // Phase 22.6 — Taxi driver (FieldWorker, capability_type='taxi_driver')
+    // trip flow. Same shape as ParcelWorkerJobController above.
+    Route::get('/worker/taxi-rides', [\App\Http\Controllers\API\TaxiWorkerJobController::class, 'index']);
+    Route::post('/worker/taxi-rides/{taxiRideId}/accept', [\App\Http\Controllers\API\TaxiWorkerJobController::class, 'accept']);
+    Route::post('/worker/taxi-rides/{taxiRideId}/start', [\App\Http\Controllers\API\TaxiWorkerJobController::class, 'start']);
+    Route::post('/worker/taxi-rides/{taxiRideId}/complete', [\App\Http\Controllers\API\TaxiWorkerJobController::class, 'complete']);
 });
 
 // No auth middleware — this is a server-to-server callback from Razorpay,

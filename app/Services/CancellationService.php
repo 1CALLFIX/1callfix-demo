@@ -7,9 +7,11 @@ use App\Models\Booking;
 use App\Models\ParcelOrder;
 use App\Models\Payment;
 use App\Models\Setting;
+use App\Models\TaxiRide;
 use App\Notifications\ParcelOrderStatusNotification;
 use App\Notifications\PaymentStatusNotification;
 use App\Notifications\Support\ChannelResolver;
+use App\Notifications\TaxiRideStatusNotification;
 
 /**
  * Cancellation policy resolution + the fee/refund calculation it drives.
@@ -73,6 +75,23 @@ class CancellationService
             ]),
             $order->created_at,
             (float) ($order->price_quoted ?? 0)
+        );
+    }
+
+    /** Phase 22.6 (Taxi) — the third caller of the shared fee calculation, same reasoning as calculateFeeForParcelOrder() above. */
+    public function calculateFeeForTaxiRide(TaxiRide $ride): float
+    {
+        $ride->loadMissing('franchise');
+
+        return $this->calculateFeeGeneric(
+            array_filter([
+                'zone_id' => $ride->zone_id,
+                'franchise_id' => $ride->franchise_id,
+                'city_id' => $ride->franchise?->city_id,
+                'country_id' => $ride->franchise?->country_id,
+            ]),
+            $ride->created_at,
+            (float) ($ride->price_quoted ?? 0)
         );
     }
 
@@ -208,6 +227,52 @@ class CancellationService
         if ($order->customer) {
             $channels = ChannelResolver::resolve(['zone_id' => $order->zone_id, 'franchise_id' => $order->franchise_id]);
             $order->customer->notify(new ParcelOrderStatusNotification('refunded', $order, $channels, $refundAmount));
+        }
+    }
+
+    /** Phase 22.6 (Taxi) — the TaxiRide counterpart to refundIfPaidForParcelOrder() above, same reasoning. */
+    public function refundIfPaidForTaxiRide(TaxiRide $ride, float $fee): void
+    {
+        $payment = Payment::where('taxi_ride_id', $ride->id)
+            ->where('status', 'captured')
+            ->latest()
+            ->first();
+
+        if (!$payment) {
+            return;
+        }
+
+        $refundAmount = round(max((float) $payment->amount - $fee, 0), 2);
+
+        if ($refundAmount <= 0) {
+            return;
+        }
+
+        if ($payment->gateway === 'wallet') {
+            $this->walletService->credit(
+                $ride->customer,
+                $refundAmount,
+                reason: "Refund for cancelled ride {$ride->code}",
+                ref: "taxi_ride:{$ride->id}:wallet-refund"
+            );
+        } else {
+            $this->gateway->refund(
+                $payment->gateway_payment_id,
+                $refundAmount,
+                "Ride {$ride->code} cancelled"
+            );
+        }
+
+        $payment->refunded_amount = $refundAmount;
+        $payment->status = 'refunded';
+        $payment->save();
+
+        $ride->payment_status = $refundAmount >= (float) $payment->amount ? 'refunded' : 'partially_refunded';
+        $ride->save();
+
+        if ($ride->customer) {
+            $channels = ChannelResolver::resolve(['zone_id' => $ride->zone_id, 'franchise_id' => $ride->franchise_id]);
+            $ride->customer->notify(new TaxiRideStatusNotification('refunded', $ride, $channels, $refundAmount));
         }
     }
 }

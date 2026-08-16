@@ -37,6 +37,7 @@ use App\Livewire\Subscriptions\Index as SubscriptionsIndex;
 use App\Livewire\Chat\Manage as ChatManage;
 use App\Livewire\Modules\Manage as ModulesManage;
 use App\Livewire\ParcelOrders\Manage as ParcelOrdersManage;
+use App\Livewire\TaxiRides\Manage as TaxiRidesManage;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 
@@ -86,6 +87,7 @@ Route::middleware(['auth', \App\Http\Middleware\EnsureHasAdminAccess::class])
         Route::get('/operations', OperationsHealth::class)->name('admin.operations.index');
         Route::get('/modules', ModulesManage::class)->name('admin.modules.index');
         Route::get('/parcel-orders', ParcelOrdersManage::class)->name('admin.parcel-orders.index');
+        Route::get('/taxi-rides', TaxiRidesManage::class)->name('admin.taxi-rides.index');
         Route::get('/chat', ChatManage::class)->name('admin.chat.index');
         Route::get('/chat/attachments/{messageId}', [\App\Http\Controllers\Admin\ChatAttachmentController::class, 'show'])->name('admin.chat.attachments.show');
         Route::get('/kyc/support-requests', KycSupportRequestsManage::class)->name('admin.kyc.support-requests.index');

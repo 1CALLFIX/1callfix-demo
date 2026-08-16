@@ -45,6 +45,14 @@ class OrderCodeService
         return sprintf('%s-PCL-%s-%08d', strtoupper($franchise->code), now()->format('dm'), $sequenceNumber);
     }
 
+    /** Phase 22.6 (Taxi) -- own counter, own table, `-TXI-` segment. Same reasoning as generateForParcel() above. */
+    public function generateForTaxi(Franchise $franchise): string
+    {
+        $sequenceNumber = $this->incrementSequence('taxi_ride_sequences', $franchise);
+
+        return sprintf('%s-TXI-%s-%08d', strtoupper($franchise->code), now()->format('dm'), $sequenceNumber);
+    }
+
     /**
      * The genuinely shared, concurrency-safe primitive both formats above
      * are built on — extracted here rather than duplicated, since this is
