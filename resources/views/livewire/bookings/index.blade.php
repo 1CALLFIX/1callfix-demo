@@ -15,7 +15,7 @@
          no modal). Services vertical only. Drives the real
          app/Actions/CreateBookingAction.php pipeline (order code, pricing,
          ServiceMatchingJob dispatch) — not a separate booking implementation. --}}
-    <div class="bg-white rounded-lg shadow-sm p-4 mb-6">
+    <x-ui.card class="mb-6">
         <h2 class="text-sm font-semibold mb-3">New Booking</h2>
 
         {{-- Customer --}}
@@ -62,10 +62,9 @@
                                        class="w-32 border rounded px-3 py-2 text-sm">
                                 @error('newCustomerPhone') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
                             </div>
-                            <button type="button" wire:click="createCustomer"
-                                    class="bg-slate-900 text-white px-4 h-[38px] rounded text-xs font-medium hover:bg-slate-800">
+                            <x-ui.button size="sm" class="h-[38px]" wire:click="createCustomer">
                                 Create &amp; select
-                            </button>
+                            </x-ui.button>
                         </div>
                     @endif
                 </div>
@@ -161,10 +160,9 @@
                         @error('newAddressLng') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
 
                         <div class="flex justify-end">
-                            <button type="button" wire:click="addNewAddress"
-                                    class="bg-slate-900 text-white px-4 h-[38px] rounded text-xs font-medium hover:bg-slate-800">
+                            <x-ui.button size="sm" class="h-[38px]" wire:click="addNewAddress">
                                 Save address
-                            </button>
+                            </x-ui.button>
                         </div>
                     </div>
                 @endif
@@ -205,14 +203,14 @@
                 <input type="text" wire:model="customerNote" class="w-full border rounded px-3 py-2 text-sm">
             </div>
 
-            <button type="button" wire:click="clearNewBookingForm" class="px-4 h-[38px] border border-gray-300 rounded text-sm hover:bg-gray-50">
+            <x-ui.button variant="secondary" class="h-[38px]" wire:click="clearNewBookingForm">
                 Clear
-            </button>
-            <button type="button" wire:click="createBooking" class="bg-slate-900 text-white px-6 h-[38px] rounded text-sm font-medium hover:bg-slate-800 ml-auto">
+            </x-ui.button>
+            <x-ui.button class="h-[38px] ml-auto" wire:click="createBooking">
                 + Create Booking
-            </button>
+            </x-ui.button>
         </div>
-    </div>
+    </x-ui.card>
 
     <div class="flex flex-wrap gap-2 mb-4">
         <button wire:click="$set('statusFilter', '')"
@@ -233,54 +231,47 @@
     <input type="text" wire:model.live.debounce.400ms="search" placeholder="Search by booking code..."
            class="w-full max-w-sm border rounded px-3 py-2 text-sm mb-4">
 
-    <div class="bg-white rounded-lg shadow-sm overflow-hidden">
-        <table class="w-full text-sm">
-            <thead class="bg-gray-50 text-left text-gray-500">
-                <tr>
-                    <th class="px-4 py-2">Code</th>
-                    <th class="px-4 py-2">Customer</th>
-                    <th class="px-4 py-2">Service</th>
-                    <th class="px-4 py-2">Provider</th>
-                    <th class="px-4 py-2">Status</th>
-                    <th class="px-4 py-2">Price</th>
-                    <th class="px-4 py-2">Created</th>
-                    <th class="px-4 py-2"></th>
+    <x-ui.table>
+        <x-slot:footer>{{ $bookings->links() }}</x-slot:footer>
+
+        <thead class="bg-gray-50 text-left text-gray-500">
+            <tr>
+                <th class="px-4 py-2">Code</th>
+                <th class="px-4 py-2">Customer</th>
+                <th class="px-4 py-2">Service</th>
+                <th class="px-4 py-2">Provider</th>
+                <th class="px-4 py-2">Status</th>
+                <th class="px-4 py-2">Price</th>
+                <th class="px-4 py-2">Created</th>
+                <th class="px-4 py-2"></th>
+            </tr>
+        </thead>
+        <tbody>
+            @forelse ($bookings as $booking)
+                <tr class="border-t hover:bg-gray-50">
+                    <td class="px-4 py-2 font-mono text-xs">{{ $booking->code }}</td>
+                    <td class="px-4 py-2">{{ $booking->customer->name ?? '—' }}</td>
+                    <td class="px-4 py-2">{{ $booking->service->name ?? '—' }}</td>
+                    <td class="px-4 py-2">{{ $booking->provider?->user?->name ?? '— unassigned —' }}</td>
+                    <td class="px-4 py-2">
+                        <x-ui.badge :color="match(true) {
+                            $booking->status === 'pending' => 'gray',
+                            in_array($booking->status, ['searching_provider','assigned','provider_en_route']) => 'blue',
+                            in_array($booking->status, ['in_progress','on_hold']) => 'amber',
+                            $booking->status === 'completed' => 'green',
+                            in_array($booking->status, ['cancelled','disputed']) => 'red',
+                            default => 'gray',
+                        }">{{ str_replace('_', ' ', $booking->status) }}</x-ui.badge>
+                    </td>
+                    <td class="px-4 py-2">{{ $currencySymbol }}{{ number_format($booking->price_final ?? $booking->price_quoted, 2) }}</td>
+                    <td class="px-4 py-2 text-gray-500">{{ $booking->created_at->diffForHumans() }}</td>
+                    <td class="px-4 py-2">
+                        <x-ui.button variant="ghost" :href="route('admin.bookings.show', $booking->id)">View</x-ui.button>
+                    </td>
                 </tr>
-            </thead>
-            <tbody>
-                @forelse ($bookings as $booking)
-                    <tr class="border-t hover:bg-gray-50">
-                        <td class="px-4 py-2 font-mono text-xs">{{ $booking->code }}</td>
-                        <td class="px-4 py-2">{{ $booking->customer->name ?? '—' }}</td>
-                        <td class="px-4 py-2">{{ $booking->service->name ?? '—' }}</td>
-                        <td class="px-4 py-2">{{ $booking->provider?->user?->name ?? '— unassigned —' }}</td>
-                        <td class="px-4 py-2">
-                            <span @class([
-                                'px-2 py-1 rounded text-xs font-medium',
-                                'bg-gray-100 text-gray-700' => $booking->status === 'pending',
-                                'bg-blue-100 text-blue-700' => in_array($booking->status, ['searching_provider','assigned','provider_en_route']),
-                                'bg-amber-100 text-amber-700' => in_array($booking->status, ['in_progress','on_hold']),
-                                'bg-green-100 text-green-700' => $booking->status === 'completed',
-                                'bg-red-100 text-red-700' => in_array($booking->status, ['cancelled','disputed']),
-                            ])>
-                                {{ str_replace('_', ' ', $booking->status) }}
-                            </span>
-                        </td>
-                        <td class="px-4 py-2">{{ $currencySymbol }}{{ number_format($booking->price_final ?? $booking->price_quoted, 2) }}</td>
-                        <td class="px-4 py-2 text-gray-500">{{ $booking->created_at->diffForHumans() }}</td>
-                        <td class="px-4 py-2">
-                            <a href="{{ route('admin.bookings.show', $booking->id) }}" class="text-blue-600 hover:underline">View</a>
-                        </td>
-                    </tr>
-                @empty
-                    <tr><td colspan="8" class="px-4 py-6 text-center text-gray-400">No bookings match this filter.</td></tr>
-                @endforelse
-            </tbody>
-        </table>
-    </div>
-
-    <div class="mt-4">
-        {{ $bookings->links() }}
-    </div>
-
+            @empty
+                <tr><td colspan="8" class="px-4 py-6 text-center text-gray-400">No bookings match this filter.</td></tr>
+            @endforelse
+        </tbody>
+    </x-ui.table>
 </div>

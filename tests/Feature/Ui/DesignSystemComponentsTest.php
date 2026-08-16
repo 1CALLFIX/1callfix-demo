@@ -53,6 +53,19 @@ class DesignSystemComponentsTest extends TestCase
         $this->blade('<x-ui.button variant="ghost">View</x-ui.button>')->assertSee('text-blue-600', false);
     }
 
+    /**
+     * Third increment (more screens migrated) — 'amber'/'purple'/'slate'
+     * added to $ghostColors, matching PerformanceCampaigns\Manage's own
+     * pre-existing lifecycle-action text colors (Pause/amber, Submit for
+     * Review + Approve/purple, Refresh Progress + End Now + Close/slate).
+     */
+    public function test_ghost_button_color_override_covers_the_third_increment_additions(): void
+    {
+        $this->blade('<x-ui.button variant="ghost" color="amber">Pause</x-ui.button>')->assertSee('text-amber-600', false);
+        $this->blade('<x-ui.button variant="ghost" color="purple">Approve</x-ui.button>')->assertSee('text-purple-600', false);
+        $this->blade('<x-ui.button variant="ghost" color="slate">Close</x-ui.button>')->assertSee('text-slate-600', false);
+    }
+
     public function test_button_renders_as_an_anchor_when_href_is_given(): void
     {
         $view = $this->blade('<x-ui.button href="/admin/customers/1">View</x-ui.button>');
@@ -147,6 +160,19 @@ class DesignSystemComponentsTest extends TestCase
         $this->blade('<x-ui.badge color="amber">Pending</x-ui.badge>')->assertSee('bg-amber-100 text-amber-700', false);
         $this->blade('<x-ui.badge color="blue">Refunded</x-ui.badge>')->assertSee('bg-blue-100 text-blue-700', false);
         $this->blade('<x-ui.badge color="slate">Cancelled</x-ui.badge>')->assertSee('bg-slate-100 text-slate-700', false);
+    }
+
+    /**
+     * Third increment (more screens migrated) — 'purple'/'emerald' added,
+     * both matching pre-existing hand-written usage on PerformanceCampaigns\
+     * Manage (approved/rewarded) and FlashSales\Manage ("Currently active"),
+     * not invented. 'emerald' is deliberately the one solid (not light-pill)
+     * color in the palette, matching what those two screens already did.
+     */
+    public function test_badge_color_map_covers_the_third_increment_additions(): void
+    {
+        $this->blade('<x-ui.badge color="purple">Approved</x-ui.badge>')->assertSee('bg-purple-100 text-purple-700', false);
+        $this->blade('<x-ui.badge color="emerald">Currently active</x-ui.badge>')->assertSee('bg-emerald-600 text-white', false);
     }
 
     public function test_badge_lg_size_used_by_page_header_status_pills(): void

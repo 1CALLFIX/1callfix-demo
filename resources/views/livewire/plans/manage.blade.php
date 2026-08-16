@@ -9,7 +9,7 @@
     @endif
 
     {{-- New plan --}}
-    <div class="bg-white rounded-lg shadow-sm p-4 mb-6">
+    <x-ui.card class="mb-6">
         <h2 class="text-sm font-semibold mb-3">New Plan</h2>
         <div class="grid grid-cols-4 gap-3">
             <div>
@@ -85,43 +85,42 @@
                 <input type="number" wire:model="stackingPriority" class="w-full border rounded px-3 py-2 text-sm">
             </div>
         </div>
-        <button type="button" wire:click="save" class="mt-4 bg-slate-900 text-white px-6 h-[38px] rounded text-sm font-medium hover:bg-slate-800">Create Plan</button>
-    </div>
+        <x-ui.button class="mt-4 h-[38px]" wire:click="save">Create Plan</x-ui.button>
+    </x-ui.card>
 
     {{-- Plan list --}}
-    <div class="bg-white rounded-lg shadow-sm overflow-hidden">
-        <table class="w-full text-sm">
-            <thead class="bg-gray-50 text-left text-gray-500">
-                <tr>
-                    <th class="px-4 py-2">Plan</th>
-                    <th class="px-4 py-2">Family</th>
-                    <th class="px-4 py-2">Actor</th>
-                    <th class="px-4 py-2">Scope</th>
-                    <th class="px-4 py-2">Price</th>
-                    <th class="px-4 py-2">Subscribers</th>
-                    <th class="px-4 py-2">Status</th>
-                    <th class="px-4 py-2 text-right">Actions</th>
+    <x-ui.table>
+        <x-slot:footer>{{ $plans->links() }}</x-slot:footer>
+
+        <thead class="bg-gray-50 text-left text-gray-500">
+            <tr>
+                <th class="px-4 py-2">Plan</th>
+                <th class="px-4 py-2">Family</th>
+                <th class="px-4 py-2">Actor</th>
+                <th class="px-4 py-2">Scope</th>
+                <th class="px-4 py-2">Price</th>
+                <th class="px-4 py-2">Subscribers</th>
+                <th class="px-4 py-2">Status</th>
+                <th class="px-4 py-2 text-right">Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            @forelse ($plans as $p)
+                <tr class="border-t hover:bg-gray-50" wire:key="plan-{{ $p->id }}">
+                    <td class="px-4 py-2 font-medium">{{ $p->name }}</td>
+                    <td class="px-4 py-2 text-gray-500">{{ ucwords(str_replace('_', ' ', $p->plan_family)) }}</td>
+                    <td class="px-4 py-2 text-gray-500">{{ ucwords(str_replace('_', ' ', $p->eligible_actor_type)) }}</td>
+                    <td class="px-4 py-2 text-gray-500">{{ ucfirst($p->scope_type) }}{{ $p->scope_id ? ' #'.$p->scope_id : '' }}</td>
+                    <td class="px-4 py-2 font-mono">{{ $currencySymbol }}{{ number_format($p->price, 2) }}/{{ $p->billing_cycle }}</td>
+                    <td class="px-4 py-2">{{ $p->subscriptions_count }}</td>
+                    <td class="px-4 py-2">
+                        <x-ui.badge :color="$p->is_active ? 'green' : 'gray'">{{ $p->is_active ? 'active' : 'inactive' }}</x-ui.badge>
+                    </td>
+                    <td class="px-4 py-2 text-right whitespace-nowrap">
+                        <x-ui.button variant="ghost" class="mr-3" wire:click="expand({{ $p->id }})">{{ $expandedPlanId === $p->id ? 'Hide' : 'Entitlements' }} ({{ $p->entitlements->count() }})</x-ui.button>
+                        <x-ui.button variant="ghost" color="gray" wire:click="toggleActive({{ $p->id }})">{{ $p->is_active ? 'Deactivate' : 'Activate' }}</x-ui.button>
+                    </td>
                 </tr>
-            </thead>
-            <tbody>
-                @forelse ($plans as $p)
-                    <tr class="border-t hover:bg-gray-50" wire:key="plan-{{ $p->id }}">
-                        <td class="px-4 py-2 font-medium">{{ $p->name }}</td>
-                        <td class="px-4 py-2 text-gray-500">{{ ucwords(str_replace('_', ' ', $p->plan_family)) }}</td>
-                        <td class="px-4 py-2 text-gray-500">{{ ucwords(str_replace('_', ' ', $p->eligible_actor_type)) }}</td>
-                        <td class="px-4 py-2 text-gray-500">{{ ucfirst($p->scope_type) }}{{ $p->scope_id ? ' #'.$p->scope_id : '' }}</td>
-                        <td class="px-4 py-2 font-mono">{{ $currencySymbol }}{{ number_format($p->price, 2) }}/{{ $p->billing_cycle }}</td>
-                        <td class="px-4 py-2">{{ $p->subscriptions_count }}</td>
-                        <td class="px-4 py-2">
-                            <span @class(['px-2 py-0.5 rounded text-xs', 'bg-green-100 text-green-700' => $p->is_active, 'bg-gray-100 text-gray-500' => !$p->is_active])>
-                                {{ $p->is_active ? 'active' : 'inactive' }}
-                            </span>
-                        </td>
-                        <td class="px-4 py-2 text-right whitespace-nowrap">
-                            <button type="button" wire:click="expand({{ $p->id }})" class="text-xs text-blue-600 hover:underline mr-3">{{ $expandedPlanId === $p->id ? 'Hide' : 'Entitlements' }} ({{ $p->entitlements->count() }})</button>
-                            <button type="button" wire:click="toggleActive({{ $p->id }})" class="text-xs text-gray-600 hover:underline">{{ $p->is_active ? 'Deactivate' : 'Activate' }}</button>
-                        </td>
-                    </tr>
                     @if ($expandedPlanId === $p->id)
                         <tr class="border-t bg-gray-50" wire:key="plan-{{ $p->id }}-entitlements">
                             <td colspan="8" class="px-4 py-4">
@@ -152,9 +151,9 @@
                                                 <td class="pr-3 py-1">{{ $e->overage_enabled ? ($e->overage_rate_type.' '.$e->overage_rate_value) : 'off' }}</td>
                                                 <td class="pr-3 py-1 text-right whitespace-nowrap">
                                                     @if ($e->entitlement_type === 'commission_override')
-                                                        <button type="button" wire:click="approveOverride({{ $e->id }})" class="text-blue-600 hover:underline mr-2">{{ $e->is_approved ? 'Revoke approval' : 'Approve' }}</button>
+                                                        <x-ui.button variant="ghost" class="mr-2" wire:click="approveOverride({{ $e->id }})">{{ $e->is_approved ? 'Revoke approval' : 'Approve' }}</x-ui.button>
                                                     @endif
-                                                    <button type="button" wire:click="deleteEntitlement({{ $e->id }})" wire:confirm="Remove this entitlement?" class="text-red-600 hover:underline">Remove</button>
+                                                    <x-ui.button variant="ghost" color="red" wire:click="deleteEntitlement({{ $e->id }})" wire:confirm="Remove this entitlement?">Remove</x-ui.button>
                                                 </td>
                                             </tr>
                                         @empty
@@ -242,7 +241,7 @@
                                         </div>
                                     @endif
                                 </div>
-                                <button type="button" wire:click="addEntitlement" class="mt-3 bg-slate-900 text-white px-4 h-8 rounded text-xs font-medium hover:bg-slate-800">Add Entitlement</button>
+                                <x-ui.button size="sm" class="mt-3 !h-8" wire:click="addEntitlement">Add Entitlement</x-ui.button>
                             </td>
                         </tr>
                     @endif
@@ -250,7 +249,5 @@
                     <tr><td colspan="8" class="px-4 py-6 text-center text-gray-400">No plans yet.</td></tr>
                 @endforelse
             </tbody>
-        </table>
-        <div class="px-4 py-3 border-t">{{ $plans->links() }}</div>
-    </div>
+        </x-ui.table>
 </div>

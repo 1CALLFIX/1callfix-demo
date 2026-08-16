@@ -27,6 +27,20 @@
     larger variant of the identical palette instead of a smaller inline
     style override, since Tailwind utility class precedence isn't reliably
     controllable by class order alone.
+
+    Third increment (more screens migrated): two additive colors, both
+    matching pre-existing usage rather than invented --
+    PerformanceCampaigns\Manage's "approved" campaign status was already a
+    "bg-purple-100 text-purple-700" pill (a lighter mid-lifecycle state
+    distinct from "active"/green), and both PerformanceCampaigns\Manage's
+    "rewarded" status and FlashSales\Manage's "Currently active" flag were
+    already a solid "bg-emerald-600 text-white" pill (a deliberately
+    louder, filled treatment for "real money/points already moved" or
+    "live right now", distinct from every other status's lighter pill
+    style) -- both colors just centralize what those two screens already
+    hand-wrote, not a new visual language.
+      purple  - approved / mid-lifecycle review state
+      emerald - rewarded / currently-active (solid, not a light pill)
 --}}
 
 @php
@@ -37,6 +51,8 @@
         'blue' => 'bg-blue-100 text-blue-700',
         'slate' => 'bg-slate-100 text-slate-700',
         'gray' => 'bg-gray-100 text-gray-700',
+        'purple' => 'bg-purple-100 text-purple-700',
+        'emerald' => 'bg-emerald-600 text-white',
     ];
 
     $sizes = [

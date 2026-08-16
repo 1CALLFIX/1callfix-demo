@@ -9,7 +9,7 @@
     @endif
 
     {{-- Assign a role --}}
-    <div class="bg-white rounded-lg shadow-sm p-4 mb-6">
+    <x-ui.card class="mb-6">
         <h2 class="text-sm font-semibold mb-3">Assign a Role</h2>
         <div class="flex flex-wrap items-end gap-3">
             <div class="w-64 relative">
@@ -103,7 +103,7 @@
                 </div>
             @endif
 
-            <button type="button" wire:click="assign" class="bg-slate-900 text-white px-6 h-[38px] rounded text-sm font-medium hover:bg-slate-800">+ Assign</button>
+            <x-ui.button class="h-[38px]" wire:click="assign">+ Assign</x-ui.button>
         </div>
 
         @if ($showNewUserForm)
@@ -142,49 +142,48 @@
                 </div>
             </div>
         @endif
-    </div>
+    </x-ui.card>
 
     {{-- Current assignments --}}
-    <div class="bg-white rounded-lg shadow-sm overflow-hidden mb-6">
-        <table class="w-full text-sm">
-            <thead class="bg-gray-50 text-left text-gray-500">
-                <tr>
-                    <th class="px-4 py-2">User</th>
-                    <th class="px-4 py-2">Role</th>
-                    <th class="px-4 py-2">Scope</th>
-                    <th class="px-4 py-2 text-right">Actions</th>
+    <x-ui.table class="mb-6">
+        <x-slot:footer>{{ $assignments->links() }}</x-slot:footer>
+
+        <thead class="bg-gray-50 text-left text-gray-500">
+            <tr>
+                <th class="px-4 py-2">User</th>
+                <th class="px-4 py-2">Role</th>
+                <th class="px-4 py-2">Scope</th>
+                <th class="px-4 py-2 text-right">Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            @forelse ($assignments as $a)
+                <tr class="border-t hover:bg-gray-50" wire:key="assignment-{{ $a->id }}">
+                    <td class="px-4 py-2">{{ $a->user->name ?? '#'.$a->user_id }} <span class="text-gray-400">({{ $a->user->phone ?? '—' }})</span></td>
+                    <td class="px-4 py-2 font-medium">{{ $a->role->name ?? '—' }}</td>
+                    <td class="px-4 py-2 text-gray-500">
+                        @if ($a->scope_type === 'global') Global
+                        @else {{ ucfirst($a->scope_type) }} #{{ $a->scope_id }}
+                        @endif
+                    </td>
+                    <td class="px-4 py-2 text-right">
+                        @if ($confirmingRevokeId === $a->id)
+                            <span class="text-xs text-red-600">Revoke?</span>
+                            <x-ui.button variant="ghost" color="red" class="ml-2 font-medium" wire:click="revoke">Yes</x-ui.button>
+                            <x-ui.button variant="ghost" color="gray" class="ml-2" wire:click="cancelRevoke">No</x-ui.button>
+                        @else
+                            <x-ui.button variant="ghost" color="red" wire:click="confirmRevoke({{ $a->id }})">Revoke</x-ui.button>
+                        @endif
+                    </td>
                 </tr>
-            </thead>
-            <tbody>
-                @forelse ($assignments as $a)
-                    <tr class="border-t hover:bg-gray-50" wire:key="assignment-{{ $a->id }}">
-                        <td class="px-4 py-2">{{ $a->user->name ?? '#'.$a->user_id }} <span class="text-gray-400">({{ $a->user->phone ?? '—' }})</span></td>
-                        <td class="px-4 py-2 font-medium">{{ $a->role->name ?? '—' }}</td>
-                        <td class="px-4 py-2 text-gray-500">
-                            @if ($a->scope_type === 'global') Global
-                            @else {{ ucfirst($a->scope_type) }} #{{ $a->scope_id }}
-                            @endif
-                        </td>
-                        <td class="px-4 py-2 text-right">
-                            @if ($confirmingRevokeId === $a->id)
-                                <span class="text-xs text-red-600">Revoke?</span>
-                                <button type="button" wire:click="revoke" class="text-xs text-red-600 font-medium hover:underline ml-2">Yes</button>
-                                <button type="button" wire:click="cancelRevoke" class="text-xs text-gray-500 hover:underline ml-2">No</button>
-                            @else
-                                <button type="button" wire:click="confirmRevoke({{ $a->id }})" class="text-xs text-red-600 hover:underline">Revoke</button>
-                            @endif
-                        </td>
-                    </tr>
-                @empty
-                    <tr><td colspan="4" class="px-4 py-6 text-center text-gray-400">No role assignments yet — Super Admin has full access by default.</td></tr>
-                @endforelse
-            </tbody>
-        </table>
-        <div class="px-4 py-3 border-t">{{ $assignments->links() }}</div>
-    </div>
+            @empty
+                <tr><td colspan="4" class="px-4 py-6 text-center text-gray-400">No role assignments yet — Super Admin has full access by default.</td></tr>
+            @endforelse
+        </tbody>
+    </x-ui.table>
 
     {{-- Role -> permission catalog (read-only reference) --}}
-    <div class="bg-white rounded-lg shadow-sm p-4">
+    <x-ui.card>
         <h2 class="text-sm font-semibold mb-3">Role Catalog</h2>
         <div class="space-y-3">
             @foreach ($roles as $r)
@@ -193,7 +192,7 @@
                     <div class="text-xs text-gray-500 mb-2">{{ $r->description }}</div>
                     <div class="flex flex-wrap gap-1">
                         @forelse ($r->permissions as $p)
-                            <span class="px-2 py-0.5 bg-gray-100 text-gray-700 rounded text-xs">{{ $p->label }}</span>
+                            <x-ui.badge>{{ $p->label }}</x-ui.badge>
                         @empty
                             <span class="text-xs text-gray-400">No permissions granted.</span>
                         @endforelse
@@ -201,5 +200,5 @@
                 </div>
             @endforeach
         </div>
-    </div>
+    </x-ui.card>
 </div>

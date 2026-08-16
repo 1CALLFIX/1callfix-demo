@@ -1,5 +1,5 @@
 <div class="min-h-screen flex items-center justify-center -mt-6">
-    <div class="bg-white rounded-lg shadow-md p-8 w-full max-w-sm">
+    <x-ui.card class="!p-8 w-full max-w-sm">
         <h1 class="text-xl font-bold mb-6 text-center">{{ \App\Models\Setting::get('branding.platform_name', '1CallFix Admin') }}</h1>
 
         @if ($error)
@@ -23,12 +23,10 @@
                 @error('password') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
             </div>
 
-            <button type="submit"
-                    class="w-full bg-slate-900 text-white rounded py-2 text-sm font-medium hover:bg-slate-800"
-                    wire:loading.attr="disabled">
+            <x-ui.button type="submit" class="w-full" wire:loading.attr="disabled">
                 <span wire:loading.remove>Log in</span>
                 <span wire:loading>Logging in...</span>
-            </button>
+            </x-ui.button>
         </form>
-    </div>
+    </x-ui.card>
 </div>

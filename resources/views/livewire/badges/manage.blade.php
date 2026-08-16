@@ -13,60 +13,56 @@
     </div>
 
     @if ($section === 'definitions')
-        <div class="bg-white rounded-lg shadow-sm overflow-hidden">
-            <table class="w-full text-sm">
-                <thead class="bg-gray-50 text-left text-gray-500">
-                    <tr>
-                        <th class="px-4 py-2">Badge</th>
-                        <th class="px-4 py-2">Key</th>
-                        <th class="px-4 py-2">Mode</th>
-                        <th class="px-4 py-2">Rule</th>
-                        <th class="px-4 py-2">Priority</th>
-                        <th class="px-4 py-2">Status</th>
+        <x-ui.table>
+            <thead class="bg-gray-50 text-left text-gray-500">
+                <tr>
+                    <th class="px-4 py-2">Badge</th>
+                    <th class="px-4 py-2">Key</th>
+                    <th class="px-4 py-2">Mode</th>
+                    <th class="px-4 py-2">Rule</th>
+                    <th class="px-4 py-2">Priority</th>
+                    <th class="px-4 py-2">Status</th>
+                    @if ($canManage)
+                        <th class="px-4 py-2">Actions</th>
+                    @endif
+                </tr>
+            </thead>
+            <tbody>
+                @foreach ($badges as $badge)
+                    <tr class="border-t hover:bg-gray-50">
+                        <td class="px-4 py-2">
+                            <span class="px-2 py-0.5 rounded text-xs font-semibold" style="color: {{ $badge->text_color }}; background-color: {{ $badge->bg_color }};">{{ $badge->label }}</span>
+                            <div class="text-xs text-gray-400 mt-0.5">{{ $badge->description }}</div>
+                        </td>
+                        <td class="px-4 py-2 font-mono text-xs text-gray-500">{{ $badge->key }}</td>
+                        <td class="px-4 py-2 text-gray-500">{{ ucfirst($badge->mode) }}</td>
+                        <td class="px-4 py-2 text-gray-400 text-xs">
+                            @if ($badge->rule_type)
+                                {{ $badge->rule_type }} ({{ json_encode($badge->rule_config) }})
+                            @else
+                                —
+                            @endif
+                        </td>
+                        <td class="px-4 py-2 text-gray-500">{{ $badge->priority }}</td>
+                        <td class="px-4 py-2">
+                            <x-ui.badge :color="$badge->is_active ? 'green' : 'gray'">{{ $badge->is_active ? 'Active' : 'Inactive' }}</x-ui.badge>
+                        </td>
                         @if ($canManage)
-                            <th class="px-4 py-2">Actions</th>
+                            <td class="px-4 py-2">
+                                <x-ui.button variant="ghost" wire:click="toggleBadgeActive({{ $badge->id }})">
+                                    {{ $badge->is_active ? 'Deactivate' : 'Activate' }}
+                                </x-ui.button>
+                            </td>
                         @endif
                     </tr>
-                </thead>
-                <tbody>
-                    @foreach ($badges as $badge)
-                        <tr class="border-t hover:bg-gray-50">
-                            <td class="px-4 py-2">
-                                <span class="px-2 py-0.5 rounded text-xs font-semibold" style="color: {{ $badge->text_color }}; background-color: {{ $badge->bg_color }};">{{ $badge->label }}</span>
-                                <div class="text-xs text-gray-400 mt-0.5">{{ $badge->description }}</div>
-                            </td>
-                            <td class="px-4 py-2 font-mono text-xs text-gray-500">{{ $badge->key }}</td>
-                            <td class="px-4 py-2 text-gray-500">{{ ucfirst($badge->mode) }}</td>
-                            <td class="px-4 py-2 text-gray-400 text-xs">
-                                @if ($badge->rule_type)
-                                    {{ $badge->rule_type }} ({{ json_encode($badge->rule_config) }})
-                                @else
-                                    —
-                                @endif
-                            </td>
-                            <td class="px-4 py-2 text-gray-500">{{ $badge->priority }}</td>
-                            <td class="px-4 py-2">
-                                <span @class(['px-2 py-0.5 rounded text-xs', 'bg-green-100 text-green-700' => $badge->is_active, 'bg-gray-100 text-gray-500' => ! $badge->is_active])>
-                                    {{ $badge->is_active ? 'Active' : 'Inactive' }}
-                                </span>
-                            </td>
-                            @if ($canManage)
-                                <td class="px-4 py-2">
-                                    <button type="button" wire:click="toggleBadgeActive({{ $badge->id }})" class="text-blue-600 hover:underline text-xs">
-                                        {{ $badge->is_active ? 'Deactivate' : 'Activate' }}
-                                    </button>
-                                </td>
-                            @endif
-                        </tr>
-                    @endforeach
-                </tbody>
-            </table>
-        </div>
+                @endforeach
+            </tbody>
+        </x-ui.table>
     @endif
 
     @if ($section === 'assignments')
         @if ($canManage)
-            <div class="bg-white rounded-lg shadow-sm p-4 mb-6">
+            <x-ui.card class="mb-6">
                 <h2 class="text-sm font-semibold text-gray-500 uppercase mb-3">Assign a badge to a service</h2>
                 <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
                     <div>
@@ -121,52 +117,48 @@
                 @endif
 
                 <div class="flex justify-end pt-4 mt-4 border-t">
-                    <button type="button" wire:click="assign" class="bg-slate-900 text-white px-6 py-2 rounded text-sm font-medium hover:bg-slate-800">Assign Badge</button>
+                    <x-ui.button size="lg" wire:click="assign">Assign Badge</x-ui.button>
                 </div>
-            </div>
+            </x-ui.card>
         @endif
 
-        <div class="bg-white rounded-lg shadow-sm overflow-hidden">
-            <table class="w-full text-sm">
-                <thead class="bg-gray-50 text-left text-gray-500">
-                    <tr>
-                        <th class="px-4 py-2">Badge</th>
-                        <th class="px-4 py-2">Entity</th>
-                        <th class="px-4 py-2">Scope</th>
-                        <th class="px-4 py-2">Expires</th>
-                        <th class="px-4 py-2">Status</th>
+        <x-ui.table>
+            <thead class="bg-gray-50 text-left text-gray-500">
+                <tr>
+                    <th class="px-4 py-2">Badge</th>
+                    <th class="px-4 py-2">Entity</th>
+                    <th class="px-4 py-2">Scope</th>
+                    <th class="px-4 py-2">Expires</th>
+                    <th class="px-4 py-2">Status</th>
+                    @if ($canManage)
+                        <th class="px-4 py-2">Actions</th>
+                    @endif
+                </tr>
+            </thead>
+            <tbody>
+                @forelse ($assignments as $a)
+                    <tr class="border-t hover:bg-gray-50">
+                        <td class="px-4 py-2">
+                            <span class="px-2 py-0.5 rounded text-xs font-semibold" style="color: {{ $a->badge->text_color }}; background-color: {{ $a->badge->bg_color }};">{{ $a->badge->label }}</span>
+                        </td>
+                        <td class="px-4 py-2">{{ class_basename($a->badgeable_type) }}: {{ $a->badgeable->name ?? "#{$a->badgeable_id}" }}</td>
+                        <td class="px-4 py-2 text-gray-500">{{ ucfirst($a->scope_type) }}@if($a->scope_id) #{{ $a->scope_id }}@endif</td>
+                        <td class="px-4 py-2 text-gray-500">{{ $a->expires_at?->format('d M Y, h:i A') ?? 'Never' }}</td>
+                        <td class="px-4 py-2">
+                            <x-ui.badge :color="$a->is_active ? 'green' : 'gray'">{{ $a->is_active ? 'Active' : 'Revoked' }}</x-ui.badge>
+                        </td>
                         @if ($canManage)
-                            <th class="px-4 py-2">Actions</th>
+                            <td class="px-4 py-2">
+                                @if ($a->is_active)
+                                    <x-ui.button variant="ghost" color="red" wire:click="revoke({{ $a->id }})" wire:confirm="Revoke this badge assignment?">Revoke</x-ui.button>
+                                @endif
+                            </td>
                         @endif
                     </tr>
-                </thead>
-                <tbody>
-                    @forelse ($assignments as $a)
-                        <tr class="border-t hover:bg-gray-50">
-                            <td class="px-4 py-2">
-                                <span class="px-2 py-0.5 rounded text-xs font-semibold" style="color: {{ $a->badge->text_color }}; background-color: {{ $a->badge->bg_color }};">{{ $a->badge->label }}</span>
-                            </td>
-                            <td class="px-4 py-2">{{ class_basename($a->badgeable_type) }}: {{ $a->badgeable->name ?? "#{$a->badgeable_id}" }}</td>
-                            <td class="px-4 py-2 text-gray-500">{{ ucfirst($a->scope_type) }}@if($a->scope_id) #{{ $a->scope_id }}@endif</td>
-                            <td class="px-4 py-2 text-gray-500">{{ $a->expires_at?->format('d M Y, h:i A') ?? 'Never' }}</td>
-                            <td class="px-4 py-2">
-                                <span @class(['px-2 py-0.5 rounded text-xs', 'bg-green-100 text-green-700' => $a->is_active, 'bg-gray-100 text-gray-500' => ! $a->is_active])>
-                                    {{ $a->is_active ? 'Active' : 'Revoked' }}
-                                </span>
-                            </td>
-                            @if ($canManage)
-                                <td class="px-4 py-2">
-                                    @if ($a->is_active)
-                                        <button type="button" wire:click="revoke({{ $a->id }})" wire:confirm="Revoke this badge assignment?" class="text-red-600 hover:underline text-xs">Revoke</button>
-                                    @endif
-                                </td>
-                            @endif
-                        </tr>
-                    @empty
-                        <tr><td colspan="{{ $canManage ? 6 : 5 }}" class="px-4 py-6 text-center text-gray-400">No badge assignments yet.</td></tr>
-                    @endforelse
-                </tbody>
-            </table>
-        </div>
+                @empty
+                    <tr><td colspan="{{ $canManage ? 6 : 5 }}" class="px-4 py-6 text-center text-gray-400">No badge assignments yet.</td></tr>
+                @endforelse
+            </tbody>
+        </x-ui.table>
     @endif
 </div>

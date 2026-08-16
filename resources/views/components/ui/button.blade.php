@@ -28,6 +28,13 @@
     not just the blue "View"/"Review" links the first increment covered.
     Omitting $color keeps every existing ghost caller's blue text unchanged
     — purely additive, no prior call site is affected.
+
+    Third increment: 'amber'/'purple'/'slate' added to $ghostColors, again
+    additive-only. PerformanceCampaigns\Manage's lifecycle actions
+    (Pause/amber, Submit for Review + Approve/purple, Refresh Progress +
+    End Now + Close/slate) already hand-wrote these exact text colors —
+    the same "centralize what's already in use, don't invent" reasoning as
+    every other color this component has picked up.
 --}}
 
 @php
@@ -44,6 +51,9 @@
         'red' => 'text-red-600 hover:underline',
         'green' => 'text-green-600 hover:underline',
         'gray' => 'text-gray-600 hover:underline',
+        'amber' => 'text-amber-600 hover:underline',
+        'purple' => 'text-purple-600 hover:underline',
+        'slate' => 'text-slate-600 hover:underline',
     ];
 
     $sizes = [

@@ -13,7 +13,7 @@
     </div>
 
     @if ($section === 'sales')
-        <div class="bg-white rounded-lg shadow-sm p-4 mb-6">
+        <x-ui.card class="mb-6">
             <h2 class="text-sm font-semibold text-gray-500 uppercase mb-3">New flash sale (draft)</h2>
             <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
                 <div><label class="block text-xs font-medium mb-1">Internal name</label><input type="text" wire:model="name" class="w-full border rounded px-3 py-2 text-sm">@error('name')<p class="text-red-600 text-xs mt-1">{{ $message }}</p>@enderror</div>
@@ -57,19 +57,19 @@
                 <select wire:model="scopeZoneId" class="border rounded px-3 py-2 text-sm"><option value="">Zone…</option>@foreach ($zones as $z)<option value="{{ $z->id }}">{{ $z->name }}</option>@endforeach</select></div>
             @endif
             <div class="flex justify-end pt-4 mt-4 border-t">
-                <button type="button" wire:click="create" class="bg-slate-900 text-white px-6 py-2 rounded text-sm font-medium hover:bg-slate-800">Create Draft</button>
+                <x-ui.button size="lg" wire:click="create">Create Draft</x-ui.button>
             </div>
-        </div>
+        </x-ui.card>
 
         <div class="space-y-3">
             @foreach ($sales as $sale)
-                <div class="bg-white rounded-lg shadow-sm p-4">
+                <x-ui.card>
                     <div class="flex items-center justify-between">
                         <div>
                             <span class="font-semibold">{{ $sale->name }}</span>
                             <span class="text-gray-400 text-xs ml-2">{{ $sale->customer_title }}</span>
-                            <span @class(['px-2 py-0.5 rounded text-xs ml-2', 'bg-gray-100 text-gray-600' => $sale->status === 'draft', 'bg-blue-100 text-blue-700' => $sale->status === 'scheduled', 'bg-green-100 text-green-700' => $sale->status === 'live', 'bg-amber-100 text-amber-700' => $sale->status === 'paused', 'bg-slate-200 text-slate-600' => $sale->status === 'completed', 'bg-red-100 text-red-700' => $sale->status === 'cancelled'])>{{ ucfirst($sale->status) }}</span>
-                            @if ($sale->is_currently_active)<span class="px-2 py-0.5 rounded text-xs ml-1 bg-emerald-600 text-white">Currently active</span>@endif
+                            <x-ui.badge class="ml-2" :color="match($sale->status) { 'draft' => 'gray', 'scheduled' => 'blue', 'live' => 'green', 'paused' => 'amber', 'completed' => 'slate', 'cancelled' => 'red', default => 'gray' }">{{ ucfirst($sale->status) }}</x-ui.badge>
+                            @if ($sale->is_currently_active)<x-ui.badge class="ml-1" color="emerald">Currently active</x-ui.badge>@endif
                         </div>
                         <div class="text-sm text-gray-500">
                             {{ $sale->discount_type === 'percent' ? $sale->discount_value.'% off' : $currencySymbol.number_format($sale->discount_value, 2).' off' }}
@@ -84,31 +84,31 @@
 
                     <div class="flex gap-2 mt-3 flex-wrap">
                         @if ($sale->status === 'draft')
-                            <button type="button" wire:click="startScheduling({{ $sale->id }})" class="text-blue-600 hover:underline text-xs">Schedule</button>
+                            <x-ui.button variant="ghost" wire:click="startScheduling({{ $sale->id }})">Schedule</x-ui.button>
                         @endif
                         @if (in_array($sale->status, ['scheduled', 'paused']))
-                            <button type="button" wire:click="lifecycleAction({{ $sale->id }}, 'goLive')" class="text-green-600 hover:underline text-xs">Go Live Now</button>
+                            <x-ui.button variant="ghost" color="green" wire:click="lifecycleAction({{ $sale->id }}, 'goLive')">Go Live Now</x-ui.button>
                         @endif
                         @if (in_array($sale->status, ['scheduled', 'live']))
-                            <button type="button" wire:click="lifecycleAction({{ $sale->id }}, 'pause')" class="text-amber-600 hover:underline text-xs">Pause</button>
+                            <x-ui.button variant="ghost" color="amber" wire:click="lifecycleAction({{ $sale->id }}, 'pause')">Pause</x-ui.button>
                         @endif
                         @if ($sale->status === 'paused')
-                            <button type="button" wire:click="lifecycleAction({{ $sale->id }}, 'resume')" class="text-blue-600 hover:underline text-xs">Resume</button>
+                            <x-ui.button variant="ghost" wire:click="lifecycleAction({{ $sale->id }}, 'resume')">Resume</x-ui.button>
                         @endif
                         @if ($sale->status === 'live')
-                            <button type="button" wire:click="lifecycleAction({{ $sale->id }}, 'complete')" wire:confirm="End this sale now?" class="text-slate-600 hover:underline text-xs">End Now</button>
+                            <x-ui.button variant="ghost" color="slate" wire:click="lifecycleAction({{ $sale->id }}, 'complete')" wire:confirm="End this sale now?">End Now</x-ui.button>
                         @endif
                         @if (! in_array($sale->status, ['completed', 'cancelled']))
-                            <button type="button" wire:click="lifecycleAction({{ $sale->id }}, 'cancel')" wire:confirm="Cancel this flash sale?" class="text-red-600 hover:underline text-xs">Cancel</button>
+                            <x-ui.button variant="ghost" color="red" wire:click="lifecycleAction({{ $sale->id }}, 'cancel')" wire:confirm="Cancel this flash sale?">Cancel</x-ui.button>
                         @endif
-                        <button type="button" wire:click="expandTargets({{ $sale->id }})" class="text-gray-500 hover:underline text-xs">{{ $expandedSaleId === $sale->id ? 'Hide targets' : 'Manage targets' }}</button>
+                        <x-ui.button variant="ghost" color="gray" wire:click="expandTargets({{ $sale->id }})">{{ $expandedSaleId === $sale->id ? 'Hide targets' : 'Manage targets' }}</x-ui.button>
                     </div>
 
                     @if ($schedulingSaleId === $sale->id)
                         <div class="mt-3 pt-3 border-t grid grid-cols-2 gap-3">
                             <div><label class="block text-xs font-medium mb-1">Starts at</label><input type="datetime-local" wire:model="scheduleStartsAt" class="w-full border rounded px-3 py-2 text-sm">@error('scheduleStartsAt')<p class="text-red-600 text-xs mt-1">{{ $message }}</p>@enderror</div>
                             <div><label class="block text-xs font-medium mb-1">Ends at</label><input type="datetime-local" wire:model="scheduleEndsAt" class="w-full border rounded px-3 py-2 text-sm">@error('scheduleEndsAt')<p class="text-red-600 text-xs mt-1">{{ $message }}</p>@enderror</div>
-                            <div class="col-span-2"><button type="button" wire:click="schedule" class="bg-slate-900 text-white px-4 py-1.5 rounded text-xs">Confirm Schedule</button></div>
+                            <div class="col-span-2"><x-ui.button size="sm" wire:click="schedule">Confirm Schedule</x-ui.button></div>
                         </div>
                     @endif
 
@@ -133,36 +133,34 @@
                                     </div>
                                 @endif
                             </div>
-                            <button type="button" wire:click="addTarget" class="mt-2 text-blue-600 hover:underline text-xs">Add service</button>
+                            <x-ui.button variant="ghost" class="mt-2" wire:click="addTarget">Add service</x-ui.button>
                         </div>
                     @endif
-                </div>
+                </x-ui.card>
             @endforeach
         </div>
     @endif
 
     @if ($section === 'redemptions')
-        <div class="bg-white rounded-lg shadow-sm overflow-hidden">
-            <table class="w-full text-sm">
-                <thead class="bg-gray-50 text-left text-gray-500">
-                    <tr><th class="px-4 py-2">Sale</th><th class="px-4 py-2">Service</th><th class="px-4 py-2">Customer</th><th class="px-4 py-2">Original</th><th class="px-4 py-2">Final</th><th class="px-4 py-2">Discount</th><th class="px-4 py-2">Date</th></tr>
-                </thead>
-                <tbody>
-                    @forelse ($redemptions as $r)
-                        <tr class="border-t hover:bg-gray-50">
-                            <td class="px-4 py-2">{{ $r->flashSale->name ?? '—' }}</td>
-                            <td class="px-4 py-2">{{ $r->service->name ?? '—' }}</td>
-                            <td class="px-4 py-2">{{ $r->user->name ?? '—' }}</td>
-                            <td class="px-4 py-2 font-mono">{{ $currencySymbol }}{{ number_format($r->original_price, 2) }}</td>
-                            <td class="px-4 py-2 font-mono">{{ $currencySymbol }}{{ number_format($r->final_price, 2) }}</td>
-                            <td class="px-4 py-2 font-mono text-green-700">{{ $currencySymbol }}{{ number_format($r->discount_applied, 2) }}</td>
-                            <td class="px-4 py-2 text-gray-500 whitespace-nowrap">{{ app(\App\Services\TimezoneResolver::class)->format($r->created_at, $r->user?->franchise, 'd M Y, h:i A') }}</td>
-                        </tr>
-                    @empty
-                        <tr><td colspan="7" class="px-4 py-6 text-center text-gray-400">No redemptions yet.</td></tr>
-                    @endforelse
-                </tbody>
-            </table>
-        </div>
+        <x-ui.table>
+            <thead class="bg-gray-50 text-left text-gray-500">
+                <tr><th class="px-4 py-2">Sale</th><th class="px-4 py-2">Service</th><th class="px-4 py-2">Customer</th><th class="px-4 py-2">Original</th><th class="px-4 py-2">Final</th><th class="px-4 py-2">Discount</th><th class="px-4 py-2">Date</th></tr>
+            </thead>
+            <tbody>
+                @forelse ($redemptions as $r)
+                    <tr class="border-t hover:bg-gray-50">
+                        <td class="px-4 py-2">{{ $r->flashSale->name ?? '—' }}</td>
+                        <td class="px-4 py-2">{{ $r->service->name ?? '—' }}</td>
+                        <td class="px-4 py-2">{{ $r->user->name ?? '—' }}</td>
+                        <td class="px-4 py-2 font-mono">{{ $currencySymbol }}{{ number_format($r->original_price, 2) }}</td>
+                        <td class="px-4 py-2 font-mono">{{ $currencySymbol }}{{ number_format($r->final_price, 2) }}</td>
+                        <td class="px-4 py-2 font-mono text-green-700">{{ $currencySymbol }}{{ number_format($r->discount_applied, 2) }}</td>
+                        <td class="px-4 py-2 text-gray-500 whitespace-nowrap">{{ app(\App\Services\TimezoneResolver::class)->format($r->created_at, $r->user?->franchise, 'd M Y, h:i A') }}</td>
+                    </tr>
+                @empty
+                    <tr><td colspan="7" class="px-4 py-6 text-center text-gray-400">No redemptions yet.</td></tr>
+                @endforelse
+            </tbody>
+        </x-ui.table>
     @endif
 </div>

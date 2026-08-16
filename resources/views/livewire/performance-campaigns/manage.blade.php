@@ -8,7 +8,7 @@
         </div>
     @endif
 
-    <div class="bg-white rounded-lg shadow-sm p-4 mb-6">
+    <x-ui.card class="mb-6">
         <h2 class="text-sm font-semibold text-gray-500 uppercase mb-3">New campaign (draft)</h2>
         <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
             <div><label class="block text-xs font-medium mb-1">Name</label><input type="text" wire:model="name" class="w-full border rounded px-3 py-2 text-sm">@error('name')<p class="text-red-600 text-xs mt-1">{{ $message }}</p>@enderror</div>
@@ -70,28 +70,28 @@
             <select wire:model="scopeZoneId" class="border rounded px-3 py-2 text-sm"><option value="">Zone…</option>@foreach ($zones as $z)<option value="{{ $z->id }}">{{ $z->name }}</option>@endforeach</select></div>
         @endif
         <div class="flex justify-end pt-4 mt-4 border-t">
-            <button type="button" wire:click="create" class="bg-slate-900 text-white px-6 py-2 rounded text-sm font-medium hover:bg-slate-800">Create Draft</button>
+            <x-ui.button size="lg" wire:click="create">Create Draft</x-ui.button>
         </div>
-    </div>
+    </x-ui.card>
 
     <div class="space-y-3">
         @foreach ($campaigns as $campaign)
-            <div class="bg-white rounded-lg shadow-sm p-4">
+            <x-ui.card>
                 <div class="flex items-center justify-between">
                     <div>
                         <span class="font-semibold">{{ $campaign->name }}</span>
                         <span class="text-gray-400 text-xs ml-2">{{ ucfirst($campaign->audience_type) }} · {{ ucfirst(str_replace('_', ' ', $campaign->metric_key)) }}</span>
-                        <span @class([
-                            'px-2 py-0.5 rounded text-xs ml-2',
-                            'bg-gray-100 text-gray-600' => $campaign->status === 'draft',
-                            'bg-blue-100 text-blue-700' => in_array($campaign->status, ['scheduled']),
-                            'bg-green-100 text-green-700' => $campaign->status === 'active',
-                            'bg-amber-100 text-amber-700' => in_array($campaign->status, ['paused', 'under_review']),
-                            'bg-purple-100 text-purple-700' => $campaign->status === 'approved',
-                            'bg-emerald-600 text-white' => $campaign->status === 'rewarded',
-                            'bg-slate-200 text-slate-600' => in_array($campaign->status, ['completed', 'closed']),
-                            'bg-red-100 text-red-700' => $campaign->status === 'cancelled',
-                        ])>{{ ucfirst(str_replace('_', ' ', $campaign->status)) }}</span>
+                        <x-ui.badge class="ml-2" :color="match($campaign->status) {
+                            'draft' => 'gray',
+                            'scheduled' => 'blue',
+                            'active' => 'green',
+                            'paused', 'under_review' => 'amber',
+                            'approved' => 'purple',
+                            'rewarded' => 'emerald',
+                            'completed', 'closed' => 'slate',
+                            'cancelled' => 'red',
+                            default => 'gray',
+                        }">{{ ucfirst(str_replace('_', ' ', $campaign->status)) }}</x-ui.badge>
                     </div>
                     <div class="text-sm text-gray-500">
                         {{ $campaign->qualification_mode === 'threshold' ? 'Target ≥ '.number_format($campaign->target_value, 2) : 'Top '.$campaign->top_n }}
@@ -106,38 +106,38 @@
 
                 <div class="flex gap-2 mt-3 flex-wrap">
                     @if ($campaign->status === 'draft')
-                        <button type="button" wire:click="lifecycleAction({{ $campaign->id }}, 'schedule')" class="text-blue-600 hover:underline text-xs">Schedule</button>
+                        <x-ui.button variant="ghost" wire:click="lifecycleAction({{ $campaign->id }}, 'schedule')">Schedule</x-ui.button>
                     @endif
                     @if ($campaign->status === 'scheduled')
-                        <button type="button" wire:click="lifecycleAction({{ $campaign->id }}, 'activate')" class="text-green-600 hover:underline text-xs">Activate</button>
+                        <x-ui.button variant="ghost" color="green" wire:click="lifecycleAction({{ $campaign->id }}, 'activate')">Activate</x-ui.button>
                     @endif
                     @if (in_array($campaign->status, ['active', 'paused']))
-                        <button type="button" wire:click="lifecycleAction({{ $campaign->id }}, 'refreshProgress')" class="text-slate-600 hover:underline text-xs">Refresh Progress</button>
+                        <x-ui.button variant="ghost" color="slate" wire:click="lifecycleAction({{ $campaign->id }}, 'refreshProgress')">Refresh Progress</x-ui.button>
                     @endif
                     @if ($campaign->status === 'active')
-                        <button type="button" wire:click="lifecycleAction({{ $campaign->id }}, 'pause')" class="text-amber-600 hover:underline text-xs">Pause</button>
-                        <button type="button" wire:click="lifecycleAction({{ $campaign->id }}, 'complete')" wire:confirm="End this campaign now?" class="text-slate-600 hover:underline text-xs">End Now</button>
+                        <x-ui.button variant="ghost" color="amber" wire:click="lifecycleAction({{ $campaign->id }}, 'pause')">Pause</x-ui.button>
+                        <x-ui.button variant="ghost" color="slate" wire:click="lifecycleAction({{ $campaign->id }}, 'complete')" wire:confirm="End this campaign now?">End Now</x-ui.button>
                     @endif
                     @if ($campaign->status === 'paused')
-                        <button type="button" wire:click="lifecycleAction({{ $campaign->id }}, 'resume')" class="text-blue-600 hover:underline text-xs">Resume</button>
+                        <x-ui.button variant="ghost" wire:click="lifecycleAction({{ $campaign->id }}, 'resume')">Resume</x-ui.button>
                     @endif
                     @if ($campaign->status === 'completed')
-                        <button type="button" wire:click="lifecycleAction({{ $campaign->id }}, 'submitForReview')" class="text-purple-600 hover:underline text-xs">Submit for Review</button>
+                        <x-ui.button variant="ghost" color="purple" wire:click="lifecycleAction({{ $campaign->id }}, 'submitForReview')">Submit for Review</x-ui.button>
                     @endif
                     @if ($campaign->status === 'under_review')
-                        <button type="button" wire:click="approve({{ $campaign->id }})" wire:confirm="Approve this campaign for reward payout?" class="text-purple-700 font-semibold hover:underline text-xs">Approve</button>
-                        <button type="button" wire:click="lifecycleAction({{ $campaign->id }}, 'reopen')" class="text-blue-600 hover:underline text-xs">Reopen</button>
+                        <x-ui.button variant="ghost" color="purple" wire:click="approve({{ $campaign->id }})" wire:confirm="Approve this campaign for reward payout?">Approve</x-ui.button>
+                        <x-ui.button variant="ghost" wire:click="lifecycleAction({{ $campaign->id }}, 'reopen')">Reopen</x-ui.button>
                     @endif
                     @if ($campaign->status === 'approved')
-                        <button type="button" wire:click="disburse({{ $campaign->id }})" wire:confirm="Disburse rewards to every qualified participant now? This moves real money/points/badges." class="text-emerald-700 font-semibold hover:underline text-xs">Disburse Rewards</button>
+                        <x-ui.button variant="ghost" class="!text-emerald-700 !font-semibold" wire:click="disburse({{ $campaign->id }})" wire:confirm="Disburse rewards to every qualified participant now? This moves real money/points/badges.">Disburse Rewards</x-ui.button>
                     @endif
                     @if (! in_array($campaign->status, ['rewarded', 'closed', 'cancelled']))
-                        <button type="button" wire:click="lifecycleAction({{ $campaign->id }}, 'cancel')" wire:confirm="Cancel this campaign?" class="text-red-600 hover:underline text-xs">Cancel</button>
+                        <x-ui.button variant="ghost" color="red" wire:click="lifecycleAction({{ $campaign->id }}, 'cancel')" wire:confirm="Cancel this campaign?">Cancel</x-ui.button>
                     @endif
                     @if ($campaign->status === 'rewarded')
-                        <button type="button" wire:click="lifecycleAction({{ $campaign->id }}, 'close')" class="text-slate-600 hover:underline text-xs">Close</button>
+                        <x-ui.button variant="ghost" color="slate" wire:click="lifecycleAction({{ $campaign->id }}, 'close')">Close</x-ui.button>
                     @endif
-                    <button type="button" wire:click="toggleParticipants({{ $campaign->id }})" class="text-gray-500 hover:underline text-xs">{{ $expandedCampaignId === $campaign->id ? 'Hide participants' : 'View participants' }}</button>
+                    <x-ui.button variant="ghost" color="gray" wire:click="toggleParticipants({{ $campaign->id }})">{{ $expandedCampaignId === $campaign->id ? 'Hide participants' : 'View participants' }}</x-ui.button>
                 </div>
 
                 @if ($expandedCampaignId === $campaign->id)
@@ -160,7 +160,7 @@
                         </table>
                     </div>
                 @endif
-            </div>
+            </x-ui.card>
         @endforeach
     </div>
 </div>

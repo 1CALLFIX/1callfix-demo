@@ -2,38 +2,58 @@
 
 namespace Tests\Feature\Ui;
 
+use App\Livewire\Auth\Login as AuthLogin;
+use App\Livewire\Badges\Manage as BadgesManage;
+use App\Livewire\Bookings\Index as BookingsIndex;
+use App\Livewire\Bookings\Show as BookingsShow;
 use App\Livewire\Chat\Manage as ChatManage;
+use App\Livewire\Cms\Manage as CmsManage;
 use App\Livewire\Commissions\Index as CommissionsIndex;
 use App\Livewire\Customers\Index as CustomersIndex;
 use App\Livewire\Customers\Show as CustomersShow;
 use App\Livewire\Dashboard;
+use App\Livewire\FlashSales\Manage as FlashSalesManage;
 use App\Livewire\FranchisePricing\Manage as FranchisePricingManage;
 use App\Livewire\Geography\Manage as GeographyManage;
 use App\Livewire\Kyc\SupportRequests as KycSupportRequests;
 use App\Livewire\Loyalty\Index as LoyaltyIndex;
+use App\Livewire\Operations\Health as OperationsHealth;
 use App\Livewire\Payments\Index as PaymentsIndex;
 use App\Livewire\Payouts\Manage as PayoutsManage;
+use App\Livewire\PerformanceCampaigns\Manage as PerformanceCampaignsManage;
+use App\Livewire\Plans\Manage as PlansManage;
 use App\Livewire\Providers\Index as ProvidersIndex;
 use App\Livewire\Providers\Show as ProvidersShow;
+use App\Livewire\Roles\Manage as RolesManage;
 use App\Livewire\Subscriptions\Index as SubscriptionsIndex;
 use App\Livewire\WalletLedger\Index as WalletLedgerIndex;
 use App\Livewire\Workers\Index as WorkersIndex;
 use App\Livewire\Workers\Show as WorkersShow;
+use App\Models\Badge;
 use App\Models\ChatMessage;
 use App\Models\Commission;
+use App\Models\ContentPage;
 use App\Models\Country;
 use App\Models\EntitlementBalance;
+use App\Models\Faq;
+use App\Models\FlashSale;
 use App\Models\LoyaltyPoint;
 use App\Models\Payment;
 use App\Models\Payout;
+use App\Models\PerformanceCampaign;
+use App\Models\Permission;
 use App\Models\Plan;
 use App\Models\PlanEntitlement;
 use App\Models\Referral;
+use App\Models\Role;
+use App\Models\RoleAssignment;
 use App\Models\Subscription;
 use App\Models\User;
 use App\Models\Wallet;
 use App\Models\WalletTransaction;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 use Livewire\Livewire;
 use Tests\Feature\Rbac\RbacTestHelpers;
@@ -477,5 +497,269 @@ class AdminScreensDesignSystemMigrationTest extends TestCase
             ->assertSet('markingPaidId', null);
 
         $this->assertSame('pending', $payout->fresh()->status);
+    }
+
+    // ========================================================================
+    // Third increment (2026-08-16) -- 10 more screens: Auth\Login, Badges\
+    // Manage, Bookings\Show, Roles\Manage, Cms\Manage, Plans\Manage,
+    // Bookings\Index, Operations\Health, PerformanceCampaigns\Manage,
+    // FlashSales\Manage. Cms\Manage is the second real screen (after
+    // Payouts\Manage) to wire x-ui.modal -- all four of its own dialogs
+    // (Edit Page, Edit FAQ, Delete Page, Delete FAQ) were already
+    // hand-rolling nearly identical markup, a natural fit rather than a
+    // forced conversion.
+    // ========================================================================
+
+    // --- Auth\Login ------------------------------------------------------
+
+    public function test_login_renders_card_and_submit_still_authenticates(): void
+    {
+        $user = User::create([
+            'uuid' => (string) Str::uuid(),
+            'name' => 'Login Test Admin',
+            'email' => Str::random(10).'@example.test',
+            'phone' => '9'.fake()->unique()->numerify('#########'),
+            'password' => Hash::make('correct-password'),
+            'role' => 'super_admin',
+            'status' => 'active',
+        ]);
+
+        $component = Livewire::test(AuthLogin::class);
+        $component->assertSeeHtml('wire:submit="submit"');
+
+        // Key interaction: the x-ui.button submit button still reaches the
+        // real submit() method and a correct login still redirects into
+        // the panel -- unchanged behavior through the new markup.
+        $component->set('email', $user->email)
+            ->set('password', 'correct-password')
+            ->call('submit')
+            ->assertRedirect(route('admin.dashboard'));
+    }
+
+    // --- Badges\Manage -----------------------------------------------------
+
+    public function test_badges_manage_renders_definition_and_toggle_active_reaches_real_method(): void
+    {
+        $badge = Badge::create(['key' => 'zzyx-test-badge', 'label' => 'Zzyx Badge', 'mode' => 'manual', 'priority' => 1, 'text_color' => '#fff', 'bg_color' => '#000', 'is_active' => true]);
+        $admin = $this->makeSuperAdmin();
+
+        $component = Livewire::actingAs($admin)->test(BadgesManage::class);
+        $component->assertSee('Zzyx Badge')
+            ->assertSee('Active');
+
+        // Key interaction: the x-ui.button wired to toggleBadgeActive()
+        // still calls the real Livewire method and flips real DB state.
+        $component->call('toggleBadgeActive', $badge->id);
+
+        $this->assertFalse($badge->fresh()->is_active);
+        $component->assertSee('Inactive');
+    }
+
+    // --- Bookings\Show -------------------------------------------------------
+
+    public function test_bookings_show_renders_status_badge_and_cancel_reaches_real_method(): void
+    {
+        $scenario = $this->makeBookingScenario();
+        $admin = $this->makeSuperAdmin();
+
+        $component = Livewire::actingAs($admin)->test(BookingsShow::class, ['bookingId' => $scenario['booking']->id]);
+        $component->assertSee($scenario['booking']->code)
+            ->assertSee('searching provider');
+
+        // Key interaction: the x-ui.button wired to cancel() still calls
+        // the real Livewire method and moves real DB state.
+        $component->set('cancelReason', 'Customer requested cancellation')
+            ->call('cancel');
+
+        $this->assertSame('cancelled', $scenario['booking']->fresh()->status);
+        $component->assertSee('cancelled');
+    }
+
+    // --- Roles\Manage --------------------------------------------------------
+
+    public function test_roles_manage_renders_assignment_and_revoke_confirm_reaches_real_method(): void
+    {
+        $admin = $this->makeSuperAdmin();
+        $permission = Permission::firstOrCreate(['slug' => 'zzyx.test'], ['label' => 'Zzyx Test', 'group' => 'Test']);
+        $role = Role::create(['name' => 'Zzyx Role', 'slug' => 'zzyx-role-'.Str::random(6), 'description' => 'Test role', 'is_system' => false]);
+        $role->permissions()->attach($permission->id);
+        $target = $this->makeCustomer();
+        $target->update(['name' => 'Zzyx Assignee']);
+        $assignment = RoleAssignment::create(['user_id' => $target->id, 'role_id' => $role->id, 'scope_type' => 'global', 'scope_id' => null]);
+
+        $component = Livewire::actingAs($admin)->test(RolesManage::class);
+        $component->assertSee('Zzyx Assignee')
+            ->assertSee('Zzyx Role');
+
+        // Key interaction: confirmRevoke() (a real wire:click on the
+        // x-ui.button) still reaches the real Livewire method, and the
+        // real revoke() afterward still deletes the assignment.
+        $component->call('confirmRevoke', $assignment->id)
+            ->assertSet('confirmingRevokeId', $assignment->id)
+            ->call('revoke');
+
+        $this->assertDatabaseMissing('role_assignments', ['id' => $assignment->id]);
+    }
+
+    // --- Cms\Manage (also the second real x-ui.modal wiring) --------------
+
+    public function test_cms_manage_renders_page_and_edit_modal_reaches_the_same_methods(): void
+    {
+        $page = ContentPage::create(['slug' => 'zzyx-page', 'title' => 'Zzyx Page', 'content' => 'Body', 'is_active' => true]);
+        $admin = $this->makeSuperAdmin();
+
+        $component = Livewire::actingAs($admin)->test(CmsManage::class);
+        $component->assertSee('Zzyx Page')
+            ->assertSee('Published');
+
+        // Key interaction: editPage() (a real wire:click) opens the same
+        // x-ui.modal-driven flow the hand-rolled modal used to (identical
+        // method/property names), and updatePage() still persists real
+        // DB state.
+        $component->call('editPage', $page->id)
+            ->assertSet('showEditPageModal', true)
+            ->assertSeeHtml('wire:click="updatePage"')
+            ->set('editPageTitle', 'Zzyx Page Updated')
+            ->call('updatePage');
+
+        $this->assertSame('Zzyx Page Updated', $page->fresh()->title);
+        $component->assertSet('showEditPageModal', false);
+    }
+
+    public function test_cms_manage_delete_page_modal_reaches_the_same_methods(): void
+    {
+        $page = ContentPage::create(['slug' => 'zzyx-page-2', 'title' => 'Zzyx Page Two', 'content' => 'Body', 'is_active' => true]);
+        $admin = $this->makeSuperAdmin();
+
+        $component = Livewire::actingAs($admin)->test(CmsManage::class)
+            ->call('confirmDeletePage', $page->id)
+            ->assertSet('confirmingDeletePageId', $page->id)
+            ->assertSeeHtml('wire:click="deletePage"');
+
+        $component->call('deletePage');
+
+        $this->assertDatabaseMissing('content_pages', ['id' => $page->id]);
+    }
+
+    // --- Plans\Manage --------------------------------------------------------
+
+    public function test_plans_manage_renders_plan_and_toggle_active_reaches_real_method(): void
+    {
+        $plan = Plan::create([
+            'name' => 'Zzyx Plan', 'slug' => 'zzyx-plan-'.Str::random(6),
+            'plan_family' => 'customer_membership', 'scope_type' => 'global',
+            'eligible_actor_type' => 'customer', 'billing_cycle' => 'monthly',
+            'price' => 99, 'stacking_strategy' => 'exclusive', 'is_active' => true,
+        ]);
+        $admin = $this->makeSuperAdmin();
+
+        $component = Livewire::actingAs($admin)->test(PlansManage::class);
+        $component->assertSee('Zzyx Plan')
+            ->assertSee('active');
+
+        // Key interaction: the x-ui.button wired to toggleActive() still
+        // calls the real Livewire method and flips real DB state.
+        $component->call('toggleActive', $plan->id);
+
+        $this->assertFalse($plan->fresh()->is_active);
+        $component->assertSee('inactive');
+    }
+
+    // --- Bookings\Index ------------------------------------------------------
+
+    public function test_bookings_index_renders_booking_and_status_filter_switches_results(): void
+    {
+        $scenario = $this->makeBookingScenario('completed');
+        $scenario['booking']->update(['code' => 'ZZYX-BOOKING-CODE']);
+        $admin = $this->makeSuperAdmin();
+
+        $component = Livewire::actingAs($admin)->test(BookingsIndex::class);
+        $component->assertSee('ZZYX-BOOKING-CODE')
+            ->assertSee('completed');
+
+        // Key interaction: the status-filter button is a real wire:click
+        // reaching the real $statusFilter property, narrowing results.
+        $component->set('statusFilter', 'pending')
+            ->assertDontSee('ZZYX-BOOKING-CODE');
+    }
+
+    // --- Operations\Health -----------------------------------------------
+
+    public function test_operations_health_renders_failed_job_and_retry_reaches_real_method(): void
+    {
+        $admin = $this->makeUserWithPermission('operations.manage', 'global');
+        $this->grantPermission($admin, 'operations.view');
+
+        DB::table('failed_jobs')->insert([
+            'uuid' => (string) Str::uuid(),
+            'connection' => 'database', 'queue' => 'default',
+            'payload' => json_encode(['displayName' => 'App\\Jobs\\ZzyxJob', 'data' => []]),
+            'exception' => "RuntimeException\n#0 {main}", 'failed_at' => now(),
+        ]);
+        $uuid = DB::table('failed_jobs')->value('uuid');
+
+        $component = Livewire::actingAs($admin)->test(OperationsHealth::class);
+        $component->assertSee('ZzyxJob')
+            ->assertSeeHtml('wire:click="retryJob(\''.$uuid.'\')"');
+
+        // Key interaction: the x-ui.button wired to retryJob() still
+        // reaches the real Livewire method (verified via the same
+        // activity-log side effect OperationsExpansionTest itself checks).
+        $component->call('retryJob', $uuid);
+
+        $this->assertDatabaseHas('activity_log', ['subject_type' => 'failed_job', 'causer_id' => $admin->id]);
+    }
+
+    // --- PerformanceCampaigns\Manage --------------------------------------
+
+    public function test_performance_campaigns_manage_renders_campaign_and_lifecycle_action_reaches_real_method(): void
+    {
+        $campaign = PerformanceCampaign::create([
+            'name' => 'Zzyx Campaign', 'audience_type' => 'provider',
+            'metric_key' => 'bookings_completed_count', 'scope_type' => 'global',
+            'qualification_mode' => 'threshold', 'target_value' => 2,
+            'reward_type' => 'wallet_credit', 'reward_value' => 100,
+            'status' => 'draft', 'starts_at' => now(), 'ends_at' => now()->addWeek(),
+        ]);
+        $admin = $this->makeSuperAdmin();
+
+        $component = Livewire::actingAs($admin)->test(PerformanceCampaignsManage::class);
+        $component->assertSee('Zzyx Campaign')
+            ->assertSee('Draft');
+
+        // Key interaction: the x-ui.button (ghost, blue) wired to
+        // lifecycleAction() still calls the real Livewire method with the
+        // real campaign id + action, moving real DB state.
+        $component->call('lifecycleAction', $campaign->id, 'schedule');
+
+        $this->assertSame('scheduled', $campaign->fresh()->status);
+        $component->assertSee('Scheduled');
+    }
+
+    // --- FlashSales\Manage -------------------------------------------------
+
+    public function test_flash_sales_manage_renders_sale_and_lifecycle_action_reaches_real_method(): void
+    {
+        $sale = FlashSale::create([
+            'name' => 'Zzyx Sale', 'customer_title' => 'Zzyx Sale!', 'type' => 'urgent_sale',
+            'status' => 'draft', 'scope_type' => 'global', 'discount_type' => 'percent',
+            'discount_value' => 20, 'min_final_price' => 0,
+        ]);
+        $admin = $this->makeSuperAdmin();
+
+        $component = Livewire::actingAs($admin)->test(FlashSalesManage::class);
+        $component->assertSee('Zzyx Sale')
+            ->assertSee('Draft');
+
+        // Key interaction: startScheduling() (a real wire:click on the
+        // x-ui.button) opens the real inline scheduling form, and
+        // schedule() afterward still moves real DB state.
+        $component->call('startScheduling', $sale->id)
+            ->set('scheduleStartsAt', now()->toDateTimeString())
+            ->set('scheduleEndsAt', now()->addWeek()->toDateTimeString())
+            ->call('schedule');
+
+        $this->assertSame('scheduled', $sale->fresh()->status);
+        $component->assertSee('Scheduled');
     }
 }
