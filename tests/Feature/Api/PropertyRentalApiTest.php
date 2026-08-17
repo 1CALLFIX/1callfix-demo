@@ -51,7 +51,7 @@ class PropertyRentalApiTest extends TestCase
     public function test_availability_endpoint_reflects_a_real_booked_range(): void
     {
         [$country, $city, $franchise, $zone] = $this->makeFranchiseTree();
-        $this->activateCarRentalFor($franchise);
+        $this->activatePropertyRentalFor($franchise);
         $property = $this->makeProperty($franchise, $zone);
         $customer = $this->makeCustomer();
 
@@ -95,7 +95,7 @@ class PropertyRentalApiTest extends TestCase
     public function test_reservation_creation_succeeds_once_enabled(): void
     {
         [$country, $city, $franchise, $zone] = $this->makeFranchiseTree();
-        $this->activateCarRentalFor($franchise);
+        $this->activatePropertyRentalFor($franchise);
         $property = $this->makeProperty($franchise, $zone);
         $customer = $this->makeCustomer();
 
@@ -128,7 +128,7 @@ class PropertyRentalApiTest extends TestCase
     public function test_date_filtered_search_finds_an_available_property_outside_the_first_page_window(): void
     {
         [$country, $city, $franchise, $zone] = $this->makeFranchiseTree();
-        $this->activateCarRentalFor($franchise);
+        $this->activatePropertyRentalFor($franchise);
         $customer = $this->makeCustomer();
 
         $bookedProperty = $this->makeProperty($franchise, $zone);

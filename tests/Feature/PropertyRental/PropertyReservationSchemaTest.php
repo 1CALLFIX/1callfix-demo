@@ -29,7 +29,57 @@ class PropertyReservationSchemaTest extends TestCase
         $scenario = $this->makePropertyReservationScenario();
 
         $this->assertInstanceOf(Orderable::class, $scenario['reservation']);
-        $this->assertSame('car_rental', $scenario['reservation']->moduleCode());
+        $this->assertSame('property_rental', $scenario['reservation']->moduleCode());
+    }
+
+    /**
+     * 2026-08-17 slug-rename regression: proves the whole activation chain
+     * still resolves correctly end-to-end under the new `property_rental`
+     * slug -- the module registry row, `ModuleActivationService`, and a
+     * real reservation creation, not just the bare constant value.
+     */
+    public function test_property_rental_activates_and_creates_reservations_under_its_renamed_slug(): void
+    {
+        $this->assertSame('property_rental', \App\Support\Modules::PROPERTY_RENTAL);
+        $this->assertArrayHasKey('property_rental', \App\Support\Modules::ALL);
+        $this->assertArrayNotHasKey('car_rental', \App\Support\Modules::ALL);
+
+        [$country, $city, $franchise, $zone] = $this->makeFranchiseTree();
+        $customer = $this->makeCustomer();
+        $property = $this->makeProperty($franchise, $zone);
+
+        // Before activation: the renamed slug, not the old one, is what
+        // correctly blocks creation.
+        $this->expectException(\App\Exceptions\ModuleNotActiveException::class);
+        app(\App\Actions\CreatePropertyReservationAction::class)->execute([
+            'franchise_id' => $franchise->id, 'zone_id' => $zone->id, 'customer_id' => $customer->id,
+            'property_id' => $property->id, 'check_in_date' => now()->addDays(3)->toDateString(), 'check_out_date' => now()->addDays(5)->toDateString(),
+        ]);
+    }
+
+    public function test_property_rental_module_row_exists_under_the_renamed_slug_after_migration(): void
+    {
+        $module = \App\Models\Module::where('code', 'property_rental')->first();
+
+        $this->assertNotNull($module, 'The modules table must carry a property_rental row after the rename migration.');
+        $this->assertSame('Property Rental', $module->name);
+        $this->assertNull(\App\Models\Module::where('code', 'car_rental')->first(), 'No stale car_rental row should remain.');
+    }
+
+    public function test_property_rental_creates_reservations_once_activated_under_its_renamed_slug(): void
+    {
+        [$country, $city, $franchise, $zone] = $this->makeFranchiseTree();
+        $this->activatePropertyRentalFor($franchise);
+        $customer = $this->makeCustomer();
+        $property = $this->makeProperty($franchise, $zone);
+
+        $reservation = app(\App\Actions\CreatePropertyReservationAction::class)->execute([
+            'franchise_id' => $franchise->id, 'zone_id' => $zone->id, 'customer_id' => $customer->id,
+            'property_id' => $property->id, 'check_in_date' => now()->addDays(3)->toDateString(), 'check_out_date' => now()->addDays(5)->toDateString(),
+        ]);
+
+        $this->assertNotNull($reservation->id);
+        $this->assertSame('property_rental', $reservation->moduleCode());
     }
 
     public function test_commission_can_belong_to_a_property_reservation(): void

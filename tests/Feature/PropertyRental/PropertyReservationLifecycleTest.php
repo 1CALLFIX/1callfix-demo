@@ -48,7 +48,7 @@ class PropertyReservationLifecycleTest extends TestCase
     public function test_creating_a_reservation_succeeds_once_the_module_is_enabled(): void
     {
         [$country, $city, $franchise, $zone] = $this->makeFranchiseTree();
-        $this->activateCarRentalFor($franchise);
+        $this->activatePropertyRentalFor($franchise);
         $customer = $this->makeCustomer();
         $property = $this->makeProperty($franchise, $zone, null, ['base_price' => 1000]);
 
@@ -67,7 +67,7 @@ class PropertyReservationLifecycleTest extends TestCase
     public function test_check_out_must_be_after_check_in(): void
     {
         [$country, $city, $franchise, $zone] = $this->makeFranchiseTree();
-        $this->activateCarRentalFor($franchise);
+        $this->activatePropertyRentalFor($franchise);
         $customer = $this->makeCustomer();
         $property = $this->makeProperty($franchise, $zone);
 
@@ -83,7 +83,7 @@ class PropertyReservationLifecycleTest extends TestCase
     public function test_minimum_nights_is_enforced(): void
     {
         [$country, $city, $franchise, $zone] = $this->makeFranchiseTree();
-        $this->activateCarRentalFor($franchise);
+        $this->activatePropertyRentalFor($franchise);
         $customer = $this->makeCustomer();
         $property = $this->makeProperty($franchise, $zone, null, ['minimum_nights' => 3]);
 
@@ -99,7 +99,7 @@ class PropertyReservationLifecycleTest extends TestCase
     public function test_maximum_nights_is_enforced(): void
     {
         [$country, $city, $franchise, $zone] = $this->makeFranchiseTree();
-        $this->activateCarRentalFor($franchise);
+        $this->activatePropertyRentalFor($franchise);
         $customer = $this->makeCustomer();
         $property = $this->makeProperty($franchise, $zone, null, ['maximum_nights' => 2]);
 
@@ -115,7 +115,7 @@ class PropertyReservationLifecycleTest extends TestCase
     public function test_per_date_price_override_is_applied(): void
     {
         [$country, $city, $franchise, $zone] = $this->makeFranchiseTree();
-        $this->activateCarRentalFor($franchise);
+        $this->activatePropertyRentalFor($franchise);
         $customer = $this->makeCustomer();
         $property = $this->makeProperty($franchise, $zone, null, ['base_price' => 1000]);
 
@@ -134,7 +134,7 @@ class PropertyReservationLifecycleTest extends TestCase
     public function test_cannot_reserve_dates_that_are_already_booked(): void
     {
         [$country, $city, $franchise, $zone] = $this->makeFranchiseTree();
-        $this->activateCarRentalFor($franchise);
+        $this->activatePropertyRentalFor($franchise);
         $customer = $this->makeCustomer();
         $property = $this->makeProperty($franchise, $zone);
 
@@ -158,7 +158,7 @@ class PropertyReservationLifecycleTest extends TestCase
     public function test_a_conflicting_reservation_does_not_leave_a_partial_reservation_row(): void
     {
         [$country, $city, $franchise, $zone] = $this->makeFranchiseTree();
-        $this->activateCarRentalFor($franchise);
+        $this->activatePropertyRentalFor($franchise);
         $customer = $this->makeCustomer();
         $property = $this->makeProperty($franchise, $zone);
 
@@ -182,7 +182,7 @@ class PropertyReservationLifecycleTest extends TestCase
     public function test_adjacent_non_overlapping_reservations_are_both_allowed(): void
     {
         [$country, $city, $franchise, $zone] = $this->makeFranchiseTree();
-        $this->activateCarRentalFor($franchise);
+        $this->activatePropertyRentalFor($franchise);
         $customerA = $this->makeCustomer();
         $customerB = $this->makeCustomer();
         $property = $this->makeProperty($franchise, $zone);
@@ -265,7 +265,7 @@ class PropertyReservationLifecycleTest extends TestCase
     public function test_admin_can_cancel_a_pending_reservation_and_dates_are_released(): void
     {
         [$country, $city, $franchise, $zone] = $this->makeFranchiseTree();
-        $this->activateCarRentalFor($franchise);
+        $this->activatePropertyRentalFor($franchise);
         $customer = $this->makeCustomer();
         $property = $this->makeProperty($franchise, $zone);
 
@@ -329,7 +329,7 @@ class PropertyReservationLifecycleTest extends TestCase
     public function test_wallet_payment_debits_customer_and_records_a_captured_payment(): void
     {
         [$country, $city, $franchise, $zone] = $this->makeFranchiseTree();
-        $this->activateCarRentalFor($franchise);
+        $this->activatePropertyRentalFor($franchise);
         $customer = $this->makeCustomer();
         $property = $this->makeProperty($franchise, $zone, null, ['base_price' => 500]);
         app(WalletService::class)->credit($customer, 2000, 'test top-up');

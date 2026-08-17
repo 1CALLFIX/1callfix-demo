@@ -130,11 +130,16 @@ class ModuleCapabilities
             'notifications' => null, 'reviews' => null, 'coupons' => null, 'loyalty' => null, 'referrals' => null,
             'dispatch' => false, 'delivery' => false,
         ],
-        // car_rental stands in for the Rental family (9A-9D) at the module-registry
-        // level today -- App\Support\Modules::ALL has one 'car_rental' slug,
-        // not four. Property (9A) is the one sub-type with a real Glover
-        // reference (§4b); the other three are undetermined, matching §5.
-        'car_rental' => [
+        // 2026-08-17: renamed from 'car_rental' to 'property_rental' -- this
+        // row was always Property Rental's own capability profile
+        // specifically (real Glover Property/PropertyAvailability/
+        // PropertyReview evidence, §4b), never a genuine composite of the
+        // whole Rental family; the old key just happened to be the only
+        // Rental-adjacent slug that existed at the time. Vehicle/Self-Drive/
+        // Machine-Tools Rental remain unbuilt with zero domain model (§5,
+        // re-confirmed PHASE_23_HOTEL_AND_RENTAL_REQUIREMENTS_GAP.md) -- no
+        // entry is added here speculatively for any of them.
+        'property_rental' => [
             'catalog' => true /* Property/PropertyType, §4b */, 'order' => true,
             'pricing' => true, 'payment' => true, 'availability' => true /* PropertyAvailability, §4b */,
             'cancellation' => null, 'provider' => true /* owner */, 'wallet' => null, 'commission' => null,

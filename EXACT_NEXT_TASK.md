@@ -1,5 +1,44 @@
 # Exact Next Task
 
+**THIS DOCUMENT WAS STALE FROM 2026-08-16 (Phase 21 TECH-6) THROUGH 2026-08-17 — corrected same day.** Everything below "Most recent work (2026-08-16)..." was accurate as of Phase 21 but was never updated across Phases 22 through 25, which shipped four more real verticals (Parcel, Taxi, Property Rental, Marketplace Foundation/Ecommerce/Food/Grocery/Pharmacy) and a Module Activation system. `CURRENT_MASTER_CHECKPOINT.md` was kept current throughout that whole span — this file was not. That gap is now closed.
+
+## Actual current state (2026-08-17, verified against real code and a real `php artisan test` run, HEAD `cd55a07`)
+
+**Verified test baseline: 1008/1008 passing, 2573 assertions, 0 failures.** Working tree clean on `main`.
+
+**Implemented verticals** (see `CURRENT_MASTER_CHECKPOINT.md` for the full build history of each):
+- **Service** — IMPLEMENTED, LIVE (`modules.is_implemented=true`, the only one).
+- **Parcel** (Phase 22.4), **Taxi/Ride** (Phase 22.6), **Property Rental** (Phase 22.7) — IMPLEMENTED, ship DISABLED (`is_implemented=false`).
+- **Marketplace Foundation** (Store/MarketplaceCategory/Product/ProductVariant/AddOn/CartItem/MarketplaceOrder, the fifth `Orderable` implementer) + **Ecommerce** (Phase 24/25) — IMPLEMENTED, ships DISABLED.
+- **Food, Grocery** — IMPLEMENTED via the identical shared Marketplace code path (proven in `MarketplaceMultiVerticalReuseTest`, no separate schema/code), ship DISABLED.
+- **Pharmacy** — IMPLEMENTED via the same shared path; `stores.prescription_required` is a real flag with **no verification workflow built** (open regulatory/business decision, `KNOWN_RISKS_AND_DECISIONS.md` item 35).
+
+**NOT implemented, evidence-blocked, correctly not built** (re-confirmed against three independent reference sources — Glover 1.8.5, the real 6amMart 4.0.1 source, and this project's own historical `DB_1cal_app_1.8.10.sql` production dump — see `PHASE_23_HOTEL_AND_RENTAL_REQUIREMENTS_GAP.md`): **Hotel, real Car Rental (rentable-vehicle inventory), Self-Drive Rental, Machine/Tools Rental.** No domain model exists for any of these four; building one without real requirements/evidence would be fabrication, which this project's own discipline forbids.
+
+**NOT implemented, not started, no scaffolding exists anywhere in this repository:** Admin AI, Customer Web, Customer Flutter, Vendor Flutter, Rider Flutter.
+
+**Module registry note:** the `car_rental` slug in `App\Support\Modules::ALL` was, until this session, actually occupied by Property Rental's own `moduleCode()` — not real vehicle-rental inventory. This session renames it to `property_rental` to free the namespace for a genuine future Car Rental vertical (see the commit that follows this doc update for the exact change).
+
+**Admin UI:** IMPLEMENTED — shared `x-ui.*` component library, ~41 Livewire admin screen directories, including 5 new ones from Marketplace Foundation (Stores, MarketplaceCategories, Products, AddOns, MarketplaceOrders).
+
+**API:** 27 controllers, all confirmed to have real `postJson`/`getJson`-level HTTP test coverage (verified by grepping actual route strings across the whole test suite this session, not assumed from a stale count). **Browser-driven E2E: still NOT FOUND** — no Dusk/Playwright anywhere.
+
+**Document/Printing Engine:** IMPLEMENTED but PARTIAL — real invoice/receipt generation for `booking`/`wallet_topup`/`plan_subscription` payment purposes only; `parcel_order`/`taxi_ride`/`property_reservation`/`marketplace_order` (all real `payments.purpose` values today) fall through to a generic label with degraded country/payer resolution, and have zero test coverage. No commission/settlement/payout document exists anywhere.
+
+**SMS/Push:** No real credentials configured anywhere (no `.env` file exists in this checkout; `.env.example` has every MSG91/GatewayAPI/Firebase credential commented out, both drivers default to `log`). All three real adapters (`Msg91SmsAdapter`, `GatewayApiSmsAdapter`, `FirebaseFcmPushAdapter`) are tested exclusively against `Http::fake()` — no real send has ever succeeded from this codebase.
+
+**Confirmed NOT to exist anywhere in the codebase** (searched thoroughly, not inferred): Smart Job Rescue, Escalation Engine, Technician ETA, No-Work-Found flow. "Skill matching" exists only as a basic category-membership filter (`Provider.skills` + `DispatchService::hasSkill()`), not a scored/proficiency system.
+
+**Compensation types implemented:** tips, waiting, rain, overtime, peak, night — and only these six. `CompensationService::applyManual()` hard-restricts its `$type` parameter to `['rain', 'waiting']`. Holiday/long-distance/urgent/difficult-access/heavy-bulky/extra-assistance compensation types do not exist anywhere in the codebase.
+
+## Exact next action (current)
+
+See the cumulative hardening session this document update is part of — working through a defined P1-P9 backlog (RBAC audit, regression coverage, DB hardening, dispatch correctness, admin UI consistency, API/performance hardening, document engine extension, communication infra audit) autonomously. Check `CURRENT_MASTER_CHECKPOINT.md`'s latest commit-log entry and `git log` for the actual latest state — this file is a pointer, not the source of truth.
+
+---
+
+## Historical record below (accurate for its own time — Phase 21 and earlier; NOT updated for Phases 22-25 above)
+
 **Most recent work (2026-08-16): Phase 21 item TECH-6 — Admin UI design system, fourth and FINAL bounded increment.** Migrated the last 8 of the 35 real Livewire admin screens onto the existing `x-ui.*` component library: `Categories\Manage`, `Subcategories\Manage`, `Zones\Manage`, `Franchises\Manage`, `Services\Manage`, `Banners\Manage`, `NotificationCenter\Manage`, and `Settings\Manage` (856 lines, the largest screen in the app, done last once warmed up on the other 7, per the third increment's own recommendation). **35/35 screens now migrated; 0 remain — TECH-6 is ✅ COMPLETE for the first time**, not just started.
 
 Every screen's Add-New panel is now `x-ui.card`, every status pill is `x-ui.badge`, and every confirm/edit dialog on the 8 screens (view/edit/delete on Zones/Franchises/Services/Banners, edit/delete on Categories/Subcategories) is `x-ui.modal` — `x-ui.modal` is now wired into 8 real screens total, not just isolated component tests. `Settings\Manage`'s scope-picker card and its single tab-content wrapper both moved to `x-ui.card`; all 17 "Save ... Settings" buttons across its real tabs became `x-ui.button` via one mechanical, verified regex substitution (identical class string on every one, only `wire:click` target and label differ). `x-ui.modal` was extended additively with a new `3xl` `maxWidth` option for `Zones\Manage`'s Edit Zone dialog (2-column form + boundary map side by side, needs more room than `2xl`) — no existing call site affected. **Deliberately left as plain HTML**, matching the restraint already shown in prior increments (Geography\Manage's nested table, Roles\Manage's one-off button): the main list `<table>` on `Zones\Manage`/`Franchises\Manage`/`Services\Manage`/`Banners\Manage` (all four genuinely need `overflow-x-auto` for horizontal scroll on wide, many-column tables, which would conflict with `x-ui.table`'s fixed `overflow-hidden` shell), and the compact square icon action buttons (Edit/Toggle/Delete) shared identically across all 6 catalog-style screens (a shape `x-ui.button` was never designed for and only these 6 screens use). 8 new tests in `tests/Feature/Ui/AdminScreensDesignSystemMigrationTest.php`, one per migrated screen, each proving real data still renders and a key interaction (toggle-active, toggle-status, cancel-campaign, or a real `saveDispatch()` call writing a real `Setting` row) still reaches the same Livewire method as before. Full suite: 739/739 → **747/747, 1759 assertions.** Commit `6d76d01`, none pushed.

@@ -49,8 +49,8 @@ class CreatePropertyReservationAction
             'city_id' => $franchise->city_id,
             'country_id' => $franchise->country_id,
         ];
-        if (! $this->moduleActivation->isActive(Modules::CAR_RENTAL, $scope)) {
-            throw new ModuleNotActiveException(Modules::CAR_RENTAL);
+        if (! $this->moduleActivation->isActive(Modules::PROPERTY_RENTAL, $scope)) {
+            throw new ModuleNotActiveException(Modules::PROPERTY_RENTAL);
         }
 
         $property = Property::findOrFail($data['property_id']);

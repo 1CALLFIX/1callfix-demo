@@ -10,12 +10,18 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 /**
  * Phase 22.7 (Property Rental) — the fourth `Orderable` implementer.
- * `moduleCode()` returns `car_rental` (the module slug covering the whole
- * Rental family, `App\Support\Modules::ALL` — Property/Vehicle/Self-Drive/
- * Machine-Tools all share one module today; see
- * `PHASE_22_PLATFORM_CAPABILITY_RECOVERY_AUDIT.md §5` for why this wasn't
- * split into a `property_rental` sub-slug — no evidence supports that
- * split yet).
+ * `moduleCode()` returns `property_rental` (`App\Support\Modules::ALL`).
+ *
+ * **2026-08-17 slug rename:** this was `car_rental` from Phase 22.7 through
+ * Phase 25 — originally chosen because `PHASE_22_PLATFORM_CAPABILITY_
+ * RECOVERY_AUDIT.md §5` found no evidence to split the broader Rental
+ * family into per-sub-type slugs, so Property Rental used the one slug
+ * that existed. That slug's own display label read "Car Rental" the whole
+ * time, a real, confirmed collision risk once a genuine Car Rental
+ * (rentable-vehicle inventory) vertical is ever built — renamed to its own
+ * dedicated `property_rental` slug to remove that risk. No real Car Rental
+ * implementation ever depended on the old slug (confirmed by a full-
+ * repository search before this rename).
  */
 class PropertyReservation extends Model implements Orderable
 {
@@ -51,7 +57,7 @@ class PropertyReservation extends Model implements Orderable
 
     // ============================== Orderable ==============================
 
-    public function moduleCode(): string { return Modules::CAR_RENTAL; }
+    public function moduleCode(): string { return Modules::PROPERTY_RENTAL; }
     public function orderCode(): string { return $this->code; }
     public function orderFranchiseId(): int { return $this->franchise_id; }
     public function orderZoneId(): ?int { return $this->zone_id; }
