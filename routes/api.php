@@ -54,6 +54,14 @@ Route::get('/properties', [\App\Http\Controllers\API\PropertyController::class, 
 Route::get('/properties/{propertyId}', [\App\Http\Controllers\API\PropertyController::class, 'show']);
 Route::get('/properties/{propertyId}/availability', [\App\Http\Controllers\API\PropertyController::class, 'availability']);
 
+// Phase 24 -- Marketplace Foundation browse/search. Public, same reasoning
+// as Property Rental above -- real 6amMart evidence confirms unauthenticated
+// store/product browsing is the real shape of this domain.
+Route::get('/stores', [\App\Http\Controllers\API\StoreController::class, 'index']);
+Route::get('/stores/{storeId}', [\App\Http\Controllers\API\StoreController::class, 'show']);
+Route::get('/stores/{storeId}/products', [\App\Http\Controllers\API\ProductController::class, 'index']);
+Route::get('/products/{productId}', [\App\Http\Controllers\API\ProductController::class, 'show']);
+
 Route::middleware(['auth:sanctum', \App\Http\Middleware\EnsureNotInMaintenanceMode::class])->group(function () {
     Route::post('/bookings/{booking}/accept', [\App\Http\Controllers\API\DispatchController::class, 'accept']);
     Route::post('/bookings/{booking}/complete', [\App\Http\Controllers\API\DispatchController::class, 'complete']);
@@ -84,6 +92,15 @@ Route::middleware(['auth:sanctum', \App\Http\Middleware\EnsureNotInMaintenanceMo
     Route::post('/properties/{propertyId}/reservations', [\App\Http\Controllers\API\PropertyReservationController::class, 'store']);
     Route::get('/reservations/mine', [\App\Http\Controllers\API\PropertyReservationController::class, 'mine']);
     Route::get('/reservations/{reservationId}', [\App\Http\Controllers\API\PropertyReservationController::class, 'show']);
+
+    // Phase 24 -- Marketplace Foundation (authenticated actions only -- browse is public, see above).
+    Route::get('/cart', [\App\Http\Controllers\API\CartController::class, 'index']);
+    Route::post('/cart', [\App\Http\Controllers\API\CartController::class, 'store']);
+    Route::patch('/cart/{cartItemId}', [\App\Http\Controllers\API\CartController::class, 'update']);
+    Route::delete('/cart/{cartItemId}', [\App\Http\Controllers\API\CartController::class, 'destroy']);
+    Route::post('/marketplace-orders', [\App\Http\Controllers\API\MarketplaceOrderController::class, 'store']);
+    Route::get('/marketplace-orders/mine', [\App\Http\Controllers\API\MarketplaceOrderController::class, 'mine']);
+    Route::get('/marketplace-orders/{orderId}', [\App\Http\Controllers\API\MarketplaceOrderController::class, 'show']);
     Route::get('/loyalty', [\App\Http\Controllers\API\LoyaltyController::class, 'show']);
     Route::post('/loyalty/redeem', [\App\Http\Controllers\API\LoyaltyController::class, 'redeem']);
 
@@ -119,6 +136,15 @@ Route::middleware(['auth:sanctum', \App\Http\Middleware\EnsureNotInMaintenanceMo
     Route::post('/worker/taxi-rides/{taxiRideId}/accept', [\App\Http\Controllers\API\TaxiWorkerJobController::class, 'accept']);
     Route::post('/worker/taxi-rides/{taxiRideId}/start', [\App\Http\Controllers\API\TaxiWorkerJobController::class, 'start']);
     Route::post('/worker/taxi-rides/{taxiRideId}/complete', [\App\Http\Controllers\API\TaxiWorkerJobController::class, 'complete']);
+
+    // Phase 24 -- Marketplace delivery rider (FieldWorker, capability_type
+    // one of food_delivery_rider/grocery_delivery_rider/commerce_delivery_
+    // rider/pharmacy_delivery_rider). Same shape as ParcelWorkerJobController
+    // above -- one accept + one OTP-gated deliver, no separate pickup step
+    // (see marketplace_orders migration's own "one OTP, not two" comment).
+    Route::get('/worker/marketplace-orders', [\App\Http\Controllers\API\MarketplaceWorkerJobController::class, 'index']);
+    Route::post('/worker/marketplace-orders/{marketplaceOrderId}/accept', [\App\Http\Controllers\API\MarketplaceWorkerJobController::class, 'accept']);
+    Route::post('/worker/marketplace-orders/{marketplaceOrderId}/deliver', [\App\Http\Controllers\API\MarketplaceWorkerJobController::class, 'deliver']);
 });
 
 // No auth middleware — this is a server-to-server callback from Razorpay,

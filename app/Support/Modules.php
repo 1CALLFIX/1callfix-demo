@@ -26,6 +26,11 @@ class Modules
     public const PARCEL = 'parcel';
     public const TAXI = 'taxi';
     public const CAR_RENTAL = 'car_rental';
+    /** Phase 24 (Marketplace Foundation) -- these four slugs already existed in ALL below; adding real constants closes the same gap every prior vertical's own constant already avoided (a string literal instead of a named one). */
+    public const FOOD = 'food';
+    public const GROCERY = 'grocery';
+    public const PHARMACY = 'pharmacy';
+    public const COMMERCE = 'commerce';
 
     /** slug => display label, in rollout order */
     public const ALL = [

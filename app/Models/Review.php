@@ -15,6 +15,7 @@ class Review extends Model
     protected $fillable = [
         'booking_id',
         'property_reservation_id',
+        'marketplace_order_id',
         'customer_id',
         'provider_id',
         'rating',
@@ -23,8 +24,10 @@ class Review extends Model
     ];
 
     public function booking() { return $this->belongsTo(Booking::class); }
-    /** Phase 22.7 -- the Property Rental counterpart to booking(). At most one of booking_id/property_reservation_id is set. */
+    /** Phase 22.7 -- the Property Rental counterpart to booking(). At most one of booking_id/property_reservation_id/marketplace_order_id is set. */
     public function propertyReservation() { return $this->belongsTo(PropertyReservation::class); }
+    /** Phase 24 (Marketplace Foundation) -- the Marketplace counterpart. */
+    public function marketplaceOrder() { return $this->belongsTo(MarketplaceOrder::class); }
     public function customer() { return $this->belongsTo(User::class, 'customer_id'); }
     public function provider() { return $this->belongsTo(Provider::class); }
 }

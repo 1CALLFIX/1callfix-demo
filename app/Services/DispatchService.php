@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Booking;
 use App\Models\DispatchAttempt;
 use App\Models\FieldWorker;
+use App\Models\MarketplaceOrder;
 use App\Models\ParcelOrder;
 use App\Models\Provider;
 use App\Models\Service;
@@ -211,6 +212,61 @@ class DispatchService
             scope: array_filter([
                 'zone_id' => $ride->zone_id, 'franchise_id' => $ride->franchise_id,
                 'city_id' => $ride->franchise?->city_id, 'country_id' => $ride->franchise?->country_id,
+            ]),
+            limit: $limit,
+        );
+    }
+
+    /**
+     * Phase 24 (Marketplace Foundation) — the third real consumer of the
+     * shared `rankedFieldWorkerCandidates()` core, and the first whose
+     * capability type is chosen at runtime (per the order's own `module`)
+     * rather than fixed per vertical — a real, evidence-backed difference:
+     * MarketplaceOrder genuinely serves four verticals, each with its own
+     * `WorkerTypes` entry (`food_delivery_rider`/`grocery_delivery_rider`/
+     * `commerce_delivery_rider`/`pharmacy_delivery_rider`). Pickup point is
+     * the STORE's own lat/lng (the rider collects FROM the store), not a
+     * customer address — the real point this codebase's existing
+     * `pickupAddress`-shaped callers (Parcel/Taxi) don't have to make
+     * explicit, since the shared helper already accepts raw floats.
+     *
+     * @return Collection<int, array{provider: FieldWorker, distance_km: float}>
+     */
+    public function findMarketplaceDeliveryRiderCandidates(MarketplaceOrder $order, int $limit = 5): Collection
+    {
+        $order->loadMissing(['zone', 'store', 'franchise']);
+
+        if (! $order->zone || ! $order->store || $order->order_type !== 'delivery') {
+            return collect();
+        }
+
+        $capabilityType = match ($order->module) {
+            \App\Support\Modules::FOOD => 'food_delivery_rider',
+            \App\Support\Modules::GROCERY => 'grocery_delivery_rider',
+            \App\Support\Modules::PHARMACY => 'pharmacy_delivery_rider',
+            default => 'commerce_delivery_rider',
+        };
+
+        $alreadyOfferedWorkerIds = DispatchAttempt::where('dispatchable_type', MarketplaceOrder::class)
+            ->where('dispatchable_id', $order->id)
+            ->where('notifiable_type', FieldWorker::class)
+            ->pluck('notifiable_id');
+
+        $busyWorkerIds = MarketplaceOrder::where('status', 'ready')
+            ->where('order_type', 'delivery')
+            ->whereNotNull('assigned_worker_id')
+            ->pluck('assigned_worker_id');
+
+        return $this->rankedFieldWorkerCandidates(
+            capabilityType: $capabilityType,
+            zoneId: $order->zone_id,
+            excludeWorkerIds: $alreadyOfferedWorkerIds->merge($busyWorkerIds),
+            pickupLat: (float) $order->store->lat,
+            pickupLng: (float) $order->store->lng,
+            radiusKm: $order->zone->default_dispatch_radius_km ?? 8,
+            scope: array_filter([
+                'zone_id' => $order->zone_id, 'franchise_id' => $order->franchise_id,
+                'city_id' => $order->franchise?->city_id, 'country_id' => $order->franchise?->country_id,
             ]),
             limit: $limit,
         );

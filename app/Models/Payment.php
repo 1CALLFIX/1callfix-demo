@@ -17,6 +17,7 @@ class Payment extends Model
         'parcel_order_id',
         'taxi_ride_id',
         'property_reservation_id',
+        'marketplace_order_id',
         'purpose',
         'user_id',
         'plan_subscription_id',
@@ -44,4 +45,7 @@ class Payment extends Model
     public function taxiRide() { return $this->belongsTo(TaxiRide::class); }
     /** Phase 22.7 -- only set for purpose = 'property_reservation'. */
     public function propertyReservation() { return $this->belongsTo(PropertyReservation::class); }
+
+    /** Phase 24 (Marketplace Foundation) -- the Marketplace counterpart. */
+    public function marketplaceOrder() { return $this->belongsTo(MarketplaceOrder::class); }
 }

@@ -4,11 +4,13 @@ namespace App\Services;
 
 use App\Contracts\PaymentGateway;
 use App\Models\Booking;
+use App\Models\MarketplaceOrder;
 use App\Models\ParcelOrder;
 use App\Models\Payment;
 use App\Models\PropertyReservation;
 use App\Models\Setting;
 use App\Models\TaxiRide;
+use App\Notifications\MarketplaceOrderStatusNotification;
 use App\Notifications\ParcelOrderStatusNotification;
 use App\Notifications\PaymentStatusNotification;
 use App\Notifications\PropertyReservationStatusNotification;
@@ -362,6 +364,75 @@ class CancellationService
         if ($reservation->customer) {
             $channels = ChannelResolver::resolve(['zone_id' => $reservation->zone_id, 'franchise_id' => $reservation->franchise_id]);
             $reservation->customer->notify(new PropertyReservationStatusNotification('refunded', $reservation, $channels, $refundAmount));
+        }
+    }
+
+    /**
+     * Phase 24 (Marketplace Foundation) — same elapsed-since-creation
+     * generic formula Parcel/Taxi already use (calculateFeeGeneric()), not
+     * Property Rental's hours-before-check-in shape -- no evidence supports
+     * a marketplace-specific window formula any more than Parcel/Taxi had
+     * one, so this follows their precedent rather than Property's.
+     */
+    public function calculateFeeForMarketplaceOrder(MarketplaceOrder $order): float
+    {
+        $order->loadMissing('franchise');
+
+        return $this->calculateFeeGeneric(
+            array_filter([
+                'zone_id' => $order->zone_id,
+                'franchise_id' => $order->franchise_id,
+                'city_id' => $order->franchise?->city_id,
+                'country_id' => $order->franchise?->country_id,
+            ]),
+            $order->created_at,
+            (float) ($order->total_amount ?? 0)
+        );
+    }
+
+    /** Phase 24 (Marketplace Foundation) — the MarketplaceOrder counterpart to refundIfPaidForPropertyReservation() above, same reasoning. */
+    public function refundIfPaidForMarketplaceOrder(MarketplaceOrder $order, float $fee): void
+    {
+        $payment = Payment::where('marketplace_order_id', $order->id)
+            ->where('status', 'captured')
+            ->latest()
+            ->first();
+
+        if (!$payment) {
+            return;
+        }
+
+        $refundAmount = round(max((float) $payment->amount - $fee, 0), 2);
+
+        if ($refundAmount <= 0) {
+            return;
+        }
+
+        if ($payment->gateway === 'wallet') {
+            $this->walletService->credit(
+                $order->customer,
+                $refundAmount,
+                reason: "Refund for cancelled order {$order->code}",
+                ref: "marketplace_order:{$order->id}:wallet-refund"
+            );
+        } else {
+            $this->gateway->refund(
+                $payment->gateway_payment_id,
+                $refundAmount,
+                "Order {$order->code} cancelled"
+            );
+        }
+
+        $payment->refunded_amount = $refundAmount;
+        $payment->status = 'refunded';
+        $payment->save();
+
+        $order->payment_status = $refundAmount >= (float) $payment->amount ? 'refunded' : 'partially_refunded';
+        $order->save();
+
+        if ($order->customer) {
+            $channels = ChannelResolver::resolve(['zone_id' => $order->zone_id, 'franchise_id' => $order->franchise_id]);
+            $order->customer->notify(new MarketplaceOrderStatusNotification('refunded', $order, $channels, $refundAmount));
         }
     }
 }

@@ -62,6 +62,22 @@ class OrderCodeService
     }
 
     /**
+     * Phase 24 (Marketplace Foundation) -- own counter, own table, `-MKT-`
+     * segment. Shared across Ecommerce/Food/Grocery/Pharmacy (the shared-
+     * order-table decision, PHASE_24_MARKETPLACE_FOUNDATION_ARCHITECTURE.md
+     * §4) -- one counter for the whole Marketplace family, never split per
+     * vertical, same reasoning every other generateFor*() draws its own
+     * dedicated counter FOR its own vertical, just applied to a family of
+     * four instead of one.
+     */
+    public function generateForMarketplaceOrder(Franchise $franchise): string
+    {
+        $sequenceNumber = $this->incrementSequence('marketplace_order_sequences', $franchise);
+
+        return sprintf('%s-MKT-%s-%08d', strtoupper($franchise->code), now()->format('dm'), $sequenceNumber);
+    }
+
+    /**
      * The genuinely shared, concurrency-safe primitive both formats above
      * are built on — extracted here rather than duplicated, since this is
      * the one part (atomic per-franchise-per-day increment) that's

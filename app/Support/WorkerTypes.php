@@ -25,6 +25,9 @@ class WorkerTypes
         'taxi_driver' => 'Taxi Driver',
         'food_delivery_rider' => 'Food Delivery Rider',
         'grocery_delivery_rider' => 'Grocery Delivery Rider',
+        /** Phase 24 (Marketplace Foundation) -- the two symmetric entries this list was already one module short of; food/grocery's own presence here (Phase B0.1, before Marketplace itself existed) is real evidence this exact reuse was anticipated. */
+        'commerce_delivery_rider' => 'E-commerce Delivery Rider',
+        'pharmacy_delivery_rider' => 'Pharmacy Delivery Rider',
     ];
 
     public static function options(): array

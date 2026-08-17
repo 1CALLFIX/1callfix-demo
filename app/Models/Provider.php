@@ -50,6 +50,8 @@ class Provider extends Model
     public function subscriptions() { return $this->hasMany(ProviderSubscription::class); }
     public function bookings() { return $this->hasMany(Booking::class); }
     public function reviews() { return $this->hasMany(Review::class); }
+    /** Phase 24 (Marketplace Foundation) -- a Provider may own several Store rows (multi-location), same identity-reuse pattern as properties(). */
+    public function stores() { return $this->hasMany(Store::class); }
 
     /** Every Partner<->Worker link this Provider has, whatever its status — see PartnerWorker::status. Phase B0.1 foundation; nothing yet consumes this for real assignment. */
     public function partnerWorkerLinks() { return $this->hasMany(PartnerWorker::class); }

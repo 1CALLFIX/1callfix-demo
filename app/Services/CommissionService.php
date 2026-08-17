@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Booking;
 use App\Models\Commission;
 use App\Models\EntitlementBalance;
+use App\Models\MarketplaceOrder;
 use App\Models\ParcelOrder;
 use App\Models\PropertyReservation;
 use App\Models\TaxiRide;
@@ -193,6 +194,27 @@ class CommissionService
             franchise: $reservation->franchise, worker: $reservation->property?->provider,
             total: (float) ($reservation->price_final ?? $reservation->price_quoted),
             orderCode: $reservation->code, orderLabel: 'property reservation',
+        );
+    }
+
+    /**
+     * Phase 24 (Marketplace Foundation) — the fifth caller, and the first
+     * whose earner is reached through a `Store` rather than directly owning
+     * the order. `$order->store?->provider` -- the Store's own owning
+     * Provider (see PHASE_24_MARKETPLACE_FOUNDATION_ARCHITECTURE.md §2) --
+     * is exactly the same `Provider` type Property Rental's own earner
+     * already widened this helper's type hint for, so no further widening
+     * is needed.
+     */
+    public function applyForMarketplaceOrder(MarketplaceOrder $order): Commission
+    {
+        $order->loadMissing(['franchise.owner', 'store.provider.user']);
+
+        return $this->applyForFieldWorkerOrder(
+            identifyingColumn: 'marketplace_order_id', identifyingId: $order->id,
+            franchise: $order->franchise, worker: $order->store?->provider,
+            total: (float) ($order->price_final ?? $order->total_amount),
+            orderCode: $order->code, orderLabel: 'marketplace order',
         );
     }
 
