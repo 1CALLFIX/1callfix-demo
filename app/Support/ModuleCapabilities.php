@@ -123,11 +123,26 @@ class ModuleCapabilities
             'catalog' => false, 'delivery' => false, 'availability' => false, 'scheduling' => false,
             'coupons' => null, 'loyalty' => null, 'referrals' => null,
         ],
-        'bookings' => [ // Hotel Booking -- the least-evidenced module (§5); every value here is genuinely undetermined, not assumed.
-            'catalog' => null, 'order' => null, 'pricing' => null, 'payment' => null,
-            'cancellation' => null, 'availability' => null, 'scheduling' => null,
-            'provider' => null, 'wallet' => null, 'commission' => null, 'settlement' => null,
-            'notifications' => null, 'reviews' => null, 'coupons' => null, 'loyalty' => null, 'referrals' => null,
+        // HOTEL / STAY BOOKING MODULE -- renamed from 'bookings' (was every
+        // value `null`/undetermined, since nothing had been built). Now a
+        // real, evidence-based row reflecting what this phase actually
+        // built: Accommodation/AccommodationType/AccommodationAmenity
+        // catalog, HotelRoomType/HotelRatePlan pricing, quantity-based
+        // HotelRoomAvailability, HotelReservation (+ multi-room lines +
+        // guests) lifecycle, CancellationService::calculateFeeForHotelReservation,
+        // CommissionService::applyForHotelReservation. 'reviews' stays
+        // `false` -- explicitly deferred per this phase's own brief ("do
+        // not implement a complete review system automatically"), not
+        // invented. 'scheduling'/'wallet'/'settlement'/'coupons'/'loyalty'/
+        // 'referrals' stay `null` -- genuinely undetermined, same honesty
+        // standard every other module row in this map uses.
+        'hotel' => [
+            'catalog' => true /* Accommodation/AccommodationType + HotelRoomType/HotelRatePlan */, 'order' => true,
+            'pricing' => true, 'payment' => true, 'availability' => true /* HotelAvailabilityService, quantity-based per room type per date */,
+            'cancellation' => true /* CancellationService::calculateFeeForHotelReservation */,
+            'provider' => true /* accommodation owner */, 'commission' => true /* CommissionService::applyForHotelReservation */,
+            'notifications' => true, 'reviews' => false /* deliberately deferred, see class docblock */,
+            'scheduling' => null, 'wallet' => null, 'settlement' => null, 'coupons' => null, 'loyalty' => null, 'referrals' => null,
             'dispatch' => false, 'delivery' => false,
         ],
         // 2026-08-17: renamed from 'car_rental' to 'property_rental' -- this

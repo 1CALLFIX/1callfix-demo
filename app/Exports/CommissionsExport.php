@@ -33,8 +33,8 @@ use Maatwebsite\Excel\Concerns\WithMapping;
  */
 class CommissionsExport implements FromCollection, WithHeadings, WithMapping
 {
-    /** RENTAL MODULE IMPLEMENTATION: rentalReservation added, same reasoning as every prior addition here. */
-    private const ORDER_RELATIONS = ['booking', 'parcelOrder', 'taxiRide', 'propertyReservation', 'marketplaceOrder', 'rentalReservation'];
+    /** RENTAL MODULE IMPLEMENTATION: rentalReservation added, same reasoning as every prior addition here. HOTEL / STAY BOOKING MODULE: hotelReservation added, same reasoning. */
+    private const ORDER_RELATIONS = ['booking', 'parcelOrder', 'taxiRide', 'propertyReservation', 'marketplaceOrder', 'rentalReservation', 'hotelReservation'];
 
     public function __construct(private User $viewer)
     {
@@ -58,6 +58,7 @@ class CommissionsExport implements FromCollection, WithHeadings, WithMapping
                 'propertyReservation.franchise', 'propertyReservation.property.provider.user',
                 'marketplaceOrder.franchise', 'marketplaceOrder.store.provider.user',
                 'rentalReservation.franchise', 'rentalReservation.rentable.provider.user',
+                'hotelReservation.franchise', 'hotelReservation.accommodation.provider.user',
             ])
             ->latest()
             ->get();
@@ -70,7 +71,7 @@ class CommissionsExport implements FromCollection, WithHeadings, WithMapping
 
     public function map($commission): array
     {
-        $order = $commission->booking ?? $commission->parcelOrder ?? $commission->taxiRide ?? $commission->propertyReservation ?? $commission->marketplaceOrder ?? $commission->rentalReservation;
+        $order = $commission->booking ?? $commission->parcelOrder ?? $commission->taxiRide ?? $commission->propertyReservation ?? $commission->marketplaceOrder ?? $commission->rentalReservation ?? $commission->hotelReservation;
 
         $earner = match (true) {
             (bool) $commission->booking => $commission->booking->provider?->user,
@@ -79,6 +80,7 @@ class CommissionsExport implements FromCollection, WithHeadings, WithMapping
             (bool) $commission->propertyReservation => $commission->propertyReservation->property?->provider?->user,
             (bool) $commission->marketplaceOrder => $commission->marketplaceOrder->store?->provider?->user,
             (bool) $commission->rentalReservation => $commission->rentalReservation->rentable?->provider?->user,
+            (bool) $commission->hotelReservation => $commission->hotelReservation->accommodation?->provider?->user,
             default => null,
         };
 
@@ -89,6 +91,7 @@ class CommissionsExport implements FromCollection, WithHeadings, WithMapping
             (bool) $commission->propertyReservation => 'property_reservation',
             (bool) $commission->marketplaceOrder => 'marketplace_order',
             (bool) $commission->rentalReservation => 'rental_reservation',
+            (bool) $commission->hotelReservation => 'hotel_reservation',
             default => null,
         };
 

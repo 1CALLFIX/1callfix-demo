@@ -94,6 +94,18 @@ class OrderCodeService
     }
 
     /**
+     * HOTEL / STAY BOOKING MODULE -- own counter, own table, `-HTL-`
+     * segment. Same reasoning as generateForPropertyReservation() above --
+     * its own dedicated vertical, own sequence, never shared.
+     */
+    public function generateForHotelReservation(Franchise $franchise): string
+    {
+        $sequenceNumber = $this->incrementSequence('hotel_reservation_sequences', $franchise);
+
+        return sprintf('%s-HTL-%s-%08d', strtoupper($franchise->code), now()->format('dm'), $sequenceNumber);
+    }
+
+    /**
      * The genuinely shared, concurrency-safe primitive both formats above
      * are built on — extracted here rather than duplicated, since this is
      * the one part (atomic per-franchise-per-day increment) that's

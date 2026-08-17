@@ -63,6 +63,13 @@ Route::get('/equipment', [\App\Http\Controllers\API\EquipmentController::class, 
 Route::get('/equipment/{itemId}', [\App\Http\Controllers\API\EquipmentController::class, 'show']);
 Route::get('/equipment/{itemId}/availability', [\App\Http\Controllers\API\EquipmentController::class, 'availability']);
 
+// HOTEL / STAY BOOKING MODULE -- Accommodation browse/search. Public, same
+// reasoning as Property Rental above.
+Route::get('/hotels', [\App\Http\Controllers\API\HotelController::class, 'index']);
+Route::get('/hotels/{accommodationId}', [\App\Http\Controllers\API\HotelController::class, 'show']);
+Route::get('/hotels/{accommodationId}/room-types', [\App\Http\Controllers\API\HotelController::class, 'roomTypes']);
+Route::get('/hotels/{accommodationId}/room-types/{roomTypeId}/availability', [\App\Http\Controllers\API\HotelController::class, 'availability']);
+
 // Phase 24 -- Marketplace Foundation browse/search. Public, same reasoning
 // as Property Rental above -- real 6amMart evidence confirms unauthenticated
 // store/product browsing is the real shape of this domain.
@@ -110,6 +117,14 @@ Route::middleware(['auth:sanctum', \App\Http\Middleware\EnsureNotInMaintenanceMo
     Route::post('/rental-reservations', [\App\Http\Controllers\API\RentalReservationController::class, 'store']);
     Route::get('/rental-reservations/mine', [\App\Http\Controllers\API\RentalReservationController::class, 'mine']);
     Route::get('/rental-reservations/{reservationId}', [\App\Http\Controllers\API\RentalReservationController::class, 'show']);
+
+    // HOTEL / STAY BOOKING MODULE (authenticated actions only -- browse is
+    // public, see above). Own /hotel-reservations prefix, same reasoning
+    // /rental-reservations gives for not sharing Property Rental's bare
+    // /reservations URL family.
+    Route::post('/hotel-reservations', [\App\Http\Controllers\API\HotelReservationController::class, 'store']);
+    Route::get('/hotel-reservations/mine', [\App\Http\Controllers\API\HotelReservationController::class, 'mine']);
+    Route::get('/hotel-reservations/{reservationId}', [\App\Http\Controllers\API\HotelReservationController::class, 'show']);
 
     // Phase 24 -- Marketplace Foundation (authenticated actions only -- browse is public, see above).
     Route::get('/cart', [\App\Http\Controllers\API\CartController::class, 'index']);

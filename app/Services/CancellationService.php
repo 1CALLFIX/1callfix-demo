@@ -4,12 +4,14 @@ namespace App\Services;
 
 use App\Contracts\PaymentGateway;
 use App\Models\Booking;
+use App\Models\HotelReservation;
 use App\Models\MarketplaceOrder;
 use App\Models\ParcelOrder;
 use App\Models\Payment;
 use App\Models\PropertyReservation;
 use App\Models\Setting;
 use App\Models\TaxiRide;
+use App\Notifications\HotelReservationStatusNotification;
 use App\Notifications\MarketplaceOrderStatusNotification;
 use App\Notifications\ParcelOrderStatusNotification;
 use App\Notifications\PaymentStatusNotification;
@@ -452,6 +454,94 @@ class CancellationService
         if ($reservation->customer) {
             $channels = ChannelResolver::resolve(['zone_id' => $reservation->zone_id, 'franchise_id' => $reservation->franchise_id]);
             $reservation->customer->notify(new \App\Notifications\RentalReservationStatusNotification('refunded', $reservation, $channels, $refundAmount));
+        }
+    }
+
+    /**
+     * HOTEL / STAY BOOKING MODULE -- deliberately NOT routed through
+     * `calculateFeeGeneric()`, same reasoning
+     * `calculateFeeForPropertyReservation()` gives above: a real hotel
+     * cancellation policy's natural question is "how far before CHECK-IN
+     * was this cancelled," not "how long has this order existed." Own
+     * Setting namespace (`hotel.*`) rather than reusing Property Rental's
+     * `rental.*` keys -- Hotel/Stay is its own module with no evidence it
+     * should share Property Rental's configured window; an admin can still
+     * set both namespaces identically, but isn't forced to. Default values
+     * (48h / flat / 0) are the same neutral technical defaults every other
+     * cancellation-fee Setting in this codebase already ships with -- see
+     * KNOWN_RISKS_AND_DECISIONS.md item 5's own "safe-zero default"
+     * precedent -- not a new invented number.
+     */
+    public function calculateFeeForHotelReservation(HotelReservation $reservation): float
+    {
+        $reservation->loadMissing('franchise');
+
+        $scope = array_filter([
+            'zone_id' => $reservation->zone_id,
+            'franchise_id' => $reservation->franchise_id,
+            'city_id' => $reservation->franchise?->city_id,
+            'country_id' => $reservation->franchise?->country_id,
+        ]);
+
+        $freeHoursBeforeCheckIn = (int) Setting::get('hotel.free_cancellation_hours_before_checkin', '48', $scope);
+        $feeType = Setting::get('hotel.cancellation_fee_type', 'flat', $scope);
+        $feeValue = (float) Setting::get('hotel.cancellation_fee_value', '0', $scope);
+
+        $hoursUntilCheckIn = now()->diffInHours($reservation->check_in_date->startOfDay(), false);
+
+        if ($hoursUntilCheckIn >= $freeHoursBeforeCheckIn) {
+            return 0.0;
+        }
+
+        $basis = (float) ($reservation->price_quoted ?? 0);
+        $fee = $feeType === 'percent' ? round($basis * $feeValue / 100, 2) : $feeValue;
+
+        return round(min($fee, $basis), 2);
+    }
+
+    /** HOTEL / STAY BOOKING MODULE -- the HotelReservation counterpart to refundIfPaidForPropertyReservation() above, same reasoning. */
+    public function refundIfPaidForHotelReservation(HotelReservation $reservation, float $fee): void
+    {
+        $payment = Payment::where('hotel_reservation_id', $reservation->id)
+            ->where('status', 'captured')
+            ->latest()
+            ->first();
+
+        if (! $payment) {
+            return;
+        }
+
+        $refundAmount = round(max((float) $payment->amount - $fee, 0), 2);
+
+        if ($refundAmount <= 0) {
+            return;
+        }
+
+        if ($payment->gateway === 'wallet') {
+            $this->walletService->credit(
+                $reservation->customer,
+                $refundAmount,
+                reason: "Refund for cancelled hotel reservation {$reservation->code}",
+                ref: "hotel_reservation:{$reservation->id}:wallet-refund"
+            );
+        } else {
+            $this->gateway->refund(
+                $payment->gateway_payment_id,
+                $refundAmount,
+                "Hotel reservation {$reservation->code} cancelled"
+            );
+        }
+
+        $payment->refunded_amount = $refundAmount;
+        $payment->status = 'refunded';
+        $payment->save();
+
+        $reservation->payment_status = $refundAmount >= (float) $payment->amount ? 'refunded' : 'partially_refunded';
+        $reservation->save();
+
+        if ($reservation->customer) {
+            $channels = ChannelResolver::resolve(['zone_id' => $reservation->zone_id, 'franchise_id' => $reservation->franchise_id]);
+            $reservation->customer->notify(new HotelReservationStatusNotification('refunded', $reservation, $channels, $refundAmount));
         }
     }
 

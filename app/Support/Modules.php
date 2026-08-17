@@ -32,15 +32,30 @@ namespace App\Support;
  * `property_rental` to free the `car_rental` namespace for a genuine
  * future Car Rental vertical, evidence-permitting.
  *
- * **RENTAL MODULE IMPLEMENTATION (this phase):** renamed again, from
- * `property_rental` to `rental`. This is the real Rental vertical build —
- * Property (existing, preserved as-is), Vehicle and Equipment (new) — and
- * the explicit product decision is ONE top-level `rental` module covering
- * all three `rental_type` values, not three separate module-activation
- * records (`property_rental`/`vehicle_rental`/`equipment_rental`). Same
- * in-place `modules.code` update as the prior rename, same reasoning: the
- * FK is the integer `module_id`, never the code string, so nothing else
- * needs migrating.
+ * **RENTAL MODULE IMPLEMENTATION:** renamed again, from `property_rental`
+ * to `rental`. This is the real Rental vertical build — Property (existing,
+ * preserved as-is), Vehicle and Equipment (new) — and the explicit product
+ * decision is ONE top-level `rental` module covering all three
+ * `rental_type` values, not three separate module-activation records
+ * (`property_rental`/`vehicle_rental`/`equipment_rental`). Same in-place
+ * `modules.code` update as the prior rename, same reasoning: the FK is the
+ * integer `module_id`, never the code string, so nothing else needs
+ * migrating.
+ *
+ * **HOTEL / STAY BOOKING MODULE (this phase):** the `'bookings'` slug
+ * (label "Hotel Booking") was a real but completely dormant placeholder —
+ * seeded into `modules` since Phase 22.1, zero consumer anywhere else in
+ * the codebase (verified by grep before this rename). Renamed to `hotel`
+ * for the real build, same safe in-place-rename precedent as the two
+ * renames above. NOT reused as `bookings` because that string is already
+ * heavily overloaded elsewhere in this codebase (the real `bookings` table/
+ * `Booking` model for the Service vertical) — `hotel` has no such
+ * collision. Hotel/Stay is explicitly its OWN top-level module, never
+ * nested inside `rental` — see `HOTEL_MODULE_ARCHITECTURE.md` for the full
+ * product-decision writeup: its inventory/reservation shape (room-type
+ * quantity inventory, rate plans, multi-room bookings, guests distinct from
+ * the booking owner) is fundamentally different from Property Rental's
+ * single whole-unit date-range reservation.
  */
 class Modules
 {
@@ -48,6 +63,7 @@ class Modules
     public const PARCEL = 'parcel';
     public const TAXI = 'taxi';
     public const RENTAL = 'rental';
+    public const HOTEL = 'hotel';
     /** Phase 24 (Marketplace Foundation) -- these four slugs already existed in ALL below; adding real constants closes the same gap every prior vertical's own constant already avoided (a string literal instead of a named one). */
     public const FOOD = 'food';
     public const GROCERY = 'grocery';
@@ -64,7 +80,7 @@ class Modules
         'pharmacy' => 'Pharmacy',
         'commerce' => 'E-commerce',
         'taxi' => 'Taxi Booking',
-        'bookings' => 'Hotel Booking',
+        'hotel' => 'Hotel / Stay',
     ];
 
     public static function options(): array

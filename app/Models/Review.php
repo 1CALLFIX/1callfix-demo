@@ -17,6 +17,7 @@ class Review extends Model
         'property_reservation_id',
         'marketplace_order_id',
         'rental_reservation_id',
+        'hotel_reservation_id',
         'customer_id',
         'provider_id',
         'rating',
@@ -31,6 +32,8 @@ class Review extends Model
     public function marketplaceOrder() { return $this->belongsTo(MarketplaceOrder::class); }
     /** RENTAL MODULE IMPLEMENTATION -- the shared Vehicle/Equipment engine counterpart. */
     public function rentalReservation() { return $this->belongsTo(RentalReservation::class); }
+    /** HOTEL / STAY BOOKING MODULE -- the Hotel counterpart. Deliberately unused by any writer today -- see HOTEL_MODULE_ARCHITECTURE.md's explicit "reviews deferred" scope note. */
+    public function hotelReservation() { return $this->belongsTo(HotelReservation::class); }
     public function customer() { return $this->belongsTo(User::class, 'customer_id'); }
     public function provider() { return $this->belongsTo(Provider::class); }
 }

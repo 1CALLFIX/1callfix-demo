@@ -91,8 +91,9 @@ class Index extends Component
      * RENTAL MODULE IMPLEMENTATION: `rentalReservation` added, the shared
      * Vehicle/Equipment engine's own Orderable relation -- same reasoning
      * as every prior addition here.
+     * HOTEL / STAY BOOKING MODULE: `hotelReservation` added, same reasoning.
      */
-    private const ORDER_RELATIONS = ['booking', 'parcelOrder', 'taxiRide', 'propertyReservation', 'marketplaceOrder', 'rentalReservation'];
+    private const ORDER_RELATIONS = ['booking', 'parcelOrder', 'taxiRide', 'propertyReservation', 'marketplaceOrder', 'rentalReservation', 'hotelReservation'];
 
     private function baseQuery()
     {
@@ -112,6 +113,7 @@ class Index extends Component
                 'propertyReservation.franchise.country', 'propertyReservation.property.provider.user',
                 'marketplaceOrder.franchise.country', 'marketplaceOrder.store.provider.user',
                 'rentalReservation.franchise.country', 'rentalReservation.rentable.provider.user',
+                'hotelReservation.franchise.country', 'hotelReservation.accommodation.provider.user',
             ])
             ->when($this->search !== '', fn ($q) => $q->where(function ($w) {
                 $w->whereHas('booking', fn ($b) => $b
@@ -121,7 +123,8 @@ class Index extends Component
                     ->orWhereHas('taxiRide', fn ($o) => $o->where('code', 'like', "%{$this->search}%"))
                     ->orWhereHas('propertyReservation', fn ($o) => $o->where('code', 'like', "%{$this->search}%"))
                     ->orWhereHas('marketplaceOrder', fn ($o) => $o->where('code', 'like', "%{$this->search}%"))
-                    ->orWhereHas('rentalReservation', fn ($o) => $o->where('code', 'like', "%{$this->search}%"));
+                    ->orWhereHas('rentalReservation', fn ($o) => $o->where('code', 'like', "%{$this->search}%"))
+                    ->orWhereHas('hotelReservation', fn ($o) => $o->where('code', 'like', "%{$this->search}%"));
             }))
             ->when($this->franchiseFilter, fn ($q) => $q->where(function ($w) {
                 foreach (self::ORDER_RELATIONS as $relation) {

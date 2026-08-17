@@ -46,6 +46,7 @@ class DocumentService
         'property_reservation' => 'propertyReservation',
         'marketplace_order' => 'marketplaceOrder',
         'rental_reservation' => 'rentalReservation',
+        'hotel_reservation' => 'hotelReservation',
     ];
 
     public function __construct(private DocumentNumberService $numberService)
@@ -65,6 +66,7 @@ class DocumentService
             'propertyReservation.customer', 'propertyReservation.franchise.country',
             'marketplaceOrder.customer', 'marketplaceOrder.franchise.country', 'marketplaceOrder.store',
             'rentalReservation.customer', 'rentalReservation.franchise.country',
+            'hotelReservation.customer', 'hotelReservation.franchise.country', 'hotelReservation.accommodation',
         ]);
 
         $orderable = $this->resolveOrderable($payment);
@@ -175,6 +177,12 @@ class DocumentService
             ]],
             'rental_reservation' => [[
                 'label' => $payment->rentalReservation ? "Rental (Reservation {$payment->rentalReservation->code})" : 'Rental reservation payment',
+                'amount' => (float) $payment->amount,
+            ]],
+            'hotel_reservation' => [[
+                'label' => $payment->hotelReservation
+                    ? "Hotel stay at {$payment->hotelReservation->accommodation?->name} (Reservation {$payment->hotelReservation->code})"
+                    : 'Hotel reservation payment',
                 'amount' => (float) $payment->amount,
             ]],
             default => [['label' => ucfirst(str_replace('_', ' ', $payment->purpose)), 'amount' => (float) $payment->amount]],

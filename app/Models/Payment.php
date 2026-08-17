@@ -19,6 +19,7 @@ class Payment extends Model
         'property_reservation_id',
         'marketplace_order_id',
         'rental_reservation_id',
+        'hotel_reservation_id',
         'purpose',
         'user_id',
         'plan_subscription_id',
@@ -52,4 +53,7 @@ class Payment extends Model
 
     /** RENTAL MODULE IMPLEMENTATION -- only set for purpose = 'rental_reservation' (the shared Vehicle/Equipment engine; Property Rental keeps using propertyReservation() above). */
     public function rentalReservation() { return $this->belongsTo(RentalReservation::class); }
+
+    /** HOTEL / STAY BOOKING MODULE -- only set for purpose = 'hotel_reservation'. */
+    public function hotelReservation() { return $this->belongsTo(HotelReservation::class); }
 }

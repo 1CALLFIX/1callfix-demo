@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Booking;
 use App\Models\Commission;
 use App\Models\EntitlementBalance;
+use App\Models\HotelReservation;
 use App\Models\MarketplaceOrder;
 use App\Models\ParcelOrder;
 use App\Models\PropertyReservation;
@@ -238,6 +239,26 @@ class CommissionService
             franchise: $reservation->franchise, worker: $reservation->provider(),
             total: (float) ($reservation->price_final ?? $reservation->price_quoted),
             orderCode: $reservation->code, orderLabel: 'rental reservation',
+        );
+    }
+
+    /**
+     * HOTEL / STAY BOOKING MODULE -- the sixth caller of the shared
+     * `applyForFieldWorkerOrder()` core, same reasoning as
+     * applyForPropertyReservation() above. The earner is the accommodation's
+     * own owning `Provider` (`HotelReservation::provider()` -- reaches
+     * through the `accommodation` relation, same shape `PropertyReservation`
+     * reaches its `property` owner).
+     */
+    public function applyForHotelReservation(HotelReservation $reservation): Commission
+    {
+        $reservation->loadMissing(['franchise.owner', 'accommodation.provider.user']);
+
+        return $this->applyForFieldWorkerOrder(
+            identifyingColumn: 'hotel_reservation_id', identifyingId: $reservation->id,
+            franchise: $reservation->franchise, worker: $reservation->provider(),
+            total: (float) ($reservation->price_final ?? $reservation->price_quoted),
+            orderCode: $reservation->code, orderLabel: 'hotel reservation',
         );
     }
 

@@ -53,15 +53,40 @@ class ModuleCapabilitiesTest extends TestCase
         $this->assertSame(array_fill_keys(ModuleCapabilities::keys(), false), $capabilities);
     }
 
-    public function test_hotel_booking_is_honestly_undetermined_not_guessed(): void
+    /**
+     * HOTEL / STAY BOOKING MODULE (this phase): the `'bookings'` placeholder
+     * slug this test originally covered was renamed to `hotel` and actually
+     * built -- see `Modules::HOTEL`'s own docblock and `ModuleCapabilities::
+     * MAP['hotel']`. Its capabilities are no longer honestly-undetermined
+     * placeholders; they're real, verified-implemented values, same
+     * standard `test_service_module_reflects_what_is_actually_implemented()`
+     * above already applies to the one other fully-built module. Genuinely
+     * undetermined values (scheduling/wallet/settlement/coupons/loyalty/
+     * referrals) stay `null`, not guessed.
+     */
+    public function test_hotel_module_reflects_what_is_actually_implemented(): void
     {
-        $capabilities = ModuleCapabilities::for('bookings');
+        $capabilities = ModuleCapabilities::for(Modules::HOTEL);
 
-        // Per the audit's own §5 finding: the least-evidenced module. Its
-        // uncertain capabilities must be null (undetermined), never a
-        // guessed true/false.
-        $this->assertNull($capabilities['catalog']);
-        $this->assertNull($capabilities['pricing']);
-        $this->assertNull($capabilities['availability']);
+        // Real, verified-implemented capabilities.
+        $this->assertTrue($capabilities['catalog']);
+        $this->assertTrue($capabilities['order']);
+        $this->assertTrue($capabilities['pricing']);
+        $this->assertTrue($capabilities['payment']);
+        $this->assertTrue($capabilities['availability']);
+        $this->assertTrue($capabilities['cancellation']);
+        $this->assertTrue($capabilities['provider']);
+        $this->assertTrue($capabilities['commission']);
+        $this->assertTrue($capabilities['notifications']);
+
+        // Real, verified-absent/deferred capabilities.
+        $this->assertFalse($capabilities['reviews']);
+        $this->assertFalse($capabilities['dispatch']);
+        $this->assertFalse($capabilities['delivery']);
+
+        // Genuinely undetermined -- never guessed.
+        $this->assertNull($capabilities['scheduling']);
+        $this->assertNull($capabilities['wallet']);
+        $this->assertNull($capabilities['settlement']);
     }
 }

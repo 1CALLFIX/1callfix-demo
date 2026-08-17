@@ -28,10 +28,10 @@ class DocumentController extends Controller
     private function scopeColumns(): array
     {
         return [
-            'zone_id' => ['booking.zone_id', 'user.zone_id', 'parcelOrder.zone_id', 'taxiRide.zone_id', 'propertyReservation.zone_id', 'marketplaceOrder.zone_id', 'rentalReservation.zone_id'],
-            'franchise_id' => ['booking.franchise_id', 'user.franchise_id', 'parcelOrder.franchise_id', 'taxiRide.franchise_id', 'propertyReservation.franchise_id', 'marketplaceOrder.franchise_id', 'rentalReservation.franchise_id'],
-            'city_id' => ['booking.franchise.city_id', 'user.franchise.city_id', 'parcelOrder.franchise.city_id', 'taxiRide.franchise.city_id', 'propertyReservation.franchise.city_id', 'marketplaceOrder.franchise.city_id', 'rentalReservation.franchise.city_id'],
-            'country_id' => ['booking.franchise.country_id', 'user.franchise.country_id', 'parcelOrder.franchise.country_id', 'taxiRide.franchise.country_id', 'propertyReservation.franchise.country_id', 'marketplaceOrder.franchise.country_id', 'rentalReservation.franchise.country_id'],
+            'zone_id' => ['booking.zone_id', 'user.zone_id', 'parcelOrder.zone_id', 'taxiRide.zone_id', 'propertyReservation.zone_id', 'marketplaceOrder.zone_id', 'rentalReservation.zone_id', 'hotelReservation.zone_id'],
+            'franchise_id' => ['booking.franchise_id', 'user.franchise_id', 'parcelOrder.franchise_id', 'taxiRide.franchise_id', 'propertyReservation.franchise_id', 'marketplaceOrder.franchise_id', 'rentalReservation.franchise_id', 'hotelReservation.franchise_id'],
+            'city_id' => ['booking.franchise.city_id', 'user.franchise.city_id', 'parcelOrder.franchise.city_id', 'taxiRide.franchise.city_id', 'propertyReservation.franchise.city_id', 'marketplaceOrder.franchise.city_id', 'rentalReservation.franchise.city_id', 'hotelReservation.franchise.city_id'],
+            'country_id' => ['booking.franchise.country_id', 'user.franchise.country_id', 'parcelOrder.franchise.country_id', 'taxiRide.franchise.country_id', 'propertyReservation.franchise.country_id', 'marketplaceOrder.franchise.country_id', 'rentalReservation.franchise.country_id', 'hotelReservation.franchise.country_id'],
         ];
     }
 

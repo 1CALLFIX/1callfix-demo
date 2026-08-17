@@ -19,6 +19,7 @@ class Commission extends Model
         'property_reservation_id',
         'marketplace_order_id',
         'rental_reservation_id',
+        'hotel_reservation_id',
         'provider_commission',
         'franchise_commission',
         'platform_commission'
@@ -39,4 +40,7 @@ class Commission extends Model
 
     /** RENTAL MODULE IMPLEMENTATION -- the shared Vehicle/Equipment engine counterpart. */
     public function rentalReservation() { return $this->belongsTo(RentalReservation::class); }
+
+    /** HOTEL / STAY BOOKING MODULE -- the Hotel counterpart. */
+    public function hotelReservation() { return $this->belongsTo(HotelReservation::class); }
 }

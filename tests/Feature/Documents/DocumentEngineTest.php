@@ -9,6 +9,7 @@ use App\Services\Documents\DocumentService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\Feature\Rbac\RbacTestHelpers;
 use Tests\Feature\Support\BookingFixtureHelpers;
+use Tests\Feature\Support\HotelFixtureHelpers;
 use Tests\Feature\Support\MarketplaceFixtureHelpers;
 use Tests\Feature\Support\ParcelOrderFixtureHelpers;
 use Tests\Feature\Support\PropertyRentalFixtureHelpers;
@@ -43,6 +44,7 @@ class DocumentEngineTest extends TestCase
     use PropertyRentalFixtureHelpers;
     use MarketplaceFixtureHelpers;
     use RentalFixtureHelpers;
+    use HotelFixtureHelpers;
 
     private function bookingPayment(array $overrides = []): Payment
     {
@@ -181,6 +183,20 @@ class DocumentEngineTest extends TestCase
         $data = app(DocumentService::class)->forPayment($payment, 'receipt');
 
         $this->assertStringContainsString($scenario['reservation']->code, $data['lines'][0]['label']);
+        $this->assertSame($scenario['customer']->name, $data['payer_name']);
+        $this->assertSame($scenario['franchise']->name, $data['franchise_name']);
+    }
+
+    /** HOTEL / STAY BOOKING MODULE -- own Document Engine coverage, added together with the schema this time (same pattern RentalReservation's own coverage established). */
+    public function test_document_service_builds_hotel_reservation_data_with_real_franchise_and_payer(): void
+    {
+        $scenario = $this->makeHotelReservationScenario();
+        $payment = Payment::create(['hotel_reservation_id' => $scenario['reservation']->id, 'amount' => 2000, 'status' => 'captured', 'captured_at' => now(), 'purpose' => 'hotel_reservation']);
+
+        $data = app(DocumentService::class)->forPayment($payment, 'receipt');
+
+        $this->assertStringContainsString($scenario['reservation']->code, $data['lines'][0]['label']);
+        $this->assertStringContainsString($scenario['accommodation']->name, $data['lines'][0]['label']);
         $this->assertSame($scenario['customer']->name, $data['payer_name']);
         $this->assertSame($scenario['franchise']->name, $data['franchise_name']);
     }
@@ -366,6 +382,41 @@ class DocumentEngineTest extends TestCase
         $scenario = $this->makeVehicleReservationScenario();
         [, , $otherFranchise] = $this->makeFranchiseTree();
         $payment = Payment::create(['rental_reservation_id' => $scenario['reservation']->id, 'amount' => 1000, 'status' => 'captured', 'captured_at' => now(), 'purpose' => 'rental_reservation']);
+        $actor = $this->makeUserWithPermission('payments.view', 'franchise', $otherFranchise->id);
+
+        $response = $this->actingAs($actor)->get(route('admin.documents.payments.show', $payment->id));
+
+        $response->assertNotFound();
+    }
+
+    public function test_hotel_reservation_customer_can_download_own_document_but_a_stranger_cannot(): void
+    {
+        $scenario = $this->makeHotelReservationScenario();
+        $payment = Payment::create(['hotel_reservation_id' => $scenario['reservation']->id, 'amount' => 2000, 'status' => 'captured', 'captured_at' => now(), 'purpose' => 'hotel_reservation']);
+        $stranger = $this->makeCustomer();
+
+        $this->actingAs($scenario['customer'], 'sanctum')->get("/api/payments/{$payment->id}/document")->assertOk();
+        $this->actingAs($stranger, 'sanctum')->get("/api/payments/{$payment->id}/document")->assertNotFound();
+    }
+
+    /** Admin-side row-level scope regression -- see Payments\Index::scopeColumns()'s own docblock, extended to hotelReservation this session. */
+    public function test_admin_document_download_succeeds_for_correct_scope_on_a_hotel_reservation_payment(): void
+    {
+        $scenario = $this->makeHotelReservationScenario();
+        $payment = Payment::create(['hotel_reservation_id' => $scenario['reservation']->id, 'amount' => 2000, 'status' => 'captured', 'captured_at' => now(), 'purpose' => 'hotel_reservation']);
+        $actor = $this->makeUserWithPermission('payments.view', 'franchise', $scenario['franchise']->id);
+
+        $response = $this->actingAs($actor)->get(route('admin.documents.payments.show', $payment->id));
+
+        $response->assertOk();
+        $response->assertHeader('content-type', 'application/pdf');
+    }
+
+    public function test_admin_document_download_denied_for_wrong_scope_on_a_hotel_reservation_payment(): void
+    {
+        $scenario = $this->makeHotelReservationScenario();
+        [, , $otherFranchise] = $this->makeFranchiseTree();
+        $payment = Payment::create(['hotel_reservation_id' => $scenario['reservation']->id, 'amount' => 2000, 'status' => 'captured', 'captured_at' => now(), 'purpose' => 'hotel_reservation']);
         $actor = $this->makeUserWithPermission('payments.view', 'franchise', $otherFranchise->id);
 
         $response = $this->actingAs($actor)->get(route('admin.documents.payments.show', $payment->id));
