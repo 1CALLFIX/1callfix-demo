@@ -10,16 +10,27 @@ use Illuminate\Http\Request;
 
 /**
  * Customer/Partner self-service invoice/receipt download. A payment
- * belongs to its payer alone — the payer is either the booking's customer
- * (purpose=booking) or the payment's own user_id (wallet_topup/
- * plan_subscription, see Payment's own docblock). 404s on any mismatch —
- * never confirms a payment ID's existence to a non-owner.
+ * belongs to its payer alone — the payer is the booking's customer
+ * (purpose=booking), the payment's own user_id (wallet_topup/
+ * plan_subscription, see Payment's own docblock), or the related order's
+ * own customer (parcel_order/taxi_ride/property_reservation/
+ * marketplace_order, each a real Orderable with its own customer_id).
+ * 404s on any mismatch — never confirms a payment ID's existence to a
+ * non-owner.
+ *
+ * **2026-08-17 hardening finding:** the four newer purposes were never
+ * added to `belongsTo()` — a legitimate customer with a captured parcel/
+ * taxi/property/marketplace payment could never successfully download
+ * their own receipt through this endpoint (always 404, since neither
+ * `booking` nor `user_id` is ever set for those purposes) even though the
+ * document itself, once `DocumentService` was extended the same session,
+ * renders correctly for them. Fixed alongside that extension.
  */
 class DocumentController extends Controller
 {
     public function paymentDocument(Request $request, int $paymentId, DocumentService $documents)
     {
-        $payment = Payment::with(['booking', 'user'])->find($paymentId);
+        $payment = Payment::with(['booking', 'user', 'parcelOrder', 'taxiRide', 'propertyReservation', 'marketplaceOrder'])->find($paymentId);
 
         if (! $payment || ! $this->belongsTo($payment, $request->user()->id)) {
             return response()->json(['message' => 'Not found.'], 404);
@@ -35,10 +46,14 @@ class DocumentController extends Controller
 
     private function belongsTo(Payment $payment, int $userId): bool
     {
-        if ($payment->booking) {
-            return $payment->booking->customer_id === $userId;
-        }
-
-        return $payment->user_id === $userId;
+        return match ($payment->purpose) {
+            'parcel_order' => $payment->parcelOrder?->customer_id === $userId,
+            'taxi_ride' => $payment->taxiRide?->customer_id === $userId,
+            'property_reservation' => $payment->propertyReservation?->customer_id === $userId,
+            'marketplace_order' => $payment->marketplaceOrder?->customer_id === $userId,
+            default => $payment->booking
+                ? $payment->booking->customer_id === $userId
+                : $payment->user_id === $userId,
+        };
     }
 }

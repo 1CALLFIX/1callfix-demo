@@ -9,21 +9,38 @@ use App\Services\Documents\DocumentService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\Feature\Rbac\RbacTestHelpers;
 use Tests\Feature\Support\BookingFixtureHelpers;
+use Tests\Feature\Support\MarketplaceFixtureHelpers;
+use Tests\Feature\Support\ParcelOrderFixtureHelpers;
+use Tests\Feature\Support\PropertyRentalFixtureHelpers;
+use Tests\Feature\Support\TaxiRideFixtureHelpers;
 use Tests\TestCase;
 
 /**
  * Printing/Document Engine (mission Phase 7). One reusable renderer
  * (DocumentService + documents/payment.blade.php) driving invoices/
- * receipts for all three real Payment purposes this codebase already
- * models — no per-purpose duplicate template. Numbering is idempotent
+ * receipts for all seven real Payment purposes this codebase now models —
+ * no per-purpose duplicate template. Numbering is idempotent
  * (DocumentNumberService) and authorization-checked at both the admin
  * (row-level scope reusing payments.view) and customer (payer-only) layers.
+ *
+ * **2026-08-17 hardening addition:** the four newer purposes (parcel_order/
+ * taxi_ride/property_reservation/marketplace_order) were extended into
+ * DocumentService/both DocumentControllers this session -- before this,
+ * they silently fell through to a generic label with no country/payer
+ * resolution, and the customer self-service endpoint always 404'd for a
+ * legitimate owner (neither `booking` nor `user_id` is ever set for these
+ * purposes). The tests below are real regressions, proven to fail against
+ * the pre-fix code, not padding.
  */
 class DocumentEngineTest extends TestCase
 {
     use RefreshDatabase;
     use RbacTestHelpers;
     use BookingFixtureHelpers;
+    use ParcelOrderFixtureHelpers;
+    use TaxiRideFixtureHelpers;
+    use PropertyRentalFixtureHelpers;
+    use MarketplaceFixtureHelpers;
 
     private function bookingPayment(array $overrides = []): Payment
     {
@@ -103,6 +120,54 @@ class DocumentEngineTest extends TestCase
         $this->assertSame('receipt', $data['type']);
         $this->assertSame('Wallet top-up', $data['lines'][0]['label']);
         $this->assertSame($customer->name, $data['payer_name']);
+    }
+
+    public function test_document_service_builds_parcel_order_data_with_real_franchise_and_payer(): void
+    {
+        $scenario = $this->makeParcelOrderScenario();
+        $payment = Payment::create(['parcel_order_id' => $scenario['order']->id, 'amount' => 100, 'status' => 'captured', 'captured_at' => now(), 'purpose' => 'parcel_order']);
+
+        $data = app(DocumentService::class)->forPayment($payment, 'receipt');
+
+        $this->assertStringContainsString($scenario['order']->code, $data['lines'][0]['label']);
+        $this->assertSame($scenario['customer']->name, $data['payer_name']);
+        $this->assertSame($scenario['customer']->phone, $data['payer_phone']);
+        $this->assertSame($scenario['franchise']->name, $data['franchise_name']);
+    }
+
+    public function test_document_service_builds_taxi_ride_data_with_real_franchise_and_payer(): void
+    {
+        $scenario = $this->makeTaxiRideScenario();
+        $payment = Payment::create(['taxi_ride_id' => $scenario['ride']->id, 'amount' => 150, 'status' => 'captured', 'captured_at' => now(), 'purpose' => 'taxi_ride']);
+
+        $data = app(DocumentService::class)->forPayment($payment, 'receipt');
+
+        $this->assertStringContainsString($scenario['ride']->code, $data['lines'][0]['label']);
+        $this->assertSame($scenario['customer']->name, $data['payer_name']);
+    }
+
+    public function test_document_service_builds_property_reservation_data_with_real_franchise_and_payer(): void
+    {
+        $scenario = $this->makePropertyReservationScenario();
+        $payment = Payment::create(['property_reservation_id' => $scenario['reservation']->id, 'amount' => 2000, 'status' => 'captured', 'captured_at' => now(), 'purpose' => 'property_reservation']);
+
+        $data = app(DocumentService::class)->forPayment($payment, 'receipt');
+
+        $this->assertStringContainsString($scenario['reservation']->code, $data['lines'][0]['label']);
+        $this->assertSame($scenario['customer']->name, $data['payer_name']);
+    }
+
+    public function test_document_service_builds_marketplace_order_data_with_real_store_franchise_and_payer(): void
+    {
+        $scenario = $this->makeMarketplaceOrderScenario('completed');
+        $payment = Payment::create(['marketplace_order_id' => $scenario['order']->id, 'amount' => 300, 'status' => 'captured', 'captured_at' => now(), 'purpose' => 'marketplace_order']);
+
+        $data = app(DocumentService::class)->forPayment($payment, 'receipt');
+
+        $this->assertStringContainsString($scenario['order']->code, $data['lines'][0]['label']);
+        $this->assertStringContainsString($scenario['store']->name, $data['lines'][0]['label']);
+        $this->assertSame($scenario['customer']->name, $data['payer_name']);
+        $this->assertSame($scenario['franchise']->name, $data['franchise_name']);
     }
 
     // ============================== Admin authorization ==============================
@@ -186,6 +251,76 @@ class DocumentEngineTest extends TestCase
         $response = $this->actingAs($customer, 'sanctum')->get("/api/payments/{$payment->id}/document");
 
         $response->assertOk();
+    }
+
+    /**
+     * 2026-08-17 regression -- before the belongsTo() fix, this always
+     * 404'd for a legitimate parcel-order customer (neither `booking` nor
+     * `user_id` is ever set for purpose=parcel_order).
+     */
+    public function test_parcel_order_customer_can_download_own_document(): void
+    {
+        $scenario = $this->makeParcelOrderScenario();
+        $payment = Payment::create(['parcel_order_id' => $scenario['order']->id, 'amount' => 100, 'status' => 'captured', 'captured_at' => now(), 'purpose' => 'parcel_order']);
+
+        $response = $this->actingAs($scenario['customer'], 'sanctum')->get("/api/payments/{$payment->id}/document");
+
+        $response->assertOk();
+    }
+
+    public function test_taxi_ride_customer_can_download_own_document_but_a_stranger_cannot(): void
+    {
+        $scenario = $this->makeTaxiRideScenario();
+        $payment = Payment::create(['taxi_ride_id' => $scenario['ride']->id, 'amount' => 150, 'status' => 'captured', 'captured_at' => now(), 'purpose' => 'taxi_ride']);
+        $stranger = $this->makeCustomer();
+
+        $this->actingAs($scenario['customer'], 'sanctum')->get("/api/payments/{$payment->id}/document")->assertOk();
+        $this->actingAs($stranger, 'sanctum')->get("/api/payments/{$payment->id}/document")->assertNotFound();
+    }
+
+    public function test_property_reservation_customer_can_download_own_document(): void
+    {
+        $scenario = $this->makePropertyReservationScenario();
+        $payment = Payment::create(['property_reservation_id' => $scenario['reservation']->id, 'amount' => 2000, 'status' => 'captured', 'captured_at' => now(), 'purpose' => 'property_reservation']);
+
+        $response = $this->actingAs($scenario['customer'], 'sanctum')->get("/api/payments/{$payment->id}/document");
+
+        $response->assertOk();
+    }
+
+    public function test_marketplace_order_customer_can_download_own_document_but_a_stranger_cannot(): void
+    {
+        $scenario = $this->makeMarketplaceOrderScenario('completed');
+        $payment = Payment::create(['marketplace_order_id' => $scenario['order']->id, 'amount' => 300, 'status' => 'captured', 'captured_at' => now(), 'purpose' => 'marketplace_order']);
+        $stranger = $this->makeCustomer();
+
+        $this->actingAs($scenario['customer'], 'sanctum')->get("/api/payments/{$payment->id}/document")->assertOk();
+        $this->actingAs($stranger, 'sanctum')->get("/api/payments/{$payment->id}/document")->assertNotFound();
+    }
+
+    /** Admin-side row-level scope regression for the same four purposes -- see Payments\Index::scopeColumns()'s own docblock. */
+    public function test_admin_document_download_succeeds_for_correct_scope_on_a_marketplace_order_payment(): void
+    {
+        $scenario = $this->makeMarketplaceOrderScenario('completed');
+        $payment = Payment::create(['marketplace_order_id' => $scenario['order']->id, 'amount' => 300, 'status' => 'captured', 'captured_at' => now(), 'purpose' => 'marketplace_order']);
+        $actor = $this->makeUserWithPermission('payments.view', 'franchise', $scenario['franchise']->id);
+
+        $response = $this->actingAs($actor)->get(route('admin.documents.payments.show', $payment->id));
+
+        $response->assertOk();
+        $response->assertHeader('content-type', 'application/pdf');
+    }
+
+    public function test_admin_document_download_denied_for_wrong_scope_on_a_marketplace_order_payment(): void
+    {
+        $scenario = $this->makeMarketplaceOrderScenario('completed');
+        [, , $otherFranchise] = $this->makeFranchiseTree();
+        $payment = Payment::create(['marketplace_order_id' => $scenario['order']->id, 'amount' => 300, 'status' => 'captured', 'captured_at' => now(), 'purpose' => 'marketplace_order']);
+        $actor = $this->makeUserWithPermission('payments.view', 'franchise', $otherFranchise->id);
+
+        $response = $this->actingAs($actor)->get(route('admin.documents.payments.show', $payment->id));
+
+        $response->assertNotFound();
     }
 
     // ============================== Type selection ==============================

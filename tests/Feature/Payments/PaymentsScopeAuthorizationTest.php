@@ -8,6 +8,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
 use Tests\Feature\Rbac\RbacTestHelpers;
 use Tests\Feature\Support\BookingFixtureHelpers;
+use Tests\Feature\Support\MarketplaceFixtureHelpers;
 use Tests\TestCase;
 
 /**
@@ -23,6 +24,7 @@ class PaymentsScopeAuthorizationTest extends TestCase
     use RefreshDatabase;
     use RbacTestHelpers;
     use BookingFixtureHelpers;
+    use MarketplaceFixtureHelpers;
 
     public function test_view_denied_without_permission(): void
     {
@@ -60,6 +62,30 @@ class PaymentsScopeAuthorizationTest extends TestCase
             ->viewData('payments')->pluck('id')->all();
 
         $this->assertContains($myPayment->id, $ids);
+        $this->assertNotContains($otherPayment->id, $ids);
+    }
+
+    /**
+     * 2026-08-17 hardening regression: before this fix, a marketplace_order
+     * payment's franchise was unreachable through EITHER `booking.*` or
+     * `user.*` (both null for this purpose), so scopeQuery()'s own fail-
+     * closed behavior hid it from every zone-scoped grant, not just other
+     * zones' rows. Proven pre-fix-fails: this test genuinely failed before
+     * the scopeColumns() extension (the row was simply absent, same as the
+     * cross-zone-exclusion assertion below looks for).
+     */
+    public function test_marketplace_order_purpose_payment_is_visible_and_scoped_to_the_actors_own_zone(): void
+    {
+        $mine = $this->makeMarketplaceOrderScenario('completed');
+        $other = $this->makeMarketplaceOrderScenario('completed');
+        $myPayment = Payment::create(['marketplace_order_id' => $mine['order']->id, 'purpose' => 'marketplace_order', 'amount' => 500, 'gateway' => 'razorpay', 'status' => 'captured']);
+        $otherPayment = Payment::create(['marketplace_order_id' => $other['order']->id, 'purpose' => 'marketplace_order', 'amount' => 500, 'gateway' => 'razorpay', 'status' => 'captured']);
+        $actor = $this->makeUserWithPermission('payments.view', 'zone', $mine['zone']->id);
+
+        $ids = Livewire::actingAs($actor)->test(PaymentsIndex::class)
+            ->viewData('payments')->pluck('id')->all();
+
+        $this->assertContains($myPayment->id, $ids, 'A marketplace_order payment within the actors own zone must be visible.');
         $this->assertNotContains($otherPayment->id, $ids);
     }
 

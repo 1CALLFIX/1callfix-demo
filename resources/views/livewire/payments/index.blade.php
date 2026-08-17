@@ -9,6 +9,10 @@
             <option value="booking">Booking</option>
             <option value="wallet_topup">Wallet top-up</option>
             <option value="plan_subscription">Plan subscription</option>
+            <option value="parcel_order">Parcel order</option>
+            <option value="taxi_ride">Taxi ride</option>
+            <option value="property_reservation">Property reservation</option>
+            <option value="marketplace_order">Marketplace order</option>
         </select>
         <select wire:model.live="statusFilter" class="border rounded px-3 py-2 text-sm">
             <option value="">All statuses</option>
@@ -38,7 +42,18 @@
         <tbody>
             @forelse ($payments as $p)
                 @php
-                    $payer = $p->purpose === 'booking' ? $p->booking?->customer : $p->user;
+                    // 2026-08-17: extended from a 2-way (booking/user) to a
+                    // real 6-way lookup -- the four newer Orderable purposes
+                    // each carry their own customer()/franchise() directly.
+                    $orderRelation = match ($p->purpose) {
+                        'parcel_order' => $p->parcelOrder,
+                        'taxi_ride' => $p->taxiRide,
+                        'property_reservation' => $p->propertyReservation,
+                        'marketplace_order' => $p->marketplaceOrder,
+                        default => null,
+                    };
+                    $payer = $orderRelation?->customer ?? ($p->purpose === 'booking' ? $p->booking?->customer : $p->user);
+                    $payerFranchise = $orderRelation?->franchise ?? $p->booking?->franchise ?? $p->user?->franchise;
                 @endphp
                 <tr class="border-t hover:bg-gray-50">
                     <td class="px-4 py-2">
@@ -49,10 +64,20 @@
                     </td>
                     <td class="px-4 py-2">
                         <x-ui.badge color="gray">
-                            {{ match($p->purpose) { 'wallet_topup' => 'Wallet top-up', 'plan_subscription' => 'Subscription', default => 'Booking' } }}
+                            {{ match($p->purpose) {
+                                'wallet_topup' => 'Wallet top-up',
+                                'plan_subscription' => 'Subscription',
+                                'parcel_order' => 'Parcel order',
+                                'taxi_ride' => 'Taxi ride',
+                                'property_reservation' => 'Property reservation',
+                                'marketplace_order' => 'Marketplace order',
+                                default => 'Booking',
+                            } }}
                         </x-ui.badge>
                         @if ($p->purpose === 'booking' && $p->booking)
                             <span class="text-gray-400 text-xs">{{ $p->booking->code }}</span>
+                        @elseif ($orderRelation)
+                            <span class="text-gray-400 text-xs">{{ $orderRelation->code }}</span>
                         @endif
                     </td>
                     <td class="px-4 py-2 font-mono">{{ $currencySymbol }}{{ number_format($p->amount, 2) }}</td>
@@ -67,7 +92,7 @@
                         <x-ui.badge :color="match($p->status) { 'pending' => 'amber', 'captured' => 'green', 'failed' => 'red', 'refunded' => 'blue', default => 'gray' }">{{ ucfirst($p->status) }}</x-ui.badge>
                     </td>
                     <td class="px-4 py-2 font-mono text-gray-500">{{ $p->refunded_amount ? $currencySymbol.number_format($p->refunded_amount, 2) : '—' }}</td>
-                    <td class="px-4 py-2 text-gray-500 whitespace-nowrap">{{ app(\App\Services\TimezoneResolver::class)->format($p->created_at, $p->booking?->franchise ?? $p->user?->franchise, 'd M Y, h:i A') }}</td>
+                    <td class="px-4 py-2 text-gray-500 whitespace-nowrap">{{ app(\App\Services\TimezoneResolver::class)->format($p->created_at, $payerFranchise, 'd M Y, h:i A') }}</td>
                     <td class="px-4 py-2"><x-ui.button variant="ghost" size="sm" :href="route('admin.documents.payments.show', $p->id)" target="_blank">View</x-ui.button></td>
                 </tr>
             @empty
