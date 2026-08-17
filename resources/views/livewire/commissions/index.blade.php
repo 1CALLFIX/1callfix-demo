@@ -52,13 +52,14 @@
                     // 2026-08-17: resolved generically per purpose -- $c->booking
                     // is null for the four newer verticals, so reading it
                     // directly (the old code) always rendered "—" for those rows.
-                    $order = $c->booking ?? $c->parcelOrder ?? $c->taxiRide ?? $c->propertyReservation ?? $c->marketplaceOrder;
+                    $order = $c->booking ?? $c->parcelOrder ?? $c->taxiRide ?? $c->propertyReservation ?? $c->marketplaceOrder ?? $c->rentalReservation;
                     $earner = match (true) {
                         (bool) $c->booking => $c->booking->provider?->user,
                         (bool) $c->parcelOrder => $c->parcelOrder->assignedWorker?->user,
                         (bool) $c->taxiRide => $c->taxiRide->assignedWorker?->user,
                         (bool) $c->propertyReservation => $c->propertyReservation->property?->provider?->user,
                         (bool) $c->marketplaceOrder => $c->marketplaceOrder->store?->provider?->user,
+                        (bool) $c->rentalReservation => $c->rentalReservation->rentable?->provider?->user,
                         default => null,
                     };
                 @endphp

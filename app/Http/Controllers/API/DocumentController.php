@@ -30,7 +30,7 @@ class DocumentController extends Controller
 {
     public function paymentDocument(Request $request, int $paymentId, DocumentService $documents)
     {
-        $payment = Payment::with(['booking', 'user', 'parcelOrder', 'taxiRide', 'propertyReservation', 'marketplaceOrder'])->find($paymentId);
+        $payment = Payment::with(['booking', 'user', 'parcelOrder', 'taxiRide', 'propertyReservation', 'marketplaceOrder', 'rentalReservation'])->find($paymentId);
 
         if (! $payment || ! $this->belongsTo($payment, $request->user()->id)) {
             return response()->json(['message' => 'Not found.'], 404);
@@ -51,6 +51,7 @@ class DocumentController extends Controller
             'taxi_ride' => $payment->taxiRide?->customer_id === $userId,
             'property_reservation' => $payment->propertyReservation?->customer_id === $userId,
             'marketplace_order' => $payment->marketplaceOrder?->customer_id === $userId,
+            'rental_reservation' => $payment->rentalReservation?->customer_id === $userId,
             default => $payment->booking
                 ? $payment->booking->customer_id === $userId
                 : $payment->user_id === $userId,

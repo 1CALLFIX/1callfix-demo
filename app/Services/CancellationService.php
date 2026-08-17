@@ -368,6 +368,94 @@ class CancellationService
     }
 
     /**
+     * RENTAL MODULE IMPLEMENTATION -- the shared Vehicle/Equipment engine
+     * counterpart to calculateFeeForPropertyReservation() above, same
+     * "elapsed time is measured against the START of use, not creation"
+     * reasoning (a rental cancellation policy naturally asks "how far
+     * before pickup/start was this cancelled", not "how long has this
+     * order existed"). Deliberately its OWN Setting namespace
+     * (`rental.vehicle_equipment.*`) rather than reusing Property's
+     * `rental.free_cancellation_hours_before_checkin` -- Vehicle/Equipment
+     * are a different real product with no evidence they should share
+     * Property's exact configured window; an admin can still set both
+     * namespaces to the same value, but isn't forced to couple them.
+     * Default values (48h / flat / 0) are the same neutral technical
+     * defaults Property already ships with, not a new invented number.
+     */
+    public function calculateFeeForRentalReservation(\App\Models\RentalReservation $reservation): float
+    {
+        $reservation->loadMissing('franchise');
+
+        $scope = array_filter([
+            'zone_id' => $reservation->zone_id,
+            'franchise_id' => $reservation->franchise_id,
+            'city_id' => $reservation->franchise?->city_id,
+            'country_id' => $reservation->franchise?->country_id,
+        ]);
+
+        $freeHoursBeforeStart = (int) Setting::get('rental.vehicle_equipment.free_cancellation_hours_before_start', '48', $scope);
+        $feeType = Setting::get('rental.vehicle_equipment.cancellation_fee_type', 'flat', $scope);
+        $feeValue = (float) Setting::get('rental.vehicle_equipment.cancellation_fee_value', '0', $scope);
+
+        $hoursUntilStart = now()->diffInHours($reservation->starts_at, false);
+
+        if ($hoursUntilStart >= $freeHoursBeforeStart) {
+            return 0.0;
+        }
+
+        $basis = (float) ($reservation->price_quoted ?? 0);
+        $fee = $feeType === 'percent' ? round($basis * $feeValue / 100, 2) : $feeValue;
+
+        return round(min($fee, $basis), 2);
+    }
+
+    /** RENTAL MODULE IMPLEMENTATION -- the shared Vehicle/Equipment engine counterpart to refundIfPaidForPropertyReservation() above, same reasoning. */
+    public function refundIfPaidForRentalReservation(\App\Models\RentalReservation $reservation, float $fee): void
+    {
+        $payment = Payment::where('rental_reservation_id', $reservation->id)
+            ->where('status', 'captured')
+            ->latest()
+            ->first();
+
+        if (! $payment) {
+            return;
+        }
+
+        $refundAmount = round(max((float) $payment->amount - $fee, 0), 2);
+
+        if ($refundAmount <= 0) {
+            return;
+        }
+
+        if ($payment->gateway === 'wallet') {
+            $this->walletService->credit(
+                $reservation->customer,
+                $refundAmount,
+                reason: "Refund for cancelled rental reservation {$reservation->code}",
+                ref: "rental_reservation:{$reservation->id}:wallet-refund"
+            );
+        } else {
+            $this->gateway->refund(
+                $payment->gateway_payment_id,
+                $refundAmount,
+                "Rental reservation {$reservation->code} cancelled"
+            );
+        }
+
+        $payment->refunded_amount = $refundAmount;
+        $payment->status = 'refunded';
+        $payment->save();
+
+        $reservation->payment_status = $refundAmount >= (float) $payment->amount ? 'refunded' : 'partially_refunded';
+        $reservation->save();
+
+        if ($reservation->customer) {
+            $channels = ChannelResolver::resolve(['zone_id' => $reservation->zone_id, 'franchise_id' => $reservation->franchise_id]);
+            $reservation->customer->notify(new \App\Notifications\RentalReservationStatusNotification('refunded', $reservation, $channels, $refundAmount));
+        }
+    }
+
+    /**
      * Phase 24 (Marketplace Foundation) — same elapsed-since-creation
      * generic formula Parcel/Taxi already use (calculateFeeGeneric()), not
      * Property Rental's hours-before-check-in shape -- no evidence supports

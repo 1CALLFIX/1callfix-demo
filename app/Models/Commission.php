@@ -18,6 +18,7 @@ class Commission extends Model
         'taxi_ride_id',
         'property_reservation_id',
         'marketplace_order_id',
+        'rental_reservation_id',
         'provider_commission',
         'franchise_commission',
         'platform_commission'
@@ -35,4 +36,7 @@ class Commission extends Model
 
     /** Phase 24 (Marketplace Foundation) -- the Marketplace counterpart. */
     public function marketplaceOrder() { return $this->belongsTo(MarketplaceOrder::class); }
+
+    /** RENTAL MODULE IMPLEMENTATION -- the shared Vehicle/Equipment engine counterpart. */
+    public function rentalReservation() { return $this->belongsTo(RentalReservation::class); }
 }

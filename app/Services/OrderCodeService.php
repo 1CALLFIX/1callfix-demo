@@ -78,6 +78,22 @@ class OrderCodeService
     }
 
     /**
+     * RENTAL MODULE IMPLEMENTATION -- own counter, own table, shared across
+     * both new rental_type values (vehicle/equipment), same reasoning
+     * generateForMarketplaceOrder() shares one counter across its four
+     * verticals. `$typeSegment` ('VEH'|'EQP') disambiguates the type in the
+     * code itself, decided by the caller (CreateRentalReservationAction),
+     * not by this service. Property Rental is UNTOUCHED -- it keeps using
+     * generateForPropertyReservation() above, its own counter table.
+     */
+    public function generateForRentalReservation(Franchise $franchise, string $typeSegment): string
+    {
+        $sequenceNumber = $this->incrementSequence('rental_reservation_sequences', $franchise);
+
+        return sprintf('%s-%s-%s-%08d', strtoupper($franchise->code), strtoupper($typeSegment), now()->format('dm'), $sequenceNumber);
+    }
+
+    /**
      * The genuinely shared, concurrency-safe primitive both formats above
      * are built on — extracted here rather than duplicated, since this is
      * the one part (atomic per-franchise-per-day increment) that's

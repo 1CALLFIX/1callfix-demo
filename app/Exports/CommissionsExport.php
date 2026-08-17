@@ -33,7 +33,8 @@ use Maatwebsite\Excel\Concerns\WithMapping;
  */
 class CommissionsExport implements FromCollection, WithHeadings, WithMapping
 {
-    private const ORDER_RELATIONS = ['booking', 'parcelOrder', 'taxiRide', 'propertyReservation', 'marketplaceOrder'];
+    /** RENTAL MODULE IMPLEMENTATION: rentalReservation added, same reasoning as every prior addition here. */
+    private const ORDER_RELATIONS = ['booking', 'parcelOrder', 'taxiRide', 'propertyReservation', 'marketplaceOrder', 'rentalReservation'];
 
     public function __construct(private User $viewer)
     {
@@ -56,6 +57,7 @@ class CommissionsExport implements FromCollection, WithHeadings, WithMapping
                 'taxiRide.franchise', 'taxiRide.assignedWorker.user',
                 'propertyReservation.franchise', 'propertyReservation.property.provider.user',
                 'marketplaceOrder.franchise', 'marketplaceOrder.store.provider.user',
+                'rentalReservation.franchise', 'rentalReservation.rentable.provider.user',
             ])
             ->latest()
             ->get();
@@ -68,7 +70,7 @@ class CommissionsExport implements FromCollection, WithHeadings, WithMapping
 
     public function map($commission): array
     {
-        $order = $commission->booking ?? $commission->parcelOrder ?? $commission->taxiRide ?? $commission->propertyReservation ?? $commission->marketplaceOrder;
+        $order = $commission->booking ?? $commission->parcelOrder ?? $commission->taxiRide ?? $commission->propertyReservation ?? $commission->marketplaceOrder ?? $commission->rentalReservation;
 
         $earner = match (true) {
             (bool) $commission->booking => $commission->booking->provider?->user,
@@ -76,6 +78,7 @@ class CommissionsExport implements FromCollection, WithHeadings, WithMapping
             (bool) $commission->taxiRide => $commission->taxiRide->assignedWorker?->user,
             (bool) $commission->propertyReservation => $commission->propertyReservation->property?->provider?->user,
             (bool) $commission->marketplaceOrder => $commission->marketplaceOrder->store?->provider?->user,
+            (bool) $commission->rentalReservation => $commission->rentalReservation->rentable?->provider?->user,
             default => null,
         };
 
@@ -85,6 +88,7 @@ class CommissionsExport implements FromCollection, WithHeadings, WithMapping
             (bool) $commission->taxiRide => 'taxi_ride',
             (bool) $commission->propertyReservation => 'property_reservation',
             (bool) $commission->marketplaceOrder => 'marketplace_order',
+            (bool) $commission->rentalReservation => 'rental_reservation',
             default => null,
         };
 

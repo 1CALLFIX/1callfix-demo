@@ -18,14 +18,20 @@ use Barryvdh\DomPDF\Facade\Pdf;
  */
 class DocumentController extends Controller
 {
-    /** 2026-08-17: extended to the four newer Orderable purposes, same fix and reasoning as Payments\Index::scopeColumns(). */
+    /**
+     * 2026-08-17: extended to the four newer Orderable purposes, same fix
+     * and reasoning as Payments\Index::scopeColumns().
+     * RENTAL MODULE IMPLEMENTATION: extended again to rentalReservation
+     * (the shared Vehicle/Equipment engine's own purpose) -- same reasoning,
+     * same fix, same commit-history pattern.
+     */
     private function scopeColumns(): array
     {
         return [
-            'zone_id' => ['booking.zone_id', 'user.zone_id', 'parcelOrder.zone_id', 'taxiRide.zone_id', 'propertyReservation.zone_id', 'marketplaceOrder.zone_id'],
-            'franchise_id' => ['booking.franchise_id', 'user.franchise_id', 'parcelOrder.franchise_id', 'taxiRide.franchise_id', 'propertyReservation.franchise_id', 'marketplaceOrder.franchise_id'],
-            'city_id' => ['booking.franchise.city_id', 'user.franchise.city_id', 'parcelOrder.franchise.city_id', 'taxiRide.franchise.city_id', 'propertyReservation.franchise.city_id', 'marketplaceOrder.franchise.city_id'],
-            'country_id' => ['booking.franchise.country_id', 'user.franchise.country_id', 'parcelOrder.franchise.country_id', 'taxiRide.franchise.country_id', 'propertyReservation.franchise.country_id', 'marketplaceOrder.franchise.country_id'],
+            'zone_id' => ['booking.zone_id', 'user.zone_id', 'parcelOrder.zone_id', 'taxiRide.zone_id', 'propertyReservation.zone_id', 'marketplaceOrder.zone_id', 'rentalReservation.zone_id'],
+            'franchise_id' => ['booking.franchise_id', 'user.franchise_id', 'parcelOrder.franchise_id', 'taxiRide.franchise_id', 'propertyReservation.franchise_id', 'marketplaceOrder.franchise_id', 'rentalReservation.franchise_id'],
+            'city_id' => ['booking.franchise.city_id', 'user.franchise.city_id', 'parcelOrder.franchise.city_id', 'taxiRide.franchise.city_id', 'propertyReservation.franchise.city_id', 'marketplaceOrder.franchise.city_id', 'rentalReservation.franchise.city_id'],
+            'country_id' => ['booking.franchise.country_id', 'user.franchise.country_id', 'parcelOrder.franchise.country_id', 'taxiRide.franchise.country_id', 'propertyReservation.franchise.country_id', 'marketplaceOrder.franchise.country_id', 'rentalReservation.franchise.country_id'],
         ];
     }
 

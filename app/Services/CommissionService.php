@@ -8,6 +8,7 @@ use App\Models\EntitlementBalance;
 use App\Models\MarketplaceOrder;
 use App\Models\ParcelOrder;
 use App\Models\PropertyReservation;
+use App\Models\RentalReservation;
 use App\Models\TaxiRide;
 use App\Services\Plans\EntitlementService;
 use App\Services\Plans\UsageService;
@@ -215,6 +216,28 @@ class CommissionService
             franchise: $order->franchise, worker: $order->store?->provider,
             total: (float) ($order->price_final ?? $order->total_amount),
             orderCode: $order->code, orderLabel: 'marketplace order',
+        );
+    }
+
+    /**
+     * RENTAL MODULE IMPLEMENTATION -- the sixth caller, and the shared
+     * Vehicle/Equipment engine's counterpart to
+     * applyForPropertyReservation() above. The earner is the rented item's
+     * own owning `Provider` (`RentalReservation::provider()` -- reaches
+     * through the polymorphic `rentable` to Vehicle/EquipmentItem, both of
+     * which expose the same `provider()` relation Property's own `Property`
+     * model does), same `FieldWorker|Provider` type the shared helper
+     * already accepts.
+     */
+    public function applyForRentalReservation(RentalReservation $reservation): Commission
+    {
+        $reservation->loadMissing(['franchise.owner', 'rentable.provider.user']);
+
+        return $this->applyForFieldWorkerOrder(
+            identifyingColumn: 'rental_reservation_id', identifyingId: $reservation->id,
+            franchise: $reservation->franchise, worker: $reservation->provider(),
+            total: (float) ($reservation->price_final ?? $reservation->price_quoted),
+            orderCode: $reservation->code, orderLabel: 'rental reservation',
         );
     }
 

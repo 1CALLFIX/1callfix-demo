@@ -85,8 +85,14 @@ class Index extends Component
     public function updatingFromDate() { $this->resetPage(); }
     public function updatingToDate() { $this->resetPage(); }
 
-    /** purpose-shaped relation name => the order relation's own franchise-scope path segment, for scopeColumns()/filters below. */
-    private const ORDER_RELATIONS = ['booking', 'parcelOrder', 'taxiRide', 'propertyReservation', 'marketplaceOrder'];
+    /**
+     * purpose-shaped relation name => the order relation's own
+     * franchise-scope path segment, for scopeColumns()/filters below.
+     * RENTAL MODULE IMPLEMENTATION: `rentalReservation` added, the shared
+     * Vehicle/Equipment engine's own Orderable relation -- same reasoning
+     * as every prior addition here.
+     */
+    private const ORDER_RELATIONS = ['booking', 'parcelOrder', 'taxiRide', 'propertyReservation', 'marketplaceOrder', 'rentalReservation'];
 
     private function baseQuery()
     {
@@ -105,6 +111,7 @@ class Index extends Component
                 'taxiRide.franchise.country', 'taxiRide.assignedWorker.user',
                 'propertyReservation.franchise.country', 'propertyReservation.property.provider.user',
                 'marketplaceOrder.franchise.country', 'marketplaceOrder.store.provider.user',
+                'rentalReservation.franchise.country', 'rentalReservation.rentable.provider.user',
             ])
             ->when($this->search !== '', fn ($q) => $q->where(function ($w) {
                 $w->whereHas('booking', fn ($b) => $b
@@ -113,7 +120,8 @@ class Index extends Component
                     ->orWhereHas('parcelOrder', fn ($o) => $o->where('code', 'like', "%{$this->search}%"))
                     ->orWhereHas('taxiRide', fn ($o) => $o->where('code', 'like', "%{$this->search}%"))
                     ->orWhereHas('propertyReservation', fn ($o) => $o->where('code', 'like', "%{$this->search}%"))
-                    ->orWhereHas('marketplaceOrder', fn ($o) => $o->where('code', 'like', "%{$this->search}%"));
+                    ->orWhereHas('marketplaceOrder', fn ($o) => $o->where('code', 'like', "%{$this->search}%"))
+                    ->orWhereHas('rentalReservation', fn ($o) => $o->where('code', 'like', "%{$this->search}%"));
             }))
             ->when($this->franchiseFilter, fn ($q) => $q->where(function ($w) {
                 foreach (self::ORDER_RELATIONS as $relation) {
