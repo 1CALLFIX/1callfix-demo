@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 /**
  * Phase 22.7 (Property Rental) — the fourth `Orderable` implementer.
- * `moduleCode()` returns `property_rental` (`App\Support\Modules::ALL`).
+ * `moduleCode()` returns `rental` (`App\Support\Modules::ALL`).
  *
  * **2026-08-17 slug rename:** this was `car_rental` from Phase 22.7 through
  * Phase 25 — originally chosen because `PHASE_22_PLATFORM_CAPABILITY_
@@ -19,9 +19,19 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * that existed. That slug's own display label read "Car Rental" the whole
  * time, a real, confirmed collision risk once a genuine Car Rental
  * (rentable-vehicle inventory) vertical is ever built — renamed to its own
- * dedicated `property_rental` slug to remove that risk. No real Car Rental
- * implementation ever depended on the old slug (confirmed by a full-
- * repository search before this rename).
+ * dedicated `property_rental` slug to remove that risk.
+ *
+ * **RENTAL MODULE IMPLEMENTATION:** renamed again to `rental` — the real
+ * Rental vertical build now exists (Vehicle/Equipment, this phase's own
+ * `RentalReservation`), and the product decision is ONE top-level `rental`
+ * module for all three `rental_type` values, not a separate module per
+ * type. This class (the Property engine) is completely UNCHANGED
+ * otherwise — same table, same columns, same lifecycle, same Actions —
+ * only the `moduleCode()` return value and the module-activation gate it
+ * feeds now read `rental` instead of `property_rental`. Every franchise
+ * that already had Property Rental activated keeps working unchanged
+ * (`module_activations` rows key on the module's integer id, never the
+ * code string — see the rename migration's own docblock).
  */
 class PropertyReservation extends Model implements Orderable
 {
@@ -57,7 +67,7 @@ class PropertyReservation extends Model implements Orderable
 
     // ============================== Orderable ==============================
 
-    public function moduleCode(): string { return Modules::PROPERTY_RENTAL; }
+    public function moduleCode(): string { return Modules::RENTAL; }
     public function orderCode(): string { return $this->code; }
     public function orderFranchiseId(): int { return $this->franchise_id; }
     public function orderZoneId(): ?int { return $this->zone_id; }

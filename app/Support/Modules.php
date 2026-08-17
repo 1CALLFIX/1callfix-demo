@@ -30,17 +30,24 @@ namespace App\Support;
  * confirmed by a full-repository search before this rename — so nothing
  * real depended on the old slug meaning actual vehicle rental. Renamed to
  * `property_rental` to free the `car_rental` namespace for a genuine
- * future Car Rental vertical, evidence-permitting (see
- * `PHASE_23_HOTEL_AND_RENTAL_REQUIREMENTS_GAP.md` — that vertical remains
- * unbuilt, zero domain model, no new `car_rental` entry is added here
- * speculatively).
+ * future Car Rental vertical, evidence-permitting.
+ *
+ * **RENTAL MODULE IMPLEMENTATION (this phase):** renamed again, from
+ * `property_rental` to `rental`. This is the real Rental vertical build —
+ * Property (existing, preserved as-is), Vehicle and Equipment (new) — and
+ * the explicit product decision is ONE top-level `rental` module covering
+ * all three `rental_type` values, not three separate module-activation
+ * records (`property_rental`/`vehicle_rental`/`equipment_rental`). Same
+ * in-place `modules.code` update as the prior rename, same reasoning: the
+ * FK is the integer `module_id`, never the code string, so nothing else
+ * needs migrating.
  */
 class Modules
 {
     public const SERVICE = 'service';
     public const PARCEL = 'parcel';
     public const TAXI = 'taxi';
-    public const PROPERTY_RENTAL = 'property_rental';
+    public const RENTAL = 'rental';
     /** Phase 24 (Marketplace Foundation) -- these four slugs already existed in ALL below; adding real constants closes the same gap every prior vertical's own constant already avoided (a string literal instead of a named one). */
     public const FOOD = 'food';
     public const GROCERY = 'grocery';
@@ -51,7 +58,7 @@ class Modules
     public const ALL = [
         'service' => 'Service',
         'parcel' => 'Parcel Delivery',
-        'property_rental' => 'Property Rental',
+        'rental' => 'Rental',
         'food' => 'Food Delivery',
         'grocery' => 'Grocery',
         'pharmacy' => 'Pharmacy',

@@ -29,19 +29,21 @@ class PropertyReservationSchemaTest extends TestCase
         $scenario = $this->makePropertyReservationScenario();
 
         $this->assertInstanceOf(Orderable::class, $scenario['reservation']);
-        $this->assertSame('property_rental', $scenario['reservation']->moduleCode());
+        $this->assertSame('rental', $scenario['reservation']->moduleCode());
     }
 
     /**
-     * 2026-08-17 slug-rename regression: proves the whole activation chain
-     * still resolves correctly end-to-end under the new `property_rental`
-     * slug -- the module registry row, `ModuleActivationService`, and a
-     * real reservation creation, not just the bare constant value.
+     * RENTAL MODULE IMPLEMENTATION slug-rename regression (was the
+     * `property_rental` slug-rename regression before it): proves the whole
+     * activation chain still resolves correctly end-to-end under the new
+     * `rental` slug -- the module registry row, `ModuleActivationService`,
+     * and a real reservation creation, not just the bare constant value.
      */
     public function test_property_rental_activates_and_creates_reservations_under_its_renamed_slug(): void
     {
-        $this->assertSame('property_rental', \App\Support\Modules::PROPERTY_RENTAL);
-        $this->assertArrayHasKey('property_rental', \App\Support\Modules::ALL);
+        $this->assertSame('rental', \App\Support\Modules::RENTAL);
+        $this->assertArrayHasKey('rental', \App\Support\Modules::ALL);
+        $this->assertArrayNotHasKey('property_rental', \App\Support\Modules::ALL);
         $this->assertArrayNotHasKey('car_rental', \App\Support\Modules::ALL);
 
         [$country, $city, $franchise, $zone] = $this->makeFranchiseTree();
@@ -59,10 +61,11 @@ class PropertyReservationSchemaTest extends TestCase
 
     public function test_property_rental_module_row_exists_under_the_renamed_slug_after_migration(): void
     {
-        $module = \App\Models\Module::where('code', 'property_rental')->first();
+        $module = \App\Models\Module::where('code', 'rental')->first();
 
-        $this->assertNotNull($module, 'The modules table must carry a property_rental row after the rename migration.');
-        $this->assertSame('Property Rental', $module->name);
+        $this->assertNotNull($module, 'The modules table must carry a rental row after the rename migration.');
+        $this->assertSame('Rental', $module->name);
+        $this->assertNull(\App\Models\Module::where('code', 'property_rental')->first(), 'No stale property_rental row should remain.');
         $this->assertNull(\App\Models\Module::where('code', 'car_rental')->first(), 'No stale car_rental row should remain.');
     }
 
@@ -79,7 +82,7 @@ class PropertyReservationSchemaTest extends TestCase
         ]);
 
         $this->assertNotNull($reservation->id);
-        $this->assertSame('property_rental', $reservation->moduleCode());
+        $this->assertSame('rental', $reservation->moduleCode());
     }
 
     public function test_commission_can_belong_to_a_property_reservation(): void

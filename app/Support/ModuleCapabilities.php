@@ -135,15 +135,23 @@ class ModuleCapabilities
         // specifically (real Glover Property/PropertyAvailability/
         // PropertyReview evidence, §4b), never a genuine composite of the
         // whole Rental family; the old key just happened to be the only
-        // Rental-adjacent slug that existed at the time. Vehicle/Self-Drive/
-        // Machine-Tools Rental remain unbuilt with zero domain model (§5,
-        // re-confirmed PHASE_23_HOTEL_AND_RENTAL_REQUIREMENTS_GAP.md) -- no
-        // entry is added here speculatively for any of them.
-        'property_rental' => [
-            'catalog' => true /* Property/PropertyType, §4b */, 'order' => true,
-            'pricing' => true, 'payment' => true, 'availability' => true /* PropertyAvailability, §4b */,
-            'cancellation' => null, 'provider' => true /* owner */, 'wallet' => null, 'commission' => null,
-            'settlement' => null, 'notifications' => null, 'reviews' => true /* PropertyReview, §4b */,
+        // Rental-adjacent slug that existed at the time.
+        //
+        // RENTAL MODULE IMPLEMENTATION: renamed again to 'rental' -- now a
+        // real composite of all three rental_type values built this phase
+        // (property/vehicle/equipment), which is why every row below is
+        // 'true' rather than a Property-only claim: catalog/order/pricing/
+        // payment/availability/provider now cover Vehicle and Equipment
+        // inventory too (own migrations/models this phase), not just
+        // Property's pre-existing implementation. 'reviews' stays Property-
+        // only (true) since no Vehicle/Equipment review path was asked for
+        // or built -- not invented scope.
+        'rental' => [
+            'catalog' => true /* Property/PropertyType + Vehicle/VehicleCategory + EquipmentItem/EquipmentCategory */, 'order' => true,
+            'pricing' => true, 'payment' => true, 'availability' => true /* PropertyAvailability (per-day) + RentalAvailabilityService (range-lock, Vehicle/Equipment) */,
+            'cancellation' => true /* CancellationService::calculateFeeForPropertyReservation + calculateFeeForRentalReservation */,
+            'provider' => true /* owner */, 'wallet' => null, 'commission' => true /* CommissionService::applyForPropertyReservation + applyForRentalReservation */,
+            'settlement' => null, 'notifications' => true, 'reviews' => true /* PropertyReview, §4b -- Property only */,
             'coupons' => null, 'loyalty' => null, 'referrals' => null,
             'dispatch' => false, 'delivery' => false, 'scheduling' => null,
         ],

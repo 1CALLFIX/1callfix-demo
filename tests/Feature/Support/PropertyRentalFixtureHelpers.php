@@ -15,17 +15,17 @@ use Illuminate\Support\Str;
 /** Phase 22.7 (Property Rental) — the PropertyReservation counterpart to ParcelOrderFixtureHelpers/TaxiRideFixtureHelpers. */
 trait PropertyRentalFixtureHelpers
 {
-    /** Renamed from enableCarRentalModuleForTests() 2026-08-17 -- see Modules::PROPERTY_RENTAL's own docblock for the slug-rename rationale. */
+    /** Renamed from enableCarRentalModuleForTests() 2026-08-17, then re-targeted to Modules::RENTAL for the Rental Module Implementation -- see Modules::RENTAL's own docblock for the slug-rename rationale. */
     protected function enablePropertyRentalModuleForTests(): void
     {
-        Module::where('code', Modules::PROPERTY_RENTAL)->update(['is_implemented' => true]);
+        Module::where('code', Modules::RENTAL)->update(['is_implemented' => true]);
     }
 
     /** Renamed from activateCarRentalFor() 2026-08-17. */
     protected function activatePropertyRentalFor($franchise): void
     {
         $this->enablePropertyRentalModuleForTests();
-        app(ModuleActivationService::class)->setActive(Modules::PROPERTY_RENTAL, 'franchise', $franchise->id, true);
+        app(ModuleActivationService::class)->setActive(Modules::RENTAL, 'franchise', $franchise->id, true);
     }
 
     protected function makePropertyType(): PropertyType
