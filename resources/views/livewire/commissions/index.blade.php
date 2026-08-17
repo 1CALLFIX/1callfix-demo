@@ -37,9 +37,9 @@
 
         <thead class="bg-gray-50 text-left text-gray-500">
             <tr>
-                <th class="px-4 py-2">Booking</th>
+                <th class="px-4 py-2">Order</th>
                 <th class="px-4 py-2">Franchise</th>
-                <th class="px-4 py-2">Provider</th>
+                <th class="px-4 py-2">Earner</th>
                 <th class="px-4 py-2">Provider share</th>
                 <th class="px-4 py-2">Franchise share</th>
                 <th class="px-4 py-2">Platform share</th>
@@ -48,14 +48,28 @@
         </thead>
         <tbody>
             @forelse ($commissions as $c)
+                @php
+                    // 2026-08-17: resolved generically per purpose -- $c->booking
+                    // is null for the four newer verticals, so reading it
+                    // directly (the old code) always rendered "—" for those rows.
+                    $order = $c->booking ?? $c->parcelOrder ?? $c->taxiRide ?? $c->propertyReservation ?? $c->marketplaceOrder;
+                    $earner = match (true) {
+                        (bool) $c->booking => $c->booking->provider?->user,
+                        (bool) $c->parcelOrder => $c->parcelOrder->assignedWorker?->user,
+                        (bool) $c->taxiRide => $c->taxiRide->assignedWorker?->user,
+                        (bool) $c->propertyReservation => $c->propertyReservation->property?->provider?->user,
+                        (bool) $c->marketplaceOrder => $c->marketplaceOrder->store?->provider?->user,
+                        default => null,
+                    };
+                @endphp
                 <tr class="border-t hover:bg-gray-50">
-                    <td class="px-4 py-2 font-mono text-xs">{{ $c->booking->code ?? '—' }}</td>
-                    <td class="px-4 py-2 text-gray-500">{{ $c->booking->franchise->name ?? '—' }}</td>
-                    <td class="px-4 py-2 text-gray-500">{{ $c->booking->provider->user->name ?? '—' }}</td>
+                    <td class="px-4 py-2 font-mono text-xs">{{ $order?->code ?? '—' }}</td>
+                    <td class="px-4 py-2 text-gray-500">{{ $order?->franchise?->name ?? '—' }}</td>
+                    <td class="px-4 py-2 text-gray-500">{{ $earner?->name ?? '—' }}</td>
                     <td class="px-4 py-2 font-mono">{{ $currencySymbol }}{{ number_format($c->provider_commission, 2) }}</td>
                     <td class="px-4 py-2 font-mono">{{ $currencySymbol }}{{ number_format($c->franchise_commission, 2) }}</td>
                     <td class="px-4 py-2 font-mono">{{ $currencySymbol }}{{ number_format($c->platform_commission, 2) }}</td>
-                    <td class="px-4 py-2 text-gray-500">{{ app(\App\Services\TimezoneResolver::class)->format($c->created_at, $c->booking?->franchise, 'd M Y, h:i A') }}</td>
+                    <td class="px-4 py-2 text-gray-500">{{ app(\App\Services\TimezoneResolver::class)->format($c->created_at, $order?->franchise, 'd M Y, h:i A') }}</td>
                 </tr>
             @empty
                 <tr><td colspan="7" class="px-4 py-6 text-center text-gray-400">No commission records match your filters.</td></tr>

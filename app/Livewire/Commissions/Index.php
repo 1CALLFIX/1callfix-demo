@@ -42,11 +42,26 @@ class Index extends Component
      * Bookings\Index::createBooking().
      *
      * Row-level scoping (was deferred here, now closed): commissions carries
-     * no zone_id/franchise_id of its own -- only booking_id -- so baseQuery()
-     * scopes through the booking relation (booking.zone_id/booking.
-     * franchise_id/booking.franchise.city_id/booking.franchise.country_id),
-     * the same ancestry every other booking-derived screen this session
-     * scoped uses.
+     * no zone_id/franchise_id of its own -- only ONE of booking_id/
+     * parcel_order_id/taxi_ride_id/property_reservation_id/
+     * marketplace_order_id -- so baseQuery() scopes through whichever
+     * relation is actually set on a given row.
+     *
+     * **2026-08-17 hardening finding (same bug class as Payments\Index's own
+     * fix, worse here -- not even the old dual-candidate form, purely
+     * `booking.*`):** the four newer Orderable purposes were never added.
+     * A franchise-scoped `commissions.view` grant saw ZERO parcel/taxi/
+     * property/marketplace commission rows (fail-closed, not a leak), and
+     * even a global/super_admin viewer who COULD see them got a screen that
+     * displayed "—" for every column (booking/franchise/provider all
+     * resolved through `$c->booking`, always null for these rows) plus a
+     * PHP null-property-access warning per row. Fixed by resolving the
+     * relevant order relation and its own earner generically per purpose:
+     * `booking.provider`/`parcelOrder.assignedWorker`/`taxiRide.
+     * assignedWorker`/`propertyReservation.property.provider`/
+     * `marketplaceOrder.store.provider` -- exactly the same earner each
+     * vertical's own CommissionService::applyForFieldWorkerOrder() call
+     * already pays.
      */
     public function mount(): void
     {
@@ -70,17 +85,41 @@ class Index extends Component
     public function updatingFromDate() { $this->resetPage(); }
     public function updatingToDate() { $this->resetPage(); }
 
+    /** purpose-shaped relation name => the order relation's own franchise-scope path segment, for scopeColumns()/filters below. */
+    private const ORDER_RELATIONS = ['booking', 'parcelOrder', 'taxiRide', 'propertyReservation', 'marketplaceOrder'];
+
     private function baseQuery()
     {
-        $columns = ['zone_id' => 'booking.zone_id', 'franchise_id' => 'booking.franchise_id', 'city_id' => 'booking.franchise.city_id', 'country_id' => 'booking.franchise.country_id'];
+        $columns = [
+            'zone_id' => array_map(fn ($r) => "{$r}.zone_id", self::ORDER_RELATIONS),
+            'franchise_id' => array_map(fn ($r) => "{$r}.franchise_id", self::ORDER_RELATIONS),
+            'city_id' => array_map(fn ($r) => "{$r}.franchise.city_id", self::ORDER_RELATIONS),
+            'country_id' => array_map(fn ($r) => "{$r}.franchise.country_id", self::ORDER_RELATIONS),
+        ];
 
         return app(AuthorizationService::class)
             ->scopeQuery(Commission::query(), auth()->user(), 'commissions.view', $columns)
-            ->with(['booking.franchise.country', 'booking.provider.user'])
-            ->when($this->search !== '', fn ($q) => $q->whereHas('booking', fn ($b) => $b
-                ->where('code', 'like', "%{$this->search}%")
-                ->orWhereHas('provider.user', fn ($p) => $p->where('name', 'like', "%{$this->search}%"))))
-            ->when($this->franchiseFilter, fn ($q) => $q->whereHas('booking', fn ($b) => $b->where('franchise_id', $this->franchiseFilter)))
+            ->with([
+                'booking.franchise.country', 'booking.provider.user',
+                'parcelOrder.franchise.country', 'parcelOrder.assignedWorker.user',
+                'taxiRide.franchise.country', 'taxiRide.assignedWorker.user',
+                'propertyReservation.franchise.country', 'propertyReservation.property.provider.user',
+                'marketplaceOrder.franchise.country', 'marketplaceOrder.store.provider.user',
+            ])
+            ->when($this->search !== '', fn ($q) => $q->where(function ($w) {
+                $w->whereHas('booking', fn ($b) => $b
+                    ->where('code', 'like', "%{$this->search}%")
+                    ->orWhereHas('provider.user', fn ($p) => $p->where('name', 'like', "%{$this->search}%")))
+                    ->orWhereHas('parcelOrder', fn ($o) => $o->where('code', 'like', "%{$this->search}%"))
+                    ->orWhereHas('taxiRide', fn ($o) => $o->where('code', 'like', "%{$this->search}%"))
+                    ->orWhereHas('propertyReservation', fn ($o) => $o->where('code', 'like', "%{$this->search}%"))
+                    ->orWhereHas('marketplaceOrder', fn ($o) => $o->where('code', 'like', "%{$this->search}%"));
+            }))
+            ->when($this->franchiseFilter, fn ($q) => $q->where(function ($w) {
+                foreach (self::ORDER_RELATIONS as $relation) {
+                    $w->orWhereHas($relation, fn ($o) => $o->where('franchise_id', $this->franchiseFilter));
+                }
+            }))
             ->when($this->fromDate !== '', fn ($q) => $q->whereDate('created_at', '>=', $this->fromDate))
             ->when($this->toDate !== '', fn ($q) => $q->whereDate('created_at', '<=', $this->toDate));
     }

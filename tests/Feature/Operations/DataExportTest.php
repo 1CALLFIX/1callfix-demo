@@ -53,6 +53,15 @@ class DataExportTest extends TestCase
         $this->assertCount(2, (new CommissionsExport($viewer))->collection());
     }
 
+    /**
+     * 2026-08-17: column indices shifted (a real 'purpose' and 'earner'
+     * column were added ahead of the financial columns, closing a real gap
+     * where the export silently omitted every parcel/taxi/property/
+     * marketplace commission row for a scoped viewer -- see
+     * CommissionsExport's own docblock). Updated deliberately, not
+     * weakened -- the assertion itself (real values, never recalculated)
+     * is unchanged, only the indices it reads.
+     */
     public function test_commissions_export_never_recalculates_values(): void
     {
         $scenario = $this->makeBookingScenario('completed');
@@ -62,9 +71,9 @@ class DataExportTest extends TestCase
         $row = (new CommissionsExport($viewer))->collection()->first();
         $mapped = (new CommissionsExport($viewer))->map($row);
 
-        $this->assertEquals(123.45, $mapped[3]);
-        $this->assertEquals(6.78, $mapped[4]);
-        $this->assertEquals(9.01, $mapped[5]);
+        $this->assertEquals(123.45, $mapped[4]);
+        $this->assertEquals(6.78, $mapped[5]);
+        $this->assertEquals(9.01, $mapped[6]);
     }
 
     public function test_payouts_export_never_includes_raw_account_number_or_ifsc(): void
