@@ -12,6 +12,7 @@ use Tests\Feature\Support\BookingFixtureHelpers;
 use Tests\Feature\Support\MarketplaceFixtureHelpers;
 use Tests\Feature\Support\ParcelOrderFixtureHelpers;
 use Tests\Feature\Support\PropertyRentalFixtureHelpers;
+use Tests\Feature\Support\RentalFixtureHelpers;
 use Tests\Feature\Support\TaxiRideFixtureHelpers;
 use Tests\TestCase;
 
@@ -41,6 +42,7 @@ class DocumentEngineTest extends TestCase
     use TaxiRideFixtureHelpers;
     use PropertyRentalFixtureHelpers;
     use MarketplaceFixtureHelpers;
+    use RentalFixtureHelpers;
 
     private function bookingPayment(array $overrides = []): Payment
     {
@@ -166,6 +168,19 @@ class DocumentEngineTest extends TestCase
 
         $this->assertStringContainsString($scenario['order']->code, $data['lines'][0]['label']);
         $this->assertStringContainsString($scenario['store']->name, $data['lines'][0]['label']);
+        $this->assertSame($scenario['customer']->name, $data['payer_name']);
+        $this->assertSame($scenario['franchise']->name, $data['franchise_name']);
+    }
+
+    /** RENTAL MODULE IMPLEMENTATION -- the shared Vehicle/Equipment engine's own Document Engine coverage, added together with the schema this time (not retroactively, unlike the four verticals this file's own docblock describes). */
+    public function test_document_service_builds_rental_reservation_data_with_real_franchise_and_payer(): void
+    {
+        $scenario = $this->makeVehicleReservationScenario();
+        $payment = Payment::create(['rental_reservation_id' => $scenario['reservation']->id, 'amount' => 1000, 'status' => 'captured', 'captured_at' => now(), 'purpose' => 'rental_reservation']);
+
+        $data = app(DocumentService::class)->forPayment($payment, 'receipt');
+
+        $this->assertStringContainsString($scenario['reservation']->code, $data['lines'][0]['label']);
         $this->assertSame($scenario['customer']->name, $data['payer_name']);
         $this->assertSame($scenario['franchise']->name, $data['franchise_name']);
     }
@@ -316,6 +331,41 @@ class DocumentEngineTest extends TestCase
         $scenario = $this->makeMarketplaceOrderScenario('completed');
         [, , $otherFranchise] = $this->makeFranchiseTree();
         $payment = Payment::create(['marketplace_order_id' => $scenario['order']->id, 'amount' => 300, 'status' => 'captured', 'captured_at' => now(), 'purpose' => 'marketplace_order']);
+        $actor = $this->makeUserWithPermission('payments.view', 'franchise', $otherFranchise->id);
+
+        $response = $this->actingAs($actor)->get(route('admin.documents.payments.show', $payment->id));
+
+        $response->assertNotFound();
+    }
+
+    public function test_rental_reservation_customer_can_download_own_document_but_a_stranger_cannot(): void
+    {
+        $scenario = $this->makeVehicleReservationScenario();
+        $payment = Payment::create(['rental_reservation_id' => $scenario['reservation']->id, 'amount' => 1000, 'status' => 'captured', 'captured_at' => now(), 'purpose' => 'rental_reservation']);
+        $stranger = $this->makeCustomer();
+
+        $this->actingAs($scenario['customer'], 'sanctum')->get("/api/payments/{$payment->id}/document")->assertOk();
+        $this->actingAs($stranger, 'sanctum')->get("/api/payments/{$payment->id}/document")->assertNotFound();
+    }
+
+    /** Admin-side row-level scope regression -- see Payments\Index::scopeColumns()'s own docblock, extended to rentalReservation this session. */
+    public function test_admin_document_download_succeeds_for_correct_scope_on_a_rental_reservation_payment(): void
+    {
+        $scenario = $this->makeVehicleReservationScenario();
+        $payment = Payment::create(['rental_reservation_id' => $scenario['reservation']->id, 'amount' => 1000, 'status' => 'captured', 'captured_at' => now(), 'purpose' => 'rental_reservation']);
+        $actor = $this->makeUserWithPermission('payments.view', 'franchise', $scenario['franchise']->id);
+
+        $response = $this->actingAs($actor)->get(route('admin.documents.payments.show', $payment->id));
+
+        $response->assertOk();
+        $response->assertHeader('content-type', 'application/pdf');
+    }
+
+    public function test_admin_document_download_denied_for_wrong_scope_on_a_rental_reservation_payment(): void
+    {
+        $scenario = $this->makeVehicleReservationScenario();
+        [, , $otherFranchise] = $this->makeFranchiseTree();
+        $payment = Payment::create(['rental_reservation_id' => $scenario['reservation']->id, 'amount' => 1000, 'status' => 'captured', 'captured_at' => now(), 'purpose' => 'rental_reservation']);
         $actor = $this->makeUserWithPermission('payments.view', 'franchise', $otherFranchise->id);
 
         $response = $this->actingAs($actor)->get(route('admin.documents.payments.show', $payment->id));
