@@ -99,6 +99,8 @@
                         ['label' => 'Vehicles', 'route' => 'admin.vehicles.index', 'icon' => 'building', 'active' => true, 'permission' => 'vehicles.manage'],
                         ['label' => 'Equipment', 'route' => 'admin.equipment.index', 'icon' => 'wrench', 'active' => true, 'permission' => 'equipment.manage'],
                         ['label' => 'Rental Reservations', 'route' => 'admin.rental-reservations.index', 'icon' => 'clipboard', 'active' => true, 'permission' => 'rental_reservations.view'],
+                        ['label' => 'Accommodations', 'route' => 'admin.accommodations.index', 'icon' => 'building', 'active' => true, 'permission' => 'accommodations.manage'],
+                        ['label' => 'Hotel Reservations', 'route' => 'admin.hotel-reservations.index', 'icon' => 'clipboard', 'active' => true, 'permission' => 'hotel_reservations.view'],
                         ['label' => 'Stores', 'route' => 'admin.stores.index', 'icon' => 'building', 'active' => true, 'permission' => 'stores.manage'],
                         ['label' => 'Marketplace Categories', 'route' => 'admin.marketplace-categories.index', 'icon' => 'wrench', 'active' => true, 'permission' => 'marketplace_categories.manage'],
                         ['label' => 'Products', 'route' => 'admin.products.index', 'icon' => 'wrench', 'active' => true, 'permission' => 'products.manage'],

@@ -48,6 +48,8 @@ use App\Livewire\MarketplaceCategories\Manage as MarketplaceCategoriesManage;
 use App\Livewire\Products\Manage as ProductsManage;
 use App\Livewire\AddOns\Manage as AddOnsManage;
 use App\Livewire\MarketplaceOrders\Manage as MarketplaceOrdersManage;
+use App\Livewire\Accommodations\Manage as AccommodationsManage;
+use App\Livewire\HotelReservations\Manage as HotelReservationsManage;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 
@@ -103,6 +105,8 @@ Route::middleware(['auth', \App\Http\Middleware\EnsureHasAdminAccess::class])
         Route::get('/vehicles', VehiclesManage::class)->name('admin.vehicles.index');
         Route::get('/equipment', EquipmentManage::class)->name('admin.equipment.index');
         Route::get('/rental-reservations', RentalReservationsManage::class)->name('admin.rental-reservations.index');
+        Route::get('/accommodations', AccommodationsManage::class)->name('admin.accommodations.index');
+        Route::get('/hotel-reservations', HotelReservationsManage::class)->name('admin.hotel-reservations.index');
         Route::get('/stores', StoresManage::class)->name('admin.stores.index');
         Route::get('/marketplace-categories', MarketplaceCategoriesManage::class)->name('admin.marketplace-categories.index');
         Route::get('/products', ProductsManage::class)->name('admin.products.index');
