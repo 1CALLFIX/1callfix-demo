@@ -16,6 +16,7 @@ use App\Models\Review;
 use App\Models\TaxiRide;
 use App\Models\User;
 use App\Models\Zone;
+use App\Notifications\Adapters\ArkeselSmsAdapter;
 use App\Notifications\Adapters\FirebaseFcmPushAdapter;
 use App\Notifications\Adapters\GatewayApiSmsAdapter;
 use App\Notifications\Adapters\LogPushAdapter;
@@ -49,16 +50,20 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        // BD-8: real adapters now exist (Msg91SmsAdapter, GatewayApiSmsAdapter,
-        // FirebaseFcmPushAdapter) but none is auto-selected -- config('services.sms.driver')
-        // / config('services.push.driver') (SMS_DRIVER/PUSH_DRIVER env) decide, both
-        // defaulting to 'log' so nothing changes in any environment that
-        // hasn't deliberately set them + real credentials. See
-        // KNOWN_RISKS_AND_DECISIONS.md item 8 for why the vendor choice
-        // itself is not made here. Nothing above this binding (SmsChannel/
-        // PushChannel, the Notification classes, OtpService) needs to
-        // change regardless of which driver is selected.
+        // BD-8: real adapters now exist (ArkeselSmsAdapter, Msg91SmsAdapter,
+        // GatewayApiSmsAdapter, FirebaseFcmPushAdapter) but none is
+        // auto-selected -- config('services.sms.driver') / config('services.push.driver')
+        // (SMS_DRIVER/PUSH_DRIVER env) decide, both defaulting to 'log' so
+        // nothing changes in any environment that hasn't deliberately set
+        // them + real credentials. Arkesel is the vendor CONFIRMED actually
+        // configured in the real Glover 1.8.5 reference deployment (see
+        // ArkeselSmsAdapter's docblock and KNOWN_RISKS_AND_DECISIONS.md
+        // item 8) -- msg91/gatewayapi remain available as alternates, not
+        // removed. Nothing above this binding (SmsChannel/PushChannel, the
+        // Notification classes, OtpService) needs to change regardless of
+        // which driver is selected.
         $this->app->bind(SmsAdapter::class, fn ($app) => match (config('services.sms.driver', 'log')) {
+            'arkesel' => $app->make(ArkeselSmsAdapter::class),
             'msg91' => $app->make(Msg91SmsAdapter::class),
             'gatewayapi' => $app->make(GatewayApiSmsAdapter::class),
             default => $app->make(LogSmsAdapter::class),

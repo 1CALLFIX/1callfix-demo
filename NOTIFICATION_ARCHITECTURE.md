@@ -27,6 +27,10 @@ Laravel's ad-hoc `Notification::route('sms', $phone)->notify(...)` was the initi
 | `push` (FCM/APNs) | No real gateway — `LogPushAdapter` only | Booking status push copy, payment status push copy |
 | `database` (`in_app`) | Yes — Laravel's standard notifications table, real | Any notification explicitly including `'in_app'` in its resolved channel list |
 
+## SMS/push vendor decision (2026-08-17 update)
+
+`LogSmsAdapter`/`LogPushAdapter` remain the *default* binding (`SMS_DRIVER`/`PUSH_DRIVER` both still default to `log`), so the table above is still accurate for any environment that hasn't deliberately configured a real driver. What changed: the vendor question itself is no longer open. `ArkeselSmsAdapter` (SMS) and `FirebaseFcmPushAdapter` (push, already existed) are the confirmed-working providers for this business — see `KNOWN_RISKS_AND_DECISIONS.md` item 8 for the evidence (Arkesel's credentials, and only Arkesel's, were found populated in the real Glover 1.8.5 deployment's own `.env`; a real, non-expired Firebase service-account was found in that same deployment, though its contents were deliberately not copied here). Setting `SMS_DRIVER=arkesel` + `PUSH_DRIVER=fcm` with this business's real credentials in a real environment activates real delivery for every notification event in this document with no further code changes.
+
 ## FUTURE extension points, not built this session
 
 Push-based OTP delivery (`OtpNotification::via()` could add `PushChannel::class` once a real push provider exists and a device token is known — not useful today since login OTP is what proves a device/phone in the first place). WhatsApp/voice OTP delivery. Multi-device push (blocked on the same `devices` table gap noted in `AUTHENTICATION_ARCHITECTURE.md`).

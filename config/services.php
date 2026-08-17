@@ -51,17 +51,27 @@ return [
     |
     | 'driver' selects which App\Contracts\SmsAdapter implementation
     | AppServiceProvider::register() binds. Defaults to 'log' (the existing
-    | dev/QA-only LogSmsAdapter) so nothing changes until an operator
-    | deliberately sets SMS_DRIVER + real credentials in a real environment
-    | -- this file intentionally does NOT pick a vendor (see
-    | KNOWN_RISKS_AND_DECISIONS.md item 8 / PHASE_21_RELEASE_CANDIDATE_BACKLOG.md
-    | BD-8 for why: the vendor choice is a business decision, not made here).
-    | Both msg91 and gatewayapi adapters exist and are equally ready --
-    | picking one over the other is deliberately left to whoever sets this
-    | env var, not defaulted by this file.
+    | dev/QA-only LogSmsAdapter) so nothing changes in any environment that
+    | hasn't deliberately set SMS_DRIVER + real credentials.
+    |
+    | The vendor decision itself (open as of KNOWN_RISKS_AND_DECISIONS.md
+    | item 8 / PHASE_21_RELEASE_CANDIDATE_BACKLOG.md BD-8) is no longer
+    | undecided for this business: 'arkesel' is the SMS gateway CONFIRMED
+    | actually configured (real credentials populated) in the real Glover
+    | 1.8.5 reference deployment's own environment -- see
+    | ArkeselSmsAdapter's docblock for the exact evidence. msg91 and
+    | gatewayapi remain equally-ready alternative adapters (built during
+    | BD-8's technical-preparation pass) but were never confirmed live for
+    | this business; they're kept, not removed, in case a future
+    | environment needs them.
     */
     'sms' => [
-        'driver' => env('SMS_DRIVER', 'log'), // log|msg91|gatewayapi
+        'driver' => env('SMS_DRIVER', 'log'), // log|arkesel|msg91|gatewayapi
+
+        'arkesel' => [
+            'api_key' => env('ARKESEL_API_KEY'),
+            'sender' => env('ARKESEL_SENDER'),
+        ],
 
         'msg91' => [
             'auth_key' => env('MSG91_AUTH_KEY'),
