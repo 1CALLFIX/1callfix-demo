@@ -54,6 +54,15 @@ Route::get('/properties', [\App\Http\Controllers\API\PropertyController::class, 
 Route::get('/properties/{propertyId}', [\App\Http\Controllers\API\PropertyController::class, 'show']);
 Route::get('/properties/{propertyId}/availability', [\App\Http\Controllers\API\PropertyController::class, 'availability']);
 
+// RENTAL MODULE IMPLEMENTATION -- Vehicle/Equipment browse/search. Public,
+// same reasoning as Property Rental above.
+Route::get('/vehicles', [\App\Http\Controllers\API\VehicleController::class, 'index']);
+Route::get('/vehicles/{vehicleId}', [\App\Http\Controllers\API\VehicleController::class, 'show']);
+Route::get('/vehicles/{vehicleId}/availability', [\App\Http\Controllers\API\VehicleController::class, 'availability']);
+Route::get('/equipment', [\App\Http\Controllers\API\EquipmentController::class, 'index']);
+Route::get('/equipment/{itemId}', [\App\Http\Controllers\API\EquipmentController::class, 'show']);
+Route::get('/equipment/{itemId}/availability', [\App\Http\Controllers\API\EquipmentController::class, 'availability']);
+
 // Phase 24 -- Marketplace Foundation browse/search. Public, same reasoning
 // as Property Rental above -- real 6amMart evidence confirms unauthenticated
 // store/product browsing is the real shape of this domain.
@@ -92,6 +101,15 @@ Route::middleware(['auth:sanctum', \App\Http\Middleware\EnsureNotInMaintenanceMo
     Route::post('/properties/{propertyId}/reservations', [\App\Http\Controllers\API\PropertyReservationController::class, 'store']);
     Route::get('/reservations/mine', [\App\Http\Controllers\API\PropertyReservationController::class, 'mine']);
     Route::get('/reservations/{reservationId}', [\App\Http\Controllers\API\PropertyReservationController::class, 'show']);
+
+    // RENTAL MODULE IMPLEMENTATION -- Vehicle/Equipment (authenticated
+    // actions only -- browse is public, see above). Own /rental-reservations
+    // prefix rather than the bare /reservations Property Rental uses --
+    // deliberately not sharing that URL family since the underlying models
+    // (and therefore ids) are different.
+    Route::post('/rental-reservations', [\App\Http\Controllers\API\RentalReservationController::class, 'store']);
+    Route::get('/rental-reservations/mine', [\App\Http\Controllers\API\RentalReservationController::class, 'mine']);
+    Route::get('/rental-reservations/{reservationId}', [\App\Http\Controllers\API\RentalReservationController::class, 'show']);
 
     // Phase 24 -- Marketplace Foundation (authenticated actions only -- browse is public, see above).
     Route::get('/cart', [\App\Http\Controllers\API\CartController::class, 'index']);
