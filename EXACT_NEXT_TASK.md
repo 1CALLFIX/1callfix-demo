@@ -1,29 +1,31 @@
 # Exact Next Task
 
-**THIS DOCUMENT WAS STALE FROM 2026-08-16 (Phase 21 TECH-6) THROUGH 2026-08-17 — corrected same day.** Everything below "Most recent work (2026-08-16)..." was accurate as of Phase 21 but was never updated across Phases 22 through 25, which shipped four more real verticals (Parcel, Taxi, Property Rental, Marketplace Foundation/Ecommerce/Food/Grocery/Pharmacy) and a Module Activation system. `CURRENT_MASTER_CHECKPOINT.md` was kept current throughout that whole span — this file was not. That gap is now closed.
+**THIS DOCUMENT WAS STALE FROM 2026-08-16 (Phase 21 TECH-6) THROUGH 2026-08-17 — corrected same day, then updated again same day for the Rental and Hotel builds.** Everything below "Most recent work (2026-08-16)..." was accurate as of Phase 21 but was never updated across Phases 22 through 25, which shipped four more real verticals (Parcel, Taxi, Property Rental, Marketplace Foundation/Ecommerce/Food/Grocery/Pharmacy) and a Module Activation system. `CURRENT_MASTER_CHECKPOINT.md` was kept current throughout that whole span — this file was not. That gap is now closed, and kept closed through the same-day Rental and Hotel/Stay builds.
 
-## Actual current state (2026-08-17, verified against real code and a real `php artisan test` run, HEAD `cd55a07`)
+## Actual current state (2026-08-17, verified against real code and a real `php artisan test` run — Rental + Hotel builds)
 
-**Verified test baseline: 1008/1008 passing, 2573 assertions, 0 failures.** Working tree clean on `main`.
+**Verified test baseline: 1143/1143 passing, 2876 assertions, 0 failures.** Working tree clean on `main`.
 
 **Implemented verticals** (see `CURRENT_MASTER_CHECKPOINT.md` for the full build history of each):
 - **Service** — IMPLEMENTED, LIVE (`modules.is_implemented=true`, the only one).
-- **Parcel** (Phase 22.4), **Taxi/Ride** (Phase 22.6), **Property Rental** (Phase 22.7) — IMPLEMENTED, ship DISABLED (`is_implemented=false`).
+- **Parcel** (Phase 22.4), **Taxi/Ride** (Phase 22.6) — IMPLEMENTED, ship DISABLED (`is_implemented=false`).
+- **Rental** (Property + Vehicle + Equipment, one top-level `rental` module, `rental_type` sub-dimension — see `KNOWN_RISKS_AND_DECISIONS.md` item 39 for the deliberate design choice) — IMPLEMENTED, ships DISABLED.
+- **Hotel / Stay** (Accommodation → Room Type → Rate Plan → Room Inventory → Reservation, its OWN top-level `hotel` module, never nested inside `rental` — see `HOTEL_MODULE_ARCHITECTURE.md`) — IMPLEMENTED this session, ships DISABLED. The sixth `Orderable` implementer.
 - **Marketplace Foundation** (Store/MarketplaceCategory/Product/ProductVariant/AddOn/CartItem/MarketplaceOrder, the fifth `Orderable` implementer) + **Ecommerce** (Phase 24/25) — IMPLEMENTED, ships DISABLED.
 - **Food, Grocery** — IMPLEMENTED via the identical shared Marketplace code path (proven in `MarketplaceMultiVerticalReuseTest`, no separate schema/code), ship DISABLED.
 - **Pharmacy** — IMPLEMENTED via the same shared path; `stores.prescription_required` is a real flag with **no verification workflow built** (open regulatory/business decision, `KNOWN_RISKS_AND_DECISIONS.md` item 35).
 
-**NOT implemented, evidence-blocked, correctly not built** (re-confirmed against three independent reference sources — Glover 1.8.5, the real 6amMart 4.0.1 source, and this project's own historical `DB_1cal_app_1.8.10.sql` production dump — see `PHASE_23_HOTEL_AND_RENTAL_REQUIREMENTS_GAP.md`): **Hotel, real Car Rental (rentable-vehicle inventory), Self-Drive Rental, Machine/Tools Rental.** No domain model exists for any of these four; building one without real requirements/evidence would be fabrication, which this project's own discipline forbids.
+**Previously evidence-blocked, now fully resolved** (`KNOWN_RISKS_AND_DECISIONS.md` item 34 — was "Hotel, real Car Rental, Self-Drive Rental, Machine/Tools Rental, zero reference evidence"): the user supplied real, detailed structural requirements directly for both the Rental family (Vehicle/Equipment) and, same day, Hotel/Stay — the "authoritative requirements supplied" exception this project's own evidence discipline always allowed for. All four originally-named verticals are now built.
 
 **NOT implemented, not started, no scaffolding exists anywhere in this repository:** Admin AI, Customer Web, Customer Flutter, Vendor Flutter, Rider Flutter.
 
-**Module registry note:** the `car_rental` slug in `App\Support\Modules::ALL` was, until this session, actually occupied by Property Rental's own `moduleCode()` — not real vehicle-rental inventory. This session renames it to `property_rental` to free the namespace for a genuine future Car Rental vertical (see the commit that follows this doc update for the exact change).
+**Module registry note:** the `car_rental` slug in `App\Support\Modules::ALL` was renamed to `property_rental` then to `rental` (one Rental module covering Property/Vehicle/Equipment). Separately, the long-dormant `bookings` placeholder slug (zero real consumer, seeded since Phase 22.1) was renamed to `hotel` for the real Hotel/Stay build this session — see `HOTEL_MODULE_ARCHITECTURE.md` §1 for the full reasoning.
 
-**Admin UI:** IMPLEMENTED — shared `x-ui.*` component library, ~41 Livewire admin screen directories, including 5 new ones from Marketplace Foundation (Stores, MarketplaceCategories, Products, AddOns, MarketplaceOrders).
+**Admin UI:** IMPLEMENTED — shared `x-ui.*` component library, ~41+ Livewire admin screen directories as of the Marketplace Foundation count below; **+2 more from this same day's Hotel/Stay build** (Accommodations, HotelReservations — see `HOTEL_MODULE_ARCHITECTURE.md`), plus Rental's own Vehicles/Equipment/RentalReservations screens, not recounted here since this line predates both same-day builds. Marketplace Foundation's own 5 (Stores, MarketplaceCategories, Products, AddOns, MarketplaceOrders) — see that phase's own docs.
 
-**API:** 27 controllers, all confirmed to have real `postJson`/`getJson`-level HTTP test coverage (verified by grepping actual route strings across the whole test suite this session, not assumed from a stale count). **Browser-driven E2E: still NOT FOUND** — no Dusk/Playwright anywhere.
+**API:** 27 controllers as of the count below, **+2 more from this same day's Hotel/Stay build** (`HotelController`, `HotelReservationController`, both with real HTTP-level test coverage — `tests/Feature/Api/HotelApiTest.php`), plus Rental's own controllers, not recounted here since this line predates both same-day builds. **Browser-driven E2E: still NOT FOUND** — no Dusk/Playwright anywhere.
 
-**Document/Printing Engine:** IMPLEMENTED but PARTIAL — real invoice/receipt generation for `booking`/`wallet_topup`/`plan_subscription` payment purposes only; `parcel_order`/`taxi_ride`/`property_reservation`/`marketplace_order` (all real `payments.purpose` values today) fall through to a generic label with degraded country/payer resolution, and have zero test coverage. No commission/settlement/payout document exists anywhere.
+**Document/Printing Engine:** IMPLEMENTED, and now covers every real `payments.purpose` value that exists — `booking`/`wallet_topup`/`plan_subscription`/`parcel_order`/`taxi_ride`/`property_reservation`/`marketplace_order`/`rental_reservation`/`hotel_reservation`, all resolved generically via the `ORDERABLE_RELATIONS` map for the six newer purposes (see `DocumentService`'s own docblock). **This line was stale** — it previously said the four newer purposes at the time fell through to a generic label with zero test coverage; that gap was closed in an earlier same-day session (see the commit log's "Document Engine coverage for rental_reservation purpose" entry) and again this session for `hotel_reservation` (4 new tests in `DocumentEngineTest`). No commission/settlement/payout document exists anywhere — that part is still accurate.
 
 **SMS/Push:** No real credentials configured anywhere (no `.env` file exists in this checkout; `.env.example` has every MSG91/GatewayAPI/Firebase credential commented out, both drivers default to `log`). All three real adapters (`Msg91SmsAdapter`, `GatewayApiSmsAdapter`, `FirebaseFcmPushAdapter`) are tested exclusively against `Http::fake()` — no real send has ever succeeded from this codebase.
 
@@ -32,6 +34,25 @@
 **Compensation types implemented:** tips, waiting, rain, overtime, peak, night — and only these six. `CompensationService::applyManual()` hard-restricts its `$type` parameter to `['rain', 'waiting']`. Holiday/long-distance/urgent/difficult-access/heavy-bulky/extra-assistance compensation types do not exist anywhere in the codebase.
 
 ## Exact next action (current)
+
+Rental (Vehicle+Equipment) and Hotel/Stay were both built this same day
+(2026-08-17), on real user-supplied requirements — see
+`KNOWN_RISKS_AND_DECISIONS.md` item 34 (now fully resolved) and
+`HOTEL_MODULE_ARCHITECTURE.md`. Both ship `modules.is_implemented=false`
+(built, kept inert pending a real business activation decision, same
+precedent every non-Service vertical follows). Full suite: 1143/1143,
+2876 assertions, 0 regressions, none pushed... check `git log`/`git status`
+for whether that's still true by the time this is read.
+
+**No remaining schema-evidence-blocked vertical exists in this register.**
+Real next steps, in the same priority order `FINAL_RELEASE_READINESS_AUDIT.md`
+already established and never superseded: (1) a real business decision on
+which built-but-disabled vertical(s) to activate first (Parcel/Taxi/Rental/
+Hotel/Marketplace family all real, tested, `is_implemented=false`); (2)
+the still-open commercial/policy items in `KNOWN_RISKS_AND_DECISIONS.md`
+(cancellation fees, commission percentages, deposit/eligibility rules —
+items 33/38/40 for Rental/Hotel specifically); (3) Admin UI design system
+and browser E2E/load testing, both still genuinely unstarted tracks.
 
 See the cumulative hardening session this document update is part of — working through a defined P1-P9 backlog (RBAC audit, regression coverage, DB hardening, dispatch correctness, admin UI consistency, API/performance hardening, document engine extension, communication infra audit) autonomously. Check `CURRENT_MASTER_CHECKPOINT.md`'s latest commit-log entry and `git log` for the actual latest state — this file is a pointer, not the source of truth.
 
