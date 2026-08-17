@@ -30,6 +30,18 @@ class PropertyController extends Controller
      * This is a browse-time filter only (PropertyAvailabilityService's own
      * class docblock is explicit that only reserveDates(), inside a real
      * reservation's own transaction, is the authoritative safety check).
+     *
+     * Phase 23.1 hardening: the availability filter used to run in-memory
+     * AFTER fetching only the first 50 properties by id (`->limit(50)->get()`
+     * then `->filter()`). That was both an N+1 (one `isAvailable()` query per
+     * fetched property) and a real correctness bug -- a property outside
+     * that first-50-by-id window could never surface even if it was the
+     * only one actually available, and an unavailable property inside the
+     * window silently shrank the result below 50 rather than being replaced
+     * by the next candidate. Pushed into the query itself (`whereDoesntHave`
+     * against `property_availabilities`) so filtering happens before the
+     * limit, in one query, exactly like every other bounded list query in
+     * this codebase.
      */
     public function index(Request $request, PropertyAvailabilityService $availability)
     {
@@ -47,11 +59,16 @@ class PropertyController extends Controller
             $query->where('name', 'like', '%'.$request->string('search').'%');
         }
 
-        $properties = $query->orderBy('id')->limit(50)->get();
-
         if ($request->filled('check_in') && $request->filled('check_out')) {
-            $properties = $properties->filter(fn (Property $p) => $availability->isAvailable($p, $request->string('check_in'), $request->string('check_out')))->values();
+            $validated = $request->validate(['check_in' => 'date', 'check_out' => 'date|after:check_in']);
+            $dates = $availability->dateRange($validated['check_in'], $validated['check_out']);
+
+            $query->whereDoesntHave('availabilities', function ($q) use ($dates) {
+                $q->where('is_available', false)->whereIn('date', $dates);
+            });
         }
+
+        $properties = $query->orderBy('id')->limit(50)->get();
 
         return response()->json(['properties' => $properties]);
     }

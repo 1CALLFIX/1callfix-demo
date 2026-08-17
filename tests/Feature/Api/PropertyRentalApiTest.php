@@ -3,6 +3,7 @@
 namespace Tests\Feature\Api;
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Tests\Feature\Support\BookingFixtureHelpers;
 use Tests\Feature\Support\PropertyRentalFixtureHelpers;
 use Tests\TestCase;
@@ -114,6 +115,66 @@ class PropertyRentalApiTest extends TestCase
         $this->actingAs($otherCustomer, 'sanctum')
             ->getJson("/api/reservations/{$scenario['reservation']->id}")
             ->assertStatus(404);
+    }
+
+    /**
+     * Phase 23.1 hardening regression. Before the fix, `index()` fetched
+     * only the first 50 properties by id, THEN filtered availability in
+     * memory -- so a property outside that window could never surface even
+     * when it was the only one actually free for the requested dates. Here,
+     * the first 50-by-id property is booked for the requested range and a
+     * later-id property is free -- the free one must still be returned.
+     */
+    public function test_date_filtered_search_finds_an_available_property_outside_the_first_page_window(): void
+    {
+        [$country, $city, $franchise, $zone] = $this->makeFranchiseTree();
+        $this->activateCarRentalFor($franchise);
+        $customer = $this->makeCustomer();
+
+        $bookedProperty = $this->makeProperty($franchise, $zone);
+        for ($i = 0; $i < 49; $i++) {
+            $this->makeProperty($franchise, $zone);
+        }
+        $freeProperty = $this->makeProperty($franchise, $zone);
+
+        app(\App\Actions\CreatePropertyReservationAction::class)->execute([
+            'franchise_id' => $franchise->id, 'zone_id' => $zone->id, 'customer_id' => $customer->id,
+            'property_id' => $bookedProperty->id,
+            'check_in_date' => now()->addDays(3)->toDateString(), 'check_out_date' => now()->addDays(6)->toDateString(),
+        ]);
+
+        $response = $this->getJson('/api/properties?check_in='.now()->addDays(4)->toDateString().'&check_out='.now()->addDays(5)->toDateString())
+            ->assertOk();
+
+        $ids = collect($response->json('properties'))->pluck('id');
+        $this->assertTrue($ids->contains($freeProperty->id), 'The available property must be found even though it is outside the first 50-by-id window.');
+        $this->assertFalse($ids->contains($bookedProperty->id), 'The booked property must be excluded.');
+    }
+
+    /** Phase 23.1 hardening regression -- date-filtered search must not run one availability query per candidate property. */
+    public function test_date_filtered_search_does_not_n_plus_one(): void
+    {
+        [$country, $city, $franchise, $zone] = $this->makeFranchiseTree();
+        $this->makeProperty($franchise, $zone);
+        $this->makeProperty($franchise, $zone);
+
+        DB::enableQueryLog();
+        DB::flushQueryLog();
+        $this->getJson('/api/properties?check_in='.now()->addDays(4)->toDateString().'&check_out='.now()->addDays(5)->toDateString())->assertOk();
+        $few = count(DB::getQueryLog());
+        DB::flushQueryLog();
+
+        $this->makeProperty($franchise, $zone);
+        $this->makeProperty($franchise, $zone);
+        $this->makeProperty($franchise, $zone);
+        DB::flushQueryLog();
+
+        $this->getJson('/api/properties?check_in='.now()->addDays(4)->toDateString().'&check_out='.now()->addDays(5)->toDateString())->assertOk();
+        $many = count(DB::getQueryLog());
+        DB::flushQueryLog();
+        DB::disableQueryLog();
+
+        $this->assertSame($few, $many, 'Query count must not grow with the number of candidate properties.');
     }
 
     public function test_mine_only_returns_the_callers_own_reservations(): void
