@@ -5,6 +5,7 @@ namespace Tests\Feature\Taxi;
 use App\Livewire\TaxiRides\Manage as TaxiRidesManage;
 use Livewire\Livewire;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Queue;
 use Tests\Feature\Rbac\RbacTestHelpers;
 use Tests\Feature\Support\BookingFixtureHelpers;
 use Tests\Feature\Support\TaxiRideFixtureHelpers;
@@ -63,6 +64,58 @@ class TaxiRidesAuthorizationTest extends TestCase
 
         $this->assertTrue($rides->contains('id', $mine['ride']->id));
         $this->assertFalse($rides->contains('id', $other['ride']->id));
+    }
+
+    /** Same bug class as ParcelOrdersAuthorizationTest's createOrder coverage -- see that test's docblock. */
+    public function test_create_ride_denied_for_a_different_franchises_zone(): void
+    {
+        // Queue::fake() -- see ParcelOrdersAuthorizationTest's identical
+        // note; createRide() dispatches a real TaxiDispatchJob on success,
+        // which self-requeues with a real elapsed delay when no eligible
+        // drivers exist, under this suite's QUEUE_CONNECTION=sync driver.
+        Queue::fake();
+
+        [$country, $city, $franchise, $zone] = $this->makeFranchiseTree();
+        $this->activateTaxiFor($franchise);
+        $other = $this->makeTaxiRideScenario('requested');
+        $customer = $this->makeCustomer();
+
+        $actor = $this->makeUserWithPermission('taxi_rides.view', 'franchise', $franchise->id);
+
+        Livewire::actingAs($actor)->test(TaxiRidesManage::class)
+            ->set('selectedCustomerId', $customer->id)
+            ->set('selectedZoneId', $other['zone']->id)
+            ->set('pickupAddressLine', 'Pickup')
+            ->set('pickupLat', 1.0)
+            ->set('pickupLng', 1.0)
+            ->set('paymentMethod', 'cash')
+            ->call('createRide', app(\App\Actions\CreateTaxiRideAction::class))
+            ->assertHasErrors('selectedZoneId');
+
+        $this->assertDatabaseMissing('taxi_rides', ['zone_id' => $other['zone']->id, 'customer_id' => $customer->id]);
+    }
+
+    public function test_create_ride_allowed_within_own_franchise_scope(): void
+    {
+        Queue::fake(); // see test_create_ride_denied_for_a_different_franchises_zone's own docblock
+
+        [$country, $city, $franchise, $zone] = $this->makeFranchiseTree();
+        $this->activateTaxiFor($franchise);
+        $customer = $this->makeCustomer();
+
+        $actor = $this->makeUserWithPermission('taxi_rides.view', 'franchise', $franchise->id);
+
+        Livewire::actingAs($actor)->test(TaxiRidesManage::class)
+            ->set('selectedCustomerId', $customer->id)
+            ->set('selectedZoneId', $zone->id)
+            ->set('pickupAddressLine', 'Pickup')
+            ->set('pickupLat', 1.0)
+            ->set('pickupLng', 1.0)
+            ->set('paymentMethod', 'cash')
+            ->call('createRide', app(\App\Actions\CreateTaxiRideAction::class))
+            ->assertHasNoErrors();
+
+        $this->assertDatabaseHas('taxi_rides', ['zone_id' => $zone->id, 'customer_id' => $customer->id]);
     }
 
     public function test_cancel_action_requires_taxi_rides_cancel_permission(): void
