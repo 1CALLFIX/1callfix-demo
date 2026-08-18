@@ -107,6 +107,22 @@ Route::middleware(['auth:sanctum', \App\Http\Middleware\EnsureNotInMaintenanceMo
     Route::put('/addresses/{addressId}', [\App\Http\Controllers\API\AddressController::class, 'update']);
     Route::delete('/addresses/{addressId}', [\App\Http\Controllers\API\AddressController::class, 'destroy']);
 
+    // P1 CUSTOMER PARCEL API -- static segments ('quote', 'mine') registered
+    // before the dynamic '{parcelOrderId}' route, same reasoning as
+    // '/bookings/mine' above.
+    Route::post('/parcel-orders/quote', [\App\Http\Controllers\API\ParcelOrderController::class, 'quote']);
+    Route::post('/parcel-orders', [\App\Http\Controllers\API\ParcelOrderController::class, 'store']);
+    Route::get('/parcel-orders/mine', [\App\Http\Controllers\API\ParcelOrderController::class, 'mine']);
+    Route::get('/parcel-orders/{parcelOrderId}', [\App\Http\Controllers\API\ParcelOrderController::class, 'show']);
+    Route::post('/parcel-orders/{parcelOrderId}/cancel', [\App\Http\Controllers\API\ParcelOrderController::class, 'cancel']);
+
+    // P1 CUSTOMER TAXI API -- same static-before-dynamic ordering.
+    Route::post('/taxi-rides/quote', [\App\Http\Controllers\API\TaxiRideController::class, 'quote']);
+    Route::post('/taxi-rides', [\App\Http\Controllers\API\TaxiRideController::class, 'store']);
+    Route::get('/taxi-rides/mine', [\App\Http\Controllers\API\TaxiRideController::class, 'mine']);
+    Route::get('/taxi-rides/{taxiRideId}', [\App\Http\Controllers\API\TaxiRideController::class, 'show']);
+    Route::post('/taxi-rides/{taxiRideId}/cancel', [\App\Http\Controllers\API\TaxiRideController::class, 'cancel']);
+
     Route::post('/bookings/{booking}/accept', [\App\Http\Controllers\API\DispatchController::class, 'accept']);
     Route::post('/bookings/{booking}/complete', [\App\Http\Controllers\API\DispatchController::class, 'complete']);
     Route::post('/bookings/{booking}/pay/create-order', [\App\Http\Controllers\API\PaymentController::class, 'createOrder']);

@@ -92,8 +92,16 @@ class CreateParcelOrderAction
      * this codebase's own compensation/tip rates already established —
      * a real parcel order costs exactly `parcel.base_fare` (flat) until an
      * admin actually configures per-kg pricing, never a guessed number.
+     *
+     * Public (P1 Customer Parcel API) so `ParcelOrderController`'s own
+     * `POST /parcel-orders/quote` preview endpoint can compute the exact
+     * same number a real `execute()` call would charge, without a second
+     * pricing implementation — `isset($data['price_quoted'])` still lets
+     * an already-trusted internal caller (none exist today) override it,
+     * but ParcelOrderController never populates that key from client
+     * input, so a customer can never reach this branch.
      */
-    private function quote(array $data, array $scope): float
+    public function quote(array $data, array $scope): float
     {
         if (isset($data['price_quoted'])) {
             return (float) $data['price_quoted'];
