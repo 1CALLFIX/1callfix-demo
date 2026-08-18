@@ -80,8 +80,13 @@ class CreateTaxiRideAction
      * (that's what dispatch/the trip itself determines) — this quotes a
      * flat base fare only; a real per-km/per-min model is a genuine
      * future business decision, not guessed here.
+     *
+     * Public (P1 Customer Taxi API) — same reasoning as
+     * `CreateParcelOrderAction::quote()`'s own docblock: one real pricing
+     * implementation, reused by both the `POST /taxi-rides/quote` preview
+     * endpoint and `execute()` itself.
      */
-    private function quote(array $data, array $scope): float
+    public function quote(array $data, array $scope): float
     {
         if (isset($data['price_quoted'])) {
             return (float) $data['price_quoted'];
