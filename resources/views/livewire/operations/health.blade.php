@@ -185,6 +185,59 @@
         </div>
     </x-ui.card>
 
+    {{-- Dispatch health -- Parcel/Taxi/Marketplace (same dispatch_attempts table, polymorphic dispatchable, previously invisible here) --}}
+    <x-ui.card title="Dispatch health — Parcel / Taxi / Marketplace" class="mb-6">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+            <div>
+                <div class="font-medium text-gray-700 mb-2">Stale offers ({{ $dispatchHealth['stale_order_offer_count'] }})</div>
+                @forelse ($dispatchHealth['stale_order_offers'] as $attempt)
+                    @php($order = $attempt->dispatchable)
+                    @php($orderRoute = match (get_class($order)) {
+                        \App\Models\ParcelOrder::class => 'admin.parcel-orders.index',
+                        \App\Models\TaxiRide::class => 'admin.taxi-rides.index',
+                        \App\Models\MarketplaceOrder::class => 'admin.marketplace-orders.index',
+                        default => null,
+                    })
+                    @php($orderLabel = match (get_class($order)) {
+                        \App\Models\ParcelOrder::class => 'Parcel',
+                        \App\Models\TaxiRide::class => 'Taxi',
+                        \App\Models\MarketplaceOrder::class => 'Marketplace',
+                        default => 'Order',
+                    })
+                    <div class="text-xs text-gray-500 border-t py-1.5">
+                        <a href="{{ $orderRoute ? route($orderRoute) : '#' }}" class="text-blue-600 hover:underline">{{ $orderLabel }} {{ $order->code ?? '#'.$attempt->dispatchable_id }}</a>
+                        — offered to {{ $attempt->notifiable->user->name ?? 'Unknown worker' }} at {{ app(\App\Services\TimezoneResolver::class)->format($attempt->notified_at, $order?->franchise, 'd M, h:i A') }}
+                    </div>
+                @empty
+                    <div class="text-xs text-gray-400">None.</div>
+                @endforelse
+            </div>
+            <div>
+                <div class="font-medium text-gray-700 mb-2">Exhausted orders ({{ $dispatchHealth['exhausted_order_count'] }})</div>
+                @forelse ($dispatchHealth['exhausted_orders'] as $order)
+                    @php($orderRoute = match (get_class($order)) {
+                        \App\Models\ParcelOrder::class => 'admin.parcel-orders.index',
+                        \App\Models\TaxiRide::class => 'admin.taxi-rides.index',
+                        \App\Models\MarketplaceOrder::class => 'admin.marketplace-orders.index',
+                        default => null,
+                    })
+                    @php($orderLabel = match (get_class($order)) {
+                        \App\Models\ParcelOrder::class => 'Parcel',
+                        \App\Models\TaxiRide::class => 'Taxi',
+                        \App\Models\MarketplaceOrder::class => 'Marketplace',
+                        default => 'Order',
+                    })
+                    <div class="text-xs text-gray-500 border-t py-1.5">
+                        <a href="{{ $orderRoute ? route($orderRoute) : '#' }}" class="text-blue-600 hover:underline">{{ $orderLabel }} {{ $order->code ?? '#'.$order->id }}</a>
+                        — {{ $order->customer->name ?? 'Unknown customer' }}, no workers currently available
+                    </div>
+                @empty
+                    <div class="text-xs text-gray-400">None.</div>
+                @endforelse
+            </div>
+        </div>
+    </x-ui.card>
+
     {{-- Stuck bookings --}}
     <x-ui.table class="mb-6">
         <x-slot:header>
