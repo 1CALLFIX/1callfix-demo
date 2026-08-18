@@ -91,7 +91,22 @@ class Manage extends Component
             'lng' => 'required|numeric',
         ]);
 
-        $zone = Zone::findOrFail($this->zoneId);
+        $zone = Zone::with('franchise')->findOrFail($this->zoneId);
+
+        // Same gap as the other catalog Manage screens -- the zones dropdown
+        // is unscoped, so a zone-scoped actor holding accommodations.manage
+        // only in Zone A could otherwise create an accommodation under any
+        // other zone/franchise platform-wide. edit/saveEdit and the nested
+        // room-type/rate-plan creators were already safe (they all resolve
+        // through scopedAccommodationsQuery()->find(), which 404s
+        // out-of-scope); create had no check.
+        if (! auth()->user()->hasPermission('accommodations.manage', [
+            'zone_id' => $zone->id, 'franchise_id' => $zone->franchise_id,
+            'city_id' => $zone->franchise?->city_id, 'country_id' => $zone->franchise?->country_id,
+        ])) {
+            $this->addError('zoneId', 'You do not have permission to create an accommodation in this zone.');
+            return;
+        }
 
         Accommodation::create([
             'provider_id' => $this->providerId, 'accommodation_type_id' => $this->accommodationTypeId,

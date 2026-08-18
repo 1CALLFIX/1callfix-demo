@@ -65,7 +65,23 @@ class Manage extends Component
             'pricingUnit' => 'required|in:hourly,daily,weekly,monthly',
         ]);
 
-        $zone = Zone::findOrFail($this->zoneId);
+        $zone = Zone::with('franchise')->findOrFail($this->zoneId);
+
+        // The zones dropdown is deliberately unscoped (same convention as
+        // Franchises' Country/City selects), so mount()'s any-scope gate
+        // alone isn't enough here -- a zone-scoped actor holding
+        // vehicles.manage only in Zone A could otherwise create a vehicle
+        // under any other zone/franchise platform-wide just by picking a
+        // different option. edit/saveEdit were already safe (they fetch via
+        // scopedVehiclesQuery()->find(), which 404s out-of-scope) -- this
+        // was the one write path with no scope check at all.
+        if (! auth()->user()->hasPermission('vehicles.manage', [
+            'zone_id' => $zone->id, 'franchise_id' => $zone->franchise_id,
+            'city_id' => $zone->franchise?->city_id, 'country_id' => $zone->franchise?->country_id,
+        ])) {
+            $this->addError('zoneId', 'You do not have permission to create a vehicle in this zone.');
+            return;
+        }
 
         Vehicle::create([
             'provider_id' => $this->providerId, 'vehicle_category_id' => $this->vehicleCategoryId,

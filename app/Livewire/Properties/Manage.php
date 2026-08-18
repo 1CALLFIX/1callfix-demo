@@ -70,7 +70,20 @@ class Manage extends Component
             'basePrice' => 'required|numeric|min:0',
         ]);
 
-        $zone = Zone::findOrFail($this->zoneId);
+        $zone = Zone::with('franchise')->findOrFail($this->zoneId);
+
+        // Same gap Vehicles/Equipment\Manage had -- the zones dropdown is
+        // unscoped, so a zone-scoped actor holding properties.manage only in
+        // Zone A could otherwise create a property under any other
+        // zone/franchise platform-wide. edit/saveEdit were already safe
+        // (scopedPropertiesQuery() 404s out-of-scope); create had no check.
+        if (! auth()->user()->hasPermission('properties.manage', [
+            'zone_id' => $zone->id, 'franchise_id' => $zone->franchise_id,
+            'city_id' => $zone->franchise?->city_id, 'country_id' => $zone->franchise?->country_id,
+        ])) {
+            $this->addError('zoneId', 'You do not have permission to create a property in this zone.');
+            return;
+        }
 
         Property::create([
             'provider_id' => $this->providerId, 'property_type_id' => $this->propertyTypeId,

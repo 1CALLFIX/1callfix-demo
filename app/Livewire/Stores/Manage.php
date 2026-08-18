@@ -63,7 +63,20 @@ class Manage extends Component
             'lng' => 'required|numeric',
         ]);
 
-        $zone = Zone::findOrFail($this->zoneId);
+        $zone = Zone::with('franchise')->findOrFail($this->zoneId);
+
+        // Same gap as the other catalog Manage screens -- the zones dropdown
+        // is unscoped, so a zone-scoped actor holding stores.manage only in
+        // Zone A could otherwise create a store under any other
+        // zone/franchise platform-wide. edit/saveEdit were already safe
+        // (scopedStoresQuery() 404s out-of-scope); create had no check.
+        if (! auth()->user()->hasPermission('stores.manage', [
+            'zone_id' => $zone->id, 'franchise_id' => $zone->franchise_id,
+            'city_id' => $zone->franchise?->city_id, 'country_id' => $zone->franchise?->country_id,
+        ])) {
+            $this->addError('zoneId', 'You do not have permission to create a store in this zone.');
+            return;
+        }
 
         Store::create([
             'provider_id' => $this->providerId, 'franchise_id' => $zone->franchise_id, 'zone_id' => $zone->id,

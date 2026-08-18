@@ -50,6 +50,37 @@ class PropertyRentalAuthorizationTest extends TestCase
         $this->assertFalse($properties->contains('id', $other->id));
     }
 
+    /**
+     * Admin Command Center mission (Security audit) — createProperty() had
+     * no scope check at all: the zones dropdown is unscoped, so a
+     * franchise-scoped actor could create a property under a completely
+     * different franchise just by picking its zone. edit/saveEdit were
+     * already safe (scopedPropertiesQuery() 404s out-of-scope).
+     */
+    public function test_properties_create_denied_for_a_different_franchises_zone(): void
+    {
+        [$country, $city, $franchise, $zone] = $this->makeFranchiseTree();
+        $other = $this->makePropertyReservationScenario();
+        $type = $this->makePropertyType();
+        $owner = $this->makePropertyOwner($franchise, $zone);
+
+        $actor = $this->makeUserWithPermission('properties.manage', 'franchise', $franchise->id);
+
+        Livewire::actingAs($actor)->test(PropertiesManage::class)
+            ->set('providerId', $owner->id)
+            ->set('propertyTypeId', $type->id)
+            ->set('zoneId', $other['zone']->id)
+            ->set('name', 'Cross-Scope Attempt')
+            ->set('addressLine', '1 Nowhere St')
+            ->set('lat', 1.0)
+            ->set('lng', 1.0)
+            ->set('basePrice', '500')
+            ->call('createProperty')
+            ->assertHasErrors('zoneId');
+
+        $this->assertDatabaseMissing('properties', ['zone_id' => $other['zone']->id, 'name' => 'Cross-Scope Attempt']);
+    }
+
     // ============================== PropertyReservations\Manage ==============================
 
     public function test_reservations_denied_without_permission(): void

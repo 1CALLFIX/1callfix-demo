@@ -63,6 +63,36 @@ class HotelAuthorizationTest extends TestCase
             ->assertStatus(404);
     }
 
+    /**
+     * Admin Command Center mission (Security audit) — createAccommodation()
+     * had no scope check at all: the zones dropdown is unscoped, so a
+     * franchise-scoped actor could create an accommodation under a
+     * completely different franchise just by picking its zone. edit/saveEdit
+     * and the nested room-type/rate-plan creators were already safe.
+     */
+    public function test_accommodations_create_denied_for_a_different_franchises_zone(): void
+    {
+        [$country, $city, $franchise, $zone] = $this->makeFranchiseTree();
+        $other = $this->makeHotelReservationScenario();
+        $type = $this->makeAccommodationType();
+        $owner = $this->makeAccommodationOwner($franchise, $zone);
+
+        $actor = $this->makeUserWithPermission('accommodations.manage', 'franchise', $franchise->id);
+
+        Livewire::actingAs($actor)->test(AccommodationsManage::class)
+            ->set('providerId', $owner->id)
+            ->set('accommodationTypeId', $type->id)
+            ->set('zoneId', $other['zone']->id)
+            ->set('name', 'Cross-Scope Attempt')
+            ->set('addressLine', '1 Nowhere St')
+            ->set('lat', 1.0)
+            ->set('lng', 1.0)
+            ->call('createAccommodation')
+            ->assertHasErrors('zoneId');
+
+        $this->assertDatabaseMissing('accommodations', ['zone_id' => $other['zone']->id, 'name' => 'Cross-Scope Attempt']);
+    }
+
     // ============================== HotelReservations\Manage ==============================
 
     public function test_reservations_denied_without_permission(): void
