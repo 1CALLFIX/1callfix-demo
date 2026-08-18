@@ -19,6 +19,7 @@
                 <label class="block text-xs font-medium mb-1">Payee type</label>
                 <select wire:model.live="payeeType" class="w-full border rounded px-3 py-2 text-sm">
                     <option value="provider">Provider</option>
+                    <option value="field_worker">Field Worker</option>
                     <option value="franchise_owner">Franchise Owner</option>
                 </select>
             </div>

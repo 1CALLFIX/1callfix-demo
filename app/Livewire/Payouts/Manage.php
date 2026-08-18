@@ -3,6 +3,7 @@
 namespace App\Livewire\Payouts;
 
 use App\Exports\PayoutsExport;
+use App\Models\FieldWorker;
 use App\Models\PaymentAccount;
 use App\Models\Payout;
 use App\Models\Provider;
@@ -38,7 +39,7 @@ class Manage extends Component
         abort_unless(auth()->user()->hasPermissionAnywhere('payouts.manage'), 403, 'You do not have permission to view payouts.');
     }
 
-    public string $payeeType = 'provider'; // provider|franchise_owner
+    public string $payeeType = 'provider'; // provider|field_worker|franchise_owner
     public string $payeeSearch = '';
     public ?int $selectedPayeeId = null;
     public string $selectedPayeeLabel = '';
@@ -68,6 +69,13 @@ class Manage extends Component
                 ->whereHas('user', fn ($q) => $q->where('name', 'like', "%{$this->payeeSearch}%")->orWhere('phone', 'like', "%{$this->payeeSearch}%"))
                 ->limit(8)->get()
                 ->map(fn ($p) => ['id' => $p->id, 'label' => ($p->user->name ?? 'Provider #'.$p->id).' — '.($p->user->phone ?? '—')]);
+        }
+
+        if ($this->payeeType === 'field_worker') {
+            return FieldWorker::with('user')
+                ->whereHas('user', fn ($q) => $q->where('name', 'like', "%{$this->payeeSearch}%")->orWhere('phone', 'like', "%{$this->payeeSearch}%"))
+                ->limit(8)->get()
+                ->map(fn ($w) => ['id' => $w->id, 'label' => ($w->user->name ?? 'Worker #'.$w->id).' — '.($w->user->phone ?? '—')]);
         }
 
         return User::where('name', 'like', "%{$this->payeeSearch}%")
@@ -250,6 +258,11 @@ class Manage extends Component
         if ($payout->payee_type === 'provider') {
             $p = Provider::with('user')->find($payout->payee_id);
             return $p ? ($p->user->name ?? 'Provider #'.$p->id).' (provider)' : 'Provider #'.$payout->payee_id.' (provider)';
+        }
+
+        if ($payout->payee_type === 'field_worker') {
+            $w = FieldWorker::with('user')->find($payout->payee_id);
+            return $w ? ($w->user->name ?? 'Worker #'.$w->id).' (field worker)' : 'Worker #'.$payout->payee_id.' (field worker)';
         }
 
         $u = User::find($payout->payee_id);
