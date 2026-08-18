@@ -7,6 +7,7 @@ use App\Models\Country;
 use App\Models\Franchise;
 use App\Models\Module;
 use App\Models\Zone;
+use App\Services\ActivityLogger;
 use App\Services\ModuleActivationService;
 use Livewire\Component;
 
@@ -154,14 +155,35 @@ class Manage extends Component
         }
 
         $current = app(ModuleActivationService::class)->isActive($moduleCode, $this->resolvedScope());
+        $newValue = ! $current;
 
-        app(ModuleActivationService::class)->setActive(
+        $activation = app(ModuleActivationService::class)->setActive(
             $moduleCode,
             $this->scopeLevel,
             $this->scopeId,
-            ! $current,
+            $newValue,
             auth()->id()
         );
+
+        // Module activation can turn an entire vertical on/off for a whole
+        // geography -- one of the most consequential mutations in the
+        // admin panel, yet `module_activations` only ever retains the
+        // MOST RECENT actor (created_by_user_id is overwritten on every
+        // toggle by ModuleActivationService::setActive()'s own
+        // updateOrCreate, despite its name). ActivityLog already exists
+        // and is this codebase's own established pattern for auditing
+        // exactly this kind of admin mutation (see Operations\Health's
+        // retryJob/discardJob/reprocessWebhook) -- wired in here so a full
+        // append-only history of every activation change (who, when,
+        // module, scope, before/after) survives the next toggle instead of
+        // being silently overwritten.
+        ActivityLogger::logModel(auth()->user(), $activation, "Module '{$moduleCode}' ".($newValue ? 'activated' : 'deactivated')." for {$this->scopeLevel} #{$this->scopeId}", [
+            'module_code' => $moduleCode,
+            'scope_type' => $this->scopeLevel,
+            'scope_id' => $this->scopeId,
+            'was_active' => $current,
+            'is_active' => $newValue,
+        ]);
     }
 
     public function render()

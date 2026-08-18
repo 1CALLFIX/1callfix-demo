@@ -4,6 +4,7 @@ namespace App\Livewire\Operations;
 
 use App\Contracts\PushAdapter;
 use App\Contracts\SmsAdapter;
+use App\Models\ActivityLog;
 use App\Models\NotificationLog;
 use App\Models\PaymentWebhookLog;
 use App\Models\ScheduledTaskRun;
@@ -199,6 +200,17 @@ class Health extends Component
 
         $scheduledTaskRuns = ScheduledTaskRun::latest('created_at')->limit(30)->get();
 
+        // ActivityLog has existed since Phase P3 and was wired into every
+        // Operations mutation (this session added Modules\Manage::toggle())
+        // but was write-only -- no admin screen anywhere displayed it, so
+        // the audit trail nobody could see was barely more useful than no
+        // audit trail at all. Global (not franchise-scoped), same as the
+        // rest of this screen -- operations.view/manage are already
+        // super-admin-only-by-default permissions, and a causer's own
+        // actions can span multiple franchises' data, so there's no single
+        // owning franchise to scope a log row to.
+        $activityLogs = ActivityLog::with('causer')->latest('id')->paginate(15, ['*'], 'activityLogPage');
+
         return view('livewire.operations.health', [
             'failedJobs' => $failedJobs,
             'failedJobsCount' => DB::table('failed_jobs')->count(),
@@ -212,6 +224,8 @@ class Health extends Component
             'scheduledTaskRuns' => $scheduledTaskRuns,
             'webhookLogs' => $webhookLogs,
             'webhookLogsCount' => PaymentWebhookLog::count(),
+            'activityLogs' => $activityLogs,
+            'activityLogsCount' => ActivityLog::count(),
             'currencySymbol' => Setting::get('locale.currency_symbol', '₹'),
         ])->layout('layouts.admin', ['title' => 'Operations']);
     }

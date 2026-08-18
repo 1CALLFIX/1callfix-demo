@@ -356,4 +356,33 @@
             @endforelse
         </tbody>
     </x-ui.table>
+
+    {{-- Activity log -- the audit trail every consequential Operations mutation (and, as of this session, Modules\Manage's activation toggle) already writes to, made visible for the first time. --}}
+    <x-ui.table class="mt-6">
+        <x-slot:header>
+            <h2 class="text-sm font-semibold text-gray-500 uppercase">Activity log ({{ $activityLogsCount }})</h2>
+        </x-slot:header>
+        <x-slot:footer>{{ $activityLogs->links() }}</x-slot:footer>
+
+        <thead class="bg-gray-50 text-left text-gray-500">
+            <tr>
+                <th class="px-4 py-2">When</th>
+                <th class="px-4 py-2">Actor</th>
+                <th class="px-4 py-2">Subject</th>
+                <th class="px-4 py-2">Description</th>
+            </tr>
+        </thead>
+        <tbody>
+            @forelse ($activityLogs as $log)
+                <tr class="border-t hover:bg-gray-50">
+                    <td class="px-4 py-2 text-gray-500 whitespace-nowrap">{{ $log->created_at?->format('d M Y, h:i A') }}</td>
+                    <td class="px-4 py-2">{{ $log->causer->name ?? 'System' }}</td>
+                    <td class="px-4 py-2 text-gray-500 font-mono text-xs">{{ class_basename($log->subject_type) }} #{{ $log->subject_id }}</td>
+                    <td class="px-4 py-2">{{ $log->description }}</td>
+                </tr>
+            @empty
+                <tr><td colspan="4" class="px-4 py-6 text-center text-gray-400">No activity logged yet.</td></tr>
+            @endforelse
+        </tbody>
+    </x-ui.table>
 </div>

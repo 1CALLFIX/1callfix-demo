@@ -3,6 +3,7 @@
 namespace Tests\Feature\Modules;
 
 use App\Livewire\Modules\Manage as ModulesManage;
+use App\Models\ActivityLog;
 use App\Models\ModuleActivation;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
@@ -76,6 +77,48 @@ class ModulesScreenAuthorizationTest extends TestCase
 
         $this->assertNotNull($row);
         $this->assertFalse($row->is_active);
+    }
+
+    /**
+     * Admin Command Center mission (Phase 1 audit finding) — toggle() wrote
+     * only to module_activations, which retains just the MOST RECENT actor
+     * (created_by_user_id is overwritten on every call); no history of
+     * prior activation changes survived. Wired into ActivityLog, this
+     * codebase's own established pattern for auditing consequential admin
+     * mutations (see OperationsHealthTest's equivalent coverage).
+     */
+    public function test_toggle_writes_an_activity_log_entry(): void
+    {
+        $actor = $this->makeSuperAdmin();
+        $franchise = $this->makeFranchise();
+
+        Livewire::actingAs($actor)->test(ModulesManage::class)
+            ->set('scopeLevel', 'franchise')
+            ->set('scopeId', $franchise->id)
+            ->call('toggle', 'service');
+
+        $log = ActivityLog::where('subject_type', ModuleActivation::class)->latest('id')->first();
+
+        $this->assertNotNull($log);
+        $this->assertSame($actor->id, $log->causer_id);
+        $this->assertSame('service', $log->properties['module_code']);
+        $this->assertSame('franchise', $log->properties['scope_type']);
+        $this->assertSame($franchise->id, $log->properties['scope_id']);
+        $this->assertTrue($log->properties['was_active']);
+        $this->assertFalse($log->properties['is_active']);
+    }
+
+    public function test_toggling_an_unimplemented_module_writes_no_activity_log(): void
+    {
+        $actor = $this->makeSuperAdmin();
+        $franchise = $this->makeFranchise();
+
+        Livewire::actingAs($actor)->test(ModulesManage::class)
+            ->set('scopeLevel', 'franchise')
+            ->set('scopeId', $franchise->id)
+            ->call('toggle', 'food');
+
+        $this->assertSame(0, ActivityLog::where('subject_type', ModuleActivation::class)->count());
     }
 
     public function test_toggle_action_itself_is_permission_gated(): void
