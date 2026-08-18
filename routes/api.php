@@ -78,7 +78,35 @@ Route::get('/stores/{storeId}', [\App\Http\Controllers\API\StoreController::clas
 Route::get('/stores/{storeId}/products', [\App\Http\Controllers\API\ProductController::class, 'index']);
 Route::get('/products/{productId}', [\App\Http\Controllers\API\ProductController::class, 'show']);
 
+// P0 CUSTOMER CORE API -- Service catalog discovery. Public, same reasoning
+// as every other browse endpoint above -- see ServiceCatalogController's
+// own docblock for the real `service_categories.module` filtering rule.
+Route::get('/categories', [\App\Http\Controllers\API\ServiceCatalogController::class, 'categories']);
+Route::get('/subcategories', [\App\Http\Controllers\API\ServiceCatalogController::class, 'subcategories']);
+Route::get('/services', [\App\Http\Controllers\API\ServiceCatalogController::class, 'services']);
+
 Route::middleware(['auth:sanctum', \App\Http\Middleware\EnsureNotInMaintenanceMode::class])->group(function () {
+    // P0 CUSTOMER CORE API -- Service booking creation/history/cancellation
+    // (mission items 2/3/4). Static-segment routes ('mine') registered
+    // before the dynamic '{bookingId}' routes so 'mine' is never captured
+    // as an id. See BookingController's own docblock for the real
+    // call-center-only-vs-self-service business-model note this resolves.
+    Route::post('/bookings', [\App\Http\Controllers\API\BookingController::class, 'store']);
+    Route::get('/bookings/mine', [\App\Http\Controllers\API\BookingController::class, 'mine']);
+    Route::get('/bookings/{bookingId}', [\App\Http\Controllers\API\BookingController::class, 'show']);
+    Route::post('/bookings/{bookingId}/cancel', [\App\Http\Controllers\API\BookingController::class, 'cancel']);
+
+    // P0 CUSTOMER CORE API -- Customer profile (mission item 5).
+    Route::get('/profile', [\App\Http\Controllers\API\ProfileController::class, 'show']);
+    Route::put('/profile', [\App\Http\Controllers\API\ProfileController::class, 'update']);
+
+    // P0 CUSTOMER CORE API -- Customer addresses CRUD (mission item 6).
+    Route::get('/addresses', [\App\Http\Controllers\API\AddressController::class, 'index']);
+    Route::post('/addresses', [\App\Http\Controllers\API\AddressController::class, 'store']);
+    Route::get('/addresses/{addressId}', [\App\Http\Controllers\API\AddressController::class, 'show']);
+    Route::put('/addresses/{addressId}', [\App\Http\Controllers\API\AddressController::class, 'update']);
+    Route::delete('/addresses/{addressId}', [\App\Http\Controllers\API\AddressController::class, 'destroy']);
+
     Route::post('/bookings/{booking}/accept', [\App\Http\Controllers\API\DispatchController::class, 'accept']);
     Route::post('/bookings/{booking}/complete', [\App\Http\Controllers\API\DispatchController::class, 'complete']);
     Route::post('/bookings/{booking}/pay/create-order', [\App\Http\Controllers\API\PaymentController::class, 'createOrder']);

@@ -86,4 +86,30 @@ class Setting extends Model
         static::where('scope_type', $scopeType)->where('scope_id', $scopeId)->where('key', $key)->delete();
         cache()->forget("setting:{$scopeType}:{$scopeId}:{$key}");
     }
+
+    /**
+     * Which `payment_method` values are currently enabled, in the given
+     * scope — the exact `payment.{slug}_enabled` cascade
+     * `Livewire\Bookings\Index::enabledPaymentMethods()` already established
+     * for the call-center booking form, extracted here so the Customer
+     * Booking API can apply the identical caller-side check rather than a
+     * second, possibly-drifting copy. Falls back to all three if every
+     * method were somehow disabled at once, same defensive reasoning as the
+     * original.
+     *
+     * @return array<string,string> slug => label
+     */
+    public static function enabledPaymentMethods(array $scope = []): array
+    {
+        $methods = [
+            'online' => 'Online',
+            'cash' => 'Cash',
+            'wallet' => 'Wallet',
+        ];
+
+        $enabled = array_filter($methods, fn ($label, $slug) =>
+            static::get("payment.{$slug}_enabled", '1', $scope) === '1', ARRAY_FILTER_USE_BOTH);
+
+        return $enabled ?: $methods;
+    }
 }
