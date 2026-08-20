@@ -8,6 +8,7 @@ use App\Models\Provider;
 use App\Services\AuthorizationService;
 use App\Services\Kyc\KycSupportRequestService;
 use Livewire\Component;
+use Livewire\WithPagination;
 
 /**
  * "KYC / Withdrawal Restriction Support Request" screen (mission Phase 4).
@@ -21,6 +22,8 @@ use Livewire\Component;
  */
 class SupportRequests extends Component
 {
+    use WithPagination;
+
     public ?int $providerId = null;
     public string $providerSearch = '';
     public string $reason = '';
@@ -111,18 +114,30 @@ class SupportRequests extends Component
         }
     }
 
+    /**
+     * Admin Command Center completion session, Admin UX/Performance phase
+     * (2026-08-20, same shape as item 44) -- this used to fetch the FULL
+     * table (with eager loads) via ->get(), TWICE in some branches (once
+     * for the redundant `$user->role === 'super_admin'` special case,
+     * again as visibleAmong()'s own argument -- visibleAmong() already
+     * bypasses scoping for super_admin internally, so that branch was
+     * always dead weight, not a distinct behavior), before filtering
+     * in-memory, with no pagination ever wired. KycSupportRequest carries
+     * a direct franchise_id (not the scope_type/scope_id flat pair
+     * FlashSale/Payout use), so this is a direct scopeQuery() call rather
+     * than the id-projection pattern those use -- same real database
+     * filtering + bounded pagination outcome either way.
+     */
     public function render()
     {
-        $authz = app(AuthorizationService::class);
         $user = auth()->user();
+        $permission = $user->hasPermissionAnywhere('kyc.support_requests.decide') ? 'kyc.support_requests.decide' : 'kyc.support_requests.create';
 
-        $requests = $user->hasPermissionAnywhere('kyc.support_requests.decide') && $user->role === 'super_admin'
-            ? KycSupportRequest::with(['provider.user', 'franchise.country', 'raisedBy'])->latest()->get()
-            : $authz->visibleAmong(
-                KycSupportRequest::with(['provider.user', 'franchise.country', 'raisedBy'])->latest()->get(),
-                $user,
-                $user->hasPermissionAnywhere('kyc.support_requests.decide') ? 'kyc.support_requests.decide' : 'kyc.support_requests.create',
-            );
+        $requests = app(AuthorizationService::class)
+            ->scopeQuery(KycSupportRequest::query(), $user, $permission, ['franchise_id' => 'franchise_id', 'city_id' => 'franchise.city_id', 'country_id' => 'franchise.country_id'])
+            ->with(['provider.user', 'franchise.country', 'raisedBy'])
+            ->latest()
+            ->paginate(15);
 
         return view('livewire.kyc.support-requests', [
             'requests' => $requests,
