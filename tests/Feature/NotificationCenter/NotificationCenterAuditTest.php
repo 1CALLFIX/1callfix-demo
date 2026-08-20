@@ -137,6 +137,33 @@ class NotificationCenterAuditTest extends TestCase
         $this->assertCount(1, $component->viewData('logs'));
     }
 
+    /**
+     * Admin Command Center completion session, CMS/Communication Center
+     * phase (2026-08-20) — notification.view_logs never applied row-level
+     * scope at all before this fix (same "assignable to other roles later"
+     * gap already found twice this session for operations.view/banners.manage).
+     * A franchise-scoped grant must see only logs for its own franchise's
+     * users, resolved via the polymorphic notifiable -> User -> franchise_id
+     * path.
+     */
+    public function test_logs_are_scoped_to_the_actors_own_franchise(): void
+    {
+        $myFranchise = $this->makeFranchise();
+        $otherFranchise = $this->makeFranchise();
+        $myUser = User::create(['uuid' => Str::uuid(), 'name' => 'Mine', 'phone' => '9'.fake()->unique()->numerify('#########'), 'role' => 'customer', 'status' => 'active', 'franchise_id' => $myFranchise->id]);
+        $otherUser = User::create(['uuid' => Str::uuid(), 'name' => 'Other', 'phone' => '9'.fake()->unique()->numerify('#########'), 'role' => 'customer', 'status' => 'active', 'franchise_id' => $otherFranchise->id]);
+        NotificationLog::create(['notifiable_type' => User::class, 'notifiable_id' => $myUser->id, 'channel' => 'mail', 'notification_type' => 'Test', 'event' => 'mine.sent', 'status' => 'sent', 'sent_at' => now()]);
+        NotificationLog::create(['notifiable_type' => User::class, 'notifiable_id' => $otherUser->id, 'channel' => 'mail', 'notification_type' => 'Test', 'event' => 'other.sent', 'status' => 'sent', 'sent_at' => now()]);
+
+        $actor = $this->makeUserWithPermission('notification.view', 'global');
+        $this->grantPermission($actor, 'notification.view_logs', 'franchise', $myFranchise->id);
+
+        $logs = Livewire::actingAs($actor)->test(Manage::class)->set('section', 'logs')->viewData('logs');
+
+        $this->assertTrue($logs->contains('event', 'mine.sent'));
+        $this->assertFalse($logs->contains('event', 'other.sent'));
+    }
+
     // ============================== Provider status ==============================
 
     public function test_provider_status_shows_log_fallback_by_default(): void

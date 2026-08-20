@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\FieldWorker;
 use App\Models\Franchise;
 use App\Models\PaymentAccount;
 use App\Models\Payout;
@@ -40,11 +41,17 @@ class PayoutService
     }
 
     /**
-     * @param  string  $payeeType  'provider' (payee_id = providers.id) or 'franchise_owner' (payee_id = users.id)
+     * @param  string  $payeeType  'provider' (payee_id = providers.id), 'field_worker' (payee_id =
+     *                             field_workers.id — Admin Command Center mission: CommissionService has
+     *                             credited a FieldWorker's wallet identically to a Provider's since Parcel/
+     *                             Taxi/Marketplace shipped (applyForFieldWorkerOrder() treats both as the
+     *                             same "individual earner" — see its own docblock), but this service had no
+     *                             way to turn that balance into a payout request until now), or
+     *                             'franchise_owner' (payee_id = users.id)
      */
     public function request(string $payeeType, int $payeeId, float $amount, ?int $paymentAccountId = null): Payout
     {
-        if (! in_array($payeeType, ['provider', 'franchise_owner'], true)) {
+        if (! in_array($payeeType, ['provider', 'field_worker', 'franchise_owner'], true)) {
             throw new \InvalidArgumentException("Unknown payee_type [{$payeeType}].");
         }
 
@@ -138,7 +145,14 @@ class PayoutService
     private function assertWithinPayoutLimits(string $payeeType, int $payeeId, float $amount): void
     {
         $scope = $this->payoutScope($payeeType, $payeeId);
-        $prefix = $payeeType === 'provider' ? 'wallet.provider' : 'wallet.franchise';
+        // field_worker reuses the SAME 'wallet.provider' limit namespace as
+        // provider, not a new 'wallet.field_worker' one -- both are the
+        // identical "individual earner" category CommissionService already
+        // treats interchangeably (applyForFieldWorkerOrder()'s own
+        // docblock); inventing a separate limit config for one of the two
+        // types it already unifies would be a new, unevidenced policy
+        // split, not implementing an existing one.
+        $prefix = in_array($payeeType, ['provider', 'field_worker'], true) ? 'wallet.provider' : 'wallet.franchise';
 
         $min = (float) Setting::get("{$prefix}_min_payout_amount", '0', $scope);
         $max = (float) Setting::get("{$prefix}_max_payout_amount", '0', $scope);
@@ -160,6 +174,16 @@ class PayoutService
      * the provider is genuinely overdue and holds no active exception.
      * franchise_owner payouts are NOT subject to this — the mission's own
      * 30-day/withdrawal-restriction text is Partner-specific throughout.
+     *
+     * field_worker ALSO falls through this early return today (unchanged
+     * behavior) -- FieldWorker carries its own real kyc_status column, so
+     * the same underlying risk this policy exists for plausibly applies,
+     * but no source evidence ever named FieldWorker in the original
+     * 30-day-restriction policy text the way it explicitly named Partner.
+     * Extending the restriction here would be inventing a policy
+     * extension, not implementing an evidenced one -- left as a real,
+     * open, business-decision-blocked question, same discipline this
+     * codebase applies everywhere else (see KNOWN_RISKS_AND_DECISIONS.md).
      */
     private function assertKycWithdrawalAllowed(string $payeeType, int $payeeId): void
     {
@@ -217,6 +241,19 @@ class PayoutService
             ]) : [];
         }
 
+        // Same shape as the provider branch above -- FieldWorker carries
+        // the identical zone_id/franchise_id columns Provider does.
+        if ($payeeType === 'field_worker') {
+            $worker = FieldWorker::with('franchise')->find($payeeId);
+
+            return $worker ? array_filter([
+                'zone_id' => $worker->zone_id,
+                'franchise_id' => $worker->franchise_id,
+                'city_id' => $worker->franchise?->city_id,
+                'country_id' => $worker->franchise?->country_id,
+            ]) : [];
+        }
+
         $franchise = Franchise::where('owner_user_id', $payeeId)->first();
 
         return $franchise ? array_filter([
@@ -231,6 +268,8 @@ class PayoutService
         return match ($payeeType) {
             'provider' => Provider::findOrFail($payeeId)->user
                 ?? throw new \RuntimeException("Provider #{$payeeId} has no linked user."),
+            'field_worker' => FieldWorker::findOrFail($payeeId)->user
+                ?? throw new \RuntimeException("FieldWorker #{$payeeId} has no linked user."),
             'franchise_owner' => User::findOrFail($payeeId),
             default => throw new \InvalidArgumentException("Unknown payee_type [{$payeeType}]."),
         };

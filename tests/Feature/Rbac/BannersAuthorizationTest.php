@@ -118,4 +118,44 @@ class BannersAuthorizationTest extends TestCase
 
         $this->assertDatabaseHas('banners', ['id' => $banner->id]);
     }
+
+    /**
+     * Admin Command Center completion session, Growth Command Center phase
+     * (2026-08-20) — render() never applied row-level scope at all (write
+     * actions above were already correctly scoped, this closes the
+     * read-only list-visibility gap). A franchise-scoped grant must see
+     * its own franchise's targeted banners, a platform-wide (null
+     * franchise_id) banner since that runs everywhere too, but not another
+     * franchise's specifically-targeted banner.
+     */
+    public function test_franchise_scoped_grant_sees_own_franchise_and_global_banners_but_not_another_franchises(): void
+    {
+        $mine = $this->makeFranchise();
+        $other = $this->makeFranchise();
+
+        Banner::create(['title' => 'Mine', 'image' => 'banners/mine.png', 'placement' => 'top', 'is_active' => true, 'sort_order' => 1, 'franchise_id' => $mine->id]);
+        Banner::create(['title' => 'Other Franchise', 'image' => 'banners/other.png', 'placement' => 'top', 'is_active' => true, 'sort_order' => 1, 'franchise_id' => $other->id]);
+        Banner::create(['title' => 'Global', 'image' => 'banners/global.png', 'placement' => 'top', 'is_active' => true, 'sort_order' => 1]);
+
+        $actor = $this->makeUserWithPermission('banners.manage', 'franchise', $mine->id);
+
+        Livewire::actingAs($actor)->test(Manage::class)
+            ->assertSee('Mine')
+            ->assertSee('Global')
+            ->assertDontSee('Other Franchise');
+    }
+
+    public function test_global_scoped_grant_sees_every_franchises_banners(): void
+    {
+        $a = $this->makeFranchise();
+        $b = $this->makeFranchise();
+        Banner::create(['title' => 'Franchise A Banner', 'image' => 'banners/a.png', 'placement' => 'top', 'is_active' => true, 'sort_order' => 1, 'franchise_id' => $a->id]);
+        Banner::create(['title' => 'Franchise B Banner', 'image' => 'banners/b.png', 'placement' => 'top', 'is_active' => true, 'sort_order' => 1, 'franchise_id' => $b->id]);
+
+        $actor = $this->makeUserWithPermission('banners.manage', 'global');
+
+        Livewire::actingAs($actor)->test(Manage::class)
+            ->assertSee('Franchise A Banner')
+            ->assertSee('Franchise B Banner');
+    }
 }

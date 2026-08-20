@@ -40,15 +40,25 @@
         </x-ui.card>
     </div>
 
+    {{--
+        x-ui.card is always a plain <div> (no tag/href prop) -- cards that
+        should be clickable are wrapped in a real <a> here rather than
+        trying to make the shared component polymorphic for one screen.
+    --}}
+    @php($linkOrDiv = fn ($href) => $href ? 'a' : 'div')
     <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-        <x-ui.card>
-            <div class="text-sm text-gray-500">Bookings Today</div>
-            <div class="text-2xl font-bold">{{ $stats['bookings_today'] }}</div>
-        </x-ui.card>
-        <x-ui.card>
-            <div class="text-sm text-gray-500">Active Now</div>
-            <div class="text-2xl font-bold text-amber-600">{{ $stats['active_bookings'] }}</div>
-        </x-ui.card>
+        <{{ $linkOrDiv($links['bookings']) }} @if($links['bookings']) href="{{ $links['bookings'] }}" @endif class="block">
+            <x-ui.card class="{{ $links['bookings'] ? 'hover:shadow-md transition' : '' }}">
+                <div class="text-sm text-gray-500">Bookings Today</div>
+                <div class="text-2xl font-bold">{{ $stats['bookings_today'] }}</div>
+            </x-ui.card>
+        </{{ $linkOrDiv($links['bookings']) }}>
+        <{{ $linkOrDiv($links['bookings']) }} @if($links['bookings']) href="{{ $links['bookings'] }}" @endif class="block">
+            <x-ui.card class="{{ $links['bookings'] ? 'hover:shadow-md transition' : '' }}">
+                <div class="text-sm text-gray-500">Active Now</div>
+                <div class="text-2xl font-bold text-amber-600">{{ $stats['active_bookings'] }}</div>
+            </x-ui.card>
+        </{{ $linkOrDiv($links['bookings']) }}>
         <x-ui.card>
             <div class="text-sm text-gray-500">Completed Today</div>
             <div class="text-2xl font-bold text-green-600">{{ $stats['completed_today'] }}</div>
@@ -57,15 +67,45 @@
             <div class="text-sm text-gray-500">Revenue Today</div>
             <div class="text-2xl font-bold">{{ $currencySymbol }}{{ number_format($stats['revenue_today'], 2) }}</div>
         </x-ui.card>
-        <x-ui.card>
-            <div class="text-sm text-gray-500">Providers Online</div>
-            <div class="text-2xl font-bold">{{ $stats['providers_online'] }} <span class="text-sm text-gray-400 font-normal">/ {{ $stats['providers_total'] }}</span></div>
-        </x-ui.card>
-        <x-ui.card>
-            <div class="text-sm text-gray-500">Active Franchises</div>
-            <div class="text-2xl font-bold">{{ $stats['franchises_active'] }}</div>
-        </x-ui.card>
+        <{{ $linkOrDiv($links['providers']) }} @if($links['providers']) href="{{ $links['providers'] }}" @endif class="block">
+            <x-ui.card class="{{ $links['providers'] ? 'hover:shadow-md transition' : '' }}">
+                <div class="text-sm text-gray-500">Providers Online</div>
+                <div class="text-2xl font-bold">{{ $stats['providers_online'] }} <span class="text-sm text-gray-400 font-normal">/ {{ $stats['providers_total'] }}</span></div>
+            </x-ui.card>
+        </{{ $linkOrDiv($links['providers']) }}>
+        <{{ $linkOrDiv($links['franchises']) }} @if($links['franchises']) href="{{ $links['franchises'] }}" @endif class="block">
+            <x-ui.card class="{{ $links['franchises'] ? 'hover:shadow-md transition' : '' }}">
+                <div class="text-sm text-gray-500">Active Franchises</div>
+                <div class="text-2xl font-bold">{{ $stats['franchises_active'] }}</div>
+            </x-ui.card>
+        </{{ $linkOrDiv($links['franchises']) }}>
+        {{-- Mission's own explicit "Active Operations" priority signal -- the
+             current, un-time-boxed backlog, not filtered to the selected period. --}}
+        <{{ $linkOrDiv($links['bookings']) }} @if($links['bookings']) href="{{ $links['bookings'] }}" @endif class="block">
+            <x-ui.card class="{{ ($links['bookings'] ? 'hover:shadow-md transition ' : '').($stats['unassigned_bookings'] > 0 ? 'ring-1 ring-red-200' : '') }}">
+                <div class="text-sm text-gray-500">Unassigned Bookings</div>
+                <div class="text-2xl font-bold {{ $stats['unassigned_bookings'] > 0 ? 'text-red-600' : '' }}">{{ $stats['unassigned_bookings'] }}</div>
+            </x-ui.card>
+        </{{ $linkOrDiv($links['bookings']) }}>
     </div>
+
+    @if (!empty($otherVerticals))
+        {{-- Admin Command Center mission (Phase 4) -- Parcel/Taxi/Rental/Hotel/
+             Marketplace volume, invisible on this screen before this session
+             even after each vertical shipped a real admin screen. Only shows
+             verticals the viewer actually holds permission to open. --}}
+        <div class="text-sm font-semibold text-gray-500 mb-3">Other Verticals — Today</div>
+        <div class="grid grid-cols-2 md:grid-cols-3 gap-4 mb-8">
+            @foreach ($otherVerticals as $v)
+                <a href="{{ $v['route'] }}" class="block">
+                    <x-ui.card class="hover:shadow-md transition">
+                        <div class="text-sm text-gray-500">{{ $v['label'] }}</div>
+                        <div class="text-2xl font-bold">{{ $v['count'] }}</div>
+                    </x-ui.card>
+                </a>
+            @endforeach
+        </div>
+    @endif
 
     <x-ui.table>
         <x-slot:header>Recent Bookings</x-slot:header>

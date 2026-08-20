@@ -185,6 +185,23 @@ class Manage extends Component
             return;
         }
 
+        // Platform-structure policy pass (follow-up to item 51): a role
+        // carrying modules.manage/zones.manage/franchises.manage must never
+        // be assignable below the scope that permission is restricted to
+        // (see AuthorizationService::RESTRICTED_GRANT_SCOPES's own
+        // docblock for exactly why each threshold is where it is) —
+        // regardless of whether the ACTOR performing this assignment holds
+        // unrestricted roles.manage access. This is a constraint on the
+        // assignment being created, not a permission check on the actor.
+        $targetRole = Role::with('permissions')->find($this->roleId);
+        $violatingPermission = $targetRole ? app(\App\Services\AuthorizationService::class)->disallowedRestrictedPermission($targetRole, $scopeType) : null;
+
+        if ($violatingPermission) {
+            $this->flashType = 'error';
+            $this->flashMessage = "The \"{$targetRole->name}\" role includes \"{$violatingPermission}\", which can't be granted at {$scopeType} scope.";
+            return;
+        }
+
         $exists = RoleAssignment::where([
             'user_id' => $this->selectedUserId,
             'role_id' => $this->roleId,

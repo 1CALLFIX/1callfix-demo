@@ -6,6 +6,7 @@ use App\Models\LoyaltyPoint;
 use App\Services\LoyaltyService;
 use App\Services\WalletService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\Feature\Rbac\RbacTestHelpers;
 use Tests\Feature\Support\BookingFixtureHelpers;
 use Tests\TestCase;
 
@@ -14,6 +15,7 @@ class LoyaltyServiceTest extends TestCase
 {
     use RefreshDatabase;
     use BookingFixtureHelpers;
+    use RbacTestHelpers;
 
     public function test_earning_points_increases_balance(): void
     {
@@ -132,7 +134,7 @@ class LoyaltyServiceTest extends TestCase
         $loyalty->redeem($customer, 200);
         $loyalty->redeem($customer, 100);
 
-        $flagged = (new \App\Services\Operations\ReconciliationService)->detect()['negative_loyalty_balances']
+        $flagged = (new \App\Services\Operations\ReconciliationService)->detect($this->makeSuperAdmin())['negative_loyalty_balances']
             ->firstWhere('user_id', $customer->id);
         $this->assertNull($flagged, 'Two sequential, correctly-guarded redemptions must never show up as a reconciliation drift.');
         $this->assertSame(200, $loyalty->balance($customer));

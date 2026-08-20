@@ -544,6 +544,48 @@ class KycEngineTest extends TestCase
         $this->assertSame(0, KycSupportRequest::count());
     }
 
+    /**
+     * Admin Command Center completion session, Admin UX/Performance phase
+     * (2026-08-20, same shape as item 44) -- render() used to fetch the
+     * FULL table (with eager loads) via ->get() before filtering
+     * in-memory, no pagination ever wired. Converted to a real scopeQuery()
+     * + paginate() call; this is the first test to exercise the list
+     * itself (every existing test above only ever exercised create()/
+     * decide() directly).
+     */
+    public function test_support_requests_list_is_scoped_to_the_actors_own_franchise(): void
+    {
+        [, , $mine, $zoneA] = $this->makeFranchiseTree();
+        [, , $other, $zoneB] = $this->makeFranchiseTree();
+        $mineProvider = $this->makeProviderIn($mine, $zoneA);
+        $otherProvider = $this->makeProviderIn($other, $zoneB);
+        $staff = $this->makeSuperAdmin();
+        $mineRequest = app(KycSupportRequestService::class)->create($mineProvider, $mine, $staff, 'Mine');
+        app(KycSupportRequestService::class)->create($otherProvider, $other, $staff, 'Other');
+
+        $actor = $this->makeUserWithPermission('kyc.support_requests.create', 'franchise', $mine->id);
+
+        $requests = Livewire::actingAs($actor)->test(SupportRequests::class)->viewData('requests');
+
+        $this->assertTrue($requests->contains('id', $mineRequest->id));
+        $this->assertCount(1, $requests);
+    }
+
+    public function test_support_requests_list_paginates_instead_of_returning_the_whole_table(): void
+    {
+        [, , $franchise, $zone] = $this->makeFranchiseTree();
+        $staff = $this->makeSuperAdmin();
+        for ($i = 0; $i < 20; $i++) {
+            $provider = $this->makeProviderIn($franchise, $zone);
+            app(KycSupportRequestService::class)->create($provider, $franchise, $staff, "Reason {$i}");
+        }
+
+        $requests = Livewire::actingAs($staff)->test(SupportRequests::class)->viewData('requests');
+
+        $this->assertSame(15, $requests->count());
+        $this->assertSame(20, $requests->total());
+    }
+
     // ============================== Reminders ==============================
 
     public function test_reminder_sent_at_nine_days_remaining(): void

@@ -6,7 +6,9 @@ use App\Models\Banner;
 use App\Models\Franchise;
 use App\Models\ServiceCategory;
 use App\Models\Setting;
+use App\Models\User;
 use App\Models\Zone;
+use App\Services\AuthorizationService;
 use App\Support\Modules;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -592,11 +594,70 @@ class Manage extends Component
 
     // ============================== Query ==============================
 
+    /**
+     * Admin Command Center completion session, Growth Command Center phase
+     * (2026-08-20): `banners.manage` is grantable at any scope
+     * (`RBAC_SCOPE_MATRIX.md`'s own documented intent -- "the banner's OWN
+     * franchise_id is a targeting axis... Yes" for row-level scope), but
+     * render() never actually applied it -- a franchise-scoped grant saw
+     * every OTHER franchise's banners in the list. Every mutation
+     * (save/update/toggleActive/deleteBanner/moveUp/moveDown) already
+     * correctly checks `hasPermission('banners.manage', $this->targetScope(...))`
+     * per row, so this was a read-only visibility gap, not a write hole --
+     * same disposition as item 45 (ReconciliationService) before its own
+     * fix, not a live mutation risk.
+     *
+     * A banner with a null franchise_id runs EVERYWHERE
+     * (`Banner::scopeForSlot()`'s own "null = matches everywhere" targeting
+     * semantic) -- a franchise-scoped viewer must still see those in the
+     * list (real, relevant context: that ad runs in their franchise too).
+     * scopeQuery()'s column-match mechanism alone would silently exclude
+     * every null-franchise_id row for a scoped viewer, so it's combined
+     * with an explicit "OR franchise_id IS NULL" branch here -- skipped
+     * only when the viewer already has unrestricted access, mirroring
+     * scopeQuery()'s own two early-return cases (super_admin / a
+     * 'global'-scoped grant) exactly so this never diverges from it.
+     */
+    private function hasUnrestrictedBannerAccess(User $user): bool
+    {
+        if ($user->role === 'super_admin') {
+            return true;
+        }
+
+        return $user->roleAssignments()->with('role.permissions')->get()
+            ->filter(fn ($a) => $a->role->permissions->contains('slug', 'banners.manage'))
+            ->contains(fn ($a) => $a->scope_type === 'global');
+    }
+
+    private function bannerScopeColumns(): array
+    {
+        return ['zone_id' => 'zone_id', 'franchise_id' => 'franchise_id', 'city_id' => 'franchise.city_id', 'country_id' => 'franchise.country_id'];
+    }
+
+    private function scopedBannerQuery()
+    {
+        $user = auth()->user();
+
+        if ($this->hasUnrestrictedBannerAccess($user)) {
+            return Banner::query();
+        }
+
+        $authz = app(AuthorizationService::class);
+        $columns = $this->bannerScopeColumns();
+
+        return Banner::query()->where(function ($outer) use ($authz, $user, $columns) {
+            $outer->whereNull('franchise_id')
+                ->orWhere(function ($scopeGroup) use ($authz, $user, $columns) {
+                    $authz->scopeQuery($scopeGroup, $user, 'banners.manage', $columns);
+                });
+        });
+    }
+
     private function baseQuery()
     {
         $now = now();
 
-        return Banner::query()
+        return $this->scopedBannerQuery()
             ->when($this->search !== '', fn ($q) => $q->where(function ($w) {
                 $w->where('title', 'like', '%'.$this->search.'%')
                   ->orWhere('advertiser_name', 'like', '%'.$this->search.'%');

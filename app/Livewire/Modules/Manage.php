@@ -7,6 +7,8 @@ use App\Models\Country;
 use App\Models\Franchise;
 use App\Models\Module;
 use App\Models\Zone;
+use App\Services\ActivityLogger;
+use App\Services\AuthorizationService;
 use App\Services\ModuleActivationService;
 use Livewire\Component;
 
@@ -134,13 +136,49 @@ class Manage extends Component
         })->all();
     }
 
+    /**
+     * Admin Command Center completion session, Geography + Maps phase
+     * (2026-08-20) -- this only ever checked hasPermissionAnywhere('modules.manage')
+     * (holds the permission SOMEWHERE), never that the grant actually
+     * covers the SELECTED scope -- unlike every read-only list gap found
+     * elsewhere this session, this is a real write-side cross-tenant hole:
+     * a franchise-scoped modules.manage grant (the permission's own label,
+     * "Manage module activation (country/city/zone/franchise)", explicitly
+     * anticipates a scoped grant, and resolvedScope() already builds the
+     * exact country/city/zone/franchise hint AuthorizationService::can()
+     * expects) could activate or deactivate any vertical for ANY OTHER
+     * country/city/zone/franchise platform-wide, not just their own --
+     * "one of the most consequential mutations in the admin panel" per
+     * this method's own pre-existing comment below. Fixed by checking the
+     * RESOLVED scope, not just permission-anywhere, matching the same
+     * per-target hasPermission($scopeHint) convention every other mutating
+     * action in this codebase already uses (Payouts/Banners/Zones/etc.).
+     */
     public function toggle(string $moduleCode): void
     {
+        // Kept as the first check (not folded into the scoped check below)
+        // specifically so a no-permission actor still gets a 403 even
+        // before a scope is chosen -- ModulesScreenAuthorizationTest's own
+        // test_toggle_action_itself_is_permission_gated() calls toggle()
+        // directly with no scopeId set at all and expects exactly that.
         abort_unless(auth()->user()->hasPermissionAnywhere('modules.manage'), 403);
 
         if (! $this->scopeId) {
             return;
         }
+
+        // The real fix (item 51): a permission-anywhere holder isn't
+        // necessarily authorized for THIS chosen scope -- re-check against
+        // the actual resolved geography now that one has been selected.
+        //
+        // Platform-structure policy pass (follow-up to item 51): uses
+        // canWithRestrictedScope() rather than plain hasPermission() --
+        // defense in depth against a hand-crafted/legacy RoleAssignment
+        // that grants modules.manage below global scope, which
+        // Roles\Manage::assign()'s own check (the real closure) now
+        // refuses to create going forward but can't retroactively fix if
+        // one already exists in a database this code runs against.
+        abort_unless(app(AuthorizationService::class)->canWithRestrictedScope(auth()->user(), 'modules.manage', $this->resolvedScope()), 403);
 
         $module = Module::where('code', $moduleCode)->firstOrFail();
 
@@ -154,14 +192,35 @@ class Manage extends Component
         }
 
         $current = app(ModuleActivationService::class)->isActive($moduleCode, $this->resolvedScope());
+        $newValue = ! $current;
 
-        app(ModuleActivationService::class)->setActive(
+        $activation = app(ModuleActivationService::class)->setActive(
             $moduleCode,
             $this->scopeLevel,
             $this->scopeId,
-            ! $current,
+            $newValue,
             auth()->id()
         );
+
+        // Module activation can turn an entire vertical on/off for a whole
+        // geography -- one of the most consequential mutations in the
+        // admin panel, yet `module_activations` only ever retains the
+        // MOST RECENT actor (created_by_user_id is overwritten on every
+        // toggle by ModuleActivationService::setActive()'s own
+        // updateOrCreate, despite its name). ActivityLog already exists
+        // and is this codebase's own established pattern for auditing
+        // exactly this kind of admin mutation (see Operations\Health's
+        // retryJob/discardJob/reprocessWebhook) -- wired in here so a full
+        // append-only history of every activation change (who, when,
+        // module, scope, before/after) survives the next toggle instead of
+        // being silently overwritten.
+        ActivityLogger::logModel(auth()->user(), $activation, "Module '{$moduleCode}' ".($newValue ? 'activated' : 'deactivated')." for {$this->scopeLevel} #{$this->scopeId}", [
+            'module_code' => $moduleCode,
+            'scope_type' => $this->scopeLevel,
+            'scope_id' => $this->scopeId,
+            'was_active' => $current,
+            'is_active' => $newValue,
+        ]);
     }
 
     public function render()

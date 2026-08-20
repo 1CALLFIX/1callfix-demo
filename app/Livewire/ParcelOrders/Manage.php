@@ -111,7 +111,26 @@ class Manage extends Component
             'paymentMethod' => 'required|in:online,wallet,cash',
         ]);
 
-        $zone = Zone::findOrFail($this->selectedZoneId);
+        $zone = Zone::with('franchise')->findOrFail($this->selectedZoneId);
+
+        // Admin Command Center mission (Security audit) -- same bug class
+        // already fixed on Vehicles/Equipment/Properties/Stores/
+        // Accommodations/Products/AddOns' own createX(): the zones dropdown
+        // is unscoped and mount()'s hasPermissionAnywhere() is an any-scope
+        // check, so a zone-scoped call-center actor holding
+        // parcel_orders.view only in Zone A could otherwise create a parcel
+        // order under any other zone/franchise platform-wide. Bookings\
+        // Index::createBooking() already checks scope this exact way
+        // (hasPermission('bookings.create', $this->zoneScope($zone))) --
+        // this screen copied Bookings' overall create-on-behalf-of-customer
+        // shape but missed that one check.
+        if (! auth()->user()->hasPermission('parcel_orders.view', [
+            'zone_id' => $zone->id, 'franchise_id' => $zone->franchise_id,
+            'city_id' => $zone->franchise?->city_id, 'country_id' => $zone->franchise?->country_id,
+        ])) {
+            $this->addError('selectedZoneId', 'You do not have permission to create a parcel order in this zone.');
+            return;
+        }
 
         try {
             $pickup = Address::create([

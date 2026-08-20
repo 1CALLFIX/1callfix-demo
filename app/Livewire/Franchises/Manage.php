@@ -7,6 +7,7 @@ use App\Models\Country;
 use App\Models\Franchise;
 use App\Models\FranchiseModule;
 use App\Models\Setting;
+use App\Services\AuthorizationService;
 use App\Support\Modules;
 use Illuminate\Support\Str;
 use Livewire\Component;
@@ -185,7 +186,7 @@ class Manage extends Component
         // exception through Livewire::test()'s in-process call lifecycle,
         // and addError() is the idiom the rest of this component already
         // uses for validate()'s own failures.
-        if (! auth()->user()->hasPermission('franchises.manage', ['country_id' => $this->countryId])) {
+        if (! app(AuthorizationService::class)->canWithRestrictedScope(auth()->user(), 'franchises.manage', ['country_id' => $this->countryId])) {
             $this->addError('permission', 'You do not have permission to create a franchise in this country.');
             return;
         }
@@ -325,7 +326,7 @@ class Manage extends Component
         // Checked against the franchise's CURRENT country -- same "authority
         // over where it lives now" rule as every other edit-action check
         // this program added (Zones/Banners).
-        if (! auth()->user()->hasPermission('franchises.manage', ['country_id' => $franchise->country_id])) {
+        if (! app(AuthorizationService::class)->canWithRestrictedScope(auth()->user(), 'franchises.manage', ['country_id' => $franchise->country_id])) {
             $this->addError('permission', 'You do not have permission to edit this franchise.');
             return;
         }
@@ -453,7 +454,7 @@ class Manage extends Component
     {
         $franchise = Franchise::findOrFail($franchiseId);
 
-        if (! auth()->user()->hasPermission('franchises.manage', ['country_id' => $franchise->country_id])) {
+        if (! app(AuthorizationService::class)->canWithRestrictedScope(auth()->user(), 'franchises.manage', ['country_id' => $franchise->country_id])) {
             $this->addError('permission', 'You do not have permission to change this franchise.');
             return;
         }
@@ -518,7 +519,7 @@ class Manage extends Component
 
         $franchise = Franchise::findOrFail($this->confirmingDeleteId);
 
-        if (! auth()->user()->hasPermission('franchises.manage', ['country_id' => $franchise->country_id])) {
+        if (! app(AuthorizationService::class)->canWithRestrictedScope(auth()->user(), 'franchises.manage', ['country_id' => $franchise->country_id])) {
             $this->addError('permission', 'You do not have permission to delete this franchise.');
             $this->confirmingDeleteId = null;
             return;
@@ -550,9 +551,26 @@ class Manage extends Component
         $this->resetPage();
     }
 
+    /**
+     * Admin Command Center completion session, Geography + Maps phase
+     * (2026-08-20) -- every mutation on this screen (update()/toggleStatus()/
+     * deleteFranchise(), plus save()) checks hasPermission('franchises.manage',
+     * ['country_id' => ...]) ONLY -- no city_id/zone_id/franchise_id key is
+     * ever passed, meaning this permission is deliberately country-admin-
+     * and-above only by construction (AuthorizationService::can()'s own
+     * docblock: "an assignment whose scope_type has no matching key in
+     * $scope simply never covers the request" -- a city/zone-scoped grant
+     * could never satisfy a country_id-only check). render() never applied
+     * ANY row-level scope though, the same read-only-list gap already
+     * found and fixed for zones.manage/banners.manage/notification.view_logs
+     * this session -- closed here with the identical country_id-only shape
+     * the writes already use, so the list and the write actions agree on
+     * exactly who "franchises.manage" means, not a new, wider definition.
+     */
     public function render()
     {
-        $franchises = Franchise::query()
+        $franchises = app(AuthorizationService::class)
+            ->scopeQuery(Franchise::query(), auth()->user(), 'franchises.manage', ['country_id' => 'country_id'])
             ->when($this->search !== '', fn ($q) => $q->where(function ($w) {
                 $w->where('name', 'like', '%'.$this->search.'%')
                   ->orWhere('code', 'like', '%'.$this->search.'%')

@@ -47,6 +47,22 @@ class Manage extends Component
             'price' => 'required|numeric|min:0',
         ]);
 
+        $store = Store::with('franchise')->findOrFail($this->storeId);
+
+        // Same gap as Products\Manage (and the other catalog Manage
+        // screens) -- the stores dropdown is unscoped, so a zone-scoped
+        // actor holding products.manage only in Zone A could otherwise
+        // create an add-on under any other zone/franchise's store
+        // platform-wide. toggleActive() was already safe (scopedAddOnsQuery()
+        // 404s out-of-scope); create had no check.
+        if (! auth()->user()->hasPermission('products.manage', [
+            'zone_id' => $store->zone_id, 'franchise_id' => $store->franchise_id,
+            'city_id' => $store->franchise?->city_id, 'country_id' => $store->franchise?->country_id,
+        ])) {
+            $this->addError('storeId', 'You do not have permission to add an add-on to this store.');
+            return;
+        }
+
         AddOn::create(['store_id' => $this->storeId, 'name' => $this->name, 'price' => $this->price, 'is_active' => true]);
 
         $this->reset(['storeId', 'name', 'price']);

@@ -3,6 +3,7 @@
 namespace App\Livewire\Payouts;
 
 use App\Exports\PayoutsExport;
+use App\Models\FieldWorker;
 use App\Models\PaymentAccount;
 use App\Models\Payout;
 use App\Models\Provider;
@@ -38,7 +39,7 @@ class Manage extends Component
         abort_unless(auth()->user()->hasPermissionAnywhere('payouts.manage'), 403, 'You do not have permission to view payouts.');
     }
 
-    public string $payeeType = 'provider'; // provider|franchise_owner
+    public string $payeeType = 'provider'; // provider|field_worker|franchise_owner
     public string $payeeSearch = '';
     public ?int $selectedPayeeId = null;
     public string $selectedPayeeLabel = '';
@@ -68,6 +69,13 @@ class Manage extends Component
                 ->whereHas('user', fn ($q) => $q->where('name', 'like', "%{$this->payeeSearch}%")->orWhere('phone', 'like', "%{$this->payeeSearch}%"))
                 ->limit(8)->get()
                 ->map(fn ($p) => ['id' => $p->id, 'label' => ($p->user->name ?? 'Provider #'.$p->id).' — '.($p->user->phone ?? '—')]);
+        }
+
+        if ($this->payeeType === 'field_worker') {
+            return FieldWorker::with('user')
+                ->whereHas('user', fn ($q) => $q->where('name', 'like', "%{$this->payeeSearch}%")->orWhere('phone', 'like', "%{$this->payeeSearch}%"))
+                ->limit(8)->get()
+                ->map(fn ($w) => ['id' => $w->id, 'label' => ($w->user->name ?? 'Worker #'.$w->id).' — '.($w->user->phone ?? '—')]);
         }
 
         return User::where('name', 'like', "%{$this->payeeSearch}%")
@@ -245,15 +253,37 @@ class Manage extends Component
         $this->flashMessage = 'Payment account verification revoked.';
     }
 
-    private function payeeLabel(Payout $payout): string
+    /**
+     * Admin Command Center completion session, Admin UX/Performance phase
+     * (2026-08-20) -- previously re-fetched the payee with a fresh
+     * Provider::with('user')->find()/FieldWorker::with('user')->find()/
+     * User::find() query PER ROW inside render()'s ->transform() loop, a
+     * real N+1 (up to 15 extra queries per page load, since Payout's
+     * payee_type/payee_id is a manual discriminator with no Eloquent
+     * relation to eager-load instead -- see visiblePayoutIds()'s own
+     * docblock). Batches the lookup into at most 3 queries total (one
+     * per payee_type actually present on the page) via attachPayeeLabels(),
+     * called once against the whole paginated collection rather than once
+     * per row.
+     */
+    private function attachPayeeLabels($payouts): void
     {
-        if ($payout->payee_type === 'provider') {
-            $p = Provider::with('user')->find($payout->payee_id);
-            return $p ? ($p->user->name ?? 'Provider #'.$p->id).' (provider)' : 'Provider #'.$payout->payee_id.' (provider)';
-        }
+        $idsByType = $payouts->groupBy('payee_type')->map(fn ($group) => $group->pluck('payee_id')->unique()->all());
 
-        $u = User::find($payout->payee_id);
-        return $u ? $u->name.' (franchise owner)' : 'User #'.$payout->payee_id.' (franchise owner)';
+        $providers = isset($idsByType['provider']) ? Provider::with('user')->whereIn('id', $idsByType['provider'])->get()->keyBy('id') : collect();
+        $workers = isset($idsByType['field_worker']) ? FieldWorker::with('user')->whereIn('id', $idsByType['field_worker'])->get()->keyBy('id') : collect();
+        $owners = isset($idsByType['franchise_owner']) ? User::whereIn('id', $idsByType['franchise_owner'])->get()->keyBy('id') : collect();
+
+        foreach ($payouts as $payout) {
+            $payout->display_label = match ($payout->payee_type) {
+                'provider' => ($p = $providers->get($payout->payee_id))
+                    ? ($p->user->name ?? 'Provider #'.$p->id).' (provider)' : 'Provider #'.$payout->payee_id.' (provider)',
+                'field_worker' => ($w = $workers->get($payout->payee_id))
+                    ? ($w->user->name ?? 'Worker #'.$w->id).' (field worker)' : 'Worker #'.$payout->payee_id.' (field worker)',
+                default => ($u = $owners->get($payout->payee_id))
+                    ? $u->name.' (franchise owner)' : 'User #'.$payout->payee_id.' (franchise owner)',
+            };
+        }
     }
 
     /**
@@ -297,10 +327,7 @@ class Manage extends Component
     public function render()
     {
         $payouts = Payout::whereIn('id', $this->visiblePayoutIds())->latest()->paginate(15);
-        $payouts->getCollection()->transform(function ($p) {
-            $p->display_label = $this->payeeLabel($p);
-            return $p;
-        });
+        $this->attachPayeeLabels($payouts->getCollection());
 
         return view('livewire.payouts.manage', [
             'payouts' => $payouts,

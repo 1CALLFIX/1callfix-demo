@@ -503,12 +503,34 @@ class Manage extends Component
             ->all();
     }
 
+    /**
+     * Admin Command Center completion session, CMS/Communication Center
+     * phase (2026-08-20) -- notification.view_logs was seeded (migration
+     * 2026_08_11_024000) with the identical "assignable to other roles...
+     * once a real business need shows up" language already found to be a
+     * real gap twice this session (operations.view/item 45, banners.manage/
+     * item 47), but this query applied zero row-level scope. NotificationLog
+     * .notifiable is polymorphic (Illuminate's own notification-sent
+     * listener in AppServiceProvider writes get_class($event->notifiable)
+     * for every ->notify() call in the app) -- confirmed by reading every
+     * ->notify() call site in app/ that the ONE real notifiable type ever
+     * used is User (AudienceResolver, every Action's own $x->customer/
+     * $x->user call, CampaignService's recipient loop -- all User::query()
+     * or a User instance, never FieldWorker or anything else directly), so
+     * whereHasMorph() against that single known type is the honest,
+     * evidence-based scope, not a guess at a schema whereHasMorph can't
+     * prove exists.
+     */
     public function render()
     {
         $user = auth()->user();
 
+        $logColumns = ['zone_id' => 'zone_id', 'franchise_id' => 'franchise_id', 'city_id' => 'franchise.city_id', 'country_id' => 'franchise.country_id'];
+
         $logs = $user->hasPermissionAnywhere('notification.view_logs')
             ? NotificationLog::with('notifiable')
+                ->whereHasMorph('notifiable', [User::class], fn ($q) => app(AuthorizationService::class)
+                    ->scopeQuery($q, $user, 'notification.view_logs', $logColumns))
                 ->when($this->logChannelFilter !== '', fn ($q) => $q->where('channel', $this->logChannelFilter))
                 ->when($this->logStatusFilter !== '', fn ($q) => $q->where('status', $this->logStatusFilter))
                 ->when($this->logSearch !== '', fn ($q) => $q->where(function ($w) {

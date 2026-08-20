@@ -9,6 +9,7 @@ use App\Services\AuthorizationService;
 use App\Services\Campaigns\CampaignMetricResolver;
 use App\Services\PerformanceCampaignService;
 use Livewire\Component;
+use Livewire\WithPagination;
 
 /**
  * Performance/Growth Campaign admin screen — create (draft), lifecycle
@@ -19,6 +20,8 @@ use Livewire\Component;
  */
 class Manage extends Component
 {
+    use WithPagination;
+
     // --- Create form ---
     public string $name = '';
     public string $description = '';
@@ -215,15 +218,23 @@ class Manage extends Component
             });
     }
 
+    /** Same fix/reasoning as FlashSales\Manage::visibleFlashSaleIds() -- see that method's own docblock (KNOWN_RISKS_AND_DECISIONS.md item 44). */
+    private function visibleCampaignIds(): array
+    {
+        $candidates = PerformanceCampaign::query()->select('id', 'scope_type', 'scope_id')->get();
+
+        return app(AuthorizationService::class)
+            ->visibleAmong($candidates, auth()->user(), 'performance_campaigns.view')
+            ->pluck('id')->all();
+    }
+
     public function render()
     {
-        $authz = app(AuthorizationService::class);
-
-        $campaigns = $authz->visibleAmong(
-            PerformanceCampaign::with(['badge', 'creator'])->withCount('participants')->latest()->get(),
-            auth()->user(),
-            'performance_campaigns.view',
-        );
+        $campaigns = PerformanceCampaign::whereIn('id', $this->visibleCampaignIds())
+            ->with(['badge', 'creator'])
+            ->withCount('participants')
+            ->latest()
+            ->paginate(15, ['*'], 'campaignsPage');
 
         return view('livewire.performance-campaigns.manage', [
             'campaigns' => $campaigns,

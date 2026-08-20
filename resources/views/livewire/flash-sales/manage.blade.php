@@ -139,6 +139,7 @@
                 </x-ui.card>
             @endforeach
         </div>
+        <div class="mt-4">{{ $sales->links() }}</div>
     @endif
 
     @if ($section === 'redemptions')

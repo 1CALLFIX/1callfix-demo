@@ -122,15 +122,24 @@ class Index extends Component
         $this->flashMessage = 'Balance adjusted — recorded in the usage ledger.';
     }
 
+    /**
+     * Admin Command Center completion session, Admin UX/Performance phase
+     * (2026-08-20) -- this used to re-fetch the actor with a fresh
+     * User::find()/BusinessAccount::find() query PER ROW, ignoring the
+     * `subscribable` relation render() already eager-loads via
+     * ->with(['subscribable.franchise.country', ...]) -- a real, wasteful
+     * N+1 (up to 15 extra queries per page load) for data already sitting
+     * in memory. Uses the already-loaded relation directly instead.
+     */
     private function actorLabel(Subscription $subscription): string
     {
+        $actor = $subscription->subscribable;
+
         if ($subscription->subscribable_type === User::class) {
-            $u = User::find($subscription->subscribable_id);
-            return $u ? $u->name.' ('.$u->role.')' : 'User #'.$subscription->subscribable_id;
+            return $actor ? $actor->name.' ('.$actor->role.')' : 'User #'.$subscription->subscribable_id;
         }
         if ($subscription->subscribable_type === BusinessAccount::class) {
-            $b = BusinessAccount::find($subscription->subscribable_id);
-            return $b ? $b->name.' (business)' : 'Business #'.$subscription->subscribable_id;
+            return $actor ? $actor->name.' (business)' : 'Business #'.$subscription->subscribable_id;
         }
 
         return 'Unknown actor';

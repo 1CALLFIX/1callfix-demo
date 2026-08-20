@@ -51,6 +51,57 @@ class RentalAuthorizationTest extends TestCase
         $this->assertFalse($vehicles->contains('id', $other->id));
     }
 
+    /**
+     * Admin Command Center mission (Security audit) — createVehicle() had no
+     * scope check at all: the zones dropdown is unscoped, so a franchise-
+     * scoped actor could create a vehicle under a completely different
+     * franchise just by picking its zone. edit/saveEdit were already safe.
+     */
+    public function test_vehicles_create_denied_for_a_different_franchises_zone(): void
+    {
+        [$country, $city, $franchise, $zone] = $this->makeFranchiseTree();
+        $other = $this->makeVehicleReservationScenario(); // separate franchise/zone
+        $category = $this->makeVehicleCategory();
+        $owner = $this->makeRentalOwner($franchise, $zone);
+
+        $actor = $this->makeUserWithPermission('vehicles.manage', 'franchise', $franchise->id);
+
+        Livewire::actingAs($actor)->test(VehiclesManage::class)
+            ->set('providerId', $owner->id)
+            ->set('vehicleCategoryId', $category->id)
+            ->set('zoneId', $other['zone']->id)
+            ->set('make', 'Cross-Scope')
+            ->set('model', 'Attempt')
+            ->set('basePrice', '500')
+            ->set('pricingUnit', 'daily')
+            ->call('createVehicle')
+            ->assertHasErrors('zoneId');
+
+        $this->assertDatabaseMissing('vehicles', ['zone_id' => $other['zone']->id, 'make' => 'Cross-Scope']);
+    }
+
+    public function test_vehicles_create_allowed_within_own_franchise_scope(): void
+    {
+        [$country, $city, $franchise, $zone] = $this->makeFranchiseTree();
+        $category = $this->makeVehicleCategory();
+        $owner = $this->makeRentalOwner($franchise, $zone);
+
+        $actor = $this->makeUserWithPermission('vehicles.manage', 'franchise', $franchise->id);
+
+        Livewire::actingAs($actor)->test(VehiclesManage::class)
+            ->set('providerId', $owner->id)
+            ->set('vehicleCategoryId', $category->id)
+            ->set('zoneId', $zone->id)
+            ->set('make', 'In-Scope')
+            ->set('model', 'Attempt')
+            ->set('basePrice', '500')
+            ->set('pricingUnit', 'daily')
+            ->call('createVehicle')
+            ->assertHasNoErrors();
+
+        $this->assertDatabaseHas('vehicles', ['zone_id' => $zone->id, 'make' => 'In-Scope']);
+    }
+
     // ============================== Equipment\Manage ==============================
 
     public function test_equipment_denied_without_permission(): void
@@ -65,6 +116,29 @@ class RentalAuthorizationTest extends TestCase
         $actor = $this->makeUserWithPermission('equipment.manage', 'global');
 
         Livewire::actingAs($actor)->test(EquipmentManage::class)->assertOk();
+    }
+
+    /** Same bug class as Vehicles' create -- see that test's docblock. */
+    public function test_equipment_create_denied_for_a_different_franchises_zone(): void
+    {
+        [$country, $city, $franchise, $zone] = $this->makeFranchiseTree();
+        $other = $this->makeEquipmentReservationScenario();
+        $category = $this->makeEquipmentCategory();
+        $owner = $this->makeRentalOwner($franchise, $zone);
+
+        $actor = $this->makeUserWithPermission('equipment.manage', 'franchise', $franchise->id);
+
+        Livewire::actingAs($actor)->test(EquipmentManage::class)
+            ->set('providerId', $owner->id)
+            ->set('equipmentCategoryId', $category->id)
+            ->set('zoneId', $other['zone']->id)
+            ->set('name', 'Cross-Scope Attempt')
+            ->set('basePrice', '200')
+            ->set('pricingUnit', 'daily')
+            ->call('createItem')
+            ->assertHasErrors('zoneId');
+
+        $this->assertDatabaseMissing('equipment_items', ['zone_id' => $other['zone']->id, 'name' => 'Cross-Scope Attempt']);
     }
 
     // ============================== RentalReservations\Manage ==============================

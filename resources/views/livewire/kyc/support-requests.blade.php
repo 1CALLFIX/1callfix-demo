@@ -71,4 +71,5 @@
             <p class="text-sm text-gray-400">No support requests yet.</p>
         @endif
     </div>
+    <div class="mt-4">{{ $requests->links() }}</div>
 </div>

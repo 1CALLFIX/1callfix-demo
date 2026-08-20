@@ -63,7 +63,20 @@ class Manage extends Component
             'pricingUnit' => 'required|in:hourly,daily,weekly,monthly',
         ]);
 
-        $zone = Zone::findOrFail($this->zoneId);
+        $zone = Zone::with('franchise')->findOrFail($this->zoneId);
+
+        // Same gap Vehicles\Manage had -- the zones dropdown is unscoped, so
+        // a zone-scoped actor holding equipment.manage only in Zone A could
+        // otherwise create an item under any other zone/franchise
+        // platform-wide. edit/saveEdit were already safe (scopedItemsQuery()
+        // 404s out-of-scope); create had no check at all.
+        if (! auth()->user()->hasPermission('equipment.manage', [
+            'zone_id' => $zone->id, 'franchise_id' => $zone->franchise_id,
+            'city_id' => $zone->franchise?->city_id, 'country_id' => $zone->franchise?->country_id,
+        ])) {
+            $this->addError('zoneId', 'You do not have permission to create equipment in this zone.');
+            return;
+        }
 
         EquipmentItem::create([
             'provider_id' => $this->providerId, 'equipment_category_id' => $this->equipmentCategoryId,

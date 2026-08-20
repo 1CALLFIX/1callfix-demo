@@ -3,6 +3,7 @@
 namespace Tests\Feature\Modules;
 
 use App\Livewire\Modules\Manage as ModulesManage;
+use App\Models\ActivityLog;
 use App\Models\ModuleActivation;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
@@ -78,6 +79,48 @@ class ModulesScreenAuthorizationTest extends TestCase
         $this->assertFalse($row->is_active);
     }
 
+    /**
+     * Admin Command Center mission (Phase 1 audit finding) — toggle() wrote
+     * only to module_activations, which retains just the MOST RECENT actor
+     * (created_by_user_id is overwritten on every call); no history of
+     * prior activation changes survived. Wired into ActivityLog, this
+     * codebase's own established pattern for auditing consequential admin
+     * mutations (see OperationsHealthTest's equivalent coverage).
+     */
+    public function test_toggle_writes_an_activity_log_entry(): void
+    {
+        $actor = $this->makeSuperAdmin();
+        $franchise = $this->makeFranchise();
+
+        Livewire::actingAs($actor)->test(ModulesManage::class)
+            ->set('scopeLevel', 'franchise')
+            ->set('scopeId', $franchise->id)
+            ->call('toggle', 'service');
+
+        $log = ActivityLog::where('subject_type', ModuleActivation::class)->latest('id')->first();
+
+        $this->assertNotNull($log);
+        $this->assertSame($actor->id, $log->causer_id);
+        $this->assertSame('service', $log->properties['module_code']);
+        $this->assertSame('franchise', $log->properties['scope_type']);
+        $this->assertSame($franchise->id, $log->properties['scope_id']);
+        $this->assertTrue($log->properties['was_active']);
+        $this->assertFalse($log->properties['is_active']);
+    }
+
+    public function test_toggling_an_unimplemented_module_writes_no_activity_log(): void
+    {
+        $actor = $this->makeSuperAdmin();
+        $franchise = $this->makeFranchise();
+
+        Livewire::actingAs($actor)->test(ModulesManage::class)
+            ->set('scopeLevel', 'franchise')
+            ->set('scopeId', $franchise->id)
+            ->call('toggle', 'food');
+
+        $this->assertSame(0, ActivityLog::where('subject_type', ModuleActivation::class)->count());
+    }
+
     public function test_toggle_action_itself_is_permission_gated(): void
     {
         $actor = $this->makeUserWithNoPermissions();
@@ -92,5 +135,112 @@ class ModulesScreenAuthorizationTest extends TestCase
         $this->expectException(\Symfony\Component\HttpKernel\Exception\HttpException::class);
 
         (new ModulesManage())->toggle('service');
+    }
+
+    /**
+     * Admin Command Center completion session, Geography + Maps phase
+     * (2026-08-20) -- toggle() only ever checked hasPermissionAnywhere()
+     * (holds modules.manage SOMEWHERE), never that the grant covers the
+     * SELECTED scope -- a real write-side cross-tenant hole: a
+     * franchise-scoped grant could activate/deactivate any vertical for
+     * ANY OTHER franchise platform-wide, not just their own.
+     */
+    public function test_franchise_scoped_grant_cannot_toggle_a_different_franchises_module(): void
+    {
+        $mine = $this->makeFranchise();
+        $other = $this->makeFranchise();
+        $actor = $this->makeUserWithPermission('modules.manage', 'franchise', $mine->id);
+
+        Livewire::actingAs($actor)->test(ModulesManage::class)
+            ->set('scopeLevel', 'franchise')
+            ->set('scopeId', $other->id)
+            ->call('toggle', 'service')
+            ->assertForbidden();
+
+        // FranchiseObserver auto-seeds a `service=true` module_activations
+        // row for every new franchise (see the pre-existing "writes a real
+        // row" test above, which relies on toggle() FLIPPING that seeded
+        // row to false) -- so the real proof this stayed blocked is that
+        // it's still true, not that no row exists at all.
+        $row = ModuleActivation::where('scope_type', 'franchise')->where('scope_id', $other->id)
+            ->where('module_id', \App\Models\Module::where('code', 'service')->value('id'))
+            ->first();
+        $this->assertNotNull($row);
+        $this->assertTrue($row->is_active);
+    }
+
+    /**
+     * Platform-structure policy pass (follow-up to item 51, 2026-08-20):
+     * modules.manage is now restricted to GLOBAL grant scope only (see
+     * AuthorizationService::RESTRICTED_GRANT_SCOPES's own docblock) — no
+     * seeded system role below super_admin has ever carried it, so this is
+     * a pure closure, not a capability reduction for any real role. This
+     * REPLACES the prior version of this test (which asserted the
+     * opposite — that a franchise-scoped grant COULD toggle its own
+     * franchise's module, per item 51's own original, narrower fix): that
+     * was correct for item 51's scope at the time, but the follow-up
+     * policy makes even a franchise-scoped grant of modules.manage itself
+     * impossible to create going forward (Roles\Manage::assign() now
+     * refuses it) and unusable at the point of use if one already exists
+     * (defense in depth, proven here directly against a hand-crafted grant
+     * bypassing assign()'s own check).
+     */
+    public function test_franchise_scoped_grant_can_no_longer_toggle_even_its_own_franchises_module(): void
+    {
+        $mine = $this->makeFranchise();
+        $actor = $this->makeUserWithPermission('modules.manage', 'franchise', $mine->id);
+
+        Livewire::actingAs($actor)->test(ModulesManage::class)
+            ->set('scopeLevel', 'franchise')
+            ->set('scopeId', $mine->id)
+            ->call('toggle', 'service')
+            ->assertForbidden();
+
+        // FranchiseObserver auto-seeds a `service=true` module_activations
+        // row for every new franchise — the real proof this stayed blocked
+        // is that it's still true, not that no row exists at all.
+        $row = ModuleActivation::where('scope_type', 'franchise')->where('scope_id', $mine->id)
+            ->where('module_id', \App\Models\Module::where('code', 'service')->value('id'))
+            ->first();
+        $this->assertNotNull($row);
+        $this->assertTrue($row->is_active);
+    }
+
+    public function test_global_scoped_grant_can_still_toggle_any_franchises_module(): void
+    {
+        $franchise = $this->makeFranchise();
+        $actor = $this->makeUserWithPermission('modules.manage', 'global');
+
+        Livewire::actingAs($actor)->test(ModulesManage::class)
+            ->set('scopeLevel', 'franchise')
+            ->set('scopeId', $franchise->id)
+            ->call('toggle', 'service')
+            ->assertOk();
+
+        $row = ModuleActivation::where('scope_type', 'franchise')->where('scope_id', $franchise->id)
+            ->where('module_id', \App\Models\Module::where('code', 'service')->value('id'))
+            ->first();
+
+        $this->assertNotNull($row);
+        $this->assertFalse($row->is_active);
+    }
+
+    /**
+     * Defense-in-depth proof: even a country-scoped modules.manage grant
+     * (which would be perfectly fine for zones.manage/franchises.manage)
+     * is still rejected for modules.manage specifically, since that
+     * permission's own allowed grant scope is global only, full stop.
+     */
+    public function test_country_scoped_grant_cannot_toggle_a_module(): void
+    {
+        $city = $this->makeCity();
+        $franchise = $this->makeFranchise($city);
+        $actor = $this->makeUserWithPermission('modules.manage', 'country', $city->country_id);
+
+        Livewire::actingAs($actor)->test(ModulesManage::class)
+            ->set('scopeLevel', 'franchise')
+            ->set('scopeId', $franchise->id)
+            ->call('toggle', 'service')
+            ->assertForbidden();
     }
 }

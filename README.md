@@ -6,7 +6,7 @@ A franchise-ready, multi-vertical home-services marketplace backend + Admin Pane
 
 ## What this is
 
-One codebase, multiple potential verticals (Service, Parcel, Taxi, Food, Grocery, Pharmacy, Commerce, Bookings — toggleable per franchise via `franchise_modules`). **Service is the only live vertical.** The booking pipeline — Customer → Dispatch → Provider/Worker → Completion → Commission → Wallet → Loyalty → Referral — is real, integrated, and covered by an automated regression suite (see Testing below).
+One codebase, multiple verticals (Service, Parcel, Taxi, Rental — Property/Vehicle/Equipment, Hotel/Stay, Marketplace — Ecommerce/Food/Grocery/Pharmacy — toggleable per franchise via `franchise_modules`, and per-geography via the Modules admin screen). **Service is the only vertical enabled by default** (`modules.is_implemented = true`); every other vertical is fully built, tested, and admin-manageable end-to-end, but ships with `modules.is_implemented = false` until an explicit business decision activates it — see `KNOWN_RISKS_AND_DECISIONS.md` for the current activation status of each. The booking pipeline — Customer → Dispatch → Provider/Worker → Completion → Commission → Wallet → Loyalty → Referral — is real, integrated, and covered by an automated regression suite (see Testing below).
 
 ## Tech stack
 
@@ -67,7 +67,9 @@ Seven system roles, scope-aware (`global/country/city/zone/module/franchise`): `
 
 ## Current modules (Admin Panel)
 
-Dashboard, Bookings, Providers, Workers, Franchises, Franchise Pricing, Zones, Geography, Categories, Subcategories, Services, Customers, Roles & Permissions, Wallet Ledger, Loyalty & Referrals, Commissions, Payouts, Banners, CMS, Notification Center, Plans, Subscriptions.
+Dashboard, Bookings, Providers, Workers, Franchises, Franchise Pricing, Zones, Geography, Categories, Subcategories, Services, Customers, Roles & Permissions, Wallet Ledger, Loyalty & Referrals, Commissions, Payments, Payouts, Banners, Badges, Flash Sales, Performance Campaigns, CMS, Notification Center, Plans, Subscriptions, Chat, Operations (health/troubleshoot), KYC, Modules (per-geography vertical activation), Settings.
+
+Per-vertical (built and admin-manageable, activation status per `KNOWN_RISKS_AND_DECISIONS.md`): Parcel Orders, Taxi Rides, Properties + Property Reservations, Vehicles + Equipment + Rental Reservations, Accommodations + Hotel Reservations, Stores + Marketplace Categories + Products + Add-Ons + Marketplace Orders.
 
 ## Deployment notes
 
@@ -75,4 +77,4 @@ Production deployment is a manual, controlled operation — not automated from t
 
 ## Roadmap
 
-Parcel is the next planned vertical, not yet implemented. The Worker/Rider foundation, polymorphic dispatch primitives, WalletService, and RBAC are all built to be reusable by it without a foundation rebuild. See `PROJECT_CURRENT_STATE.md` §23.
+Parcel, Taxi, Rental (Property/Vehicle/Equipment), Hotel/Stay, and Marketplace (Ecommerce/Food/Grocery/Pharmacy) are all now built, tested, and admin-manageable — none is a "next planned" item anymore. Each ships with `modules.is_implemented = false` (fully inert in every real environment) pending an explicit business decision on activation order/commercial policy (fees, commissions, deposits) — see `KNOWN_RISKS_AND_DECISIONS.md` for the current per-vertical status. The Worker/Rider foundation, polymorphic dispatch primitives, WalletService, and RBAC that made this possible are documented in `PROJECT_CURRENT_STATE.md` §23.

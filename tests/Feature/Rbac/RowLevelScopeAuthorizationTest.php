@@ -364,6 +364,33 @@ class RowLevelScopeAuthorizationTest extends TestCase
     }
 
     /**
+     * Admin Command Center completion session, Admin UX/Performance phase
+     * (2026-08-20) -- payeeLabel() used to re-fetch the payee with a fresh
+     * query PER ROW (Payout.payee_type/payee_id has no Eloquent relation to
+     * eager-load instead). Proves the batched attachPayeeLabels() rewrite's
+     * query count stays flat rather than scaling per payout.
+     */
+    public function test_payouts_list_payee_label_lookup_does_not_n_plus_one_per_payout(): void
+    {
+        $admin = $this->makeSuperAdmin();
+        foreach (range(1, 5) as $i) {
+            $scenario = $this->makeBookingScenario('assigned');
+            $this->makePayoutFor($scenario['provider'], 100 * $i);
+        }
+
+        \Illuminate\Support\Facades\DB::enableQueryLog();
+        Livewire::actingAs($admin)->test(PayoutsManage::class);
+        $queryCount = count(\Illuminate\Support\Facades\DB::getQueryLog());
+        \Illuminate\Support\Facades\DB::disableQueryLog();
+
+        // Loose upper bound -- well under what 5 payouts would cost at even
+        // 1 extra query/payout under the old per-row payeeLabel() shape,
+        // let alone the real Provider::with('user')->find() + implicit
+        // lazy-load pattern it used.
+        $this->assertLessThan(20, $queryCount);
+    }
+
+    /**
      * Row-level scope was never just a render()/list-hiding concern here --
      * markProcessing()/confirmMarkPaid()/markFailed() all previously
      * accepted any payout id from any actor holding payouts.manage

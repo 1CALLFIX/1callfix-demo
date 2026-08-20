@@ -167,23 +167,35 @@ class Manage extends Component
         $this->flashMessage = 'Badge assignment revoked.';
     }
 
+    /**
+     * Admin Command Center completion session, Growth Command Center phase
+     * (2026-08-20) -- same shape as item 44 (FlashSales/PerformanceCampaigns):
+     * BadgeAssignment carries the identical scope_type/scope_id flat pair as
+     * Plan/NotificationCampaign/Payout, so visibleAmong() ran against the
+     * FULL, eager-loaded table on every render() (no paginate() ever wired,
+     * despite the class already `use`-ing WithPagination) before filtering
+     * in-memory. Converted to the same lightweight-id-projection +
+     * whereIn() + real paginate() pattern NotificationCenter\Manage/
+     * Payouts\Manage/FlashSales\Manage already established for this exact
+     * scope shape.
+     */
+    private function visibleAssignmentIds(): array
+    {
+        $candidates = BadgeAssignment::query()->select('id', 'scope_type', 'scope_id')->get();
+
+        return app(AuthorizationService::class)
+            ->visibleAmong($candidates, auth()->user(), 'badges.view')
+            ->pluck('id')->all();
+    }
+
     public function render()
     {
         $badges = Badge::orderByDesc('priority')->get();
 
-        // Assignments carry their OWN scope directly (scope_type/scope_id
-        // is a flat pair, not a relation to walk) -- filtered in PHP via
-        // authorizationScopeHint() + AuthorizationService::can(), the same
-        // Plan-shaped pattern visibleAmong() already generalizes, applied
-        // inline here since this list is a bounded admin screen, not a
-        // customer-facing hot path.
-        $assignments = app(AuthorizationService::class)
-            ->visibleAmong(
-                BadgeAssignment::with(['badge', 'badgeable'])->latest()->get(),
-                auth()->user(),
-                'badges.view',
-            )
-            ->values();
+        $assignments = BadgeAssignment::whereIn('id', $this->visibleAssignmentIds())
+            ->with(['badge', 'badgeable'])
+            ->latest()
+            ->paginate(15, ['*'], 'assignmentsPage');
 
         return view('livewire.badges.manage', [
             'badges' => $badges,

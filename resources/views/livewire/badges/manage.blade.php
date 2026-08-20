@@ -160,5 +160,6 @@
                 @endforelse
             </tbody>
         </x-ui.table>
+        <div class="mt-4">{{ $assignments->links() }}</div>
     @endif
 </div>

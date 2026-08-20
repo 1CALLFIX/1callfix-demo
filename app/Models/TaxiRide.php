@@ -62,6 +62,8 @@ class TaxiRide extends Model implements Orderable
     public function cancellationReason() { return $this->belongsTo(CancellationReason::class); }
     public function commission() { return $this->hasOne(Commission::class); }
     public function payments() { return $this->hasMany(Payment::class); }
+    /** Reverse side of DispatchAttempt::dispatchable() -- Operations/Health dispatch monitoring (mission Phase 7). */
+    public function dispatchAttempts() { return $this->morphMany(DispatchAttempt::class, 'dispatchable'); }
 
     // ============================== Orderable ==============================
 

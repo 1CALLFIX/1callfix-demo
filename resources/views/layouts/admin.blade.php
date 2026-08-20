@@ -60,6 +60,7 @@
                 <span class="text-xs bg-slate-700 px-2 py-0.5 rounded">{{ \App\Models\Setting::get('branding.operating_city_label', 'Nellore') }}</span>
             </div>
             <div class="flex items-center gap-4 text-sm">
+                <livewire:global-search />
                 <span class="text-gray-300">{{ auth()->user()->name }}</span>
                 <form method="POST" action="{{ route('admin.logout') }}">
                     @csrf

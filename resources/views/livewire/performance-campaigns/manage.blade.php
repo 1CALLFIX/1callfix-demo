@@ -163,4 +163,5 @@
             </x-ui.card>
         @endforeach
     </div>
+    <div class="mt-4">{{ $campaigns->links() }}</div>
 </div>

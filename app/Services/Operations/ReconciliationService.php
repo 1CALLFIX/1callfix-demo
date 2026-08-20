@@ -3,10 +3,18 @@
 namespace App\Services\Operations;
 
 use App\Models\Booking;
+use App\Models\HotelReservation;
 use App\Models\LoyaltyPoint;
+use App\Models\MarketplaceOrder;
+use App\Models\ParcelOrder;
 use App\Models\Payment;
+use App\Models\PropertyReservation;
+use App\Models\RentalReservation;
+use App\Models\TaxiRide;
+use App\Models\User;
 use App\Models\Wallet;
 use App\Models\WalletTransaction;
+use App\Services\AuthorizationService;
 use Illuminate\Support\Collection;
 
 /**
@@ -17,25 +25,86 @@ use Illuminate\Support\Collection;
  * explicitly out of scope here (a separately-authorized, auditable,
  * idempotent action, per the mission's own instruction) — this is the
  * "identify and report" half only.
+ *
+ * Admin Command Center mission, Finance Command Center phase (2026-08-20):
+ * two real gaps found and closed here, both the same shape this session
+ * already found and fixed once for DispatchHealthService (item 36):
+ *
+ * (1) detect() took no viewer at all — every one of its five original
+ *     checks ran completely unscoped, unlike every other Finance screen in
+ *     this codebase (Payments\Index, Commissions\Index, Payouts\Manage,
+ *     WalletLedger\Index all apply AuthorizationService::scopeQuery()).
+ *     operations.view defaults to super_admin-only but its own seeding
+ *     migration explicitly documents it as "assignable to other roles via
+ *     /admin/roles once a real business need (e.g. a dedicated Ops role)
+ *     shows up" — the moment that happens, a franchise-scoped grant would
+ *     have seen every OTHER franchise's paid-without-payment bookings,
+ *     wallet mismatches, and negative loyalty balances too. Not exploited
+ *     today (only super_admin holds the permission in practice), but the
+ *     same real, evidence-based gap class this mission has repeatedly
+ *     found and closed elsewhere — now closed here too, by threading the
+ *     acting User through every check the same way DispatchHealthService
+ *     and StuckBookingService already do on this same screen.
+ *
+ * (2) paidBookingsWithoutCapturedPayment()/completedBookingsWithoutCommission()
+ *     only ever checked Booking. Parcel/Taxi/Property/Marketplace/Rental/
+ *     Hotel all take real payments and pay real commission through the
+ *     exact same Payment/Commission tables (see each model's own
+ *     payments()/commission() relation, and CommissionService's own
+ *     applyForParcelOrder()/applyForTaxiRide()/applyForPropertyReservation()/
+ *     applyForMarketplaceOrder()/applyForRentalReservation()/
+ *     applyForHotelReservation()) but were never covered here. New
+ *     order_paid_without_captured_payment/order_completed_without_commission
+ *     keys cover all six, kept SEPARATE from the original Booking-only keys
+ *     (different model shapes/route names per vertical) rather than merged
+ *     — the identical reasoning DispatchHealthService::exhaustedOrders()'s
+ *     own docblock already gives for keeping stale_order_offers/
+ *     exhausted_orders apart from stale_offers/exhausted_bookings.
  */
 class ReconciliationService
 {
-    /** @return array{paid_bookings_without_captured_payment: Collection, completed_bookings_without_commission: Collection, wallet_balance_mismatches: Collection, wallet_topups_captured_without_credit: Collection, negative_loyalty_balances: Collection} */
-    public function detect(): array
+    /** Order model => the status value meaning "done" for that vertical (see each Complete*Action/MarkParcelDeliveredAction). */
+    private const ORDER_TERMINAL_STATUS = [
+        ParcelOrder::class => 'delivered',
+        TaxiRide::class => 'trip_completed',
+        PropertyReservation::class => 'completed',
+        MarketplaceOrder::class => 'completed',
+        RentalReservation::class => 'completed',
+        HotelReservation::class => 'completed',
+    ];
+
+    /** @return array{paid_bookings_without_captured_payment: Collection, completed_bookings_without_commission: Collection, wallet_balance_mismatches: Collection, wallet_topups_captured_without_credit: Collection, negative_loyalty_balances: Collection, order_paid_without_captured_payment: Collection, order_completed_without_commission: Collection} */
+    public function detect(User $user): array
     {
         return [
-            'paid_bookings_without_captured_payment' => $this->paidBookingsWithoutCapturedPayment(),
-            'completed_bookings_without_commission' => $this->completedBookingsWithoutCommission(),
-            'wallet_balance_mismatches' => $this->walletBalanceMismatches(),
-            'wallet_topups_captured_without_credit' => $this->walletTopupsCapturedWithoutCredit(),
-            'negative_loyalty_balances' => $this->negativeLoyaltyBalances(),
+            'paid_bookings_without_captured_payment' => $this->paidBookingsWithoutCapturedPayment($user),
+            'completed_bookings_without_commission' => $this->completedBookingsWithoutCommission($user),
+            'wallet_balance_mismatches' => $this->walletBalanceMismatches($user),
+            'wallet_topups_captured_without_credit' => $this->walletTopupsCapturedWithoutCredit($user),
+            'negative_loyalty_balances' => $this->negativeLoyaltyBalances($user),
+            'order_paid_without_captured_payment' => $this->orderPaidWithoutCapturedPayment($user),
+            'order_completed_without_commission' => $this->orderCompletedWithoutCommission($user),
         ];
     }
 
-    /** A booking marked payment_status='paid' should always have a matching captured Payment row -- if it doesn't, either the webhook never landed or something wrote payment_status directly. */
-    private function paidBookingsWithoutCapturedPayment(): Collection
+    /** Every Orderable model (Booking included) carries zone_id/franchise_id directly, city/country via its own franchise -- the exact shape Bookings\Index/Payments\Index/DispatchHealthService's own orderScopeColumns() all already use. */
+    private function orderScopeColumns(): array
     {
-        return Booking::where('payment_status', 'paid')
+        return ['zone_id' => 'zone_id', 'franchise_id' => 'franchise_id', 'city_id' => 'franchise.city_id', 'country_id' => 'franchise.country_id'];
+    }
+
+    /** For models reached only through their owning user (Wallet, LoyaltyPoint, a wallet_topup Payment) -- same shape WalletLedger\Index's own baseQuery() already uses. */
+    private function userScopeColumns(): array
+    {
+        return ['zone_id' => 'user.zone_id', 'franchise_id' => 'user.franchise_id', 'city_id' => 'user.franchise.city_id', 'country_id' => 'user.franchise.country_id'];
+    }
+
+    /** A booking marked payment_status='paid' should always have a matching captured Payment row -- if it doesn't, either the webhook never landed or something wrote payment_status directly. */
+    private function paidBookingsWithoutCapturedPayment(User $user): Collection
+    {
+        return app(AuthorizationService::class)
+            ->scopeQuery(Booking::query(), $user, 'operations.view', $this->orderScopeColumns())
+            ->where('payment_status', 'paid')
             ->whereDoesntHave('payment', fn ($q) => $q->where('status', 'captured'))
             ->with('customer')
             ->latest('id')
@@ -44,14 +113,60 @@ class ReconciliationService
     }
 
     /** CompleteBookingAction always calls CommissionService::applyForBooking() -- a completed booking with no commission row means that step never ran (or ran and was rolled back oddly). */
-    private function completedBookingsWithoutCommission(): Collection
+    private function completedBookingsWithoutCommission(User $user): Collection
     {
-        return Booking::where('status', 'completed')
+        return app(AuthorizationService::class)
+            ->scopeQuery(Booking::query(), $user, 'operations.view', $this->orderScopeColumns())
+            ->where('status', 'completed')
             ->whereDoesntHave('commission')
             ->with('customer', 'provider.user')
             ->latest('id')
             ->limit(100)
             ->get();
+    }
+
+    /** Same check as paidBookingsWithoutCapturedPayment(), generalized across the six non-Booking Orderable verticals -- see this class's own docblock, finding (2). */
+    private function orderPaidWithoutCapturedPayment(User $user): Collection
+    {
+        $authz = app(AuthorizationService::class);
+        $columns = $this->orderScopeColumns();
+        $results = collect();
+
+        foreach (array_keys(self::ORDER_TERMINAL_STATUS) as $orderClass) {
+            $rows = $authz->scopeQuery($orderClass::query(), $user, 'operations.view', $columns)
+                ->where('payment_status', 'paid')
+                ->whereDoesntHave('payments', fn ($q) => $q->where('status', 'captured'))
+                ->with('customer')
+                ->latest('id')
+                ->limit(100)
+                ->get();
+
+            $results = $results->merge($rows);
+        }
+
+        return $results->sortByDesc('id')->values();
+    }
+
+    /** Same check as completedBookingsWithoutCommission(), generalized across the six non-Booking Orderable verticals -- see this class's own docblock, finding (2). */
+    private function orderCompletedWithoutCommission(User $user): Collection
+    {
+        $authz = app(AuthorizationService::class);
+        $columns = $this->orderScopeColumns();
+        $results = collect();
+
+        foreach (self::ORDER_TERMINAL_STATUS as $orderClass => $terminalStatus) {
+            $rows = $authz->scopeQuery($orderClass::query(), $user, 'operations.view', $columns)
+                ->where('status', $terminalStatus)
+                ->whereDoesntHave('commission')
+                ->with('customer')
+                ->latest('id')
+                ->limit(100)
+                ->get();
+
+            $results = $results->merge($rows);
+        }
+
+        return $results->sortByDesc('id')->values();
     }
 
     /**
@@ -69,7 +184,7 @@ class ReconciliationService
      * (backed by the new wallet_transactions (status, wallet_id) index) --
      * same per-wallet comparison, same tolerance, same output shape.
      */
-    private function walletBalanceMismatches(): Collection
+    private function walletBalanceMismatches(User $user): Collection
     {
         $ledgerSums = WalletTransaction::query()
             ->where('status', 'successful')
@@ -77,7 +192,9 @@ class ReconciliationService
             ->groupBy('wallet_id')
             ->pluck('ledger_sum', 'wallet_id');
 
-        return Wallet::with('user')
+        return app(AuthorizationService::class)
+            ->scopeQuery(Wallet::query(), $user, 'operations.view', $this->userScopeColumns())
+            ->with('user')
             ->get()
             ->map(fn (Wallet $wallet) => [
                 'wallet' => $wallet,
@@ -101,9 +218,11 @@ class ReconciliationService
      * string, not a FK), so this checks existence per-row rather than a
      * single join, same style walletBalanceMismatches() already uses.
      */
-    private function walletTopupsCapturedWithoutCredit(): Collection
+    private function walletTopupsCapturedWithoutCredit(User $user): Collection
     {
-        return Payment::where('purpose', 'wallet_topup')
+        return app(AuthorizationService::class)
+            ->scopeQuery(Payment::query(), $user, 'operations.view', $this->userScopeColumns())
+            ->where('purpose', 'wallet_topup')
             ->where('status', 'captured')
             ->with('user')
             ->latest('id')
@@ -123,9 +242,10 @@ class ReconciliationService
      * before the fix or via a future bypass). Mirrors
      * LoyaltyService::balance()'s own expiry-aware SUM() exactly.
      */
-    private function negativeLoyaltyBalances(): Collection
+    private function negativeLoyaltyBalances(User $user): Collection
     {
-        return LoyaltyPoint::query()
+        return app(AuthorizationService::class)
+            ->scopeQuery(LoyaltyPoint::query(), $user, 'operations.view', $this->userScopeColumns())
             ->select('user_id')
             ->selectRaw('SUM(points) as balance')
             ->where(function ($q) {

@@ -3,6 +3,7 @@
 namespace Tests\Feature\Operations;
 
 use App\Livewire\Operations\Health;
+use App\Models\ActivityLog;
 use App\Models\NotificationLog;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -105,6 +106,26 @@ class OperationsHealthTest extends TestCase
             ->assertOk();
 
         $this->assertDatabaseMissing('failed_jobs', ['uuid' => $uuid]);
+    }
+
+    /**
+     * Admin Command Center mission (Phase 1/19 audit finding) — ActivityLog
+     * has real writers (Operations' own retryJob/discardJob/
+     * reprocessWebhook, plus Modules\Manage::toggle() as of this session)
+     * but no admin screen displayed it. Now visible on this same screen.
+     */
+    public function test_activity_log_entries_are_visible_to_a_scoped_operator(): void
+    {
+        $actor = $this->makeUserWithPermission('operations.view', 'global');
+        ActivityLog::create([
+            'causer_id' => $actor->id, 'subject_type' => 'App\\Models\\ModuleActivation', 'subject_id' => 1,
+            'description' => "Module 'service' deactivated for franchise #1", 'properties' => ['module_code' => 'service'],
+        ]);
+
+        Livewire::actingAs($actor)->test(Health::class)
+            ->assertOk()
+            ->assertSee("Module 'service' deactivated for franchise #1")
+            ->assertSee('ModuleActivation #1');
     }
 
     public function test_retry_removes_the_job_from_failed_jobs_with_operations_manage(): void

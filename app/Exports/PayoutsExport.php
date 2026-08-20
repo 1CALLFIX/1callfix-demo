@@ -2,6 +2,7 @@
 
 namespace App\Exports;
 
+use App\Models\FieldWorker;
 use App\Models\Payout;
 use App\Models\Provider;
 use App\Models\User;
@@ -71,6 +72,16 @@ class PayoutsExport implements FromCollection, WithHeadings, WithMapping
             $p = Provider::with('user')->find($payout->payee_id);
 
             return $p ? ($p->user->name ?? 'Provider #'.$p->id) : 'Provider #'.$payout->payee_id;
+        }
+
+        // Admin Command Center mission -- payee_id here is a
+        // field_workers.id, NOT a users.id; without this branch it would
+        // silently fall through to the User::find() below and mislabel
+        // (or blank-label) every field_worker payout row in the export.
+        if ($payout->payee_type === 'field_worker') {
+            $w = FieldWorker::with('user')->find($payout->payee_id);
+
+            return $w ? ($w->user->name ?? 'Worker #'.$w->id) : 'Worker #'.$payout->payee_id;
         }
 
         $u = User::find($payout->payee_id);
