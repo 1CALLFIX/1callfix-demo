@@ -1,8 +1,21 @@
 *.log
 .DS_Store
+# Item: Part 2 secrets-hygiene audit (production-hardening session) --
+# .env, .env.backup, and .env.production were the only explicit entries
+# before this session; that left any OTHER real .env.* variant (e.g.
+# .env.staging, .env.local, .env.testing.local) unignored by name alone.
+# A glob + explicit re-allow of .env.example (the one .env* file that
+# SHOULD be tracked) is the standard, robust pattern -- covers every past
+# and future .env.* variant without needing to enumerate each one.
 .env
-.env.backup
-.env.production
+.env.*
+!.env.example
+# Firebase / service-account credential JSON -- never committed, but no
+# prior pattern would have caught one if it were ever added to this repo
+# (see KNOWN_RISKS_AND_DECISIONS.md item 8: FCM_CREDENTIALS_PATH is real
+# config, just unset/unused today).
+*firebase*service*.json
+*service-account*.json
 .phpactor.json
 .phpunit.result.cache
 /.codex

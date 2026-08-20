@@ -121,6 +121,28 @@ class AppServiceProvider extends ServiceProvider
             return Limit::perMinute(60)->by($request->user()?->id ?: $request->ip());
         });
 
+        // Production-hardening session, Part 3 — bootstrap/app.php already
+        // registers Laravel's own default health route (`health: '/up'`),
+        // but out of the box that route only proves the app itself booted;
+        // it dispatches this DiagnosingHealth event and reports "down"
+        // (HTTP 500) only if a LISTENER throws. Nothing previously listened
+        // for it, so a dead database or unreachable queue connection would
+        // still report "up" -- exactly the "app process is alive but can't
+        // actually do anything" false-positive a load balancer/uptime
+        // monitor's health check exists to catch. Two lightweight,
+        // side-effect-free checks: a real PDO connection (fails fast on a
+        // dead DB) and Queue::size() (touches the actual queue backend --
+        // for the 'database' driver in use here, a COUNT query against the
+        // jobs table). Never returns/logs the exception message itself to
+        // the caller (the framework's own health route already only ever
+        // responds with {"status":"up"|"down"} — no stack trace, no
+        // connection string, nothing sensitive), only reports it via
+        // Laravel's own report() the framework route already calls.
+        Event::listen(function (\Illuminate\Foundation\Events\DiagnosingHealth $event) {
+            \Illuminate\Support\Facades\DB::connection()->getPdo();
+            \Illuminate\Support\Facades\Queue::connection()->size();
+        });
+
         Booking::observe(BookingObserver::class);
         ParcelOrder::observe(ParcelOrderObserver::class);
         TaxiRide::observe(TaxiRideObserver::class);

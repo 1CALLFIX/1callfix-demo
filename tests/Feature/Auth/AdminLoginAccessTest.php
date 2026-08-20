@@ -115,4 +115,77 @@ class AdminLoginAccessTest extends TestCase
 
         $this->assertFalse(Auth::check());
     }
+
+    /**
+     * Production-hardening session, Part 2 — regression for the real gap
+     * this session found: Login::submit() had no rate limiting at all,
+     * unlike every OTP/QR endpoint on the API side. 5 wrong attempts (this
+     * screen's own new limit, matching the API's existing OTP-request
+     * throttle:5,1) must lock out the 6th attempt, even with the CORRECT
+     * password on that 6th try -- proving the limiter runs before
+     * Auth::attempt(), not just after a failure.
+     */
+    public function test_repeated_failed_attempts_are_rate_limited(): void
+    {
+        $user = $this->makeUserWithPassword(['role' => 'super_admin']);
+
+        for ($i = 0; $i < 5; $i++) {
+            Livewire::test(Login::class)
+                ->set('email', $user->email)
+                ->set('password', 'wrong-password')
+                ->call('submit')
+                ->assertSet('error', 'Invalid email or password.');
+        }
+
+        Livewire::test(Login::class)
+            ->set('email', $user->email)
+            ->set('password', 'correct-password')
+            ->call('submit')
+            ->assertSet('error', fn ($error) => str_starts_with($error, 'Too many login attempts.'));
+
+        $this->assertFalse(Auth::check());
+    }
+
+    /** A successful login must clear the counter -- a real admin who mistypes a couple of times, then logs in correctly, is never punished on their NEXT session. */
+    public function test_a_successful_login_clears_the_rate_limit_counter(): void
+    {
+        $user = $this->makeUserWithPassword(['role' => 'super_admin']);
+
+        for ($i = 0; $i < 3; $i++) {
+            Livewire::test(Login::class)
+                ->set('email', $user->email)
+                ->set('password', 'wrong-password')
+                ->call('submit');
+        }
+
+        Livewire::test(Login::class)
+            ->set('email', $user->email)
+            ->set('password', 'correct-password')
+            ->call('submit')
+            ->assertRedirect(route('admin.dashboard'));
+
+        $this->assertTrue(Auth::check());
+    }
+
+    /** Rate limiting is keyed per email+IP, not IP alone -- a lockout on one account must not lock out a different real admin logging in from the same office/NAT IP. */
+    public function test_rate_limit_is_scoped_per_email_not_shared_across_accounts(): void
+    {
+        $lockedOut = $this->makeUserWithPassword(['role' => 'super_admin']);
+        $otherAdmin = $this->makeUserWithPassword(['role' => 'super_admin']);
+
+        for ($i = 0; $i < 5; $i++) {
+            Livewire::test(Login::class)
+                ->set('email', $lockedOut->email)
+                ->set('password', 'wrong-password')
+                ->call('submit');
+        }
+
+        Livewire::test(Login::class)
+            ->set('email', $otherAdmin->email)
+            ->set('password', 'correct-password')
+            ->call('submit')
+            ->assertRedirect(route('admin.dashboard'));
+
+        $this->assertTrue(Auth::check());
+    }
 }

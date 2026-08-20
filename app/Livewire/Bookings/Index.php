@@ -110,7 +110,23 @@ class Index extends Component
             return;
         }
 
-        $zones = Zone::where('is_active', true)->orderBy('name')->get(['id', 'name', 'code', 'franchise_id']);
+        // Production-hardening session, Part 2 authorization spot-check —
+        // this used to be a bare Zone::where('is_active', true)->get(...),
+        // contradicting this very method's own docblock ("the SAME zones
+        // list the list screen itself already scopes to") and this
+        // parser's own contract (BookingNaturalLanguageFilter::parse()'s
+        // docblock: "Real, already-scoped zones ... never a fresh
+        // unscoped query"). A franchise/zone-scoped admin typing e.g.
+        // "zone 12" could resolve and see another franchise's real zone
+        // name/code echoed into the "Understood: zone: ..." chip below —
+        // no Booking row data leaked (the resulting filter is ANDed onto
+        // the already-scoped query and would just match zero rows), but
+        // the zone's own name/code is real cross-tenant information
+        // disclosure. Scoped here via the exact same AuthorizationService
+        // convention every other query on this screen already uses.
+        $zones = app(AuthorizationService::class)
+            ->scopeQuery(Zone::query(), auth()->user(), 'bookings.view', $this->zoneListScopeColumns())
+            ->where('is_active', true)->orderBy('name')->get(['id', 'name', 'code', 'franchise_id']);
         $result = app(BookingNaturalLanguageFilter::class)->parse($this->nlQuery, $zones);
 
         $this->statusFilter = $result['status'] ?? '';
@@ -192,6 +208,12 @@ class Index extends Component
     private function bookingScopeColumns(): array
     {
         return ['zone_id' => 'zone_id', 'franchise_id' => 'franchise_id', 'city_id' => 'franchise.city_id', 'country_id' => 'franchise.country_id'];
+    }
+
+    /** Same shape as bookingScopeColumns(), expressed for a Zone row directly (zone's own id, not a foreign key to it) — used to scope the NL-search zone lookup in updatedNlQuery(). */
+    private function zoneListScopeColumns(): array
+    {
+        return ['zone_id' => 'id', 'franchise_id' => 'franchise_id', 'city_id' => 'franchise.city_id', 'country_id' => 'franchise.country_id'];
     }
 
     public function render()
