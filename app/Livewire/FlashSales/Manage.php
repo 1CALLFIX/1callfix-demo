@@ -240,16 +240,36 @@ class Manage extends Component
         $this->flashMessage = 'Service removed from this sale.';
     }
 
+    /**
+     * Admin Command Center mission (Growth Command Center + Performance
+     * audit, KNOWN_RISKS_AND_DECISIONS.md item 44) — render() used to fetch
+     * FlashSale::with([...])->latest()->get() (the FULL table, no bound)
+     * before filtering in-memory via visibleAmong(). Converted to the SAME
+     * lightweight-id-projection + whereIn() + real paginate() pattern
+     * NotificationCenter\Manage/Payouts\Manage already established for this
+     * exact scope_type/scope_id shape -- visibleAmong() now runs against a
+     * cheap `select('id','scope_type','scope_id')` projection (no eager
+     * loads, no full rows) instead of the complete hydrated table.
+     */
+    private function visibleFlashSaleIds(): array
+    {
+        $candidates = FlashSale::query()->select('id', 'scope_type', 'scope_id')->get();
+
+        return app(AuthorizationService::class)
+            ->visibleAmong($candidates, auth()->user(), 'flash_sales.view')
+            ->pluck('id')->all();
+    }
+
     public function render()
     {
         $flashSaleService = app(FlashSaleService::class);
-        $authz = app(AuthorizationService::class);
 
-        $sales = $authz->visibleAmong(
-            FlashSale::with(['targets.service', 'badge'])->latest()->get(),
-            auth()->user(),
-            'flash_sales.view',
-        )->map(function (FlashSale $sale) use ($flashSaleService) {
+        $sales = FlashSale::whereIn('id', $this->visibleFlashSaleIds())
+            ->with(['targets.service', 'badge'])
+            ->latest()
+            ->paginate(15, ['*'], 'salesPage');
+
+        $sales->getCollection()->transform(function (FlashSale $sale) use ($flashSaleService) {
             $sale->setAttribute('is_currently_active', $sale->isCurrentlyActive());
             $sale->setAttribute('remaining_quantity', $flashSaleService->remainingQuantity($sale));
 

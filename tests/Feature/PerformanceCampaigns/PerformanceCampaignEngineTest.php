@@ -560,4 +560,41 @@ class PerformanceCampaignEngineTest extends TestCase
 
         $this->assertSame(0, PerformanceCampaign::count());
     }
+
+    /**
+     * Admin Command Center mission (KNOWN_RISKS_AND_DECISIONS.md item 44) --
+     * render() switched from an unbounded ->get() + in-memory
+     * visibleAmong() to a lightweight id-projection + whereIn() +
+     * paginate() (matching NotificationCenter\Manage/Payouts\Manage's own
+     * established pattern for this exact scope_type/scope_id shape). This
+     * screen had NO prior test exercising render() at all -- first coverage
+     * of both scope and the rewrite together.
+     */
+    public function test_campaigns_list_is_scoped_to_the_actors_own_zone(): void
+    {
+        [, , , $myZone] = $this->makeFranchiseTree();
+        [, , , $otherZone] = $this->makeFranchiseTree();
+        $this->makeCampaign(['name' => 'Mine', 'scope_type' => 'zone', 'scope_id' => $myZone->id]);
+        $this->makeCampaign(['name' => 'Other', 'scope_type' => 'zone', 'scope_id' => $otherZone->id]);
+        $actor = $this->makeUserWithPermission('performance_campaigns.view', 'zone', $myZone->id);
+
+        Livewire::actingAs($actor)->test(PerformanceCampaignsManage::class)
+            ->assertOk()
+            ->assertSee('Mine')
+            ->assertDontSee('Other');
+    }
+
+    public function test_campaigns_list_paginates_instead_of_returning_the_whole_table(): void
+    {
+        for ($i = 0; $i < 20; $i++) {
+            $this->makeCampaign(['name' => "Campaign {$i}"]);
+        }
+        $admin = $this->makeSuperAdmin();
+
+        $campaigns = Livewire::actingAs($admin)->test(PerformanceCampaignsManage::class)
+            ->viewData('campaigns');
+
+        $this->assertSame(15, $campaigns->count());
+        $this->assertSame(20, $campaigns->total());
+    }
 }

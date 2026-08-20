@@ -477,6 +477,42 @@ class FlashSaleEngineTest extends TestCase
             ->assertSet('flashType', 'success');
     }
 
+    /**
+     * Admin Command Center mission (KNOWN_RISKS_AND_DECISIONS.md item 44) --
+     * render() switched from an unbounded ->get() + in-memory
+     * visibleAmong() to a lightweight id-projection + whereIn() +
+     * paginate() (matching NotificationCenter\Manage/Payouts\Manage's own
+     * established pattern for this exact scope_type/scope_id shape).
+     * Confirms row-level scope survives the rewrite.
+     */
+    public function test_sales_list_is_scoped_to_the_actors_own_zone_after_the_pagination_rewrite(): void
+    {
+        [, , , $myZone] = $this->makeFranchiseTree();
+        [, , , $otherZone] = $this->makeFranchiseTree();
+        $mine = $this->makeSale(['name' => 'Mine', 'scope_type' => 'zone', 'scope_id' => $myZone->id]);
+        $other = $this->makeSale(['name' => 'Other', 'scope_type' => 'zone', 'scope_id' => $otherZone->id]);
+        $actor = $this->makeUserWithPermission('flash_sales.view', 'zone', $myZone->id);
+
+        Livewire::actingAs($actor)->test(FlashSalesManage::class)
+            ->assertOk()
+            ->assertSee('Mine')
+            ->assertDontSee('Other');
+    }
+
+    public function test_sales_list_paginates_instead_of_returning_the_whole_table(): void
+    {
+        for ($i = 0; $i < 20; $i++) {
+            $this->makeSale(['name' => "Sale {$i}"]);
+        }
+        $admin = $this->makeSuperAdmin();
+
+        $sales = Livewire::actingAs($admin)->test(FlashSalesManage::class)
+            ->viewData('sales');
+
+        $this->assertSame(15, $sales->count());
+        $this->assertSame(20, $sales->total());
+    }
+
     public function test_percent_discount_over_100_is_rejected_at_creation(): void
     {
         $admin = $this->makeSuperAdmin();
