@@ -3,9 +3,7 @@
 
     <div class="flex items-center justify-between mt-2 mb-4">
         <h1 class="text-2xl font-bold">{{ $provider->user->name ?? 'Provider #'.$provider->id }}</h1>
-        <x-ui.badge size="lg" :color="match($provider->kyc_status) { 'pending' => 'amber', 'approved' => 'green', 'rejected' => 'red', default => 'gray' }">
-            {{ ucfirst($provider->kyc_status) }}
-        </x-ui.badge>
+        <x-ui.status-badge type="provider_kyc" :status="$provider->kyc_status" size="lg" />
     </div>
 
     @if ($flashMessage)
@@ -61,14 +59,34 @@
     <x-ui.card class="mb-6">
         <div class="font-semibold mb-2">Submitted Documents ({{ $provider->currentDocuments->count() }})</div>
         @if ($provider->currentDocuments->isEmpty())
-            <p class="text-sm text-gray-400">No documents uploaded yet.</p>
+            <x-ui.empty-state icon="document-text" title="No documents uploaded yet" />
         @else
+            {{-- Admin Polish + AI session, Part 1 item 3 — "document preview
+                 inline where feasible". mime_type is a real ProviderDocument
+                 column (set at upload); an image renders as an actual inline
+                 thumbnail instead of a bare filename link, so a reviewer can
+                 tell documents apart at a glance without opening each one.
+                 Anything else (PDF, etc.) keeps the icon+link card — the
+                 same private, authorization-checked streaming route either
+                 way (KycDocumentController::providerDocument()), just an
+                 <img> tag pointed at it instead of a bare <a>. --}}
             <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
                 @foreach ($provider->currentDocuments as $doc)
                     <a href="{{ route('admin.kyc.documents.provider', $doc->id) }}" target="_blank"
-                       class="border rounded p-3 text-center hover:bg-gray-50">
-                        <div class="text-xs font-medium mb-1">{{ str_replace('_', ' ', $doc->type) }}</div>
-                        <div class="text-xs text-gray-400">{{ $doc->status }}</div>
+                       class="border rounded overflow-hidden text-center hover:bg-gray-50 hover:border-gray-300 transition block">
+                        @if (str_starts_with($doc->mime_type ?? '', 'image/'))
+                            <img src="{{ route('admin.kyc.documents.provider', $doc->id) }}"
+                                 alt="{{ str_replace('_', ' ', $doc->type) }} document preview"
+                                 class="w-full h-24 object-cover bg-gray-100" loading="lazy">
+                        @else
+                            <div class="w-full h-24 bg-gray-50 flex items-center justify-center text-gray-300">
+                                <x-icon name="document-text" class="w-8 h-8" />
+                            </div>
+                        @endif
+                        <div class="p-2">
+                            <div class="text-xs font-medium mb-1">{{ str_replace('_', ' ', $doc->type) }}</div>
+                            <x-ui.status-badge type="document" :status="$doc->status" />
+                        </div>
                     </a>
                 @endforeach
             </div>

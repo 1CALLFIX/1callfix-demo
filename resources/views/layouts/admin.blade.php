@@ -35,11 +35,28 @@
            than ship a toolbar control that silently does nothing. Services'
            existing Cover Image URL field covers the image need for now. */
         .trix-button-group--file-tools { display: none; }
+
+        /* Admin Polish + AI session — a real, always-present sense that the
+           platform is alive on every Livewire round-trip (filter change,
+           button click, etc.), not just a frozen screen until the response
+           lands. `.delay` on the wire:loading below already keeps this from
+           flashing on sub-200ms requests; the indeterminate sweep animation
+           itself is pure CSS, no JS/chart-library dependency. */
+        @keyframes admin-loading-sweep { 0% { transform: translateX(-100%); } 100% { transform: translateX(250%); } }
+        #admin-loading-bar-fill { animation: admin-loading-sweep 1.1s ease-in-out infinite; }
+
+        /* Skip-to-content link — visually hidden until focused (keyboard
+           users tabbing from the very top of the page can jump straight
+           past the sidebar into the actual screen content). */
+        .skip-link { position: absolute; left: -9999px; top: 0; z-index: 50; }
+        .skip-link:focus { left: 0.5rem; top: 0.5rem; }
     </style>
 </head>
 <body class="bg-gray-100 text-gray-900">
     {{-- Restore the sidebar state before the first paint, so a page load
-         doesn't flash the collapsed rail open. --}}
+         doesn't flash the collapsed rail open. Also syncs the toggle
+         button's aria-expanded to match (was previously hardcoded "false"
+         in the markup below regardless of the restored state). --}}
     <script>
         if (localStorage.getItem('adminSidebarExpanded') === '1') {
             document.body.classList.add('sidebar-expanded');
@@ -47,10 +64,19 @@
     </script>
 
     @auth
+        <a href="#admin-main-content" class="skip-link bg-white text-slate-900 text-sm font-medium px-3 py-2 rounded shadow">Skip to content</a>
+
+        {{-- Global Livewire activity indicator — one instance for the whole
+             panel rather than each screen building its own, so every
+             Livewire component (filters, forms, actions) gets it for free. --}}
+        <div wire:loading.delay.flex class="fixed top-0 left-0 right-0 z-50 h-0.5 bg-slate-200 overflow-hidden" role="status" aria-label="Loading">
+            <div id="admin-loading-bar-fill" class="h-full w-1/3 bg-indigo-500"></div>
+        </div>
+
         <header class="bg-slate-900 text-white px-4 py-3 flex items-center justify-between sticky top-0 z-30">
             <div class="flex items-center gap-3">
                 <button type="button" id="sidebar-toggle"
-                        class="w-9 h-9 rounded flex items-center justify-center hover:bg-slate-700 transition"
+                        class="w-9 h-9 rounded flex items-center justify-center hover:bg-slate-700 transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
                         title="Toggle menu" aria-label="Toggle menu" aria-expanded="false">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor" class="w-5 h-5">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
@@ -64,13 +90,13 @@
                 <span class="text-gray-300">{{ auth()->user()->name }}</span>
                 <form method="POST" action="{{ route('admin.logout') }}">
                     @csrf
-                    <button type="submit" class="text-red-300 hover:text-red-100">Logout</button>
+                    <button type="submit" class="text-red-300 hover:text-red-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-300 rounded">Logout</button>
                 </form>
             </div>
         </header>
 
         <div class="flex">
-            <nav id="admin-sidebar" class="bg-slate-800 min-h-[calc(100vh-52px)] flex flex-col items-center py-4 gap-1 sticky top-[52px] shrink-0">
+            <nav id="admin-sidebar" aria-label="Main navigation" class="bg-slate-800 min-h-[calc(100vh-52px)] flex flex-col items-center py-4 gap-1 sticky top-[52px] shrink-0">
                 @php
                     // Each item's 'permission' is the SAME slug (or list of
                     // slugs, any-of) its target screen's own mount() now
@@ -140,13 +166,14 @@
                     @php $isCurrent = $item['route'] && request()->routeIs($item['route'].'*'); @endphp
                     <a href="{{ $item['active'] ? route($item['route']) : '#' }}"
                        title="{{ $item['label'] }}{{ $item['active'] ? '' : ' (coming soon)' }}"
+                       @if ($isCurrent) aria-current="page" @endif
                        @class([
-                           'nav-item h-11 rounded-lg flex items-center gap-3 transition',
+                           'nav-item h-11 rounded-lg flex items-center gap-3 transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white',
                            'bg-slate-600 text-white' => $isCurrent,
                            'text-gray-400 hover:bg-slate-700 hover:text-white' => !$isCurrent && $item['active'],
                            'text-gray-600 cursor-not-allowed' => !$item['active'],
                        ])>
-                        <span class="shrink-0">@include('components.icon', ['name' => $item['icon']])</span>
+                        <span class="shrink-0"><x-icon :name="$item['icon']" /></span>
                         <span class="nav-label text-sm">
                             {{ $item['label'] }}
                             @unless ($item['active'])
@@ -157,7 +184,7 @@
                 @endforeach
             </nav>
 
-            <main class="flex-1 p-6 max-w-6xl">
+            <main id="admin-main-content" class="flex-1 p-6 max-w-6xl" tabindex="-1">
                 {{ $slot }}
             </main>
         </div>

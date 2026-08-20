@@ -12,8 +12,9 @@ class Index extends Component
     use WithPagination;
 
     public string $statusFilter = 'pending';
+    public string $search = '';
 
-    protected $queryString = ['statusFilter'];
+    protected $queryString = ['statusFilter', 'search'];
 
     /** providers.view was seeded (2026_08_11_016000) but never checked -- see Commissions\Index's identical fix for the full reasoning. Not granted to the Operator role by design (its grant list stops at bookings.*), so Operator now correctly loses access here rather than before, when nothing enforced it. */
     public function mount(): void
@@ -22,6 +23,11 @@ class Index extends Component
     }
 
     public function updatingStatusFilter()
+    {
+        $this->resetPage();
+    }
+
+    public function updatingSearch()
     {
         $this->resetPage();
     }
@@ -37,7 +43,13 @@ class Index extends Component
 
         $providers = $scoped(Provider::with(['user', 'zone', 'documents']))
             ->when($this->statusFilter, fn ($q) => $q->where('kyc_status', $this->statusFilter))
-            ->latest()
+            ->when($this->search, fn ($q) => $q->whereHas('user', fn ($u) => $u->where('name', 'like', "%{$this->search}%")->orWhere('phone', 'like', "%{$this->search}%")))
+            // Admin Polish + AI session, Part 1 item 3 — "should feel like a
+            // queue to clear, not a spreadsheet". Pending applications are
+            // now processed oldest-first (a real FIFO queue an operator
+            // clears from the top down); Approved/Rejected stay newest-first
+            // (browsing recent decisions is the natural order there).
+            ->when($this->statusFilter === 'pending', fn ($q) => $q->oldest(), fn ($q) => $q->latest())
             ->paginate(20);
 
         $counts = $scoped(Provider::query())

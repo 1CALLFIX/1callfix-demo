@@ -3,9 +3,7 @@
 
     <div class="flex items-center justify-between mt-2 mb-4">
         <h1 class="text-2xl font-bold">{{ $customer->name }}</h1>
-        <x-ui.badge size="lg" :color="match($customer->status) { 'active' => 'green', 'suspended' => 'red', 'pending_verification' => 'amber', default => 'gray' }">
-            {{ str_replace('_', ' ', $customer->status) }}
-        </x-ui.badge>
+        <x-ui.status-badge type="customer" :status="$customer->status" size="lg" />
     </div>
 
     @if ($flashMessage)
@@ -57,14 +55,14 @@
                     <td class="px-4 py-2 font-mono text-xs">{{ $booking->code }}</td>
                     <td class="px-4 py-2">{{ $booking->service->name ?? '—' }}</td>
                     <td class="px-4 py-2 text-gray-500">{{ $booking->provider->user->name ?? '— unassigned —' }}</td>
-                    <td class="px-4 py-2">{{ str_replace('_', ' ', $booking->status) }}</td>
+                    <td class="px-4 py-2"><x-ui.status-badge type="booking" :status="$booking->status" /></td>
                     <td class="px-4 py-2 text-gray-500">{{ app(\App\Services\TimezoneResolver::class)->format($booking->created_at, $booking->franchise, 'd M Y') }}</td>
                     <td class="px-4 py-2">
                         <x-ui.button variant="ghost" :href="route('admin.bookings.show', $booking->id)">View</x-ui.button>
                     </td>
                 </tr>
             @empty
-                <tr><td colspan="6" class="px-4 py-6 text-center text-gray-400">No bookings yet.</td></tr>
+                <tr><td colspan="6"><x-ui.empty-state icon="clipboard" title="No bookings yet" /></td></tr>
             @endforelse
         </tbody>
     </x-ui.table>
