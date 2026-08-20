@@ -88,6 +88,28 @@ class FranchisesAuthorizationTest extends TestCase
             ->assertHasErrors(['permission']);
     }
 
+    /**
+     * Platform-structure policy pass (follow-up to item 51, 2026-08-20):
+     * franchises.manage's own allowed grant scope is global/country/city
+     * (see AuthorizationService::RESTRICTED_GRANT_SCOPES's own docblock) --
+     * a franchise-scoped grant was already unreachable via the write-side
+     * country_id-only check before this pass (no scope hint key for
+     * franchise_id was ever passed), but this proves the NEW
+     * canWithRestrictedScope() defense-in-depth layer also independently
+     * rejects it, not just the pre-existing scope-hint shape.
+     */
+    public function test_franchise_scoped_grant_is_still_denied_after_the_restricted_scope_change(): void
+    {
+        $franchise = $this->makeFranchise();
+        $actor = $this->makeUserWithPermission('franchises.manage', 'franchise', $franchise->id);
+
+        Livewire::actingAs($actor)->test(Manage::class)
+            ->call('toggleStatus', $franchise->id)
+            ->assertHasErrors(['permission']);
+
+        $this->assertSame('active', $franchise->fresh()->status);
+    }
+
     public function test_super_admin_bypasses_scope_entirely(): void
     {
         $franchise = $this->makeFranchise();

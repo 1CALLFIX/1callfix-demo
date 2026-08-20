@@ -134,7 +134,7 @@ class Manage extends Component
             'defaultDispatchRadiusKm' => 'dispatch radius',
         ]);
 
-        if (! auth()->user()->hasPermission('zones.manage', $this->franchiseScope((int) $this->franchiseId))) {
+        if (! app(AuthorizationService::class)->canWithRestrictedScope(auth()->user(), 'zones.manage', $this->franchiseScope((int) $this->franchiseId))) {
             $this->addError('permission', 'You do not have permission to create a zone in this franchise.');
             return;
         }
@@ -226,7 +226,7 @@ class Manage extends Component
         // lives to touch it at all. Moving it elsewhere is still allowed by
         // that same grant (this screen has no per-target-franchise transfer
         // control), matching every other Manage screen's edit check.
-        if (! auth()->user()->hasPermission('zones.manage', $this->zoneScope($zone))) {
+        if (! app(AuthorizationService::class)->canWithRestrictedScope(auth()->user(), 'zones.manage', $this->zoneScope($zone))) {
             $this->addError('permission', 'You do not have permission to edit this zone.');
             return;
         }
@@ -255,7 +255,7 @@ class Manage extends Component
     {
         $zone = Zone::findOrFail($zoneId);
 
-        if (! auth()->user()->hasPermission('zones.manage', $this->zoneScope($zone))) {
+        if (! app(AuthorizationService::class)->canWithRestrictedScope(auth()->user(), 'zones.manage', $this->zoneScope($zone))) {
             $this->addError('permission', 'You do not have permission to change this zone.');
             return;
         }
@@ -318,7 +318,7 @@ class Manage extends Component
 
         $zone = Zone::findOrFail($this->confirmingDeleteId);
 
-        if (! auth()->user()->hasPermission('zones.manage', $this->zoneScope($zone))) {
+        if (! app(AuthorizationService::class)->canWithRestrictedScope(auth()->user(), 'zones.manage', $this->zoneScope($zone))) {
             $this->addError('permission', 'You do not have permission to delete this zone.');
             $this->confirmingDeleteId = null;
             return;

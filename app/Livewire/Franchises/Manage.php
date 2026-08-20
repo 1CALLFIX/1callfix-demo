@@ -186,7 +186,7 @@ class Manage extends Component
         // exception through Livewire::test()'s in-process call lifecycle,
         // and addError() is the idiom the rest of this component already
         // uses for validate()'s own failures.
-        if (! auth()->user()->hasPermission('franchises.manage', ['country_id' => $this->countryId])) {
+        if (! app(AuthorizationService::class)->canWithRestrictedScope(auth()->user(), 'franchises.manage', ['country_id' => $this->countryId])) {
             $this->addError('permission', 'You do not have permission to create a franchise in this country.');
             return;
         }
@@ -326,7 +326,7 @@ class Manage extends Component
         // Checked against the franchise's CURRENT country -- same "authority
         // over where it lives now" rule as every other edit-action check
         // this program added (Zones/Banners).
-        if (! auth()->user()->hasPermission('franchises.manage', ['country_id' => $franchise->country_id])) {
+        if (! app(AuthorizationService::class)->canWithRestrictedScope(auth()->user(), 'franchises.manage', ['country_id' => $franchise->country_id])) {
             $this->addError('permission', 'You do not have permission to edit this franchise.');
             return;
         }
@@ -454,7 +454,7 @@ class Manage extends Component
     {
         $franchise = Franchise::findOrFail($franchiseId);
 
-        if (! auth()->user()->hasPermission('franchises.manage', ['country_id' => $franchise->country_id])) {
+        if (! app(AuthorizationService::class)->canWithRestrictedScope(auth()->user(), 'franchises.manage', ['country_id' => $franchise->country_id])) {
             $this->addError('permission', 'You do not have permission to change this franchise.');
             return;
         }
@@ -519,7 +519,7 @@ class Manage extends Component
 
         $franchise = Franchise::findOrFail($this->confirmingDeleteId);
 
-        if (! auth()->user()->hasPermission('franchises.manage', ['country_id' => $franchise->country_id])) {
+        if (! app(AuthorizationService::class)->canWithRestrictedScope(auth()->user(), 'franchises.manage', ['country_id' => $franchise->country_id])) {
             $this->addError('permission', 'You do not have permission to delete this franchise.');
             $this->confirmingDeleteId = null;
             return;

@@ -23,6 +23,105 @@ use Illuminate\Support\Collection;
 class AuthorizationService
 {
     /**
+     * Platform-structure permissions this codebase restricts to a minimum
+     * GRANT scope — i.e. the scope_type of the role_assignment ITSELF,
+     * independent of (and in addition to) the ordinary scopeCovers()
+     * ancestor check every other permission already gets. Added after a
+     * real finding (item 51, then a follow-up policy pass): the usage-side
+     * check on module activation was already fixed to validate the
+     * SELECTED target scope, but nothing stopped the role-assignment layer
+     * from handing a franchise- or zone-scoped role the underlying
+     * permission in the first place, regardless of whether every
+     * downstream action happened to check it correctly.
+     *
+     * `modules.manage` -> global only. No seeded system role below
+     * super_admin has ever carried it (confirmed by reading
+     * 2026_08_11_016000_seed_default_roles_and_permissions.php and
+     * 2026_08_16_903000_seed_modules_manage_permission.php directly) — this
+     * is a pure closure, not a capability reduction for any real role.
+     *
+     * `zones.manage` / `franchises.manage` -> global, country, or city.
+     * Deliberately NOT reduced to global-only: `country_admin` (zones +
+     * franchises) and `city_admin` (zones) are seeded with these
+     * permissions by design — each role's own seeded description says so
+     * ("Operates one country: franchises, zones... within it") and
+     * `FranchisesAuthorizationTest`/`ZonesAuthorizationTest` both cover a
+     * country/city-scoped grant successfully managing franchises/zones as
+     * correct, load-bearing behavior. What's actually being closed is
+     * narrower: a role carrying these permissions (whichever role, seeded
+     * or future) must never be assignable at zone or franchise scope —
+     * the scope level with no legitimate seeded use case for either
+     * permission (franchise_owner/zone_admin/operator/support carry
+     * neither).
+     */
+    private const RESTRICTED_GRANT_SCOPES = [
+        'modules.manage' => ['global'],
+        'zones.manage' => ['global', 'country', 'city'],
+        'franchises.manage' => ['global', 'country', 'city'],
+    ];
+
+    /**
+     * The real closure, called from Roles\Manage::assign() before a new
+     * RoleAssignment is created. Returns the first restricted permission
+     * slug the target role carries that $scopeType isn't an allowed grant
+     * scope for, or null if the assignment is fine. Deliberately does NOT
+     * special-case super_admin-as-actor — this validates the ASSIGNMENT
+     * being created, not the permission of whoever's creating it; even an
+     * operator with unrestricted roles.manage access shouldn't be able to
+     * hand out a franchise-scoped grant of a country-shaped role.
+     */
+    public function disallowedRestrictedPermission(\App\Models\Role $role, string $scopeType): ?string
+    {
+        foreach (self::RESTRICTED_GRANT_SCOPES as $permission => $allowedScopes) {
+            if ($role->permissions->contains('slug', $permission) && ! in_array($scopeType, $allowedScopes, true)) {
+                return $permission;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Defense in depth for the three restricted permissions above — same
+     * coverage logic as can(), but a covering role_assignment only counts
+     * if its OWN scope_type is an allowed grant scope for the permission
+     * being checked (see RESTRICTED_GRANT_SCOPES). Protects the usage
+     * layer (Modules\Manage::toggle(), Zones\Manage's/Franchises\Manage's
+     * mutations) against a hand-crafted, legacy, or otherwise-misconfigured
+     * RoleAssignment that assign()'s own check never had a chance to
+     * reject — the assignment layer above is the real closure; this does
+     * not trust it blindly. Permissions outside RESTRICTED_GRANT_SCOPES
+     * behave identically to can() (not used for anything else today).
+     */
+    public function canWithRestrictedScope(User $user, string $permission, array $scope = []): bool
+    {
+        if ($user->role === 'super_admin') {
+            return true;
+        }
+
+        $allowedGrantScopes = self::RESTRICTED_GRANT_SCOPES[$permission] ?? null;
+
+        $assignments = $user->roleAssignments()->with('role.permissions')->get();
+
+        foreach ($assignments as $assignment) {
+            $hasPermission = $assignment->role->permissions->contains('slug', $permission);
+            if (! $hasPermission) {
+                continue;
+            }
+
+            if ($allowedGrantScopes !== null && ! in_array($assignment->scope_type, $allowedGrantScopes, true)) {
+                continue;
+            }
+
+            if ($this->scopeCovers($assignment->scope_type, $assignment->scope_id, $scope)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * @param  array  $scope  e.g. ['zone_id' => 7, 'franchise_id' => 3, 'city_id' => 2, 'country_id' => 1]
      *                        Only the keys relevant to the permission being checked need to be
      *                        passed — an assignment whose scope_type has no matching key in

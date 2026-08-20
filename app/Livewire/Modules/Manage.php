@@ -8,6 +8,7 @@ use App\Models\Franchise;
 use App\Models\Module;
 use App\Models\Zone;
 use App\Services\ActivityLogger;
+use App\Services\AuthorizationService;
 use App\Services\ModuleActivationService;
 use Livewire\Component;
 
@@ -166,10 +167,18 @@ class Manage extends Component
             return;
         }
 
-        // The real fix: a permission-anywhere holder isn't necessarily
-        // authorized for THIS chosen scope -- re-check against the actual
-        // resolved geography now that one has been selected.
-        abort_unless(auth()->user()->hasPermission('modules.manage', $this->resolvedScope()), 403);
+        // The real fix (item 51): a permission-anywhere holder isn't
+        // necessarily authorized for THIS chosen scope -- re-check against
+        // the actual resolved geography now that one has been selected.
+        //
+        // Platform-structure policy pass (follow-up to item 51): uses
+        // canWithRestrictedScope() rather than plain hasPermission() --
+        // defense in depth against a hand-crafted/legacy RoleAssignment
+        // that grants modules.manage below global scope, which
+        // Roles\Manage::assign()'s own check (the real closure) now
+        // refuses to create going forward but can't retroactively fix if
+        // one already exists in a database this code runs against.
+        abort_unless(app(AuthorizationService::class)->canWithRestrictedScope(auth()->user(), 'modules.manage', $this->resolvedScope()), 403);
 
         $module = Module::where('code', $moduleCode)->firstOrFail();
 

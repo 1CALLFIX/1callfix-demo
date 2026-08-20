@@ -33,10 +33,38 @@ class ZonesAuthorizationTest extends TestCase
         $this->assertDatabaseMissing('zones', ['name' => 'Blocked Zone']);
     }
 
-    public function test_user_with_matching_franchise_scope_can_create_zone(): void
+    /**
+     * Platform-structure policy pass (follow-up to item 51, 2026-08-20):
+     * zones.manage is now restricted to global/country/city grant scope
+     * only (see AuthorizationService::RESTRICTED_GRANT_SCOPES's own
+     * docblock) — country_admin/city_admin's own seeded design is
+     * unaffected, but a FRANCHISE-scoped grant of zones.manage (which no
+     * seeded system role carries by default, but this test's own
+     * makeUserWithPermission() fixture can still construct one directly)
+     * can no longer create/edit a zone at all. This REPLACES the prior
+     * version of this test (which asserted the opposite): that was correct
+     * before this policy pass, not after it.
+     */
+    public function test_franchise_scoped_grant_can_no_longer_create_a_zone(): void
     {
         $franchise = $this->makeFranchise();
         $actor = $this->makeUserWithPermission('zones.manage', 'franchise', $franchise->id);
+
+        Livewire::actingAs($actor)->test(Manage::class)
+            ->set('franchiseId', (string) $franchise->id)
+            ->set('name', 'Blocked Zone')
+            ->set('boundaryPolygonJson', json_encode([['lat' => 1, 'lng' => 1], ['lat' => 2, 'lng' => 2], ['lat' => 3, 'lng' => 3]]))
+            ->call('save')
+            ->assertHasErrors(['permission']);
+
+        $this->assertDatabaseMissing('zones', ['name' => 'Blocked Zone']);
+    }
+
+    public function test_country_scoped_grant_can_still_create_a_zone(): void
+    {
+        $city = $this->makeCity();
+        $franchise = $this->makeFranchise($city);
+        $actor = $this->makeUserWithPermission('zones.manage', 'country', $city->country_id);
 
         Livewire::actingAs($actor)->test(Manage::class)
             ->set('franchiseId', (string) $franchise->id)
