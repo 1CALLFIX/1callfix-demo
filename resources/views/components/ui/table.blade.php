@@ -16,6 +16,17 @@
     the same card, for screens that title the table directly (e.g.
     Customers\Show's "Recent Bookings (N)" — previously its own hand-written
     "font-semibold p-4 pb-2" line inside the same wrapper div).
+
+    Admin Polish + AI session -- added the "overflow-x-auto" wrapper around
+    <table> itself. Every table on every admin screen (this component is
+    used platform-wide, not just the Services vertical) had no horizontal
+    scroll container: a wide table (Bookings\Index's 8 columns, etc.) on a
+    narrower-than-desktop viewport just overflowed the page and pushed the
+    sidebar/layout wide, rather than scrolling within its own card -- a real
+    usability bug for franchise staff not always on a full monitor (this
+    session's own Part 1 item 5). The outer div keeps "overflow-hidden" so
+    the card's own rounded corners still clip correctly; the new inner div
+    is the one that actually scrolls.
 --}}
 
 <div {{ $attributes->merge(['class' => 'bg-white rounded-lg shadow-sm overflow-hidden']) }}>
@@ -23,9 +34,11 @@
         <div class="font-semibold p-4 pb-2">{{ $header }}</div>
     @endisset
 
-    <table class="w-full text-sm">
-        {{ $slot }}
-    </table>
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+            {{ $slot }}
+        </table>
+    </div>
 
     @isset($footer)
         <div class="px-4 py-3 border-t">{{ $footer }}</div>

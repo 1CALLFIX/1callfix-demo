@@ -35,9 +35,7 @@
                     <td class="px-4 py-2">{{ $customer->bookings_count }}</td>
                     <td class="px-4 py-2 font-mono">{{ $currencySymbol }}{{ number_format($customer->wallet_balance, 2) }}</td>
                     <td class="px-4 py-2">
-                        <x-ui.badge :color="match($customer->status) { 'active' => 'green', 'suspended' => 'red', 'pending_verification' => 'amber', default => 'gray' }">
-                            {{ str_replace('_', ' ', $customer->status) }}
-                        </x-ui.badge>
+                        <x-ui.status-badge type="customer" :status="$customer->status" />
                     </td>
                     <td class="px-4 py-2 text-gray-500">{{ $customer->created_at->diffForHumans() }}</td>
                     <td class="px-4 py-2">
@@ -45,7 +43,7 @@
                     </td>
                 </tr>
             @empty
-                <tr><td colspan="8" class="px-4 py-6 text-center text-gray-400">No customers yet.</td></tr>
+                <tr><td colspan="8"><x-ui.empty-state icon="users" title="No customers yet" /></td></tr>
             @endforelse
         </tbody>
     </x-ui.table>

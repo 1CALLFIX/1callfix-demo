@@ -114,4 +114,29 @@ return [
         ],
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | AI narrative phrasing (Admin Polish + AI session, Part 2 item 4)
+    |--------------------------------------------------------------------------
+    |
+    | Same pattern as 'sms'/'push' above. Only ever used to REPHRASE facts
+    | already computed by real queries (App\Services\Operations\
+    | OperationalInsightsService, App\Services\Ai\BookingNaturalLanguageFilter)
+    | into prose or to resolve free-text filter intent — never to decide
+    | what the facts/filters themselves are. Defaults to 'log' (returns
+    | null, caller falls back to displaying the real data/deterministic
+    | parse directly) so nothing changes in any environment that hasn't
+    | deliberately set AI_DRIVER=anthropic + a real key. No key is
+    | populated anywhere in this repo's own .env.example.
+    */
+    'ai' => [
+        'driver' => env('AI_DRIVER', 'log'), // log|anthropic
+
+        'anthropic' => [
+            'api_key' => env('ANTHROPIC_API_KEY'),
+            'model' => env('ANTHROPIC_MODEL', 'claude-opus-5'),
+            'timeout' => env('ANTHROPIC_TIMEOUT_SECONDS', 10),
+        ],
+    ],
+
 ];

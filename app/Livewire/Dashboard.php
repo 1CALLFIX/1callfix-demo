@@ -12,6 +12,7 @@ use App\Models\RentalReservation;
 use App\Models\Franchise;
 use App\Models\Setting;
 use App\Models\TaxiRide;
+use App\Services\Ai\DailyInsightsService;
 use App\Services\AuthorizationService;
 use Livewire\Component;
 
@@ -117,6 +118,53 @@ class Dashboard extends Component
         return $stats;
     }
 
+    /**
+     * Admin Polish + AI session, Part 1 item 1 — a real 7-day trend, not
+     * just a point-in-time number. Rendered as an inline SVG in the view
+     * (server-computed points, no JS charting library / CDN dependency —
+     * this environment has no Node/npm toolchain to build one in anyway,
+     * see KNOWN_RISKS_AND_DECISIONS.md) — a genuine chart because a single
+     * "today" count can't show a trend a 7-day shape can.
+     *
+     * Two grouped queries total (bookings-by-day, revenue-by-day), not one
+     * query per day — the same anti-N+1 discipline items 44-53 already
+     * established elsewhere in this admin panel.
+     *
+     * @return array<int, array{date: string, label: string, bookings: int, revenue: float}>
+     */
+    private function sevenDayTrend(): array
+    {
+        $start = now()->copy()->subDays(6)->startOfDay();
+
+        $bookingsByDay = (clone $this->scopedBookings())
+            ->where('created_at', '>=', $start)
+            ->selectRaw('DATE(created_at) as d, count(*) as total')
+            ->groupBy('d')
+            ->pluck('total', 'd');
+
+        $revenueByDay = (clone $this->scopedBookings())
+            ->where('status', 'completed')
+            ->where('completed_at', '>=', $start)
+            ->selectRaw('DATE(completed_at) as d, sum(price_final) as total')
+            ->groupBy('d')
+            ->pluck('total', 'd');
+
+        $days = [];
+        for ($i = 6; $i >= 0; $i--) {
+            $day = $start->copy()->addDays(6 - $i);
+            $key = $day->toDateString();
+
+            $days[] = [
+                'date' => $key,
+                'label' => $day->format('D'),
+                'bookings' => (int) ($bookingsByDay[$key] ?? 0),
+                'revenue' => (float) ($revenueByDay[$key] ?? 0),
+            ];
+        }
+
+        return $days;
+    }
+
     public function render()
     {
         $today = now()->startOfDay();
@@ -155,6 +203,17 @@ class Dashboard extends Component
             'disputed' => $this->scopedBookings()->where('status', 'disputed')->where('created_at', '>=', $periodStart)->count(),
         ];
 
+        // Admin Polish + AI session, Part 1 item 1 — "completion rate" was
+        // named explicitly and wasn't on this screen at all. Of bookings
+        // that have actually CONCLUDED this period (completed, cancelled,
+        // or disputed) — not of everything created, which would understate
+        // it by counting bookings still legitimately in progress as if
+        // they'd failed.
+        $concluded = $funnel['completed'] + $funnel['cancelled'] + $funnel['disputed'];
+        $stats['completion_rate'] = $concluded > 0 ? round(($funnel['completed'] / $concluded) * 100, 1) : null;
+
+        $trend = $this->sevenDayTrend();
+
         $recentBookings = $this->scopedBookings()
             ->with(['customer', 'service', 'provider'])
             ->latest()
@@ -175,7 +234,18 @@ class Dashboard extends Component
             'franchises' => auth()->user()->hasPermissionAnywhere('franchises.manage') ? route('admin.franchises.index') : null,
         ];
 
-        return view('livewire.dashboard', compact('stats', 'funnel', 'recentBookings', 'currencySymbol', 'otherVerticals', 'links'))
+        // Admin Polish + AI session, Part 2 item 3 — Daily Insights panel.
+        // Gated by operations.view, same as StuckBookingService's own
+        // scopeQuery() calls inside OperationalInsightsService's three
+        // detectors already require — a viewer without it would just see
+        // an always-empty panel (scopeQuery() fails closed), so it's hidden
+        // entirely instead, same "gate each card by its own permission"
+        // convention otherVerticalStats() above already established.
+        $insights = auth()->user()->hasPermissionAnywhere('operations.view')
+            ? app(DailyInsightsService::class)->digest(auth()->user())
+            : null;
+
+        return view('livewire.dashboard', compact('stats', 'funnel', 'trend', 'recentBookings', 'currencySymbol', 'otherVerticals', 'links', 'insights'))
             ->layout('layouts.admin', ['title' => 'Dashboard']);
     }
 }

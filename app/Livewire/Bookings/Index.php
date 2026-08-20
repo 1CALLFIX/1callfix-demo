@@ -10,6 +10,7 @@ use App\Models\Service;
 use App\Models\Setting;
 use App\Models\User;
 use App\Models\Zone;
+use App\Services\Ai\BookingNaturalLanguageFilter;
 use App\Services\AuthorizationService;
 use Illuminate\Support\Str;
 use Livewire\Component;
@@ -21,6 +22,19 @@ class Index extends Component
 
     public string $statusFilter = '';
     public string $search = '';
+
+    // ====================== Natural-language search ======================
+    // Admin Polish + AI session, Part 2 item 2. A free-text box that maps to
+    // the SAME statusFilter/zone/date filters below — never a separate query
+    // path, never raw SQL from the LLM (there is no LLM call at all here;
+    // see BookingNaturalLanguageFilter's own docblock for why a deterministic
+    // parser is the correct, safer choice for this specific mapping).
+    public string $nlQuery = '';
+    public ?int $nlZoneId = null;
+    public ?string $nlDateFrom = null;
+    public ?string $nlDateTo = null;
+    /** @var array<int, string> */
+    public array $nlMatched = [];
 
     protected $queryString = ['statusFilter', 'search'];
 
@@ -83,6 +97,54 @@ class Index extends Component
     }
 
     /**
+     * Fired on nlQuery's own debounced wire:model.live — parses the typed
+     * text against the SAME zones list the list screen itself already
+     * scopes to (only zones this admin can see), and sets the real,
+     * enum-backed filter properties render() already knows how to apply.
+     * Never builds or executes a query itself.
+     */
+    public function updatedNlQuery(): void
+    {
+        if (trim($this->nlQuery) === '') {
+            $this->clearNlQuery();
+            return;
+        }
+
+        $zones = Zone::where('is_active', true)->orderBy('name')->get(['id', 'name', 'code', 'franchise_id']);
+        $result = app(BookingNaturalLanguageFilter::class)->parse($this->nlQuery, $zones);
+
+        $this->statusFilter = $result['status'] ?? '';
+        $this->nlZoneId = $result['zone_id'];
+        $this->nlDateFrom = $result['date_from']?->toDateTimeString();
+        $this->nlDateTo = $result['date_to']?->toDateTimeString();
+        $this->nlMatched = $result['matched'];
+        $this->resetPage();
+    }
+
+    public function clearNlQuery(): void
+    {
+        $this->nlQuery = '';
+        $this->statusFilter = '';
+        $this->nlZoneId = null;
+        $this->nlDateFrom = null;
+        $this->nlDateTo = null;
+        $this->nlMatched = [];
+        $this->resetPage();
+    }
+
+    /** A manual status-chip click fully overrides whatever a previous natural-language search set — never combines with a leftover zone/date filter the admin can no longer see reflected in the chip UI itself. */
+    public function selectStatus(string $status): void
+    {
+        $this->nlQuery = '';
+        $this->nlZoneId = null;
+        $this->nlDateFrom = null;
+        $this->nlDateTo = null;
+        $this->nlMatched = [];
+        $this->statusFilter = $status;
+        $this->resetPage();
+    }
+
+    /**
      * A zone's position in the geography cascade — same shape as
      * Bookings\Show::bookingScope(), built from a Zone rather than an
      * existing Booking since none exists yet at this point in the flow.
@@ -139,6 +201,13 @@ class Index extends Component
         $bookings = $scoped(Booking::with(['customer', 'service', 'provider.user']))
             ->when($this->statusFilter, fn ($q) => $q->where('status', $this->statusFilter))
             ->when($this->search, fn ($q) => $q->where('code', 'like', "%{$this->search}%"))
+            // Natural-language search results (Part 2 item 2) -- zone_id and
+            // created_at are real Booking columns, applied through the exact
+            // same query builder as every other filter on this screen, never
+            // a separate path.
+            ->when($this->nlZoneId, fn ($q) => $q->where('zone_id', $this->nlZoneId))
+            ->when($this->nlDateFrom, fn ($q) => $q->where('created_at', '>=', $this->nlDateFrom))
+            ->when($this->nlDateTo, fn ($q) => $q->where('created_at', '<=', $this->nlDateTo))
             ->latest()
             ->paginate(20);
 

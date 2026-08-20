@@ -212,13 +212,43 @@
         </div>
     </x-ui.card>
 
+    {{-- Admin Polish + AI session, Part 2 item 2 — natural-language search.
+         Deterministic parse (BookingNaturalLanguageFilter, no LLM call —
+         see its own docblock for why), sets the same statusFilter/zone/date
+         properties the filter chips and search box below already drive.
+         Typing here and picking a status chip below both just set the same
+         Livewire properties — neither one fights the other. --}}
+    <div class="mb-3">
+        <label for="nl-query" class="block text-xs font-medium mb-1">
+            <x-icon name="sparkles" class="w-3.5 h-3.5 inline text-indigo-500" />
+            Try: "cancelled bookings in Zone 3 this week"
+        </label>
+        <div class="flex items-center gap-2 max-w-lg">
+            <input id="nl-query" type="text" wire:model.live.debounce.500ms="nlQuery"
+                   placeholder="Search in plain English…"
+                   class="w-full border rounded px-3 py-2 text-sm">
+            @if ($nlQuery)
+                <x-ui.button variant="secondary" size="sm" wire:click="clearNlQuery">Clear</x-ui.button>
+            @endif
+        </div>
+        @if (!empty($nlMatched))
+            <p class="text-xs text-gray-400 mt-1">Understood: {{ implode(' · ', $nlMatched) }}</p>
+        @elseif ($nlQuery)
+            <p class="text-xs text-amber-600 mt-1">Didn't recognize a status, zone, or date in that — showing all bookings matching what it could parse.</p>
+        @endif
+    </div>
+
     <div class="flex flex-wrap gap-2 mb-4">
-        <button wire:click="$set('statusFilter', '')"
-                class="px-3 py-1.5 rounded text-sm {{ $statusFilter === '' ? 'bg-slate-900 text-white' : 'bg-white border' }}">
+        {{-- selectStatus() also clears any zone/date a previous
+             natural-language search left applied, so a manual chip click
+             always fully overrides it rather than silently combining with
+             it — see the Livewire method's own docblock. --}}
+        <button wire:click="selectStatus('')"
+                class="px-3 py-1.5 rounded text-sm {{ $statusFilter === '' && !$nlZoneId && !$nlDateFrom ? 'bg-slate-900 text-white' : 'bg-white border' }}">
             All
         </button>
         @foreach (['pending','searching_provider','assigned','provider_en_route','in_progress','on_hold','completed','cancelled','disputed'] as $status)
-            <button wire:click="$set('statusFilter', '{{ $status }}')"
+            <button wire:click="selectStatus('{{ $status }}')"
                     class="px-3 py-1.5 rounded text-sm {{ $statusFilter === $status ? 'bg-slate-900 text-white' : 'bg-white border' }}">
                 {{ str_replace('_', ' ', $status) }}
                 @if(isset($statusCounts[$status]))
@@ -254,14 +284,7 @@
                     <td class="px-4 py-2">{{ $booking->service->name ?? '—' }}</td>
                     <td class="px-4 py-2">{{ $booking->provider?->user?->name ?? '— unassigned —' }}</td>
                     <td class="px-4 py-2">
-                        <x-ui.badge :color="match(true) {
-                            $booking->status === 'pending' => 'gray',
-                            in_array($booking->status, ['searching_provider','assigned','provider_en_route']) => 'blue',
-                            in_array($booking->status, ['in_progress','on_hold']) => 'amber',
-                            $booking->status === 'completed' => 'green',
-                            in_array($booking->status, ['cancelled','disputed']) => 'red',
-                            default => 'gray',
-                        }">{{ str_replace('_', ' ', $booking->status) }}</x-ui.badge>
+                        <x-ui.status-badge type="booking" :status="$booking->status" />
                     </td>
                     <td class="px-4 py-2">{{ $currencySymbol }}{{ number_format($booking->price_final ?? $booking->price_quoted, 2) }}</td>
                     <td class="px-4 py-2 text-gray-500">{{ $booking->created_at->diffForHumans() }}</td>
@@ -270,7 +293,7 @@
                     </td>
                 </tr>
             @empty
-                <tr><td colspan="8" class="px-4 py-6 text-center text-gray-400">No bookings match this filter.</td></tr>
+                <tr><td colspan="8"><x-ui.empty-state icon="magnifying-glass" title="No bookings match this filter" description="Try a different status, or clear the search." /></td></tr>
             @endforelse
         </tbody>
     </x-ui.table>

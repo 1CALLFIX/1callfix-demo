@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Contracts\NarrativeAiAdapter;
 use App\Contracts\PaymentGateway;
 use App\Contracts\PushAdapter;
 use App\Contracts\SmsAdapter;
@@ -34,6 +35,8 @@ use App\Observers\ReviewObserver;
 use App\Observers\TaxiRideObserver;
 use App\Observers\UserObserver;
 use App\Observers\ZoneObserver;
+use App\Services\Ai\AnthropicNarrativeAiAdapter;
+use App\Services\Ai\LogNarrativeAiAdapter;
 use App\Services\RazorpayService;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
@@ -71,6 +74,19 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(PushAdapter::class, fn ($app) => match (config('services.push.driver', 'log')) {
             'fcm' => $app->make(FirebaseFcmPushAdapter::class),
             default => $app->make(LogPushAdapter::class),
+        });
+
+        // Admin Polish + AI session — identical shape to SmsAdapter/PushAdapter
+        // above: config('services.ai.driver') (AI_DRIVER env), defaulting to
+        // 'log', so every environment that hasn't deliberately set a real
+        // ANTHROPIC_API_KEY gets the null-returning fallback and every
+        // caller of NarrativeAiAdapter (DailyInsightsService,
+        // BookingNaturalLanguageFilter) already handles that null by
+        // displaying its own real, non-AI data — see LogNarrativeAiAdapter's
+        // own docblock. No real key exists anywhere in this codebase today.
+        $this->app->bind(NarrativeAiAdapter::class, fn ($app) => match (config('services.ai.driver', 'log')) {
+            'anthropic' => $app->make(AnthropicNarrativeAiAdapter::class),
+            default => $app->make(LogNarrativeAiAdapter::class),
         });
 
         // Razorpay IS the real, already-selected provider (unlike SMS/push

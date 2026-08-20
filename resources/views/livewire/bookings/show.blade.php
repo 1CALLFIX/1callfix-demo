@@ -4,14 +4,7 @@
             <a href="{{ route('admin.bookings.index') }}" class="text-sm text-blue-600 hover:underline">&larr; Back to Bookings</a>
             <h1 class="text-2xl font-bold font-mono mt-1">{{ $booking->code }}</h1>
         </div>
-        <x-ui.badge size="lg" :color="match(true) {
-            $booking->status === 'pending' => 'gray',
-            in_array($booking->status, ['searching_provider','assigned','provider_en_route']) => 'blue',
-            in_array($booking->status, ['in_progress','on_hold']) => 'amber',
-            $booking->status === 'completed' => 'green',
-            in_array($booking->status, ['cancelled','disputed']) => 'red',
-            default => 'gray',
-        }">{{ str_replace('_', ' ', $booking->status) }}</x-ui.badge>
+        <x-ui.status-badge type="booking" :status="$booking->status" size="lg" />
     </div>
 
     @if ($flashMessage)
