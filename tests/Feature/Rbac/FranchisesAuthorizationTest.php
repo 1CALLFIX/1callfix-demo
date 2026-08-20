@@ -99,4 +99,22 @@ class FranchisesAuthorizationTest extends TestCase
 
         $this->assertSame('inactive', $franchise->fresh()->status);
     }
+
+    /**
+     * Admin Command Center completion session, Geography + Maps phase
+     * (2026-08-20) — every mutation above already correctly checks
+     * franchises.manage against ['country_id' => ...], but render()'s list
+     * never applied any row-level scope at all — a country-scoped grant
+     * could browse every OTHER country's franchises too.
+     */
+    public function test_country_scoped_grant_sees_only_its_own_countrys_franchises_in_the_list(): void
+    {
+        $mine = $this->makeFranchise();
+        $other = $this->makeFranchise();
+        $actor = $this->makeUserWithPermission('franchises.manage', 'country', $mine->country_id);
+
+        Livewire::actingAs($actor)->test(Manage::class)
+            ->assertSee($mine->name)
+            ->assertDontSee($other->name);
+    }
 }

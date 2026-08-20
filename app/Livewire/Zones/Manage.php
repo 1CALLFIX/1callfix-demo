@@ -5,6 +5,7 @@ namespace App\Livewire\Zones;
 use App\Models\Franchise;
 use App\Models\Setting;
 use App\Models\Zone;
+use App\Services\AuthorizationService;
 use Illuminate\Support\Str;
 use Livewire\Component;
 use Livewire\WithPagination;
@@ -349,9 +350,28 @@ class Manage extends Component
         $this->resetPage();
     }
 
+    /**
+     * Admin Command Center completion session, Geography + Maps phase
+     * (2026-08-20) -- RBAC_SCOPE_MATRIX.md documents zones.manage as
+     * row-level scoped ("Yes -- franchise -> city -> country") and every
+     * mutation (create/update/toggleActive/delete, via franchiseScope()/
+     * zoneScope() above) genuinely does check it per row -- but render()
+     * never applied AuthorizationService::scopeQuery() at all, the same
+     * read-only-list gap already found and fixed twice this session
+     * (banners.manage/item 47, notification.view_logs/item 48). Unlike
+     * Banner, Zone has no nullable "runs everywhere" targeting column --
+     * every zone belongs to exactly one franchise -- so this is a direct
+     * scopeQuery() call, no OR-null branch needed.
+     */
+    private function zoneScopeColumns(): array
+    {
+        return ['zone_id' => 'id', 'franchise_id' => 'franchise_id', 'city_id' => 'franchise.city_id', 'country_id' => 'franchise.country_id'];
+    }
+
     private function baseQuery()
     {
-        return Zone::query()
+        return app(AuthorizationService::class)
+            ->scopeQuery(Zone::query(), auth()->user(), 'zones.manage', $this->zoneScopeColumns())
             ->when($this->search !== '', fn ($q) => $q->where(function ($w) {
                 $w->where('name', 'like', '%'.$this->search.'%')
                   ->orWhere('code', 'like', '%'.$this->search.'%');

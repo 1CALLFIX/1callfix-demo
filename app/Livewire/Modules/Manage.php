@@ -135,13 +135,41 @@ class Manage extends Component
         })->all();
     }
 
+    /**
+     * Admin Command Center completion session, Geography + Maps phase
+     * (2026-08-20) -- this only ever checked hasPermissionAnywhere('modules.manage')
+     * (holds the permission SOMEWHERE), never that the grant actually
+     * covers the SELECTED scope -- unlike every read-only list gap found
+     * elsewhere this session, this is a real write-side cross-tenant hole:
+     * a franchise-scoped modules.manage grant (the permission's own label,
+     * "Manage module activation (country/city/zone/franchise)", explicitly
+     * anticipates a scoped grant, and resolvedScope() already builds the
+     * exact country/city/zone/franchise hint AuthorizationService::can()
+     * expects) could activate or deactivate any vertical for ANY OTHER
+     * country/city/zone/franchise platform-wide, not just their own --
+     * "one of the most consequential mutations in the admin panel" per
+     * this method's own pre-existing comment below. Fixed by checking the
+     * RESOLVED scope, not just permission-anywhere, matching the same
+     * per-target hasPermission($scopeHint) convention every other mutating
+     * action in this codebase already uses (Payouts/Banners/Zones/etc.).
+     */
     public function toggle(string $moduleCode): void
     {
+        // Kept as the first check (not folded into the scoped check below)
+        // specifically so a no-permission actor still gets a 403 even
+        // before a scope is chosen -- ModulesScreenAuthorizationTest's own
+        // test_toggle_action_itself_is_permission_gated() calls toggle()
+        // directly with no scopeId set at all and expects exactly that.
         abort_unless(auth()->user()->hasPermissionAnywhere('modules.manage'), 403);
 
         if (! $this->scopeId) {
             return;
         }
+
+        // The real fix: a permission-anywhere holder isn't necessarily
+        // authorized for THIS chosen scope -- re-check against the actual
+        // resolved geography now that one has been selected.
+        abort_unless(auth()->user()->hasPermission('modules.manage', $this->resolvedScope()), 403);
 
         $module = Module::where('code', $moduleCode)->firstOrFail();
 

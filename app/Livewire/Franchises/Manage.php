@@ -7,6 +7,7 @@ use App\Models\Country;
 use App\Models\Franchise;
 use App\Models\FranchiseModule;
 use App\Models\Setting;
+use App\Services\AuthorizationService;
 use App\Support\Modules;
 use Illuminate\Support\Str;
 use Livewire\Component;
@@ -550,9 +551,26 @@ class Manage extends Component
         $this->resetPage();
     }
 
+    /**
+     * Admin Command Center completion session, Geography + Maps phase
+     * (2026-08-20) -- every mutation on this screen (update()/toggleStatus()/
+     * deleteFranchise(), plus save()) checks hasPermission('franchises.manage',
+     * ['country_id' => ...]) ONLY -- no city_id/zone_id/franchise_id key is
+     * ever passed, meaning this permission is deliberately country-admin-
+     * and-above only by construction (AuthorizationService::can()'s own
+     * docblock: "an assignment whose scope_type has no matching key in
+     * $scope simply never covers the request" -- a city/zone-scoped grant
+     * could never satisfy a country_id-only check). render() never applied
+     * ANY row-level scope though, the same read-only-list gap already
+     * found and fixed for zones.manage/banners.manage/notification.view_logs
+     * this session -- closed here with the identical country_id-only shape
+     * the writes already use, so the list and the write actions agree on
+     * exactly who "franchises.manage" means, not a new, wider definition.
+     */
     public function render()
     {
-        $franchises = Franchise::query()
+        $franchises = app(AuthorizationService::class)
+            ->scopeQuery(Franchise::query(), auth()->user(), 'franchises.manage', ['country_id' => 'country_id'])
             ->when($this->search !== '', fn ($q) => $q->where(function ($w) {
                 $w->where('name', 'like', '%'.$this->search.'%')
                   ->orWhere('code', 'like', '%'.$this->search.'%')

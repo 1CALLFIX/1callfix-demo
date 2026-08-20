@@ -136,4 +136,55 @@ class ModulesScreenAuthorizationTest extends TestCase
 
         (new ModulesManage())->toggle('service');
     }
+
+    /**
+     * Admin Command Center completion session, Geography + Maps phase
+     * (2026-08-20) -- toggle() only ever checked hasPermissionAnywhere()
+     * (holds modules.manage SOMEWHERE), never that the grant covers the
+     * SELECTED scope -- a real write-side cross-tenant hole: a
+     * franchise-scoped grant could activate/deactivate any vertical for
+     * ANY OTHER franchise platform-wide, not just their own.
+     */
+    public function test_franchise_scoped_grant_cannot_toggle_a_different_franchises_module(): void
+    {
+        $mine = $this->makeFranchise();
+        $other = $this->makeFranchise();
+        $actor = $this->makeUserWithPermission('modules.manage', 'franchise', $mine->id);
+
+        Livewire::actingAs($actor)->test(ModulesManage::class)
+            ->set('scopeLevel', 'franchise')
+            ->set('scopeId', $other->id)
+            ->call('toggle', 'service')
+            ->assertForbidden();
+
+        // FranchiseObserver auto-seeds a `service=true` module_activations
+        // row for every new franchise (see the pre-existing "writes a real
+        // row" test above, which relies on toggle() FLIPPING that seeded
+        // row to false) -- so the real proof this stayed blocked is that
+        // it's still true, not that no row exists at all.
+        $row = ModuleActivation::where('scope_type', 'franchise')->where('scope_id', $other->id)
+            ->where('module_id', \App\Models\Module::where('code', 'service')->value('id'))
+            ->first();
+        $this->assertNotNull($row);
+        $this->assertTrue($row->is_active);
+    }
+
+    public function test_franchise_scoped_grant_can_toggle_its_own_franchises_module(): void
+    {
+        $mine = $this->makeFranchise();
+        $actor = $this->makeUserWithPermission('modules.manage', 'franchise', $mine->id);
+
+        Livewire::actingAs($actor)->test(ModulesManage::class)
+            ->set('scopeLevel', 'franchise')
+            ->set('scopeId', $mine->id)
+            ->call('toggle', 'service')
+            ->assertOk();
+
+        $row = ModuleActivation::where('scope_type', 'franchise')->where('scope_id', $mine->id)
+            ->where('module_id', \App\Models\Module::where('code', 'service')->value('id'))
+            ->first();
+
+        $this->assertNotNull($row);
+        $this->assertFalse($row->is_active);
+    }
 }

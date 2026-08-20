@@ -125,6 +125,28 @@ class ZonesAuthorizationTest extends TestCase
         $this->assertDatabaseHas('zones', ['id' => $zone->id]);
     }
 
+    /**
+     * Admin Command Center completion session, Geography + Maps phase
+     * (2026-08-20) — RBAC_SCOPE_MATRIX.md documents zones.manage as
+     * row-level scoped and every mutation above already correctly checks
+     * it, but render()'s list never applied AuthorizationService::
+     * scopeQuery() at all — a franchise-scoped grant could browse every
+     * OTHER franchise's zones.
+     */
+    public function test_franchise_scoped_grant_sees_only_its_own_franchises_zones_in_the_list(): void
+    {
+        $mine = $this->makeFranchise();
+        $other = $this->makeFranchise();
+        Zone::create(['franchise_id' => $mine->id, 'name' => 'Mine Zone', 'boundary_polygon' => [['lat' => 1, 'lng' => 1], ['lat' => 2, 'lng' => 2], ['lat' => 3, 'lng' => 3]], 'is_active' => true]);
+        Zone::create(['franchise_id' => $other->id, 'name' => 'Other Zone', 'boundary_polygon' => [['lat' => 1, 'lng' => 1], ['lat' => 2, 'lng' => 2], ['lat' => 3, 'lng' => 3]], 'is_active' => true]);
+
+        $actor = $this->makeUserWithPermission('zones.manage', 'franchise', $mine->id);
+
+        Livewire::actingAs($actor)->test(Manage::class)
+            ->assertSee('Mine Zone')
+            ->assertDontSee('Other Zone');
+    }
+
     public function test_super_admin_bypasses_scope_entirely(): void
     {
         $franchise = $this->makeFranchise();
