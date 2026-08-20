@@ -367,4 +367,46 @@ class BadgeEngineTest extends TestCase
             ->call('assign')
             ->assertSet('flashType', 'success');
     }
+
+    /**
+     * Admin Command Center completion session, Growth Command Center phase
+     * (2026-08-20, same shape as item 44) -- render() used to fetch
+     * BadgeAssignment::with([...])->latest()->get() (the FULL table, no
+     * bound) before filtering in-memory via visibleAmong(). Converted to
+     * the same lightweight-id-projection + whereIn() + real paginate()
+     * pattern FlashSales\Manage/PerformanceCampaigns\Manage/Payouts\Manage
+     * already established for this exact scope_type/scope_id shape.
+     */
+    public function test_assignments_list_paginates_instead_of_returning_the_whole_table(): void
+    {
+        $badge = $this->manualBadge();
+        for ($i = 0; $i < 20; $i++) {
+            app(BadgeService::class)->assign($badge, $this->makeService());
+        }
+        $admin = $this->makeSuperAdmin();
+
+        $assignments = Livewire::actingAs($admin)->test(BadgesManage::class)
+            ->set('section', 'assignments')
+            ->viewData('assignments');
+
+        $this->assertSame(15, $assignments->count());
+        $this->assertSame(20, $assignments->total());
+    }
+
+    public function test_assignments_list_is_scoped_to_the_actors_own_zone_after_the_pagination_rewrite(): void
+    {
+        [, , , $myZone] = $this->makeFranchiseTree();
+        [, , , $otherZone] = $this->makeFranchiseTree();
+        $badge = $this->manualBadge();
+        $mineAssignment = app(BadgeService::class)->assign($badge, $this->makeService(), 'zone', $myZone->id);
+        app(BadgeService::class)->assign($badge, $this->makeService(), 'zone', $otherZone->id);
+        $actor = $this->makeUserWithPermission('badges.view', 'zone', $myZone->id);
+
+        $assignments = Livewire::actingAs($actor)->test(BadgesManage::class)
+            ->set('section', 'assignments')
+            ->viewData('assignments');
+
+        $this->assertTrue($assignments->contains('id', $mineAssignment->id));
+        $this->assertCount(1, $assignments);
+    }
 }
