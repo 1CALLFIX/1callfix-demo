@@ -157,6 +157,70 @@
         </div>
     </x-ui.card>
 
+    {{-- Reconciliation warnings -- Parcel/Taxi/Property/Marketplace/Rental/Hotel (same tables/checks as the card above, generalized across the six non-Booking Orderable verticals, previously invisible here) --}}
+    <x-ui.card title="Reconciliation warnings — Parcel / Taxi / Property / Marketplace / Rental / Hotel" class="mb-6">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+            <div>
+                <div class="font-medium text-gray-700 mb-2">Paid without captured payment ({{ $reconciliation['order_paid_without_captured_payment']->count() }})</div>
+                @forelse ($reconciliation['order_paid_without_captured_payment'] as $order)
+                    @php($orderRoute = match (get_class($order)) {
+                        \App\Models\ParcelOrder::class => 'admin.parcel-orders.index',
+                        \App\Models\TaxiRide::class => 'admin.taxi-rides.index',
+                        \App\Models\PropertyReservation::class => 'admin.property-reservations.index',
+                        \App\Models\MarketplaceOrder::class => 'admin.marketplace-orders.index',
+                        \App\Models\RentalReservation::class => 'admin.rental-reservations.index',
+                        \App\Models\HotelReservation::class => 'admin.hotel-reservations.index',
+                        default => null,
+                    })
+                    @php($orderLabel = match (get_class($order)) {
+                        \App\Models\ParcelOrder::class => 'Parcel',
+                        \App\Models\TaxiRide::class => 'Taxi',
+                        \App\Models\PropertyReservation::class => 'Property',
+                        \App\Models\MarketplaceOrder::class => 'Marketplace',
+                        \App\Models\RentalReservation::class => 'Rental',
+                        \App\Models\HotelReservation::class => 'Hotel',
+                        default => 'Order',
+                    })
+                    <div class="text-xs text-gray-500 border-t py-1.5">
+                        <a href="{{ $orderRoute ? route($orderRoute) : '#' }}" class="text-blue-600 hover:underline">{{ $orderLabel }} {{ $order->code ?? '#'.$order->id }}</a>
+                        — {{ $order->customer->name ?? 'Unknown customer' }}
+                    </div>
+                @empty
+                    <div class="text-xs text-gray-400">None.</div>
+                @endforelse
+            </div>
+            <div>
+                <div class="font-medium text-gray-700 mb-2">Completed without commission ({{ $reconciliation['order_completed_without_commission']->count() }})</div>
+                @forelse ($reconciliation['order_completed_without_commission'] as $order)
+                    @php($orderRoute = match (get_class($order)) {
+                        \App\Models\ParcelOrder::class => 'admin.parcel-orders.index',
+                        \App\Models\TaxiRide::class => 'admin.taxi-rides.index',
+                        \App\Models\PropertyReservation::class => 'admin.property-reservations.index',
+                        \App\Models\MarketplaceOrder::class => 'admin.marketplace-orders.index',
+                        \App\Models\RentalReservation::class => 'admin.rental-reservations.index',
+                        \App\Models\HotelReservation::class => 'admin.hotel-reservations.index',
+                        default => null,
+                    })
+                    @php($orderLabel = match (get_class($order)) {
+                        \App\Models\ParcelOrder::class => 'Parcel',
+                        \App\Models\TaxiRide::class => 'Taxi',
+                        \App\Models\PropertyReservation::class => 'Property',
+                        \App\Models\MarketplaceOrder::class => 'Marketplace',
+                        \App\Models\RentalReservation::class => 'Rental',
+                        \App\Models\HotelReservation::class => 'Hotel',
+                        default => 'Order',
+                    })
+                    <div class="text-xs text-gray-500 border-t py-1.5">
+                        <a href="{{ $orderRoute ? route($orderRoute) : '#' }}" class="text-blue-600 hover:underline">{{ $orderLabel }} {{ $order->code ?? '#'.$order->id }}</a>
+                        — {{ $order->customer->name ?? 'Unknown customer' }}
+                    </div>
+                @empty
+                    <div class="text-xs text-gray-400">None.</div>
+                @endforelse
+            </div>
+        </div>
+    </x-ui.card>
+
     {{-- Dispatch health --}}
     <x-ui.card title="Dispatch health" class="mb-6">
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">

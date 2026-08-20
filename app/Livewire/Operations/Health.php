@@ -218,7 +218,7 @@ class Health extends Component
             'notificationFailureCount' => NotificationLog::where('status', 'failed')->count(),
             'checks' => $this->healthChecks(),
             'canManage' => $this->canManage(),
-            'reconciliation' => app(ReconciliationService::class)->detect(),
+            'reconciliation' => app(ReconciliationService::class)->detect(auth()->user()),
             'dispatchHealth' => app(DispatchHealthService::class)->stats(auth()->user()),
             'stuckBookings' => app(StuckBookingService::class)->detect(auth()->user()),
             'scheduledTaskRuns' => $scheduledTaskRuns,
