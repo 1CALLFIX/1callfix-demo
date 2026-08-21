@@ -109,4 +109,30 @@ class BookingsNaturalLanguageSearchTest extends TestCase
             ->set('nlQuery', 'bookings in faraway')
             ->assertDontSee($scenarioOutside['booking']->code);
     }
+
+    /**
+     * Production-hardening session, Part 2 authorization spot-check —
+     * regression for the real bug this session found: updatedNlQuery() used
+     * to build its $zones list from a bare, unscoped Zone::where('is_active')
+     * query, contradicting its own docblock. Even though the resulting
+     * booking QUERY was already safe (the prior test above confirms no row
+     * data leaked), the zone's own real name/code was still being resolved
+     * and echoed into the "Understood: zone: ..." chip for an actor with
+     * zero visibility into that zone — real cross-tenant information
+     * disclosure on its own, independent of whether any booking matched.
+     */
+    public function test_nl_search_does_not_resolve_or_disclose_an_out_of_scope_zone_name(): void
+    {
+        $scenarioOutside = $this->makeBookingScenario('completed');
+        $scenarioOutside['zone']->update(['name' => 'Faraway']);
+
+        $scenarioInside = $this->makeBookingScenario('completed');
+        $actor = $this->makeUserWithPermission('bookings.view', 'franchise', $scenarioInside['franchise']->id);
+
+        Livewire::actingAs($actor)->test(Index::class)
+            ->set('nlQuery', 'bookings in faraway')
+            ->assertDontSee('Faraway')
+            ->assertSet('nlZoneId', null)
+            ->assertSet('nlMatched', []);
+    }
 }
