@@ -138,9 +138,21 @@ composer install --no-dev --optimize-autoloader
 #    (ViteManifestNotFoundException) until this has run at least once on
 #    THIS server. This is true independent of item 56 (admin panel's own
 #    Tailwind CDN vs. compiled-build status, still unresolved as of this
-#    writing) -- confirm Node/npm are installed on the server (this
-#    session's own environment had neither, so this exact step was never
-#    verified end-to-end here; verify it for real on first use).
+#    writing).
+#
+#    IMPORTANT — this server's system-wide Node is v18.20.8
+#    (/usr/bin/node), too old for this repo's Vite toolchain (vite@8,
+#    rolldown, @tailwindcss/oxide all require Node >=20; confirmed to fail
+#    with a `node:util` styleText SyntaxError under v18). Node is managed
+#    via `nvm`, installed user-scoped for callf1207 at ~/.nvm — it does
+#    NOT touch /usr/bin/node or any other user/service on this shared box
+#    (PM2 and other global npm packages under /usr/local/lib/node_modules
+#    stay linked to the system Node, untouched). Every deploy that runs
+#    npm install/npm run build MUST select Node 22 first, or it silently
+#    falls back to the system Node 18 and fails the same way:
+#    export NVM_DIR="$HOME/.nvm" && [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh" && nvm use 22
+#    (.nvmrc at the repo root pins this to 22 — `nvm use` with no argument
+#    also works from inside the repo checkout.)
 npm install
 npm run build
 
@@ -321,12 +333,12 @@ to this vhost:
 
 ## 8. Known gaps this runbook cannot close (see the session's final report)
 
-- Node/npm were not available in the session that wrote this runbook —
-  §2 step 4's `npm run build` was never actually run/verified end-to-end
-  against this real codebase. Verify it for real on first use, on a
-  Node-capable machine or the server itself.
-- Whether production's `public/build/` currently exists at all was not
-  verifiable from this session (no server access) — if it does not, the
-  public `/` route is likely already broken today, independent of any
-  future deploy. Check this directly, soon.
+- **Resolved 2026-08-21:** `npm run build` was verified end-to-end for
+  real against this codebase on the production server. It fails under the
+  server's system Node 18 (Vite 8/rolldown require Node >=20); fixed by
+  installing Node 22 via user-scoped `nvm` (see §2 step 4's note) — this
+  does not touch the system Node or anything else on the shared box. A
+  clean `rm -rf node_modules package-lock.json && npm install && npm run
+  build` under Node 22 produced a working `public/build/manifest.json`.
+  `.nvmrc` at the repo root now pins the required version.
 - Backup automation status (§0) is unconfirmed, not merely undocumented.
