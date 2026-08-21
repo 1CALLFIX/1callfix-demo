@@ -12,7 +12,7 @@ return new class extends Migration
     {
         Schema::create('property_reservation_status_history', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('property_reservation_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('property_reservation_id')->constrained(indexName: 'prop_res_status_history_fk')->cascadeOnDelete();
             $table->string('status');
             $table->foreignId('changed_by')->nullable()->constrained('users')->nullOnDelete();
             $table->string('note')->nullable();

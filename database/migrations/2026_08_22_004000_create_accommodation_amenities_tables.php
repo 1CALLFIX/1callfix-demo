@@ -21,7 +21,7 @@ return new class extends Migration
 
         Schema::create('accommodation_amenity_accommodation', function (Blueprint $table) {
             $table->foreignId('accommodation_id')->constrained()->cascadeOnDelete();
-            $table->foreignId('accommodation_amenity_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('accommodation_amenity_id')->constrained(indexName: 'accom_amenity_pivot_amenity_fk')->cascadeOnDelete();
             $table->primary(['accommodation_id', 'accommodation_amenity_id']);
         });
     }

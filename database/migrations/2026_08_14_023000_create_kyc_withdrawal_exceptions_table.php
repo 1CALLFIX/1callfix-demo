@@ -27,7 +27,7 @@ return new class extends Migration
             $table->foreignId('revoked_by')->nullable()->constrained('users')->nullOnDelete();
             $table->timestamps();
 
-            $table->index(['provider_id', 'revoked_at', 'expires_at']);
+            $table->index(['provider_id', 'revoked_at', 'expires_at'], 'kyc_withdrawal_exc_active_idx');
         });
     }
 

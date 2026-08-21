@@ -69,7 +69,7 @@ return new class extends Migration
 
             $table->index('status');
             $table->index(['franchise_id', 'zone_id']);
-            $table->index(['accommodation_id', 'check_in_date', 'check_out_date']);
+            $table->index(['accommodation_id', 'check_in_date', 'check_out_date'], 'hotel_res_accom_dates_idx');
         });
     }
 

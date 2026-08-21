@@ -17,7 +17,7 @@ return new class extends Migration
     {
         Schema::create('performance_campaign_participants', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('performance_campaign_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('performance_campaign_id')->constrained(indexName: 'perf_campaign_participant_fk')->cascadeOnDelete();
             $table->string('participant_type');
             $table->unsignedBigInteger('participant_id');
 
@@ -45,7 +45,7 @@ return new class extends Migration
             $table->timestamps();
 
             $table->unique(['performance_campaign_id', 'participant_type', 'participant_id'], 'perf_campaign_participant_unique');
-            $table->index(['performance_campaign_id', 'qualified']);
+            $table->index(['performance_campaign_id', 'qualified'], 'perf_campaign_participant_qualified_idx');
         });
     }
 
