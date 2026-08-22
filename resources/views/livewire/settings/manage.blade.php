@@ -773,6 +773,29 @@
                 <x-ui.button wire:click="saveNotifications">Save Notification Settings</x-ui.button>
             </div>
 
+            {{-- Daily Digest — Sidebar Reorganization + Daily Digest session.
+                 Always global (no per-scope override picker use here, unlike
+                 the channels above) — one platform-wide send schedule. --}}
+            <div class="mt-8 pt-6 border-t">
+                <h3 class="text-sm font-semibold mb-1">Daily Digest</h3>
+                <p class="text-xs text-gray-400 mb-3">When the scoped Daily Digest email (KPIs + the same anomaly/insight items the Dashboard's "Daily Insights" panel shows) goes out to every admin holding Dashboard access. Time is in IST, regardless of server timezone. WhatsApp adds a short best-effort summary alongside the email — no real WhatsApp gateway is configured yet, so it logs instead of sending until one is.</p>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                        <label class="block text-xs font-medium mb-1">Send time (IST)</label>
+                        <input type="time" wire:model="digestSendTimeLocal" class="w-full border rounded px-3 py-2 text-sm">
+                        @error('digestSendTimeLocal') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
+                    </div>
+                    <div class="flex items-end pb-2">
+                        <label class="flex items-center gap-2 text-sm">
+                            <input type="checkbox" wire:model="digestWhatsappEnabled" class="rounded"> Also send WhatsApp summary
+                        </label>
+                    </div>
+                </div>
+                <div class="flex justify-end pt-4 mt-4 border-t">
+                    <x-ui.button wire:click="saveDigest">Save Daily Digest Settings</x-ui.button>
+                </div>
+            </div>
+
         {{-- Locale & Currency — the ₹ symbol shown across every admin money field. --}}
         @elseif ($activeTab === 'locale')
             <p class="text-xs text-gray-400 mb-3">Currency symbol shown across the admin panel (Bookings, Services, Banners, Dashboard). This changes display only — every money column stays a fixed 2-decimal figure, not a multi-currency conversion.</p>

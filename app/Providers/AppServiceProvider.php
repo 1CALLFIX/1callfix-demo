@@ -6,6 +6,7 @@ use App\Contracts\NarrativeAiAdapter;
 use App\Contracts\PaymentGateway;
 use App\Contracts\PushAdapter;
 use App\Contracts\SmsAdapter;
+use App\Contracts\WhatsAppAdapter;
 use App\Models\Booking;
 use App\Models\Franchise;
 use App\Models\HotelReservation;
@@ -22,6 +23,7 @@ use App\Notifications\Adapters\FirebaseFcmPushAdapter;
 use App\Notifications\Adapters\GatewayApiSmsAdapter;
 use App\Notifications\Adapters\LogPushAdapter;
 use App\Notifications\Adapters\LogSmsAdapter;
+use App\Notifications\Adapters\LogWhatsAppAdapter;
 use App\Notifications\Adapters\Msg91SmsAdapter;
 use App\Notifications\Channels\PushChannel;
 use App\Notifications\Channels\SmsChannel;
@@ -74,6 +76,16 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(PushAdapter::class, fn ($app) => match (config('services.push.driver', 'log')) {
             'fcm' => $app->make(FirebaseFcmPushAdapter::class),
             default => $app->make(LogPushAdapter::class),
+        });
+
+        // Daily Digest session — same shape as SmsAdapter/PushAdapter above.
+        // Unlike those, no real WhatsApp adapter has ever existed in this
+        // codebase, so there is only ever the log default today; the match
+        // is still config-driven (not a bare bind()) so a real driver slots
+        // in later exactly like arkesel/msg91/gatewayapi did for SMS,
+        // without anything above this binding changing.
+        $this->app->bind(WhatsAppAdapter::class, fn ($app) => match (config('services.whatsapp.driver', 'log')) {
+            default => $app->make(LogWhatsAppAdapter::class),
         });
 
         // Admin Polish + AI session — identical shape to SmsAdapter/PushAdapter
