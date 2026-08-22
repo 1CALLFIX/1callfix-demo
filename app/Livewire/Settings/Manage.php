@@ -197,6 +197,16 @@ class Manage extends Component
     public bool $notifyPush = false;
     public bool $notifyInApp = false;
 
+    // --- Daily Digest (Sidebar Reorganization + Daily Digest session) ---
+    // Consumed by DailyDigestDispatchService::sendIfDue() -- see its own
+    // docblock for why the send time is read there (inside the scheduled
+    // command's own execution) rather than baked into a dailyAt() cron
+    // argument in routes/console.php. Global scope only (this session
+    // deliberately doesn't offer a per-franchise send time -- one platform-
+    // wide schedule, same as every other Schedule::command() entry).
+    public string $digestSendTimeLocal = '08:00';
+    public bool $digestWhatsappEnabled = false;
+
     // --- Locale & Currency (display symbol used across admin money fields) ---
     public string $localeCurrencySymbol = '₹';
 
@@ -421,6 +431,12 @@ class Manage extends Component
         $this->notifySms = in_array('sms', $configuredChannels, true);
         $this->notifyPush = in_array('push', $configuredChannels, true);
         $this->notifyInApp = in_array('in_app', $configuredChannels, true);
+
+        // Global-only by design (see the property docblocks above) -- read
+        // with no $scope hint, exactly like referralPendingExpiryDays just
+        // above, which documents the same deliberate choice.
+        $this->digestSendTimeLocal = Setting::get('digest.send_time_local', '08:00', []);
+        $this->digestWhatsappEnabled = (bool) (int) Setting::get('digest.whatsapp_enabled', '0', []);
 
         $this->localeCurrencySymbol = Setting::get('locale.currency_symbol', '₹', $scope);
 
@@ -752,6 +768,21 @@ class Manage extends Component
         Setting::set('notifications.channels', implode(',', $channels) ?: 'mail', $scopeType, $scopeId);
 
         $this->flashMessage = 'Notification settings saved'.($scopeType === 'global' ? '.' : " for this {$scopeType}.");
+    }
+
+    /** Real consumer: App\Services\Reporting\DailyDigestDispatchService::sendIfDue(), via routes/console.php's digest:send-daily entry. Always global scope -- see the digestSendTimeLocal property docblock. */
+    public function saveDigest(): void
+    {
+        $this->validate([
+            'digestSendTimeLocal' => ['required', 'date_format:H:i'],
+        ], [], [
+            'digestSendTimeLocal' => 'send time',
+        ]);
+
+        Setting::set('digest.send_time_local', $this->digestSendTimeLocal, 'global', null);
+        Setting::set('digest.whatsapp_enabled', $this->digestWhatsappEnabled ? '1' : '0', 'global', null);
+
+        $this->flashMessage = 'Daily Digest settings saved.';
     }
 
     public function saveLocale(): void

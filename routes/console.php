@@ -40,3 +40,12 @@ ScheduleRunTracker::track(Schedule::command('plans:renew-due'), 'plans:renew-due
 // day-scale expiry window; same schedule:run cron caveat as above.
 ScheduleRunTracker::track(Schedule::command('referrals:expire-due'), 'referrals:expire-due')->daily();
 ScheduleRunTracker::track(Schedule::command('kyc:send-reminders'), 'kyc:send-reminders')->daily();
+
+// Daily Digest — admin-configurable send time (Settings > Notifications >
+// Daily Digest, digest.send_time_local, "HH:mm" in IST). Runs every 15
+// minutes rather than at one fixed cron minute; DailyDigestDispatchService::
+// sendIfDue() itself decides whether the configured time has arrived and
+// whether today's digest already went out — see its own docblock for why
+// that decision lives there and not in a dynamically-computed dailyAt()
+// argument here. Same schedule:run cron caveat as every entry above.
+ScheduleRunTracker::track(Schedule::command('digest:send-daily'), 'digest:send-daily')->everyFifteenMinutes();

@@ -139,4 +139,22 @@ return [
         ],
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | WhatsApp delivery (Daily Digest session)
+    |--------------------------------------------------------------------------
+    |
+    | Same pattern as 'sms'/'push'/'ai' above. Only ever a best-effort,
+    | short-summary companion to the Daily Digest email (see
+    | DailyDigestDispatchService) — never the sole delivery channel. Unlike
+    | 'sms', no real WhatsApp provider has ever been confirmed/configured
+    | for this business, so there is only 'log' today; a real driver
+    | (Meta Cloud API, Twilio, etc.) is a future addition to the match arm
+    | in AppServiceProvider, not a change to anything that calls
+    | WhatsAppAdapter.
+    */
+    'whatsapp' => [
+        'driver' => env('WHATSAPP_DRIVER', 'log'), // log (no real provider configured yet)
+    ],
+
 ];

@@ -29,6 +29,33 @@
             padding-left: .7rem;
         }
 
+        /* --- Sidebar nav groups -----------------------------------------
+           Sidebar Reorganization session. Collapse state per group is kept
+           the same way the whole-rail collapse above already works: a class
+           on <body> (written by the anti-flash script at the top of <body>,
+           before any nav markup paints) drives a plain CSS display:none on
+           that one group's panel, rather than per-element JS toggling on
+           load — so a returning visitor's collapsed groups never flash open
+           before JS runs. Nine possible groups, enumerated explicitly
+           rather than a generic attribute-selector trick, matching this
+           file's existing preference for plain, explicit CSS over cleverness. */
+        .nav-group-trigger .chevron { transition: transform .15s ease; }
+        .nav-group-trigger[aria-expanded="false"] .chevron { transform: rotate(-90deg); }
+        body.grp-collapsed-operations #admin-sidebar [data-group-key="operations"] .nav-group-panel,
+        body.grp-collapsed-geography #admin-sidebar [data-group-key="geography"] .nav-group-panel,
+        body.grp-collapsed-catalog #admin-sidebar [data-group-key="catalog"] .nav-group-panel,
+        body.grp-collapsed-growth #admin-sidebar [data-group-key="growth"] .nav-group-panel,
+        body.grp-collapsed-finance #admin-sidebar [data-group-key="finance"] .nav-group-panel,
+        body.grp-collapsed-communication #admin-sidebar [data-group-key="communication"] .nav-group-panel,
+        body.grp-collapsed-other_verticals #admin-sidebar [data-group-key="other_verticals"] .nav-group-panel,
+        body.grp-collapsed-system #admin-sidebar [data-group-key="system"] .nav-group-panel {
+            display: none;
+        }
+        /* "Other Verticals" — pre-launch verticals, deliberately muted so
+           the rail reads as "intentionally secondary", not broken/missing. */
+        #admin-sidebar [data-group-key="other_verticals"] { opacity: .72; }
+        .nav-group-label { padding-left: .7rem; }
+
         /* Trix's default height is tiny; match our other textareas' rows="3"-ish feel */
         trix-editor { min-height: 8rem; }
         /* No upload endpoint wired up yet — hide the attach-files button rather
@@ -52,7 +79,136 @@
         .skip-link:focus { left: 0.5rem; top: 0.5rem; }
     </style>
 </head>
-<body class="bg-gray-100 text-gray-900">
+@php
+    // Sidebar Reorganization session — grouped nav, replacing the previous
+    // ~40-item flat rail. Computed here (before <body>, not inside <nav>
+    // below) purely so <body>'s data-active-nav-group attribute — read by
+    // the anti-flash script above the fold — can know the answer before
+    // the nav itself renders. Each item's 'permission' is still the SAME
+    // slug (or list of slugs, any-of) its target screen's own mount()
+    // enforces — kept in sync by hand since no shared route->permission
+    // registry exists in this codebase (Phase 11 audit finding). This only
+    // hides links a user can't open anyway — it is NOT the enforcement
+    // boundary, each screen's own mount() check still is.
+    $navGroups = [];
+    $activeNavGroup = null;
+
+    if (auth()->check()) {
+        $navGroups = [
+            'overview' => [
+                'label' => 'Overview', 'collapsible' => false, 'icon' => null,
+                'items' => [
+                    ['label' => 'Dashboard', 'route' => 'admin.dashboard', 'icon' => 'home', 'permission' => 'dashboard.view'],
+                ],
+            ],
+            'operations' => [
+                'label' => 'Operations', 'collapsible' => true, 'icon' => 'clipboard',
+                'items' => [
+                    ['label' => 'Bookings', 'route' => 'admin.bookings.index', 'icon' => 'clipboard', 'permission' => 'bookings.view'],
+                    ['label' => 'Customers', 'route' => 'admin.customers.index', 'icon' => 'users', 'permission' => 'customers.view'],
+                    ['label' => 'Providers', 'route' => 'admin.providers.index', 'icon' => 'users', 'permission' => 'providers.view'],
+                    ['label' => 'Workers', 'route' => 'admin.workers.index', 'icon' => 'users', 'permission' => 'workers.view'],
+                    ['label' => 'KYC Support Requests', 'route' => 'admin.kyc.support-requests.index', 'icon' => 'shield', 'permission' => ['kyc.support_requests.create', 'kyc.support_requests.decide']],
+                    ['label' => 'Chat', 'route' => 'admin.chat.index', 'icon' => 'chat', 'permission' => 'chat.view'],
+                ],
+            ],
+            'geography' => [
+                'label' => 'Geography', 'collapsible' => true, 'icon' => 'map',
+                'items' => [
+                    ['label' => 'Zones', 'route' => 'admin.zones.index', 'icon' => 'map', 'permission' => 'zones.manage'],
+                    ['label' => 'Geography', 'route' => 'admin.geography.index', 'icon' => 'map', 'permission' => 'geography.manage'],
+                    ['label' => 'Franchises', 'route' => 'admin.franchises.index', 'icon' => 'building', 'permission' => 'franchises.manage'],
+                    ['label' => 'Modules', 'route' => 'admin.modules.index', 'icon' => 'gear', 'permission' => 'modules.manage'],
+                ],
+            ],
+            'catalog' => [
+                'label' => 'Catalog', 'collapsible' => true, 'icon' => 'wrench',
+                'items' => [
+                    ['label' => 'Services', 'route' => 'admin.services.index', 'icon' => 'wrench', 'permission' => 'services.manage'],
+                    ['label' => 'Categories', 'route' => 'admin.categories.index', 'icon' => 'wrench', 'permission' => 'categories.manage'],
+                    ['label' => 'Subcategories', 'route' => 'admin.subcategories.index', 'icon' => 'wrench', 'permission' => 'categories.manage'],
+                ],
+            ],
+            'growth' => [
+                'label' => 'Growth', 'collapsible' => true, 'icon' => 'sparkles',
+                'items' => [
+                    ['label' => 'Banners', 'route' => 'admin.banners.index', 'icon' => 'megaphone', 'permission' => 'banners.manage'],
+                    ['label' => 'Badges', 'route' => 'admin.badges.index', 'icon' => 'tag', 'permission' => 'badges.view'],
+                    ['label' => 'Flash Sales', 'route' => 'admin.flash-sales.index', 'icon' => 'bolt', 'permission' => 'flash_sales.view'],
+                    ['label' => 'Performance Campaigns', 'route' => 'admin.performance-campaigns.index', 'icon' => 'trophy', 'permission' => 'performance_campaigns.view'],
+                    ['label' => 'Loyalty & Referrals', 'route' => 'admin.loyalty.index', 'icon' => 'sparkles', 'permission' => 'loyalty.view'],
+                    ['label' => 'Plans & Memberships', 'route' => 'admin.plans.index', 'icon' => 'sparkles', 'permission' => 'plans.view'],
+                    ['label' => 'Subscriptions', 'route' => 'admin.subscriptions.index', 'icon' => 'ticket', 'permission' => 'subscriptions.view'],
+                ],
+            ],
+            'finance' => [
+                'label' => 'Finance', 'collapsible' => true, 'icon' => 'banknotes',
+                'items' => [
+                    ['label' => 'Payouts', 'route' => 'admin.payouts.index', 'icon' => 'banknotes', 'permission' => 'payouts.manage'],
+                    ['label' => 'Wallet Ledger', 'route' => 'admin.wallet-ledger.index', 'icon' => 'banknotes', 'permission' => 'wallets.view'],
+                    ['label' => 'Commissions', 'route' => 'admin.commissions.index', 'icon' => 'banknotes', 'permission' => 'commissions.view'],
+                    ['label' => 'Payments', 'route' => 'admin.payments.index', 'icon' => 'banknotes', 'permission' => 'payments.view'],
+                ],
+            ],
+            'communication' => [
+                'label' => 'Communication', 'collapsible' => true, 'icon' => 'chat',
+                'items' => [
+                    ['label' => 'Notification Center', 'route' => 'admin.notifications.index', 'icon' => 'bell', 'permission' => 'notification.view'],
+                    ['label' => 'Website / CMS', 'route' => 'admin.cms.index', 'icon' => 'document', 'permission' => 'cms.manage'],
+                ],
+            ],
+            // Pre-launch verticals — none is activated yet (see Modules).
+            // Collapsed by default (see the anti-flash script above) and
+            // visually muted (see .nav-group opacity rule) so this doesn't
+            // compete for attention with the one vertical that's actually
+            // live, without hiding it outright.
+            'other_verticals' => [
+                'label' => 'Other Verticals', 'collapsible' => true, 'icon' => 'building', 'preLaunch' => true,
+                'items' => [
+                    ['label' => 'Parcel Orders', 'route' => 'admin.parcel-orders.index', 'icon' => 'clipboard', 'permission' => 'parcel_orders.view'],
+                    ['label' => 'Taxi Rides', 'route' => 'admin.taxi-rides.index', 'icon' => 'clipboard', 'permission' => 'taxi_rides.view'],
+                    ['label' => 'Properties', 'route' => 'admin.properties.index', 'icon' => 'building', 'permission' => 'properties.manage'],
+                    ['label' => 'Property Reservations', 'route' => 'admin.property-reservations.index', 'icon' => 'clipboard', 'permission' => 'property_reservations.view'],
+                    ['label' => 'Vehicles', 'route' => 'admin.vehicles.index', 'icon' => 'building', 'permission' => 'vehicles.manage'],
+                    ['label' => 'Equipment', 'route' => 'admin.equipment.index', 'icon' => 'wrench', 'permission' => 'equipment.manage'],
+                    ['label' => 'Rental Reservations', 'route' => 'admin.rental-reservations.index', 'icon' => 'clipboard', 'permission' => 'rental_reservations.view'],
+                    ['label' => 'Accommodations', 'route' => 'admin.accommodations.index', 'icon' => 'building', 'permission' => 'accommodations.manage'],
+                    ['label' => 'Hotel Reservations', 'route' => 'admin.hotel-reservations.index', 'icon' => 'clipboard', 'permission' => 'hotel_reservations.view'],
+                    ['label' => 'Stores', 'route' => 'admin.stores.index', 'icon' => 'building', 'permission' => 'stores.manage'],
+                    ['label' => 'Marketplace Categories', 'route' => 'admin.marketplace-categories.index', 'icon' => 'wrench', 'permission' => 'marketplace_categories.manage'],
+                    ['label' => 'Products', 'route' => 'admin.products.index', 'icon' => 'wrench', 'permission' => 'products.manage'],
+                    ['label' => 'Add-Ons', 'route' => 'admin.add-ons.index', 'icon' => 'wrench', 'permission' => 'products.manage'],
+                    ['label' => 'Marketplace Orders', 'route' => 'admin.marketplace-orders.index', 'icon' => 'clipboard', 'permission' => 'marketplace_orders.view'],
+                ],
+            ],
+            'system' => [
+                'label' => 'System', 'collapsible' => true, 'icon' => 'gear',
+                'items' => [
+                    ['label' => 'Operations', 'route' => 'admin.operations.index', 'icon' => 'activity', 'permission' => 'operations.view'],
+                    ['label' => 'Roles & Permissions', 'route' => 'admin.roles.index', 'icon' => 'shield', 'permission' => 'roles.manage'],
+                    ['label' => 'Settings', 'route' => 'admin.settings.index', 'icon' => 'gear', 'permission' => 'settings.manage'],
+                ],
+            ],
+        ];
+
+        $canSeeNavItem = fn ($item) => collect((array) $item['permission'])
+            ->contains(fn ($p) => auth()->user()->hasPermissionAnywhere($p));
+
+        foreach ($navGroups as $key => $group) {
+            $items = array_values(array_filter($group['items'], $canSeeNavItem));
+            if (empty($items)) {
+                unset($navGroups[$key]);
+                continue;
+            }
+            $navGroups[$key]['items'] = $items;
+
+            if (collect($items)->contains(fn ($item) => request()->routeIs($item['route'].'*'))) {
+                $activeNavGroup = $key;
+            }
+        }
+    }
+@endphp
+<body class="bg-gray-100 text-gray-900" data-active-nav-group="{{ $activeNavGroup ?? '' }}">
     {{-- Restore the sidebar state before the first paint, so a page load
          doesn't flash the collapsed rail open. Also syncs the toggle
          button's aria-expanded to match (was previously hardcoded "false"
@@ -61,6 +217,28 @@
         if (localStorage.getItem('adminSidebarExpanded') === '1') {
             document.body.classList.add('sidebar-expanded');
         }
+
+        // Sidebar Reorganization session — same before-first-paint idea,
+        // per nav group. The group containing the current page is never
+        // force-collapsed here (see data-active-nav-group above) even if
+        // it was collapsed last time — a user landing on a deep link
+        // inside some group should never wonder where they are in a
+        // collapsed sidebar. Every OTHER group follows its stored
+        // preference, or the built-in default (every group open except
+        // "Other Verticals", which starts collapsed until a viewer
+        // deliberately opens it).
+        (function () {
+            var GROUP_KEYS = ['operations', 'geography', 'catalog', 'growth', 'finance', 'communication', 'other_verticals', 'system'];
+            var activeGroup = document.body.getAttribute('data-active-nav-group');
+            var stored = {};
+            try { stored = JSON.parse(localStorage.getItem('adminSidebarGroupCollapse') || '{}'); } catch (e) { stored = {}; }
+
+            GROUP_KEYS.forEach(function (key) {
+                if (key === activeGroup) return;
+                var collapsed = Object.prototype.hasOwnProperty.call(stored, key) ? !!stored[key] : (key === 'other_verticals');
+                if (collapsed) document.body.classList.add('grp-collapsed-' + key);
+            });
+        })();
     </script>
 
     @auth
@@ -96,91 +274,46 @@
         </header>
 
         <div class="flex">
-            <nav id="admin-sidebar" aria-label="Main navigation" class="bg-slate-800 min-h-[calc(100vh-52px)] flex flex-col items-center py-4 gap-1 sticky top-[52px] shrink-0">
-                @php
-                    // Each item's 'permission' is the SAME slug (or list of
-                    // slugs, any-of) its target screen's own mount() now
-                    // enforces — kept in sync by hand since no shared
-                    // route->permission registry exists in this codebase
-                    // (Phase 11 audit finding: previously every item was
-                    // shown to every admin-panel actor regardless of role,
-                    // e.g. a read-only `support` user saw Payouts and Roles
-                    // & Permissions identically to a Super Admin). This
-                    // only hides links a user can't open anyway — it is
-                    // NOT the enforcement boundary, each screen's own
-                    // mount() check still is.
-                    $navItems = [
-                        ['label' => 'Dashboard', 'route' => 'admin.dashboard', 'icon' => 'home', 'active' => true, 'permission' => 'dashboard.view'],
-                        ['label' => 'Bookings', 'route' => 'admin.bookings.index', 'icon' => 'clipboard', 'active' => true, 'permission' => 'bookings.view'],
-                        ['label' => 'Customers', 'route' => 'admin.customers.index', 'icon' => 'users', 'active' => true, 'permission' => 'customers.view'],
-                        ['label' => 'Providers', 'route' => 'admin.providers.index', 'icon' => 'users', 'active' => true, 'permission' => 'providers.view'],
-                        ['label' => 'Workers', 'route' => 'admin.workers.index', 'icon' => 'users', 'active' => true, 'permission' => 'workers.view'],
-                        ['label' => 'Zones', 'route' => 'admin.zones.index', 'icon' => 'map', 'active' => true, 'permission' => 'zones.manage'],
-                        ['label' => 'Geography', 'route' => 'admin.geography.index', 'icon' => 'map', 'active' => true, 'permission' => 'geography.manage'],
-                        ['label' => 'Franchises', 'route' => 'admin.franchises.index', 'icon' => 'building', 'active' => true, 'permission' => 'franchises.manage'],
-                        ['label' => 'Modules', 'route' => 'admin.modules.index', 'icon' => 'gear', 'active' => true, 'permission' => 'modules.manage'],
-                        ['label' => 'Parcel Orders', 'route' => 'admin.parcel-orders.index', 'icon' => 'clipboard', 'active' => true, 'permission' => 'parcel_orders.view'],
-                        ['label' => 'Taxi Rides', 'route' => 'admin.taxi-rides.index', 'icon' => 'clipboard', 'active' => true, 'permission' => 'taxi_rides.view'],
-                        ['label' => 'Properties', 'route' => 'admin.properties.index', 'icon' => 'building', 'active' => true, 'permission' => 'properties.manage'],
-                        ['label' => 'Property Reservations', 'route' => 'admin.property-reservations.index', 'icon' => 'clipboard', 'active' => true, 'permission' => 'property_reservations.view'],
-                        ['label' => 'Vehicles', 'route' => 'admin.vehicles.index', 'icon' => 'building', 'active' => true, 'permission' => 'vehicles.manage'],
-                        ['label' => 'Equipment', 'route' => 'admin.equipment.index', 'icon' => 'wrench', 'active' => true, 'permission' => 'equipment.manage'],
-                        ['label' => 'Rental Reservations', 'route' => 'admin.rental-reservations.index', 'icon' => 'clipboard', 'active' => true, 'permission' => 'rental_reservations.view'],
-                        ['label' => 'Accommodations', 'route' => 'admin.accommodations.index', 'icon' => 'building', 'active' => true, 'permission' => 'accommodations.manage'],
-                        ['label' => 'Hotel Reservations', 'route' => 'admin.hotel-reservations.index', 'icon' => 'clipboard', 'active' => true, 'permission' => 'hotel_reservations.view'],
-                        ['label' => 'Stores', 'route' => 'admin.stores.index', 'icon' => 'building', 'active' => true, 'permission' => 'stores.manage'],
-                        ['label' => 'Marketplace Categories', 'route' => 'admin.marketplace-categories.index', 'icon' => 'wrench', 'active' => true, 'permission' => 'marketplace_categories.manage'],
-                        ['label' => 'Products', 'route' => 'admin.products.index', 'icon' => 'wrench', 'active' => true, 'permission' => 'products.manage'],
-                        ['label' => 'Add-Ons', 'route' => 'admin.add-ons.index', 'icon' => 'wrench', 'active' => true, 'permission' => 'products.manage'],
-                        ['label' => 'Marketplace Orders', 'route' => 'admin.marketplace-orders.index', 'icon' => 'clipboard', 'active' => true, 'permission' => 'marketplace_orders.view'],
-                        ['label' => 'Services', 'route' => 'admin.services.index', 'icon' => 'wrench', 'active' => true, 'permission' => 'services.manage'],
-                        ['label' => 'Categories', 'route' => 'admin.categories.index', 'icon' => 'wrench', 'active' => true, 'permission' => 'categories.manage'],
-                        ['label' => 'Subcategories', 'route' => 'admin.subcategories.index', 'icon' => 'wrench', 'active' => true, 'permission' => 'categories.manage'],
-                        ['label' => 'Banners', 'route' => 'admin.banners.index', 'icon' => 'megaphone', 'active' => true, 'permission' => 'banners.manage'],
-                        ['label' => 'Badges', 'route' => 'admin.badges.index', 'icon' => 'tag', 'active' => true, 'permission' => 'badges.view'],
-                        ['label' => 'Flash Sales', 'route' => 'admin.flash-sales.index', 'icon' => 'bolt', 'active' => true, 'permission' => 'flash_sales.view'],
-                        ['label' => 'Performance Campaigns', 'route' => 'admin.performance-campaigns.index', 'icon' => 'trophy', 'active' => true, 'permission' => 'performance_campaigns.view'],
-                        ['label' => 'KYC Support Requests', 'route' => 'admin.kyc.support-requests.index', 'icon' => 'shield', 'active' => true, 'permission' => ['kyc.support_requests.create', 'kyc.support_requests.decide']],
-                        ['label' => 'Chat', 'route' => 'admin.chat.index', 'icon' => 'chat', 'active' => true, 'permission' => 'chat.view'],
-                        ['label' => 'Website / CMS', 'route' => 'admin.cms.index', 'icon' => 'document', 'active' => true, 'permission' => 'cms.manage'],
-                        ['label' => 'Payouts', 'route' => 'admin.payouts.index', 'icon' => 'banknotes', 'active' => true, 'permission' => 'payouts.manage'],
-                        ['label' => 'Wallet Ledger', 'route' => 'admin.wallet-ledger.index', 'icon' => 'banknotes', 'active' => true, 'permission' => 'wallets.view'],
-                        ['label' => 'Loyalty & Referrals', 'route' => 'admin.loyalty.index', 'icon' => 'sparkles', 'active' => true, 'permission' => 'loyalty.view'],
-                        ['label' => 'Commissions', 'route' => 'admin.commissions.index', 'icon' => 'banknotes', 'active' => true, 'permission' => 'commissions.view'],
-                        ['label' => 'Payments', 'route' => 'admin.payments.index', 'icon' => 'banknotes', 'active' => true, 'permission' => 'payments.view'],
-                        ['label' => 'Notification Center', 'route' => 'admin.notifications.index', 'icon' => 'bell', 'active' => true, 'permission' => 'notification.view'],
-                        ['label' => 'Plans & Memberships', 'route' => 'admin.plans.index', 'icon' => 'sparkles', 'active' => true, 'permission' => 'plans.view'],
-                        ['label' => 'Subscriptions', 'route' => 'admin.subscriptions.index', 'icon' => 'ticket', 'active' => true, 'permission' => 'subscriptions.view'],
-                        ['label' => 'Operations', 'route' => 'admin.operations.index', 'icon' => 'activity', 'active' => true, 'permission' => 'operations.view'],
-                        ['label' => 'Roles & Permissions', 'route' => 'admin.roles.index', 'icon' => 'shield', 'active' => true, 'permission' => 'roles.manage'],
-                        ['label' => 'Settings', 'route' => 'admin.settings.index', 'icon' => 'gear', 'active' => true, 'permission' => 'settings.manage'],
-                    ];
+            <nav id="admin-sidebar" aria-label="Main navigation" class="bg-slate-800 min-h-[calc(100vh-52px)] flex flex-col items-center py-4 gap-1 sticky top-[52px] shrink-0 overflow-y-auto">
+                @foreach ($navGroups as $groupKey => $group)
+                    <div class="w-full" data-group-key="{{ $groupKey }}">
+                        @if ($group['collapsible'])
+                            @php $groupExpanded = $groupKey === $activeNavGroup || $groupKey !== 'other_verticals'; @endphp
+                            <button type="button"
+                                    class="nav-group-trigger nav-item h-9 rounded-lg flex items-center gap-3 w-full text-gray-500 hover:bg-slate-700 hover:text-gray-300 transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+                                    aria-expanded="{{ $groupExpanded ? 'true' : 'false' }}"
+                                    aria-controls="nav-group-panel-{{ $groupKey }}"
+                                    title="{{ $group['label'] }}{{ !empty($group['preLaunch']) ? ' (pre-launch)' : '' }}">
+                                <span class="shrink-0"><x-icon :name="$group['icon']" /></span>
+                                <span class="nav-label nav-group-label text-[11px] font-semibold uppercase tracking-wide flex-1 text-left flex items-center gap-1.5">
+                                    {{ $group['label'] }}
+                                    @if (!empty($group['preLaunch']))
+                                        <span class="normal-case font-normal text-amber-400/90">· pre-launch</span>
+                                    @endif
+                                </span>
+                                <span class="nav-label shrink-0"><x-icon name="chevron-down" class="chevron w-3.5 h-3.5" /></span>
+                            </button>
+                        @else
+                            <div class="nav-group-label text-[11px] font-semibold uppercase tracking-wide text-gray-500 nav-label px-1 mb-1">{{ $group['label'] }}</div>
+                        @endif
 
-                    $canSeeNavItem = fn ($item) => collect((array) $item['permission'])
-                        ->contains(fn ($p) => auth()->user()->hasPermissionAnywhere($p));
-
-                    $navItems = array_values(array_filter($navItems, $canSeeNavItem));
-                @endphp
-
-                @foreach ($navItems as $item)
-                    @php $isCurrent = $item['route'] && request()->routeIs($item['route'].'*'); @endphp
-                    <a href="{{ $item['active'] ? route($item['route']) : '#' }}"
-                       title="{{ $item['label'] }}{{ $item['active'] ? '' : ' (coming soon)' }}"
-                       @if ($isCurrent) aria-current="page" @endif
-                       @class([
-                           'nav-item h-11 rounded-lg flex items-center gap-3 transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white',
-                           'bg-slate-600 text-white' => $isCurrent,
-                           'text-gray-400 hover:bg-slate-700 hover:text-white' => !$isCurrent && $item['active'],
-                           'text-gray-600 cursor-not-allowed' => !$item['active'],
-                       ])>
-                        <span class="shrink-0"><x-icon :name="$item['icon']" /></span>
-                        <span class="nav-label text-sm">
-                            {{ $item['label'] }}
-                            @unless ($item['active'])
-                                <span class="text-xs text-gray-500">(soon)</span>
-                            @endunless
-                        </span>
-                    </a>
+                        <div id="nav-group-panel-{{ $groupKey }}" class="nav-group-panel flex flex-col items-center gap-1 w-full" role="group" aria-label="{{ $group['label'] }}">
+                            @foreach ($group['items'] as $item)
+                                @php $isCurrent = request()->routeIs($item['route'].'*'); @endphp
+                                <a href="{{ route($item['route']) }}"
+                                   title="{{ $item['label'] }}"
+                                   @if ($isCurrent) aria-current="page" @endif
+                                   @class([
+                                       'nav-item h-11 rounded-lg flex items-center gap-3 transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white',
+                                       'bg-slate-600 text-white' => $isCurrent,
+                                       'text-gray-400 hover:bg-slate-700 hover:text-white' => !$isCurrent,
+                                   ])>
+                                    <span class="shrink-0"><x-icon :name="$item['icon']" /></span>
+                                    <span class="nav-label text-sm">{{ $item['label'] }}</span>
+                                </a>
+                            @endforeach
+                        </div>
+                    </div>
                 @endforeach
             </nav>
 
@@ -211,6 +344,50 @@
             });
 
             sync();
+        })();
+    </script>
+
+    {{-- Sidebar Reorganization session — collapsible nav-group triggers.
+         Plain JS + localStorage, same as the whole-rail toggle just above
+         (no Alpine.js dependency exists anywhere in this codebase today —
+         checked first; the modal component's own docblock explicitly
+         chose to stay dependency-free rather than add one). Each trigger
+         is a real <button> with aria-expanded, so Tab/Enter/Space already
+         work with zero extra wiring. --}}
+    <script>
+        (function () {
+            var STORAGE_KEY = 'adminSidebarGroupCollapse';
+
+            var readStored = function () {
+                try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}'); } catch (e) { return {}; }
+            };
+
+            document.querySelectorAll('.nav-group-trigger').forEach(function (trigger) {
+                var wrapper = trigger.closest('[data-group-key]');
+                var key = wrapper ? wrapper.getAttribute('data-group-key') : null;
+                if (! key) return;
+
+                // The server rendered aria-expanded from its own "sensible
+                // default" (progressive-enhancement fallback for no-JS);
+                // the anti-flash script at the top of <body> already
+                // decided the REAL visible state from localStorage before
+                // this ran. Sync the two now so a screen reader is never
+                // told "expanded" for a panel that's actually display:none
+                // (or vice-versa) — this can't itself cause a visual flash,
+                // aria attributes don't paint.
+                var collapsed = document.body.classList.contains('grp-collapsed-' + key);
+                trigger.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+
+                trigger.addEventListener('click', function () {
+                    var willExpand = trigger.getAttribute('aria-expanded') !== 'true';
+                    trigger.setAttribute('aria-expanded', willExpand ? 'true' : 'false');
+                    document.body.classList.toggle('grp-collapsed-' + key, ! willExpand);
+
+                    var stored = readStored();
+                    stored[key] = ! willExpand; // store COLLAPSED, not expanded
+                    localStorage.setItem(STORAGE_KEY, JSON.stringify(stored));
+                });
+            });
         })();
     </script>
 
