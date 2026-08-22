@@ -27,6 +27,7 @@ use App\Notifications\Adapters\LogWhatsAppAdapter;
 use App\Notifications\Adapters\Msg91SmsAdapter;
 use App\Notifications\Channels\PushChannel;
 use App\Notifications\Channels\SmsChannel;
+use App\Notifications\Channels\WhatsAppChannel;
 use App\Observers\BookingObserver;
 use App\Observers\FranchiseObserver;
 use App\Observers\HotelReservationObserver;
@@ -207,6 +208,7 @@ class AppServiceProvider extends ServiceProvider
         return match ($channel) {
             SmsChannel::class => 'sms',
             PushChannel::class => 'push',
+            WhatsAppChannel::class => 'whatsapp',
             'database' => 'in_app',
             default => is_string($channel) ? $channel : class_basename($channel),
         };

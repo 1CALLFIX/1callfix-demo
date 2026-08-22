@@ -105,6 +105,7 @@
                 'label' => 'Operations', 'collapsible' => true, 'icon' => 'clipboard',
                 'items' => [
                     ['label' => 'Bookings', 'route' => 'admin.bookings.index', 'icon' => 'clipboard', 'permission' => 'bookings.view'],
+                    ['label' => 'All Users', 'route' => 'admin.all-users.index', 'icon' => 'users', 'permission' => 'users.directory.view'],
                     ['label' => 'Customers', 'route' => 'admin.customers.index', 'icon' => 'users', 'permission' => 'customers.view'],
                     ['label' => 'Providers', 'route' => 'admin.providers.index', 'icon' => 'users', 'permission' => 'providers.view'],
                     ['label' => 'Workers', 'route' => 'admin.workers.index', 'icon' => 'users', 'permission' => 'workers.view'],

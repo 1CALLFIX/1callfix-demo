@@ -95,4 +95,33 @@ class AdminSidebarTest extends TestCase
         $response->assertOk();
         $response->assertDontSee('aria-controls="nav-group-panel-overview"', false);
     }
+
+    /**
+     * Quick Fix session — the "All Users" directory (Unified Directory
+     * session) link, added to the Operations group alongside Bookings/
+     * Customers/Providers/Workers. Same gate as every other item: absent
+     * entirely for a viewer without users.directory.view, present and
+     * correctly linked for one who holds it — no special-casing.
+     */
+    public function test_all_users_link_appears_for_a_viewer_with_the_directory_permission(): void
+    {
+        $admin = $this->makeUserWithPermission('users.directory.view', 'global');
+        $this->grantPermission($admin, 'dashboard.view');
+
+        $response = $this->actingAs($admin)->get(route('admin.dashboard'));
+
+        $response->assertOk();
+        $response->assertSee('All Users');
+        $response->assertSee(route('admin.all-users.index'), false);
+    }
+
+    public function test_all_users_link_is_absent_for_a_viewer_without_the_directory_permission(): void
+    {
+        $admin = $this->makeUserWithPermission('dashboard.view', 'global');
+
+        $response = $this->actingAs($admin)->get(route('admin.dashboard'));
+
+        $response->assertOk();
+        $response->assertDontSee('All Users');
+    }
 }
