@@ -9,6 +9,7 @@ use App\Models\MarketplaceOrder;
 use App\Models\ParcelOrder;
 use App\Models\Provider;
 use App\Models\Service;
+use App\Models\Setting;
 use App\Models\TaxiRide;
 use App\Models\Zone;
 use App\Services\Ranking\RankingConfigResolver;
@@ -35,7 +36,8 @@ class DispatchService
      *   - KYC approved, account active
      *   - Skills include this service's category
      *   - Not currently tied up on another active booking
-     *   - Not already offered this specific booking (no dispatch_attempts row yet)
+     *   - Not excluded for this specific booking — see excludedProviderIdsForBooking()
+     *     for exactly what that means (NOT simply "any dispatch_attempts row exists")
      *   - Within the zone's dispatch radius (Haversine distance from customer's address)
      *
      * @return Collection<int, array{provider: Provider, distance_km: float}>
@@ -51,8 +53,14 @@ class DispatchService
         $radiusKm = $booking->zone->default_dispatch_radius_km ?? 8;
         $categoryId = $booking->service->category_id;
 
-        $alreadyOfferedProviderIds = $booking->dispatchAttempts()
-            ->pluck('provider_id');
+        $scope = array_filter([
+            'zone_id' => $booking->zone_id,
+            'franchise_id' => $booking->franchise_id,
+            'city_id' => $booking->franchise?->city_id,
+            'country_id' => $booking->franchise?->country_id,
+        ]);
+
+        $excludedProviderIds = $this->excludedProviderIdsForBooking($booking, $scope);
 
         // 'on_hold' counts as busy too — a paused job (awaiting spares, customer
         // approval, or a provider-side red flag) still ties up that provider,
@@ -62,21 +70,69 @@ class DispatchService
             ->pluck('provider_id');
 
         $candidates = $this->eligibleQuery($booking->zone_id, $categoryId)
-            ->whereNotIn('id', $alreadyOfferedProviderIds)
+            ->whereNotIn('id', $excludedProviderIds)
             ->whereNotIn('id', $busyProviderIds)
             ->get()
             ->filter(fn (Provider $provider) => $this->hasSkill($provider, $categoryId))
             ->map(fn (Provider $provider) => $this->withDistance($provider, (float) $booking->address->lat, (float) $booking->address->lng))
             ->filter(fn ($c) => $c['distance_km'] <= $radiusKm);
 
-        $scope = array_filter([
-            'zone_id' => $booking->zone_id,
-            'franchise_id' => $booking->franchise_id,
-            'city_id' => $booking->franchise?->city_id,
-            'country_id' => $booking->franchise?->country_id,
-        ]);
-
         return $this->rankAndLimit($candidates, $scope, $radiusKm, $limit);
+    }
+
+    /**
+     * Which providers this booking must not be (re-)offered to in the next
+     * round. Fixes the "single-provider dispatch trap" (real incident:
+     * booking #136 / NLR-2208-00000076 — a zone with exactly one available
+     * provider got permanently stuck in `searching_provider` after that
+     * provider missed one offer window, since the old logic excluded a
+     * provider for the rest of the booking's life the moment ANY
+     * dispatch_attempts row existed for them, with no regard for its status).
+     *
+     * `dispatch_attempts.status` as the schema has always defined it
+     * (`2026_08_01_020000_create_dispatch_attempts_table.php`):
+     * notified | accepted | rejected | timeout. Confirmed by reading every
+     * write path in this codebase that 'rejected' has never actually been
+     * written by any of them — there is no provider-facing "decline this
+     * offer" action anywhere (ProviderAnomalyService's own docblock
+     * independently confirms the same audit: a dispatch_attempts row only
+     * ever becomes 'accepted' or 'timeout' today). The column was already
+     * there for it; the application just never used it. Handled here so an
+     * explicit decline, whenever one is added, is correctly permanent
+     * without this method needing to change again.
+     *
+     * Exclusion rules:
+     *   - 'notified'  -- offer still open this round: excluded (don't double-offer).
+     *   - 'accepted'  -- provider took the job: excluded (moot; also covered by
+     *                    the busy-provider check once assigned, but explicit here).
+     *   - 'rejected'  -- explicit decline: excluded permanently for this booking.
+     *   - 'timeout'   -- NOT permanently excluded. A provider who missed one
+     *                    offer window is still eligible for a later round,
+     *                    UNLESS they've timed out on this specific booking
+     *                    dispatch.max_timeouts_per_provider times already —
+     *                    the circuit breaker, so a provider whose "online"
+     *                    flag is stale (never actually responding) doesn't
+     *                    get re-offered the same job every single round
+     *                    forever. Other providers in the zone are unaffected
+     *                    and keep cycling through rounds normally.
+     */
+    private function excludedProviderIdsForBooking(Booking $booking, array $scope): Collection
+    {
+        $attempts = $booking->dispatchAttempts()->get(['provider_id', 'status']);
+
+        $permanentlyExcluded = $attempts
+            ->whereIn('status', ['notified', 'accepted', 'rejected'])
+            ->pluck('provider_id');
+
+        $maxTimeouts = (int) Setting::get('dispatch.max_timeouts_per_provider', 3, $scope);
+
+        $circuitBrokenByTimeouts = $attempts
+            ->where('status', 'timeout')
+            ->groupBy('provider_id')
+            ->filter(fn (Collection $group) => $group->count() >= $maxTimeouts)
+            ->keys();
+
+        return $permanentlyExcluded->merge($circuitBrokenByTimeouts)->unique()->values();
     }
 
     /**

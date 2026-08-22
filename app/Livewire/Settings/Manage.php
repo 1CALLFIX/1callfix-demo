@@ -125,6 +125,12 @@ class Manage extends Component
     public string $dispatchOfferTimeoutSeconds = '25';
     public string $dispatchMaxRounds = '6';
     public string $dispatchDefaultRadiusKm = '8';
+    // Circuit breaker: after this many timeouts on the SAME booking, a
+    // provider stops being re-offered that specific booking (still eligible
+    // for other bookings). Added with the timeout-reeligibility fix — half
+    // of dispatchMaxRounds by default, so a chronically-unresponsive
+    // provider burns out before the booking itself exhausts all rounds.
+    public string $dispatchMaxTimeoutsPerProvider = '3';
 
     // --- Commission Defaults (Franchises\Manage's Add New pre-fill) ---
     public string $commissionDefaultModel = 'revenue_share';
@@ -361,6 +367,7 @@ class Manage extends Component
         $this->dispatchOfferTimeoutSeconds = (string) Setting::get('dispatch.offer_timeout_seconds', '25', $scope);
         $this->dispatchMaxRounds = (string) Setting::get('dispatch.max_rounds', '6', $scope);
         $this->dispatchDefaultRadiusKm = (string) Setting::get('dispatch.default_radius_km', '8', $scope);
+        $this->dispatchMaxTimeoutsPerProvider = (string) Setting::get('dispatch.max_timeouts_per_provider', '3', $scope);
 
         $this->commissionDefaultModel = Setting::get('commission.default_model', 'revenue_share', $scope);
         $this->commissionDefaultValue = (string) Setting::get('commission.default_value', '0', $scope);
@@ -493,11 +500,13 @@ class Manage extends Component
             'dispatchOfferTimeoutSeconds' => ['required', 'integer', 'min:5', 'max:300'],
             'dispatchMaxRounds' => ['required', 'integer', 'min:1', 'max:20'],
             'dispatchDefaultRadiusKm' => ['required', 'integer', 'min:1', 'max:100'],
+            'dispatchMaxTimeoutsPerProvider' => ['required', 'integer', 'min:1', 'max:20'],
         ], [], [
             'dispatchOfferBatchSize' => 'offer batch size',
             'dispatchOfferTimeoutSeconds' => 'offer timeout',
             'dispatchMaxRounds' => 'max dispatch rounds',
             'dispatchDefaultRadiusKm' => 'default dispatch radius',
+            'dispatchMaxTimeoutsPerProvider' => 'max timeouts per provider',
         ]);
 
         [$scopeType, $scopeId] = $this->scopeTypeAndId();
@@ -506,6 +515,7 @@ class Manage extends Component
         Setting::set('dispatch.offer_timeout_seconds', $this->dispatchOfferTimeoutSeconds, $scopeType, $scopeId);
         Setting::set('dispatch.max_rounds', $this->dispatchMaxRounds, $scopeType, $scopeId);
         Setting::set('dispatch.default_radius_km', $this->dispatchDefaultRadiusKm, $scopeType, $scopeId);
+        Setting::set('dispatch.max_timeouts_per_provider', $this->dispatchMaxTimeoutsPerProvider, $scopeType, $scopeId);
 
         $this->flashMessage = 'Dispatch settings saved'.($scopeType === 'global' ? '.' : " for this {$scopeType}.");
     }

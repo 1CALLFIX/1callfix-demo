@@ -162,6 +162,12 @@
                     <p class="text-[11px] text-gray-400 mt-1">Pre-fill for new zones only</p>
                     @error('dispatchDefaultRadiusKm') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
                 </div>
+                <div>
+                    <label class="block text-xs font-medium mb-1">Max timeouts / provider @if ($scoped) <x-setting-override-badge :overridden="in_array('dispatch.max_timeouts_per_provider', $this->overriddenKeys)" setting-key="dispatch.max_timeouts_per_provider" /> @endif</label>
+                    <input type="number" step="1" wire:model="dispatchMaxTimeoutsPerProvider" class="w-full border rounded px-3 py-2 text-sm">
+                    <p class="text-[11px] text-gray-400 mt-1">Timeouts on one booking before that provider stops being re-offered it</p>
+                    @error('dispatchMaxTimeoutsPerProvider') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
+                </div>
             </div>
             <div class="flex justify-end pt-4 mt-4 border-t">
                 <x-ui.button wire:click="saveDispatch">Save Dispatch Settings</x-ui.button>
