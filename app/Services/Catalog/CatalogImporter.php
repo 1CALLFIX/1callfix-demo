@@ -271,6 +271,18 @@ abstract class CatalogImporter
 
     protected function valuesEqual($existing, $new): bool
     {
+        // Export/Import session — ProductImporter's `images` attribute is
+        // the first array-valued column any CatalogImporter subclass has
+        // written (Categories/Subcategories/Services are all scalar
+        // columns). Without this branch, PHP's (string) cast on an array
+        // silently becomes the literal "Array" (with a warning) for BOTH
+        // sides, so any two different image sets would always compare
+        // "equal" — classifyOutcome() would wrongly report OUTCOME_UNCHANGED
+        // and commit() would then skip the actual update entirely.
+        if (is_array($existing) || is_array($new)) {
+            return json_encode((array) $existing) === json_encode((array) $new);
+        }
+
         if (is_bool($existing) || is_bool($new)) {
             return (bool) $existing === $this->normalizeBool($new);
         }

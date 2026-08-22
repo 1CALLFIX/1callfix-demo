@@ -1,5 +1,8 @@
 <div>
-    <h1 class="text-2xl font-bold mb-4">Bookings</h1>
+    <div class="flex items-center justify-between mb-4">
+        <h1 class="text-2xl font-bold">Bookings</h1>
+        <x-ui.button variant="secondary" size="sm" wire:click="exportBookingsCsv" title="Export the current filtered view as CSV">Export CSV</x-ui.button>
+    </div>
 
     @if ($newBookingFlash)
         <div class="bg-green-50 text-green-700 rounded p-3 mb-4 text-sm flex items-center justify-between">

@@ -12,6 +12,7 @@ use App\Models\User;
 use App\Models\Zone;
 use App\Services\Ai\BookingNaturalLanguageFilter;
 use App\Services\AuthorizationService;
+use App\Support\Concerns\HasCsvExport;
 use Illuminate\Support\Str;
 use Livewire\Component;
 use Livewire\WithPagination;
@@ -19,6 +20,7 @@ use Livewire\WithPagination;
 class Index extends Component
 {
     use WithPagination;
+    use HasCsvExport;
 
     public string $statusFilter = '';
     public string $search = '';
@@ -216,11 +218,17 @@ class Index extends Component
         return ['zone_id' => 'id', 'franchise_id' => 'franchise_id', 'city_id' => 'franchise.city_id', 'country_id' => 'franchise.country_id'];
     }
 
-    public function render()
+    /**
+     * Scope + every current filter (status/search/NL-search) in one place
+     * — render() paginates it, exportBookingsCsv() streams every matching
+     * row unpaginated. The two can never disagree on what "the current
+     * view" means since they're literally the same query builder.
+     */
+    private function filteredBookingsQuery()
     {
         $scoped = fn ($query) => app(AuthorizationService::class)->scopeQuery($query, auth()->user(), 'bookings.view', $this->bookingScopeColumns());
 
-        $bookings = $scoped(Booking::with(['customer', 'service', 'provider.user']))
+        return $scoped(Booking::with(['customer', 'service', 'provider.user']))
             ->when($this->statusFilter, fn ($q) => $q->where('status', $this->statusFilter))
             ->when($this->search, fn ($q) => $q->where('code', 'like', "%{$this->search}%"))
             // Natural-language search results (Part 2 item 2) -- zone_id and
@@ -229,7 +237,29 @@ class Index extends Component
             // a separate path.
             ->when($this->nlZoneId, fn ($q) => $q->where('zone_id', $this->nlZoneId))
             ->when($this->nlDateFrom, fn ($q) => $q->where('created_at', '>=', $this->nlDateFrom))
-            ->when($this->nlDateTo, fn ($q) => $q->where('created_at', '<=', $this->nlDateTo))
+            ->when($this->nlDateTo, fn ($q) => $q->where('created_at', '<=', $this->nlDateTo));
+    }
+
+    /** Export Everywhere session, Part 1 — current filtered + scoped view as CSV. */
+    public function exportBookingsCsv()
+    {
+        return $this->streamCsvExport(
+            'bookings-filtered-'.now()->format('Y-m-d-His').'.csv',
+            $this->filteredBookingsQuery(),
+            ['id', 'code', 'status', 'customer', 'customer_phone', 'service', 'provider', 'price_quoted', 'price_final', 'payment_status', 'created_at', 'completed_at'],
+            fn (Booking $b) => [
+                $b->id, $b->code, $b->status, $b->customer?->name, $b->customer?->phone,
+                $b->service?->name, $b->provider?->user?->name, $b->price_quoted, $b->price_final,
+                $b->payment_status, $b->created_at, $b->completed_at,
+            ],
+        );
+    }
+
+    public function render()
+    {
+        $scoped = fn ($query) => app(AuthorizationService::class)->scopeQuery($query, auth()->user(), 'bookings.view', $this->bookingScopeColumns());
+
+        $bookings = $this->filteredBookingsQuery()
             ->latest()
             ->paginate(20);
 

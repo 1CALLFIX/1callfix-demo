@@ -5,7 +5,8 @@
             <h1 class="text-2xl font-bold mt-1">Categories</h1>
         </div>
         <div class="flex gap-2 text-sm">
-            <x-ui.button variant="secondary" size="sm" wire:click="exportCategories">Export</x-ui.button>
+            <x-ui.button variant="secondary" size="sm" wire:click="exportCategoriesCsv" title="Export the current filtered view as CSV">Export CSV</x-ui.button>
+            <x-ui.button variant="secondary" size="sm" wire:click="exportCategories" title="Full catalog backup, xlsx — re-importable via Import below">Export Catalog (xlsx)</x-ui.button>
             <x-ui.button variant="secondary" size="sm" wire:click="toggleCategoriesImport">
                 {{ $showCategoriesImport ? 'Cancel Import' : 'Import' }}
             </x-ui.button>

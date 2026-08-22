@@ -1,6 +1,33 @@
 <div>
+    <div class="flex items-center justify-between mb-4">
+        <h1 class="text-2xl font-bold">Products</h1>
+        <div class="flex gap-2 text-sm">
+            <x-ui.button variant="secondary" size="sm" wire:click="exportProductsCsv" title="Export the current filtered view as CSV">Export CSV</x-ui.button>
+            <x-ui.button variant="secondary" size="sm" wire:click="exportProductsTemplate" title="Column template for import, xlsx">Download Template</x-ui.button>
+            <x-ui.button variant="secondary" size="sm" wire:click="toggleProductsImport">
+                {{ $showProductsImport ? 'Cancel Import' : 'Import' }}
+            </x-ui.button>
+        </div>
+    </div>
+
     @if (session('message'))
         <div class="mb-4 bg-green-50 text-green-700 text-sm px-4 py-2 rounded">{{ session('message') }}</div>
+    @endif
+
+    @error('permission') <div class="bg-red-50 text-red-700 rounded p-3 mb-4 text-sm">{{ $message }}</div> @enderror
+
+    @if ($showProductsImport)
+        <x-import-panel label="Products"
+            file-model="productsImportFile"
+            validate-method="validateProductsImport"
+            commit-method="commitProductsImport"
+            cancel-method="toggleProductsImport"
+            template-method="exportProductsTemplate"
+            deactivate-missing-model="productsDeactivateMissing"
+            :errors="$productsImportErrors"
+            :rows="$productsImportRows"
+            :message="$productsImportMessage"
+            :run="$productsImportRun" />
     @endif
 
     <x-ui.card class="mb-6">

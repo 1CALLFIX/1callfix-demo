@@ -7,6 +7,7 @@ use App\Imports\HeadingRowImport;
 use App\Models\CatalogImportRun;
 use App\Models\ServiceCategory;
 use App\Services\Catalog\CategoryImporter;
+use App\Support\Concerns\HasCsvExport;
 use App\Support\Modules;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -26,6 +27,7 @@ class Manage extends Component
 {
     use WithFileUploads;
     use WithPagination;
+    use HasCsvExport;
 
     /**
      * No view-level check existed at all — only write actions checked
@@ -430,6 +432,26 @@ class Manage extends Component
     public function downloadCategoriesTemplate()
     {
         return Excel::download(new CategoriesExport(templateOnly: true), 'categories-template.xlsx');
+    }
+
+    /**
+     * Export Everywhere session, Part 1 — distinct from exportCategories()
+     * above: that one is the full-catalog xlsx backup (re-importable via
+     * CategoryImporter, always the whole table). This is the CURRENT
+     * FILTERED VIEW as a plain CSV — respects $search/$filterModule/
+     * $filterActive exactly as baseQuery() already applies them for the
+     * on-screen list. Categories carry no franchise/zone column (global
+     * catalog — see save()'s own comment), so there's no
+     * AuthorizationService::scopeQuery() call here; nothing to scope.
+     */
+    public function exportCategoriesCsv()
+    {
+        return $this->streamCsvExport(
+            'categories-filtered-'.now()->format('Y-m-d-His').'.csv',
+            $this->baseQuery()->withCount(['subcategories', 'services']),
+            ['id', 'name', 'module', 'is_active', 'subcategories_count', 'services_count', 'sort_order', 'created_at'],
+            fn (ServiceCategory $c) => [$c->id, $c->name, $c->module, $c->is_active ? 1 : 0, $c->subcategories_count, $c->services_count, $c->sort_order, $c->created_at],
+        );
     }
 
     public function toggleCategoriesImport(): void

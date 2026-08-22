@@ -16,7 +16,7 @@ class Product extends Model
     protected $table = 'products';
 
     protected $fillable = [
-        'store_id', 'marketplace_category_id', 'name', 'slug', 'description', 'images',
+        'external_id', 'store_id', 'marketplace_category_id', 'name', 'slug', 'description', 'images',
         'price', 'tax_percent', 'discount_percent', 'stock', 'maximum_cart_quantity',
         'is_approved', 'is_active',
     ];
