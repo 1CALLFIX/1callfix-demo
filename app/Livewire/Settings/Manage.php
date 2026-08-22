@@ -1067,7 +1067,7 @@ class Manage extends Component
         // has real credentials configured, and a masked (never secret)
         // fragment of its public key, so an admin can confirm the gateway
         // is live-configured without ever seeing key_secret/webhook_secret,
-        // which never leave RazorpayService. Gateway credentials themselves
+        // which never leave RazorpayPaymentDriver. Gateway credentials themselves
         // still live only in .env, exactly as the existing Payment tab's
         // own docblock already states -- this only surfaces their STATUS.
         $gateway = app(\App\Contracts\PaymentGateway::class);

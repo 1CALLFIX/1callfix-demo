@@ -124,4 +124,33 @@ class AdminSidebarTest extends TestCase
         $response->assertOk();
         $response->assertDontSee('All Users');
     }
+
+    /**
+     * Payment Gateway Manager session — payment_gateways.manage is seeded
+     * super_admin-only (unlike users.directory.view above, grantable at any
+     * scope), but the sidebar's own visibility check is identical either
+     * way: present for a holder, absent otherwise — same shape as every
+     * other permission-gated link, no special-casing.
+     */
+    public function test_payment_gateways_link_appears_for_a_viewer_with_the_permission(): void
+    {
+        $admin = $this->makeUserWithPermission('payment_gateways.manage', 'global');
+        $this->grantPermission($admin, 'dashboard.view');
+
+        $response = $this->actingAs($admin)->get(route('admin.dashboard'));
+
+        $response->assertOk();
+        $response->assertSee('Payment Gateways');
+        $response->assertSee(route('admin.payment-gateways.index'), false);
+    }
+
+    public function test_payment_gateways_link_is_absent_for_a_viewer_without_the_permission(): void
+    {
+        $admin = $this->makeUserWithPermission('dashboard.view', 'global');
+
+        $response = $this->actingAs($admin)->get(route('admin.dashboard'));
+
+        $response->assertOk();
+        $response->assertDontSee('Payment Gateways');
+    }
 }
