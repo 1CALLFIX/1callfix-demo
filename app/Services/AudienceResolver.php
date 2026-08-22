@@ -32,6 +32,21 @@ class AudienceResolver
             return User::query()->where('id', $spec['specific_user_id'] ?? 0);
         }
 
+        // Unified "All Users" Directory session, Part 2 (Bulk Notify) — an
+        // arbitrary admin-picked LIST of individuals (checkbox multi-select
+        // on the directory table), not a single specific_user_id and not a
+        // broad segment. The id list lives in $filters (see the recipient_type
+        // enum-widen migration's own docblock) -- deliberately NOT re-scoped
+        // here: the caller (Livewire\AllUsers\Index::confirmSend()) already
+        // re-validated every id against AuthorizationService::scopeQuery()
+        // BEFORE this campaign/spec was ever created, exactly like every
+        // other screen's write-time scope check. Re-filtering here as well
+        // would just silently narrow an already-illegal request instead of
+        // rejecting it outright, which is the behavior actually required.
+        if ($recipientType === 'selected_users') {
+            return User::query()->whereIn('id', $filters['user_ids'] ?? []);
+        }
+
         // zone scope filters by zone_id directly -- reducing it to "which
         // franchise is this zone in" would wrongly include every OTHER
         // zone of that same franchise too.

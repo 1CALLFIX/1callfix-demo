@@ -14,6 +14,7 @@ use App\Livewire\Customers\Index as CustomersIndex;
 use App\Livewire\Customers\Show as CustomersShow;
 use App\Livewire\Workers\Index as WorkersIndex;
 use App\Livewire\Workers\Show as WorkersShow;
+use App\Livewire\AllUsers\Index as AllUsersIndex;
 use App\Livewire\Franchises\Manage as FranchisesManage;
 use App\Livewire\FranchisePricing\Manage as FranchisePricingManage;
 use App\Livewire\Geography\Manage as GeographyManage;
@@ -74,6 +75,7 @@ Route::middleware(['auth', \App\Http\Middleware\EnsureHasAdminAccess::class])
         Route::get('/customers/{customerId}', CustomersShow::class)->name('admin.customers.show');
         Route::get('/workers', WorkersIndex::class)->name('admin.workers.index');
         Route::get('/workers/{workerId}', WorkersShow::class)->name('admin.workers.show');
+        Route::get('/all-users', AllUsersIndex::class)->name('admin.all-users.index');
         Route::get('/geography', GeographyManage::class)->name('admin.geography.index');
         Route::get('/franchises', FranchisesManage::class)->name('admin.franchises.index');
         Route::get('/franchises/{franchiseId}/pricing', FranchisePricingManage::class)->name('admin.franchises.pricing');

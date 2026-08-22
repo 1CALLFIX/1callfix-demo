@@ -5,6 +5,7 @@ namespace App\Notifications\Support;
 use App\Models\Setting;
 use App\Notifications\Channels\PushChannel;
 use App\Notifications\Channels\SmsChannel;
+use App\Notifications\Channels\WhatsAppChannel;
 
 /**
  * One place that turns the admin-configurable `notifications.channels`
@@ -30,7 +31,9 @@ class ChannelResolver
      */
     public static function mapChannels(array $shortCodes): array
     {
-        $map = ['mail' => 'mail', 'sms' => SmsChannel::class, 'push' => PushChannel::class, 'in_app' => 'database'];
+        // 'whatsapp' added this session (Bulk Notify) — WhatsAppChannel
+        // mirrors SmsChannel exactly (see its own docblock).
+        $map = ['mail' => 'mail', 'sms' => SmsChannel::class, 'push' => PushChannel::class, 'whatsapp' => WhatsAppChannel::class, 'in_app' => 'database'];
 
         return collect($shortCodes)
             ->map(fn ($c) => trim($c))

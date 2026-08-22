@@ -95,6 +95,12 @@ class CampaignNotification extends Notification implements ShouldQueue
         return ['title' => $this->renderedTitle($notifiable), 'body' => $this->renderedBody($notifiable)];
     }
 
+    /** Unified Directory session — WhatsAppChannel's expected shape (see SmsChannel's toSms() for the identical "one plain string" convention). */
+    public function toWhatsApp($notifiable): string
+    {
+        return $this->renderedTitle($notifiable).' — '.$this->renderedBody($notifiable);
+    }
+
     /** Laravel's built-in 'database' channel — the "in-app" channel. */
     public function toArray($notifiable): array
     {
