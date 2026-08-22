@@ -1,12 +1,29 @@
 <?php
 
-namespace App\Services;
+namespace App\Services\Payments;
 
 use App\Contracts\PaymentGateway;
 use App\Models\Booking;
 use Illuminate\Support\Facades\Http;
 
-class RazorpayService implements PaymentGateway
+/**
+ * Payment Gateway Manager session — moved verbatim from the former
+ * App\Services\RazorpayService (a pure rename + relocate into the
+ * App\Services\Payments namespace alongside RazorpayWebhookHandler; this
+ * was a refactor, not a rewrite — every HTTP call, every signature
+ * calculation below is byte-for-byte the same logic that was already
+ * smoke-tested end to end: booking -> dispatch -> payment -> webhook ->
+ * commission -> wallet).
+ *
+ * The one real change is the constructor: it now optionally accepts
+ * explicit credentials (used by PaymentGatewayManager when an admin has
+ * activated a DB-configured `payment_gateways` row) and falls back to
+ * config('services.razorpay.*') -- today's exact source -- when none are
+ * given. Resolving this class with no constructor args (still exactly how
+ * the container resolves it, and exactly how the old RazorpayService was
+ * always constructed) reproduces the old behaviour bit for bit.
+ */
+class RazorpayPaymentDriver implements PaymentGateway
 {
     // Nullable, not string: config('services.razorpay.*') is null on any
     // environment without Razorpay credentials set (.env.example has no
@@ -25,11 +42,11 @@ class RazorpayService implements PaymentGateway
     private ?string $keySecret;
     private ?string $webhookSecret;
 
-    public function __construct()
+    public function __construct(?string $keyId = null, ?string $keySecret = null, ?string $webhookSecret = null)
     {
-        $this->keyId = config('services.razorpay.key_id');
-        $this->keySecret = config('services.razorpay.key_secret');
-        $this->webhookSecret = config('services.razorpay.webhook_secret');
+        $this->keyId = $keyId ?? config('services.razorpay.key_id');
+        $this->keySecret = $keySecret ?? config('services.razorpay.key_secret');
+        $this->webhookSecret = $webhookSecret ?? config('services.razorpay.webhook_secret');
     }
 
     public function identifier(): string

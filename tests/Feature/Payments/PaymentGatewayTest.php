@@ -8,8 +8,8 @@ use App\Models\Plan;
 use App\Models\Setting;
 use App\Models\Subscription;
 use App\Models\Wallet;
+use App\Services\Payments\RazorpayPaymentDriver;
 use App\Services\Plans\SubscriptionService;
-use App\Services\RazorpayService;
 use App\Services\WalletTopUpService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
@@ -22,8 +22,8 @@ use Tests\TestCase;
 /**
  * Payment Gateway Abstraction slice (continuation from 977c240). Real
  * gateway credentials never exist in this environment (.env.example has no
- * RAZORPAY_* entries -- confirmed by RazorpayService's own docblock, also
- * relied on by the pre-existing RazorpayService construction-safety fix) --
+ * RAZORPAY_* entries -- confirmed by RazorpayPaymentDriver's own docblock, also
+ * relied on by the pre-existing RazorpayPaymentDriver construction-safety fix) --
  * every test here sets fake, obviously-non-real config values and fakes the
  * outbound HTTP calls (Http::fake()), the same way any external-API-calling
  * code is safely tested without a live network dependency.
@@ -76,7 +76,7 @@ class PaymentGatewayTest extends TestCase
     {
         $gateway = app(PaymentGateway::class);
 
-        $this->assertInstanceOf(RazorpayService::class, $gateway);
+        $this->assertInstanceOf(RazorpayPaymentDriver::class, $gateway);
         $this->assertSame('razorpay', $gateway->identifier());
         $this->assertSame('Razorpay', $gateway->displayName());
         $this->assertTrue($gateway->isConfigured());

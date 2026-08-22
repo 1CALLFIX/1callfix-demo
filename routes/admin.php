@@ -33,6 +33,7 @@ use App\Livewire\Commissions\Index as CommissionsIndex;
 use App\Livewire\NotificationCenter\Manage as NotificationCenterManage;
 use App\Livewire\Operations\Health as OperationsHealth;
 use App\Livewire\Payments\Index as PaymentsIndex;
+use App\Livewire\PaymentGateways\Manage as PaymentGatewaysManage;
 use App\Livewire\Plans\Manage as PlansManage;
 use App\Livewire\Subscriptions\Index as SubscriptionsIndex;
 use App\Livewire\Chat\Manage as ChatManage;
@@ -95,6 +96,7 @@ Route::middleware(['auth', \App\Http\Middleware\EnsureHasAdminAccess::class])
         Route::get('/loyalty', LoyaltyIndex::class)->name('admin.loyalty.index');
         Route::get('/commissions', CommissionsIndex::class)->name('admin.commissions.index');
         Route::get('/payments', PaymentsIndex::class)->name('admin.payments.index');
+        Route::get('/payment-gateways', PaymentGatewaysManage::class)->name('admin.payment-gateways.index');
         Route::get('/notifications', NotificationCenterManage::class)->name('admin.notifications.index');
         Route::get('/plans', PlansManage::class)->name('admin.plans.index');
         Route::get('/subscriptions', SubscriptionsIndex::class)->name('admin.subscriptions.index');

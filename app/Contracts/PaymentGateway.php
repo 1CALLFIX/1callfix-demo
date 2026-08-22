@@ -5,17 +5,28 @@ namespace App\Contracts;
 use App\Models\Booking;
 
 /**
- * Swap the bound implementation (see AppServiceProvider::register(), same
- * pattern as SmsAdapter/PushAdapter) for a second real provider when one is
+ * Swap the bound implementation (see PaymentGatewayManager::active(), the
+ * single place App\Contracts\PaymentGateway now resolves through — see
+ * AppServiceProvider::register()) for a second real provider when one is
  * chosen — nothing above this interface (PaymentController, WalletTopUpService,
- * SubscriptionService, CancellationService) needs to change. Razorpay is the
- * one bound implementation today (RazorpayService) — this contract exists so
- * that stays true when a second provider is ever added, not because a second
- * one is being built now.
+ * SubscriptionService, CancellationService) needs to change. Razorpay
+ * (RazorpayPaymentDriver) is the one real, fully-working implementation
+ * today; PaytmPaymentDriver/PhonePePaymentDriver exist as stubs pending
+ * merchant onboarding (see PaymentGatewayManager::ACTIVATABLE_DRIVERS).
  *
- * Shaped directly from RazorpayService's own existing, already-working
- * public API — this did not invent new methods; it names the ones every
- * consumer already calls.
+ * Shaped directly from RazorpayPaymentDriver's own existing,
+ * already-working public API (formerly RazorpayService, moved/renamed in
+ * the Payment Gateway Manager session) — this did not invent new methods;
+ * it names the ones every consumer already calls. Mapped onto the
+ * "initiate/verifyPayment/handleWebhook/refund" shape a payment gateway
+ * contract conceptually needs: createOrder()/createRawOrder() ≈ initiate,
+ * verifyPaymentSignature() (checkout-side) + verifyWebhookSignature()
+ * (server-to-server) together ≈ verifyPayment()/handleWebhook(), refund()
+ * ≈ refund — kept as two explicit signature-verification methods rather
+ * than one generic pair because that's the real distinction Razorpay's own
+ * API makes (see each method's own docblock), and collapsing them would
+ * have meant renaming/restructuring every existing, already-money-tested
+ * call site for a naming preference alone.
  */
 interface PaymentGateway
 {

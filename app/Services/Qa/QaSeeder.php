@@ -300,7 +300,7 @@ class QaSeeder
         $plans = [];
 
         // All QA plans are price=0 (free-tier activation path) deliberately
-        // — a paid plan routes through RazorpayService, which needs real
+        // — a paid plan routes through RazorpayPaymentDriver, which needs real
         // gateway credentials this QA environment doesn't have and won't
         // fake (no mock payment success). The free-tier path is not a
         // shortcut around that: it's SubscriptionService's own real,

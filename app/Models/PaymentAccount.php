@@ -33,7 +33,7 @@ class PaymentAccount extends Model
      * Payouts export needs a real reference to which account a payout was
      * settled to, but account_number/ifsc/upi_id are genuine banking
      * secrets that must never leave the app in a downloadable file. Last-4
-     * only, same masking convention as RazorpayService::maskedPublicIdentifier().
+     * only, same masking convention as RazorpayPaymentDriver::maskedPublicIdentifier().
      */
     public function getMaskedAccountNumberAttribute(): ?string
     {

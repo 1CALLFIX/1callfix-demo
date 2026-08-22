@@ -149,6 +149,7 @@
                     ['label' => 'Wallet Ledger', 'route' => 'admin.wallet-ledger.index', 'icon' => 'banknotes', 'permission' => 'wallets.view'],
                     ['label' => 'Commissions', 'route' => 'admin.commissions.index', 'icon' => 'banknotes', 'permission' => 'commissions.view'],
                     ['label' => 'Payments', 'route' => 'admin.payments.index', 'icon' => 'banknotes', 'permission' => 'payments.view'],
+                    ['label' => 'Payment Gateways', 'route' => 'admin.payment-gateways.index', 'icon' => 'shield', 'permission' => 'payment_gateways.manage'],
                 ],
             ],
             'communication' => [

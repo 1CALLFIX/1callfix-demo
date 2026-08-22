@@ -40,7 +40,7 @@ use App\Observers\UserObserver;
 use App\Observers\ZoneObserver;
 use App\Services\Ai\AnthropicNarrativeAiAdapter;
 use App\Services\Ai\LogNarrativeAiAdapter;
-use App\Services\RazorpayService;
+use App\Services\Payments\PaymentGatewayManager;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Notifications\Events\NotificationFailed;
@@ -102,13 +102,19 @@ class AppServiceProvider extends ServiceProvider
             default => $app->make(LogNarrativeAiAdapter::class),
         });
 
-        // Razorpay IS the real, already-selected provider (unlike SMS/push
-        // above) -- this binding is the abstraction boundary, not a stand-in:
-        // every consumer (PaymentController, WalletTopUpService,
-        // SubscriptionService, CancellationService) now depends on
-        // PaymentGateway, not RazorpayService directly, so a second provider
-        // is a new bound class here, not a change to any of them.
-        $this->app->bind(PaymentGateway::class, RazorpayService::class);
+        // Payment Gateway Manager session -- Razorpay is still the real,
+        // already-selected provider, but the binding is now manager-
+        // resolved rather than hardcoded, so an admin-activated
+        // payment_gateways DB row (see App\Livewire\PaymentGateways\Manage)
+        // takes over automatically. Every consumer (PaymentController,
+        // WalletTopUpService, SubscriptionService, CancellationService)
+        // still depends on PaymentGateway, not a concrete driver, so
+        // NOTHING about any of them changes here -- see
+        // PaymentGatewayManager's own docblock for the fallback guarantee
+        // that keeps today's env-config behaviour identical until an admin
+        // actually configures something.
+        $this->app->singleton(PaymentGatewayManager::class);
+        $this->app->bind(PaymentGateway::class, fn ($app) => $app->make(PaymentGatewayManager::class)->active());
     }
 
     /**
