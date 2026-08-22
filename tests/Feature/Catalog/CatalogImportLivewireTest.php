@@ -3,14 +3,17 @@
 namespace Tests\Feature\Catalog;
 
 use App\Livewire\Categories\Manage as CategoriesManage;
+use App\Livewire\Products\Manage as ProductsManage;
 use App\Livewire\Services\Manage as ServicesManage;
 use App\Livewire\Subcategories\Manage as SubcategoriesManage;
 use App\Models\ServiceCategory;
 use App\Models\ServiceSubcategory;
+use App\Models\Store;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Livewire\Livewire;
 use Tests\Feature\Rbac\RbacTestHelpers;
+use Tests\Feature\Support\BookingFixtureHelpers;
 use Tests\TestCase;
 
 /**
@@ -25,6 +28,7 @@ class CatalogImportLivewireTest extends TestCase
 {
     use RefreshDatabase;
     use RbacTestHelpers;
+    use BookingFixtureHelpers;
 
     private function csv(array $rows): UploadedFile
     {
@@ -123,5 +127,87 @@ class CatalogImportLivewireTest extends TestCase
 
         $this->assertSame(1, ServiceCategory::count());
         $this->assertDatabaseHas('service_categories', ['id' => $existing->id, 'external_id' => '1', 'name' => 'Renamed']);
+    }
+
+    private function store(): Store
+    {
+        [, , $franchise, $zone] = $this->makeFranchiseTree();
+        $provider = $this->makeProviderIn($franchise, $zone);
+
+        return Store::create([
+            'provider_id' => $provider->id, 'franchise_id' => $franchise->id, 'zone_id' => $zone->id,
+            'module' => 'commerce', 'name' => 'Test Store', 'slug' => 'test-store-'.uniqid(),
+            'address_line' => 'Addr', 'lat' => 1.0, 'lng' => 1.0,
+        ]);
+    }
+
+    public function test_products_screen_imports_a_real_csv_end_to_end(): void
+    {
+        $actor = $this->makeUserWithPermission('products.manage', 'global');
+        $store = $this->store();
+
+        $file = $this->csv([
+            ['name', 'store_id', 'price', 'stock', 'is_active'],
+            ['Widget', (string) $store->id, '199.50', '10', '1'],
+        ]);
+
+        $component = Livewire::actingAs($actor)->test(ProductsManage::class)
+            ->set('productsImportFile', $file)
+            ->call('validateProductsImport')
+            ->assertOk();
+
+        $this->assertEmpty($component->get('productsImportErrors'));
+        $this->assertNotEmpty($component->get('productsImportRows'));
+
+        $component->call('commitProductsImport')->assertOk();
+
+        $this->assertDatabaseHas('products', ['name' => 'Widget', 'store_id' => $store->id, 'price' => 199.50]);
+        $this->assertSame(1, $component->get('productsImportRun')->created_count);
+    }
+
+    /** Mission spec, verbatim: "invalid rows are skipped and reported, not silently dropped or allowed to fail the whole batch" — proven through the real Livewire flow, not just the importer engine in isolation. */
+    public function test_products_screen_partial_success_valid_row_commits_invalid_row_is_reported(): void
+    {
+        $actor = $this->makeUserWithPermission('products.manage', 'global');
+        $store = $this->store();
+
+        $file = $this->csv([
+            ['name', 'store_id', 'price'],
+            ['Good Widget', (string) $store->id, '50'],
+            ['', (string) $store->id, '50'], // blank name -> hard error
+        ]);
+
+        $component = Livewire::actingAs($actor)->test(ProductsManage::class)
+            ->set('productsImportFile', $file)
+            ->call('validateProductsImport');
+
+        $this->assertNotEmpty($component->get('productsImportErrors'), 'The bad row must be reported, not silently dropped.');
+        $this->assertCount(1, $component->get('productsImportRows'), 'The good row must still be eligible to commit.');
+
+        $component->call('commitProductsImport');
+
+        $this->assertSame(1, \App\Models\Product::count(), 'The whole batch must not fail just because one row was invalid.');
+        $this->assertDatabaseHas('products', ['name' => 'Good Widget']);
+    }
+
+    /** Franchise-scoped actor can never import a product into another franchise's store, even via a real uploaded file through the real screen. */
+    public function test_products_screen_rejects_a_row_targeting_another_franchises_store(): void
+    {
+        $ownStore = $this->store();
+        $otherStore = $this->store();
+        $actor = $this->makeUserWithPermission('products.manage', 'franchise', $ownStore->franchise_id);
+
+        $file = $this->csv([
+            ['name', 'store_id', 'price'],
+            ['Out Of Scope', (string) $otherStore->id, '50'],
+        ]);
+
+        $component = Livewire::actingAs($actor)->test(ProductsManage::class)
+            ->set('productsImportFile', $file)
+            ->call('validateProductsImport');
+
+        $this->assertNotEmpty($component->get('productsImportErrors'));
+        $this->assertStringContainsString('permission', $component->get('productsImportErrors')[0]['message']);
+        $this->assertNull($component->get('productsImportRows'));
     }
 }

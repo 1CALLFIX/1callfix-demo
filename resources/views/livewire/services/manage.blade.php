@@ -2,7 +2,8 @@
     <div class="flex items-center justify-between mb-4">
         <h1 class="text-2xl font-bold">Services</h1>
         <div class="flex gap-2 text-sm">
-            <x-ui.button variant="secondary" size="sm" wire:click="exportServices">Export</x-ui.button>
+            <x-ui.button variant="secondary" size="sm" wire:click="exportServicesCsv" title="Export the current filtered view as CSV">Export CSV</x-ui.button>
+            <x-ui.button variant="secondary" size="sm" wire:click="exportServices" title="Full catalog backup, xlsx — re-importable via Import below">Export Catalog (xlsx)</x-ui.button>
             <x-ui.button variant="secondary" size="sm" wire:click="toggleImport">
                 {{ $showImport ? 'Cancel Import' : 'Import' }}
             </x-ui.button>

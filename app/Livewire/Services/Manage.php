@@ -10,6 +10,7 @@ use App\Models\ServiceCategory;
 use App\Models\ServiceSubcategory;
 use App\Models\Setting;
 use App\Services\Catalog\ServiceImporter;
+use App\Support\Concerns\HasCsvExport;
 use App\Support\Modules;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -36,6 +37,7 @@ class Manage extends Component
 {
     use WithFileUploads;
     use WithPagination;
+    use HasCsvExport;
 
     // --- "Add New" form ---
     public string $categoryId = '';
@@ -570,6 +572,17 @@ class Manage extends Component
     public function downloadTemplate()
     {
         return Excel::download(new ServicesExport(templateOnly: true), 'services-template.xlsx');
+    }
+
+    /** Export Everywhere session, Part 1 — current filtered view as CSV. No franchise/zone scope on services (global catalog). */
+    public function exportServicesCsv()
+    {
+        return $this->streamCsvExport(
+            'services-filtered-'.now()->format('Y-m-d-His').'.csv',
+            $this->baseQuery()->with(['category', 'subcategory']),
+            ['id', 'name', 'category', 'subcategory', 'base_price', 'discount_price', 'is_active', 'sort_order', 'created_at'],
+            fn (Service $s) => [$s->id, $s->name, $s->category?->name, $s->subcategory?->name, $s->base_price, $s->discount_price, $s->is_active ? 1 : 0, $s->sort_order, $s->created_at],
+        );
     }
 
     public function toggleImport(): void

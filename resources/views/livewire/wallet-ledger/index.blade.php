@@ -1,5 +1,8 @@
 <div>
-    <h1 class="text-2xl font-bold mb-4">Wallet Ledger</h1>
+    <div class="flex items-center justify-between mb-4">
+        <h1 class="text-2xl font-bold">Wallet Ledger</h1>
+        <x-ui.button variant="secondary" size="sm" wire:click="exportWalletLedgerCsv" title="Export the current filtered view as CSV">Export CSV</x-ui.button>
+    </div>
 
     <div class="grid grid-cols-2 md:grid-cols-3 gap-4 mb-4">
         <x-ui.card>

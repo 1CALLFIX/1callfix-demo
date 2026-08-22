@@ -2,13 +2,20 @@
 
 namespace App\Livewire\Products;
 
+use App\Exports\ProductsExport;
+use App\Imports\HeadingRowImport;
+use App\Models\CatalogImportRun;
 use App\Models\MarketplaceCategory;
 use App\Models\Product;
 use App\Models\ProductVariant;
 use App\Models\Store;
 use App\Services\AuthorizationService;
+use App\Services\Catalog\ProductImporter;
+use App\Support\Concerns\HasCsvExport;
 use Livewire\Component;
+use Livewire\WithFileUploads;
 use Livewire\WithPagination;
+use Maatwebsite\Excel\Facades\Excel;
 
 /**
  * Phase 24 (Marketplace Foundation) admin screen. `Product` has no
@@ -20,9 +27,20 @@ use Livewire\WithPagination;
 class Manage extends Component
 {
     use WithPagination;
+    use WithFileUploads;
+    use HasCsvExport;
 
     public string $search = '';
     public ?int $storeIdFilter = null;
+
+    // --- Import/export (Export Everywhere + Import Where It's Safe session) ---
+    public $productsImportFile = null;
+    public bool $showProductsImport = false;
+    public array $productsImportErrors = [];
+    public ?array $productsImportRows = null;
+    public ?string $productsImportMessage = null;
+    public bool $productsDeactivateMissing = false;
+    public ?CatalogImportRun $productsImportRun = null;
 
     public ?int $storeId = null;
     public ?int $marketplaceCategoryId = null;
@@ -166,11 +184,101 @@ class Manage extends Component
         return $this->scopedProductsQuery()->with('variants')->find($this->editProductId);
     }
 
+    // ============================= Import/export =============================
+
+    public function exportProductsTemplate()
+    {
+        return Excel::download(new ProductsExport(templateOnly: true), 'products-template.xlsx');
+    }
+
+    public function toggleProductsImport(): void
+    {
+        $this->showProductsImport = ! $this->showProductsImport;
+        $this->productsImportFile = null;
+        $this->productsImportErrors = [];
+        $this->productsImportRows = null;
+        $this->productsImportMessage = null;
+        $this->productsDeactivateMissing = false;
+        $this->productsImportRun = null;
+    }
+
+    /**
+     * VALIDATE -> RELATIONSHIP CHECK -> SCOPE CHECK -> DUPLICATE CHECK ->
+     * PREVIEW, via ProductImporter (extends the same CatalogImporter engine
+     * Categories/Subcategories/Services already use — see its own
+     * docblock). The acting user is threaded through the constructor so
+     * processRow() can enforce the SAME per-store scope check
+     * createProduct() above already does (a franchise-scoped actor can't
+     * import into another franchise's store) — flagged as a per-row error
+     * at PREVIEW time, not discovered only at commit.
+     *
+     * PARTIAL SUCCESS, deliberately (mission spec: "invalid rows are
+     * skipped and reported, not silently dropped or allowed to fail the
+     * whole batch") — unlike Categories/Subcategories/Services'
+     * validateXImport() siblings, which discard previewRows and block the
+     * WHOLE file the moment any row errors, this sets BOTH errors AND
+     * previewRows whenever each is non-empty. x-import-panel already
+     * renders the two sections independently (errors table + preview/
+     * commit table can both be present at once) — no change needed there,
+     * this is the only piece of the flow that decides which is shown.
+     */
+    public function validateProductsImport(): void
+    {
+        $this->productsImportErrors = [];
+        $this->productsImportRows = null;
+        $this->productsImportMessage = null;
+        $this->productsImportRun = null;
+
+        $this->validate(['productsImportFile' => ['required', 'file', 'mimes:xlsx,xls,csv']]);
+
+        $reader = new HeadingRowImport;
+        Excel::import($reader, $this->productsImportFile->getRealPath());
+
+        $result = (new ProductImporter(auth()->user()))->validateRows($reader->rows);
+
+        $this->productsImportErrors = $result['errors'];
+        $this->productsImportRows = $result['previewRows'] ?: null; // null (not []) so the panel's "nothing to commit" state renders correctly when every row failed
+    }
+
+    /** CONFIRM -> TRANSACTION-SAFE IMPORT -> IMPORT REPORT. Only ever commits the rows that survived validation (productsImportRows) — the rejected ones (productsImportErrors) were never in that array, so they're structurally incapable of being written, not just skipped by convention. */
+    public function commitProductsImport(): void
+    {
+        if (empty($this->productsImportRows)) {
+            return;
+        }
+
+        if (! auth()->user()->hasPermissionAnywhere('products.manage')) {
+            $this->productsImportErrors = [['row' => '-', 'field' => 'permission', 'message' => 'You do not have permission to import products.']];
+            return;
+        }
+
+        $fileName = $this->productsImportFile?->getClientOriginalName();
+
+        $this->productsImportRun = (new ProductImporter(auth()->user()))->commit(
+            $this->productsImportRows, auth()->user(), $fileName, $this->productsDeactivateMissing
+        );
+
+        if ($this->productsImportRun->status === 'failed') {
+            $this->productsImportErrors = [['row' => '-', 'field' => 'commit', 'message' => 'Import failed, nothing was saved.']];
+            return;
+        }
+
+        $this->productsImportMessage = 'Import complete.';
+        $this->productsImportRows = null;
+        $this->productsImportFile = null;
+    }
+
+    /** Scope + the screen's own search/store filters, in one place — render() paginates it, exportProductsCsv() streams every matching row unpaginated. Keeps the two from ever disagreeing on what "the current view" means. */
+    private function filteredProductsQuery()
+    {
+        return $this->scopedProductsQuery()
+            ->when($this->search !== '', fn ($q) => $q->where('name', 'like', "%{$this->search}%"))
+            ->when($this->storeIdFilter, fn ($q) => $q->where('store_id', $this->storeIdFilter));
+    }
+
     public function render()
     {
-        $products = $this->scopedProductsQuery()
-            ->when($this->search !== '', fn ($q) => $q->where('name', 'like', "%{$this->search}%"))
-            ->when($this->storeIdFilter, fn ($q) => $q->where('store_id', $this->storeIdFilter))
+        $products = $this->filteredProductsQuery()
             ->latest('id')
             ->paginate(20);
 
@@ -179,5 +287,16 @@ class Manage extends Component
             'stores' => Store::where('is_active', true)->orderBy('name')->get(),
             'categories' => MarketplaceCategory::where('is_active', true)->orderBy('name')->get(),
         ])->layout('layouts.admin', ['title' => 'Products']);
+    }
+
+    /** Export Everywhere session, Part 1 — current filtered + scoped view as CSV. */
+    public function exportProductsCsv()
+    {
+        return $this->streamCsvExport(
+            'products-filtered-'.now()->format('Y-m-d-His').'.csv',
+            $this->filteredProductsQuery()->with(['store', 'category']),
+            ['id', 'name', 'store', 'category', 'price', 'discount_percent', 'stock', 'is_active', 'is_approved', 'created_at'],
+            fn (Product $p) => [$p->id, $p->name, $p->store?->name, $p->category?->name, $p->price, $p->discount_percent, $p->stock, $p->is_active ? 1 : 0, $p->is_approved ? 1 : 0, $p->created_at],
+        );
     }
 }

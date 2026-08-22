@@ -5,6 +5,7 @@ namespace App\Livewire\WalletLedger;
 use App\Models\Setting;
 use App\Models\WalletTransaction;
 use App\Services\AuthorizationService;
+use App\Support\Concerns\HasCsvExport;
 use Livewire\Component;
 use Livewire\WithPagination;
 
@@ -18,6 +19,7 @@ use Livewire\WithPagination;
 class Index extends Component
 {
     use WithPagination;
+    use HasCsvExport;
 
     public string $search = '';
     public string $typeFilter = ''; // '' | credit | debit
@@ -61,6 +63,17 @@ class Index extends Component
             ->when($this->statusFilter !== '', fn ($q) => $q->where('status', $this->statusFilter))
             ->when($this->fromDate !== '', fn ($q) => $q->whereDate('created_at', '>=', $this->fromDate))
             ->when($this->toDate !== '', fn ($q) => $q->whereDate('created_at', '<=', $this->toDate));
+    }
+
+    /** Export Everywhere session, Part 1 — current filtered + scoped view as CSV. */
+    public function exportWalletLedgerCsv()
+    {
+        return $this->streamCsvExport(
+            'wallet-ledger-filtered-'.now()->format('Y-m-d-His').'.csv',
+            $this->baseQuery(),
+            ['id', 'user', 'user_phone', 'type', 'amount', 'status', 'reason', 'ref', 'created_at'],
+            fn (WalletTransaction $t) => [$t->id, $t->wallet?->user?->name, $t->wallet?->user?->phone, $t->is_credit ? 'credit' : 'debit', $t->amount, $t->status, $t->reason, $t->ref, $t->created_at],
+        );
     }
 
     public function render()

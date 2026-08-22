@@ -1,5 +1,8 @@
 <div>
-    <h1 class="text-2xl font-bold mb-1">Payments</h1>
+    <div class="flex items-center justify-between mb-1">
+        <h1 class="text-2xl font-bold">Payments</h1>
+        <x-ui.button variant="secondary" size="sm" wire:click="exportPaymentsCsv" title="Export the current filtered view as CSV">Export CSV</x-ui.button>
+    </div>
     <div class="text-xs text-gray-400 mb-4">Gateway: {{ $gatewayDisplayName }}</div>
 
     <div class="flex flex-wrap gap-3 mb-4">

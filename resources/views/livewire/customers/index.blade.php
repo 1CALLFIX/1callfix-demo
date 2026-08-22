@@ -1,5 +1,28 @@
 <div>
-    <h1 class="text-2xl font-bold mb-4">Customers</h1>
+    <div class="flex items-center justify-between mb-4">
+        <h1 class="text-2xl font-bold">Customers</h1>
+        <div class="flex gap-2 text-sm">
+            <x-ui.button variant="secondary" size="sm" wire:click="exportCustomersCsv" title="Export the current filtered view as CSV">Export CSV</x-ui.button>
+            <x-ui.button variant="secondary" size="sm" wire:click="toggleCustomersPrereg">
+                {{ $showCustomersPrereg ? 'Cancel' : 'Bulk Pre-Register' }}
+            </x-ui.button>
+        </div>
+    </div>
+
+    @error('permission') <div class="bg-red-50 text-red-700 rounded p-3 mb-4 text-sm">{{ $message }}</div> @enderror
+
+    @if ($showCustomersPrereg)
+        <x-prereg-panel label="Customers"
+            file-model="customersPreregFile"
+            validate-method="validateCustomersPrereg"
+            commit-method="commitCustomersPrereg"
+            cancel-method="toggleCustomersPrereg"
+            warning="Creates PENDING account shells only — these are NOT active, usable accounts. Each customer still needs to complete a real OTP verification (their normal first login) before they can authenticate or book anything. Columns: name, phone (required), email (optional)."
+            :errors="$customersPreregErrors"
+            :rows="$customersPreregRows"
+            :message="$customersPreregMessage"
+            :run="$customersPreregRun" />
+    @endif
 
     <div class="flex flex-wrap gap-3 mb-4">
         <input type="text" wire:model.live.debounce.400ms="search" placeholder="Search name, phone, or email..." class="border rounded px-3 py-2 text-sm w-72">

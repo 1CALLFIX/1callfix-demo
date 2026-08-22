@@ -1,5 +1,28 @@
 <div>
-    <h1 class="text-2xl font-bold mb-4">Providers</h1>
+    <div class="flex items-center justify-between mb-4">
+        <h1 class="text-2xl font-bold">Providers</h1>
+        <div class="flex gap-2 text-sm">
+            <x-ui.button variant="secondary" size="sm" wire:click="exportProvidersCsv" title="Export the current filtered view as CSV">Export CSV</x-ui.button>
+            <x-ui.button variant="secondary" size="sm" wire:click="toggleProvidersPrereg">
+                {{ $showProvidersPrereg ? 'Cancel' : 'Bulk Pre-Register' }}
+            </x-ui.button>
+        </div>
+    </div>
+
+    @error('permission') <div class="bg-red-50 text-red-700 rounded p-3 mb-4 text-sm">{{ $message }}</div> @enderror
+
+    @if ($showProvidersPrereg)
+        <x-prereg-panel label="Providers"
+            file-model="providersPreregFile"
+            validate-method="validateProvidersPrereg"
+            commit-method="commitProvidersPrereg"
+            cancel-method="toggleProvidersPrereg"
+            warning="Creates PENDING account shells only — kyc_status starts at the platform's normal 'pending' state, exactly like any other new provider. Each one still needs to submit and pass real KYC review before they're eligible for dispatch. Columns: name, phone, franchise_id (required), zone_id (optional)."
+            :errors="$providersPreregErrors"
+            :rows="$providersPreregRows"
+            :message="$providersPreregMessage"
+            :run="$providersPreregRun" />
+    @endif
 
     <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
         <div class="flex gap-2">

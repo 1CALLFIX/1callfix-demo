@@ -8,6 +8,7 @@ use App\Models\CatalogImportRun;
 use App\Models\ServiceCategory;
 use App\Models\ServiceSubcategory;
 use App\Services\Catalog\SubcategoryImporter;
+use App\Support\Concerns\HasCsvExport;
 use App\Support\Modules;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -37,6 +38,7 @@ class Manage extends Component
 {
     use WithFileUploads;
     use WithPagination;
+    use HasCsvExport;
 
     /**
      * No view-level check existed at all — only write actions checked
@@ -431,6 +433,17 @@ class Manage extends Component
     public function downloadTemplate()
     {
         return Excel::download(new SubcategoriesExport(templateOnly: true), 'subcategories-template.xlsx');
+    }
+
+    /** Export Everywhere session, Part 1 — current filtered view as CSV. See Categories\Manage::exportCategoriesCsv() for why this is distinct from exportSubcategories() above. No franchise/zone scope on subcategories (global catalog). */
+    public function exportSubcategoriesCsv()
+    {
+        return $this->streamCsvExport(
+            'subcategories-filtered-'.now()->format('Y-m-d-His').'.csv',
+            $this->baseQuery()->with('category')->withCount('services'),
+            ['id', 'name', 'category', 'is_active', 'services_count', 'sort_order', 'created_at'],
+            fn (ServiceSubcategory $s) => [$s->id, $s->name, $s->category?->name, $s->is_active ? 1 : 0, $s->services_count, $s->sort_order, $s->created_at],
+        );
     }
 
     public function toggleImport(): void

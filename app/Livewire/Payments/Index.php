@@ -6,6 +6,7 @@ use App\Contracts\PaymentGateway;
 use App\Models\Payment;
 use App\Models\Setting;
 use App\Services\AuthorizationService;
+use App\Support\Concerns\HasCsvExport;
 use Livewire\Component;
 use Livewire\WithPagination;
 
@@ -26,6 +27,7 @@ use Livewire\WithPagination;
 class Index extends Component
 {
     use WithPagination;
+    use HasCsvExport;
 
     public string $purposeFilter = '';
     public string $statusFilter = '';
@@ -70,9 +72,10 @@ class Index extends Component
         ];
     }
 
-    public function render()
+    /** Scope + every current filter (purpose/status/search), in one place — render() paginates it, exportPaymentsCsv() streams every matching row unpaginated. */
+    private function filteredPaymentsQuery()
     {
-        $payments = app(AuthorizationService::class)
+        return app(AuthorizationService::class)
             ->scopeQuery(Payment::query(), auth()->user(), 'payments.view', $this->scopeColumns())
             ->with([
                 'booking.customer', 'booking.franchise.country', 'user.franchise.country',
@@ -96,7 +99,23 @@ class Index extends Component
                     ->orWhereHas('marketplaceOrder', fn ($o) => $o->where('code', 'like', "%{$this->search}%"))
                     ->orWhereHas('rentalReservation', fn ($o) => $o->where('code', 'like', "%{$this->search}%"))
                     ->orWhereHas('hotelReservation', fn ($o) => $o->where('code', 'like', "%{$this->search}%"));
-            }))
+            }));
+    }
+
+    /** Export Everywhere session, Part 1 — current filtered + scoped view as CSV. Never the gateway secret/signature, only what's already shown on-screen. */
+    public function exportPaymentsCsv()
+    {
+        return $this->streamCsvExport(
+            'payments-filtered-'.now()->format('Y-m-d-His').'.csv',
+            $this->filteredPaymentsQuery(),
+            ['id', 'purpose', 'payer', 'amount', 'gateway', 'gateway_order_id', 'gateway_payment_id', 'status', 'created_at'],
+            fn (Payment $p) => [$p->id, $p->purpose, $p->user?->name ?? $p->booking?->customer?->name, $p->amount, $p->gateway, $p->gateway_order_id, $p->gateway_payment_id, $p->status, $p->created_at],
+        );
+    }
+
+    public function render()
+    {
+        $payments = $this->filteredPaymentsQuery()
             ->latest()
             ->paginate(25);
 
