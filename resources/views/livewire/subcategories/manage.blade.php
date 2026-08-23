@@ -29,7 +29,7 @@
             cancel-method="toggleImport"
             template-method="downloadTemplate"
             deactivate-missing-model="deactivateMissing"
-            :errors="$importErrors"
+            :row-errors="$importErrors"
             :rows="$importRows"
             :message="$importMessage"
             :run="$importRun" />

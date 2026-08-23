@@ -24,7 +24,7 @@
             cancel-method="toggleProductsImport"
             template-method="exportProductsTemplate"
             deactivate-missing-model="productsDeactivateMissing"
-            :errors="$productsImportErrors"
+            :row-errors="$productsImportErrors"
             :rows="$productsImportRows"
             :message="$productsImportMessage"
             :run="$productsImportRun" />

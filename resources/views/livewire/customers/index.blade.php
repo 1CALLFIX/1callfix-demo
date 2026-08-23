@@ -18,7 +18,7 @@
             commit-method="commitCustomersPrereg"
             cancel-method="toggleCustomersPrereg"
             warning="Creates PENDING account shells only — these are NOT active, usable accounts. Each customer still needs to complete a real OTP verification (their normal first login) before they can authenticate or book anything. Columns: name, phone (required), email (optional)."
-            :errors="$customersPreregErrors"
+            :row-errors="$customersPreregErrors"
             :rows="$customersPreregRows"
             :message="$customersPreregMessage"
             :run="$customersPreregRun" />
