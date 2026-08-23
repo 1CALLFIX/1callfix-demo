@@ -28,6 +28,18 @@ class HealthCheckTest extends TestCase
 
     public function test_up_route_reports_down_and_hides_the_failure_detail_when_a_health_check_fails(): void
     {
+        // Laravel's own /up handler (ApplicationBuilder::buildRoutingCallback)
+        // only sanitizes a DiagnosingHealth listener's exception into the
+        // generic "down" response when debug mode is OFF -- with debug on it
+        // deliberately re-throws, by design, so a developer sees the real
+        // error locally. .env/.env.example default APP_DEBUG=true for local
+        // dev (see their own top-of-file comment on KNOWN_RISKS_AND_DECISIONS
+        // item 25), and phpunit.xml doesn't override APP_DEBUG globally, so
+        // this test has to force debug off itself to exercise the sanitized
+        // path it's actually asserting -- same pattern already used by
+        // DebugModeExposureTest for the identical framework behavior.
+        config(['app.debug' => false]);
+
         // Simulate a real dependency failure (e.g. a dead DB/queue
         // connection) the same way the framework's own health route
         // expects to hear about it: a listener throwing.

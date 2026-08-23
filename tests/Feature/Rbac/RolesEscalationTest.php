@@ -26,11 +26,19 @@ class RolesEscalationTest extends TestCase
         $target = $this->makeUserWithNoPermissions();
         $superAdminRole = Role::where('slug', 'super_admin')->firstOrFail();
 
-        Livewire::actingAs($actor)->test(Manage::class)
-            ->set('selectedUserId', $target->id)
-            ->set('roleId', $superAdminRole->id)
-            ->set('scopeType', 'global')
-            ->call('assign');
+        // Roles\Manage::mount() itself hard-aborts(403) any actor without
+        // roles.manage before the component ever mounts (on top of assign()'s
+        // own action-level check) -- so there's no live component left to
+        // ->set()/->call() against afterward. Chaining those past the
+        // mount-time abort fed Livewire's /livewire/update handler a snapshot
+        // captured from the 403 error response instead of a real component
+        // snapshot, which correctly failed HandleComponents::update()'s
+        // structural validation ("Invalid Livewire snapshot structure") -- a
+        // stale test usage, not a security gap. assertForbidden() is the API
+        // Livewire's own test suite uses for exactly this (mount/render-time
+        // abort) case; see vendor/livewire/livewire's SupportAuthorization
+        // UnitTest.
+        Livewire::actingAs($actor)->test(Manage::class)->assertForbidden();
 
         $this->assertDatabaseMissing('role_assignments', [
             'user_id' => $target->id, 'role_id' => $superAdminRole->id, 'scope_type' => 'global',
@@ -104,9 +112,9 @@ class RolesEscalationTest extends TestCase
 
         $actor = $this->makeUserWithNoPermissions();
 
-        Livewire::actingAs($actor)->test(Manage::class)
-            ->set('confirmingRevokeId', $assignment->id)
-            ->call('revoke');
+        // Same mount-time abort as test_actor_without_roles_manage_cannot_grant_super_admin()
+        // above -- see its comment for the full explanation.
+        Livewire::actingAs($actor)->test(Manage::class)->assertForbidden();
 
         $this->assertDatabaseHas('role_assignments', ['id' => $assignment->id]);
     }
