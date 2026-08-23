@@ -23,7 +23,6 @@
                 <div class="flex justify-between"><dt class="text-gray-500">Phone</dt><dd>{{ $provider->user->phone ?? '—' }}</dd></div>
                 <div class="flex justify-between"><dt class="text-gray-500">Type</dt><dd>{{ ucfirst($provider->provider_type) }}</dd></div>
                 <div class="flex justify-between"><dt class="text-gray-500">Franchise / Zone</dt><dd>{{ $provider->franchise->name ?? '—' }} / {{ $provider->zone->name ?? '—' }}</dd></div>
-                <div class="flex justify-between"><dt class="text-gray-500">Skills (category IDs)</dt><dd>{{ implode(', ', $provider->skills ?? []) }}</dd></div>
                 <div class="flex justify-between"><dt class="text-gray-500">Applied</dt><dd>{{ app(\App\Services\TimezoneResolver::class)->format($provider->created_at, $provider->franchise, 'd M Y, h:i A') }}</dd></div>
             </dl>
         </x-ui.card>
@@ -45,6 +44,33 @@
             </dl>
         </x-ui.card>
     </div>
+
+    {{-- Assign this provider to categories/services — writes `skills`, the
+         array DispatchService::hasSkill() checks a provider against for
+         real dispatch eligibility. Until now this was display-only
+         ("Skills (category IDs)" above) with no admin action anywhere
+         that could ever set it. --}}
+    <x-ui.card class="mb-6">
+        <div class="font-semibold mb-1">Assigned Categories</div>
+        <p class="text-xs text-gray-400 mb-3">Which service categories this provider is eligible to receive job offers for. A service under an unchecked category won't be dispatched to them, no matter its subcategory or price.</p>
+
+        @if ($categories->isEmpty())
+            <p class="text-sm text-gray-400">No active categories exist yet — <a href="{{ route('admin.categories.index') }}" class="text-blue-600 hover:underline">create one first</a>.</p>
+        @else
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-4 gap-y-2 mb-3">
+                @foreach ($categories->groupBy('module') as $moduleSlug => $group)
+                    <div class="col-span-full text-xs font-semibold text-gray-400 uppercase tracking-wide mt-2 first:mt-0">{{ \App\Support\Modules::label($moduleSlug) }}</div>
+                    @foreach ($group as $cat)
+                        <label class="inline-flex items-center gap-2 text-sm">
+                            <input type="checkbox" wire:model="skillsInput" value="{{ $cat->id }}" class="rounded">
+                            {{ $cat->name }}
+                        </label>
+                    @endforeach
+                @endforeach
+            </div>
+            <x-ui.button size="sm" wire:click="updateSkills">Save Assigned Categories</x-ui.button>
+        @endif
+    </x-ui.card>
 
     <x-ui.card class="mb-6">
         <div class="flex items-center justify-between mb-2">

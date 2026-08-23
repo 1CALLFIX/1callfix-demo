@@ -6,7 +6,17 @@
     'cancelMethod',
     'templateMethod',
     'deactivateMissingModel',
-    'errors' => [],
+    // Named rowErrors, not errors: a prop literally called $errors shadows
+    // Laravel's own framework-shared $errors ViewErrorBag for the rest of
+    // this component's scope, and every @error(...) directive below
+    // compiles to a call on whatever $errors resolves to. With the prop
+    // named 'errors' that call landed on this plain array instead of the
+    // ViewErrorBag and threw "Call to a member function getBag() on array"
+    // the moment the panel first rendered — before any error ever existed,
+    // on every screen that includes this component (Categories/
+    // Subcategories/Services/Products import, Providers/Customers
+    // pre-register — see prereg-panel.blade.php's identical fix).
+    'rowErrors' => [],
     'rows' => null,
     'message' => null,
     'run' => null,
@@ -38,7 +48,7 @@
         </div>
     @endif
 
-    @if (empty($errors) && $rows === null)
+    @if (empty($rowErrors) && $rows === null)
         <div class="flex items-center gap-3 flex-wrap">
             <button type="button" wire:click="{{ $templateMethod }}" class="px-3 py-1.5 border border-gray-300 rounded text-xs hover:bg-gray-50">
                 Download template
@@ -54,9 +64,9 @@
         <p class="text-xs text-gray-400 mt-2">.xlsx, .xls, or .csv. A blank <span class="font-mono">id</span>/<span class="font-mono">external_id</span> creates a new row; a populated one matches an existing row by that source identity (never by forcing it onto our own id) — see the preview below for exactly what each row will do.</p>
     @endif
 
-    @if (! empty($errors))
+    @if (! empty($rowErrors))
         <div class="mt-3">
-            <p class="text-xs text-red-600 font-medium mb-2">{{ count($errors) }} problem(s) found — nothing was imported. Fix these in the sheet and re-upload.</p>
+            <p class="text-xs text-red-600 font-medium mb-2">{{ count($rowErrors) }} problem(s) found — nothing was imported. Fix these in the sheet and re-upload.</p>
             <div class="border rounded overflow-hidden max-h-64 overflow-y-auto">
                 <table class="w-full text-xs">
                     <thead class="bg-red-50 text-left sticky top-0">
@@ -67,7 +77,7 @@
                         </tr>
                     </thead>
                     <tbody>
-                        @foreach ($errors as $err)
+                        @foreach ($rowErrors as $err)
                             <tr class="border-t">
                                 <td class="px-2 py-1">{{ $err['row'] }}</td>
                                 <td class="px-2 py-1 font-mono">{{ $err['field'] }}</td>

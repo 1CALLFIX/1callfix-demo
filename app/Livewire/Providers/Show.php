@@ -4,6 +4,7 @@ namespace App\Livewire\Providers;
 
 use App\Actions\ReviewProviderKycAction;
 use App\Models\Provider;
+use App\Models\ServiceCategory;
 use App\Services\AuthorizationService;
 use Livewire\Component;
 
@@ -14,6 +15,18 @@ class Show extends Component
     public string $priorityInput = '0';
     public string $flashMessage = '';
     public string $flashType = 'success';
+
+    /**
+     * Skills = the category IDs DispatchService::hasSkill() checks a
+     * provider against for real dispatch eligibility — until now this
+     * screen only ever displayed the raw array read-only (see the
+     * "Skills (category IDs)" line below), with no admin action anywhere
+     * that could ever set it. That left "assign a provider to a
+     * category/service" a real gap: bulk pre-register creates the account
+     * shell with no skills, and nothing else wrote to this column outside
+     * QaSeeder. Checkbox list of every active ServiceCategory, keyed by id.
+     */
+    public array $skillsInput = [];
 
     /** providers.view was seeded (2026_08_11_016000) but never checked on this detail screen (only approve/reject/updatePriority were gated, via canReview()'s providers.review_kyc) -- see Commissions\Index's identical fix for the full reasoning. */
     public function mount(int $providerId)
@@ -33,6 +46,7 @@ class Show extends Component
 
         $this->provider = $provider;
         $this->priorityInput = (string) $this->provider->priority;
+        $this->skillsInput = array_map('intval', $this->provider->skills ?? []);
     }
 
     /**
@@ -72,6 +86,35 @@ class Show extends Component
         $this->provider->update(['priority' => (int) $this->priorityInput]);
         $this->flashType = 'success';
         $this->flashMessage = 'Priority updated.';
+    }
+
+    /**
+     * The actual "assign this provider to a category/service" action —
+     * writes the category IDs DispatchService::hasSkill() checks a
+     * provider's `skills` array against for real dispatch eligibility.
+     * Same canReview() boundary as updatePriority() above: no dedicated
+     * permission exists for this yet, and this is the established
+     * "can manage this specific provider" check on this screen.
+     */
+    public function updateSkills(): void
+    {
+        if (! $this->canReview()) {
+            $this->flashType = 'error';
+            $this->flashMessage = 'You do not have permission to change this provider\'s assigned categories.';
+            return;
+        }
+
+        $ids = array_values(array_unique(array_map('intval', $this->skillsInput)));
+
+        // Silently drop any id that isn't a real, still-existing category —
+        // the checkbox list only ever offers real ones, but the array is
+        // client-editable Livewire state, not a trusted source on its own.
+        $validIds = ServiceCategory::whereIn('id', $ids)->pluck('id')->all();
+
+        $this->provider->update(['skills' => $validIds]);
+        $this->skillsInput = $validIds;
+        $this->flashType = 'success';
+        $this->flashMessage = 'Assigned categories updated.';
     }
 
     public function approve(ReviewProviderKycAction $action)
@@ -129,6 +172,7 @@ class Show extends Component
             // ReviewService's docblock). Now that a write path exists,
             // surface the actual rows here too, not just the rollup.
             'recentReviews' => $this->provider->reviews()->with('customer')->latest()->limit(10)->get(),
+            'categories' => ServiceCategory::where('is_active', true)->orderBy('module')->orderBy('sort_order')->orderBy('name')->get(['id', 'name', 'module']),
         ])->layout('layouts.admin', ['title' => 'Review Provider']);
     }
 }

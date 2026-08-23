@@ -26,7 +26,7 @@
             cancel-method="toggleImport"
             template-method="downloadTemplate"
             deactivate-missing-model="deactivateMissing"
-            :errors="$importErrors"
+            :row-errors="$importErrors"
             :rows="$importRows"
             :message="$importMessage"
             :run="$importRun" />
@@ -337,6 +337,13 @@
                                     </svg>
                                 </button>
 
+                                <button type="button" wire:click="openOptions({{ $service->id }})"
+                                        class="w-8 h-8 rounded flex items-center justify-center bg-indigo-600 hover:bg-indigo-700 text-white" title="Options &amp; pricing add-ons">
+                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor" class="w-4 h-4">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 6h9.75M10.5 6a1.5 1.5 0 11-3 0m3 0a1.5 1.5 0 10-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-9.75 0h9.75" />
+                                    </svg>
+                                </button>
+
                                 <button type="button" wire:click="toggleActive({{ $service->id }})"
                                         wire:loading.attr="disabled" wire:target="toggleActive({{ $service->id }})"
                                         @class([
@@ -579,6 +586,105 @@
                     <x-ui.button variant="secondary" wire:click="closeEditModal">Close</x-ui.button>
                     <x-ui.button wire:click="update">Update</x-ui.button>
                 </div>
+            </div>
+        </x-ui.modal>
+    @endif
+
+    {{-- Options modal — priced variant/add-on groups (ServiceOptionGroup -> ServiceOption),
+         e.g. "AC Tonnage" (required, pick one) -> "1.5 Ton" +₹500 / "2 Ton" +₹900.
+         BookingOption already points at service_options in the booking flow; this is
+         the admin screen to actually create them, which didn't exist before. --}}
+    @if ($showOptionsModal && $this->optionsService)
+        @php $optSvc = $this->optionsService; @endphp
+        <x-ui.modal :show="true" title="Options & Add-ons — {!! $optSvc->name !!}" onClose="closeOptionsModal" maxWidth="2xl">
+            <div class="space-y-5">
+                @if ($flashMessage)
+                    <div class="bg-green-50 text-green-700 rounded p-2 text-xs">{{ $flashMessage }}</div>
+                @endif
+                @error('permission') <div class="bg-red-50 text-red-700 rounded p-2 text-xs">{{ $message }}</div> @enderror
+
+                {{-- Add new group --}}
+                <div class="border rounded p-3 bg-gray-50">
+                    <p class="text-xs font-semibold mb-2">Add option group</p>
+                    <div class="flex flex-wrap items-end gap-3">
+                        <div class="flex-1 min-w-40">
+                            <label class="block text-xs font-medium mb-1">Group name</label>
+                            <input type="text" wire:model="newGroupName" placeholder="e.g. AC Tonnage"
+                                   class="w-full border rounded px-3 py-2 text-sm">
+                            @error('newGroupName') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
+                        </div>
+                        <label class="inline-flex items-center gap-2 text-sm h-[38px]">
+                            <input type="checkbox" wire:model="newGroupRequired" class="rounded"> Required
+                        </label>
+                        <label class="inline-flex items-center gap-2 text-sm h-[38px]">
+                            <input type="checkbox" wire:model="newGroupAllowMultiple" class="rounded"> Allow multiple
+                        </label>
+                        <x-ui.button wire:click="addOptionGroup" size="sm">+ Add Group</x-ui.button>
+                    </div>
+                </div>
+
+                {{-- Existing groups + their options --}}
+                @forelse ($optSvc->optionGroups as $group)
+                    <div class="border rounded p-3" wire:key="opt-group-{{ $group->id }}">
+                        <div class="flex items-center justify-between mb-2">
+                            <p class="text-sm font-semibold">{{ $group->name }}</p>
+                            <div class="flex items-center gap-3">
+                                <button type="button" wire:click="toggleGroupRequired({{ $group->id }})"
+                                        @class(['text-xs px-2 py-0.5 rounded border', 'bg-slate-900 text-white border-slate-900' => $group->is_required, 'text-gray-500 border-gray-300' => ! $group->is_required])
+                                        title="Toggle whether picking an option in this group is required">Required</button>
+                                <button type="button" wire:click="toggleGroupAllowMultiple({{ $group->id }})"
+                                        @class(['text-xs px-2 py-0.5 rounded border', 'bg-slate-900 text-white border-slate-900' => $group->allow_multiple, 'text-gray-500 border-gray-300' => ! $group->allow_multiple])
+                                        title="Toggle whether customers may pick more than one option in this group">Allow multiple</button>
+                                <button type="button" wire:click="deleteOptionGroup({{ $group->id }})"
+                                        wire:confirm="Delete this group and all its options?"
+                                        class="text-xs text-red-600 hover:underline">Delete group</button>
+                            </div>
+                        </div>
+
+                        <table class="w-full text-xs mb-2">
+                            <tbody>
+                                @forelse ($group->options as $option)
+                                    <tr class="border-t" wire:key="opt-{{ $option->id }}">
+                                        <td class="py-1.5 pr-2">{{ $option->name }}</td>
+                                        <td class="py-1.5 pr-2 text-gray-600">{{ $option->price_delta >= 0 ? '+' : '' }}{{ $currencySymbol }}{{ number_format($option->price_delta, 2) }}</td>
+                                        <td class="py-1.5 pr-2">
+                                            <button type="button" wire:click="toggleOptionActive({{ $option->id }})"
+                                                    @class(['px-2 py-0.5 rounded border text-xs', 'text-green-700 border-green-300 bg-green-50' => $option->is_active, 'text-gray-400 border-gray-300' => ! $option->is_active])>
+                                                {{ $option->is_active ? 'Active' : 'Inactive' }}
+                                            </button>
+                                        </td>
+                                        <td class="py-1.5 text-right">
+                                            <button type="button" wire:click="deleteOption({{ $option->id }})" class="text-red-600 hover:underline">Delete</button>
+                                        </td>
+                                    </tr>
+                                @empty
+                                    <tr><td colspan="4" class="py-2 text-gray-400">No options in this group yet.</td></tr>
+                                @endforelse
+                            </tbody>
+                        </table>
+
+                        {{-- Inline "add option" row for this group --}}
+                        <div class="flex flex-wrap items-end gap-2 pt-2 border-t">
+                            <div class="flex-1 min-w-32">
+                                <input type="text" wire:model="newOptionName.{{ $group->id }}" placeholder="e.g. 1.5 Ton Split AC"
+                                       class="w-full border rounded px-2 py-1.5 text-xs">
+                                @error('newOptionName.'.$group->id) <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
+                            </div>
+                            <div class="w-28">
+                                <input type="number" step="0.01" wire:model="newOptionPriceDelta.{{ $group->id }}" placeholder="Price Δ"
+                                       class="w-full border rounded px-2 py-1.5 text-xs">
+                                @error('newOptionPriceDelta.'.$group->id) <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
+                            </div>
+                            <x-ui.button wire:click="addOption({{ $group->id }})" size="sm" variant="secondary">+ Add Option</x-ui.button>
+                        </div>
+                    </div>
+                @empty
+                    <p class="text-xs text-gray-400 text-center py-4">No option groups yet. Most services don't need any — add one above only if this service has priced variants or add-ons.</p>
+                @endforelse
+            </div>
+
+            <div class="flex justify-end pt-6">
+                <x-ui.button variant="secondary" wire:click="closeOptionsModal">Close</x-ui.button>
             </div>
         </x-ui.modal>
     @endif

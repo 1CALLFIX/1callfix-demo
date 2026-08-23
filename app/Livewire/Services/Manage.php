@@ -7,6 +7,8 @@ use App\Imports\HeadingRowImport;
 use App\Models\CatalogImportRun;
 use App\Models\Service;
 use App\Models\ServiceCategory;
+use App\Models\ServiceOption;
+use App\Models\ServiceOptionGroup;
 use App\Models\ServiceSubcategory;
 use App\Models\Setting;
 use App\Services\Catalog\ServiceImporter;
@@ -75,6 +77,21 @@ class Manage extends Component
     // --- View details modal (read-only, the eye icon) ---
     public bool $showViewModal = false;
     public ?int $viewServiceId = null;
+
+    // --- Options modal (option groups + priced options, the sliders icon) ---
+    // Services carry pricing (basePrice/discountPrice above) but until now had
+    // no way to attach priced variants/add-ons (ServiceOptionGroup/ServiceOption
+    // — e.g. "AC Tonnage" -> "1.5 Ton" +₹500) through the admin UI at all,
+    // despite BookingOption already pointing at service_options in the booking
+    // flow. Same one-screen-modal pattern as View/Edit above, not a separate route.
+    public bool $showOptionsModal = false;
+    public ?int $optionsServiceId = null;
+    public string $newGroupName = '';
+    public bool $newGroupRequired = false;
+    public bool $newGroupAllowMultiple = false;
+    /** Keyed by service_option_group_id — one inline "add option" row per group on screen at once. */
+    public array $newOptionName = [];
+    public array $newOptionPriceDelta = [];
 
     // --- Delete confirmation ---
     public ?int $confirmingDeleteId = null;
@@ -300,8 +317,10 @@ class Manage extends Component
 
         $this->resetValidation();
         // Edit is also reachable from the details modal's footer — make sure
-        // the two never stack on top of each other.
+        // the two never stack on top of each other (Options included, now
+        // that it's a third modal on this same row of actions).
         $this->showViewModal = false;
+        $this->showOptionsModal = false;
         $this->showEditModal = true;
     }
 
@@ -310,6 +329,8 @@ class Manage extends Component
     public function view(int $serviceId): void
     {
         $this->viewServiceId = $serviceId;
+        $this->showEditModal = false;
+        $this->showOptionsModal = false;
         $this->showViewModal = true;
     }
 
@@ -327,6 +348,157 @@ class Manage extends Component
         }
 
         return Service::with(['category', 'subcategory'])->find($this->viewServiceId);
+    }
+
+    // ========================= Options (groups + priced options) =========================
+
+    public function openOptions(int $serviceId): void
+    {
+        $this->optionsServiceId = $serviceId;
+        $this->newGroupName = '';
+        $this->newGroupRequired = false;
+        $this->newGroupAllowMultiple = false;
+        $this->newOptionName = [];
+        $this->newOptionPriceDelta = [];
+        $this->resetValidation();
+        $this->showViewModal = false;
+        $this->showEditModal = false;
+        $this->showOptionsModal = true;
+    }
+
+    public function closeOptionsModal(): void
+    {
+        $this->showOptionsModal = false;
+        $this->optionsServiceId = null;
+    }
+
+    /** The service behind the Options modal, with its groups/options loaded fresh so it reflects edits. */
+    public function getOptionsServiceProperty(): ?Service
+    {
+        if (! $this->optionsServiceId) {
+            return null;
+        }
+
+        return Service::with(['optionGroups' => fn ($q) => $q->orderBy('sort_order')->orderBy('id'), 'optionGroups.options' => fn ($q) => $q->orderBy('sort_order')->orderBy('id')])
+            ->find($this->optionsServiceId);
+    }
+
+    public function addOptionGroup(): void
+    {
+        if (! $this->optionsServiceId) {
+            return;
+        }
+
+        $this->validate([
+            'newGroupName' => ['required', 'string', 'max:255'],
+        ], [], ['newGroupName' => 'group name']);
+
+        if (! auth()->user()->hasPermission('services.manage')) {
+            $this->addError('permission', 'You do not have permission to manage services.');
+            return;
+        }
+
+        ServiceOptionGroup::create([
+            'service_id' => $this->optionsServiceId,
+            'name' => $this->newGroupName,
+            'is_required' => $this->newGroupRequired,
+            'allow_multiple' => $this->newGroupAllowMultiple,
+            'sort_order' => (int) ServiceOptionGroup::where('service_id', $this->optionsServiceId)->max('sort_order') + 1,
+        ]);
+
+        $this->newGroupName = '';
+        $this->newGroupRequired = false;
+        $this->newGroupAllowMultiple = false;
+        $this->flashMessage = 'Option group added.';
+    }
+
+    public function toggleGroupRequired(int $groupId): void
+    {
+        if (! auth()->user()->hasPermission('services.manage')) {
+            $this->addError('permission', 'You do not have permission to manage services.');
+            return;
+        }
+
+        $group = ServiceOptionGroup::where('service_id', $this->optionsServiceId)->findOrFail($groupId);
+        $group->update(['is_required' => ! $group->is_required]);
+    }
+
+    public function toggleGroupAllowMultiple(int $groupId): void
+    {
+        if (! auth()->user()->hasPermission('services.manage')) {
+            $this->addError('permission', 'You do not have permission to manage services.');
+            return;
+        }
+
+        $group = ServiceOptionGroup::where('service_id', $this->optionsServiceId)->findOrFail($groupId);
+        $group->update(['allow_multiple' => ! $group->allow_multiple]);
+    }
+
+    /** Cascades to its options at the DB level (service_options.service_option_group_id is cascadeOnDelete). */
+    public function deleteOptionGroup(int $groupId): void
+    {
+        if (! auth()->user()->hasPermission('services.manage')) {
+            $this->addError('permission', 'You do not have permission to manage services.');
+            return;
+        }
+
+        ServiceOptionGroup::where('service_id', $this->optionsServiceId)->findOrFail($groupId)->delete();
+        unset($this->newOptionName[$groupId], $this->newOptionPriceDelta[$groupId]);
+        $this->flashMessage = 'Option group deleted.';
+    }
+
+    public function addOption(int $groupId): void
+    {
+        $group = ServiceOptionGroup::where('service_id', $this->optionsServiceId)->find($groupId);
+        if (! $group) {
+            return;
+        }
+
+        $name = trim((string) ($this->newOptionName[$groupId] ?? ''));
+        $priceDelta = $this->newOptionPriceDelta[$groupId] ?? '';
+
+        $this->validate([
+            'newOptionName.'.$groupId => ['required', 'string', 'max:255'],
+            'newOptionPriceDelta.'.$groupId => ['required', 'numeric'],
+        ], [], ['newOptionName.'.$groupId => 'option name', 'newOptionPriceDelta.'.$groupId => 'price delta']);
+
+        if (! auth()->user()->hasPermission('services.manage')) {
+            $this->addError('permission', 'You do not have permission to manage services.');
+            return;
+        }
+
+        ServiceOption::create([
+            'service_option_group_id' => $groupId,
+            'name' => $name,
+            'price_delta' => $priceDelta,
+            'sort_order' => (int) ServiceOption::where('service_option_group_id', $groupId)->max('sort_order') + 1,
+            'is_active' => true,
+        ]);
+
+        unset($this->newOptionName[$groupId], $this->newOptionPriceDelta[$groupId]);
+        $this->flashMessage = 'Option added.';
+    }
+
+    public function toggleOptionActive(int $optionId): void
+    {
+        if (! auth()->user()->hasPermission('services.manage')) {
+            $this->addError('permission', 'You do not have permission to manage services.');
+            return;
+        }
+
+        $option = ServiceOption::whereHas('group', fn ($q) => $q->where('service_id', $this->optionsServiceId))->findOrFail($optionId);
+        $option->update(['is_active' => ! $option->is_active]);
+    }
+
+    public function deleteOption(int $optionId): void
+    {
+        if (! auth()->user()->hasPermission('services.manage')) {
+            $this->addError('permission', 'You do not have permission to manage services.');
+            return;
+        }
+
+        ServiceOption::whereHas('group', fn ($q) => $q->where('service_id', $this->optionsServiceId))->findOrFail($optionId)->delete();
+        $this->flashMessage = 'Option deleted.';
     }
 
     public function update(): void

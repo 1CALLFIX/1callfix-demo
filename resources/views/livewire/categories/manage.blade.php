@@ -29,7 +29,7 @@
             cancel-method="toggleCategoriesImport"
             template-method="downloadCategoriesTemplate"
             deactivate-missing-model="categoriesDeactivateMissing"
-            :errors="$categoriesImportErrors"
+            :row-errors="$categoriesImportErrors"
             :rows="$categoriesImportRows"
             :message="$categoriesImportMessage"
             :run="$categoriesImportRun" />

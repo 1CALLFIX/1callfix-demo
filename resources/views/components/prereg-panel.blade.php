@@ -5,7 +5,15 @@
     'commitMethod',
     'cancelMethod',
     'warning',
-    'errors' => [],
+    // rowErrors, not errors — see import-panel.blade.php's identical fix:
+    // a prop named $errors shadows Laravel's own framework-shared $errors
+    // ViewErrorBag, and the @error($fileModel) directive below calls
+    // methods on whatever $errors resolves to. With the prop named
+    // 'errors' that landed on this plain array instead of the ViewErrorBag
+    // and threw "Call to a member function getBag() on array" the moment
+    // this panel first rendered, on both screens that include it
+    // (Providers/Customers bulk pre-register).
+    'rowErrors' => [],
     'rows' => null,
     'message' => null,
     'run' => null,
@@ -39,7 +47,7 @@
         </div>
     @endif
 
-    @if (empty($errors) && $rows === null)
+    @if (empty($rowErrors) && $rows === null)
         <div class="flex items-center gap-3 flex-wrap">
             <input type="file" wire:model="{{ $fileModel }}" accept=".xlsx,.xls,.csv" class="text-xs">
             <button type="button" wire:click="{{ $validateMethod }}" wire:loading.attr="disabled" wire:target="{{ $validateMethod }},{{ $fileModel }}"
@@ -51,16 +59,16 @@
         </div>
     @endif
 
-    @if (! empty($errors))
+    @if (! empty($rowErrors))
         <div class="mt-3">
-            <p class="text-xs text-red-600 font-medium mb-2">{{ count($errors) }} problem(s) found — those rows will NOT be created.</p>
+            <p class="text-xs text-red-600 font-medium mb-2">{{ count($rowErrors) }} problem(s) found — those rows will NOT be created.</p>
             <div class="border rounded overflow-hidden max-h-64 overflow-y-auto">
                 <table class="w-full text-xs">
                     <thead class="bg-red-50 text-left sticky top-0">
                         <tr><th class="px-2 py-1">Row</th><th class="px-2 py-1">Field</th><th class="px-2 py-1">Problem</th></tr>
                     </thead>
                     <tbody>
-                        @foreach ($errors as $err)
+                        @foreach ($rowErrors as $err)
                             <tr class="border-t">
                                 <td class="px-2 py-1">{{ $err['row'] }}</td>
                                 <td class="px-2 py-1 font-mono">{{ $err['field'] }}</td>
