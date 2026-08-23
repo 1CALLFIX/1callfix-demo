@@ -237,7 +237,19 @@ class PaymentAccountEngineTest extends TestCase
         $account = app(PaymentAccountService::class)->create($customer, ['account_type' => 'upi', 'upi_id' => 'x@upi']);
         $actor = $this->makeUserWithNoPermissions();
 
-        Livewire::actingAs($actor)->test(PayoutsManage::class)->call('verifyPaymentAccount', $account->id);
+        // PayoutsManage::mount() itself hard-aborts(403) any actor without
+        // payouts.manage before the component ever mounts (screen-level
+        // gate, on top of verifyPaymentAccount()'s own action-level check
+        // below it) -- so there's no live component left to ->call() an
+        // action on afterward. Chaining ->call() past that mount-time abort
+        // fed Livewire's /livewire/update handler a snapshot captured from
+        // the 403 error response instead of a real component snapshot,
+        // which correctly failed HandleComponents::update()'s structural
+        // validation ("Invalid Livewire snapshot structure") -- a stale test
+        // usage, not a security gap. assertForbidden() is the API Livewire's
+        // own test suite uses for exactly this (mount/render-time abort)
+        // case; see vendor/livewire/livewire's SupportAuthorization UnitTest.
+        Livewire::actingAs($actor)->test(PayoutsManage::class)->assertForbidden();
 
         $this->assertFalse($account->fresh()->is_verified);
     }
