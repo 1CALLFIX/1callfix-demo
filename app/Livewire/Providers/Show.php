@@ -106,10 +106,13 @@ class Show extends Component
 
         $ids = array_values(array_unique(array_map('intval', $this->skillsInput)));
 
-        // Silently drop any id that isn't a real, still-existing category —
-        // the checkbox list only ever offers real ones, but the array is
-        // client-editable Livewire state, not a trusted source on its own.
-        $validIds = ServiceCategory::whereIn('id', $ids)->pluck('id')->all();
+        // Silently drop any id that isn't a real, still-active category —
+        // the checkbox list (render()'s own `categories` query) only ever
+        // offers active ones, but the array is client-editable Livewire
+        // state, not a trusted source on its own. Matches render()'s filter
+        // exactly (`is_active = true`) so a category deactivated after being
+        // assigned drops out on the next save rather than lingering forever.
+        $validIds = ServiceCategory::whereIn('id', $ids)->where('is_active', true)->pluck('id')->all();
 
         $this->provider->update(['skills' => $validIds]);
         $this->skillsInput = $validIds;
