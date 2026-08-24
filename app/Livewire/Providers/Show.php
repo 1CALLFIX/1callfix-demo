@@ -6,6 +6,7 @@ use App\Actions\ReviewProviderKycAction;
 use App\Models\Provider;
 use App\Models\ServiceCategory;
 use App\Services\AuthorizationService;
+use Illuminate\Support\Str;
 use Livewire\Component;
 
 class Show extends Component
@@ -15,6 +16,12 @@ class Show extends Component
     public string $priorityInput = '0';
     public string $flashMessage = '';
     public string $flashType = 'success';
+
+    // --- Delete confirmation (Tier 1 CRUD audit -- Provider had no delete
+    // action anywhere in the admin UI, despite the model already using
+    // SoftDeletes) ---
+    public bool $confirmingDelete = false;
+    public string $deleteWarning = '';
 
     /**
      * Skills = the category IDs DispatchService::hasSkill() checks a
@@ -118,6 +125,92 @@ class Show extends Component
         $this->skillsInput = $validIds;
         $this->flashType = 'success';
         $this->flashMessage = 'Assigned categories updated.';
+    }
+
+    /**
+     * providers.manage -- the same permission Providers\Index's Bulk
+     * Pre-Register and ProviderPreRegisterImporter already gate on,
+     * scope-checked against this provider's own zone/franchise exactly
+     * like canReview() does for providers.review_kyc above. Reused here
+     * rather than inventing a new permission slug, matching how
+     * Categories/Subcategories/Services all reuse their screen's single
+     * ".manage" permission for delete too.
+     */
+    private function canDelete(): bool
+    {
+        return auth()->user()->hasPermission('providers.manage', array_filter([
+            'zone_id' => $this->provider->zone_id,
+            'franchise_id' => $this->provider->franchise_id,
+        ]));
+    }
+
+    /**
+     * Soft delete only -- Provider already uses SoftDeletes; never
+     * forceDelete() here. Most FK columns pointing at providers.id are
+     * cascadeOnDelete (provider_documents, reviews, kyc_verification_videos,
+     * properties, stores, vehicles, equipment_items, accommodations,
+     * partner_workers, booking_compensations, dispatch_attempts, ...) but
+     * those only fire on a real row deletion, never on a soft delete's
+     * deleted_at update -- so this is inherently non-destructive to that
+     * whole history, mirrors Services\Manage::deleteService()'s "warn,
+     * don't block" posture exactly (not Categories/Subcategories' hard
+     * delete + hard block), and stays trivially reversible. payouts.payee_id
+     * is an unconstrained polymorphic-style column (no FK at all for
+     * payee_type='provider' rows) so it's untouched either way.
+     */
+    public function confirmDelete(): void
+    {
+        if (! $this->canDelete()) {
+            $this->flashType = 'error';
+            $this->flashMessage = 'You do not have permission to delete this provider.';
+            return;
+        }
+
+        $bookingsCount = $this->provider->bookings()->count();
+        $technicianCount = $this->provider->technicians()->count();
+
+        $warnings = [];
+        if ($bookingsCount > 0) {
+            $warnings[] = $bookingsCount.' '.Str::plural('booking', $bookingsCount).' against it';
+        }
+        if ($technicianCount > 0) {
+            $warnings[] = $technicianCount.' '.Str::plural('technician', $technicianCount).' linked under it';
+        }
+        if ($this->provider->is_online) {
+            $warnings[] = 'currently online';
+        }
+
+        $this->deleteWarning = $warnings
+            ? 'This provider has '.implode(', ', $warnings).'. It will be hidden from dispatch and admin lists, and that history stays intact.'
+            : '';
+        $this->confirmingDelete = true;
+    }
+
+    public function deleteProvider(): void
+    {
+        if (! $this->confirmingDelete) {
+            return;
+        }
+
+        if (! $this->canDelete()) {
+            $this->flashType = 'error';
+            $this->flashMessage = 'You do not have permission to delete this provider.';
+            $this->confirmingDelete = false;
+            return;
+        }
+
+        $this->provider->delete();
+
+        $this->confirmingDelete = false;
+        $this->deleteWarning = '';
+        $this->flashType = 'success';
+        $this->flashMessage = 'Provider deleted.';
+    }
+
+    public function cancelDelete(): void
+    {
+        $this->confirmingDelete = false;
+        $this->deleteWarning = '';
     }
 
     public function approve(ReviewProviderKycAction $action)

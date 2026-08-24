@@ -174,4 +174,32 @@
             </x-ui.card>
         </div>
     @endif
+
+    {{-- Tier 1 CRUD audit -- Provider had no delete action anywhere in the
+         admin UI despite the model already using SoftDeletes. Kept
+         deliberately separate from Approve/Reject above (always visible,
+         not gated on kyc_status) since deleting is a distinct, rarer
+         action from a KYC decision. --}}
+    <x-ui.card class="mt-6">
+        <div class="flex items-center justify-between gap-4">
+            <div>
+                <div class="font-semibold text-red-700">Delete Provider</div>
+                <p class="text-xs text-gray-400">Soft delete -- the account stops appearing in dispatch/admin lists, but booking, KYC, and review history stay intact and this can be restored.</p>
+            </div>
+            <x-ui.button variant="danger" wire:click="confirmDelete">Delete Provider</x-ui.button>
+        </div>
+    </x-ui.card>
+
+    <x-ui.modal :show="$confirmingDelete" title="Delete this provider?" onClose="cancelDelete">
+        @if ($deleteWarning)
+            <p class="text-sm text-gray-600 mb-4">{{ $deleteWarning }}</p>
+        @else
+            <p class="text-sm text-gray-600 mb-4">This account will be hidden from dispatch and admin lists. Its history stays intact.</p>
+        @endif
+
+        <div class="flex justify-end gap-2">
+            <x-ui.button variant="secondary" wire:click="cancelDelete">Cancel</x-ui.button>
+            <x-ui.button variant="danger" wire:click="deleteProvider">Delete</x-ui.button>
+        </div>
+    </x-ui.modal>
 </div>
