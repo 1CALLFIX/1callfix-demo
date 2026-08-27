@@ -4,6 +4,7 @@ namespace App\Http\Controllers\API;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Services\Auth\CustomerAccountResolver;
 use App\Services\OtpService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -61,7 +62,12 @@ class AuthController extends Controller
      * Customer: first-or-create by phone (self-registration on first
      * verified login — no KYC gate exists for customers anywhere in this
      * codebase today, matching Bookings\Index::createCustomer()'s own
-     * no-gate admin-created-customer flow). Provider/field_worker: MUST
+     * no-gate admin-created-customer flow). That rule now lives in
+     * App\Services\Auth\CustomerAccountResolver rather than a private
+     * method here, so the customer WEB app's session login (Livewire
+     * Customer\Auth\Login, Phase B) shares this one implementation instead
+     * of carrying a second copy that could drift — behavior is otherwise
+     * completely unchanged. Provider/field_worker: MUST
      * already exist — these actor types are KYC-gated onboarding
      * (ReviewProviderKycAction/ReviewFieldWorkerKycAction), and OTP login
      * verifying phone ownership must never be able to bypass that; a
@@ -96,7 +102,7 @@ class AuthController extends Controller
         }
 
         $user = match ($validated['actor_type']) {
-            'customer' => $this->resolveCustomer($validated['phone']),
+            'customer' => app(CustomerAccountResolver::class)->resolve($validated['phone']),
             default => $this->resolveExistingActor($validated['phone'], $validated['actor_type']),
         };
 
@@ -157,22 +163,5 @@ class AuthController extends Controller
         };
 
         return $hasProfile ? $user : null;
-    }
-
-    private function resolveCustomer(string $phone): User
-    {
-        $user = User::where('phone', $phone)->first();
-        if ($user) {
-            return $user;
-        }
-
-        return User::create([
-            'uuid' => (string) Str::uuid(),
-            'name' => 'Customer',
-            'phone' => $phone,
-            'role' => 'customer',
-            'status' => 'active',
-            'preferred_language' => 'en',
-        ]);
     }
 }

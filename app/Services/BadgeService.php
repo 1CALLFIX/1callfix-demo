@@ -7,6 +7,7 @@ use App\Models\BadgeAssignment;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 
 /**
  * Universal Badge Engine — one implementation for every entity type
@@ -33,26 +34,67 @@ class BadgeService
      */
     public function badgesFor(Model $entity, array $viewerScope = []): array
     {
-        $authz = app(AuthorizationService::class);
+        return $this->badgesForMany(collect([$entity]), $viewerScope)[$entity->getKey()] ?? [];
+    }
 
-        $manual = BadgeAssignment::currentlyVisible()
-            ->where('badgeable_type', get_class($entity))
-            ->where('badgeable_id', $entity->getKey())
+    /**
+     * The same answer as badgesFor(), for a whole page of entities at once —
+     * two queries in total regardless of how many entities are passed,
+     * instead of two per entity.
+     *
+     * Added for the customer catalog (Phase C): a homepage renders several
+     * rails of service cards and a category page renders a paginated grid,
+     * and calling badgesFor() per card is a textbook N+1 on the hottest read
+     * path in the customer app. badgesFor() now delegates here, so there is
+     * still exactly ONE implementation of the manual/automatic/scope rules —
+     * this is a batching change, not a second copy of the logic.
+     *
+     * Every entity in $entities must be of the same class (they share one
+     * `badgeable_type` lookup). Entities with no applicable badge are still
+     * present in the result, mapped to an empty array, so callers can index
+     * the map without a null check.
+     *
+     * @param  \Illuminate\Support\Collection<int, Model>  $entities
+     * @return array<int|string, array<int, array>> keyed by each entity's primary key
+     */
+    public function badgesForMany(Collection $entities, array $viewerScope = []): array
+    {
+        if ($entities->isEmpty()) {
+            return [];
+        }
+
+        $authz = app(AuthorizationService::class);
+        $type = get_class($entities->first());
+        $keys = $entities->map(fn (Model $e) => $e->getKey());
+
+        $manualByEntity = BadgeAssignment::currentlyVisible()
+            ->where('badgeable_type', $type)
+            ->whereIn('badgeable_id', $keys)
             ->with('badge')
             ->get()
             ->filter(fn (BadgeAssignment $a) => $a->badge && $a->badge->is_active)
             ->filter(fn (BadgeAssignment $a) => $authz->scopeCovers($a->scope_type, $a->scope_id, $viewerScope))
-            ->map(fn (BadgeAssignment $a) => $a->badge);
+            ->groupBy('badgeable_id');
 
-        $automatic = Badge::where('mode', 'automatic')->where('is_active', true)->get()
-            ->filter(fn (Badge $badge) => $this->automaticRuleMatches($badge, $entity));
+        $automatic = Badge::where('mode', 'automatic')->where('is_active', true)->get();
 
-        return $manual->concat($automatic)
-            ->unique('id')
-            ->sortByDesc('priority')
-            ->map(fn (Badge $badge) => $badge->toDisplayArray())
-            ->values()
-            ->all();
+        $result = [];
+
+        foreach ($entities as $entity) {
+            $key = $entity->getKey();
+
+            $manual = ($manualByEntity[$key] ?? collect())->map(fn (BadgeAssignment $a) => $a->badge);
+            $auto = $automatic->filter(fn (Badge $badge) => $this->automaticRuleMatches($badge, $entity));
+
+            $result[$key] = $manual->concat($auto)
+                ->unique('id')
+                ->sortByDesc('priority')
+                ->map(fn (Badge $badge) => $badge->toDisplayArray())
+                ->values()
+                ->all();
+        }
+
+        return $result;
     }
 
     /**

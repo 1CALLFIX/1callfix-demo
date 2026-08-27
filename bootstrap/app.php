@@ -14,8 +14,18 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
 
+        // Two distinct audiences now share this application: staff on
+        // /admin/* (session login at admin.login) and customers on the
+        // Phase B customer web app (OTP session login at customer.login).
+        // Previously this unconditionally sent EVERY unauthenticated guest
+        // to the admin login screen — correct while /admin was the only
+        // authenticated surface, but it would drop a customer who followed
+        // a link to their own account onto a staff email/password form.
+        // Admin behaviour is unchanged; only non-admin paths are affected.
         $middleware->redirectGuestsTo(
-            fn () => route('admin.login')
+            fn (Request $request) => $request->is('admin', 'admin/*')
+                ? route('admin.login')
+                : route('customer.login')
         );
 
         // Mission Phase 16 -- see AppServiceProvider::boot()'s docblock for

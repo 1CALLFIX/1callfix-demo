@@ -59,6 +59,18 @@ class QaManifest
         Storage::disk('local')->delete(self::PATH);
     }
 
+    /**
+     * The ids recorded so far for one table — so a later stage of the same
+     * seed run can operate on exactly what this run created, rather than on
+     * whatever else happens to be in that table.
+     *
+     * @return array<int, int>
+     */
+    public function ids(string $table): array
+    {
+        return $this->entries[$table] ?? [];
+    }
+
     public function totalRecords(): int
     {
         return array_sum(array_map('count', $this->entries));

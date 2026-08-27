@@ -58,6 +58,9 @@ class QaSeedCommand extends Command
         $this->table(['Status', 'Count'], collect($result['booking_status_distribution'])->map(fn ($c, $s) => [$s, $c])->values()->all());
 
         $this->newLine();
+        $this->info("Catalog reviews created: {$result['reviews_created']} (these are what give services their star ratings in the customer app).");
+
+        $this->newLine();
         $this->info('Subscription outcome distribution:');
         $this->table(['Outcome', 'Count'], collect($result['subscription_status_distribution'])->map(fn ($c, $s) => [$s, $c])->values()->all());
 

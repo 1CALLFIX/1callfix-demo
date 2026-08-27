@@ -3,9 +3,11 @@
 namespace App\Services\Qa;
 
 use App\Models\Address;
+use App\Models\BadgeAssignment;
 use App\Models\Banner;
 use App\Models\Booking;
 use App\Models\BookingExtraItem;
+use App\Models\BookingOption;
 use App\Models\BookingStatusHistory;
 use App\Models\BusinessAccount;
 use App\Models\BusinessLocation;
@@ -19,6 +21,9 @@ use App\Models\Faq;
 use App\Models\FieldWorker;
 use App\Models\FieldWorkerCapability;
 use App\Models\FieldWorkerDocument;
+use App\Models\FlashSale;
+use App\Models\FlashSaleRedemption;
+use App\Models\FlashSaleTarget;
 use App\Models\Franchise;
 use App\Models\FranchiseModule;
 use App\Models\LoyaltyPoint;
@@ -28,9 +33,12 @@ use App\Models\Plan;
 use App\Models\PlanEntitlement;
 use App\Models\Provider;
 use App\Models\Referral;
+use App\Models\Review;
 use App\Models\RoleAssignment;
 use App\Models\Service;
 use App\Models\ServiceCategory;
+use App\Models\ServiceOption;
+use App\Models\ServiceOptionGroup;
 use App\Models\ServiceSubcategory;
 use App\Models\Subscription;
 use App\Models\UsageLedger;
@@ -71,6 +79,14 @@ class QaCleaner
 
         DB::transaction(function () use ($entries, $bookingIds, $userIds, $subscriptionIds, &$deleted) {
             // --- Booking-derived side-effect tables (children first) ---
+            // Reviews are deleted explicitly rather than left to the
+            // reviews.booking_id cascade, matching this class's own rule of
+            // never relying on cascade alone. Both the tracked ids and the
+            // booking-derived set, so a review created by any path is caught.
+            $deleted['reviews'] = Review::whereIn('id', $entries['reviews'] ?? [])
+                ->orWhereIn('booking_id', $bookingIds)
+                ->delete();
+            $deleted['booking_options'] = BookingOption::whereIn('booking_id', $bookingIds)->delete();
             $deleted['dispatch_attempts'] = DispatchAttempt::whereIn('booking_id', $bookingIds)->delete();
             $deleted['booking_status_history'] = BookingStatusHistory::whereIn('booking_id', $bookingIds)->delete();
             $deleted['booking_extra_items'] = BookingExtraItem::whereIn('booking_id', $bookingIds)->delete();
@@ -139,6 +155,23 @@ class QaCleaner
             // --- Plans ---
             $deleted['plan_entitlements'] = PlanEntitlement::whereIn('id', $entries['plan_entitlements'] ?? [])->delete();
             $deleted['plans'] = Plan::whereIn('id', $entries['plans'] ?? [])->forceDelete();
+
+            // --- Catalog decoration (children of services, deleted first) ---
+            // Flash sale redemptions are derived from the tracked sales
+            // rather than tracked themselves: a redemption is written by
+            // FlashSaleService::redeem() during booking, not by the seeder,
+            // so the seeder never knows their ids.
+            $flashSaleIds = $entries['flash_sales'] ?? [];
+            $deleted['flash_sale_redemptions'] = FlashSaleRedemption::whereIn('flash_sale_id', $flashSaleIds)->delete();
+            $deleted['flash_sale_targets'] = FlashSaleTarget::whereIn('id', $entries['flash_sale_targets'] ?? [])
+                ->orWhereIn('flash_sale_id', $flashSaleIds)
+                ->delete();
+            $deleted['flash_sales'] = FlashSale::whereIn('id', $flashSaleIds)->delete();
+
+            $deleted['badge_assignments'] = BadgeAssignment::whereIn('id', $entries['badge_assignments'] ?? [])->delete();
+
+            $deleted['service_options'] = ServiceOption::whereIn('id', $entries['service_options'] ?? [])->delete();
+            $deleted['service_option_groups'] = ServiceOptionGroup::whereIn('id', $entries['service_option_groups'] ?? [])->delete();
 
             // --- Catalog ---
             $deleted['services'] = Service::whereIn('id', $entries['services'] ?? [])->forceDelete();

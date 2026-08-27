@@ -6,11 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\Customer\ServiceCategoryResource;
 use App\Http\Resources\Customer\ServiceResource;
 use App\Http\Resources\Customer\ServiceSubcategoryResource;
-use App\Models\Service;
-use App\Models\ServiceCategory;
-use App\Models\ServiceSubcategory;
+use App\Services\Catalog\ServiceCatalogQuery;
 use App\Support\Api\ApiResponse;
-use App\Support\Modules;
 use Illuminate\Http\Request;
 
 /**
@@ -51,52 +48,40 @@ use Illuminate\Http\Request;
  */
 class ServiceCatalogController extends Controller
 {
+    /**
+     * Phase C: the where() chains these three methods used to spell out by
+     * hand now live in App\Services\Catalog\ServiceCatalogQuery, shared with
+     * every customer web screen so the two can never drift into different
+     * answers about what is visible. The RULE is unchanged — including
+     * `?search=` still matching the service name only (`name_like`), not the
+     * wider match the customer search box uses. See that class's docblock.
+     */
+    public function __construct(private ServiceCatalogQuery $catalog)
+    {
+    }
+
     /** GET /api/categories */
     public function categories(Request $request)
     {
-        $categories = ServiceCategory::where('module', Modules::SERVICE)
-            ->where('is_active', true)
-            ->orderBy('sort_order')
-            ->orderBy('name')
-            ->get();
-
-        return ApiResponse::success(ServiceCategoryResource::collection($categories));
+        return ApiResponse::success(ServiceCategoryResource::collection($this->catalog->categories()->get()));
     }
 
     /** GET /api/subcategories?category_id= */
     public function subcategories(Request $request)
     {
-        $query = ServiceSubcategory::where('is_active', true)
-            ->whereHas('category', fn ($q) => $q->where('module', Modules::SERVICE)->where('is_active', true));
+        $categoryId = $request->filled('category_id') ? $request->integer('category_id') : null;
 
-        if ($request->filled('category_id')) {
-            $query->where('category_id', $request->integer('category_id'));
-        }
-
-        $subcategories = $query->orderBy('sort_order')->orderBy('name')->get();
-
-        return ApiResponse::success(ServiceSubcategoryResource::collection($subcategories));
+        return ApiResponse::success(ServiceSubcategoryResource::collection($this->catalog->subcategories($categoryId)->get()));
     }
 
     /** GET /api/services?category_id=&subcategory_id=&franchise_id=&search= */
     public function services(Request $request)
     {
-        $query = Service::where('is_active', true)
-            ->whereHas('category', fn ($q) => $q->where('module', Modules::SERVICE)->where('is_active', true));
-
-        if ($request->filled('category_id')) {
-            $query->where('category_id', $request->integer('category_id'));
-        }
-
-        if ($request->filled('subcategory_id')) {
-            $query->where('subcategory_id', $request->integer('subcategory_id'));
-        }
-
-        if ($request->filled('search')) {
-            $query->where('name', 'like', '%'.$request->string('search').'%');
-        }
-
-        $services = $query->orderBy('sort_order')->orderBy('name')->limit(100)->get();
+        $services = $this->catalog->services([
+            'category_id' => $request->filled('category_id') ? $request->integer('category_id') : null,
+            'subcategory_id' => $request->filled('subcategory_id') ? $request->integer('subcategory_id') : null,
+            'name_like' => $request->filled('search') ? (string) $request->string('search') : null,
+        ])->limit(100)->get();
 
         return ApiResponse::success(ServiceResource::collection($services));
     }

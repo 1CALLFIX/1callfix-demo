@@ -153,25 +153,101 @@ class FlashSaleService
      */
     public function priceFor(Service $service, float $originalPrice, array $viewerScope = []): ?array
     {
-        $authz = app(AuthorizationService::class);
+        return $this->priceForMany(collect([$service]), [$service->id => $originalPrice], $viewerScope)[$service->id] ?? null;
+    }
 
-        $sale = FlashSale::currentlyActive()
-            ->whereHas('targets', fn ($q) => $q->where('service_id', $service->id))
-            ->get()
-            ->first(fn (FlashSale $s) => $authz->scopeCovers($s->scope_type, $s->scope_id, $viewerScope) && $this->remainingQuantity($s) !== 0);
-
-        if (! $sale) {
-            return null;
+    /**
+     * The same answer as priceFor(), for a whole page of services at once.
+     *
+     * Added for the customer catalog (Phase C), for the same reason
+     * BadgeService::badgesForMany() was: a catalog grid asking priceFor()
+     * per card is one `whereHas` query per card on the hottest read path in
+     * the customer app. priceFor() now delegates here, so the scope /
+     * sold-out / precedence rules still have exactly ONE implementation.
+     *
+     * remainingQuantity() is resolved once per SALE rather than once per
+     * service, since many services in one grid typically share a sale.
+     *
+     * @param  \Illuminate\Support\Collection<int, Service>  $services
+     * @param  array<int, float>  $originalPrices  service id => the price the existing cascade already resolved for this viewer
+     * @return array<int, array|null> keyed by service id; null where no sale applies
+     */
+    public function priceForMany(\Illuminate\Support\Collection $services, array $originalPrices, array $viewerScope = []): array
+    {
+        if ($services->isEmpty()) {
+            return [];
         }
 
-        return [
-            'flash_sale_id' => $sale->id,
-            'original_price' => $originalPrice,
-            'final_price' => $sale->computeFinalPrice($originalPrice),
-            'discount_type' => $sale->discount_type,
-            'discount_value' => (float) $sale->discount_value,
-            'remaining_quantity' => $this->remainingQuantity($sale),
-        ];
+        $authz = app(AuthorizationService::class);
+        $serviceIds = $services->pluck('id');
+
+        $sales = FlashSale::currentlyActive()
+            ->whereHas('targets', fn ($q) => $q->whereIn('service_id', $serviceIds))
+            ->with(['targets' => fn ($q) => $q->whereIn('service_id', $serviceIds)])
+            ->get()
+            ->filter(fn (FlashSale $s) => $authz->scopeCovers($s->scope_type, $s->scope_id, $viewerScope));
+
+        // One count query per distinct sale, not per service.
+        $remaining = $sales->mapWithKeys(fn (FlashSale $s) => [$s->id => $this->remainingQuantity($s)]);
+        $sales = $sales->filter(fn (FlashSale $s) => $remaining[$s->id] !== 0);
+
+        $result = [];
+
+        foreach ($services as $service) {
+            // Preserves priceFor()'s original ordering semantics: the first
+            // qualifying sale in FlashSale::currentlyActive()'s own order
+            // wins, exactly as ->first() did before.
+            $sale = $sales->first(
+                fn (FlashSale $s) => $s->targets->contains(fn (FlashSaleTarget $t) => (int) $t->service_id === (int) $service->id)
+            );
+
+            if (! $sale) {
+                $result[$service->id] = null;
+
+                continue;
+            }
+
+            $originalPrice = (float) ($originalPrices[$service->id] ?? 0.0);
+
+            $result[$service->id] = [
+                'flash_sale_id' => $sale->id,
+                'original_price' => $originalPrice,
+                'final_price' => $sale->computeFinalPrice($originalPrice),
+                'discount_type' => $sale->discount_type,
+                'discount_value' => (float) $sale->discount_value,
+                'remaining_quantity' => $remaining[$sale->id],
+            ];
+        }
+
+        return $result;
+    }
+
+    /**
+     * Every service id that currently has an offer this viewer can actually
+     * get — the id set behind the customer app's Offers screen (Phase C).
+     *
+     * Applies the identical three conditions priceForMany() does (currently
+     * active, scope-covering, not sold out) so the Offers list and the price
+     * shown on each of its cards can never disagree about whether a sale
+     * applies. Returns an empty collection when nothing is on offer, which
+     * the caller renders as an honest empty state rather than falling back
+     * to showing full-price services under an "Offers" heading.
+     *
+     * @return \Illuminate\Support\Collection<int, int>
+     */
+    public function activeServiceIdsFor(array $viewerScope = []): \Illuminate\Support\Collection
+    {
+        $authz = app(AuthorizationService::class);
+
+        return FlashSale::currentlyActive()
+            ->with('targets')
+            ->get()
+            ->filter(fn (FlashSale $s) => $authz->scopeCovers($s->scope_type, $s->scope_id, $viewerScope))
+            ->filter(fn (FlashSale $s) => $this->remainingQuantity($s) !== 0)
+            ->flatMap(fn (FlashSale $s) => $s->targets->pluck('service_id'))
+            ->map(fn ($id) => (int) $id)
+            ->unique()
+            ->values();
     }
 
     /** null = unlimited. */
