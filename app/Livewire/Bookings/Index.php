@@ -5,7 +5,6 @@ namespace App\Livewire\Bookings;
 use App\Actions\CreateBookingAction;
 use App\Models\Address;
 use App\Models\Booking;
-use App\Models\FranchiseServicePricing;
 use App\Models\Service;
 use App\Models\Setting;
 use App\Models\User;
@@ -490,17 +489,23 @@ class Index extends Component
             return;
         }
 
-        $franchiseId = $this->selectedZone?->franchise_id;
-
-        $override = $franchiseId
-            ? FranchiseServicePricing::where('franchise_id', $franchiseId)
-                ->where('service_id', $service->id)
-                ->where('is_offered', true)
-                ->whereNotNull('price_override')
-                ->value('price_override')
-            : null;
-
-        $this->priceQuoted = (string) ($override ?? $service->discount_price ?? $service->base_price);
+        // Service::resolvePrice() IS this cascade -- its own docblock says
+        // it was extracted from this very method so the two could not
+        // drift. It was left spelled out by hand here anyway; Phase D
+        // finishes the extraction. Behaviour is unchanged, character for
+        // character: franchise price_override (only where is_offered and
+        // not null) -> discount_price -> base_price.
+        //
+        // Flash sales are deliberately NOT applied to this field. It is an
+        // editable, `bookings.create`-gated negotiated price for a call-
+        // centre agent, not a customer-facing quote, and whether a
+        // phone-in order should receive a self-service promotion is a
+        // business decision nothing in this repository answers. Recorded
+        // as an open question rather than decided here.
+        // number_format keeps the two decimals the decimal(10,2) columns
+        // used to hand this field directly ("500.00", not "500"), so the
+        // agent's input looks exactly as it did before.
+        $this->priceQuoted = number_format($service->resolvePrice($this->selectedZone?->franchise_id), 2, '.', '');
     }
 
     // ============================= Create booking =============================

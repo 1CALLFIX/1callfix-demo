@@ -48,10 +48,17 @@ class BookingController extends Controller
      * `franchise_id`/`zone_id` are derived from the customer's OWN address
      * (never accepted directly — a client could otherwise submit a
      * zone/franchise pair unrelated to where they actually are).
-     * `price_quoted` is always `Service::resolvePrice()`, server-side —
-     * `StoreBookingRequest` doesn't even accept a price field, so there is
-     * no client input to ignore in the first place, just none to trust.
      * `customer_id` is always `$request->user()->id`.
+     *
+     * NO price is passed to the Action at all (Phase D). It used to pass
+     * `Service::resolvePrice()`, which was only the FIRST layer of the
+     * pricing cascade — so a customer shown a flash-sale price on the
+     * catalog was quoted the undiscounted one here. Omitting the field
+     * entirely makes `CreateBookingAction` compute the whole cascade
+     * itself, from the database, for the scope of the customer's own
+     * address; `StoreBookingRequest` still doesn't accept a price field, so
+     * there is no client input to ignore in the first place, and now none
+     * to get wrong either.
      */
     public function store(StoreBookingRequest $request, CreateBookingAction $action)
     {
@@ -89,7 +96,6 @@ class BookingController extends Controller
                 'service_id' => $service->id,
                 'address_id' => $address->id,
                 'scheduled_at' => $validated['scheduled_at'] ?? null,
-                'price_quoted' => $service->resolvePrice($address->franchise_id),
                 'payment_method' => $paymentMethod,
                 'customer_note' => $validated['customer_note'] ?? null,
             ]);

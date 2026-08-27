@@ -135,6 +135,69 @@ class FlashSaleService
     }
 
     /**
+     * THE authoritative "what does this service cost right now, for this
+     * viewer" answer — the whole cascade this class's own docblock already
+     * describes, finally callable as one thing:
+     *
+     *     Service::resolvePrice($franchiseId)   franchise override -> discount_price -> base_price
+     *     then this class's sale layer          an active, scope-covering, not-sold-out sale wins outright
+     *
+     * Nothing new is computed here. Both layers already existed and are
+     * called in the order they were already documented in; this method only
+     * removes the need for every caller to compose them by hand. It was
+     * extracted (Phase D) for exactly the reason Service::resolvePrice()
+     * itself was extracted from Livewire\Bookings\Index::loadPrice(): the
+     * composition existed in CatalogPresenter::cards() and NOWHERE else, so
+     * App\Http\Controllers\API\BookingController quoted layer one alone
+     * and a customer could be shown a flash-sale price then charged the
+     * undiscounted one. See CreateBookingAction::resolveAuthoritativePrice().
+     *
+     * `sale` is the same array priceFor() returns (null when none applies),
+     * kept so a caller that must RECORD the usage — redeem() — still has the
+     * sale in hand without looking it up a second time.
+     *
+     * @return array{price: float, resolved_price: float, sale: ?array}
+     */
+    public function effectivePriceFor(Service $service, ?int $franchiseId, array $viewerScope = []): array
+    {
+        return $this->effectivePricesFor(collect([$service]), $franchiseId, $viewerScope)[$service->id];
+    }
+
+    /**
+     * effectivePriceFor() for a whole page of services, in the same fixed
+     * number of queries priceForMany() already answers a grid in — the
+     * batched form exists for the same N+1 reason BadgeService::
+     * badgesForMany() and priceForMany() do, and the single-service method
+     * above delegates here so the cascade has exactly ONE implementation.
+     *
+     * @param  \Illuminate\Support\Collection<int, Service>  $services
+     * @return array<int, array{price: float, resolved_price: float, sale: ?array}> keyed by service id
+     */
+    public function effectivePricesFor(\Illuminate\Support\Collection $services, ?int $franchiseId, array $viewerScope = []): array
+    {
+        if ($services->isEmpty()) {
+            return [];
+        }
+
+        $resolved = $services->mapWithKeys(fn (Service $s) => [$s->id => $s->resolvePrice($franchiseId)])->all();
+        $sales = $this->priceForMany($services, $resolved, $viewerScope);
+
+        $out = [];
+
+        foreach ($services as $service) {
+            $sale = $sales[$service->id] ?? null;
+
+            $out[$service->id] = [
+                'price' => $sale ? (float) $sale['final_price'] : (float) $resolved[$service->id],
+                'resolved_price' => (float) $resolved[$service->id],
+                'sale' => $sale,
+            ];
+        }
+
+        return $out;
+    }
+
+    /**
      * The sale-price layer of the EXISTING pricing cascade: base_price/
      * discount_price -> FranchiseServicePricing's per-franchise override ->
      * (this) an active flash sale, which takes precedence when present --

@@ -5,12 +5,14 @@ namespace App\Actions;
 use App\Exceptions\ModuleNotActiveException;
 use App\Jobs\ServiceMatchingJob;
 use App\Models\Booking;
+use App\Models\FlashSale;
 use App\Models\Franchise;
 use App\Models\Payment;
 use App\Models\Service;
 use App\Models\Setting;
 use App\Notifications\BookingStatusNotification;
 use App\Notifications\Support\ChannelResolver;
+use App\Services\FlashSaleService;
 use App\Services\ModuleActivationService;
 use App\Services\Plans\EntitlementService;
 use App\Services\WalletService;
@@ -22,6 +24,7 @@ class CreateBookingAction
     public function __construct(
         private EntitlementService $entitlementService,
         private ModuleActivationService $moduleActivation,
+        private FlashSaleService $flashSales,
     ) {
     }
 
@@ -42,7 +45,6 @@ class CreateBookingAction
     {
         $service = Service::findOrFail($data['service_id']);
         $paymentMethod = $data['payment_method'] ?? 'online';
-        $basePrice = (float) ($data['price_quoted'] ?? $service->base_price);
 
         // Phase 22.1 (Module Activation Foundation) — the real enforcement
         // point PHASE_22_PLATFORM_CAPABILITY_RECOVERY_AUDIT.md §16 named as
@@ -65,7 +67,20 @@ class CreateBookingAction
             throw new ModuleNotActiveException(Modules::SERVICE);
         }
 
-        $booking = DB::transaction(function () use ($data, $service, $paymentMethod, $basePrice) {
+        // Phase D — server-authoritative pricing. A caller that does NOT
+        // supply price_quoted gets the price computed here, from the
+        // database, using the whole existing cascade (see
+        // resolveAuthoritativePrice() below). That is now the customer path:
+        // API\BookingController no longer computes a price of its own, so
+        // there is exactly one place a customer booking's price can come
+        // from. An EXPLICIT price_quoted is still honoured — that is the
+        // admin call-centre form's real, permission-gated negotiated-price
+        // feature (Livewire\Bookings\Index::createBooking(), gated on
+        // bookings.create), not a client-supplied value: no customer-facing
+        // request object accepts a price field at all.
+        [$basePrice, $appliedSale] = $this->resolveAuthoritativePrice($data, $service, $scope);
+
+        $booking = DB::transaction(function () use ($data, $service, $paymentMethod, $basePrice, $appliedSale) {
             $booking = Booking::create([
                 'franchise_id' => $data['franchise_id'],
                 'zone_id' => $data['zone_id'],
@@ -78,6 +93,25 @@ class CreateBookingAction
                 'payment_method' => $paymentMethod,
                 'customer_note' => $data['customer_note'] ?? null,
             ]);
+
+            // Records that this booking really used the sale — the ONLY place
+            // FlashSaleService enforces quantity / per-customer limits
+            // against committed usage, and the call its own redeem()
+            // docblock (and PHASE_C_DISCOVERY_AND_CATALOG.md item 4) says
+            // belongs at booking time. Inside this transaction on purpose:
+            // if the sale turns out to be sold out or already used up by
+            // this customer, redeem() throws and the booking rolls back
+            // rather than silently charging the undiscounted price the
+            // customer was never shown.
+            if ($appliedSale && $booking->customer) {
+                $this->flashSales->redeem(
+                    FlashSale::findOrFail($appliedSale['flash_sale_id']),
+                    $service,
+                    $booking->customer,
+                    (float) $appliedSale['original_price'],
+                    $booking,
+                );
+            }
 
             // Plan Engine: a Customer Prime-style entitlement can adjust the
             // price right here, at booking_created (approved plan §6/§11) —
@@ -107,6 +141,36 @@ class CreateBookingAction
         }
 
         return $booking;
+    }
+
+    /**
+     * The final chargeable amount, and the flash sale (if any) it came from.
+     *
+     * No pricing arithmetic lives here: it delegates to
+     * FlashSaleService::effectivePriceFor(), which is the existing cascade
+     * (Service::resolvePrice() -> the flash-sale layer) and nothing else.
+     * The scope handed to it is the SAME array this method's caller already
+     * built for the module-activation gate, which is exactly the shape
+     * AuthorizationService::scopeCovers() takes — so a zone- or franchise-
+     * scoped sale is judged against where the booking is actually being
+     * placed (the customer's own address), not against anything the caller
+     * claimed.
+     *
+     * @return array{0: float, 1: ?array} [price, applied sale or null]
+     */
+    private function resolveAuthoritativePrice(array $data, Service $service, array $scope): array
+    {
+        if (isset($data['price_quoted'])) {
+            return [(float) $data['price_quoted'], null];
+        }
+
+        $effective = $this->flashSales->effectivePriceFor(
+            $service,
+            (int) $data['franchise_id'],
+            array_filter($scope, fn ($value) => $value !== null),
+        );
+
+        return [$effective['price'], $effective['sale']];
     }
 
     private function payWithWallet(Booking $booking): void

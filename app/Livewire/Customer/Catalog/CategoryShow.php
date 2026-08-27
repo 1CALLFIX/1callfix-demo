@@ -148,13 +148,17 @@ class CategoryShow extends Component
     }
 
     /**
-     * Price sorts order by the price a booking would actually be quoted for
-     * this viewer's franchise — ServiceCatalogQuery::orderByEffectivePrice()
-     * is the SQL form of Service::resolvePrice($franchiseId), the same
-     * cascade API\BookingController quotes and CreateBookingAction charges.
-     * See that method for what is deliberately excluded (flash sale pricing,
-     * which checkout does not apply, and per-customer plan entitlements,
-     * which are consumed at booking time and are not a property of a row).
+     * Price sorts order by ServiceCatalogQuery::orderByEffectivePrice(),
+     * the SQL form of Service::resolvePrice($franchiseId) — the STORED
+     * cascade for this viewer's franchise.
+     *
+     * That is the whole quoted price only where no live flash sale applies.
+     * Since Phase D checkout DOES apply the sale layer, a discounted card
+     * can sit out of its true price position in a price sort. See
+     * orderByEffectivePrice()'s own docblock for why the sale layer is not
+     * expressible in the ordering SQL without reimplementing the discount
+     * rules there, and for the per-customer plan entitlements that are
+     * consumed at booking time and are not a property of a row at all.
      */
     private function applySort($query)
     {

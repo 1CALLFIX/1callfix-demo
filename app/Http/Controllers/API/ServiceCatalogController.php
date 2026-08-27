@@ -6,7 +6,9 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\Customer\ServiceCategoryResource;
 use App\Http\Resources\Customer\ServiceResource;
 use App\Http\Resources\Customer\ServiceSubcategoryResource;
+use App\Models\Franchise;
 use App\Services\Catalog\ServiceCatalogQuery;
+use App\Services\FlashSaleService;
 use App\Support\Api\ApiResponse;
 use Illuminate\Http\Request;
 
@@ -37,7 +39,12 @@ use Illuminate\Http\Request;
  *    this matches that real, established behavior rather than inventing a
  *    stricter one. An optional `?franchise_id=` on `GET /services` only
  *    affects the returned `effective_price` (see `ServiceResource`), never
- *    which rows are returned.
+ *    which rows are returned. Note that a ZONE-scoped flash sale cannot
+ *    apply to this preview: the caller has told us a franchise, not a zone,
+ *    so only franchise/city/country-scoped sales are in view here. A booking
+ *    resolves the sale against the customer's real address, so a zone-scoped
+ *    sale still applies there — the preview under-promises rather than
+ *    over-promising, which is the safe direction.
  *  - Module ACTIVATION (`ModuleActivationService`) is deliberately NOT
  *    checked here, matching every other catalog-browse endpoint in this
  *    codebase (`PropertyController`/`VehicleController`/`HotelController`/
@@ -56,8 +63,10 @@ class ServiceCatalogController extends Controller
      * `?search=` still matching the service name only (`name_like`), not the
      * wider match the customer search box uses. See that class's docblock.
      */
-    public function __construct(private ServiceCatalogQuery $catalog)
-    {
+    public function __construct(
+        private ServiceCatalogQuery $catalog,
+        private FlashSaleService $flashSales,
+    ) {
     }
 
     /** GET /api/categories */
@@ -82,6 +91,24 @@ class ServiceCatalogController extends Controller
             'subcategory_id' => $request->filled('subcategory_id') ? $request->integer('subcategory_id') : null,
             'name_like' => $request->filled('search') ? (string) $request->string('search') : null,
         ])->limit(100)->get();
+
+        // Phase D: `effective_price` is resolved through the SAME
+        // FlashSaleService::effectivePricesFor() the booking path charges
+        // from, batched for the whole page (one pass, not one lookup per
+        // row). Before this, the preview showed only the first layer of the
+        // cascade while a flash sale really was in force, so a browsing
+        // customer saw a higher number than a booking would be charged.
+        $franchise = $request->filled('franchise_id')
+            ? Franchise::find($request->integer('franchise_id'))
+            : null;
+
+        $prices = $this->flashSales->effectivePricesFor($services, $franchise?->id, array_filter([
+            'franchise_id' => $franchise?->id,
+            'city_id' => $franchise?->city_id,
+            'country_id' => $franchise?->country_id,
+        ], fn ($value) => $value !== null));
+
+        $services->each(fn ($service) => $service->setEffectivePrice($prices[$service->id]['price']));
 
         return ApiResponse::success(ServiceResource::collection($services));
     }

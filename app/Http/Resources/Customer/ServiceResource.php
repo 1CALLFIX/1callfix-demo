@@ -6,13 +6,20 @@ use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 /**
- * `effective_price` is DISPLAY-ONLY — a preview of what `Service::
- * resolvePrice()` would compute for the given `?franchise_id=`, purely so a
+ * `effective_price` is DISPLAY-ONLY — a preview, for the given
+ * `?franchise_id=`, of the price a booking would be charged, purely so a
  * browsing customer can see a realistic number before booking. The actual
  * booking charge is always recomputed server-side inside
- * BookingController::store(), never taken from anything this resource (or
- * any other client-visible value) returns — see that controller's own
- * docblock.
+ * `CreateBookingAction`, never taken from anything this resource (or any
+ * other client-visible value) returns.
+ *
+ * Phase D: the preview is now the WHOLE cascade
+ * (`FlashSaleService::effectivePricesFor()` = `Service::resolvePrice()`
+ * then the flash-sale layer), preloaded per page by
+ * `ServiceCatalogController::services()` and read back here via
+ * `Service::effectivePrice()`. It used to be `resolvePrice()` alone, which
+ * quietly over-stated the price of any service that really was on a live
+ * flash sale.
  */
 class ServiceResource extends JsonResource
 {
@@ -29,7 +36,7 @@ class ServiceResource extends JsonResource
             'description' => $this->description,
             'base_price' => (float) $this->base_price,
             'discount_price' => $this->discount_price !== null ? (float) $this->discount_price : null,
-            'effective_price' => $this->resource->resolvePrice($franchiseId),
+            'effective_price' => $this->resource->effectivePrice($franchiseId),
             'price_type' => $this->price_type,
             'price_type_label' => $this->price_type_label,
             'duration_estimate_mins' => $this->duration_estimate_mins,

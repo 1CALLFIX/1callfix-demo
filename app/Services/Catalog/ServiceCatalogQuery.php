@@ -241,13 +241,15 @@ class ServiceCatalogQuery
     }
 
     /**
-     * Order a services query by the price a booking would actually be quoted
-     * — the SQL equivalent of Service::resolvePrice($franchiseId).
+     * Order a services query by Service::resolvePrice($franchiseId) — the
+     * SQL equivalent of the STORED price cascade (franchise override ->
+     * discount_price -> base_price), which is the whole quoted price only
+     * for a service with no live flash sale.
      *
      * Both the customer catalog screens' "Price: low to high"/"high to low"
-     * sorts go through here, so the ordering cannot drift from the cascade
-     * the price on each card (and the price CreateBookingAction charges) is
-     * computed from.
+     * sorts go through here, so the ordering cannot drift from the STORED
+     * cascade. It does not include the flash-sale layer that the card and
+     * the checkout charge both do — see the deliberate exclusion below.
      *
      * The cascade being reproduced, clause for clause:
      *
@@ -259,12 +261,27 @@ class ServiceCatalogQuery
      *
      * ── What is deliberately NOT in the ordering, and why that is correct ──
      *
-     *  - Flash sale pricing. FlashSaleService is display-only: the booking
-     *    path (API\BookingController -> CreateBookingAction) quotes
-     *    Service::resolvePrice() and never consults a flash sale. Ordering
-     *    by a sale price would therefore order the grid by a number that is
-     *    NOT what checkout charges, which is the very defect this method
-     *    exists to remove.
+     *  - Flash sale pricing. KNOWN, DOCUMENTED DIVERGENCE — read this
+     *    before trusting the ordering.
+     *
+     *    The reason originally given here was that FlashSaleService is
+     *    display-only and the booking path never consults a sale. That
+     *    stopped being true in Phase D: CreateBookingAction now charges the
+     *    full cascade including the sale layer. This ordering still does
+     *    not, so a grid sorted by price can show a flash-sale card out of
+     *    its true price position.
+     *
+     *    It is left out deliberately rather than by oversight. Whether a
+     *    sale applies is not a property of a service row: it depends on
+     *    FlashSale::isCurrentlyActive(), on AuthorizationService::
+     *    scopeCovers() against the viewer's scope, and on a redemption
+     *    COUNT per sale for the sold-out check — all resolved in PHP. And
+     *    the discounted number itself comes from
+     *    FlashSale::computeFinalPrice() (percent/flat, max_discount cap,
+     *    min_final_price floor). Reproducing that in ORDER BY would mean a
+     *    second implementation of the discount rules in SQL, which is
+     *    exactly the drift this method was written to end. Recorded as an
+     *    open gap instead.
      *  - Plan/membership entitlement adjustment. EntitlementService::
      *    resolveAndConsumeForBooking() runs inside CreateBookingAction, per
      *    customer, and CONSUMES a usage allowance as it goes. It is not a

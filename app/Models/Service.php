@@ -40,6 +40,17 @@ class Service extends Model
     ];
 
     /**
+     * A price already resolved for this row by
+     * FlashSaleService::effectivePricesFor(), batched for a whole page.
+     *
+     * Not a column and never persisted — a per-request carrier so a whole
+     * collection can be priced in a fixed number of queries and each
+     * ServiceResource can then read its own answer without going back to
+     * the database (the N+1 CatalogPresenter's batching exists to avoid).
+     */
+    private ?float $preresolvedEffectivePrice = null;
+
+    /**
      * `quote_on_inspection` shows as "Starts From" in the admin UI — Glover's
      * wording, and the clearer phrasing for what it means to a customer (the
      * price shown isn't final). The stored value stays as-is.
@@ -79,14 +90,22 @@ class Service extends Model
     public function bookings() { return $this->hasMany(Booking::class); }
 
     /**
-     * The single authoritative "what does this service actually cost right
-     * now, for this franchise" answer — extracted from the exact cascade
-     * `Livewire\Bookings\Index::loadPrice()` already used (franchise
-     * `FranchiseServicePricing.price_override`, only when `is_offered`, else
-     * `discount_price`, else `base_price`), so the Customer Booking API's
-     * server-side pricing and the admin call-center form's pricing can never
-     * drift into two different answers. `$franchiseId = null` (no franchise
-     * context yet, e.g. catalog browse) skips the override lookup entirely.
+     * The STORED price cascade for this franchise — franchise
+     * `FranchiseServicePricing.price_override` (only when `is_offered`),
+     * else `discount_price`, else `base_price`. Extracted from the cascade
+     * `Livewire\Bookings\Index` already spelled out by hand, so the admin
+     * call-centre form and every other caller can never drift into two
+     * different answers. `$franchiseId = null` (no franchise context yet,
+     * e.g. catalog browse) skips the override lookup entirely.
+     *
+     * This is layer ONE of the price a customer actually pays, not the
+     * whole of it: an active flash sale wins over the result of this
+     * method. The composed answer is FlashSaleService::effectivePriceFor(),
+     * which is what both the catalog and CreateBookingAction use. Calling
+     * this method alone is correct only where the flash-sale layer is
+     * genuinely not wanted (the admin negotiated-price field) or genuinely
+     * cannot be expressed (ServiceCatalogQuery's ORDER BY) — both of which
+     * say so at the call site.
      */
     public function resolvePrice(?int $franchiseId): float
     {
@@ -99,5 +118,22 @@ class Service extends Model
             : null;
 
         return (float) ($override ?? $this->discount_price ?? $this->base_price);
+    }
+
+    public function setEffectivePrice(float $price): void
+    {
+        $this->preresolvedEffectivePrice = $price;
+    }
+
+    /**
+     * The full cascade's answer for this service: the batched value if one
+     * was preloaded by FlashSaleService::effectivePricesFor(), otherwise
+     * resolvePrice() alone. A caller that has not preloaded gets the FIRST
+     * layer only — which is why ServiceCatalogController preloads rather
+     * than leaning on the fallback.
+     */
+    public function effectivePrice(?int $franchiseId = null): float
+    {
+        return $this->preresolvedEffectivePrice ?? $this->resolvePrice($franchiseId);
     }
 }

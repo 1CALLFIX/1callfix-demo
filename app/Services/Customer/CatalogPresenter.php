@@ -26,16 +26,18 @@ use Illuminate\Support\Collection;
  * ── Pricing is never computed here ────────────────────────────────────────
  * This class does no pricing arithmetic of its own beyond a display
  * percentage. The number a customer sees is whatever the EXISTING cascade
- * returns:
+ * returns, via the one call that owns it end to end:
  *
- *     Service::resolvePrice($franchiseId)      franchise override -> discount_price -> base_price
- *     then FlashSaleService::priceFor(...)     an active, scope-covering, not-sold-out sale wins outright
+ *     FlashSaleService::effectivePricesFor($services, $franchiseId, $scope)
+ *         = Service::resolvePrice($franchiseId)   franchise override -> discount_price -> base_price
+ *           then the flash-sale layer             an active, scope-covering, not-sold-out sale wins outright
  *
- * — the same two calls, in the same order, that FlashSaleService's own
- * docblock defines as the cascade. It is display-only, exactly as
- * ServiceResource's docblock already says of `effective_price`: what a
- * booking is actually charged is recomputed server-side inside
- * CreateBookingAction and never taken from anything shown here.
+ * Still display-only — a booking's charge is recomputed server-side inside
+ * CreateBookingAction and never taken from anything shown here. What
+ * changed in Phase D is that the recomputation now goes through this exact
+ * same method, so "recomputed independently" no longer means "can produce a
+ * different number". Before, this class applied the sale layer and the
+ * booking path did not.
  *
  * ── Everything is batched ─────────────────────────────────────────────────
  * cards() answers a whole grid in a fixed number of queries no matter how
@@ -78,19 +80,23 @@ class CatalogPresenter
         $franchiseId = $this->location->franchiseId();
         $viewerScope = $this->location->viewerScope();
 
-        // The existing cascade's first layer, per service.
-        $resolved = $services->mapWithKeys(fn (Service $s) => [$s->id => $s->resolvePrice($franchiseId)])->all();
-
-        // Its second layer, batched.
-        $flash = $this->flashSales->priceForMany($services, $resolved, $viewerScope);
+        // The whole cascade, batched, in ONE call — the same
+        // FlashSaleService::effectivePricesFor() that
+        // CreateBookingAction::resolveAuthoritativePrice() charges from, so
+        // the price on a card and the price at checkout are not merely
+        // computed the same way, they are computed by the same code
+        // (Phase D). This used to compose the two layers here by hand,
+        // which is precisely how the booking path came to apply only the
+        // first of them.
+        $effective = $this->flashSales->effectivePricesFor($services, $franchiseId, $viewerScope);
 
         $badges = $this->badges->badgesForMany($services, $viewerScope);
         $ratings = $this->ratings->forServices($services->pluck('id'));
 
         return $services->map(fn (Service $service) => $this->card(
             $service,
-            $resolved[$service->id],
-            $flash[$service->id] ?? null,
+            $effective[$service->id]['resolved_price'],
+            $effective[$service->id]['sale'],
             $badges[$service->id] ?? [],
             $ratings->get($service->id),
         ))->values();
