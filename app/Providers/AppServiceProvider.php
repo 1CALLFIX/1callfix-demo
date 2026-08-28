@@ -8,6 +8,7 @@ use App\Contracts\PushAdapter;
 use App\Contracts\SmsAdapter;
 use App\Contracts\WhatsAppAdapter;
 use App\Models\Booking;
+use App\Models\BookingBundle;
 use App\Models\Franchise;
 use App\Models\HotelReservation;
 use App\Models\NotificationLog;
@@ -28,6 +29,7 @@ use App\Notifications\Adapters\Msg91SmsAdapter;
 use App\Notifications\Channels\PushChannel;
 use App\Notifications\Channels\SmsChannel;
 use App\Notifications\Channels\WhatsAppChannel;
+use App\Observers\BookingBundleObserver;
 use App\Observers\BookingObserver;
 use App\Observers\FranchiseObserver;
 use App\Observers\HotelReservationObserver;
@@ -163,6 +165,7 @@ class AppServiceProvider extends ServiceProvider
         });
 
         Booking::observe(BookingObserver::class);
+        BookingBundle::observe(BookingBundleObserver::class);
         ParcelOrder::observe(ParcelOrderObserver::class);
         TaxiRide::observe(TaxiRideObserver::class);
         PropertyReservation::observe(PropertyReservationObserver::class);

@@ -106,6 +106,21 @@ class OrderCodeService
     }
 
     /**
+     * Phase E1 (Multi-Service Booking bundle) -- own counter, own table,
+     * `-BDL-` segment. Same reasoning as generateForParcel() above: a bundle
+     * is its own order stream (a wrapper over N service bookings), so it
+     * draws from its own per-franchise-per-day pool, never Service's
+     * `booking_sequences`. Service's generate() and every existing booking
+     * code are completely untouched.
+     */
+    public function generateForBookingBundle(Franchise $franchise): string
+    {
+        $sequenceNumber = $this->incrementSequence('booking_bundle_sequences', $franchise);
+
+        return sprintf('%s-BDL-%s-%08d', strtoupper($franchise->code), now()->format('dm'), $sequenceNumber);
+    }
+
+    /**
      * The genuinely shared, concurrency-safe primitive both formats above
      * are built on — extracted here rather than duplicated, since this is
      * the one part (atomic per-franchise-per-day increment) that's

@@ -20,6 +20,7 @@ class Payment extends Model
         'marketplace_order_id',
         'rental_reservation_id',
         'hotel_reservation_id',
+        'booking_bundle_id',
         'purpose',
         'user_id',
         'plan_subscription_id',
@@ -56,4 +57,7 @@ class Payment extends Model
 
     /** HOTEL / STAY BOOKING MODULE -- only set for purpose = 'hotel_reservation'. */
     public function hotelReservation() { return $this->belongsTo(HotelReservation::class); }
+
+    /** Phase E1 -- only set for purpose = 'booking_bundle' (the multi-service wrapper). Individual child-booking payments keep using booking() above. */
+    public function bookingBundle() { return $this->belongsTo(BookingBundle::class); }
 }

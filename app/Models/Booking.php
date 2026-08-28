@@ -23,6 +23,7 @@ class Booking extends Model implements Orderable
 
     protected $fillable = [
         'code',
+        'booking_bundle_id',
         'franchise_id',
         'zone_id',
         'customer_id',
@@ -66,6 +67,8 @@ class Booking extends Model implements Orderable
     /** Phase 21 item TECH-4 -- ChatMessage::booking() already existed since Phase 6; this is just the missing inverse side, not a schema change. */
     public function chatMessages() { return $this->hasMany(ChatMessage::class); }
     public function payment() { return $this->hasOne(Payment::class); }
+    /** Phase E1 — the multi-service wrapper this booking belongs to, if any. NULL for every standalone single-service booking. */
+    public function bundle() { return $this->belongsTo(BookingBundle::class, 'booking_bundle_id'); }
     public function commission() { return $this->hasOne(Commission::class); }
     public function compensations() { return $this->hasMany(BookingCompensation::class); }
     public function review() { return $this->hasOne(Review::class); }
