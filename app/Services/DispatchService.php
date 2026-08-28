@@ -136,6 +136,63 @@ class DispatchService
     }
 
     /**
+     * Phase E4 — does THIS specific provider pass every non-ranking
+     * eligibility rule findCandidates() applies for THIS booking?
+     *
+     * Used by bundle dispatch consolidation (BundleConsolidationJob) to
+     * decide whether the provider who just accepted one bundle child may be
+     * offered a sibling directly. Reuses the exact same helpers
+     * findCandidates() uses (eligibleQuery / hasSkill / withDistance /
+     * haversineKm), so the two can never drift apart.
+     *
+     * Deliberately does NOT apply:
+     *   - the $busyProviderIds filter — a provider holding one bundle child
+     *     is "busy" by that coarse rule, but consolidation's whole point is
+     *     to let them hold non-overlapping siblings; time-overlap is checked
+     *     separately by ProviderAvailabilityService.
+     *   - excludedProviderIdsForBooking() — a consolidation offer is a fresh,
+     *     deliberate offer to a hand-picked provider, not another blind
+     *     dispatch round.
+     *   - ranking — this is a yes/no gate, not an ordering.
+     */
+    public function providerEligibleForBooking(Provider $provider, Booking $booking): bool
+    {
+        $booking->loadMissing(['zone', 'address', 'service']);
+
+        if (! $booking->zone || ! $booking->address || ! $booking->service) {
+            return false;
+        }
+
+        if ((int) $provider->zone_id !== (int) $booking->zone_id) {
+            return false;
+        }
+
+        if (! $provider->is_online || ! $provider->is_active || $provider->kyc_status !== 'approved') {
+            return false;
+        }
+
+        if ($provider->current_lat === null || $provider->current_lng === null) {
+            return false;
+        }
+
+        $categoryId = $booking->service->category_id;
+
+        if (! $this->hasSkill($provider, $categoryId)) {
+            return false;
+        }
+
+        $radiusKm = $booking->zone->default_dispatch_radius_km ?? 8;
+        $distanceKm = $this->haversineKm(
+            (float) $booking->address->lat,
+            (float) $booking->address->lng,
+            (float) $provider->current_lat,
+            (float) $provider->current_lng,
+        );
+
+        return $distanceKm <= $radiusKm;
+    }
+
+    /**
      * Read-only "browse nearby providers" — the customer-facing counterpart
      * to findCandidates() above: same eligibility/ranking machinery, but no
      * booking exists yet, so the busy/already-offered exclusions (which

@@ -3,6 +3,7 @@
 namespace App\Actions;
 
 use App\Events\BookingStatusUpdated;
+use App\Jobs\BundleConsolidationJob;
 use App\Models\Booking;
 use App\Models\DispatchAttempt;
 use App\Models\Provider;
@@ -10,6 +11,7 @@ use App\Models\Setting;
 use App\Notifications\BookingOtpNotification;
 use App\Notifications\BookingStatusNotification;
 use App\Notifications\Support\ChannelResolver;
+use App\Services\ProviderAvailabilityService;
 use App\Services\WalletService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -48,6 +50,32 @@ class AcceptBookingAction
 
             if (!$attempt) {
                 throw new \RuntimeException('This job offer is no longer available (expired or already withdrawn).');
+            }
+
+            // Phase E4 — race-safe provider time-slot guard. A pre-dispatch
+            // availability check is not enough: two offers for overlapping
+            // windows can both go out to the same free provider (bundle
+            // consolidation offers one directly; a plain accept/accept race
+            // can do it too), and without this recheck BOTH could commit and
+            // leave the provider double-booked. Locking the provider row
+            // FOR UPDATE serializes every concurrent AcceptBookingAction for
+            // the same provider — the second one blocks here until the first
+            // commits, then re-reads the now-assigned booking and correctly
+            // sees the conflict. Same "lock the parent resource, then
+            // re-check inside the caller's transaction" pattern
+            // RentalAvailabilityService uses (parent = the Provider here).
+            // On MySQL/Postgres this is a genuine row lock; on SQLite the
+            // whole-database write lock serializes equivalently.
+            Provider::whereKey($provider->id)->lockForUpdate()->firstOrFail();
+
+            $booking->loadMissing('service');
+            $durationMinutes = (int) ($booking->service->duration_estimate_mins ?? 0);
+
+            if ($booking->scheduled_at !== null
+                && ! app(ProviderAvailabilityService::class)->isAvailableAt(
+                    $provider, $booking->scheduled_at, $durationMinutes, $booking->id)) {
+                throw new \RuntimeException(
+                    'You already have another job scheduled that overlaps this one\'s time slot.');
             }
 
             // Assign. OTP length is admin-editable via Settings (default 4,
@@ -115,6 +143,16 @@ class AcceptBookingAction
             // fails; the failure is only logged, never silently swallowed.
             $this->sendOtpNotification($booking, 'start', $booking->start_otp, $channels);
             $this->sendOtpNotification($booking, 'completion', $booking->completion_otp, $channels);
+        }
+
+        // Phase E4 — if this booking is a bundle child, try to give the same
+        // provider its still-unassigned siblings before they go through a
+        // fresh standard dispatch round. Fire-and-forget, after commit: the
+        // job re-checks skill / radius / availability / dispatchability for
+        // each sibling and falls back to ServiceMatchingJob on any miss, so
+        // nothing here can strand a sibling or affect this acceptance.
+        if ($booking->booking_bundle_id !== null) {
+            BundleConsolidationJob::dispatch($booking->id);
         }
 
         return $booking;
