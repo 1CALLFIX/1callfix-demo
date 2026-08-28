@@ -3,7 +3,9 @@
 namespace App\Actions;
 
 use App\Events\BookingStatusUpdated;
+use App\Exceptions\BookingOtpException;
 use App\Models\Booking;
+use App\Services\BookingOtpService;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -24,30 +26,43 @@ class StartBookingAction
     /** @throws \RuntimeException if the booking isn't in a startable state, or the OTP is wrong */
     public function execute(int $bookingId, string $enteredOtp, ?int $changedByUserId = null): Booking
     {
-        return DB::transaction(function () use ($bookingId, $enteredOtp, $changedByUserId) {
-            $booking = Booking::lockForUpdate()->findOrFail($bookingId);
+        try {
+            return DB::transaction(function () use ($bookingId, $enteredOtp, $changedByUserId) {
+                $booking = Booking::lockForUpdate()->findOrFail($bookingId);
 
-            if (! in_array($booking->status, self::STARTABLE_STATUSES, true)) {
-                throw new \RuntimeException("Booking [{$bookingId}] cannot be started from status '{$booking->status}'.");
+                if (! in_array($booking->status, self::STARTABLE_STATUSES, true)) {
+                    throw new \RuntimeException("Booking [{$bookingId}] cannot be started from status '{$booking->status}'.");
+                }
+
+                // Phase E5 — status gate first (an un-startable booking never
+                // touches OTP state), then the hardened verify: expiry,
+                // attempt cap and single-use, on top of the same plain-string
+                // compare and the same "wrong code -> RuntimeException"
+                // contract. On success it consumes the code inside this
+                // transaction; on a wrong code it throws and the counter
+                // increment is committed separately in the catch below,
+                // surviving this transaction's rollback.
+                app(BookingOtpService::class)->verifyOrFail($booking, 'start', $enteredOtp);
+
+                $booking->status = 'in_progress';
+                $booking->save();
+
+                $booking->statusHistory()->create([
+                    'status' => 'in_progress',
+                    'changed_by' => $changedByUserId,
+                    'note' => 'Started with verified OTP',
+                    'changed_at' => now(),
+                ]);
+
+                event(new BookingStatusUpdated($booking));
+
+                return $booking->fresh();
+            });
+        } catch (BookingOtpException $e) {
+            if ($e->countsAsAttempt) {
+                app(BookingOtpService::class)->registerFailedAttempt($bookingId, 'start');
             }
-
-            if (empty($booking->start_otp) || $booking->start_otp !== $enteredOtp) {
-                throw new \RuntimeException('Incorrect start OTP.');
-            }
-
-            $booking->status = 'in_progress';
-            $booking->save();
-
-            $booking->statusHistory()->create([
-                'status' => 'in_progress',
-                'changed_by' => $changedByUserId,
-                'note' => 'Started with verified OTP',
-                'changed_at' => now(),
-            ]);
-
-            event(new BookingStatusUpdated($booking));
-
-            return $booking->fresh();
-        });
+            throw $e;
+        }
     }
 }

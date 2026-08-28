@@ -11,6 +11,7 @@ use App\Models\Setting;
 use App\Notifications\BookingOtpNotification;
 use App\Notifications\BookingStatusNotification;
 use App\Notifications\Support\ChannelResolver;
+use App\Services\BookingOtpService;
 use App\Services\ProviderAvailabilityService;
 use App\Services\WalletService;
 use Illuminate\Support\Facades\DB;
@@ -88,6 +89,9 @@ class AcceptBookingAction
             $booking->status = 'assigned';
             $booking->start_otp = (string) random_int($otpMin, $otpMax);
             $booking->completion_otp = (string) random_int($otpMin, $otpMax);
+            // Phase E5 — stamp expiry + reset the attempt / single-use
+            // metadata for both freshly generated codes, in this same save.
+            app(BookingOtpService::class)->stampFresh($booking);
             $booking->save();
 
             $attempt->status = 'accepted';

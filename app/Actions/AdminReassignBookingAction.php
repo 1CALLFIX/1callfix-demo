@@ -9,6 +9,7 @@ use App\Models\Provider;
 use App\Models\Setting;
 use App\Notifications\BookingOtpNotification;
 use App\Notifications\Support\ChannelResolver;
+use App\Services\BookingOtpService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
@@ -54,10 +55,14 @@ class AdminReassignBookingAction
                 // re-notify the customer with a code they already have).
                 if (! $booking->start_otp) {
                     $booking->start_otp = (string) random_int($otpMin, $otpMax);
+                    // Phase E5 — same expiry / attempt / single-use stamp
+                    // AcceptBookingAction applies to a freshly issued code.
+                    app(BookingOtpService::class)->stampFresh($booking, 'start');
                     $freshlyGeneratedOtps = true;
                 }
                 if (! $booking->completion_otp) {
                     $booking->completion_otp = (string) random_int($otpMin, $otpMax);
+                    app(BookingOtpService::class)->stampFresh($booking, 'completion');
                     $freshlyGeneratedOtps = true;
                 }
             }

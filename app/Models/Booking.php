@@ -43,7 +43,13 @@ class Booking extends Model implements Orderable
         'cancellation_fee',
         'customer_note',
         'start_otp',
+        'start_otp_expires_at',
+        'start_otp_attempts',
+        'start_otp_verified_at',
         'completion_otp',
+        'completion_otp_expires_at',
+        'completion_otp_attempts',
+        'completion_otp_verified_at',
         'completed_at',
         'hold_category',
         'hold_reason',
@@ -51,7 +57,16 @@ class Booking extends Model implements Orderable
         'on_hold_since'
     ];
 
-    protected $casts = ['scheduled_at' => 'datetime', 'completed_at' => 'datetime', 'on_hold_since' => 'datetime'];
+    protected $casts = [
+        'scheduled_at' => 'datetime',
+        'completed_at' => 'datetime',
+        'on_hold_since' => 'datetime',
+        // Phase E5 — booking OTP hardening metadata (see BookingOtpService).
+        'start_otp_expires_at' => 'datetime',
+        'start_otp_verified_at' => 'datetime',
+        'completion_otp_expires_at' => 'datetime',
+        'completion_otp_verified_at' => 'datetime',
+    ];
     public function franchise() { return $this->belongsTo(Franchise::class); }
     public function zone() { return $this->belongsTo(Zone::class); }
     public function customer() { return $this->belongsTo(User::class, 'customer_id'); }

@@ -3,16 +3,20 @@
 namespace App\Actions;
 
 use App\Events\BookingStatusUpdated;
+use App\Exceptions\BookingOtpException;
 use App\Models\Booking;
 use App\Models\Provider;
 use App\Models\Setting;
 use App\Notifications\BookingStatusNotification;
 use App\Notifications\Support\ChannelResolver;
+use App\Services\BookingOtpService;
 use App\Services\CommissionService;
 use App\Services\CompensationService;
+use App\Services\Documents\DocumentService;
 use App\Services\LoyaltyService;
 use App\Services\ReferralService;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class CompleteBookingAction
 {
@@ -21,6 +25,8 @@ class CompleteBookingAction
         private LoyaltyService $loyaltyService,
         private ReferralService $referralService,
         private CompensationService $compensationService,
+        private BookingOtpService $bookingOtp,
+        private DocumentService $documents,
     ) {
     }
 
@@ -39,45 +45,58 @@ class CompleteBookingAction
      */
     public function execute(int $bookingId, Provider $provider, string $enteredOtp): Booking
     {
-        $booking = DB::transaction(function () use ($bookingId, $provider, $enteredOtp) {
-            $booking = Booking::lockForUpdate()->findOrFail($bookingId);
+        try {
+            $booking = DB::transaction(function () use ($bookingId, $provider, $enteredOtp) {
+                $booking = Booking::lockForUpdate()->findOrFail($bookingId);
 
-            if ($booking->provider_id !== $provider->id) {
-                throw new \RuntimeException('This booking is not assigned to you.');
+                if ($booking->provider_id !== $provider->id) {
+                    throw new \RuntimeException('This booking is not assigned to you.');
+                }
+
+                if (!in_array($booking->status, ['assigned', 'provider_en_route', 'in_progress'], true)) {
+                    throw new \RuntimeException(
+                        "Booking [{$bookingId}] cannot be completed from status '{$booking->status}'."
+                    );
+                }
+
+                // Phase E5 — provider-ownership gate and status gate first
+                // (both above), then the hardened verify: expiry, attempt cap
+                // and single-use, keeping the same plain-string compare and
+                // the same "wrong code -> RuntimeException, booking NOT
+                // advanced" contract. On success the code is consumed inside
+                // this transaction; on a wrong code it throws and the counter
+                // increment is committed separately in the catch below,
+                // surviving this transaction's rollback.
+                $this->bookingOtp->verifyOrFail($booking, 'completion', $enteredOtp);
+
+                $approvedExtras = $booking->extraItems()
+                    ->where('status', 'approved')
+                    ->sum('amount');
+
+                $booking->status = 'completed';
+                $booking->price_final = $booking->price_quoted + $approvedExtras;
+                $booking->completed_at = now();
+                $booking->save();
+
+                $booking->statusHistory()->create([
+                    'status' => 'completed',
+                    'changed_by' => $provider->user_id,
+                    'note' => 'Completed with verified OTP',
+                    'changed_at' => now(),
+                ]);
+
+                $provider->increment('jobs_completed');
+
+                event(new BookingStatusUpdated($booking));
+
+                return $booking->fresh();
+            });
+        } catch (BookingOtpException $e) {
+            if ($e->countsAsAttempt) {
+                $this->bookingOtp->registerFailedAttempt($bookingId, 'completion');
             }
-
-            if (!in_array($booking->status, ['assigned', 'provider_en_route', 'in_progress'], true)) {
-                throw new \RuntimeException(
-                    "Booking [{$bookingId}] cannot be completed from status '{$booking->status}'."
-                );
-            }
-
-            if (empty($booking->completion_otp) || $booking->completion_otp !== $enteredOtp) {
-                throw new \RuntimeException('Incorrect completion OTP.');
-            }
-
-            $approvedExtras = $booking->extraItems()
-                ->where('status', 'approved')
-                ->sum('amount');
-
-            $booking->status = 'completed';
-            $booking->price_final = $booking->price_quoted + $approvedExtras;
-            $booking->completed_at = now();
-            $booking->save();
-
-            $booking->statusHistory()->create([
-                'status' => 'completed',
-                'changed_by' => $provider->user_id,
-                'note' => 'Completed with verified OTP',
-                'changed_at' => now(),
-            ]);
-
-            $provider->increment('jobs_completed');
-
-            event(new BookingStatusUpdated($booking));
-
-            return $booking->fresh();
-        });
+            throw $e;
+        }
 
         $scope = array_filter([
             'zone_id' => $booking->zone_id,
@@ -116,6 +135,28 @@ class CompleteBookingAction
         // Referral qualification: does this booking make the customer's
         // referral "count" (their first-ever completed booking)?
         $this->referralService->qualifyFromCompletedBooking($booking, $scope);
+
+        // Phase E5 — materialise the receipt for this completed booking
+        // through the EXISTING DocumentService, which numbers it via
+        // DocumentNumberService. That numbering is idempotent on
+        // (documentable, type), so a duplicate completion (already blocked
+        // by the status gate) or a retried job produces no second document.
+        // The amount is read from the captured Payment, never recomputed
+        // here. A bundle child has no Payment of its own (Phase E3 keeps ONE
+        // Payment per bundle), so it falls back to the bundle's aggregate
+        // Payment. Post-commit and guarded like the notification sends: a
+        // numbering hiccup must not roll back an already-completed, already-
+        // settled job — the on-demand DocumentController path is still there.
+        try {
+            $payment = $booking->payment()->where('status', 'captured')->latest('id')->first()
+                ?? $booking->bundle?->payment()->where('status', 'captured')->latest('id')->first();
+
+            if ($payment) {
+                $this->documents->forPayment($payment, 'receipt');
+            }
+        } catch (\Throwable $e) {
+            Log::error("Phase E5: failed to generate the completion receipt for booking [{$booking->id}]: ".$e->getMessage());
+        }
 
         if ($booking->customer) {
             $channels = ChannelResolver::resolve($scope);
