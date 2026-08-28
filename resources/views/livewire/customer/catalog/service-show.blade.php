@@ -257,7 +257,7 @@
                         @endif
                     </p>
 
-                    <a href="{{ route('customer.coming-soon', 'booking') }}"
+                    <a href="{{ route('customer.book', $service) }}"
                        class="mt-4 flex min-h-12 w-full items-center justify-center rounded-lg bg-slate-900 px-6 text-sm font-semibold text-white transition hover:bg-slate-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900">
                         Book now
                     </a>
@@ -305,7 +305,7 @@
                 <span class="block text-[11px] uppercase tracking-wide text-slate-500">Estimated total</span>
                 <span class="block text-lg font-bold text-slate-900">{{ $currencySymbol }}{{ number_format($estimatedTotal, 2) }}</span>
             </span>
-            <a href="{{ route('customer.coming-soon', 'booking') }}"
+            <a href="{{ route('customer.book', $service) }}"
                class="inline-flex min-h-11 items-center rounded-lg bg-slate-900 px-6 text-sm font-semibold text-white transition hover:bg-slate-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900">
                 Book now
             </a>

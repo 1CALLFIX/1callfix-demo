@@ -1,13 +1,19 @@
 <?php
 
+use App\Http\Controllers\Customer\InvoiceController;
 use App\Http\Controllers\Customer\PageController;
+use App\Livewire\Customer\Account\Addresses as CustomerAddresses;
 use App\Livewire\Customer\Auth\Login as CustomerLogin;
+use App\Livewire\Customer\Booking\Wizard as CustomerBookingWizard;
 use App\Livewire\Customer\Catalog\CategoryIndex as CustomerCategoryIndex;
 use App\Livewire\Customer\Catalog\CategoryShow as CustomerCategoryShow;
 use App\Livewire\Customer\Catalog\ServiceIndex as CustomerServiceIndex;
 use App\Livewire\Customer\Catalog\ServiceShow as CustomerServiceShow;
 use App\Livewire\Customer\Home as CustomerHome;
+use App\Livewire\Customer\Orders\Show as CustomerOrderShow;
+use App\Livewire\Customer\Orders\Index as CustomerOrders;
 use App\Livewire\Customer\Search as CustomerSearch;
+use App\Livewire\Customer\Wallet\Index as CustomerWallet;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 
@@ -88,8 +94,36 @@ Route::post('/logout', function () {
     return redirect()->route('customer.home');
 })->middleware('auth')->name('customer.logout');
 
+/*
+ | Transactional customer web (Phase E6). Everything here needs a logged-in
+ | customer session and is the completion of what routes/web.php's own
+ | header comment called "Phases D–E ... NOT routed here yet": the booking
+ | wizard, order history + live tracking, saved addresses, and the wallet.
+ |
+ | None of these components re-implement a booking, a price, a payment, a
+ | cancellation, an OTP check, an invoice or a review — each one calls the
+ | SAME Action/Service the existing REST API controllers already call
+ | (CreateBookingAction, AdminCancelBookingAction, WalletService,
+ | ReviewService, DocumentService, the PaymentGateway contract). The server
+ | stays authoritative for every number and every state transition.
+ */
 Route::middleware('auth')->group(function () {
     Route::view('/account', 'customer.account')->name('customer.account');
+
+    // Booking wizard — configure -> address -> schedule -> pay. Attaches to
+    // the "Book now" button on a service's own Phase C detail page.
+    Route::get('/book/{service}', CustomerBookingWizard::class)->name('customer.book');
+
+    // Order history + one order's live status / OTPs / invoice / review / rebook.
+    Route::get('/orders', CustomerOrders::class)->name('customer.orders.index');
+    Route::get('/orders/{booking}', CustomerOrderShow::class)->name('customer.orders.show');
+    Route::get('/orders/{booking}/invoice', [InvoiceController::class, 'show'])->name('customer.orders.invoice');
+
+    // Saved addresses (the same CRUD + delete-guard rules AddressController enforces).
+    Route::get('/account/addresses', CustomerAddresses::class)->name('customer.addresses');
+
+    // Wallet balance + ledger + top-up.
+    Route::get('/wallet', CustomerWallet::class)->name('customer.wallet');
 });
 
 // Public content. `page` renders real seeded `content_pages` rows — the

@@ -12,7 +12,7 @@
         ['label' => 'Home', 'route' => 'customer.home', 'param' => null, 'icon' => 'home'],
         ['label' => 'Services', 'route' => 'customer.categories.index', 'param' => null, 'icon' => 'wrench'],
         ['label' => 'Search', 'route' => 'customer.search', 'param' => null, 'icon' => 'magnifying-glass'],
-        ['label' => 'Bookings', 'route' => 'customer.coming-soon', 'param' => 'bookings', 'icon' => 'clipboard'],
+        ['label' => 'Bookings', 'route' => auth()->check() ? 'customer.orders.index' : 'customer.login', 'param' => null, 'icon' => 'clipboard'],
         ['label' => 'Account', 'route' => auth()->check() ? 'customer.account' : 'customer.login', 'param' => null, 'icon' => 'users'],
     ];
 @endphp

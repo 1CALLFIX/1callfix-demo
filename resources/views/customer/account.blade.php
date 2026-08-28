@@ -3,14 +3,12 @@
 @endphp
 
 {{--
-    Account landing page (Phase B).
-
-    Shows ONLY what the authenticated session already knows: the customer's
-    own name and phone. Wallet balance, membership status, loyalty points,
-    order history and the saved address book are Phase D/E — every one of
-    them is a server-authoritative figure, and showing a placeholder number
-    in its place would be worse than showing nothing. Each is listed below
-    as an explicit, honest "not yet available" row instead.
+    Account landing page (Phase B shell; Phase E6 wired the sections to their
+    real screens). Still shows only what the session already knows about the
+    customer — name and phone — but the section list below is now real
+    navigation to the booking history, saved addresses and wallet that E6
+    built. Membership stays an honest "not yet available" row: it has a
+    backend but no customer UI in this phase.
 --}}
 <x-layouts.customer title="Your account">
     <div class="mx-auto max-w-3xl px-4 py-12 sm:px-6 sm:py-16 lg:px-8">
@@ -28,27 +26,36 @@
 
         <section aria-labelledby="account-sections-heading" class="mt-10">
             <h2 id="account-sections-heading" class="text-sm font-semibold uppercase tracking-wide text-slate-500">
-                Coming to your account
+                Your account
             </h2>
             <ul class="mt-4 divide-y divide-slate-200 border-y border-slate-200">
                 @foreach ([
-                    ['Your bookings', 'Track live jobs and revisit past ones.'],
-                    ['Saved addresses', 'Keep the places you book for most.'],
-                    ['Wallet', 'Balance, top-ups and your transaction history.'],
-                    ['Membership', 'Plan benefits and what you have used.'],
-                ] as [$sectionTitle, $sectionBody])
-                    <li class="flex items-center justify-between gap-4 py-4">
-                        <div class="min-w-0">
-                            <p class="text-sm font-medium text-slate-900">{{ $sectionTitle }}</p>
-                            <p class="mt-0.5 text-sm text-slate-600">{{ $sectionBody }}</p>
-                        </div>
-                        {{-- Status is spelled out in words, never conveyed by
-                             colour or position alone (WCAG 2.1 AA 1.4.1). --}}
-                        <span class="shrink-0 rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600">
-                            Not yet available
-                        </span>
+                    ['Your bookings', 'Track live jobs and revisit past ones.', route('customer.orders.index')],
+                    ['Saved addresses', 'Keep the places you book for most.', route('customer.addresses')],
+                    ['Wallet', 'Balance, top-ups and your transaction history.', route('customer.wallet')],
+                ] as [$sectionTitle, $sectionBody, $sectionUrl])
+                    <li>
+                        <a href="{{ $sectionUrl }}" wire:navigate
+                           class="flex items-center justify-between gap-4 py-4 transition hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900">
+                            <div class="min-w-0">
+                                <p class="text-sm font-medium text-slate-900">{{ $sectionTitle }}</p>
+                                <p class="mt-0.5 text-sm text-slate-600">{{ $sectionBody }}</p>
+                            </div>
+                            <x-icon name="arrow-right" class="h-4 w-4 shrink-0 text-slate-400" />
+                        </a>
                     </li>
                 @endforeach
+                <li class="flex items-center justify-between gap-4 py-4">
+                    <div class="min-w-0">
+                        <p class="text-sm font-medium text-slate-900">Membership</p>
+                        <p class="mt-0.5 text-sm text-slate-600">Plan benefits and what you have used.</p>
+                    </div>
+                    {{-- Status is spelled out in words, never conveyed by
+                         colour or position alone (WCAG 2.1 AA 1.4.1). --}}
+                    <span class="shrink-0 rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600">
+                        Not yet available
+                    </span>
+                </li>
             </ul>
         </section>
 
