@@ -33,27 +33,19 @@ use Tests\TestCase;
  * be asserted on and then run by hand in order.
  *
  * ─────────────────────────────────────────────────────────────────────────
- * TWO DEVIATIONS FROM THE E7 BRIEF, both because the feature the brief
- * assumes was never built (E5 memory lists "bundle cancellation/refund" as
- * explicitly NOT done):
+ * The two gaps this scenario originally pinned as KNOWN-BROKEN were closed
+ * by Phase E5.1; steps 9–11 now assert the corrected behaviour:
  *
- *   Brief step 9 — "cancel child 3 via the bundle-cancel endpoint ... refund
- *   issued for child 3 only". There is NO bundle-cancel endpoint. The only
- *   cancellation path for a bundle child is the ordinary single-booking
- *   POST /api/bookings/{id}/cancel, which delegates to
- *   AdminCancelBookingAction. It cancels the child row and computes a
- *   cancellation fee, but issues NO refund: CancellationService::refundIfPaid()
- *   looks up Payment::where('booking_id', $child->id), and a bundle child has
- *   no Payment of its own (E3 keeps ONE Payment per bundle, keyed
- *   booking_bundle_id). So the customer is not re-credited for the cancelled
- *   child. This test asserts that ACTUAL behaviour and pins it as a known gap.
+ *   Gap 1 — step 9 cancels the last active child through the E5.1 bundle-
+ *   cancel endpoint (POST /api/booking-bundles/{id}/cancel). The ONE shared
+ *   bundle Payment (E3) is reconciled: retained = Σ price_quoted of the
+ *   delivered children + Σ cancellation fee of the cancelled ones; the
+ *   remainder is refunded to the wallet, once. A bundle child still never
+ *   gets its own Payment row.
  *
- *   Brief step 10 — "bundle status = completed per the latch rule". The
- *   BookingBundle.status column is a stored latch that NO E-phase code ever
- *   transitions; it stays 'active' for the life of the bundle.
- *   derivedStatus() (computed, never stored) is the real cross-child view,
- *   and it DOES read 'completed' for a 2-completed + 1-cancelled mixture.
- *   This test asserts derivedStatus() === 'completed' AND status === 'active'.
+ *   Gap 2 — step 10 asserts the STORED BookingBundle.status column
+ *   (re-fetched fresh) is now latched to 'completed', not just
+ *   derivedStatus().
  * ─────────────────────────────────────────────────────────────────────────
  */
 class E7_FullBundleLifecycleTest extends TestCase
@@ -209,21 +201,24 @@ class E7_FullBundleLifecycleTest extends TestCase
         $this->assertSame('partially_completed', $bundle->fresh()->derivedStatus());
         $this->assertSame('assigned', $c3->fresh()->status, 'child 3 is untouched by the sibling completions');
 
-        // ── 9. cancel child 3 (single-booking endpoint — NO bundle-cancel
-        //       endpoint exists; see the class docblock) ──
+        // ── 9. cancel the remaining active child via the bundle-cancel
+        //       endpoint (Phase E5.1 — POST /api/booking-bundles/{id}/cancel;
+        //       cancels every still-active child, here only child 3) ──
         $balanceBeforeCancel = (float) $customer->wallet->fresh()->balance;
+        $c1PriceQuoted = (float) $c1->fresh()->price_quoted; // 400 — its share of the frozen bundle total
+        $c2PriceQuoted = (float) $c2->fresh()->price_quoted; // 600
         $c1PriceFinal = (float) $c1->fresh()->price_final;
         $c2PriceFinal = (float) $c2->fresh()->price_final;
 
         $this->actingAs($customer, 'sanctum')
-            ->postJson("/api/bookings/{$c3->id}/cancel", ['reason' => 'No longer needed'])
+            ->postJson("/api/booking-bundles/{$bundle->id}/cancel", ['reason' => 'No longer needed'])
             ->assertOk()
-            ->assertJsonPath('data.status', 'cancelled');
+            ->assertJsonPath('data.status', 'completed'); // stored latch: >=1 completed, rest terminal
 
         $c3 = $c3->fresh();
         $this->assertSame('cancelled', $c3->status);
         $this->assertNotNull($c3->cancellation_fee, 'a cancellation fee is computed for the child');
-        $this->assertSame(0.0, (float) $c3->cancellation_fee, 'created <15 min ago -> inside the free window -> fee 0');
+        $this->assertSame(0.0, (float) $c3->cancellation_fee, 'created inside the free window -> fee 0');
 
         // children 1 and 2 completely untouched by the child-3 cancellation
         $this->assertSame('completed', $c1->fresh()->status);
@@ -231,29 +226,35 @@ class E7_FullBundleLifecycleTest extends TestCase
         $this->assertNull($c1->fresh()->cancellation_fee);
         $this->assertNull($c2->fresh()->cancellation_fee);
 
-        // DEVIATION FROM BRIEF: no refund is issued for the cancelled child —
-        // it has no Payment of its own and there is no bundle-level partial
-        // refund path. The customer's balance does not move on this cancel.
+        // E5.1 GAP 1 CLOSED: the ONE shared bundle Payment is reconciled —
+        // retained = c1.price_quoted + c2.price_quoted (delivered) + c3 fee (0);
+        // refunded = 1500 - 1000 - 0 = 500, credited once to the wallet.
+        $expectedRefund = $bundleTotal - $c1PriceQuoted - $c2PriceQuoted; // 500
         $this->assertEqualsWithDelta(
-            $balanceBeforeCancel,
+            $balanceBeforeCancel + $expectedRefund,
             (float) $customer->wallet->fresh()->balance,
             0.001,
-            'KNOWN GAP: cancelling a bundle child issues no refund (E5 deferred bundle cancellation/refund)',
         );
+        $refundTxns = WalletTransaction::where('ref', "booking_bundle:{$bundle->id}:wallet-refund")->get();
+        $this->assertCount(1, $refundTxns, 'exactly one bundle refund credit');
+        $this->assertEqualsWithDelta($expectedRefund, (float) $refundTxns->first()->amount, 0.001);
         $this->assertSame(
             0,
             Payment::where('booking_id', $c3->id)->count(),
-            'a bundle child has no Payment of its own for a refund path to find',
+            'a bundle child still never gets its own Payment row',
         );
-        $this->assertSame('captured', $bundlePayment->fresh()->status, 'the one bundle Payment is not refunded/partially-refunded');
+        $bundlePayment->refresh();
+        $this->assertSame('partially_refunded', $bundlePayment->status);
+        $this->assertEqualsWithDelta($expectedRefund, (float) $bundlePayment->refunded_amount, 0.001);
+        $this->assertSame(1, Payment::where('booking_bundle_id', $bundle->id)->count(), 'still exactly one bundle Payment');
 
         // ── 10. final bundle state ──
-        // DEVIATION FROM BRIEF: the stored latch is never written by any
-        // E-phase code, so status stays 'active'. derivedStatus() is the real
-        // cross-child view and DOES latch to 'completed' (>=1 completed, the
-        // rest terminal; a cancelled child counts as terminal, not "un-done").
-        $this->assertSame('completed', $bundle->fresh()->derivedStatus());
-        $this->assertSame('active', $bundle->fresh()->status);
+        // E5.1 GAP 2 CLOSED: the STORED status column (re-fetched fresh, not
+        // the in-memory instance, not derivedStatus()) is now latched.
+        $freshBundle = BookingBundle::findOrFail($bundle->id);
+        $this->assertSame('completed', $freshBundle->status);
+        $this->assertSame('completed', $freshBundle->derivedStatus());
+        $this->assertSame('partially_refunded', $freshBundle->payment_status);
 
         // ── 11. money-math reconciliation ──
         // Only children 1 and 2 ever settled. Franchise: 10% platform fee,
@@ -291,13 +292,24 @@ class E7_FullBundleLifecycleTest extends TestCase
             + (float) Commission::sum('platform_commission');
         $this->assertEqualsWithDelta($c1PriceFinal + $c2PriceFinal, $totalCommission, 0.001);
 
-        // customer ledger: one debit of the full bundle total, zero refunds.
+        // customer ledger: one debit of the full bundle total, then one bundle
+        // refund credit for child 3's un-delivered share. Net = paid for the
+        // two children that were actually delivered.
         $this->assertEqualsWithDelta(
-            $openingBalance - $bundleTotal,
+            $openingBalance - $bundleTotal + $expectedRefund,
             (float) $customer->wallet->fresh()->balance,
             0.001,
         );
-        $this->assertSame(0, WalletTransaction::where('ref', 'like', 'booking:%:wallet-refund')->count());
-        $this->assertSame(0, WalletTransaction::where('is_credit', true)->where('wallet_id', $customer->wallet->id)->count());
+        $this->assertEqualsWithDelta(
+            $openingBalance - $c1PriceQuoted - $c2PriceQuoted,
+            (float) $customer->wallet->fresh()->balance,
+            0.001,
+            'net customer spend == the two delivered children only',
+        );
+        // the only credit to the customer wallet is the single bundle refund
+        $this->assertSame(0, WalletTransaction::where('ref', 'like', 'booking:%:wallet-refund')->count(), 'no per-child refund path was used');
+        $customerCredits = WalletTransaction::where('is_credit', true)->where('wallet_id', $customer->wallet->id)->get();
+        $this->assertCount(1, $customerCredits);
+        $this->assertSame("booking_bundle:{$bundle->id}:wallet-refund", $customerCredits->first()->ref);
     }
 }

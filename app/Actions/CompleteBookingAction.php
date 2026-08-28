@@ -163,6 +163,20 @@ class CompleteBookingAction
             $booking->customer->notify(new BookingStatusNotification('completed', $booking, $channels));
         }
 
+        // Phase E5.1 — if this is a bundle child, advance the bundle's stored
+        // status latch now that this child is terminal (its own locked
+        // transaction, post-commit, idempotent — same placement as the
+        // commission / loyalty / receipt side effects above). A completion
+        // never triggers a refund: settleFromChildren only refunds children
+        // that were cancelled.
+        if ($booking->booking_bundle_id) {
+            try {
+                app(\App\Services\BundleSettlementService::class)->settleFromChildren($booking->booking_bundle_id);
+            } catch (\Throwable $e) {
+                Log::error("Phase E5.1: bundle status latch after completing booking [{$booking->id}] failed: ".$e->getMessage());
+            }
+        }
+
         return $booking;
     }
 }

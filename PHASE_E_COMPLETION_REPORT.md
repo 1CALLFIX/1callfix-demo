@@ -106,12 +106,14 @@ Walkthrough (customer wallet opens at ₹100,000; services priced 400 / 600 / 50
 10. Final: `derivedStatus()` = `completed` (≥1 completed, the rest terminal — a cancelled child counts as terminal); stored `status` = `active`.
 11. Money reconciles: customer wallet = 100,000 − 1500 = 98,500 (no refund); provider A wallet = `provider_commission(child1)` + `provider_commission(child2)` = 360 + 540 = 900; `platform_commission` = 40 + 60 = 100; total commission recorded = 1000 = `price_final(child1) + price_final(child2)`; provider B settled nothing; zero refund ledger rows.
 
-### Two deviations from the brief — actual system behaviour, reported not forced
+### Two deviations from the brief — found by E7, CLOSED by Phase E5.1
 
-| Brief step | What the brief assumed | What the system actually does |
-|-----------|------------------------|-------------------------------|
-| **9 — "bundle-cancel endpoint" + "refund issued for child 3 only"** | A dedicated bundle-cancel endpoint that selectively cancels one child and refunds it. | **No such endpoint exists.** The only path for a bundle child is the ordinary single-booking `POST /api/bookings/{id}/cancel` → `AdminCancelBookingAction`. It cancels the child row and computes a cancellation fee, but **issues no refund**: `CancellationService::refundIfPaid()` looks up `Payment::where('booking_id', $child->id)`, and a bundle child has no `Payment` of its own (E3 keeps one Payment per bundle, keyed `booking_bundle_id`). The test asserts this real behaviour (customer not re-credited; bundle `Payment` stays `captured`) and pins it as a known gap. |
-| **10 — "bundle `status = completed` per the latch rule"** | The stored `status` column latches to `completed`. | **`BookingBundle.status` is never transitioned by any E-phase code** — it stays `active` for the bundle's whole life. `derivedStatus()` (computed on demand from child states, never stored) is the real cross-child view and *does* read `completed` for a ≥1-completed / rest-terminal mix. The test asserts `derivedStatus() === 'completed'` **and** `status === 'active'`. |
+E7 originally pinned these two as KNOWN-BROKEN. **Phase E5.1 (commit on top of E7) closed both** — see `PHASE_E5_1_COMPLETION_REPORT.md`. `E7_FullBundleLifecycleTest` steps 9–11 now assert the corrected behaviour (steps 1–8 unchanged).
+
+| Brief step | Gap E7 found | Resolution in E5.1 |
+|-----------|--------------|--------------------|
+| **9 — bundle-cancel endpoint + refund** | No bundle-cancel endpoint existed; cancelling a bundle child via `POST /api/bookings/{id}/cancel` issued **no refund** — `CancellationService::refundIfPaid()` looks up `Payment::where('booking_id', $child->id)` and a bundle child has no `Payment` of its own (E3 keeps one per bundle). | New `POST /api/booking-bundles/{id}/cancel` + `CancelBookingBundleAction` + `BundleSettlementService`. Cancels every still-active child through the existing `AdminCancelBookingAction` (unchanged fee math), then reconciles the ONE shared bundle `Payment` **once**: `refundDue = payment.amount − Σ retained` where retained = `cancellation_fee` for a cancelled child, `price_quoted` for a delivered/still-active one — the same "keep the fee, return the rest" rule `refundIfPaid()` uses, summed across children and guarded against a double refund by `payments.refunded_amount`. The single-booking endpoint now also reconciles when the cancelled booking is a bundle child. |
+| **10 — stored `status` latch** | `BookingBundle.status` was never advanced from `active`; only `derivedStatus()` was accurate. | `BundleSettlementService::latchTerminalStatus()` — one-way `active → completed/cancelled`, decided solely by `derivedStatus()` — called (guarded by `booking_bundle_id`, in a locked transaction) from `CompleteBookingAction`, `AdminCancelBookingAction` and `CancelBookingBundleAction`. |
 
 ---
 
@@ -127,8 +129,8 @@ Walkthrough (customer wallet opens at ₹100,000; services priced 400 / 600 / 50
 
 ## 7. Known limitations / out of scope (intentionally deferred)
 
-- **Bundle cancellation & partial refund.** No bundle-cancel endpoint; cancelling a bundle child via the single-booking endpoint issues no refund (no per-child `Payment`; see §5). A bundle-level partial-refund path (compute per-child share of the aggregate `Payment`, refund it, mark the bundle `partially_refunded`) is the main follow-up item.
-- **Bundle status latch.** `BookingBundle.status` is never advanced from `active`; `derivedStatus()` is the only accurate cross-child view. If any consumer needs a stored terminal latch (reporting, list filters), an observer/transition needs adding.
+- ~~**Bundle cancellation & partial refund.**~~ **CLOSED in Phase E5.1** — `POST /api/booking-bundles/{id}/cancel` + `BundleSettlementService` reconcile the shared bundle `Payment`. See `PHASE_E5_1_COMPLETION_REPORT.md`.
+- ~~**Bundle status latch.**~~ **CLOSED in Phase E5.1** — `BundleSettlementService::latchTerminalStatus()` performs the one-way `active → completed/cancelled` write from `derivedStatus()`.
 - **Customer web UI polish beyond E6.** In-booking live chat UI, membership/plan customer UI, loyalty/referral UI, coupon UI (no booking-path backend consumer), and any bundle-specific customer web screen (the E6 web builds single-service bookings; the bundle endpoint is API-only).
 - **Provider / rider mobile apps** — untouched.
 - **Timezone handling.** `scheduled_at` is stored/compared naïvely; `ProviderAvailabilityService` and the scheduling-window validation assume a single implicit zone.

@@ -22,10 +22,13 @@ use Tests\TestCase;
  *      bypassed.
  *
  *   2. A bundle child has no Payment of its own (E3 keeps ONE Payment per
- *      bundle, keyed booking_bundle_id), so refundIfPaid() on a bundle child
- *      is a silent no-op — there is currently NO bundle-level partial-refund
- *      path to duplicate. This is the known E5-deferred gap; the test pins
- *      today's behaviour so it can't regress silently.
+ *      bundle, keyed booking_bundle_id), so the per-child refundIfPaid() is a
+ *      silent no-op on a bundle child. Phase E5.1 added the real bundle-level
+ *      refund path (BundleSettlementService, exercised by
+ *      E5_1_BundleCancelRefundTest); this test pins the per-child primitive
+ *      as deliberately INERT for a bundle child, which is what keeps the
+ *      bundle-level path the sole refunder and rules out a double refund
+ *      when AdminCancelBookingAction runs both on the same cancel.
  */
 class BundleRefundDuplicationE7Test extends TestCase
 {

@@ -21,7 +21,14 @@ class AdminCancelBookingAction
     ) {
     }
 
-    public function execute(int $bookingId, string $reason): Booking
+    /**
+     * @param  bool  $reconcileBundle  Phase E5.1 — when this booking is a
+     *        bundle child, also reconcile the ONE shared bundle Payment and
+     *        advance the bundle status latch (BundleSettlementService).
+     *        Passed `false` only by CancelBookingBundleAction, which cancels
+     *        every child in a loop and reconciles once at the end.
+     */
+    public function execute(int $bookingId, string $reason, bool $reconcileBundle = true): Booking
     {
         $statusBeforeCancel = null;
 
@@ -71,6 +78,15 @@ class AdminCancelBookingAction
         if ($booking->customer) {
             $channels = ChannelResolver::resolve(['zone_id' => $booking->zone_id, 'franchise_id' => $booking->franchise_id]);
             $booking->customer->notify(new BookingStatusNotification('cancelled', $booking, $channels));
+        }
+
+        // Phase E5.1 — a cancelled bundle child reconciles the ONE shared
+        // bundle Payment (the per-child refundIfPaid above is inert for a
+        // bundle child, which has no Payment of its own) and advances the
+        // bundle status latch. Skipped when CancelBookingBundleAction is
+        // cancelling every child and will reconcile once itself.
+        if ($booking->booking_bundle_id && $reconcileBundle) {
+            app(\App\Services\BundleSettlementService::class)->settleFromChildren($booking->booking_bundle_id);
         }
 
         return $booking->fresh();

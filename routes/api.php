@@ -103,6 +103,10 @@ Route::middleware(['auth:sanctum', \App\Http\Middleware\EnsureNotInMaintenanceMo
     // unchanged and never routed through here.
     Route::post('/booking-bundles', [\App\Http\Controllers\API\BookingBundleController::class, 'store']);
     Route::get('/booking-bundles/{bundleId}', [\App\Http\Controllers\API\BookingBundleController::class, 'show']);
+    // Phase E5.1 — cancel the whole bundle: per-child FSM cancel via the
+    // existing AdminCancelBookingAction, then ONE reconciliation of the
+    // shared bundle Payment + the stored status latch.
+    Route::post('/booking-bundles/{bundleId}/cancel', [\App\Http\Controllers\API\BookingBundleController::class, 'cancel']);
 
     // Phase E3 (Multi-Service Booking — Payment). Bundle counterparts of
     // /bookings/{booking}/pay/create-order and /pay/confirm below: one gateway

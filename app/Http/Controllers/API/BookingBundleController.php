@@ -2,9 +2,11 @@
 
 namespace App\Http\Controllers\API;
 
+use App\Actions\CancelBookingBundleAction;
 use App\Actions\CreateBookingBundleAction;
 use App\Exceptions\ModuleNotActiveException;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Customer\CancelBookingRequest;
 use App\Http\Requests\Customer\StoreBookingBundleRequest;
 use App\Http\Resources\Customer\BookingBundleResource;
 use App\Models\Address;
@@ -131,6 +133,42 @@ class BookingBundleController extends Controller
         }
 
         return ApiResponse::success(new BookingBundleResource($bundle));
+    }
+
+    /**
+     * POST /api/booking-bundles/{id}/cancel — Phase E5.1. Cancels the WHOLE
+     * bundle: every still-active child is cancelled through the same
+     * `AdminCancelBookingAction` the single-booking endpoint uses (FSM guard
+     * + per-child cancellation fee), then the ONE shared bundle Payment is
+     * reconciled once (`BundleSettlementService`: keep each child's retained
+     * amount — the fee for a cancelled child, the full price for a delivered
+     * one — refund the rest, guarded against a double refund) and the
+     * bundle's stored `status` latch is advanced.
+     *
+     * 404 (not 403) on a bundle that isn't the caller's own — same IDOR-safe
+     * convention as `show()`. 409 when the bundle is already terminal.
+     */
+    public function cancel(CancelBookingRequest $request, int $bundleId, CancelBookingBundleAction $action)
+    {
+        $bundle = BookingBundle::find($bundleId);
+
+        if (! $bundle || $bundle->customer_id !== $request->user()->id) {
+            return ApiResponse::error('Booking bundle not found.', 404);
+        }
+
+        try {
+            $result = $action->execute($bundleId, $request->validated('reason'));
+        } catch (\RuntimeException $e) {
+            // "This booking bundle is already completed/cancelled" — a real
+            // state conflict, exactly what CancelBookingBundleAction's own
+            // guard refuses, not a new rule invented here.
+            return ApiResponse::error($e->getMessage(), 409);
+        }
+
+        return ApiResponse::success(
+            new BookingBundleResource($result['bundle']),
+            'Booking bundle cancelled.',
+        );
     }
 
     /**
