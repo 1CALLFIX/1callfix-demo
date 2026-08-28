@@ -40,22 +40,73 @@ class CreateBookingAction
      * here even though Bookings\Index's form already restricts the
      * dropdown to enabled methods — a direct API call must not be able to
      * bypass that by skipping the UI.
+     *
+     * The pricing / row-creation / flash-redeem / entitlement body now lives
+     * in createWithinTransaction() so the Phase E2 multi-service bundle path
+     * can reuse it verbatim; execute() is just that + transaction + wallet +
+     * dispatch, exactly as before.
      */
     public function execute(array $data): Booking
     {
-        $service = Service::findOrFail($data['service_id']);
         $paymentMethod = $data['payment_method'] ?? 'online';
+
+        $booking = DB::transaction(function () use ($data, $paymentMethod) {
+            $booking = $this->createWithinTransaction($data);
+
+            if ($paymentMethod === 'wallet') {
+                $this->payWithWallet($booking);
+            }
+
+            return $booking;
+        });
+
+        ServiceMatchingJob::dispatch($booking->id);
+
+        if ($booking->customer) {
+            $channels = ChannelResolver::resolve(['zone_id' => $booking->zone_id, 'franchise_id' => $booking->franchise_id]);
+            $booking->customer->notify(new BookingStatusNotification('created', $booking, $channels));
+        }
+
+        return $booking;
+    }
+
+    /**
+     * The full booking-creation body — module-activation gate, Phase-D
+     * server-authoritative pricing, the `bookings` row itself, flash-sale
+     * redemption and the plan-entitlement price adjustment — with NO
+     * transaction of its own, NO wallet payment and NO dispatch/notification
+     * around it.
+     *
+     * execute() (the single-service path) wraps this in exactly one
+     * DB::transaction + an optional wallet debit + one ServiceMatchingJob —
+     * behaviourally unchanged from before this method was extracted. Phase
+     * E2's CreateBookingBundleAction wraps ONE outer transaction and ONE
+     * aggregate wallet debit around N calls to this instead, so a
+     * multi-service bundle is still priced, flash-redeemed and
+     * entitlement-adjusted by exactly this code and never a second copy of
+     * it (mission E2: "Do not create duplicate pricing logic").
+     *
+     * MUST be called from inside a DB::transaction — the flash-sale
+     * redemption and entitlement ledger writes assume one is already open.
+     *
+     * @param  array  $data  same shape execute() takes, plus an optional
+     *         `booking_bundle_id` the bundle path sets so the child row is
+     *         linked at INSERT time (NULL / absent for the single path).
+     */
+    public function createWithinTransaction(array $data): Booking
+    {
+        $service = Service::findOrFail($data['service_id']);
 
         // Phase 22.1 (Module Activation Foundation) — the real enforcement
         // point PHASE_22_PLATFORM_CAPABILITY_RECOVERY_AUDIT.md §16 named as
         // missing: a stored activation flag that no code ever checked. This
-        // is the ONE place every booking (customer app, admin panel, or a
-        // Tinker test alike, per this method's own docblock) is created, so
-        // it's the right single choke point rather than duplicating the
-        // check across every caller. franchise->country_id/city_id are
-        // pulled in specifically so a country- or city-level deactivation
-        // (which no `franchise_id`-only check could ever see) is honored
-        // too, not just franchise/zone.
+        // is the ONE place every booking (customer app, admin panel, a
+        // Tinker test, or a bundle child alike) is created, so it's the
+        // right single choke point rather than duplicating the check across
+        // every caller. franchise->country_id/city_id are pulled in
+        // specifically so a country- or city-level deactivation (which no
+        // `franchise_id`-only check could ever see) is honored too, not just
+        // franchise/zone.
         $franchise = Franchise::findOrFail($data['franchise_id']);
         $scope = [
             'zone_id' => $data['zone_id'] ?? null,
@@ -70,74 +121,60 @@ class CreateBookingAction
         // Phase D — server-authoritative pricing. A caller that does NOT
         // supply price_quoted gets the price computed here, from the
         // database, using the whole existing cascade (see
-        // resolveAuthoritativePrice() below). That is now the customer path:
-        // API\BookingController no longer computes a price of its own, so
-        // there is exactly one place a customer booking's price can come
-        // from. An EXPLICIT price_quoted is still honoured — that is the
-        // admin call-centre form's real, permission-gated negotiated-price
-        // feature (Livewire\Bookings\Index::createBooking(), gated on
-        // bookings.create), not a client-supplied value: no customer-facing
-        // request object accepts a price field at all.
+        // resolveAuthoritativePrice() below). That is the customer path
+        // (API\BookingController and API\BookingBundleController never
+        // populate price_quoted from client input), so there is exactly one
+        // place a customer booking's price can come from. An EXPLICIT
+        // price_quoted is still honoured — the admin call-centre form's
+        // real, permission-gated negotiated-price feature
+        // (Livewire\Bookings\Index::createBooking(), gated on
+        // bookings.create), not a client-supplied value.
         [$basePrice, $appliedSale] = $this->resolveAuthoritativePrice($data, $service, $scope);
 
-        $booking = DB::transaction(function () use ($data, $service, $paymentMethod, $basePrice, $appliedSale) {
-            $booking = Booking::create([
-                'franchise_id' => $data['franchise_id'],
-                'zone_id' => $data['zone_id'],
-                'customer_id' => $data['customer_id'],
-                'service_id' => $service->id,
-                'address_id' => $data['address_id'],
-                'status' => 'pending',
-                'scheduled_at' => $data['scheduled_at'] ?? null,
-                'price_quoted' => $basePrice,
-                'payment_method' => $paymentMethod,
-                'customer_note' => $data['customer_note'] ?? null,
-            ]);
+        $booking = Booking::create([
+            'booking_bundle_id' => $data['booking_bundle_id'] ?? null,
+            'franchise_id' => $data['franchise_id'],
+            'zone_id' => $data['zone_id'],
+            'customer_id' => $data['customer_id'],
+            'service_id' => $service->id,
+            'address_id' => $data['address_id'],
+            'status' => 'pending',
+            'scheduled_at' => $data['scheduled_at'] ?? null,
+            'price_quoted' => $basePrice,
+            'payment_method' => $data['payment_method'] ?? 'online',
+            'customer_note' => $data['customer_note'] ?? null,
+        ]);
 
-            // Records that this booking really used the sale — the ONLY place
-            // FlashSaleService enforces quantity / per-customer limits
-            // against committed usage, and the call its own redeem()
-            // docblock (and PHASE_C_DISCOVERY_AND_CATALOG.md item 4) says
-            // belongs at booking time. Inside this transaction on purpose:
-            // if the sale turns out to be sold out or already used up by
-            // this customer, redeem() throws and the booking rolls back
-            // rather than silently charging the undiscounted price the
-            // customer was never shown.
-            if ($appliedSale && $booking->customer) {
-                $this->flashSales->redeem(
-                    FlashSale::findOrFail($appliedSale['flash_sale_id']),
-                    $service,
-                    $booking->customer,
-                    (float) $appliedSale['original_price'],
-                    $booking,
-                );
-            }
+        // Records that this booking really used the sale — the ONLY place
+        // FlashSaleService enforces quantity / per-customer limits against
+        // committed usage, and the call its own redeem() docblock (and
+        // PHASE_C_DISCOVERY_AND_CATALOG.md item 4) says belongs at booking
+        // time. Inside the caller's transaction on purpose: if the sale
+        // turns out to be sold out or already used up by this customer,
+        // redeem() throws and the whole booking (or bundle) rolls back
+        // rather than silently charging the undiscounted price the customer
+        // was never shown.
+        if ($appliedSale && $booking->customer) {
+            $this->flashSales->redeem(
+                FlashSale::findOrFail($appliedSale['flash_sale_id']),
+                $service,
+                $booking->customer,
+                (float) $appliedSale['original_price'],
+                $booking,
+            );
+        }
 
-            // Plan Engine: a Customer Prime-style entitlement can adjust the
-            // price right here, at booking_created (approved plan §6/§11) —
-            // additive to Service.base_price/FranchiseServicePricing, never a
-            // parallel pricing path. Null means no applicable/usable plan;
-            // today's price stands unchanged.
-            if ($booking->customer) {
-                $adjustment = $this->entitlementService->resolveAndConsumeForBooking($booking->customer, $basePrice, $booking);
-                if ($adjustment) {
-                    $booking->price_quoted = $adjustment['adjusted_price'];
-                    $booking->save();
-                }
-            }
-
-            if ($paymentMethod === 'wallet') {
-                $this->payWithWallet($booking);
-            }
-
-            return $booking;
-        });
-
-        ServiceMatchingJob::dispatch($booking->id);
-
+        // Plan Engine: a Customer Prime-style entitlement can adjust the
+        // price right here, at booking_created (approved plan §6/§11) —
+        // additive to Service.base_price/FranchiseServicePricing, never a
+        // parallel pricing path. Null means no applicable/usable plan;
+        // today's price stands unchanged.
         if ($booking->customer) {
-            $channels = ChannelResolver::resolve(['zone_id' => $booking->zone_id, 'franchise_id' => $booking->franchise_id]);
-            $booking->customer->notify(new BookingStatusNotification('created', $booking, $channels));
+            $adjustment = $this->entitlementService->resolveAndConsumeForBooking($booking->customer, $basePrice, $booking);
+            if ($adjustment) {
+                $booking->price_quoted = $adjustment['adjusted_price'];
+                $booking->save();
+            }
         }
 
         return $booking;

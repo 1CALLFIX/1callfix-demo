@@ -36,6 +36,8 @@ class BookingBundle extends Model implements Orderable
 
     protected $fillable = [
         'code',
+        'idempotency_key',      // Phase E2 — caller-supplied bundle-create replay key
+        'request_fingerprint',  // Phase E2 — sha256 of the normalised create request
         'franchise_id',
         'zone_id',
         'customer_id',

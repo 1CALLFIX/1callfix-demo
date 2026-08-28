@@ -96,6 +96,14 @@ Route::middleware(['auth:sanctum', \App\Http\Middleware\EnsureNotInMaintenanceMo
     Route::get('/bookings/{bookingId}', [\App\Http\Controllers\API\BookingController::class, 'show']);
     Route::post('/bookings/{bookingId}/cancel', [\App\Http\Controllers\API\BookingController::class, 'cancel']);
 
+    // Phase E2 (Multi-Service Booking — Creation). Customer submits several
+    // services in one request; one BookingBundle wraps one child Booking per
+    // service, priced/paid/dispatched through the same engines as
+    // POST /bookings above. Existing single-service POST /bookings is
+    // unchanged and never routed through here.
+    Route::post('/booking-bundles', [\App\Http\Controllers\API\BookingBundleController::class, 'store']);
+    Route::get('/booking-bundles/{bundleId}', [\App\Http\Controllers\API\BookingBundleController::class, 'show']);
+
     // P0 CUSTOMER CORE API -- Customer profile (mission item 5).
     Route::get('/profile', [\App\Http\Controllers\API\ProfileController::class, 'show']);
     Route::put('/profile', [\App\Http\Controllers\API\ProfileController::class, 'update']);
