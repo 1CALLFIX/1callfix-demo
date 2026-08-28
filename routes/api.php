@@ -104,6 +104,13 @@ Route::middleware(['auth:sanctum', \App\Http\Middleware\EnsureNotInMaintenanceMo
     Route::post('/booking-bundles', [\App\Http\Controllers\API\BookingBundleController::class, 'store']);
     Route::get('/booking-bundles/{bundleId}', [\App\Http\Controllers\API\BookingBundleController::class, 'show']);
 
+    // Phase E3 (Multi-Service Booking — Payment). Bundle counterparts of
+    // /bookings/{booking}/pay/create-order and /pay/confirm below: one gateway
+    // order for the server-authoritative aggregate bundle total, then the
+    // existing /webhooks/razorpay path captures it. No second payment system.
+    Route::post('/booking-bundles/{bundleId}/pay/create-order', [\App\Http\Controllers\API\BookingBundlePaymentController::class, 'createOrder']);
+    Route::post('/booking-bundles/{bundleId}/pay/confirm', [\App\Http\Controllers\API\BookingBundlePaymentController::class, 'confirm']);
+
     // P0 CUSTOMER CORE API -- Customer profile (mission item 5).
     Route::get('/profile', [\App\Http\Controllers\API\ProfileController::class, 'show']);
     Route::put('/profile', [\App\Http\Controllers\API\ProfileController::class, 'update']);

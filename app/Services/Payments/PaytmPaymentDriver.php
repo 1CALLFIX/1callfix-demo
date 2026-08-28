@@ -43,6 +43,11 @@ class PaytmPaymentDriver implements PaymentGateway
         return null;
     }
 
+    public function checkoutKeyId(): ?string
+    {
+        return null;
+    }
+
     public function createOrder(Booking $booking): array
     {
         throw new \RuntimeException('Paytm integration is not yet available — merchant onboarding is still pending.');

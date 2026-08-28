@@ -35,6 +35,11 @@ class PhonePePaymentDriver implements PaymentGateway
         return false;
     }
 
+    public function checkoutKeyId(): ?string
+    {
+        return null;
+    }
+
     public function maskedPublicIdentifier(): ?string
     {
         return null;

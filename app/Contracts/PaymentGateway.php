@@ -54,6 +54,18 @@ interface PaymentGateway
     public function maskedPublicIdentifier(): ?string;
 
     /**
+     * The UNMASKED public checkout key the client SDK needs to open the
+     * gateway's checkout screen (Razorpay's `key_id`). Not a secret — it is
+     * already returned inside every createOrder()/createRawOrder() response
+     * ('key_id'); this exposes the same value on its own so a caller that is
+     * re-returning an already-created pending order (idempotent
+     * create-order) can rebuild the full client payload without opening a
+     * second gateway order. Null when isConfigured() is false / for the
+     * onboarding stubs.
+     */
+    public function checkoutKeyId(): ?string;
+
+    /**
      * Creates a gateway order for a booking's price_quoted amount, in the
      * gateway's own smallest currency unit internally.
      */

@@ -88,6 +88,28 @@ class RazorpayWebhookHandler
             return ['outcome' => 'captured', 'payment' => $payment];
         }
 
+        // Phase E3 — multi-service bundle. ONE payment paid the aggregate, so
+        // ONE capture marks the bundle paid and propagates that to every child
+        // booking, then gives each child the same customer-facing
+        // payment-received notification a standalone booking gets below. The
+        // pending -> captured lock above guarantees this runs exactly once, so
+        // a retried/duplicate webhook cannot double-notify or re-run it.
+        if ($payment->purpose === 'booking_bundle') {
+            $bundle = $payment->bookingBundle;
+            if ($bundle) {
+                app(BookingBundlePaymentService::class)->markBundlePaid($bundle);
+
+                foreach ($bundle->children()->with('customer')->get() as $child) {
+                    if ($child->customer) {
+                        $channels = ChannelResolver::resolve(['zone_id' => $child->zone_id, 'franchise_id' => $child->franchise_id]);
+                        $child->customer->notify(new PaymentStatusNotification('completed', $child, $channels));
+                    }
+                }
+            }
+
+            return ['outcome' => 'captured', 'payment' => $payment];
+        }
+
         $booking = $payment->booking;
         if ($booking) {
             $booking->payment_status = 'paid';
@@ -130,6 +152,24 @@ class RazorpayWebhookHandler
             app(SubscriptionService::class)->failPayment($payment);
 
             return ['outcome' => 'failed', 'payment' => $payment]; // subscription stays unactivated/unusable — no booking involved
+        }
+
+        // Phase E3 — a failed bundle payment leaves the bundle AND every child
+        // exactly as they were (payment_status = 'pending'); the payment row is
+        // already marked 'failed' above. Only the per-child "payment failed"
+        // notification is sent, mirroring the single-booking branch below.
+        if ($payment->purpose === 'booking_bundle') {
+            $bundle = $payment->bookingBundle;
+            if ($bundle) {
+                foreach ($bundle->children()->with('customer')->get() as $child) {
+                    if ($child->customer) {
+                        $channels = ChannelResolver::resolve(['zone_id' => $child->zone_id, 'franchise_id' => $child->franchise_id]);
+                        $child->customer->notify(new PaymentStatusNotification('failed', $child, $channels));
+                    }
+                }
+            }
+
+            return ['outcome' => 'failed', 'payment' => $payment];
         }
 
         $booking = $payment->booking;

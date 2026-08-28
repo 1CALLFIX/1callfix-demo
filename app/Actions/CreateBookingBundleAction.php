@@ -9,6 +9,7 @@ use App\Models\Setting;
 use App\Notifications\BookingStatusNotification;
 use App\Notifications\Support\ChannelResolver;
 use App\Jobs\ServiceMatchingJob;
+use App\Services\Payments\BookingBundlePaymentService;
 use App\Services\WalletService;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
@@ -58,6 +59,7 @@ class CreateBookingBundleAction
     public function __construct(
         private CreateBookingAction $createBooking,
         private WalletService $wallet,
+        private BookingBundlePaymentService $bundlePayments,
     ) {
     }
 
@@ -222,7 +224,9 @@ class CreateBookingBundleAction
             'captured_at' => now(),
         ]);
 
-        $bundle->payment_status = 'paid';
-        $bundle->save();
+        // Phase E3 — mark the bundle (and, unlike E2, every child booking)
+        // paid through the ONE shared helper the Razorpay webhook also uses,
+        // so a wallet-paid and a gateway-paid bundle end in the same state.
+        $this->bundlePayments->markBundlePaid($bundle);
     }
 }

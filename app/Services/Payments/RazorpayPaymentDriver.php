@@ -84,6 +84,17 @@ class RazorpayPaymentDriver implements PaymentGateway
     }
 
     /**
+     * The public key_id, unmasked — the exact value createRawOrder() already
+     * returns as 'key_id' (its own comment: "safe to expose to the app — it's
+     * the public key"). Used by the bundle create-order path when it
+     * re-returns an existing pending order instead of creating a second one.
+     */
+    public function checkoutKeyId(): ?string
+    {
+        return $this->keyId;
+    }
+
+    /**
      * Creates a Razorpay order for a booking's price_quoted amount.
      * Called right before showing the checkout screen — the returned
      * order_id + key_id are what the Flutter app hands to Razorpay's
