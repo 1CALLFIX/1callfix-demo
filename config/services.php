@@ -27,6 +27,36 @@ return [
         'key' => env('GOOGLE_MAPS_API_KEY'),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Firebase Authentication (auth rebuild)
+    |--------------------------------------------------------------------------
+    |
+    | The customer web app verifies phone numbers and does Google sign-in
+    | client-side with the Firebase JS SDK; the server re-verifies the
+    | resulting ID token in App\Services\Auth\GoogleFirebaseTokenVerifier
+    | (firebase/php-jwt against Google's published certs — no kreait, which
+    | needs ext-sodium that this environment lacks).
+    |
+    | Only 'project_id' is used server-side (the ID token's `aud`/`iss` must
+    | match it). The 'web' values are the public Firebase config shipped to
+    | the browser — not secrets — and are consumed by the Vite bundle via
+    | VITE_FIREBASE_* at build time; they are mirrored here for any
+    | server-rendered fallback. This is separate from services.push.fcm
+    | (Cloud Messaging), which may point at the same Firebase project.
+    */
+    'firebase' => [
+        'project_id' => env('FIREBASE_PROJECT_ID'),
+        'web' => [
+            'api_key' => env('FIREBASE_WEB_API_KEY'),
+            'auth_domain' => env('FIREBASE_WEB_AUTH_DOMAIN'),
+            'project_id' => env('FIREBASE_PROJECT_ID'),
+            'app_id' => env('FIREBASE_WEB_APP_ID'),
+            'messaging_sender_id' => env('FIREBASE_WEB_MESSAGING_SENDER_ID'),
+            'storage_bucket' => env('FIREBASE_WEB_STORAGE_BUCKET'),
+        ],
+    ],
+
     'resend' => [
         'key' => env('RESEND_API_KEY'),
     ],
@@ -67,6 +97,12 @@ return [
     */
     'sms' => [
         'driver' => env('SMS_DRIVER', 'log'), // log|arkesel|msg91|gatewayapi
+
+        // Default calling code used by App\Support\PhoneNumber to reconcile
+        // a Firebase E.164 number ("+91XXXXXXXXXX") with the bare national
+        // rows this codebase has always stored. India, consistent with the
+        // MSG91 route / regulator notes below.
+        'country_code' => env('SMS_COUNTRY_CODE', '91'),
 
         'arkesel' => [
             'api_key' => env('ARKESEL_API_KEY'),

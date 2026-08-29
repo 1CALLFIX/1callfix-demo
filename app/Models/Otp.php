@@ -6,11 +6,15 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 /**
- * The shared LOGIN/verification OTP engine (see OTP_ARCHITECTURE.md).
- * Deliberately NOT used for the Service booking start/completion OTP —
- * that remains on bookings.start_otp/completion_otp, a separate,
- * untouched, already-working mechanism. code_hash is hashed (Hash::make),
- * never plaintext — see OtpService.
+ * The custom EMAIL verification / password-reset OTP engine (see
+ * OTP_ARCHITECTURE.md). Since the auth rebuild this is no longer a LOGIN
+ * mechanism — phone verification moved to Firebase and login is
+ * password-based — it now issues numeric codes to an email address
+ * (`identifier`, `channel = 'email'`) for signup verification and password
+ * reset. Still deliberately NOT used for the Service booking
+ * start/completion OTP, which remains on bookings.start_otp/completion_otp,
+ * a separate untouched mechanism. code_hash is hashed (Hash::make), never
+ * plaintext — see OtpService.
  */
 class Otp extends Model
 {
@@ -24,7 +28,7 @@ class Otp extends Model
     public const STATUS_LOCKED = 'locked';
 
     protected $fillable = [
-        'phone',
+        'identifier',
         'code_hash',
         'purpose',
         'channel',

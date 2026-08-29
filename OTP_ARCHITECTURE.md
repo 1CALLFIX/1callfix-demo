@@ -1,5 +1,30 @@
 # OTP Architecture
 
+> **UPDATED by the Auth Rebuild (branch `feature/auth-password-rebuild`).**
+> OTP is no longer a login mechanism anywhere. The three OTP surfaces now are:
+>
+> 1. **Service booking start/completion OTP** — `bookings.start_otp` /
+>    `completion_otp`, `BookingOtpService`, inside the booking Actions.
+>    **Completely unchanged** by the rebuild (still Option C, still in place).
+> 2. **Phone verification for auth** (signup, password reset, Google's
+>    mandatory mobile step) — now **Firebase phone auth**, client-side. The
+>    server verifies the Firebase ID token in
+>    `App\Services\Auth\GoogleFirebaseTokenVerifier`. The old server-side
+>    phone-login engine is retired.
+> 3. **Email verification for auth** (signup email, password reset by email)
+>    — the shared engine below (`otps` table + `App\Services\OtpService`),
+>    **repurposed**: the `otps.phone` column is renamed `identifier`,
+>    `channel` is `'email'`, delivery is SMTP via
+>    `App\Notifications\EmailOtpNotification` (the SMS-era
+>    `App\Notifications\OtpNotification` is deleted). All the security
+>    properties described below (hash-at-rest, one active code per
+>    `(identifier, purpose)`, attempt lockout, resend cooldown) are retained
+>    verbatim; only the channel and the column name changed. Purposes are now
+>    `email_verify` and `password_reset` (`login` is retired).
+>
+> The demoted `POST /api/auth/otp/{request,verify}` endpoints serve surface 3
+> only and never issue a Sanctum token. See `docs/auth-otp-consumer-audit.md`.
+
 ## Part 3's question: Option A, B, or C?
 
 **Option A** — booking-specific OTP fields only (status quo, no shared engine). **Option B** — migrate everything, including the working Service booking OTP, onto a shared table/service. **Option C** — hybrid: a shared engine for LOGIN/verification OTP, while the Service booking OTP stays exactly where it is.

@@ -2,11 +2,13 @@
 
 namespace App\Providers;
 
+use App\Contracts\FirebaseTokenVerifier;
 use App\Contracts\NarrativeAiAdapter;
 use App\Contracts\PaymentGateway;
 use App\Contracts\PushAdapter;
 use App\Contracts\SmsAdapter;
 use App\Contracts\WhatsAppAdapter;
+use App\Services\Auth\GoogleFirebaseTokenVerifier;
 use App\Models\Booking;
 use App\Models\BookingBundle;
 use App\Models\Franchise;
@@ -117,6 +119,15 @@ class AppServiceProvider extends ServiceProvider
         // actually configures something.
         $this->app->singleton(PaymentGatewayManager::class);
         $this->app->bind(PaymentGateway::class, fn ($app) => $app->make(PaymentGatewayManager::class)->active());
+
+        // Auth rebuild — server-side Firebase ID token verification (phone
+        // OTP + Google sign-in). Real implementation talks to Google's
+        // published signing certs; tests bind a fake over this contract
+        // exactly like CapturingSmsAdapter does for SmsAdapter.
+        $this->app->singleton(
+            FirebaseTokenVerifier::class,
+            fn ($app) => new GoogleFirebaseTokenVerifier(config('services.firebase.project_id')),
+        );
     }
 
     /**

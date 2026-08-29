@@ -7,14 +7,25 @@ Route::get('/user', function (Request $request) {
     return $request->user();
 })->middleware('auth:sanctum');
 
-// Authentication foundation (Customer/Partner/Worker) — see
-// AUTHENTICATION_ARCHITECTURE.md/OTP_ARCHITECTURE.md/QR_SCAN_ARCHITECTURE.md.
-// otp/request and otp/verify are unauthenticated by necessity (this is how
-// a Sanctum token is obtained in the first place — nothing else in this
-// API previously issued one). Throttled: OTP requests are the one endpoint
-// where an attacker could otherwise force real SMS cost / brute-force a
-// short code.
+// Authentication (Customer/Partner/Worker) — see AUTHENTICATION_ARCHITECTURE.md,
+// OTP_ARCHITECTURE.md, docs/auth-otp-consumer-audit.md.
+//
+// Auth rebuild: login is password-based (/auth/password) or a verified
+// Firebase ID token (/auth/firebase — phone-auth or Google, also carries
+// signup + Google linking). All unauthenticated by necessity — this is how
+// a Sanctum token is first obtained. The old /auth/otp/* pair is KEPT but
+// DEMOTED to email verification / password-reset codes only; it never
+// issues a token now.
 Route::prefix('auth')->group(function () {
+    Route::post('/password', [\App\Http\Controllers\API\AuthController::class, 'password'])->middleware('throttle:10,1');
+    Route::post('/firebase', [\App\Http\Controllers\API\AuthController::class, 'firebase'])->middleware('throttle:20,1');
+    Route::post('/register', [\App\Http\Controllers\API\AuthController::class, 'register'])->middleware('throttle:10,1');
+    Route::post('/password/forgot', [\App\Http\Controllers\API\AuthController::class, 'forgotPassword'])->middleware('throttle:5,1');
+    Route::post('/password/reset', [\App\Http\Controllers\API\AuthController::class, 'resetPassword'])->middleware('throttle:5,1');
+
+    // Demoted — verification codes only, no login token. Kept for a
+    // compatibility window; removal is gated on the mobile client shipping
+    // the Firebase flow (docs/auth-otp-consumer-audit.md).
     Route::post('/otp/request', [\App\Http\Controllers\API\AuthController::class, 'requestOtp'])->middleware('throttle:5,1');
     Route::post('/otp/verify', [\App\Http\Controllers\API\AuthController::class, 'verifyOtp'])->middleware('throttle:10,1');
 

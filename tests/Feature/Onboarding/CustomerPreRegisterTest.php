@@ -2,7 +2,6 @@
 
 namespace Tests\Feature\Onboarding;
 
-use App\Contracts\SmsAdapter;
 use App\Livewire\Customers\Index as CustomersIndex;
 use App\Models\User;
 use App\Services\Onboarding\CustomerPreRegisterImporter;
@@ -10,31 +9,30 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Collection;
 use Livewire\Livewire;
 use Tests\Feature\Rbac\RbacTestHelpers;
-use Tests\Support\CapturingSmsAdapter;
+use Tests\Feature\Support\RebuiltAuthHelpers;
 use Tests\TestCase;
 
 /**
  * Export Everywhere + Import Where It's Safe session, Part 3 — Bulk
- * Pre-Register (Customers). The mission's own hard requirement, proven
- * here through the REAL verification mechanism (AuthController::
- * verifyOtp() / OtpService), not a stand-in check invented for this test:
- * a pre-registered customer has no Sanctum token and no other way to
- * authenticate except by completing a genuine OTP request/verify —
- * exactly the same flow a brand-new, never-imported customer goes
- * through on their real first login.
+ * Pre-Register (Customers). The mission's hard requirement, proven here
+ * through the REAL verification mechanism: a pre-registered customer has
+ * no Sanctum token and no way to authenticate except by completing a
+ * genuine account-verification flow. After the auth rebuild that flow is
+ * a verified Firebase phone token + a chosen password
+ * (POST /api/auth/firebase), which RESUMES the pre-registered shell rather
+ * than creating a duplicate — the same path a brand-new customer takes.
  */
 class CustomerPreRegisterTest extends TestCase
 {
-    use RefreshDatabase;
     use RbacTestHelpers;
-
-    private CapturingSmsAdapter $sms;
+    use RebuiltAuthHelpers;
+    use RefreshDatabase;
 
     protected function setUp(): void
     {
         parent::setUp();
-        $this->sms = new CapturingSmsAdapter;
-        $this->app->instance(SmsAdapter::class, $this->sms);
+        $this->bindFakeFirebase();
+        \Illuminate\Support\Facades\Notification::fake();
     }
 
     private function rows(array $rows): Collection
@@ -117,28 +115,30 @@ class CustomerPreRegisterTest extends TestCase
     }
 
     /**
-     * The flip side of the same guarantee: the real OTP flow is NOT
-     * blocked by having been pre-registered — it correctly resolves to
-     * the SAME shell (never a duplicate), exactly like an organic
-     * first-login would for a phone that already has a row for any other
-     * reason (see AuthOtpTest::test_customer_login_reuses_existing_account_by_phone).
+     * The flip side of the same guarantee: completing real verification is
+     * NOT blocked by having been pre-registered — a verified Firebase phone
+     * token plus a chosen password RESUMES the SAME shell (never a
+     * duplicate), exactly like an organic first signup for a phone that
+     * already has a row.
      */
-    public function test_completing_real_otp_verification_claims_the_pre_registered_shell_not_a_duplicate(): void
+    public function test_completing_real_verification_claims_the_pre_registered_shell_not_a_duplicate(): void
     {
         $phone = '9'.fake()->unique()->numerify('#########');
         $result = (new CustomerPreRegisterImporter)->validateRows($this->rows([['name' => 'Shell', 'phone' => $phone]]));
         (new CustomerPreRegisterImporter)->commit($result['previewRows'], null, 'customers.csv');
         $preRegisteredId = User::where('phone', $phone)->sole()->id;
 
-        $this->postJson('/api/auth/otp/request', ['phone' => $phone, 'actor_type' => 'customer'])->assertOk();
-        $code = $this->sms->lastCodeTo($phone);
-        $this->assertNotNull($code);
-
-        $response = $this->postJson('/api/auth/otp/verify', ['phone' => $phone, 'actor_type' => 'customer', 'code' => $code]);
+        $response = $this->postJson('/api/auth/firebase', [
+            'id_token' => $this->firebase->issuePhoneToken($this->e164($phone)),
+            'actor_type' => 'customer',
+            'name' => 'Shell',
+            'password' => 'chosen-password-1',
+        ]);
 
         $response->assertOk()->assertJsonPath('user.id', $preRegisteredId);
-        $this->assertNotEmpty($response->json('token'), 'A real token is only ever issued through the real OTP flow.');
+        $this->assertNotEmpty($response->json('token'), 'A real token is only ever issued through the real verification flow.');
         $this->assertSame(1, User::where('phone', $phone)->count(), 'Must claim the existing shell, never create a second row.');
+        $this->assertTrue(\Illuminate\Support\Facades\Hash::check('chosen-password-1', User::find($preRegisteredId)->password));
     }
 
     public function test_livewire_screen_bulk_pre_registers_end_to_end_without_setting_phone_verified_at(): void
