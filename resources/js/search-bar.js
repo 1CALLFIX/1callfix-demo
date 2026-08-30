@@ -152,8 +152,56 @@ function initSearchBar(root) {
     });
 }
 
+/**
+ * The mobile / mid-width header search drawer: a button that reveals the
+ * same compact search component beneath the bar. Kept here because it is the
+ * other half of "the header search" and shares no state with the page.
+ */
+function initSearchDrawer(toggle) {
+    if (toggle.dataset.searchToggleReady === 'true') {
+        return;
+    }
+    toggle.dataset.searchToggleReady = 'true';
+
+    const drawer = document.getElementById(toggle.getAttribute('aria-controls'))
+        || document.querySelector('[data-search-drawer]');
+    if (!drawer) {
+        return;
+    }
+
+    const close = () => {
+        drawer.hidden = true;
+        toggle.setAttribute('aria-expanded', 'false');
+    };
+
+    const open = () => {
+        drawer.hidden = false;
+        toggle.setAttribute('aria-expanded', 'true');
+        drawer.querySelector('[data-search-input]')?.focus();
+    };
+
+    toggle.addEventListener('click', () => (drawer.hidden ? open() : close()));
+
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape' && !drawer.hidden) {
+            close();
+            toggle.focus();
+        }
+    });
+
+    document.addEventListener('click', (event) => {
+        if (drawer.hidden) {
+            return;
+        }
+        if (!drawer.contains(event.target) && !toggle.contains(event.target)) {
+            close();
+        }
+    });
+}
+
 function initAll(scope = document) {
     scope.querySelectorAll('[data-search-bar]').forEach(initSearchBar);
+    scope.querySelectorAll('[data-search-toggle]').forEach(initSearchDrawer);
 }
 
 document.addEventListener('DOMContentLoaded', () => initAll());

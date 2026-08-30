@@ -233,31 +233,13 @@ class Wizard extends Component
 
     private function maxScheduleDays(): int
     {
-        return (int) Setting::get('booking.max_schedule_days_ahead', 14);
+        return \App\Support\BookingSchedule::maxDays();
     }
 
     /** Null when the schedule is valid (ASAP or an in-window datetime), else the message to show. */
     private function scheduleError(): ?string
     {
-        if ($this->scheduledAt === null || $this->scheduledAt === '') {
-            return null; // ASAP
-        }
-
-        try {
-            $when = Carbon::parse($this->scheduledAt);
-        } catch (\Throwable) {
-            return 'That does not look like a valid date and time.';
-        }
-
-        if ($when->isPast()) {
-            return 'Pick a time in the future.';
-        }
-
-        if ($when->greaterThan(now()->addDays($this->maxScheduleDays()))) {
-            return "We can only schedule up to {$this->maxScheduleDays()} days ahead.";
-        }
-
-        return null;
+        return \App\Support\BookingSchedule::validate($this->scheduledAt);
     }
 
     // ----------------------------------------------------------------- pay

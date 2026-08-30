@@ -262,6 +262,39 @@
                         Book now
                     </a>
 
+                    {{-- ======================= Add to cart =======================
+                         Collect several services and book them together as one
+                         bundle at checkout. Optional preferred time; the option
+                         selection above and the estimate are carried over but
+                         re-priced authoritatively at checkout.
+                    --}}
+                    <div class="mt-3 rounded-lg border border-slate-200 p-3">
+                        <label for="cart-preferred-at" class="block text-xs font-medium text-slate-600">Preferred time (optional)</label>
+                        <input type="datetime-local" id="cart-preferred-at" wire:model="preferredAt"
+                               class="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 focus:border-slate-900 focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-slate-900">
+
+                        <label for="cart-note" class="mt-3 block text-xs font-medium text-slate-600">Note for the professional (optional)</label>
+                        <textarea id="cart-note" wire:model="customerNote" rows="2" maxlength="1000"
+                                  class="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 focus:border-slate-900 focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-slate-900"></textarea>
+
+                        <button type="button" wire:click="addToCart"
+                                class="mt-3 flex min-h-12 w-full items-center justify-center gap-2 rounded-lg border border-slate-900 px-6 text-sm font-semibold text-slate-900 transition hover:bg-slate-900 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900">
+                            <x-icon name="shopping-bag" class="h-4 w-4" />
+                            Add to cart
+                        </button>
+
+                        @error('cart')
+                            <p role="alert" class="mt-2 text-xs text-red-600">{{ $message }}</p>
+                        @enderror
+
+                        @if ($cartNotice !== '')
+                            <p role="status" class="mt-2 text-xs text-emerald-700">
+                                {{ $cartNotice }}
+                                <a href="{{ route('customer.cart') }}" wire:navigate class="font-semibold underline underline-offset-2">View cart</a>
+                            </p>
+                        @endif
+                    </div>
+
                     {{-- ====================== Availability ======================
                          A real count from DispatchService::nearbyForService() —
                          the same read-only call GET /api/providers/nearby uses.

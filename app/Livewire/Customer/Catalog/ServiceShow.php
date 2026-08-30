@@ -6,8 +6,10 @@ use App\Livewire\Customer\Concerns\ResolvesCatalogContext;
 use App\Models\Service;
 use App\Models\ServiceOption;
 use App\Models\ServiceOptionGroup;
+use App\Services\Customer\ServiceCartService;
 use App\Services\Customer\ServiceRatingSummary;
 use App\Services\DispatchService;
+use App\Support\BookingSchedule;
 use App\Support\Modules;
 use Illuminate\Support\Collection;
 use Livewire\Attributes\Locked;
@@ -62,6 +64,14 @@ class ServiceShow extends Component
     /** @var Collection<int, ServiceOptionGroup>|null per-request memo for groups(); private so Livewire never serialises it */
     private ?Collection $groupCache = null;
 
+    /** "Add to cart" — a preferred slot ('Y-m-d\TH:i' local, empty = ASAP) and an optional note. Estimate/expectation only; checkout re-prices. */
+    public string $preferredAt = '';
+
+    public string $customerNote = '';
+
+    /** Inline confirmation after a successful add, cleared on the next option change. */
+    public string $cartNotice = '';
+
     private const REVIEW_LIMIT = 5;
     private const RELATED_LIMIT = 4;
 
@@ -109,6 +119,58 @@ class ServiceShow extends Component
         $this->selected[$groupId] = $current->contains($optionId)
             ? $current->reject(fn ($id) => $id === $optionId)->values()->all()
             : $current->push($optionId)->values()->all();
+    }
+
+    /**
+     * Add this service, with the current option selection and an optional
+     * preferred slot, to the customer's services cart. The option selection
+     * and the estimate are advisory — ServiceCartService and the checkout
+     * bundle action re-derive the authoritative charge. Requires a login
+     * (the cart is per-user, DB-backed); a guest is sent to sign in and back.
+     */
+    public function addToCart(ServiceCartService $cart): void
+    {
+        $this->cartNotice = '';
+        $this->resetErrorBag();
+
+        if (! auth()->check()) {
+            $this->redirectRoute('customer.login', ['intended' => route('customer.services.show', $this->serviceId)]);
+
+            return;
+        }
+
+        if ($this->missingRequiredGroups()->isNotEmpty()) {
+            $this->addError('cart', 'Choose every required option before adding to the cart.');
+
+            return;
+        }
+
+        if (($msg = BookingSchedule::validate($this->preferredAt)) !== null) {
+            $this->addError('cart', $msg);
+
+            return;
+        }
+
+        $service = Service::findOrFail($this->serviceId);
+
+        try {
+            $cart->add(
+                auth()->user(),
+                $service,
+                $this->selected,
+                BookingSchedule::parse($this->preferredAt),
+                $this->customerNote,
+            );
+        } catch (\RuntimeException $e) {
+            $this->addError('cart', $e->getMessage());
+
+            return;
+        }
+
+        $this->customerNote = '';
+        $this->preferredAt = '';
+        $this->cartNotice = 'Added to your cart.';
+        $this->dispatch('cart-updated');
     }
 
     public function render()

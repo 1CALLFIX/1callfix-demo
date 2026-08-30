@@ -82,18 +82,16 @@
                 <livewire:customer.search-bar :compact="true" />
             </div>
 
-            {{-- `hidden sm:inline-flex xl:hidden`, not just `xl:hidden`: below
-                 `sm` this icon is redundant — the fixed bottom navigation
-                 already carries a full-width Search item, right where a thumb
-                 is — and it was also the 46px that pushed the header row past
-                 the viewport at 375px (measured, not guessed). Dropping a
-                 duplicate affordance is a better fix than truncating the
-                 customer's own area name to make room for it. --}}
-            <a href="{{ route('customer.search') }}"
-               class="hidden min-h-11 items-center rounded-md px-2 text-slate-600 transition hover:bg-slate-50 hover:text-slate-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900 sm:inline-flex xl:hidden">
+            {{-- Below `xl` the persistent search box does not fit the row, so
+                 this button expands the same component in a drawer beneath
+                 the bar instead (toggled by resources/js/search-bar.js).
+                 `sm:inline-flex`: under `sm` the fixed bottom navigation
+                 already carries a full-width Search item. --}}
+            <button type="button" data-search-toggle aria-expanded="false" aria-controls="header-search-drawer"
+                    class="hidden min-h-11 items-center rounded-md px-2 text-slate-600 transition hover:bg-slate-50 hover:text-slate-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900 sm:inline-flex xl:hidden">
                 <span class="sr-only">Search for a service</span>
                 <x-icon name="magnifying-glass" class="h-5 w-5" />
-            </a>
+            </button>
 
             {{-- Right cluster. min-w-0 so the account name's truncate can
                  actually engage instead of forcing the row wider. --}}
@@ -152,6 +150,13 @@
                     </a>
                 @endauth
 
+                {{-- Services cart. Its own Livewire island so the count
+                     badge updates live on `cart-updated` without a reload.
+                     Renders nothing for a guest. --}}
+                @auth
+                    <livewire:customer.cart-count />
+                @endauth
+
                 {{-- Primary CTA. Booking itself is still Phase D, so this
                      sends the customer to the real catalog to choose a
                      service — the first genuine step of booking, and now a
@@ -163,6 +168,13 @@
                     Book a Service
                 </a>
             </div>
+        </div>
+
+        {{-- Mobile / mid-width search drawer. Hidden until [data-search-toggle]
+             reveals it; holds the same compact search component the `xl` bar
+             uses. --}}
+        <div id="header-search-drawer" data-search-drawer hidden class="border-t border-slate-200 py-3 xl:hidden">
+            <livewire:customer.search-bar :compact="true" />
         </div>
     </div>
 </header>

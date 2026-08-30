@@ -60,7 +60,7 @@ class BundleConsolidationJob implements ShouldQueue
         DispatchService $dispatchService,
         ProviderAvailabilityService $availability,
     ): void {
-        $assigned = Booking::with(['provider', 'bundle'])->find($this->assignedBookingId);
+        $assigned = Booking::with(['provider', 'bundle', 'service'])->find($this->assignedBookingId);
 
         if (! $assigned || ! $assigned->booking_bundle_id || ! $assigned->provider_id || ! $assigned->provider) {
             return;
@@ -77,6 +77,18 @@ class BundleConsolidationJob implements ShouldQueue
             return;
         }
 
+        // Trade guard (feature/services-cart). Provider.skills / normal
+        // dispatch are still CATEGORY-level, but an auto-consolidation offer
+        // is only worth making when the sibling is the SAME trade the
+        // provider just accepted — an electrician who took a fan job should
+        // not be pushed a leaky-tap sibling from the same "Home Repair"
+        // category. Compared at subcategory granularity; a null on either
+        // side means "trade not distinguished here" and the existing
+        // category-level eligibility check stands alone. Ops can disable it
+        // per scope.
+        $subcategoryStrict = Setting::get('dispatch.consolidation_subcategory_strict', '1', $scope) === '1';
+        $acceptedSubcategoryId = $assigned->service?->subcategory_id;
+
         $offerTimeoutSeconds = max(1, (int) Setting::get('dispatch.consolidation_offer_timeout_seconds', '5', $scope));
 
         $siblings = Booking::with(['service', 'address'])
@@ -87,7 +99,12 @@ class BundleConsolidationJob implements ShouldQueue
             ->get();
 
         foreach ($siblings as $sibling) {
-            if ($this->providerCanTakeSibling($dispatchService, $availability, $provider, $sibling)) {
+            $sameTrade = ! $subcategoryStrict
+                || $acceptedSubcategoryId === null
+                || $sibling->service?->subcategory_id === null
+                || $sibling->service->subcategory_id === $acceptedSubcategoryId;
+
+            if ($sameTrade && $this->providerCanTakeSibling($dispatchService, $availability, $provider, $sibling)) {
                 $this->offerToProvider($dispatchService, $provider, $sibling, $offerTimeoutSeconds);
             } else {
                 // No consolidation possible for this sibling — let it go

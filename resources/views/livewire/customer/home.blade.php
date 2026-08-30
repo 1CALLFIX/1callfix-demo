@@ -62,13 +62,20 @@
                     <livewire:customer.search-bar />
                 </div>
 
-                <div class="mt-5 flex items-center justify-center gap-2 text-sm text-slate-600">
-                    <x-icon name="map" class="h-4 w-4 text-slate-500" />
-                    @if ($activeZone)
-                        <span>Showing availability for <span class="font-medium text-slate-900">{{ $activeZone->name }}</span></span>
-                    @else
-                        <span>Set your area to see what's available near you</span>
-                    @endif
+                {{-- Location as a tappable pill — one clear action near the
+                     top, opening the single header location picker via a
+                     page-level event (no second modal in the DOM). --}}
+                <div class="mt-5 flex justify-center">
+                    <button type="button" wire:click="$dispatch('open-location-picker')"
+                            class="inline-flex min-h-11 items-center gap-2 rounded-full border border-slate-300 bg-white px-4 text-sm text-slate-700 shadow-sm transition hover:border-slate-400 hover:text-slate-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900">
+                        <x-icon name="map-pin" class="h-4 w-4 text-slate-500" />
+                        @if ($activeZone)
+                            <span>Availability for <span class="font-semibold text-slate-900">{{ $activeZone->name }}</span></span>
+                        @else
+                            <span>Set your area</span>
+                        @endif
+                        <x-icon name="chevron-down" class="h-3.5 w-3.5 text-slate-400" />
+                    </button>
                 </div>
             </div>
 
