@@ -39,3 +39,7 @@ Homestead.json
 Homestead.yaml
 Thumbs.db
 storage/backups/
+# Local-only working folder: manual banner source images and the prepped
+# hero/mid crops generated for manual upload through the admin panel. Not
+# application data — never committed.
+/Banners/

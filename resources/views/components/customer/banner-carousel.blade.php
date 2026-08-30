@@ -4,6 +4,11 @@
     'label' => 'Promotions',
     'variant' => 'hero',
     'autoplay' => true,
+    // Auto-advance interval in milliseconds, set per call site (see
+    // config/banners.php). Null = let carousel.js use its own 6000ms
+    // default. The value is only ever passed through to a data attribute
+    // here — no timing decision is made in this component.
+    'interval' => null,
 ])
 
 {{--
@@ -65,6 +70,7 @@
 
     <section data-carousel
              data-carousel-autoplay="{{ $autoplay && $multiple ? 'true' : 'false' }}"
+             @if (filled($interval)) data-carousel-interval="{{ (int) $interval }}" @endif
              aria-roledescription="carousel"
              aria-label="{{ $label }}"
              {{ $attributes->merge(['class' => 'relative']) }}>

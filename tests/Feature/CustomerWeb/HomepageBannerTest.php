@@ -201,4 +201,37 @@ class HomepageBannerTest extends TestCase
 
         Livewire::test(Home::class)->assertSee('https://example.test/promo', escape: false);
     }
+
+    /**
+     * `sort_order` is the admin's manual ordering within a slot. Banner::forSlot()
+     * ranks most-specific first, then by sort_order — so among equally-untargeted
+     * banners the sort_order sequence is exactly what the slot renders.
+     */
+    public function test_sort_order_orders_banners_within_a_slot(): void
+    {
+        $this->makeBanner('top', ['title' => 'Third', 'sort_order' => 30]);
+        $this->makeBanner('top', ['title' => 'First', 'sort_order' => 10]);
+        $this->makeBanner('top', ['title' => 'Second', 'sort_order' => 20]);
+
+        $order = Livewire::test(Home::class)->viewData('heroBanners')->pluck('title')->all();
+
+        $this->assertSame(['First', 'Second', 'Third'], $order);
+    }
+
+    /**
+     * The homepage context sets no category_id, so a banner sold against one
+     * specific category must not leak onto the home slot — while an untargeted
+     * banner in the same slot still shows (the fallback).
+     */
+    public function test_a_category_targeted_banner_does_not_show_in_the_untargeted_home_context(): void
+    {
+        $category = $this->makeCategory(['name' => 'AC Repair']);
+
+        $this->makeBanner('mid', ['title' => 'Everywhere Mid']);
+        $this->makeBanner('mid', ['title' => 'AC Only Mid', 'category_id' => $category->id]);
+
+        $titles = Livewire::test(Home::class)->viewData('midBanners')->pluck('title')->all();
+
+        $this->assertSame(['Everywhere Mid'], $titles);
+    }
 }

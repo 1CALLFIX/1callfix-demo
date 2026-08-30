@@ -6,10 +6,15 @@
 {{--
     Customer homepage (Phase C).
 
-    Section order follows the marketplace information architecture: discovery
-    hero -> hero banner -> what's new -> what's most booked -> mid-page
+    Section order follows the marketplace information architecture: hero
+    banner -> discovery hero -> what's new -> what's most booked -> mid-page
     promotional strip -> category collections -> offers -> membership ->
     trust -> FAQ.
+
+    The hero banner is the FIRST thing under the topbar: it is paid
+    commercial-ad inventory (the `top` slot, sold at the premium rate), so it
+    gets the position with the most attention rather than sitting a scroll
+    below the fold.
 
     EVERY section below is conditional on real data and disappears entirely
     when there is none. There is no section on this page that renders
@@ -24,9 +29,24 @@
 
 <div class="mb-bottom-nav">
 
+    {{-- ======================= Banner slot #1 (hero) =======================
+         Paid `top`-slot ad inventory, placed first — directly under the
+         topbar, above the discovery hero. Renders nothing when no banner is
+         live, and the discovery hero below stands on its own in that case.
+    --}}
+    @if ($heroBanners->isNotEmpty())
+        <section class="mx-auto max-w-7xl px-4 pt-4 sm:px-6 sm:pt-6 lg:px-8">
+            <x-customer.banner-carousel :banners="$heroBanners"
+                                        id="hero-banners"
+                                        label="Featured promotions"
+                                        variant="hero"
+                                        :interval="config('banners.hero_rotation_ms')" />
+        </section>
+    @endif
+
     {{-- ===================== Hero / service discovery ===================== --}}
     <section class="border-b border-slate-200 bg-gradient-to-b from-slate-50 to-white">
-        <div class="mx-auto max-w-7xl px-4 py-10 sm:px-6 sm:py-14 lg:px-8">
+        <div class="mx-auto max-w-7xl px-4 pt-8 pb-10 sm:px-6 sm:pt-10 sm:pb-14 lg:px-8">
             <div class="mx-auto max-w-2xl text-center">
                 <h1 class="text-3xl font-bold tracking-tight text-slate-900 sm:text-5xl">
                     What do you need help with?
@@ -74,16 +94,6 @@
         </div>
     </section>
 
-    {{-- ======================= Banner slot #1 (hero) ======================= --}}
-    @if ($heroBanners->isNotEmpty())
-        <section class="mx-auto max-w-7xl px-4 pt-8 sm:px-6 lg:px-8">
-            <x-customer.banner-carousel :banners="$heroBanners"
-                                        id="hero-banners"
-                                        label="Featured promotions"
-                                        variant="hero" />
-        </section>
-    @endif
-
     {{-- ========================= New & noteworthy ========================= --}}
     @if ($newServices->isNotEmpty())
         <section aria-labelledby="new-heading" class="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
@@ -130,7 +140,8 @@
             <x-customer.banner-carousel :banners="$midBanners"
                                         id="mid-banners"
                                         label="Offers and announcements"
-                                        variant="strip" />
+                                        variant="strip"
+                                        :interval="config('banners.mid_rotation_ms')" />
         </section>
     @endif
 

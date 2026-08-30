@@ -31,6 +31,9 @@
  * homepage's critical path than the whole feature.
  */
 
+// Fallback only. Each call site sets its own cadence via the component's
+// `:interval` prop (config/banners.php) → `data-carousel-interval`; this
+// value is used only when a carousel is rendered without one.
 const AUTOPLAY_MS = 6000;
 
 function initCarousel(root) {
@@ -57,6 +60,11 @@ function initCarousel(root) {
 
     const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
     const wantsAutoplay = root.dataset.carouselAutoplay === 'true' && slides.length > 1;
+
+    // Per-call-site cadence (hero rotates slower than the mid strip). A
+    // missing, non-numeric or non-positive value falls back to the default.
+    const parsedInterval = Number.parseInt(root.dataset.carouselInterval, 10);
+    const autoplayMs = Number.isFinite(parsedInterval) && parsedInterval > 0 ? parsedInterval : AUTOPLAY_MS;
 
     let pausedByUser = false;
     let timer = null;
@@ -172,7 +180,7 @@ function initCarousel(root) {
         if (!wantsAutoplay || pausedByUser || reduceMotion.matches || document.hidden) {
             return;
         }
-        timer = window.setInterval(() => goTo(currentIndex() + 1), AUTOPLAY_MS);
+        timer = window.setInterval(() => goTo(currentIndex() + 1), autoplayMs);
     };
 
     /**

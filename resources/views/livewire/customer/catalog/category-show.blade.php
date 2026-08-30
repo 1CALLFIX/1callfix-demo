@@ -136,7 +136,8 @@
                 <x-customer.banner-carousel :banners="$banners"
                                             id="category-banners"
                                             label="Offers and announcements"
-                                            variant="strip" />
+                                            variant="strip"
+                                            :interval="config('banners.mid_rotation_ms')" />
             </div>
         @endif
     </div>
