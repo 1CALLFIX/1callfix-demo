@@ -4,6 +4,7 @@ namespace Tests\Feature\CustomerWeb;
 
 use App\Livewire\Customer\Search;
 use App\Livewire\Customer\SearchBar;
+use App\Services\Catalog\ServiceCatalogQuery;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
 use Tests\Feature\CustomerWeb\Support\CatalogFixtures;
@@ -134,6 +135,54 @@ class CustomerSearchTest extends TestCase
             ->set('query', '50%')
             ->assertSee('Save 50% Service')
             ->assertDontSee('Ordinary Service');
+    }
+
+    /**
+     * Regression: the keyword LIKE clauses must use `ESCAPE '!'`, never
+     * `ESCAPE '\'`.
+     *
+     * `ESCAPE '\'` renders in raw SQL as the string literal `'\'`. MySQL's
+     * default SQL mode reads that as unterminated — the backslash escapes the
+     * closing quote — so every non-empty keyword search 500s with a
+     * SQLSTATE[42000] syntax error in production. SQLite does no backslash
+     * escaping, so `'\'` there is a harmless one-char string and the entire
+     * suite (SQLite) stays green while prod is broken. Asserting the compiled
+     * SQL directly is the only way to catch a re-introduced `\` regardless of
+     * which engine the test runs on.
+     */
+    public function test_keyword_search_sql_uses_the_bang_escape_char_not_backslash(): void
+    {
+        $catalog = app(ServiceCatalogQuery::class);
+
+        $builders = [
+            'searchServices' => $catalog->searchServices('anything'),
+            'searchCategories' => $catalog->searchCategories('anything'),
+            'searchSubcategories' => $catalog->searchSubcategories('anything'),
+        ];
+
+        foreach ($builders as $name => $builder) {
+            $sql = $builder->toSql();
+
+            $this->assertStringContainsString("escape '!'", $sql, "{$name}() lost its ESCAPE '!' clause");
+            $this->assertStringNotContainsString("escape '\\'", $sql, "{$name}() re-introduced the MySQL-breaking ESCAPE '\\' clause");
+        }
+    }
+
+    /**
+     * `!` is the escape character now, so a customer literally typing `!`
+     * must be matched as a bang — escapeLike() has to escape it first, and
+     * the query must not error.
+     */
+    public function test_a_literal_bang_in_the_term_is_searched_for_literally(): void
+    {
+        $category = $this->makeCategory();
+        $this->makeService($category, ['name' => 'Big Deal! Service']);
+        $this->makeService($category, ['name' => 'Plain Service']);
+
+        Livewire::test(Search::class)
+            ->set('query', 'Deal!')
+            ->assertSee('Big Deal! Service')
+            ->assertDontSee('Plain Service');
     }
 
     public function test_no_results_states_it_plainly_and_offers_a_way_out(): void

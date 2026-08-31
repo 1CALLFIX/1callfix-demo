@@ -136,27 +136,29 @@ class ServiceCatalogQuery
      *
      * `%` and `_` are LIKE wildcards, and a customer typing "50%" means the
      * literal characters — unescaped, that term matches the entire catalogue
-     * and looks like a bug. So the term is escaped AND the statement carries
-     * an explicit `ESCAPE '\'`.
+     * and looks like a bug. So the term is escaped AND every statement carries
+     * an explicit `ESCAPE '!'`.
      *
-     * The ESCAPE clause is not optional here: MySQL treats `\` as the default
-     * LIKE escape character, but SQLite does NOT — without the clause, `\%`
-     * on SQLite searches for a literal backslash followed by anything, and
-     * "50%" silently returns nothing. This application runs SQLite in
-     * dev/test and MySQL in production, so the two must not disagree. Stating
-     * the escape character explicitly is valid on both and makes the
-     * behaviour identical. (Caught by a test, having first shipped the
-     * MySQL-only assumption.)
+     * The escape character is `!`, NOT `\`. `\` cannot be used here: `ESCAPE
+     * '\'` renders in raw SQL as the string literal `'\'`, which MySQL's
+     * default SQL mode reads as an *unterminated* literal (`\` escapes the
+     * closing quote) — a `SQLSTATE[42000]` syntax error on every non-empty
+     * keyword search. SQLite does no backslash escaping in string literals,
+     * so `'\'` there is a harmless one-char string; the whole test suite runs
+     * on SQLite and stayed green while production 500'd on the first search.
+     * `!` has no special meaning in a string literal on either engine, so
+     * `ESCAPE '!'` behaves identically in dev/test and production. The escape
+     * character and escapeLike()'s replacement set must always agree.
      */
     private function applyKeyword(Builder $query, string $term): Builder
     {
         $like = '%'.$this->escapeLike($term).'%';
 
         return $query->where(function (Builder $q) use ($like) {
-            $q->whereRaw('services.name like ? escape \'\\\'', [$like])
-                ->orWhereRaw('services.description like ? escape \'\\\'', [$like])
-                ->orWhereHas('category', fn ($c) => $c->whereRaw('service_categories.name like ? escape \'\\\'', [$like]))
-                ->orWhereHas('subcategory', fn ($s) => $s->whereRaw('service_subcategories.name like ? escape \'\\\'', [$like]));
+            $q->whereRaw('services.name like ? escape \'!\'', [$like])
+                ->orWhereRaw('services.description like ? escape \'!\'', [$like])
+                ->orWhereHas('category', fn ($c) => $c->whereRaw('service_categories.name like ? escape \'!\'', [$like]))
+                ->orWhereHas('subcategory', fn ($s) => $s->whereRaw('service_subcategories.name like ? escape \'!\'', [$like]));
         });
     }
 
@@ -168,18 +170,18 @@ class ServiceCatalogQuery
         return $term === '' ? null : $term;
     }
 
-    /** Categories whose own name matches, for the search screen's "categories" group. Same escaping rule as applyKeyword(). */
+    /** Categories whose own name matches, for the search screen's "categories" group. Same `ESCAPE '!'` rule as applyKeyword(). */
     public function searchCategories(string $term): Builder
     {
         return $this->categories()
-            ->whereRaw('service_categories.name like ? escape \'\\\'', ['%'.$this->escapeLike(trim($term)).'%']);
+            ->whereRaw('service_categories.name like ? escape \'!\'', ['%'.$this->escapeLike(trim($term)).'%']);
     }
 
-    /** Subcategories whose own name matches, for the search screen's "categories" group. Same escaping rule as applyKeyword(). */
+    /** Subcategories whose own name matches, for the search screen's "categories" group. Same `ESCAPE '!'` rule as applyKeyword(). */
     public function searchSubcategories(string $term): Builder
     {
         return $this->subcategories()
-            ->whereRaw('service_subcategories.name like ? escape \'\\\'', ['%'.$this->escapeLike(trim($term)).'%']);
+            ->whereRaw('service_subcategories.name like ? escape \'!\'', ['%'.$this->escapeLike(trim($term)).'%']);
     }
 
     /**
@@ -321,13 +323,18 @@ class ServiceCatalogQuery
     }
 
     /**
-     * LIKE-wildcard escaping. `\` is the default escape character on both
-     * MySQL and SQLite (this app runs SQLite in dev/test, MySQL in
-     * production), so the same escaping is correct on both.
+     * LIKE-wildcard escaping, paired with the `ESCAPE '!'` clause every
+     * keyword query here carries (see applyKeyword()'s docblock for why the
+     * escape char is `!` and not `\`).
+     *
+     * `!` is replaced first: escaping it after `%`/`_` would turn a literal
+     * `!` the customer typed into the escape prefix for a following wildcard.
+     * A term of `!` becomes `!!` (a literal bang); `%` becomes `!%`; `_`
+     * becomes `!_`.
      */
     private function escapeLike(string $term): string
     {
-        return str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $term);
+        return str_replace(['!', '%', '_'], ['!!', '!%', '!_'], $term);
     }
 
     /**
