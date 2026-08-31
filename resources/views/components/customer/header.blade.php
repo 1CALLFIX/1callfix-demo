@@ -2,10 +2,17 @@
     $platformName = \App\Models\Setting::get('branding.platform_name', '1CallFix');
 
     /*
-     | Primary navigation. Services, Categories and Offers now point at real
-     | Phase C screens; anything whose real screen still belongs to a later
-     | phase routes to customer.coming-soon rather than a dead `#` href or a
-     | stub that pretends to work — see routes/web.php.
+     | Primary navigation. Trimmed to the two catalog-browse destinations
+     | (Urban Company's reference bar carries 2–4 top-level links, no more):
+     | the bar's job is to get a customer into the catalogue, and Search +
+     | the "Book a Service" CTA already do the rest.
+     |
+     | Offers, How It Works and Help were removed from this bar on 2026-08-31.
+     | Nothing was lost: all three already have a permanent home in
+     | components/customer/footer.blade.php (Offers under "Services", How It
+     | Works and Help & FAQs under "Company"). Re-adding one is a single line
+     | back in this array — the routes (customer.offers / customer.how-it-works
+     | / customer.help) are untouched and still live.
      |
      | The vertical switcher (Parcel, Taxi, Rental, Hotels, Marketplace) is
      | deliberately absent. Those verticals have real backends but no customer
@@ -18,20 +25,16 @@
     $primaryNav = [
         ['label' => 'Services', 'route' => 'customer.services.index', 'param' => null],
         ['label' => 'Categories', 'route' => 'customer.categories.index', 'param' => null],
-        ['label' => 'Offers', 'route' => 'customer.offers', 'param' => null],
-        ['label' => 'How It Works', 'route' => 'customer.how-it-works', 'param' => null],
-        ['label' => 'Help', 'route' => 'customer.help', 'param' => null],
     ];
 @endphp
 
 <header class="sticky top-0 z-40 border-b border-slate-200 bg-white/85 backdrop-blur-md supports-[backdrop-filter]:bg-white/70">
     <div class="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        {{-- gap-2 at `lg`, back to gap-4 at `xl`: 1024–1279px is the tightest
-             band in this header — the desktop primary nav has appeared (~400px)
-             but the viewport has not yet grown enough to carry it alongside the
-             brand, location, account and CTA. Measured at 15px over. Tightening
-             the gaps recovers it without removing a single navigation target,
-             which every other option here would have. --}}
+        {{-- gap-2 at `lg`, back to gap-4 at `xl`: kept from when this bar
+             carried a five-link primary nav and 1024–1279px was 15px over.
+             The nav is two links now and the row has ample slack, but the
+             tighter `lg` gap is harmless and leaves headroom for the "Book a
+             Service" CTA, which could now be promoted from `xl` to `lg`. --}}
         <div class="flex h-16 items-center justify-between gap-4 lg:gap-2 xl:gap-4">
 
             {{-- Brand --}}
@@ -125,12 +128,13 @@
                     <livewire:customer.cart-count />
                 @endauth
 
-                {{-- Primary CTA. Demoted from `sm` to `xl`: between 640 and
-                     1279px the persistent search field now owns the bar's
-                     spare width, and at `lg` the five-link primary nav is
-                     already tight. On wide desktop there is room for both.
-                     Every service page and the homepage hero carry their own
-                     booking entry, so this is a shortcut, not the only path. --}}
+                {{-- Primary CTA. Held at `xl` and up: between 640 and 1279px
+                     the persistent search field owns the bar's spare width.
+                     With the primary nav down to two links there is now slack
+                     at `lg` to bring this forward — left as a follow-up so
+                     this change stays a pure nav trim. Every service page and
+                     the homepage hero carry their own booking entry, so this
+                     is a shortcut, not the only path. --}}
                 <a href="{{ route('customer.services.index') }}"
                    class="hidden xl:inline-flex min-h-11 items-center whitespace-nowrap rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm shadow-blue-600/25 transition hover:bg-blue-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600">
                     Book a Service
