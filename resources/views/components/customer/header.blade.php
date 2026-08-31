@@ -24,8 +24,8 @@
     ];
 @endphp
 
-<header class="sticky top-0 z-40 bg-white border-b border-slate-200">
-    <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+<header class="sticky top-0 z-40 border-b border-slate-200 bg-white/85 backdrop-blur-md supports-[backdrop-filter]:bg-white/70">
+    <div class="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         {{-- gap-2 at `lg`, back to gap-4 at `xl`: 1024–1279px is the tightest
              band in this header — the desktop primary nav has appeared (~400px)
              but the viewport has not yet grown enough to carry it alongside the
@@ -38,7 +38,7 @@
             <a href="{{ route('customer.home') }}"
                class="flex min-h-11 shrink-0 items-center gap-2 rounded focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900">
                 <span aria-hidden="true"
-                      class="grid h-9 w-9 place-items-center rounded-lg bg-slate-900 text-sm font-bold text-white">
+                      class="grid h-9 w-9 place-items-center rounded-xl bg-blue-600 text-sm font-bold text-white shadow-sm shadow-blue-600/30">
                     {{ \Illuminate\Support\Str::of($platformName)->substr(0, 1)->upper() }}
                 </span>
                 <span class="text-lg font-bold tracking-tight">{{ $platformName }}</span>
@@ -56,44 +56,23 @@
                     <a href="{{ $href }}"
                        @if ($isCurrent) aria-current="page" @endif
                        @class([
-                           'rounded-md px-3 py-2 text-sm font-medium transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900',
-                           'bg-slate-100 text-slate-900' => $isCurrent,
+                           'rounded-md px-3 py-2 text-sm font-medium transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600',
+                           'bg-blue-50 text-blue-700' => $isCurrent,
                            'text-slate-600 hover:bg-slate-50 hover:text-slate-900' => ! $isCurrent,
                        ])>{{ $item['label'] }}</a>
                 @endforeach
             </nav>
 
-            {{-- Persistent search (Phase C).
-
-                 The breakpoint is `xl`, not `md`, and that is measured rather
-                 than guessed: the row already carries brand + primary nav +
-                 location + language + account + CTA, and a probe across
-                 375/390/768/1024/1280/1440 showed the account link wrapping to
-                 two lines at 1280 and below once a real input was added in the
-                 middle. Below `xl` this collapses to an icon link to the full
-                 search screen — a smaller affordance, but never a broken row.
-
-                 The homepage also carries a larger search box in its hero.
-                 That is deliberate: this one is for searching from anywhere,
-                 including three screens deep in the catalog. Both are the
-                 same component against the same query layer, so they can
-                 never return different results. --}}
-            <div class="hidden min-w-0 flex-1 justify-center px-2 xl:flex">
+            {{-- Persistent search field, from `sm` up. Urban Company and every
+                 comparable services marketplace put a live search box in the
+                 bar itself rather than behind an icon — search is the primary
+                 way people navigate a large catalogue. The same compact
+                 SearchBar island renders again as a full-width second row
+                 under `sm` (below), so search is always one tap away without
+                 depending on the bottom navigation. --}}
+            <div class="hidden flex-1 justify-center px-2 sm:flex lg:justify-end">
                 <livewire:customer.search-bar :compact="true" />
             </div>
-
-            {{-- `hidden sm:inline-flex xl:hidden`, not just `xl:hidden`: below
-                 `sm` this icon is redundant — the fixed bottom navigation
-                 already carries a full-width Search item, right where a thumb
-                 is — and it was also the 46px that pushed the header row past
-                 the viewport at 375px (measured, not guessed). Dropping a
-                 duplicate affordance is a better fix than truncating the
-                 customer's own area name to make room for it. --}}
-            <a href="{{ route('customer.search') }}"
-               class="hidden min-h-11 items-center rounded-md px-2 text-slate-600 transition hover:bg-slate-50 hover:text-slate-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900 sm:inline-flex xl:hidden">
-                <span class="sr-only">Search for a service</span>
-                <x-icon name="magnifying-glass" class="h-5 w-5" />
-            </a>
 
             {{-- Right cluster. min-w-0 so the account name's truncate can
                  actually engage instead of forcing the row wider. --}}
@@ -103,25 +82,12 @@
                      collapses to the icon alone on small screens. --}}
                 <livewire:customer.location-picker />
 
-                {{-- Language. There is no translation infrastructure in this
-                     application yet — no lang/ directory, no translation
-                     files, and every writer of users.preferred_language
-                     hardcodes 'en'. Rendering a working-looking switcher
-                     would be fake functionality, so this states the real
-                     current language and links to the honest placeholder.
-
-                     2xl, not md: between 1024 and 1279px the primary nav has
-                     already appeared and this item pushed the row past the
-                     viewport (caught by the breakpoint probe in Phase B's
-                     browser testing). Phase C added the header search at
-                     `xl`, which took the remaining slack, so this moved out
-                     one further stop. It is the least important item in the
-                     cluster, so it is the one that waits for the width. --}}
-                <a href="{{ route('customer.coming-soon', 'languages') }}"
-                   class="hidden 2xl:inline-flex items-center gap-1.5 whitespace-nowrap rounded-md px-3 py-2 text-sm font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900">
-                    <span aria-hidden="true">🌐</span>
-                    <span>English</span>
-                </a>
+                {{-- The language switcher that used to sit here was removed
+                     when the persistent search field took the bar's spare
+                     width. It was a `2xl`-only link to a placeholder (no
+                     translation infrastructure exists yet) — the least
+                     important item in the cluster, and the one to drop first.
+                     Re-add it as a real control when lang/ files exist. --}}
 
                 {{-- Account --}}
                 @auth
@@ -152,17 +118,34 @@
                     </a>
                 @endauth
 
-                {{-- Primary CTA. Booking itself is still Phase D, so this
-                     sends the customer to the real catalog to choose a
-                     service — the first genuine step of booking, and now a
-                     real screen — rather than to a placeholder. The Book Now
-                     button on a service's own page is where the Phase D
-                     wizard will attach. --}}
+                {{-- Services cart. Its own Livewire island so the count
+                     badge updates live on `cart-updated` without a reload.
+                     Renders nothing for a guest. --}}
+                @auth
+                    <livewire:customer.cart-count />
+                @endauth
+
+                {{-- Primary CTA. Demoted from `sm` to `xl`: between 640 and
+                     1279px the persistent search field now owns the bar's
+                     spare width, and at `lg` the five-link primary nav is
+                     already tight. On wide desktop there is room for both.
+                     Every service page and the homepage hero carry their own
+                     booking entry, so this is a shortcut, not the only path. --}}
                 <a href="{{ route('customer.services.index') }}"
-                   class="hidden sm:inline-flex min-h-11 items-center whitespace-nowrap rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900">
+                   class="hidden xl:inline-flex min-h-11 items-center whitespace-nowrap rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm shadow-blue-600/25 transition hover:bg-blue-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600">
                     Book a Service
                 </a>
             </div>
+        </div>
+
+        {{-- Mobile search row. Under `sm` the field cannot fit in the bar
+             beside the brand and account cluster, so it becomes a full-width
+             second row — the same persistent-search pattern Urban Company
+             uses on mobile. Same compact SearchBar island as the desktop
+             one; the two are independent Livewire components and never share
+             state. --}}
+        <div class="border-t border-slate-200 px-4 py-2 sm:hidden">
+            <livewire:customer.search-bar :compact="true" />
         </div>
     </div>
 </header>

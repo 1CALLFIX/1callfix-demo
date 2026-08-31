@@ -46,8 +46,8 @@
                         <button type="button" wire:click="selectSubcategory(null)"
                                 aria-pressed="{{ $subcategory === null ? 'true' : 'false' }}"
                                 @class([
-                                    'inline-flex min-h-11 shrink-0 items-center whitespace-nowrap rounded-full border px-4 text-sm font-medium transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900',
-                                    'border-slate-900 bg-slate-900 text-white' => $subcategory === null,
+                                    'inline-flex min-h-11 shrink-0 items-center whitespace-nowrap rounded-full border px-4 text-sm font-medium transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600',
+                                    'border-blue-600 bg-blue-600 text-white' => $subcategory === null,
                                     'border-slate-300 bg-white text-slate-700 hover:border-slate-400' => $subcategory !== null,
                                 ])>All</button>
                     </li>
@@ -56,8 +56,8 @@
                             <button type="button" wire:click="selectSubcategory({{ $sub->id }})"
                                     aria-pressed="{{ $subcategory === $sub->id ? 'true' : 'false' }}"
                                     @class([
-                                        'inline-flex min-h-11 shrink-0 items-center whitespace-nowrap rounded-full border px-4 text-sm font-medium transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900',
-                                        'border-slate-900 bg-slate-900 text-white' => $subcategory === $sub->id,
+                                        'inline-flex min-h-11 shrink-0 items-center whitespace-nowrap rounded-full border px-4 text-sm font-medium transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600',
+                                        'border-blue-600 bg-blue-600 text-white' => $subcategory === $sub->id,
                                         'border-slate-300 bg-white text-slate-700 hover:border-slate-400' => $subcategory !== $sub->id,
                                     ])>{{ $sub->name }}</button>
                         </li>
@@ -76,13 +76,13 @@
                 <input id="category-search" type="search"
                        wire:model.live.debounce.300ms="search"
                        placeholder="Search in {{ $category->name }}"
-                       class="customer-search block min-h-11 w-full rounded-lg border border-slate-300 bg-white py-2 pl-10 pr-3 text-sm text-slate-900 placeholder:text-slate-400 focus:border-slate-900 focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-slate-900">
+                       class="customer-search block min-h-11 w-full rounded-lg border border-slate-300 bg-white py-2 pl-10 pr-3 text-sm text-slate-900 placeholder:text-slate-400 focus:border-blue-500 focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-blue-600">
             </div>
 
             <div class="flex items-center gap-3">
                 <label for="category-sort" class="text-sm text-slate-600">Sort</label>
                 <select id="category-sort" wire:model.live="sort"
-                        class="min-h-11 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-slate-900 focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-slate-900">
+                        class="min-h-11 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-blue-500 focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-blue-600">
                     @foreach (\App\Livewire\Customer\Catalog\CategoryShow::SORTS as $value => $label)
                         <option value="{{ $value }}">{{ $label }}</option>
                     @endforeach
@@ -119,7 +119,7 @@
                                       description="Try a different subcategory or a shorter search term." />
                     <div class="pb-8 text-center">
                         <button type="button" wire:click="clearFilters"
-                                class="inline-flex min-h-11 items-center rounded-lg border border-slate-300 px-4 text-sm font-medium text-slate-700 transition hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900">
+                                class="inline-flex min-h-11 items-center rounded-lg border border-slate-300 px-4 text-sm font-medium text-slate-700 transition hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600">
                             Clear filters
                         </button>
                     </div>
@@ -136,7 +136,8 @@
                 <x-customer.banner-carousel :banners="$banners"
                                             id="category-banners"
                                             label="Offers and announcements"
-                                            variant="strip" />
+                                            variant="strip"
+                                            :interval="config('banners.mid_rotation_ms')" />
             </div>
         @endif
     </div>

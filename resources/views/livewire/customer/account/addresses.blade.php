@@ -53,16 +53,16 @@
                 <input wire:model="form.pincode" placeholder="PIN code (optional)" class="rounded-lg border border-slate-300 px-3 py-2 text-sm">
             </div>
             <label class="mt-2 flex items-center gap-2 text-sm text-slate-700">
-                <input type="checkbox" wire:model="form.is_default" class="h-4 w-4 accent-slate-900"> Make this my default address
+                <input type="checkbox" wire:model="form.is_default" class="h-4 w-4 accent-blue-600"> Make this my default address
             </label>
             <div class="mt-3 flex gap-2">
-                <button wire:click="save" class="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800">Save</button>
+                <button wire:click="save" class="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700">Save</button>
                 <button wire:click="$set('showForm', false)" class="rounded-lg px-4 py-2 text-sm text-slate-600 hover:bg-slate-100">Cancel</button>
             </div>
         </div>
     @else
         <button wire:click="startAdd"
-                class="mt-4 inline-flex items-center gap-1.5 rounded-lg border border-dashed border-slate-300 px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900">
+                class="mt-4 inline-flex items-center gap-1.5 rounded-lg border border-dashed border-slate-300 px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600">
             <x-icon name="plus" class="h-4 w-4" /> Add an address
         </button>
     @endif

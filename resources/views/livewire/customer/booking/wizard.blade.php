@@ -13,7 +13,7 @@
 <div class="mx-auto max-w-3xl px-4 py-6 sm:px-6 lg:px-8">
 
     <a href="{{ route('customer.services.show', $service) }}"
-       class="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900">
+       class="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600">
         <x-icon name="arrow-left" class="h-4 w-4" /> Back to {{ $service->name }}
     </a>
 
@@ -26,7 +26,7 @@
             <li class="flex flex-1 items-center gap-2">
                 <span @class([
                     'grid h-8 w-8 shrink-0 place-items-center rounded-full text-xs font-bold',
-                    'bg-slate-900 text-white ring-2 ring-slate-900 ring-offset-2' => $s === $step,
+                    'bg-blue-600 text-white ring-2 ring-blue-600 ring-offset-2' => $s === $step,
                     'bg-emerald-100 text-emerald-700' => $i < $currentIndex,
                     'bg-slate-100 text-slate-500' => $i > $currentIndex,
                 ])>
@@ -75,13 +75,13 @@
                                         $selectedForGroup = (array) ($selected[$group->id] ?? []);
                                         $checked = in_array($option->id, array_map('intval', $selectedForGroup), true);
                                     @endphp
-                                    <label class="flex cursor-pointer items-center justify-between gap-3 rounded-lg border border-slate-200 px-3 py-2.5 text-sm hover:bg-slate-50 has-[:checked]:border-slate-900 has-[:checked]:bg-slate-50">
+                                    <label class="flex cursor-pointer items-center justify-between gap-3 rounded-lg border border-slate-200 px-3 py-2.5 text-sm hover:bg-slate-50 has-[:checked]:border-blue-600 has-[:checked]:bg-blue-50/40 has-[:checked]:bg-slate-50">
                                         <span class="flex items-center gap-2.5">
                                             <input
                                                 type="{{ $isMulti ? 'checkbox' : 'radio' }}"
                                                 @if ($checked) checked @endif
                                                 wire:click="{{ $isMulti ? 'toggleOption' : 'selectOption' }}({{ $group->id }}, {{ $option->id }})"
-                                                class="h-4 w-4 accent-slate-900"
+                                                class="h-4 w-4 accent-blue-600"
                                             >
                                             <span>{{ $option->name }}</span>
                                         </span>
@@ -100,7 +100,7 @@
 
                     <label class="mt-5 block text-sm font-medium text-slate-800" for="customerNote">Anything the professional should know? (optional)</label>
                     <textarea id="customerNote" wire:model="customerNote" rows="3" maxlength="1000"
-                              class="mt-1.5 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900"
+                              class="mt-1.5 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-600"
                               placeholder="Gate code, which floor, what's broken…"></textarea>
                 </section>
             @endif
@@ -119,10 +119,10 @@
 
                     <div class="mt-3 space-y-2">
                         @foreach ($addresses as $address)
-                            <label class="flex cursor-pointer items-start gap-3 rounded-lg border border-slate-200 px-3 py-3 text-sm hover:bg-slate-50 has-[:checked]:border-slate-900 has-[:checked]:bg-slate-50">
+                            <label class="flex cursor-pointer items-start gap-3 rounded-lg border border-slate-200 px-3 py-3 text-sm hover:bg-slate-50 has-[:checked]:border-blue-600 has-[:checked]:bg-blue-50/40 has-[:checked]:bg-slate-50">
                                 <input type="radio" name="addressId" wire:model.live="addressId" value="{{ $address->id }}"
                                        @disabled(! $address->zone_id)
-                                       class="mt-0.5 h-4 w-4 accent-slate-900">
+                                       class="mt-0.5 h-4 w-4 accent-blue-600">
                                 <span class="min-w-0">
                                     <span class="font-medium text-slate-900">{{ $address->label }}</span>
                                     @if ($address->is_default)
@@ -149,7 +149,7 @@
                             </div>
                             @error('newAddress.address_line') <p class="mt-1 text-xs text-rose-600">{{ $message }}</p> @enderror
                             <div class="mt-3 flex gap-2">
-                                <button wire:click="saveNewAddress" class="rounded-lg bg-slate-900 px-3 py-2 text-sm font-semibold text-white hover:bg-slate-800">Save address</button>
+                                <button wire:click="saveNewAddress" class="rounded-lg bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700">Save address</button>
                                 <button wire:click="$set('addingAddress', false)" class="rounded-lg px-3 py-2 text-sm text-slate-600 hover:bg-slate-100">Cancel</button>
                             </div>
                         </div>
@@ -167,14 +167,14 @@
                 <section class="rounded-xl border border-slate-200 p-4 sm:p-5">
                     <h2 class="text-base font-semibold">When should we come?</h2>
                     <div class="mt-3 space-y-2">
-                        <label class="flex cursor-pointer items-center gap-3 rounded-lg border border-slate-200 px-3 py-3 text-sm hover:bg-slate-50 has-[:checked]:border-slate-900 has-[:checked]:bg-slate-50">
-                            <input type="radio" wire:model.live="scheduledAt" value="" class="h-4 w-4 accent-slate-900">
+                        <label class="flex cursor-pointer items-center gap-3 rounded-lg border border-slate-200 px-3 py-3 text-sm hover:bg-slate-50 has-[:checked]:border-blue-600 has-[:checked]:bg-blue-50/40 has-[:checked]:bg-slate-50">
+                            <input type="radio" wire:model.live="scheduledAt" value="" class="h-4 w-4 accent-blue-600">
                             <span><span class="font-medium">As soon as possible</span><span class="block text-slate-600">We match you with the next available professional.</span></span>
                         </label>
                         <div class="rounded-lg border border-slate-200 px-3 py-3">
                             <p class="text-sm font-medium">Pick a date &amp; time</p>
                             <input type="datetime-local" wire:model.live="scheduledAt"
-                                   class="mt-1.5 rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900">
+                                   class="mt-1.5 rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-600">
                         </div>
                     </div>
                     <p class="mt-2 text-xs text-slate-500">Provider availability is confirmed by our system when you book, not in the browser.</p>
@@ -193,11 +193,11 @@
                             @endphp
                             <label @class([
                                 'flex cursor-pointer items-center justify-between gap-3 rounded-lg border px-3 py-3 text-sm',
-                                'border-slate-200 hover:bg-slate-50 has-[:checked]:border-slate-900 has-[:checked]:bg-slate-50' => ! $walletShort,
+                                'border-slate-200 hover:bg-slate-50 has-[:checked]:border-blue-600 has-[:checked]:bg-blue-50/40 has-[:checked]:bg-slate-50' => ! $walletShort,
                                 'border-slate-200 opacity-60' => $walletShort,
                             ])>
                                 <span class="flex items-center gap-2.5">
-                                    <input type="radio" wire:model.live="paymentMethod" value="{{ $key }}" @disabled($walletShort) class="h-4 w-4 accent-slate-900">
+                                    <input type="radio" wire:model.live="paymentMethod" value="{{ $key }}" @disabled($walletShort) class="h-4 w-4 accent-blue-600">
                                     <span>
                                         <span class="font-medium capitalize">{{ $label }}</span>
                                         @if ($key === 'wallet')
@@ -232,16 +232,16 @@
             {{-- Nav buttons --}}
             <div class="mt-4 flex items-center justify-between">
                 @if ($currentIndex > 0)
-                    <button wire:click="back" class="rounded-lg px-4 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900">Back</button>
+                    <button wire:click="back" class="rounded-lg px-4 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600">Back</button>
                 @else
                     <span></span>
                 @endif
 
                 @if ($step !== 'pay')
-                    <button wire:click="next" class="rounded-lg bg-slate-900 px-5 py-2.5 text-sm font-semibold text-white hover:bg-slate-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900">Continue</button>
+                    <button wire:click="next" class="rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600">Continue</button>
                 @else
                     <button wire:click="placeBooking" wire:loading.attr="disabled" wire:target="placeBooking"
-                            class="rounded-lg bg-slate-900 px-5 py-2.5 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900">
+                            class="rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600">
                         <span wire:loading.remove wire:target="placeBooking">Confirm booking</span>
                         <span wire:loading wire:target="placeBooking">Booking…</span>
                     </button>

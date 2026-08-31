@@ -5,7 +5,10 @@ use App\Http\Controllers\Customer\PageController;
 use App\Livewire\Customer\Account\Addresses as CustomerAddresses;
 use App\Livewire\Customer\Auth\Login as CustomerLogin;
 use App\Livewire\Customer\Booking\Wizard as CustomerBookingWizard;
+use App\Livewire\Customer\Bundles\Show as CustomerBundleShow;
+use App\Livewire\Customer\Cart\Index as CustomerCart;
 use App\Livewire\Customer\Catalog\CategoryIndex as CustomerCategoryIndex;
+use App\Livewire\Customer\Checkout as CustomerCheckout;
 use App\Livewire\Customer\Catalog\CategoryShow as CustomerCategoryShow;
 use App\Livewire\Customer\Catalog\ServiceIndex as CustomerServiceIndex;
 use App\Livewire\Customer\Catalog\ServiceShow as CustomerServiceShow;
@@ -113,6 +116,13 @@ Route::middleware('auth')->group(function () {
     // Booking wizard — configure -> address -> schedule -> pay. Attaches to
     // the "Book now" button on a service's own Phase C detail page.
     Route::get('/book/{service}', CustomerBookingWizard::class)->name('customer.book');
+
+    // Services cart -> checkout -> one BookingBundle. The cart groups its
+    // lines into "visits" by subcategory; checkout hands the whole set to
+    // CreateBookingBundleAction (no price ever from the client).
+    Route::get('/cart', CustomerCart::class)->name('customer.cart');
+    Route::get('/checkout', CustomerCheckout::class)->name('customer.checkout');
+    Route::get('/bundles/{bundle}', CustomerBundleShow::class)->name('customer.bundles.show');
 
     // Order history + one order's live status / OTPs / invoice / review / rebook.
     Route::get('/orders', CustomerOrders::class)->name('customer.orders.index');

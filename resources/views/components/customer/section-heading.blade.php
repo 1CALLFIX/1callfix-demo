@@ -29,10 +29,18 @@
     </div>
 
     @if ($link)
+        {{-- A real, prominent action, not muted metadata: every marketplace
+             puts a visible "see all" at the end of a rail heading because the
+             rail itself only ever shows the first handful of cards. Semibold +
+             a chevron affordance; colour still slate pending the accent-palette
+             decision. --}}
         <a href="{{ $link }}"
-           class="inline-flex min-h-11 shrink-0 items-center rounded text-sm font-medium text-slate-700 underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900">
+           class="inline-flex min-h-11 shrink-0 items-center gap-1 rounded text-sm font-semibold text-blue-700 transition hover:gap-1.5 hover:text-blue-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600">
             <span aria-hidden="true">{{ $linkLabel }}</span>
             <span class="sr-only">{{ $linkLabel }} — {{ $title }}</span>
+            <svg aria-hidden="true" viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4">
+                <path fill-rule="evenodd" d="M7.3 4.3a1 1 0 011.4 0l5 5a1 1 0 010 1.4l-5 5a1 1 0 01-1.4-1.4L11.6 10 7.3 5.7a1 1 0 010-1.4z" clip-rule="evenodd" />
+            </svg>
         </a>
     @endif
 </div>

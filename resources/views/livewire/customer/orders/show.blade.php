@@ -12,7 +12,15 @@
     ];
 @endphp
 
-<div class="mx-auto max-w-3xl px-4 py-6 sm:px-6 lg:px-8">
+{{-- While the booking is still in flight (dispatch running, or the job
+     under way) the component re-polls itself every few seconds, so
+     "Finding a professional" -> "assigned" -> "on the way" -> "completed"
+     updates without the customer refreshing. It stops the moment the
+     booking reaches a terminal state — a completed/cancelled booking never
+     changes again. This is real server state each time, not a simulated
+     progression; when a WebSocket broadcaster is added later the poll can
+     be swapped for an Echo listener with no change to this component. --}}
+<div class="mx-auto max-w-3xl px-4 py-6 sm:px-6 lg:px-8" @if ($isInFlight) wire:poll.6s @endif>
 
     <a href="{{ route('customer.orders.index') }}" wire:navigate
        class="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900">
@@ -34,24 +42,65 @@
         <div role="alert" class="mt-4 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">{{ $error }}</div>
     @endif
 
+    {{-- ===================== Finding a professional =====================
+         Shown while dispatch is still hunting (pending / searching_provider).
+         The pulsing dot is decorative and motion-safe only; the words carry
+         the state on their own. `contactedCount` is a real count of distinct
+         professionals offered this booking — omitted at zero rather than
+         shown as "0". --}}
+    @if ($isSearching)
+        <section aria-live="polite"
+                 class="mt-4 overflow-hidden rounded-xl border border-blue-200 bg-blue-50/70 p-4 sm:p-5">
+            <div class="flex items-start gap-3">
+                <span aria-hidden="true" class="relative mt-1 grid h-8 w-8 shrink-0 place-items-center">
+                    <span class="absolute inline-flex h-full w-full rounded-full bg-blue-400/40 motion-safe:animate-ping"></span>
+                    <span class="relative inline-flex h-3 w-3 rounded-full bg-blue-600"></span>
+                </span>
+                <div class="min-w-0">
+                    <h2 class="text-base font-semibold text-slate-900">Finding you a professional</h2>
+                    <p class="mt-1 text-sm text-slate-600">
+                        We're contacting professionals near
+                        {{ $booking->address?->label ? '“'.$booking->address->label.'”' : 'you' }}.
+                        This usually takes a few minutes.
+                        @if ($contactedCount > 0)
+                            <span class="block">{{ $contactedCount }} {{ \Illuminate\Support\Str::plural('professional', $contactedCount) }} contacted so far.</span>
+                        @endif
+                    </p>
+                    <p class="mt-2 text-xs text-slate-500">
+                        You can leave this page — your booking is saved and we'll keep looking.
+                        This screen updates on its own.
+                    </p>
+                </div>
+            </div>
+        </section>
+    @elseif ($isInFlight)
+        {{-- Past the search, still live: a quieter "updates automatically"
+             hint so the customer knows the status will move on its own. --}}
+        <p class="mt-4 flex items-center gap-1.5 text-xs text-slate-500">
+            <span aria-hidden="true" class="h-1.5 w-1.5 rounded-full bg-emerald-500 motion-safe:animate-pulse"></span>
+            This screen updates automatically.
+        </p>
+    @endif
+
     <div class="mt-5 grid gap-5 lg:grid-cols-[1fr_16rem]">
         <div class="min-w-0 space-y-5">
 
             {{-- ===================== OTP codes (display only) ===================== --}}
             @if ($showStartOtp || $showCompletionOtp)
-                <section class="rounded-xl border border-slate-900/10 bg-slate-900 p-4 text-white sm:p-5">
-                    <h2 class="text-sm font-semibold uppercase tracking-wide text-slate-300">Your verification codes</h2>
-                    <p class="mt-1 text-sm text-slate-300">Read these to your professional — never type them in yourself.</p>
-                    <div class="mt-3 grid gap-3 sm:grid-cols-2">
+                <section class="relative overflow-hidden rounded-2xl bg-gradient-to-br from-blue-700 via-blue-600 to-blue-800 p-4 text-white shadow-xl shadow-blue-900/20 sm:p-5">
+                    <div aria-hidden="true" class="pointer-events-none absolute -right-10 -top-14 h-44 w-44 rounded-full bg-white/10 blur-3xl"></div>
+                    <h2 class="relative text-sm font-semibold uppercase tracking-wide text-blue-100">Your verification codes</h2>
+                    <p class="relative mt-1 text-sm text-blue-100">Read these to your professional — never type them in yourself.</p>
+                    <div class="relative mt-3 grid gap-3 sm:grid-cols-2">
                         @if ($showStartOtp)
-                            <div class="rounded-lg bg-white/10 p-3">
-                                <p class="text-xs text-slate-300">When they arrive</p>
+                            <div class="rounded-xl bg-white/10 p-3 ring-1 ring-inset ring-white/15">
+                                <p class="text-xs text-blue-100">When they arrive</p>
                                 <p class="mt-0.5 font-mono text-2xl font-bold tracking-[0.3em]">{{ $booking->start_otp }}</p>
                             </div>
                         @endif
                         @if ($showCompletionOtp)
-                            <div class="rounded-lg bg-white/10 p-3">
-                                <p class="text-xs text-slate-300">When the job is done</p>
+                            <div class="rounded-xl bg-white/10 p-3 ring-1 ring-inset ring-white/15">
+                                <p class="text-xs text-blue-100">When the job is done</p>
                                 <p class="mt-0.5 font-mono text-2xl font-bold tracking-[0.3em]">{{ $booking->completion_otp }}</p>
                             </div>
                         @endif
@@ -69,9 +118,15 @@
                         </span>
                         <div class="min-w-0">
                             <p class="font-medium text-slate-900">{{ $booking->provider->user->name }}</p>
-                            @if ($booking->provider->rating_avg)
-                                <p class="text-xs text-slate-500">★ {{ number_format((float) $booking->provider->rating_avg, 1) }}</p>
-                            @endif
+                            <p class="text-xs text-slate-500">
+                                @if ($booking->provider->rating_avg)
+                                    ★ {{ number_format((float) $booking->provider->rating_avg, 1) }}
+                                @endif
+                                @if ($providerDistanceKm !== null && in_array($booking->status, ['assigned', 'provider_en_route'], true))
+                                    @if ($booking->provider->rating_avg) <span aria-hidden="true">·</span> @endif
+                                    <span>≈ {{ rtrim(rtrim(number_format($providerDistanceKm, 1), '0'), '.') }} km away when assigned</span>
+                                @endif
+                            </p>
                         </div>
                         @if ($booking->provider->user->phone && in_array($booking->status, ['assigned','provider_en_route','in_progress'], true))
                             <a href="tel:{{ $booking->provider->user->phone }}"
@@ -89,7 +144,7 @@
                 <ol class="mt-3 space-y-3">
                     @foreach ($booking->statusHistory as $entry)
                         <li class="flex gap-3 text-sm">
-                            <span aria-hidden="true" class="mt-1 h-2 w-2 shrink-0 rounded-full bg-slate-900"></span>
+                            <span aria-hidden="true" class="mt-1 h-2 w-2 shrink-0 rounded-full bg-blue-600"></span>
                             <span>
                                 <span class="text-slate-900">{{ $timeline[$entry->status] ?? \Illuminate\Support\Str::headline($entry->status) }}</span>
                                 <span class="block text-xs text-slate-400">{{ optional($entry->changed_at)->format('j M, g:i A') }}</span>
@@ -118,7 +173,7 @@
                     <div class="mt-3">
                         @if ($gatewayConfigured)
                             <button wire:click="startPayment"
-                                    class="inline-flex min-h-11 items-center rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900">
+                                    class="inline-flex min-h-11 items-center rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm shadow-blue-600/25 hover:bg-blue-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600">
                                 Pay {{ $currencySymbol }}{{ number_format((float) $booking->price_quoted, 2) }} now
                             </button>
                         @else
@@ -167,9 +222,9 @@
                             </div>
                             @error('rating') <p class="mt-1 text-xs text-rose-600">{{ $message }}</p> @enderror
                             <textarea wire:model="comment" rows="3" maxlength="2000" placeholder="Tell others how it went (optional)"
-                                      class="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900"></textarea>
+                                      class="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-600"></textarea>
                             <button wire:click="submitReview"
-                                    class="mt-2 inline-flex min-h-11 items-center rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800">
+                                    class="mt-2 inline-flex min-h-11 items-center rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm shadow-blue-600/25 hover:bg-blue-700">
                                 Submit review
                             </button>
                         </div>

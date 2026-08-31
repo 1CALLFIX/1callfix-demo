@@ -25,7 +25,7 @@
      lockstep: whatever width the header nav appears at is the width this bar
      disappears at. --}}
 <nav aria-label="Primary mobile"
-     class="lg:hidden fixed inset-x-0 bottom-0 z-40 border-t border-slate-200 bg-white pb-safe">
+     class="lg:hidden fixed inset-x-0 bottom-0 z-40 border-t border-slate-200 bg-white/90 shadow-[0_-8px_24px_-12px_rgba(15,23,42,0.15)] backdrop-blur-md pb-safe supports-[backdrop-filter]:bg-white/75">
     <ul class="grid grid-cols-5">
         @foreach ($items as $item)
             @php
@@ -36,8 +36,8 @@
                 <a href="{{ $href }}"
                    @if ($isCurrent) aria-current="page" @endif
                    @class([
-                       'flex min-h-16 flex-col items-center justify-center gap-1 px-1 py-2 text-[11px] font-medium transition focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-slate-900',
-                       'text-slate-900' => $isCurrent,
+                       'flex min-h-16 flex-col items-center justify-center gap-1 px-1 py-2 text-[11px] font-medium transition focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-blue-600',
+                       'text-blue-600' => $isCurrent,
                        'text-slate-500' => ! $isCurrent,
                    ])>
                     {{-- The active item is distinguished by weight and an
@@ -48,7 +48,7 @@
                     <span aria-hidden="true"
                           @class([
                               'block h-0.5 w-6 rounded-full',
-                              'bg-slate-900' => $isCurrent,
+                              'bg-blue-600' => $isCurrent,
                               'bg-transparent' => ! $isCurrent,
                           ])></span>
                 </a>

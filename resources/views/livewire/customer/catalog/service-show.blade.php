@@ -128,14 +128,14 @@
                                             @php $isSelected = $selectedForGroup->contains($option->id); @endphp
                                             <li>
                                                 <label class="flex min-h-11 cursor-pointer items-center justify-between gap-4 rounded-lg border p-3 transition
-                                                              {{ $isSelected ? 'border-slate-900 bg-slate-50' : 'border-slate-200 hover:border-slate-300' }}">
+                                                              {{ $isSelected ? 'border-blue-600 bg-blue-50/60 ring-1 ring-blue-600' : 'border-slate-200 hover:border-blue-300' }}">
                                                     <span class="flex items-center gap-3">
                                                         <input type="{{ $group->allow_multiple ? 'checkbox' : 'radio' }}"
                                                                name="option-group-{{ $group->id }}"
                                                                value="{{ $option->id }}"
                                                                @checked($isSelected)
                                                                wire:click="{{ $group->allow_multiple ? 'toggleOption' : 'selectOption' }}({{ $group->id }}, {{ $option->id }})"
-                                                               class="h-4 w-4 shrink-0 border-slate-300 text-slate-900 focus:ring-2 focus:ring-slate-900 focus:ring-offset-2">
+                                                               class="h-4 w-4 shrink-0 border-slate-300 text-slate-900 focus:ring-2 focus:ring-blue-600 focus:ring-offset-2">
                                                         <span class="text-sm text-slate-900">{{ $option->name }}</span>
                                                     </span>
 
@@ -258,9 +258,42 @@
                     </p>
 
                     <a href="{{ route('customer.book', $service) }}"
-                       class="mt-4 flex min-h-12 w-full items-center justify-center rounded-lg bg-slate-900 px-6 text-sm font-semibold text-white transition hover:bg-slate-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900">
+                       class="mt-4 flex min-h-12 w-full items-center justify-center rounded-lg bg-blue-600 px-6 text-sm font-semibold text-white transition hover:bg-blue-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600">
                         Book now
                     </a>
+
+                    {{-- ======================= Add to cart =======================
+                         Collect several services and book them together as one
+                         bundle at checkout. Optional preferred time; the option
+                         selection above and the estimate are carried over but
+                         re-priced authoritatively at checkout.
+                    --}}
+                    <div class="mt-3 rounded-lg border border-slate-200 p-3">
+                        <label for="cart-preferred-at" class="block text-xs font-medium text-slate-600">Preferred time (optional)</label>
+                        <input type="datetime-local" id="cart-preferred-at" wire:model="preferredAt"
+                               class="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 focus:border-blue-500 focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-blue-600">
+
+                        <label for="cart-note" class="mt-3 block text-xs font-medium text-slate-600">Note for the professional (optional)</label>
+                        <textarea id="cart-note" wire:model="customerNote" rows="2" maxlength="1000"
+                                  class="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 focus:border-blue-500 focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-blue-600"></textarea>
+
+                        <button type="button" wire:click="addToCart"
+                                class="mt-3 flex min-h-12 w-full items-center justify-center gap-2 rounded-lg border border-blue-600 px-6 text-sm font-semibold text-blue-700 transition hover:bg-blue-600 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600">
+                            <x-icon name="shopping-bag" class="h-4 w-4" />
+                            Add to cart
+                        </button>
+
+                        @error('cart')
+                            <p role="alert" class="mt-2 text-xs text-red-600">{{ $message }}</p>
+                        @enderror
+
+                        @if ($cartNotice !== '')
+                            <p role="status" class="mt-2 text-xs text-emerald-700">
+                                {{ $cartNotice }}
+                                <a href="{{ route('customer.cart') }}" wire:navigate class="font-semibold underline underline-offset-2">View cart</a>
+                            </p>
+                        @endif
+                    </div>
 
                     {{-- ====================== Availability ======================
                          A real count from DispatchService::nearbyForService() —
@@ -306,7 +339,7 @@
                 <span class="block text-lg font-bold text-slate-900">{{ $currencySymbol }}{{ number_format($estimatedTotal, 2) }}</span>
             </span>
             <a href="{{ route('customer.book', $service) }}"
-               class="inline-flex min-h-11 items-center rounded-lg bg-slate-900 px-6 text-sm font-semibold text-white transition hover:bg-slate-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900">
+               class="inline-flex min-h-11 items-center rounded-lg bg-blue-600 px-6 text-sm font-semibold text-white transition hover:bg-blue-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600">
                 Book now
             </a>
         </div>

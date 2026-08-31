@@ -4,6 +4,11 @@
     'label' => 'Promotions',
     'variant' => 'hero',
     'autoplay' => true,
+    // Auto-advance interval in milliseconds, set per call site (see
+    // config/banners.php). Null = let carousel.js use its own 6000ms
+    // default. The value is only ever passed through to a data attribute
+    // here — no timing decision is made in this component.
+    'interval' => null,
 ])
 
 {{--
@@ -65,6 +70,7 @@
 
     <section data-carousel
              data-carousel-autoplay="{{ $autoplay && $multiple ? 'true' : 'false' }}"
+             @if (filled($interval)) data-carousel-interval="{{ (int) $interval }}" @endif
              aria-roledescription="carousel"
              aria-label="{{ $label }}"
              {{ $attributes->merge(['class' => 'relative']) }}>
@@ -132,7 +138,7 @@
                                  height="{{ $isHero ? 420 : 260 }}"
                                  @class([
                                      'w-full object-cover',
-                                     'h-52 sm:h-64 lg:h-[22rem]' => $isHero,
+                                     'h-40 sm:h-64 lg:h-[22rem]' => $isHero,
                                      'h-36 sm:h-44 lg:h-52' => ! $isHero,
                                  ])>
                         @else
@@ -141,7 +147,7 @@
                                  <img> icon. --}}
                             <div @class([
                                 'w-full bg-gradient-to-br from-slate-800 to-slate-900',
-                                'h-52 sm:h-64 lg:h-[22rem]' => $isHero,
+                                'h-40 sm:h-64 lg:h-[22rem]' => $isHero,
                                 'h-36 sm:h-44 lg:h-52' => ! $isHero,
                             ])></div>
                         @endif
@@ -214,7 +220,7 @@
                                 class="grid h-11 w-6 place-items-center focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900">
                             <span class="sr-only">Go to slide {{ $index + 1 }} of {{ $count }}</span>
                             <span data-carousel-pip aria-hidden="true"
-                                  class="block h-2 w-2 rounded-full transition {{ $index === 0 ? 'bg-slate-900' : 'bg-slate-300' }}"></span>
+                                  class="block h-2 w-2 rounded-full transition {{ $index === 0 ? 'w-4 bg-blue-600' : 'bg-slate-300' }}"></span>
                         </button>
                     @endforeach
                 </div>

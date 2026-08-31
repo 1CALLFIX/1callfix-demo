@@ -12,8 +12,8 @@
         @foreach ($filters as $key => $label)
             <button wire:click="$set('filter', '{{ $key }}')"
                     @class([
-                        'rounded-full px-3.5 py-1.5 text-sm font-medium transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900',
-                        'bg-slate-900 text-white' => $filter === $key,
+                        'rounded-full px-3.5 py-1.5 text-sm font-medium transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600',
+                        'bg-blue-600 text-white' => $filter === $key,
                         'bg-slate-100 text-slate-600 hover:bg-slate-200' => $filter !== $key,
                     ])>{{ $label }}</button>
         @endforeach
@@ -21,7 +21,7 @@
 
     @forelse ($bookings as $booking)
         <a href="{{ route('customer.orders.show', $booking) }}" wire:navigate
-           class="mt-3 block rounded-xl border border-slate-200 p-4 transition hover:border-slate-300 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900">
+           class="mt-3 block rounded-xl border border-slate-200 p-4 transition hover:border-slate-300 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600">
             <div class="flex items-start justify-between gap-3">
                 <div class="min-w-0">
                     <p class="truncate font-semibold text-slate-900">{{ $booking->service?->name ?? 'Service' }}</p>
@@ -42,7 +42,7 @@
         <div class="mt-6 rounded-xl border border-dashed border-slate-300 p-8 text-center">
             <p class="text-sm text-slate-600">No bookings here yet.</p>
             <a href="{{ route('customer.services.index') }}" wire:navigate
-               class="mt-3 inline-flex items-center rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800">
+               class="mt-3 inline-flex items-center rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700">
                 Book a service
             </a>
         </div>

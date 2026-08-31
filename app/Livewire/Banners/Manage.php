@@ -478,8 +478,10 @@ class Manage extends Component
             return;
         }
 
-        // banners has no soft deletes and nothing references it, so this is a
-        // real delete — take the image with it rather than orphaning the file.
+        // Soft delete (banners now `use SoftDeletes`): the row is hidden from
+        // every query by the global scope but kept for audit and possible
+        // restore. The stored image is deliberately left in place — deleting
+        // it here would make a future restore render a broken banner.
         $banner = Banner::findOrFail($this->confirmingDeleteId);
 
         if (! auth()->user()->hasPermission('banners.manage', $this->targetScope($banner->franchise_id))) {
@@ -488,9 +490,7 @@ class Manage extends Component
             return;
         }
 
-        $image = $banner->image;
         $banner->delete();
-        $this->deleteStoredImage($image);
 
         $this->confirmingDeleteId = null;
         $this->flashMessage = 'Banner deleted.';

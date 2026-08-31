@@ -6,10 +6,21 @@
 {{--
     Customer homepage (Phase C).
 
-    Section order follows the marketplace information architecture: discovery
-    hero -> hero banner -> what's new -> what's most booked -> mid-page
-    promotional strip -> category collections -> offers -> membership ->
-    trust -> FAQ.
+    Section order follows the marketplace information architecture: hero
+    banner -> discovery hero (headline + location, beside the category grid)
+    -> what's new -> what's most booked -> mid-page promotional strip ->
+    category collections -> offers -> membership -> trust -> FAQ.
+
+    The hero banner is the FIRST thing under the topbar: it is paid
+    commercial-ad inventory (the `top` slot, sold at the premium rate), so it
+    gets the position with the most attention rather than sitting a scroll
+    below the fold.
+
+    There is NO search box on this page — search lives only in the topbar
+    (x-customer.header). Below the paid banner, the discovery hero is a
+    headline + one supporting line + the location action on the left, and
+    the category grid in its own card on the right (stacked on mobile) —
+    the two-column opener every comparable home-services marketplace uses.
 
     EVERY section below is conditional on real data and disappears entirely
     when there is none. There is no section on this page that renders
@@ -24,65 +35,88 @@
 
 <div class="mb-bottom-nav">
 
-    {{-- ===================== Hero / service discovery ===================== --}}
-    <section class="border-b border-slate-200 bg-gradient-to-b from-slate-50 to-white">
-        <div class="mx-auto max-w-7xl px-4 py-10 sm:px-6 sm:py-14 lg:px-8">
-            <div class="mx-auto max-w-2xl text-center">
-                <h1 class="text-3xl font-bold tracking-tight text-slate-900 sm:text-5xl">
-                    What do you need help with?
-                </h1>
-                <p class="mt-4 text-base text-slate-600 sm:text-lg">
-                    {{ 'Verified professionals for repairs, installation and maintenance'
-                        .($cityLabel ? ' across '.$cityLabel : '')
-                        .' — booked in minutes.' }}
-                </p>
-
-                {{-- Real search, wired to the real catalog (Phase C). --}}
-                <div class="mx-auto mt-8 max-w-xl">
-                    <livewire:customer.search-bar />
-                </div>
-
-                <div class="mt-5 flex items-center justify-center gap-2 text-sm text-slate-600">
-                    <x-icon name="map" class="h-4 w-4 text-slate-500" />
-                    @if ($activeZone)
-                        <span>Showing availability for <span class="font-medium text-slate-900">{{ $activeZone->name }}</span></span>
-                    @else
-                        <span>Set your area to see what's available near you</span>
-                    @endif
-                </div>
-            </div>
-
-            {{-- Category shortcuts. A horizontal rail on small screens (a
-                 4x2 grid there would push everything else below the fold),
-                 a grid from `sm` up. --}}
-            @if ($categories->isNotEmpty())
-                <h2 id="shortcuts-heading" class="sr-only">Browse by category</h2>
-                <ul aria-labelledby="shortcuts-heading"
-                    class="mt-10 flex gap-3 overflow-x-auto pb-2 [scrollbar-width:none] sm:grid sm:grid-cols-3 sm:overflow-visible sm:pb-0 lg:grid-cols-4 xl:grid-cols-8 [&::-webkit-scrollbar]:hidden">
-                    @foreach ($categories as $category)
-                        <li class="w-36 shrink-0 sm:w-auto">
-                            <x-customer.category-tile :category="$category" class="min-h-full" />
-                        </li>
-                    @endforeach
-                </ul>
-            @else
-                <div class="mt-10">
-                    <x-ui.empty-state title="No categories published yet"
-                                      description="Service categories will appear here once they are published from the admin panel." />
-                </div>
-            @endif
-        </div>
-    </section>
-
-    {{-- ======================= Banner slot #1 (hero) ======================= --}}
+    {{-- ======================= Banner slot #1 (hero) =======================
+         Paid `top`-slot ad inventory, placed first — directly under the
+         topbar, above the discovery hero. Renders nothing when no banner is
+         live, and the discovery hero below stands on its own in that case.
+    --}}
     @if ($heroBanners->isNotEmpty())
-        <section class="mx-auto max-w-7xl px-4 pt-8 sm:px-6 lg:px-8">
+        <section class="mx-auto max-w-7xl px-4 pt-3 sm:px-6 sm:pt-5 lg:px-8">
             <x-customer.banner-carousel :banners="$heroBanners"
                                         id="hero-banners"
                                         label="Featured promotions"
-                                        variant="hero" />
+                                        variant="hero"
+                                        :interval="config('banners.hero_rotation_ms')" />
         </section>
     @endif
+
+    {{-- ===================== Discovery hero =====================
+         A statement + the category grid, side by side on desktop and
+         stacked on mobile — the layout every large home-services
+         marketplace opens with. The left column carries the one <h1> and
+         the location action; the right column is the category grid in its
+         own card, so a customer can jump straight into a category without
+         scrolling. Search is not here — it lives in the topbar
+         (x-customer.header) at every width now.
+
+         The paid `top` banner slot still renders ABOVE this (premium ad
+         inventory keeps the first position); this hero is what carries the
+         "what is this / where do I start" role.
+    --}}
+    <section class="border-b border-slate-200 bg-gradient-to-b from-blue-50/70 via-white to-white">
+        <div class="mx-auto max-w-7xl px-4 py-8 sm:px-6 sm:py-10 lg:px-8">
+            <div class="grid gap-8 lg:grid-cols-5 lg:items-center">
+
+                {{-- Statement + location --}}
+                <div class="lg:col-span-2">
+                    <h1 class="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl lg:text-4xl">
+                        {{ $cityLabel ? 'Home services across '.$cityLabel : 'Home services, on call' }}
+                    </h1>
+                    <p class="mt-3 max-w-md text-sm text-slate-600 sm:text-base">
+                        Trusted local professionals for cleaning, repairs, appliances and more —
+                        priced up front and booked in a few taps.
+                    </p>
+
+                    {{-- Location as a tappable pill — opens the one header
+                         location picker via a page-level event (no second
+                         modal in the DOM). --}}
+                    <button type="button" wire:click="$dispatch('open-location-picker')"
+                            class="mt-4 inline-flex min-h-11 items-center gap-2 rounded-full border border-slate-300 bg-white px-4 text-sm text-slate-700 shadow-sm transition hover:border-slate-400 hover:text-slate-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900">
+                        <x-icon name="map-pin" class="h-4 w-4 text-slate-500" />
+                        @if ($activeZone)
+                            <span>Availability for <span class="font-semibold text-slate-900">{{ $activeZone->name }}</span></span>
+                        @else
+                            <span>Set your area</span>
+                        @endif
+                        <x-icon name="chevron-down" class="h-3.5 w-3.5 text-slate-400" />
+                    </button>
+                </div>
+
+                {{-- Category grid. A real grid at every width now (was a
+                     horizontal scroll rail under `sm`): four columns, its
+                     own card, matching the homepage category block on every
+                     comparable marketplace. The compact tile variant is
+                     icon-over-label with no per-tile border — the card is
+                     the frame. --}}
+                <div class="lg:col-span-3">
+                    @if ($categories->isNotEmpty())
+                        <h2 id="shortcuts-heading" class="sr-only">Browse by category</h2>
+                        <ul aria-labelledby="shortcuts-heading"
+                            class="grid grid-cols-4 gap-1 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:gap-2 sm:p-4">
+                            @foreach ($categories as $category)
+                                <li>
+                                    <x-customer.category-tile :category="$category" variant="compact" class="h-full" />
+                                </li>
+                            @endforeach
+                        </ul>
+                    @else
+                        <x-ui.empty-state title="No categories published yet"
+                                          description="Service categories will appear here once they are published from the admin panel." />
+                    @endif
+                </div>
+            </div>
+        </div>
+    </section>
 
     {{-- ========================= New & noteworthy ========================= --}}
     @if ($newServices->isNotEmpty())
@@ -119,18 +153,26 @@
         </section>
     @endif
 
-    {{-- ==================== Banner slot #2 (mid-page) ====================
-         A separate, independently-configurable slot — NOT a re-render of the
-         hero's data. Autoplay is on here and the component still honours
-         prefers-reduced-motion, hover/focus pause, and the viewer's own
-         pause button.
+    {{-- ==================== Mid-page banner #1 ====================
+         The `mid` slot is "between modules" (Banner::PLACEMENTS) — plural.
+         Rather than pool every mid banner into one carousel at a single
+         point, the homepage now DISTRIBUTES them one-per-gap down the page,
+         so promotions break up the run of service rails the way every
+         comparable marketplace does. Still a separate, independently-sold
+         slot — never a re-render of the hero's data.
+
+         Each gap takes the next distinct mid banner in order (no repeats).
+         With a single mid banner sold, only this first gap renders — exactly
+         the previous behaviour and position. Extra banners fill the gaps
+         below.
     --}}
-    @if ($midBanners->isNotEmpty())
+    @if ($midBanners->get(0))
         <section class="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
-            <x-customer.banner-carousel :banners="$midBanners"
-                                        id="mid-banners"
+            <x-customer.banner-carousel :banners="collect([$midBanners->get(0)])"
+                                        id="mid-banner-0"
                                         label="Offers and announcements"
-                                        variant="strip" />
+                                        variant="strip"
+                                        :interval="config('banners.mid_rotation_ms')" />
         </section>
     @endif
 
@@ -153,6 +195,18 @@
         @endif
     @endforeach
 
+    {{-- Mid-page banner #2 — the next mid banner after the collections
+         block. Renders only when a second mid banner has been sold. --}}
+    @if ($midBanners->get(1))
+        <section class="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
+            <x-customer.banner-carousel :banners="collect([$midBanners->get(1)])"
+                                        id="mid-banner-1"
+                                        label="More offers and announcements"
+                                        variant="strip"
+                                        :interval="config('banners.mid_rotation_ms')" />
+        </section>
+    @endif
+
     {{-- ============================== Offers ==============================
          Real, currently-active, scope-covering flash sales only. No sales,
          no section — never full-price services under an "Offers" heading.
@@ -170,6 +224,20 @@
         </section>
     @endif
 
+    {{-- Mid-page banner #3 — the last of the distributed mid banners, after
+         the offers rail. Renders only when a third mid banner has been sold;
+         any further mid banners beyond this are not shown (three interruptions
+         down one page is already the ceiling before it reads as clutter). --}}
+    @if ($midBanners->get(2))
+        <section class="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
+            <x-customer.banner-carousel :banners="collect([$midBanners->get(2)])"
+                                        id="mid-banner-2"
+                                        label="Announcements"
+                                        variant="strip"
+                                        :interval="config('banners.mid_rotation_ms')" />
+        </section>
+    @endif
+
     {{-- =========================== Membership ============================
          Real, active `customer_membership` plans. Buying one is Phase E, so
          this states what the plan is and links to the honest placeholder
@@ -177,30 +245,35 @@
     --}}
     @if ($membershipPlans->isNotEmpty())
         <section aria-labelledby="membership-heading" class="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
-            <div class="rounded-2xl bg-slate-900 p-6 sm:p-10">
-                <h2 id="membership-heading" class="text-xl font-bold tracking-tight text-white sm:text-2xl">
-                    {{ $platformName }} membership
-                </h2>
-                <p class="mt-2 max-w-2xl text-sm text-slate-300">
-                    Membership plans available on your account.
-                </p>
+            <div class="relative overflow-hidden rounded-3xl bg-gradient-to-br from-blue-700 via-blue-600 to-blue-800 p-6 shadow-xl shadow-blue-900/20 sm:p-10">
+                {{-- Soft light bloom, purely decorative. --}}
+                <div aria-hidden="true" class="pointer-events-none absolute -right-16 -top-20 h-64 w-64 rounded-full bg-white/10 blur-3xl"></div>
 
-                <ul class="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                    @foreach ($membershipPlans as $plan)
-                        <li class="rounded-xl bg-slate-800 p-5">
-                            <h3 class="text-sm font-semibold text-white">{{ $plan->name }}</h3>
-                            <p class="mt-2 text-2xl font-bold text-white">
-                                {{ $currencySymbol }}{{ number_format((float) $plan->price, 2) }}
-                                <span class="text-xs font-medium text-slate-400">/ {{ $plan->billing_cycle }}</span>
-                            </p>
-                        </li>
-                    @endforeach
-                </ul>
+                <div class="relative">
+                    <h2 id="membership-heading" class="text-xl font-bold tracking-tight text-white sm:text-2xl">
+                        {{ $platformName }} membership
+                    </h2>
+                    <p class="mt-2 max-w-2xl text-sm text-blue-100">
+                        Membership plans available on your account.
+                    </p>
 
-                <a href="{{ route('customer.coming-soon', 'booking') }}"
-                   class="mt-6 inline-flex min-h-11 items-center rounded-lg bg-white px-5 text-sm font-semibold text-slate-900 transition hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">
-                    About membership
-                </a>
+                    <ul class="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                        @foreach ($membershipPlans as $plan)
+                            <li class="rounded-2xl bg-white/10 p-5 ring-1 ring-inset ring-white/15 backdrop-blur-sm">
+                                <h3 class="text-sm font-semibold text-white">{{ $plan->name }}</h3>
+                                <p class="mt-2 text-2xl font-bold text-white">
+                                    {{ $currencySymbol }}{{ number_format((float) $plan->price, 2) }}
+                                    <span class="text-xs font-medium text-blue-200">/ {{ $plan->billing_cycle }}</span>
+                                </p>
+                            </li>
+                        @endforeach
+                    </ul>
+
+                    <a href="{{ route('customer.coming-soon', 'booking') }}"
+                       class="mt-6 inline-flex min-h-11 items-center rounded-lg bg-white px-5 text-sm font-semibold text-blue-700 shadow-sm transition hover:bg-blue-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">
+                        About membership
+                    </a>
+                </div>
             </div>
         </section>
     @endif
@@ -224,8 +297,10 @@
                     ['clock', 'One-time code security', 'Jobs start and finish only when you share your one-time code with the professional.'],
                     ['chat', 'Support when you need it', 'Reach a real person through the help centre if something is not right.'],
                 ] as [$icon, $trustTitle, $trustBody])
-                    <li class="rounded-xl border border-slate-200 p-5">
-                        <x-icon :name="$icon" class="h-6 w-6 text-slate-500" />
+                    <li class="rounded-2xl border border-slate-200 p-5 transition hover:border-blue-200 hover:shadow-md hover:shadow-blue-900/5">
+                        <span class="grid h-10 w-10 place-items-center rounded-xl bg-blue-50 text-blue-600">
+                            <x-icon :name="$icon" class="h-5 w-5" />
+                        </span>
                         <h3 class="mt-3 text-sm font-semibold text-slate-900">{{ $trustTitle }}</h3>
                         <p class="mt-1.5 text-sm leading-relaxed text-slate-600">{{ $trustBody }}</p>
                     </li>
@@ -258,7 +333,7 @@
             <p class="mt-6 text-sm text-slate-600">
                 Still stuck?
                 <a href="{{ route('customer.help') }}"
-                   class="rounded font-medium text-slate-900 underline underline-offset-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900">
+                   class="rounded font-semibold text-blue-700 underline underline-offset-4 transition hover:text-blue-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600">
                     Visit the help centre
                 </a>.
             </p>

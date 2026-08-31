@@ -85,7 +85,7 @@
                                type="search"
                                wire:model.live.debounce.300ms="search"
                                placeholder="Search by area or city"
-                               class="block min-h-11 w-full rounded-lg border border-slate-300 px-3 py-2.5 text-base shadow-sm transition focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-slate-900">
+                               class="block min-h-11 w-full rounded-lg border border-slate-300 px-3 py-2.5 text-base shadow-sm transition focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-blue-600">
                     </div>
                 </div>
 

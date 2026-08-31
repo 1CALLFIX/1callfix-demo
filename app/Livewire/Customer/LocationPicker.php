@@ -7,6 +7,7 @@ use App\Services\Customer\CustomerLocationContext;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Validator;
 use Livewire\Attributes\Locked;
+use Livewire\Attributes\On;
 use Livewire\Component;
 
 /**
@@ -38,6 +39,13 @@ class LocationPicker extends Component
     {
         $this->open = true;
         $this->reset('search', 'outOfCoverage');
+    }
+
+    /** Let another component on the page (the homepage hero pill) open this one picker. */
+    #[On('open-location-picker')]
+    public function openFromElsewhere(): void
+    {
+        $this->openPicker();
     }
 
     public function closePicker(): void

@@ -9,3 +9,4 @@
  */
 
 import './carousel';
+import './search-bar';
