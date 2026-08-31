@@ -316,7 +316,9 @@ class Wizard extends Component
                 'customer_id' => auth()->id(),
                 'service_id' => $service->id,
                 'address_id' => $address->id,
-                'scheduled_at' => $this->scheduledAt ?: null,
+                // Naive wall clock the customer picked -> UTC instant, same
+                // boundary conversion the cart/checkout path applies.
+                'scheduled_at' => \App\Support\BookingSchedule::parse($this->scheduledAt),
                 'payment_method' => $this->paymentMethod,
                 'customer_note' => $this->customerNote ?: null,
             ]);

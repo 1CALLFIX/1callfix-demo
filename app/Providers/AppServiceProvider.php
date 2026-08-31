@@ -117,6 +117,13 @@ class AppServiceProvider extends ServiceProvider
         // actually configures something.
         $this->app->singleton(PaymentGatewayManager::class);
         $this->app->bind(PaymentGateway::class, fn ($app) => $app->make(PaymentGatewayManager::class)->active());
+
+        // Timezone fix pass: TimezoneResolver memoises platformTimezone()
+        // (one Country query for "the" platform wall clock) per instance, so
+        // it must be a singleton for a paginated list that resolves it per
+        // row to stay N+1-safe. Stateless otherwise -- pure display/parse
+        // helper, no request state.
+        $this->app->singleton(\App\Services\TimezoneResolver::class);
     }
 
     /**

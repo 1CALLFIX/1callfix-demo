@@ -30,7 +30,7 @@ class Index extends Component
     public function render()
     {
         $query = Booking::where('customer_id', auth()->id())
-            ->with(['service:id,name,category_id', 'service.category:id,name', 'address:id,label', 'provider.user:id,name'])
+            ->with(['service:id,name,category_id', 'service.category:id,name', 'address:id,label', 'provider.user:id,name', 'franchise:id,country_id', 'franchise.country:id,default_timezone'])
             ->latest();
 
         if ($this->filter === 'active') {

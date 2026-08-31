@@ -44,7 +44,7 @@
             <li class="flex items-center justify-between gap-3 px-4 py-3 text-sm">
                 <div class="min-w-0">
                     <p class="truncate text-slate-800">{{ $txn->reason }}</p>
-                    <p class="text-xs text-slate-400">{{ $txn->created_at->format('j M Y, g:i A') }}@if ($txn->status && $txn->status !== 'completed') · {{ $txn->status }}@endif</p>
+                    <p class="text-xs text-slate-400">{{ app(\App\Services\TimezoneResolver::class)->format($txn->created_at, null, 'j M Y, g:i A') }}@if ($txn->status && $txn->status !== 'completed') · {{ $txn->status }}@endif</p>
                 </div>
                 <span @class(['shrink-0 font-medium', 'text-emerald-600' => $txn->is_credit, 'text-slate-900' => ! $txn->is_credit])>
                     {{ $txn->is_credit ? '+' : '−' }}{{ $currencySymbol }}{{ number_format((float) $txn->amount, 2) }}

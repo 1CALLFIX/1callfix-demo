@@ -30,7 +30,7 @@
     <div class="mt-3 flex flex-wrap items-start justify-between gap-3">
         <div>
             <h1 class="text-2xl font-bold tracking-tight">{{ $booking->service?->name ?? 'Service' }}</h1>
-            <p class="text-sm text-slate-500">{{ $booking->code }} · booked {{ $booking->created_at->format('j M Y, g:i A') }}</p>
+            <p class="text-sm text-slate-500">{{ $booking->code }} · booked {{ app(\App\Services\TimezoneResolver::class)->format($booking->created_at, $booking->franchise, 'j M Y, g:i A') }}</p>
         </div>
         <x-customer.order-status :status="$booking->status" :paid="$booking->payment_status === 'paid'" />
     </div>
@@ -147,7 +147,7 @@
                             <span aria-hidden="true" class="mt-1 h-2 w-2 shrink-0 rounded-full bg-blue-600"></span>
                             <span>
                                 <span class="text-slate-900">{{ $timeline[$entry->status] ?? \Illuminate\Support\Str::headline($entry->status) }}</span>
-                                <span class="block text-xs text-slate-400">{{ optional($entry->changed_at)->format('j M, g:i A') }}</span>
+                                <span class="block text-xs text-slate-400">{{ $entry->changed_at ? app(\App\Services\TimezoneResolver::class)->format($entry->changed_at, $booking->franchise, 'j M, g:i A') : '' }}</span>
                             </span>
                         </li>
                     @endforeach
@@ -238,7 +238,7 @@
             <div class="rounded-xl border border-slate-200 p-4 text-sm">
                 <p class="font-semibold text-slate-900">Details</p>
                 <dl class="mt-2 space-y-1.5 text-slate-600">
-                    <div><dt class="text-slate-400">When</dt><dd class="text-slate-800">{{ $booking->scheduled_at ? $booking->scheduled_at->format('D j M, g:i A') : 'As soon as possible' }}</dd></div>
+                    <div><dt class="text-slate-400">When</dt><dd class="text-slate-800">{{ $booking->scheduled_at ? app(\App\Services\TimezoneResolver::class)->format($booking->scheduled_at, $booking->franchise, 'D j M, g:i A') : 'As soon as possible' }}</dd></div>
                     @if ($booking->address)
                         <div><dt class="text-slate-400">Where</dt><dd class="text-slate-800">{{ $booking->address->label }} — {{ $booking->address->address_line }}</dd></div>
                     @endif

@@ -284,29 +284,49 @@ class TimezoneDisplayTest extends TestCase
 
     // ============================== Fallback / safety ==============================
 
-    public function test_falls_back_to_app_timezone_when_franchise_is_null(): void
+    /**
+     * Timezone fix pass: a null franchise no longer means "give up, show
+     * UTC". Where the platform serves exactly one country (the current
+     * state) that country's own default_timezone IS the answer -- a
+     * platform-wide banner or a customer-web timestamp belongs to that
+     * country's wall clock. See TimezoneResolver::platformTimezone().
+     */
+    public function test_null_franchise_resolves_to_the_single_platform_country_timezone(): void
     {
-        $resolver = app(TimezoneResolver::class);
+        [, , $franchise] = $this->makeFranchiseTree(); // one country: Asia/Kolkata
 
-        $result = $resolver->format($this->knownUtcMoment(), null, 'Y-m-d H:i:s');
+        $result = app(TimezoneResolver::class)->format($this->knownUtcMoment(), null, 'Y-m-d H:i:s');
 
-        $this->assertSame('2026-01-15 19:00:00', $result, 'no franchise to resolve -> falls back to config(app.timezone), UTC, unchanged');
+        $this->assertSame('2026-01-16 00:30:00', $result, 'no franchise -> single-country platform timezone (Asia/Kolkata)');
     }
 
-    public function test_falls_back_to_app_timezone_when_franchise_has_no_country(): void
+    public function test_franchise_without_a_country_resolves_to_the_platform_timezone(): void
     {
         [, , $franchise] = $this->makeFranchiseTree();
-        // Simulate an unresolvable country without violating the real FK
-        // constraint -- a detached, unsaved Franchise instance whose
-        // country relation was never loaded/set resolves the same way a
-        // genuinely broken relation would: country() returns null.
+        // A detached Franchise whose country relation resolves to null --
+        // same shape as a genuinely broken relation.
         $orphanFranchise = new \App\Models\Franchise($franchise->toArray());
         $orphanFranchise->setRelation('country', null);
 
-        $resolver = app(TimezoneResolver::class);
-        $result = $resolver->format($this->knownUtcMoment(), $orphanFranchise, 'Y-m-d H:i:s');
+        $result = app(TimezoneResolver::class)->format($this->knownUtcMoment(), $orphanFranchise, 'Y-m-d H:i:s');
 
-        $this->assertSame('2026-01-15 19:00:00', $result);
+        $this->assertSame('2026-01-16 00:30:00', $result);
+    }
+
+    /**
+     * The other side of platformTimezone(): once the platform genuinely
+     * serves more than one timezone, "the" platform wall clock is no
+     * longer well defined, so it degrades to config('app.timezone') (UTC)
+     * -- the deliberate scope boundary, not a guess.
+     */
+    public function test_multi_country_platform_falls_back_to_app_timezone_for_a_null_franchise(): void
+    {
+        $this->makeFranchiseTree(); // Asia/Kolkata
+        \App\Models\Country::create(['name' => 'Elsewhere', 'code' => 'ZZ', 'currency_code' => 'USD', 'default_timezone' => 'America/New_York', 'is_active' => true]);
+
+        $result = (new TimezoneResolver())->format($this->knownUtcMoment(), null, 'Y-m-d H:i:s');
+
+        $this->assertSame('2026-01-15 19:00:00', $result, 'multi-timezone platform -> config(app.timezone), UTC, unchanged');
     }
 
     public function test_resolver_never_throws_and_returns_null_for_a_null_moment(): void

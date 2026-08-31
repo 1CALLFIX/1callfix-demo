@@ -3,6 +3,7 @@
 namespace App\Support;
 
 use App\Models\Setting;
+use App\Services\TimezoneResolver;
 use Illuminate\Support\Carbon;
 
 /**
@@ -32,7 +33,12 @@ class BookingSchedule
         }
 
         try {
-            $when = Carbon::parse($raw);
+            // The customer typed a naive wall clock (Asia/Kolkata today);
+            // parse it in that zone so "is it in the past / within the
+            // window" is judged against the customer's real clock, not a
+            // UTC reading 5.5h off. Carbon comparisons are instant-based,
+            // so comparing against now() (UTC) stays correct.
+            $when = Carbon::parse($raw, app(TimezoneResolver::class)->platformTimezone());
         } catch (\Throwable) {
             return 'That does not look like a valid date and time.';
         }
@@ -48,13 +54,15 @@ class BookingSchedule
         return null;
     }
 
-    /** The stored form: null for ASAP, a Carbon otherwise. Assumes validate() already passed. */
+    /**
+     * The stored form: null for ASAP, else a UTC Carbon. The datetime-local
+     * value is a naive wall clock in the customer's timezone (Asia/Kolkata
+     * today); TimezoneResolver::toUtc() interprets it there and converts,
+     * so scheduled_at is stored as a correct UTC instant. Assumes
+     * validate() already passed.
+     */
     public static function parse(?string $raw): ?Carbon
     {
-        if ($raw === null || trim($raw) === '') {
-            return null;
-        }
-
-        return Carbon::parse($raw);
+        return app(TimezoneResolver::class)->toUtc($raw);
     }
 }

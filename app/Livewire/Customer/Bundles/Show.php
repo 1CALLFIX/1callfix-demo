@@ -74,7 +74,7 @@ class Show extends Component
     private function bundle(): BookingBundle
     {
         return BookingBundle::where('customer_id', auth()->id())
-            ->with(['children.service.category'])
+            ->with(['children.service.category', 'children.franchise:id,country_id', 'children.franchise.country:id,default_timezone'])
             ->findOrFail($this->bundleId);
     }
 

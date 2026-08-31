@@ -9,6 +9,7 @@ use App\Models\Setting;
 use App\Models\User;
 use App\Models\Zone;
 use App\Services\AuthorizationService;
+use App\Services\TimezoneResolver;
 use App\Support\Modules;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -226,6 +227,22 @@ class Manage extends Component
         ]);
     }
 
+    /**
+     * A `datetime-local` value the admin typed is a naive wall clock in the
+     * banner's own timezone -- its franchise's country, or the platform
+     * timezone (Asia/Kolkata today) for a franchise-wide banner -- NOT UTC.
+     * Convert at the input boundary so storage stays UTC and the live
+     * surface fires at the wall clock the admin meant. The symmetric
+     * inverse of the display path in manage.blade.php, which already runs
+     * stored values back out through TimezoneResolver.
+     */
+    private function scheduleToUtc(?string $value, ?string $franchiseId): ?\Illuminate\Support\Carbon
+    {
+        $franchise = $franchiseId ? Franchise::with('country')->find($franchiseId) : null;
+
+        return app(TimezoneResolver::class)->toUtc($value, $franchise);
+    }
+
     // ============================= Add New =============================
 
     public function save(): void
@@ -246,8 +263,8 @@ class Manage extends Component
             'category_id' => $this->categoryId ?: null,
             'franchise_id' => $this->franchiseId ?: null,
             'zone_id' => $this->zoneId ?: null,
-            'starts_at' => $this->startsAt ?: null,
-            'expires_at' => $this->expiresAt ?: null,
+            'starts_at' => $this->scheduleToUtc($this->startsAt, $this->franchiseId ?: null),
+            'expires_at' => $this->scheduleToUtc($this->expiresAt, $this->franchiseId ?: null),
             'advertiser_name' => $this->advertiserName ?: null,
             'advertiser_contact' => $this->advertiserContact ?: null,
             // Left blank = house banner, not a sold slot. Deliberately null
@@ -356,7 +373,7 @@ class Manage extends Component
 
     public function edit(int $bannerId): void
     {
-        $banner = Banner::findOrFail($bannerId);
+        $banner = Banner::with('franchise.country')->findOrFail($bannerId);
 
         $this->editBannerId = $banner->id;
         $this->editTitle = $banner->title;
@@ -368,9 +385,12 @@ class Manage extends Component
         $this->editCategoryId = $banner->category_id ? (string) $banner->category_id : '';
         $this->editFranchiseId = $banner->franchise_id ? (string) $banner->franchise_id : '';
         $this->editZoneId = $banner->zone_id ? (string) $banner->zone_id : '';
-        // datetime-local inputs want Y-m-d\TH:i, not Eloquent's default format.
-        $this->editStartsAt = $banner->starts_at?->format('Y-m-d\TH:i') ?? '';
-        $this->editExpiresAt = $banner->expires_at?->format('Y-m-d\TH:i') ?? '';
+        // datetime-local inputs want Y-m-d\TH:i, not Eloquent's default format,
+        // and in the banner's own timezone -- the inverse of scheduleToUtc()
+        // on save, so the form shows the same wall clock the live surface will.
+        $tz = app(TimezoneResolver::class);
+        $this->editStartsAt = $tz->toLocalInput($banner->starts_at, $banner->franchise) ?? '';
+        $this->editExpiresAt = $tz->toLocalInput($banner->expires_at, $banner->franchise) ?? '';
         $this->editAdvertiserName = $banner->advertiser_name ?? '';
         $this->editAdvertiserContact = $banner->advertiser_contact ?? '';
         $this->editPricePaid = $banner->price_paid !== null ? (string) $banner->price_paid : '';
@@ -410,8 +430,8 @@ class Manage extends Component
             'category_id' => $this->editCategoryId ?: null,
             'franchise_id' => $this->editFranchiseId ?: null,
             'zone_id' => $this->editZoneId ?: null,
-            'starts_at' => $this->editStartsAt ?: null,
-            'expires_at' => $this->editExpiresAt ?: null,
+            'starts_at' => $this->scheduleToUtc($this->editStartsAt, $this->editFranchiseId ?: null),
+            'expires_at' => $this->scheduleToUtc($this->editExpiresAt, $this->editFranchiseId ?: null),
             'advertiser_name' => $this->editAdvertiserName ?: null,
             'advertiser_contact' => $this->editAdvertiserContact ?: null,
             'price_paid' => $this->editPricePaid !== '' ? $this->editPricePaid : null,

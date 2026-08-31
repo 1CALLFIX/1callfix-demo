@@ -125,21 +125,33 @@ class BookingWizardTest extends TestCase
     public function test_a_scheduled_booking_stores_the_chosen_time(): void
     {
         ['customer' => $customer, 'address' => $address, 'service' => $service] = $this->world();
-        $when = now()->addDays(2)->setTime(10, 0);
+        // The customer picks a wall clock on their own clock (Asia/Kolkata,
+        // the makeFranchiseTree fixture country). It is stored as the
+        // corresponding UTC instant, not the naive digits -- see
+        // TimezoneResolver / BookingSchedule::parse.
+        $istWallClock = now('Asia/Kolkata')->addDays(2)->setTime(10, 0)->format('Y-m-d\TH:i');
 
         Livewire::actingAs($customer)
             ->test(Wizard::class, ['service' => $service])
             ->set('addressId', $address->id)
-            ->set('scheduledAt', $when->format('Y-m-d\TH:i'))
+            ->set('scheduledAt', $istWallClock)
             ->call('next')->call('next')->call('next')
             ->assertSet('step', 'pay')
             ->set('paymentMethod', 'cash')
             ->call('placeBooking')
             ->assertRedirect();
 
-        $this->assertEquals(
-            $when->format('Y-m-d H:i'),
-            Booking::where('customer_id', $customer->id)->value('scheduled_at')->format('Y-m-d H:i'),
+        $stored = Booking::where('customer_id', $customer->id)->value('scheduled_at');
+
+        $this->assertSame(
+            \Illuminate\Support\Carbon::parse($istWallClock, 'Asia/Kolkata')->utc()->format('Y-m-d H:i'),
+            $stored->format('Y-m-d H:i'),
+            'stored as the UTC instant of the chosen IST wall clock',
+        );
+        $this->assertSame(
+            $istWallClock,
+            $stored->clone()->setTimezone('Asia/Kolkata')->format('Y-m-d\TH:i'),
+            'reads back as exactly the wall clock the customer picked',
         );
     }
 

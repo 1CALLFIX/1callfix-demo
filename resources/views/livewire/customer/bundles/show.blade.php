@@ -46,7 +46,7 @@
                     </a>
                     <p class="text-xs text-slate-500">
                         {{ $child->service->category?->name }} ·
-                        {{ $child->scheduled_at ? $child->scheduled_at->format('j M, g:i A') : 'ASAP' }} ·
+                        {{ $child->scheduled_at ? app(\App\Services\TimezoneResolver::class)->format($child->scheduled_at, $child->franchise, 'j M, g:i A') : 'ASAP' }} ·
                         {{ ucfirst(str_replace('_', ' ', $child->status)) }}
                     </p>
                 </div>

@@ -8,6 +8,7 @@ use App\Models\Setting;
 use App\Services\Customer\CatalogPresenter;
 use App\Services\Customer\CustomerLocationContext;
 use App\Services\Customer\ServiceCartService;
+use App\Services\TimezoneResolver;
 use App\Services\WalletService;
 use App\Support\BookingSchedule;
 use Illuminate\Support\Str;
@@ -64,8 +65,11 @@ class Checkout extends Component
             return;
         }
 
+        $tz = app(TimezoneResolver::class);
         foreach ($cart->itemsFor(auth()->user()) as $item) {
-            $this->schedules[$item->id] = $item->scheduled_at?->format('Y-m-d\TH:i') ?? '';
+            // Stored UTC -> the customer's own wall clock for the
+            // datetime-local field, the inverse of BookingSchedule::parse().
+            $this->schedules[$item->id] = $tz->toLocalInput($item->scheduled_at) ?? '';
         }
 
         $this->addressId = Address::where('user_id', auth()->id())

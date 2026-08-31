@@ -25,13 +25,13 @@
             <div class="flex items-start justify-between gap-3">
                 <div class="min-w-0">
                     <p class="truncate font-semibold text-slate-900">{{ $booking->service?->name ?? 'Service' }}</p>
-                    <p class="text-xs text-slate-500">{{ $booking->code }} · {{ $booking->created_at->format('j M Y') }}</p>
+                    <p class="text-xs text-slate-500">{{ $booking->code }} · {{ app(\App\Services\TimezoneResolver::class)->format($booking->created_at, $booking->franchise, 'j M Y') }}</p>
                 </div>
                 <x-customer.order-status :status="$booking->status" :paid="$booking->payment_status === 'paid'" />
             </div>
             <div class="mt-2 flex items-center justify-between text-sm">
                 <span class="text-slate-600">
-                    {{ $booking->scheduled_at ? $booking->scheduled_at->format('D j M, g:i A') : 'As soon as possible' }}
+                    {{ $booking->scheduled_at ? app(\App\Services\TimezoneResolver::class)->format($booking->scheduled_at, $booking->franchise, 'D j M, g:i A') : 'As soon as possible' }}
                 </span>
                 <span class="font-medium text-slate-900">
                     {{ $currencySymbol }}{{ number_format((float) ($booking->price_final ?? $booking->price_quoted), 2) }}

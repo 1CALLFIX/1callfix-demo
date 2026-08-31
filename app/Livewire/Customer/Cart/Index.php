@@ -4,6 +4,7 @@ namespace App\Livewire\Customer\Cart;
 
 use App\Models\ServiceCartItem;
 use App\Services\Customer\ServiceCartService;
+use App\Services\TimezoneResolver;
 use App\Support\BookingSchedule;
 use Livewire\Component;
 
@@ -28,8 +29,11 @@ class Index extends Component
 
     public function mount(ServiceCartService $cart): void
     {
+        $tz = app(TimezoneResolver::class);
         foreach ($cart->itemsFor(auth()->user()) as $item) {
-            $this->schedules[$item->id] = $item->scheduled_at?->format('Y-m-d\TH:i') ?? '';
+            // Stored UTC -> the customer's own wall clock for the
+            // datetime-local field, the inverse of BookingSchedule::parse().
+            $this->schedules[$item->id] = $tz->toLocalInput($item->scheduled_at) ?? '';
         }
     }
 

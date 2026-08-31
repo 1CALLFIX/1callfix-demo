@@ -340,9 +340,10 @@
                         <td class="px-4 py-2 text-gray-500 text-xs">{{ $banner->targeting }}</td>
                         <td class="px-4 py-2 text-gray-500 text-xs">
                             @if ($banner->starts_at || $banner->expires_at)
-                                {{ $banner->starts_at ? app(\App\Services\TimezoneResolver::class)->format($banner->starts_at, $banner->franchise, 'd M Y') : 'Any time' }}
+                                {{-- Time shown, not date-only: a banner window is set to the hour and a 5.5h IST offset silently rolls a date-only display to the wrong day. Format matches the view-details modal. --}}
+                                {{ $banner->starts_at ? app(\App\Services\TimezoneResolver::class)->format($banner->starts_at, $banner->franchise, 'd M Y, H:i') : 'Any time' }}
                                 &rarr;
-                                {{ $banner->expires_at ? app(\App\Services\TimezoneResolver::class)->format($banner->expires_at, $banner->franchise, 'd M Y') : 'No end' }}
+                                {{ $banner->expires_at ? app(\App\Services\TimezoneResolver::class)->format($banner->expires_at, $banner->franchise, 'd M Y, H:i') : 'No end' }}
                             @else
                                 <span class="text-gray-400">Always on</span>
                             @endif

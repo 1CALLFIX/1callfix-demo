@@ -75,6 +75,7 @@ class Show extends Component
             'statusHistory' => fn ($q) => $q->orderBy('changed_at')->orderBy('id'),
             'dispatchAttempts',
             'review', 'payment', 'bundle.payment',
+            'franchise:id,country_id', 'franchise.country:id,default_timezone',
         ])->findOrFail($this->bookingId);
 
         abort_unless($booking->customer_id === auth()->id(), 404);

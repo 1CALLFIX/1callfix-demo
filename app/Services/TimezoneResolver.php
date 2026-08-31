@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\Country;
 use App\Models\Franchise;
 use Illuminate\Support\Carbon;
 
@@ -43,9 +44,75 @@ use Illuminate\Support\Carbon;
  */
 class TimezoneResolver
 {
+    private ?string $platformTimezoneMemo = null;
+
     public function timezoneFor(?Franchise $franchise): string
     {
-        return $franchise?->country?->default_timezone ?: config('app.timezone');
+        return $franchise?->country?->default_timezone ?: $this->platformTimezone();
+    }
+
+    /**
+     * The timezone to use when there is no franchise to narrow it -- a
+     * platform-wide banner (`franchise_id` is null) or a customer-web
+     * screen that has no franchise resolved yet. Where the platform serves
+     * exactly one country (the current state: India / `Asia/Kolkata`) that
+     * country's own `default_timezone` IS the only correct answer -- it is
+     * the same franchise -> country -> default_timezone chain `timezoneFor()`
+     * already trusts, just started from Country directly. A bare
+     * `config('app.timezone')` (UTC) fallback here is exactly the display
+     * bug this pass removes.
+     *
+     * If the platform ever becomes genuinely multi-country, "the" platform
+     * wall clock is no longer well defined (a global banner has no single
+     * country whose midnight it starts at) and this returns
+     * `config('app.timezone')` -- the same deliberate scope boundary this
+     * class's header already draws for global/city-scoped rows, logged as
+     * a finding to design rather than guessed at here.
+     *
+     * Memoised per instance: bound as a singleton (AppServiceProvider), so
+     * a paginated list resolving this per row issues one query, not N.
+     */
+    public function platformTimezone(): string
+    {
+        return $this->platformTimezoneMemo ??= (function (): string {
+            $zones = Country::query()
+                ->whereNotNull('default_timezone')
+                ->where('default_timezone', '!=', '')
+                ->distinct()
+                ->pluck('default_timezone');
+
+            return $zones->count() === 1 ? (string) $zones->first() : config('app.timezone');
+        })();
+    }
+
+    /**
+     * INPUT boundary -- the inverse of format(). A naive wall-clock string
+     * the user typed (an HTML `datetime-local` value carries no offset) is
+     * interpreted as being in their resolved timezone and returned as the
+     * UTC Carbon to store.
+     *
+     * The `->utc()` is load-bearing: assigning a non-UTC Carbon to an
+     * Eloquent `datetime`-cast attribute stores its LITERAL wall clock, not
+     * the converted instant (verified against Laravel 13) -- i.e. dropping
+     * the `->utc()` reintroduces the very bug this fixes.
+     */
+    public function toUtc(?string $localWallClock, ?Franchise $franchise = null): ?Carbon
+    {
+        if ($localWallClock === null || trim($localWallClock) === '') {
+            return null;
+        }
+
+        return Carbon::parse(trim($localWallClock), $this->timezoneFor($franchise))->utc();
+    }
+
+    /**
+     * A stored UTC moment rendered back as a naive `datetime-local` input
+     * value (`Y-m-d\TH:i`) in the resolved timezone, so an edit form shows
+     * the operator the same wall clock the live surface will show.
+     */
+    public function toLocalInput($moment, ?Franchise $franchise = null): ?string
+    {
+        return $this->format($moment, $franchise, 'Y-m-d\TH:i');
     }
 
     /**
