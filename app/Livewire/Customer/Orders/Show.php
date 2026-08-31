@@ -58,11 +58,22 @@ class Show extends Component
         $this->bookingId = $booking->id;
     }
 
+    /**
+     * Statuses that are still "in flight" — dispatch is running or the job
+     * is under way. The view polls itself only while the booking is one of
+     * these; a completed or cancelled booking never changes again, so it
+     * stops polling rather than hammering the server forever.
+     */
+    private const IN_FLIGHT_STATUSES = [
+        'pending', 'searching_provider', 'assigned', 'provider_en_route', 'in_progress', 'on_hold',
+    ];
+
     private function booking(): Booking
     {
         $booking = Booking::with([
             'service.category', 'address', 'provider.user', 'assignedWorker.user',
             'statusHistory' => fn ($q) => $q->orderBy('changed_at')->orderBy('id'),
+            'dispatchAttempts',
             'review', 'payment', 'bundle.payment',
         ])->findOrFail($this->bookingId);
 
@@ -168,12 +179,31 @@ class Show extends Component
             ? $booking->payment
             : (($booking->bundle?->payment && $booking->bundle->payment->status === 'captured') ? $booking->bundle->payment : null);
 
+        // Dispatch context — all real rows from `dispatch_attempts`, nothing
+        // invented. `contactedCount` is how many distinct professionals have
+        // been offered this booking so far (drives the "we're looking" copy);
+        // `providerDistanceKm` is the Haversine distance DispatchService
+        // recorded on the offer the assigned professional accepted.
+        $contactedCount = $booking->dispatchAttempts->pluck('provider_id')->filter()->unique()->count();
+        $acceptedAttempt = $booking->dispatchAttempts->firstWhere('status', 'accepted');
+        $providerDistanceKm = $acceptedAttempt && $acceptedAttempt->distance_km !== null
+            ? (float) $acceptedAttempt->distance_km
+            : null;
+
         return view('livewire.customer.orders.show', [
             'booking' => $booking,
             'currencySymbol' => $currencySymbol,
             'existingReview' => $booking->review,
             'gatewayConfigured' => app(PaymentGateway::class)->isConfigured(),
             'capturedPaymentId' => $capturedPayment?->id,
+            // The page re-polls itself while this is true (see the blade).
+            'isInFlight' => in_array($booking->status, self::IN_FLIGHT_STATUSES, true),
+            // True while dispatch is still hunting — drives the prominent
+            // "finding a professional" panel.
+            'isSearching' => in_array($booking->status, ['pending', 'searching_provider'], true)
+                && $booking->status !== 'cancelled',
+            'contactedCount' => $contactedCount,
+            'providerDistanceKm' => $providerDistanceKm,
             // Both codes belong to this customer (E5 sends them by SMS on
             // acceptance). Shown here so they can be read to the professional;
             // start_otp is NULLed by E5 once the job has been started.

@@ -9,13 +9,14 @@ use Tests\Feature\Support\BookingFixtureHelpers;
 use Tests\TestCase;
 
 /**
- * Homepage redesign close-out:
- *  - search is icon-triggered at EVERY width — no persistent embedded box in
- *    the header at xl+, and none in the homepage hero
- *  - the hero heading is a single minimal line, not the old
- *    heading + subtext pair
- *  - DOM order: banner first, then the trimmed discovery header, then the
- *    category rail (all before the first service rail)
+ * Homepage header + hero:
+ *  - search is a PERSISTENT field in the header (Urban Company parity): a
+ *    compact box in the bar from `sm` up, plus a full-width row under `sm`.
+ *    No icon toggle, no reveal drawer. Still none in the homepage hero.
+ *  - the hero is a headline + one supporting line + the location action,
+ *    laid out beside the category grid on desktop; exactly one <h1>
+ *  - DOM order: paid banner first, then the discovery hero headline, then
+ *    the category grid (all before the first service rail)
  */
 class HeaderSearchAndHeroTest extends TestCase
 {
@@ -28,23 +29,26 @@ class HeaderSearchAndHeroTest extends TestCase
         return $this->get(route('customer.home'))->assertOk()->getContent();
     }
 
-    public function test_the_header_renders_exactly_one_search_bar_and_it_is_the_icon_toggled_panel(): void
+    public function test_the_header_renders_two_persistent_search_bars_and_no_toggle(): void
     {
         $html = $this->homeHtml();
 
-        // The <form> root of App\Livewire\Customer\SearchBar carries data-search-bar.
+        // The <form> root of App\Livewire\Customer\SearchBar carries
+        // data-search-bar. Two persistent instances now: the compact field
+        // in the bar (sm+) and the full-width row under sm.
         $this->assertSame(
-            1,
+            2,
             substr_count($html, 'data-search-bar'),
-            'There should be exactly one search-bar instance on the homepage (the header toggle panel).',
+            'The header should render two persistent SearchBar islands (bar field + mobile row).',
         );
 
-        $this->assertStringContainsString('data-search-toggle', $html);
-        $this->assertStringContainsString('data-search-drawer', $html);
+        // The reveal drawer and its toggle button are gone.
+        $this->assertStringNotContainsString('data-search-toggle', $html);
+        $this->assertStringNotContainsString('data-search-drawer', $html);
 
-        // The single instance sits after data-search-drawer, i.e. inside the
-        // toggle panel — not as a loose persistent box earlier in the bar.
-        $this->assertStringNotContainsString('data-search-bar', Str::before($html, 'data-search-drawer'));
+        // Both instances live in the header, before <main>.
+        $beforeMain = Str::before($html, '<main');
+        $this->assertSame(2, substr_count($beforeMain, 'data-search-bar'));
     }
 
     public function test_the_homepage_hero_has_no_search_box_of_its_own(): void
@@ -57,7 +61,7 @@ class HeaderSearchAndHeroTest extends TestCase
         $this->assertStringNotContainsString('data-search-input', $main);
     }
 
-    public function test_the_hero_heading_is_the_trimmed_single_line_not_the_old_pair(): void
+    public function test_the_hero_has_one_h1_and_not_the_pre_redesign_copy(): void
     {
         $html = $this->homeHtml();
 
@@ -66,11 +70,12 @@ class HeaderSearchAndHeroTest extends TestCase
 
         $this->assertStringContainsString('Home services, on call', $html);
 
-        // Exactly one <h1> in the document body.
+        // Exactly one <h1> in the document body — the category grid's own
+        // heading (when categories exist) is a visually-hidden <h2>.
         $this->assertSame(1, substr_count($html, '<h1'));
     }
 
-    public function test_dom_order_is_banner_then_trimmed_header_then_category_rail(): void
+    public function test_dom_order_is_banner_then_hero_headline_then_category_grid(): void
     {
         $this->makeBanner('top', ['title' => 'Hero Ad Banner']);
         $category = $this->makeCategory(['name' => 'Cleaning Cat']);
@@ -79,9 +84,9 @@ class HeaderSearchAndHeroTest extends TestCase
         $this->get(route('customer.home'))
             ->assertOk()
             ->assertSeeInOrder([
-                'Hero Ad Banner',          // top banner slot
-                'Home services, on call',  // trimmed discovery header
-                'shortcuts-heading',       // category rail
+                'Hero Ad Banner',          // paid top banner slot
+                'Home services, on call',  // discovery hero headline (left column)
+                'shortcuts-heading',       // category grid (right column)
                 'New &amp; noteworthy',    // first service rail comes after
             ], escape: false);
     }

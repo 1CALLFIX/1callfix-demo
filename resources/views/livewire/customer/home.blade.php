@@ -7,8 +7,8 @@
     Customer homepage (Phase C).
 
     Section order follows the marketplace information architecture: hero
-    banner -> discovery header (one line + location) -> category rail ->
-    what's new -> what's most booked -> mid-page promotional strip ->
+    banner -> discovery hero (headline + location, beside the category grid)
+    -> what's new -> what's most booked -> mid-page promotional strip ->
     category collections -> offers -> membership -> trust -> FAQ.
 
     The hero banner is the FIRST thing under the topbar: it is paid
@@ -17,9 +17,10 @@
     below the fold.
 
     There is NO search box on this page — search lives only in the topbar
-    (x-customer.header). The old hero heading + subtext pair was trimmed to a
-    single short line so the banner does not compete for attention and the
-    category rail clears the fold.
+    (x-customer.header). Below the paid banner, the discovery hero is a
+    headline + one supporting line + the location action on the left, and
+    the category grid in its own card on the right (stacked on mobile) —
+    the two-column opener every comparable home-services marketplace uses.
 
     EVERY section below is conditional on real data and disappears entirely
     when there is none. There is no section on this page that renders
@@ -49,26 +50,38 @@
         </section>
     @endif
 
-    {{-- ===================== Discovery header =====================
-         Trimmed to a single minimal line (Task 6a): the hero banner above
-         now carries the "what is this" role, and search lives only in the
-         topbar (Task 4) — no embedded search box here any more. What is left
-         is a short heading for document structure / SEO and the location
-         action, so the category rail sits near the top of the page.
+    {{-- ===================== Discovery hero =====================
+         A statement + the category grid, side by side on desktop and
+         stacked on mobile — the layout every large home-services
+         marketplace opens with. The left column carries the one <h1> and
+         the location action; the right column is the category grid in its
+         own card, so a customer can jump straight into a category without
+         scrolling. Search is not here — it lives in the topbar
+         (x-customer.header) at every width now.
+
+         The paid `top` banner slot still renders ABOVE this (premium ad
+         inventory keeps the first position); this hero is what carries the
+         "what is this / where do I start" role.
     --}}
     <section class="border-b border-slate-200 bg-gradient-to-b from-slate-50 to-white">
-        <div class="mx-auto max-w-7xl px-4 pt-4 pb-6 sm:px-6 sm:pt-6 sm:pb-8 lg:px-8">
-            <div class="mx-auto flex max-w-2xl flex-col items-center gap-2 text-center">
-                <h1 class="text-base font-semibold tracking-tight text-slate-800 sm:text-lg">
-                    {{ $cityLabel ? 'Home services across '.$cityLabel : 'Home services, on call' }}
-                </h1>
+        <div class="mx-auto max-w-7xl px-4 py-8 sm:px-6 sm:py-10 lg:px-8">
+            <div class="grid gap-8 lg:grid-cols-5 lg:items-center">
 
-                {{-- Location as a tappable pill — opens the one header
-                     location picker via a page-level event (no second modal
-                     in the DOM). --}}
-                <div>
+                {{-- Statement + location --}}
+                <div class="lg:col-span-2">
+                    <h1 class="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl lg:text-4xl">
+                        {{ $cityLabel ? 'Home services across '.$cityLabel : 'Home services, on call' }}
+                    </h1>
+                    <p class="mt-3 max-w-md text-sm text-slate-600 sm:text-base">
+                        Trusted local professionals for cleaning, repairs, appliances and more —
+                        priced up front and booked in a few taps.
+                    </p>
+
+                    {{-- Location as a tappable pill — opens the one header
+                         location picker via a page-level event (no second
+                         modal in the DOM). --}}
                     <button type="button" wire:click="$dispatch('open-location-picker')"
-                            class="inline-flex min-h-11 items-center gap-2 rounded-full border border-slate-300 bg-white px-4 text-sm text-slate-700 shadow-sm transition hover:border-slate-400 hover:text-slate-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900">
+                            class="mt-4 inline-flex min-h-11 items-center gap-2 rounded-full border border-slate-300 bg-white px-4 text-sm text-slate-700 shadow-sm transition hover:border-slate-400 hover:text-slate-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900">
                         <x-icon name="map-pin" class="h-4 w-4 text-slate-500" />
                         @if ($activeZone)
                             <span>Availability for <span class="font-semibold text-slate-900">{{ $activeZone->name }}</span></span>
@@ -78,30 +91,30 @@
                         <x-icon name="chevron-down" class="h-3.5 w-3.5 text-slate-400" />
                     </button>
                 </div>
-            </div>
 
-            {{-- Category shortcuts. A horizontal rail on small screens (a
-                 4x2 grid there would push everything else below the fold),
-                 a grid from `sm` up. `mt-6` (was mt-10): with the tagline
-                 trimmed and the search box gone this rail now clears the
-                 fold on a ~640px-tall mobile viewport (see the measurement
-                 note in the redesign report). --}}
-            @if ($categories->isNotEmpty())
-                <h2 id="shortcuts-heading" class="sr-only">Browse by category</h2>
-                <ul aria-labelledby="shortcuts-heading"
-                    class="mt-4 flex gap-3 overflow-x-auto pb-2 [scrollbar-width:none] sm:grid sm:grid-cols-3 sm:overflow-visible sm:pb-0 lg:grid-cols-4 xl:grid-cols-8 [&::-webkit-scrollbar]:hidden">
-                    @foreach ($categories as $category)
-                        <li class="w-36 shrink-0 sm:w-auto">
-                            <x-customer.category-tile :category="$category" class="min-h-full" />
-                        </li>
-                    @endforeach
-                </ul>
-            @else
-                <div class="mt-10">
-                    <x-ui.empty-state title="No categories published yet"
-                                      description="Service categories will appear here once they are published from the admin panel." />
+                {{-- Category grid. A real grid at every width now (was a
+                     horizontal scroll rail under `sm`): four columns, its
+                     own card, matching the homepage category block on every
+                     comparable marketplace. The compact tile variant is
+                     icon-over-label with no per-tile border — the card is
+                     the frame. --}}
+                <div class="lg:col-span-3">
+                    @if ($categories->isNotEmpty())
+                        <h2 id="shortcuts-heading" class="sr-only">Browse by category</h2>
+                        <ul aria-labelledby="shortcuts-heading"
+                            class="grid grid-cols-4 gap-1 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:gap-2 sm:p-4">
+                            @foreach ($categories as $category)
+                                <li>
+                                    <x-customer.category-tile :category="$category" variant="compact" class="h-full" />
+                                </li>
+                            @endforeach
+                        </ul>
+                    @else
+                        <x-ui.empty-state title="No categories published yet"
+                                          description="Service categories will appear here once they are published from the admin panel." />
+                    @endif
                 </div>
-            @endif
+            </div>
         </div>
     </section>
 
@@ -140,16 +153,23 @@
         </section>
     @endif
 
-    {{-- ==================== Banner slot #2 (mid-page) ====================
-         A separate, independently-configurable slot — NOT a re-render of the
-         hero's data. Autoplay is on here and the component still honours
-         prefers-reduced-motion, hover/focus pause, and the viewer's own
-         pause button.
+    {{-- ==================== Mid-page banner #1 ====================
+         The `mid` slot is "between modules" (Banner::PLACEMENTS) — plural.
+         Rather than pool every mid banner into one carousel at a single
+         point, the homepage now DISTRIBUTES them one-per-gap down the page,
+         so promotions break up the run of service rails the way every
+         comparable marketplace does. Still a separate, independently-sold
+         slot — never a re-render of the hero's data.
+
+         Each gap takes the next distinct mid banner in order (no repeats).
+         With a single mid banner sold, only this first gap renders — exactly
+         the previous behaviour and position. Extra banners fill the gaps
+         below.
     --}}
-    @if ($midBanners->isNotEmpty())
+    @if ($midBanners->get(0))
         <section class="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
-            <x-customer.banner-carousel :banners="$midBanners"
-                                        id="mid-banners"
+            <x-customer.banner-carousel :banners="collect([$midBanners->get(0)])"
+                                        id="mid-banner-0"
                                         label="Offers and announcements"
                                         variant="strip"
                                         :interval="config('banners.mid_rotation_ms')" />
@@ -175,6 +195,18 @@
         @endif
     @endforeach
 
+    {{-- Mid-page banner #2 — the next mid banner after the collections
+         block. Renders only when a second mid banner has been sold. --}}
+    @if ($midBanners->get(1))
+        <section class="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
+            <x-customer.banner-carousel :banners="collect([$midBanners->get(1)])"
+                                        id="mid-banner-1"
+                                        label="More offers and announcements"
+                                        variant="strip"
+                                        :interval="config('banners.mid_rotation_ms')" />
+        </section>
+    @endif
+
     {{-- ============================== Offers ==============================
          Real, currently-active, scope-covering flash sales only. No sales,
          no section — never full-price services under an "Offers" heading.
@@ -189,6 +221,20 @@
 
                 <x-customer.service-rail :cards="$offers" :currency-symbol="$currencySymbol" labelled-by="offers-heading" class="mt-6" />
             </div>
+        </section>
+    @endif
+
+    {{-- Mid-page banner #3 — the last of the distributed mid banners, after
+         the offers rail. Renders only when a third mid banner has been sold;
+         any further mid banners beyond this are not shown (three interruptions
+         down one page is already the ceiling before it reads as clutter). --}}
+    @if ($midBanners->get(2))
+        <section class="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
+            <x-customer.banner-carousel :banners="collect([$midBanners->get(2)])"
+                                        id="mid-banner-2"
+                                        label="Announcements"
+                                        variant="strip"
+                                        :interval="config('banners.mid_rotation_ms')" />
         </section>
     @endif
 

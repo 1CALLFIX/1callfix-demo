@@ -63,17 +63,16 @@
                 @endforeach
             </nav>
 
-            {{-- Search is icon-triggered at every width now (no persistent
-                 embedded box anywhere): this button toggles the panel below
-                 the bar — full-width on mobile, a dropdown anchored under the
-                 icon from `sm` up (resources/js/search-bar.js). Under `sm`
-                 the fixed bottom navigation already carries a full-width
-                 Search item, so the button starts at `sm`. --}}
-            <button type="button" data-search-toggle aria-expanded="false" aria-controls="header-search-drawer"
-                    class="hidden min-h-11 items-center rounded-md px-2 text-slate-600 transition hover:bg-slate-50 hover:text-slate-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900 sm:inline-flex">
-                <span class="sr-only">Search for a service</span>
-                <x-icon name="magnifying-glass" class="h-5 w-5" />
-            </button>
+            {{-- Persistent search field, from `sm` up. Urban Company and every
+                 comparable services marketplace put a live search box in the
+                 bar itself rather than behind an icon — search is the primary
+                 way people navigate a large catalogue. The same compact
+                 SearchBar island renders again as a full-width second row
+                 under `sm` (below), so search is always one tap away without
+                 depending on the bottom navigation. --}}
+            <div class="hidden flex-1 justify-center px-2 sm:flex lg:justify-end">
+                <livewire:customer.search-bar :compact="true" />
+            </div>
 
             {{-- Right cluster. min-w-0 so the account name's truncate can
                  actually engage instead of forcing the row wider. --}}
@@ -83,25 +82,12 @@
                      collapses to the icon alone on small screens. --}}
                 <livewire:customer.location-picker />
 
-                {{-- Language. There is no translation infrastructure in this
-                     application yet — no lang/ directory, no translation
-                     files, and every writer of users.preferred_language
-                     hardcodes 'en'. Rendering a working-looking switcher
-                     would be fake functionality, so this states the real
-                     current language and links to the honest placeholder.
-
-                     2xl, not md: between 1024 and 1279px the primary nav has
-                     already appeared and this item pushed the row past the
-                     viewport (caught by the breakpoint probe in Phase B's
-                     browser testing). Phase C added the header search at
-                     `xl`, which took the remaining slack, so this moved out
-                     one further stop. It is the least important item in the
-                     cluster, so it is the one that waits for the width. --}}
-                <a href="{{ route('customer.coming-soon', 'languages') }}"
-                   class="hidden 2xl:inline-flex items-center gap-1.5 whitespace-nowrap rounded-md px-3 py-2 text-sm font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900">
-                    <span aria-hidden="true">🌐</span>
-                    <span>English</span>
-                </a>
+                {{-- The language switcher that used to sit here was removed
+                     when the persistent search field took the bar's spare
+                     width. It was a `2xl`-only link to a placeholder (no
+                     translation infrastructure exists yet) — the least
+                     important item in the cluster, and the one to drop first.
+                     Re-add it as a real control when lang/ files exist. --}}
 
                 {{-- Account --}}
                 @auth
@@ -139,28 +125,27 @@
                     <livewire:customer.cart-count />
                 @endauth
 
-                {{-- Primary CTA. Booking itself is still Phase D, so this
-                     sends the customer to the real catalog to choose a
-                     service — the first genuine step of booking, and now a
-                     real screen — rather than to a placeholder. The Book Now
-                     button on a service's own page is where the Phase D
-                     wizard will attach. --}}
+                {{-- Primary CTA. Demoted from `sm` to `xl`: between 640 and
+                     1279px the persistent search field now owns the bar's
+                     spare width, and at `lg` the five-link primary nav is
+                     already tight. On wide desktop there is room for both.
+                     Every service page and the homepage hero carry their own
+                     booking entry, so this is a shortcut, not the only path. --}}
                 <a href="{{ route('customer.services.index') }}"
-                   class="hidden sm:inline-flex min-h-11 items-center whitespace-nowrap rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900">
+                   class="hidden xl:inline-flex min-h-11 items-center whitespace-nowrap rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900">
                     Book a Service
                 </a>
             </div>
         </div>
 
-        {{-- The one search surface. Hidden until [data-search-toggle] reveals
-             it: a full-width strip under the bar on mobile, a floating
-             dropdown anchored to the header's right edge from `sm` up. This
-             is now the ONLY search-bar instance the header renders — there
-             is no persistent embedded box at any width. --}}
-        <div id="header-search-drawer" data-search-drawer hidden
-             class="border-t border-slate-200 bg-white px-4 py-3
-                    sm:absolute sm:right-4 sm:top-full sm:z-50 sm:mt-2 sm:w-[26rem] sm:rounded-xl sm:border sm:border-slate-200 sm:border-t sm:px-4 sm:shadow-lg lg:right-6">
-            <livewire:customer.search-bar />
+        {{-- Mobile search row. Under `sm` the field cannot fit in the bar
+             beside the brand and account cluster, so it becomes a full-width
+             second row — the same persistent-search pattern Urban Company
+             uses on mobile. Same compact SearchBar island as the desktop
+             one; the two are independent Livewire components and never share
+             state. --}}
+        <div class="border-t border-slate-200 px-4 py-2 sm:hidden">
+            <livewire:customer.search-bar :compact="true" />
         </div>
     </div>
 </header>

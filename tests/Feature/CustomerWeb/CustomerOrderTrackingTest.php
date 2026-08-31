@@ -5,6 +5,7 @@ namespace Tests\Feature\CustomerWeb;
 use App\Livewire\Customer\Orders\Index as OrdersIndex;
 use App\Livewire\Customer\Orders\Show as OrderShow;
 use App\Models\Booking;
+use App\Models\DispatchAttempt;
 use App\Models\Review;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
@@ -98,6 +99,80 @@ class CustomerOrderTrackingTest extends TestCase
         Livewire::actingAs($me)->test(OrderShow::class, ['booking' => $booking])
             ->assertDontSee('When they arrive')
             ->assertSee('5678'); // completion code still needed
+    }
+
+    // ------------------------------------------------------- live tracking
+
+    public function test_a_searching_booking_shows_the_finding_a_professional_panel_and_polls(): void
+    {
+        $me = $this->makeCustomer();
+        $booking = $this->bookingFor($me, ['status' => 'searching_provider', 'provider_id' => null]);
+
+        Livewire::actingAs($me)->test(OrderShow::class, ['booking' => $booking])
+            ->assertSee('Finding you a professional')
+            ->assertSee('This screen updates on its own')
+            ->assertSeeHtml('wire:poll.6s');
+    }
+
+    public function test_an_assigned_booking_still_polls_but_drops_the_searching_panel(): void
+    {
+        $me = $this->makeCustomer();
+        $booking = $this->bookingFor($me, ['status' => 'assigned']);
+
+        Livewire::actingAs($me)->test(OrderShow::class, ['booking' => $booking])
+            ->assertDontSee('Finding you a professional')
+            ->assertSee('This screen updates automatically')
+            ->assertSeeHtml('wire:poll.6s');
+    }
+
+    public function test_the_searching_panel_reports_how_many_professionals_were_contacted(): void
+    {
+        $me = $this->makeCustomer();
+        $booking = $this->bookingFor($me, ['status' => 'searching_provider', 'provider_id' => null]);
+
+        foreach (range(1, 2) as $i) {
+            DispatchAttempt::create([
+                'booking_id' => $booking->id,
+                'provider_id' => $this->makeProviderIn(
+                    $booking->franchise, $booking->zone
+                )->id,
+                'status' => 'timeout',
+                'distance_km' => 3.5,
+                'notified_at' => now(),
+                'responded_at' => now(),
+            ]);
+        }
+
+        Livewire::actingAs($me)->test(OrderShow::class, ['booking' => $booking->fresh()])
+            ->assertSee('2 professionals contacted so far');
+    }
+
+    public function test_a_terminal_booking_does_not_poll(): void
+    {
+        $me = $this->makeCustomer();
+        $booking = $this->bookingFor($me, ['status' => 'completed', 'completed_at' => now(), 'price_final' => 500]);
+
+        Livewire::actingAs($me)->test(OrderShow::class, ['booking' => $booking])
+            ->assertDontSeeHtml('wire:poll')
+            ->assertDontSee('Finding you a professional');
+    }
+
+    public function test_the_assigned_professional_card_shows_the_recorded_distance(): void
+    {
+        $me = $this->makeCustomer();
+        $booking = $this->bookingFor($me, ['status' => 'assigned']);
+
+        DispatchAttempt::create([
+            'booking_id' => $booking->id,
+            'provider_id' => $booking->provider_id,
+            'status' => 'accepted',
+            'distance_km' => 2.4,
+            'notified_at' => now(),
+            'responded_at' => now(),
+        ]);
+
+        Livewire::actingAs($me)->test(OrderShow::class, ['booking' => $booking->fresh()])
+            ->assertSee('2.4 km away when assigned');
     }
 
     // ------------------------------------------------------------- cancel

@@ -11,8 +11,8 @@ use Tests\Feature\Support\BookingFixtureHelpers;
 use Tests\TestCase;
 
 /**
- * The topbar: the services-cart icon + live count, and the mobile search
- * drawer toggle.
+ * The topbar: the services-cart icon + live count, and the persistent
+ * mobile search row.
  */
 class TopbarCartTest extends TestCase
 {
@@ -57,12 +57,17 @@ class TopbarCartTest extends TestCase
             ->assertDontSee(route('customer.cart'));
     }
 
-    public function test_the_header_carries_the_mobile_search_drawer_toggle(): void
+    public function test_the_header_carries_a_persistent_mobile_search_row(): void
     {
-        $this->get(route('customer.home'))
-            ->assertOk()
-            ->assertSee('data-search-toggle', escape: false)
-            ->assertSee('data-search-drawer', escape: false);
+        // Search is a real field in the bar now, not a toggle: a full-width
+        // row under `sm`, mirrored by a compact field in the bar from `sm`
+        // up. Two independent SearchBar islands, no drawer, no toggle button.
+        $html = $this->get(route('customer.home'))->assertOk()->getContent();
+
+        $this->assertStringNotContainsString('data-search-toggle', $html);
+        $this->assertStringNotContainsString('data-search-drawer', $html);
+        $this->assertSame(2, substr_count($html, 'data-search-bar'));
+        $this->assertStringContainsString('py-2 sm:hidden', $html);
     }
 
     public function test_the_homepage_location_pill_opens_the_picker(): void

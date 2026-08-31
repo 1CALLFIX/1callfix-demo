@@ -12,7 +12,15 @@
     ];
 @endphp
 
-<div class="mx-auto max-w-3xl px-4 py-6 sm:px-6 lg:px-8">
+{{-- While the booking is still in flight (dispatch running, or the job
+     under way) the component re-polls itself every few seconds, so
+     "Finding a professional" -> "assigned" -> "on the way" -> "completed"
+     updates without the customer refreshing. It stops the moment the
+     booking reaches a terminal state — a completed/cancelled booking never
+     changes again. This is real server state each time, not a simulated
+     progression; when a WebSocket broadcaster is added later the poll can
+     be swapped for an Echo listener with no change to this component. --}}
+<div class="mx-auto max-w-3xl px-4 py-6 sm:px-6 lg:px-8" @if ($isInFlight) wire:poll.6s @endif>
 
     <a href="{{ route('customer.orders.index') }}" wire:navigate
        class="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900">
@@ -32,6 +40,46 @@
     @endif
     @if ($error)
         <div role="alert" class="mt-4 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">{{ $error }}</div>
+    @endif
+
+    {{-- ===================== Finding a professional =====================
+         Shown while dispatch is still hunting (pending / searching_provider).
+         The pulsing dot is decorative and motion-safe only; the words carry
+         the state on their own. `contactedCount` is a real count of distinct
+         professionals offered this booking — omitted at zero rather than
+         shown as "0". --}}
+    @if ($isSearching)
+        <section aria-live="polite"
+                 class="mt-4 overflow-hidden rounded-xl border border-blue-200 bg-blue-50/70 p-4 sm:p-5">
+            <div class="flex items-start gap-3">
+                <span aria-hidden="true" class="relative mt-1 grid h-8 w-8 shrink-0 place-items-center">
+                    <span class="absolute inline-flex h-full w-full rounded-full bg-blue-400/40 motion-safe:animate-ping"></span>
+                    <span class="relative inline-flex h-3 w-3 rounded-full bg-blue-600"></span>
+                </span>
+                <div class="min-w-0">
+                    <h2 class="text-base font-semibold text-slate-900">Finding you a professional</h2>
+                    <p class="mt-1 text-sm text-slate-600">
+                        We're contacting professionals near
+                        {{ $booking->address?->label ? '“'.$booking->address->label.'”' : 'you' }}.
+                        This usually takes a few minutes.
+                        @if ($contactedCount > 0)
+                            <span class="block">{{ $contactedCount }} {{ \Illuminate\Support\Str::plural('professional', $contactedCount) }} contacted so far.</span>
+                        @endif
+                    </p>
+                    <p class="mt-2 text-xs text-slate-500">
+                        You can leave this page — your booking is saved and we'll keep looking.
+                        This screen updates on its own.
+                    </p>
+                </div>
+            </div>
+        </section>
+    @elseif ($isInFlight)
+        {{-- Past the search, still live: a quieter "updates automatically"
+             hint so the customer knows the status will move on its own. --}}
+        <p class="mt-4 flex items-center gap-1.5 text-xs text-slate-500">
+            <span aria-hidden="true" class="h-1.5 w-1.5 rounded-full bg-emerald-500 motion-safe:animate-pulse"></span>
+            This screen updates automatically.
+        </p>
     @endif
 
     <div class="mt-5 grid gap-5 lg:grid-cols-[1fr_16rem]">
@@ -69,9 +117,15 @@
                         </span>
                         <div class="min-w-0">
                             <p class="font-medium text-slate-900">{{ $booking->provider->user->name }}</p>
-                            @if ($booking->provider->rating_avg)
-                                <p class="text-xs text-slate-500">★ {{ number_format((float) $booking->provider->rating_avg, 1) }}</p>
-                            @endif
+                            <p class="text-xs text-slate-500">
+                                @if ($booking->provider->rating_avg)
+                                    ★ {{ number_format((float) $booking->provider->rating_avg, 1) }}
+                                @endif
+                                @if ($providerDistanceKm !== null && in_array($booking->status, ['assigned', 'provider_en_route'], true))
+                                    @if ($booking->provider->rating_avg) <span aria-hidden="true">·</span> @endif
+                                    <span>≈ {{ rtrim(rtrim(number_format($providerDistanceKm, 1), '0'), '.') }} km away when assigned</span>
+                                @endif
+                            </p>
                         </div>
                         @if ($booking->provider->user->phone && in_array($booking->status, ['assigned','provider_en_route','in_progress'], true))
                             <a href="tel:{{ $booking->provider->user->phone }}"

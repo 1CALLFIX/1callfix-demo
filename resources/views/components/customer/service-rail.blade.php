@@ -6,14 +6,21 @@
 ])
 
 {{--
-    A horizontal rail of service cards (Phase C).
+    A horizontal rail of service cards (Phase C; peek revision).
 
-    Mobile gets a real horizontal scroller with scroll-snap: the alternative
-    — a 2-up grid — pushes every later homepage section a screen and a half
-    further down, and a rail is the pattern customers already expect from
-    every marketplace app. From `sm` up it becomes an ordinary responsive
-    grid, because horizontal scrolling on a wide screen hides content behind
-    a gesture desktop users do not reach for.
+    This is a horizontal, scroll-snapped rail at EVERY breakpoint — it never
+    becomes a wrapped grid. The next card is always partially visible past the
+    right edge (a "carousel peek" / "partial reveal"): the clipped card is the
+    affordance that tells the customer the row scrolls, with no arrows or "swipe"
+    label taking up space. This matches the pattern every large services
+    marketplace uses for these rows.
+
+    Card widths are a percentage of the rail, stepped up per breakpoint, and
+    always chosen so a fraction of the following card shows:
+      - base   ~2 cards + peek
+      - sm     ~3 cards + peek
+      - lg     ~4 cards + peek
+      - xl     ~5 cards + peek
 
     The scrollbar is hidden visually but the container is still natively
     scrollable — by touch, by trackpad, and by keyboard once a card inside it
@@ -31,9 +38,9 @@
 
 @if ($cards->isNotEmpty())
     <ul @if ($labelledBy) aria-labelledby="{{ $labelledBy }}" @endif
-        {{ $attributes->merge(['class' => 'flex snap-x gap-4 overflow-x-auto pb-2 [scrollbar-width:none] sm:grid sm:grid-cols-2 sm:overflow-visible sm:pb-0 lg:grid-cols-4 [&::-webkit-scrollbar]:hidden']) }}>
+        {{ $attributes->merge(['class' => 'flex snap-x gap-4 overflow-x-auto pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden']) }}>
         @foreach ($cards as $card)
-            <li class="w-64 shrink-0 snap-start sm:w-auto">
+            <li class="w-[47%] shrink-0 grow-0 snap-start sm:w-[31%] lg:w-[23.5%] xl:w-[19%]">
                 <x-customer.service-card :card="$card" :currency-symbol="$currencySymbol" :compact="$compact" />
             </li>
         @endforeach
