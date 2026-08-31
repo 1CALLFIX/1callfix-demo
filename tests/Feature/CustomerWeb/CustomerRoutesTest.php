@@ -43,7 +43,7 @@ class CustomerRoutesTest extends TestCase
         // shell and its empty states rather than erroring.
         $this->get(route('customer.home'))
             ->assertOk()
-            ->assertSeeText('What do you need help with?');
+            ->assertSeeText('Home services, on call');
     }
 
     public function test_the_homepage_renders_for_an_authenticated_customer(): void
@@ -51,7 +51,7 @@ class CustomerRoutesTest extends TestCase
         $this->actingAs($this->makeCustomer())
             ->get(route('customer.home'))
             ->assertOk()
-            ->assertSeeText('What do you need help with?');
+            ->assertSeeText('Home services, on call');
     }
 
     // ==================== Guest redirect split ====================

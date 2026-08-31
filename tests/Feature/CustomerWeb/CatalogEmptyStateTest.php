@@ -42,7 +42,7 @@ class CatalogEmptyStateTest extends TestCase
     public function test_the_homepage_says_so_when_no_category_is_published(): void
     {
         Livewire::test(Home::class)
-            ->assertSee('What do you need help with?')
+            ->assertSee('Home services, on call')
             ->assertSee('No categories published yet');
     }
 

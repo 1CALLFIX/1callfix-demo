@@ -7,14 +7,19 @@
     Customer homepage (Phase C).
 
     Section order follows the marketplace information architecture: hero
-    banner -> discovery hero -> what's new -> what's most booked -> mid-page
-    promotional strip -> category collections -> offers -> membership ->
-    trust -> FAQ.
+    banner -> discovery header (one line + location) -> category rail ->
+    what's new -> what's most booked -> mid-page promotional strip ->
+    category collections -> offers -> membership -> trust -> FAQ.
 
     The hero banner is the FIRST thing under the topbar: it is paid
     commercial-ad inventory (the `top` slot, sold at the premium rate), so it
     gets the position with the most attention rather than sitting a scroll
     below the fold.
+
+    There is NO search box on this page — search lives only in the topbar
+    (x-customer.header). The old hero heading + subtext pair was trimmed to a
+    single short line so the banner does not compete for attention and the
+    category rail clears the fold.
 
     EVERY section below is conditional on real data and disappears entirely
     when there is none. There is no section on this page that renders
@@ -35,7 +40,7 @@
          live, and the discovery hero below stands on its own in that case.
     --}}
     @if ($heroBanners->isNotEmpty())
-        <section class="mx-auto max-w-7xl px-4 pt-4 sm:px-6 sm:pt-6 lg:px-8">
+        <section class="mx-auto max-w-7xl px-4 pt-3 sm:px-6 sm:pt-5 lg:px-8">
             <x-customer.banner-carousel :banners="$heroBanners"
                                         id="hero-banners"
                                         label="Featured promotions"
@@ -44,28 +49,24 @@
         </section>
     @endif
 
-    {{-- ===================== Hero / service discovery ===================== --}}
+    {{-- ===================== Discovery header =====================
+         Trimmed to a single minimal line (Task 6a): the hero banner above
+         now carries the "what is this" role, and search lives only in the
+         topbar (Task 4) — no embedded search box here any more. What is left
+         is a short heading for document structure / SEO and the location
+         action, so the category rail sits near the top of the page.
+    --}}
     <section class="border-b border-slate-200 bg-gradient-to-b from-slate-50 to-white">
-        <div class="mx-auto max-w-7xl px-4 pt-8 pb-10 sm:px-6 sm:pt-10 sm:pb-14 lg:px-8">
-            <div class="mx-auto max-w-2xl text-center">
-                <h1 class="text-3xl font-bold tracking-tight text-slate-900 sm:text-5xl">
-                    What do you need help with?
+        <div class="mx-auto max-w-7xl px-4 pt-4 pb-6 sm:px-6 sm:pt-6 sm:pb-8 lg:px-8">
+            <div class="mx-auto flex max-w-2xl flex-col items-center gap-2 text-center">
+                <h1 class="text-base font-semibold tracking-tight text-slate-800 sm:text-lg">
+                    {{ $cityLabel ? 'Home services across '.$cityLabel : 'Home services, on call' }}
                 </h1>
-                <p class="mt-4 text-base text-slate-600 sm:text-lg">
-                    {{ 'Verified professionals for repairs, installation and maintenance'
-                        .($cityLabel ? ' across '.$cityLabel : '')
-                        .' — booked in minutes.' }}
-                </p>
 
-                {{-- Real search, wired to the real catalog (Phase C). --}}
-                <div class="mx-auto mt-8 max-w-xl">
-                    <livewire:customer.search-bar />
-                </div>
-
-                {{-- Location as a tappable pill — one clear action near the
-                     top, opening the single header location picker via a
-                     page-level event (no second modal in the DOM). --}}
-                <div class="mt-5 flex justify-center">
+                {{-- Location as a tappable pill — opens the one header
+                     location picker via a page-level event (no second modal
+                     in the DOM). --}}
+                <div>
                     <button type="button" wire:click="$dispatch('open-location-picker')"
                             class="inline-flex min-h-11 items-center gap-2 rounded-full border border-slate-300 bg-white px-4 text-sm text-slate-700 shadow-sm transition hover:border-slate-400 hover:text-slate-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900">
                         <x-icon name="map-pin" class="h-4 w-4 text-slate-500" />
@@ -81,11 +82,14 @@
 
             {{-- Category shortcuts. A horizontal rail on small screens (a
                  4x2 grid there would push everything else below the fold),
-                 a grid from `sm` up. --}}
+                 a grid from `sm` up. `mt-6` (was mt-10): with the tagline
+                 trimmed and the search box gone this rail now clears the
+                 fold on a ~640px-tall mobile viewport (see the measurement
+                 note in the redesign report). --}}
             @if ($categories->isNotEmpty())
                 <h2 id="shortcuts-heading" class="sr-only">Browse by category</h2>
                 <ul aria-labelledby="shortcuts-heading"
-                    class="mt-10 flex gap-3 overflow-x-auto pb-2 [scrollbar-width:none] sm:grid sm:grid-cols-3 sm:overflow-visible sm:pb-0 lg:grid-cols-4 xl:grid-cols-8 [&::-webkit-scrollbar]:hidden">
+                    class="mt-4 flex gap-3 overflow-x-auto pb-2 [scrollbar-width:none] sm:grid sm:grid-cols-3 sm:overflow-visible sm:pb-0 lg:grid-cols-4 xl:grid-cols-8 [&::-webkit-scrollbar]:hidden">
                     @foreach ($categories as $category)
                         <li class="w-36 shrink-0 sm:w-auto">
                             <x-customer.category-tile :category="$category" class="min-h-full" />

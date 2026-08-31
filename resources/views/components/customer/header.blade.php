@@ -25,7 +25,7 @@
 @endphp
 
 <header class="sticky top-0 z-40 bg-white border-b border-slate-200">
-    <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+    <div class="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         {{-- gap-2 at `lg`, back to gap-4 at `xl`: 1024–1279px is the tightest
              band in this header — the desktop primary nav has appeared (~400px)
              but the viewport has not yet grown enough to carry it alongside the
@@ -63,32 +63,14 @@
                 @endforeach
             </nav>
 
-            {{-- Persistent search (Phase C).
-
-                 The breakpoint is `xl`, not `md`, and that is measured rather
-                 than guessed: the row already carries brand + primary nav +
-                 location + language + account + CTA, and a probe across
-                 375/390/768/1024/1280/1440 showed the account link wrapping to
-                 two lines at 1280 and below once a real input was added in the
-                 middle. Below `xl` this collapses to an icon link to the full
-                 search screen — a smaller affordance, but never a broken row.
-
-                 The homepage also carries a larger search box in its hero.
-                 That is deliberate: this one is for searching from anywhere,
-                 including three screens deep in the catalog. Both are the
-                 same component against the same query layer, so they can
-                 never return different results. --}}
-            <div class="hidden min-w-0 flex-1 justify-center px-2 xl:flex">
-                <livewire:customer.search-bar :compact="true" />
-            </div>
-
-            {{-- Below `xl` the persistent search box does not fit the row, so
-                 this button expands the same component in a drawer beneath
-                 the bar instead (toggled by resources/js/search-bar.js).
-                 `sm:inline-flex`: under `sm` the fixed bottom navigation
-                 already carries a full-width Search item. --}}
+            {{-- Search is icon-triggered at every width now (no persistent
+                 embedded box anywhere): this button toggles the panel below
+                 the bar — full-width on mobile, a dropdown anchored under the
+                 icon from `sm` up (resources/js/search-bar.js). Under `sm`
+                 the fixed bottom navigation already carries a full-width
+                 Search item, so the button starts at `sm`. --}}
             <button type="button" data-search-toggle aria-expanded="false" aria-controls="header-search-drawer"
-                    class="hidden min-h-11 items-center rounded-md px-2 text-slate-600 transition hover:bg-slate-50 hover:text-slate-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900 sm:inline-flex xl:hidden">
+                    class="hidden min-h-11 items-center rounded-md px-2 text-slate-600 transition hover:bg-slate-50 hover:text-slate-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900 sm:inline-flex">
                 <span class="sr-only">Search for a service</span>
                 <x-icon name="magnifying-glass" class="h-5 w-5" />
             </button>
@@ -170,11 +152,15 @@
             </div>
         </div>
 
-        {{-- Mobile / mid-width search drawer. Hidden until [data-search-toggle]
-             reveals it; holds the same compact search component the `xl` bar
-             uses. --}}
-        <div id="header-search-drawer" data-search-drawer hidden class="border-t border-slate-200 py-3 xl:hidden">
-            <livewire:customer.search-bar :compact="true" />
+        {{-- The one search surface. Hidden until [data-search-toggle] reveals
+             it: a full-width strip under the bar on mobile, a floating
+             dropdown anchored to the header's right edge from `sm` up. This
+             is now the ONLY search-bar instance the header renders — there
+             is no persistent embedded box at any width. --}}
+        <div id="header-search-drawer" data-search-drawer hidden
+             class="border-t border-slate-200 bg-white px-4 py-3
+                    sm:absolute sm:right-4 sm:top-full sm:z-50 sm:mt-2 sm:w-[26rem] sm:rounded-xl sm:border sm:border-slate-200 sm:border-t sm:px-4 sm:shadow-lg lg:right-6">
+            <livewire:customer.search-bar />
         </div>
     </div>
 </header>

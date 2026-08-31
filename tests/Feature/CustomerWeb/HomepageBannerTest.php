@@ -64,7 +64,7 @@ class HomepageBannerTest extends TestCase
     public function test_no_banner_leaves_no_carousel_and_the_discovery_hero_still_stands(): void
     {
         Livewire::test(Home::class)
-            ->assertSee('What do you need help with?')
+            ->assertSee('Home services, on call')
             ->assertDontSee('aria-roledescription="carousel"', escape: false)
             ->assertDontSee('Previous slide');
     }

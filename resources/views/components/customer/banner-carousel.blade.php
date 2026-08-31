@@ -138,7 +138,7 @@
                                  height="{{ $isHero ? 420 : 260 }}"
                                  @class([
                                      'w-full object-cover',
-                                     'h-52 sm:h-64 lg:h-[22rem]' => $isHero,
+                                     'h-40 sm:h-64 lg:h-[22rem]' => $isHero,
                                      'h-36 sm:h-44 lg:h-52' => ! $isHero,
                                  ])>
                         @else
@@ -147,7 +147,7 @@
                                  <img> icon. --}}
                             <div @class([
                                 'w-full bg-gradient-to-br from-slate-800 to-slate-900',
-                                'h-52 sm:h-64 lg:h-[22rem]' => $isHero,
+                                'h-40 sm:h-64 lg:h-[22rem]' => $isHero,
                                 'h-36 sm:h-44 lg:h-52' => ! $isHero,
                             ])></div>
                         @endif
