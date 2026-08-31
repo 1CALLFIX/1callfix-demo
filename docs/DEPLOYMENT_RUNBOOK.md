@@ -251,22 +251,57 @@ a low-risk, no-migration deploy.
 
 ## 4. Installing/updating the Supervisor worker config
 
+**Confirmed path (2026-08-31 deploy):** this CyberPanel server keeps Supervisor
+program configs in **`/etc/supervisord.d/*.ini`**, NOT the Debian-standard
+`/etc/supervisor/conf.d/*.conf`. The repo's `deploy/supervisor/onecallfix-worker.conf`
+installs to **`/etc/supervisord.d/onecallfix-worker.ini`**.
+
 Only needed the first time, or when `deploy/supervisor/onecallfix-worker.conf`
 changes in this repo:
 
 ```bash
-sudo cp deploy/supervisor/onecallfix-worker.conf /etc/supervisor/conf.d/onecallfix-worker.conf
-sudo supervisorctl reread
-sudo supervisorctl update
-sudo supervisorctl restart onecallfix-worker:*
+# run as root (this server's supervisord runs as root; no `sudo` needed once you are root)
+cp /home/1callfix.com/public_html/api/deploy/supervisor/onecallfix-worker.conf \
+   /etc/supervisord.d/onecallfix-worker.ini
+supervisorctl reread
+supervisorctl update
+supervisorctl restart onecallfix-worker:*
+supervisorctl status onecallfix-worker:*        # RUNNING, start time AFTER the deploy
 ```
 
-(Confirm the real Supervisor config directory on this specific
-CyberPanel-managed server before the first real use — `/etc/supervisor/conf.d/`
-is the standard Debian/Ubuntu location this file assumes, but CyberPanel
-may manage Supervisor from a different path. Verify once, then this
-runbook and that file's own header comment are the source of truth going
-forward.)
+### Which program is 1CallFix's — do not touch the others
+
+`supervisorctl status` on this box lists programs from **two different Laravel
+apps** sharing the vhost. Tell them apart by the `command=` path:
+
+| Program | `command=` artisan path | App |
+| --- | --- | --- |
+| `onecallfix-worker:*` | `/home/1callfix.com/public_html/**api**/artisan` | **1CallFix API — this repo.** The only one a 1CallFix deploy restarts. |
+| `queue_manager:*` | `/home/1callfix.com/public_html/artisan` (vhost root) | A separate app at the vhost root. Leave alone. |
+| `laravel_reverb:*` | `/home/1callfix.com/public_html/artisan` (vhost root) | The Reverb WebSocket server **belongs to that root app, not the 1CallFix API.** Whether the API broadcasts at all is a function of its own `.env` (`BROADCAST_CONNECTION` / `REVERB_*`) — do not assume the running Reverb process means 1CallFix broadcasting is wired. Leave alone. |
+
+### Known drift on the live `onecallfix-worker.ini` (observed 2026-08-31)
+
+The server's `/etc/supervisord.d/onecallfix-worker.ini` `command=` line was
+found shorter than this repo's `deploy/supervisor/onecallfix-worker.conf`:
+live was missing the explicit **`database`** connection arg and **`--timeout=120`**,
+and `directory=` / `user=` were not confirmed present. The repo file is the
+declared source of truth (see its own header). Reconcile with:
+
+```bash
+diff <(sed 's/;.*//' /home/1callfix.com/public_html/api/deploy/supervisor/onecallfix-worker.conf) \
+     /etc/supervisord.d/onecallfix-worker.ini
+```
+
+then copy the repo file over as above. Before/after, verify:
+
+- `ls -la /home/1callfix.com/public_html/api/storage/logs/worker.log` — must be
+  owned by `callf1207`, not `root`. A worker with no `user=` under a
+  root supervisord runs as root and leaves root-owned files in `storage/` and
+  `bootstrap/cache/` that the web user then cannot overwrite (see §0).
+- `php artisan tinker --execute="echo config('queue.default');"` — must print
+  `database`, so a `queue:work` with no explicit connection arg still watches
+  the queue the app dispatches to.
 
 ---
 
