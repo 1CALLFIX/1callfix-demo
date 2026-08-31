@@ -53,5 +53,9 @@
     <x-customer.bottom-nav />
 
     @livewireScripts
+    {{-- Auth screens push the Firebase JS SDK bundle here so it loads only
+         where phone-OTP / Google sign-in is actually used, not on every
+         customer page. --}}
+    @stack('scripts')
 </body>
 </html>

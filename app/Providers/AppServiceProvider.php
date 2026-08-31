@@ -2,11 +2,13 @@
 
 namespace App\Providers;
 
+use App\Contracts\FirebaseTokenVerifier;
 use App\Contracts\NarrativeAiAdapter;
 use App\Contracts\PaymentGateway;
 use App\Contracts\PushAdapter;
 use App\Contracts\SmsAdapter;
 use App\Contracts\WhatsAppAdapter;
+use App\Services\Auth\GoogleFirebaseTokenVerifier;
 use App\Models\Booking;
 use App\Models\BookingBundle;
 use App\Models\Franchise;
@@ -45,9 +47,11 @@ use App\Services\Ai\LogNarrativeAiAdapter;
 use App\Services\Payments\PaymentGatewayManager;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
+use Illuminate\Notifications\AnonymousNotifiable;
 use Illuminate\Notifications\Events\NotificationFailed;
 use Illuminate\Notifications\Events\NotificationSent;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 
@@ -124,6 +128,15 @@ class AppServiceProvider extends ServiceProvider
         // row to stay N+1-safe. Stateless otherwise -- pure display/parse
         // helper, no request state.
         $this->app->singleton(\App\Services\TimezoneResolver::class);
+
+        // Auth rebuild — server-side Firebase ID token verification (phone
+        // OTP + Google sign-in). Real implementation talks to Google's
+        // published signing certs; tests bind a fake over this contract
+        // exactly like CapturingSmsAdapter does for SmsAdapter.
+        $this->app->singleton(
+            FirebaseTokenVerifier::class,
+            fn ($app) => new GoogleFirebaseTokenVerifier(config('services.firebase.project_id')),
+        );
     }
 
     /**
@@ -191,7 +204,28 @@ class AppServiceProvider extends ServiceProvider
         // or the FQCN of a custom channel class (SmsChannel::class) -- both
         // via() and this listener need to agree on that shape, so it's
         // normalized to a short code here for a readable audit trail.
+        //
+        // On-demand routed sends (Notification::route(...)->notify(...)) have
+        // an AnonymousNotifiable with no key -- currently only the email-OTP
+        // in OtpService, sent before any User row exists. It gets no
+        // notification_logs row (that table is the user-facing comms audit
+        // trail, scoped by notifiable in the admin panel; a null-keyed row
+        // has nothing to scope by and would break its NOT NULL notifiable_id).
+        // A grep-able app-log line is the cheap stand-in until OTP
+        // deliverability warrants a dedicated mechanism (Phase 2: a light
+        // delivery-status table or a provider webhook).
         Event::listen(function (NotificationSent $event) {
+            if ($event->notifiable instanceof AnonymousNotifiable) {
+                Log::info('Anonymous notification sent', [
+                    'notification' => get_class($event->notification),
+                    'channel' => $this->normalizeChannelName($event->channel),
+                    'route' => $event->notifiable->routes ?? [],
+                    'event' => method_exists($event->notification, 'eventKey') ? $event->notification->eventKey() : null,
+                ]);
+
+                return;
+            }
+
             NotificationLog::create([
                 'notifiable_type' => get_class($event->notifiable),
                 'notifiable_id' => $event->notifiable->getKey(),
@@ -205,6 +239,18 @@ class AppServiceProvider extends ServiceProvider
         });
 
         Event::listen(function (NotificationFailed $event) {
+            if ($event->notifiable instanceof AnonymousNotifiable) {
+                Log::warning('Anonymous notification failed', [
+                    'notification' => get_class($event->notification),
+                    'channel' => $this->normalizeChannelName($event->channel),
+                    'route' => $event->notifiable->routes ?? [],
+                    'event' => method_exists($event->notification, 'eventKey') ? $event->notification->eventKey() : null,
+                    'error' => is_array($event->data ?? null) ? json_encode($event->data) : null,
+                ]);
+
+                return;
+            }
+
             NotificationLog::create([
                 'notifiable_type' => get_class($event->notifiable),
                 'notifiable_id' => $event->notifiable->getKey(),

@@ -2,31 +2,42 @@
 
 namespace App\Services;
 
-use App\Contracts\SmsAdapter;
 use App\Models\Otp;
 use App\Models\Setting;
-use App\Notifications\OtpNotification;
+use App\Notifications\EmailOtpNotification;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Notification;
 
 /**
- * The shared LOGIN/verification OTP engine — see OTP_ARCHITECTURE.md for
- * the Option A/B/C analysis behind why this is separate from, and does
- * NOT touch, the working Service booking start/completion OTP
- * (bookings.start_otp/completion_otp, still generated/verified entirely
- * inside AcceptBookingAction/StartBookingAction/CompleteBookingAction,
- * unmodified by this class).
+ * The custom EMAIL verification / password-reset OTP engine.
  *
- * Security properties: code is hashed at rest (never stored plaintext),
- * one active OTP per (phone, purpose) at a time (generating a new one
- * invalidates any still-pending prior one), attempt-limited with lockout,
- * resend-cooldown enforced, every generate/verify call is auditable via
- * the otps row itself (ip_address/device_identifier/timestamps).
+ * ── History ──────────────────────────────────────────────────────────────
+ * This started life (OTP_ARCHITECTURE.md) as the shared LOGIN OTP engine
+ * for phone numbers, delivering via SmsAdapter. The auth rebuild removed
+ * OTP as a login mechanism entirely: phone verification is now done by
+ * Firebase (client-side, ID token verified server-side by
+ * App\Services\Auth\FirebaseTokenVerifier) and login is password-based.
+ * What remains — and what this class now is — is the ONE thing Firebase
+ * cannot do for us: deliver a short numeric code to an EMAIL address
+ * (Firebase's email flow is a magic link, not a code). It is used for
+ * signup email verification and for password reset by email.
+ *
+ * It is still deliberately NOT the Service booking start/completion OTP —
+ * that remains on bookings.start_otp/completion_otp inside
+ * Accept/Start/CompleteBookingAction, a separate untouched mechanism.
+ *
+ * ── Security properties (unchanged from the phone era) ────────────────────
+ * Code hashed at rest (never stored plaintext); one active code per
+ * (identifier, purpose) at a time (a new request expires any still-pending
+ * prior one); attempt-limited with a hard lock after max_attempts;
+ * resend-cooldown enforced; every generate/verify is auditable via the
+ * otps row itself (ip_address/device_identifier/timestamps).
  */
 class OtpService
 {
-    public function __construct(private SmsAdapter $smsAdapter)
-    {
-    }
+    public const PURPOSE_EMAIL_VERIFY = 'email_verify';
+
+    public const PURPOSE_PASSWORD_RESET = 'password_reset';
 
     private function otpLength(): int
     {
@@ -49,11 +60,14 @@ class OtpService
     }
 
     /**
+     * Send a fresh numeric code to $identifier (an email address) for the
+     * given $purpose.
+     *
      * @throws \RuntimeException if called again before the resend cooldown elapses
      */
-    public function generate(string $phone, string $purpose, ?string $ipAddress = null, ?string $deviceIdentifier = null): Otp
+    public function generate(string $identifier, string $purpose, ?string $ipAddress = null, ?string $deviceIdentifier = null): Otp
     {
-        $recent = Otp::where('phone', $phone)->where('purpose', $purpose)
+        $recent = Otp::where('identifier', $identifier)->where('purpose', $purpose)
             ->whereNotNull('last_sent_at')
             ->latest('last_sent_at')
             ->first();
@@ -63,28 +77,21 @@ class OtpService
             throw new \RuntimeException("Please wait {$wait} more second(s) before requesting another code.");
         }
 
-        // Only one PENDING code per (phone, purpose) at a time -- an old
-        // still-valid code being usable alongside a freshly requested one
-        // is a real (if minor) confusion/security surface, not just a UX
-        // nicety.
-        Otp::where('phone', $phone)->where('purpose', $purpose)
+        // Only one PENDING code per (identifier, purpose) at a time — an old
+        // still-valid code being usable alongside a freshly requested one is
+        // a real (if minor) confusion/security surface.
+        Otp::where('identifier', $identifier)->where('purpose', $purpose)
             ->where('status', Otp::STATUS_PENDING)
             ->update(['status' => Otp::STATUS_EXPIRED]);
 
         $length = $this->otpLength();
         $code = (string) random_int((int) (10 ** ($length - 1)), (int) (10 ** $length) - 1);
 
-        // OTP delivery is SMS, deliberately NOT resolved through the
-        // generic notifications.channels Setting (that governs booking
-        // status/marketing copy and defaults to 'mail' — useless here,
-        // since a phone-only login has no email address to send to). OTP
-        // channel selection is its own concern, not the same one
-        // ChannelResolver was built for.
         $otp = Otp::create([
-            'phone' => $phone,
+            'identifier' => $identifier,
             'code_hash' => Hash::make($code),
             'purpose' => $purpose,
-            'channel' => 'sms',
+            'channel' => 'email',
             'attempt_count' => 0,
             'max_attempts' => $this->maxAttempts(),
             'status' => Otp::STATUS_PENDING,
@@ -94,19 +101,13 @@ class OtpService
             'expires_at' => now()->addSeconds($this->expirySeconds()),
         ]);
 
-        // Direct adapter call, not Laravel's Notification::route() ad-hoc
-        // routing -- verified against this app's actual SmsChannel this
-        // session: it requires the notifiable to expose either
-        // routeNotificationForSms() or a ->phone property, and Laravel's
-        // built-in AnonymousNotifiable (what ->route() returns) has
-        // neither, so an ad-hoc-routed Notification would silently fail to
-        // send here. Calling the SAME SmsAdapter binding directly (still
-        // swappable for a real provider exactly the same way, still routes
-        // through OtpNotification's message copy so it stays one place)
-        // avoids that framework edge case. The plaintext code exists only
-        // transiently in this method's local scope -- never persisted,
-        // never returned to any caller above generate().
-        $this->smsAdapter->send($phone, OtpNotification::smsBody($code, $purpose, $this->expirySeconds()));
+        // On-demand mail routing — there is not necessarily a User row for
+        // this address yet (email-first signup creates the account only
+        // AFTER the code is verified). The plaintext code exists only in
+        // this method's local scope; it is never persisted or returned to
+        // any caller above generate().
+        Notification::route('mail', $identifier)
+            ->notify(new EmailOtpNotification($code, $purpose, $this->expirySeconds()));
 
         return $otp;
     }
@@ -114,23 +115,18 @@ class OtpService
     /**
      * @return array{success:bool, reason:?string, otp:?Otp}
      */
-    public function verify(string $phone, string $purpose, string $submittedCode): array
+    public function verify(string $identifier, string $purpose, string $submittedCode): array
     {
-        // The latest OTP for this (phone, purpose) REGARDLESS of status —
-        // not status=pending only. Filtering to pending here was a real
-        // bug (found via testing): once a code got locked mid-verification,
-        // this query could no longer find it at all, so every subsequent
-        // attempt (including the correct code, after lockout) came back
-        // 'not_found' instead of 'locked' — the wrong, less informative
-        // response, and a coincidentally-harmless but incorrect one.
-        $otp = Otp::where('phone', $phone)->where('purpose', $purpose)
+        // The latest OTP for this (identifier, purpose) REGARDLESS of status
+        // — filtering to pending only was a real bug: once a code locked
+        // mid-verification this query could no longer find it, so every
+        // later attempt (incl. the correct code) came back 'not_found'
+        // instead of the correct 'locked'.
+        $otp = Otp::where('identifier', $identifier)->where('purpose', $purpose)
             ->latest('id')
             ->first();
 
         if (! $otp || $otp->status === Otp::STATUS_VERIFIED) {
-            // A verified (already-consumed) code and a genuinely never-
-            // requested code both correctly present as "nothing to verify
-            // here" — the caller must request a fresh one either way.
             return ['success' => false, 'reason' => 'not_found', 'otp' => null];
         }
 

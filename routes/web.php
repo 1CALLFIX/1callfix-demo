@@ -3,7 +3,11 @@
 use App\Http\Controllers\Customer\InvoiceController;
 use App\Http\Controllers\Customer\PageController;
 use App\Livewire\Customer\Account\Addresses as CustomerAddresses;
+use App\Livewire\Customer\Auth\ForgotPassword as CustomerForgotPassword;
+use App\Livewire\Customer\Auth\GoogleAuth as CustomerGoogleAuth;
 use App\Livewire\Customer\Auth\Login as CustomerLogin;
+use App\Livewire\Customer\Auth\PasswordMigration as CustomerPasswordMigration;
+use App\Livewire\Customer\Auth\Signup as CustomerSignup;
 use App\Livewire\Customer\Booking\Wizard as CustomerBookingWizard;
 use App\Livewire\Customer\Bundles\Show as CustomerBundleShow;
 use App\Livewire\Customer\Cart\Index as CustomerCart;
@@ -79,8 +83,19 @@ Route::get('/services', CustomerServiceIndex::class)->name('customer.services.in
 Route::get('/offers', CustomerServiceIndex::class)->name('customer.offers');
 Route::get('/services/{service}', CustomerServiceShow::class)->name('customer.services.show');
 
+/*
+ | Auth (rebuild): password-first login, plus the one-time verification
+ | flows — signup, forgot-password, the Google mandatory-mobile step, and
+ | the migration path for pre-rebuild OTP-only accounts. All `guest`-only;
+ | each screen redirects an already-authenticated customer home. OTP is no
+ | longer a login route — see docs/auth-otp-consumer-audit.md.
+ */
 Route::middleware('guest')->group(function () {
     Route::get('/login', CustomerLogin::class)->name('customer.login');
+    Route::get('/signup', CustomerSignup::class)->name('customer.signup');
+    Route::get('/forgot-password', CustomerForgotPassword::class)->name('customer.password.forgot');
+    Route::get('/auth/set-password', CustomerPasswordMigration::class)->name('customer.auth.migrate');
+    Route::get('/auth/google', CustomerGoogleAuth::class)->name('customer.auth.google');
 });
 
 /*

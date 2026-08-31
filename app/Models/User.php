@@ -30,13 +30,17 @@ class User extends Authenticatable
         'preferred_language',
         'status',
         'phone_verified_at',
+        'email_verified_at',
+        'firebase_uid',
+        'google_id',
+        'avatar_url',
         'fcm_token',
         'referral_code',
         'referred_by'
     ];
 
     protected $hidden = ['password', 'remember_token'];
-    protected $casts = ['phone_verified_at' => 'datetime'];
+    protected $casts = ['phone_verified_at' => 'datetime', 'email_verified_at' => 'datetime'];
     public function franchise() { return $this->belongsTo(Franchise::class); }
     public function zone() { return $this->belongsTo(Zone::class); }
     public function providerProfile() { return $this->hasOne(Provider::class); }

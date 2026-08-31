@@ -1,5 +1,42 @@
 # Authentication Architecture
 
+> **SUPERSEDED IN PART by the Auth Rebuild (branch `feature/auth-password-rebuild`).**
+> The sections below describe the OTP-only design that shipped first and is
+> accurate for that era. What changed:
+>
+> - **Login is password-first.** Identifier (mobile **or** email) + password,
+>   on the `web` session guard (Livewire `Customer\Auth\Login`) and via
+>   `POST /api/auth/password` (Sanctum token). The recurring "enter your code"
+>   login screen is **removed**.
+> - **OTP is verification only**, used at exactly three points: signup,
+>   password reset, and Google sign-in / account linking.
+>   - **Phone** verification → **Firebase** phone auth (client-side JS SDK).
+>     The server re-verifies the Firebase ID token (RS256, against Google's
+>     published certs) in `App\Services\Auth\GoogleFirebaseTokenVerifier`
+>     (`firebase/php-jwt`; `kreait/firebase-php` is not installable here —
+>     missing `ext-sodium`). Entry point: `POST /api/auth/firebase`, which
+>     also carries self-registration and Google linking.
+>   - **Email** verification → the custom numeric-code engine
+>     (`App\Services\OtpService`, repurposed from the phone-login era; still
+>     hashed-at-rest, attempt-locked, cooldown-enforced), delivered by SMTP
+>     via `App\Notifications\EmailOtpNotification`. Reached through the
+>     **demoted** `POST /api/auth/otp/{request,verify}` — which now never
+>     issue a login token — and the Livewire signup / forgot-password flows.
+> - **Google sign-in** (`Firebase` Google provider) always requires a
+>   subsequent Firebase **phone** verification before an account is complete;
+>   a Google email matching an existing mobile account is **never**
+>   auto-linked — the account's own number must be verified first.
+> - **Mobile stays the mandatory primary identifier** (`users.phone` is still
+>   `NOT NULL UNIQUE`). Email is an optional, verifiable, secondary login
+>   identifier (`users.email` `nullable UNIQUE`; `users.email_verified_at`
+>   added). New columns: `firebase_uid`, `google_id`, `avatar_url`.
+> - **Pre-rebuild OTP-only accounts** (no password) are routed, on their next
+>   login attempt, to a one-time "verify your mobile, set a password" flow
+>   (`Customer\Auth\PasswordMigration`).
+> - `CustomerAccountResolver` remains the single shared provisioning point
+>   for web and API. Booking start/completion OTP, admin login, and QR login
+>   are unchanged. Full migration record: `docs/auth-otp-consumer-audit.md`.
+
 ## Target architecture (Part 14) — implemented as diagrammed in the mission brief
 
 ```
