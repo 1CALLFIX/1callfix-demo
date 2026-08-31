@@ -42,7 +42,7 @@
 @endphp
 
 <a href="{{ $card['url'] }}"
-   {{ $attributes->merge(['class' => 'group flex h-full flex-col overflow-hidden rounded-xl border border-slate-200 bg-white transition hover:border-slate-300 hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900']) }}>
+   {{ $attributes->merge(['class' => 'group flex h-full flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white transition duration-200 hover:-translate-y-0.5 hover:border-blue-300 hover:shadow-lg hover:shadow-blue-900/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600']) }}>
 
     {{-- Media --}}
     <div class="relative aspect-[4/3] w-full overflow-hidden bg-slate-100">

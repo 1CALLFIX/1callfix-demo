@@ -35,7 +35,7 @@
              a chevron affordance; colour still slate pending the accent-palette
              decision. --}}
         <a href="{{ $link }}"
-           class="inline-flex min-h-11 shrink-0 items-center gap-1 rounded text-sm font-semibold text-slate-900 transition hover:gap-1.5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900">
+           class="inline-flex min-h-11 shrink-0 items-center gap-1 rounded text-sm font-semibold text-blue-700 transition hover:gap-1.5 hover:text-blue-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600">
             <span aria-hidden="true">{{ $linkLabel }}</span>
             <span class="sr-only">{{ $linkLabel }} — {{ $title }}</span>
             <svg aria-hidden="true" viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4">

@@ -32,13 +32,13 @@
                 <input id="service-search" type="search"
                        wire:model.live.debounce.300ms="search"
                        placeholder="Search services"
-                       class="customer-search block min-h-11 w-full rounded-lg border border-slate-300 bg-white py-2 pl-10 pr-3 text-sm text-slate-900 placeholder:text-slate-400 focus:border-slate-900 focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-slate-900">
+                       class="customer-search block min-h-11 w-full rounded-lg border border-slate-300 bg-white py-2 pl-10 pr-3 text-sm text-slate-900 placeholder:text-slate-400 focus:border-blue-500 focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-blue-600">
             </div>
 
             <div class="flex flex-wrap items-center gap-3">
                 <label for="service-category" class="text-sm text-slate-600">Category</label>
                 <select id="service-category" wire:model.live="category"
-                        class="min-h-11 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-slate-900 focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-slate-900">
+                        class="min-h-11 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-blue-500 focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-blue-600">
                     <option value="">All categories</option>
                     @foreach ($categories as $option)
                         <option value="{{ $option->id }}">{{ $option->name }}</option>
@@ -47,7 +47,7 @@
 
                 <label for="service-sort" class="text-sm text-slate-600">Sort</label>
                 <select id="service-sort" wire:model.live="sort"
-                        class="min-h-11 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-slate-900 focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-slate-900">
+                        class="min-h-11 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-blue-500 focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-blue-600">
                     @foreach (\App\Livewire\Customer\Catalog\CategoryShow::SORTS as $value => $label)
                         <option value="{{ $value }}">{{ $label }}</option>
                     @endforeach

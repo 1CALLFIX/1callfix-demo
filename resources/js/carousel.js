@@ -155,7 +155,10 @@ function initCarousel(root) {
             // and painting THAT would draw a tall rectangle instead of a dot.
             const pip = dot.querySelector('[data-carousel-pip]');
             if (pip) {
-                pip.classList.toggle('bg-slate-900', isCurrent);
+                // Active pip: brand blue and stretched to a short pill, so the
+                // current slide reads at a glance. Inactive: a plain grey dot.
+                pip.classList.toggle('bg-blue-600', isCurrent);
+                pip.classList.toggle('w-4', isCurrent);
                 pip.classList.toggle('bg-slate-300', !isCurrent);
             }
         });

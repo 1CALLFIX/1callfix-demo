@@ -21,7 +21,7 @@
                    wire:model.live.debounce.300ms="query"
                    autofocus
                    placeholder="Try “AC service”, “plumber”, “deep cleaning”"
-                   class="customer-search block min-h-12 w-full rounded-lg border border-slate-300 bg-white py-3 pl-11 pr-10 text-base text-slate-900 placeholder:text-slate-400 focus:border-slate-900 focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-slate-900">
+                   class="customer-search block min-h-12 w-full rounded-lg border border-slate-300 bg-white py-3 pl-11 pr-10 text-base text-slate-900 placeholder:text-slate-400 focus:border-blue-500 focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-blue-600">
             @if ($query !== '')
                 <button type="button" wire:click="clear"
                         class="absolute inset-y-0 right-0 grid w-10 place-items-center text-slate-400 transition hover:text-slate-900 focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-slate-900">

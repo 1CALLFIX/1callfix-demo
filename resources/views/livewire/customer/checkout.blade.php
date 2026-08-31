@@ -17,7 +17,7 @@
             @php $active = $s === $step; $done = array_search($step, $steps, true) > $i; @endphp
             <li @class([
                 'rounded-full px-3 py-1',
-                'bg-slate-900 text-white' => $active,
+                'bg-blue-600 text-white' => $active,
                 'bg-slate-100 text-slate-500' => ! $active && ! $done,
                 'bg-emerald-100 text-emerald-800' => $done,
             ])>{{ ucfirst($s) }}</li>
@@ -38,7 +38,7 @@
             @if ($addresses->isNotEmpty())
                 <div class="mt-3 space-y-2">
                     @foreach ($addresses as $address)
-                        <label class="flex cursor-pointer items-start gap-3 rounded-lg border border-slate-200 p-3 has-[:checked]:border-slate-900">
+                        <label class="flex cursor-pointer items-start gap-3 rounded-lg border border-slate-200 p-3 has-[:checked]:border-blue-600 has-[:checked]:bg-blue-50/40">
                             <input type="radio" wire:model="addressId" value="{{ $address->id }}" class="mt-1">
                             <span class="text-sm">
                                 <span class="font-medium text-slate-900">{{ $address->label }}</span>
@@ -64,7 +64,7 @@
                     <input wire:model="newAddress.landmark" placeholder="Landmark (optional)" class="block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm">
                     <input wire:model="newAddress.city" placeholder="City (optional)" class="block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm">
                     <input wire:model="newAddress.pincode" placeholder="PIN code (optional)" class="block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm">
-                    <button type="button" wire:click="saveNewAddress" class="inline-flex min-h-10 items-center rounded-lg bg-slate-900 px-4 text-sm font-semibold text-white">Save address</button>
+                    <button type="button" wire:click="saveNewAddress" class="inline-flex min-h-10 items-center rounded-lg bg-blue-600 px-4 text-sm font-semibold text-white">Save address</button>
                 </div>
             @endif
 
@@ -79,7 +79,7 @@
                     <li wire:key="sched-{{ $item->id }}">
                         <label for="co-sched-{{ $item->id }}" class="block text-sm font-medium text-slate-800">{{ $item->service->name }}</label>
                         <input type="datetime-local" id="co-sched-{{ $item->id }}" wire:model.blur="schedules.{{ $item->id }}"
-                               class="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-900 focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-slate-900">
+                               class="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-blue-600">
                     </li>
                 @endforeach
             </ul>
@@ -117,7 +117,7 @@
             @else
                 <div class="mt-3 space-y-2">
                     @foreach ($enabledMethods as $value => $label)
-                        <label class="flex cursor-pointer items-center gap-3 rounded-lg border border-slate-200 p-3 has-[:checked]:border-slate-900">
+                        <label class="flex cursor-pointer items-center gap-3 rounded-lg border border-slate-200 p-3 has-[:checked]:border-blue-600 has-[:checked]:bg-blue-50/40">
                             <input type="radio" wire:model="paymentMethod" value="{{ $value }}">
                             <span class="text-sm text-slate-900">{{ $label }}</span>
                             @if ($value === 'wallet')
@@ -128,7 +128,7 @@
                 </div>
 
                 <button type="button" wire:click="place" wire:loading.attr="disabled"
-                        class="mt-4 flex min-h-12 w-full items-center justify-center rounded-lg bg-slate-900 px-6 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:opacity-50">
+                        class="mt-4 flex min-h-12 w-full items-center justify-center rounded-lg bg-blue-600 px-6 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:opacity-50">
                     Confirm &amp; book · {{ $currencySymbol }}{{ number_format($reviewTotal, 2) }}
                 </button>
             @endif
@@ -141,7 +141,7 @@
                 class="text-sm font-medium text-slate-500 disabled:opacity-40">Back</button>
         @unless ($step === 'pay')
             <button type="button" wire:click="next"
-                    class="inline-flex min-h-11 items-center rounded-lg bg-slate-900 px-5 text-sm font-semibold text-white transition hover:bg-slate-800">
+                    class="inline-flex min-h-11 items-center rounded-lg bg-blue-600 px-5 text-sm font-semibold text-white transition hover:bg-blue-700">
                 Continue
             </button>
         @endunless

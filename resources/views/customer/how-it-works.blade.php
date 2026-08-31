@@ -48,7 +48,7 @@
             @foreach ($steps as $index => $step)
                 <li class="flex gap-5">
                     <span aria-hidden="true"
-                          class="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-slate-900 text-sm font-bold text-white">
+                          class="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-blue-600 text-sm font-bold text-white">
                         {{ $index + 1 }}
                     </span>
                     <div>
@@ -73,7 +73,7 @@
         <p class="mt-8 text-sm text-slate-600">
             Questions we have not covered here are in the
             <a href="{{ route('customer.help') }}"
-               class="font-medium text-slate-900 underline underline-offset-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900 rounded">help centre</a>.
+               class="font-medium text-slate-900 underline underline-offset-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 rounded">help centre</a>.
         </p>
     </div>
 </x-layouts.customer>

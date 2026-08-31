@@ -31,7 +31,7 @@
 
         @if ($bundle->payment_status !== 'paid' && $bundle->payment_method !== 'wallet')
             <button type="button" wire:click="payNow"
-                    class="mt-3 flex min-h-12 w-full items-center justify-center rounded-lg bg-slate-900 px-6 text-sm font-semibold text-white transition hover:bg-slate-800">
+                    class="mt-3 flex min-h-12 w-full items-center justify-center rounded-lg bg-blue-600 px-6 text-sm font-semibold text-white transition hover:bg-blue-700">
                 Pay now
             </button>
         @endif

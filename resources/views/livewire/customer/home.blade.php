@@ -63,7 +63,7 @@
          inventory keeps the first position); this hero is what carries the
          "what is this / where do I start" role.
     --}}
-    <section class="border-b border-slate-200 bg-gradient-to-b from-slate-50 to-white">
+    <section class="border-b border-slate-200 bg-gradient-to-b from-blue-50/70 via-white to-white">
         <div class="mx-auto max-w-7xl px-4 py-8 sm:px-6 sm:py-10 lg:px-8">
             <div class="grid gap-8 lg:grid-cols-5 lg:items-center">
 
@@ -245,30 +245,35 @@
     --}}
     @if ($membershipPlans->isNotEmpty())
         <section aria-labelledby="membership-heading" class="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
-            <div class="rounded-2xl bg-slate-900 p-6 sm:p-10">
-                <h2 id="membership-heading" class="text-xl font-bold tracking-tight text-white sm:text-2xl">
-                    {{ $platformName }} membership
-                </h2>
-                <p class="mt-2 max-w-2xl text-sm text-slate-300">
-                    Membership plans available on your account.
-                </p>
+            <div class="relative overflow-hidden rounded-3xl bg-gradient-to-br from-blue-700 via-blue-600 to-blue-800 p-6 shadow-xl shadow-blue-900/20 sm:p-10">
+                {{-- Soft light bloom, purely decorative. --}}
+                <div aria-hidden="true" class="pointer-events-none absolute -right-16 -top-20 h-64 w-64 rounded-full bg-white/10 blur-3xl"></div>
 
-                <ul class="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                    @foreach ($membershipPlans as $plan)
-                        <li class="rounded-xl bg-slate-800 p-5">
-                            <h3 class="text-sm font-semibold text-white">{{ $plan->name }}</h3>
-                            <p class="mt-2 text-2xl font-bold text-white">
-                                {{ $currencySymbol }}{{ number_format((float) $plan->price, 2) }}
-                                <span class="text-xs font-medium text-slate-400">/ {{ $plan->billing_cycle }}</span>
-                            </p>
-                        </li>
-                    @endforeach
-                </ul>
+                <div class="relative">
+                    <h2 id="membership-heading" class="text-xl font-bold tracking-tight text-white sm:text-2xl">
+                        {{ $platformName }} membership
+                    </h2>
+                    <p class="mt-2 max-w-2xl text-sm text-blue-100">
+                        Membership plans available on your account.
+                    </p>
 
-                <a href="{{ route('customer.coming-soon', 'booking') }}"
-                   class="mt-6 inline-flex min-h-11 items-center rounded-lg bg-white px-5 text-sm font-semibold text-slate-900 transition hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">
-                    About membership
-                </a>
+                    <ul class="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                        @foreach ($membershipPlans as $plan)
+                            <li class="rounded-2xl bg-white/10 p-5 ring-1 ring-inset ring-white/15 backdrop-blur-sm">
+                                <h3 class="text-sm font-semibold text-white">{{ $plan->name }}</h3>
+                                <p class="mt-2 text-2xl font-bold text-white">
+                                    {{ $currencySymbol }}{{ number_format((float) $plan->price, 2) }}
+                                    <span class="text-xs font-medium text-blue-200">/ {{ $plan->billing_cycle }}</span>
+                                </p>
+                            </li>
+                        @endforeach
+                    </ul>
+
+                    <a href="{{ route('customer.coming-soon', 'booking') }}"
+                       class="mt-6 inline-flex min-h-11 items-center rounded-lg bg-white px-5 text-sm font-semibold text-blue-700 shadow-sm transition hover:bg-blue-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">
+                        About membership
+                    </a>
+                </div>
             </div>
         </section>
     @endif
@@ -292,8 +297,10 @@
                     ['clock', 'One-time code security', 'Jobs start and finish only when you share your one-time code with the professional.'],
                     ['chat', 'Support when you need it', 'Reach a real person through the help centre if something is not right.'],
                 ] as [$icon, $trustTitle, $trustBody])
-                    <li class="rounded-xl border border-slate-200 p-5">
-                        <x-icon :name="$icon" class="h-6 w-6 text-slate-500" />
+                    <li class="rounded-2xl border border-slate-200 p-5 transition hover:border-blue-200 hover:shadow-md hover:shadow-blue-900/5">
+                        <span class="grid h-10 w-10 place-items-center rounded-xl bg-blue-50 text-blue-600">
+                            <x-icon :name="$icon" class="h-5 w-5" />
+                        </span>
                         <h3 class="mt-3 text-sm font-semibold text-slate-900">{{ $trustTitle }}</h3>
                         <p class="mt-1.5 text-sm leading-relaxed text-slate-600">{{ $trustBody }}</p>
                     </li>
@@ -326,7 +333,7 @@
             <p class="mt-6 text-sm text-slate-600">
                 Still stuck?
                 <a href="{{ route('customer.help') }}"
-                   class="rounded font-medium text-slate-900 underline underline-offset-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900">
+                   class="rounded font-semibold text-blue-700 underline underline-offset-4 transition hover:text-blue-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600">
                     Visit the help centre
                 </a>.
             </p>

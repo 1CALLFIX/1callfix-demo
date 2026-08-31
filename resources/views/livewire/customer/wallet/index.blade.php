@@ -6,9 +6,10 @@
         <a href="{{ route('customer.account') }}" wire:navigate class="text-sm text-slate-500 hover:text-slate-900">Account</a>
     </div>
 
-    <div class="mt-4 rounded-2xl bg-slate-900 p-6 text-white">
-        <p class="text-sm text-slate-300">Available balance</p>
-        <p class="mt-1 text-3xl font-bold">{{ $currencySymbol }}{{ number_format($balance, 2) }}</p>
+    <div class="relative mt-4 overflow-hidden rounded-3xl bg-gradient-to-br from-blue-700 via-blue-600 to-blue-800 p-6 text-white shadow-xl shadow-blue-900/20">
+        <div aria-hidden="true" class="pointer-events-none absolute -right-12 -top-16 h-52 w-52 rounded-full bg-white/10 blur-3xl"></div>
+        <p class="relative text-sm text-blue-100">Available balance</p>
+        <p class="relative mt-1 text-3xl font-bold">{{ $currencySymbol }}{{ number_format($balance, 2) }}</p>
     </div>
 
     @if ($notice)
@@ -24,11 +25,11 @@
             <div>
                 <label for="topUpAmount" class="sr-only">Top-up amount</label>
                 <input id="topUpAmount" wire:model="topUpAmount" inputmode="decimal" placeholder="Amount"
-                       class="w-36 rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900">
+                       class="w-36 rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-600">
                 @error('topUpAmount') <p class="mt-1 text-xs text-rose-600">{{ $message }}</p> @enderror
             </div>
             <button wire:click="requestTopUp"
-                    class="inline-flex min-h-11 items-center rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900">
+                    class="inline-flex min-h-11 items-center rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm shadow-blue-600/25 hover:bg-blue-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600">
                 Add money
             </button>
         </div>

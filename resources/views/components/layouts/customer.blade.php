@@ -18,9 +18,9 @@
     <title>{{ $title ? $title.' · '.$platformName : $platformName }}</title>
 
     {{-- PWA foundation: the manifest makes the app installable, theme-color
-         paints the browser chrome to match the header. --}}
+         paints the mobile browser chrome in the brand blue. --}}
     <link rel="manifest" href="{{ asset('manifest.webmanifest') }}">
-    <meta name="theme-color" content="#0f172a">
+    <meta name="theme-color" content="#2563eb">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-title" content="{{ $platformName }}">
     <link rel="icon" href="{{ asset('icons/icon.svg') }}" type="image/svg+xml">

@@ -24,7 +24,7 @@
     ];
 @endphp
 
-<header class="sticky top-0 z-40 bg-white border-b border-slate-200">
+<header class="sticky top-0 z-40 border-b border-slate-200 bg-white/85 backdrop-blur-md supports-[backdrop-filter]:bg-white/70">
     <div class="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         {{-- gap-2 at `lg`, back to gap-4 at `xl`: 1024–1279px is the tightest
              band in this header — the desktop primary nav has appeared (~400px)
@@ -38,7 +38,7 @@
             <a href="{{ route('customer.home') }}"
                class="flex min-h-11 shrink-0 items-center gap-2 rounded focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900">
                 <span aria-hidden="true"
-                      class="grid h-9 w-9 place-items-center rounded-lg bg-slate-900 text-sm font-bold text-white">
+                      class="grid h-9 w-9 place-items-center rounded-xl bg-blue-600 text-sm font-bold text-white shadow-sm shadow-blue-600/30">
                     {{ \Illuminate\Support\Str::of($platformName)->substr(0, 1)->upper() }}
                 </span>
                 <span class="text-lg font-bold tracking-tight">{{ $platformName }}</span>
@@ -56,8 +56,8 @@
                     <a href="{{ $href }}"
                        @if ($isCurrent) aria-current="page" @endif
                        @class([
-                           'rounded-md px-3 py-2 text-sm font-medium transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900',
-                           'bg-slate-100 text-slate-900' => $isCurrent,
+                           'rounded-md px-3 py-2 text-sm font-medium transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600',
+                           'bg-blue-50 text-blue-700' => $isCurrent,
                            'text-slate-600 hover:bg-slate-50 hover:text-slate-900' => ! $isCurrent,
                        ])>{{ $item['label'] }}</a>
                 @endforeach
@@ -132,7 +132,7 @@
                      Every service page and the homepage hero carry their own
                      booking entry, so this is a shortcut, not the only path. --}}
                 <a href="{{ route('customer.services.index') }}"
-                   class="hidden xl:inline-flex min-h-11 items-center whitespace-nowrap rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900">
+                   class="hidden xl:inline-flex min-h-11 items-center whitespace-nowrap rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm shadow-blue-600/25 transition hover:bg-blue-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600">
                     Book a Service
                 </a>
             </div>

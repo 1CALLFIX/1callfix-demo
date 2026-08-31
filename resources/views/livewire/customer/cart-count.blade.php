@@ -4,7 +4,7 @@
     <x-icon name="shopping-bag" class="h-5 w-5" />
     @if ($count > 0)
         <span aria-hidden="true"
-              class="absolute -right-0.5 -top-0.5 grid min-h-4 min-w-4 place-items-center rounded-full bg-slate-900 px-1 text-[10px] font-bold leading-none text-white">
+              class="absolute -right-0.5 -top-0.5 grid min-h-4 min-w-4 place-items-center rounded-full bg-blue-600 px-1 text-[10px] font-bold leading-none text-white ring-2 ring-white">
             {{ $count > 99 ? '99+' : $count }}
         </span>
     @endif

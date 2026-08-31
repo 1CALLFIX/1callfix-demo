@@ -65,14 +65,14 @@
                    aria-autocomplete="list"
                    placeholder="Search for a service"
                    @class([
-                       'customer-search block w-full rounded-lg border border-slate-300 bg-white py-3 pl-11 text-base text-slate-900 shadow-sm placeholder:text-slate-400 focus:border-slate-900 focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-slate-900',
+                       'customer-search block w-full rounded-lg border border-slate-300 bg-white py-3 pl-11 text-base text-slate-900 shadow-sm placeholder:text-slate-400 focus:border-blue-500 focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-blue-600',
                        'min-h-12 pr-10' => true,
                    ])>
 
             @if ($term !== '')
                 <button type="button"
                         wire:click="clear"
-                        class="absolute inset-y-0 right-0 grid w-10 place-items-center text-slate-400 transition hover:text-slate-900 focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-slate-900">
+                        class="absolute inset-y-0 right-0 grid w-10 place-items-center text-slate-400 transition hover:text-slate-900 focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-blue-600">
                     <span class="sr-only">Clear search</span>
                     <x-icon name="x-circle" class="h-5 w-5" />
                 </button>
@@ -81,7 +81,7 @@
 
         @unless ($compact)
             <button type="submit"
-                    class="inline-flex min-h-12 items-center justify-center rounded-lg bg-slate-900 px-6 text-sm font-semibold text-white transition hover:bg-slate-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900">
+                    class="inline-flex min-h-12 items-center justify-center rounded-lg bg-blue-600 px-6 text-sm font-semibold text-white transition hover:bg-blue-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600">
                 Search
             </button>
         @endunless
@@ -111,7 +111,7 @@
                             @php $optId = $listId.'-opt-'.$optSeq++; @endphp
                             <a href="{{ route('customer.services.show', $service) }}"
                                role="option" id="{{ $optId }}" data-search-option aria-selected="false" tabindex="-1"
-                               class="flex min-h-12 items-center gap-3 px-4 py-2 text-left transition hover:bg-slate-50 data-[active=true]:bg-slate-100 focus-visible:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-slate-900">
+                               class="flex min-h-12 items-center gap-3 px-4 py-2 text-left transition hover:bg-slate-50 data-[active=true]:bg-slate-100 focus-visible:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-blue-600">
                                 <x-customer.result-icon :name="$service->category?->name ?? $service->name"
                                                         :color="$service->category?->color"
                                                         :image-url="$service->category?->image_url" />
@@ -151,7 +151,7 @@
                                 @php $optId = $listId.'-opt-'.$optSeq++; @endphp
                                 <a href="{{ route('customer.categories.show', $category) }}"
                                    role="option" id="{{ $optId }}" data-search-option aria-selected="false" tabindex="-1"
-                                   class="flex min-h-12 items-center gap-3 px-4 py-2 text-left transition hover:bg-slate-50 data-[active=true]:bg-slate-100 focus-visible:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-slate-900">
+                                   class="flex min-h-12 items-center gap-3 px-4 py-2 text-left transition hover:bg-slate-50 data-[active=true]:bg-slate-100 focus-visible:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-blue-600">
                                     <x-customer.result-icon :name="$category->name"
                                                             :color="$category->color"
                                                             :image-url="$category->image_url" />
@@ -172,7 +172,7 @@
                                 @php $optId = $listId.'-opt-'.$optSeq++; @endphp
                                 <a href="{{ route('customer.services.show', $service) }}"
                                    role="option" id="{{ $optId }}" data-search-option aria-selected="false" tabindex="-1"
-                                   class="flex min-h-12 items-center gap-3 px-4 py-2 text-left transition hover:bg-slate-50 data-[active=true]:bg-slate-100 focus-visible:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-slate-900">
+                                   class="flex min-h-12 items-center gap-3 px-4 py-2 text-left transition hover:bg-slate-50 data-[active=true]:bg-slate-100 focus-visible:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-blue-600">
                                     <x-customer.result-icon :name="$group['category']?->name ?? $service->name"
                                                             :color="$group['category']?->color"
                                                             :image-url="$group['category']?->image_url" />
@@ -184,7 +184,7 @@
                 </div>
 
                 <a href="{{ route('customer.search', ['q' => trim($term)]) }}"
-                   class="flex min-h-12 items-center justify-center border-t border-slate-200 bg-slate-50 px-4 text-sm font-medium text-slate-700 transition hover:text-slate-900 focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-slate-900">
+                   class="flex min-h-12 items-center justify-center border-t border-slate-200 bg-slate-50 px-4 text-sm font-medium text-slate-700 transition hover:text-slate-900 focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-blue-600">
                     See all results for “{{ $term }}”
                 </a>
             @endif

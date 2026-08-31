@@ -51,7 +51,7 @@
                            autofocus
                            wire:model="phone"
                            placeholder="e.g. 9876543210"
-                           @class(['mt-1.5 block min-h-11 w-full rounded-lg border px-3 py-2.5 text-base shadow-sm transition focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-slate-900',
+                           @class(['mt-1.5 block min-h-11 w-full rounded-lg border px-3 py-2.5 text-base shadow-sm transition focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-blue-600',
                                    'border-red-400' => $errors->has('phone'),
                                    'border-slate-300' => ! $errors->has('phone')])
                            @if ($errors->has('phone')) aria-invalid="true" aria-describedby="customer-phone-error" @endif>
@@ -81,7 +81,7 @@
                            autofocus
                            maxlength="8"
                            wire:model="code"
-                           @class(['mt-1.5 block min-h-11 w-full rounded-lg border px-3 py-2.5 text-center text-2xl font-semibold tracking-[0.4em] shadow-sm transition focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-slate-900',
+                           @class(['mt-1.5 block min-h-11 w-full rounded-lg border px-3 py-2.5 text-center text-2xl font-semibold tracking-[0.4em] shadow-sm transition focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-blue-600',
                                    'border-red-400' => $errors->has('code'),
                                    'border-slate-300' => ! $errors->has('code')])
                            @if ($errors->has('code')) aria-invalid="true" aria-describedby="customer-otp-error" @endif>

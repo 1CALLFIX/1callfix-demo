@@ -220,7 +220,7 @@
                                 class="grid h-11 w-6 place-items-center focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900">
                             <span class="sr-only">Go to slide {{ $index + 1 }} of {{ $count }}</span>
                             <span data-carousel-pip aria-hidden="true"
-                                  class="block h-2 w-2 rounded-full transition {{ $index === 0 ? 'bg-slate-900' : 'bg-slate-300' }}"></span>
+                                  class="block h-2 w-2 rounded-full transition {{ $index === 0 ? 'w-4 bg-blue-600' : 'bg-slate-300' }}"></span>
                         </button>
                     @endforeach
                 </div>

@@ -61,7 +61,7 @@
             <div class="sm:col-span-2 md:col-span-3 lg:col-span-1">
                 <div class="flex items-center gap-2">
                     <span aria-hidden="true"
-                          class="grid h-9 w-9 place-items-center rounded-lg bg-slate-900 text-sm font-bold text-white">
+                          class="grid h-9 w-9 place-items-center rounded-xl bg-blue-600 text-sm font-bold text-white shadow-sm shadow-blue-600/30">
                         {{ \Illuminate\Support\Str::of($platformName)->substr(0, 1)->upper() }}
                     </span>
                     <span class="text-lg font-bold tracking-tight text-slate-900">{{ $platformName }}</span>
@@ -78,7 +78,7 @@
                             <li>
                                 <a href="{{ $social['url'] }}"
                                    target="_blank" rel="noopener noreferrer"
-                                   class="grid h-10 w-10 place-items-center rounded-full border border-slate-300 text-slate-600 transition hover:border-slate-400 hover:text-slate-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900">
+                                   class="grid h-10 w-10 place-items-center rounded-full border border-slate-300 text-slate-500 transition hover:border-blue-400 hover:bg-blue-50 hover:text-blue-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600">
                                     <span class="sr-only">{{ $platformName }} on {{ $social['label'] }}</span>
                                     <svg aria-hidden="true" viewBox="0 0 24 24" fill="currentColor" class="h-4 w-4">
                                         <path d="{{ $social['path'] }}" />
@@ -101,7 +101,7 @@
                         @foreach ($links as $link)
                             <li>
                                 <a href="{{ $link['href'] }}"
-                                   class="inline-flex min-h-11 items-center rounded text-sm text-slate-600 underline-offset-4 transition hover:text-slate-900 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900">
+                                   class="inline-flex min-h-11 items-center rounded text-sm text-slate-600 underline-offset-4 transition hover:text-blue-700 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600">
                                     {{ $link['label'] }}
                                 </a>
                             </li>

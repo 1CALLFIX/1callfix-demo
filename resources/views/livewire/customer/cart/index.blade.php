@@ -12,7 +12,7 @@
         <div class="mt-8 rounded-xl border border-slate-200 p-8 text-center">
             <p class="text-sm text-slate-600">Your cart is empty.</p>
             <a href="{{ route('customer.services.index') }}" wire:navigate
-               class="mt-4 inline-flex min-h-11 items-center rounded-lg bg-slate-900 px-5 text-sm font-semibold text-white transition hover:bg-slate-800">
+               class="mt-4 inline-flex min-h-11 items-center rounded-lg bg-blue-600 px-5 text-sm font-semibold text-white transition hover:bg-blue-700">
                 Browse services
             </a>
         </div>
@@ -73,7 +73,7 @@
                                         <label for="sched-{{ $item->id }}" class="block text-xs font-medium text-slate-600">Preferred time (optional)</label>
                                         <input type="datetime-local" id="sched-{{ $item->id }}"
                                                wire:model.blur="schedules.{{ $item->id }}"
-                                               class="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 focus:border-slate-900 focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-slate-900">
+                                               class="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 focus:border-blue-500 focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-blue-600">
                                         @if (! empty($scheduleErrors[$item->id]))
                                             <p role="alert" class="mt-1 text-xs text-red-600">{{ $scheduleErrors[$item->id] }}</p>
                                         @endif
@@ -100,7 +100,7 @@
 
             <button type="button" wire:click="proceed"
                     @disabled(! empty($scheduleErrors))
-                    class="mt-4 flex min-h-12 w-full items-center justify-center rounded-lg bg-slate-900 px-6 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:opacity-50">
+                    class="mt-4 flex min-h-12 w-full items-center justify-center rounded-lg bg-blue-600 px-6 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:opacity-50">
                 Proceed to checkout
             </button>
         </div>
