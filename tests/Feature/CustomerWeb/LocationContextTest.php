@@ -226,6 +226,45 @@ class LocationContextTest extends TestCase
             ->assertHasErrors();
     }
 
+    // ---------- Automatic first-load geolocation (Phase 2) ----------
+
+    public function test_auto_geolocation_inside_coverage_selects_the_zone_without_opening_the_picker(): void
+    {
+        [, , , $zone] = $this->makeFranchiseTree();
+        $zone->update(['center_lat' => 14.4426, 'center_lng' => 79.9865, 'default_dispatch_radius_km' => 8]);
+
+        Livewire::test(LocationPicker::class)
+            ->call('useCurrentLocationAuto', 14.4426, 79.9865)
+            ->assertSet('open', false)
+            ->assertSet('outOfCoverage', false)
+            ->assertDispatched('customer-zone-changed');
+
+        $this->assertSame($zone->id, session(CustomerLocationContext::SESSION_KEY));
+    }
+
+    public function test_auto_geolocation_outside_coverage_opens_the_picker_on_the_notice(): void
+    {
+        [, , , $zone] = $this->makeFranchiseTree();
+        $zone->update(['center_lat' => 14.4426, 'center_lng' => 79.9865, 'default_dispatch_radius_km' => 8]);
+
+        Livewire::test(LocationPicker::class)
+            ->call('useCurrentLocationAuto', 51.5072, -0.1276)
+            ->assertSet('open', true)
+            ->assertSet('outOfCoverage', true)
+            ->assertSeeText('not serving your current location yet');
+
+        $this->assertNull(session(CustomerLocationContext::SESSION_KEY));
+    }
+
+    public function test_auto_geolocation_rejects_out_of_range_coordinates(): void
+    {
+        Livewire::test(LocationPicker::class)
+            ->call('useCurrentLocationAuto', 999.0, 999.0)
+            ->assertHasErrors();
+
+        $this->assertNull(session(CustomerLocationContext::SESSION_KEY));
+    }
+
     public function test_searching_narrows_the_zone_list(): void
     {
         [, , , $alpha] = $this->makeFranchiseTree();

@@ -119,27 +119,47 @@
 
                     <div class="mt-3 space-y-2">
                         @foreach ($addresses as $address)
-                            <label class="flex cursor-pointer items-start gap-3 rounded-lg border border-slate-200 px-3 py-3 text-sm hover:bg-slate-50 has-[:checked]:border-blue-600 has-[:checked]:bg-blue-50/40 has-[:checked]:bg-slate-50">
-                                <input type="radio" name="addressId" wire:model.live="addressId" value="{{ $address->id }}"
-                                       @disabled(! $address->zone_id)
-                                       class="mt-0.5 h-4 w-4 accent-blue-600">
-                                <span class="min-w-0">
-                                    <span class="font-medium text-slate-900">{{ $address->label }}</span>
-                                    @if ($address->is_default)
-                                        <span class="ml-1.5 rounded bg-slate-100 px-1.5 py-0.5 text-[11px] text-slate-600">Default</span>
-                                    @endif
-                                    <span class="block text-slate-600">{{ $address->address_line }}@if ($address->city), {{ $address->city }}@endif</span>
-                                    @unless ($address->zone_id)
-                                        <span class="block text-rose-600">This address has no service area set and can't be used for a booking.</span>
-                                    @endunless
-                                </span>
-                            </label>
+                            <div class="rounded-lg border border-slate-200 has-[:checked]:border-blue-600 has-[:checked]:bg-blue-50/40">
+                                <label class="flex cursor-pointer items-start gap-3 px-3 py-3 text-sm hover:bg-slate-50">
+                                    <input type="radio" name="addressId" wire:model.live="addressId" value="{{ $address->id }}"
+                                           @disabled(! $address->zone_id)
+                                           class="mt-0.5 h-4 w-4 accent-blue-600">
+                                    <span class="min-w-0">
+                                        <span class="font-medium text-slate-900">{{ $address->label }}</span>
+                                        @if ($address->is_default)
+                                            <span class="ml-1.5 rounded bg-slate-100 px-1.5 py-0.5 text-[11px] text-slate-600">Default</span>
+                                        @endif
+                                        <span class="block text-slate-600">{{ $address->address_line }}@if ($address->city), {{ $address->city }}@endif</span>
+                                    </span>
+                                </label>
+                                @unless ($address->zone_id)
+                                    <div class="border-t border-slate-100 px-3 py-2 pl-10">
+                                        <p class="text-rose-600">This address has no service area set and can't be used for a booking.</p>
+                                        <button type="button" wire:click="assignCurrentAreaToAddress({{ $address->id }})"
+                                                class="mt-1 inline-flex items-center gap-1 rounded-md border border-blue-200 bg-blue-50 px-2 py-1 text-xs font-medium text-blue-700 hover:bg-blue-100">
+                                            Use my selected area for this address
+                                        </button>
+                                    </div>
+                                @endunless
+                            </div>
                         @endforeach
                     </div>
 
                     @if ($addingAddress)
                         <div class="mt-4 rounded-lg bg-slate-50 p-3">
                             <p class="text-sm font-medium">Add an address</p>
+
+                            <button type="button" data-locate-address
+                                    class="mt-2 inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-800 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900">
+                                <x-icon name="map" class="h-4 w-4 text-slate-500" />
+                                <span data-locate-address-label>Use my current location</span>
+                            </button>
+                            @if ($newAddressLocatedLabel !== '')
+                                <p class="mt-1.5 text-xs text-emerald-700">
+                                    Pinned to your location — service area <span class="font-medium">{{ $newAddressLocatedLabel }}</span>.
+                                </p>
+                            @endif
+
                             <div class="mt-2 grid gap-2 sm:grid-cols-2">
                                 <input wire:model="newAddress.label" placeholder="Label (Home, Office)" class="rounded-lg border border-slate-300 px-3 py-2 text-sm">
                                 <input wire:model="newAddress.city" placeholder="City" class="rounded-lg border border-slate-300 px-3 py-2 text-sm">
@@ -278,4 +298,10 @@
             </div>
         </aside>
     </div>
+
+    {{-- "Use my current location" for the inline add-address form (Phase 3),
+         wired via the shared helper in resources/js/geolocation.js. --}}
+    @script
+    <script>window.cfWireLocateButton($wire);</script>
+    @endscript
 </div>

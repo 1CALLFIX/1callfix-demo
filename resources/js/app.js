@@ -8,5 +8,6 @@
  * browser lives here.
  */
 
+import './geolocation';
 import './carousel';
 import './search-bar';

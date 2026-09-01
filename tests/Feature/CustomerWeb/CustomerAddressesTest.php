@@ -29,6 +29,60 @@ class CustomerAddressesTest extends TestCase
         $this->get(route('customer.addresses'))->assertRedirect(route('customer.login'));
     }
 
+    // ---------- Phase 3: "Use my current location" on the add form ----------
+
+    public function test_use_current_location_pins_a_new_address_to_the_zone_covering_those_coordinates(): void
+    {
+        [, , , $headerZone] = $this->makeFranchiseTree();
+        [, , $geoFranchise, $geoZone] = $this->makeFranchiseTree();
+        $geoZone->update(['center_lat' => 19.0760, 'center_lng' => 72.8777, 'default_dispatch_radius_km' => 10]);
+        $customer = $this->makeCustomer();
+        session([CustomerLocationContext::SESSION_KEY => $headerZone->id]);
+
+        Livewire::actingAs($customer)->test(Addresses::class)
+            ->call('startAdd')
+            ->set('form.label', 'Site')
+            ->set('form.address_line', '5 Marine Drive')
+            ->call('useCurrentLocationForNewAddress', 19.0800, 72.8777)
+            ->assertSet('locatedZoneId', $geoZone->id)
+            ->assertSet('locatedZoneName', $geoZone->name)
+            ->call('save')
+            ->assertHasNoErrors();
+
+        $address = Address::where('user_id', $customer->id)->latest('id')->first();
+        $this->assertSame($geoZone->id, $address->zone_id);           // geo zone, not the browsing zone
+        $this->assertSame($geoFranchise->id, $address->franchise_id);
+        $this->assertEqualsWithDelta(19.0800, (float) $address->lat, 0.0001);
+        $this->assertEqualsWithDelta(72.8777, (float) $address->lng, 0.0001);
+    }
+
+    public function test_use_current_location_outside_coverage_reports_it_and_pins_nothing(): void
+    {
+        [, , , $zone] = $this->makeFranchiseTree();
+        $zone->update(['center_lat' => 12.97, 'center_lng' => 77.59, 'default_dispatch_radius_km' => 8]);
+        $customer = $this->makeCustomer();
+        session([CustomerLocationContext::SESSION_KEY => $zone->id]);
+
+        Livewire::actingAs($customer)->test(Addresses::class)
+            ->call('startAdd')
+            ->call('useCurrentLocationForNewAddress', 51.5072, -0.1276)
+            ->assertSet('locatedZoneId', null)
+            ->assertSet('error', "We don't have a team serving that exact spot yet — type the address and pick your area from the top of the page.");
+    }
+
+    public function test_use_current_location_is_a_noop_while_editing_an_address(): void
+    {
+        [, , $franchise, $zone] = $this->makeFranchiseTree();
+        $zone->update(['center_lat' => 19.0760, 'center_lng' => 72.8777, 'default_dispatch_radius_km' => 10]);
+        $customer = $this->makeCustomer();
+        $address = $this->makeAddress($customer, $franchise, $zone);
+
+        Livewire::actingAs($customer)->test(Addresses::class)
+            ->call('edit', $address->id)
+            ->call('useCurrentLocationForNewAddress', 19.0800, 72.8777)
+            ->assertSet('locatedZoneId', null);
+    }
+
     public function test_adding_an_address_derives_the_franchise_from_the_browsing_zone(): void
     {
         [$country, $city, $franchise, $zone] = $this->makeFranchiseTree();

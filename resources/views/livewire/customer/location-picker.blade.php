@@ -1,4 +1,4 @@
-<div>
+<div data-has-zone="{{ $activeZone ? '1' : '' }}">
     {{-- Trigger. Shows the active zone so the customer always knows what
          context they are browsing in; falls back to a clear call to set one. --}}
     <button type="button"
@@ -25,6 +25,15 @@
     </button>
 
     @if ($open)
+        {{-- Teleported to <body>: this component renders inside <header>,
+             which carries `backdrop-blur-md` (a `backdrop-filter`). Per the
+             CSS spec that makes the header a containing block for
+             `position: fixed` descendants — so without this the "full
+             screen" overlay below was sized to the header box and rendered
+             lapping into the top bar instead of covering the viewport.
+             Livewire's @teleport moves the node out to <body> while keeping
+             wire:* bindings live. --}}
+        @teleport('body')
         {{-- Focus is moved into the dialog on open, trapped while it is
              open, and returned to the trigger on close (see the script at
              the bottom of this file). The shared x-ui.modal component has
@@ -124,6 +133,7 @@
                 </div>
             </div>
         </div>
+        @endteleport
     @endif
 
     @script
@@ -179,23 +189,47 @@
                     label.textContent = 'Finding your location…';
                     error.hidden = true;
 
-                    navigator.geolocation.getCurrentPosition(
-                        (position) => {
-                            $wire.useCurrentLocation(
-                                position.coords.latitude,
-                                position.coords.longitude,
-                            );
-                        },
+                    window.cfLocate(
+                        (lat, lng) => $wire.useCurrentLocation(lat, lng),
                         () => {
                             button.disabled = false;
                             label.textContent = 'Use my current location';
                             error.textContent = "We couldn't get your location. Please choose an area below instead.";
                             error.hidden = false;
                         },
-                        { timeout: 10000 },
                     );
                 }, { once: true });
             };
+
+            // --- Automatic first-load geolocation (Phase 2) --------------
+            // When the visitor has no area set, ask the browser for their
+            // location once, unprompted — the "detect my location" pattern
+            // of the reference apps. Strictly best-effort:
+            //   • no Geolocation API, or the user blocks/dismisses the
+            //     permission  -> nothing happens; the header picker is the
+            //     fallback and the page is never blocked.
+            //   • granted, resolves inside a served zone  -> the header
+            //     location field updates itself.
+            //   • granted, resolves outside every zone    -> the picker
+            //     opens on the "not serving your area yet" notice, so the
+            //     customer is told rather than dropped into a booking flow
+            //     that later dead-ends on a missing zone.
+            // sessionStorage guards it: a reload or navigation never re-asks.
+            const AUTO_KEY = 'cf.geo.autoprompt';
+
+            const autoLocate = () => {
+                if ($wire.$el.dataset.hasZone === '1') return;
+                try { if (sessionStorage.getItem(AUTO_KEY)) return; } catch (e) {}
+                try { sessionStorage.setItem(AUTO_KEY, '1'); } catch (e) {}
+
+                window.cfLocate(
+                    (lat, lng) => $wire.useCurrentLocationAuto(lat, lng),
+                    () => {}, // denied / unavailable -> silent; manual picker stays
+                );
+            };
+
+            // Deferred a beat so it never competes with first paint.
+            setTimeout(autoLocate, 400);
 
             let wasOpen = false;
 

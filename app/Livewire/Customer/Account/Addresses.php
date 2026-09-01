@@ -42,6 +42,17 @@ class Addresses extends Component
 
     public string $notice = '';
 
+    /**
+     * Set by useCurrentLocationForNewAddress() (Phase 3) when a browser fix
+     * lands inside a served zone. When present, save()'s add branch stores
+     * these real coordinates and this zone instead of the browsing zone +
+     * its centre. Only ever consulted while adding, never while editing.
+     */
+    public ?float $locatedLat = null;
+    public ?float $locatedLng = null;
+    public ?int $locatedZoneId = null;
+    public string $locatedZoneName = '';
+
     protected function rules(): array
     {
         return [
@@ -74,7 +85,43 @@ class Addresses extends Component
             'is_default' => (bool) $address->is_default,
         ];
         $this->showForm = true;
+        $this->reset('error', 'notice', 'locatedLat', 'locatedLng', 'locatedZoneId', 'locatedZoneName');
+    }
+
+    /**
+     * "Use my current location" for the add form (Phase 3). Resolves the
+     * zone from the pin's own coordinates via nearestCoveringZone() — not
+     * the browsing zone. A hit stashes the real lat/lng + that zone for
+     * save(); a miss reports it and leaves the manual header-zone path.
+     * Meaningless while editing (the edit branch never re-derives a zone),
+     * so it no-ops there.
+     */
+    public function useCurrentLocationForNewAddress(float $lat, float $lng, CustomerLocationContext $location): void
+    {
         $this->reset('error', 'notice');
+
+        if ($this->editingId) {
+            return;
+        }
+
+        validator(
+            ['lat' => $lat, 'lng' => $lng],
+            ['lat' => ['required', 'numeric', 'between:-90,90'], 'lng' => ['required', 'numeric', 'between:-180,180']],
+        )->validate();
+
+        $zone = $location->nearestCoveringZone($lat, $lng);
+
+        if (! $zone) {
+            $this->reset('locatedLat', 'locatedLng', 'locatedZoneId', 'locatedZoneName');
+            $this->error = "We don't have a team serving that exact spot yet — type the address and pick your area from the top of the page.";
+
+            return;
+        }
+
+        $this->locatedLat = $lat;
+        $this->locatedLng = $lng;
+        $this->locatedZoneId = $zone->id;
+        $this->locatedZoneName = $zone->name;
     }
 
     public function save(CustomerLocationContext $location): void
@@ -94,7 +141,10 @@ class Addresses extends Component
             ])->save();
             $this->notice = 'Address updated.';
         } else {
-            $zone = $location->zone();
+            $zone = $this->locatedZoneId
+                ? \App\Models\Zone::where('is_active', true)->find($this->locatedZoneId)
+                : $location->zone();
+
             if (! $zone) {
                 $this->error = 'Choose your area from the top of the page first, so we know which team serves this address.';
 
@@ -106,8 +156,8 @@ class Addresses extends Component
                 'franchise_id' => $zone->franchise_id,
                 'zone_id' => $zone->id,
                 'label' => $data['label'],
-                'lat' => $zone->center_lat ?? 0,
-                'lng' => $zone->center_lng ?? 0,
+                'lat' => $this->locatedLat ?? $zone->center_lat ?? 0,
+                'lng' => $this->locatedLng ?? $zone->center_lng ?? 0,
                 'address_line' => $data['address_line'],
                 'landmark' => $data['landmark'] ?: null,
                 'city' => $data['city'] ?: null,
@@ -119,6 +169,30 @@ class Addresses extends Component
 
         $this->resetForm();
         $this->showForm = false;
+    }
+
+    /**
+     * Recovery for an address whose zone_id / franchise_id were nulled (its
+     * zone was deleted and re-created with a new id; the nullOnDelete FK
+     * blanked the reference). Re-links it to the customer's current header
+     * area, franchise derived from that zone — the same re-link
+     * AddressController::update() does. The edit() form deliberately never
+     * touches zone, so without this a zone-less address has no in-app fix.
+     */
+    public function assignCurrentArea(int $id, CustomerLocationContext $location): void
+    {
+        $this->reset('error', 'notice');
+        $address = $this->ownedOrFail($id);
+
+        $zone = $location->zone();
+        if (! $zone) {
+            $this->error = 'Choose your area from the top of the page first, so we know which team serves this address.';
+
+            return;
+        }
+
+        $address->update(['zone_id' => $zone->id, 'franchise_id' => $zone->franchise_id]);
+        $this->notice = 'Service area set for "'.$address->label.'".';
     }
 
     public function delete(int $id): void
@@ -151,6 +225,7 @@ class Addresses extends Component
     {
         $this->editingId = null;
         $this->form = ['label' => 'Home', 'address_line' => '', 'landmark' => '', 'city' => '', 'pincode' => '', 'is_default' => false];
+        $this->reset('locatedLat', 'locatedLng', 'locatedZoneId', 'locatedZoneName');
     }
 
     public function render()

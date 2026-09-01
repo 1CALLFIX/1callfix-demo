@@ -290,17 +290,24 @@ class Manage extends Component
 
     public function confirmDelete(int $zoneId): void
     {
-        $zone = Zone::withCount(['providers', 'bookings'])->findOrFail($zoneId);
+        $zone = Zone::withCount(['providers', 'bookings', 'addresses'])->findOrFail($zoneId);
 
-        // Providers and bookings both carry zone_id, and bookings are
-        // permanent operational records — deleting the zone out from under
-        // them would orphan live dispatch data. Refuse with a reason.
+        // Providers, bookings and saved customer addresses all carry a
+        // nullOnDelete zone_id (and franchise_id). Bookings are permanent
+        // operational records; addresses are live customer data that every
+        // serviceability / booking check reads by a bare `whereNotNull`.
+        // A hard delete here has the database silently NULL those columns,
+        // orphaning the rows out of the booking pipeline with no in-app
+        // path back. Refuse with a reason.
         $blockers = [];
         if ($zone->providers_count > 0) {
             $blockers[] = $zone->providers_count.' '.Str::plural('provider', $zone->providers_count);
         }
         if ($zone->bookings_count > 0) {
             $blockers[] = $zone->bookings_count.' '.Str::plural('booking', $zone->bookings_count);
+        }
+        if ($zone->addresses_count > 0) {
+            $blockers[] = $zone->addresses_count.' saved '.Str::plural('address', $zone->addresses_count);
         }
 
         $this->deleteBlockedReason = $blockers

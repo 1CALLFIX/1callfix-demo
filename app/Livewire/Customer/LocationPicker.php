@@ -73,15 +73,7 @@ class LocationPicker extends Component
      */
     public function useCurrentLocation(float $lat, float $lng, CustomerLocationContext $context): void
     {
-        // Validated as loose arguments (not component state), so
-        // Validator::make rather than $this->validate().
-        Validator::make(
-            ['lat' => $lat, 'lng' => $lng],
-            [
-                'lat' => ['required', 'numeric', 'between:-90,90'],
-                'lng' => ['required', 'numeric', 'between:-180,180'],
-            ],
-        )->validate();
+        $this->assertCoordinates($lat, $lng);
 
         $zone = $context->nearestCoveringZone($lat, $lng);
 
@@ -92,6 +84,52 @@ class LocationPicker extends Component
         }
 
         $this->selectZone($zone->id, $context);
+    }
+
+    /**
+     * The unprompted, on-page-load geolocation attempt (Phase 2 — see the
+     * script at the foot of this component's view). Same resolution as
+     * useCurrentLocation(), with one difference for the "no covering zone"
+     * case: nothing opened the dialog, so it is opened here on the
+     * out-of-coverage notice. The customer is told plainly that their
+     * location is not served yet and handed the area list, rather than
+     * being left with no zone set — a state that otherwise only surfaces as
+     * a failure deeper in the booking flow.
+     *
+     * A denied / unavailable permission never reaches this method (the
+     * browser's error callback simply does nothing), so the page is never
+     * blocked and the manual header picker stays the fallback.
+     */
+    public function useCurrentLocationAuto(float $lat, float $lng, CustomerLocationContext $context): void
+    {
+        $this->assertCoordinates($lat, $lng);
+
+        $zone = $context->nearestCoveringZone($lat, $lng);
+
+        if (! $zone) {
+            $this->open = true;
+            $this->outOfCoverage = true;
+
+            return;
+        }
+
+        $this->selectZone($zone->id, $context);
+    }
+
+    /**
+     * Coordinates arrive as loose method arguments from the browser's
+     * Geolocation callback, not component state, so Validator::make rather
+     * than $this->validate().
+     */
+    private function assertCoordinates(float $lat, float $lng): void
+    {
+        Validator::make(
+            ['lat' => $lat, 'lng' => $lng],
+            [
+                'lat' => ['required', 'numeric', 'between:-90,90'],
+                'lng' => ['required', 'numeric', 'between:-180,180'],
+            ],
+        )->validate();
     }
 
     public function render()

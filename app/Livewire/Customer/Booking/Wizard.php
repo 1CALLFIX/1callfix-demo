@@ -75,6 +75,17 @@ class Wizard extends Component
         'pincode' => '',
     ];
 
+    /**
+     * Set by useCurrentLocationForNewAddress() (Phase 3) when the browser
+     * returns a fix that lands inside a served zone. When present,
+     * saveNewAddress() stores these real coordinates and this zone instead
+     * of the browsing zone + its centre. Null = the manual header-zone path.
+     */
+    public ?float $newAddressLat = null;
+    public ?float $newAddressLng = null;
+    public ?int $newAddressZoneId = null;
+    public string $newAddressLocatedLabel = '';
+
     public function mount(Service $service): void
     {
         abort_unless(
@@ -185,16 +196,53 @@ class Wizard extends Component
     }
 
     /**
-     * Add an address inline — same derivation AddressController::store()
-     * uses: zone comes from the customer's active browsing zone
-     * (CustomerLocationContext), franchise is derived from that zone, never
-     * accepted from the form.
+     * "Use my current location" in the inline add-address form (Phase 3).
+     * Unlike the header picker, the zone is resolved from the ADDRESS's own
+     * coordinates via nearestCoveringZone() — the one resolver this codebase
+     * has. A hit stashes the real lat/lng + that zone for saveNewAddress();
+     * a miss says so plainly and leaves the form on the manual header-zone
+     * path (no partial state, no silently zone-less address).
+     */
+    public function useCurrentLocationForNewAddress(float $lat, float $lng): void
+    {
+        $this->error = '';
+
+        validator(
+            ['lat' => $lat, 'lng' => $lng],
+            ['lat' => ['required', 'numeric', 'between:-90,90'], 'lng' => ['required', 'numeric', 'between:-180,180']],
+        )->validate();
+
+        $zone = app(\App\Services\Customer\CustomerLocationContext::class)->nearestCoveringZone($lat, $lng);
+
+        if (! $zone) {
+            $this->reset('newAddressLat', 'newAddressLng', 'newAddressZoneId', 'newAddressLocatedLabel');
+            $this->error = "We don't have a team serving that exact spot yet — type the address and pick your area from the top of the page.";
+
+            return;
+        }
+
+        $this->newAddressLat = $lat;
+        $this->newAddressLng = $lng;
+        $this->newAddressZoneId = $zone->id;
+        $this->newAddressLocatedLabel = $zone->name;
+    }
+
+    /**
+     * Add an address inline. Zone + franchise are derived server-side, never
+     * accepted from the form — same rule as AddressController::store(). The
+     * zone is the one useCurrentLocationForNewAddress() resolved from the
+     * pin, if the customer used it; otherwise the active browsing zone
+     * (CustomerLocationContext). lat/lng are the real pinned coordinates
+     * when available, else the zone centre (the codebase has no geocoder).
      */
     public function saveNewAddress(): void
     {
         $this->error = '';
 
-        $zone = app(\App\Services\Customer\CustomerLocationContext::class)->zone();
+        $zone = $this->newAddressZoneId
+            ? \App\Models\Zone::where('is_active', true)->find($this->newAddressZoneId)
+            : app(\App\Services\Customer\CustomerLocationContext::class)->zone();
+
         if (! $zone) {
             $this->error = 'Choose your area from the top of the page first, so we know which team serves this address.';
 
@@ -214,8 +262,8 @@ class Wizard extends Component
             'franchise_id' => $zone->franchise_id,
             'zone_id' => $zone->id,
             'label' => $data['label'],
-            'lat' => $zone->center_lat ?? 0,
-            'lng' => $zone->center_lng ?? 0,
+            'lat' => $this->newAddressLat ?? $zone->center_lat ?? 0,
+            'lng' => $this->newAddressLng ?? $zone->center_lng ?? 0,
             'address_line' => $data['address_line'],
             'landmark' => $data['landmark'] ?? null,
             'city' => $data['city'] ?? null,
@@ -225,8 +273,42 @@ class Wizard extends Component
 
         $this->addressId = $address->id;
         $this->addingAddress = false;
-        $this->reset('newAddress');
+        $this->reset('newAddress', 'newAddressLat', 'newAddressLng', 'newAddressZoneId', 'newAddressLocatedLabel');
         $this->newAddress = ['label' => 'Home', 'address_line' => '', 'landmark' => '', 'city' => '', 'pincode' => ''];
+    }
+
+    /**
+     * Recovery for an address whose zone_id / franchise_id were nulled — the
+     * usual cause being its zone deleted and re-created with a new id, so the
+     * nullOnDelete FK blanked the reference (see Zones\Manage::confirmDelete's
+     * blocker, added the same session). Re-links the address to the customer's
+     * current header area, deriving franchise from that zone — exactly
+     * AddressController::update()'s zone re-link. No geocoding: this codebase
+     * has no point-in-polygon resolver, and the header zone is the same
+     * explicit choice every other address writer here already uses.
+     */
+    public function assignCurrentAreaToAddress(int $addressId): void
+    {
+        $this->error = '';
+
+        $address = Address::where('id', $addressId)->where('user_id', auth()->id())->first();
+        if (! $address) {
+            return;
+        }
+
+        $zone = app(\App\Services\Customer\CustomerLocationContext::class)->zone();
+        if (! $zone) {
+            $this->error = 'Choose your area from the top of the page first, so we know which team serves this address.';
+
+            return;
+        }
+
+        $address->update([
+            'zone_id' => $zone->id,
+            'franchise_id' => $zone->franchise_id,
+        ]);
+
+        $this->addressId = $address->id;
     }
 
     // ------------------------------------------------------------ schedule

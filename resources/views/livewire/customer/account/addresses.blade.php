@@ -24,6 +24,13 @@
                         </p>
                         <p class="text-sm text-slate-600">{{ $address->address_line }}@if ($address->city), {{ $address->city }}@endif</p>
                         @if ($address->landmark)<p class="text-xs text-slate-400">Near {{ $address->landmark }}</p>@endif
+                        @unless ($address->zone_id)
+                            <p class="mt-1 text-xs text-rose-600">No service area set — bookings can't use this address.</p>
+                            <button wire:click="assignCurrentArea({{ $address->id }})"
+                                    class="mt-1 rounded-md border border-blue-200 bg-blue-50 px-2 py-1 text-xs font-medium text-blue-700 hover:bg-blue-100">
+                                Use my selected area
+                            </button>
+                        @endunless
                     </div>
                     <div class="flex shrink-0 gap-1">
                         <button wire:click="edit({{ $address->id }})" class="rounded-md px-2.5 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-100">Edit</button>
@@ -39,6 +46,20 @@
     @if ($showForm)
         <div class="mt-4 rounded-xl border border-slate-200 p-4">
             <p class="text-sm font-semibold">{{ $editingId ? 'Edit address' : 'Add address' }}</p>
+
+            @unless ($editingId)
+                <button type="button" data-locate-address
+                        class="mt-3 inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-800 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600">
+                    <x-icon name="map" class="h-4 w-4 text-slate-500" />
+                    <span data-locate-address-label>Use my current location</span>
+                </button>
+                @if ($locatedZoneName !== '')
+                    <p class="mt-1.5 text-xs text-emerald-700">
+                        Pinned to your location — service area <span class="font-medium">{{ $locatedZoneName }}</span>.
+                    </p>
+                @endif
+            @endunless
+
             <div class="mt-3 grid gap-2 sm:grid-cols-2">
                 <div>
                     <input wire:model="form.label" placeholder="Label" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm">
@@ -66,4 +87,9 @@
             <x-icon name="plus" class="h-4 w-4" /> Add an address
         </button>
     @endif
+
+    {{-- "Use my current location" wiring — shared helper, see resources/js/geolocation.js --}}
+    @script
+    <script>window.cfWireLocateButton($wire);</script>
+    @endscript
 </div>

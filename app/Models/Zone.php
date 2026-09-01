@@ -36,4 +36,5 @@ class Zone extends Model
     public function franchise() { return $this->belongsTo(Franchise::class); }
     public function providers() { return $this->hasMany(Provider::class); }
     public function bookings() { return $this->hasMany(Booking::class); }
+    public function addresses() { return $this->hasMany(Address::class); }
 }

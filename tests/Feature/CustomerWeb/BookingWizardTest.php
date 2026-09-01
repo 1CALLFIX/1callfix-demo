@@ -47,6 +47,69 @@ class BookingWizardTest extends TestCase
         Wallet::updateOrCreate(['user_id' => $user->id], ['balance' => $amount]);
     }
 
+    // ---------- Phase 3: "Use my current location" on the add-address form ----------
+
+    public function test_use_my_current_location_pins_the_new_address_to_the_zone_covering_those_coordinates(): void
+    {
+        ['customer' => $customer, 'service' => $service, 'zone' => $headerZone] = $this->world();
+
+        // A different zone, with a real centre — the browser fix lands in THIS one, not the header zone.
+        [, , $geoFranchise, $geoZone] = $this->makeFranchiseTree();
+        $geoZone->update(['center_lat' => 19.0760, 'center_lng' => 72.8777, 'default_dispatch_radius_km' => 10]);
+
+        session([CustomerLocationContext::SESSION_KEY => $headerZone->id]);
+
+        Livewire::actingAs($customer)
+            ->test(Wizard::class, ['service' => $service])
+            ->set('addingAddress', true)
+            ->set('newAddress.label', 'Site')
+            ->set('newAddress.address_line', '5 Marine Drive')
+            ->call('useCurrentLocationForNewAddress', 19.0800, 72.8777)
+            ->assertSet('newAddressZoneId', $geoZone->id)
+            ->assertSet('newAddressLocatedLabel', $geoZone->name)
+            ->call('saveNewAddress')
+            ->assertHasNoErrors();
+
+        $address = Address::where('user_id', $customer->id)->latest('id')->first();
+        $this->assertSame($geoZone->id, $address->zone_id);
+        $this->assertSame($geoFranchise->id, $address->franchise_id);
+        $this->assertEqualsWithDelta(19.0800, (float) $address->lat, 0.0001);
+        $this->assertEqualsWithDelta(72.8777, (float) $address->lng, 0.0001);
+    }
+
+    public function test_use_my_current_location_outside_every_zone_reports_it_and_falls_back_to_the_header_zone(): void
+    {
+        ['customer' => $customer, 'service' => $service, 'zone' => $headerZone] = $this->world();
+        $headerZone->update(['center_lat' => 12.97, 'center_lng' => 77.59, 'default_dispatch_radius_km' => 8]);
+        session([CustomerLocationContext::SESSION_KEY => $headerZone->id]);
+
+        $component = Livewire::actingAs($customer)
+            ->test(Wizard::class, ['service' => $service])
+            ->set('addingAddress', true)
+            ->set('newAddress.label', 'Site')
+            ->set('newAddress.address_line', '5 Marine Drive')
+            ->call('useCurrentLocationForNewAddress', 51.5072, -0.1276) // London — outside every radius
+            ->assertSet('newAddressZoneId', null);
+
+        $this->assertStringContainsString("don't have a team serving", $component->get('error'));
+
+        $component->call('saveNewAddress')->assertHasNoErrors();
+
+        $address = Address::where('user_id', $customer->id)->latest('id')->first();
+        $this->assertSame($headerZone->id, $address->zone_id); // fell back to the browsing zone
+    }
+
+    public function test_use_my_current_location_rejects_out_of_range_coordinates(): void
+    {
+        ['customer' => $customer, 'service' => $service] = $this->world();
+
+        Livewire::actingAs($customer)
+            ->test(Wizard::class, ['service' => $service])
+            ->set('addingAddress', true)
+            ->call('useCurrentLocationForNewAddress', 999.0, 999.0)
+            ->assertHasErrors();
+    }
+
     /** Drive the wizard the way a customer does — through its own gates — to the pay step. */
     private function atPayStep(\App\Models\User $customer, \App\Models\Service $service, Address $address)
     {
