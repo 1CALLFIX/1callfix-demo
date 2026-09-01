@@ -95,6 +95,12 @@
                 {{-- Account --}}
                 @auth
                     <div class="flex items-center gap-1">
+                        @if (auth()->user()->providerProfile)
+                            <a href="{{ route('provider.dashboard') }}"
+                               class="hidden sm:inline-flex min-h-11 items-center whitespace-nowrap rounded-md px-3 py-2 text-sm font-medium text-blue-700 transition hover:bg-blue-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600">
+                                Partner dashboard
+                            </a>
+                        @endif
                         <a href="{{ route('customer.account') }}"
                            class="inline-flex min-h-11 items-center gap-2 rounded-md px-2 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900">
                             <span aria-hidden="true"

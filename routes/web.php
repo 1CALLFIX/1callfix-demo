@@ -21,6 +21,13 @@ use App\Livewire\Customer\Orders\Show as CustomerOrderShow;
 use App\Livewire\Customer\Orders\Index as CustomerOrders;
 use App\Livewire\Customer\Search as CustomerSearch;
 use App\Livewire\Customer\Wallet\Index as CustomerWallet;
+use App\Livewire\Provider\Activity as ProviderActivity;
+use App\Livewire\Provider\Auth\Login as ProviderLogin;
+use App\Livewire\Provider\Dashboard as ProviderDashboard;
+use App\Livewire\Provider\Earnings as ProviderEarnings;
+use App\Livewire\Provider\History as ProviderHistory;
+use App\Livewire\Provider\Jobs\Index as ProviderJobs;
+use App\Livewire\Provider\Jobs\Show as ProviderJobShow;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 
@@ -150,6 +157,40 @@ Route::middleware('auth')->group(function () {
     // Wallet balance + ledger + top-up.
     Route::get('/wallet', CustomerWallet::class)->name('customer.wallet');
 });
+
+/*
+ | Provider web (Phase PW1). A lightweight authenticated partner surface —
+ | online/offline toggle, job offers, accept/decline, the start/completion
+ | OTP flow, earnings, history and an activity feed. Shares the customer
+ | `web` session (a person can be both); `/provider/*` is gated only on
+ | "has a providers row" via EnsureIsProvider. Every state-changing call
+ | reuses an existing engine — SetProviderOnlineStatusAction is the sole
+ | new Action; accept/start/complete go straight to AcceptBookingAction /
+ | StartBookingAction / CompleteBookingAction. See
+ | PHASE_PW1_PROVIDER_WEB_P1_PLAN.md.
+ */
+Route::middleware('guest')->group(function () {
+    Route::get('/provider/login', ProviderLogin::class)->name('provider.login');
+});
+
+Route::post('/provider/logout', function () {
+    Auth::guard('web')->logout();
+    request()->session()->invalidate();
+    request()->session()->regenerateToken();
+
+    return redirect()->route('provider.login');
+})->middleware('auth')->name('provider.logout');
+
+Route::middleware(['auth', \App\Http\Middleware\EnsureIsProvider::class])
+    ->prefix('provider')
+    ->group(function () {
+        Route::get('/', ProviderDashboard::class)->name('provider.dashboard');
+        Route::get('/jobs', ProviderJobs::class)->name('provider.jobs.index');
+        Route::get('/jobs/{booking}', ProviderJobShow::class)->name('provider.jobs.show');
+        Route::get('/earnings', ProviderEarnings::class)->name('provider.earnings');
+        Route::get('/history', ProviderHistory::class)->name('provider.history');
+        Route::get('/activity', ProviderActivity::class)->name('provider.activity');
+    });
 
 // Public content. `page` renders real seeded `content_pages` rows — the
 // legal text itself is never authored or altered here (see

@@ -22,11 +22,17 @@ return Application::configure(basePath: dirname(__DIR__))
         // authenticated surface, but it would drop a customer who followed
         // a link to their own account onto a staff email/password form.
         // Admin behaviour is unchanged; only non-admin paths are affected.
-        $middleware->redirectGuestsTo(
-            fn (Request $request) => $request->is('admin', 'admin/*')
-                ? route('admin.login')
-                : route('customer.login')
-        );
+        $middleware->redirectGuestsTo(function (Request $request) {
+            if ($request->is('admin', 'admin/*')) {
+                return route('admin.login');
+            }
+
+            if ($request->is('provider', 'provider/*')) {
+                return route('provider.login');
+            }
+
+            return route('customer.login');
+        });
 
         // Mission Phase 16 -- see AppServiceProvider::boot()'s docblock for
         // the finding this closes. Applies Laravel's standard throttle:api
