@@ -127,6 +127,27 @@ class Index extends Component
             ->when($this->search, fn ($q) => $q->whereHas('user', fn ($u) => $u->where('name', 'like', "%{$this->search}%")->orWhere('phone', 'like', "%{$this->search}%")));
     }
 
+    /**
+     * Blank CSV template for the Bulk Pre-Register upload — correct headers
+     * plus one example row. Mirrors the "Download template" affordance the
+     * catalog import screens (Services/Categories/Subcategories) already
+     * offer; kept as a tiny inline stream here rather than a dedicated
+     * Export class because the content is entirely static.
+     */
+    public function downloadPreregTemplate()
+    {
+        return response()->streamDownload(function () {
+            $out = fopen('php://output', 'w');
+            // UTF-8 BOM so Excel doesn't mangle non-ASCII — see HasCsvExport.
+            fwrite($out, "\xEF\xBB\xBF");
+            fputcsv($out, ['name', 'phone', 'franchise_id', 'zone_id']);
+            fputcsv($out, ['Ravi Kumar', '+919000000001', '3', '17']);
+            fclose($out);
+        }, 'providers-prereg-template.csv', [
+            'Content-Type' => 'text/csv; charset=UTF-8',
+        ]);
+    }
+
     /** Export Everywhere session, Part 1 — current filtered + scoped view as CSV. */
     public function exportProvidersCsv()
     {

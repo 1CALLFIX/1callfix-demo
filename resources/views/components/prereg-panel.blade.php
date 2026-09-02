@@ -4,6 +4,7 @@
     'validateMethod',
     'commitMethod',
     'cancelMethod',
+    'templateMethod' => null,
     'warning',
     // rowErrors, not errors — see import-panel.blade.php's identical fix:
     // a prop named $errors shadows Laravel's own framework-shared $errors
@@ -49,6 +50,11 @@
 
     @if (empty($rowErrors) && $rows === null)
         <div class="flex items-center gap-3 flex-wrap">
+            @if ($templateMethod)
+                <button type="button" wire:click="{{ $templateMethod }}" class="px-3 py-1.5 border border-gray-300 rounded text-xs hover:bg-gray-50">
+                    Download template
+                </button>
+            @endif
             <input type="file" wire:model="{{ $fileModel }}" accept=".xlsx,.xls,.csv" class="text-xs">
             <button type="button" wire:click="{{ $validateMethod }}" wire:loading.attr="disabled" wire:target="{{ $validateMethod }},{{ $fileModel }}"
                     class="px-3 py-1.5 bg-indigo-600 text-white rounded text-xs font-medium hover:bg-indigo-700 disabled:opacity-50">

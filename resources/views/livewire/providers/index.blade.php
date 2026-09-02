@@ -17,6 +17,7 @@
             validate-method="validateProvidersPrereg"
             commit-method="commitProvidersPrereg"
             cancel-method="toggleProvidersPrereg"
+            template-method="downloadPreregTemplate"
             warning="Creates PENDING account shells only — kyc_status starts at the platform's normal 'pending' state, exactly like any other new provider. Each one still needs to submit and pass real KYC review before they're eligible for dispatch. Columns: name, phone, franchise_id (required), zone_id (optional)."
             :row-errors="$providersPreregErrors"
             :rows="$providersPreregRows"
