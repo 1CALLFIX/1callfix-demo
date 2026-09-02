@@ -23,6 +23,7 @@ use App\Livewire\Customer\Search as CustomerSearch;
 use App\Livewire\Customer\Wallet\Index as CustomerWallet;
 use App\Livewire\Provider\Activity as ProviderActivity;
 use App\Livewire\Provider\Auth\Login as ProviderLogin;
+use App\Livewire\Provider\Auth\Register as ProviderRegister;
 use App\Livewire\Provider\Dashboard as ProviderDashboard;
 use App\Livewire\Provider\Earnings as ProviderEarnings;
 use App\Livewire\Provider\History as ProviderHistory;
@@ -171,6 +172,8 @@ Route::middleware('auth')->group(function () {
  */
 Route::middleware('guest')->group(function () {
     Route::get('/provider/login', ProviderLogin::class)->name('provider.login');
+    // PHASE PSR — public, unauthenticated provider self-registration.
+    Route::get('/provider/register', ProviderRegister::class)->name('provider.register');
 });
 
 Route::post('/provider/logout', function () {

@@ -214,6 +214,12 @@ class KycEngineTest extends TestCase
 
     public function test_provider_approval_blocked_without_approved_video_when_required(): void
     {
+        // The video gate is waived globally by default (PHASE PSR migration
+        // 2026_09_02_002000 — no provider-facing video-submission path
+        // exists yet). This test is specifically the "when required" branch,
+        // so it re-asserts the requirement for itself.
+        Setting::set('kyc.require_verification_video', '1');
+
         [, , $franchise, $zone] = $this->makeFranchiseTree();
         $provider = $this->makeProviderIn($franchise, $zone);
         $this->satisfyDocuments($provider);

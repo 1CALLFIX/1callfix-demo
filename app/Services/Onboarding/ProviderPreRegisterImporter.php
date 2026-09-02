@@ -2,26 +2,27 @@
 
 namespace App\Services\Onboarding;
 
+use App\Actions\RegisterProviderAction;
 use App\Models\CatalogImportRun;
 use App\Models\Franchise;
-use App\Models\Provider;
 use App\Models\User;
 use App\Models\Zone;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
 
 /**
  * Export Everywhere + Import Where It's Safe session, Part 3 — Bulk
  * Pre-Register for Providers. See CustomerPreRegisterImporter's docblock
  * for why this is a standalone pipeline, not a CatalogImporter subclass.
  *
- * There is no real provider self-signup flow anywhere in this codebase
- * (confirmed by audit — providers are KYC-gated onboarding, created only
- * by an admin action; see AuthController::verifyOtp()'s own docblock).
- * This importer creates the User + Provider pair with the SAME real
- * columns/relationship a genuine provider record has — critically,
- * `kyc_status` is left at the `providers` table's own column default
+ * Provider self-signup DOES now exist (PHASE PSR — the public
+ * App\Livewire\Provider\Auth\Register form). Both paths converge on one
+ * shared writer, App\Actions\RegisterProviderAction, so the User + Provider
+ * pair has the SAME real columns/relationship whichever entry point
+ * created it. This importer keeps its CSV-only concerns — validateRows(),
+ * partial-success, the CatalogImportRun record — and delegates the row
+ * write. Critically, `kyc_status` is left at the `providers` table's own
+ * column default
  * ('pending', the real "awaiting KYC" state DispatchService's candidate
  * queries already filter out — see DispatchService::where('kyc_status',
  * 'approved')), never forced to 'approved' by this importer under any
@@ -163,28 +164,18 @@ class ProviderPreRegisterImporter
                         continue;
                     }
 
-                    $user = User::create([
-                        'uuid' => (string) Str::uuid(),
-                        'name' => $row['name'],
-                        'phone' => $row['phone'],
-                        'role' => 'provider',
-                        'status' => 'active',
-                        'franchise_id' => $row['franchise_id'],
-                        'zone_id' => $row['zone_id'],
-                        'preferred_language' => 'en',
-                    ]);
-
-                    // kyc_status deliberately NOT set here — the providers
-                    // table's own column default ('pending') applies, same
-                    // as every other column this importer doesn't touch.
-                    // See class docblock for kyc_deadline_at's own reasoning.
-                    Provider::create([
-                        'user_id' => $user->id,
-                        'franchise_id' => $row['franchise_id'],
-                        'zone_id' => $row['zone_id'],
-                        'provider_type' => 'independent',
-                        'kyc_deadline_at' => now()->addDays(30),
-                    ]);
+                    // The row write itself is the shared RegisterProviderAction
+                    // (PHASE PSR) — same User + Provider shape the public
+                    // self-registration form produces. kyc_status is never
+                    // set by it; the providers table default ('pending')
+                    // applies. A CSV row carries no password / email, an
+                    // unverified phone and no address.
+                    app(RegisterProviderAction::class)->execute(
+                        name: $row['name'],
+                        phone: $row['phone'],
+                        franchiseId: $row['franchise_id'],
+                        zoneId: $row['zone_id'],
+                    );
 
                     $counts['created']++;
                     $results[] = ['row' => $row['row'], 'external_id' => $row['phone'], 'name' => $row['name'], 'outcome' => self::OUTCOME_CREATED];

@@ -35,6 +35,10 @@
         </form>
 
         <p class="mt-6 text-center text-sm text-slate-600">
+            New to {{ $platformName }}?
+            <a href="{{ route('provider.register') }}" wire:navigate class="font-medium text-blue-600 underline underline-offset-2">Become a partner</a>
+        </p>
+        <p class="mt-2 text-center text-sm text-slate-600">
             Not a partner? <a href="{{ route('customer.login') }}" wire:navigate class="font-medium text-slate-900 underline underline-offset-2">Customer sign in</a>
         </p>
     </x-ui.card>
