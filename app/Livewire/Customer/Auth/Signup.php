@@ -100,17 +100,35 @@ class Signup extends Component
         }
         $this->hitThrottle('signup-phone', $this->phone);
 
-        // Tell the browser to run Firebase signInWithPhoneNumber. In tests
-        // (no JS) the test calls phoneTokenReceived() directly.
+        // Ask the browser to run Firebase signInWithPhoneNumber. The step
+        // advances to code entry only once the SMS has really gone out
+        // (#[On('firebase-phone-otp-sent')]); a failure comes back as
+        // 'firebase-error' and leaves the user here with one honest error
+        // instead of a "code sent" banner sitting next to it. In tests
+        // (no JS) phoneTokenReceived() is called directly and this
+        // handshake is bypassed.
         $this->dispatch('firebase-send-phone-otp', phone: PhoneNumber::e164($this->phone));
-        $this->step = 'verify_phone';
-        $this->status = 'Enter the code we sent to '.PhoneNumber::e164($this->phone).'.';
+        $this->status = 'Sending a verification code to '.PhoneNumber::e164($this->phone).'…';
+    }
+
+    /** customer-auth.js confirms signInWithPhoneNumber actually sent the SMS. */
+    #[On('firebase-phone-otp-sent')]
+    public function phoneOtpSent(): void
+    {
+        if (blank($this->verifiedPhoneE164)) {
+            $this->step = 'verify_phone';
+            $this->error = '';
+            $this->status = 'Enter the code we sent to '.PhoneNumber::e164($this->phone).'.';
+        }
     }
 
     #[On('firebase-error')]
     public function firebaseError(string $message): void
     {
         $this->error = $message;
+        // Clear any optimistic "sending…" / "code sent" line so the user
+        // sees a single failure, not a green confirmation beside a red error.
+        $this->status = '';
     }
 
     /** Invoked with the Firebase ID token once the SMS code is confirmed client-side. */

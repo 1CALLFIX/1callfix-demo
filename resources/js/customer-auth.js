@@ -84,6 +84,12 @@ document.addEventListener('livewire:init', () => {
             }
             confirmationResult = await signInWithPhoneNumber(a, phone, recaptcha);
             window.dispatchEvent(new CustomEvent('firebase-phone-otp-sent'));
+            // Livewire-side signal: the SMS has really gone out. Auth
+            // components that opt in (Signup, provider Register) advance to
+            // the code-entry step only on this event, not optimistically;
+            // components that don't listen (Login, ForgotPassword,
+            // PasswordMigration, GoogleAuth) simply ignore it.
+            window.Livewire.dispatch('firebase-phone-otp-sent');
         } catch (e) {
             console.error(e);
             resetRecaptcha();
