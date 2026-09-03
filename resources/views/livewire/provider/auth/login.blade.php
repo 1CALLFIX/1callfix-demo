@@ -22,9 +22,7 @@
 
             <div>
                 <label for="password" class="block text-sm font-medium text-slate-900">Password</label>
-                <input id="password" type="password" autocomplete="current-password" wire:model="password"
-                       @class(['mt-1.5 block min-h-11 w-full rounded-lg border px-3 py-2.5 text-base shadow-sm focus:outline focus:outline-2 focus:outline-blue-600',
-                               'border-red-400' => $errors->has('password'), 'border-slate-300' => ! $errors->has('password')])>
+                <x-ui.password-input id="password" name="password" autocomplete="current-password" wire:model="password" />
                 @error('password') <p class="mt-1.5 text-sm text-red-700">{{ $message }}</p> @enderror
             </div>
 

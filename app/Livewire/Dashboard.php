@@ -227,12 +227,56 @@ class Dashboard extends Component
         // to drill directly into the underlying records" requirement) --
         // built here, not hardcoded in the view, so a card is only ever
         // linked if the viewer actually holds the permission that route's
-        // own screen requires.
+        // own screen requires. Each value is a URL to an EXISTING admin
+        // screen, pre-filtered via that screen's own query-string bindings
+        // (Bookings\Index::$statusFilter, Providers\Index::$onlineOnly,
+        // Franchises\Manage::$filterStatus, Commissions\Index::$fromDate/
+        // $toDate) — no new pages.
+        $user = auth()->user();
+        $canBookings = $user->hasPermissionAnywhere('bookings.view');
+        $canProviders = $user->hasPermissionAnywhere('providers.view');
+        $canFranchises = $user->hasPermissionAnywhere('franchises.manage');
+        $canCommissions = $user->hasPermissionAnywhere('commissions.view');
+        $todayDate = $today->toDateString();
+
+        $bookingsByStatus = fn (string $status) => $canBookings
+            ? route('admin.bookings.index', ['statusFilter' => $status])
+            : null;
+
         $links = [
-            'bookings' => auth()->user()->hasPermissionAnywhere('bookings.view') ? route('admin.bookings.index') : null,
-            'providers' => auth()->user()->hasPermissionAnywhere('providers.view') ? route('admin.providers.index') : null,
-            'franchises' => auth()->user()->hasPermissionAnywhere('franchises.manage') ? route('admin.franchises.index') : null,
+            'bookings' => $canBookings ? route('admin.bookings.index') : null,
+            'bookings_searching' => $bookingsByStatus('searching_provider'),
+            'bookings_assigned' => $bookingsByStatus('assigned'),
+            'bookings_in_progress' => $bookingsByStatus('in_progress'),
+            'bookings_completed' => $bookingsByStatus('completed'),
+            'bookings_cancelled' => $bookingsByStatus('cancelled'),
+            'bookings_disputed' => $bookingsByStatus('disputed'),
+            'providers' => $canProviders ? route('admin.providers.index') : null,
+            'providers_online' => $canProviders
+                ? route('admin.providers.index', ['statusFilter' => '', 'onlineOnly' => 1])
+                : null,
+            'franchises' => $canFranchises ? route('admin.franchises.index') : null,
+            'franchises_active' => $canFranchises
+                ? route('admin.franchises.index', ['filterStatus' => 'active'])
+                : null,
+            'commissions' => $canCommissions ? route('admin.commissions.index') : null,
+            'commissions_today' => $canCommissions
+                ? route('admin.commissions.index', ['fromDate' => $todayDate, 'toDate' => $todayDate])
+                : null,
         ];
+
+        // Part A finding surfaced on the dashboard: every active franchise in
+        // this viewer's scope is on the zero default for BOTH commission
+        // levers (franchises.platform_fee_percent / commission_value), so
+        // CommissionService splits 100% to the provider and books nothing
+        // for platform or franchise. Drives the amber note on the
+        // Commissions card — a silent link-through would hide the fact that
+        // the numbers on that screen are all 100/0/0 by omission, not by
+        // decision.
+        $commissionRatesConfigured = $canCommissions && (clone $this->scopedFranchises())
+            ->where('status', 'active')
+            ->where(fn ($q) => $q->where('platform_fee_percent', '>', 0)->orWhere('commission_value', '>', 0))
+            ->exists();
 
         // Admin Polish + AI session, Part 2 item 3 — Daily Insights panel.
         // Gated by operations.view, same as StuckBookingService's own
@@ -245,7 +289,7 @@ class Dashboard extends Component
             ? app(DailyInsightsService::class)->digest(auth()->user())
             : null;
 
-        return view('livewire.dashboard', compact('stats', 'funnel', 'trend', 'recentBookings', 'currencySymbol', 'otherVerticals', 'links', 'insights'))
+        return view('livewire.dashboard', compact('stats', 'funnel', 'trend', 'recentBookings', 'currencySymbol', 'otherVerticals', 'links', 'insights', 'commissionRatesConfigured'))
             ->layout('layouts.admin', ['title' => 'Dashboard']);
     }
 }

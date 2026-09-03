@@ -21,8 +21,10 @@ class Index extends Component
 
     public string $statusFilter = 'pending';
     public string $search = '';
+    /** Narrow to providers who are online right now — the dashboard's "Providers Online" card links here with this set. */
+    public bool $onlineOnly = false;
 
-    protected $queryString = ['statusFilter', 'search'];
+    protected $queryString = ['statusFilter', 'search', 'onlineOnly'];
 
     // --- Bulk Pre-Register (Export Everywhere + Import Where It's Safe
     // session, Part 3) — see ProviderPreRegisterImporter's own docblock. ---
@@ -45,6 +47,11 @@ class Index extends Component
     }
 
     public function updatingSearch()
+    {
+        $this->resetPage();
+    }
+
+    public function updatingOnlineOnly()
     {
         $this->resetPage();
     }
@@ -124,6 +131,7 @@ class Index extends Component
 
         return $scoped(Provider::with(['user', 'zone', 'documents']))
             ->when($this->statusFilter, fn ($q) => $q->where('kyc_status', $this->statusFilter))
+            ->when($this->onlineOnly, fn ($q) => $q->where('is_online', true))
             ->when($this->search, fn ($q) => $q->whereHas('user', fn ($u) => $u->where('name', 'like', "%{$this->search}%")->orWhere('phone', 'like', "%{$this->search}%")));
     }
 

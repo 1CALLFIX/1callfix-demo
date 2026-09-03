@@ -11,3 +11,4 @@
 import './geolocation';
 import './carousel';
 import './search-bar';
+import './password-toggle';

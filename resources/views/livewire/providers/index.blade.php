@@ -38,8 +38,14 @@
             @endforeach
         </div>
 
-        <input type="text" wire:model.live.debounce.400ms="search" placeholder="Search by name or phone…"
-               class="border rounded px-3 py-2 text-sm w-64">
+        <div class="flex items-center gap-3">
+            <label class="flex items-center gap-1.5 text-sm text-gray-600 whitespace-nowrap">
+                <input type="checkbox" wire:model.live="onlineOnly" class="rounded border-gray-300">
+                Online now
+            </label>
+            <input type="text" wire:model.live.debounce.400ms="search" placeholder="Search by name or phone…"
+                   class="border rounded px-3 py-2 text-sm w-64">
+        </div>
     </div>
 
     @if ($statusFilter === 'pending' && $providers->total() > 0)

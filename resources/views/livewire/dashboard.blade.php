@@ -13,39 +13,34 @@
         </div>
     </div>
 
-    <div class="grid grid-cols-3 md:grid-cols-6 gap-3 mb-8">
-        <x-ui.card class="!p-3 text-center">
-            <div class="text-xs text-gray-500">Searching</div>
-            <div class="text-xl font-bold text-blue-600">{{ $funnel['searching'] }}</div>
-        </x-ui.card>
-        <x-ui.card class="!p-3 text-center">
-            <div class="text-xs text-gray-500">Assigned</div>
-            <div class="text-xl font-bold text-indigo-600">{{ $funnel['assigned'] }}</div>
-        </x-ui.card>
-        <x-ui.card class="!p-3 text-center">
-            <div class="text-xs text-gray-500">In Progress</div>
-            <div class="text-xl font-bold text-amber-600">{{ $funnel['in_progress'] }}</div>
-        </x-ui.card>
-        <x-ui.card class="!p-3 text-center">
-            <div class="text-xs text-gray-500">Completed</div>
-            <div class="text-xl font-bold text-green-600">{{ $funnel['completed'] }}</div>
-        </x-ui.card>
-        <x-ui.card class="!p-3 text-center">
-            <div class="text-xs text-gray-500">Cancelled</div>
-            <div class="text-xl font-bold text-red-500">{{ $funnel['cancelled'] }}</div>
-        </x-ui.card>
-        <x-ui.card class="!p-3 text-center">
-            <div class="text-xs text-gray-500">Disputed</div>
-            <div class="text-xl font-bold text-red-700">{{ $funnel['disputed'] }}</div>
-        </x-ui.card>
-    </div>
-
     {{--
         x-ui.card is always a plain <div> (no tag/href prop) -- cards that
         should be clickable are wrapped in a real <a> here rather than
         trying to make the shared component polymorphic for one screen.
+        Each pipeline stage links to Bookings pre-filtered to that status
+        (Bookings\Index::$statusFilter); "Assigned" and "In Progress" cards
+        each count two statuses but $statusFilter takes one, so they land on
+        the primary status of the pair.
     --}}
     @php($linkOrDiv = fn ($href) => $href ? 'a' : 'div')
+    @php($pipelineCards = [
+        ['label' => 'Searching', 'value' => $funnel['searching'], 'colour' => 'text-blue-600', 'href' => $links['bookings_searching']],
+        ['label' => 'Assigned', 'value' => $funnel['assigned'], 'colour' => 'text-indigo-600', 'href' => $links['bookings_assigned']],
+        ['label' => 'In Progress', 'value' => $funnel['in_progress'], 'colour' => 'text-amber-600', 'href' => $links['bookings_in_progress']],
+        ['label' => 'Completed', 'value' => $funnel['completed'], 'colour' => 'text-green-600', 'href' => $links['bookings_completed']],
+        ['label' => 'Cancelled', 'value' => $funnel['cancelled'], 'colour' => 'text-red-500', 'href' => $links['bookings_cancelled']],
+        ['label' => 'Disputed', 'value' => $funnel['disputed'], 'colour' => 'text-red-700', 'href' => $links['bookings_disputed']],
+    ])
+    <div class="grid grid-cols-3 md:grid-cols-6 gap-3 mb-8">
+        @foreach ($pipelineCards as $c)
+            <{{ $linkOrDiv($c['href']) }} @if($c['href']) href="{{ $c['href'] }}" @endif class="block">
+                <x-ui.card class="!p-3 text-center {{ $c['href'] ? 'hover:shadow-md transition' : '' }}">
+                    <div class="text-xs text-gray-500">{{ $c['label'] }}</div>
+                    <div class="text-xl font-bold {{ $c['colour'] }}">{{ $c['value'] }}</div>
+                </x-ui.card>
+            </{{ $linkOrDiv($c['href']) }}>
+        @endforeach
+    </div>
     <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
         <{{ $linkOrDiv($links['bookings']) }} @if($links['bookings']) href="{{ $links['bookings'] }}" @endif class="block">
             <x-ui.card class="{{ $links['bookings'] ? 'hover:shadow-md transition' : '' }}">
@@ -59,44 +54,72 @@
                 <div class="text-2xl font-bold text-amber-600">{{ $stats['active_bookings'] }}</div>
             </x-ui.card>
         </{{ $linkOrDiv($links['bookings']) }}>
-        <x-ui.card>
-            <div class="text-sm text-gray-500">Completed Today</div>
-            <div class="text-2xl font-bold text-green-600">{{ $stats['completed_today'] }}</div>
-        </x-ui.card>
-        <x-ui.card>
-            <div class="text-sm text-gray-500">Revenue Today</div>
-            <div class="text-2xl font-bold">{{ $currencySymbol }}{{ number_format($stats['revenue_today'], 2) }}</div>
-        </x-ui.card>
-        {{-- Admin Polish + AI session, Part 1 item 1 — "completion rate" was
-             explicitly named as a KPI to surface and wasn't on this screen
-             at all. Of CONCLUDED bookings this period (see Dashboard::render()'s
-             own comment for why), not of everything created. --}}
+        <{{ $linkOrDiv($links['bookings_completed']) }} @if($links['bookings_completed']) href="{{ $links['bookings_completed'] }}" @endif class="block">
+            <x-ui.card class="{{ $links['bookings_completed'] ? 'hover:shadow-md transition' : '' }}">
+                <div class="text-sm text-gray-500">Completed Today</div>
+                <div class="text-2xl font-bold text-green-600">{{ $stats['completed_today'] }}</div>
+            </x-ui.card>
+        </{{ $linkOrDiv($links['bookings_completed']) }}>
+        {{-- Revenue Today drills into Commissions filtered to today — the
+             per-booking provider/franchise/platform split behind the number
+             ("who got paid for today's revenue"). Bookings\Index has no
+             date query-string, so there is no today-boxed Bookings view to
+             link instead. --}}
+        <{{ $linkOrDiv($links['commissions_today']) }} @if($links['commissions_today']) href="{{ $links['commissions_today'] }}" @endif class="block">
+            <x-ui.card class="{{ $links['commissions_today'] ? 'hover:shadow-md transition' : '' }}">
+                <div class="text-sm text-gray-500">Revenue Today</div>
+                <div class="text-2xl font-bold">{{ $currencySymbol }}{{ number_format($stats['revenue_today'], 2) }}</div>
+                @if ($links['commissions_today'])
+                    <div class="mt-0.5 text-[11px] text-gray-400">View today's commissions →</div>
+                @endif
+            </x-ui.card>
+        </{{ $linkOrDiv($links['commissions_today']) }}>
+        {{-- Completion Rate is a ratio, not a record set — nothing to drill
+             into, so it stays an unlinked KPI card (flagged, not forced). --}}
         <x-ui.card>
             <div class="text-sm text-gray-500">Completion Rate ({{ $period }})</div>
             <div class="text-2xl font-bold {{ $stats['completion_rate'] === null ? 'text-gray-400' : ($stats['completion_rate'] >= 90 ? 'text-green-600' : 'text-amber-600') }}">
                 {{ $stats['completion_rate'] === null ? '—' : $stats['completion_rate'].'%' }}
             </div>
         </x-ui.card>
-        <{{ $linkOrDiv($links['providers']) }} @if($links['providers']) href="{{ $links['providers'] }}" @endif class="block">
-            <x-ui.card class="{{ $links['providers'] ? 'hover:shadow-md transition' : '' }}">
+        <{{ $linkOrDiv($links['providers_online']) }} @if($links['providers_online']) href="{{ $links['providers_online'] }}" @endif class="block">
+            <x-ui.card class="{{ $links['providers_online'] ? 'hover:shadow-md transition' : '' }}">
                 <div class="text-sm text-gray-500">Providers Online</div>
                 <div class="text-2xl font-bold">{{ $stats['providers_online'] }} <span class="text-sm text-gray-400 font-normal">/ {{ $stats['providers_total'] }}</span></div>
             </x-ui.card>
-        </{{ $linkOrDiv($links['providers']) }}>
-        <{{ $linkOrDiv($links['franchises']) }} @if($links['franchises']) href="{{ $links['franchises'] }}" @endif class="block">
-            <x-ui.card class="{{ $links['franchises'] ? 'hover:shadow-md transition' : '' }}">
+        </{{ $linkOrDiv($links['providers_online']) }}>
+        <{{ $linkOrDiv($links['franchises_active']) }} @if($links['franchises_active']) href="{{ $links['franchises_active'] }}" @endif class="block">
+            <x-ui.card class="{{ $links['franchises_active'] ? 'hover:shadow-md transition' : '' }}">
                 <div class="text-sm text-gray-500">Active Franchises</div>
                 <div class="text-2xl font-bold">{{ $stats['franchises_active'] }}</div>
             </x-ui.card>
-        </{{ $linkOrDiv($links['franchises']) }}>
+        </{{ $linkOrDiv($links['franchises_active']) }}>
         {{-- Mission's own explicit "Active Operations" priority signal -- the
              current, un-time-boxed backlog, not filtered to the selected period. --}}
-        <{{ $linkOrDiv($links['bookings']) }} @if($links['bookings']) href="{{ $links['bookings'] }}" @endif class="block">
-            <x-ui.card class="{{ ($links['bookings'] ? 'hover:shadow-md transition ' : '').($stats['unassigned_bookings'] > 0 ? 'ring-1 ring-red-200' : '') }}">
+        <{{ $linkOrDiv($links['bookings_searching']) }} @if($links['bookings_searching']) href="{{ $links['bookings_searching'] }}" @endif class="block">
+            <x-ui.card class="{{ ($links['bookings_searching'] ? 'hover:shadow-md transition ' : '').($stats['unassigned_bookings'] > 0 ? 'ring-1 ring-red-200' : '') }}">
                 <div class="text-sm text-gray-500">Unassigned Bookings</div>
                 <div class="text-2xl font-bold {{ $stats['unassigned_bookings'] > 0 ? 'text-red-600' : '' }}">{{ $stats['unassigned_bookings'] }}</div>
             </x-ui.card>
-        </{{ $linkOrDiv($links['bookings']) }}>
+        </{{ $linkOrDiv($links['bookings_searching']) }}>
+        {{-- Commissions was only reachable via the collapsed Finance nav
+             group — a direct card here makes "who got paid" one click from
+             the dashboard. The amber note fires when every active franchise
+             in scope is still on the zero commission default (Part A):
+             CommissionService is then splitting 100% to providers and
+             booking nothing for platform/franchise, so the Commissions
+             screen's numbers are 100/0/0 by omission, not decision. --}}
+        @if ($links['commissions'])
+            <a href="{{ $links['commissions'] }}" class="block">
+                <x-ui.card class="hover:shadow-md transition {{ $commissionRatesConfigured ? '' : 'ring-1 ring-amber-200' }}">
+                    <div class="text-sm text-gray-500">Commissions</div>
+                    <div class="text-2xl font-bold">View splits →</div>
+                    @unless ($commissionRatesConfigured)
+                        <div class="mt-0.5 text-[11px] font-medium text-amber-600">Rates not set — 100% to providers</div>
+                    @endunless
+                </x-ui.card>
+            </a>
+        @endif
     </div>
 
     {{-- Admin Polish + AI session, Part 1 item 1 — a real 7-day trend
