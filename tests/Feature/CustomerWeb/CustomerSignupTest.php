@@ -37,6 +37,32 @@ class CustomerSignupTest extends TestCase
         $c->call('requestPhoneCode')->call('phoneTokenReceived', $token)->assertSet('step', 'details');
     }
 
+    public function test_phone_step_waits_for_a_real_send_and_never_shows_code_sent_beside_an_error(): void
+    {
+        $phone = $this->randomPhone();
+        $c = Livewire::test(Signup::class)->set('phone', $phone);
+
+        // requestPhoneCode no longer advances optimistically — it asks the
+        // browser and holds on the phone step with a "sending" note.
+        $c->call('requestPhoneCode')
+            ->assertSet('step', 'phone')
+            ->assertSet('status', fn ($s) => str_contains($s, 'Sending'));
+
+        // A Firebase failure clears that note and shows one error, still on
+        // the phone step — no green "code sent" banner beside a red error.
+        $c->dispatch('firebase-error', message: 'Mobile / Google sign-in is not configured for this site yet.')
+            ->assertSet('step', 'phone')
+            ->assertSet('status', '')
+            ->assertSet('error', 'Mobile / Google sign-in is not configured for this site yet.');
+
+        // Only a real send confirmation advances to code entry.
+        $c->call('requestPhoneCode')
+            ->dispatch('firebase-phone-otp-sent')
+            ->assertSet('step', 'verify_phone')
+            ->assertSet('error', '')
+            ->assertSet('status', fn ($s) => str_contains($s, 'Enter the code'));
+    }
+
     public function test_signup_via_mobile_sets_a_password_and_logs_in(): void
     {
         $phone = $this->randomPhone();

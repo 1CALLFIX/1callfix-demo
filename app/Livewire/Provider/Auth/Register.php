@@ -7,6 +7,7 @@ use App\Contracts\FirebaseTokenVerifier;
 use App\Exceptions\AccountAlreadyExistsException;
 use App\Exceptions\FirebaseAuthException;
 use App\Livewire\Customer\Auth\Concerns\InteractsWithAuthThrottle;
+use App\Models\User;
 use App\Models\Zone;
 use App\Services\Customer\CustomerLocationContext;
 use App\Services\DispatchService;
@@ -126,16 +127,35 @@ class Register extends Component
         }
         $this->hitThrottle('provider-reg-phone', $this->phone);
 
-        // In tests (no JS) the test calls phoneTokenReceived() directly.
+        // Ask the browser to run Firebase signInWithPhoneNumber. The step
+        // advances to code entry only once the SMS has really gone out
+        // (#[On('firebase-phone-otp-sent')]); a failure comes back as
+        // 'firebase-error' and leaves the user here with one honest error
+        // instead of a "code sent" banner sitting next to it. In tests
+        // (no JS) phoneTokenReceived() is called directly and this
+        // handshake is bypassed.
         $this->dispatch('firebase-send-phone-otp', phone: PhoneNumber::e164($this->phone));
-        $this->step = 'verify_phone';
-        $this->status = 'Enter the code we sent to '.PhoneNumber::e164($this->phone).'.';
+        $this->status = 'Sending a verification code to '.PhoneNumber::e164($this->phone).'…';
+    }
+
+    /** customer-auth.js confirms signInWithPhoneNumber actually sent the SMS. */
+    #[On('firebase-phone-otp-sent')]
+    public function phoneOtpSent(): void
+    {
+        if (blank($this->verifiedPhoneE164)) {
+            $this->step = 'verify_phone';
+            $this->error = '';
+            $this->status = 'Enter the code we sent to '.PhoneNumber::e164($this->phone).'.';
+        }
     }
 
     #[On('firebase-error')]
     public function firebaseError(string $message): void
     {
         $this->error = $message;
+        // Clear any optimistic "sending…" / "code sent" line so the user
+        // sees a single failure, not a green confirmation beside a red error.
+        $this->status = '';
     }
 
     /** Invoked with the Firebase ID token once the SMS code is confirmed client-side. */
@@ -155,6 +175,19 @@ class Register extends Component
 
         if (! $identity->isPhoneProvider() || blank($identity->phoneNumber)) {
             $this->error = 'That verification did not include a mobile number.';
+
+            return;
+        }
+
+        // Fail fast: a number that already belongs to an account cannot be
+        // registered again (RegisterProviderAction rejects it at submit
+        // with AccountAlreadyExistsException). Catch it here, the moment
+        // the number is proven, so the applicant never fills in a detail or
+        // uploads a document against a number they can't use. Same
+        // `phone` shape the Action checks — national digits.
+        if (User::where('phone', PhoneNumber::national($identity->phoneNumber))->exists()) {
+            $this->error = 'An account with this mobile number already exists. Please sign in instead.';
+            $this->step = 'phone';
 
             return;
         }

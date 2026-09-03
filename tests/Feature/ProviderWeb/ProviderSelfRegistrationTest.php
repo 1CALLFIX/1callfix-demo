@@ -89,6 +89,31 @@ class ProviderSelfRegistrationTest extends TestCase
         $this->get('/provider/register')->assertOk()->assertSee('Become a');
     }
 
+    public function test_otp_step_waits_for_a_real_send_and_never_shows_code_sent_beside_an_error(): void
+    {
+        $c = Livewire::test(Register::class)->set('phone', $this->randomPhone());
+
+        // requestPhoneCode holds on the phone step until the browser
+        // confirms the SMS actually went out.
+        $c->call('requestPhoneCode')
+            ->assertSet('step', 'phone')
+            ->assertSet('status', fn ($s) => str_contains($s, 'Sending'));
+
+        // A Firebase config failure: one error, no lingering "code sent"
+        // line, still on the phone step.
+        $c->dispatch('firebase-error', message: 'Mobile / Google sign-in is not configured for this site yet.')
+            ->assertSet('step', 'phone')
+            ->assertSet('status', '')
+            ->assertSet('error', 'Mobile / Google sign-in is not configured for this site yet.');
+
+        // The real send confirmation is what advances to code entry.
+        $c->call('requestPhoneCode')
+            ->dispatch('firebase-phone-otp-sent')
+            ->assertSet('step', 'verify_phone')
+            ->assertSet('error', '')
+            ->assertSet('status', fn ($s) => str_contains($s, 'Enter the code'));
+    }
+
     public function test_an_authenticated_user_is_redirected_away_from_the_public_form(): void
     {
         $zone = $this->coveredZone();
@@ -179,9 +204,8 @@ class ProviderSelfRegistrationTest extends TestCase
         $this->assertSame('approved', $approved->kyc_status);
     }
 
-    public function test_a_phone_that_already_exists_is_refused_and_creates_nothing(): void
+    public function test_an_already_registered_phone_is_rejected_right_after_otp_never_reaching_the_details_form(): void
     {
-        $this->coveredZone();
         $phone = $this->randomPhone();
 
         User::create([
@@ -189,11 +213,18 @@ class ProviderSelfRegistrationTest extends TestCase
             'role' => 'customer', 'status' => 'active', 'password' => Hash::make('whatever12'),
         ]);
 
-        $c = $this->readyToSubmit($phone);
-        $c->set('name', 'Dupe');
-        $this->attachRequiredDocs($c);
+        $c = Livewire::test(Register::class)->set('phone', $phone);
+        $token = $this->firebase->issuePhoneToken($this->e164($phone));
 
-        $c->call('submitApplication')->assertSet('submitted', false)->assertSee('already exists');
+        // OTP verifies fine — but the number is already taken, so the
+        // applicant is bounced straight back with "sign in instead" the
+        // moment the number is proven: no details step, no uploads.
+        $c->call('requestPhoneCode')
+            ->dispatch('firebase-phone-otp-sent')
+            ->call('phoneTokenReceived', $token)
+            ->assertSee('sign in instead')
+            ->assertSet('step', 'phone')
+            ->assertSet('verifiedPhoneE164', '');
 
         $this->assertSame(0, Provider::count());
         $this->assertSame(1, User::where('phone', $phone)->count());
@@ -252,15 +283,6 @@ class ProviderSelfRegistrationTest extends TestCase
         $this->coveredZone();
         $phone = $this->randomPhone();
 
-        // The number is already taken, so every otherwise-valid submit runs
-        // the full pipeline (and increments the submit throttle) before
-        // failing on the duplicate — the 4th is stopped by the
-        // maxPerIdentifier=3 guard before it runs.
-        User::create([
-            'uuid' => (string) Str::uuid(), 'name' => 'Existing', 'phone' => $phone,
-            'role' => 'customer', 'status' => 'active', 'password' => Hash::make('whatever12'),
-        ]);
-
         $fill = function (Testable $c): void {
             $c->set('name', 'Rate Limited')
                 ->set('password', 'longenough1')
@@ -270,16 +292,31 @@ class ProviderSelfRegistrationTest extends TestCase
             $this->attachRequiredDocs($c);
         };
 
+        // Phone is free at OTP time, so the fail-fast check passes and the
+        // details step is reachable.
         $c = Livewire::test(Register::class)->set('phone', $phone);
         $this->verifyPhone($c, $phone);
         $c->call('useCurrentLocationForNewAddress', 12.9, 77.6);
 
+        // Now the number gets taken — someone else registering it in the
+        // window between OTP verify and submit. Every submit from here
+        // clears validation, increments the submit throttle, then fails on
+        // RegisterProviderAction's race-backstop check. The 4th is stopped
+        // by the maxPerIdentifier=3 guard before it runs.
+        User::create([
+            'uuid' => (string) Str::uuid(), 'name' => 'Raced In', 'phone' => $phone,
+            'role' => 'customer', 'status' => 'active', 'password' => Hash::make('whatever12'),
+        ]);
+
         foreach (range(1, 3) as $ignored) {
             $fill($c);
-            $c->call('submitApplication')->assertSee('already exists')->assertSet('submitted', false);
+            $c->call('submitApplication')
+                ->assertSet('submitted', false)
+                ->assertSet('error', fn ($e) => str_contains((string) $e, 'already exists'));
         }
 
         $fill($c);
-        $c->call('submitApplication')->assertSee('Too many attempts');
+        $c->call('submitApplication')
+            ->assertSet('error', fn ($e) => str_contains((string) $e, 'Too many attempts'));
     }
 }
