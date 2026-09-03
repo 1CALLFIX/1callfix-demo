@@ -17,6 +17,14 @@ class Show extends Component
     public string $flashMessage = '';
     public string $flashType = 'success';
 
+    /**
+     * Per-document rejection reasons, keyed by provider_documents.id. A
+     * reviewer types a reason into a document card before clicking "Reject"
+     * on that card. Client-editable Livewire state — the id is re-checked
+     * against this provider's own current documents in reviewDocument().
+     */
+    public array $documentRejectionReason = [];
+
     // --- Delete confirmation (Tier 1 CRUD audit -- Provider had no delete
     // action anywhere in the admin UI, despite the model already using
     // SoftDeletes) ---
@@ -211,6 +219,74 @@ class Show extends Component
     {
         $this->confirmingDelete = false;
         $this->deleteWarning = '';
+    }
+
+    /**
+     * Per-document KYC review — the missing piece that made "Approve
+     * Provider" unreachable. ReviewProviderKycAction::approve() gates on
+     * KycDocumentService::missingApprovedRequirements() being empty, i.e.
+     * every required document type already carrying an `approved`,
+     * `is_current` row. Nothing in the admin UI could set an individual
+     * document's status, so no provider — self-registered or CSV-imported —
+     * could ever clear that gate. These two actions are the whole fix:
+     * they move one provider_documents row pending → approved/rejected,
+     * same canReview() boundary as approve()/reject() below.
+     *
+     * Only offered while the provider itself is still `pending` — once a
+     * KYC decision is made, ReviewProviderKycAction has already swept every
+     * remaining current document to match (approve()/reject()), so the
+     * per-document controls have nothing left to do (mirrors the
+     * `kyc_status === 'pending'` guard the Approve/Reject cards use).
+     */
+    public function approveDocument(int $documentId): void
+    {
+        $this->reviewDocument($documentId, 'approved');
+    }
+
+    public function rejectDocument(int $documentId): void
+    {
+        $reason = trim($this->documentRejectionReason[$documentId] ?? '');
+
+        if ($reason === '') {
+            $this->flashType = 'error';
+            $this->flashMessage = 'Enter a reason before rejecting a document.';
+            return;
+        }
+
+        $this->reviewDocument($documentId, 'rejected', $reason);
+    }
+
+    private function reviewDocument(int $documentId, string $status, ?string $reason = null): void
+    {
+        if (! $this->canReview()) {
+            $this->flashType = 'error';
+            $this->flashMessage = 'You do not have permission to review this provider\'s documents.';
+            return;
+        }
+
+        // The id comes from client-editable Livewire state — scope the
+        // lookup to THIS provider's own current documents so a reviewer can
+        // never flip a row that isn't in front of them.
+        $document = $this->provider->documents()->where('is_current', true)->find($documentId);
+
+        if (! $document) {
+            $this->flashType = 'error';
+            $this->flashMessage = 'That document is no longer available for review.';
+            return;
+        }
+
+        $document->update([
+            'status' => $status,
+            'rejection_reason' => $status === 'rejected' ? $reason : null,
+            'reviewed_by' => auth()->id(),
+            'reviewed_at' => now(),
+        ]);
+
+        unset($this->documentRejectionReason[$documentId]);
+        $this->provider->load(['documents', 'currentDocuments']);
+
+        $this->flashType = 'success';
+        $this->flashMessage = 'Document marked as '.$status.'.';
     }
 
     public function approve(ReviewProviderKycAction $action)

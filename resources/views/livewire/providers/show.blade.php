@@ -96,24 +96,50 @@
                  same private, authorization-checked streaming route either
                  way (KycDocumentController::providerDocument()), just an
                  <img> tag pointed at it instead of a bare <a>. --}}
+            <p class="text-xs text-gray-400 mb-3">Approve every <span class="font-medium">required</span> document below, then use "Approve Provider" — provider approval is blocked until each required document is individually approved.</p>
             <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
                 @foreach ($provider->currentDocuments as $doc)
-                    <a href="{{ route('admin.kyc.documents.provider', $doc->id) }}" target="_blank"
-                       class="border rounded overflow-hidden text-center hover:bg-gray-50 hover:border-gray-300 transition block">
-                        @if (str_starts_with($doc->mime_type ?? '', 'image/'))
-                            <img src="{{ route('admin.kyc.documents.provider', $doc->id) }}"
-                                 alt="{{ str_replace('_', ' ', $doc->type) }} document preview"
-                                 class="w-full h-24 object-cover bg-gray-100" loading="lazy">
-                        @else
-                            <div class="w-full h-24 bg-gray-50 flex items-center justify-center text-gray-300">
-                                <x-icon name="document-text" class="w-8 h-8" />
-                            </div>
-                        @endif
+                    <div class="border rounded overflow-hidden text-center">
+                        <a href="{{ route('admin.kyc.documents.provider', $doc->id) }}" target="_blank"
+                           class="block hover:bg-gray-50 transition">
+                            @if (str_starts_with($doc->mime_type ?? '', 'image/'))
+                                <img src="{{ route('admin.kyc.documents.provider', $doc->id) }}"
+                                     alt="{{ str_replace('_', ' ', $doc->type) }} document preview"
+                                     class="w-full h-24 object-cover bg-gray-100" loading="lazy">
+                            @else
+                                <div class="w-full h-24 bg-gray-50 flex items-center justify-center text-gray-300">
+                                    <x-icon name="document-text" class="w-8 h-8" />
+                                </div>
+                            @endif
+                        </a>
                         <div class="p-2">
                             <div class="text-xs font-medium mb-1">{{ str_replace('_', ' ', $doc->type) }}</div>
                             <x-ui.status-badge type="document" :status="$doc->status" />
+                            @if ($doc->status === 'rejected' && $doc->rejection_reason)
+                                <p class="text-[11px] text-red-600 mt-1 break-words">{{ $doc->rejection_reason }}</p>
+                            @endif
+
+                            @if ($provider->kyc_status === 'pending')
+                                <div class="mt-2 space-y-1">
+                                    <input type="text" wire:model="documentRejectionReason.{{ $doc->id }}"
+                                           placeholder="Reason (needed to reject)"
+                                           class="w-full border rounded px-2 py-1 text-[11px]">
+                                    <div class="flex gap-1">
+                                        <x-ui.button size="sm" variant="success" class="flex-1"
+                                                     wire:click="approveDocument({{ $doc->id }})"
+                                                     wire:loading.attr="disabled" wire:target="approveDocument, rejectDocument">
+                                            Approve
+                                        </x-ui.button>
+                                        <x-ui.button size="sm" variant="danger" class="flex-1"
+                                                     wire:click="rejectDocument({{ $doc->id }})"
+                                                     wire:loading.attr="disabled" wire:target="approveDocument, rejectDocument">
+                                            Reject
+                                        </x-ui.button>
+                                    </div>
+                                </div>
+                            @endif
                         </div>
-                    </a>
+                    </div>
                 @endforeach
             </div>
         @endif
