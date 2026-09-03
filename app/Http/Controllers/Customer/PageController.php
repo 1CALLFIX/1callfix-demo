@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Customer;
 use App\Http\Controllers\Controller;
 use App\Models\ContentPage;
 use App\Models\Faq;
+use App\Models\PartnerBenefit;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Str;
 
@@ -36,7 +37,6 @@ class PageController extends Controller
         'booking',
         'bookings',
         'languages',
-        'partners',
     ];
 
     /**
@@ -58,10 +58,6 @@ class PageController extends Controller
         'languages' => [
             'title' => 'More languages are on the way',
             'body' => 'The web app is currently available in English only.',
-        ],
-        'partners' => [
-            'title' => 'Partner sign-up is on its way',
-            'body' => 'Joining as a service professional through the web app is being built. Our team is already onboarding professionals directly in the meantime.',
         ],
     ];
 
@@ -90,6 +86,19 @@ class PageController extends Controller
     public function howItWorks(): View
     {
         return view('customer.how-it-works');
+    }
+
+    /**
+     * The public "For professionals" landing page. The benefits list is the
+     * admin-managed `partner_benefits` table (edited from Website / CMS);
+     * everything else on the page is static copy describing the real
+     * /provider/register flow. No provider data is read or written here.
+     */
+    public function partners(): View
+    {
+        return view('customer.partners', [
+            'benefits' => PartnerBenefit::forDisplay()->get(),
+        ]);
     }
 
     public function comingSoon(string $feature): View

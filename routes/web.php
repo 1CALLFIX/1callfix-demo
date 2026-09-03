@@ -203,6 +203,14 @@ Route::get('/how-it-works', [PageController::class, 'howItWorks'])->name('custom
 Route::get('/privacy', [PageController::class, 'privacy'])->name('customer.privacy');
 Route::get('/terms', [PageController::class, 'terms'])->name('customer.terms');
 
+// Partner ("For professionals") landing page. Lives at the /coming-soon/*
+// path it historically pointed at, but is now a real page — a hero, the
+// admin-managed benefits list (partner_benefits, edited from Website / CMS),
+// a "how it works" walkthrough of the actual registration flow, and a CTA
+// into /provider/register. Declared BEFORE the {feature} wildcard below so
+// it wins the match; 'partners' has been dropped from COMING_SOON_FEATURES.
+Route::get('/coming-soon/partners', [PageController::class, 'partners'])->name('customer.partners');
+
 // Honest placeholder for every destination whose real screen lands in a
 // later phase. Whitelisted to known feature keys so it can never render an
 // arbitrary attacker-supplied label.

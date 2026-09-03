@@ -28,6 +28,7 @@ class CustomerRoutesTest extends TestCase
             'login' => ['customer.login'],
             'help' => ['customer.help'],
             'how it works' => ['customer.how-it-works'],
+            'partners' => ['customer.partners'],
         ];
     }
 

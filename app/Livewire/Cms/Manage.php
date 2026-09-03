@@ -4,6 +4,7 @@ namespace App\Livewire\Cms;
 
 use App\Models\ContentPage;
 use App\Models\Faq;
+use App\Models\PartnerBenefit;
 use Illuminate\Support\Str;
 use Livewire\Component;
 
@@ -34,7 +35,7 @@ class Manage extends Component
         abort_unless(auth()->user()->hasPermissionAnywhere('cms.manage'), 403, 'You do not have permission to view CMS content.');
     }
 
-    public string $section = 'pages'; // pages|faqs
+    public string $section = 'pages'; // pages|faqs|benefits
 
     // --- Pages: add ---
     public string $pageSlug = '';
@@ -63,9 +64,23 @@ class Manage extends Component
     public string $editFaqAnswer = '';
     public bool $editFaqIsActive = true;
 
+    // --- Partner benefits: add ---
+    public string $benefitIcon = PartnerBenefit::DEFAULT_ICON;
+    public string $benefitTitle = '';
+    public string $benefitDescription = '';
+
+    // --- Partner benefits: edit ---
+    public bool $showEditBenefitModal = false;
+    public ?int $editBenefitId = null;
+    public string $editBenefitIcon = '';
+    public string $editBenefitTitle = '';
+    public string $editBenefitDescription = '';
+    public bool $editBenefitIsActive = true;
+
     // --- Delete confirmation (shared) ---
     public ?int $confirmingDeletePageId = null;
     public ?int $confirmingDeleteFaqId = null;
+    public ?int $confirmingDeleteBenefitId = null;
 
     public string $flashMessage = '';
 
@@ -276,11 +291,159 @@ class Manage extends Component
         $this->flashMessage = 'FAQ deleted.';
     }
 
+    // ========================= Partner benefits =========================
+    // The provider-facing "why partner with us" list rendered on the public
+    // /coming-soon/partners landing page. Same add/edit/toggle/delete shape
+    // as the FAQ section above; the only extras are a fixed icon <select>
+    // (PartnerBenefit::ICONS) and move-up/down reordering.
+
+    private function benefitIconRule(): string
+    {
+        return 'in:'.implode(',', array_keys(PartnerBenefit::ICONS));
+    }
+
+    public function saveBenefit(): void
+    {
+        $this->validate([
+            'benefitIcon' => ['required', 'string', $this->benefitIconRule()],
+            'benefitTitle' => ['required', 'string', 'max:255'],
+            'benefitDescription' => ['required', 'string', 'max:500'],
+        ], [], [
+            'benefitIcon' => 'icon',
+            'benefitTitle' => 'title',
+            'benefitDescription' => 'description',
+        ]);
+
+        if (! auth()->user()->hasPermission('cms.manage')) {
+            $this->addError('permission', 'You do not have permission to manage CMS content.');
+            return;
+        }
+
+        PartnerBenefit::create([
+            'icon' => $this->benefitIcon,
+            'title' => $this->benefitTitle,
+            'description' => $this->benefitDescription,
+            'sort_order' => (int) PartnerBenefit::max('sort_order') + 1,
+            'is_active' => true,
+        ]);
+
+        $this->reset(['benefitTitle', 'benefitDescription']);
+        $this->benefitIcon = PartnerBenefit::DEFAULT_ICON;
+        $this->flashMessage = 'Partner benefit created.';
+    }
+
+    public function editBenefit(int $benefitId): void
+    {
+        $benefit = PartnerBenefit::findOrFail($benefitId);
+
+        $this->editBenefitId = $benefit->id;
+        $this->editBenefitIcon = $benefit->icon;
+        $this->editBenefitTitle = $benefit->title;
+        $this->editBenefitDescription = $benefit->description;
+        $this->editBenefitIsActive = $benefit->is_active;
+
+        $this->resetValidation();
+        $this->showEditBenefitModal = true;
+    }
+
+    public function updateBenefit(): void
+    {
+        $this->validate([
+            'editBenefitIcon' => ['required', 'string', $this->benefitIconRule()],
+            'editBenefitTitle' => ['required', 'string', 'max:255'],
+            'editBenefitDescription' => ['required', 'string', 'max:500'],
+        ], [], [
+            'editBenefitIcon' => 'icon',
+            'editBenefitTitle' => 'title',
+            'editBenefitDescription' => 'description',
+        ]);
+
+        if (! auth()->user()->hasPermission('cms.manage')) {
+            $this->addError('permission', 'You do not have permission to manage CMS content.');
+            return;
+        }
+
+        PartnerBenefit::findOrFail($this->editBenefitId)->update([
+            'icon' => $this->editBenefitIcon,
+            'title' => $this->editBenefitTitle,
+            'description' => $this->editBenefitDescription,
+            'is_active' => $this->editBenefitIsActive,
+        ]);
+
+        $this->showEditBenefitModal = false;
+        $this->flashMessage = 'Partner benefit updated.';
+    }
+
+    public function closeEditBenefitModal(): void
+    {
+        $this->showEditBenefitModal = false;
+        $this->resetValidation();
+    }
+
+    public function toggleBenefitActive(int $benefitId): void
+    {
+        if (! auth()->user()->hasPermission('cms.manage')) {
+            $this->addError('permission', 'You do not have permission to manage CMS content.');
+            return;
+        }
+
+        $benefit = PartnerBenefit::findOrFail($benefitId);
+        $benefit->update(['is_active' => ! $benefit->is_active]);
+    }
+
+    /** Swap sort_order with the adjacent row so the list can be reordered without a drag library. */
+    public function moveBenefit(int $benefitId, string $direction): void
+    {
+        if (! auth()->user()->hasPermission('cms.manage')) {
+            $this->addError('permission', 'You do not have permission to manage CMS content.');
+            return;
+        }
+
+        $benefit = PartnerBenefit::findOrFail($benefitId);
+
+        $neighbour = PartnerBenefit::query()
+            ->when($direction === 'up',
+                fn ($q) => $q->where('sort_order', '<', $benefit->sort_order)->orderByDesc('sort_order'),
+                fn ($q) => $q->where('sort_order', '>', $benefit->sort_order)->orderBy('sort_order'),
+            )
+            ->first();
+
+        if ($neighbour === null) {
+            return; // already at the end in that direction
+        }
+
+        $benefitOrder = $benefit->sort_order;
+        $benefit->update(['sort_order' => $neighbour->sort_order]);
+        $neighbour->update(['sort_order' => $benefitOrder]);
+    }
+
+    public function confirmDeleteBenefit(int $benefitId): void { $this->confirmingDeleteBenefitId = $benefitId; }
+    public function cancelDeleteBenefit(): void { $this->confirmingDeleteBenefitId = null; }
+
+    public function deleteBenefit(): void
+    {
+        if (! $this->confirmingDeleteBenefitId) {
+            return;
+        }
+
+        if (! auth()->user()->hasPermission('cms.manage')) {
+            $this->addError('permission', 'You do not have permission to manage CMS content.');
+            $this->confirmingDeleteBenefitId = null;
+            return;
+        }
+
+        PartnerBenefit::findOrFail($this->confirmingDeleteBenefitId)->delete();
+        $this->confirmingDeleteBenefitId = null;
+        $this->flashMessage = 'Partner benefit deleted.';
+    }
+
     public function render()
     {
         return view('livewire.cms.manage', [
             'pages' => ContentPage::orderBy('title')->get(),
             'faqs' => Faq::orderBy('sort_order')->orderBy('id')->get(),
+            'partnerBenefits' => PartnerBenefit::orderBy('sort_order')->orderBy('id')->get(),
+            'benefitIcons' => PartnerBenefit::ICONS,
         ])->layout('layouts.admin', ['title' => 'Website / CMS']);
     }
 }

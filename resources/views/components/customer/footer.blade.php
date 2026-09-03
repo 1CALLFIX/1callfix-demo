@@ -25,10 +25,10 @@
             ['label' => 'Offers', 'href' => route('customer.offers')],
         ],
         'For professionals' => [
-            // Provider onboarding is a real business flow; the customer-web
-            // screen for it lands in a later phase, so this goes through the
-            // honest placeholder like every other not-yet-built destination.
-            ['label' => 'Partner with us', 'href' => route('customer.coming-soon', 'partners')],
+            // Real landing page now (customer.partners) — hero, admin-managed
+            // benefits, the registration walkthrough and a CTA into
+            // /provider/register. Same CTA phrase the page itself uses.
+            ['label' => 'Join as a Partner', 'href' => route('customer.partners')],
         ],
         'Legal' => [
             ['label' => 'Privacy Policy', 'href' => route('customer.privacy')],
