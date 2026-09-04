@@ -15,6 +15,7 @@ use App\Livewire\Customers\Show as CustomersShow;
 use App\Livewire\Workers\Index as WorkersIndex;
 use App\Livewire\Workers\Show as WorkersShow;
 use App\Livewire\AllUsers\Index as AllUsersIndex;
+use App\Livewire\Drivers\Index as DriversIndex;
 use App\Livewire\Franchises\Manage as FranchisesManage;
 use App\Livewire\FranchisePricing\Manage as FranchisePricingManage;
 use App\Livewire\Geography\Manage as GeographyManage;
@@ -77,6 +78,10 @@ Route::middleware(['auth', \App\Http\Middleware\EnsureHasAdminAccess::class])
         Route::get('/workers', WorkersIndex::class)->name('admin.workers.index');
         Route::get('/workers/{workerId}', WorkersShow::class)->name('admin.workers.show');
         Route::get('/all-users', AllUsersIndex::class)->name('admin.all-users.index');
+        // Users Sidebar Reorganization session — reserves the nav slot for
+        // the Parcel vertical's future riders. No driver functionality
+        // exists yet; see App\Livewire\Drivers\Index's own docblock.
+        Route::get('/drivers', DriversIndex::class)->name('admin.drivers.index');
         Route::get('/geography', GeographyManage::class)->name('admin.geography.index');
         Route::get('/franchises', FranchisesManage::class)->name('admin.franchises.index');
         Route::get('/franchises/{franchiseId}/pricing', FranchisePricingManage::class)->name('admin.franchises.pricing');

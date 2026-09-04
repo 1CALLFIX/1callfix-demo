@@ -36,11 +36,13 @@
            before any nav markup paints) drives a plain CSS display:none on
            that one group's panel, rather than per-element JS toggling on
            load — so a returning visitor's collapsed groups never flash open
-           before JS runs. Nine possible groups, enumerated explicitly
-           rather than a generic attribute-selector trick, matching this
-           file's existing preference for plain, explicit CSS over cleverness. */
+           before JS runs. Ten possible groups (Users Sidebar Reorganization
+           session added "users"), enumerated explicitly rather than a
+           generic attribute-selector trick, matching this file's existing
+           preference for plain, explicit CSS over cleverness. */
         .nav-group-trigger .chevron { transition: transform .15s ease; }
         .nav-group-trigger[aria-expanded="false"] .chevron { transform: rotate(-90deg); }
+        body.grp-collapsed-users #admin-sidebar [data-group-key="users"] .nav-group-panel,
         body.grp-collapsed-operations #admin-sidebar [data-group-key="operations"] .nav-group-panel,
         body.grp-collapsed-geography #admin-sidebar [data-group-key="geography"] .nav-group-panel,
         body.grp-collapsed-catalog #admin-sidebar [data-group-key="catalog"] .nav-group-panel,
@@ -101,14 +103,29 @@
                     ['label' => 'Dashboard', 'route' => 'admin.dashboard', 'icon' => 'home', 'permission' => 'dashboard.view'],
                 ],
             ],
+            // Users Sidebar Reorganization session — every person-directory
+            // screen (previously scattered inside Operations, alongside
+            // Bookings/KYC/Chat) under one umbrella. "Drivers" is a
+            // reserved, not-yet-functional nav slot for the Parcel
+            // vertical's future riders — see App\Livewire\Drivers\Index's
+            // own docblock. Every permission here is unchanged from before
+            // this move (customers.view/workers.view stay super_admin-only
+            // exactly as they were seeded) — this is a pure relocation,
+            // never a re-scoping.
+            'users' => [
+                'label' => 'Users', 'collapsible' => true, 'icon' => 'users',
+                'items' => [
+                    ['label' => 'All Users', 'route' => 'admin.all-users.index', 'icon' => 'users', 'permission' => 'users.directory.view'],
+                    ['label' => 'Customers', 'route' => 'admin.customers.index', 'icon' => 'users', 'permission' => 'customers.view'],
+                    ['label' => 'Providers', 'route' => 'admin.providers.index', 'icon' => 'users', 'permission' => 'providers.view'],
+                    ['label' => 'Drivers', 'route' => 'admin.drivers.index', 'icon' => 'map-pin', 'permission' => 'drivers.view'],
+                    ['label' => 'Workers', 'route' => 'admin.workers.index', 'icon' => 'users', 'permission' => 'workers.view'],
+                ],
+            ],
             'operations' => [
                 'label' => 'Operations', 'collapsible' => true, 'icon' => 'clipboard',
                 'items' => [
                     ['label' => 'Bookings', 'route' => 'admin.bookings.index', 'icon' => 'clipboard', 'permission' => 'bookings.view'],
-                    ['label' => 'All Users', 'route' => 'admin.all-users.index', 'icon' => 'users', 'permission' => 'users.directory.view'],
-                    ['label' => 'Customers', 'route' => 'admin.customers.index', 'icon' => 'users', 'permission' => 'customers.view'],
-                    ['label' => 'Providers', 'route' => 'admin.providers.index', 'icon' => 'users', 'permission' => 'providers.view'],
-                    ['label' => 'Workers', 'route' => 'admin.workers.index', 'icon' => 'users', 'permission' => 'workers.view'],
                     ['label' => 'KYC Support Requests', 'route' => 'admin.kyc.support-requests.index', 'icon' => 'shield', 'permission' => ['kyc.support_requests.create', 'kyc.support_requests.decide']],
                     ['label' => 'Chat', 'route' => 'admin.chat.index', 'icon' => 'chat', 'permission' => 'chat.view'],
                 ],
@@ -230,7 +247,7 @@
         // "Other Verticals", which starts collapsed until a viewer
         // deliberately opens it).
         (function () {
-            var GROUP_KEYS = ['operations', 'geography', 'catalog', 'growth', 'finance', 'communication', 'other_verticals', 'system'];
+            var GROUP_KEYS = ['users', 'operations', 'geography', 'catalog', 'growth', 'finance', 'communication', 'other_verticals', 'system'];
             var activeGroup = document.body.getAttribute('data-active-nav-group');
             var stored = {};
             try { stored = JSON.parse(localStorage.getItem('adminSidebarGroupCollapse') || '{}'); } catch (e) { stored = {}; }
