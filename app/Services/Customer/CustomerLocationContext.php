@@ -19,27 +19,32 @@ use App\Services\DispatchService;
  * rather than silently continuing to scope anything.
  *
  * ── On geolocation ────────────────────────────────────────────────────────
- * This class deliberately does NOT do point-in-polygon matching against
- * `zones.boundary_polygon`. A full-repository search before writing this
- * confirmed that column has no reader anywhere in `app/` — no geo-boundary
- * resolution has ever existed in this codebase, only its storage. Inventing
- * one here would be inventing zone boundaries, and getting it subtly wrong
- * would silently misroute real bookings in Phase D.
+ * A coordinate is resolved to a zone in two passes:
  *
- * What it does instead reuses primitives that DO already exist and are
- * already trusted by dispatch: a zone's own `center_lat`/`center_lng` and
- * its own `default_dispatch_radius_km` (the same radius
- * DispatchService::findCandidates()/nearbyForService() use to decide who
- * can be dispatched), measured with the same public
- * DispatchService::haversineKm(). A coordinate is matched to the NEAREST
- * active zone whose own service radius actually reaches it. If no zone's
- * radius reaches the point, that is reported honestly as "not covered"
- * rather than guessed at by snapping to whichever zone happens to be least
- * far away.
+ *   1. Point-in-polygon against `zones.boundary_polygon` — the actual shape
+ *      an admin drew on the map. This is the authoritative test: if the
+ *      point falls inside a zone's real boundary, that zone wins (the
+ *      nearest one by centre distance if the point is inside more than one).
  *
- * This is a coarser answer than a real boundary check and is documented as
- * such — it is a browsing convenience for choosing a starting zone, never
- * an authority on serviceability. Booking-time zone/franchise assignment
+ *   2. Fallback for a point no polygon contains: the NEAREST active zone
+ *      whose own `center_lat`/`center_lng` + `default_dispatch_radius_km`
+ *      circle reaches it. That radius is the same one dispatch already
+ *      trusts (DispatchService::findCandidates()/nearbyForService()),
+ *      measured with the same public DispatchService::haversineKm(). It
+ *      keeps a usable answer for a zone whose polygon is missing or too
+ *      tight, without ever snapping to a zone that is simply "least far".
+ *
+ * Pass 1 was added after the centre+radius circle alone (pass 2) was found
+ * rejecting real users who were plainly inside a large city zone's drawn
+ * boundary but more than the ~8-10 km radius from its centroid — the modal
+ * told them "not serving your area" with that very zone listed right below.
+ * The ray-casting in pointInPolygon() treats lat as y and lng as x on a
+ * plane; over a city-sized zone the projection error is far below the
+ * width of the boundary itself and does not change inside/outside for any
+ * point not sitting almost exactly on an edge.
+ *
+ * Still a browsing convenience for choosing a starting zone, never an
+ * authority on serviceability. Booking-time zone/franchise assignment
  * remains entirely server-side in the existing booking pipeline.
  */
 class CustomerLocationContext
@@ -146,18 +151,35 @@ class CustomerLocationContext
     }
 
     /**
-     * Nearest active zone whose OWN dispatch radius reaches this point, or
-     * null when none does. Zones with no centre coordinate recorded are
-     * skipped — they cannot be measured against, and treating a missing
-     * centre as (0,0) would put every such zone in the Gulf of Guinea.
+     * The active zone that covers this point, or null when none does.
+     *
+     * Pass 1 — the point inside a zone's drawn `boundary_polygon`. When the
+     * point is inside more than one, the nearest by centre distance wins
+     * (a zone with no centre recorded sorts last). Pass 2 — for a point no
+     * polygon contains, the nearest active zone whose own
+     * `center_lat`/`center_lng` + `default_dispatch_radius_km` circle
+     * reaches it. Zones with no centre are skipped in pass 2: they cannot
+     * be measured, and treating a missing centre as (0,0) would drop every
+     * such zone into the Gulf of Guinea.
      */
     public function nearestCoveringZone(float $lat, float $lng): ?Zone
     {
-        return Zone::with('franchise')
-            ->where('is_active', true)
-            ->whereNotNull('center_lat')
-            ->whereNotNull('center_lng')
-            ->get()
+        $zones = Zone::with('franchise')->where('is_active', true)->get();
+
+        // Pass 1 — real boundary.
+        $insidePolygon = $zones
+            ->filter(fn (Zone $zone) => $this->hasUsablePolygon($zone))
+            ->filter(fn (Zone $zone) => $this->pointInPolygon($lat, $lng, $zone->boundary_polygon))
+            ->sortBy(fn (Zone $zone) => $this->centreDistanceKm($lat, $lng, $zone))
+            ->first();
+
+        if ($insidePolygon) {
+            return $insidePolygon;
+        }
+
+        // Pass 2 — centre + dispatch-radius circle, for anything with a centre.
+        return $zones
+            ->filter(fn (Zone $zone) => $zone->center_lat !== null && $zone->center_lng !== null)
             ->map(fn (Zone $zone) => [
                 'zone' => $zone,
                 'distance_km' => $this->dispatchService->haversineKm(
@@ -171,5 +193,67 @@ class CustomerLocationContext
             ->filter(fn (array $row) => $row['distance_km'] <= $row['radius_km'])
             ->sortBy('distance_km')
             ->first()['zone'] ?? null;
+    }
+
+    /** A boundary_polygon we can actually ray-cast against: an array of at least 3 points. */
+    private function hasUsablePolygon(Zone $zone): bool
+    {
+        return is_array($zone->boundary_polygon) && count($zone->boundary_polygon) >= 3;
+    }
+
+    /** Kilometres from the point to the zone's recorded centre, or INF when it has none. */
+    private function centreDistanceKm(float $lat, float $lng, Zone $zone): float
+    {
+        if ($zone->center_lat === null || $zone->center_lng === null) {
+            return INF;
+        }
+
+        return $this->dispatchService->haversineKm($lat, $lng, (float) $zone->center_lat, (float) $zone->center_lng);
+    }
+
+    /**
+     * Ray-casting point-in-polygon. `$polygon` is the stored shape —
+     * `[['lat' => .., 'lng' => ..], ...]` — walked as (x=lng, y=lat) on a
+     * plane (see this class's docblock on why the projection error is
+     * negligible at zone scale). A point exactly on an edge may land either
+     * way; that is acceptable for a browsing hint.
+     */
+    private function pointInPolygon(float $lat, float $lng, array $polygon): bool
+    {
+        $points = array_values(array_filter(
+            $polygon,
+            fn ($p) => is_array($p) && isset($p['lat'], $p['lng']),
+        ));
+
+        $count = count($points);
+        if ($count < 3) {
+            return false;
+        }
+
+        $inside = false;
+
+        for ($i = 0, $j = $count - 1; $i < $count; $j = $i++) {
+            $yi = (float) $points[$i]['lat'];
+            $xi = (float) $points[$i]['lng'];
+            $yj = (float) $points[$j]['lat'];
+            $xj = (float) $points[$j]['lng'];
+
+            $straddlesRay = ($yi > $lat) !== ($yj > $lat);
+            if (! $straddlesRay) {
+                continue;
+            }
+
+            $denominator = $yj - $yi;
+            if ($denominator === 0.0) {
+                continue;
+            }
+
+            $intersectLng = ($xj - $xi) * ($lat - $yi) / $denominator + $xi;
+            if ($lng < $intersectLng) {
+                $inside = ! $inside;
+            }
+        }
+
+        return $inside;
     }
 }

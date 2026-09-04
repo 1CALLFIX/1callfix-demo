@@ -145,10 +145,175 @@ class LocationContextTest extends TestCase
     public function test_zones_without_a_centre_are_skipped(): void
     {
         [, , , $zone] = $this->makeFranchiseTree();
-        $zone->update(['center_lat' => null, 'center_lng' => null]);
+        $zone->update(['center_lat' => null, 'center_lng' => null, 'boundary_polygon' => null]);
 
         $this->assertNull($this->context()->nearestCoveringZone(0.0, 0.0));
     }
+
+    // ============== Point-in-polygon coverage (real boundary) ==============
+    //
+    // A tall, thin N–S rectangle around Nellore's real centre. Its arithmetic
+    // centroid is (14.445, 79.985) — the same shape/scale that made the old
+    // centroid+radius circle reject users who were plainly inside the drawn
+    // zone. NOT the production polygon for zone 41 (that has 7 vertices); a
+    // representative shape that reproduces the failure mode.
+    private const NELLORE_ISH_POLYGON = [
+        ['lat' => 14.30, 'lng' => 79.95],
+        ['lat' => 14.59, 'lng' => 79.95],
+        ['lat' => 14.59, 'lng' => 80.02],
+        ['lat' => 14.30, 'lng' => 80.02],
+    ];
+
+    public function test_a_point_inside_the_drawn_boundary_matches_even_when_far_from_the_centroid(): void
+    {
+        [, , , $zone] = $this->makeFranchiseTree();
+        $zone->update([
+            'boundary_polygon' => self::NELLORE_ISH_POLYGON,
+            'center_lat' => 14.445, 'center_lng' => 79.985,
+            'default_dispatch_radius_km' => 10,
+        ]);
+
+        // ~12.8 km north of the centroid: inside the rectangle, but well
+        // outside the 10 km circle the old check used. This is the exact
+        // shape of the production bug.
+        $point = [14.56, 79.98];
+        $this->assertGreaterThan(
+            10,
+            app(\App\Services\DispatchService::class)->haversineKm($point[0], $point[1], 14.445, 79.985),
+            'guard: the test point must be outside the old circle for this test to mean anything',
+        );
+
+        $match = $this->context()->nearestCoveringZone(...$point);
+
+        $this->assertNotNull($match);
+        $this->assertSame($zone->id, $match->id);
+    }
+
+    public function test_a_point_outside_the_drawn_boundary_is_still_rejected(): void
+    {
+        [, , , $zone] = $this->makeFranchiseTree();
+        $zone->update([
+            'boundary_polygon' => self::NELLORE_ISH_POLYGON,
+            'center_lat' => 14.445, 'center_lng' => 79.985,
+            'default_dispatch_radius_km' => 10,
+        ]);
+
+        // North of the rectangle's top edge AND outside the circle.
+        $this->assertNull($this->context()->nearestCoveringZone(14.70, 79.98));
+    }
+
+    public function test_the_centroid_radius_circle_still_covers_a_zone_with_no_usable_polygon(): void
+    {
+        [, , , $zone] = $this->makeFranchiseTree();
+        $zone->update([
+            'boundary_polygon' => null,
+            'center_lat' => 14.4426, 'center_lng' => 79.9865,
+            'default_dispatch_radius_km' => 8,
+        ]);
+
+        // ~1.1 km from the centre — the pass-2 fallback must still catch it.
+        $match = $this->context()->nearestCoveringZone(14.4526, 79.9865);
+
+        $this->assertNotNull($match);
+        $this->assertSame($zone->id, $match->id);
+    }
+
+    public function test_when_the_point_is_inside_two_polygons_the_nearer_centre_wins(): void
+    {
+        [, , , $a] = $this->makeFranchiseTree();
+        [, , , $b] = $this->makeFranchiseTree();
+
+        $a->update([
+            'boundary_polygon' => [
+                ['lat' => 14.40, 'lng' => 79.95], ['lat' => 14.60, 'lng' => 79.95],
+                ['lat' => 14.60, 'lng' => 80.05], ['lat' => 14.40, 'lng' => 80.05],
+            ],
+            'center_lat' => 14.50, 'center_lng' => 80.00, 'default_dispatch_radius_km' => 1,
+        ]);
+        $b->update([
+            'boundary_polygon' => [
+                ['lat' => 14.45, 'lng' => 79.90], ['lat' => 14.65, 'lng' => 79.90],
+                ['lat' => 14.65, 'lng' => 80.10], ['lat' => 14.45, 'lng' => 80.10],
+            ],
+            'center_lat' => 14.55, 'center_lng' => 80.00, 'default_dispatch_radius_km' => 1,
+        ]);
+
+        // Inside BOTH rectangles, outside BOTH 1 km circles. Nearer centroid is $a's.
+        $match = $this->context()->nearestCoveringZone(14.52, 80.00);
+
+        $this->assertSame($a->id, $match->id);
+    }
+
+    /**
+     * The production shape this whole change exists for. zones.id=41
+     * ("Nellore Main"): the real 7-vertex boundary_polygon and centre pulled
+     * from production, radius 10 km. A point interpolated just inside the
+     * south-west vertex is ~10.9 km from the centre — inside the drawn zone,
+     * but outside the 10 km circle the old check used, so the old code told
+     * the customer "not serving your area" with Nellore Main listed below.
+     */
+    public function test_zone_41_real_boundary_matches_a_point_beyond_its_circle_radius(): void
+    {
+        $centreLat = 14.4452399;
+        $centreLng = 79.9831226;
+
+        [, , , $zone] = $this->makeFranchiseTree();
+        $zone->update([
+            'name' => 'Nellore Main',
+            'boundary_polygon' => self::ZONE_41_BOUNDARY,
+            'center_lat' => $centreLat,
+            'center_lng' => $centreLng,
+            'default_dispatch_radius_km' => 10,
+        ]);
+
+        $haversine = fn (float $aLat, float $aLng, float $bLat, float $bLng): float => app(\App\Services\DispatchService::class)
+            ->haversineKm($aLat, $aLng, $bLat, $bLng);
+
+        // Vertex 5 (south-west) is itself already outside the 10 km circle.
+        $vertex = self::ZONE_41_BOUNDARY[5];
+        $this->assertGreaterThan(
+            10,
+            $haversine($vertex['lat'], $vertex['lng'], $centreLat, $centreLng),
+            'guard: vertex 5 is expected to sit outside the old circle',
+        );
+
+        // Step 7 % in from that vertex toward the centre so the point is
+        // strictly interior, not sitting on the boundary edge.
+        $t = 0.07;
+        $pointLat = $vertex['lat'] + $t * ($centreLat - $vertex['lat']);
+        $pointLng = $vertex['lng'] + $t * ($centreLng - $vertex['lng']);
+
+        // Still outside the 10 km circle — the old centroid+radius check would
+        // have rejected this point.
+        $this->assertGreaterThan(
+            10,
+            $haversine($pointLat, $pointLng, $centreLat, $centreLng),
+            'the interior test point must be beyond the circle radius for this test to mean anything',
+        );
+
+        // It is inside the real drawn boundary...
+        $pointInPolygon = new \ReflectionMethod(CustomerLocationContext::class, 'pointInPolygon');
+        $pointInPolygon->setAccessible(true);
+        $this->assertTrue(
+            $pointInPolygon->invoke($this->context(), $pointLat, $pointLng, self::ZONE_41_BOUNDARY),
+        );
+
+        // ...so the resolver now returns zone 41, where the circle check could not.
+        $match = $this->context()->nearestCoveringZone($pointLat, $pointLng);
+        $this->assertNotNull($match);
+        $this->assertSame($zone->id, $match->id);
+    }
+
+    // zones.id=41 "Nellore Main" — the exact boundary_polygon stored in production.
+    private const ZONE_41_BOUNDARY = [
+        ['lat' => 14.517477179743869, 'lng' => 79.98150405599405],
+        ['lat' => 14.517809540371763, 'lng' => 79.9842506380253],
+        ['lat' => 14.489224702751635, 'lng' => 80.05806503011515],
+        ['lat' => 14.426724091994725, 'lng' => 80.03403243734171],
+        ['lat' => 14.370857636576341, 'lng' => 79.98631057454874],
+        ['lat' => 14.359549629986939, 'lng' => 79.92039260579874],
+        ['lat' => 14.435036356310146, 'lng' => 79.91730270101358],
+    ];
 
     // ==================== Livewire component ====================
 
@@ -263,6 +428,48 @@ class LocationContextTest extends TestCase
             ->assertHasErrors();
 
         $this->assertNull(session(CustomerLocationContext::SESSION_KEY));
+    }
+
+    // ---------- Accuracy-aware "not serving your area" copy ----------
+
+    public function test_a_coarse_auto_fix_opens_the_picker_but_suppresses_the_not_serving_copy(): void
+    {
+        [, , , $zone] = $this->makeFranchiseTree();
+        $zone->update(['center_lat' => 14.4426, 'center_lng' => 79.9865, 'default_dispatch_radius_km' => 8]);
+
+        // Far from the zone, but the browser only knows the position to ~30 km.
+        Livewire::test(LocationPicker::class)
+            ->call('useCurrentLocationAuto', 51.5072, -0.1276, 30000.0)
+            ->assertSet('open', true)
+            ->assertSet('outOfCoverage', false)
+            ->assertDontSeeText('not serving your current location yet');
+
+        $this->assertNull(session(CustomerLocationContext::SESSION_KEY));
+    }
+
+    public function test_a_precise_auto_fix_outside_coverage_still_shows_the_not_serving_copy(): void
+    {
+        [, , , $zone] = $this->makeFranchiseTree();
+        $zone->update(['center_lat' => 14.4426, 'center_lng' => 79.9865, 'default_dispatch_radius_km' => 8]);
+
+        // Same point, but this fix is good to 40 m — a confident rejection is fair.
+        Livewire::test(LocationPicker::class)
+            ->call('useCurrentLocationAuto', 51.5072, -0.1276, 40.0)
+            ->assertSet('open', true)
+            ->assertSet('outOfCoverage', true)
+            ->assertSeeText('not serving your current location yet');
+    }
+
+    public function test_a_coarse_manual_fix_does_not_set_out_of_coverage(): void
+    {
+        [, , , $zone] = $this->makeFranchiseTree();
+        $zone->update(['center_lat' => 14.4426, 'center_lng' => 79.9865, 'default_dispatch_radius_km' => 8]);
+
+        Livewire::test(LocationPicker::class)
+            ->call('openPicker')
+            ->call('useCurrentLocation', 51.5072, -0.1276, 25000.0)
+            ->assertSet('outOfCoverage', false)
+            ->assertDontSeeText('not serving your current location yet');
     }
 
     public function test_searching_narrows_the_zone_list(): void

@@ -190,7 +190,7 @@
                     error.hidden = true;
 
                     window.cfLocate(
-                        (lat, lng) => $wire.useCurrentLocation(lat, lng),
+                        (lat, lng, accuracyM) => $wire.useCurrentLocation(lat, lng, accuracyM),
                         () => {
                             button.disabled = false;
                             label.textContent = 'Use my current location';
@@ -223,7 +223,7 @@
                 try { sessionStorage.setItem(AUTO_KEY, '1'); } catch (e) {}
 
                 window.cfLocate(
-                    (lat, lng) => $wire.useCurrentLocationAuto(lat, lng),
+                    (lat, lng, accuracyM) => $wire.useCurrentLocationAuto(lat, lng, accuracyM),
                     () => {}, // denied / unavailable -> silent; manual picker stays
                 );
             };

@@ -28,6 +28,14 @@ use Livewire\Component;
  */
 class LocationPicker extends Component
 {
+    /**
+     * A browser fix coarser than this (metres, from position.coords.accuracy)
+     * is treated as "roughly here", not a pinpoint: an IP-level fix can be
+     * tens of kilometres out, so it must not drive a confident-sounding
+     * "we don't serve your area" rejection. The zone list is still shown.
+     */
+    private const COARSE_FIX_ACCURACY_M = 5000;
+
     public bool $open = false;
     public string $search = '';
 
@@ -71,14 +79,14 @@ class LocationPicker extends Component
      * spoofed coordinate can at most select a zone the customer could have
      * picked from the list by hand anyway.
      */
-    public function useCurrentLocation(float $lat, float $lng, CustomerLocationContext $context): void
+    public function useCurrentLocation(float $lat, float $lng, CustomerLocationContext $context, ?float $accuracyM = null): void
     {
         $this->assertCoordinates($lat, $lng);
 
         $zone = $context->nearestCoveringZone($lat, $lng);
 
         if (! $zone) {
-            $this->outOfCoverage = true;
+            $this->outOfCoverage = $this->fixIsPrecise($accuracyM);
 
             return;
         }
@@ -100,7 +108,7 @@ class LocationPicker extends Component
      * browser's error callback simply does nothing), so the page is never
      * blocked and the manual header picker stays the fallback.
      */
-    public function useCurrentLocationAuto(float $lat, float $lng, CustomerLocationContext $context): void
+    public function useCurrentLocationAuto(float $lat, float $lng, CustomerLocationContext $context, ?float $accuracyM = null): void
     {
         $this->assertCoordinates($lat, $lng);
 
@@ -108,12 +116,23 @@ class LocationPicker extends Component
 
         if (! $zone) {
             $this->open = true;
-            $this->outOfCoverage = true;
+            $this->outOfCoverage = $this->fixIsPrecise($accuracyM);
 
             return;
         }
 
         $this->selectZone($zone->id, $context);
+    }
+
+    /**
+     * Whether a browser fix is precise enough to say "we don't serve here"
+     * with confidence. An unknown accuracy (older client, or a caller that
+     * passes none) is treated as precise, preserving the prior behaviour;
+     * only a fix we KNOW is coarse suppresses the rejection copy.
+     */
+    private function fixIsPrecise(?float $accuracyM): bool
+    {
+        return $accuracyM === null || $accuracyM <= self::COARSE_FIX_ACCURACY_M;
     }
 
     /**
