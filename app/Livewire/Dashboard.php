@@ -14,6 +14,7 @@ use App\Models\Setting;
 use App\Models\TaxiRide;
 use App\Services\Ai\DailyInsightsService;
 use App\Services\AuthorizationService;
+use App\Services\ProviderCommercialRateResolver;
 use Livewire\Component;
 
 class Dashboard extends Component
@@ -273,10 +274,24 @@ class Dashboard extends Component
         // Commissions card — a silent link-through would hide the fact that
         // the numbers on that screen are all 100/0/0 by omission, not by
         // decision.
+        //
+        // Provider Commercial Rate Resolver phase — platform_fee_percent is
+        // no longer a raw column check: NULL now means "unconfigured, falls
+        // through to the global Setting default" (30% as of that phase),
+        // which is a real, non-zero rate, not the 100/0/0-by-omission bug
+        // this banner exists to catch. A plain `> 0` SQL check on the column
+        // would now flag every unconfigured-but-fine franchise as broken, so
+        // this resolves the EFFECTIVE rate per franchise in PHP instead —
+        // small scoped-franchise sets only, same as the query this replaces.
+        // commission_value's SQL check is untouched: that axis still has no
+        // resolver/global-default of its own in this phase (see
+        // ProviderCommercialRateResolver's docblock), so a literal 0 there is
+        // still exactly the same real gap this banner always caught.
         $commissionRatesConfigured = $canCommissions && (clone $this->scopedFranchises())
             ->where('status', 'active')
-            ->where(fn ($q) => $q->where('platform_fee_percent', '>', 0)->orWhere('commission_value', '>', 0))
-            ->exists();
+            ->get(['id', 'platform_fee_percent', 'commission_value'])
+            ->contains(fn (Franchise $f) => app(ProviderCommercialRateResolver::class)->resolve($f, null) > 0
+                || ($f->commission_value ?? 0) > 0);
 
         // Admin Polish + AI session, Part 2 item 3 — Daily Insights panel.
         // Gated by operations.view, same as StuckBookingService's own

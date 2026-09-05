@@ -58,6 +58,9 @@ class Provider extends Model
 
     /** Every Partner<->Worker link this Provider has, whatever its status — see PartnerWorker::status. Phase B0.1 foundation; nothing yet consumes this for real assignment. */
     public function partnerWorkerLinks() { return $this->hasMany(PartnerWorker::class); }
+
+    /** Tier 1 of ProviderCommercialRateResolver's hierarchy — null if this provider has no negotiated rate. */
+    public function commissionAgreement() { return $this->hasOne(ProviderCommissionAgreement::class); }
     /** The FieldWorkers actually linked to this Provider, through partner_workers. */
     public function workers()
     {
