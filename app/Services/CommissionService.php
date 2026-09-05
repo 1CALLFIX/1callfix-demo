@@ -21,6 +21,7 @@ class CommissionService
         private WalletService $walletService,
         private EntitlementService $entitlementService,
         private UsageService $usageService,
+        private ProviderCommercialRateResolver $rateResolver,
     ) {
     }
 
@@ -37,12 +38,15 @@ class CommissionService
      *                           take a per-booking cut, they're paid separately)
      *   provider_commission = whatever's left over
      *
-     * platform_fee_percent is normally franchise.platform_fee_percent, but a
-     * provider's active commission_reduction/commission_override entitlement
-     * (Plan Engine, resolved at service_completed per the approved plan §6)
-     * can adjust it — the SAME split/commission-row/wallet-credit logic
-     * below runs either way, just with a different input rate. No second
-     * commission calculation exists anywhere.
+     * platform_fee_percent's base value comes from ProviderCommercialRateResolver
+     * (Provider negotiated agreement -> franchise.platform_fee_percent ->
+     * global Setting default — see that class's docblock), and a provider's
+     * active commission_reduction/commission_override entitlement (Plan
+     * Engine, resolved at service_completed per the approved plan §6) can
+     * still adjust it on top, layered exactly as before — the SAME
+     * split/commission-row/wallet-credit logic below runs either way, just
+     * with a different input rate. No second commission calculation exists
+     * anywhere.
      *
      * Idempotent: if a Commission row already exists for this booking, this
      * is a no-op — safe to call more than once (e.g. a retried job) without
@@ -60,12 +64,13 @@ class CommissionService
         $total = (float) ($booking->price_final ?? $booking->price_quoted);
 
         $rateOverride = $booking->provider ? $this->entitlementService->resolveCommissionRateOverride($booking->provider) : null;
-        $platformFeePercent = $this->resolvePlatformFeePercent($franchise->platform_fee_percent, $rateOverride);
+        $baseRate = $this->rateResolver->resolve($franchise, $booking->provider);
+        $platformFeePercent = $this->resolvePlatformFeePercent($baseRate, $rateOverride);
 
         $platformCommission = round($total * ($platformFeePercent / 100), 2);
 
         $franchiseCommission = $franchise->commission_model === 'revenue_share'
-            ? round($total * ($franchise->commission_value / 100), 2)
+            ? round($total * (($franchise->commission_value ?? 0) / 100), 2)
             : 0.0;
 
         $providerCommission = round($total - $platformCommission - $franchiseCommission, 2);
@@ -291,10 +296,16 @@ class CommissionService
             return $existing;
         }
 
-        $platformCommission = round($total * ($franchise->platform_fee_percent / 100), 2);
+        // Agreements are Provider-scoped only (provider_commission_agreements.provider_id) —
+        // a FieldWorker $worker passes null here, so tier 1 (negotiated rate)
+        // never applies to a FieldWorker order; it still resolves through
+        // franchise->global exactly like every other caller. No FieldWorker
+        // split-calculation logic below this line changes at all.
+        $platformFeePercent = $this->rateResolver->resolve($franchise, $worker instanceof \App\Models\Provider ? $worker : null);
+        $platformCommission = round($total * ($platformFeePercent / 100), 2);
 
         $franchiseCommission = $franchise->commission_model === 'revenue_share'
-            ? round($total * ($franchise->commission_value / 100), 2)
+            ? round($total * (($franchise->commission_value ?? 0) / 100), 2)
             : 0.0;
 
         $workerCommission = round($total - $platformCommission - $franchiseCommission, 2);

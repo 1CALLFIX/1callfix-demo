@@ -72,6 +72,39 @@
         @endif
     </x-ui.card>
 
+    {{-- Provider Commercial Rate Resolver, tier 1: this provider's own
+         negotiated platform fee. Shows the effective resolved rate (whichever
+         tier it's actually coming from) and lets an admin set or clear a
+         negotiated override. --}}
+    <x-ui.card class="mb-6">
+        <div class="flex items-center justify-between mb-2">
+            <div class="font-semibold">Commercial Rate</div>
+            @if ($effectiveCommissionPercent !== null)
+                <x-ui.badge :color="$effectiveCommissionTier === 'agreement' ? 'blue' : 'gray'">
+                    {{ number_format($effectiveCommissionPercent, 2) }}% &middot; {{ ucfirst($effectiveCommissionTier) }} default
+                </x-ui.badge>
+            @endif
+        </div>
+        <p class="text-xs text-gray-400 mb-3">The platform fee % this provider's completed jobs are actually split at. Falls through Negotiated &rarr; Franchise &rarr; Global when no tighter override is set.</p>
+
+        <div class="flex items-end gap-2 flex-wrap">
+            <div>
+                <label class="block text-xs text-gray-500 mb-1">Negotiated platform fee %</label>
+                <input type="number" step="0.01" min="0" max="100" wire:model="commissionPercentInput" class="w-28 border rounded px-2 py-1 text-sm" placeholder="e.g. 20">
+                @error('commissionPercentInput') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
+            </div>
+            <div class="flex-1 min-w-[200px]">
+                <label class="block text-xs text-gray-500 mb-1">Notes (optional)</label>
+                <input type="text" wire:model="commissionNotesInput" class="w-full border rounded px-2 py-1 text-sm" placeholder="Why this rate was negotiated">
+                @error('commissionNotesInput') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
+            </div>
+            <x-ui.button size="sm" wire:click="setCommissionAgreement">Save</x-ui.button>
+            @if ($provider->commissionAgreement)
+                <x-ui.button size="sm" variant="secondary" wire:click="clearCommissionAgreement" wire:confirm="Clear this provider's negotiated rate? They'll go back to the franchise/global default.">Clear</x-ui.button>
+            @endif
+        </div>
+    </x-ui.card>
+
     <x-ui.card class="mb-6">
         <div class="flex items-center justify-between mb-2">
             <div class="font-semibold">Withdrawal eligibility</div>

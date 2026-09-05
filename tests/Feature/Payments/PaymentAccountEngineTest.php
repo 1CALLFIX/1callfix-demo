@@ -276,4 +276,68 @@ class PaymentAccountEngineTest extends TestCase
 
         $this->assertFalse($account->fresh()->is_verified);
     }
+
+    // ============================== Admin creates on behalf of a payee ==============================
+
+    public function test_admin_create_payment_account_requires_payouts_manage_permission(): void
+    {
+        $actor = $this->makeUserWithNoPermissions();
+
+        // Same mount-time hard abort as verify/unverify above -- see that
+        // test's docblock for why assertForbidden() is the right assertion
+        // for a 403 raised during mount() rather than during the action.
+        Livewire::actingAs($actor)->test(PayoutsManage::class)->assertForbidden();
+
+        $this->assertSame(0, PaymentAccount::count());
+    }
+
+    public function test_admin_can_create_a_bank_account_for_a_selected_provider(): void
+    {
+        [, , $franchise, $zone] = $this->makeFranchiseTree();
+        $provider = $this->makeProviderIn($franchise, $zone);
+        $actor = $this->makeUserWithPermission('payouts.manage', 'global');
+
+        Livewire::actingAs($actor)->test(PayoutsManage::class)
+            ->set('payeeType', 'provider')
+            ->call('selectPayee', $provider->id, $provider->user->name)
+            ->set('newAccountType', 'bank')
+            ->set('newAccountHolderName', 'Provider Name')
+            ->set('newAccountNumber', '123456789')
+            ->set('newIfsc', 'ABCD0123456')
+            ->call('createPaymentAccount');
+
+        $account = PaymentAccount::where('user_id', $provider->user->id)->sole();
+        $this->assertSame('bank', $account->account_type);
+        $this->assertFalse($account->is_verified);
+    }
+
+    public function test_admin_created_account_can_then_be_verified(): void
+    {
+        [, , $franchise, $zone] = $this->makeFranchiseTree();
+        $provider = $this->makeProviderIn($franchise, $zone);
+        $actor = $this->makeUserWithPermission('payouts.manage', 'global');
+        $component = Livewire::actingAs($actor)->test(PayoutsManage::class)
+            ->set('payeeType', 'provider')
+            ->call('selectPayee', $provider->id, $provider->user->name)
+            ->set('newAccountType', 'upi')
+            ->set('newUpiId', 'provider@upi')
+            ->call('createPaymentAccount');
+
+        $account = PaymentAccount::where('user_id', $provider->user->id)->sole();
+        $component->call('verifyPaymentAccount', $account->id);
+
+        $this->assertTrue($account->fresh()->is_verified);
+    }
+
+    public function test_admin_create_payment_account_without_selecting_a_payee_fails(): void
+    {
+        $actor = $this->makeUserWithPermission('payouts.manage', 'global');
+
+        Livewire::actingAs($actor)->test(PayoutsManage::class)
+            ->set('newAccountType', 'upi')
+            ->set('newUpiId', 'x@upi')
+            ->call('createPaymentAccount');
+
+        $this->assertSame(0, PaymentAccount::count());
+    }
 }

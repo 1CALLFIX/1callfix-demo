@@ -13,6 +13,10 @@ use Livewire\Component;
  * Per-job earnings are the `provider_commission` column CommissionService
  * already wrote per completed booking; the balance is WalletService's. No
  * payout / withdrawal here — that is a separate, admin-owned surface.
+ *
+ * The view's "Earnings / Payment Accounts" tab strip links to
+ * PaymentAccounts (App\Livewire\Provider\PaymentAccounts) — this component
+ * itself stays exactly as read-only as the paragraph above says.
  */
 class Earnings extends Component
 {

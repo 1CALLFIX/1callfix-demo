@@ -1,6 +1,18 @@
 <div>
     <h1 class="text-xl font-bold tracking-tight">Earnings</h1>
 
+    {{-- Earnings / Payment Accounts / Request Payout live under this one nav
+         branch — see the matching strip in payment-accounts.blade.php and
+         request-payout.blade.php. --}}
+    <div class="mt-3 flex gap-2 text-sm">
+        <a href="{{ route('provider.earnings') }}" wire:navigate
+           class="rounded-lg px-3 py-1.5 font-medium bg-slate-900 text-white">Earnings</a>
+        <a href="{{ route('provider.payment-accounts') }}" wire:navigate
+           class="rounded-lg px-3 py-1.5 font-medium bg-white text-slate-700 border border-slate-300">Payment Accounts</a>
+        <a href="{{ route('provider.request-payout') }}" wire:navigate
+           class="rounded-lg px-3 py-1.5 font-medium bg-white text-slate-700 border border-slate-300">Request Payout</a>
+    </div>
+
     <div class="mt-4 grid grid-cols-2 gap-3">
         <x-ui.card class="!p-4">
             <p class="text-xs font-semibold uppercase text-gray-500">Wallet balance</p>

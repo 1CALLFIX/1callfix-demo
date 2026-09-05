@@ -3,9 +3,11 @@
 namespace App\Livewire\Providers;
 
 use App\Actions\ReviewProviderKycAction;
+use App\Actions\SetProviderCommissionAgreementAction;
 use App\Models\Provider;
 use App\Models\ServiceCategory;
 use App\Services\AuthorizationService;
+use App\Services\ProviderCommercialRateResolver;
 use Illuminate\Support\Str;
 use Livewire\Component;
 
@@ -43,6 +45,12 @@ class Show extends Component
      */
     public array $skillsInput = [];
 
+    // --- Commercial rate (Provider Commercial Rate Resolver, tier 1:
+    // negotiated agreement) — the form for setting/clearing this specific
+    // provider's negotiated platform_fee_percent. ---
+    public string $commissionPercentInput = '';
+    public string $commissionNotesInput = '';
+
     /** providers.view was seeded (2026_08_11_016000) but never checked on this detail screen (only approve/reject/updatePriority were gated, via canReview()'s providers.review_kyc) -- see Commissions\Index's identical fix for the full reasoning. */
     public function mount(int $providerId)
     {
@@ -54,7 +62,7 @@ class Show extends Component
         // identical comment for why ModelNotFoundException isn't safe here.
         $provider = app(AuthorizationService::class)
             ->scopeQuery(Provider::query(), auth()->user(), 'providers.view', $columns)
-            ->with(['user', 'zone', 'franchise.country', 'documents'])
+            ->with(['user', 'zone', 'franchise.country', 'documents', 'commissionAgreement'])
             ->find($providerId);
 
         abort_if(! $provider, 404);
@@ -62,6 +70,8 @@ class Show extends Component
         $this->provider = $provider;
         $this->priorityInput = (string) $this->provider->priority;
         $this->skillsInput = array_map('intval', $this->provider->skills ?? []);
+        $this->commissionPercentInput = (string) ($this->provider->commissionAgreement->platform_fee_percent ?? '');
+        $this->commissionNotesInput = (string) ($this->provider->commissionAgreement->notes ?? '');
     }
 
     /**
@@ -221,6 +231,64 @@ class Show extends Component
         $this->deleteWarning = '';
     }
 
+    // ==================== Commercial rate (negotiated agreement) ====================
+
+    /**
+     * Same permission slug + scope shape as canDelete() above — this screen
+     * has no dedicated "commission" permission, and providers.manage is
+     * already the "can change this provider's operational configuration"
+     * boundary the rest of this screen uses for exactly this kind of edit.
+     */
+    private function canManageCommission(): bool
+    {
+        return auth()->user()->hasPermission('providers.manage', array_filter([
+            'zone_id' => $this->provider->zone_id,
+            'franchise_id' => $this->provider->franchise_id,
+        ]));
+    }
+
+    public function setCommissionAgreement(SetProviderCommissionAgreementAction $action): void
+    {
+        if (! $this->canManageCommission()) {
+            $this->flashType = 'error';
+            $this->flashMessage = 'You do not have permission to set this provider\'s commercial rate.';
+            return;
+        }
+
+        $this->validate([
+            'commissionPercentInput' => ['required', 'numeric', 'min:0', 'max:100'],
+            'commissionNotesInput' => ['nullable', 'string', 'max:1000'],
+        ], [], ['commissionPercentInput' => 'negotiated platform fee', 'commissionNotesInput' => 'notes']);
+
+        $action->set(
+            $this->provider,
+            (float) $this->commissionPercentInput,
+            $this->commissionNotesInput ?: null,
+            auth()->user(),
+        );
+
+        $this->provider->load('commissionAgreement');
+        $this->flashType = 'success';
+        $this->flashMessage = 'Negotiated commercial rate saved.';
+    }
+
+    public function clearCommissionAgreement(SetProviderCommissionAgreementAction $action): void
+    {
+        if (! $this->canManageCommission()) {
+            $this->flashType = 'error';
+            $this->flashMessage = 'You do not have permission to change this provider\'s commercial rate.';
+            return;
+        }
+
+        $action->clear($this->provider, auth()->user());
+
+        $this->provider->load('commissionAgreement');
+        $this->commissionPercentInput = '';
+        $this->commissionNotesInput = '';
+        $this->flashType = 'success';
+        $this->flashMessage = 'Negotiated rate cleared — this provider now inherits the franchise/global default.';
+    }
+
     /**
      * Per-document KYC review — the missing piece that made "Approve
      * Provider" unreachable. ReviewProviderKycAction::approve() gates on
@@ -335,9 +403,17 @@ class Show extends Component
             'franchise_id' => $this->provider->franchise_id,
         ]));
 
+        $rateResolver = app(ProviderCommercialRateResolver::class);
+
         return view('livewire.providers.show', [
             'withdrawalRestricted' => $explanation['restricted'],
             'withdrawalReason' => $explanation['reason'],
+            'effectiveCommissionPercent' => $this->provider->franchise
+                ? $rateResolver->resolve($this->provider->franchise, $this->provider)
+                : null,
+            'effectiveCommissionTier' => $this->provider->franchise
+                ? $rateResolver->resolvedTier($this->provider->franchise, $this->provider)
+                : null,
             // Phase 13 (Glover/6amMart parity audit) — reviews had a
             // rating_avg field shown on this screen since Phase 1 but no
             // real review ever existed to produce one (see

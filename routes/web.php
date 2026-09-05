@@ -29,6 +29,8 @@ use App\Livewire\Provider\Earnings as ProviderEarnings;
 use App\Livewire\Provider\History as ProviderHistory;
 use App\Livewire\Provider\Jobs\Index as ProviderJobs;
 use App\Livewire\Provider\Jobs\Show as ProviderJobShow;
+use App\Livewire\Provider\PaymentAccounts as ProviderPaymentAccounts;
+use App\Livewire\Provider\RequestPayout as ProviderRequestPayout;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 
@@ -191,6 +193,8 @@ Route::middleware(['auth', \App\Http\Middleware\EnsureIsProvider::class])
         Route::get('/jobs', ProviderJobs::class)->name('provider.jobs.index');
         Route::get('/jobs/{booking}', ProviderJobShow::class)->name('provider.jobs.show');
         Route::get('/earnings', ProviderEarnings::class)->name('provider.earnings');
+        Route::get('/payment-accounts', ProviderPaymentAccounts::class)->name('provider.payment-accounts');
+        Route::get('/request-payout', ProviderRequestPayout::class)->name('provider.request-payout');
         Route::get('/history', ProviderHistory::class)->name('provider.history');
         Route::get('/activity', ProviderActivity::class)->name('provider.activity');
     });
