@@ -1,13 +1,16 @@
 <div>
     <h1 class="text-xl font-bold tracking-tight">Payments</h1>
 
-    {{-- Earnings / Payment Accounts live under this one nav branch — see
-         the matching strip in earnings.blade.php. --}}
+    {{-- Earnings / Payment Accounts / Request Payout live under this one nav
+         branch — see the matching strip in earnings.blade.php and
+         request-payout.blade.php. --}}
     <div class="mt-3 flex gap-2 text-sm">
         <a href="{{ route('provider.earnings') }}" wire:navigate
            class="rounded-lg px-3 py-1.5 font-medium bg-white text-slate-700 border border-slate-300">Earnings</a>
         <a href="{{ route('provider.payment-accounts') }}" wire:navigate
            class="rounded-lg px-3 py-1.5 font-medium bg-slate-900 text-white">Payment Accounts</a>
+        <a href="{{ route('provider.request-payout') }}" wire:navigate
+           class="rounded-lg px-3 py-1.5 font-medium bg-white text-slate-700 border border-slate-300">Request Payout</a>
     </div>
 
     @if ($flashMessage)
