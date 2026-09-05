@@ -65,25 +65,70 @@
             <x-ui.button class="h-[38px]" wire:click="request">Request Payout</x-ui.button>
         </div>
 
-        @if ($selectedPayeeId && $this->payeePaymentAccounts->isNotEmpty())
+        @if ($selectedPayeeId)
             <div class="mt-4 pt-4 border-t">
-                <div class="text-xs font-medium text-gray-500 uppercase mb-2">Payee's settlement accounts</div>
-                <div class="space-y-1">
-                    @foreach ($this->payeePaymentAccounts as $acc)
-                        <div class="flex items-center justify-between text-sm border rounded px-3 py-2">
-                            <div>
-                                {{ strtoupper($acc->account_type) }} — {{ $acc->upi_id ?: $acc->account_number }}
-                                @if ($acc->is_default)<span class="text-xs text-gray-400 ml-1">(default)</span>@endif
-                                <x-ui.badge class="ml-2" :color="$acc->is_verified ? 'green' : 'amber'">{{ $acc->is_verified ? 'Verified' : 'Unverified' }}</x-ui.badge>
+                @if ($this->payeePaymentAccounts->isNotEmpty())
+                    <div class="text-xs font-medium text-gray-500 uppercase mb-2">Payee's settlement accounts</div>
+                    <div class="space-y-1 mb-3">
+                        @foreach ($this->payeePaymentAccounts as $acc)
+                            <div class="flex items-center justify-between text-sm border rounded px-3 py-2">
+                                <div>
+                                    {{ strtoupper($acc->account_type) }} — {{ $acc->upi_id ?: $acc->account_number }}
+                                    @if ($acc->is_default)<span class="text-xs text-gray-400 ml-1">(default)</span>@endif
+                                    <x-ui.badge class="ml-2" :color="$acc->is_verified ? 'green' : 'amber'">{{ $acc->is_verified ? 'Verified' : 'Unverified' }}</x-ui.badge>
+                                </div>
+                                @if ($acc->is_verified)
+                                    <x-ui.button variant="ghost" color="red" wire:click="unverifyPaymentAccount({{ $acc->id }})">Revoke verification</x-ui.button>
+                                @else
+                                    <x-ui.button variant="ghost" color="green" wire:click="verifyPaymentAccount({{ $acc->id }})">Verify</x-ui.button>
+                                @endif
                             </div>
-                            @if ($acc->is_verified)
-                                <x-ui.button variant="ghost" color="red" wire:click="unverifyPaymentAccount({{ $acc->id }})">Revoke verification</x-ui.button>
-                            @else
-                                <x-ui.button variant="ghost" color="green" wire:click="verifyPaymentAccount({{ $acc->id }})">Verify</x-ui.button>
-                            @endif
+                        @endforeach
+                    </div>
+                @endif
+
+                {{-- Franchise staff who collect a payee's bank/UPI details
+                     manually (phone/in person) enter them here rather than
+                     the payee needing self-service access. Always created
+                     unverified -- verify above once confirmed. --}}
+                <details class="text-sm">
+                    <summary class="cursor-pointer text-xs font-medium text-gray-500 uppercase">+ Add a payment account for this payee</summary>
+                    <div class="mt-2 flex flex-wrap items-end gap-3">
+                        <div class="w-32">
+                            <label class="block text-xs font-medium mb-1">Type</label>
+                            <select wire:model.live="newAccountType" class="w-full border rounded px-3 py-2 text-sm">
+                                <option value="upi">UPI</option>
+                                <option value="bank">Bank</option>
+                            </select>
                         </div>
-                    @endforeach
-                </div>
+
+                        @if ($newAccountType === 'bank')
+                            <div class="w-40">
+                                <label class="block text-xs font-medium mb-1">Holder name</label>
+                                <input type="text" wire:model="newAccountHolderName" class="w-full border rounded px-3 py-2 text-sm">
+                                @error('newAccountHolderName') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
+                            </div>
+                            <div class="w-36">
+                                <label class="block text-xs font-medium mb-1">Account number</label>
+                                <input type="text" wire:model="newAccountNumber" class="w-full border rounded px-3 py-2 text-sm">
+                                @error('newAccountNumber') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
+                            </div>
+                            <div class="w-32">
+                                <label class="block text-xs font-medium mb-1">IFSC</label>
+                                <input type="text" wire:model="newIfsc" class="w-full border rounded px-3 py-2 text-sm">
+                                @error('newIfsc') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
+                            </div>
+                        @else
+                            <div class="w-48">
+                                <label class="block text-xs font-medium mb-1">UPI ID</label>
+                                <input type="text" wire:model="newUpiId" placeholder="name@bank" class="w-full border rounded px-3 py-2 text-sm">
+                                @error('newUpiId') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
+                            </div>
+                        @endif
+
+                        <x-ui.button variant="secondary" class="h-[38px]" wire:click="createPaymentAccount">Add account</x-ui.button>
+                    </div>
+                </details>
             </div>
         @endif
     </x-ui.card>

@@ -53,9 +53,24 @@ class Manage extends Component
     public ?int $markingPaidId = null;
     public string $gatewayRefInput = '';
 
+    // --- admin-invoked "add a payment account for this payee" (franchise
+    // staff collect bank/UPI details manually and enter them here) ---
+    public string $newAccountType = 'upi';
+    public string $newAccountHolderName = '';
+    public string $newAccountNumber = '';
+    public string $newIfsc = '';
+    public string $newUpiId = '';
+
     public function updatedPayeeType(): void
     {
         $this->reset(['payeeSearch', 'selectedPayeeId', 'selectedPayeeLabel', 'paymentAccountId']);
+        $this->resetNewAccountForm();
+    }
+
+    private function resetNewAccountForm(): void
+    {
+        $this->reset(['newAccountType', 'newAccountHolderName', 'newAccountNumber', 'newIfsc', 'newUpiId']);
+        $this->newAccountType = 'upi';
     }
 
     public function getMatchingPayeesProperty()
@@ -89,6 +104,7 @@ class Manage extends Component
         $this->selectedPayeeId = $id;
         $this->selectedPayeeLabel = $label;
         $this->paymentAccountId = null;
+        $this->resetNewAccountForm();
     }
 
     public function getPayeeWalletBalanceProperty(): ?float
@@ -215,6 +231,62 @@ class Manage extends Component
             $this->flashType = 'success';
             $this->flashMessage = 'Payout marked failed — amount refunded to wallet.';
         } catch (\Throwable $e) {
+            $this->flashType = 'error';
+            $this->flashMessage = $e->getMessage();
+        }
+    }
+
+    /**
+     * The "franchise staff collect bank/UPI details manually and enter them
+     * on the payee's behalf" path -- provider self-service now exists too
+     * (App\Livewire\Provider\PaymentAccounts), but some payees (a franchise
+     * owner, or a provider who called in) need an admin to do this for
+     * them. Same PaymentAccountService::create() provider self-service
+     * uses, same payouts.manage gate the rest of this screen already
+     * enforces -- no new permission. Always creates unverified; an admin
+     * still verifies it separately via verifyPaymentAccount() below, same
+     * as a self-service account would be.
+     */
+    public function createPaymentAccount(PayoutService $payoutService, \App\Services\PaymentAccountService $service): void
+    {
+        if (! auth()->user()->hasPermission('payouts.manage')) {
+            $this->flashType = 'error';
+            $this->flashMessage = 'You do not have permission to add payment accounts.';
+            return;
+        }
+
+        if (! $this->selectedPayeeId) {
+            $this->flashType = 'error';
+            $this->flashMessage = 'Select a payee first.';
+            return;
+        }
+
+        $this->validate([
+            'newAccountType' => ['required', 'in:bank,upi'],
+            'newAccountHolderName' => ['nullable', 'string', 'max:150'],
+            'newAccountNumber' => ['nullable', 'string', 'max:50'],
+            'newIfsc' => ['nullable', 'string', 'max:20'],
+            'newUpiId' => ['nullable', 'string', 'max:100'],
+        ], [], [
+            'newAccountType' => 'account type',
+            'newAccountHolderName' => 'account holder name',
+            'newAccountNumber' => 'account number',
+            'newUpiId' => 'UPI ID',
+        ]);
+
+        try {
+            $user = $payoutService->resolvePayeeUser($this->payeeType, $this->selectedPayeeId);
+            $service->create($user, [
+                'account_type' => $this->newAccountType,
+                'account_holder_name' => $this->newAccountHolderName ?: null,
+                'account_number' => $this->newAccountNumber ?: null,
+                'ifsc' => $this->newIfsc ?: null,
+                'upi_id' => $this->newUpiId ?: null,
+            ]);
+            $this->resetNewAccountForm();
+            $this->flashType = 'success';
+            $this->flashMessage = "Payment account added for {$this->selectedPayeeLabel} — pending verification.";
+        } catch (\InvalidArgumentException $e) {
             $this->flashType = 'error';
             $this->flashMessage = $e->getMessage();
         }
