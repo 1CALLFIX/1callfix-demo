@@ -57,7 +57,7 @@
                         <td class="px-4 py-2">
                             @forelse ($s->entitlementBalances as $b)
                                 <div class="text-xs mb-1">
-                                    {{ str_replace('_', ' ', $b->planEntitlement->entitlement_type) }}:
+                                    {{ $b->planEntitlement->label ?: str_replace('_', ' ', $b->planEntitlement->entitlement_type) }}:
                                     qty {{ $b->remainingQuantity() }} / {{ $currencySymbol }}{{ number_format($b->remainingMonetaryValue(), 2) }}
                                     @if ($adjustingBalanceId === $b->id)
                                         <div class="mt-1 flex gap-1 items-center">
@@ -66,8 +66,24 @@
                                             <input type="text" wire:model="adjustReason" placeholder="reason" class="w-24 border rounded px-1 py-0.5 text-xs">
                                             <button type="button" wire:click="confirmAdjust" class="text-green-600 hover:underline">Save</button>
                                         </div>
+                                    @elseif ($redeemingBalanceId === $b->id)
+                                        <div class="mt-1 flex gap-1 items-center">
+                                            @if ($b->planEntitlement->requiresCategoryChoice())
+                                                <select wire:model="redeemCategory" class="border rounded px-1 py-0.5 text-xs">
+                                                    <option value="">choose category…</option>
+                                                    @foreach ($b->planEntitlement->redeem_categories as $cat)
+                                                        <option value="{{ $cat }}">{{ $cat }}</option>
+                                                    @endforeach
+                                                </select>
+                                            @endif
+                                            <button type="button" wire:click="confirmRedeem" class="text-green-600 hover:underline">Confirm redeem</button>
+                                            <button type="button" wire:click="$set('redeemingBalanceId', null)" class="text-gray-400 hover:underline">cancel</button>
+                                        </div>
                                     @else
                                         <button type="button" wire:click="startAdjust({{ $b->id }})" class="text-blue-600 hover:underline ml-1">adjust</button>
+                                        @if ($s->status === 'active' && $b->remainingQuantity() > 0)
+                                            <button type="button" wire:click="startRedeem({{ $b->id }})" class="text-green-600 hover:underline ml-1">redeem</button>
+                                        @endif
                                     @endif
                                 </div>
                             @empty

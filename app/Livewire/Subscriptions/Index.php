@@ -2,8 +2,10 @@
 
 namespace App\Livewire\Subscriptions;
 
+use App\Actions\RedeemEntitlementAction;
 use App\Models\BusinessAccount;
 use App\Models\EntitlementBalance;
+use App\Models\PlanEntitlement;
 use App\Models\Setting;
 use App\Models\Subscription;
 use App\Models\User;
@@ -27,6 +29,10 @@ class Index extends Component
     public string $adjustQuantityDelta = '0';
     public string $adjustMonetaryDelta = '0';
     public string $adjustReason = '';
+
+    // --- inline entitlement redemption (deliberate "use one voucher now") ---
+    public ?int $redeemingBalanceId = null;
+    public string $redeemCategory = '';
 
     /**
      * subscriptions.view was seeded (2026_08_11_038000) but never checked on
@@ -122,6 +128,53 @@ class Index extends Component
         $this->flashMessage = 'Balance adjusted — recorded in the usage ledger.';
     }
 
+    public function startRedeem(int $balanceId): void
+    {
+        $this->redeemingBalanceId = $balanceId;
+        $this->redeemCategory = '';
+    }
+
+    /**
+     * Deliberate redemption of ONE unit of a named entitlement on behalf of
+     * a customer (call-centre / support). Distinct from adjust(): this is a
+     * real 'consume' event through RedeemEntitlementAction, category-checked,
+     * subject to the same subscriptions.manage scope gate as everything else
+     * on this screen.
+     */
+    public function confirmRedeem(RedeemEntitlementAction $action): void
+    {
+        $balance = EntitlementBalance::with('planEntitlement')->findOrFail($this->redeemingBalanceId);
+        $subscription = $balance->subscription;
+
+        if (! auth()->user()->hasPermission('subscriptions.manage', $this->scopeHint($subscription))) {
+            $this->flashType = 'error';
+            $this->flashMessage = 'You do not have permission to redeem against this subscription.';
+            return;
+        }
+
+        try {
+            $row = $action->execute(
+                $subscription,
+                $balance->planEntitlement,
+                $this->redeemCategory !== '' ? $this->redeemCategory : null,
+                1,
+                null,
+                auth()->id(),
+            );
+        } catch (\Throwable $e) {
+            $this->flashType = 'error';
+            $this->flashMessage = $e->getMessage();
+            return;
+        }
+
+        $this->redeemingBalanceId = null;
+        $this->redeemCategory = '';
+        $this->flashType = 'success';
+        $this->flashMessage = 'Entitlement redeemed'
+            .($row->redeemed_category ? " ({$row->redeemed_category})" : '')
+            .' — recorded in the usage ledger.';
+    }
+
     /**
      * Admin Command Center completion session, Admin UX/Performance phase
      * (2026-08-20) -- this used to re-fetch the actor with a fresh
@@ -164,7 +217,7 @@ class Index extends Component
     public function render()
     {
         $query = Subscription::whereIn('id', $this->visibleSubscriptionIds())
-            ->with(['plan', 'subscribable.franchise.country', 'entitlementBalances' => fn ($q) => $q->where('status', 'current')])->latest();
+            ->with(['plan', 'subscribable.franchise.country', 'entitlementBalances' => fn ($q) => $q->where('status', 'current')->with('planEntitlement')])->latest();
         if ($this->statusFilter) {
             $query->where('status', $this->statusFilter);
         }

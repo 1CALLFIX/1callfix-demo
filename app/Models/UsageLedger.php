@@ -21,7 +21,7 @@ class UsageLedger extends Model
     protected $fillable = [
         'subscription_id', 'plan_entitlement_id', 'entitlement_balance_id', 'booking_id',
         'event_type', 'quantity_delta', 'monetary_delta', 'was_overage',
-        'overage_amount_charged', 'reason', 'related_usage_ledger_id', 'created_by',
+        'overage_amount_charged', 'reason', 'redeemed_category', 'related_usage_ledger_id', 'created_by',
     ];
 
     protected $casts = [

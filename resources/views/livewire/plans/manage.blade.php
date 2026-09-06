@@ -85,6 +85,20 @@
                 <input type="number" wire:model="stackingPriority" class="w-full border rounded px-3 py-2 text-sm">
             </div>
         </div>
+        <div class="grid grid-cols-2 gap-3 mt-3">
+            <div>
+                <label class="block text-xs font-medium mb-1">Description</label>
+                <textarea wire:model="description" rows="3" placeholder="Customer-facing summary / printed-card terms"
+                    class="w-full border rounded px-3 py-2 text-sm"></textarea>
+                @error('description') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
+            </div>
+            <div>
+                <label class="block text-xs font-medium mb-1">Metadata (JSON object)</label>
+                <textarea wire:model="metadataJson" rows="3" placeholder='{"address_locked": true, "spare_parts_chargeable": true}'
+                    class="w-full border rounded px-3 py-2 text-sm font-mono"></textarea>
+                @error('metadataJson') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
+            </div>
+        </div>
         <x-ui.button class="mt-4 h-[38px]" wire:click="save">Create Plan</x-ui.button>
     </x-ui.card>
 
@@ -128,7 +142,9 @@
                                     <thead class="text-left text-gray-500">
                                         <tr>
                                             <th class="pr-3 py-1">Type</th>
+                                            <th class="pr-3 py-1">Label</th>
                                             <th class="pr-3 py-1">Module</th>
+                                            <th class="pr-3 py-1">Redeem categories</th>
                                             <th class="pr-3 py-1">Qty</th>
                                             <th class="pr-3 py-1">{{ $currencySymbol }} value</th>
                                             <th class="pr-3 py-1">% value</th>
@@ -142,7 +158,9 @@
                                         @forelse ($p->entitlements as $e)
                                             <tr class="border-t" wire:key="ent-{{ $e->id }}">
                                                 <td class="pr-3 py-1">{{ str_replace('_', ' ', $e->entitlement_type) }}</td>
+                                                <td class="pr-3 py-1">{{ $e->label ?? '—' }}</td>
                                                 <td class="pr-3 py-1">{{ $e->module ?? '—' }}</td>
+                                                <td class="pr-3 py-1">{{ $e->redeem_categories ? implode(', ', $e->redeem_categories) : '—' }}</td>
                                                 <td class="pr-3 py-1">{{ $e->quantity ?? '—' }}</td>
                                                 <td class="pr-3 py-1">{{ $e->monetary_value !== null ? $currencySymbol.number_format($e->monetary_value, 2) : '—' }}</td>
                                                 <td class="pr-3 py-1">{{ $e->percentage_value !== null ? $e->percentage_value.'%' : '—' }}</td>
@@ -157,7 +175,7 @@
                                                 </td>
                                             </tr>
                                         @empty
-                                            <tr><td colspan="9" class="py-2 text-gray-400">No entitlements yet.</td></tr>
+                                            <tr><td colspan="11" class="py-2 text-gray-400">No entitlements yet.</td></tr>
                                         @endforelse
                                     </tbody>
                                 </table>
@@ -174,6 +192,14 @@
                                     <div>
                                         <label class="block text-xs mb-1">Module</label>
                                         <input type="text" wire:model="entModule" placeholder="service" class="w-full border rounded px-2 py-1.5 text-xs">
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs mb-1">Label</label>
+                                        <input type="text" wire:model="entLabel" placeholder="Premium AC Jet Pump Service" class="w-full border rounded px-2 py-1.5 text-xs">
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs mb-1">Redeem categories</label>
+                                        <input type="text" wire:model="entRedeemCategories" placeholder="electrical, plumbing, carpenter" class="w-full border rounded px-2 py-1.5 text-xs">
                                     </div>
                                     <div>
                                         <label class="block text-xs mb-1">Quantity</label>

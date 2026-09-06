@@ -14,13 +14,14 @@ class Plan extends Model
     protected $table = 'plans';
 
     protected $fillable = [
-        'name', 'slug', 'plan_family', 'module', 'scope_type', 'scope_id',
-        'eligible_actor_type', 'eligibility_rules', 'billing_cycle', 'custom_cycle_days',
+        'name', 'description', 'slug', 'plan_family', 'module', 'scope_type', 'scope_id',
+        'eligible_actor_type', 'eligibility_rules', 'metadata', 'billing_cycle', 'custom_cycle_days',
         'price', 'stacking_strategy', 'stacking_priority', 'is_active',
     ];
 
     protected $casts = [
         'eligibility_rules' => 'array',
+        'metadata' => 'array',
         'is_active' => 'boolean',
         'price' => 'decimal:2',
     ];

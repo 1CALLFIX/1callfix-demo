@@ -15,6 +15,15 @@ use Illuminate\Support\Facades\DB;
  */
 class UsageService
 {
+    /**
+     * @param  string|null  $redeemedCategory  For a category-agnostic entitlement
+     *         (PlanEntitlement::requiresCategoryChoice()), the single category the
+     *         redeemer picked — recorded verbatim on the ledger row. Null for every
+     *         other entitlement, exactly as before this parameter existed.
+     * @param  int|null  $createdBy  The acting user for an explicit redemption
+     *         (RedeemEntitlementAction). Null for the automatic booking-time
+     *         consume path, which has no single acting admin.
+     */
     public function consume(
         EntitlementBalance $balance,
         int $quantityDelta,
@@ -22,9 +31,11 @@ class UsageService
         ?Booking $booking = null,
         bool $wasOverage = false,
         ?float $overageCharged = null,
-        ?string $reason = null
+        ?string $reason = null,
+        ?string $redeemedCategory = null,
+        ?int $createdBy = null
     ): UsageLedger {
-        return DB::transaction(function () use ($balance, $quantityDelta, $monetaryDelta, $booking, $wasOverage, $overageCharged, $reason) {
+        return DB::transaction(function () use ($balance, $quantityDelta, $monetaryDelta, $booking, $wasOverage, $overageCharged, $reason, $redeemedCategory, $createdBy) {
             $balance = EntitlementBalance::lockForUpdate()->findOrFail($balance->id);
             $balance->consumed_quantity += abs($quantityDelta);
             $balance->consumed_monetary_value += abs($monetaryDelta);
@@ -41,6 +52,8 @@ class UsageService
                 'was_overage' => $wasOverage,
                 'overage_amount_charged' => $overageCharged,
                 'reason' => $reason,
+                'redeemed_category' => $redeemedCategory,
+                'created_by' => $createdBy,
             ]);
         });
     }
