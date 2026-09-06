@@ -46,7 +46,7 @@
                         <p class="font-medium">{{ $row->booking?->code ?? 'Job' }}</p>
                         <p class="text-xs text-slate-500">
                             {{ str_replace('_', ' ', $row->booking?->status ?? '') }}
-                            @if ($row->booking?->completed_at) · {{ \Illuminate\Support\Carbon::parse($row->booking->completed_at)->format('j M Y') }} @endif
+                            @if ($row->booking?->completed_at) · {{ app(\App\Services\TimezoneResolver::class)->format($row->booking->completed_at, $row->booking->franchise, 'j M Y') }} @endif
                         </p>
                     </div>
                     <p class="font-semibold text-emerald-700">+₹{{ number_format((float) $row->provider_commission, 2) }}</p>

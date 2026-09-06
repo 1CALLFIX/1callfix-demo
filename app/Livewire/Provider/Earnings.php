@@ -43,7 +43,11 @@ class Earnings extends Component
         $rows = Commission::query()
             ->whereHas('booking', fn ($q) => $q->where('provider_id', $provider->id))
             ->when($since, fn ($q) => $q->where('created_at', '>=', $since))
-            ->with(['booking:id,code,status,completed_at,price_final'])
+            // franchise_id is selected (and franchise.country eager-loaded) so
+            // completed_at renders in the franchise's own timezone rather than
+            // raw UTC — near midnight that difference changes the DATE shown,
+            // not just the clock time.
+            ->with(['booking:id,code,status,completed_at,price_final,franchise_id', 'booking.franchise.country'])
             ->latest('id')
             ->limit(200)
             ->get();

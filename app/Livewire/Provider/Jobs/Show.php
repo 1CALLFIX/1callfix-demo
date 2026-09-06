@@ -53,6 +53,9 @@ class Show extends Component
     {
         $booking = Booking::with([
             'service', 'address', 'customer:id,name,phone',
+            // Supplies TimezoneResolver's franchise->country->default_timezone
+            // for the timeline's timestamps (see the Blade view).
+            'franchise.country',
             'statusHistory' => fn ($q) => $q->orderBy('changed_at')->orderBy('id'),
         ])->findOrFail($this->bookingId);
 

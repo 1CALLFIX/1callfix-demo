@@ -87,6 +87,11 @@ class Index extends Component
                 'booking.service:id,name',
                 'booking.address:id,label,address_line',
                 'booking.customer:id,name',
+                // TimezoneResolver reads franchise->country->default_timezone;
+                // eager-loaded here so rendering N offers stays N+1-free, the
+                // same caller-supplies-its-own-relations convention that class
+                // documents.
+                'booking.franchise.country',
             ])
             ->latest('notified_at')
             ->get()
@@ -96,7 +101,7 @@ class Index extends Component
 
         $activeJob = Booking::where('provider_id', $provider->id)
             ->whereIn('status', ['assigned', 'in_progress'])
-            ->with(['service:id,name', 'address:id,label'])
+            ->with(['service:id,name', 'address:id,label', 'franchise.country'])
             ->latest('id')
             ->first();
 

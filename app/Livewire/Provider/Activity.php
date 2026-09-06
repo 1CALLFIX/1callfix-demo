@@ -92,6 +92,13 @@ class Activity extends Component
         return view('livewire.provider.activity', [
             'feed' => $feed->take($this->show),
             'hasMore' => $feed->count() > $this->show,
+            // The feed merges four heterogeneous sources (status history,
+            // wallet, dispatch offers, audit log), not all of which reach a
+            // Franchise — but every row belongs to THIS provider, so the
+            // display timezone is a single value resolved once here rather
+            // than per row. Sorting above is unaffected: it compares
+            // getTimestamp(), which is instant-based and timezone-agnostic.
+            'feedFranchise' => $provider->loadMissing('franchise.country')->franchise,
         ])->layout('components.layouts.provider', ['title' => 'Activity']);
     }
 }

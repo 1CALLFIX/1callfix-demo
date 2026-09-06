@@ -80,7 +80,7 @@
             @forelse ($booking->statusHistory as $h)
                 <li class="flex justify-between gap-3">
                     <span>{{ str_replace('_', ' ', $h->status) }}@if ($h->note) — <span class="text-slate-500">{{ $h->note }}</span>@endif</span>
-                    <span class="shrink-0 text-xs text-slate-400">{{ \Illuminate\Support\Carbon::parse($h->changed_at)->format('j M, g:i A') }}</span>
+                    <span class="shrink-0 text-xs text-slate-400">{{ app(\App\Services\TimezoneResolver::class)->format($h->changed_at, $booking->franchise, 'j M, g:i A') }}</span>
                 </li>
             @empty
                 <li class="text-slate-500">No history yet.</li>
