@@ -41,8 +41,30 @@
     $service = $card['service'];
 @endphp
 
+{{-- `relative` is load-bearing, not decorative — do not strip it.
+
+     Tailwind's `.sr-only` is `position:absolute`. Without a positioned
+     ancestor inside the card, every sr-only span in the body below (the
+     duration hint, the rating's readable text) resolves its containing
+     block all the way up to <body>, and CSS `overflow` only clips
+     descendants whose containing block chain passes through the clipper.
+     So those spans were clipped by NEITHER this card's `overflow-hidden`
+     NOR the rail's `overflow-x-auto`: they were laid out at their static
+     position — out where card #8 sits, ~1814px — and stretched the
+     document's scrollable width by 463px on the homepage.
+
+     That horizontal overflow is what broke the fixed bottom navigation on
+     mobile: a page wider than the viewport widens the initial containing
+     block, so `fixed inset-x-0` on components/customer/bottom-nav.blade.php
+     spanned the overflowed width instead of the screen and its grid-cols-5
+     showed only a sliding two-item window. The rails are homepage-only,
+     which is why only the homepage was affected.
+
+     Making this anchor a containing block keeps those spans inside the
+     card, where both clips apply. Same `relative` convention as the media
+     div below. --}}
 <a href="{{ $card['url'] }}"
-   {{ $attributes->merge(['class' => 'group flex h-full flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white transition duration-200 hover:-translate-y-0.5 hover:border-blue-300 hover:shadow-lg hover:shadow-blue-900/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600']) }}>
+   {{ $attributes->merge(['class' => 'group relative flex h-full flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white transition duration-200 hover:-translate-y-0.5 hover:border-blue-300 hover:shadow-lg hover:shadow-blue-900/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600']) }}>
 
     {{-- Media --}}
     <div class="relative aspect-[4/3] w-full overflow-hidden bg-slate-100">
