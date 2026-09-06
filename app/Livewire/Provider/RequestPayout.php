@@ -96,8 +96,13 @@ class RequestPayout extends Component
         $provider = $this->provider();
         $scope = $payoutService->payoutScope('provider', $provider->id);
 
+        $outstandingCashCommission = $payoutService->outstandingCashCommission($provider->id);
+        $walletBalance = $wallet->balance($provider->user);
+
         return view('livewire.provider.request-payout', [
-            'walletBalance' => $wallet->balance($provider->user),
+            'walletBalance' => $walletBalance,
+            'outstandingCashCommission' => $outstandingCashCommission,
+            'withdrawableBalance' => max(0, round($walletBalance - $outstandingCashCommission, 2)),
             'verifiedAccounts' => PaymentAccount::where('user_id', $provider->user_id)
                 ->where('is_verified', true)
                 ->orderByDesc('is_default')

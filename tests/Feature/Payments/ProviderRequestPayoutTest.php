@@ -190,4 +190,57 @@ class ProviderRequestPayoutTest extends TestCase
             ->assertSee('150.00')
             ->assertSee('Pending');
     }
+
+    /** A provider carrying one outstanding cash-commission receivable of $owed. */
+    private function providerOwing(float $owed, float $walletSeed)
+    {
+        $scenario = $this->makeBookingScenario();
+        $provider = $scenario['provider'];
+        app(WalletService::class)->credit($provider->user, $walletSeed, 'seed');
+        $this->verifiedAccount($provider);
+
+        $commission = \App\Models\Commission::create([
+            'booking_id' => $scenario['booking']->id,
+            'provider_commission' => 0, 'franchise_commission' => 0, 'platform_commission' => $owed,
+        ]);
+        \App\Models\ProviderCommissionReceivable::create([
+            'provider_id' => $provider->id,
+            'booking_id' => $scenario['booking']->id,
+            'commission_id' => $commission->id,
+            'platform_portion' => $owed, 'franchise_portion' => 0,
+            'amount_owed' => $owed, 'amount_settled' => 0, 'status' => 'outstanding',
+        ]);
+
+        return $provider;
+    }
+
+    public function test_screen_shows_withdrawable_balance_net_of_outstanding_cash_commission(): void
+    {
+        $provider = $this->providerOwing(owed: 120, walletSeed: 500);
+
+        Livewire::actingAs($provider->user)->test(RequestPayout::class)
+            ->assertSee('Withdrawable now', false)
+            ->assertSee('380.00')   // 500 - 120
+            ->assertSee('cash commission owed', false);
+    }
+
+    public function test_request_is_blocked_when_cash_commission_debt_exceeds_wallet(): void
+    {
+        $provider = $this->providerOwing(owed: 200, walletSeed: 50);
+        $account = PaymentAccount::where('user_id', $provider->user_id)->sole();
+
+        Livewire::actingAs($provider->user)->test(RequestPayout::class)
+            ->set('paymentAccountId', $account->id)
+            ->set('amount', '10')
+            ->call('request')
+            ->assertSet('flashType', 'error');
+
+        // The ₹50 wallet was swept toward the debt; no payout row.
+        $this->assertSame(0, Payout::count());
+        $this->assertEquals(0.0, app(WalletService::class)->balance($provider->user));
+        $this->assertEquals(
+            150.0,
+            app(\App\Services\PayoutService::class)->outstandingCashCommission($provider->id)
+        );
+    }
 }

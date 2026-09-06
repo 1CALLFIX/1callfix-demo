@@ -7,6 +7,7 @@ use App\Models\Franchise;
 use App\Models\PaymentAccount;
 use App\Models\Payout;
 use App\Models\Provider;
+use App\Models\ProviderCommissionReceivable;
 use App\Models\Setting;
 use App\Models\User;
 use App\Notifications\PayoutStatusNotification;
@@ -59,6 +60,15 @@ class PayoutService
             throw new \InvalidArgumentException('Payout amount must be positive.');
         }
 
+        // Cash-commission debt is senior to the provider's own withdrawal:
+        // recover as much of it as the current wallet balance allows before
+        // anything else, so every check below (limits, the debit itself)
+        // runs against the already-reduced balance. Providers only.
+        if ($payeeType === 'provider') {
+            $this->settleCashCommissionReceivables($payeeId);
+            $this->assertNoBlockingCashDebt($payeeId, $amount);
+        }
+
         $this->assertWithinPayoutLimits($payeeType, $payeeId, $amount);
         $this->assertKycWithdrawalAllowed($payeeType, $payeeId);
 
@@ -85,6 +95,108 @@ class PayoutService
                 'status' => 'pending',
             ]);
         });
+    }
+
+    /**
+     * Recovers outstanding cash-commission debt from a provider's wallet,
+     * oldest receivable first, taking only what the current balance can
+     * cover (the wallet's no-negative guard is respected, never loosened).
+     * A row that clears in full flips to 'settled' and, at that point,
+     * credits the franchise owner their share — the franchise is paid out
+     * of money that has actually been recovered from the provider, never
+     * before. A partially-covered row stays 'outstanding' with its
+     * amount_settled advanced, and keeps reducing withdrawable balance
+     * until a later call finishes it.
+     *
+     * Called at payout-request time only (the approved design's
+     * "sweep at payout-request time" decision) — there is deliberately no
+     * hook on every wallet credit.
+     */
+    private function settleCashCommissionReceivables(int $providerId): void
+    {
+        $provider = Provider::with('user')->find($providerId);
+        if (! $provider || ! $provider->user) {
+            return;
+        }
+
+        DB::transaction(function () use ($provider) {
+            $receivables = ProviderCommissionReceivable::outstanding()
+                ->where('provider_id', $provider->id)
+                ->with('booking.franchise.owner')
+                ->orderBy('id')
+                ->lockForUpdate()
+                ->get();
+
+            foreach ($receivables as $receivable) {
+                $available = $this->walletService->balance($provider->user);
+                if ($available <= 0) {
+                    break;
+                }
+
+                $take = round(min($available, $receivable->outstandingAmount()), 2);
+                if ($take <= 0) {
+                    continue;
+                }
+
+                $this->walletService->debit(
+                    $provider->user,
+                    $take,
+                    reason: 'Cash commission settlement'
+                        .($receivable->booking ? " — booking {$receivable->booking->code}" : ''),
+                    ref: 'cash-commission:'.$receivable->id.':settle:'.Str::uuid()
+                );
+
+                $receivable->amount_settled = round((float) $receivable->amount_settled + $take, 2);
+
+                if ($receivable->amount_settled >= (float) $receivable->amount_owed) {
+                    $receivable->status = 'settled';
+                    $receivable->settled_at = now();
+                }
+                $receivable->save();
+
+                if ($receivable->status === 'settled' && (float) $receivable->franchise_portion > 0) {
+                    $owner = $receivable->booking?->franchise?->owner;
+                    if ($owner) {
+                        $this->walletService->credit(
+                            $owner,
+                            (float) $receivable->franchise_portion,
+                            reason: 'Franchise revenue share (cash)'
+                                .($receivable->booking ? " for booking {$receivable->booking->code}" : ''),
+                            ref: 'cash-commission:'.$receivable->id.':franchise-earning'
+                        );
+                    }
+                }
+            }
+        });
+    }
+
+    /**
+     * After a settlement sweep, if the provider still owes cash commission
+     * their whole wallet balance has already been consumed by it — so any
+     * payout request is refused with a clear reason rather than the generic
+     * "insufficient balance" the debit would otherwise throw.
+     */
+    private function assertNoBlockingCashDebt(int $providerId, float $amount): void
+    {
+        $outstanding = round((float) ProviderCommissionReceivable::outstanding()
+            ->where('provider_id', $providerId)
+            ->sum(DB::raw('amount_owed - amount_settled')), 2);
+
+        if ($outstanding > 0) {
+            throw new \RuntimeException(
+                'You have unsettled cash-commission of '.number_format($outstanding, 2)
+                .' owed to the platform. It is recovered from your wallet balance first — '
+                .'there is nothing available to withdraw until digital earnings cover it.'
+            );
+        }
+    }
+
+    /** Total cash commission a provider still owes — for the withdrawable-balance display. */
+    public function outstandingCashCommission(int $providerId): float
+    {
+        return round((float) ProviderCommissionReceivable::outstanding()
+            ->where('provider_id', $providerId)
+            ->sum(DB::raw('amount_owed - amount_settled')), 2);
     }
 
     public function markProcessing(Payout $payout): void
