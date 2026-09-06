@@ -22,6 +22,9 @@ class Manage extends Component
 
     // --- new plan form ---
     public string $name = '';
+    public string $description = '';
+    /** Raw JSON object of structured plan flags (e.g. {"address_locked": true}). Blank = no metadata. */
+    public string $metadataJson = '';
     public string $planFamily = 'customer_membership';
     public ?string $module = 'service';
     public string $scopeType = 'global';
@@ -40,6 +43,10 @@ class Manage extends Component
     public ?int $entQuantity = null;
     public ?string $entMonetaryValue = null;
     public ?string $entPercentageValue = null;
+    /** Optional display name for one specific entitlement row ("Premium AC Jet Pump Service"). */
+    public ?string $entLabel = null;
+    /** Comma-separated category choices a redeemer must pick from ("electrical, plumbing, carpenter"). Blank = no choice. */
+    public string $entRedeemCategories = '';
 
     /** plans.view was seeded (2026_08_11_038000) but never checked on this screen (only the mutating actions check plans.manage) -- see Commissions\Index's identical fix for the full reasoning. */
     public function mount(): void
@@ -66,6 +73,29 @@ class Manage extends Component
         'priority', 'feature_access',
     ];
 
+    /**
+     * Parses the metadataJson textarea. Returns the decoded array, null for
+     * blank, or false (after flashing an error) when it is not a valid JSON
+     * object — the caller aborts on false.
+     *
+     * @return array<string, mixed>|null|false
+     */
+    private function parseMetadataOrFail()
+    {
+        if (trim($this->metadataJson) === '') {
+            return null;
+        }
+
+        $decoded = json_decode($this->metadataJson, true);
+        if (json_last_error() !== JSON_ERROR_NONE || ! is_array($decoded) || array_is_list($decoded)) {
+            $this->flashType = 'error';
+            $this->flashMessage = 'Metadata must be a valid JSON object, e.g. {"address_locked": true}.';
+            return false;
+        }
+
+        return $decoded;
+    }
+
     private function scopeHint(): array
     {
         // Not-yet-persisted Plan -- authorizationScopeHint() only reads
@@ -84,6 +114,8 @@ class Manage extends Component
 
         $this->validate([
             'name' => ['required', 'string', 'max:150'],
+            'description' => ['nullable', 'string', 'max:5000'],
+            'metadataJson' => ['nullable', 'string', 'max:5000'],
             'planFamily' => ['required', 'string'],
             'scopeType' => ['required', 'in:global,country,city,zone,franchise'],
             'eligibleActorType' => ['required', 'in:customer,provider,business_account'],
@@ -92,8 +124,15 @@ class Manage extends Component
             'stackingStrategy' => ['required', 'in:exclusive,stack,highest_benefit_wins,most_specific_wins,priority_order'],
         ]);
 
+        $metadata = $this->parseMetadataOrFail();
+        if ($metadata === false) {
+            return;
+        }
+
         $service->create([
             'name' => $this->name,
+            'description' => $this->description ?: null,
+            'metadata' => $metadata,
             'plan_family' => $this->planFamily,
             'module' => $this->module ?: null,
             'scope_type' => $this->scopeType,
@@ -107,7 +146,7 @@ class Manage extends Component
             'is_active' => true,
         ]);
 
-        $this->reset(['name', 'module', 'scopeId', 'customCycleDays', 'price', 'stackingPriority']);
+        $this->reset(['name', 'description', 'metadataJson', 'module', 'scopeId', 'customCycleDays', 'price', 'stackingPriority']);
         $this->price = '0';
         $this->module = 'service';
         $this->flashType = 'success';
@@ -132,7 +171,7 @@ class Manage extends Component
     public function expand(int $planId): void
     {
         $this->expandedPlanId = $this->expandedPlanId === $planId ? null : $planId;
-        $this->reset(['entQuantity', 'entMonetaryValue', 'entPercentageValue', 'entRolloverCap', 'entRolloverExpiryDays', 'entOverageRateValue']);
+        $this->reset(['entQuantity', 'entMonetaryValue', 'entPercentageValue', 'entLabel', 'entRedeemCategories', 'entRolloverCap', 'entRolloverExpiryDays', 'entOverageRateValue']);
     }
 
     public function addEntitlement(PlanService $service): void
@@ -152,9 +191,16 @@ class Manage extends Component
             'entRolloverPolicy' => ['required', 'in:none,partial,full'],
         ]);
 
+        $redeemCategories = array_values(array_filter(array_map(
+            'trim',
+            explode(',', $this->entRedeemCategories)
+        )));
+
         $service->addEntitlement($plan, [
             'entitlement_type' => $this->entType,
             'module' => $this->entModule ?: null,
+            'label' => $this->entLabel ?: null,
+            'redeem_categories' => $redeemCategories ?: null,
             'quantity' => $this->entQuantity,
             'monetary_value' => $this->entMonetaryValue,
             'percentage_value' => $this->entPercentageValue,
@@ -173,7 +219,7 @@ class Manage extends Component
             'is_approved' => false,
         ]);
 
-        $this->reset(['entQuantity', 'entMonetaryValue', 'entPercentageValue', 'entRolloverCap', 'entRolloverExpiryDays', 'entOverageRateValue']);
+        $this->reset(['entQuantity', 'entMonetaryValue', 'entPercentageValue', 'entLabel', 'entRedeemCategories', 'entRolloverCap', 'entRolloverExpiryDays', 'entOverageRateValue']);
         $this->flashType = 'success';
         $this->flashMessage = 'Entitlement added.';
     }

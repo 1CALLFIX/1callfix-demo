@@ -12,13 +12,14 @@ class PlanEntitlement extends Model
     protected $table = 'plan_entitlements';
 
     protected $fillable = [
-        'plan_id', 'entitlement_type', 'module', 'quantity', 'monetary_value',
+        'plan_id', 'entitlement_type', 'module', 'label', 'redeem_categories', 'quantity', 'monetary_value',
         'percentage_value', 'usage_period', 'consumption_trigger', 'rollover_policy',
         'rollover_cap', 'rollover_expiry_days', 'overage_enabled', 'overage_rate_type',
         'overage_rate_value', 'requires_approval', 'is_approved',
     ];
 
     protected $casts = [
+        'redeem_categories' => 'array',
         'overage_enabled' => 'boolean',
         'requires_approval' => 'boolean',
         'is_approved' => 'boolean',
@@ -28,6 +29,12 @@ class PlanEntitlement extends Model
     ];
 
     public function plan() { return $this->belongsTo(Plan::class); }
+
+    /** True when a redemption of this entitlement must name one category from a fixed set (Prime Silver's Home Service Credit). */
+    public function requiresCategoryChoice(): bool
+    {
+        return is_array($this->redeem_categories) && count($this->redeem_categories) > 0;
+    }
 
     /**
      * commission_override is unusable unless BOTH requires_approval was
