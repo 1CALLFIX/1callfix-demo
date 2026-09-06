@@ -15,7 +15,7 @@
                     ])>{{ $row['kind'] }}</span>
                     <span>{{ $row['text'] }}</span>
                 </div>
-                <span class="shrink-0 text-xs text-slate-400">{{ $row['at']->format('j M, g:i A') }}</span>
+                <span class="shrink-0 text-xs text-slate-400">{{ app(\App\Services\TimezoneResolver::class)->format($row['at'], $feedFranchise, 'j M, g:i A') }}</span>
             </div>
         @empty
             <div class="rounded-lg border border-slate-200 bg-white px-4 py-6 text-center text-sm text-slate-500">

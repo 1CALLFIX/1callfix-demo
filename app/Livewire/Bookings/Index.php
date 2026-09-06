@@ -11,6 +11,7 @@ use App\Models\User;
 use App\Models\Zone;
 use App\Services\Ai\BookingNaturalLanguageFilter;
 use App\Services\AuthorizationService;
+use App\Support\BookingSchedule;
 use App\Support\Concerns\HasCsvExport;
 use Illuminate\Support\Str;
 use Livewire\Component;
@@ -512,10 +513,6 @@ class Index extends Component
 
     public function createBooking(): void
     {
-        // How far ahead a scheduled booking may be placed — admin-editable via
-        // the Booking Settings tab, default 14 days.
-        $maxScheduleDays = (int) Setting::get('booking.max_schedule_days_ahead', 14);
-
         // Re-validated server-side against the Settings > Payment toggles,
         // not just filtered out of the dropdown — a disabled method must be
         // rejected even if submitted directly, not merely hidden from view.
@@ -528,10 +525,18 @@ class Index extends Component
             'selectedServiceId' => ['required', 'integer', 'exists:services,id'],
             'priceQuoted' => ['required', 'numeric', 'min:0'],
             'paymentMethod' => ['required', "in:{$enabledMethods}"],
+            // Only shape is checked here. The "in the future / within the
+            // booking.max_schedule_days_ahead window" rules deliberately do
+            // NOT live in this array any more: the datetime-local input is a
+            // naive wall clock in the operator's timezone, and Laravel's
+            // after:/before_or_equal: would parse it as UTC (config
+            // app.timezone), skewing the accepted window by the platform's
+            // UTC offset (5h30m for Asia/Kolkata). BookingSchedule::validate()
+            // below is the same shared, timezone-correct check the customer
+            // wizard already runs — one rule, not two drifting copies.
             'scheduledAt' => [
                 $this->bookingType === 'scheduled' ? 'required' : 'nullable',
-                'date', 'after:now',
-                'before_or_equal:'.now()->addDays($maxScheduleDays)->toDateTimeString(),
+                'date',
             ],
         ], [], [
             'selectedCustomerId' => 'customer',
@@ -541,6 +546,13 @@ class Index extends Component
             'priceQuoted' => 'price',
             'scheduledAt' => 'scheduled time',
         ]);
+
+        // Timezone-correct future/window check — see the rules array above.
+        if ($this->bookingType === 'scheduled'
+            && ($scheduleError = BookingSchedule::validate($this->scheduledAt)) !== null) {
+            $this->addError('scheduledAt', $scheduleError);
+            return;
+        }
 
         $zone = Zone::findOrFail($this->selectedZoneId);
 
@@ -555,7 +567,14 @@ class Index extends Component
             'customer_id' => $this->selectedCustomerId,
             'service_id' => $this->selectedServiceId,
             'address_id' => $this->selectedAddressId,
-            'scheduled_at' => $this->bookingType === 'scheduled' ? $this->scheduledAt : null,
+            // The operator types a naive wall clock (Asia/Kolkata today);
+            // BookingSchedule::parse() interprets it in the platform timezone
+            // and hands back a true UTC instant, so scheduled_at is stored
+            // correctly rather than 5h30m late. Same shared helper the
+            // customer wizard and cart checkout already use.
+            'scheduled_at' => $this->bookingType === 'scheduled'
+                ? BookingSchedule::parse($this->scheduledAt)
+                : null,
             'price_quoted' => $this->priceQuoted,
             'payment_method' => $this->paymentMethod,
             'customer_note' => $this->customerNote ?: null,

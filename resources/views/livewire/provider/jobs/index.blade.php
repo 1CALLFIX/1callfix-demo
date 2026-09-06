@@ -26,7 +26,7 @@
                         <p class="mt-0.5 text-xs text-slate-500">
                             {{ $b->code }}
                             @if ($offer->distance_km !== null) · {{ number_format((float) $offer->distance_km, 1) }} km @endif
-                            @if ($b->scheduled_at) · {{ \Illuminate\Support\Carbon::parse($b->scheduled_at)->format('j M, g:i A') }} @else · ASAP @endif
+                            @if ($b->scheduled_at) · {{ app(\App\Services\TimezoneResolver::class)->format($b->scheduled_at, $b->franchise, 'j M, g:i A') }} @else · ASAP @endif
                         </p>
                         <p class="mt-1 text-xs text-slate-500">{{ $b->address?->label }} — area only until accepted</p>
                         <p class="mt-1 text-sm font-medium">₹{{ number_format((float) $b->price_quoted, 2) }}</p>
