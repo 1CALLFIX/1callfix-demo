@@ -9,6 +9,7 @@ use App\Models\HotelReservation;
 use App\Models\MarketplaceOrder;
 use App\Models\ParcelOrder;
 use App\Models\PropertyReservation;
+use App\Models\ProviderCommissionReceivable;
 use App\Models\RentalReservation;
 use App\Models\TaxiRide;
 use App\Services\Plans\EntitlementService;
@@ -51,6 +52,17 @@ class CommissionService
      * Idempotent: if a Commission row already exists for this booking, this
      * is a no-op — safe to call more than once (e.g. a retried job) without
      * double-crediting the provider's wallet.
+     *
+     * CASH bookings (payment_method = 'cash'): the provider has already
+     * collected the whole price in cash, so the platform + franchise
+     * commission never reached the gateway. For these the split is computed
+     * and the `commissions` row written exactly as for any other booking,
+     * but the wallet side is inverted — the provider's own share is NOT
+     * credited (they hold it in cash), the franchise owner is NOT credited
+     * yet, and a ProviderCommissionReceivable row records what the provider
+     * now owes. That debt is recovered by a wallet debit at payout-request
+     * time (PayoutService::settleCashCommissionReceivables); the wallet's
+     * no-negative guard is never loosened.
      */
     public function applyForBooking(Booking $booking): Commission
     {
@@ -75,7 +87,9 @@ class CommissionService
 
         $providerCommission = round($total - $platformCommission - $franchiseCommission, 2);
 
-        return DB::transaction(function () use ($booking, $providerCommission, $franchiseCommission, $platformCommission, $rateOverride) {
+        $isCash = $booking->payment_method === 'cash';
+
+        return DB::transaction(function () use ($booking, $providerCommission, $franchiseCommission, $platformCommission, $rateOverride, $isCash) {
             $commission = Commission::create([
                 'booking_id' => $booking->id,
                 'provider_commission' => $providerCommission,
@@ -83,28 +97,50 @@ class CommissionService
                 'platform_commission' => $platformCommission,
             ]);
 
-            if ($booking->provider && $booking->provider->user && $providerCommission > 0) {
-                $this->walletService->credit(
-                    $booking->provider->user,
-                    $providerCommission,
-                    reason: "Earnings for booking {$booking->code}",
-                    ref: "booking:{$booking->id}:provider-earning"
-                );
-            }
+            if ($isCash) {
+                // Provider physically holds the full price. Record what they
+                // owe (platform + franchise portions); recover it later from
+                // wallet at payout time. No wallet credit for either the
+                // provider's own share or the franchise's — the money to pay
+                // the franchise its cut has to come out of the provider
+                // first, which happens on settlement.
+                $owed = round($platformCommission + $franchiseCommission, 2);
+                if ($booking->provider && $owed > 0) {
+                    ProviderCommissionReceivable::create([
+                        'provider_id' => $booking->provider->id,
+                        'booking_id' => $booking->id,
+                        'commission_id' => $commission->id,
+                        'platform_portion' => $platformCommission,
+                        'franchise_portion' => $franchiseCommission,
+                        'amount_owed' => $owed,
+                        'amount_settled' => 0,
+                        'status' => 'outstanding',
+                    ]);
+                }
+            } else {
+                if ($booking->provider && $booking->provider->user && $providerCommission > 0) {
+                    $this->walletService->credit(
+                        $booking->provider->user,
+                        $providerCommission,
+                        reason: "Earnings for booking {$booking->code}",
+                        ref: "booking:{$booking->id}:provider-earning"
+                    );
+                }
 
-            // Franchise revenue share -> the franchise owner's wallet, same
-            // mechanism as the provider's earning above (reusing
-            // WalletService, not a second ledger). If no owner is assigned
-            // yet (Franchises\Manage's Edit modal), the share is still
-            // recorded on this Commission row for later settlement once one
-            // is — it just isn't credited anywhere until then.
-            if ($booking->franchise && $booking->franchise->owner_user_id && $franchiseCommission > 0) {
-                $this->walletService->credit(
-                    $booking->franchise->owner,
-                    $franchiseCommission,
-                    reason: "Franchise revenue share for booking {$booking->code}",
-                    ref: "booking:{$booking->id}:franchise-earning"
-                );
+                // Franchise revenue share -> the franchise owner's wallet, same
+                // mechanism as the provider's earning above (reusing
+                // WalletService, not a second ledger). If no owner is assigned
+                // yet (Franchises\Manage's Edit modal), the share is still
+                // recorded on this Commission row for later settlement once one
+                // is — it just isn't credited anywhere until then.
+                if ($booking->franchise && $booking->franchise->owner_user_id && $franchiseCommission > 0) {
+                    $this->walletService->credit(
+                        $booking->franchise->owner,
+                        $franchiseCommission,
+                        reason: "Franchise revenue share for booking {$booking->code}",
+                        ref: "booking:{$booking->id}:franchise-earning"
+                    );
+                }
             }
 
             // Auditable record that this booking's commission used a

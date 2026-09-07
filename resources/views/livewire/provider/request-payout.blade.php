@@ -19,10 +19,24 @@
         </div>
     @endif
 
-    <div class="mt-4">
+    <div class="mt-4 grid gap-3 sm:grid-cols-2">
         <x-ui.card class="!p-4">
             <p class="text-xs font-semibold uppercase text-gray-500">Wallet balance</p>
             <p class="mt-1 text-2xl font-bold">₹{{ number_format((float) $walletBalance, 2) }}</p>
+            @if ($outstandingCashCommission > 0)
+                <p class="mt-1 text-xs text-amber-700">
+                    Less ₹{{ number_format((float) $outstandingCashCommission, 2) }} cash commission owed to the platform
+                </p>
+            @endif
+        </x-ui.card>
+        <x-ui.card class="!p-4">
+            <p class="text-xs font-semibold uppercase text-gray-500">Withdrawable now</p>
+            <p class="mt-1 text-2xl font-bold">₹{{ number_format((float) $withdrawableBalance, 2) }}</p>
+            @if ($outstandingCashCommission > 0)
+                <p class="mt-1 text-xs text-gray-500">
+                    Cash-commission debt is recovered from your wallet before any payout.
+                </p>
+            @endif
         </x-ui.card>
     </div>
 
