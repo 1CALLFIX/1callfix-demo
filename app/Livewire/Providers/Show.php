@@ -231,6 +231,48 @@ class Show extends Component
         $this->deleteWarning = '';
     }
 
+    /**
+     * Same permission slug + scope shape as canDelete()/canManageCommission()
+     * above — providers.manage is this screen's one "can change this
+     * provider's operational configuration" boundary, and suspending/
+     * reactivating is exactly that kind of change.
+     *
+     * Enable/Disable Audit gap fix — Provider had no way to temporarily take
+     * an approved provider out of dispatch without a (soft) delete. Unlike
+     * Customers\Show::toggleSuspended() (which writes users.status, a
+     * column nothing downstream actually reads), this writes
+     * Provider.is_active, which DispatchService::hasSkill() already checks
+     * (`! $provider->is_online || ! $provider->is_active || ...`) — so this
+     * toggle has real, immediate dispatch effect the moment it's saved, not
+     * just a cosmetic status flip. Mirrors Workers\Show::toggleActive()
+     * exactly, which already does this for FieldWorker's identically-shaped
+     * is_active column.
+     */
+    private function canToggleActive(): bool
+    {
+        return auth()->user()->hasPermission('providers.manage', array_filter([
+            'zone_id' => $this->provider->zone_id,
+            'franchise_id' => $this->provider->franchise_id,
+        ]));
+    }
+
+    public function toggleActive(): void
+    {
+        if (! $this->canToggleActive()) {
+            $this->flashType = 'error';
+            $this->flashMessage = 'You do not have permission to change this provider\'s active status.';
+            return;
+        }
+
+        $this->provider->is_active = ! $this->provider->is_active;
+        $this->provider->save();
+
+        $this->flashType = 'success';
+        $this->flashMessage = $this->provider->is_active
+            ? 'Provider reactivated — eligible for new job offers again.'
+            : 'Provider suspended — will not receive new job offers until reactivated.';
+    }
+
     // ==================== Commercial rate (negotiated agreement) ====================
 
     /**
