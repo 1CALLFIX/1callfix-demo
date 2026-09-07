@@ -8,6 +8,7 @@ use App\Models\Booking;
 use App\Models\Provider;
 use App\Models\Setting;
 use App\Notifications\BookingStatusNotification;
+use App\Notifications\ProviderJobStatusNotification;
 use App\Notifications\Support\ChannelResolver;
 use App\Services\BookingOtpService;
 use App\Services\CommissionService;
@@ -161,6 +162,19 @@ class CompleteBookingAction
         if ($booking->customer) {
             $channels = ChannelResolver::resolve($scope);
             $booking->customer->notify(new BookingStatusNotification('completed', $booking, $channels));
+        }
+
+        // Phase PN1 — the provider gets their own completion notification
+        // (their earnings line). Guarded + logged; post-commit and after the
+        // wallet credit, so a transport failure can't disturb settlement.
+        if ($booking->provider?->user) {
+            try {
+                $booking->provider->user->notify(
+                    new ProviderJobStatusNotification('completed', $booking, ChannelResolver::resolve($scope))
+                );
+            } catch (\Throwable $e) {
+                Log::error("Failed to deliver provider 'completed' notification for booking [{$booking->id}]: ".$e->getMessage());
+            }
         }
 
         // Phase E5.1 — if this is a bundle child, advance the bundle's stored

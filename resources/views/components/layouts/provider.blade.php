@@ -160,6 +160,16 @@
     </main>
 
     @livewireScripts
+
+    {{-- Phase PN1 — foreground job-offer / status alerts (chime + tab-hidden
+         OS notification). Plain static script, same pattern as admin's
+         zone-map.js / booking-address-map.js — no bundler, no manifest, so
+         nothing new to build or deploy. Driven entirely by the provider
+         components' existing wire:poll: it listens for the
+         `provider-alert-offers` / `provider-alert-status` browser events
+         Livewire re-emits on `window`. --}}
+    <script src="{{ asset('js/provider-alerts.js') }}" defer></script>
+
     @stack('scripts')
 </body>
 </html>

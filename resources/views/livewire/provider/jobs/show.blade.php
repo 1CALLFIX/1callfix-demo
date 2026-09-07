@@ -20,7 +20,7 @@
         <div class="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
             You've been {{ str_replace('_', ' ', $booking->status) }} on this job for
             {{ $stuckMinutes >= 120 ? floor($stuckMinutes / 60).'h '.($stuckMinutes % 60).'m' : $stuckMinutes.' min' }}.
-            {{ $booking->status === 'assigned' ? 'Start it now,' : 'Complete it,' }} or contact your dispatcher if you can't finish it.
+            {{ in_array($booking->status, ['assigned', 'provider_en_route'], true) ? 'Start it now,' : 'Complete it,' }} or contact your dispatcher if you can't finish it.
         </div>
     @endif
 
@@ -41,8 +41,19 @@
         @endif
     </x-ui.card>
 
-    {{-- ===================== OTP step ===================== --}}
+    {{-- ===================== En route ===================== --}}
     @if ($booking->status === 'assigned')
+        <x-ui.card class="mt-4 !p-5">
+            <h2 class="text-sm font-semibold text-gray-500 uppercase">Heading over?</h2>
+            <p class="mt-1 text-sm text-slate-600">Let the customer know you're on the way. Optional — you can go straight to Start.</p>
+            <x-ui.button type="button" size="lg" class="mt-3" wire:click="enRoute" wire:loading.attr="disabled" wire:target="enRoute">
+                I'm on my way
+            </x-ui.button>
+        </x-ui.card>
+    @endif
+
+    {{-- ===================== OTP step ===================== --}}
+    @if (in_array($booking->status, ['assigned', 'provider_en_route'], true))
         <x-ui.card class="mt-4 !p-5">
             <h2 class="text-sm font-semibold text-gray-500 uppercase">Start the job</h2>
             <p class="mt-1 text-sm text-slate-600">Ask the customer for their <strong>start OTP</strong> and enter it.</p>

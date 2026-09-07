@@ -3,6 +3,7 @@
 namespace App\Livewire\Provider\Jobs;
 
 use App\Actions\CompleteBookingAction;
+use App\Actions\MarkEnRouteAction;
 use App\Actions\StartBookingAction;
 use App\Livewire\Provider\Concerns\DetectsStuckJob;
 use App\Livewire\Provider\Concerns\InteractsWithProvider;
@@ -15,9 +16,13 @@ use Livewire\Component;
  * (revealed now it's theirs), the status timeline, and the OTP field for
  * the current step.
  *
+ *   - En route       → App\Actions\MarkEnRouteAction (Phase PN1 — the
+ *                      transition into `provider_en_route`, which the FSM
+ *                      already accepted everywhere but nothing entered).
+ *                      Optional: Start still works straight from `assigned`.
  *   - Start-OTP      → App\Actions\StartBookingAction (verbatim the call
- *                      WorkerJobController::start() makes). `assigned` only —
- *                      no provider_en_route step in P1.
+ *                      WorkerJobController::start() makes). Accepts
+ *                      `assigned` or `provider_en_route`.
  *   - Completion-OTP → App\Actions\CompleteBookingAction (verbatim the call
  *                      API\DispatchController::complete() makes).
  *
@@ -43,10 +48,22 @@ class Show extends Component
 
     public string $notice = '';
 
+    /**
+     * Phase PN1 — last status this component has already alerted the
+     * provider about. Seeded on mount so the first render never fires a
+     * spurious alert; updated by render() and by the action methods so a
+     * self-initiated transition (the provider's own tap) doesn't chime at
+     * them — only an externally-driven change (an admin cancel, a hold)
+     * does.
+     */
+    #[Locked]
+    public string $lastSeenStatus = '';
+
     public function mount(Booking $booking): void
     {
         abort_unless($booking->provider_id === $this->provider()->id, 404);
         $this->bookingId = $booking->id;
+        $this->lastSeenStatus = $booking->status;
     }
 
     private function job(): Booking
@@ -64,6 +81,24 @@ class Show extends Component
         return $booking;
     }
 
+    public function enRoute(MarkEnRouteAction $action): void
+    {
+        $this->reset('error', 'notice');
+
+        try {
+            $action->execute($this->bookingId, $this->provider(), auth()->id());
+        } catch (\RuntimeException $e) {
+            $this->error = $e->getMessage();
+
+            return;
+        }
+
+        // The provider initiated this — don't let render() chime at them for
+        // their own tap.
+        $this->lastSeenStatus = 'provider_en_route';
+        $this->notice = "Marked on the way.";
+    }
+
     public function start(StartBookingAction $action): void
     {
         $this->reset('error', 'notice');
@@ -78,6 +113,7 @@ class Show extends Component
         }
 
         $this->reset('otp');
+        $this->lastSeenStatus = 'in_progress';
         $this->notice = 'Job started.';
     }
 
@@ -95,6 +131,7 @@ class Show extends Component
         }
 
         $this->reset('otp');
+        $this->lastSeenStatus = 'completed';
         $this->notice = 'Job completed.';
     }
 
@@ -102,11 +139,35 @@ class Show extends Component
     {
         $booking = $this->job();
 
+        // Phase PN1 — an externally-driven status change on the job the
+        // provider is looking at (an admin cancel, a dispatcher hold, a
+        // resume): chime + tab-hidden OS notification via provider-alerts.js.
+        // Self-initiated transitions already updated $lastSeenStatus in their
+        // action method, so this only fires for changes the provider didn't
+        // make here.
+        if ($this->lastSeenStatus !== '' && $booking->status !== $this->lastSeenStatus) {
+            $this->dispatch('provider-alert-status', ...$this->statusAlertCopy($booking->status));
+            $this->lastSeenStatus = $booking->status;
+        }
+
         return view('livewire.provider.jobs.show', [
             'booking' => $booking,
             'stuckMinutes' => $this->stuckMinutes($booking),
-            'isLive' => in_array($booking->status, ['assigned', 'in_progress'], true),
+            'isLive' => in_array($booking->status, ['assigned', 'provider_en_route', 'in_progress'], true),
             'commission' => $booking->status === 'completed' ? $booking->commission()->first() : null,
         ])->layout('components.layouts.provider', ['title' => 'Job '.$booking->code]);
+    }
+
+    /** @return array{title:string,body:string} */
+    private function statusAlertCopy(string $status): array
+    {
+        return match ($status) {
+            'provider_en_route' => ['title' => 'On the way', 'body' => 'This job is marked on the way.'],
+            'in_progress' => ['title' => 'Job started', 'body' => 'This job is now in progress.'],
+            'on_hold' => ['title' => 'Job on hold', 'body' => 'This job has been put on hold.'],
+            'completed' => ['title' => 'Job completed', 'body' => 'This job has been completed.'],
+            'cancelled' => ['title' => 'Job cancelled', 'body' => 'This job has been cancelled.'],
+            default => ['title' => 'Job updated', 'body' => 'This job\'s status changed to '.str_replace('_', ' ', $status).'.'],
+        };
     }
 }

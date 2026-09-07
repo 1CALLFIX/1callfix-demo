@@ -100,10 +100,17 @@ class Index extends Component
             ->values();
 
         $activeJob = Booking::where('provider_id', $provider->id)
-            ->whereIn('status', ['assigned', 'in_progress'])
+            ->whereIn('status', ['assigned', 'provider_en_route', 'in_progress'])
             ->with(['service:id,name', 'address:id,label', 'franchise.country'])
             ->latest('id')
             ->first();
+
+        // Phase PN1 — drives the foreground chime + (tab-hidden) OS
+        // notification in public/js/provider-alerts.js. Fired on every
+        // poll: the JS starts the repeating alarm on the first count > 0 and
+        // stops it when the offer set clears, so the cadence of the alarm is
+        // the JS loop's, not this 4s poll's.
+        $this->dispatch('provider-alert-offers', count: $offers->count());
 
         return view('livewire.provider.jobs.index', [
             'offers' => $offers,

@@ -1,4 +1,4 @@
-<div>
+<div wire:poll.10s>
     <h1 class="text-xl font-bold tracking-tight">Hi, {{ $provider->user?->name ?? 'there' }}</h1>
     <p class="text-sm text-slate-500">{{ $provider->zone?->name ? $provider->zone->name.' · ' : '' }}KYC {{ $provider->kyc_status }}</p>
 
@@ -7,6 +7,14 @@
     @endif
     @if ($error)
         <div role="alert" class="mt-4 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">{{ $error }}</div>
+    @endif
+
+    @if ($pendingOffers > 0)
+        <a href="{{ route('provider.jobs.index') }}" wire:navigate
+           class="mt-4 flex items-center justify-between gap-3 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-900 hover:bg-amber-100">
+            <span>{{ $pendingOffers === 1 ? 'You have a new job offer' : $pendingOffers.' new job offers' }} — tap to respond</span>
+            <span aria-hidden="true">→</span>
+        </a>
     @endif
 
     {{-- ===================== Online / offline ===================== --}}

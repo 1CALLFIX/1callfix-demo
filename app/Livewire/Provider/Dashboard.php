@@ -7,6 +7,8 @@ use App\Livewire\Provider\Concerns\BuildsProviderEligibility;
 use App\Livewire\Provider\Concerns\DetectsStuckJob;
 use App\Livewire\Provider\Concerns\InteractsWithProvider;
 use App\Models\Booking;
+use App\Models\DispatchAttempt;
+use App\Models\Setting;
 use Livewire\Component;
 
 /**
@@ -55,12 +57,26 @@ class Dashboard extends Component
         $provider = $this->provider();
 
         $activeJob = Booking::where('provider_id', $provider->id)
-            ->whereIn('status', ['assigned', 'in_progress'])
+            ->whereIn('status', ['assigned', 'provider_en_route', 'in_progress'])
             ->with(['service:id,name', 'address:id,label'])
             ->latest('id')
             ->first();
 
         $checks = $this->eligibilityChecks($provider);
+
+        // Phase PN1 — the dashboard is the screen a working provider leaves
+        // open. Count their live offers here too (same window as
+        // Jobs\Index) so the chime + tab-hidden OS notification fire even
+        // when they're not on the Job Offers page, plus an inline banner.
+        $window = (int) Setting::get('dispatch.offer_timeout_seconds', 25);
+        $pendingOffers = DispatchAttempt::query()
+            ->where('provider_id', $provider->id)
+            ->where('status', 'notified')
+            ->where('notified_at', '>=', now()->subSeconds($window))
+            ->whereHas('booking', fn ($q) => $q->whereIn('status', ['pending', 'searching_provider']))
+            ->count();
+
+        $this->dispatch('provider-alert-offers', count: $pendingOffers);
 
         return view('livewire.provider.dashboard', [
             'provider' => $provider,
@@ -68,6 +84,7 @@ class Dashboard extends Component
             'dispatchBlocked' => $this->dispatchBlocked($checks),
             'activeJob' => $activeJob,
             'stuckMinutes' => $activeJob ? $this->stuckMinutes($activeJob) : null,
+            'pendingOffers' => $pendingOffers,
         ])->layout('components.layouts.provider', ['title' => 'Partner dashboard']);
     }
 }

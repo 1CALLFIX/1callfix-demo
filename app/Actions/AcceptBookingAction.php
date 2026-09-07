@@ -10,6 +10,7 @@ use App\Models\Provider;
 use App\Models\Setting;
 use App\Notifications\BookingOtpNotification;
 use App\Notifications\BookingStatusNotification;
+use App\Notifications\ProviderJobStatusNotification;
 use App\Notifications\Support\ChannelResolver;
 use App\Services\BookingOtpService;
 use App\Services\ProviderAvailabilityService;
@@ -149,6 +150,13 @@ class AcceptBookingAction
             $this->sendOtpNotification($booking, 'completion', $booking->completion_otp, $channels);
         }
 
+        // Phase PN1 — the provider now gets their own "job assigned"
+        // notification. The customer's has always been sent here; the
+        // provider's never was. Post-commit, guarded and logged just like
+        // the customer sends above: a transport failure here leaves the
+        // acceptance fully intact.
+        $this->notifyProviderOfStatus($booking, 'assigned');
+
         // Phase E4 — if this booking is a bundle child, try to give the same
         // provider its still-unassigned siblings before they go through a
         // fresh standard dispatch round. Fire-and-forget, after commit: the
@@ -168,6 +176,32 @@ class AcceptBookingAction
             $booking->customer->notify(new BookingStatusNotification($event, $booking, $channels));
         } catch (\Throwable $e) {
             Log::error("Failed to deliver booking {$event} status notification for booking [{$booking->id}]: ".$e->getMessage());
+        }
+    }
+
+    /**
+     * Phase PN1 — the provider-facing counterpart to sendStatusNotification()
+     * above. Resolves channels for the booking's scope, sends
+     * ProviderJobStatusNotification to the provider's User, and is guarded +
+     * logged so a delivery failure can never disturb the committed booking.
+     */
+    private function notifyProviderOfStatus(Booking $booking, string $event): void
+    {
+        $user = $booking->provider?->user;
+
+        if (! $user) {
+            return;
+        }
+
+        $channels = ChannelResolver::resolve(array_filter([
+            'zone_id' => $booking->zone_id,
+            'franchise_id' => $booking->franchise_id,
+        ]));
+
+        try {
+            $user->notify(new ProviderJobStatusNotification($event, $booking, $channels));
+        } catch (\Throwable $e) {
+            Log::error("Failed to deliver provider '{$event}' notification for booking [{$booking->id}]: ".$e->getMessage());
         }
     }
 
