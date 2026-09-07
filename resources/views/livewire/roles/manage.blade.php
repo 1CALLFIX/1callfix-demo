@@ -28,6 +28,20 @@
                 <button type="button" wire:click="toggleNewUserForm" class="text-xs text-blue-600 hover:underline mt-1">
                     {{ $showNewUserForm ? '− Cancel' : '+ New staff user' }}
                 </button>
+
+                @if ($this->selectedUser)
+                    <div class="mt-2 flex items-center justify-between gap-2 rounded border border-gray-200 bg-gray-50 px-2 py-1.5">
+                        <span class="text-xs">
+                            <span @class(['font-medium', 'text-red-600' => $this->selectedUser->status === 'suspended'])>
+                                {{ $this->selectedUser->status === 'suspended' ? 'Suspended' : 'Active' }}
+                            </span>
+                        </span>
+                        <button type="button" wire:click="toggleUserSuspended" wire:loading.attr="disabled" wire:target="toggleUserSuspended"
+                                class="text-xs font-medium {{ $this->selectedUser->status === 'suspended' ? 'text-green-700 hover:underline' : 'text-red-600 hover:underline' }}">
+                            {{ $this->selectedUser->status === 'suspended' ? 'Reactivate account' : 'Suspend account' }}
+                        </button>
+                    </div>
+                @endif
             </div>
 
             <div class="w-56">

@@ -55,6 +55,25 @@ class Login extends Component
 
         RateLimiter::clear($this->throttleKey());
 
+        // Enable/Disable Audit — status was written by Customers\Show::
+        // toggleSuspended() but checked NOWHERE, including here: a
+        // suspended account (customer, provider, or staff) could still
+        // pass Auth::attempt() above and reach the admin-access check
+        // below untouched. Checked BEFORE that check, not after — a
+        // suspended admin should see "your account is suspended", not the
+        // less accurate "this account does not have admin access."
+        // Mirrored in EnsureHasAdminAccess below as defense in depth (this
+        // check only runs at the moment of login; that middleware re-runs
+        // it on every subsequent /admin request, so an account suspended
+        // mid-session is blocked on its very next request too).
+        $user = Auth::user();
+
+        if ($user->status === 'suspended') {
+            Auth::logout();
+            $this->error = 'This account has been suspended. Contact your administrator.';
+            return;
+        }
+
         // Mirrors EnsureHasAdminAccess exactly — that middleware already
         // replaced the old super_admin-only gate for every /admin route
         // (see its own docblock: "anyone holding at least one
@@ -66,7 +85,6 @@ class Login extends Component
         // got a chance to run. Which screens/actions they can actually use
         // once inside is still enforced by AuthorizationService::can() at
         // every individual action, unchanged by this fix.
-        $user = Auth::user();
         if ($user->role !== 'super_admin' && !$user->roleAssignments()->exists()) {
             Auth::logout();
             $this->error = 'This account does not have admin access.';
