@@ -59,6 +59,41 @@
             </ul>
         </section>
 
+        {{-- Opt-in web push (Phase 2). Only rendered where the browser
+             supports it and permission isn't already granted;
+             window.pushNotifications comes from resources/js/push-notifications.js
+             in the customer layout. Silently absent if Firebase env isn't built. --}}
+        <div x-data="{
+                show: false,
+                busy: false,
+                msg: '',
+                async init() {
+                    this.show = window.pushNotifications
+                        ? (await window.pushNotifications.isSupported()) && window.Notification && Notification.permission !== 'granted'
+                        : false;
+                },
+                async enable() {
+                    this.busy = true; this.msg = '';
+                    const ok = await window.pushNotifications.enable();
+                    this.busy = false;
+                    if (ok) { this.show = false; } else { this.msg = 'Could not enable notifications. Check your browser site settings.'; }
+                }
+             }"
+             x-show="show" style="display: none" class="mt-10">
+            <div class="flex items-start justify-between gap-4 rounded-xl border border-slate-200 bg-slate-50 px-4 py-4">
+                <div class="min-w-0">
+                    <p class="text-sm font-medium text-slate-900">Enable notifications</p>
+                    <p class="mt-0.5 text-sm text-slate-600">Get booking updates on this device even when the app is closed.</p>
+                    <p x-show="msg" x-text="msg" class="mt-1 text-sm text-rose-700"></p>
+                </div>
+                <button type="button" x-on:click="enable()" x-bind:disabled="busy"
+                        class="inline-flex min-h-11 shrink-0 items-center rounded-lg bg-blue-600 px-4 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60">
+                    <span x-show="!busy">Enable</span>
+                    <span x-show="busy">Enabling…</span>
+                </button>
+            </div>
+        </div>
+
         <div class="mt-10">
             <form method="POST" action="{{ route('customer.logout') }}">
                 @csrf

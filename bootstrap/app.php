@@ -42,7 +42,11 @@ return Application::configure(basePath: dirname(__DIR__))
 
     })
     ->withExceptions(function (Exceptions $exceptions): void {
+        // api/* is stateless JSON. The Phase 2 push-token endpoints
+        // (push/*, admin/push/*) are session-guarded but are only ever
+        // called by fetch() from the web apps — they must answer 401/422
+        // as JSON too, not redirect to a login page.
         $exceptions->shouldRenderJsonWhen(
-            fn (Request $request) => $request->is('api/*'),
+            fn (Request $request) => $request->is('api/*', 'push/*', 'admin/push/*'),
         );
     })->create();

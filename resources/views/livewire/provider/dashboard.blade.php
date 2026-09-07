@@ -17,6 +17,44 @@
         </a>
     @endif
 
+    {{-- Enable closed-app / locked-phone job-offer push (Phase 2). Shown
+         only where the browser supports web push and permission has not
+         already been granted; window.pushNotifications is defined by
+         resources/js/push-notifications.js (loaded in the provider layout).
+         A no-op if Firebase env isn't built in — the card just never
+         appears because isSupported() is false. --}}
+    <div x-data="{
+            show: false,
+            busy: false,
+            msg: '',
+            async init() {
+                this.show = window.pushNotifications
+                    ? (await window.pushNotifications.isSupported()) && window.Notification && Notification.permission !== 'granted'
+                    : false;
+            },
+            async enable() {
+                this.busy = true; this.msg = '';
+                const ok = await window.pushNotifications.enable();
+                this.busy = false;
+                if (ok) { this.show = false; }
+                else { this.msg = 'Could not enable alerts. Check that notifications are allowed for this site.'; }
+            }
+         }"
+         x-show="show" style="display: none" class="mt-4">
+        <div class="flex items-start justify-between gap-4 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3">
+            <div class="min-w-0">
+                <p class="text-sm font-semibold text-blue-900">Enable job alerts</p>
+                <p class="mt-0.5 text-xs text-blue-800">Get a notification for new job offers even when this app is closed.</p>
+                <p x-show="msg" x-text="msg" class="mt-1 text-xs text-rose-700"></p>
+            </div>
+            <button type="button" x-on:click="enable()" x-bind:disabled="busy"
+                    class="inline-flex min-h-11 shrink-0 items-center rounded-lg bg-blue-600 px-4 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60">
+                <span x-show="!busy">Enable</span>
+                <span x-show="busy">Enabling…</span>
+            </button>
+        </div>
+    </div>
+
     {{-- ===================== Online / offline ===================== --}}
     <x-ui.card class="mt-4 !p-5">
         <div class="flex items-center justify-between gap-4">

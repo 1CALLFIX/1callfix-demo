@@ -21,6 +21,7 @@
          paints the mobile browser chrome in the brand blue. --}}
     <link rel="manifest" href="{{ asset('manifest.webmanifest') }}">
     <meta name="theme-color" content="#2563eb">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-title" content="{{ $platformName }}">
     <link rel="icon" href="{{ asset('icons/icon.svg') }}" type="image/svg+xml">
@@ -31,7 +32,9 @@
          script layouts/admin.blade.php still loads. That CDN build compiles
          Tailwind in the browser on every page load — a development-only
          tool, and a material first-paint cost on a consumer-facing page. --}}
-    @vite(['resources/css/app.css', 'resources/js/app.js'])
+    {{-- push-notifications.js: FCM web token registration (Phase 2). Inert
+         no-op unless VITE_FIREBASE_* + VITE_FIREBASE_VAPID_KEY are built in. --}}
+    @vite(['resources/css/app.css', 'resources/js/app.js', 'resources/js/push-notifications.js'])
     @livewireStyles
 </head>
 <body class="min-h-full bg-white text-slate-900 antialiased flex flex-col">

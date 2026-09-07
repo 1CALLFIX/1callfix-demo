@@ -156,7 +156,7 @@ class BulkNotifyTest extends TestCase
         $push = new class implements PushAdapter {
             public array $sent = [];
 
-            public function send(string $token, string $title, string $body): bool
+            public function send(string $token, string $title, string $body, array $data = []): bool
             {
                 $this->sent[] = compact('token', 'title', 'body');
 

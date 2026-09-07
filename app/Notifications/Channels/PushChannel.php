@@ -30,8 +30,16 @@ class PushChannel
 
         ['title' => $title, 'body' => $body] = $notification->toPush($notifiable);
 
+        // Optional deep link — a notification that implements pushLink()
+        // (ProviderJobOfferNotification, AdminOpsAlertNotification, …) tells
+        // the web service worker which URL to open on click. Duck-typed the
+        // same way toPush() itself is; notifications without it are unchanged.
+        $data = method_exists($notification, 'pushLink')
+            ? array_filter(['link' => $notification->pushLink($notifiable)])
+            : [];
+
         try {
-            $this->adapter->send($token, $title, $body);
+            $this->adapter->send($token, $title, $body, $data);
         } catch (InvalidPushTokenException $e) {
             // The provider itself confirmed this token is dead
             // (uninstalled app/rotated token/never valid) -- clear it so

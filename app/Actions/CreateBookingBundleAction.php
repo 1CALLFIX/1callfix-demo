@@ -9,6 +9,7 @@ use App\Models\Setting;
 use App\Notifications\BookingStatusNotification;
 use App\Notifications\Support\ChannelResolver;
 use App\Jobs\ServiceMatchingJob;
+use App\Services\AdminOpsAlertService;
 use App\Services\Payments\BookingBundlePaymentService;
 use App\Services\WalletService;
 use Illuminate\Database\QueryException;
@@ -101,8 +102,10 @@ class CreateBookingBundleAction
         // one address, several services) these are all identical anyway.
         $anchor = $children[0];
 
+        $walletPayment = null;
+
         try {
-            $bundle = DB::transaction(function () use ($children, $anchor, $customerId, $paymentMethod, $key, $fingerprint) {
+            $bundle = DB::transaction(function () use ($children, $anchor, $customerId, $paymentMethod, $key, $fingerprint, &$walletPayment) {
                 $bundle = BookingBundle::create([
                     'idempotency_key' => $key,
                     'request_fingerprint' => $key !== null ? $fingerprint : null,
@@ -142,7 +145,7 @@ class CreateBookingBundleAction
 
                 // ONE aggregate debit for the whole bundle — never per child.
                 if ($paymentMethod === 'wallet') {
-                    $this->payBundleWithWallet($bundle);
+                    $walletPayment = $this->payBundleWithWallet($bundle);
                 }
 
                 $bundle->setRelation('children', Booking::whereIn('id', $childIds)->orderBy('id')->get());
@@ -170,6 +173,20 @@ class CreateBookingBundleAction
                 $channels = ChannelResolver::resolve(['zone_id' => $child->zone_id, 'franchise_id' => $child->franchise_id]);
                 $child->customer->notify(new BookingStatusNotification('created', $child, $channels));
             }
+
+            // Phase 2 — one operational push per child booking, matching
+            // "any booking created" (a bundle is N bookings).
+            app(AdminOpsAlertService::class)->bookingCreated($child);
+        }
+
+        // A wallet-paid bundle is captured synchronously above (ONE
+        // aggregate booking_bundle payment), never via RazorpayWebhookHandler
+        // — fire the payment-captured alert once, after commit. A
+        // gateway-paid bundle leaves $walletPayment null here and fires from
+        // the webhook instead; an idempotency replay never reaches this
+        // point. No double-fire on either path.
+        if ($walletPayment) {
+            app(AdminOpsAlertService::class)->paymentCaptured($walletPayment);
         }
 
         return $bundle;
@@ -200,7 +217,7 @@ class CreateBookingBundleAction
      * later E-step; what E2 guarantees is that the aggregate charge is
      * atomic with the bundle it pays for.
      */
-    private function payBundleWithWallet(BookingBundle $bundle): void
+    private function payBundleWithWallet(BookingBundle $bundle): Payment
     {
         $scope = array_filter(['zone_id' => $bundle->zone_id, 'franchise_id' => $bundle->franchise_id]);
 
@@ -215,7 +232,7 @@ class CreateBookingBundleAction
             ref: "booking_bundle:{$bundle->id}:wallet-payment"
         );
 
-        Payment::create([
+        $payment = Payment::create([
             'booking_bundle_id' => $bundle->id,
             'purpose' => 'booking_bundle',
             'amount' => $bundle->total_price_quoted,
@@ -228,5 +245,7 @@ class CreateBookingBundleAction
         // paid through the ONE shared helper the Razorpay webhook also uses,
         // so a wallet-paid and a gateway-paid bundle end in the same state.
         $this->bundlePayments->markBundlePaid($bundle);
+
+        return $payment;
     }
 }

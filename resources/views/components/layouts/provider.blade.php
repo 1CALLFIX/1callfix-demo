@@ -34,9 +34,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <title>{{ $title ? $title.' · '.$platformName.' Partner' : $platformName.' Partner' }}</title>
     <meta name="theme-color" content="#2563eb">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    {{-- PWA manifest — needed for installability and (on iOS) for closed-app
+         web push to work at all. --}}
+    <link rel="manifest" href="{{ asset('manifest.webmanifest') }}">
+    <meta name="apple-mobile-web-app-capable" content="yes">
     <link rel="icon" href="{{ asset('icons/icon.svg') }}" type="image/svg+xml">
     @fonts
-    @vite(['resources/css/app.css', 'resources/js/app.js'])
+    {{-- push-notifications.js: FCM web token registration (Phase 2). Inert
+         no-op unless VITE_FIREBASE_* + VITE_FIREBASE_VAPID_KEY are built in. --}}
+    @vite(['resources/css/app.css', 'resources/js/app.js', 'resources/js/push-notifications.js'])
     @livewireStyles
 </head>
 <body class="min-h-full bg-slate-50 text-slate-900 antialiased flex flex-col">

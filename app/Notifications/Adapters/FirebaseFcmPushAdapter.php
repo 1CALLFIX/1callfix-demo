@@ -28,16 +28,12 @@ use Illuminate\Support\Facades\Log;
  * JWT-bearer flow (RFC 7523) using PHP's own openssl extension --
  * no external SDK needed for that either.
  *
- * NOT LIVE-VERIFIED -- no real Firebase service-account credentials exist
- * in this repository or environment. A real historical Firebase project
- * (onecallfix-6b538, per GLOVER_6AMMART_PARITY_AUDIT.md) is real
- * precedent that a Firebase project already exists for this business, but
- * its embedded credentials found in the 1.8.10 dump were already expired
- * and are not reused here (and would not be, even if valid -- credentials
- * are never carried across environments this way). A real service account
- * JSON for this app's own Firebase project must be generated and supplied
- * via FCM_CREDENTIALS_PATH/FCM_CREDENTIALS_JSON before this can be
- * trusted with real device pushes.
+ * Credentials live only on the deployed environment (FCM_CREDENTIALS_JSON /
+ * FCM_CREDENTIALS_PATH, PUSH_DRIVER=fcm) -- never in this repo. The repo
+ * test suite exercises this class entirely against Http::fake(). Phase 2
+ * wired the web client (service worker + token registration) so real
+ * device pushes are now possible; live end-to-end verification is the
+ * `php artisan push:test {user}` command, run on the target server.
  */
 class FirebaseFcmPushAdapter implements PushAdapter
 {
@@ -47,39 +43,13 @@ class FirebaseFcmPushAdapter implements PushAdapter
 
     private const CACHE_KEY = 'fcm_access_token';
 
-    public function send(string $token, string $title, string $body): bool
+    public function send(string $token, string $title, string $body, array $data = []): bool
     {
-        $projectId = config('services.push.fcm.project_id');
+        $response = $this->dispatchToFcm($token, $title, $body, $data);
 
-        if (empty($projectId)) {
-            Log::error('FirebaseFcmPushAdapter: missing FCM_PROJECT_ID; push not sent.');
-
-            return false;
-        }
-
-        $accessToken = $this->getAccessToken();
-
-        if ($accessToken === null) {
-            // Already logged inside getAccessToken()/fetchAccessToken() --
-            // a credentials/auth problem, not a per-token send failure.
-            return false;
-        }
-
-        try {
-            $response = Http::timeout(10)
-                ->withToken($accessToken)
-                ->post("https://fcm.googleapis.com/v1/projects/{$projectId}/messages:send", [
-                    'message' => [
-                        'token' => $token,
-                        'notification' => [
-                            'title' => $title,
-                            'body' => $body,
-                        ],
-                    ],
-                ]);
-        } catch (\Throwable $e) {
-            Log::error('FirebaseFcmPushAdapter: request failed.', ['error' => $e->getMessage()]);
-
+        if ($response === null) {
+            // Already logged inside dispatchToFcm()/getAccessToken() -- a
+            // config/credentials/transport problem, not a per-token failure.
             return false;
         }
 
@@ -102,6 +72,83 @@ class FirebaseFcmPushAdapter implements PushAdapter
         Log::error('FirebaseFcmPushAdapter: provider reported an error.', ['status' => $response->status(), 'error_status' => $errorStatus]);
 
         return false;
+    }
+
+    /**
+     * The literal FCM outcome for one send, for the `push:test` diagnostic
+     * command (BD-8 / Phase 2 live-verification). Never throws — an invalid
+     * token comes back as ok=false with the raw status/body rather than the
+     * InvalidPushTokenException send() raises for the channel pipeline.
+     *
+     * @return array{ok: bool, status: int|null, body: string|null}
+     */
+    public function sendDiagnostic(string $token, string $title, string $body, array $data = []): array
+    {
+        $response = $this->dispatchToFcm($token, $title, $body, $data);
+
+        if ($response === null) {
+            return ['ok' => false, 'status' => null, 'body' => 'No response — missing FCM_PROJECT_ID / credentials or transport failure (see logs).'];
+        }
+
+        return ['ok' => $response->successful(), 'status' => $response->status(), 'body' => $response->body()];
+    }
+
+    private function dispatchToFcm(string $token, string $title, string $body, array $data): ?\Illuminate\Http\Client\Response
+    {
+        $projectId = config('services.push.fcm.project_id');
+
+        if (empty($projectId)) {
+            Log::error('FirebaseFcmPushAdapter: missing FCM_PROJECT_ID; push not sent.');
+
+            return null;
+        }
+
+        $accessToken = $this->getAccessToken();
+
+        if ($accessToken === null) {
+            return null;
+        }
+
+        // DATA-ONLY message, deliberately: with no top-level `notification`
+        // key the browser never auto-displays anything, so
+        // onBackgroundMessage in public/firebase-messaging-sw.js is the
+        // single code path that renders the notification — that is what
+        // lets it set requireInteraction and the click-through deep link.
+        // A top-level `notification` block would double-fire (SDK auto-shows
+        // + handler shows). FCM v1 `data` values must all be strings; the SW
+        // reads title/body/link/tag back out of it. A future native client
+        // still receives this as a data message and handles display itself.
+        $link = $data['link'] ?? null;
+        $stringData = [];
+        foreach ($data + ['title' => $title, 'body' => $body] as $k => $v) {
+            if ($v !== null && $v !== '') {
+                $stringData[$k] = (string) $v;
+            }
+        }
+
+        $message = [
+            'token' => $token,
+            'data' => $stringData,
+            'webpush' => [
+                'headers' => ['Urgency' => 'high'],
+            ],
+        ];
+
+        if ($link) {
+            // Honoured by the SW's own notificationclick handler; also kept
+            // here so FCM's default handler would open the right page too.
+            $message['webpush']['fcm_options'] = ['link' => (string) $link];
+        }
+
+        try {
+            return Http::timeout(10)
+                ->withToken($accessToken)
+                ->post("https://fcm.googleapis.com/v1/projects/{$projectId}/messages:send", ['message' => $message]);
+        } catch (\Throwable $e) {
+            Log::error('FirebaseFcmPushAdapter: request failed.', ['error' => $e->getMessage()]);
+
+            return null;
+        }
     }
 
     private function getAccessToken(): ?string
