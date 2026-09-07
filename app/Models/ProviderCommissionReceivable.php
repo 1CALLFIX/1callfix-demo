@@ -19,7 +19,7 @@ class ProviderCommissionReceivable extends Model
     protected $fillable = [
         'provider_id', 'booking_id', 'commission_id',
         'platform_portion', 'franchise_portion',
-        'amount_owed', 'amount_settled', 'status', 'settled_at',
+        'amount_owed', 'amount_settled', 'franchise_settled', 'status', 'settled_at',
     ];
 
     protected $casts = [
@@ -27,6 +27,7 @@ class ProviderCommissionReceivable extends Model
         'franchise_portion' => 'decimal:2',
         'amount_owed' => 'decimal:2',
         'amount_settled' => 'decimal:2',
+        'franchise_settled' => 'decimal:2',
         'settled_at' => 'datetime',
     ];
 

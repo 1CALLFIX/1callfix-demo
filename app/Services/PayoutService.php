@@ -101,12 +101,27 @@ class PayoutService
      * Recovers outstanding cash-commission debt from a provider's wallet,
      * oldest receivable first, taking only what the current balance can
      * cover (the wallet's no-negative guard is respected, never loosened).
-     * A row that clears in full flips to 'settled' and, at that point,
-     * credits the franchise owner their share — the franchise is paid out
-     * of money that has actually been recovered from the provider, never
-     * before. A partially-covered row stays 'outstanding' with its
-     * amount_settled advanced, and keeps reducing withdrawable balance
-     * until a later call finishes it.
+     * A row that clears in full flips to 'settled'; a partially-covered row
+     * stays 'outstanding' with its amount_settled advanced, and keeps
+     * reducing withdrawable balance until a later call finishes it.
+     *
+     * The franchise owner's revenue share is paid out proportionally to
+     * however much of the receivable has actually been recovered from the
+     * provider to date — on a partial sweep as much as a full one — never
+     * held back until the row fully clears and never more than its true
+     * share of what's been recovered so far. Each sweep recomputes the
+     * cumulative franchise amount that SHOULD have been paid by now
+     * (amount_settled so far × franchise_portion / amount_owed) and pays
+     * only the delta against `franchise_settled` (what's already been
+     * paid) — the same "recompute the cumulative target, pay the delta"
+     * pattern BundleSettlementService::reconcileRefund() uses for partial
+     * refunds, so independent per-sweep rounding can never drift the
+     * franchise's running total away from its true proportional share; by
+     * the time a row is fully settled, the sum of every delta paid always
+     * equals franchise_portion exactly. If no franchise owner is assigned
+     * yet, nothing is credited and `franchise_settled` is left unchanged —
+     * the shortfall simply carries forward to be paid once one is, same as
+     * CommissionService::applyForBooking()'s own "no owner yet" handling.
      *
      * Called at payout-request time only (the approved design's
      * "sweep at payout-request time" decision) — there is deliberately no
@@ -152,20 +167,30 @@ class PayoutService
                     $receivable->status = 'settled';
                     $receivable->settled_at = now();
                 }
-                $receivable->save();
 
-                if ($receivable->status === 'settled' && (float) $receivable->franchise_portion > 0) {
-                    $owner = $receivable->booking?->franchise?->owner;
-                    if ($owner) {
-                        $this->walletService->credit(
-                            $owner,
-                            (float) $receivable->franchise_portion,
-                            reason: 'Franchise revenue share (cash)'
-                                .($receivable->booking ? " for booking {$receivable->booking->code}" : ''),
-                            ref: 'cash-commission:'.$receivable->id.':franchise-earning'
-                        );
+                if ((float) $receivable->franchise_portion > 0 && (float) $receivable->amount_owed > 0) {
+                    $franchiseTargetToDate = round(
+                        $receivable->amount_settled * ((float) $receivable->franchise_portion / (float) $receivable->amount_owed),
+                        2
+                    );
+                    $franchiseNow = round(max($franchiseTargetToDate - (float) $receivable->franchise_settled, 0), 2);
+
+                    if ($franchiseNow > 0) {
+                        $owner = $receivable->booking?->franchise?->owner;
+                        if ($owner) {
+                            $this->walletService->credit(
+                                $owner,
+                                $franchiseNow,
+                                reason: 'Franchise revenue share (cash)'
+                                    .($receivable->booking ? " for booking {$receivable->booking->code}" : ''),
+                                ref: 'cash-commission:'.$receivable->id.':franchise-earning:'.Str::uuid()
+                            );
+                            $receivable->franchise_settled = round((float) $receivable->franchise_settled + $franchiseNow, 2);
+                        }
                     }
                 }
+
+                $receivable->save();
             }
         });
     }

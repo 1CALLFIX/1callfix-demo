@@ -117,9 +117,77 @@ class CashCommissionCollectionTest extends TestCase
         $this->assertEquals(25.00, app(WalletService::class)->balance($provider->user));
         $this->assertEquals(100, $payout->amount);
 
-        // Franchise owner credited their portion, once the row was fully settled.
+        // Franchise owner credited their portion — this debt cleared in one
+        // sweep, so the one proportional payment already equals the full share.
         $this->assertEquals(50.00, app(WalletService::class)->balance($owner));
-        $this->assertSame(1, WalletTransaction::where('ref', "cash-commission:{$receivable->id}:franchise-earning")->count());
+        $this->assertSame(1, WalletTransaction::where('ref', 'like', "cash-commission:{$receivable->id}:franchise-earning:%")->count());
+    }
+
+    public function test_franchise_is_paid_its_proportional_share_on_each_partial_settlement_sweep(): void
+    {
+        // Custom rates so the split lands on round numbers matching the
+        // approved example exactly: platform 20% + franchise 10% of a
+        // ₹5,000 cash booking = ₹1,000 platform + ₹500 franchise owed (a
+        // 2:1 platform:franchise ratio), ₹1,500 total.
+        $scenario = $this->makeAssignedBookingScenario();
+        $scenario['franchise']->update(['platform_fee_percent' => 20, 'commission_value' => 10]);
+        $scenario['booking']->update(['price_quoted' => 5000, 'payment_method' => 'cash']);
+        $scenario['booking']->refresh();
+
+        app(CompleteBookingAction::class)->execute($scenario['booking']->id, $scenario['provider'], '5678');
+        $booking = $scenario['booking']->fresh();
+        $provider = $scenario['provider'];
+        $franchise = $scenario['franchise'];
+
+        $owner = User::create([
+            'uuid' => (string) Str::uuid(), 'name' => 'Franchise Owner',
+            'phone' => '9'.fake()->unique()->numerify('#########'), 'role' => 'customer', 'status' => 'active',
+        ]);
+        $franchise->update(['owner_user_id' => $owner->id]);
+
+        $receivable = ProviderCommissionReceivable::where('booking_id', $booking->id)->firstOrFail();
+        $this->assertEquals(1000.00, (float) $receivable->platform_portion);
+        $this->assertEquals(500.00, (float) $receivable->franchise_portion);
+        $this->assertEquals(1500.00, (float) $receivable->amount_owed);
+
+        // ⅔ of the ₹1,500 debt clears from digital earnings — the request
+        // itself is still blocked (₹500 remains owed), but the sweep runs
+        // regardless and settles what it can before that block is raised.
+        app(WalletService::class)->credit($provider->user, 1000, reason: 'Digital earnings');
+
+        try {
+            app(PayoutService::class)->request('provider', $provider->id, 1);
+            $this->fail('Expected the payout to be blocked -- ₹500 of debt remains.');
+        } catch (\RuntimeException $e) {
+            $this->assertStringContainsString('unsettled cash-commission', $e->getMessage());
+        }
+
+        $receivable->refresh();
+        $this->assertSame('outstanding', $receivable->status);
+        $this->assertEquals(1000.00, (float) $receivable->amount_settled);
+
+        // Franchise gets ⅔ of its ₹500 share = ₹333.33 immediately, on this
+        // partial sweep alone -- not the full ₹500, and not ₹0.
+        $this->assertEquals(333.33, app(WalletService::class)->balance($owner));
+        $this->assertEquals(333.33, (float) $receivable->franchise_settled);
+        $this->assertSame(1, WalletTransaction::where('ref', 'like', "cash-commission:{$receivable->id}:franchise-earning:%")->count());
+
+        // The remaining ₹500 of debt clears (plus ₹1 spare so the payout
+        // request itself can actually go through afterward).
+        app(WalletService::class)->credit($provider->user, 501, reason: 'More digital earnings');
+        $payout = app(PayoutService::class)->request('provider', $provider->id, 1);
+
+        $receivable->refresh();
+        $this->assertSame('settled', $receivable->status);
+        $this->assertEquals(1500.00, (float) $receivable->amount_settled);
+        $this->assertEquals(1, $payout->amount);
+
+        // Franchise now holds its full ₹500 -- the second sweep paid exactly
+        // the remaining ₹166.67 (500 - 333.33), not a duplicate ₹333.33 and
+        // not the full ₹500 again. No rounding drift across the two sweeps.
+        $this->assertEquals(500.00, app(WalletService::class)->balance($owner));
+        $this->assertEquals(500.00, (float) $receivable->franchise_settled);
+        $this->assertSame(2, WalletTransaction::where('ref', 'like', "cash-commission:{$receivable->id}:franchise-earning:%")->count());
     }
 
     public function test_payout_is_blocked_when_the_wallet_cannot_cover_the_cash_debt(): void

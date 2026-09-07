@@ -21,8 +21,14 @@ use Illuminate\Support\Facades\Schema;
  * cover stays outstanding here and keeps reducing withdrawable balance.
  *
  * platform_portion / franchise_portion are kept separate so the franchise
- * owner can be credited their share once (and only once) a row is fully
- * settled.
+ * owner can be paid its proportional share of whatever has actually been
+ * recovered from the provider so far — not just once a row is fully
+ * settled. `franchise_settled` tracks the cumulative amount already paid
+ * to the franchise owner against THIS row, the same "recompute the
+ * cumulative target, pay only the delta" role `payments.refunded_amount`
+ * plays for BundleSettlementService::reconcileRefund() — so a row that
+ * clears across several partial sweeps never overpays or underpays the
+ * franchise relative to its true share of what's been recovered to date.
  */
 return new class extends Migration
 {
@@ -37,6 +43,7 @@ return new class extends Migration
             $table->decimal('franchise_portion', 10, 2);
             $table->decimal('amount_owed', 10, 2);
             $table->decimal('amount_settled', 10, 2)->default(0);
+            $table->decimal('franchise_settled', 10, 2)->default(0);
             $table->enum('status', ['outstanding', 'settled'])->default('outstanding');
             $table->timestamp('settled_at')->nullable();
             $table->timestamps();
