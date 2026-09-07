@@ -115,16 +115,17 @@ class BookingOtpDeliveryTest extends TestCase
         // verifiable OTPs even when delivery genuinely fails, and that the
         // failure is logged rather than silently swallowed.
         //
-        // Three customer notifications go out on acceptance under this
-        // sms-only Setting -- the "assigned" BookingStatusNotification plus
-        // both OTPs -- and all three route through the identical failing
-        // SmsChannel/SmsAdapter pipeline, so all three genuinely fail and
-        // are each individually logged: 3 Log::error calls, not 2. (Caught
-        // a real gap while resolving this test's own original failure:
-        // BookingStatusNotification's send was the one call in
-        // AcceptBookingAction NOT wrapped in try/catch, so it threw
-        // uncaught and broke acceptance before either guarded OTP send
-        // below it ever ran -- see AcceptBookingAction::sendStatusNotification().)
+        // Four notifications go out on acceptance under this sms-only
+        // Setting -- three to the customer ("assigned" BookingStatusNotification
+        // plus both OTPs) and, since Phase PN1, one to the provider
+        // (ProviderJobStatusNotification 'assigned') -- and all four route
+        // through the identical failing SmsChannel/SmsAdapter pipeline, so
+        // all four genuinely fail and are each individually logged: 4
+        // Log::error calls. (Caught a real gap while resolving this test's
+        // own original failure: BookingStatusNotification's send was the one
+        // call in AcceptBookingAction NOT wrapped in try/catch, so it threw
+        // uncaught and broke acceptance before either guarded OTP send below
+        // it ever ran -- see AcceptBookingAction::sendStatusNotification().)
         $this->app->bind(SmsAdapter::class, fn () => new class implements SmsAdapter {
             public function send(string $to, string $message): bool
             {
@@ -144,7 +145,7 @@ class BookingOtpDeliveryTest extends TestCase
         $this->assertSame('assigned', $result->status);
         $this->assertNotEmpty($result->start_otp);
         $this->assertNotEmpty($result->completion_otp);
-        Log::shouldHaveReceived('error')->times(3);
+        Log::shouldHaveReceived('error')->times(4);
     }
 
     public function test_a_customer_with_no_notifiable_channels_configured_does_not_break_acceptance(): void

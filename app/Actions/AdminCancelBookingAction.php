@@ -5,10 +5,12 @@ namespace App\Actions;
 use App\Events\BookingStatusUpdated;
 use App\Models\Booking;
 use App\Notifications\BookingStatusNotification;
+use App\Notifications\ProviderJobStatusNotification;
 use App\Notifications\Support\ChannelResolver;
 use App\Services\CancellationService;
 use App\Services\Plans\EntitlementService;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class AdminCancelBookingAction
 {
@@ -78,6 +80,18 @@ class AdminCancelBookingAction
         if ($booking->customer) {
             $channels = ChannelResolver::resolve(['zone_id' => $booking->zone_id, 'franchise_id' => $booking->franchise_id]);
             $booking->customer->notify(new BookingStatusNotification('cancelled', $booking, $channels));
+        }
+
+        // Phase PN1 — tell the assigned provider their job was cancelled out
+        // from under them. Only when there IS a provider (a pre-assignment
+        // cancellation has none). Guarded + logged, post-commit.
+        if ($booking->provider?->user) {
+            try {
+                $channels = ChannelResolver::resolve(['zone_id' => $booking->zone_id, 'franchise_id' => $booking->franchise_id]);
+                $booking->provider->user->notify(new ProviderJobStatusNotification('cancelled', $booking, $channels));
+            } catch (\Throwable $e) {
+                Log::error("Failed to deliver provider 'cancelled' notification for booking [{$booking->id}]: ".$e->getMessage());
+            }
         }
 
         // Phase E5.1 — a cancelled bundle child reconciles the ONE shared

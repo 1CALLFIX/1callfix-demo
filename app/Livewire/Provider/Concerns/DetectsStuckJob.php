@@ -20,7 +20,10 @@ trait DetectsStuckJob
     /** Minutes the booking has been in its current status past the configured threshold, or null if not stuck / not a watched status. */
     protected function stuckMinutes(Booking $booking): ?int
     {
-        $defaults = ['assigned' => 60, 'in_progress' => 240];
+        // Mirrors App\Services\Operations\StuckBookingService::DEFAULT_THRESHOLD_MINUTES
+        // exactly (its docblock's "SAME thresholds" promise) — provider_en_route
+        // included there since Phase 1, reachable now that MarkEnRouteAction exists.
+        $defaults = ['assigned' => 60, 'provider_en_route' => 60, 'in_progress' => 240];
 
         if (! array_key_exists($booking->status, $defaults)) {
             return null;

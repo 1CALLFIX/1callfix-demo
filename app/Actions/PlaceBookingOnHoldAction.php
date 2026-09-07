@@ -4,7 +4,10 @@ namespace App\Actions;
 
 use App\Events\BookingStatusUpdated;
 use App\Models\Booking;
+use App\Notifications\ProviderJobStatusNotification;
+use App\Notifications\Support\ChannelResolver;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class PlaceBookingOnHoldAction
 {
@@ -44,7 +47,7 @@ class PlaceBookingOnHoldAction
             default => throw new \InvalidArgumentException("Unrecognized hold reason: {$reason}"),
         };
 
-        return DB::transaction(function () use ($bookingId, $reason, $note, $category) {
+        $booking = DB::transaction(function () use ($bookingId, $reason, $note, $category) {
             $booking = Booking::lockForUpdate()->findOrFail($bookingId);
 
             if (!in_array($booking->status, ['assigned', 'provider_en_route', 'in_progress'], true)) {
@@ -72,5 +75,31 @@ class PlaceBookingOnHoldAction
 
             return $booking->fresh();
         });
+
+        // Phase PN1 — post-commit provider notification (job paused).
+        // Guarded + logged; cannot roll back the committed hold.
+        $this->notifyProviderOfStatus($booking, 'on_hold');
+
+        return $booking;
+    }
+
+    private function notifyProviderOfStatus(Booking $booking, string $event): void
+    {
+        $user = $booking->provider?->user;
+
+        if (! $user) {
+            return;
+        }
+
+        $channels = ChannelResolver::resolve(array_filter([
+            'zone_id' => $booking->zone_id,
+            'franchise_id' => $booking->franchise_id,
+        ]));
+
+        try {
+            $user->notify(new ProviderJobStatusNotification($event, $booking, $channels));
+        } catch (\Throwable $e) {
+            Log::error("Failed to deliver provider '{$event}' notification for booking [{$booking->id}]: ".$e->getMessage());
+        }
     }
 }

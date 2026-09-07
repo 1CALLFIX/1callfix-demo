@@ -5,8 +5,11 @@ namespace App\Actions;
 use App\Events\BookingStatusUpdated;
 use App\Exceptions\BookingOtpException;
 use App\Models\Booking;
+use App\Notifications\ProviderJobStatusNotification;
+use App\Notifications\Support\ChannelResolver;
 use App\Services\BookingOtpService;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 /**
  * The "arrived and starting the job" step. start_otp has existed on
@@ -27,7 +30,7 @@ class StartBookingAction
     public function execute(int $bookingId, string $enteredOtp, ?int $changedByUserId = null): Booking
     {
         try {
-            return DB::transaction(function () use ($bookingId, $enteredOtp, $changedByUserId) {
+            $booking = DB::transaction(function () use ($bookingId, $enteredOtp, $changedByUserId) {
                 $booking = Booking::lockForUpdate()->findOrFail($bookingId);
 
                 if (! in_array($booking->status, self::STARTABLE_STATUSES, true)) {
@@ -63,6 +66,33 @@ class StartBookingAction
                 app(BookingOtpService::class)->registerFailedAttempt($bookingId, 'start');
             }
             throw $e;
+        }
+
+        // Phase PN1 — post-commit provider notification (job now in
+        // progress). Guarded + logged; a transport failure cannot roll back
+        // the started booking. Same convention as AcceptBookingAction.
+        $this->notifyProviderOfStatus($booking, 'started');
+
+        return $booking;
+    }
+
+    private function notifyProviderOfStatus(Booking $booking, string $event): void
+    {
+        $user = $booking->provider?->user;
+
+        if (! $user) {
+            return;
+        }
+
+        $channels = ChannelResolver::resolve(array_filter([
+            'zone_id' => $booking->zone_id,
+            'franchise_id' => $booking->franchise_id,
+        ]));
+
+        try {
+            $user->notify(new ProviderJobStatusNotification($event, $booking, $channels));
+        } catch (\Throwable $e) {
+            Log::error("Failed to deliver provider '{$event}' notification for booking [{$booking->id}]: ".$e->getMessage());
         }
     }
 }

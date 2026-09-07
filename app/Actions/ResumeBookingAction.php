@@ -4,7 +4,10 @@ namespace App\Actions;
 
 use App\Events\BookingStatusUpdated;
 use App\Models\Booking;
+use App\Notifications\ProviderJobStatusNotification;
+use App\Notifications\Support\ChannelResolver;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class ResumeBookingAction
 {
@@ -17,7 +20,7 @@ class ResumeBookingAction
      */
     public function execute(int $bookingId, ?string $resolutionNote = null): Booking
     {
-        return DB::transaction(function () use ($bookingId, $resolutionNote) {
+        $booking = DB::transaction(function () use ($bookingId, $resolutionNote) {
             $booking = Booking::lockForUpdate()->findOrFail($bookingId);
 
             if ($booking->status !== 'on_hold') {
@@ -45,5 +48,31 @@ class ResumeBookingAction
 
             return $booking->fresh();
         });
+
+        // Phase PN1 — post-commit provider notification (job off hold).
+        // Guarded + logged; cannot roll back the committed resume.
+        $this->notifyProviderOfStatus($booking, 'resumed');
+
+        return $booking;
+    }
+
+    private function notifyProviderOfStatus(Booking $booking, string $event): void
+    {
+        $user = $booking->provider?->user;
+
+        if (! $user) {
+            return;
+        }
+
+        $channels = ChannelResolver::resolve(array_filter([
+            'zone_id' => $booking->zone_id,
+            'franchise_id' => $booking->franchise_id,
+        ]));
+
+        try {
+            $user->notify(new ProviderJobStatusNotification($event, $booking, $channels));
+        } catch (\Throwable $e) {
+            Log::error("Failed to deliver provider '{$event}' notification for booking [{$booking->id}]: ".$e->getMessage());
+        }
     }
 }

@@ -18,7 +18,16 @@
 
     <div class="mt-4 space-y-3">
         @forelse ($offers as $offer)
-            @php $b = $offer->booking; @endphp
+            @php
+                $b = $offer->booking;
+                // Reuses dispatch.offer_timeout_seconds ($offerWindowSeconds) —
+                // the same window ServiceMatchingJob times an offer out on and
+                // the same value NewJobOffered::broadcastWith() ships as
+                // expires_in_seconds. Not a new timer: the server still
+                // re-filters stale offers out on the next poll; this is just
+                // the visible countdown until then.
+                $expiresIn = max(0, (int) now()->diffInSeconds($offer->notified_at->copy()->addSeconds($offerWindowSeconds), false));
+            @endphp
             <x-ui.card class="!p-4">
                 <div class="flex flex-wrap items-start justify-between gap-3">
                     <div class="min-w-0">
@@ -31,15 +40,22 @@
                         <p class="mt-1 text-xs text-slate-500">{{ $b->address?->label }} — area only until accepted</p>
                         <p class="mt-1 text-sm font-medium">₹{{ number_format((float) $b->price_quoted, 2) }}</p>
                     </div>
-                    <div class="flex shrink-0 gap-2">
-                        <button type="button" wire:click="decline({{ $offer->booking_id }})"
-                                class="min-h-10 rounded-lg border border-slate-300 bg-white px-3 text-sm font-medium text-slate-700 hover:bg-slate-50">
-                            Decline
-                        </button>
-                        <button type="button" wire:click="accept({{ $offer->booking_id }})" wire:loading.attr="disabled"
-                                class="min-h-10 rounded-lg bg-emerald-600 px-4 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-50">
-                            Accept
-                        </button>
+                    <div class="flex shrink-0 flex-col items-end gap-2">
+                        <span role="timer"
+                              x-data="{ n: {{ $expiresIn }} }"
+                              x-init="const t = setInterval(() => { n > 0 ? n-- : clearInterval(t) }, 1000)"
+                              class="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold tabular-nums text-amber-800"
+                              x-text="(n > 0 ? n : 0) + 's left'">{{ $expiresIn }}s left</span>
+                        <div class="flex gap-2">
+                            <button type="button" wire:click="decline({{ $offer->booking_id }})"
+                                    class="min-h-10 rounded-lg border border-slate-300 bg-white px-3 text-sm font-medium text-slate-700 hover:bg-slate-50">
+                                Decline
+                            </button>
+                            <button type="button" wire:click="accept({{ $offer->booking_id }})" wire:loading.attr="disabled"
+                                    class="min-h-10 rounded-lg bg-emerald-600 px-4 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-50">
+                                Accept
+                            </button>
+                        </div>
                     </div>
                 </div>
             </x-ui.card>
