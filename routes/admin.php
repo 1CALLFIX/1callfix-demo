@@ -70,6 +70,12 @@ Route::middleware(['auth', \App\Http\Middleware\EnsureHasAdminAccess::class])
     ->prefix('admin')
     ->group(function () {
         Route::get('/dashboard', Dashboard::class)->name('admin.dashboard');
+
+        // Phase 2 push — admin "Enable order alerts" opt-in toggle
+        // (users.push_ops_alerts). Token registration itself is the shared
+        // POST /push/token in routes/web.php.
+        Route::post('/push/ops-alerts', [\App\Http\Controllers\PushTokenController::class, 'opsAlerts'])->name('admin.push.ops-alerts');
+
         Route::get('/bookings', BookingsIndex::class)->name('admin.bookings.index');
         Route::get('/bookings/{bookingId}', BookingsShow::class)->name('admin.bookings.show');
         Route::get('/providers', ProvidersIndex::class)->name('admin.providers.index');

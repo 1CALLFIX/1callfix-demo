@@ -12,9 +12,10 @@ use Illuminate\Support\Facades\Log;
  */
 class LogPushAdapter implements PushAdapter
 {
-    public function send(string $token, string $title, string $body): bool
+    public function send(string $token, string $title, string $body, array $data = []): bool
     {
-        Log::info("[PUSH -> {$token}] {$title}: {$body}");
+        $suffix = $data ? ' '.json_encode($data) : '';
+        Log::info("[PUSH -> {$token}] {$title}: {$body}{$suffix}");
 
         return true;
     }

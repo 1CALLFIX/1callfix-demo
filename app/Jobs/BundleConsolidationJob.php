@@ -7,6 +7,8 @@ use App\Models\Booking;
 use App\Models\DispatchAttempt;
 use App\Models\Provider;
 use App\Models\Setting;
+use App\Notifications\ProviderJobOfferNotification;
+use App\Notifications\Support\ChannelResolver;
 use App\Services\DispatchService;
 use App\Services\ProviderAvailabilityService;
 use Illuminate\Bus\Queueable;
@@ -162,6 +164,13 @@ class BundleConsolidationJob implements ShouldQueue
         ]);
 
         event(new NewJobOffered($sibling, $attempt));
+
+        // FCM push for the app-closed case — mirrors ServiceMatchingJob's
+        // per-candidate offer push. No-ops without a registered web token.
+        optional($provider->user)->notify(new ProviderJobOfferNotification(
+            $sibling,
+            ChannelResolver::resolve(['zone_id' => $sibling->zone_id, 'franchise_id' => $sibling->franchise_id]),
+        ));
 
         Log::info("BundleConsolidationJob: offered bundle sibling booking [{$sibling->id}] to provider [{$provider->id}] (from assigned booking [{$this->assignedBookingId}]).");
 

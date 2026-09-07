@@ -54,6 +54,14 @@ return [
             'app_id' => env('FIREBASE_WEB_APP_ID'),
             'messaging_sender_id' => env('FIREBASE_WEB_MESSAGING_SENDER_ID'),
             'storage_bucket' => env('FIREBASE_WEB_STORAGE_BUCKET'),
+            // Web-Push (VAPID) public key — Firebase console → Project
+            // settings → Cloud Messaging → "Web Push certificates". Public,
+            // not a secret; required as the `vapidKey` arg to getToken() in
+            // resources/js/push-notifications.js / public/js/admin-push.js.
+            // Shipped to the browser as VITE_FIREBASE_VAPID_KEY at build
+            // time and mirrored here for the admin layout's server-rendered
+            // <script> config (admin has no Vite pipeline).
+            'vapid_key' => env('FIREBASE_WEB_VAPID_KEY'),
         ],
     ],
 

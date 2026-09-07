@@ -12,6 +12,7 @@ use App\Models\Service;
 use App\Models\Setting;
 use App\Notifications\BookingStatusNotification;
 use App\Notifications\Support\ChannelResolver;
+use App\Services\AdminOpsAlertService;
 use App\Services\FlashSaleService;
 use App\Services\ModuleActivationService;
 use App\Services\Plans\EntitlementService;
@@ -50,11 +51,13 @@ class CreateBookingAction
     {
         $paymentMethod = $data['payment_method'] ?? 'online';
 
-        $booking = DB::transaction(function () use ($data, $paymentMethod) {
+        $walletPayment = null;
+
+        $booking = DB::transaction(function () use ($data, $paymentMethod, &$walletPayment) {
             $booking = $this->createWithinTransaction($data);
 
             if ($paymentMethod === 'wallet') {
-                $this->payWithWallet($booking);
+                $walletPayment = $this->payWithWallet($booking);
             }
 
             return $booking;
@@ -65,6 +68,19 @@ class CreateBookingAction
         if ($booking->customer) {
             $channels = ChannelResolver::resolve(['zone_id' => $booking->zone_id, 'franchise_id' => $booking->franchise_id]);
             $booking->customer->notify(new BookingStatusNotification('created', $booking, $channels));
+        }
+
+        // Phase 2 — real-time operational push to opted-in admins.
+        app(AdminOpsAlertService::class)->bookingCreated($booking);
+
+        // A wallet-paid booking is captured synchronously here, never
+        // through RazorpayWebhookHandler — fire the same payment-captured
+        // alert its docblock hook does, once, after the transaction has
+        // committed. Online/cash bookings hit this path with $walletPayment
+        // still null: online fires from the webhook instead, cash has no
+        // capture, so there is no double-fire.
+        if ($walletPayment) {
+            app(AdminOpsAlertService::class)->paymentCaptured($walletPayment);
         }
 
         return $booking;
@@ -210,7 +226,7 @@ class CreateBookingAction
         return [$effective['price'], $effective['sale']];
     }
 
-    private function payWithWallet(Booking $booking): void
+    private function payWithWallet(Booking $booking): Payment
     {
         $scope = array_filter(['zone_id' => $booking->zone_id, 'franchise_id' => $booking->franchise_id]);
 
@@ -229,7 +245,7 @@ class CreateBookingAction
         // CancellationService's refundIfPaid() can find), just gateway =
         // 'wallet' instead of 'razorpay' — no external gateway involved,
         // captured immediately since the debit above already succeeded.
-        Payment::create([
+        $payment = Payment::create([
             'booking_id' => $booking->id,
             'purpose' => 'booking',
             'amount' => $booking->price_quoted,
@@ -240,5 +256,7 @@ class CreateBookingAction
 
         $booking->payment_status = 'paid';
         $booking->save();
+
+        return $payment;
     }
 }

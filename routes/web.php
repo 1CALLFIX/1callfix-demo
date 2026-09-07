@@ -162,6 +162,18 @@ Route::middleware('auth')->group(function () {
 });
 
 /*
+ | Phase 2 push notifications — web FCM token registration. One endpoint for
+ | all three web surfaces (customer, provider, admin) since they all run on
+ | the `web` guard. The browser counterpart of POST /api/auth/device
+ | (native app). The admin-only `push_ops_alerts` toggle lives under the
+ | admin middleware group in routes/admin.php.
+ */
+Route::middleware('auth')->group(function () {
+    Route::post('/push/token', [\App\Http\Controllers\PushTokenController::class, 'store'])->name('push.token.store');
+    Route::delete('/push/token', [\App\Http\Controllers\PushTokenController::class, 'destroy'])->name('push.token.destroy');
+});
+
+/*
  | Provider web (Phase PW1). A lightweight authenticated partner surface —
  | online/offline toggle, job offers, accept/decline, the start/completion
  | OTP flow, earnings, history and an activity feed. Shares the customer

@@ -94,8 +94,55 @@ class FirebaseFcmPushAdapterTest extends TestCase
         $this->assertTrue($result);
         Http::assertSent(fn ($request) => str_contains($request->url(), 'fcm.googleapis.com')
             && $request['message']['token'] === 'a-valid-device-token'
-            && $request['message']['notification']['title'] === 'Booking update'
-            && $request['message']['notification']['body'] === 'Your provider is on the way.');
+            // DATA-ONLY — title/body live under `data`, not a top-level
+            // `notification` block (which would double-fire on web).
+            && ! isset($request['message']['notification'])
+            && $request['message']['data']['title'] === 'Booking update'
+            && $request['message']['data']['body'] === 'Your provider is on the way.'
+            && $request['message']['webpush']['headers']['Urgency'] === 'high');
+    }
+
+    public function test_a_link_in_data_becomes_webpush_fcm_options_link(): void
+    {
+        $this->fakeTokenExchange();
+
+        (new FirebaseFcmPushAdapter)->send('tok', 'New job offer', 'Tap to accept', ['link' => 'https://app.example/provider/jobs/5']);
+
+        Http::assertSent(function ($request) {
+            if (! str_contains($request->url(), 'fcm.googleapis.com')) {
+                return true;
+            }
+
+            return $request['message']['data']['link'] === 'https://app.example/provider/jobs/5'
+                && $request['message']['webpush']['fcm_options']['link'] === 'https://app.example/provider/jobs/5';
+        });
+    }
+
+    public function test_send_diagnostic_returns_the_literal_status_and_body(): void
+    {
+        Http::fake([
+            'oauth2.googleapis.com/token' => Http::response(['access_token' => 'fake-access-token', 'expires_in' => 3600], 200),
+            'fcm.googleapis.com/*' => Http::response(['name' => 'projects/onecallfix-test/messages/0:456'], 200),
+        ]);
+
+        $result = (new FirebaseFcmPushAdapter)->sendDiagnostic('tok', 'title', 'body');
+
+        $this->assertTrue($result['ok']);
+        $this->assertSame(200, $result['status']);
+        $this->assertStringContainsString('0:456', $result['body']);
+    }
+
+    public function test_send_diagnostic_never_throws_on_a_dead_token(): void
+    {
+        Http::fake([
+            'oauth2.googleapis.com/token' => Http::response(['access_token' => 'fake-access-token', 'expires_in' => 3600], 200),
+            'fcm.googleapis.com/*' => Http::response(['error' => ['status' => 'UNREGISTERED']], 404),
+        ]);
+
+        $result = (new FirebaseFcmPushAdapter)->sendDiagnostic('dead-token', 'title', 'body');
+
+        $this->assertFalse($result['ok']);
+        $this->assertSame(404, $result['status']);
     }
 
     public function test_token_exchange_uses_a_real_signed_jwt_assertion(): void

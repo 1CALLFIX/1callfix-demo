@@ -5,6 +5,7 @@ namespace App\Services\Payments;
 use App\Models\Payment;
 use App\Notifications\PaymentStatusNotification;
 use App\Notifications\Support\ChannelResolver;
+use App\Services\AdminOpsAlertService;
 use App\Services\Plans\SubscriptionService;
 use App\Services\WalletTopUpService;
 use Illuminate\Support\Facades\DB;
@@ -70,6 +71,12 @@ class RazorpayWebhookHandler
         if ($alreadyCaptured) {
             return ['outcome' => 'already_processed', 'payment' => $payment];
         }
+
+        // Phase 2 — real-time operational push to opted-in admins. Placed
+        // here (once, after the pending->captured lock) so it fires exactly
+        // once for EVERY newly-captured payment: booking, booking_bundle,
+        // wallet_topup and plan_subscription alike.
+        app(AdminOpsAlertService::class)->paymentCaptured($payment);
 
         // Wallet top-up: credit the wallet, no booking involved.
         if ($payment->purpose === 'wallet_topup') {

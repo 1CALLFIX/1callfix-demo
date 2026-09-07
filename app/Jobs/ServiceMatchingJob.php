@@ -7,6 +7,8 @@ use App\Events\NewJobOffered;
 use App\Models\Booking;
 use App\Models\DispatchAttempt;
 use App\Models\Setting;
+use App\Notifications\ProviderJobOfferNotification;
+use App\Notifications\Support\ChannelResolver;
 use App\Services\DispatchService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -164,9 +166,15 @@ class ServiceMatchingJob implements ShouldQueue
 
             event(new NewJobOffered($booking, $attempt));
 
-            // TODO: also push via FCM once Firebase credentials are configured —
-            // the WebSocket broadcast above covers the app-open case, FCM covers
-            // app-closed. See NotificationService (to be added).
+            // FCM push — covers the app-closed / phone-locked case the
+            // WebSocket broadcast above cannot. Notifiable is the provider's
+            // own User (Provider has no fcm_token); no-ops for a provider
+            // who hasn't registered a web token. ShouldQueue, so the FCM
+            // call doesn't block this dispatch round.
+            optional($candidate['provider']->user)->notify(new ProviderJobOfferNotification(
+                $booking,
+                ChannelResolver::resolve(['zone_id' => $booking->zone_id, 'franchise_id' => $booking->franchise_id]),
+            ));
         }
 
         // Re-check after the offer window closes — if nobody's accepted by then,

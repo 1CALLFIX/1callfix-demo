@@ -1,5 +1,37 @@
 <div>
-    <h1 class="text-2xl font-bold mb-6">Dashboard</h1>
+    <div class="flex items-center justify-between mb-6 gap-4">
+        <h1 class="text-2xl font-bold">Dashboard</h1>
+
+        {{-- Phase 2 — "Enable order alerts": opt this admin into a push on
+             every new booking / captured payment (App\Services\AdminOpsAlertService,
+             gated on users.push_ops_alerts). All client-side via
+             window.adminPush (public/js/admin-push.js, loaded in the admin
+             layout); silently absent when Firebase env isn't configured. --}}
+        <div x-data="{
+                supported: false,
+                enabled: @js((bool) auth()->user()->push_ops_alerts),
+                busy: false,
+                msg: '',
+                init() { this.supported = !!(window.adminPush && window.adminPush.isSupported()); },
+                async toggle() {
+                    if (!window.adminPush) return;
+                    this.busy = true; this.msg = '';
+                    const res = this.enabled ? await window.adminPush.disable() : await window.adminPush.enable();
+                    this.busy = false;
+                    if (res && res.ok) { this.enabled = !this.enabled; }
+                    else { this.msg = 'Could not update. Check notification permission for this site.'; }
+                }
+             }"
+             x-show="supported || enabled" style="display:none" class="text-right">
+            <button type="button" x-on:click="toggle()" x-bind:disabled="busy"
+                    class="inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 text-xs font-semibold transition disabled:opacity-60"
+                    x-bind:class="enabled ? 'border-emerald-300 bg-emerald-50 text-emerald-800' : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50'">
+                <span x-show="!busy" x-text="enabled ? 'Order alerts on' : 'Enable order alerts'"></span>
+                <span x-show="busy">Working…</span>
+            </button>
+            <p x-show="msg" x-text="msg" class="mt-1 text-xs text-rose-600"></p>
+        </div>
+    </div>
 
     <div class="flex items-center justify-between mb-3">
         <div class="text-sm font-semibold text-gray-500">Pipeline this {{ $period }}</div>

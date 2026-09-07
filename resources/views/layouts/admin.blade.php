@@ -3,6 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>{{ $title ?? \App\Models\Setting::get('branding.platform_name', '1CallFix Admin') }}</title>
     <script src="https://cdn.tailwindcss.com"></script>
     @livewireStyles
@@ -435,6 +436,28 @@
         {{-- Single-marker picker for the New Booking modal's address form —
              see the comment at the top of booking-address-map.js. --}}
         <script src="{{ asset('js/booking-address-map.js') }}" defer></script>
+    @endif
+
+    {{-- Phase 2 — admin "order alerts" web push. Compat SDK from gstatic
+         (same CDN-script convention as Trix/Maps above; the admin area has
+         no Vite pipeline). Config is the PUBLIC Firebase web config +
+         VAPID key, server-rendered from config/services.php. Whole thing
+         is an inert no-op until those env values are set. --}}
+    @php($__adminPush = config('services.firebase.web'))
+    @if (! empty($__adminPush['project_id']) && ! empty($__adminPush['vapid_key']))
+        <script>
+            window.__ADMIN_PUSH_CONFIG = {
+                apiKey: @json($__adminPush['api_key']),
+                authDomain: @json($__adminPush['auth_domain']),
+                projectId: @json($__adminPush['project_id']),
+                messagingSenderId: @json($__adminPush['messaging_sender_id']),
+                appId: @json($__adminPush['app_id']),
+                vapidKey: @json($__adminPush['vapid_key']),
+            };
+        </script>
+        <script src="https://www.gstatic.com/firebasejs/12.18.0/firebase-app-compat.js"></script>
+        <script src="https://www.gstatic.com/firebasejs/12.18.0/firebase-messaging-compat.js"></script>
+        <script src="{{ asset('js/admin-push.js') }}" defer></script>
     @endif
 </body>
 </html>

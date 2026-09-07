@@ -56,7 +56,7 @@ class PushChannelTokenInvalidationTest extends TestCase
 
         $adapter = new class implements PushAdapter
         {
-            public function send(string $token, string $title, string $body): bool
+            public function send(string $token, string $title, string $body, array $data = []): bool
             {
                 throw new InvalidPushTokenException($token);
             }
@@ -73,7 +73,7 @@ class PushChannelTokenInvalidationTest extends TestCase
 
         $adapter = new class implements PushAdapter
         {
-            public function send(string $token, string $title, string $body): bool
+            public function send(string $token, string $title, string $body, array $data = []): bool
             {
                 return false; // transient failure, not "provider says this token is dead"
             }
@@ -90,7 +90,7 @@ class PushChannelTokenInvalidationTest extends TestCase
 
         $adapter = new class implements PushAdapter
         {
-            public function send(string $token, string $title, string $body): bool
+            public function send(string $token, string $title, string $body, array $data = []): bool
             {
                 return true;
             }
@@ -112,7 +112,7 @@ class PushChannelTokenInvalidationTest extends TestCase
 
         $adapter = new class implements PushAdapter
         {
-            public function send(string $token, string $title, string $body): bool
+            public function send(string $token, string $title, string $body, array $data = []): bool
             {
                 throw new InvalidPushTokenException('a-different-older-token');
             }
