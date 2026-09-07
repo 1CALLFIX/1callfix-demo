@@ -204,6 +204,7 @@
                 'label' => 'System', 'collapsible' => true, 'icon' => 'gear',
                 'items' => [
                     ['label' => 'Operations', 'route' => 'admin.operations.index', 'icon' => 'activity', 'permission' => 'operations.view'],
+                    ['label' => 'Clear Data', 'route' => 'admin.operations.data-clear', 'icon' => 'exclamation-triangle', 'permission' => 'operations.data_clear'],
                     ['label' => 'Roles & Permissions', 'route' => 'admin.roles.index', 'icon' => 'shield', 'permission' => 'roles.manage'],
                     ['label' => 'Settings', 'route' => 'admin.settings.index', 'icon' => 'gear', 'permission' => 'settings.manage'],
                 ],

@@ -32,6 +32,7 @@ use App\Livewire\WalletLedger\Index as WalletLedgerIndex;
 use App\Livewire\Loyalty\Index as LoyaltyIndex;
 use App\Livewire\Commissions\Index as CommissionsIndex;
 use App\Livewire\NotificationCenter\Manage as NotificationCenterManage;
+use App\Livewire\Operations\DataClear as OperationsDataClear;
 use App\Livewire\Operations\Health as OperationsHealth;
 use App\Livewire\Payments\Index as PaymentsIndex;
 use App\Livewire\PaymentGateways\Manage as PaymentGatewaysManage;
@@ -106,6 +107,7 @@ Route::middleware(['auth', \App\Http\Middleware\EnsureHasAdminAccess::class])
         Route::get('/plans', PlansManage::class)->name('admin.plans.index');
         Route::get('/subscriptions', SubscriptionsIndex::class)->name('admin.subscriptions.index');
         Route::get('/operations', OperationsHealth::class)->name('admin.operations.index');
+        Route::get('/operations/clear-data', OperationsDataClear::class)->name('admin.operations.data-clear');
         Route::get('/modules', ModulesManage::class)->name('admin.modules.index');
         Route::get('/parcel-orders', ParcelOrdersManage::class)->name('admin.parcel-orders.index');
         Route::get('/taxi-rides', TaxiRidesManage::class)->name('admin.taxi-rides.index');
