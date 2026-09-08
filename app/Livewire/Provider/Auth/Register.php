@@ -13,6 +13,7 @@ use App\Services\Customer\CustomerLocationContext;
 use App\Services\DispatchService;
 use App\Services\Kyc\KycDocumentService;
 use App\Support\PhoneNumber;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Locked;
 use Livewire\Attributes\On;
@@ -39,7 +40,9 @@ use Livewire\WithFileUploads;
  *
  * Confirmed decisions: users.status = active (D7); password is set at
  * signup; an out-of-coverage pin queues for manual placement, never blocks
- * (D3); the optional email is stored unverified (D4); no skills picker
+ * (D3) — and neither does a missing pin: a typed work address alone is
+ * enough, the row is flagged out-of-coverage for an operator to place; the
+ * optional email is stored unverified (D4); no skills picker
  * (D2); no applicant notification (D8); no existing-customer -> provider
  * attach (D10) — a taken phone is refused with "sign in instead".
  */
@@ -118,6 +121,19 @@ class Register extends Component
 
         if (! PhoneNumber::looksValid($this->phone)) {
             $this->addError('phone', 'Enter a valid 10-digit mobile number.');
+
+            return;
+        }
+
+        // Cheap pre-send guard: a number that already belongs to an account
+        // is refused by phoneTokenReceived() anyway (and by
+        // RegisterProviderAction after that), but only once a full Firebase
+        // OTP round-trip has been spent to reach it. Check the typed number
+        // here, before any SMS goes out, so an already-registered applicant
+        // is told to sign in immediately. Same national-digit shape those
+        // later checks use.
+        if (User::where('phone', PhoneNumber::national($this->phone))->exists()) {
+            $this->addError('phone', 'An account with this mobile number already exists. Please sign in instead.');
 
             return;
         }
@@ -212,6 +228,11 @@ class Register extends Component
      * the customer add-address form uses. The franchise / zone is resolved
      * from the pin itself, never accepted from the client; an
      * out-of-coverage pin is recorded, not rejected (D3).
+     *
+     * A geolocation failure never reaches this method: the browser's error
+     * callback restores the button and reveals a visible "type your address
+     * instead" message (the same pattern as the customer location picker),
+     * and submitApplication() then accepts the typed address on its own.
      */
     public function useCurrentLocationForNewAddress(float $lat, float $lng): void
     {
@@ -262,6 +283,24 @@ class Register extends Component
             ->first();
     }
 
+    /**
+     * D3 fallback for when no pin resolved to a zone at all (the geolocation
+     * button failed, was declined, or was never tapped). The application
+     * still has to land somewhere — providers.franchise_id is NOT NULL — so
+     * attach it to any active zone that has a franchise, purely as a holding
+     * place. outOfCoverage is set and registration_address is stored, so the
+     * reviewing operator relocates it. Null only if the platform has no
+     * active, franchised zone configured at all.
+     */
+    private function anyActiveZoneForManualPlacement(): ?Zone
+    {
+        return Zone::query()
+            ->where('is_active', true)
+            ->whereNotNull('franchise_id')
+            ->orderBy('id')
+            ->first();
+    }
+
     // ─────────────────────────── Finish ──────────────────────────────────
 
     public function submitApplication(RegisterProviderAction $register, KycDocumentService $kyc): void
@@ -304,17 +343,44 @@ class Register extends Component
             return;
         }
 
-        if ($this->lat === null || $this->lng === null || $this->resolvedZoneId === null) {
-            $this->error = 'Add your work location with the “Use my current location” button so we can route your application.';
+        // Location routing. Decision D3: a coverage problem NEVER blocks the
+        // application. A resolved pin (covering, or nearest-by-distance)
+        // routes it directly; anything less — the geolocation button failed,
+        // was declined, or was never tapped — still goes through on the
+        // typed address alone, attached to a holding zone and flagged
+        // out-of-coverage for an operator to place by hand. The one hard
+        // stop left is "there is no active service area at all to attach
+        // to", and even then we name which piece is missing rather than
+        // return one catch-all line.
+        $zone = $this->resolvedZoneId
+            ? Zone::where('is_active', true)->find($this->resolvedZoneId)
+            : null;
 
-            return;
-        }
-
-        $zone = Zone::where('is_active', true)->find($this->resolvedZoneId);
         if (! $zone) {
-            $this->error = 'We could not confirm your service area. Please try again.';
+            $zone = $this->anyActiveZoneForManualPlacement();
 
-            return;
+            if (! $zone) {
+                $missing = [];
+                if (blank($this->address)) {
+                    $missing[] = 'a work address';
+                }
+                if ($this->lat === null || $this->lng === null) {
+                    $missing[] = 'a location pin';
+                }
+                if ($this->resolvedZoneId === null) {
+                    $missing[] = 'a matching service area';
+                }
+
+                $this->error = 'We can’t route your application yet — it needs '
+                    .Arr::join($missing, ', ', ' and ')
+                    .'. Try “Use my current location” again, or come back shortly.';
+
+                return;
+            }
+
+            // Typed address, no usable pin: accepted, but flagged so an
+            // operator confirms the placement (D3).
+            $this->outOfCoverage = true;
         }
 
         $this->hitThrottle('provider-reg-submit', $this->verifiedPhoneE164);
