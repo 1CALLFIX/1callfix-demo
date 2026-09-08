@@ -51,7 +51,13 @@ class Register extends Component
     use InteractsWithAuthThrottle;
     use WithFileUploads;
 
-    /** phone | verify_phone | details */
+    /**
+     * Display state of the phone/OTP widget at the top of the one-page form
+     * only — NOT a gate on the rest of the form, which is always visible and
+     * fillable. phone = number entry; verify_phone = code entry; details =
+     * number proven, widget shows a "verified" confirmation. Submit is gated
+     * on verifiedPhoneE164, never on this.
+     */
     #[Locked]
     public string $step = 'phone';
 
@@ -307,7 +313,11 @@ class Register extends Component
     {
         $this->reset('error', 'status');
 
-        if ($this->step !== 'details' || blank($this->verifiedPhoneE164)) {
+        // One-page form: the details/address/KYC fields are filled while the
+        // OTP is still in flight, so submit is gated on the *proven number*
+        // alone, not on a view step. verifiedPhoneE164 is #[Locked] and only
+        // ever set by phoneTokenReceived() after a server-side token verify.
+        if (blank($this->verifiedPhoneE164)) {
             $this->error = 'Verify your mobile number first.';
 
             return;

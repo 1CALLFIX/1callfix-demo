@@ -89,6 +89,44 @@ class ProviderSelfRegistrationTest extends TestCase
         $this->get('/provider/register')->assertOk()->assertSee('Become a');
     }
 
+    public function test_the_whole_form_is_visible_before_the_phone_is_verified(): void
+    {
+        // One-page restructure: name, password, address, KYC uploads and the
+        // terms box are all on screen from the first paint — the applicant
+        // fills them while the OTP is still in flight, no step gate.
+        $this->coveredZone();
+
+        Livewire::test(Register::class)
+            ->assertSet('step', 'phone')
+            ->assertSeeHtml('wire:model="name"')
+            ->assertSeeHtml('wire:model="password"')
+            ->assertSeeHtml('wire:model="address"')
+            ->assertSeeHtml('wire:model="terms"')
+            ->assertSeeHtml('data-locate-address')
+            ->assertSeeHtml('wire:model="documents.id_proof"')
+            ->assertSeeHtml('wire:submit="submitApplication"');
+    }
+
+    public function test_submit_before_verification_is_refused_on_the_number_not_the_step(): void
+    {
+        // The details form can be fully filled with no verified phone; submit
+        // is gated on verifiedPhoneE164 alone (the $step !== 'details' check
+        // is gone), so it returns the "verify first" error, not a crash.
+        $this->coveredZone();
+
+        Livewire::test(Register::class)
+            ->set('name', 'Eager Applicant')
+            ->set('password', 'longenough1')
+            ->set('password_confirmation', 'longenough1')
+            ->set('address', '4th Cross, Indiranagar')
+            ->set('terms', true)
+            ->call('submitApplication')
+            ->assertSet('submitted', false)
+            ->assertSet('error', 'Verify your mobile number first.');
+
+        $this->assertSame(0, Provider::count());
+    }
+
     public function test_otp_step_waits_for_a_real_send_and_never_shows_code_sent_beside_an_error(): void
     {
         $c = Livewire::test(Register::class)->set('phone', $this->randomPhone());
