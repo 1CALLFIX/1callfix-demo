@@ -42,6 +42,13 @@ window.cfLocate = function (onSuccess, onError, opts) {
  * fix it calls $wire.useCurrentLocationForNewAddress(lat, lng); a blocked
  * or failed permission just restores the button and the form still works
  * by hand. Re-binds after each Livewire morph, once per button.
+ *
+ * Optional: if the page also has a `[data-locate-address-error]` element,
+ * it is revealed (hidden = false) on a failed lookup and hidden again on
+ * the next attempt — the "tell them, then let them do it by hand" pattern
+ * the customer location picker uses. The element supplies its own copy;
+ * callers without one keep the previous silent-restore behaviour
+ * unchanged (the customer address forms omit it).
  */
 window.cfWireLocateButton = function (wire) {
     const bind = () => {
@@ -50,14 +57,18 @@ window.cfWireLocateButton = function (wire) {
         btn.dataset.bound = '1';
 
         const label = btn.querySelector('[data-locate-address-label]');
-        const reset = () => { btn.disabled = false; if (label) label.textContent = 'Use my current location'; };
+        const errorEl = document.querySelector('[data-locate-address-error]');
+
+        const restore = () => { btn.disabled = false; if (label) label.textContent = 'Use my current location'; };
+        const onFail = () => { restore(); if (errorEl) errorEl.hidden = false; };
 
         btn.addEventListener('click', () => {
             btn.disabled = true;
             if (label) label.textContent = 'Locating…';
+            if (errorEl) errorEl.hidden = true;
             window.cfLocate(
-                (lat, lng) => Promise.resolve(wire.useCurrentLocationForNewAddress(lat, lng)).finally(reset),
-                reset,
+                (lat, lng) => Promise.resolve(wire.useCurrentLocationForNewAddress(lat, lng)).finally(restore),
+                onFail,
                 { highAccuracy: true },
             );
         });

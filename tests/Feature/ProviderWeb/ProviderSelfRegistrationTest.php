@@ -319,4 +319,102 @@ class ProviderSelfRegistrationTest extends TestCase
         $c->call('submitApplication')
             ->assertSet('error', fn ($e) => str_contains((string) $e, 'Too many attempts'));
     }
+
+    public function test_a_taken_number_is_rejected_before_any_otp_is_sent(): void
+    {
+        $phone = $this->randomPhone();
+
+        User::create([
+            'uuid' => (string) Str::uuid(), 'name' => 'Already Here', 'phone' => $phone,
+            'role' => 'customer', 'status' => 'active', 'password' => Hash::make('whatever12'),
+        ]);
+
+        // requestPhoneCode() refuses the number itself: no 'firebase-send-
+        // phone-otp' dispatch, no advance off the phone step, no lingering
+        // "sending…" line — the applicant is told to sign in immediately
+        // instead of after a full Firebase OTP round-trip.
+        Livewire::test(Register::class)
+            ->set('phone', $phone)
+            ->call('requestPhoneCode')
+            ->assertNotDispatched('firebase-send-phone-otp')
+            ->assertHasErrors('phone')
+            ->assertSee('sign in instead')
+            ->assertSet('step', 'phone')
+            ->assertSet('status', '');
+    }
+
+    public function test_submitting_with_a_typed_address_and_no_pin_is_allowed_and_flagged_for_manual_placement(): void
+    {
+        // An active zone exists for the application to be held against, but
+        // the applicant never drops a pin — geolocation failed or was
+        // declined and they only typed a work address (D3: never block).
+        $this->coveredZone();
+        $phone = $this->randomPhone();
+
+        $c = Livewire::test(Register::class)->set('phone', $phone);
+        $this->verifyPhone($c, $phone);
+
+        $c->set('name', 'Typed Address Only')
+            ->set('password', 'longenough1')
+            ->set('password_confirmation', 'longenough1')
+            ->set('address', 'Stall 12, KR Market, Bengaluru')
+            ->set('terms', true);
+        $this->attachRequiredDocs($c);
+
+        $c->call('submitApplication')
+            ->assertHasNoErrors()
+            ->assertSet('submitted', true)
+            ->assertSet('outOfCoverage', true);
+
+        $provider = User::where('phone', $phone)->sole()->providerProfile;
+        $this->assertSame('pending', $provider->kyc_status);
+        $this->assertNotNull($provider->franchise_id);
+        $this->assertContains($provider->zone_id, Zone::where('is_active', true)->pluck('id')->all());
+        $this->assertSame('Stall 12, KR Market, Bengaluru', $provider->registration_address);
+        $this->assertNull($provider->registration_lat);
+        $this->assertNull($provider->registration_lng);
+    }
+
+    public function test_submit_names_the_missing_pieces_when_there_is_no_service_area_to_route_to(): void
+    {
+        // The one hard stop left: the platform has no active zone at all, so
+        // there is nowhere to hold the application. The message must name
+        // what is missing rather than return one generic line.
+        Zone::query()->update(['is_active' => false]);
+        $phone = $this->randomPhone();
+
+        $c = Livewire::test(Register::class)->set('phone', $phone);
+        $this->verifyPhone($c, $phone);
+
+        $c->set('name', 'No Coverage Anywhere')
+            ->set('password', 'longenough1')
+            ->set('password_confirmation', 'longenough1')
+            ->set('address', 'Somewhere the platform has not launched')
+            ->set('terms', true);
+        $this->attachRequiredDocs($c);
+
+        $c->call('submitApplication')
+            ->assertSet('submitted', false)
+            ->assertSet('error', fn ($e) => str_contains((string) $e, 'location pin')
+                && str_contains((string) $e, 'matching service area')
+                && ! str_contains((string) $e, 'work address'));
+
+        $this->assertSame(0, Provider::count());
+    }
+
+    public function test_the_location_button_exposes_a_hidden_error_target_for_geolocation_failure(): void
+    {
+        // The markup contract cfWireLocateButton depends on: a hidden,
+        // role=alert element carrying the manual-fallback copy, sitting
+        // next to the [data-locate-address] button.
+        $this->coveredZone();
+        $phone = $this->randomPhone();
+
+        $c = Livewire::test(Register::class)->set('phone', $phone);
+        $this->verifyPhone($c, $phone);
+
+        $c->assertSeeHtml('data-locate-address')
+            ->assertSeeHtml('data-locate-address-error')
+            ->assertSeeHtml('We could not get your location.');
+    }
 }

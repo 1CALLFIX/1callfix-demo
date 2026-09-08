@@ -109,6 +109,17 @@
                             <span data-locate-address-label>Use my current location</span>
                         </button>
 
+                        {{-- Revealed by cfWireLocateButton when the browser
+                             geolocation lookup fails or is declined — same
+                             visible-error + manual-fallback pattern as the
+                             customer location picker. The typed address above
+                             is enough on its own; submitApplication() accepts
+                             it and flags the row for operator placement. --}}
+                        <p data-locate-address-error role="alert" hidden
+                           class="mt-1.5 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                            We could not get your location. Type your work address above instead.
+                        </p>
+
                         @if ($resolvedZoneName && ! $outOfCoverage)
                             <p class="mt-1.5 text-xs text-emerald-700">
                                 Pinned — service area <span class="font-medium">{{ $resolvedZoneName }}</span>.
