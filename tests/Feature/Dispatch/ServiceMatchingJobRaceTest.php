@@ -101,6 +101,13 @@ class ServiceMatchingJobRaceTest extends TestCase
     public function test_a_late_dispatch_round_does_not_clobber_a_real_concurrent_acceptance(): void
     {
         [$booking, $provider] = $this->makeBookingSearchingForProvider();
+        // REF 1CF-LAUNCH-011 — this helper's provider carries no location/
+        // skills at all; AcceptBookingAction now re-checks real eligibility,
+        // so it must genuinely qualify for this test's own booking/service.
+        $provider->update([
+            'skills' => [$booking->service->category_id],
+            'current_lat' => 1.0, 'current_lng' => 1.0, 'location_updated_at' => now(),
+        ]);
 
         // The real acceptance happens first (simulating it winning the race).
         $accepted = app(AcceptBookingAction::class)->execute($booking->id, $provider);

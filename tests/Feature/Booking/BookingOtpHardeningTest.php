@@ -33,7 +33,8 @@ class BookingOtpHardeningTest extends TestCase
 
     public function test_accepting_a_booking_stamps_expiry_and_zeroes_the_attempt_counters(): void
     {
-        ['booking' => $booking, 'provider' => $provider] = $this->makeBookingScenario('searching_provider');
+        ['booking' => $booking, 'provider' => $provider, 'category' => $category] = $this->makeBookingScenario('searching_provider');
+        $provider = $this->makeEligible($provider, $category->id);
         DispatchAttempt::create([
             'booking_id' => $booking->id, 'provider_id' => $provider->id,
             'status' => 'notified', 'distance_km' => 1.0, 'notified_at' => now(),
@@ -52,7 +53,8 @@ class BookingOtpHardeningTest extends TestCase
 
     public function test_expiry_runs_from_the_scheduled_start_not_from_acceptance(): void
     {
-        ['booking' => $booking, 'provider' => $provider] = $this->makeBookingScenario('searching_provider');
+        ['booking' => $booking, 'provider' => $provider, 'category' => $category] = $this->makeBookingScenario('searching_provider');
+        $provider = $this->makeEligible($provider, $category->id);
         $booking->update(['scheduled_at' => now()->addDays(7)]);
         DispatchAttempt::create([
             'booking_id' => $booking->id, 'provider_id' => $provider->id,

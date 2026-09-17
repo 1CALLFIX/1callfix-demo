@@ -25,7 +25,8 @@ class AcceptBookingIdempotencyE5Test extends TestCase
 
     public function test_the_same_provider_re_accepting_produces_no_second_assignment_or_side_effect(): void
     {
-        ['booking' => $booking, 'provider' => $provider] = $this->makeBookingScenario('searching_provider');
+        ['booking' => $booking, 'provider' => $provider, 'category' => $category] = $this->makeBookingScenario('searching_provider');
+        $provider = $this->makeEligible($provider, $category->id);
         DispatchAttempt::create([
             'booking_id' => $booking->id, 'provider_id' => $provider->id,
             'status' => 'notified', 'distance_km' => 1.0, 'notified_at' => now(),
@@ -52,8 +53,9 @@ class AcceptBookingIdempotencyE5Test extends TestCase
 
     public function test_a_second_provider_with_a_live_offer_loses_the_race_cleanly(): void
     {
-        ['booking' => $booking, 'provider' => $providerA, 'franchise' => $franchise, 'zone' => $zone] = $this->makeBookingScenario('searching_provider');
-        $providerB = $this->makeProviderIn($franchise, $zone);
+        ['booking' => $booking, 'provider' => $providerA, 'franchise' => $franchise, 'zone' => $zone, 'category' => $category] = $this->makeBookingScenario('searching_provider');
+        $providerA = $this->makeEligible($providerA, $category->id);
+        $providerB = $this->makeEligible($this->makeProviderIn($franchise, $zone), $category->id, lng: 1.001);
 
         DispatchAttempt::create(['booking_id' => $booking->id, 'provider_id' => $providerA->id, 'status' => 'notified', 'distance_km' => 1.0, 'notified_at' => now()]);
         DispatchAttempt::create(['booking_id' => $booking->id, 'provider_id' => $providerB->id, 'status' => 'notified', 'distance_km' => 2.0, 'notified_at' => now()]);

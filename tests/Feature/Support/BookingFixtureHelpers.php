@@ -150,4 +150,28 @@ trait BookingFixtureHelpers
 
         return $scenario;
     }
+
+    /**
+     * REF 1CF-LAUNCH-011 — makeProviderIn() alone was never enough to make
+     * a provider a genuine DispatchService/AcceptBookingAction candidate:
+     * it sets is_online/is_active/kyc_status but never current_lat/
+     * current_lng/location_updated_at or skills. Tests exercising
+     * acceptance itself (not dispatch matching) historically relied on
+     * AcceptBookingAction never re-checking eligibility; now that it does
+     * (LAUNCH-011, reusing DispatchService::providerEligibleForBooking()),
+     * any such test needs its provider to genuinely qualify. Defaults to
+     * (1.0, 1.0) to match makeAddress()'s own default coordinates, so it
+     * lines up with makeBookingScenario()'s booking out of the box.
+     */
+    protected function makeEligible(Provider $provider, int $categoryId, float $lat = 1.0, float $lng = 1.0): Provider
+    {
+        $provider->update([
+            'skills' => [$categoryId],
+            'current_lat' => $lat,
+            'current_lng' => $lng,
+            'location_updated_at' => now(),
+        ]);
+
+        return $provider->fresh();
+    }
 }

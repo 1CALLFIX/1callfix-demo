@@ -57,7 +57,8 @@ class ProviderJobStatusNotificationTest extends TestCase
 
     public function test_accept_notifies_the_provider_that_the_job_is_theirs(): void
     {
-        ['booking' => $booking, 'provider' => $provider] = $this->makeBookingScenario('searching_provider');
+        ['booking' => $booking, 'provider' => $provider, 'category' => $category] = $this->makeBookingScenario('searching_provider');
+        $provider = $this->makeEligible($provider, $category->id);
         DispatchAttempt::create([
             'booking_id' => $booking->id, 'provider_id' => $provider->id,
             'status' => 'notified', 'distance_km' => 1.0, 'notified_at' => now(),

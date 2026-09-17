@@ -38,7 +38,8 @@ class DispatchApiTest extends TestCase
 
     public function test_provider_can_accept_a_real_offer_via_http(): void
     {
-        ['booking' => $booking, 'provider' => $provider] = $this->makeBookingScenario('searching_provider');
+        ['booking' => $booking, 'provider' => $provider, 'category' => $category] = $this->makeBookingScenario('searching_provider');
+        $provider = $this->makeEligible($provider, $category->id);
         DispatchAttempt::create([
             'booking_id' => $booking->id, 'provider_id' => $provider->id,
             'status' => 'notified', 'distance_km' => 1.0, 'notified_at' => now(),
@@ -65,8 +66,9 @@ class DispatchApiTest extends TestCase
 
     public function test_second_provider_accepting_an_already_assigned_booking_gets_409_not_a_silent_double_assign(): void
     {
-        ['booking' => $booking, 'provider' => $providerA, 'franchise' => $franchise, 'zone' => $zone] = $this->makeBookingScenario('searching_provider');
-        $providerB = $this->makeProviderIn($franchise, $zone);
+        ['booking' => $booking, 'provider' => $providerA, 'franchise' => $franchise, 'zone' => $zone, 'category' => $category] = $this->makeBookingScenario('searching_provider');
+        $providerA = $this->makeEligible($providerA, $category->id);
+        $providerB = $this->makeEligible($this->makeProviderIn($franchise, $zone), $category->id, lng: 1.001);
 
         DispatchAttempt::create(['booking_id' => $booking->id, 'provider_id' => $providerA->id, 'status' => 'notified', 'distance_km' => 1.0, 'notified_at' => now()]);
         DispatchAttempt::create(['booking_id' => $booking->id, 'provider_id' => $providerB->id, 'status' => 'notified', 'distance_km' => 2.0, 'notified_at' => now()]);

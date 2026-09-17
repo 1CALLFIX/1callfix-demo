@@ -13,6 +13,7 @@ use App\Notifications\BookingStatusNotification;
 use App\Notifications\ProviderJobStatusNotification;
 use App\Notifications\Support\ChannelResolver;
 use App\Services\BookingOtpService;
+use App\Services\DispatchService;
 use App\Services\ProviderAvailabilityService;
 use App\Services\WalletService;
 use Illuminate\Support\Facades\DB;
@@ -30,8 +31,12 @@ class AcceptBookingAction
      * instead of both silently succeeding and corrupting the booking.
      *
      * @throws \RuntimeException if the offer is no longer valid (expired,
-     *         already accepted by someone else, or already withdrawn), or
-     *         if the provider's wallet balance is below the configured
+     *         already accepted by someone else, or already withdrawn), if
+     *         the provider is no longer eligible for this booking (went
+     *         offline/inactive, lost KYC, lost the required skill, drifted
+     *         out of zone/radius, or their location went stale/missing
+     *         since the offer was made — see REF 1CF-LAUNCH-011), or if
+     *         the provider's wallet balance is below the configured
      *         wallet.provider_min_balance_to_accept_jobs for their scope
      */
     public function execute(int $bookingId, Provider $provider): Booking
@@ -68,7 +73,34 @@ class AcceptBookingAction
             // RentalAvailabilityService uses (parent = the Provider here).
             // On MySQL/Postgres this is a genuine row lock; on SQLite the
             // whole-database write lock serializes equivalently.
-            Provider::whereKey($provider->id)->lockForUpdate()->firstOrFail();
+            $lockedProvider = Provider::whereKey($provider->id)->lockForUpdate()->firstOrFail();
+
+            // REF 1CF-LAUNCH-011 — LAUNCH-009 audit finding: nothing
+            // between an offer being made and this accept re-verified the
+            // provider was STILL eligible. They could have gone offline,
+            // gone stale, lost KYC/active status, been reassigned to a
+            // different zone, lost the required skill, or drifted outside
+            // the service radius in the meantime, and this Action would
+            // still have assigned the booking to them regardless. Reuses
+            // the exact same authoritative check DispatchService::
+            // eligibleQuery()/findCandidates() already gate a fresh OFFER
+            // on (LAUNCH-008's location-freshness rule included) — one
+            // eligibility definition, not a second copy of these rules
+            // duplicated here. Checked against $lockedProvider (the row
+            // just re-read under the lock above), not the $provider
+            // argument passed into execute(), which may still hold
+            // whatever state it had before this transaction started — the
+            // provider row lock above is exactly what makes reading
+            // $lockedProvider safe against a concurrent
+            // SetProviderOnlineStatusAction call landing in between.
+            //
+            // Deliberately NOT re-checked here: the offer/notified_at
+            // timeout race LAUNCH-009 also found — that is a separate,
+            // not-yet-authorized follow-up (see LAUNCH-011 scope notes),
+            // and this check does not touch notified_at at all.
+            if (! app(DispatchService::class)->providerEligibleForBooking($lockedProvider, $booking)) {
+                throw new \RuntimeException('You are no longer eligible for this job offer.');
+            }
 
             $booking->loadMissing('service');
             $durationMinutes = (int) ($booking->service->duration_estimate_mins ?? 0);

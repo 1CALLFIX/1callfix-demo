@@ -43,7 +43,8 @@ class BookingOtpDeliveryTest extends TestCase
     public function test_accepting_a_booking_delivers_both_otps_to_the_customer_with_correct_content(): void
     {
         Notification::fake();
-        ['booking' => $booking, 'provider' => $provider, 'customer' => $customer] = $this->makeBookingScenario('searching_provider');
+        ['booking' => $booking, 'provider' => $provider, 'customer' => $customer, 'category' => $category] = $this->makeBookingScenario('searching_provider');
+        $provider = $this->makeEligible($provider, $category->id);
         DispatchAttempt::create([
             'booking_id' => $booking->id, 'provider_id' => $provider->id,
             'status' => 'notified', 'distance_km' => 1.0, 'notified_at' => now(),
@@ -73,7 +74,8 @@ class BookingOtpDeliveryTest extends TestCase
         // the environment every fresh franchise/zone starts in before an
         // admin ever visits Settings > Notifications.
         Log::spy();
-        ['booking' => $booking, 'provider' => $provider] = $this->makeBookingScenario('searching_provider');
+        ['booking' => $booking, 'provider' => $provider, 'category' => $category] = $this->makeBookingScenario('searching_provider');
+        $provider = $this->makeEligible($provider, $category->id);
         DispatchAttempt::create([
             'booking_id' => $booking->id, 'provider_id' => $provider->id,
             'status' => 'notified', 'distance_km' => 1.0, 'notified_at' => now(),
@@ -133,7 +135,8 @@ class BookingOtpDeliveryTest extends TestCase
             }
         });
         Log::spy();
-        ['booking' => $booking, 'provider' => $provider] = $this->makeBookingScenario('searching_provider');
+        ['booking' => $booking, 'provider' => $provider, 'category' => $category] = $this->makeBookingScenario('searching_provider');
+        $provider = $this->makeEligible($provider, $category->id);
         Setting::set('notifications.channels', 'sms');
         DispatchAttempt::create([
             'booking_id' => $booking->id, 'provider_id' => $provider->id,
@@ -154,7 +157,8 @@ class BookingOtpDeliveryTest extends TestCase
         // code degrades safely rather than assuming a specific channel is
         // always present.
         Notification::fake();
-        ['booking' => $booking, 'provider' => $provider] = $this->makeBookingScenario('searching_provider');
+        ['booking' => $booking, 'provider' => $provider, 'category' => $category] = $this->makeBookingScenario('searching_provider');
+        $provider = $this->makeEligible($provider, $category->id);
         Setting::set('notifications.channels', 'in_app');
         DispatchAttempt::create([
             'booking_id' => $booking->id, 'provider_id' => $provider->id,

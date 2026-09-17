@@ -42,10 +42,11 @@ class CustomerJourneyE6Test extends TestCase
     {
         // ---- world -------------------------------------------------------
         [$country, $city, $franchise, $zone] = $this->makeFranchiseTree();
-        $service = $this->makeService($this->makeCategory(['module' => 'service']), ['base_price' => 500]);
+        $category = $this->makeCategory(['module' => 'service']);
+        $service = $this->makeService($category, ['base_price' => 500]);
         $customer = $this->makeCustomer();
         $address = $this->makeAddress($customer, $franchise, $zone);
-        $provider = $this->makeProviderIn($franchise, $zone);
+        $provider = $this->makeEligible($this->makeProviderIn($franchise, $zone), $category->id);
         Wallet::create(['user_id' => $customer->id, 'balance' => 5000]);
 
         // ---- 1. book through the wizard, paid from wallet ---------------
