@@ -184,6 +184,23 @@ class AppServiceProvider extends ServiceProvider
             \Illuminate\Support\Facades\Queue::connection()->size();
         });
 
+        // REF 1CF-LAUNCH-010 — Livewire's own persistent-middleware
+        // allowlist (Mechanisms\PersistentMiddleware\PersistentMiddleware::
+        // $persistentMiddleware) decides which route middleware re-runs on
+        // a Livewire component's SUBSEQUENT requests (wire:click, etc.),
+        // not just its initial page load. EnsureAccountNotSuspended was
+        // never in that list, so an account suspended while its holder's
+        // Jobs/Dashboard/admin page was already open left that open tab
+        // still able to fire authenticated Livewire actions -- traced to
+        // exactly this mechanism in LAUNCH-009 by reading Livewire's own
+        // source. Registered the framework-native way, not by
+        // reimplementing any part of the suspension check a second time;
+        // the middleware class itself, and the rule it enforces, are
+        // unchanged.
+        \Livewire\Livewire::addPersistentMiddleware([
+            \App\Http\Middleware\EnsureAccountNotSuspended::class,
+        ]);
+
         Booking::observe(BookingObserver::class);
         BookingBundle::observe(BookingBundleObserver::class);
         ParcelOrder::observe(ParcelOrderObserver::class);
