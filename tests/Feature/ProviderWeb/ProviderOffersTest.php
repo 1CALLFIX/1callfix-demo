@@ -28,7 +28,7 @@ class ProviderOffersTest extends TestCase
         $s = $this->makeBookingScenario('searching_provider');
         // Real candidate: coords near the address (1.0,1.0), the right skill.
         $s['provider']->update([
-            'current_lat' => 1.001, 'current_lng' => 1.001,
+            'current_lat' => 1.001, 'current_lng' => 1.001, 'location_updated_at' => now(),
             'skills' => [$s['service']->category_id],
         ]);
         $s['provider'] = $s['provider']->fresh();
@@ -105,7 +105,7 @@ class ProviderOffersTest extends TestCase
         // per DispatchService that stays re-eligible, so it isolates that
         // decline (rejected) is the permanent one.
         $control = $this->makeProviderIn($s['franchise'], $s['zone']);
-        $control->update(['current_lat' => 1.001, 'current_lng' => 1.001, 'skills' => [$s['service']->category_id]]);
+        $control->update(['current_lat' => 1.001, 'current_lng' => 1.001, 'location_updated_at' => now(), 'skills' => [$s['service']->category_id]]);
         DispatchAttempt::create([
             'booking_id' => $s['booking']->id, 'provider_id' => $control->id,
             'status' => 'timeout', 'distance_km' => 1.3,

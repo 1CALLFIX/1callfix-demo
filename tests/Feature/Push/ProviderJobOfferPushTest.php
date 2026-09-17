@@ -49,7 +49,7 @@ class ProviderJobOfferPushTest extends TestCase
         return Provider::create([
             'user_id' => $user->id, 'franchise_id' => $franchise->id, 'zone_id' => $zone->id,
             'provider_type' => 'independent', 'kyc_status' => 'approved', 'is_active' => true, 'is_online' => true,
-            'current_lat' => 1.0, 'current_lng' => 1.0, 'skills' => [$categoryId],
+            'current_lat' => 1.0, 'current_lng' => 1.0, 'location_updated_at' => now(), 'skills' => [$categoryId],
         ]);
     }
 

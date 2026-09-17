@@ -28,7 +28,7 @@ class ProviderDiscoveryApiTest extends TestCase
         [$country, $city, $franchise, $zone] = $this->makeFranchiseTree();
         [$category, $service] = $this->makeCategoryAndService();
         $provider = $this->makeProviderIn($franchise, $zone);
-        $provider->update(['skills' => [$category->id], 'current_lat' => 1.001, 'current_lng' => 1.001]);
+        $provider->update(['skills' => [$category->id], 'current_lat' => 1.001, 'current_lng' => 1.001, 'location_updated_at' => now()]);
         $customer = $this->makeCustomer();
 
         $response = $this->actingAs($customer, 'sanctum')->getJson(

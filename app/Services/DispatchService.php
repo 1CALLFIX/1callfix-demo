@@ -175,6 +175,19 @@ class DispatchService
             return false;
         }
 
+        // REF 1CF-LAUNCH-008 — a coordinate pair alone was never enough:
+        // dispatch had no upper bound on HOW OLD that fix was allowed to be
+        // (LAUNCH-007 audit finding, classified RED). Same freshness
+        // definition BuildsProviderEligibility's advisory panel already
+        // computes for the provider's own dashboard — one rule, not two.
+        // NULL location_updated_at (a coordinate written without ever
+        // being stamped, e.g. a raw fixture) is treated as stale, not
+        // fresh — there is no evidence of recency to trust.
+        if ($provider->location_updated_at === null
+            || ! $provider->location_updated_at->greaterThan(now()->subMinutes($this->locationStaleAfterMinutes()))) {
+            return false;
+        }
+
         $categoryId = $booking->service->category_id;
 
         if (! $this->hasSkill($provider, $categoryId)) {
@@ -443,7 +456,29 @@ class DispatchService
             ->where('is_active', true)
             ->where('kyc_status', 'approved')
             ->whereNotNull('current_lat')
-            ->whereNotNull('current_lng');
+            ->whereNotNull('current_lng')
+            // REF 1CF-LAUNCH-008 — same freshness rule as
+            // providerEligibleForBooking() below, so the batch query path
+            // and the single-provider proof never disagree. Database/PHP
+            // server time only (now()) -- location_updated_at is always
+            // server-stamped at write time (SetProviderOnlineStatusAction),
+            // never client-supplied, so there is nothing here for a client
+            // to spoof.
+            ->whereNotNull('location_updated_at')
+            ->where('location_updated_at', '>', now()->subMinutes($this->locationStaleAfterMinutes()));
+    }
+
+    /**
+     * Same key and cascade BuildsProviderEligibility's advisory dashboard
+     * panel already reads (app/Livewire/Provider/Concerns/
+     * BuildsProviderEligibility.php) — one freshness definition shared by
+     * the provider-facing display AND real dispatch enforcement, not two
+     * that could drift apart. max(1, ...) guards against a misconfigured
+     * 0/negative Setting value making every provider stale.
+     */
+    private function locationStaleAfterMinutes(): int
+    {
+        return max(1, (int) Setting::get('provider.location_stale_after_minutes', '30'));
     }
 
     /** Phase B0.3: private -> protected, visibility-only (see eligibleQuery()'s note above). */

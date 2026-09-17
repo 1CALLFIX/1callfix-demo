@@ -85,7 +85,7 @@ trait BundleConsolidationHelpers
         return Provider::create(array_merge([
             'user_id' => $user->id, 'franchise_id' => $franchise->id, 'zone_id' => $zone->id,
             'provider_type' => 'independent', 'kyc_status' => 'approved', 'is_active' => true, 'is_online' => true,
-            'current_lat' => $lat, 'current_lng' => $lng, 'skills' => [$categoryId],
+            'current_lat' => $lat, 'current_lng' => $lng, 'location_updated_at' => now(), 'skills' => [$categoryId],
         ], $overrides));
     }
 

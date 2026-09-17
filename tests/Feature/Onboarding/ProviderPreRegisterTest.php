@@ -144,7 +144,7 @@ class ProviderPreRegisterTest extends TestCase
         ]));
         (new ProviderPreRegisterImporter)->commit($result['previewRows'], null, 'providers.csv');
         $provider = Provider::sole();
-        $provider->update(['is_online' => true, 'is_active' => true, 'current_lat' => 1.0, 'current_lng' => 1.0]);
+        $provider->update(['is_online' => true, 'is_active' => true, 'current_lat' => 1.0, 'current_lng' => 1.0, 'location_updated_at' => now()]);
 
         $this->assertFalse($this->isEligibleForDispatch($provider));
 
