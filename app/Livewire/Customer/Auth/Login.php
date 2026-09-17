@@ -4,6 +4,7 @@ namespace App\Livewire\Customer\Auth;
 
 use App\Contracts\FirebaseTokenVerifier;
 use App\Exceptions\FirebaseAuthException;
+use App\Livewire\Customer\Auth\Concerns\ChecksAccountSuspension;
 use App\Livewire\Customer\Auth\Concerns\InteractsWithAuthThrottle;
 use App\Services\Auth\CustomerAccountResolver;
 use Illuminate\Support\Facades\Auth;
@@ -30,6 +31,7 @@ use Livewire\Component;
  */
 class Login extends Component
 {
+    use ChecksAccountSuspension;
     use InteractsWithAuthThrottle;
 
     public string $identifier = '';
@@ -76,6 +78,13 @@ class Login extends Component
         if (! $user || ! Hash::check($this->password, $user->password)) {
             $this->hitThrottle('login', $this->identifier);
             $this->error = 'Those details do not match an account.';
+            $this->password = '';
+
+            return;
+        }
+
+        if ($this->blockIfSuspended($user)) {
+            $this->hitThrottle('login', $this->identifier);
             $this->password = '';
 
             return;
@@ -130,6 +139,13 @@ class Login extends Component
 
         $linked = $accounts->findByFirebaseUid($identity->uid);
         if ($linked) {
+            if ($this->blockIfSuspended($linked)) {
+                $this->googleError = $this->error;
+                $this->error = '';
+
+                return;
+            }
+
             $accounts->linkFirebaseIdentity($linked, $identity);
             Auth::guard('web')->login($linked);
             session()->regenerate();

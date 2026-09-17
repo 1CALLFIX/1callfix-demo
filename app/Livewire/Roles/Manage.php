@@ -86,6 +86,70 @@ class Manage extends Component
         $this->userSearch = User::find($userId)?->name ?? '';
     }
 
+    public function getSelectedUserProperty(): ?User
+    {
+        return $this->selectedUserId ? User::find($this->selectedUserId) : null;
+    }
+
+    /**
+     * Enable/Disable Audit gap fix — this screen could create a staff
+     * account and grant/revoke individual role assignments, but had no way
+     * to suspend the ACCOUNT itself; the only lever was revoking every
+     * RoleAssignment one at a time, which strips permissions but leaves the
+     * account able to authenticate. Reuses the exact users.status column
+     * Customers\Show::toggleSuspended() already writes — one account-status
+     * concept, not a second one invented for staff. (See
+     * Auth\Login::submit() / EnsureHasAdminAccess for what makes this
+     * status column actually block login now, for both this action and
+     * Customers\Show's own.)
+     *
+     * Gated at GLOBAL roles.manage only, same reasoning as createUser()
+     * above ("minting a brand-new staff identity is a coarser act than
+     * granting an existing one a scoped role") — there is no natural
+     * per-target scope to check here (the user search above isn't
+     * role-filtered, so the selected account could be staff, a provider, or
+     * a customer), and suspending an existing account's login access is at
+     * least as coarse an act as creating one.
+     *
+     * Refuses to suspend the acting admin's own account — this screen has
+     * no separate "who's the only admin left" check, so a global-scope
+     * holder self-suspending here would have no recovery path except
+     * direct DB access. Not asked for explicitly, but the same class of
+     * self-inflicted-lockout guard this codebase already applies elsewhere
+     * (see RESTRICTED_GRANT_SCOPES / disallowedRestrictedPermission()
+     * above, and the Franchise/Zone delete-blocked-reason pattern).
+     */
+    public function toggleUserSuspended(): void
+    {
+        if (! $this->selectedUserId) {
+            $this->flashType = 'error';
+            $this->flashMessage = 'Select a user first.';
+            return;
+        }
+
+        if (! auth()->user()->hasPermission('roles.manage')) {
+            $this->flashType = 'error';
+            $this->flashMessage = 'You do not have permission to suspend or reactivate accounts.';
+            return;
+        }
+
+        if ($this->selectedUserId === auth()->id()) {
+            $this->flashType = 'error';
+            $this->flashMessage = 'You cannot suspend your own account.';
+            return;
+        }
+
+        $user = User::findOrFail($this->selectedUserId);
+
+        $user->status = $user->status === 'suspended' ? 'active' : 'suspended';
+        $user->save();
+
+        $this->flashType = 'success';
+        $this->flashMessage = $user->status === 'suspended'
+            ? "Account suspended: {$user->name}. They will not be able to log in until reactivated."
+            : "Account reactivated: {$user->name}.";
+    }
+
     public function toggleNewUserForm(): void
     {
         $this->showNewUserForm = ! $this->showNewUserForm;

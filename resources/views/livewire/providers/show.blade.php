@@ -234,6 +234,32 @@
         </div>
     @endif
 
+    {{-- Enable/Disable Audit gap fix -- a reversible, one-click way to take
+         an approved provider out of dispatch without deleting them.
+         Deliberately its own card, not folded into Delete below: this is a
+         routine, reversible operational action; delete is the rare,
+         soft-but-still-heavier one. --}}
+    <x-ui.card class="mt-6">
+        <div class="flex items-center justify-between gap-4">
+            <div>
+                <div class="font-semibold {{ $provider->is_active ? 'text-gray-700' : 'text-amber-700' }}">
+                    {{ $provider->is_active ? 'Suspend Provider' : 'Provider Suspended' }}
+                </div>
+                <p class="text-xs text-gray-400">
+                    @if ($provider->is_active)
+                        Temporarily stop new job offers without deleting the account. Reversible any time.
+                    @else
+                        This provider will not receive new job offers until reactivated.
+                    @endif
+                </p>
+            </div>
+            <x-ui.button type="button" wire:click="toggleActive" wire:loading.attr="disabled" wire:target="toggleActive"
+                         variant="{{ $provider->is_active ? 'secondary' : 'success' }}">
+                {{ $provider->is_active ? 'Suspend' : 'Reactivate' }}
+            </x-ui.button>
+        </div>
+    </x-ui.card>
+
     {{-- Tier 1 CRUD audit -- Provider had no delete action anywhere in the
          admin UI despite the model already using SoftDeletes. Kept
          deliberately separate from Approve/Reject above (always visible,
