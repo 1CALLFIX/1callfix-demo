@@ -5,6 +5,7 @@ namespace App\Livewire\Customer\Auth;
 use App\Contracts\FirebaseTokenVerifier;
 use App\Exceptions\AccountAlreadyExistsException;
 use App\Exceptions\FirebaseAuthException;
+use App\Livewire\Customer\Auth\Concerns\ChecksAccountSuspension;
 use App\Livewire\Customer\Auth\Concerns\InteractsWithAuthThrottle;
 use App\Models\User;
 use App\Services\Auth\CustomerAccountResolver;
@@ -31,6 +32,7 @@ use Livewire\Component;
  */
 class GoogleAuth extends Component
 {
+    use ChecksAccountSuspension;
     use InteractsWithAuthThrottle;
 
     /** new | link */
@@ -78,6 +80,12 @@ class GoogleAuth extends Component
 
         $linked = $accounts->findByFirebaseUid($g['uid']);
         if ($linked) {
+            if ($this->blockIfSuspended($linked)) {
+                session()->forget('auth.google');
+
+                return;
+            }
+
             Auth::guard('web')->login($linked);
             session()->regenerate();
             session()->forget('auth.google');
@@ -180,6 +188,18 @@ class GoogleAuth extends Component
 
                     return;
                 }
+
+                // Checked BEFORE linkFirebaseIdentity()/login() below, not
+                // after -- a suspended account must not get linked to
+                // Google either, not just refused the resulting login. (A
+                // brand-new account, the `else` branch, can never be
+                // pre-suspended, so it needs no check here.)
+                if ($this->blockIfSuspended($user)) {
+                    session()->forget('auth.google');
+
+                    return;
+                }
+
                 $accounts->linkFirebaseIdentity($user, $google);
                 $accounts->markPhoneVerified($user);
             } else {

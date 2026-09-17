@@ -25,6 +25,17 @@ class EnsureHasAdminAccess
     {
         $user = $request->user();
 
+        // Enable/Disable Audit, defense in depth — Auth\Login::submit()
+        // already refuses a suspended account AT login, but that check
+        // only runs once, at the moment of signing in. This middleware
+        // re-runs on every /admin request for the lifetime of the session,
+        // so an account suspended WHILE its holder is still logged in gets
+        // caught on their very next request too, not just their next login.
+        // Checked before the admin-actor check below, same ordering
+        // reasoning as Login::submit() — "suspended" is a more accurate
+        // reason than "no admin access".
+        abort_if($user && $user->status === 'suspended', 403, 'This account has been suspended.');
+
         $isAdminActor = $user && ($user->role === 'super_admin' || $user->roleAssignments()->exists());
 
         abort_unless($isAdminActor, 403, 'You do not have access to the admin panel.');

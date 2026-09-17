@@ -231,6 +231,68 @@ class Show extends Component
         $this->deleteWarning = '';
     }
 
+    // ==================== Account suspension (login/access control) ====================
+
+    /**
+     * Enable/Disable Audit follow-up (LAUNCH-002/003) — account-level
+     * suspension (users.status), NOT Provider.is_active. is_active is a
+     * separate dispatch-eligibility control (see DispatchService::
+     * providerEligibleForBooking()) that this fix does not add a toggle
+     * for and does not touch; this is a login/access control, enforced at
+     * App\Livewire\Provider\Auth\Login and the API password/firebase auth
+     * endpoints. Suspending a provider's account here never writes
+     * is_active, and reactivating never writes it either — the two remain
+     * independent, on purpose.
+     *
+     * Same providers.manage + zone/franchise scope boundary as
+     * canDelete()/canManageCommission() above — reused rather than
+     * inventing a new permission. Self-suspend guard mirrors
+     * Roles\Manage::toggleUserSuspended()'s identical reasoning (no
+     * separate "last admin standing" check exists on this screen either).
+     */
+    private function canManageAccountStatus(): bool
+    {
+        return auth()->user()->hasPermission('providers.manage', array_filter([
+            'zone_id' => $this->provider->zone_id,
+            'franchise_id' => $this->provider->franchise_id,
+        ]));
+    }
+
+    public function toggleAccountSuspended(): void
+    {
+        if (! $this->canManageAccountStatus()) {
+            $this->flashType = 'error';
+            $this->flashMessage = 'You do not have permission to change this provider\'s account status.';
+            return;
+        }
+
+        if ($this->provider->user_id === auth()->id()) {
+            $this->flashType = 'error';
+            $this->flashMessage = 'You cannot suspend your own account.';
+            return;
+        }
+
+        $user = $this->provider->user;
+        $user->status = $user->status === 'suspended' ? 'active' : 'suspended';
+        $user->save();
+
+        // REF 1CF-LAUNCH-004 — same reasoning as Customers\Show::
+        // toggleSuspended()/Roles\Manage::toggleUserSuspended(): revoke
+        // this user's own Sanctum tokens immediately on suspend. Never
+        // touches Provider.is_active — token revocation is an account
+        // (users.status) concern, not a dispatch-eligibility one.
+        if ($user->status === 'suspended') {
+            $user->tokens()->delete();
+        }
+
+        $this->provider->load('user');
+
+        $this->flashType = 'success';
+        $this->flashMessage = $user->status === 'suspended'
+            ? 'Provider account suspended — they will not be able to log in until reactivated.'
+            : 'Provider account reactivated.';
+    }
+
     // ==================== Commercial rate (negotiated agreement) ====================
 
     /**

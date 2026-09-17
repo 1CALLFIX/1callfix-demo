@@ -78,6 +78,25 @@ class Login extends Component
             return;
         }
 
+        // Enable/Disable Audit follow-up (LAUNCH-002 finding) — the
+        // original suspension fix (f4d8d12) covered the admin panel and
+        // the customer web login surfaces but never this one, since this
+        // component didn't exist in its current form at the time. Same
+        // inline pattern App\Livewire\Auth\Login (admin) uses rather than
+        // the customer ChecksAccountSuspension trait — this screen, like
+        // that one, has exactly one call site, so a shared trait would add
+        // an indirection with nothing to share it with. Checked BEFORE the
+        // providerProfile check below, same reasoning as admin's ordering:
+        // "suspended" is a more accurate reason than "not a registered
+        // service partner."
+        if ($user->status === 'suspended') {
+            $this->hitThrottle('provider-login', $this->identifier);
+            $this->error = 'This account has been suspended. Contact support for help.';
+            $this->password = '';
+
+            return;
+        }
+
         if (! $user->providerProfile()->exists()) {
             $this->hitThrottle('provider-login', $this->identifier);
             $this->error = 'That account is not a registered service partner.';

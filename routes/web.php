@@ -135,7 +135,7 @@ Route::post('/logout', function () {
  | ReviewService, DocumentService, the PaymentGateway contract). The server
  | stays authoritative for every number and every state transition.
  */
-Route::middleware('auth')->group(function () {
+Route::middleware(['auth', \App\Http\Middleware\EnsureAccountNotSuspended::class])->group(function () {
     Route::view('/account', 'customer.account')->name('customer.account');
 
     // Booking wizard — configure -> address -> schedule -> pay. Attaches to
@@ -168,7 +168,7 @@ Route::middleware('auth')->group(function () {
  | (native app). The admin-only `push_ops_alerts` toggle lives under the
  | admin middleware group in routes/admin.php.
  */
-Route::middleware('auth')->group(function () {
+Route::middleware(['auth', \App\Http\Middleware\EnsureAccountNotSuspended::class])->group(function () {
     Route::post('/push/token', [\App\Http\Controllers\PushTokenController::class, 'store'])->name('push.token.store');
     Route::delete('/push/token', [\App\Http\Controllers\PushTokenController::class, 'destroy'])->name('push.token.destroy');
 });
@@ -198,7 +198,7 @@ Route::post('/provider/logout', function () {
     return redirect()->route('provider.login');
 })->middleware('auth')->name('provider.logout');
 
-Route::middleware(['auth', \App\Http\Middleware\EnsureIsProvider::class])
+Route::middleware(['auth', \App\Http\Middleware\EnsureIsProvider::class, \App\Http\Middleware\EnsureAccountNotSuspended::class])
     ->prefix('provider')
     ->group(function () {
         Route::get('/', ProviderDashboard::class)->name('provider.dashboard');

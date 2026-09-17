@@ -24,6 +24,21 @@
                 <div class="flex justify-between"><dt class="text-gray-500">Type</dt><dd>{{ ucfirst($provider->provider_type) }}</dd></div>
                 <div class="flex justify-between"><dt class="text-gray-500">Franchise / Zone</dt><dd>{{ $provider->franchise->name ?? '—' }} / {{ $provider->zone->name ?? '—' }}</dd></div>
                 <div class="flex justify-between"><dt class="text-gray-500">Applied</dt><dd>{{ app(\App\Services\TimezoneResolver::class)->format($provider->created_at, $provider->franchise, 'd M Y, h:i A') }}</dd></div>
+                @if ($provider->user)
+                    {{-- Account access control (users.status), separate from KYC/is_active dispatch eligibility above. --}}
+                    <div class="flex items-center justify-between pt-2 border-t mt-2">
+                        <dt class="text-gray-500">Account</dt>
+                        <dd class="flex items-center gap-2">
+                            <span @class(['text-xs font-medium', 'text-red-600' => $provider->user->status === 'suspended'])>
+                                {{ $provider->user->status === 'suspended' ? 'Suspended' : 'Active' }}
+                            </span>
+                            <button type="button" wire:click="toggleAccountSuspended" wire:loading.attr="disabled" wire:target="toggleAccountSuspended"
+                                    class="text-xs font-medium {{ $provider->user->status === 'suspended' ? 'text-green-700 hover:underline' : 'text-red-600 hover:underline' }}">
+                                {{ $provider->user->status === 'suspended' ? 'Reactivate account' : 'Suspend account' }}
+                            </button>
+                        </dd>
+                    </div>
+                @endif
             </dl>
         </x-ui.card>
 

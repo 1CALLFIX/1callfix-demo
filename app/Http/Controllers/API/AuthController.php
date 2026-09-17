@@ -81,6 +81,12 @@ class AuthController extends Controller
             return response()->json(['message' => 'Invalid credentials.'], 401);
         }
 
+        if ($blocked = $this->suspendedResponse($user)) {
+            RateLimiter::hit($key, 60);
+
+            return $blocked;
+        }
+
         RateLimiter::clear($key);
 
         return $this->tokenResponse($user, $data['actor_type'], $request);
@@ -142,6 +148,16 @@ class AuthController extends Controller
             if (! $this->actorMatches($user, $data['actor_type'])) {
                 return response()->json(['message' => $this->noProfileMessage($data['actor_type'])], 404);
             }
+
+            // Checked BEFORE linkFirebaseIdentity() below, not after — a
+            // suspended account must not get its Firebase identity linked
+            // either, not just refused the resulting token (same ordering
+            // bug class f4d8d12 found and fixed in the customer Livewire
+            // GoogleAuth::phoneTokenReceived() path).
+            if ($blocked = $this->suspendedResponse($user)) {
+                return $blocked;
+            }
+
             $this->accounts->linkFirebaseIdentity($user, $identity);
 
             return $this->tokenResponse($user, $data['actor_type'], $request);
@@ -372,6 +388,10 @@ class AuthController extends Controller
                 return response()->json(['message' => $this->noProfileMessage($actorType)], 404);
             }
 
+            if ($blocked = $this->suspendedResponse($linked)) {
+                return $blocked;
+            }
+
             return $this->tokenResponse($linked, $actorType, $request);
         }
 
@@ -401,6 +421,13 @@ class AuthController extends Controller
                 if (! $this->accounts->phoneMatches($existing, (string) $phone->phoneNumber)) {
                     return response()->json(['message' => 'The verified number does not match the account for this email.'], 422);
                 }
+
+                // Same ordering as the plain-login branch above — checked
+                // before any linking/verification write.
+                if ($blocked = $this->suspendedResponse($existing)) {
+                    return $blocked;
+                }
+
                 $this->accounts->linkFirebaseIdentity($existing, $google);
                 $this->accounts->markPhoneVerified($existing);
                 $user = $existing;
@@ -427,6 +454,16 @@ class AuthController extends Controller
         } catch (FirebaseAuthException $e) {
             report($e);
             throw ValidationException::withMessages(['id_token' => 'Could not verify that sign-in. Please try again.']);
+        }
+
+        // Defense in depth — completeSignup() can RESUME a pre-existing
+        // password-less shell row (a pre-rebuild OTP-only account, or a
+        // CSV-imported one) rather than always creating a fresh one; that
+        // existing row could in principle already carry status=suspended.
+        // A genuinely brand-new row can never be pre-suspended, so this is
+        // a no-op for the common case.
+        if ($blocked = $this->suspendedResponse($user)) {
+            return $blocked;
         }
 
         return $this->tokenResponse($user, 'customer', $request, $status);
@@ -457,6 +494,26 @@ class AuthController extends Controller
     private function noProfileMessage(string $actorType): string
     {
         return 'No '.str_replace('_', ' ', $actorType).' account found for this identity. Contact your administrator.';
+    }
+
+    /**
+     * Enable/Disable Audit follow-up (LAUNCH-002 finding) — users.status
+     * was never checked anywhere in this controller: a suspended customer,
+     * provider, or field worker could still obtain a fresh Sanctum token
+     * through either /auth/password or /auth/firebase. Read from the
+     * authoritative $user model passed in (never a client-supplied field)
+     * at every point a new token could be minted. Returns null (nothing to
+     * block) for an active account so every call site can stay a plain
+     * `if ($blocked = ...) return $blocked;` early-return, matching this
+     * controller's own dominant style rather than throwing.
+     */
+    private function suspendedResponse(User $user): ?\Illuminate\Http\JsonResponse
+    {
+        if ($user->status !== 'suspended') {
+            return null;
+        }
+
+        return response()->json(['message' => 'This account has been suspended. Contact support for help.'], 403);
     }
 
     private function emailWasVerified(string $email): bool

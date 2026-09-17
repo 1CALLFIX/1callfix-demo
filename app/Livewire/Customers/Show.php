@@ -64,6 +64,17 @@ class Show extends Component
         $this->customer->status = $this->customer->status === 'suspended' ? 'active' : 'suspended';
         $this->customer->save();
 
+        // REF 1CF-LAUNCH-004 — a suspended account must not keep using a
+        // Sanctum token it already holds; auth:sanctum looks the token up
+        // in the database on every request, so deleting it here makes that
+        // rejection immediate, not just "the next login." Scoped to this
+        // one user's own tokens() relation, so no other account is
+        // affected. Only on the suspend transition — reactivating does not
+        // need to touch tokens, the account simply logs in again.
+        if ($this->customer->status === 'suspended') {
+            $this->customer->tokens()->delete();
+        }
+
         $this->flashType = 'success';
         $this->flashMessage = $this->customer->status === 'suspended' ? 'Customer suspended.' : 'Customer reactivated.';
     }
