@@ -155,6 +155,10 @@ Route::middleware(['auth:sanctum', \App\Http\Middleware\EnsureNotInMaintenanceMo
 
     Route::post('/bookings/{booking}/accept', [\App\Http\Controllers\API\DispatchController::class, 'accept']);
     Route::post('/bookings/{booking}/complete', [\App\Http\Controllers\API\DispatchController::class, 'complete']);
+    // REF 1CF-PHASE01-TASK06A — read-only offer list for the native
+    // Rider/Provider app; same provider-resolution pattern as accept/complete
+    // above, no new dispatch state.
+    Route::get('/provider/offers', [\App\Http\Controllers\API\ProviderOfferController::class, 'index']);
     Route::post('/bookings/{booking}/pay/create-order', [\App\Http\Controllers\API\PaymentController::class, 'createOrder']);
     Route::post('/bookings/{booking}/pay/confirm', [\App\Http\Controllers\API\PaymentController::class, 'confirm']);
     Route::post('/bookings/{bookingId}/tip', [\App\Http\Controllers\API\TipController::class, 'store']);

@@ -182,6 +182,30 @@ class ProviderOfferControllerTest extends TestCase
         );
     }
 
+    public function test_expired_but_not_yet_timed_out_offer_does_not_appear(): void
+    {
+        // REF 1CF-PHASE01-TASK06B — ServiceMatchingJob only flips
+        // notified -> timeout when its own delayed re-dispatch job runs
+        // (see ServiceMatchingJob::timeoutExpiredAttempts); a row whose
+        // window has already elapsed can sit at status='notified' in the
+        // DB until that job executes. The provider portal's own listing
+        // (Livewire\Provider\Jobs\Index::render()) already guards against
+        // presenting this stale row as a live offer via a notified_at
+        // window check — this endpoint must do the same.
+        ['booking' => $booking, 'provider' => $provider] = $this->makeBookingScenario('searching_provider');
+        Setting::set('dispatch.offer_timeout_seconds', '25');
+        DispatchAttempt::create([
+            'booking_id' => $booking->id, 'provider_id' => $provider->id,
+            'status' => 'notified', 'distance_km' => 1.0,
+            'notified_at' => now()->subSeconds(30),
+        ]);
+
+        $this->actingAs($provider->user, 'sanctum')
+            ->getJson('/api/provider/offers')
+            ->assertOk()
+            ->assertJsonCount(0, 'offers');
+    }
+
     public function test_no_provider_id_can_be_supplied_by_the_client_to_access_another_providers_offer(): void
     {
         ['booking' => $booking, 'provider' => $providerA, 'franchise' => $franchise, 'zone' => $zone] = $this->makeBookingScenario('searching_provider');
