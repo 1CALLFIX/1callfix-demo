@@ -50,9 +50,34 @@ class AcceptBookingAction
                 throw new \RuntimeException('This job has already been assigned to another provider.');
             }
 
+            // REF 1CF-LAUNCH-012 — LAUNCH-009 audit finding, closed here:
+            // status='notified' alone was never enough. ServiceMatchingJob
+            // only ever flips a stale attempt to 'timeout' when its OWN
+            // delayed next-round job happens to execute
+            // (timeoutExpiredAttempts()) — a best-effort queued sweep with
+            // no relationship to this transaction. Without also checking
+            // notified_at here, a provider could accept an offer whose
+            // window had already elapsed, as long as that sweep simply
+            // hadn't run yet. The freshness cutoff below is the exact
+            // negation of timeoutExpiredAttempts()'s own
+            // `notified_at <= now()->subSeconds(offerTimeoutSeconds())`
+            // condition (same Setting, same semantics), so acceptance and
+            // the timeout sweep can never disagree about a given attempt,
+            // including at the exact boundary. lockForUpdate() closes the
+            // remaining unordered race (LAUNCH-012 audit scenario C):
+            // the sweep's own mass UPDATE runs as its own single
+            // auto-committing statement (not inside a multi-table
+            // transaction), so it cannot deadlock against this row lock —
+            // it either completes and releases before this SELECT, or
+            // blocks briefly behind this transaction, but the two can
+            // never both act on a stale read of the same row.
+            $offerTimeoutSeconds = (int) Setting::get('dispatch.offer_timeout_seconds', 25);
+
             $attempt = DispatchAttempt::where('booking_id', $bookingId)
                 ->where('provider_id', $provider->id)
                 ->where('status', 'notified')
+                ->where('notified_at', '>', now()->subSeconds($offerTimeoutSeconds))
+                ->lockForUpdate()
                 ->first();
 
             if (!$attempt) {
@@ -94,10 +119,9 @@ class AcceptBookingAction
             // $lockedProvider safe against a concurrent
             // SetProviderOnlineStatusAction call landing in between.
             //
-            // Deliberately NOT re-checked here: the offer/notified_at
-            // timeout race LAUNCH-009 also found — that is a separate,
-            // not-yet-authorized follow-up (see LAUNCH-011 scope notes),
-            // and this check does not touch notified_at at all.
+            // The offer/notified_at timeout race LAUNCH-009 also found is
+            // now closed above (REF 1CF-LAUNCH-012), not here — this check
+            // is purely about provider state, not offer freshness.
             if (! app(DispatchService::class)->providerEligibleForBooking($lockedProvider, $booking)) {
                 throw new \RuntimeException('You are no longer eligible for this job offer.');
             }
