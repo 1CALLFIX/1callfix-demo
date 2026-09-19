@@ -105,12 +105,13 @@ class Index extends Component
             ->latest('id')
             ->first();
 
-        // Phase PN1 — drives the foreground chime + (tab-hidden) OS
-        // notification in public/js/provider-alerts.js. Fired on every
-        // poll: the JS starts the repeating alarm on the first count > 0 and
-        // stops it when the offer set clears, so the cadence of the alarm is
-        // the JS loop's, not this 4s poll's.
-        $this->dispatch('provider-alert-offers', count: $offers->count());
+        // Phase PN1 — drives the foreground alarm + (tab-hidden) OS
+        // notification in resources/js/provider-alerts.js. Fired on every
+        // poll: the JS starts the repeating ring on the first count > 0 and
+        // stops it when the offer set clears, so the cadence of the ring is
+        // the JS loop's, not this 4s poll's. `offers` is display-only
+        // detail for the layout banner; `count` stays the contract.
+        $this->dispatch('provider-alert-offers', count: $offers->count(), offers: $this->offerAlertSummaries($offers, $window));
 
         return view('livewire.provider.jobs.index', [
             'offers' => $offers,

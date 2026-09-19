@@ -41,9 +41,13 @@
                         <p class="mt-1 text-sm font-medium">₹{{ number_format((float) $b->price_quoted, 2) }}</p>
                     </div>
                     <div class="flex shrink-0 flex-col items-end gap-2">
+                        {{-- providerOfferCountdown (resources/js/provider-alerts.js):
+                             the same visible countdown as before, but its 1s
+                             timer is cleared in destroy(). The old inline
+                             x-init setInterval outlived the page and kept
+                             mutating a torn-down scope ("n is not defined"). --}}
                         <span role="timer"
-                              x-data="{ n: {{ $expiresIn }} }"
-                              x-init="const t = setInterval(() => { n > 0 ? n-- : clearInterval(t) }, 1000)"
+                              x-data="providerOfferCountdown({{ $expiresIn }})"
                               class="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold tabular-nums text-amber-800"
                               x-text="(n > 0 ? n : 0) + 's left'">{{ $expiresIn }}s left</span>
                         <div class="flex gap-2">

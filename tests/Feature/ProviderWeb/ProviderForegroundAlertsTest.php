@@ -17,7 +17,7 @@ use Tests\TestCase;
 
 /**
  * Phase PN1 — foreground alerts. The chime + tab-hidden OS notification are
- * browser-only (Web Audio + the Notifications API in public/js/
+ * browser-only (Web Audio + the Notifications API in resources/js/
  * provider-alerts.js) and are NOT exercised here — PHPUnit can't play audio.
  * What IS tested is the whole server-side trigger surface those depend on:
  * the components dispatch `provider-alert-offers` / `provider-alert-status`
