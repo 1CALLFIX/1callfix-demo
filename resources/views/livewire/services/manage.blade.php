@@ -561,7 +561,7 @@
                         <div>
                             <label class="block text-sm font-medium mb-1">Visiting charge ({{ $currencySymbol }})</label>
                             <input type="number" step="0.01" min="0" wire:model="editVisitingCharge" class="w-full border rounded px-3 py-2 text-sm">
-                            <p class="text-[11px] text-gray-400 mt-0.5">Part of the price. A membership free visit waives only this.</p>
+                            <p class="text-[11px] text-gray-400 mt-0.5">Optional. A membership free visit waives the lower of this and the plan's flat visit value (Prime Silver: {{ $currencySymbol }}199); blank = the flat value.</p>
                             @error('editVisitingCharge') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
                         </div>
                         <div>

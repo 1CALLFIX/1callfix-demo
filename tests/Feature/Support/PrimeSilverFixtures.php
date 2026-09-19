@@ -95,11 +95,11 @@ trait PrimeSilverFixtures
 
         return [
             'cats' => $cats,
-            'ac_jet' => $make($cats['ac'], 'AC Jet Pump Service', 1800, 200),     // covered by the AC benefit; ₹1,800 > the ₹1,500 advertised value
+            'ac_jet' => $make($cats['ac'], 'AC Jet Pump Service', 1800, 250),     // covered by the AC benefit; 1,800 > the 1,500 cap; its own visit charge (250) is ABOVE the flat 199
             'ac_gas' => $make($cats['ac'], 'AC Gas Charging', 2500, 250),         // OUT of scope
             'appliance' => $make($cats['appliance'], 'Appliance General Service', 600, 150),
             'electrical' => $make($cats['electrical'], 'Electrical General Service', 500, 100),
-            'rewiring' => $make($cats['electrical'], 'Electrical Rewiring', 800, 150), // out of the credit's scope, still a visit
+            'rewiring' => $make($cats['electrical'], 'Electrical Rewiring', 800, null),  // out of the credit's scope; no visiting charge of its own -> the flat 199 applies
             'plumbing' => $make($cats['plumbing'], 'Plumbing General Service', 500, 100),
             'carpenter' => $make($cats['carpenter'], 'Carpenter General Service', 500, 100),
             'painting' => $make($cats['painting'], 'Wall Painting', 3000, 300),   // not a covered category at all

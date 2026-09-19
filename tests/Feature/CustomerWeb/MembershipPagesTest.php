@@ -70,6 +70,8 @@ class MembershipPagesTest extends TestCase
             ->assertSee('Priority-based service')
             ->assertSee('×2')->assertSee('×5')
             ->assertSee('₹1,500')->assertSee('₹3,000')
+            ->assertSee('₹199 visiting charge waived per visit')
+            ->assertSee('not wallet or cash credit')
             // AC scope + exclusions
             ->assertSee('Jet Pump Cleaning')->assertSee('Drain Line Cleaning')
             ->assertSee('Gas Leak Rectification')->assertSee('Copper Pipe Replacement')

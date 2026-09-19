@@ -89,6 +89,7 @@ class PrimeSilverMembershipTest extends TestCase
         $visits = $by(self::VISITS);
         $this->assertSame('fee_waiver', $visits->entitlement_type);
         $this->assertSame(5, $visits->quantity);
+        $this->assertSame('199.00', (string) $visits->monetary_value, 'The flat visiting charge waived per visit.');
         $this->assertSame(PlanEntitlement::EFFECT_VISIT_FEE_WAIVER, $visits->redemption_effect, 'A visit waiver, never a whole-booking waiver.');
 
         $priority = $by(self::PRIORITY);
@@ -184,10 +185,10 @@ class PrimeSilverMembershipTest extends TestCase
         $this->assertSame(0, $this->balanceOf($m['subscription'], self::AC)->remainingQuantity());
 
         // The AC benefit is used up, so the service itself is charged normally. The
-        // booking still qualifies as an eligible service call, so only its ₹200
-        // visiting charge is waived by a Free Service Visit.
+        // booking still qualifies as an eligible service call, so a Free Service Visit
+        // waives ONLY the flat ₹199 - not this service's higher ₹250 visiting charge.
         $third = $this->bookService($m['customer'], $m['address'], $ac);
-        $this->assertEquals(1600, $third->price_quoted, 'Third: service charged normally, less only the visiting charge.');
+        $this->assertEquals(1601, $third->price_quoted, 'Third: service charged normally, less only the ₹199 visit.');
         $this->assertSame(0, $this->balanceOf($m['subscription'], self::AC)->remainingQuantity(), 'The exhausted entitlement is not consumed again.');
         $this->assertSame(4, $this->balanceOf($m['subscription'], self::VISITS)->remainingQuantity());
 
@@ -282,11 +283,11 @@ class PrimeSilverMembershipTest extends TestCase
     public function test_five_free_visits_waive_only_the_visiting_charge_and_the_sixth_is_charged(): void
     {
         $m = $this->primeMember();
-        $rewiring = $m['catalog']['rewiring']; // ₹800, ₹150 of it the visiting charge; outside the Home Credit's scope
+        $rewiring = $m['catalog']['rewiring']; // ₹800, no visiting charge of its own -> flat ₹199; outside the Home Credit's scope
 
         for ($i = 1; $i <= 5; $i++) {
             $booking = $this->bookService($m['customer'], $m['address'], $rewiring);
-            $this->assertEquals(650, $booking->price_quoted, "Visit #{$i}: only the ₹150 visiting charge is waived.");
+            $this->assertEquals(601, $booking->price_quoted, "Visit #{$i}: only the flat ₹199 visiting charge is waived.");
             $this->assertGreaterThan(0, $booking->price_quoted, 'A free visit must never zero the booking.');
             $this->assertSame(5 - $i, $this->balanceOf($m['subscription'], self::VISITS)->remainingQuantity());
         }
@@ -297,15 +298,91 @@ class PrimeSilverMembershipTest extends TestCase
         $this->assertSame(5, UsageLedger::where('subscription_id', $m['subscription']->id)->where('event_type', 'consume')->count());
     }
 
-    public function test_a_free_visit_is_not_consumed_for_a_service_with_no_visiting_charge(): void
+    public function test_a_free_visit_waives_the_flat_199_a_lower_service_charge_or_never_more_than_199(): void
     {
         $m = $this->primeMember();
+        $rewiring = $m['catalog']['rewiring']; // ₹800
+
+        // No visiting charge of its own -> the entitlement's flat ₹199.
+        $this->assertEquals(601, $this->bookService($m['customer'], $m['address'], $rewiring)->price_quoted);
+
+        // A LOWER charge of its own -> only that lower amount.
+        $rewiring->update(['visiting_charge' => 120]);
+        $this->assertEquals(680, $this->bookService($m['customer'], $m['address'], $rewiring)->price_quoted);
+
+        // A HIGHER charge of its own -> never more than the flat ₹199.
+        $rewiring->update(['visiting_charge' => 350]);
+        $this->assertEquals(601, $this->bookService($m['customer'], $m['address'], $rewiring)->price_quoted);
+
+        $this->assertSame(2, $this->balanceOf($m['subscription'], self::VISITS)->remainingQuantity());
+        $this->assertEquals(199 + 120 + 199, $this->balanceOf($m['subscription'], self::VISITS)->consumed_monetary_value);
+    }
+
+    public function test_a_visit_waiver_never_exceeds_the_price_so_nothing_goes_negative(): void
+    {
+        $m = $this->primeMember();
+        $cheap = \App\Models\Service::create([
+            'category_id' => $m['catalog']['cats']['plumbing']->id, 'name' => 'Inspection only', 'slug' => 'inspection-only',
+            'base_price' => 150, 'price_type' => 'fixed', 'duration_estimate_mins' => 30,
+            'is_active' => true, 'location_required' => true, 'age_restriction' => false, 'sort_order' => 1,
+        ]);
+        // The Home Service Credit covers plumbing, so spend it first; the next call falls to a visit.
+        $this->bookService($m['customer'], $m['address'], $m['catalog']['plumbing']);
+
+        $booking = $this->bookService($m['customer'], $m['address'], $cheap);
+
+        $this->assertEquals(0, $booking->price_quoted, 'A ₹150 inspection with a ₹199 visit waiver: capped at the ₹150 price, never negative.');
+        $this->assertEquals(-150, UsageLedger::where('booking_id', $booking->id)->where('event_type', 'consume')->value('monetary_delta'));
+    }
+
+    public function test_a_legacy_visit_waiver_with_no_flat_value_falls_back_to_the_services_own_charge(): void
+    {
+        $m = $this->primeMember();
+        $m['plan']->entitlements->firstWhere('label', self::VISITS)->update(['monetary_value' => null]);
         $m['catalog']['rewiring']->update(['visiting_charge' => null]);
 
-        $booking = $this->bookService($m['customer'], $m['address'], $m['catalog']['rewiring']);
-
-        $this->assertEquals(800, $booking->price_quoted);
+        $this->assertEquals(800, $this->bookService($m['customer'], $m['address'], $m['catalog']['rewiring'])->price_quoted, 'No flat value and no service charge: nothing to waive.');
         $this->assertSame(5, $this->balanceOf($m['subscription'], self::VISITS)->remainingQuantity());
+
+        $m['catalog']['rewiring']->update(['visiting_charge' => 150]);
+        $this->assertEquals(650, $this->bookService($m['customer'], $m['address'], $m['catalog']['rewiring'])->price_quoted);
+    }
+
+    // ============================================ Home Service Credit: value cap, not cash
+
+    public function test_a_home_service_credit_can_alternatively_be_capped_at_a_maximum_benefit_value(): void
+    {
+        $m = $this->primeMember();
+        $credit = $m['plan']->entitlements->firstWhere('label', self::CREDIT);
+        $credit->update(['monetary_value' => 499]); // admin sets the alternative configuration
+        $m['catalog']['plumbing']->update(['base_price' => 900]);
+
+        $booking = $this->bookService($m['customer'], $m['address'], $m['catalog']['plumbing']);
+
+        // The credit is opened by the customer's own balance row, which was granted before the cap
+        // was configured; the cap applies to the waiver itself.
+        $this->assertEquals(401, $booking->price_quoted, '₹900 less the ₹499 maximum benefit — the rest stays chargeable.');
+        $row = UsageLedger::where('booking_id', $booking->id)->where('event_type', 'consume')->firstOrFail();
+        $this->assertEquals(-499, $row->monetary_delta);
+        $this->assertSame('plumbing', $row->redeemed_category);
+
+        // One use only.
+        $again = $this->bookService($m['customer'], $m['address'], $m['catalog']['plumbing']);
+        $this->assertSame(0, $this->balanceOf($m['subscription'], self::CREDIT)->remainingQuantity());
+        $this->assertEquals(800, $again->price_quoted, 'Second attempt: only the free visit (₹100 own charge) applies, not the credit.');
+    }
+
+    public function test_a_home_service_credit_is_a_service_benefit_never_wallet_or_cash_credit(): void
+    {
+        $m = $this->primeMember();
+        $walletBefore = \App\Models\WalletTransaction::count();
+
+        $booking = $this->bookService($m['customer'], $m['address'], $m['catalog']['electrical']);
+
+        $this->assertEquals(0, $booking->price_quoted);
+        $this->assertSame($walletBefore, \App\Models\WalletTransaction::count(), 'No wallet credit was created or spent.');
+        $this->assertEquals(0, (float) (\App\Models\Wallet::where('user_id', $m['customer']->id)->value('balance') ?? 0));
+        $this->assertStringContainsString('not wallet or cash credit', $m['plan']->entitlements->firstWhere('label', self::CREDIT)->description);
     }
 
     // ==================================== 6. What always stays chargeable
@@ -325,8 +402,8 @@ class PrimeSilverMembershipTest extends TestCase
     public function test_spare_parts_and_materials_remain_fully_chargeable_after_a_benefit_is_applied(): void
     {
         $m = $this->primeMember();
-        $booking = $this->bookService($m['customer'], $m['address'], $m['catalog']['rewiring']); // visit waived → ₹650
-        $this->assertEquals(650, $booking->price_quoted);
+        $booking = $this->bookService($m['customer'], $m['address'], $m['catalog']['rewiring']); // visit waived -> ₹601
+        $this->assertEquals(601, $booking->price_quoted);
 
         $provider = $this->makeProviderIn($m['franchise'], $m['zone']);
         $booking->update(['provider_id' => $provider->id, 'status' => 'in_progress']);
@@ -334,7 +411,7 @@ class PrimeSilverMembershipTest extends TestCase
         $item = app(ProposeExtraWorkAction::class)->execute($booking->id, $provider, 'Replacement MCB (spare part)', 350.0);
 
         $this->assertEquals(350, $item->amount, 'The spare part is charged at its full price.');
-        $this->assertEquals(650, $booking->fresh()->price_quoted, 'Extra work is a separate charge; membership never touches it.');
+        $this->assertEquals(601, $booking->fresh()->price_quoted, 'Extra work is a separate charge; membership never touches it.');
         $this->assertSame(4, $this->balanceOf($m['subscription'], self::VISITS)->remainingQuantity());
     }
 

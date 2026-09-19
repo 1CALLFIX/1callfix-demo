@@ -30,10 +30,11 @@ use Illuminate\Support\Facades\DB;
  * Two effects exist:
  *   service_included  the covered service is included; its price is waived,
  *                     capped at the entitlement's advertised per-unit value.
- *   visit_fee_waiver  ONLY services.visiting_charge is waived. The service
- *                     price, spare parts, materials and out-of-scope work stay
- *                     chargeable — a free visit never zeroes a booking that
- *                     costs more than its visiting charge.
+ *   visit_fee_waiver  ONLY the visiting charge is waived: the entitlement's flat
+ *                     value (Prime Silver: ₹199 per visit), or a service's own
+ *                     lower visiting_charge. The service price, spare parts,
+ *                     materials and out-of-scope work stay chargeable — a free
+ *                     visit never waives more than that visiting charge.
  *
  * Only `price_quoted` is adjusted. Parts / materials / extra work are added
  * later through BookingExtraItem (ProposeExtraWorkAction) and are never touched
@@ -245,16 +246,32 @@ class MembershipBenefitService
 
     private function waiverFor(PlanEntitlement $entitlement, Service $service, float $currentPrice): float
     {
-        if ($entitlement->redemption_effect === PlanEntitlement::EFFECT_VISIT_FEE_WAIVER) {
-            $visitingCharge = (float) ($service->visiting_charge ?? 0);
+        $cap = $entitlement->monetary_value !== null && (float) $entitlement->monetary_value > 0
+            ? (float) $entitlement->monetary_value
+            : null;
 
-            return $visitingCharge > 0 ? round(min($visitingCharge, $currentPrice), 2) : 0.0;
+        if ($entitlement->redemption_effect === PlanEntitlement::EFFECT_VISIT_FEE_WAIVER) {
+            // The entitlement carries the flat visiting charge it waives (Prime Silver: ₹199
+            // per visit). A service may carry a LOWER visiting charge of its own, in which
+            // case only that lower amount is waived; a higher one never waives more than the
+            // entitlement's flat value. Never more than the price, and never the service
+            // itself — the work stays chargeable. With no flat value configured (legacy
+            // entitlement) the service's own visiting_charge is the only source, as before.
+            $serviceCharge = (float) ($service->visiting_charge ?? 0);
+
+            $waiver = match (true) {
+                $cap !== null && $serviceCharge > 0 => min($cap, $serviceCharge),
+                $cap !== null => $cap,
+                default => $serviceCharge,
+            };
+
+            return $waiver > 0 ? round(min($waiver, $currentPrice), 2) : 0.0;
         }
 
-        // service_included — capped at the advertised per-unit value when one is set.
-        $cap = $entitlement->monetary_value !== null ? (float) $entitlement->monetary_value : null;
-
-        return round($cap !== null && $cap > 0 ? min($cap, $currentPrice) : $currentPrice, 2);
+        // service_included — capped at the configured maximum benefit value when one is set
+        // (AC Jet Pump ₹1,500 per service; a Home Service Credit may be set to ₹499). This is
+        // a benefit against ONE service, never wallet or cash credit.
+        return round($cap !== null ? min($cap, $currentPrice) : $currentPrice, 2);
     }
 
     private function currentBalance(Subscription $subscription, PlanEntitlement $entitlement): ?EntitlementBalance

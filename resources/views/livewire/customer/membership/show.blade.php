@@ -99,8 +99,14 @@
 
                     @if ($benefit['advertised_value'] !== null && $benefit['total_quantity'])
                         <p class="mt-1 text-sm text-slate-600">
-                            Advertised value {{ $currencySymbol }}{{ number_format($benefit['advertised_value']) }} each
-                            ({{ $currencySymbol }}{{ number_format($benefit['advertised_value'] * $benefit['total_quantity']) }} in total).
+                            @if ($benefit['effect'] === 'visit_fee_waiver')
+                                {{ $currencySymbol }}{{ number_format($benefit['advertised_value']) }} visiting charge waived per visit — the service itself is not free.
+                            @elseif ($benefit['total_quantity'] > 1)
+                                Advertised value {{ $currencySymbol }}{{ number_format($benefit['advertised_value']) }} each
+                                ({{ $currencySymbol }}{{ number_format($benefit['advertised_value'] * $benefit['total_quantity']) }} in total).
+                            @else
+                                Maximum benefit {{ $currencySymbol }}{{ number_format($benefit['advertised_value']) }}.
+                            @endif
                         </p>
                     @endif
                     @if ($benefit['description'])

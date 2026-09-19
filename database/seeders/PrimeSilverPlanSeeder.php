@@ -175,7 +175,11 @@ class PrimeSilverPlanSeeder extends Seeder
                 // Choose ONE. Appliance is deliberately NOT a choice — it has its own entitlement.
                 'redeem_categories' => ['electrical', 'plumbing', 'carpenter'],
                 'redemption_effect' => PlanEntitlement::EFFECT_SERVICE_INCLUDED,
-                'description' => 'One Home Service Credit, usable for ONE of Electrical, Plumbing or Carpenter General Service. Once used it cannot be used for another category.',
+                // No monetary_value on purpose: the founding configuration covers the eligible
+                // category/service mapped in /admin/plans. An admin may instead (or also) set a
+                // maximum service-benefit value on this entitlement (e.g. ₹499) — the engine
+                // caps the waiver at it. It is a benefit against ONE service, never wallet credit.
+                'description' => 'One Home Service Credit, usable once for ONE of Electrical, Plumbing or Carpenter General Service. Once used it cannot be used for another category. It is a service benefit — not wallet or cash credit.',
                 'includes' => [
                     'electrical' => [
                         'Minor Electrical Inspection',
@@ -227,10 +231,12 @@ class PrimeSilverPlanSeeder extends Seeder
                 'label' => 'Free Service Visit (waives visit/inspection fee only)',
                 'entitlement_type' => 'fee_waiver',
                 'quantity' => 5,
-                // Waives ONLY the visiting / service-call charge (services.visiting_charge).
-                // It never zeroes a booking: the work itself is still priced normally.
+                // Exactly 5 eligible visits, each waiving ONLY the flat ₹199 visiting charge
+                // (a service with a lower visiting_charge of its own waives that lower amount).
+                // No service is free: the work itself is still priced normally.
+                'monetary_value' => 199.00,
                 'redemption_effect' => PlanEntitlement::EFFECT_VISIT_FEE_WAIVER,
-                'description' => 'Five free service visits. Each waives the visiting / service-call charge only, for an eligible service call. The service itself, spare parts, materials and out-of-scope work remain chargeable.',
+                'description' => 'Five free service visits. Each waives the ₹199 visiting / service-call charge only, for an eligible service call. No service itself is free — the service price, spare parts, materials and out-of-scope work remain chargeable.',
             ],
             [
                 'label' => 'Priority-based service (allocation preference; no immediate-service guarantee)',

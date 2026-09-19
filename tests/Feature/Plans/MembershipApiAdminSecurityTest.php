@@ -283,7 +283,7 @@ class MembershipApiAdminSecurityTest extends TestCase
         // Free Service Visit has no targets either, so it applies to any service that
         // carries a visiting charge — but only that charge.
         $booking = $this->bookService($customer, $address, $catalog['ac_jet']);
-        $this->assertEquals(1600, $booking->price_quoted, 'Only the ₹200 visiting charge is waived; the service is not given away.');
+        $this->assertEquals(1601, $booking->price_quoted, 'Only the flat ₹199 visiting charge is waived; the service is not given away.');
     }
 
     // ============================================== admin: authorization
