@@ -420,6 +420,21 @@ class Wizard extends Component
         $this->redirectRoute('customer.orders.show', ['booking' => $booking->id], navigate: true);
     }
 
+    /**
+     * What membership benefit WOULD apply to this booking — read-only, consumes
+     * nothing (MembershipBenefitService::preview()). The real application happens
+     * once, server-side, inside CreateBookingAction when the booking is placed.
+     */
+    private function membershipPreview(Service $service, float $price): ?array
+    {
+        if (! auth()->check()) {
+            return null;
+        }
+
+        return app(\App\Services\Plans\MembershipBenefitService::class)
+            ->preview(auth()->user(), $service, $this->addressId, $price);
+    }
+
     public function render()
     {
         $service = Service::with(['category', 'subcategory'])->findOrFail($this->serviceId);
@@ -435,6 +450,7 @@ class Wizard extends Component
             'selectedOptions' => $selectedOptions,
             'optionsEstimate' => $this->optionsTotal($selectedOptions),
             'baseEstimate' => (float) $card['price'],
+            'membershipPreview' => $this->membershipPreview($service, (float) $card['price']),
             'addresses' => Address::where('user_id', auth()->id())->orderByDesc('is_default')->latest()->get(),
             'enabledMethods' => $this->enabledPaymentMethods(),
             'walletBalance' => $this->walletBalance(),

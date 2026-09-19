@@ -559,6 +559,12 @@
                             @error('editDiscountPrice') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
                         </div>
                         <div>
+                            <label class="block text-sm font-medium mb-1">Visiting charge ({{ $currencySymbol }})</label>
+                            <input type="number" step="0.01" min="0" wire:model="editVisitingCharge" class="w-full border rounded px-3 py-2 text-sm">
+                            <p class="text-[11px] text-gray-400 mt-0.5">Part of the price. A membership free visit waives only this.</p>
+                            @error('editVisitingCharge') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
+                        </div>
+                        <div>
                             <label class="block text-sm font-medium mb-1">Est. time (min) <span class="text-red-500">*</span></label>
                             <input type="number" step="1" wire:model="editDurationEstimateMins" class="w-full border rounded px-3 py-2 text-sm">
                             @error('editDurationEstimateMins') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror

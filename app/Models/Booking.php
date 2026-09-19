@@ -37,6 +37,7 @@ class Booking extends Model implements Orderable
         'price_final',
         'payment_status',
         'payment_method',
+        'is_priority',
         'coupon_id',
         'cancellation_reason_id',
         'cancellation_note',
@@ -58,6 +59,7 @@ class Booking extends Model implements Orderable
     ];
 
     protected $casts = [
+        'is_priority' => 'boolean',
         'scheduled_at' => 'datetime',
         'completed_at' => 'datetime',
         'on_hold_since' => 'datetime',

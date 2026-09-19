@@ -18,9 +18,9 @@ class Subscription extends Model
     protected $table = 'subscriptions';
 
     protected $fillable = [
-        'subscribable_type', 'subscribable_id', 'plan_id', 'status',
+        'subscribable_type', 'subscribable_id', 'plan_id', 'registered_address_id', 'status',
         'starts_at', 'current_period_start', 'current_period_end', 'expires_at',
-        'auto_renew', 'cancelled_at', 'cancellation_reason', 'grace_period_ends_at',
+        'auto_renew', 'cancelled_at', 'cancellation_reason', 'grace_period_ends_at', 'expiry_reminder_sent_at',
         'pending_plan_id', 'pending_change_type', 'pending_change_effective_at',
     ];
 
@@ -32,11 +32,14 @@ class Subscription extends Model
         'auto_renew' => 'boolean',
         'cancelled_at' => 'datetime',
         'grace_period_ends_at' => 'datetime',
+        'expiry_reminder_sent_at' => 'datetime',
         'pending_change_effective_at' => 'datetime',
     ];
 
     public function subscribable() { return $this->morphTo(); }
     public function plan() { return $this->belongsTo(Plan::class); }
+    /** The single saved address an address-locked membership is valid for. */
+    public function registeredAddress() { return $this->belongsTo(Address::class, 'registered_address_id'); }
     public function pendingPlan() { return $this->belongsTo(Plan::class, 'pending_plan_id'); }
     public function entitlementBalances() { return $this->hasMany(EntitlementBalance::class); }
     public function usageLedger() { return $this->hasMany(UsageLedger::class); }

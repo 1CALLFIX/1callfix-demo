@@ -29,4 +29,16 @@ class Address extends Model
     public function user() { return $this->belongsTo(User::class); }
     public function franchise() { return $this->belongsTo(Franchise::class); }
     public function zone() { return $this->belongsTo(Zone::class); }
+
+    /**
+     * True while a live (or awaiting-payment) membership is registered to this
+     * address. Deleting it would silently strip an address-locked membership of
+     * its lock (the FK is nullOnDelete), so both delete paths refuse instead.
+     */
+    public function registersLiveMembership(): bool
+    {
+        return \App\Models\Subscription::where('registered_address_id', $this->id)
+            ->whereIn('status', ['pending_payment', 'active', 'grace_period', 'past_due', 'paused'])
+            ->exists();
+    }
 }

@@ -21,6 +21,8 @@ use App\Livewire\Customer\Orders\Show as CustomerOrderShow;
 use App\Livewire\Customer\Orders\Index as CustomerOrders;
 use App\Livewire\Customer\Search as CustomerSearch;
 use App\Livewire\Customer\Wallet\Index as CustomerWallet;
+use App\Livewire\Customer\Membership\Account as CustomerMembershipAccount;
+use App\Livewire\Customer\Membership\Show as CustomerMembershipShow;
 use App\Livewire\Provider\Activity as ProviderActivity;
 use App\Livewire\Provider\Auth\Login as ProviderLogin;
 use App\Livewire\Provider\Auth\Register as ProviderRegister;
@@ -93,6 +95,11 @@ Route::get('/services', CustomerServiceIndex::class)->name('customer.services.in
 Route::get('/offers', CustomerServiceIndex::class)->name('customer.offers');
 Route::get('/services/{service}', CustomerServiceShow::class)->name('customer.services.show');
 
+// Membership details + purchase (public — browse first, log in to buy). Binds on
+// the plan's unique slug; Show::mount() 404s anything that is not a live
+// customer membership, so a draft or provider plan is never reachable here.
+Route::get('/membership/{plan:slug}', CustomerMembershipShow::class)->name('customer.membership.show');
+
 /*
  | Auth (rebuild): password-first login, plus the one-time verification
  | flows — signup, forgot-password, the Google mandatory-mobile step, and
@@ -159,6 +166,9 @@ Route::middleware(['auth', \App\Http\Middleware\EnsureAccountNotSuspended::class
 
     // Wallet balance + ledger + top-up.
     Route::get('/wallet', CustomerWallet::class)->name('customer.wallet');
+
+    // The customer's own memberships: status, remaining benefits, usage, renew/cancel.
+    Route::get('/account/membership', CustomerMembershipAccount::class)->name('customer.membership.account');
 });
 
 /*

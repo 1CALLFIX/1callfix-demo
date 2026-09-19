@@ -16,6 +16,7 @@ use App\Services\AdminOpsAlertService;
 use App\Services\FlashSaleService;
 use App\Services\ModuleActivationService;
 use App\Services\Plans\EntitlementService;
+use App\Services\Plans\MembershipBenefitService;
 use App\Services\WalletService;
 use App\Support\Modules;
 use Illuminate\Support\Facades\DB;
@@ -24,6 +25,7 @@ class CreateBookingAction
 {
     public function __construct(
         private EntitlementService $entitlementService,
+        private MembershipBenefitService $membershipBenefits,
         private ModuleActivationService $moduleActivation,
         private FlashSaleService $flashSales,
     ) {
@@ -189,6 +191,32 @@ class CreateBookingAction
             $adjustment = $this->entitlementService->resolveAndConsumeForBooking($booking->customer, $basePrice, $booking);
             if ($adjustment) {
                 $booking->price_quoted = $adjustment['adjusted_price'];
+                $booking->save();
+            }
+
+            // Membership vouchers (Prime-style included services / free visits).
+            // Applied to whatever the price is by now, adjusts ONLY price_quoted —
+            // parts, materials and out-of-scope work are added later as
+            // BookingExtraItem rows and stay fully chargeable. Consumed here, at
+            // booking_created, inside this same transaction; a pre-service
+            // cancellation gives it back (EntitlementService::reverseForCancelledBooking).
+            $benefit = $this->membershipBenefits->applyForBooking(
+                $booking->customer,
+                $service,
+                $booking,
+                (float) $booking->price_quoted,
+            );
+            if ($benefit) {
+                $booking->price_quoted = $benefit['adjusted_price'];
+            }
+
+            // Priority Based Service: recorded on the booking, read only by
+            // ServiceMatchingJob to widen the offer batch.
+            if ($this->membershipBenefits->customerHasPriority($booking->customer, $booking->address_id)) {
+                $booking->is_priority = true;
+            }
+
+            if ($benefit || $booking->is_priority) {
                 $booking->save();
             }
         }

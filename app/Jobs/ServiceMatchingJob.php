@@ -139,7 +139,16 @@ class ServiceMatchingJob implements ShouldQueue
         }
 
         $offerTimeoutSeconds = $this->offerTimeoutSeconds();
-        $candidates = $dispatchService->findCandidates($booking, $this->batchSize());
+        // Priority Based Service (membership): a priority booking asks for a wider
+        // offer batch each round. findCandidates() still applies every
+        // eligibility / zone / location-freshness / skill rule, so this is a
+        // preference in allocation, not a bypass and not a guarantee.
+        $batch = $this->batchSize();
+        if ($booking->is_priority) {
+            $batch *= max(1, (int) config('membership.priority_batch_multiplier', 2));
+        }
+
+        $candidates = $dispatchService->findCandidates($booking, $batch);
 
         if ($candidates->isEmpty()) {
             // Round DOES increment here too -- confirmed bug, found via the

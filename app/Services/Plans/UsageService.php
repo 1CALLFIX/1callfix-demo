@@ -2,6 +2,7 @@
 
 namespace App\Services\Plans;
 
+use App\Exceptions\InsufficientEntitlementException;
 use App\Models\Booking;
 use App\Models\EntitlementBalance;
 use App\Models\UsageLedger;
@@ -36,7 +37,34 @@ class UsageService
         ?int $createdBy = null
     ): UsageLedger {
         return DB::transaction(function () use ($balance, $quantityDelta, $monetaryDelta, $booking, $wasOverage, $overageCharged, $reason, $redeemedCategory, $createdBy) {
+            // The row lock is what serialises two concurrent redemptions of
+            // the same balance — both the idempotency lookup and the
+            // remaining-quantity check below must happen AFTER it is held.
             $balance = EntitlementBalance::lockForUpdate()->findOrFail($balance->id);
+
+            // Idempotent per booking: a booking consumes a given entitlement
+            // at most once. A repeated request / retried callback gets the
+            // ORIGINAL ledger row back and nothing is written again. A row
+            // that has since been reversed no longer counts, so a genuinely
+            // new consumption can follow a cancellation.
+            if ($booking !== null) {
+                $existing = $this->activeConsumeFor($booking->id, $balance);
+                if ($existing) {
+                    return $existing;
+                }
+            }
+
+            // Over-consumption guard, for quantity-limited entitlements only
+            // (an unlimited entitlement has quantity NULL and no ceiling). A
+            // zero-delta consume is an audit marker (commission-rate
+            // adjustments) and never trips it.
+            if (abs($quantityDelta) > 0 && ! $wasOverage && $balance->planEntitlement?->quantity !== null
+                && $balance->remainingQuantity() < abs($quantityDelta)) {
+                throw new InsufficientEntitlementException(
+                    "Not enough left on that entitlement: {$balance->remainingQuantity()} remaining, ".abs($quantityDelta).' requested.'
+                );
+            }
+
             $balance->consumed_quantity += abs($quantityDelta);
             $balance->consumed_monetary_value += abs($monetaryDelta);
             $balance->save();
@@ -56,6 +84,22 @@ class UsageService
                 'created_by' => $createdBy,
             ]);
         });
+    }
+
+    /** The booking's live (not-yet-reversed) consume row for this balance's entitlement, if any. */
+    public function activeConsumeFor(int $bookingId, EntitlementBalance $balance): ?UsageLedger
+    {
+        return UsageLedger::where('booking_id', $bookingId)
+            ->where('subscription_id', $balance->subscription_id)
+            ->where('plan_entitlement_id', $balance->plan_entitlement_id)
+            ->where('event_type', 'consume')
+            ->whereNotExists(function ($q) {
+                $q->selectRaw('1')->from('usage_ledger as r')
+                    ->whereColumn('r.related_usage_ledger_id', 'usage_ledger.id')
+                    ->where('r.event_type', 'reverse');
+            })
+            ->orderByDesc('id')
+            ->first();
     }
 
     /**

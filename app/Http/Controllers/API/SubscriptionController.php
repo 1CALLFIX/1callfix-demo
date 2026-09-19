@@ -7,6 +7,7 @@ use App\Models\BusinessAccount;
 use App\Models\Plan;
 use App\Models\Subscription;
 use App\Models\User;
+use App\Services\Plans\MembershipPresenter;
 use App\Services\Plans\SubscriptionService;
 use Illuminate\Http\Request;
 
@@ -29,33 +30,33 @@ class SubscriptionController extends Controller
         $viaBusinessAccounts = Subscription::where('subscribable_type', BusinessAccount::class)
             ->whereIn('subscribable_id', $businessAccountIds);
 
-        $subscriptions = $own->union($viaBusinessAccounts)->with('plan')->latest()->get();
+        $subscriptions = $own->union($viaBusinessAccounts)->with(['plan', 'registeredAddress:id,label,address_line,pincode'])->latest()->get();
 
         return response()->json(['subscriptions' => $subscriptions]);
     }
 
-    /** GET /api/subscriptions/{id}/entitlements */
-    public function entitlements(Request $request, int $id)
+    /**
+     * GET /api/subscriptions/{id}/entitlements
+     *
+     * Superset of the original four keys — entitlement_type, remaining_quantity,
+     * remaining_monetary_value and period_end are unchanged — plus what a client
+     * needs to tell three `quantity` benefits apart: name, total, remaining,
+     * choices, included/excluded scope and the catalog services each covers.
+     */
+    public function entitlements(Request $request, int $id, MembershipPresenter $presenter)
     {
         $subscription = $this->ownedOrFail($request, $id);
-        $balances = $subscription->entitlementBalances()->where('status', 'current')->with('planEntitlement')->get()
-            ->map(fn ($b) => [
-                'entitlement_type' => $b->planEntitlement->entitlement_type,
-                'remaining_quantity' => $b->remainingQuantity(),
-                'remaining_monetary_value' => $b->remainingMonetaryValue(),
-                'period_end' => $b->period_end,
-            ]);
 
-        return response()->json(['entitlements' => $balances]);
+        return response()->json(['entitlements' => $presenter->currentBalances($subscription)->values()]);
     }
 
     /** GET /api/subscriptions/{id}/usage */
-    public function usage(Request $request, int $id)
+    public function usage(Request $request, int $id, MembershipPresenter $presenter)
     {
         $subscription = $this->ownedOrFail($request, $id);
-        $ledger = $subscription->usageLedger()->latest()->limit(100)->get();
+        $ledger = $subscription->usageLedger()->with(['planEntitlement', 'booking:id,code'])->latest('id')->limit(100)->get();
 
-        return response()->json(['usage' => $ledger]);
+        return response()->json(['usage' => $ledger->map(fn ($row) => $presenter->usage($row))->values()]);
     }
 
     /** POST /api/subscriptions/{id}/cancel */

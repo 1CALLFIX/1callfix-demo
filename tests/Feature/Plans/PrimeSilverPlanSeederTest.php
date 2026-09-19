@@ -10,7 +10,7 @@ use App\Models\UsageLedger;
 use App\Services\Plans\SubscriptionService;
 use Database\Seeders\PrimeSilverPlanSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Tests\Feature\Support\BookingFixtureHelpers;
+use Tests\Feature\Support\PrimeSilverFixtures;
 use Tests\TestCase;
 
 /**
@@ -19,7 +19,7 @@ use Tests\TestCase;
  */
 class PrimeSilverPlanSeederTest extends TestCase
 {
-    use BookingFixtureHelpers;
+    use PrimeSilverFixtures;
     use RefreshDatabase;
 
     private function seedPrimeSilver(): Plan
@@ -74,8 +74,11 @@ class PrimeSilverPlanSeederTest extends TestCase
     {
         $plan = $this->seedPrimeSilver();
 
+        $this->fakeRazorpay();
+        [, , $franchise, $zone] = $this->makeFranchiseTree();
         $customer = $this->makeCustomer();
-        $result = app(SubscriptionService::class)->initiateSubscribe($customer, 'customer', $plan);
+        $address = $this->makeAddress($customer, $franchise, $zone);
+        $result = app(SubscriptionService::class)->initiateSubscribe($customer, 'customer', $plan, $address->id);
         $this->assertNotNull(Subscription::find($result['subscription_id']));
 
         $plan->update(['price' => 1.00]);
@@ -87,11 +90,14 @@ class PrimeSilverPlanSeederTest extends TestCase
     public function test_the_seeded_plan_supports_a_real_subscribe_and_ac_redemption(): void
     {
         $plan = $this->seedPrimeSilver();
+        $this->fakeRazorpay();
+        [, , $franchise, $zone] = $this->makeFranchiseTree();
         $customer = $this->makeCustomer();
+        $address = $this->makeAddress($customer, $franchise, $zone);
 
         // Priced plan (₹1,999) — initiateSubscribe leaves it pending_payment;
         // activate() is what the captured-payment webhook calls.
-        $result = app(SubscriptionService::class)->initiateSubscribe($customer, 'customer', $plan);
+        $result = app(SubscriptionService::class)->initiateSubscribe($customer, 'customer', $plan, $address->id);
         $sub = Subscription::find($result['subscription_id']);
         app(SubscriptionService::class)->activate($sub);
         $sub->refresh();

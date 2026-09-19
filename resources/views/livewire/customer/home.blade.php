@@ -239,9 +239,8 @@
     @endif
 
     {{-- =========================== Membership ============================
-         Real, active `customer_membership` plans. Buying one is Phase E, so
-         this states what the plan is and links to the honest placeholder
-         rather than implying checkout works here.
+         Real, active `customer_membership` plans, read from the Plan Engine.
+         "About membership" opens the plan's real details + purchase page.
     --}}
     @if ($membershipPlans->isNotEmpty())
         <section aria-labelledby="membership-heading" class="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
@@ -263,13 +262,13 @@
                                 <h3 class="text-sm font-semibold text-white">{{ $plan->name }}</h3>
                                 <p class="mt-2 text-2xl font-bold text-white">
                                     {{ $currencySymbol }}{{ number_format((float) $plan->price, 2) }}
-                                    <span class="text-xs font-medium text-blue-200">/ {{ $plan->billing_cycle }}</span>
+                                    <span class="text-xs font-medium text-blue-200">/ {{ $plan->validityLabel() }}</span>
                                 </p>
                             </li>
                         @endforeach
                     </ul>
 
-                    <a href="{{ route('customer.coming-soon', 'booking') }}"
+                    <a href="{{ route('customer.membership.show', $membershipPlans->first()) }}"
                        class="mt-6 inline-flex min-h-11 items-center rounded-lg bg-white px-5 text-sm font-semibold text-blue-700 shadow-sm transition hover:bg-blue-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">
                         About membership
                     </a>

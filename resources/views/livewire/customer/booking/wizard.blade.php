@@ -285,6 +285,19 @@
                     </div>
                 </dl>
 
+                @if ($membershipPreview)
+                    {{-- Read-only preview. Nothing is used until you place the booking. --}}
+                    <div class="mt-3 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-xs text-emerald-900" data-testid="membership-preview">
+                        <p class="font-semibold">{{ $membershipPreview['plan_name'] }}</p>
+                        <p class="mt-0.5">
+                            {{ $membershipPreview['entitlement'] }}
+                            — {{ $membershipPreview['effect'] === 'visit_fee_waiver' ? 'visiting charge waived' : 'service included' }}
+                            @if ($membershipPreview['choice']) ({{ ucfirst($membershipPreview['choice']) }})@endif
+                        </p>
+                        <p class="mt-0.5">You'd pay about {{ $currencySymbol }}{{ number_format($membershipPreview['adjusted_price'], 2) }}. Spare parts, materials and out-of-scope work are extra.</p>
+                    </div>
+                @endif
+
                 <p class="mt-2 text-[11px] leading-snug text-slate-500">Estimate only — the server confirms your final price when you book.</p>
 
                 @if ($step !== 'configure')

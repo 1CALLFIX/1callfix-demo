@@ -46,7 +46,42 @@ class RenewalService
             $counts[$outcome] = ($counts[$outcome] ?? 0) + 1;
         }
 
+        $reminded = $this->sendExpiryReminders();
+        if ($reminded > 0) {
+            $counts['expiry_reminded'] = $reminded;
+        }
+
         return $counts;
+    }
+
+    /**
+     * One "your membership ends soon" reminder per period, for CUSTOMER
+     * memberships only (provider packages and business subscriptions keep
+     * exactly the notifications they had). Runs inside the existing hourly
+     * plans:renew-due pass — no extra scheduler entry. expiry_reminder_sent_at
+     * makes it fire once; activate()/renewPeriod() clear it for the next period.
+     *
+     * @return int reminders sent
+     */
+    private function sendExpiryReminders(): int
+    {
+        $days = max(1, (int) config('membership.expiry_reminder_days', 14));
+
+        $due = Subscription::where('status', 'active')
+            ->whereNull('expiry_reminder_sent_at')
+            ->where('current_period_end', '>', now())
+            ->where('current_period_end', '<=', now()->addDays($days))
+            ->whereHas('plan', fn ($q) => $q->where('plan_family', 'customer_membership'))
+            ->get();
+
+        foreach ($due as $subscription) {
+            $subscription->expiry_reminder_sent_at = now();
+            $subscription->save();
+
+            $this->notify($subscription->fresh(), 'expiry_reminder');
+        }
+
+        return $due->count();
     }
 
     private function processOne(Subscription $subscription): string
@@ -145,7 +180,7 @@ class RenewalService
                     'period_start' => $newStart,
                     'period_end' => $newEnd,
                     'granted_quantity' => $entitlement->quantity ?? 0,
-                    'granted_monetary_value' => $entitlement->monetary_value ?? 0,
+                    'granted_monetary_value' => $entitlement->grantedMonetaryValue(),
                     'rolled_over_quantity' => $rolloverQty,
                     'rolled_over_monetary_value' => $rolloverVal,
                     'rollover_expires_at' => $entitlement->rollover_expiry_days
@@ -163,6 +198,7 @@ class RenewalService
             $subscription->current_period_start = $newStart;
             $subscription->current_period_end = $newEnd;
             $subscription->grace_period_ends_at = null;
+            $subscription->expiry_reminder_sent_at = null;
             $subscription->save();
         });
 

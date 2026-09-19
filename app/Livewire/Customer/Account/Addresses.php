@@ -206,6 +206,12 @@ class Addresses extends Component
             return;
         }
 
+        if ($address->registersLiveMembership()) {
+            $this->error = "A membership is registered to this address, so it can't be deleted.";
+
+            return;
+        }
+
         $address->delete();
         $this->notice = 'Address removed.';
     }

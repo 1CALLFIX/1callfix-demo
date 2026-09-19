@@ -5,6 +5,7 @@ namespace App\Http\Controllers\API;
 use App\Http\Controllers\Controller;
 use App\Models\BusinessAccount;
 use App\Models\Plan;
+use App\Services\Plans\MembershipPresenter;
 use App\Services\Plans\SubscriptionService;
 use Illuminate\Http\Request;
 
@@ -16,7 +17,7 @@ use Illuminate\Http\Request;
 class PlanController extends Controller
 {
     /** GET /api/plans?acting_as=customer|provider|business_account */
-    public function index(Request $request)
+    public function index(Request $request, MembershipPresenter $presenter)
     {
         $validated = $request->validate(['acting_as' => ['required', 'in:customer,provider,business_account']]);
         $user = $request->user();
@@ -28,10 +29,27 @@ class PlanController extends Controller
                     ->orWhere(fn ($qq) => $qq->where('scope_type', 'franchise')->where('scope_id', $user->franchise_id))
                     ->orWhere(fn ($qq) => $qq->where('scope_type', 'zone')->where('scope_id', $user->zone_id));
             })
-            ->with('entitlements')
+            ->with('entitlements.targets')
             ->get();
 
-        return response()->json(['plans' => $plans]);
+        // Superset of the raw plan row: every existing field is still there, plus
+        // the customer-facing shape (validity, terms, address lock, and each
+        // benefit's name / total / choices / scope) so a client needs no second call.
+        return response()->json([
+            'plans' => $plans->map(function ($plan) use ($presenter) {
+                $card = $presenter->plan($plan);
+                $raw = $plan->toArray();
+                $raw['entitlements'] = collect($raw['entitlements'] ?? [])
+                    ->map(fn ($e) => $e + (collect($card['entitlements'])->firstWhere('entitlement_id', $e['id']) ?? []))
+                    ->all();
+
+                return $raw + [
+                    'validity_label' => $card['validity_label'],
+                    'address_locked' => $card['address_locked'],
+                    'terms' => $card['terms'],
+                ];
+            })->values(),
+        ]);
     }
 
     /** POST /api/plans/{plan}/subscribe */
@@ -41,6 +59,8 @@ class PlanController extends Controller
         $validated = $request->validate([
             'acting_as' => ['required', 'in:customer,provider,business_account'],
             'business_account_id' => ['required_if:acting_as,business_account', 'integer'],
+            // The saved address an address-locked plan (e.g. Prime Silver) is registered to.
+            'address_id' => ['nullable', 'integer'],
         ]);
 
         $actor = $request->user();
@@ -51,7 +71,7 @@ class PlanController extends Controller
         }
 
         try {
-            $result = $service->initiateSubscribe($actor, $validated['acting_as'], $plan);
+            $result = $service->initiateSubscribe($actor, $validated['acting_as'], $plan, $validated['address_id'] ?? null);
         } catch (\Throwable $e) {
             return response()->json(['message' => $e->getMessage()], 422);
         }
