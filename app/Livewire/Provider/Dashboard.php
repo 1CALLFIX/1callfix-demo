@@ -69,14 +69,17 @@ class Dashboard extends Component
         // Jobs\Index) so the chime + tab-hidden OS notification fire even
         // when they're not on the Job Offers page, plus an inline banner.
         $window = (int) Setting::get('dispatch.offer_timeout_seconds', 25);
-        $pendingOffers = DispatchAttempt::query()
+        $liveOffers = DispatchAttempt::query()
             ->where('provider_id', $provider->id)
             ->where('status', 'notified')
             ->where('notified_at', '>=', now()->subSeconds($window))
             ->whereHas('booking', fn ($q) => $q->whereIn('status', ['pending', 'searching_provider']))
-            ->count();
+            ->with(['booking.service:id,name', 'booking.address:id,label', 'booking.franchise.country'])
+            ->latest('notified_at')
+            ->get();
+        $pendingOffers = $liveOffers->count();
 
-        $this->dispatch('provider-alert-offers', count: $pendingOffers);
+        $this->dispatch('provider-alert-offers', count: $pendingOffers, offers: $this->offerAlertSummaries($liveOffers, $window));
 
         return view('livewire.provider.dashboard', [
             'provider' => $provider,

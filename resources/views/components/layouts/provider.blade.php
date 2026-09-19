@@ -43,7 +43,11 @@
     @fonts
     {{-- push-notifications.js: FCM web token registration (Phase 2). Inert
          no-op unless VITE_FIREBASE_* + VITE_FIREBASE_VAPID_KEY are built in. --}}
-    @vite(['resources/css/app.css', 'resources/js/app.js', 'resources/js/push-notifications.js'])
+    {{-- provider-alerts.js: foreground job-offer ring + status chime. A Vite
+         entry in <head> on purpose — wire:navigate keeps head modules, so it
+         is evaluated once per document. As a raw <body> script it was
+         re-run on every visit (duplicate declarations, listeners, timers). --}}
+    @vite(['resources/css/app.css', 'resources/js/app.js', 'resources/js/push-notifications.js', 'resources/js/provider-alerts.js'])
     @livewireStyles
 </head>
 <body class="min-h-full bg-slate-50 text-slate-900 antialiased flex flex-col">
@@ -163,19 +167,70 @@
     @endauth
 
     <main id="provider-main" tabindex="-1" class="mx-auto w-full max-w-4xl flex-1 px-4 py-6 focus:outline-none sm:px-6">
+        @auth
+            {{-- Foreground job-offer alert. Purely presentational: the Alpine
+                 component (resources/js/provider-alerts.js) is fed by the
+                 `provider-alert-offers` event the Jobs\Index / Dashboard
+                 components dispatch from their own server-authoritative
+                 offer query, replaces its state on every event, and rings
+                 while an offer stands. In normal flow (not fixed) so it can
+                 never cover the Accept / Decline buttons below it. --}}
+            <section x-data="providerOfferAlert" x-show="active" style="display: none;"
+                     data-respond-url="{{ route('provider.jobs.index') }}"
+                     data-on-offers-page="{{ request()->routeIs('provider.jobs.index') ? '1' : '0' }}"
+                     aria-label="Incoming job offer"
+                     class="mb-4 rounded-2xl border-2 border-amber-400 bg-amber-50 p-4 shadow-lg ring-4 ring-amber-200/70">
+                <div class="flex items-start gap-3">
+                    <span class="relative mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-amber-500 text-white" aria-hidden="true">
+                        <span class="absolute inset-0 rounded-full bg-amber-400 opacity-60 motion-safe:animate-ping"></span>
+                        <svg class="relative h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 5a2 2 0 012-2h2.28a1 1 0 01.95.68l1.5 4.5a1 1 0 01-.5 1.2l-2.26 1.13a11 11 0 005.52 5.52l1.13-2.26a1 1 0 011.2-.5l4.5 1.5a1 1 0 01.68.95V19a2 2 0 01-2 2h-1C9.72 21 3 14.28 3 6V5z"/></svg>
+                    </span>
+
+                    <div class="min-w-0 flex-1">
+                        <div class="flex flex-wrap items-center justify-between gap-2">
+                            <p class="text-xs font-extrabold uppercase tracking-widest text-amber-800">
+                                <span role="alert">New job offer</span>
+                                <span x-show="extra > 0" x-text="'+' + extra + ' more'" class="ml-1 font-semibold normal-case tracking-normal text-amber-700"></span>
+                            </p>
+                            <span role="timer" x-show="primary" x-text="remaining + 's left'"
+                                  x-bind:class="remaining <= 10 ? 'bg-rose-600 text-white' : 'bg-amber-200 text-amber-900'"
+                                  class="rounded-full px-2.5 py-0.5 text-xs font-bold tabular-nums"></span>
+                        </div>
+
+                        <template x-if="primary">
+                            <div class="mt-1">
+                                <p class="text-base font-bold text-slate-900">
+                                    <span x-text="primary.service"></span>
+                                    <span x-show="primary.price" x-text="'· ' + primary.price" class="font-semibold text-emerald-700"></span>
+                                </p>
+                                <p x-show="meta" x-text="meta" class="mt-0.5 text-xs text-slate-600"></p>
+                            </div>
+                        </template>
+
+                        <div class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
+                            <template x-if="onOffersPage">
+                                <p class="font-semibold text-amber-900">Accept or decline below ↓</p>
+                            </template>
+                            <template x-if="!onOffersPage">
+                                <a x-bind:href="respondUrl" wire:navigate
+                                   class="inline-flex min-h-10 items-center rounded-lg bg-amber-600 px-4 font-semibold text-white hover:bg-amber-700">
+                                    View &amp; respond →
+                                </a>
+                            </template>
+                            <button type="button" x-show="audioBlocked" x-on:click="enableSound($event)"
+                                    class="text-xs font-semibold text-amber-800 underline underline-offset-2">
+                                Tap to enable ring sound
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        @endauth
+
         {{ $slot }}
     </main>
 
     @livewireScripts
-
-    {{-- Phase PN1 — foreground job-offer / status alerts (chime + tab-hidden
-         OS notification). Plain static script, same pattern as admin's
-         zone-map.js / booking-address-map.js — no bundler, no manifest, so
-         nothing new to build or deploy. Driven entirely by the provider
-         components' existing wire:poll: it listens for the
-         `provider-alert-offers` / `provider-alert-status` browser events
-         Livewire re-emits on `window`. --}}
-    <script src="{{ asset('js/provider-alerts.js') }}" defer></script>
 
     @stack('scripts')
 </body>

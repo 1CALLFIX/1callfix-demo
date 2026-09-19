@@ -9,12 +9,17 @@
         <div role="alert" class="mt-4 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">{{ $error }}</div>
     @endif
 
+    {{-- The layout's ringing offer banner (provider-alerts.js) is the alert
+         with JS; this server-rendered link stays as the no-JS fallback so it
+         is not shown twice. --}}
     @if ($pendingOffers > 0)
-        <a href="{{ route('provider.jobs.index') }}" wire:navigate
-           class="mt-4 flex items-center justify-between gap-3 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-900 hover:bg-amber-100">
-            <span>{{ $pendingOffers === 1 ? 'You have a new job offer' : $pendingOffers.' new job offers' }} — tap to respond</span>
-            <span aria-hidden="true">→</span>
-        </a>
+        <noscript>
+            <a href="{{ route('provider.jobs.index') }}" wire:navigate
+               class="mt-4 flex items-center justify-between gap-3 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-900 hover:bg-amber-100">
+                <span>{{ $pendingOffers === 1 ? 'You have a new job offer' : $pendingOffers.' new job offers' }} — tap to respond</span>
+                <span aria-hidden="true">→</span>
+            </a>
+        </noscript>
     @endif
 
     {{-- Enable closed-app / locked-phone job-offer push (Phase 2). Shown
