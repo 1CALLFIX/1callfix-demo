@@ -308,22 +308,57 @@ function setup() {
 
         // The per-offer "Ns left" pill on the Job Offers list. Display only:
         // the server re-renders the list every poll and drops expired offers.
-        window.Alpine.data('providerOfferCountdown', (seconds) => {
+        //
+        // The server's seconds-left arrive as `data-seconds`, deliberately NOT
+        // as an x-data argument. wire:poll morphs the pill on every render, and
+        // an x-data attribute whose value changes each time makes Alpine tear
+        // the component down and rebuild it in place while the pill's x-text
+        // stays bound to the OLD scope — the text then froze between renders.
+        // With a constant x-data the component (and its one interval) lives
+        // until the element really goes away; a re-render only rewrites
+        // data-seconds, which the narrow attribute observer folds back into `n`.
+        window.Alpine.data('providerOfferCountdown', () => {
             let timer = null;
-            const stop = () => {
+            let observer = null;
+            const stopTimer = () => {
                 if (timer !== null) {
                     window.clearInterval(timer);
                     timer = null;
                 }
             };
+            const stop = () => {
+                stopTimer();
+                if (observer !== null) {
+                    observer.disconnect();
+                    observer = null;
+                }
+            };
 
             return {
-                n: Math.max(0, Number(seconds) || 0),
+                n: 0,
                 init() {
-                    timer = window.setInterval(() => {
-                        if (this.n > 0) this.n--;
-                        else stop();
-                    }, 1000);
+                    const el = this.$el;
+                    // Idempotent: at most one interval per pill, however many
+                    // times the server re-syncs it.
+                    const run = () => {
+                        if (timer !== null || this.n <= 0) return;
+                        timer = window.setInterval(() => {
+                            if (this.n > 0) this.n--;
+                            else stopTimer();
+                        }, 1000);
+                    };
+                    // The server's figure replaces the local count (same rule
+                    // as the banner: the server list is the authority).
+                    const sync = () => {
+                        this.n = Math.max(0, Number(el.dataset.seconds) || 0);
+                        run();
+                    };
+
+                    sync();
+                    if (typeof MutationObserver === 'function') {
+                        observer = new MutationObserver(sync);
+                        observer.observe(el, { attributes: true, attributeFilter: ['data-seconds'] });
+                    }
                 },
                 destroy: stop,
             };

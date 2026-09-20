@@ -45,9 +45,15 @@
                              the same visible countdown as before, but its 1s
                              timer is cleared in destroy(). The old inline
                              x-init setInterval outlived the page and kept
-                             mutating a torn-down scope ("n is not defined"). --}}
+                             mutating a torn-down scope ("n is not defined").
+                             x-data must stay CONSTANT: the changing seconds go
+                             in data-seconds. An x-data value that changes on
+                             every poll makes Alpine rebuild the component
+                             while x-text stays bound to the old scope, which
+                             freezes the pill between renders. --}}
                         <span role="timer"
-                              x-data="providerOfferCountdown({{ $expiresIn }})"
+                              x-data="providerOfferCountdown"
+                              data-seconds="{{ $expiresIn }}"
                               class="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold tabular-nums text-amber-800"
                               x-text="(n > 0 ? n : 0) + 's left'">{{ $expiresIn }}s left</span>
                         <div class="flex gap-2">

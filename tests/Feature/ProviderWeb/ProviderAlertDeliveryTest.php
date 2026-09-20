@@ -103,7 +103,12 @@ class ProviderAlertDeliveryTest extends TestCase
         // ("Alpine Expression Error: n is not defined").
         $this->assertDoesNotMatchRegularExpression('/x-init="[^"]*setInterval/', $view);
         $this->assertStringNotContainsString('x-data="{ n:', $view);
-        $this->assertStringContainsString('x-data="providerOfferCountdown(', $view);
+        // x-data must stay constant (no per-render argument): the seconds go in
+        // data-seconds, otherwise every poll rebuilds the component and the
+        // pill freezes between renders — see ProviderOfferCountdownTest.
+        $this->assertStringContainsString('x-data="providerOfferCountdown"', $view);
+        $this->assertStringNotContainsString('x-data="providerOfferCountdown(', $view);
+        $this->assertStringContainsString('data-seconds="{{ $expiresIn }}"', $view);
 
         $js = $this->alertJs();
         $this->assertStringContainsString("Alpine.data('providerOfferCountdown'", $js);
