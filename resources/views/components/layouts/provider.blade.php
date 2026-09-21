@@ -168,6 +168,14 @@
 
     <main id="provider-main" tabindex="-1" class="mx-auto w-full max-w-4xl flex-1 px-4 py-6 focus:outline-none sm:px-6">
         @auth
+            {{-- Offer source for every page that doesn't already poll offers.
+                 Jobs\Index and Dashboard dispatch `provider-alert-offers`
+                 themselves; mounting the watcher there too would double the
+                 polling and the events. --}}
+            @unless (request()->routeIs('provider.jobs.index', 'provider.dashboard'))
+                <livewire:provider.offer-watcher />
+            @endunless
+
             {{-- Foreground job-offer alert. Purely presentational: the Alpine
                  component (resources/js/provider-alerts.js) is fed by the
                  `provider-alert-offers` event the Jobs\Index / Dashboard

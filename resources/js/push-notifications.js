@@ -69,8 +69,45 @@ async function ensureMessaging() {
     return messaging;
 }
 
-async function currentRegistration() {
-    return navigator.serviceWorker.register(SW_URL, { scope: '/' });
+const SW_ACTIVATE_TIMEOUT_MS = 10000;
+
+/** Resolves once `worker` is activated; rejects if it fails or never gets there. */
+function whenActivated(worker) {
+    return new Promise((resolve, reject) => {
+        if (worker.state === 'activated') return resolve();
+        const timer = setTimeout(() => reject(new Error('Service worker did not activate in time.')), SW_ACTIVATE_TIMEOUT_MS);
+        worker.addEventListener('statechange', () => {
+            if (worker.state === 'activated') { clearTimeout(timer); resolve(); }
+            else if (worker.state === 'redundant') { clearTimeout(timer); reject(new Error('Service worker install failed.')); }
+        });
+    });
+}
+
+let registrationPromise = null;
+
+/**
+ * The ACTIVE service-worker registration. register() resolves as soon as the
+ * worker is installing, and FCM's getToken() then fails with "no active
+ * Service Worker" on a first visit — so wait for activation before handing
+ * the registration on. One promise per page: repeated calls (opt-in click,
+ * silent refresh on load) reuse the same registration instead of racing to
+ * register again. A failure is not cached, so the next call retries.
+ */
+function currentRegistration() {
+    if (!registrationPromise) {
+        registrationPromise = (async () => {
+            const registration = await navigator.serviceWorker.register(SW_URL, { scope: '/' });
+            if (!registration.active) {
+                const pending = registration.installing || registration.waiting;
+                if (pending) await whenActivated(pending);
+            }
+            return registration;
+        })().catch((e) => {
+            registrationPromise = null;
+            throw e;
+        });
+    }
+    return registrationPromise;
 }
 
 export async function isPushSupported() {

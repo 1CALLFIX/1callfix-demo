@@ -21,6 +21,12 @@
  |   provider-alert-status   detail: { title, body }
  |       The held job changed status. One chime (+ OS notification if hidden).
  |
+ | Sources of provider-alert-offers: Jobs\Index and Dashboard (their own polls)
+ | and, on every other provider page, the layout-mounted OfferWatcher component
+ | (1CF-FIX-ALERT-002). All apply the same server-side live-offer predicate.
+ | With several provider tabs open each polls and shows the banner, but a Web
+ | Lock (`ringLock` below) lets only one tab sound the ring.
+ |
  | Delivery: this is a Vite entry loaded from the layout <head> (same as
  | push-notifications.js), so it is evaluated exactly once per document —
  | wire:navigate keeps head modules. It used to be a raw <script> in <body>,
@@ -185,6 +191,50 @@ function setup() {
         });
     }
 
+    /* ---------------------- cross-tab ring lease ---------------------- */
+
+    // Every open provider tab now polls offers (OfferWatcher) and would ring.
+    // One lock, held for as long as a tab is ringing, lets exactly one of them
+    // make the noise; the others still show the banner. Web Locks is atomic
+    // and the browser releases it if the owning tab closes or crashes, so
+    // there is no lease to expire or renew. `ifAvailable` never queues — a
+    // tab that loses simply retries on its next ring cycle. Without the API
+    // (older browsers) every tab rings, exactly as before.
+    const RING_LOCK = 'onecallfix-provider-ring';
+
+    const ringLock = {
+        held: false,
+        requesting: false,
+        release: null,
+
+        /** May this tab sound the ring right now? A grant arrives async and restarts the ring. */
+        acquire() {
+            if (!navigator.locks || typeof navigator.locks.request !== 'function') return true;
+            if (this.held) return true;
+            if (this.requesting) return false;
+            this.requesting = true;
+            navigator.locks.request(RING_LOCK, { ifAvailable: true }, (lock) => {
+                this.requesting = false;
+                if (!lock) return undefined; // another tab is ringing
+                if (!ringer.active) return undefined; // offer cleared while asking
+                this.held = true;
+                ringer.restart(); // sound now rather than a whole cycle later
+                return new Promise((resolve) => {
+                    this.release = () => {
+                        this.held = false;
+                        this.release = null;
+                        resolve();
+                    };
+                });
+            }).catch(() => { this.requesting = false; });
+            return false;
+        },
+
+        drop() {
+            if (this.release) this.release();
+        },
+    };
+
     /* ------------------------------ ringer ------------------------------ */
 
     /** Idempotent repeating ring: at most one timer, ever. */
@@ -206,10 +256,13 @@ function setup() {
             const ctx = audio.ensure();
             if (ctx && audio.running()) {
                 audio.setBlocked(false);
+                // Only a tab that can actually make sound competes for the
+                // ring lock, so a tab with blocked audio never mutes one that
+                // could. Losing the lock is silent: another tab is ringing.
                 // However a cycle is triggered (timer, or restart() after the
                 // first-gesture unlock), never schedule two within one
                 // cycle's span — that would double the pair.
-                if (ctx.currentTime >= this.nextAt) {
+                if (ringLock.acquire() && ctx.currentTime >= this.nextAt) {
                     scheduleRingCycle(ctx);
                     this.nextAt = ctx.currentTime + RING_CYCLE_MS / 1000 - 0.25;
                 }
@@ -219,6 +272,10 @@ function setup() {
                 audio.unlocked = false; // let the hint button / next gesture unlock again
                 audio.setBlocked(true);
             }
+            // Enforce "at most one timer" here rather than trusting every
+            // caller: a cycle can be re-entered (restart() from the lock grant)
+            // before this one has scheduled its successor.
+            if (this.timer !== null) window.clearTimeout(this.timer);
             this.timer = window.setTimeout(() => this.cycle(), RING_CYCLE_MS);
         },
 
@@ -237,6 +294,7 @@ function setup() {
                 this.timer = null;
             }
             silenceRing();
+            ringLock.drop();
         },
     };
 
