@@ -300,11 +300,85 @@ function setup() {
 
     /* --------------------------- Alpine component --------------------------- */
 
+    /* ------------------------ location heartbeat ---------------------------- */
+
+    // While a provider is online, the browser re-sends its location every two
+    // minutes through the component's own `goOnline(lat, lng)` (the dispatch
+    // freshness gate reads the resulting location_updated_at). The cadence, the
+    // visibility/geolocation guards and the call itself are unchanged from the
+    // inline x-init this replaced; what changed is ownership.
+    //
+    // That inline `x-init="setInterval(...)"` was never cleared. Every render of
+    // the marker (header chip, drawer copy, Dashboard card), every wire:navigate
+    // and — worst — going offline left its interval running, and it kept calling
+    // `$wire.goOnline`, quietly flipping the provider back online. Here each
+    // marker element is a `providerHeartbeat` Alpine component that only JOINS
+    // and LEAVES a page-wide set of members; ONE interval exists while the set
+    // is non-empty and is cleared the moment it empties. Alpine runs destroy()
+    // when the marker leaves the DOM (offline re-render, wire:navigate, morph),
+    // so the lifecycle is the element's, not a hand-rolled one.
+    const HEARTBEAT_MS = 120000;
+    const heartbeatMembers = new Set();
+    let heartbeatTimer = null;
+
+    /** Report a fix through the oldest live marker — one request, whatever the copies. */
+    function heartbeatReport(lat, lng) {
+        const owner = heartbeatMembers.values().next().value;
+        // An empty set means the provider went offline (or left) while the
+        // fix was resolving: report nothing rather than resurrect the session.
+        if (owner) owner.send(lat, lng);
+    }
+
+    function heartbeatTick() {
+        if (heartbeatMembers.size === 0 || document.hidden || !navigator.geolocation) return;
+        navigator.geolocation.getCurrentPosition(
+            (p) => heartbeatReport(p.coords.latitude, p.coords.longitude),
+            () => {},
+            { timeout: 8000 },
+        );
+    }
+
+    function heartbeatJoin(member) {
+        heartbeatMembers.add(member);
+        if (heartbeatTimer === null) {
+            heartbeatTimer = window.setInterval(heartbeatTick, HEARTBEAT_MS);
+        }
+    }
+
+    function heartbeatLeave(member) {
+        heartbeatMembers.delete(member);
+        if (heartbeatMembers.size === 0 && heartbeatTimer !== null) {
+            window.clearInterval(heartbeatTimer);
+            heartbeatTimer = null;
+        }
+    }
+
+    /* --------------------------- Alpine components -------------------------- */
+
     let registered = false;
 
     function registerAlpine() {
         if (registered || !window.Alpine || typeof window.Alpine.data !== 'function') return;
         registered = true;
+
+        // Marker for "this provider is online — keep the location fresh". Put on
+        // an element rendered ONLY while online, so leaving that state removes
+        // the element and Alpine's destroy() stops the heartbeat.
+        window.Alpine.data('providerHeartbeat', () => {
+            // One stable identity per instance: join/leave are idempotent even
+            // if Alpine re-runs init() on a morphed element.
+            const member = { send: null };
+            return {
+                init() {
+                    member.send = (lat, lng) => this.$wire.goOnline(lat, lng);
+                    heartbeatJoin(member);
+                },
+                destroy() {
+                    member.send = null;
+                    heartbeatLeave(member);
+                },
+            };
+        });
 
         // The per-offer "Ns left" pill on the Job Offers list. Display only:
         // the server re-renders the list every poll and drops expired offers.

@@ -9,6 +9,7 @@ use App\Livewire\Provider\Concerns\InteractsWithProvider;
 use App\Models\Booking;
 use App\Models\DispatchAttempt;
 use App\Models\Setting;
+use Livewire\Attributes\On;
 use Livewire\Component;
 
 /**
@@ -38,11 +39,19 @@ class Dashboard extends Component
     {
         $this->reset('notice', 'error');
 
+        // The location heartbeat re-calls this while already online; only a
+        // real offline → online flip needs to tell the sibling components.
+        $wasOnline = (bool) $this->provider()->is_online;
+
         app(SetProviderOnlineStatusAction::class)->execute($this->provider(), true, $lat, $lng);
 
         $this->notice = ($lat !== null && $lng !== null)
             ? "You're online."
             : "You're online, but we couldn't read your location — you won't receive jobs until we can. Allow location access and try again.";
+
+        if (! $wasOnline) {
+            $this->announceAvailabilityChange();
+        }
     }
 
     public function goOffline(): void
@@ -50,6 +59,18 @@ class Dashboard extends Component
         $this->reset('notice', 'error');
         app(SetProviderOnlineStatusAction::class)->execute($this->provider(), false);
         $this->notice = "You're offline.";
+
+        $this->announceAvailabilityChange();
+    }
+
+    /**
+     * The header chip (or its drawer copy) changed the status. Receiving the
+     * event re-renders this card from the row, so its online/offline state and
+     * heartbeat marker follow.
+     */
+    #[On(self::AVAILABILITY_EVENT)]
+    public function syncAvailability(): void
+    {
     }
 
     public function render()
