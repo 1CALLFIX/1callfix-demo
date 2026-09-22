@@ -31,6 +31,52 @@ class Index extends Component
 
     public string $notice = '';
 
+    /**
+     * Landing point of a job-offer push (ProviderJobOfferNotification::pushLink,
+     * `?offer={bookingId}`). The id is only a hint — every lookup below is
+     * scoped to the signed-in provider, so it can neither reveal nor act on
+     * anyone else's offer:
+     *
+     *   - already accepted by THIS provider → on to the job page;
+     *   - no live offer for THIS provider (expired, declined, taken by
+     *     another provider, cancelled, or simply not theirs) → one neutral
+     *     message. The wording is identical for every reason, on purpose.
+     *
+     * A live offer needs no special handling: it is in the list below.
+     */
+    public function mount(): void
+    {
+        // Digits only: (int) of an array or junk would otherwise quietly turn
+        // into a real booking id (?offer[]=x → 1).
+        $raw = request()->query('offer');
+        $bookingId = is_string($raw) && ctype_digit($raw) ? (int) $raw : 0;
+
+        if ($bookingId <= 0) {
+            return;
+        }
+
+        $provider = $this->provider();
+
+        if (Booking::where('id', $bookingId)->where('provider_id', $provider->id)->exists()) {
+            $this->redirectRoute('provider.jobs.show', ['booking' => $bookingId], navigate: true);
+
+            return;
+        }
+
+        $window = (int) Setting::get('dispatch.offer_timeout_seconds', 25);
+
+        $isLive = DispatchAttempt::where('booking_id', $bookingId)
+            ->where('provider_id', $provider->id)
+            ->where('status', 'notified')
+            ->where('notified_at', '>=', now()->subSeconds($window))
+            ->whereHas('booking', fn ($q) => $q->whereIn('status', ['pending', 'searching_provider']))
+            ->exists();
+
+        if (! $isLive) {
+            $this->error = 'That offer has expired or is no longer available.';
+        }
+    }
+
     public function accept(int $bookingId, AcceptBookingAction $action): void
     {
         $this->reset('error', 'notice');

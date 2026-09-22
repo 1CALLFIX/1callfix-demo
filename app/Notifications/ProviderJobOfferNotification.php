@@ -43,10 +43,20 @@ class ProviderJobOfferNotification extends Notification implements ShouldQueue
         return 'provider.job_offered';
     }
 
-    /** Deep link read by public/firebase-messaging-sw.js for the notification's click action. */
+    /**
+     * Deep link read by public/firebase-messaging-sw.js for the notification's click action.
+     *
+     * The OFFERS page, not provider.jobs.show: an offer is only a
+     * dispatch_attempts row, and bookings.provider_id stays null until the
+     * provider accepts — Jobs\Show 404s for any booking that isn't already
+     * theirs. Jobs\Index is where a live offer is actually answered, and it
+     * uses `offer` to explain an expired/taken offer and to forward an
+     * already-accepted one to the job page. Ownership is never read from
+     * this URL; Index only ever queries the signed-in provider's own rows.
+     */
     public function pushLink($notifiable): string
     {
-        return route('provider.jobs.show', $this->booking);
+        return route('provider.jobs.index', ['offer' => $this->booking->id]);
     }
 
     private function copy(): array

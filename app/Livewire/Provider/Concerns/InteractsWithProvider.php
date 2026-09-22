@@ -20,6 +20,43 @@ trait InteractsWithProvider
     }
 
     /**
+     * The header chip, its drawer twin and the Dashboard card are separate
+     * Livewire components over ONE providers.is_online row. When one of them
+     * changes it, the others must re-render, or they keep showing (and, for
+     * the online state, keep running the location heartbeat of) a status the
+     * provider has already left. Listeners are `#[On(AVAILABILITY_EVENT)]` on
+     * OnlineToggle and Dashboard; this decides nothing, it only tells the
+     * siblings to re-read the row.
+     */
+    protected const AVAILABILITY_EVENT = 'provider-availability-changed';
+
+    protected function announceAvailabilityChange(): void
+    {
+        $this->dispatch(self::AVAILABILITY_EVENT);
+    }
+
+    /**
+     * The provider's live offers — `notified`, inside the offer window, on a
+     * booking that is still unassigned. Same predicate Jobs\Index and
+     * Dashboard apply, with everything offerAlertSummaries() needs
+     * eager-loaded. Read-only: nothing here accepts, declines or expires an
+     * offer; that stays with AcceptBookingAction and the dispatch jobs.
+     *
+     * @return Collection<int, DispatchAttempt>
+     */
+    protected function liveOfferAttempts(Provider $provider, int $windowSeconds): Collection
+    {
+        return DispatchAttempt::query()
+            ->where('provider_id', $provider->id)
+            ->where('status', 'notified')
+            ->where('notified_at', '>=', now()->subSeconds($windowSeconds))
+            ->whereHas('booking', fn ($q) => $q->whereIn('status', ['pending', 'searching_provider']))
+            ->with(['booking.service:id,name', 'booking.address:id,label', 'booking.franchise.country'])
+            ->latest('notified_at')
+            ->get();
+    }
+
+    /**
      * Display-only summary of the live offers, shipped on the
      * `provider-alert-offers` browser event next to the (unchanged) `count`
      * so the layout's offer banner can name the job and run a countdown.

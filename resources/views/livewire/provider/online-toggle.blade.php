@@ -18,18 +18,12 @@
             Go offline
         </button>
 
-        {{-- Same background refresh cadence as the Dashboard card's own
-             copy of this — keeps last-known location fresh while a
-             provider is online and browsing any provider-web page, not
-             just Dashboard. --}}
-        <div x-data x-init="
-            setInterval(() => {
-                if (document.hidden || !navigator.geolocation) return;
-                navigator.geolocation.getCurrentPosition(
-                    p => $wire.goOnline(p.coords.latitude, p.coords.longitude),
-                    () => {}, { timeout: 8000 });
-            }, 120000)
-        "></div>
+        {{-- Location heartbeat: a marker that exists only while online. The
+             interval lives in the `providerHeartbeat` Alpine component
+             (resources/js/provider-alerts.js), which the page shares across
+             this chip, its drawer twin and the Dashboard card, and which
+             stops when this element is removed (offline, navigate, morph). --}}
+        <div x-data="providerHeartbeat" aria-hidden="true"></div>
     @else
         <button type="button" x-data
                 x-on:click="

@@ -4,6 +4,7 @@ namespace App\Livewire\Provider;
 
 use App\Actions\SetProviderOnlineStatusAction;
 use App\Livewire\Provider\Concerns\InteractsWithProvider;
+use Livewire\Attributes\On;
 use Livewire\Component;
 
 /**
@@ -34,7 +35,16 @@ class OnlineToggle extends Component
     {
         $this->error = '';
 
+        // The location heartbeat calls this every couple of minutes while
+        // already online; only a real offline → online flip needs to tell the
+        // sibling components.
+        $wasOnline = (bool) $this->provider()->is_online;
+
         app(SetProviderOnlineStatusAction::class)->execute($this->provider(), true, $lat, $lng);
+
+        if (! $wasOnline) {
+            $this->announceAvailabilityChange();
+        }
     }
 
     public function goOffline(): void
@@ -42,6 +52,18 @@ class OnlineToggle extends Component
         $this->error = '';
 
         app(SetProviderOnlineStatusAction::class)->execute($this->provider(), false);
+
+        $this->announceAvailabilityChange();
+    }
+
+    /**
+     * A sibling (the drawer twin, or the Dashboard card) changed the status.
+     * Nothing to do: receiving the event re-renders this component from the
+     * row, which drops or adds its heartbeat marker.
+     */
+    #[On(self::AVAILABILITY_EVENT)]
+    public function syncAvailability(): void
+    {
     }
 
     public function render()

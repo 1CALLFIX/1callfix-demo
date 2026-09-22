@@ -77,16 +77,17 @@ class ProviderJobOfferPushTest extends TestCase
         );
     }
 
-    public function test_offer_notification_deep_links_to_the_job(): void
+    public function test_offer_notification_deep_links_to_the_offers_page_not_the_job_page(): void
     {
         ['booking' => $booking, 'provider' => $provider] = $this->makeBookingScenario('searching_provider');
 
         $notification = new ProviderJobOfferNotification($booking, [PushChannel::class]);
+        $link = $notification->pushLink($provider->user);
 
-        $this->assertSame(
-            route('provider.jobs.show', $booking),
-            $notification->pushLink($provider->user)
-        );
+        // Jobs\Show 404s for a booking the provider doesn't hold yet, and an
+        // offer is never held until accepted — so the link must NOT be it.
+        $this->assertSame(route('provider.jobs.index', ['offer' => $booking->id]), $link);
+        $this->assertNotSame(route('provider.jobs.show', $booking), $link);
     }
 
     public function test_the_push_adapter_is_never_hit_for_a_provider_without_a_token(): void

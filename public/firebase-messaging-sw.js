@@ -51,11 +51,24 @@ if (firebaseConfig.projectId && firebaseConfig.apiKey) {
     });
 }
 
+// The server builds `link` from APP_URL, but the origin THIS worker runs on
+// is by definition where the user is signed in. Keep the path + query and
+// pin the origin to ours, so a mismatched APP_URL (or a proxy/alias host) can
+// never send a click to a host where the session doesn't exist.
+function sameOriginLink(link) {
+    try {
+        const url = new URL(link, self.location.origin);
+        return self.location.origin + url.pathname + url.search + url.hash;
+    } catch (e) {
+        return self.location.origin + '/';
+    }
+}
+
 // Clicking the notification: focus an already-open app tab and navigate it
 // to the target, otherwise open a new window there.
 self.addEventListener('notificationclick', (event) => {
     event.notification.close();
-    const link = (event.notification.data && event.notification.data.link) || '/';
+    const link = sameOriginLink((event.notification.data && event.notification.data.link) || '/');
 
     event.waitUntil((async () => {
         const windows = await clients.matchAll({ type: 'window', includeUncontrolled: true });

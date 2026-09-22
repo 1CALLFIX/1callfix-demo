@@ -102,14 +102,8 @@
         </div>
 
         @if ($provider->is_online)
-            <div x-data x-init="
-                setInterval(() => {
-                    if (document.hidden || !navigator.geolocation) return;
-                    navigator.geolocation.getCurrentPosition(
-                        p => $wire.goOnline(p.coords.latitude, p.coords.longitude),
-                        () => {}, { timeout: 8000 });
-                }, 120000)
-            "></div>
+            {{-- Location heartbeat marker — see online-toggle.blade.php. --}}
+            <div x-data="providerHeartbeat" aria-hidden="true"></div>
         @endif
     </x-ui.card>
 

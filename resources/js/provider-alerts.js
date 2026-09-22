@@ -21,6 +21,12 @@
  |   provider-alert-status   detail: { title, body }
  |       The held job changed status. One chime (+ OS notification if hidden).
  |
+ | Sources of provider-alert-offers: Jobs\Index and Dashboard (their own polls)
+ | and, on every other provider page, the layout-mounted OfferWatcher component
+ | (1CF-FIX-ALERT-002). All apply the same server-side live-offer predicate.
+ | With several provider tabs open each polls and shows the banner, but a Web
+ | Lock (`ringLock` below) lets only one tab sound the ring.
+ |
  | Delivery: this is a Vite entry loaded from the layout <head> (same as
  | push-notifications.js), so it is evaluated exactly once per document —
  | wire:navigate keeps head modules. It used to be a raw <script> in <body>,
@@ -185,6 +191,50 @@ function setup() {
         });
     }
 
+    /* ---------------------- cross-tab ring lease ---------------------- */
+
+    // Every open provider tab now polls offers (OfferWatcher) and would ring.
+    // One lock, held for as long as a tab is ringing, lets exactly one of them
+    // make the noise; the others still show the banner. Web Locks is atomic
+    // and the browser releases it if the owning tab closes or crashes, so
+    // there is no lease to expire or renew. `ifAvailable` never queues — a
+    // tab that loses simply retries on its next ring cycle. Without the API
+    // (older browsers) every tab rings, exactly as before.
+    const RING_LOCK = 'onecallfix-provider-ring';
+
+    const ringLock = {
+        held: false,
+        requesting: false,
+        release: null,
+
+        /** May this tab sound the ring right now? A grant arrives async and restarts the ring. */
+        acquire() {
+            if (!navigator.locks || typeof navigator.locks.request !== 'function') return true;
+            if (this.held) return true;
+            if (this.requesting) return false;
+            this.requesting = true;
+            navigator.locks.request(RING_LOCK, { ifAvailable: true }, (lock) => {
+                this.requesting = false;
+                if (!lock) return undefined; // another tab is ringing
+                if (!ringer.active) return undefined; // offer cleared while asking
+                this.held = true;
+                ringer.restart(); // sound now rather than a whole cycle later
+                return new Promise((resolve) => {
+                    this.release = () => {
+                        this.held = false;
+                        this.release = null;
+                        resolve();
+                    };
+                });
+            }).catch(() => { this.requesting = false; });
+            return false;
+        },
+
+        drop() {
+            if (this.release) this.release();
+        },
+    };
+
     /* ------------------------------ ringer ------------------------------ */
 
     /** Idempotent repeating ring: at most one timer, ever. */
@@ -206,10 +256,13 @@ function setup() {
             const ctx = audio.ensure();
             if (ctx && audio.running()) {
                 audio.setBlocked(false);
+                // Only a tab that can actually make sound competes for the
+                // ring lock, so a tab with blocked audio never mutes one that
+                // could. Losing the lock is silent: another tab is ringing.
                 // However a cycle is triggered (timer, or restart() after the
                 // first-gesture unlock), never schedule two within one
                 // cycle's span — that would double the pair.
-                if (ctx.currentTime >= this.nextAt) {
+                if (ringLock.acquire() && ctx.currentTime >= this.nextAt) {
                     scheduleRingCycle(ctx);
                     this.nextAt = ctx.currentTime + RING_CYCLE_MS / 1000 - 0.25;
                 }
@@ -219,6 +272,10 @@ function setup() {
                 audio.unlocked = false; // let the hint button / next gesture unlock again
                 audio.setBlocked(true);
             }
+            // Enforce "at most one timer" here rather than trusting every
+            // caller: a cycle can be re-entered (restart() from the lock grant)
+            // before this one has scheduled its successor.
+            if (this.timer !== null) window.clearTimeout(this.timer);
             this.timer = window.setTimeout(() => this.cycle(), RING_CYCLE_MS);
         },
 
@@ -237,6 +294,7 @@ function setup() {
                 this.timer = null;
             }
             silenceRing();
+            ringLock.drop();
         },
     };
 
@@ -300,11 +358,85 @@ function setup() {
 
     /* --------------------------- Alpine component --------------------------- */
 
+    /* ------------------------ location heartbeat ---------------------------- */
+
+    // While a provider is online, the browser re-sends its location every two
+    // minutes through the component's own `goOnline(lat, lng)` (the dispatch
+    // freshness gate reads the resulting location_updated_at). The cadence, the
+    // visibility/geolocation guards and the call itself are unchanged from the
+    // inline x-init this replaced; what changed is ownership.
+    //
+    // That inline `x-init="setInterval(...)"` was never cleared. Every render of
+    // the marker (header chip, drawer copy, Dashboard card), every wire:navigate
+    // and — worst — going offline left its interval running, and it kept calling
+    // `$wire.goOnline`, quietly flipping the provider back online. Here each
+    // marker element is a `providerHeartbeat` Alpine component that only JOINS
+    // and LEAVES a page-wide set of members; ONE interval exists while the set
+    // is non-empty and is cleared the moment it empties. Alpine runs destroy()
+    // when the marker leaves the DOM (offline re-render, wire:navigate, morph),
+    // so the lifecycle is the element's, not a hand-rolled one.
+    const HEARTBEAT_MS = 120000;
+    const heartbeatMembers = new Set();
+    let heartbeatTimer = null;
+
+    /** Report a fix through the oldest live marker — one request, whatever the copies. */
+    function heartbeatReport(lat, lng) {
+        const owner = heartbeatMembers.values().next().value;
+        // An empty set means the provider went offline (or left) while the
+        // fix was resolving: report nothing rather than resurrect the session.
+        if (owner) owner.send(lat, lng);
+    }
+
+    function heartbeatTick() {
+        if (heartbeatMembers.size === 0 || document.hidden || !navigator.geolocation) return;
+        navigator.geolocation.getCurrentPosition(
+            (p) => heartbeatReport(p.coords.latitude, p.coords.longitude),
+            () => {},
+            { timeout: 8000 },
+        );
+    }
+
+    function heartbeatJoin(member) {
+        heartbeatMembers.add(member);
+        if (heartbeatTimer === null) {
+            heartbeatTimer = window.setInterval(heartbeatTick, HEARTBEAT_MS);
+        }
+    }
+
+    function heartbeatLeave(member) {
+        heartbeatMembers.delete(member);
+        if (heartbeatMembers.size === 0 && heartbeatTimer !== null) {
+            window.clearInterval(heartbeatTimer);
+            heartbeatTimer = null;
+        }
+    }
+
+    /* --------------------------- Alpine components -------------------------- */
+
     let registered = false;
 
     function registerAlpine() {
         if (registered || !window.Alpine || typeof window.Alpine.data !== 'function') return;
         registered = true;
+
+        // Marker for "this provider is online — keep the location fresh". Put on
+        // an element rendered ONLY while online, so leaving that state removes
+        // the element and Alpine's destroy() stops the heartbeat.
+        window.Alpine.data('providerHeartbeat', () => {
+            // One stable identity per instance: join/leave are idempotent even
+            // if Alpine re-runs init() on a morphed element.
+            const member = { send: null };
+            return {
+                init() {
+                    member.send = (lat, lng) => this.$wire.goOnline(lat, lng);
+                    heartbeatJoin(member);
+                },
+                destroy() {
+                    member.send = null;
+                    heartbeatLeave(member);
+                },
+            };
+        });
 
         // The per-offer "Ns left" pill on the Job Offers list. Display only:
         // the server re-renders the list every poll and drops expired offers.
