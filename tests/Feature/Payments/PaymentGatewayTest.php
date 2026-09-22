@@ -2,19 +2,25 @@
 
 namespace Tests\Feature\Payments;
 
+use App\Actions\AdminCancelBookingAction;
 use App\Contracts\PaymentGateway;
+use App\Livewire\Bookings\Show;
+use App\Livewire\Settings\Manage;
 use App\Models\Payment;
+use App\Models\PaymentWebhookLog;
 use App\Models\Plan;
 use App\Models\Setting;
 use App\Models\Subscription;
 use App\Models\Wallet;
+use App\Models\WalletTransaction;
+use App\Notifications\PaymentStatusNotification;
 use App\Services\Payments\RazorpayPaymentDriver;
 use App\Services\Plans\SubscriptionService;
-use App\Services\WalletTopUpService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Str;
+use Livewire\Livewire;
 use Tests\Feature\Rbac\RbacTestHelpers;
 use Tests\Feature\Support\BookingFixtureHelpers;
 use Tests\TestCase;
@@ -30,9 +36,9 @@ use Tests\TestCase;
  */
 class PaymentGatewayTest extends TestCase
 {
-    use RefreshDatabase;
     use BookingFixtureHelpers;
     use RbacTestHelpers;
+    use RefreshDatabase;
 
     protected function setUp(): void
     {
@@ -234,8 +240,8 @@ class PaymentGatewayTest extends TestCase
         $this->postWebhook($payload)->assertOk(); // exact same event, delivered twice
 
         $this->assertSame(500.0, (float) Wallet::where('user_id', $customer->id)->value('balance'), 'A retried/duplicate webhook must not double-credit.');
-        $this->assertSame(1, \App\Models\WalletTransaction::whereHas('wallet', fn ($q) => $q->where('user_id', $customer->id))->count());
-        $this->assertSame(2, \App\Models\PaymentWebhookLog::where('gateway_order_id', 'order_topup_dup_1')->count());
+        $this->assertSame(1, WalletTransaction::whereHas('wallet', fn ($q) => $q->where('user_id', $customer->id))->count());
+        $this->assertSame(2, PaymentWebhookLog::where('gateway_order_id', 'order_topup_dup_1')->count());
         $this->assertDatabaseHas('payment_webhook_logs', ['gateway_order_id' => 'order_topup_dup_1', 'outcome' => 'already_processed']);
     }
 
@@ -250,7 +256,7 @@ class PaymentGatewayTest extends TestCase
         $this->postWebhook($payload)->assertOk();
         $this->postWebhook($payload)->assertOk();
 
-        Notification::assertSentToTimes($booking->customer, \App\Notifications\PaymentStatusNotification::class, 1);
+        Notification::assertSentToTimes($booking->customer, PaymentStatusNotification::class, 1);
     }
 
     // ============================== 7. Refund authorization ==============================
@@ -272,7 +278,7 @@ class PaymentGatewayTest extends TestCase
         // matching how every real seeded role composes both together.
         $actor = $this->makeUserWithPermission('bookings.cancel', 'zone', $zone->id);
         $this->grantPermission($actor, 'bookings.view', 'zone', $zone->id);
-        \Livewire\Livewire::actingAs($actor)->test(\App\Livewire\Bookings\Show::class, ['bookingId' => $booking->id])
+        Livewire::actingAs($actor)->test(Show::class, ['bookingId' => $booking->id])
             ->set('cancelReason', 'test cancel')
             ->call('cancel')
             ->assertSet('flashType', 'success');
@@ -293,7 +299,7 @@ class PaymentGatewayTest extends TestCase
         // in the "authorized" test above) but deliberately NOT bookings.cancel.
         $actor = $this->makeUserWithNoPermissions();
         $this->grantPermission($actor, 'bookings.view', 'zone', $zone->id);
-        \Livewire\Livewire::actingAs($actor)->test(\App\Livewire\Bookings\Show::class, ['bookingId' => $booking->id])
+        Livewire::actingAs($actor)->test(Show::class, ['bookingId' => $booking->id])
             ->set('cancelReason', 'test cancel')
             ->call('cancel')
             ->assertSet('flashType', 'error');
@@ -301,6 +307,113 @@ class PaymentGatewayTest extends TestCase
         Http::assertNotSent(fn ($request) => str_contains((string) $request->url(), '/refund'));
         $this->assertNotSame('cancelled', $booking->fresh()->status);
         $this->assertDatabaseMissing('payments', ['booking_id' => $booking->id, 'status' => 'refunded']);
+    }
+
+    // ============================== 7b. Capture vs. concurrent cancellation (REF 1CF-AUDIT-20260922-C01) ==============================
+    //
+    // True concurrent-transaction coverage (two real overlapping DB
+    // transactions racing against the same row) isn't reliably reproducible
+    // against SQLite :memory: in a single-threaded PHPUnit process — the
+    // test framework has no facility here to pause one transaction mid-flight
+    // while a second one runs. These tests instead pin down the deterministic
+    // transaction ORDERING the fix depends on (the booking is fully
+    // cancelled — committed — before the capture webhook is processed),
+    // which is the scenario the audit found was previously unhandled. This
+    // is the strongest coverage achievable with the existing test
+    // infrastructure; it does not claim to exercise genuine row-lock
+    // contention between two in-flight transactions.
+
+    public function test_capture_arriving_after_the_booking_was_already_cancelled_refunds_instead_of_marking_paid(): void
+    {
+        Http::fake([
+            'api.razorpay.com/v1/orders' => Http::response(['id' => 'order_race_1', 'amount' => 50000, 'currency' => 'INR'], 200),
+            'api.razorpay.com/v1/payments/*/refund' => Http::response(['id' => 're_race_1', 'amount' => 50000], 200),
+        ]);
+        ['booking' => $booking] = $this->makeBookingScenario('searching_provider');
+        $booking->update(['price_quoted' => 500]);
+        $this->actingAs($booking->customer, 'sanctum')->postJson("/api/bookings/{$booking->id}/pay/create-order");
+
+        // The booking is cancelled and that cancellation FULLY COMMITS —
+        // including its own (no-op, since nothing is captured yet)
+        // refundIfPaid() call — before the gateway's capture webhook ever
+        // arrives. Same ordering AdminCancelBookingAction always produces:
+        // its transaction commits, then refundIfPaid() runs and finds
+        // nothing to refund (payment_status still 'pending').
+        app(AdminCancelBookingAction::class)->execute($booking->id, 'customer changed their mind');
+        $this->assertSame('cancelled', $booking->fresh()->status);
+        $this->assertDatabaseHas('payments', ['booking_id' => $booking->id, 'status' => 'pending']);
+
+        Notification::fake();
+
+        // The late capture now arrives for an already-cancelled booking.
+        $this->postWebhook($this->capturedPayload('order_race_1'))->assertOk();
+
+        // Money was captured then immediately refunded — never left sitting
+        // captured against a cancelled booking with no refund outcome.
+        Http::assertSent(fn ($request) => str_contains((string) $request->url(), '/refund'));
+        $this->assertDatabaseHas('payments', ['booking_id' => $booking->id, 'status' => 'refunded', 'refunded_amount' => 500]);
+
+        // The booking must not be silently moved back toward "paid" or any
+        // other active state by the late capture.
+        $booking->refresh();
+        $this->assertSame('cancelled', $booking->status);
+        $this->assertNotSame('paid', $booking->payment_status);
+
+        // Customer gets the refund notification, not a misleading
+        // "payment completed" one.
+        Notification::assertSentTo($booking->customer, PaymentStatusNotification::class, function ($notification, $channels) {
+            return true;
+        });
+        Notification::assertSentToTimes($booking->customer, PaymentStatusNotification::class, 1);
+    }
+
+    public function test_retried_webhook_after_a_post_cancellation_refund_does_not_flip_the_payment_back_to_captured_or_double_refund(): void
+    {
+        Http::fake([
+            'api.razorpay.com/v1/orders' => Http::response(['id' => 'order_race_dup_1', 'amount' => 50000, 'currency' => 'INR'], 200),
+            'api.razorpay.com/v1/payments/*/refund' => Http::response(['id' => 're_race_dup_1', 'amount' => 50000], 200),
+        ]);
+        ['booking' => $booking] = $this->makeBookingScenario('searching_provider');
+        $booking->update(['price_quoted' => 500]);
+        $this->actingAs($booking->customer, 'sanctum')->postJson("/api/bookings/{$booking->id}/pay/create-order");
+        app(AdminCancelBookingAction::class)->execute($booking->id, 'customer changed their mind');
+
+        Notification::fake();
+        $payload = $this->capturedPayload('order_race_dup_1');
+        $this->postWebhook($payload)->assertOk(); // first delivery: captures then auto-refunds
+        $this->postWebhook($payload)->assertOk(); // gateway retries the exact same event
+
+        // Exactly one refund call to the gateway, not two.
+        $refundCalls = collect(Http::recorded())->filter(fn ($pair) => str_contains((string) $pair[0]->url(), '/refund'));
+        $this->assertCount(1, $refundCalls, 'A retried webhook for an already-refunded payment must not trigger a second gateway refund.');
+
+        // The payment must stay 'refunded' — NOT get flipped back to
+        // 'captured' by the second delivery's idempotency check.
+        $this->assertDatabaseHas('payments', ['booking_id' => $booking->id, 'status' => 'refunded']);
+        $this->assertDatabaseMissing('payments', ['booking_id' => $booking->id, 'status' => 'captured']);
+
+        $this->assertDatabaseHas('payment_webhook_logs', ['gateway_order_id' => 'order_race_dup_1', 'outcome' => 'already_processed']);
+        Notification::assertSentToTimes($booking->customer, PaymentStatusNotification::class, 1);
+    }
+
+    public function test_capture_for_a_still_active_booking_is_unaffected_by_the_cancellation_race_fix(): void
+    {
+        // Regression guard: the new booking-lock/status-check must not
+        // change behavior for the overwhelmingly common case — a capture
+        // for a booking that was never cancelled.
+        Http::fake(['api.razorpay.com/v1/orders' => Http::response(['id' => 'order_normal_1', 'amount' => 50000, 'currency' => 'INR'], 200)]);
+        ['booking' => $booking] = $this->makeBookingScenario('searching_provider');
+        $booking->update(['price_quoted' => 500]);
+        $this->actingAs($booking->customer, 'sanctum')->postJson("/api/bookings/{$booking->id}/pay/create-order");
+
+        Notification::fake();
+        $this->postWebhook($this->capturedPayload('order_normal_1'))->assertOk();
+
+        $this->assertSame('paid', $booking->fresh()->payment_status);
+        $this->assertNotSame('cancelled', $booking->fresh()->status);
+        $this->assertDatabaseHas('payments', ['booking_id' => $booking->id, 'status' => 'captured']);
+        Http::assertNotSent(fn ($request) => str_contains((string) $request->url(), '/refund'));
+        Notification::assertSentToTimes($booking->customer, PaymentStatusNotification::class, 1);
     }
 
     // ============================== 8/9. Provider configuration + disabled gateway ==============================
@@ -349,7 +462,7 @@ class PaymentGatewayTest extends TestCase
     {
         $admin = $this->makeSuperAdmin();
 
-        $component = \Livewire\Livewire::actingAs($admin)->test(\App\Livewire\Settings\Manage::class)
+        $component = Livewire::actingAs($admin)->test(Manage::class)
             ->set('activeTab', 'payment');
 
         $component->assertSee('Razorpay')->assertSee('Configured');
