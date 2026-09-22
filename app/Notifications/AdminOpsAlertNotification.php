@@ -59,8 +59,64 @@ class AdminOpsAlertNotification extends Notification implements ShouldQueue
         return match ($this->event) {
             'booking_created' => $this->bookingCreatedCopy(),
             'payment_captured' => $this->paymentCapturedCopy(),
+            'dispatch_escalation' => $this->dispatchEscalationCopy(),
+            'dispatch_job_failure' => $this->dispatchJobFailureCopy(),
+            'dispatch_refund_failed' => $this->dispatchRefundFailedCopy(),
             default => ['title' => 'Operations update', 'body' => 'An operational event occurred.'],
         };
+    }
+
+    /**
+     * REF 1CF-IMPLEMENT-20260922-L01 — T+5, no provider assigned yet. Kept
+     * as its own event key (not reusing 'booking_created') so an admin can
+     * tell "still searching, needs a look" apart from "just came in".
+     */
+    private function dispatchEscalationCopy(): array
+    {
+        /** @var Booking $b */
+        $b = $this->subject;
+        $service = $b->service?->name ?? 'Service';
+        $zone = $b->zone?->name ? " · {$b->zone->name}" : '';
+
+        return [
+            'title' => 'Dispatch escalation',
+            'body' => "Booking {$b->code} — {$service}{$zone} — still has no provider 5 minutes in. Needs a look.",
+        ];
+    }
+
+    /**
+     * REF 1CF-IMPLEMENT-20260922-L01 — L-02 minimum. Distinct copy so a
+     * queue/job failure never reads to an admin as an ordinary "nobody
+     * accepted yet" escalation — see ServiceMatchingJob::failed().
+     */
+    private function dispatchJobFailureCopy(): array
+    {
+        /** @var Booking $b */
+        $b = $this->subject;
+
+        return [
+            'title' => 'Dispatch job failed',
+            'body' => "Booking {$b->code} — automated dispatch stopped due to a queue/job error, not a lack of providers. Needs manual attention.",
+        ];
+    }
+
+    /**
+     * REF 1CF-IMPLEMENT-20260922-L01 — a T+30 auto-cancellation whose
+     * refund failed (DispatchDeadlineSweepService::cancelOne()'s catch).
+     * The cancellation itself already went through; this is a distinct
+     * "money needs a human" alert, not a dispatch-health one — no exception
+     * text in the copy (payment error detail belongs in the log, not a
+     * push notification), just where to look.
+     */
+    private function dispatchRefundFailedCopy(): array
+    {
+        /** @var Booking $b */
+        $b = $this->subject;
+
+        return [
+            'title' => 'Refund failed on auto-cancel',
+            'body' => "Booking {$b->code} was auto-cancelled, but its refund failed. Needs manual reconciliation.",
+        ];
     }
 
     private function bookingCreatedCopy(): array

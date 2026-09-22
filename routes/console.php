@@ -49,3 +49,20 @@ ScheduleRunTracker::track(Schedule::command('kyc:send-reminders'), 'kyc:send-rem
 // that decision lives there and not in a dynamically-computed dailyAt()
 // argument here. Same schedule:run cron caveat as every entry above.
 ScheduleRunTracker::track(Schedule::command('digest:send-daily'), 'digest:send-daily')->everyFifteenMinutes();
+
+// Dispatch Deadline sweep (REF 1CF-IMPLEMENT-20260922-L01) — Service
+// Booking T+5 admin escalation / T+30 auto-cancellation for a booking
+// still searching_provider with no assigned provider. Minute granularity
+// because DispatchDeadlineSweepService itself decides per-booking whether
+// that booking's own deadline has actually arrived (its own
+// dispatch_deadline_at column), same idiom as digest:send-daily's own
+// sendIfDue() above -- not because this needs to fire on an exact minute.
+// withoutOverlapping() is defense-in-depth only (finding C-05): every
+// booking-row mutation inside the sweep already takes its own
+// lockForUpdate() before acting, so two overlapping runs can't double-act
+// on the same row even without this -- but skipping a redundant
+// concurrent run entirely is still cheaper than letting it start and find
+// nothing to do. Same schedule:run cron caveat as every entry above.
+ScheduleRunTracker::track(Schedule::command('dispatch:sweep-deadlines'), 'dispatch:sweep-deadlines')
+    ->everyMinute()
+    ->withoutOverlapping();

@@ -38,6 +38,16 @@ class BookingStatusNotification extends Notification
             'assigned' => ['subject' => 'Provider assigned', 'body' => "A provider has been assigned to your booking {$this->booking->code}."],
             'completed' => ['subject' => 'Booking completed', 'body' => "Your booking {$this->booking->code} is complete. Thank you for using 1CallFix."],
             'cancelled' => ['subject' => 'Booking cancelled', 'body' => "Your booking {$this->booking->code} has been cancelled."],
+            // REF 1CF-IMPLEMENT-20260922-L01 — the T+30 platform auto-
+            // cancellation (DispatchDeadlineSweepService). Distinct from
+            // 'cancelled' because "has been cancelled" alone reads as
+            // something the customer or provider did; this booking was
+            // cancelled by the platform after it couldn't be matched.
+            // Wording deliberately avoids asserting "no providers were
+            // available" specifically — that would misrepresent a genuine
+            // queue/job failure (see ServiceMatchingJob::failed()) as a
+            // supply problem, so it stays true under either cause.
+            'no_provider_found' => ['subject' => 'Booking could not be completed', 'body' => "Your booking {$this->booking->code} could not be matched to a provider in time and has been cancelled. Any amount already paid has been refunded, and no cancellation fee applies."],
             default => ['subject' => 'Booking update', 'body' => "Your booking {$this->booking->code} was updated."],
         };
     }

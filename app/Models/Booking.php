@@ -32,6 +32,8 @@ class Booking extends Model implements Orderable
         'service_id',
         'address_id',
         'status',
+        'dispatch_deadline_at',
+        'dispatch_escalated_at',
         'scheduled_at',
         'price_quoted',
         'price_final',
@@ -60,6 +62,9 @@ class Booking extends Model implements Orderable
     protected $casts = [
         'scheduled_at' => 'datetime',
         'completed_at' => 'datetime',
+        // REF 1CF-IMPLEMENT-20260922-L01
+        'dispatch_deadline_at' => 'datetime',
+        'dispatch_escalated_at' => 'datetime',
         'on_hold_since' => 'datetime',
         // Phase E5 — booking OTP hardening metadata (see BookingOtpService).
         'start_otp_expires_at' => 'datetime',
