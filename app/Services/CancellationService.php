@@ -39,10 +39,24 @@ class CancellationService
 
     /**
      * Elapsed time is measured from booking.created_at, not provider
-     * assignment — confirmed decision. Fee never exceeds the quoted price.
+     * assignment — confirmed decision, for a booking a provider actually
+     * committed to. But a booking that was NEVER assigned a provider
+     * (still `pending`/`searching_provider` at cancel time — provider_id
+     * never got set, and this codebase has no transition that reverts an
+     * already-assigned booking back to unassigned) never had anyone's time
+     * or trip wasted; charging the elapsed-time fee there penalizes the
+     * customer for the platform's own failure to find a provider (the
+     * exact "stuck booking" case StuckBookingService/DispatchHealthService
+     * surface for manual admin cleanup). So the fee is unconditionally
+     * waived whenever provider_id is null, before the elapsed-time
+     * calculation ever runs.
      */
     public function calculateFee(Booking $booking): float
     {
+        if ($booking->provider_id === null) {
+            return 0.0;
+        }
+
         $booking->loadMissing('franchise');
 
         return $this->calculateFeeGeneric(
@@ -70,6 +84,12 @@ class CancellationService
      */
     public function calculateFeeForParcelOrder(ParcelOrder $order): float
     {
+        // Same platform-caused-cancellation waiver as calculateFee() above
+        // — no rider ever committed (assigned_worker_id null), so no fee.
+        if ($order->assigned_worker_id === null) {
+            return 0.0;
+        }
+
         $order->loadMissing('franchise');
 
         return $this->calculateFeeGeneric(
@@ -87,6 +107,12 @@ class CancellationService
     /** Phase 22.6 (Taxi) — the third caller of the shared fee calculation, same reasoning as calculateFeeForParcelOrder() above. */
     public function calculateFeeForTaxiRide(TaxiRide $ride): float
     {
+        // Same platform-caused-cancellation waiver as calculateFee() above
+        // — no driver ever committed (assigned_worker_id null), so no fee.
+        if ($ride->assigned_worker_id === null) {
+            return 0.0;
+        }
+
         $ride->loadMissing('franchise');
 
         return $this->calculateFeeGeneric(
@@ -554,6 +580,12 @@ class CancellationService
      */
     public function calculateFeeForMarketplaceOrder(MarketplaceOrder $order): float
     {
+        // Same platform-caused-cancellation waiver as calculateFee() above
+        // — no rider ever committed (assigned_worker_id null), so no fee.
+        if ($order->assigned_worker_id === null) {
+            return 0.0;
+        }
+
         $order->loadMissing('franchise');
 
         return $this->calculateFeeGeneric(
