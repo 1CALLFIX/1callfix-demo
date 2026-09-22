@@ -365,6 +365,68 @@ class MarketplaceOrderLifecycleTest extends TestCase
         app(AdminCancelMarketplaceOrderAction::class)->execute($scenario['order']->id, 'too late');
     }
 
+    /**
+     * C-02 — a delivery order that never got a rider (assigned_worker_id
+     * null) is a platform-caused cancellation, same as the Booking/Parcel/
+     * Taxi waiver in CancellationService. Elapsed time alone must not
+     * charge a fee here.
+     */
+    public function test_no_cancellation_fee_when_a_delivery_order_never_got_a_rider(): void
+    {
+        \App\Models\Setting::set('cancellation.free_minutes', '0');
+        \App\Models\Setting::set('cancellation.fee_type', 'flat');
+        \App\Models\Setting::set('cancellation.fee_value', '50');
+
+        $scenario = $this->makeMarketplaceOrderScenario('ready', [
+            'order_type' => 'delivery', 'total_amount' => 500, 'subtotal' => 500,
+        ]);
+
+        $cancelled = app(AdminCancelMarketplaceOrderAction::class)->execute($scenario['order']->id, 'no rider found');
+
+        $this->assertEquals(0.0, (float) $cancelled->cancellation_fee);
+    }
+
+    /** The counterpart to the waiver test above — once a rider actually committed, the normal elapsed-time fee still applies. */
+    public function test_cancellation_fee_still_applies_once_a_delivery_rider_is_assigned(): void
+    {
+        \App\Models\Setting::set('cancellation.free_minutes', '0');
+        \App\Models\Setting::set('cancellation.fee_type', 'flat');
+        \App\Models\Setting::set('cancellation.fee_value', '50');
+
+        $scenario = $this->makeMarketplaceOrderScenario('ready', [
+            'order_type' => 'delivery', 'total_amount' => 500, 'subtotal' => 500,
+        ]);
+        $rider = $this->makeDeliveryRiderIn($scenario['franchise'], $scenario['zone']);
+        $scenario['order']->update(['assigned_worker_id' => $rider->id]);
+
+        $cancelled = app(AdminCancelMarketplaceOrderAction::class)->execute($scenario['order']->id, 'cancel after assignment');
+
+        $this->assertEquals(50.0, (float) $cancelled->cancellation_fee);
+    }
+
+    /**
+     * C-02 correction — a `pickup` order never has a rider (`assigned_worker_id`
+     * stays null by design; MarketplaceDispatchJob never runs for it), so the
+     * never-assigned waiver must NOT apply to it: this is not a dispatch
+     * failure, dispatch was never attempted. The normal elapsed-time fee
+     * must be unchanged from before the C-02 fix.
+     */
+    public function test_pickup_order_cancellation_fee_is_unaffected_by_the_never_assigned_waiver(): void
+    {
+        \App\Models\Setting::set('cancellation.free_minutes', '0');
+        \App\Models\Setting::set('cancellation.fee_type', 'flat');
+        \App\Models\Setting::set('cancellation.fee_value', '50');
+
+        $scenario = $this->makeMarketplaceOrderScenario('ready', [
+            'order_type' => 'pickup', 'total_amount' => 500, 'subtotal' => 500,
+        ]);
+        $this->assertNull($scenario['order']->assigned_worker_id, 'a pickup order never gets a rider assignment');
+
+        $cancelled = app(AdminCancelMarketplaceOrderAction::class)->execute($scenario['order']->id, 'store already prepared it');
+
+        $this->assertEquals(50.0, (float) $cancelled->cancellation_fee);
+    }
+
     // ============================== Payment ==============================
 
     public function test_wallet_payment_debits_customer_and_records_a_captured_payment(): void

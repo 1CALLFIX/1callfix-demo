@@ -222,6 +222,36 @@ class TaxiRideLifecycleTest extends TestCase
         app(AdminCancelTaxiRideAction::class)->execute($scenario['ride']->id, 'too late');
     }
 
+    /**
+     * C-02 — a never-assigned ride (assigned_worker_id null) is fee-free
+     * even past the free window: no driver ever committed, so this is a
+     * platform-caused cancellation, not a customer change-of-mind.
+     */
+    public function test_no_cancellation_fee_when_no_driver_was_ever_assigned(): void
+    {
+        $scenario = $this->makeTaxiRideScenario('requested');
+        \App\Models\Setting::set('cancellation.free_minutes', '0');
+        \App\Models\Setting::set('cancellation.fee_type', 'flat');
+        \App\Models\Setting::set('cancellation.fee_value', '20');
+
+        $ride = app(AdminCancelTaxiRideAction::class)->execute($scenario['ride']->id, 'no driver found');
+
+        $this->assertSame(0.0, (float) $ride->cancellation_fee);
+    }
+
+    /** The counterpart to the waiver test above — once a driver actually committed, the normal elapsed-time fee still applies. */
+    public function test_cancellation_fee_still_applies_once_a_driver_is_assigned(): void
+    {
+        $scenario = $this->makeAssignedTaxiRideScenario();
+        \App\Models\Setting::set('cancellation.free_minutes', '0');
+        \App\Models\Setting::set('cancellation.fee_type', 'flat');
+        \App\Models\Setting::set('cancellation.fee_value', '20');
+
+        $ride = app(AdminCancelTaxiRideAction::class)->execute($scenario['ride']->id, 'cancel after assignment');
+
+        $this->assertSame(20.0, (float) $ride->cancellation_fee);
+    }
+
     public function test_wallet_payment_debits_customer_and_records_a_captured_payment(): void
     {
         [$country, $city, $franchise, $zone] = $this->makeFranchiseTree();

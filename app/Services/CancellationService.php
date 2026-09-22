@@ -580,9 +580,20 @@ class CancellationService
      */
     public function calculateFeeForMarketplaceOrder(MarketplaceOrder $order): float
     {
-        // Same platform-caused-cancellation waiver as calculateFee() above
-        // — no rider ever committed (assigned_worker_id null), so no fee.
-        if ($order->assigned_worker_id === null) {
+        // C-02 correction — the never-assigned waiver only makes sense for
+        // a `delivery` order: MarketplaceDispatchJob's own docblock says a
+        // `pickup` order "never dispatches at all", so assigned_worker_id
+        // is null on EVERY pickup order by design, forever — it's not a
+        // signal that dispatch ever failed to find someone, because
+        // dispatch was never attempted. Waiving unconditionally on
+        // assigned_worker_id alone (as the four verticals' generic pattern
+        // would suggest) would silently make every pickup-order
+        // cancellation fee-free regardless of how much fulfillment work a
+        // store already did — a real, unscoped policy change C-02 never
+        // intended. Delivery orders keep the same waiver as
+        // calculateFeeForParcelOrder()/calculateFeeForTaxiRide() above —
+        // no rider ever committed, so no fee.
+        if ($order->order_type === 'delivery' && $order->assigned_worker_id === null) {
             return 0.0;
         }
 
