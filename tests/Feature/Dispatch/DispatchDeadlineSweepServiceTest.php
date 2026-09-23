@@ -15,6 +15,7 @@ use App\Notifications\BookingStatusNotification;
 use App\Services\DispatchDeadlineSweepService;
 use App\Services\DispatchService;
 use App\Services\WalletService;
+use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Notification;
 use Tests\Feature\Rbac\RbacTestHelpers;
@@ -631,5 +632,23 @@ class DispatchDeadlineSweepServiceTest extends TestCase
         $scheduled->refresh();
         $this->assertSame('searching_provider', $scheduled->status);
         $this->assertNull($scheduled->dispatch_escalated_at);
+    }
+
+    // -----------------------------------------------------------------
+    // G. Scheduler registration (REF 1CF-IMPLEMENT-20260923-LOCK01)
+    // -----------------------------------------------------------------
+
+    /** Every minute, with a short overlap-lock expiry so a force-killed run can't block the sweep for the 1440-minute default. */
+    public function test_the_sweep_is_scheduled_every_minute_with_a_short_overlap_lock(): void
+    {
+        $events = collect(app(Schedule::class)->events())
+            ->filter(fn ($event) => str_contains((string) $event->command, 'dispatch:sweep-deadlines'));
+
+        $this->assertCount(1, $events);
+
+        $event = $events->first();
+        $this->assertSame('* * * * *', $event->expression);
+        $this->assertTrue($event->withoutOverlapping);
+        $this->assertSame(10, $event->expiresAt);
     }
 }
