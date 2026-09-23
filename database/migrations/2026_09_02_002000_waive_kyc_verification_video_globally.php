@@ -26,6 +26,12 @@ use Illuminate\Support\Facades\DB;
 // Reversible: down() removes the row and the in-code default ('1') applies
 // again. Platform-wide behaviour change — flagged for sign-off in the
 // phase report, not a silent side effect.
+//
+// SIGN-OFF (REF 1CF-DEPLOY-20260923-SIGNOFF): decision D9 confirmed by the
+// project owner, Mohammed Shabbeer Shaik, on 2026-09-23 — "ship as global
+// waiver ahead of production launch; per-franchise-default opt-in deferred
+// to a later phase." No sign-off was recorded before that date. See
+// docs/DEPLOY_DECISIONS.md.
 return new class extends Migration
 {
     private const KEY = 'kyc.require_verification_video';

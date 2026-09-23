@@ -15,6 +15,12 @@ use Illuminate\Database\Migrations\Migration;
 //
 // Guarded by existsAt() so this never clobbers a value an admin may already
 // have saved through the Settings screen between Phase 0 and this deploy.
+//
+// SIGN-OFF (REF 1CF-DEPLOY-20260923-SIGNOFF): the "approved" 30% above had no
+// recorded source until 2026-09-23, when the project owner, Mohammed Shabbeer
+// Shaik, confirmed it — ship this seed and the 2026_09_05_002000 backfill
+// unmodified; no franchise-specific exclusions requested at this time. See
+// docs/DEPLOY_DECISIONS.md.
 return new class extends Migration
 {
     public function up(): void
