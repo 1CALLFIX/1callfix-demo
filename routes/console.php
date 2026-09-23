@@ -63,6 +63,9 @@ ScheduleRunTracker::track(Schedule::command('digest:send-daily'), 'digest:send-d
 // on the same row even without this -- but skipping a redundant
 // concurrent run entirely is still cheaper than letting it start and find
 // nothing to do. Same schedule:run cron caveat as every entry above.
+// Lock expiry is 10 minutes, not the 1440-minute default (REF
+// 1CF-IMPLEMENT-20260923-LOCK01): a force-killed run would otherwise
+// silently skip every sweep for up to a day. A healthy run takes seconds.
 ScheduleRunTracker::track(Schedule::command('dispatch:sweep-deadlines'), 'dispatch:sweep-deadlines')
     ->everyMinute()
-    ->withoutOverlapping();
+    ->withoutOverlapping(10);
