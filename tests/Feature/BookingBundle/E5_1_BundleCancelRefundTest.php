@@ -94,6 +94,29 @@ class E5_1_BundleCancelRefundTest extends TestCase
         return $provider;
     }
 
+    /**
+     * C-02 — a provider must have actually committed to a bundle child
+     * (provider_id set) for the elapsed-time cancellation fee to apply at
+     * all; a still-searching child is a platform-caused, not
+     * customer-caused, cancellation and is fee-free regardless of elapsed
+     * time (see CancellationService::calculateFee()). The fee/refund tests
+     * below need a real provider assignment to exercise the fee-charging
+     * path at all, same reasoning completeChild() above already follows
+     * one step further.
+     */
+    private function assignChild(Booking $child, array $ctx): Provider
+    {
+        $provider = $this->makeSkilledProvider($ctx['franchise'], $ctx['zone'], $ctx['category']->id);
+        Booking::whereKey($child->id)->update(['status' => 'searching_provider']);
+        $this->offer($child->fresh(), $provider);
+
+        app(AcceptBookingAction::class)->execute($child->id, $provider);
+
+        $this->assertSame('assigned', $child->fresh()->status);
+
+        return $provider;
+    }
+
     private function bundlePayment(BookingBundle $bundle): Payment
     {
         return Payment::where('booking_bundle_id', $bundle->id)->where('purpose', 'booking_bundle')->firstOrFail();
@@ -150,8 +173,14 @@ class E5_1_BundleCancelRefundTest extends TestCase
         Setting::set('cancellation.fee_type', 'flat');
         Setting::set('cancellation.fee_value', '50');
 
-        ['bundle' => $bundle, 'children' => $children, 'customer' => $customer, 'opening' => $opening]
+        ['bundle' => $bundle, 'children' => $children, 'customer' => $customer, 'ctx' => $ctx, 'opening' => $opening]
             = $this->makeWalletBundle([400, 600, 500]); // total 1500
+
+        // C-02 — the fee only applies once a provider actually committed;
+        // assign every child so this test still exercises that path.
+        foreach ($children as $child) {
+            $this->assignChild($child, $ctx);
+        }
 
         $this->actingAs($customer, 'sanctum')
             ->postJson("/api/booking-bundles/{$bundle->id}/cancel", ['reason' => 'fee test'])
@@ -181,8 +210,14 @@ class E5_1_BundleCancelRefundTest extends TestCase
         Setting::set('cancellation.fee_type', 'flat');
         Setting::set('cancellation.fee_value', '25');
 
-        ['bundle' => $bundle, 'children' => $children, 'customer' => $customer]
+        ['bundle' => $bundle, 'children' => $children, 'customer' => $customer, 'ctx' => $ctx]
             = $this->makeWalletBundle([400, 600]); // built as wallet, then re-cast as an online capture below
+
+        // C-02 — the fee only applies once a provider actually committed;
+        // assign every child so this test still exercises that path.
+        foreach ($children as $child) {
+            $this->assignChild($child, $ctx);
+        }
 
         // Re-cast the captured Payment as a gateway (razorpay) capture — the
         // state RazorpayWebhookHandler::handleCaptured leaves for an online bundle.

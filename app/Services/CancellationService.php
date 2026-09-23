@@ -39,10 +39,24 @@ class CancellationService
 
     /**
      * Elapsed time is measured from booking.created_at, not provider
-     * assignment — confirmed decision. Fee never exceeds the quoted price.
+     * assignment — confirmed decision, for a booking a provider actually
+     * committed to. But a booking that was NEVER assigned a provider
+     * (still `pending`/`searching_provider` at cancel time — provider_id
+     * never got set, and this codebase has no transition that reverts an
+     * already-assigned booking back to unassigned) never had anyone's time
+     * or trip wasted; charging the elapsed-time fee there penalizes the
+     * customer for the platform's own failure to find a provider (the
+     * exact "stuck booking" case StuckBookingService/DispatchHealthService
+     * surface for manual admin cleanup). So the fee is unconditionally
+     * waived whenever provider_id is null, before the elapsed-time
+     * calculation ever runs.
      */
     public function calculateFee(Booking $booking): float
     {
+        if ($booking->provider_id === null) {
+            return 0.0;
+        }
+
         $booking->loadMissing('franchise');
 
         return $this->calculateFeeGeneric(
@@ -70,6 +84,12 @@ class CancellationService
      */
     public function calculateFeeForParcelOrder(ParcelOrder $order): float
     {
+        // Same platform-caused-cancellation waiver as calculateFee() above
+        // — no rider ever committed (assigned_worker_id null), so no fee.
+        if ($order->assigned_worker_id === null) {
+            return 0.0;
+        }
+
         $order->loadMissing('franchise');
 
         return $this->calculateFeeGeneric(
@@ -87,6 +107,12 @@ class CancellationService
     /** Phase 22.6 (Taxi) — the third caller of the shared fee calculation, same reasoning as calculateFeeForParcelOrder() above. */
     public function calculateFeeForTaxiRide(TaxiRide $ride): float
     {
+        // Same platform-caused-cancellation waiver as calculateFee() above
+        // — no driver ever committed (assigned_worker_id null), so no fee.
+        if ($ride->assigned_worker_id === null) {
+            return 0.0;
+        }
+
         $ride->loadMissing('franchise');
 
         return $this->calculateFeeGeneric(
@@ -170,8 +196,22 @@ class CancellationService
      * which refund path applies: Razorpay's API for a real gateway
      * payment, or a straight wallet credit (WalletService, not a direct
      * balance mutation) for a wallet payment — nothing external to refund.
+     *
+     * @param  bool  $creditToMainWallet  REF 1CF-IMPLEMENT-20260923-MAIN-WALLET
+     *        — finalized business decision: an L-01 T+30 no-provider-found
+     *        auto-cancellation credits the customer's Main Wallet even when
+     *        the original payment was a real Razorpay capture, instead of
+     *        issuing a real gateway refund back to the card/bank. Every
+     *        other caller (admin's cancel button, customer self-cancel,
+     *        the delayed-webhook race in RazorpayWebhookHandler, bundle
+     *        child settlement) leaves this false and keeps the unchanged
+     *        behavior: refund follows the original payment method. Passed
+     *        true only by DispatchDeadlineSweepService::cancelOne(). A
+     *        payment that was ALREADY a wallet payment
+     *        (`$payment->gateway === 'wallet'`) is unaffected either way —
+     *        it always refunds to wallet, exactly as before.
      */
-    public function refundIfPaid(Booking $booking, float $fee): void
+    public function refundIfPaid(Booking $booking, float $fee, bool $creditToMainWallet = false): void
     {
         $payment = Payment::where('booking_id', $booking->id)
             ->where('status', 'captured')
@@ -192,11 +232,23 @@ class CancellationService
             return;
         }
 
-        if ($payment->gateway === 'wallet') {
+        $originallyPaidByWallet = $payment->gateway === 'wallet';
+
+        if ($originallyPaidByWallet || $creditToMainWallet) {
+            // ref is deterministic AND unique-constrained at the DB level
+            // (wallet_transactions.ref) — the same idempotency guard every
+            // other wallet-credit call site in this codebase already
+            // relies on, not a new mechanism invented for this case. One
+            // booking has at most one captured Payment and can only be
+            // cancelled once (AdminCancelBookingAction's own status guard),
+            // so the two branches above can never both fire for the same
+            // booking — safe to share one ref regardless of which one did.
             $this->walletService->credit(
                 $booking->customer,
                 $refundAmount,
-                reason: "Refund for cancelled booking {$booking->code}",
+                reason: $originallyPaidByWallet
+                    ? "Refund for cancelled booking {$booking->code}"
+                    : "Booking refund — no provider found for booking {$booking->code}, credited to your wallet",
                 ref: "booking:{$booking->id}:wallet-refund"
             );
         } else {
@@ -554,6 +606,23 @@ class CancellationService
      */
     public function calculateFeeForMarketplaceOrder(MarketplaceOrder $order): float
     {
+        // C-02 correction — the never-assigned waiver only makes sense for
+        // a `delivery` order: MarketplaceDispatchJob's own docblock says a
+        // `pickup` order "never dispatches at all", so assigned_worker_id
+        // is null on EVERY pickup order by design, forever — it's not a
+        // signal that dispatch ever failed to find someone, because
+        // dispatch was never attempted. Waiving unconditionally on
+        // assigned_worker_id alone (as the four verticals' generic pattern
+        // would suggest) would silently make every pickup-order
+        // cancellation fee-free regardless of how much fulfillment work a
+        // store already did — a real, unscoped policy change C-02 never
+        // intended. Delivery orders keep the same waiver as
+        // calculateFeeForParcelOrder()/calculateFeeForTaxiRide() above —
+        // no rider ever committed, so no fee.
+        if ($order->order_type === 'delivery' && $order->assigned_worker_id === null) {
+            return 0.0;
+        }
+
         $order->loadMissing('franchise');
 
         return $this->calculateFeeGeneric(

@@ -2,10 +2,12 @@
 
 namespace App\Services\Payments;
 
+use App\Models\Booking;
 use App\Models\Payment;
 use App\Notifications\PaymentStatusNotification;
 use App\Notifications\Support\ChannelResolver;
 use App\Services\AdminOpsAlertService;
+use App\Services\CancellationService;
 use App\Services\Plans\SubscriptionService;
 use App\Services\WalletTopUpService;
 use Illuminate\Support\Facades\DB;
@@ -50,7 +52,18 @@ class RazorpayWebhookHandler
             // captured, do nothing further (prevents double-marking on
             // webhook retries/reprocessing, and double-crediting a wallet
             // top-up).
-            if ($payment->status === 'captured') {
+            //
+            // REF 1CF-AUDIT-20260922-C01 — 'refunded' is also a terminal,
+            // already-processed outcome for THIS event now (a payment that
+            // got captured, then immediately auto-refunded because its
+            // booking was already cancelled — see the booking-handling
+            // block below). Without including it here, a retried webhook
+            // delivery for the same event would find status='refunded'
+            // (not 'captured'), fail this guard, and incorrectly flip the
+            // payment back to 'captured' — undoing the refund bookkeeping
+            // and risking a second refund attempt on the next cancellation
+            // check.
+            if (in_array($payment->status, ['captured', 'refunded'], true)) {
                 return true;
             }
 
@@ -119,10 +132,50 @@ class RazorpayWebhookHandler
 
         $booking = $payment->booking;
         if ($booking) {
-            $booking->payment_status = 'paid';
-            $booking->save();
+            // REF 1CF-AUDIT-20260922-C01 — the capture transaction above only
+            // locks the `payments` row. Nothing previously locked or
+            // re-checked THIS booking's status before writing payment_status
+            // onto it, so a booking cancelled concurrently with a
+            // late-arriving capture could silently end up 'paid' with no
+            // refund ever triggered (the booking's own cancellation already
+            // ran its refundIfPaid() call before this payment existed to
+            // refund). Lock + re-check the booking's CURRENT status first,
+            // the same convention every other booking-mutating code path in
+            // this app already follows (AcceptBookingAction,
+            // AdminCancelBookingAction, ServiceMatchingJob, ...).
+            $bookingWasAlreadyCancelled = false;
 
-            if ($booking->customer) {
+            DB::transaction(function () use ($booking, &$bookingWasAlreadyCancelled) {
+                $locked = Booking::whereKey($booking->id)->lockForUpdate()->first();
+
+                if (! $locked) {
+                    return;
+                }
+
+                if ($locked->status === 'cancelled') {
+                    $bookingWasAlreadyCancelled = true;
+
+                    return;
+                }
+
+                $locked->payment_status = 'paid';
+                $locked->save();
+            });
+
+            if ($bookingWasAlreadyCancelled) {
+                // Refund AFTER the lock transaction commits, never inside
+                // it — same convention AdminCancelBookingAction already
+                // uses for its own refundIfPaid() call: an external gateway
+                // HTTP call must not run while holding the booking row
+                // lock. Reuses the booking's own already-decided
+                // cancellation_fee (set when it was cancelled) rather than
+                // inventing a new fee rule here — this fix closes the race,
+                // it does not change cancellation-fee policy.
+                // refundIfPaid() is itself idempotent (it only acts on a
+                // Payment still in 'captured' status), so this is safe even
+                // if reached more than once.
+                app(CancellationService::class)->refundIfPaid($booking->fresh(), (float) $booking->cancellation_fee);
+            } elseif ($booking->customer) {
                 $channels = ChannelResolver::resolve(['zone_id' => $booking->zone_id, 'franchise_id' => $booking->franchise_id]);
                 $booking->customer->notify(new PaymentStatusNotification('completed', $booking, $channels));
             }

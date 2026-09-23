@@ -32,12 +32,22 @@ class AcceptBookingAction
      *
      * @throws \RuntimeException if the offer is no longer valid (expired,
      *         already accepted by someone else, or already withdrawn), if
-     *         the provider is no longer eligible for this booking (went
-     *         offline/inactive, lost KYC, lost the required skill, drifted
-     *         out of zone/radius, or their location went stale/missing
-     *         since the offer was made — see REF 1CF-LAUNCH-011), or if
-     *         the provider's wallet balance is below the configured
-     *         wallet.provider_min_balance_to_accept_jobs for their scope
+     *         the booking itself is no longer awaiting a provider — e.g.
+     *         it was auto-cancelled at T+30 by DispatchDeadlineSweepService
+     *         or cancelled by an admin in the interim (see REF
+     *         1CF-IMPLEMENT-20260922-L01: the row lock below already
+     *         serializes this action against that sweep's own
+     *         lockForUpdate(), but until this check existed the only thing
+     *         re-verified after acquiring the lock was provider_id, which a
+     *         cancelled-with-no-provider booking still has as null — so a
+     *         provider could "accept" a booking that had already been
+     *         auto-cancelled out from under them), if the provider is no
+     *         longer eligible for this booking (went offline/inactive, lost
+     *         KYC, lost the required skill, drifted out of zone/radius, or
+     *         their location went stale/missing since the offer was made —
+     *         see REF 1CF-LAUNCH-011), or if the provider's wallet balance
+     *         is below the configured wallet.provider_min_balance_to_accept_jobs
+     *         for their scope
      */
     public function execute(int $bookingId, Provider $provider): Booking
     {
@@ -48,6 +58,15 @@ class AcceptBookingAction
 
             if ($booking->provider_id !== null) {
                 throw new \RuntimeException('This job has already been assigned to another provider.');
+            }
+
+            // REF 1CF-IMPLEMENT-20260922-L01 — closes the acceptance race:
+            // provider_id alone doesn't distinguish "never assigned because
+            // still open" from "never assigned because it was cancelled
+            // before anyone was". Only a booking still actually awaiting a
+            // provider may be accepted.
+            if ($booking->status !== 'searching_provider') {
+                throw new \RuntimeException('This job offer is no longer available (the booking is no longer awaiting a provider).');
             }
 
             // REF 1CF-LAUNCH-012 — LAUNCH-009 audit finding, closed here:

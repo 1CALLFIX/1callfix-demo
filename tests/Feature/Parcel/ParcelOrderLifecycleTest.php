@@ -361,6 +361,36 @@ class ParcelOrderLifecycleTest extends TestCase
         $this->assertSame(0.0, (float) $order->cancellation_fee);
     }
 
+    /**
+     * C-02 — a never-assigned order (assigned_worker_id null) is fee-free
+     * even PAST the free window: no rider ever committed, so this is a
+     * platform-caused cancellation, not a customer change-of-mind.
+     */
+    public function test_no_cancellation_fee_when_no_rider_was_ever_assigned(): void
+    {
+        $scenario = $this->makeParcelOrderScenario('pending');
+        \App\Models\Setting::set('cancellation.free_minutes', '0');
+        \App\Models\Setting::set('cancellation.fee_type', 'flat');
+        \App\Models\Setting::set('cancellation.fee_value', '20');
+
+        $order = app(AdminCancelParcelOrderAction::class)->execute($scenario['order']->id, 'no rider found');
+
+        $this->assertSame(0.0, (float) $order->cancellation_fee);
+    }
+
+    /** The counterpart to the waiver test above — once a rider actually committed, the normal elapsed-time fee still applies. */
+    public function test_cancellation_fee_still_applies_once_a_rider_is_assigned(): void
+    {
+        $scenario = $this->makeAssignedParcelOrderScenario();
+        \App\Models\Setting::set('cancellation.free_minutes', '0');
+        \App\Models\Setting::set('cancellation.fee_type', 'flat');
+        \App\Models\Setting::set('cancellation.fee_value', '20');
+
+        $order = app(AdminCancelParcelOrderAction::class)->execute($scenario['order']->id, 'cancel after assignment');
+
+        $this->assertSame(20.0, (float) $order->cancellation_fee);
+    }
+
     // ============================== Payment / wallet ==============================
 
     public function test_wallet_payment_debits_customer_and_records_a_captured_payment(): void

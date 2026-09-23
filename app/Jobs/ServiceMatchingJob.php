@@ -100,6 +100,11 @@ class ServiceMatchingJob implements ShouldQueue
 
             if ($booking->status === 'pending') {
                 $booking->status = 'searching_provider';
+                // REF 1CF-IMPLEMENT-20260922-L01 — set once, here, at the
+                // real transition; never recomputed on a later round. This
+                // is the sole write site DispatchDeadlineSweepService reads
+                // to decide T+5/T+30 for this booking.
+                $booking->dispatch_deadline_at = now();
                 $booking->save();
 
                 $booking->statusHistory()->create([
@@ -190,5 +195,37 @@ class ServiceMatchingJob implements ShouldQueue
             ->where('status', 'notified')
             ->where('notified_at', '<=', now()->subSeconds($this->offerTimeoutSeconds()))
             ->update(['status' => 'timeout', 'responded_at' => now()]);
+    }
+
+    /**
+     * REF 1CF-IMPLEMENT-20260922-L01 — L-02 minimum. A queue failure that
+     * exhausts this job's retries WITHOUT it ever requeuing itself again
+     * leaves a booking sitting in `searching_provider` looking identical,
+     * at T+5/T+30, to a booking that genuinely searched and found nobody —
+     * dispatch_attempts may even be empty in both cases (zero eligible
+     * providers produces the same empty set a crashed first round does).
+     * This is the one distinguishing signal: a plain booking_status_history
+     * row, greppable by DispatchDeadlineSweepService before it decides the
+     * T+5 alert copy / T+30 cancellation reason, so a job-failure scenario
+     * never silently reads as "no provider was available" to an admin or
+     * the customer. Deliberately NOT a full recovery mechanism (no retry,
+     * no re-queue, no new booking-status/column) — the fuller fix (a
+     * failed-job requeue/alert pipeline) is a bigger change than this
+     * task's scope allows; noted as a follow-up in the implementation
+     * report.
+     */
+    public function failed(\Throwable $exception): void
+    {
+        Log::error("ServiceMatchingJob failed permanently for booking [{$this->bookingId}] round {$this->round}: {$exception->getMessage()}");
+
+        $booking = Booking::find($this->bookingId);
+
+        if ($booking && in_array($booking->status, ['pending', 'searching_provider'], true)) {
+            $booking->statusHistory()->create([
+                'status' => $booking->status,
+                'note' => 'Dispatch job failed permanently — automated re-dispatch stopped due to a queue/job error, not a lack of available providers.',
+                'changed_at' => now(),
+            ]);
+        }
     }
 }

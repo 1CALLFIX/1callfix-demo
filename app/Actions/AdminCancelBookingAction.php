@@ -29,8 +29,24 @@ class AdminCancelBookingAction
      *        advance the bundle status latch (BundleSettlementService).
      *        Passed `false` only by CancelBookingBundleAction, which cancels
      *        every child in a loop and reconciles once at the end.
+     * @param  ?string  $customerNotificationEvent  REF 1CF-IMPLEMENT-20260922-L01
+     *        — which BookingStatusNotification event key to send the
+     *        customer, instead of the default 'cancelled'. Every other
+     *        caller (admin's own cancel button, the customer's self-cancel,
+     *        QaSeeder) leaves this null and gets the unchanged 'cancelled'
+     *        copy. DispatchDeadlineSweepService passes 'no_provider_found'
+     *        so a platform auto-cancellation doesn't read, misleadingly, as
+     *        something the customer or an admin did — without duplicating
+     *        this method's refund/entitlement/notification logic anywhere
+     *        else.
      */
-    public function execute(int $bookingId, string $reason, bool $reconcileBundle = true): Booking
+    /**
+     * @param  bool  $creditToMainWallet  REF 1CF-IMPLEMENT-20260923-MAIN-WALLET
+     *        — threaded straight through to CancellationService::
+     *        refundIfPaid()'s own param of the same name; see its docblock.
+     *        Passed true only by DispatchDeadlineSweepService.
+     */
+    public function execute(int $bookingId, string $reason, bool $reconcileBundle = true, ?string $customerNotificationEvent = null, bool $creditToMainWallet = false): Booking
     {
         $statusBeforeCancel = null;
 
@@ -65,7 +81,7 @@ class AdminCancelBookingAction
         // pattern CompleteBookingAction uses for CommissionService: its own
         // transaction, doesn't hold the booking row lock during an external
         // Razorpay API call.
-        $this->cancellationService->refundIfPaid($booking, (float) $booking->cancellation_fee);
+        $this->cancellationService->refundIfPaid($booking, (float) $booking->cancellation_fee, $creditToMainWallet);
 
         // Plan Engine: reverse any customer-side entitlement consumed at
         // booking_created, but ONLY for a pre-service cancellation — the
@@ -79,7 +95,7 @@ class AdminCancelBookingAction
 
         if ($booking->customer) {
             $channels = ChannelResolver::resolve(['zone_id' => $booking->zone_id, 'franchise_id' => $booking->franchise_id]);
-            $booking->customer->notify(new BookingStatusNotification('cancelled', $booking, $channels));
+            $booking->customer->notify(new BookingStatusNotification($customerNotificationEvent ?? 'cancelled', $booking, $channels));
         }
 
         // Phase PN1 — tell the assigned provider their job was cancelled out

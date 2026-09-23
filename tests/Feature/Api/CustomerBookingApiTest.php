@@ -312,9 +312,15 @@ class CustomerBookingApiTest extends TestCase
         $this->assertSame('completed', $scenario['booking']->fresh()->status);
     }
 
+    /**
+     * A provider must actually be assigned for the elapsed-time fee to
+     * apply at all — see the never-assigned waiver test below. This test
+     * therefore starts from makeAssignedBookingScenario() (provider_id
+     * set), not a bare 'pending' booking.
+     */
     public function test_cancellation_fee_and_refund_behavior_is_honored_via_the_real_cancellation_service(): void
     {
-        $scenario = $this->makeBookingScenario('pending');
+        $scenario = $this->makeAssignedBookingScenario();
         \App\Models\Setting::set('cancellation.free_minutes', '0');
         \App\Models\Setting::set('cancellation.fee_type', 'flat');
         \App\Models\Setting::set('cancellation.fee_value', '50');
@@ -332,5 +338,34 @@ class CustomerBookingApiTest extends TestCase
         $this->assertEquals(50, $response->json('data.cancellation_fee'));
         // Refund = 500 - 50 = 450, credited to the wallet via the real WalletService.
         $this->assertEquals(450, $scenario['customer']->wallet->fresh()->balance);
+    }
+
+    /**
+     * C-02 — a booking that never got a provider (still 'pending' or
+     * 'searching_provider' at cancel time, provider_id null) is a
+     * platform-caused cancellation, not a customer change-of-mind: no
+     * provider ever committed time or a trip. The elapsed-time fee must be
+     * waived even once the free window has long passed, and the full
+     * captured payment must come back.
+     */
+    public function test_no_cancellation_fee_when_no_provider_was_ever_assigned(): void
+    {
+        $scenario = $this->makeBookingScenario('searching_provider');
+        \App\Models\Setting::set('cancellation.free_minutes', '0');
+        \App\Models\Setting::set('cancellation.fee_type', 'flat');
+        \App\Models\Setting::set('cancellation.fee_value', '50');
+        $scenario['booking']->update(['payment_status' => 'paid', 'created_at' => now()->subHour()]);
+        \App\Models\Payment::create([
+            'booking_id' => $scenario['booking']->id, 'purpose' => 'booking', 'amount' => 500,
+            'gateway' => 'wallet', 'status' => 'captured', 'captured_at' => now(),
+        ]);
+        \App\Models\Wallet::create(['user_id' => $scenario['customer']->id, 'balance' => 0]);
+
+        $response = $this->actingAs($scenario['customer'], 'sanctum')
+            ->postJson("/api/bookings/{$scenario['booking']->id}/cancel", ['reason' => 'No provider ever found'])
+            ->assertOk();
+
+        $this->assertEquals(0, $response->json('data.cancellation_fee'));
+        $this->assertEquals(500, $scenario['customer']->wallet->fresh()->balance);
     }
 }
