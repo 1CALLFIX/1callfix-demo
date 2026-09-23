@@ -38,6 +38,21 @@ use Illuminate\Support\Facades\Log;
  * `bookings.status`; Parcel/Taxi/Marketplace/Rental/Hotel each have their
  * own separate dispatch/fulfilment timing (or none) and are out of scope
  * for this pass (noted as a follow-up, not fixed here).
+ *
+ * REF 1CF-IMPLEMENT-20260923-MAIN-WALLET — cancelOne() passes
+ * $creditToMainWallet=true into AdminCancelBookingAction::execute(), so a
+ * T+30 refund lands in the customer's Main Wallet even for a real
+ * Razorpay-paid booking (finalized business decision — see
+ * CancellationService::refundIfPaid()'s own docblock). Scoped the same way
+ * as the rest of this class: STANDALONE Service Bookings only. A bundle
+ * child that separately reaches T+30 still settles through
+ * BundleSettlementService::settleFromChildren() (called by
+ * AdminCancelBookingAction itself when booking_bundle_id is set) — that
+ * service has its OWN, separate gateway-vs-wallet branch and its own
+ * bundle-level fee/refund math untouched by this change. Making a bundle
+ * child's T+30 refund Main-Wallet-consistent too is a real, symmetric gap
+ * (same shape, different code, its own dedicated E5.1/E7 test suite) —
+ * deliberately left as a follow-up rather than folded in here.
  */
 class DispatchDeadlineSweepService
 {
@@ -222,7 +237,17 @@ class DispatchDeadlineSweepService
                 : 'Platform dispatch failure — no provider could be found within the allotted dispatch window.';
 
             try {
-                $this->cancelAction->execute($booking->id, $reason, true, 'no_provider_found');
+                // REF 1CF-IMPLEMENT-20260923-MAIN-WALLET — finalized
+                // business decision: a T+30 no-provider-found
+                // auto-cancellation credits the customer's Main Wallet
+                // even when the original payment was a real Razorpay
+                // capture, rather than sending a real refund back to the
+                // card/bank. See CancellationService::refundIfPaid()'s own
+                // docblock for the full rationale and the exact scope
+                // boundary (standalone bookings only — see this class's
+                // own module docblock on why bundle children are handled
+                // by BundleSettlementService instead, unchanged here).
+                $this->cancelAction->execute($booking->id, $reason, true, 'no_provider_found', true);
             } catch (\Throwable $e) {
                 // See this method's own docblock: caught here, not
                 // rethrown, so the cancellation itself (already written by

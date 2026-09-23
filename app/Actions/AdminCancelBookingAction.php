@@ -40,7 +40,13 @@ class AdminCancelBookingAction
      *        this method's refund/entitlement/notification logic anywhere
      *        else.
      */
-    public function execute(int $bookingId, string $reason, bool $reconcileBundle = true, ?string $customerNotificationEvent = null): Booking
+    /**
+     * @param  bool  $creditToMainWallet  REF 1CF-IMPLEMENT-20260923-MAIN-WALLET
+     *        — threaded straight through to CancellationService::
+     *        refundIfPaid()'s own param of the same name; see its docblock.
+     *        Passed true only by DispatchDeadlineSweepService.
+     */
+    public function execute(int $bookingId, string $reason, bool $reconcileBundle = true, ?string $customerNotificationEvent = null, bool $creditToMainWallet = false): Booking
     {
         $statusBeforeCancel = null;
 
@@ -75,7 +81,7 @@ class AdminCancelBookingAction
         // pattern CompleteBookingAction uses for CommissionService: its own
         // transaction, doesn't hold the booking row lock during an external
         // Razorpay API call.
-        $this->cancellationService->refundIfPaid($booking, (float) $booking->cancellation_fee);
+        $this->cancellationService->refundIfPaid($booking, (float) $booking->cancellation_fee, $creditToMainWallet);
 
         // Plan Engine: reverse any customer-side entitlement consumed at
         // booking_created, but ONLY for a pre-service cancellation — the

@@ -9,10 +9,12 @@ use App\Models\Booking;
 use App\Models\DispatchAttempt;
 use App\Models\Payment;
 use App\Models\Setting;
+use App\Models\WalletTransaction;
 use App\Notifications\AdminOpsAlertNotification;
 use App\Notifications\BookingStatusNotification;
 use App\Services\DispatchDeadlineSweepService;
 use App\Services\DispatchService;
+use App\Services\WalletService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Notification;
 use Tests\Feature\Rbac\RbacTestHelpers;
@@ -196,12 +198,19 @@ class DispatchDeadlineSweepServiceTest extends TestCase
      * session) — cancelOne() runs AdminCancelBookingAction::execute()
      * NESTED inside its own outer transaction, so execute()'s own inner
      * transaction only opens a savepoint; it isn't durable until the
-     * outer one commits. CancellationService::refundIfPaid()'s gateway
+     * outer one commits. CancellationService::refundIfPaid()'s refund
      * call has no try/catch of its own — before cancelOne() caught it,
      * a refund failure would propagate out of the outer transaction and
      * roll back the cancellation itself along with it, silently reverting
      * the booking to searching_provider forever. This proves the
      * cancellation now survives a failing refund.
+     *
+     * REF 1CF-IMPLEMENT-20260923-MAIN-WALLET — updated to mock
+     * WalletService::credit() rather than PaymentGateway::refund(): since
+     * the Main Wallet business decision, a razorpay-paid L-01
+     * auto-cancellation goes through the wallet-credit branch, not the
+     * gateway-refund branch, so a PaymentGateway mock would never even be
+     * invoked here and this test would silently stop testing anything.
      */
     public function test_a_failing_refund_does_not_roll_back_the_auto_cancellation(): void
     {
@@ -214,10 +223,9 @@ class DispatchDeadlineSweepServiceTest extends TestCase
             'status' => 'captured', 'captured_at' => now(),
         ]);
 
-        $mock = \Mockery::mock(PaymentGateway::class);
-        $mock->shouldReceive('identifier')->andReturn('razorpay')->byDefault();
-        $mock->shouldReceive('refund')->once()->andThrow(new \RuntimeException('gateway timeout'));
-        $this->app->instance(PaymentGateway::class, $mock);
+        $mock = \Mockery::mock(WalletService::class);
+        $mock->shouldReceive('credit')->once()->andThrow(new \RuntimeException('wallet ledger write failed'));
+        $this->app->instance(WalletService::class, $mock);
 
         app(DispatchDeadlineSweepService::class)->sweep();
 
@@ -235,6 +243,10 @@ class DispatchDeadlineSweepServiceTest extends TestCase
      * alerts, and firing regardless of whether the booking was also a
      * job-failure case, because this alert is about the refund, not the
      * dispatch outcome.
+     *
+     * REF 1CF-IMPLEMENT-20260923-MAIN-WALLET — same update as the test
+     * above: mocks WalletService::credit(), the branch this path actually
+     * takes now.
      */
     public function test_a_failing_refund_fires_a_distinct_scoped_admin_alert(): void
     {
@@ -249,10 +261,9 @@ class DispatchDeadlineSweepServiceTest extends TestCase
             'status' => 'captured', 'captured_at' => now(),
         ]);
 
-        $mock = \Mockery::mock(PaymentGateway::class);
-        $mock->shouldReceive('identifier')->andReturn('razorpay')->byDefault();
-        $mock->shouldReceive('refund')->once()->andThrow(new \RuntimeException('gateway timeout'));
-        $this->app->instance(PaymentGateway::class, $mock);
+        $mock = \Mockery::mock(WalletService::class);
+        $mock->shouldReceive('credit')->once()->andThrow(new \RuntimeException('wallet ledger write failed'));
+        $this->app->instance(WalletService::class, $mock);
 
         $admin = $this->opsAdminScopedTo('franchise', $franchise->id);
 
@@ -264,6 +275,107 @@ class DispatchDeadlineSweepServiceTest extends TestCase
         Notification::assertSentTo($admin, AdminOpsAlertNotification::class, function (AdminOpsAlertNotification $n) {
             return $n->eventKey() === 'admin.ops_dispatch_refund_failed';
         });
+    }
+
+    /**
+     * REF 1CF-IMPLEMENT-20260923-MAIN-WALLET — the finalized business
+     * decision under test: a T+30 no-provider-found auto-cancellation on a
+     * booking that was paid via a REAL Razorpay capture (not wallet)
+     * credits the customer's Main Wallet instead of issuing a gateway
+     * refund back to the card/bank. Asserts the full chain: no gateway
+     * call, exactly one wallet credit, correct amount/ref/source, Payment
+     * and booking payment_status updated, customer notified.
+     */
+    public function test_a_razorpay_paid_no_provider_cancellation_credits_the_main_wallet_exactly_once(): void
+    {
+        Notification::fake();
+
+        ['booking' => $booking, 'customer' => $customer] = $this->makeBookingScenario('searching_provider');
+        $booking->update(['dispatch_deadline_at' => now()->subMinutes(31)]);
+
+        $payment = Payment::create([
+            'booking_id' => $booking->id, 'purpose' => 'booking', 'amount' => 500,
+            'gateway' => 'razorpay', 'gateway_payment_id' => 'pay_mainwallet_1',
+            'status' => 'captured', 'captured_at' => now(),
+        ]);
+
+        $mock = \Mockery::mock(PaymentGateway::class);
+        $mock->shouldReceive('identifier')->andReturn('razorpay')->byDefault();
+        $mock->shouldNotReceive('refund'); // the whole point: no real gateway refund for this path
+        $this->app->instance(PaymentGateway::class, $mock);
+
+        $openingBalance = app(WalletService::class)->balance($customer);
+
+        app(DispatchDeadlineSweepService::class)->sweep();
+
+        $booking->refresh();
+        $this->assertSame('cancelled', $booking->status);
+        $this->assertSame(0.0, (float) $booking->cancellation_fee);
+        $this->assertSame('refunded', $booking->payment_status);
+
+        $payment->refresh();
+        $this->assertSame('refunded', $payment->status);
+        $this->assertEqualsWithDelta(500.0, (float) $payment->refunded_amount, 0.001);
+
+        $ref = "booking:{$booking->id}:wallet-refund";
+        $credits = WalletTransaction::whereHas('wallet', fn ($q) => $q->where('user_id', $customer->id))
+            ->where('ref', $ref)->get();
+        $this->assertCount(1, $credits, 'exactly one wallet credit for this booking\'s refund');
+        $this->assertTrue($credits->first()->is_credit);
+        $this->assertEqualsWithDelta(500.0, (float) $credits->first()->amount, 0.001);
+        $this->assertStringContainsString('no provider found', strtolower($credits->first()->reason));
+
+        $this->assertEqualsWithDelta($openingBalance + 500.0, app(WalletService::class)->balance($customer), 0.001);
+
+        Notification::assertSentTo($customer, \App\Notifications\PaymentStatusNotification::class);
+    }
+
+    /**
+     * REF 1CF-IMPLEMENT-20260923-MAIN-WALLET — repeated-sweep idempotency
+     * for the wallet-credit path specifically (the general
+     * "sweep-twice-doesn't-double-cancel" case is already covered above
+     * without a Payment fixture; this proves the money side is equally
+     * safe, not just the status side).
+     */
+    public function test_repeated_sweep_does_not_duplicate_the_main_wallet_refund_credit(): void
+    {
+        ['booking' => $booking, 'customer' => $customer] = $this->makeBookingScenario('searching_provider');
+        $booking->update(['dispatch_deadline_at' => now()->subMinutes(31)]);
+
+        Payment::create([
+            'booking_id' => $booking->id, 'purpose' => 'booking', 'amount' => 500,
+            'gateway' => 'razorpay', 'gateway_payment_id' => 'pay_mainwallet_2',
+            'status' => 'captured', 'captured_at' => now(),
+        ]);
+
+        $service = app(DispatchDeadlineSweepService::class);
+        $service->sweep();
+        $service->sweep();
+
+        $ref = "booking:{$booking->id}:wallet-refund";
+        $this->assertSame(1, WalletTransaction::where('ref', $ref)->count());
+        $this->assertEqualsWithDelta(500.0, app(WalletService::class)->balance($customer), 0.001);
+    }
+
+    /**
+     * REF 1CF-IMPLEMENT-20260923-MAIN-WALLET — the underlying DB-level
+     * guarantee every duplicate-credit safeguard above ultimately relies
+     * on: wallet_transactions.ref is UNIQUE (pre-existing schema, not
+     * added by this task). True multi-process concurrency isn't
+     * simulated in this suite (same documented limitation as this file's
+     * other concurrency tests); this proves the actual mechanism a
+     * concurrent duplicate attempt would hit, directly.
+     */
+    public function test_a_duplicate_wallet_refund_ref_is_rejected_by_the_database_constraint(): void
+    {
+        ['booking' => $booking, 'customer' => $customer] = $this->makeBookingScenario('searching_provider');
+        $wallet = app(WalletService::class);
+        $ref = "booking:{$booking->id}:wallet-refund";
+
+        $wallet->credit($customer, 500.0, reason: 'first refund', ref: $ref);
+
+        $this->expectException(\Illuminate\Database\QueryException::class);
+        $wallet->credit($customer, 500.0, reason: 'duplicate refund attempt', ref: $ref);
     }
 
     public function test_a_booking_assigned_before_t30_is_never_touched_by_the_sweep(): void
