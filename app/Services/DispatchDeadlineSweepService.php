@@ -99,6 +99,9 @@ class DispatchDeadlineSweepService
 
         Booking::query()
             ->where('status', 'searching_provider')
+            // REF 1CF-IMPLEMENT-20260923-F01 — instant bookings only
+            // (scheduled_at null = ASAP); see cancelOverdue().
+            ->whereNull('scheduled_at')
             ->whereNull('dispatch_escalated_at')
             ->whereNotNull('dispatch_deadline_at')
             ->where('dispatch_deadline_at', '<=', $cutoff)
@@ -156,6 +159,15 @@ class DispatchDeadlineSweepService
 
         Booking::query()
             ->where('status', 'searching_provider')
+            // REF 1CF-IMPLEMENT-20260923-F01 — a scheduled booking
+            // (scheduled_at set, up to booking.max_schedule_days_ahead out)
+            // still starts dispatch at creation, so without this a booking
+            // for next week would be auto-cancelled 30 minutes after it was
+            // made. Scheduled bookings are excluded entirely (business
+            // decision); their own unassigned-handling is a separate
+            // follow-up, not this sweep. scheduled_at is only ever written
+            // at creation, so filtering here is not a stale check.
+            ->whereNull('scheduled_at')
             ->whereNotNull('dispatch_deadline_at')
             ->where('dispatch_deadline_at', '<=', $cutoff)
             ->pluck('id')

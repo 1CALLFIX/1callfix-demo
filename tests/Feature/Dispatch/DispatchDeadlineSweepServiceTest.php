@@ -545,4 +545,91 @@ class DispatchDeadlineSweepServiceTest extends TestCase
 
         $this->assertTrue($booking->fresh()->dispatch_deadline_at->equalTo($firstDeadline));
     }
+
+    // -----------------------------------------------------------------
+    // F. Scheduled bookings are excluded (REF 1CF-IMPLEMENT-20260923-F01)
+    // -----------------------------------------------------------------
+
+    /**
+     * The reproduced F-01 scenario, through the real dispatch transition:
+     * a booking scheduled days ahead still enters searching_provider at
+     * creation, but neither T+5 nor T+30 may act on it.
+     */
+    public function test_a_booking_scheduled_days_ahead_is_neither_escalated_nor_cancelled_past_t30(): void
+    {
+        Notification::fake();
+        Setting::set('dispatch.max_rounds', '1');
+
+        ['booking' => $booking, 'franchise' => $franchise] = $this->makeBookingScenario('pending');
+        $booking->update(['scheduled_at' => now()->addDays(3)]);
+        $admin = $this->opsAdminScopedTo('franchise', $franchise->id);
+
+        (new ServiceMatchingJob($booking->id))->handle(app(DispatchService::class));
+        $this->assertSame('searching_provider', $booking->fresh()->status);
+        $this->assertNotNull($booking->fresh()->dispatch_deadline_at);
+
+        $this->travel(31)->minutes();
+        $result = app(DispatchDeadlineSweepService::class)->sweep();
+
+        $this->assertSame(['escalated' => 0, 'cancelled' => 0], $result);
+
+        $booking->refresh();
+        $this->assertSame('searching_provider', $booking->status);
+        $this->assertNull($booking->dispatch_escalated_at);
+        $this->assertNull($booking->cancellation_note);
+
+        Notification::assertNotSentTo($admin, AdminOpsAlertNotification::class);
+        Notification::assertNotSentTo($booking->customer, BookingStatusNotification::class, function (BookingStatusNotification $n) {
+            return in_array($n->eventKey(), ['booking.no_provider_found', 'booking.cancelled'], true);
+        });
+    }
+
+    /** Any non-null scheduled_at is excluded — a slot two hours out the same as one at the 14-day limit. */
+    public function test_near_and_far_future_scheduled_bookings_are_both_excluded(): void
+    {
+        Notification::fake();
+
+        $near = $this->makeBookingScenario('searching_provider')['booking'];
+        $near->update(['scheduled_at' => now()->addHours(2), 'dispatch_deadline_at' => now()->subMinutes(31)]);
+
+        $far = $this->makeBookingScenario('searching_provider')['booking'];
+        $far->update(['scheduled_at' => now()->addDays(14), 'dispatch_deadline_at' => now()->subMinutes(31)]);
+
+        $this->assertSame(['escalated' => 0, 'cancelled' => 0], app(DispatchDeadlineSweepService::class)->sweep());
+
+        foreach ([$near, $far] as $booking) {
+            $booking->refresh();
+            $this->assertSame('searching_provider', $booking->status);
+            $this->assertNull($booking->dispatch_escalated_at);
+        }
+    }
+
+    /** Regression: in the same sweep, an instant booking with identical elapsed time is still escalated and cancelled. */
+    public function test_an_instant_booking_is_still_escalated_and_cancelled_alongside_an_excluded_scheduled_one(): void
+    {
+        Notification::fake();
+
+        ['booking' => $instant, 'franchise' => $franchise] = $this->makeBookingScenario('searching_provider');
+        $instant->update(['dispatch_deadline_at' => now()->subMinutes(31)]);
+        $admin = $this->opsAdminScopedTo('franchise', $franchise->id);
+
+        $scheduled = $this->makeBookingScenario('searching_provider')['booking'];
+        $scheduled->update(['scheduled_at' => now()->addDays(3), 'dispatch_deadline_at' => now()->subMinutes(31)]);
+
+        $this->assertSame(['escalated' => 1, 'cancelled' => 1], app(DispatchDeadlineSweepService::class)->sweep());
+
+        $instant->refresh();
+        $this->assertSame('cancelled', $instant->status);
+        $this->assertNotNull($instant->dispatch_escalated_at);
+        Notification::assertSentTo($admin, AdminOpsAlertNotification::class, function (AdminOpsAlertNotification $n) {
+            return $n->eventKey() === 'admin.ops_dispatch_escalation';
+        });
+        Notification::assertSentTo($instant->customer, BookingStatusNotification::class, function (BookingStatusNotification $n) {
+            return $n->eventKey() === 'booking.no_provider_found';
+        });
+
+        $scheduled->refresh();
+        $this->assertSame('searching_provider', $scheduled->status);
+        $this->assertNull($scheduled->dispatch_escalated_at);
+    }
 }
