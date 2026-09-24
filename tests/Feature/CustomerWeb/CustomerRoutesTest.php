@@ -93,6 +93,27 @@ class CustomerRoutesTest extends TestCase
 
     // ==================== Coming-soon placeholder ====================
 
+    /** 1CF-LAUNCH-20260924-WALLET-MEMBERSHIP: the card used to link to the "Online booking is on its way" placeholder. */
+    public function test_homepage_membership_card_links_to_the_membership_placeholder(): void
+    {
+        \App\Models\Plan::create([
+            'name' => '1CallFix Prime Silver', 'slug' => 'prime-silver', 'plan_family' => 'customer_membership',
+            'module' => 'service', 'scope_type' => 'global', 'eligible_actor_type' => 'customer',
+            'billing_cycle' => 'custom', 'custom_cycle_days' => 365, 'price' => 1999, 'is_active' => true,
+        ]);
+
+        $this->get(route('customer.home'))
+            ->assertOk()
+            ->assertSee('1CallFix Prime Silver')
+            ->assertSee('1,999.00')
+            ->assertSee(route('customer.coming-soon', 'membership'), false)
+            ->assertDontSee(route('customer.coming-soon', 'booking'), false);
+
+        $this->get(route('customer.coming-soon', 'membership'))
+            ->assertOk()
+            ->assertSee('Membership sign-up is on its way');
+    }
+
     public function test_known_coming_soon_features_render(): void
     {
         foreach (\App\Http\Controllers\Customer\PageController::COMING_SOON_FEATURES as $feature) {

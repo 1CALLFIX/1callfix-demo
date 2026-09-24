@@ -37,6 +37,7 @@ class PageController extends Controller
         'booking',
         'bookings',
         'languages',
+        'membership',
     ];
 
     /**
@@ -58,6 +59,10 @@ class PageController extends Controller
         'languages' => [
             'title' => 'More languages are on the way',
             'body' => 'The web app is currently available in English only.',
+        ],
+        'membership' => [
+            'title' => 'Membership sign-up is on its way',
+            'body' => 'Buying a membership through the web app is being built. Our team can still sign you up over the phone today.',
         ],
     ];
 

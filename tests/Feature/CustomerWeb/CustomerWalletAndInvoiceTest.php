@@ -49,6 +49,73 @@ class CustomerWalletAndInvoiceTest extends TestCase
             ->assertSee('not configured');
     }
 
+    /**
+     * 1CF-LAUNCH-20260924-WALLET-MEMBERSHIP: the Razorpay handler used to be
+     * bound inside a 'livewire:init' listener, which never fires again after
+     * a wire:navigate visit (Account -> Wallet), so "Add money" created the
+     * order and then nothing opened. The handler now lives in @script and
+     * listens with $wire.on, so the event must be dispatched ->self().
+     */
+    public function test_top_up_opens_checkout_via_a_component_scoped_event(): void
+    {
+        $this->app->instance(\App\Contracts\PaymentGateway::class, $this->fakeGateway());
+        $customer = $this->makeCustomer();
+
+        $component = Livewire::actingAs($customer)->test(WalletIndex::class)
+            ->set('topUpAmount', '500')
+            ->call('requestTopUp')
+            ->assertSet('error', '')
+            ->assertDispatched('razorpay-open');
+
+        $dispatch = collect($component->effects['dispatches'] ?? [])->firstWhere('name', 'razorpay-open');
+        $this->assertTrue($dispatch['self'] ?? false, 'razorpay-open must be dispatched ->self() for $wire.on to receive it');
+        $this->assertSame('order_fake123', $dispatch['params']['order']['razorpay_order_id']);
+
+        $this->assertDatabaseHas('payments', [
+            'user_id' => $customer->id, 'purpose' => 'wallet_topup', 'status' => 'pending', 'gateway_order_id' => 'order_fake123',
+        ]);
+    }
+
+    public function test_checkout_handlers_do_not_depend_on_livewire_init(): void
+    {
+        foreach (['wallet/index', 'orders/show', 'bundles/show'] as $view) {
+            $source = file_get_contents(resource_path("views/livewire/customer/{$view}.blade.php"));
+
+            $this->assertStringNotContainsString("addEventListener('livewire:init'", $source, "{$view} binds its checkout handler on livewire:init, which is dead after wire:navigate");
+            $this->assertStringContainsString('@script', $source, $view);
+            $this->assertStringContainsString('$wire.on(', $source, $view);
+        }
+    }
+
+    private function fakeGateway(): \App\Contracts\PaymentGateway
+    {
+        return new class implements \App\Contracts\PaymentGateway
+        {
+            public function identifier(): string { return 'razorpay'; }
+
+            public function displayName(): string { return 'Fake'; }
+
+            public function isConfigured(): bool { return true; }
+
+            public function maskedPublicIdentifier(): ?string { return null; }
+
+            public function checkoutKeyId(): ?string { return 'rzp_test_fake'; }
+
+            public function createOrder(Booking $booking): array { return $this->createRawOrder((float) $booking->price_quoted, 'b'); }
+
+            public function createRawOrder(float $amountRupees, string $receipt, array $notes = []): array
+            {
+                return ['razorpay_order_id' => 'order_fake123', 'key_id' => 'rzp_test_fake', 'amount' => (int) round($amountRupees * 100), 'currency' => 'INR'];
+            }
+
+            public function verifyWebhookSignature(string $rawPayload, string $signatureHeader): bool { return false; }
+
+            public function verifyPaymentSignature(string $orderId, string $paymentId, string $signature): bool { return false; }
+
+            public function refund(string $gatewayPaymentId, float $amountRupees, string $reason = ''): array { return []; }
+        };
+    }
+
     public function test_guests_cannot_see_the_wallet(): void
     {
         $this->get(route('customer.wallet'))->assertRedirect(route('customer.login'));

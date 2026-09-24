@@ -65,28 +65,31 @@
         </button>
     @endif
 
+    {{-- @script, not a 'livewire:init' listener, so "Pay now" still works
+         when this page is reached via wire:navigate. --}}
+    @assets
     <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+    @endassets
+    @script
     <script>
-        document.addEventListener('livewire:init', () => {
-            const open = (o) => {
-                if (!o || !window.Razorpay) return;
-                new window.Razorpay({
-                    key: o.razorpay_key_id ?? o.key_id,
-                    order_id: o.razorpay_order_id,
-                    amount: o.amount,
-                    currency: o.currency,
-                    name: @js(\App\Models\Setting::get('branding.platform_name', '1CallFix')),
-                    description: 'Service bundle',
-                    handler: () => window.location.reload(),
-                }).open();
-            };
+        const open = (o) => {
+            if (!o || !window.Razorpay) return;
+            new window.Razorpay({
+                key: o.razorpay_key_id ?? o.key_id,
+                order_id: o.razorpay_order_id,
+                amount: o.amount,
+                currency: o.currency,
+                name: @js(\App\Models\Setting::get('branding.platform_name', '1CallFix')),
+                description: 'Service bundle',
+                handler: () => window.location.reload(),
+            }).open();
+        };
 
-            Livewire.on('bundle-pay-open', (e) => open(e.order ?? e[0]?.order));
+        $wire.on('bundle-pay-open', (e) => open(e.order ?? e[0]?.order));
 
-            @if ($autoPay)
-                setTimeout(() => Livewire.dispatch('$refresh'), 0);
-                @this.call('payNow');
-            @endif
-        });
+        @if ($autoPay)
+            $wire.payNow();
+        @endif
     </script>
+    @endscript
 </div>
