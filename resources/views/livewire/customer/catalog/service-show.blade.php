@@ -267,9 +267,33 @@
                          bundle at checkout. Optional preferred time; the option
                          selection above and the estimate are carried over but
                          re-priced authoritatively at checkout.
+
+                         The stepper is the cart line's quantity: it opens on
+                         whatever is already in the cart, and each unit becomes
+                         its own booking at checkout. Server round-trips like
+                         the cart page's own stepper — the subtotal is computed
+                         in PHP, never in the browser.
                     --}}
                     <div class="mt-3 rounded-lg border border-slate-200 p-3">
-                        <label for="cart-preferred-at" class="block text-xs font-medium text-slate-600">Preferred time (optional)</label>
+                        <div class="flex items-end justify-between gap-3">
+                            <div>
+                                <span id="cart-qty-label" class="block text-xs font-medium text-slate-600">Quantity</span>
+                                <div role="group" aria-labelledby="cart-qty-label" class="mt-1 inline-flex items-center rounded-lg border border-slate-300">
+                                    <button type="button" wire:click="decrementQuantity"
+                                            @disabled($quantity <= ($cartItemId ? 0 : 1))
+                                            class="grid h-9 w-9 place-items-center text-slate-600 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-40" aria-label="Decrease quantity">−</button>
+                                    <span class="w-8 text-center text-sm font-medium text-slate-900" aria-live="polite">{{ $quantity }}</span>
+                                    <button type="button" wire:click="incrementQuantity"
+                                            class="grid h-9 w-9 place-items-center text-slate-600 hover:text-slate-900" aria-label="Increase quantity">+</button>
+                                </div>
+                            </div>
+                            <div class="text-right">
+                                <span class="block text-xs font-medium text-slate-600">Subtotal</span>
+                                <span class="text-base font-bold text-slate-900">{{ $currencySymbol }}{{ number_format($quantitySubtotal, 2) }}</span>
+                            </div>
+                        </div>
+
+                        <label for="cart-preferred-at" class="mt-3 block text-xs font-medium text-slate-600">Preferred time (optional)</label>
                         <input type="datetime-local" id="cart-preferred-at" wire:model="preferredAt"
                                class="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 focus:border-blue-500 focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-blue-600">
 
@@ -280,18 +304,31 @@
                         <button type="button" wire:click="addToCart"
                                 class="mt-3 flex min-h-12 w-full items-center justify-center gap-2 rounded-lg border border-blue-600 px-6 text-sm font-semibold text-blue-700 transition hover:bg-blue-600 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600">
                             <x-icon name="shopping-bag" class="h-4 w-4" />
-                            Add to cart
+                            @if (! $cartItemId)
+                                Add to cart
+                            @elseif ($quantity < 1)
+                                Remove from cart
+                            @else
+                                Update cart
+                            @endif
                         </button>
 
                         @error('cart')
                             <p role="alert" class="mt-2 text-xs text-red-600">{{ $message }}</p>
                         @enderror
 
+                        {{-- Stays on this page on purpose — the badge in the
+                             topbar updates via 'cart-updated'; "View cart" is
+                             an offer, not a redirect. --}}
                         @if ($cartNotice !== '')
-                            <p role="status" class="mt-2 text-xs text-emerald-700">
-                                {{ $cartNotice }}
-                                <a href="{{ route('customer.cart') }}" wire:navigate class="font-semibold underline underline-offset-2">View cart</a>
-                            </p>
+                            <div role="status" class="mt-2 flex items-start justify-between gap-2 rounded-lg bg-emerald-50 px-3 py-2 text-xs text-emerald-800">
+                                <p>
+                                    {{ $cartNotice }}
+                                    <a href="{{ route('customer.cart') }}" wire:navigate class="font-semibold underline underline-offset-2">View cart</a>
+                                </p>
+                                <button type="button" wire:click="$set('cartNotice', '')"
+                                        class="-m-1 grid h-6 w-6 shrink-0 place-items-center rounded text-emerald-700 hover:text-emerald-900" aria-label="Dismiss">×</button>
+                            </div>
                         @endif
                     </div>
 

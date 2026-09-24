@@ -66,6 +66,9 @@
                                             <button type="button" wire:click="changeQty({{ $item->id }}, 1)"
                                                     class="grid h-9 w-9 place-items-center text-slate-600 hover:text-slate-900" aria-label="Increase quantity">+</button>
                                         </div>
+                                        @if (! empty($qtyErrors[$item->id]))
+                                            <p role="alert" class="mt-1 text-xs text-red-600">{{ $qtyErrors[$item->id] }}</p>
+                                        @endif
                                     </div>
 
                                     {{-- Preferred time --}}
