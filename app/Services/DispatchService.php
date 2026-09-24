@@ -77,7 +77,29 @@ class DispatchService
             ->map(fn (Provider $provider) => $this->withDistance($provider, (float) $booking->address->lat, (float) $booking->address->lng))
             ->filter(fn ($c) => $c['distance_km'] <= $radiusKm);
 
-        return $this->rankAndLimit($candidates, $scope, $radiusKm, $limit);
+        return $this->rankAndLimit($candidates, $scope, $radiusKm, $limit, $this->priorOfferCountsForBooking($booking));
+    }
+
+    /**
+     * REF 1CF-DISPATCH-20260924 (finding D-02) — how many times each
+     * provider has already been offered THIS booking. Feeds the round
+     * offset in rankAndLimit(): without it every round re-ranked the same
+     * pool identically, so the same top batch was re-offered until the
+     * max_timeouts_per_provider circuit breaker tripped, capping a booking
+     * at batch × (max_rounds / max_timeouts) distinct providers (10 with
+     * the old defaults) however many were eligible. Ordering only — who is
+     * excluded is still decided solely by excludedProviderIdsForBooking().
+     *
+     * @return array<int, int> provider_id => offer count
+     */
+    private function priorOfferCountsForBooking(Booking $booking): array
+    {
+        return $booking->dispatchAttempts()
+            ->selectRaw('provider_id, count(*) as offers')
+            ->groupBy('provider_id')
+            ->pluck('offers', 'provider_id')
+            ->map(fn ($n) => (int) $n)
+            ->all();
     }
 
     /**
@@ -498,15 +520,30 @@ class DispatchService
         ];
     }
 
-    /** Phase B0.3: private -> protected, visibility-only (see eligibleQuery()'s note above). */
-    protected function rankAndLimit(Collection $candidates, array $scope, float $radiusKm, int $limit): Collection
+    /**
+     * Phase B0.3: private -> protected, visibility-only (see eligibleQuery()'s note above).
+     *
+     * $priorOffers (provider_id => times already offered this job) applies
+     * the round offset: fewest prior offers first, the configured ranking
+     * order kept within each tier (stable sort). Round 1 is unchanged; later
+     * rounds reach providers never offered before re-offering anyone, and
+     * once everyone has been offered they cycle in rank order again.
+     * Callers that pass nothing get the plain ranking, exactly as before.
+     */
+    protected function rankAndLimit(Collection $candidates, array $scope, float $radiusKm, int $limit, array $priorOffers = []): Collection
     {
         $config = $this->rankingConfigResolver->resolve('providers', $scope);
 
-        return $this->rankingEngine
-            ->rank($candidates->values(), $config, $radiusKm)
-            ->take($limit)
-            ->values();
+        $ranked = $this->rankingEngine->rank($candidates->values(), $config, $radiusKm)->values();
+
+        if ($priorOffers !== []) {
+            $ranked = $ranked
+                ->map(fn ($c, $i) => [$c, $priorOffers[$c['provider']->id] ?? 0, $i])
+                ->sort(fn ($a, $b) => [$a[1], $a[2]] <=> [$b[1], $b[2]])
+                ->map(fn ($row) => $row[0]);
+        }
+
+        return $ranked->take($limit)->values();
     }
 
     /**
