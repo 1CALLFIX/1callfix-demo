@@ -60,10 +60,17 @@ class ServiceMatchingJob implements ShouldQueue
         return (int) Setting::get('dispatch.offer_timeout_seconds', 25);
     }
 
-    /** Safety cap so a booking with zero available providers doesn't loop forever. */
+    /**
+     * Safety cap so a booking with zero available providers doesn't loop
+     * forever. Also sets the automatic search window: rounds run one offer
+     * timeout apart, so the window is max_rounds × offer_timeout_seconds.
+     * Default 24 × 25s = 10 minutes (REF 1CF-DISPATCH-20260924), leaving a
+     * buffer before the searching_provider auto-cancel in
+     * DispatchDeadlineSweepService. Was 6 (2.5 minutes).
+     */
     private function maxRounds(): int
     {
-        return (int) Setting::get('dispatch.max_rounds', 6);
+        return (int) Setting::get('dispatch.max_rounds', 24);
     }
 
     public function __construct(

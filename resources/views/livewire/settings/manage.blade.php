@@ -153,7 +153,7 @@
                 <div>
                     <label class="block text-xs font-medium mb-1">Max rounds @if ($scoped) <x-setting-override-badge :overridden="in_array('dispatch.max_rounds', $this->overriddenKeys)" setting-key="dispatch.max_rounds" /> @endif</label>
                     <input type="number" step="1" wire:model="dispatchMaxRounds" class="w-full border rounded px-3 py-2 text-sm">
-                    <p class="text-[11px] text-gray-400 mt-1">Before falling to manual queue</p>
+                    <p class="text-[11px] text-gray-400 mt-1">Before falling to manual queue — search window ≈ {{ round(((int) $dispatchMaxRounds * (int) $dispatchOfferTimeoutSeconds) / 60, 1) }} min (rounds × timeout)</p>
                     @error('dispatchMaxRounds') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
                 </div>
                 <div>

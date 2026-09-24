@@ -123,13 +123,13 @@ class Manage extends Component
     // --- Dispatch (ServiceMatchingJob's tuning constants) ---
     public string $dispatchOfferBatchSize = '5';
     public string $dispatchOfferTimeoutSeconds = '25';
-    public string $dispatchMaxRounds = '6';
+    public string $dispatchMaxRounds = '24';
     public string $dispatchDefaultRadiusKm = '8';
     // Circuit breaker: after this many timeouts on the SAME booking, a
     // provider stops being re-offered that specific booking (still eligible
-    // for other bookings). Added with the timeout-reeligibility fix — half
-    // of dispatchMaxRounds by default, so a chronically-unresponsive
-    // provider burns out before the booking itself exhausts all rounds.
+    // for other bookings). Added with the timeout-reeligibility fix, so a
+    // chronically-unresponsive provider burns out before the booking itself
+    // exhausts all rounds.
     public string $dispatchMaxTimeoutsPerProvider = '3';
 
     // --- Commission Defaults (Franchises\Manage's Add New pre-fill) ---
@@ -375,7 +375,7 @@ class Manage extends Component
 
         $this->dispatchOfferBatchSize = (string) Setting::get('dispatch.offer_batch_size', '5', $scope);
         $this->dispatchOfferTimeoutSeconds = (string) Setting::get('dispatch.offer_timeout_seconds', '25', $scope);
-        $this->dispatchMaxRounds = (string) Setting::get('dispatch.max_rounds', '6', $scope);
+        $this->dispatchMaxRounds = (string) Setting::get('dispatch.max_rounds', '24', $scope);
         $this->dispatchDefaultRadiusKm = (string) Setting::get('dispatch.default_radius_km', '8', $scope);
         $this->dispatchMaxTimeoutsPerProvider = (string) Setting::get('dispatch.max_timeouts_per_provider', '3', $scope);
 
@@ -514,7 +514,7 @@ class Manage extends Component
         $this->validate([
             'dispatchOfferBatchSize' => ['required', 'integer', 'min:1', 'max:20'],
             'dispatchOfferTimeoutSeconds' => ['required', 'integer', 'min:5', 'max:300'],
-            'dispatchMaxRounds' => ['required', 'integer', 'min:1', 'max:20'],
+            'dispatchMaxRounds' => ['required', 'integer', 'min:1', 'max:60'],
             'dispatchDefaultRadiusKm' => ['required', 'integer', 'min:1', 'max:100'],
             'dispatchMaxTimeoutsPerProvider' => ['required', 'integer', 'min:1', 'max:20'],
         ], [], [
