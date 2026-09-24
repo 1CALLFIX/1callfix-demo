@@ -27,6 +27,9 @@ class Index extends Component
     /** item id => validation message for that row's time field. */
     public array $scheduleErrors = [];
 
+    /** item id => quantity message (e.g. over the per-line maximum). */
+    public array $qtyErrors = [];
+
     public function mount(ServiceCartService $cart): void
     {
         $tz = app(TimezoneResolver::class);
@@ -61,7 +64,18 @@ class Index extends Component
             return;
         }
 
-        app(ServiceCartService::class)->updateQuantity($item, $item->quantity + $delta);
+        unset($this->qtyErrors[$itemId]);
+
+        try {
+            app(ServiceCartService::class)->updateQuantity($item, $item->quantity + $delta);
+        } catch (\RuntimeException $e) {
+            // Over ServiceCartService::MAX_QUANTITY — say so, don't cap silently.
+            $this->qtyErrors[$itemId] = $e->getMessage();
+
+            return;
+        }
+
+        $this->dispatch('cart-updated');
     }
 
     public function removeItem(int $itemId): void

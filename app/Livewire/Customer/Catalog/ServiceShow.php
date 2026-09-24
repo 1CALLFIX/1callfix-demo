@@ -4,11 +4,13 @@ namespace App\Livewire\Customer\Catalog;
 
 use App\Livewire\Customer\Concerns\ResolvesCatalogContext;
 use App\Models\Service;
+use App\Models\ServiceCartItem;
 use App\Models\ServiceOption;
 use App\Models\ServiceOptionGroup;
 use App\Services\Customer\ServiceCartService;
 use App\Services\Customer\ServiceRatingSummary;
 use App\Services\DispatchService;
+use App\Services\TimezoneResolver;
 use App\Support\BookingSchedule;
 use App\Support\Modules;
 use Illuminate\Support\Collection;
@@ -72,6 +74,21 @@ class ServiceShow extends Component
     /** Inline confirmation after a successful add, cleared on the next option change. */
     public string $cartNotice = '';
 
+    /**
+     * The stepper next to the price: how many of this service the cart line
+     * should hold. Starts at 1, or at the existing line's quantity. 0 is only
+     * reachable while editing an existing line, and means "remove it".
+     */
+    public int $quantity = 1;
+
+    /**
+     * The customer's cart line for this service that the stepper edits, or
+     * null when there is none yet. #[Locked] and re-scoped to the user on
+     * every use, so a tampered id can never touch someone else's cart.
+     */
+    #[Locked]
+    public ?int $cartItemId = null;
+
     private const REVIEW_LIMIT = 5;
     private const RELATED_LIMIT = 4;
 
@@ -91,6 +108,27 @@ class ServiceShow extends Component
 
         $this->serviceId = $service->id;
         $this->preselectRequiredGroups($service);
+        $this->loadExistingCartLine();
+    }
+
+    public function incrementQuantity(): void
+    {
+        $this->resetErrorBag('cart');
+
+        if ($this->quantity >= ServiceCartService::MAX_QUANTITY) {
+            $this->addError('cart', ServiceCartService::maxQuantityMessage());
+
+            return;
+        }
+
+        $this->quantity++;
+    }
+
+    /** Floors at 1 for a new line; at 0 (= remove) when editing an existing one. */
+    public function decrementQuantity(): void
+    {
+        $this->resetErrorBag('cart');
+        $this->quantity = max($this->cartItemId ? 0 : 1, $this->quantity - 1);
     }
 
     /** Single-choice group: one option replaces any previous choice. */
@@ -127,6 +165,11 @@ class ServiceShow extends Component
      * and the estimate are advisory — ServiceCartService and the checkout
      * bundle action re-derive the authoritative charge. Requires a login
      * (the cart is per-user, DB-backed); a guest is sent to sign in and back.
+     *
+     * With an existing line (cartItemId) this writes the stepper's quantity
+     * and the form onto that line instead — 0 removes it. Either way the
+     * customer stays on this page; the topbar badge follows via
+     * 'cart-updated'.
      */
     public function addToCart(ServiceCartService $cart): void
     {
@@ -135,6 +178,20 @@ class ServiceShow extends Component
 
         if (! auth()->check()) {
             $this->redirectRoute('customer.login', ['intended' => route('customer.services.show', $this->serviceId)]);
+
+            return;
+        }
+
+        $existing = $this->cartItemId
+            ? ServiceCartItem::where('user_id', auth()->id())->find($this->cartItemId)
+            : null;
+
+        if ($existing && $this->quantity < 1) {
+            $cart->remove($existing);
+            $this->cartItemId = null;
+            $this->quantity = 1;
+            $this->cartNotice = 'Removed from your cart.';
+            $this->dispatch('cart-updated');
 
             return;
         }
@@ -154,22 +211,33 @@ class ServiceShow extends Component
         $service = Service::findOrFail($this->serviceId);
 
         try {
-            $cart->add(
-                auth()->user(),
-                $service,
-                $this->selected,
-                BookingSchedule::parse($this->preferredAt),
-                $this->customerNote,
-            );
+            if ($existing) {
+                $cart->updateQuantity($existing, $this->quantity);
+                $cart->updateOptions($existing, $this->selected);
+                $cart->updateSchedule($existing, BookingSchedule::parse($this->preferredAt));
+                $cart->updateNote($existing, $this->customerNote);
+                $this->cartNotice = 'Cart updated.';
+            } else {
+                $item = $cart->add(
+                    auth()->user(),
+                    $service,
+                    $this->selected,
+                    BookingSchedule::parse($this->preferredAt),
+                    $this->customerNote,
+                    max(1, $this->quantity),
+                );
+                // add() may have merged into an identical line; the stepper
+                // now tracks whatever line holds these units.
+                $this->cartItemId = $item->id;
+                $this->quantity = $item->quantity;
+                $this->cartNotice = 'Added to your cart.';
+            }
         } catch (\RuntimeException $e) {
             $this->addError('cart', $e->getMessage());
 
             return;
         }
 
-        $this->customerNote = '';
-        $this->preferredAt = '';
-        $this->cartNotice = 'Added to your cart.';
         $this->dispatch('cart-updated');
     }
 
@@ -180,6 +248,7 @@ class ServiceShow extends Component
 
         $card = $this->presenter()->card($service);
         $selectedOptions = $this->selectedOptions();
+        $estimatedTotal = $card['price'] + $this->optionsTotal($selectedOptions);
 
         return view('livewire.customer.catalog.service-show', [
             'service' => $service,
@@ -187,7 +256,8 @@ class ServiceShow extends Component
             'groups' => $this->groups(),
             'selectedOptions' => $selectedOptions,
             'optionsTotal' => $this->optionsTotal($selectedOptions),
-            'estimatedTotal' => $card['price'] + $this->optionsTotal($selectedOptions),
+            'estimatedTotal' => $estimatedTotal,
+            'quantitySubtotal' => $estimatedTotal * $this->quantity,
             'missingRequiredGroups' => $this->missingRequiredGroups(),
             'reviews' => $ratings->recentFor($service->id, self::REVIEW_LIMIT),
             'bookingCount' => $this->catalog()->bookingCountFor($service->id, $this->location()->franchiseId()),
@@ -241,6 +311,52 @@ class ServiceShow extends Component
             if ($group->is_required && ! $group->allow_multiple) {
                 $this->selected[$group->id] = $group->options->first()->id;
             }
+        }
+    }
+
+    /**
+     * If the customer already has this service in their cart, the stepper and
+     * form open on that line (the most recently added one, if several) rather
+     * than on 1 — so "Add" never silently doubles what is already there.
+     * Stored options are re-filtered through this service's live groups, the
+     * same boundary selectOption()/toggleOption() enforce.
+     */
+    private function loadExistingCartLine(): void
+    {
+        if (! auth()->check()) {
+            return;
+        }
+
+        $line = ServiceCartItem::where('user_id', auth()->id())
+            ->where('service_id', $this->serviceId)
+            ->latest('id')
+            ->first();
+
+        if (! $line) {
+            return;
+        }
+
+        $this->cartItemId = $line->id;
+        $this->quantity = $line->quantity;
+        $this->preferredAt = app(TimezoneResolver::class)->toLocalInput($line->scheduled_at) ?? '';
+        $this->customerNote = (string) $line->customer_note;
+
+        $groups = $this->groups()->keyBy('id');
+        foreach ($line->selected_options ?? [] as $groupId => $ids) {
+            $group = $groups->get((int) $groupId);
+            if (! $group) {
+                continue;
+            }
+
+            $valid = collect((array) $ids)->map(fn ($id) => (int) $id)
+                ->filter(fn ($id) => $group->options->contains('id', $id))
+                ->values()->all();
+
+            if ($valid === []) {
+                continue;
+            }
+
+            $this->selected[$group->id] = $group->allow_multiple ? $valid : $valid[0];
         }
     }
 

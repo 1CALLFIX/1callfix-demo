@@ -38,6 +38,19 @@ use Illuminate\Support\Collection;
 class ServiceCartService
 {
     /**
+     * Most units of one cart line. Each unit becomes its own Booking at
+     * checkout (own dispatch, own OTP), so an unbounded count would fan out
+     * into an unbounded number of jobs. First-pass default — the business can
+     * tune it; there was no existing setting to reuse.
+     */
+    public const MAX_QUANTITY = 10;
+
+    public static function maxQuantityMessage(): string
+    {
+        return 'You can add at most '.self::MAX_QUANTITY.' of the same service at once.';
+    }
+
+    /**
      * Add a service line, or merge into an identical existing one (same
      * service + same option selection + same preferred slot) by bumping its
      * quantity.
@@ -71,6 +84,7 @@ class ServiceCartService
             ->first(fn (ServiceCartItem $item) => $this->normaliseOptions($item->selected_options ?? []) === $options);
 
         if ($existing) {
+            $this->assertWithinMax($existing->quantity + $quantity);
             $existing->quantity += $quantity;
             if ($note !== '') {
                 $existing->customer_note = $note;
@@ -79,6 +93,8 @@ class ServiceCartService
 
             return $existing;
         }
+
+        $this->assertWithinMax($quantity);
 
         return ServiceCartItem::create([
             'user_id' => $user->id,
@@ -100,6 +116,8 @@ class ServiceCartService
 
             return;
         }
+
+        $this->assertWithinMax($quantity);
 
         $item->update(['quantity' => $quantity]);
     }
@@ -183,6 +201,14 @@ class ServiceCartService
     }
 
     // ------------------------------------------------------------------
+
+    /** Rejects, never silently caps — the customer must see why the count did not go up. */
+    private function assertWithinMax(int $quantity): void
+    {
+        if ($quantity > self::MAX_QUANTITY) {
+            throw new \RuntimeException(self::maxQuantityMessage());
+        }
+    }
 
     private function assertBookable(Service $service): void
     {
