@@ -55,24 +55,29 @@
         @endforelse
     </ul>
 
+    {{-- @script (not a 'livewire:init' listener) so the handler is bound on
+         every component init, including after a wire:navigate visit, where
+         'livewire:init' never fires again and the button went silent. --}}
     @if ($gatewayConfigured)
+        @assets
         <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+        @endassets
+        @script
         <script>
-            document.addEventListener('livewire:init', () => {
-                Livewire.on('razorpay-open', (e) => {
-                    const o = e.order ?? e[0]?.order;
-                    if (!o || !window.Razorpay) return;
-                    new window.Razorpay({
-                        key: o.razorpay_key_id ?? o.key_id,
-                        order_id: o.razorpay_order_id,
-                        amount: o.amount,
-                        currency: o.currency,
-                        name: @js(\App\Models\Setting::get('branding.platform_name', '1CallFix')),
-                        description: 'Wallet top-up',
-                        handler: () => window.location.reload(),
-                    }).open();
-                });
+            $wire.on('razorpay-open', (e) => {
+                const o = e.order ?? e[0]?.order;
+                if (!o || !window.Razorpay) return;
+                new window.Razorpay({
+                    key: o.razorpay_key_id ?? o.key_id,
+                    order_id: o.razorpay_order_id,
+                    amount: o.amount,
+                    currency: o.currency,
+                    name: @js(\App\Models\Setting::get('branding.platform_name', '1CallFix')),
+                    description: 'Wallet top-up',
+                    handler: () => window.location.reload(),
+                }).open();
             });
         </script>
+        @endscript
     @endif
 </div>

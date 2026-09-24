@@ -147,7 +147,7 @@ class Show extends Component
             ],
         );
 
-        $this->dispatch('razorpay-open', order: $order, bookingCode: $booking->code);
+        $this->dispatch('razorpay-open', order: $order, bookingCode: $booking->code)->self();
     }
 
     public function submitReview(ReviewService $reviews): void

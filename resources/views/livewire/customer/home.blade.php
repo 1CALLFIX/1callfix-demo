@@ -269,7 +269,7 @@
                         @endforeach
                     </ul>
 
-                    <a href="{{ route('customer.coming-soon', 'booking') }}"
+                    <a href="{{ route('customer.coming-soon', 'membership') }}"
                        class="mt-6 inline-flex min-h-11 items-center rounded-lg bg-white px-5 text-sm font-semibold text-blue-700 shadow-sm transition hover:bg-blue-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">
                         About membership
                     </a>

@@ -53,7 +53,7 @@ class Index extends Component
             return;
         }
 
-        $this->dispatch('razorpay-open', order: $order);
+        $this->dispatch('razorpay-open', order: $order)->self();
         $this->notice = 'Complete the payment to add funds. Your balance updates once the payment is confirmed.';
     }
 

@@ -58,7 +58,7 @@ class Show extends Component
             return;
         }
 
-        $this->dispatch('bundle-pay-open', order: $order);
+        $this->dispatch('bundle-pay-open', order: $order)->self();
     }
 
     public function cancelBundle(CancelBookingBundleAction $action): void
