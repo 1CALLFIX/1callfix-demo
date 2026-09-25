@@ -52,7 +52,7 @@
                 <li>Points earning is currently paused.</li>
             @endif
             @if ($policy['on'] && $policy['rate'] && $policy['min'] !== null)
-                <li>{{ number_format($policy['rate']) }} points = {{ $currencySymbol }}1 when you redeem@if ($policy['min'] > 0), minimum {{ number_format($policy['min']) }} points@endif.</li>
+                <li>{{ number_format($policy['rate']) }} points = {{ $currencySymbol }}1 when you redeem{{ $policy['min'] > 0 ? ', minimum '.number_format($policy['min']).' points' : '' }}.</li>
             @else
                 <li>Redemption is currently unavailable.</li>
             @endif

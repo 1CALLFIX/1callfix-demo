@@ -32,6 +32,30 @@ class ActivityLog extends Model
     protected $casts = ['properties' => 'array'];
     public function causer() { return $this->belongsTo(User::class, 'causer_id'); }
 
+    /**
+     * REF 1CF-PROMPT-20260925-QA3 — the one-line human detail of an audit
+     * entry, shown under its description on Operations: a setting change reads
+     * "wallet.customer_min_topup (global): 100 → 150" (UNSET for a null side),
+     * a money / referral action shows its mandatory reason.
+     */
+    public function auditDetail(): ?string
+    {
+        $p = is_array($this->properties) ? $this->properties : [];
+
+        if (isset($p['key']) && is_string($p['key'])) {
+            $side = fn ($v) => is_scalar($v) ? (string) $v : 'UNSET';
+            $scope = ($p['scope_type'] ?? 'global').(! empty($p['scope_id']) ? ' #'.$p['scope_id'] : '');
+
+            return "{$p['key']} ({$scope}): {$side($p['old'] ?? null)} → {$side($p['new'] ?? null)}";
+        }
+
+        if (isset($p['reason']) && is_scalar($p['reason'])) {
+            return 'Reason: '.$p['reason'];
+        }
+
+        return null;
+    }
+
     protected static function booted(): void
     {
         static::updating(fn () => throw new \LogicException('activity_log is append-only: rows cannot be updated.'));
