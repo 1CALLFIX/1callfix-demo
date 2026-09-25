@@ -117,13 +117,20 @@ proceed to Section 2 with an unresolved failure here.
 #    before reopening to everyone.
 php artisan down --secret="$(openssl rand -hex 16)" --render=errors::503
 
-# 2. Pull the deployed code (or SCP it in, per PROJECT_HANDOFF.md §9's
-#    documented alternative — SCP has been the more reliable path
-#    historically; CyberPanel's File Manager zip-upload has a known bug
-#    with symlinks under vendor/bin/*, avoid it).
+# 2. Pull the deployed code (or copy it in — see the alternative below;
+#    CyberPanel's File Manager zip-upload has a known bug with symlinks
+#    under vendor/bin/*, avoid it).
 git pull origin main
-# -- or --
-# scp -r <local-build-folder> callf1207@31.97.186.175:/home/1callfix.com/public_html/api/
+# -- or, from your LOCAL checkout (REF 1CF-PROMPT-20260925-EARN4 1.3) --
+# Never `scp -r` a whole local folder: it would overwrite the server's
+# vendor/ (with dev packages), node_modules/, .env and storage/ (uploads,
+# logs, sessions). Ship a git archive instead — it contains ONLY tracked
+# files, so vendor/, node_modules/ and every .env* can't be in it by
+# construction, and storage/ is excluded explicitly:
+#   git archive --format=tar.gz -o release.tar.gz HEAD -- . ':(exclude)storage'
+#   scp release.tar.gz callf1207@31.97.186.175:/home/1callfix.com/public_html/api/
+#   (on the server, in api/)  tar -xzf release.tar.gz && rm release.tar.gz
+# public/build is git-ignored, so assets still go separately (step 4).
 
 # 3. PHP dependencies — production flags: no dev packages, optimized
 #    class-map autoloader.
