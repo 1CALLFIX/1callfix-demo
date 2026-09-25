@@ -81,6 +81,9 @@ final class EarningsSettings
         'referral.pending_expiry_days' => 'Settings → Loyalty / Referral (global only)',
         'referral.hold_same_signup_ip' => 'Earnings Control (global only; PROTECTIVE — unset = ON)',
         'referral.hold_same_device' => 'Earnings Control (global only; PROTECTIVE — unset = ON)',
+        'referral.referee_reward_type' => 'Earnings Control → Referrals (global only)',
+        'referral.referee_reward_amount' => 'Earnings Control → Referrals (global only)',
+        'referral.referee_reward_points' => 'Earnings Control → Referrals (global only)',
     ];
 
     /**
@@ -91,6 +94,13 @@ final class EarningsSettings
     public const PROTECTIONS = [
         'referral.hold_same_signup_ip' => ['label' => 'Hold referrals where referee and referrer share an IP', 'global' => true],
         'referral.hold_same_device' => ['label' => 'Hold referrals where referee and referrer share a device', 'global' => true],
+    ];
+
+    /** EARN4 R7 — referee (welcome) reward. GLOBAL only; unset type or value = no referee reward. */
+    public const REFEREE_REWARD = [
+        'referral.referee_reward_type' => ['label' => 'Referee reward type (wallet | points)', 'integer' => false],
+        'referral.referee_reward_amount' => ['label' => 'Referee wallet reward (₹)', 'integer' => false],
+        'referral.referee_reward_points' => ['label' => 'Referee points reward', 'integer' => true],
     ];
 
     public static function protectionOn(string $key, array $scope = []): bool

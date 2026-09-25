@@ -19,6 +19,8 @@ use App\Support\WalletSourceLabel;
 use Carbon\Carbon;
 use Livewire\Component;
 use Livewire\WithPagination;
+use App\Models\Referral;
+use App\Services\ReferralService;
 
 /**
  * REF 1CF-PROMPT-20260925-EARN3 — Stage 3. Payments & Finance → Earnings
@@ -41,7 +43,19 @@ class Manage extends Component
 {
     use WithPagination;
 
-    public string $activeTab = 'switches'; // switches|freeze|adjust|ledger|monitoring
+    public string $activeTab = 'switches'; // switches|freeze|adjust|ledger|referrals|monitoring
+
+    // ── Referrals (EARN4) ──
+    public string $refStatus = '';
+    public string $refFrom = '';
+    public string $refTo = '';
+    public ?int $refFranchiseId = null;
+    public ?int $reviewingReferralId = null;
+    public string $reviewReason = '';
+    public ?int $blockingUserId = null;
+    public string $blockReason = '';
+    /** Keyed by self::field($key), like limitInputs. */
+    public array $refereeInputs = [];
 
     // ── Switches ──
     public string $scopeType = 'global'; // global|franchise|zone
@@ -86,11 +100,12 @@ class Manage extends Component
         $this->monFrom = now()->startOfMonth()->toDateString();
         $this->monTo = now()->toDateString();
         $this->loadLimits();
+        $this->loadRefereeInputs();
     }
 
     public function setTab(string $tab): void
     {
-        $this->activeTab = in_array($tab, ['switches', 'freeze', 'adjust', 'ledger', 'monitoring'], true) ? $tab : 'switches';
+        $this->activeTab = in_array($tab, ['switches', 'freeze', 'adjust', 'ledger', 'referrals', 'monitoring'], true) ? $tab : 'switches';
         $this->resetPage();
         $this->flashMessage = '';
     }
@@ -188,6 +203,142 @@ class Manage extends Component
     public static function field(string $settingKey): string
     {
         return str_replace('.', '__', $settingKey);
+    }
+
+    // ═════════════════════════════ Referrals (EARN4) ═════════════════════════════
+
+    private function loadRefereeInputs(): void
+    {
+        foreach (EarningsSettings::REFEREE_REWARD as $key => $meta) {
+            $status = EarningsSettings::statusAt($key, 'global', null);
+            $this->refereeInputs[self::field($key)] = $status === 'UNSET' ? '' : $status;
+        }
+    }
+
+    /** R5 protective holds: '1' ON, '0' OFF (explicit, audited), 'unset' (= ON). Global only. */
+    public function setProtection(string $key, string $state): void
+    {
+        SuperAdminGate::authorize(auth()->user());
+
+        if (! array_key_exists($key, EarningsSettings::PROTECTIONS) || ! in_array($state, ['1', '0', 'unset'], true)) {
+            abort(422, 'Unknown protection or state.');
+        }
+
+        SettingsAuditor::put(auth()->user(), $key, $state === 'unset' ? null : $state, 'global', null);
+        $this->flash("{$key} set to ".match ($state) { '1' => 'ON', '0' => 'OFF', default => 'UNSET (protection ON)' }.'.');
+    }
+
+    public function saveRefereeReward(): void
+    {
+        SuperAdminGate::authorize(auth()->user());
+
+        $this->validate([
+            'refereeInputs.'.self::field('referral.referee_reward_type') => ['nullable', 'in:wallet,points'],
+            'refereeInputs.'.self::field('referral.referee_reward_amount') => ['nullable', 'numeric', 'min:0'],
+            'refereeInputs.'.self::field('referral.referee_reward_points') => ['nullable', 'integer', 'min:0'],
+        ]);
+
+        foreach (array_keys(EarningsSettings::REFEREE_REWARD) as $key) {
+            SettingsAuditor::put(auth()->user(), $key, $this->refereeInputs[self::field($key)] ?? null, 'global', null);
+        }
+
+        $this->loadRefereeInputs();
+        $this->flash('Referee reward saved.');
+    }
+
+    public function startReview(int $referralId): void
+    {
+        SuperAdminGate::authorize(auth()->user());
+        $this->reviewingReferralId = Referral::whereKey($referralId)->value('id');
+        $this->reviewReason = '';
+    }
+
+    public function releaseReferral(ReferralService $referrals): void
+    {
+        $this->reviewAction(function (Referral $r) use ($referrals) {
+            $result = $referrals->release($r, auth()->user(), $this->reviewReason);
+            $this->flash("Referral #{$r->id} released — ".str_replace('_', ' ', $result['outcome']).'.');
+        });
+    }
+
+    public function rejectReferral(ReferralService $referrals): void
+    {
+        $this->reviewAction(function (Referral $r) use ($referrals) {
+            $referrals->reject($r, auth()->user(), $this->reviewReason);
+            $this->flash("Referral #{$r->id} rejected.");
+        });
+    }
+
+    private function reviewAction(callable $fn): void
+    {
+        SuperAdminGate::authorize(auth()->user());
+
+        $referral = $this->reviewingReferralId ? Referral::find($this->reviewingReferralId) : null;
+        if (! $referral) {
+            $this->flash('Pick a referral first.', 'error');
+
+            return;
+        }
+
+        try {
+            $fn($referral);
+            $this->reset('reviewingReferralId', 'reviewReason');
+        } catch (\RuntimeException $e) {
+            $this->flash($e->getMessage(), 'error');
+        }
+    }
+
+    public function startBlock(int $userId): void
+    {
+        SuperAdminGate::authorize(auth()->user());
+        $this->blockingUserId = User::whereKey($userId)->where('role', 'customer')->value('id');
+        $this->blockReason = '';
+    }
+
+    public function blockReferrals(ReferralService $referrals): void
+    {
+        $this->blockAction(fn (User $u) => $referrals->blockUser(auth()->user(), $u, $this->blockReason), 'blocked from');
+    }
+
+    public function unblockReferrals(ReferralService $referrals): void
+    {
+        $this->blockAction(fn (User $u) => $referrals->unblockUser(auth()->user(), $u, $this->blockReason), 'unblocked for');
+    }
+
+    private function blockAction(callable $fn, string $verb): void
+    {
+        SuperAdminGate::authorize(auth()->user());
+
+        $user = $this->blockingUserId ? User::where('role', 'customer')->find($this->blockingUserId) : null;
+        if (! $user) {
+            $this->flash('Pick a customer first.', 'error');
+
+            return;
+        }
+
+        try {
+            $fn($user);
+            $this->flash("{$user->name} {$verb} the referral program.");
+            $this->reset('blockingUserId', 'blockReason');
+        } catch (\RuntimeException $e) {
+            $this->flash($e->getMessage(), 'error');
+        }
+    }
+
+    public function updatingRefStatus() { $this->resetPage(); }
+    public function updatingRefFrom() { $this->resetPage(); }
+    public function updatingRefTo() { $this->resetPage(); }
+    public function updatingRefFranchiseId() { $this->resetPage(); }
+
+    private function referralsQuery()
+    {
+        return Referral::query()
+            ->with(['referrer:id,name,phone,franchise_id,referral_blocked_at,signup_ip,last_login_ip,signup_device_id,last_login_device_id', 'referred:id,name,phone', 'reviewedBy:id,name'])
+            ->when($this->refStatus !== '', fn ($q) => $q->where('status', $this->refStatus))
+            ->when($this->refFrom !== '', fn ($q) => $q->where('created_at', '>=', Carbon::parse($this->refFrom)->startOfDay()))
+            ->when($this->refTo !== '', fn ($q) => $q->where('created_at', '<=', Carbon::parse($this->refTo)->endOfDay()))
+            ->when($this->refFranchiseId, fn ($q) => $q->whereHas('referrer', fn ($u) => $u->where('franchise_id', $this->refFranchiseId)))
+            ->latest('id');
     }
 
     // ═════════════════════════════ User picker ═════════════════════════════
@@ -326,6 +477,19 @@ class Manage extends Component
             }
         }
 
+        if ($this->activeTab === 'referrals') {
+            $data += [
+                'referrals' => $this->referralsQuery()->paginate(25),
+                'franchises' => Franchise::orderBy('name')->get(['id', 'name']),
+                'protections' => collect(EarningsSettings::PROTECTIONS)->map(fn ($meta, $key) => [
+                    'label' => $meta['label'], 'status' => EarningsSettings::statusAt($key, 'global', null),
+                ])->all(),
+                'refereeMeta' => EarningsSettings::REFEREE_REWARD,
+                'reviewing' => $this->reviewingReferralId ? Referral::with(['referrer:id,name', 'referred:id,name'])->find($this->reviewingReferralId) : null,
+                'blocking' => $this->blockingUserId ? User::find($this->blockingUserId) : null,
+            ];
+        }
+
         if ($this->activeTab === 'monitoring') {
             $from = Carbon::parse($this->monFrom ?: now()->startOfMonth())->startOfDay();
             $to = Carbon::parse($this->monTo ?: now())->endOfDay();
@@ -341,6 +505,8 @@ class Manage extends Component
                 'referralThreshold' => EarningsSettings::integer('earnings.flag_referrals_above'),
                 'frozenCredits' => $monitor->creditsToFrozenWallets(),
                 'loyaltyAudit' => $monitor->loyaltyAudit(),
+                'referralCounts' => $monitor->referralCountsByStatus(),
+                'heldReferrals' => $monitor->heldReferrals(),
                 'bundleAudit' => $monitor->bundleRefundAudit(),
             ];
         }
