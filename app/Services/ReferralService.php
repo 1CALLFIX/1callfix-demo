@@ -22,6 +22,13 @@ use App\Support\EarningsSettings;
  */
 class ReferralService
 {
+    /** EARN4 — values written to referrals.no_reward_reason. */
+    public const REASON_CAP = 'referrer_cap_reached';
+
+    public const REASON_CAP_UNSET = 'referral_cap_not_configured';
+
+    public const REASON_FROZEN = 'referrer_wallet_frozen';
+
     public function __construct(private WalletService $walletService, private LoyaltyService $loyaltyService)
     {
     }
@@ -40,10 +47,22 @@ class ReferralService
             return null;
         }
 
+        // EARN4 R4 — program off: no referral rows at all (capture already
+        // refuses the code; this also covers any other creation path).
+        if (! EarningsSettings::on('referral.enabled')) {
+            return null;
+        }
+
         $referrer = User::find($newUser->referred_by);
 
         if (! $referrer || $referrer->id === $newUser->id) {
             return null; // no such referrer, or a self-referral attempt
+        }
+
+        // EARN4 R3/R8 — defence in depth behind ReferralCapture: a blocked or
+        // inactive referrer never gets a referral row.
+        if ($referrer->referral_blocked_at !== null || $referrer->status !== 'active') {
+            return null;
         }
 
         if (Referral::where('referred_id', $newUser->id)->exists()) {
@@ -60,10 +79,33 @@ class ReferralService
         $expiryDays = Setting::get('referral.pending_expiry_days', '', []);
         $expiresAt = $expiryDays !== '' ? now()->addDays((int) $expiryDays) : null;
 
+        // EARN4 R5 — fraud holds. PROTECTIVE (Rule of Law #10): unset means
+        // the hold is ON; only an explicit '0' switches it off.
+        $holds = [];
+        if (EarningsSettings::protectionOn('referral.hold_same_signup_ip')
+            && $newUser->signup_ip !== null
+            && in_array($newUser->signup_ip, array_filter([$referrer->signup_ip, $referrer->last_login_ip]), true)) {
+            $holds[] = 'same_signup_ip';
+        }
+        if (EarningsSettings::protectionOn('referral.hold_same_device')
+            && $newUser->signup_device_id !== null
+            && in_array($newUser->signup_device_id, array_filter([$referrer->signup_device_id, $referrer->last_login_device_id]), true)) {
+            $holds[] = 'same_device';
+        }
+
+        // EARN4 R3 — a valid code from a referrer already at the cap is still
+        // recorded, with the reason it can earn nothing.
+        $cap = EarningsSettings::integer('referral.max_per_customer');
+        $atCap = $cap !== null && Referral::where('referrer_id', $referrer->id)->where('status', 'rewarded')->count() >= $cap;
+
         return Referral::create([
             'referrer_id' => $referrer->id,
             'referred_id' => $newUser->id,
-            'status' => 'pending',
+            'status' => $holds ? 'held_review' : 'pending',
+            'hold_reason' => $holds ? implode(',', $holds) : null,
+            'no_reward_reason' => $atCap ? self::REASON_CAP : null,
+            'signup_ip' => $newUser->signup_ip,
+            'signup_device_id' => $newUser->signup_device_id,
             'expires_at' => $expiresAt,
         ]);
     }
@@ -185,6 +227,8 @@ class ReferralService
 
         $cap = EarningsSettings::integer('referral.max_per_customer', $scope);
         if ($cap === null || Referral::where('referrer_id', $referral->referrer_id)->where('status', 'rewarded')->count() >= $cap) {
+            $this->recordNoReward($referral, $cap === null ? self::REASON_CAP_UNSET : self::REASON_CAP);
+
             return null;
         }
 
@@ -208,6 +252,7 @@ class ReferralService
             ActivityLogger::logModel(null, $referral, "Referral reward withheld: referrer #{$referral->referrer_id} wallet is frozen", [
                 'booking_id' => $booking->id, 'reward_type' => $rewardType, 'reward_value' => $rewardValue,
             ]);
+            $this->recordNoReward($referral, self::REASON_FROZEN);
 
             return null;
         }
@@ -247,5 +292,13 @@ class ReferralService
 
             return $referral->fresh();
         });
+    }
+
+    /** EARN4 R3 — note on the row why this referral earned nothing (last reason wins). */
+    private function recordNoReward(Referral $referral, string $reason): void
+    {
+        if ($referral->no_reward_reason !== $reason) {
+            $referral->forceFill(['no_reward_reason' => $reason])->save();
+        }
     }
 }

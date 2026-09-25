@@ -15,6 +15,9 @@ use Illuminate\Support\Str;
 use Livewire\Attributes\Locked;
 use Livewire\Attributes\On;
 use Livewire\Component;
+use App\Services\Auth\SignupContext;
+use App\Services\Referrals\InvalidReferralCode;
+use App\Services\Referrals\ReferralCapture;
 
 /**
  * Customer signup — verify a mobile number (Firebase phone OTP, client
@@ -72,10 +75,58 @@ class Signup extends Component
     #[Locked]
     public string $verifiedEmail = '';
 
-    public function mount(): void
+    /**
+     * EARN4 R2 — the referral code, pre-filled from /signup?ref=CODE and
+     * editable. Only shown (and only captured) while referral.enabled is ON.
+     */
+    public string $referralCode = '';
+
+    /** Inline "code not valid" message, shown before submit (R3). */
+    public string $referralError = '';
+
+    public const REFERRAL_SESSION_KEY = 'referral.signup_code';
+
+    public function mount(ReferralCapture $referrals): void
     {
         if (Auth::guard('web')->check()) {
             $this->redirectRoute('customer.home', navigate: true);
+
+            return;
+        }
+
+        if (! $referrals->enabled()) {
+            session()->forget(self::REFERRAL_SESSION_KEY);
+
+            return;
+        }
+
+        $ref = trim((string) request()->query('ref', ''));
+        if ($ref !== '') {
+            // Kept for the Google path too (web Google signup starts from Login).
+            session([self::REFERRAL_SESSION_KEY => mb_substr($ref, 0, 32)]);
+        }
+        $this->referralCode = (string) session(self::REFERRAL_SESSION_KEY, '');
+        if ($this->referralCode !== '') {
+            $this->updatedReferralCode($referrals);
+        }
+    }
+
+    public function updatedReferralCode(ReferralCapture $referrals): void
+    {
+        $this->referralCode = mb_substr(trim($this->referralCode), 0, 32);
+        $this->referralError = '';
+
+        if (! $referrals->enabled()) {
+            $this->referralCode = '';
+
+            return;
+        }
+
+        session([self::REFERRAL_SESSION_KEY => $this->referralCode]);
+
+        $phone = $this->verifiedPhoneE164 ?: ($this->phone ?: null);
+        if ($this->referralCode !== '' && ! $referrals->referrerFor($this->referralCode, $phone)) {
+            $this->referralError = ReferralCapture::INVALID_MESSAGE;
         }
     }
 
@@ -216,7 +267,7 @@ class Signup extends Component
 
     // ─────────────────────────── Finish ───────────────────────────────────
 
-    public function completeSignup(CustomerAccountResolver $accounts): void
+    public function completeSignup(CustomerAccountResolver $accounts, ReferralCapture $referrals): void
     {
         $this->reset('error', 'status');
 
@@ -252,8 +303,19 @@ class Signup extends Component
             signInProvider: 'phone',
         );
 
+        // EARN4 R3 — an invalid code never blocks signup: the inline message
+        // was shown before submit; the account is simply created without one.
         try {
-            ['user' => $user] = $accounts->completeSignup($identity, $this->password, $this->name, $verifiedEmail);
+            $referrerId = $referrals->resolveForSignup($this->referralCode, $this->verifiedPhoneE164);
+        } catch (InvalidReferralCode) {
+            $referrerId = null;
+        }
+
+        try {
+            ['user' => $user] = $accounts->completeSignup(
+                $identity, $this->password, $this->name, $verifiedEmail,
+                new SignupContext(request()->ip(), null, $referrerId),
+            );
         } catch (AccountAlreadyExistsException $e) {
             $this->error = $e->getMessage().' Please sign in instead.';
 
@@ -267,6 +329,7 @@ class Signup extends Component
         }
 
         $this->clearThrottle('signup-phone', $this->phone);
+        session()->forget(self::REFERRAL_SESSION_KEY);
 
         Auth::guard('web')->login($user);
         session()->regenerate();
@@ -276,7 +339,7 @@ class Signup extends Component
 
     public function render()
     {
-        return view('livewire.customer.auth.signup')
+        return view('livewire.customer.auth.signup', ['referralsOn' => app(ReferralCapture::class)->enabled()])
             ->layout('components.layouts.customer', ['title' => 'Create your account']);
     }
 }

@@ -785,7 +785,7 @@ class QaSeeder
         // A handful of referral relationships, created through the real
         // signup path (UserObserver -> ReferralService::createFromSignup).
         for ($i = 1; $i < min(6, $count); $i++) {
-            $customers[$i]->update(['referred_by' => $customers[0]->id]);
+            $customers[$i]->forceFill(['referred_by' => $customers[0]->id])->save(); // QA fixture only (artisan), not a route
             $referral = app(ReferralService::class)->createFromSignup($customers[$i]->fresh());
             if ($referral) {
                 $this->track('referrals', $referral);

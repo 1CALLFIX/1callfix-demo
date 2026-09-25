@@ -79,7 +79,24 @@ final class EarningsSettings
         'referral.reward_amount' => 'Settings → Loyalty / Referral',
         'referral.reward_points' => 'Settings → Loyalty / Referral',
         'referral.pending_expiry_days' => 'Settings → Loyalty / Referral (global only)',
+        'referral.hold_same_signup_ip' => 'Earnings Control (global only; PROTECTIVE — unset = ON)',
+        'referral.hold_same_device' => 'Earnings Control (global only; PROTECTIVE — unset = ON)',
     ];
+
+    /**
+     * REF 1CF-PROMPT-20260925-EARN4 — PROTECTIVE switches (Rule of Law #10):
+     * unset means the protection is ON; only an explicit '0' turns it off.
+     * Global only (read at signup, before the customer has a scope).
+     */
+    public const PROTECTIONS = [
+        'referral.hold_same_signup_ip' => ['label' => 'Hold referrals where referee and referrer share an IP', 'global' => true],
+        'referral.hold_same_device' => ['label' => 'Hold referrals where referee and referrer share a device', 'global' => true],
+    ];
+
+    public static function protectionOn(string $key, array $scope = []): bool
+    {
+        return (string) Setting::get($key, null, $scope) !== '0';
+    }
 
     public static function on(string $key, array $scope = []): bool
     {

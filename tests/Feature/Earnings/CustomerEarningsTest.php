@@ -308,9 +308,9 @@ class CustomerEarningsTest extends TestCase
     {
         $this->allOn();
         $a = $this->makeCustomer();
-        $a->update(['referral_code' => 'AAA111']);
+        $a->forceFill(['referral_code' => 'AAA111'])->save();
         $b = $this->makeCustomer();
-        $b->update(['referral_code' => 'BBB222']);
+        $b->forceFill(['referral_code' => 'BBB222'])->save();
         $friendOfA = $this->makeCustomer();
         $friendOfA->update(['name' => 'Alicefriend Person']);
         $friendOfB = $this->makeCustomer();
