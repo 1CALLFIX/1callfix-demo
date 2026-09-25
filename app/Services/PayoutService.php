@@ -60,6 +60,10 @@ class PayoutService
             throw new \InvalidArgumentException('Payout amount must be positive.');
         }
 
+        // EARN3 D5 — a frozen wallet cannot be paid out. Checked before the
+        // cash-commission sweep so a refused request moves nothing at all.
+        $this->walletService->assertNotFrozen($this->resolvePayeeUser($payeeType, $payeeId));
+
         // Cash-commission debt is senior to the provider's own withdrawal:
         // recover as much of it as the current wallet balance allows before
         // anything else, so every check below (limits, the debit itself)

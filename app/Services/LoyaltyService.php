@@ -12,6 +12,7 @@ use Carbon\CarbonInterface;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Facades\DB;
 use App\Support\EarningsSettings;
+use App\Support\SuperAdminGate;
 
 /**
  * loyalty_points is a ledger, same shape as wallet_transactions -- each row
@@ -140,6 +141,10 @@ class LoyaltyService
             throw new \RuntimeException("Minimum redemption is {$minRedemption} points.");
         }
 
+        // EARN3 D5 — a frozen wallet takes no redemption credit; refused
+        // before any points row is written (the ledger would refuse too).
+        $this->walletService->assertNotFrozen($user);
+
         $rupees = round($points / $pointsPerRupee, 2);
 
         return DB::transaction(function () use ($user, $points, $rupees, $scope) {
@@ -250,6 +255,79 @@ class LoyaltyService
         }
 
         return $result;
+    }
+
+    /**
+     * REF 1CF-PROMPT-20260925-EARN3 — Stage 3. Admin points correction as a
+     * NEW compensating row (ref admin-adjust:{uuid}, actor_id = the admin):
+     * Super Admin only, reason mandatory, capped by loyalty.admin_adjustment_max
+     * (global; unset = adjustments disabled), refused on a frozen wallet. A
+     * credit is a FIFO lot with the normal expiry policy; a debit consumes
+     * FIFO and can never exceed the live balance. Audited.
+     */
+    public function adjust(User $admin, User $target, string $direction, int $points, string $reason): LoyaltyPoint
+    {
+        SuperAdminGate::authorize($admin);
+
+        if (! in_array($direction, ['credit', 'debit'], true)) {
+            throw new \InvalidArgumentException('Direction must be credit or debit.');
+        }
+
+        $reason = trim($reason);
+        if ($reason === '') {
+            throw new \RuntimeException('A reason is required for every adjustment.');
+        }
+
+        $max = EarningsSettings::integer('loyalty.admin_adjustment_max');
+        if ($max === null) {
+            throw new \RuntimeException('Points adjustments are disabled: no maximum adjustment is configured.');
+        }
+        if ($points <= 0) {
+            throw new \RuntimeException('Adjustment points must be positive.');
+        }
+        if ($points > $max) {
+            throw new \RuntimeException("Adjustment exceeds the configured maximum of {$max} points.");
+        }
+
+        $this->walletService->assertNotFrozen($target);
+
+        $ref = 'admin-adjust:'.\Illuminate\Support\Str::uuid();
+
+        $row = DB::transaction(function () use ($admin, $target, $direction, $points, $reason, $ref) {
+            if ($direction === 'debit') {
+                $balance = $this->lockedBalance($target);
+                if ($points > $balance) {
+                    throw new \RuntimeException("Insufficient points balance: has {$balance}, requested {$points}.");
+                }
+
+                return LoyaltyPoint::create([
+                    'user_id' => $target->id, 'points' => -$points, 'reason' => "Admin adjustment: {$reason}",
+                    'ref' => $ref, 'actor_id' => $admin->id,
+                ]);
+            }
+
+            $expiryDays = EarningsSettings::integer('loyalty.points_expiry_days');
+            if ($expiryDays === null) {
+                throw new \RuntimeException('Loyalty points expiry (loyalty.points_expiry_days) is not configured; no points can be issued.');
+            }
+
+            return LoyaltyPoint::create([
+                'user_id' => $target->id, 'points' => $points, 'reason' => "Admin adjustment: {$reason}",
+                'ref' => $ref, 'actor_id' => $admin->id,
+                'expires_at' => $expiryDays > 0 ? now()->addDays($expiryDays) : null,
+            ]);
+        });
+
+        ActivityLogger::log($admin, 'loyalty_points', $row->id, "Admin points {$direction} of {$points} for user #{$target->id}", [
+            'target_user_id' => $target->id,
+            'direction' => $direction,
+            'points' => $points,
+            'reason' => $reason,
+            'ref' => $ref,
+            'balance_after' => $this->balance($target),
+        ]);
+
+        return $row;
     }
 
     /** Lock every ledger row the balance is computed from, then compute it. Call inside a transaction. */

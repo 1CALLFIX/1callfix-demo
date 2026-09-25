@@ -165,6 +165,9 @@
                 'items' => [
                     ['label' => 'Payouts', 'route' => 'admin.payouts.index', 'icon' => 'banknotes', 'permission' => 'payouts.manage'],
                     ['label' => 'Wallet Ledger', 'route' => 'admin.wallet-ledger.index', 'icon' => 'banknotes', 'permission' => 'wallets.view'],
+                    // EARN3 — super_admin only: this permission is deliberately never seeded to
+                    // any role, so only the super_admin fast path in AuthorizationService passes.
+                    ['label' => 'Earnings Control', 'route' => 'admin.earnings-control.index', 'icon' => 'shield', 'permission' => 'earnings_control.manage'],
                     ['label' => 'Commissions', 'route' => 'admin.commissions.index', 'icon' => 'banknotes', 'permission' => 'commissions.view'],
                     ['label' => 'Payments', 'route' => 'admin.payments.index', 'icon' => 'banknotes', 'permission' => 'payments.view'],
                     ['label' => 'Payment Gateways', 'route' => 'admin.payment-gateways.index', 'icon' => 'shield', 'permission' => 'payment_gateways.manage'],

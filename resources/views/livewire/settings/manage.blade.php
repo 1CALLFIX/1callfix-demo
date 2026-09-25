@@ -311,7 +311,7 @@
         @elseif ($activeTab === 'wallet')
             <div class="mb-4 rounded border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
                 Super Admin only — every change is audited. A blank customer top-up field is <strong>not set</strong>, and top-up stays <strong>off</strong> until all five are set and the <em>wallet.topup_enabled</em> switch is ON in
-                Finance → Earnings Control. Limits must satisfy: min ≤ max top-up ≤ daily ≤ monthly, and max top-up ≤ max wallet balance.
+                <a href="{{ route('admin.earnings-control.index') }}" class="underline">Finance → Earnings Control</a>. Limits must satisfy: min ≤ max top-up ≤ daily ≤ monthly, and max top-up ≤ max wallet balance.
             </div>
             <div class="mb-4">
                 <h3 class="text-sm font-semibold mb-1">Customer Top-Up</h3>
@@ -479,7 +479,7 @@
             <div class="mb-4 rounded border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
                 Super Admin only — every change is audited. A blank field is <strong>not set</strong> and that part of the program is <strong>off</strong> (no hidden default). 0 is an explicit zero; for points expiry, 0 means never expire.
                 The on/off switches (customer earning, provider earning, redemption, referral rewards) and the per-customer referral cap live in
-                Finance → Earnings Control.
+                <a href="{{ route('admin.earnings-control.index') }}" class="underline">Finance → Earnings Control</a>.
             </div>
             <div class="mb-4">
                 <h3 class="text-sm font-semibold mb-1">Loyalty Points</h3>

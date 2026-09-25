@@ -56,6 +56,11 @@ class WalletTopUpService
             throw new \RuntimeException(self::UNAVAILABLE);
         }
 
+        // EARN3 D5 — a frozen wallet takes no new top-ups. (A top-up already
+        // captured by the gateway is money owed and still credits — see
+        // WalletFreezePolicy.)
+        $this->walletService->assertNotFrozen($user);
+
         $min = EarningsSettings::number('wallet.customer_min_topup', $scope);
         $max = EarningsSettings::number('wallet.customer_max_topup', $scope);
         $maxBalance = EarningsSettings::number('wallet.customer_max_balance', $scope);

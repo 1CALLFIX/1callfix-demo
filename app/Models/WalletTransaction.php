@@ -18,8 +18,10 @@ class WalletTransaction extends Model
         'is_credit',
         'reason',
         'ref',
+        'actor_id',
         'status'
     ];
     protected $casts = ['is_credit' => 'boolean'];
     public function wallet() { return $this->belongsTo(Wallet::class); }
+    public function actor() { return $this->belongsTo(User::class, 'actor_id'); }
 }

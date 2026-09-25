@@ -105,6 +105,8 @@ Route::middleware(['auth', \App\Http\Middleware\EnsureHasAdminAccess::class])
         Route::get('/roles', RolesManage::class)->name('admin.roles.index');
         Route::get('/payouts', PayoutsManage::class)->name('admin.payouts.index');
         Route::get('/wallet-ledger', WalletLedgerIndex::class)->name('admin.wallet-ledger.index');
+        // REF 1CF-PROMPT-20260925-EARN3 — Super Admin only (enforced in the component, every action).
+        Route::get('/earnings-control', \App\Livewire\EarningsControl\Manage::class)->name('admin.earnings-control.index');
         Route::get('/loyalty', LoyaltyIndex::class)->name('admin.loyalty.index');
         Route::get('/commissions', CommissionsIndex::class)->name('admin.commissions.index');
         Route::get('/payments', PaymentsIndex::class)->name('admin.payments.index');

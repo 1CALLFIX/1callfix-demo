@@ -13,8 +13,16 @@ use Livewire\WithPagination;
  * wallet_transactions has been a real, actively-written ledger since the
  * Wallet phase (WalletService::credit/debit, WalletTopUpService) with no
  * admin browsing screen. Read-only — same "the ledger is truth" reasoning
- * as everywhere else this ledger is touched; no manual admin adjustments
- * in v1, no permission split beyond .view since there's nothing to manage.
+ * as everywhere else this ledger is touched; no permission split beyond
+ * .view since there's nothing to manage here.
+ *
+ * REF 1CF-PROMPT-20260925-EARN3 — admin corrections now exist, but NOT on
+ * this screen and never as an edit: Payments & Finance → Earnings Control
+ * writes a NEW compensating row with ref `admin-adjust:{uuid}` and
+ * `actor_id` = the Super Admin (App\Services\Earnings\WalletAdjustmentService;
+ * points: `admin-adjust:{uuid}` in loyalty_points via LoyaltyService::adjust()).
+ * Every ref shape written to this ledger is named by
+ * App\Support\WalletSourceLabel.
  */
 class Index extends Component
 {

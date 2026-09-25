@@ -201,6 +201,17 @@ class ReferralService
             return null; // points can't be issued until the expiry policy is set
         }
 
+        // EARN3 D5 — a frozen referrer's wallet takes no referral credit
+        // (wallet or points). Withheld and audited; the referral stays
+        // pending (and will not re-qualify on a later booking — see report).
+        if ($referral->referrer && $this->walletService->isFrozen($referral->referrer)) {
+            ActivityLogger::logModel(null, $referral, "Referral reward withheld: referrer #{$referral->referrer_id} wallet is frozen", [
+                'booking_id' => $booking->id, 'reward_type' => $rewardType, 'reward_value' => $rewardValue,
+            ]);
+
+            return null;
+        }
+
         $completedCount = Booking::where('customer_id', $booking->customer_id)->where('status', 'completed')->count();
 
         if ($completedCount !== 1) {
