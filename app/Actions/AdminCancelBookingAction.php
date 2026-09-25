@@ -116,7 +116,7 @@ class AdminCancelBookingAction
         // bundle status latch. Skipped when CancelBookingBundleAction is
         // cancelling every child and will reconcile once itself.
         if ($booking->booking_bundle_id && $reconcileBundle) {
-            app(\App\Services\BundleSettlementService::class)->settleFromChildren($booking->booking_bundle_id);
+            app(\App\Services\BundleSettlementService::class)->settleFromChildren($booking->booking_bundle_id, $booking->id);
         }
 
         return $booking->fresh();

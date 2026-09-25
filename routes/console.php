@@ -41,6 +41,12 @@ ScheduleRunTracker::track(Schedule::command('plans:renew-due'), 'plans:renew-due
 ScheduleRunTracker::track(Schedule::command('referrals:expire-due'), 'referrals:expire-due')->daily();
 ScheduleRunTracker::track(Schedule::command('kyc:send-reminders'), 'kyc:send-reminders')->daily();
 
+// Loyalty FIFO expiry (REF 1CF-PROMPT-20260925-EARN3, D2): writes one
+// `expired` row per lapsed, still-unconsumed lot (ref loyalty-expire:{id},
+// unique — idempotent). Housekeeping only: LoyaltyService::balance() is
+// already correct before this runs. Same schedule:run cron caveat as above.
+ScheduleRunTracker::track(Schedule::command('loyalty:expire-points'), 'loyalty:expire-points')->daily();
+
 // Daily Digest — admin-configurable send time (Settings > Notifications >
 // Daily Digest, digest.send_time_local, "HH:mm" in IST). Runs every 15
 // minutes rather than at one fixed cron minute; DailyDigestDispatchService::

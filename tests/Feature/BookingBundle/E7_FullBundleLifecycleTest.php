@@ -235,7 +235,7 @@ class E7_FullBundleLifecycleTest extends TestCase
             (float) $customer->wallet->fresh()->balance,
             0.001,
         );
-        $refundTxns = WalletTransaction::where('ref', "booking_bundle:{$bundle->id}:wallet-refund")->get();
+        $refundTxns = WalletTransaction::where('ref', 'like', "booking_bundle:{$bundle->id}:wallet-refund%")->get();
         $this->assertCount(1, $refundTxns, 'exactly one bundle refund credit');
         $this->assertEqualsWithDelta($expectedRefund, (float) $refundTxns->first()->amount, 0.001);
         $this->assertSame(
@@ -310,6 +310,6 @@ class E7_FullBundleLifecycleTest extends TestCase
         $this->assertSame(0, WalletTransaction::where('ref', 'like', 'booking:%:wallet-refund')->count(), 'no per-child refund path was used');
         $customerCredits = WalletTransaction::where('is_credit', true)->where('wallet_id', $customer->wallet->id)->get();
         $this->assertCount(1, $customerCredits);
-        $this->assertSame("booking_bundle:{$bundle->id}:wallet-refund", $customerCredits->first()->ref);
+        $this->assertStringStartsWith("booking_bundle:{$bundle->id}:wallet-refund:", $customerCredits->first()->ref); // EARN3 D3: one ref per refund event
     }
 }

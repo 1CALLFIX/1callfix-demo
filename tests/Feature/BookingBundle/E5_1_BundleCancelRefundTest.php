@@ -154,7 +154,7 @@ class E5_1_BundleCancelRefundTest extends TestCase
         $this->assertSame(1, Payment::where('booking_bundle_id', $bundle->id)->count());
 
         // wallet reconciles exactly: one credit, balance restored
-        $refunds = WalletTransaction::where('ref', "booking_bundle:{$bundle->id}:wallet-refund")->get();
+        $refunds = WalletTransaction::where('ref', 'like', "booking_bundle:{$bundle->id}:wallet-refund%")->get();
         $this->assertCount(1, $refunds);
         $this->assertEqualsWithDelta(1500.0, (float) $refunds->first()->amount, 0.001);
         $this->assertTrue((bool) $refunds->first()->is_credit);
@@ -195,7 +195,7 @@ class E5_1_BundleCancelRefundTest extends TestCase
         $this->assertEqualsWithDelta(1350.0, (float) $payment->refunded_amount, 0.001);
         $this->assertSame('partially_refunded', $payment->status);
 
-        $this->assertEqualsWithDelta(1350.0, (float) WalletTransaction::where('ref', "booking_bundle:{$bundle->id}:wallet-refund")->sum('amount'), 0.001);
+        $this->assertEqualsWithDelta(1350.0, (float) WalletTransaction::where('ref', 'like', "booking_bundle:{$bundle->id}:wallet-refund%")->sum('amount'), 0.001);
         $this->assertEqualsWithDelta($opening - 150.0, $this->walletBalance($customer->id), 0.001);
 
         $fresh = BookingBundle::findOrFail($bundle->id);
@@ -241,7 +241,7 @@ class E5_1_BundleCancelRefundTest extends TestCase
         $this->assertSame('partially_refunded', $payment->status);
 
         // no wallet credit for a gateway refund
-        $this->assertSame(0, WalletTransaction::where('ref', "booking_bundle:{$bundle->id}:wallet-refund")->count());
+        $this->assertSame(0, WalletTransaction::where('ref', 'like', "booking_bundle:{$bundle->id}:wallet-refund%")->count());
 
         foreach ($children as $child) {
             $this->assertSame('cancelled', $child->fresh()->status);
@@ -278,7 +278,7 @@ class E5_1_BundleCancelRefundTest extends TestCase
         $payment = $this->bundlePayment($bundle);
         $this->assertEqualsWithDelta(1100.0, (float) $payment->refunded_amount, 0.001);
         $this->assertSame('partially_refunded', $payment->status);
-        $this->assertEqualsWithDelta(1100.0, (float) WalletTransaction::where('ref', "booking_bundle:{$bundle->id}:wallet-refund")->sum('amount'), 0.001);
+        $this->assertEqualsWithDelta(1100.0, (float) WalletTransaction::where('ref', 'like', "booking_bundle:{$bundle->id}:wallet-refund%")->sum('amount'), 0.001);
         $this->assertEqualsWithDelta($opening - 1500.0 + 1100.0, $this->walletBalance($customer->id), 0.001);
 
         // ≥1 completed + rest terminal -> latch 'completed'
@@ -309,7 +309,7 @@ class E5_1_BundleCancelRefundTest extends TestCase
         $this->assertSame('partially_refunded', $payment->status);
         $this->assertSame(0, Payment::where('booking_id', $c2->id)->count(), 'still no per-child Payment row');
 
-        $this->assertEqualsWithDelta(600.0, (float) WalletTransaction::where('ref', "booking_bundle:{$bundle->id}:wallet-refund")->sum('amount'), 0.001);
+        $this->assertEqualsWithDelta(600.0, (float) WalletTransaction::where('ref', 'like', "booking_bundle:{$bundle->id}:wallet-refund%")->sum('amount'), 0.001);
         $this->assertEqualsWithDelta($opening - 1500.0 + 600.0, $this->walletBalance($customer->id), 0.001);
 
         // NOT all children terminal -> stored latch stays 'active'
@@ -341,7 +341,7 @@ class E5_1_BundleCancelRefundTest extends TestCase
 
         $this->assertEqualsWithDelta($balanceAfterFirst, $this->walletBalance($customer->id), 0.001);
         $this->assertEqualsWithDelta($refundedAfterFirst, (float) $this->bundlePayment($bundle)->refunded_amount, 0.001);
-        $this->assertSame(1, WalletTransaction::where('ref', "booking_bundle:{$bundle->id}:wallet-refund")->count());
+        $this->assertSame(1, WalletTransaction::where('ref', 'like', "booking_bundle:{$bundle->id}:wallet-refund%")->count());
     }
 
     public function test_settle_from_children_is_idempotent_at_the_engine(): void
@@ -362,7 +362,7 @@ class E5_1_BundleCancelRefundTest extends TestCase
         $this->assertNull($second, 'second settle refunds nothing');
         $this->assertNull($third);
 
-        $this->assertSame(1, WalletTransaction::where('ref', "booking_bundle:{$bundle->id}:wallet-refund")->count());
+        $this->assertSame(1, WalletTransaction::where('ref', 'like', "booking_bundle:{$bundle->id}:wallet-refund%")->count());
         $this->assertEqualsWithDelta($opening, $this->walletBalance($customer->id), 0.001);
         $this->assertEqualsWithDelta(1000.0, (float) $this->bundlePayment($bundle)->refunded_amount, 0.001);
         $this->assertSame('refunded', $this->bundlePayment($bundle)->status);
@@ -387,7 +387,7 @@ class E5_1_BundleCancelRefundTest extends TestCase
         $this->assertSame('completed', BookingBundle::findOrFail($bundle->id)->derivedStatus());
 
         // a completion never issues a refund
-        $this->assertSame(0, WalletTransaction::where('ref', "booking_bundle:{$bundle->id}:wallet-refund")->count());
+        $this->assertSame(0, WalletTransaction::where('ref', 'like', "booking_bundle:{$bundle->id}:wallet-refund%")->count());
         $this->assertSame('paid', BookingBundle::findOrFail($bundle->id)->payment_status);
     }
 
@@ -433,7 +433,7 @@ class E5_1_BundleCancelRefundTest extends TestCase
             ->assertStatus(404);
 
         $this->assertSame('active', BookingBundle::findOrFail($bundle->id)->status);
-        $this->assertSame(0, WalletTransaction::where('ref', "booking_bundle:{$bundle->id}:wallet-refund")->count());
+        $this->assertSame(0, WalletTransaction::where('ref', 'like', "booking_bundle:{$bundle->id}:wallet-refund%")->count());
     }
 
     public function test_bundle_cancel_requires_a_reason(): void

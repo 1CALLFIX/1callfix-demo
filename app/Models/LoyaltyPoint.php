@@ -17,6 +17,8 @@ class LoyaltyPoint extends Model
         'points',
         'reason',
         'booking_id',
+        'ref',
+        'actor_id',
         'expires_at'
     ];
 
@@ -24,4 +26,5 @@ class LoyaltyPoint extends Model
 
     public function user() { return $this->belongsTo(User::class); }
     public function booking() { return $this->belongsTo(Booking::class); }
+    public function actor() { return $this->belongsTo(User::class, 'actor_id'); }
 }

@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Booking;
+use App\Models\LoyaltyPoint;
 use App\Models\Referral;
 use App\Models\Setting;
 use App\Models\User;
@@ -100,6 +101,20 @@ class ReferralService
         $wasRewarded = $referral->status === 'rewarded';
         $clawbackNote = null;
 
+        // REF 1CF-PROMPT-20260925-EARN3 (D4) — a points-type reward is clawed
+        // back too: min(reward, live FIFO balance), never below zero; any
+        // shortfall (points already redeemed or expired) is recorded, not
+        // forced.
+        if ($wasRewarded && $referral->referrer && ($awarded = $this->pointsAwarded($referral)) > 0) {
+            $result = $this->loyaltyService->clawback(
+                $referral->referrer,
+                $awarded,
+                reason: 'referral_clawback',
+                ref: "referral:{$referral->id}:points-clawback",
+            );
+            $clawbackNote = "Points reward of {$awarded} clawed back: took {$result['taken']}, shortfall {$result['shortfall']}.";
+        }
+
         if ($wasRewarded && (float) $referral->reward_amount > 0) {
             try {
                 $this->walletService->debit(
@@ -128,6 +143,25 @@ class ReferralService
     }
 
     /**
+     * Points actually awarded for this referral: the ref-keyed row written
+     * since EARN3, else (older rows) the referrer's 'referral_reward' row for
+     * the qualifying booking.
+     */
+    private function pointsAwarded(Referral $referral): int
+    {
+        $row = LoyaltyPoint::where('ref', "referral:{$referral->id}:points-reward")->first()
+            ?? ($referral->qualifying_booking_id
+                ? LoyaltyPoint::where('user_id', $referral->referrer_id)
+                    ->where('booking_id', $referral->qualifying_booking_id)
+                    ->where('reason', 'referral_reward')
+                    ->where('points', '>', 0)
+                    ->first()
+                : null);
+
+        return (int) ($row?->points ?? 0);
+    }
+
+    /**
      * Called from CompleteBookingAction. Qualification condition: the
      * referred user's FIRST EVER completed booking. Idempotent via the
      * 'pending' status guard -- a referral can only be rewarded once,
@@ -153,7 +187,7 @@ class ReferralService
 
             if ($rewardType === 'points') {
                 $points = (int) Setting::get('referral.reward_points', '100', $scope);
-                $this->loyaltyService->earn($referrer, $points, 'referral_reward', $booking, $scope);
+                $this->loyaltyService->earn($referrer, $points, 'referral_reward', $booking, $scope, "referral:{$referral->id}:points-reward");
                 $referral->reward_amount = 0;
             } else {
                 $amount = (float) Setting::get('referral.reward_amount', '50', $scope);

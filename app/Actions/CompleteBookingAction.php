@@ -128,8 +128,11 @@ class CompleteBookingAction
             $this->loyaltyService->earn($booking->customer, $customerPoints, 'booking_completed', $booking, $scope);
         }
 
+        // REF 1CF-PROMPT-20260925-EARN3 (D1) — provider earning has its own
+        // switch, null = off. Provider points are never redeemable (see
+        // LoyaltyService::redeem()); already-earned rows stay untouched.
         $providerPoints = (int) Setting::get('loyalty.provider_points_per_completed_job', '5', $scope);
-        if ($booking->provider && $booking->provider->user) {
+        if (Setting::get('loyalty.provider_enabled', null, $scope) === '1' && $booking->provider && $booking->provider->user) {
             $this->loyaltyService->earn($booking->provider->user, $providerPoints, 'booking_completed', $booking, $scope);
         }
 

@@ -8,16 +8,24 @@ use App\Models\Setting;
 use App\Models\User;
 use App\Notifications\LoyaltyPointsNotification;
 use App\Notifications\Support\ChannelResolver;
+use App\Services\Loyalty\LoyaltyFifoLedger;
+use Carbon\CarbonInterface;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Facades\DB;
 
 /**
  * loyalty_points is a ledger, same shape as wallet_transactions -- each row
- * is one earn/redeem/expiry event, balance is a live SUM(), not a stored
- * counter. Points themselves are NOT money; redeem() is the one place they
- * turn into real Rupees, and that conversion is a WalletService::credit()
- * call (the existing, only financial ledger) -- there is no second
- * "loyalty wallet". Every earn is idempotent per (user, booking, reason),
- * mirroring CommissionService::applyForBooking()'s own idempotency check.
+ * is one earn/redeem/expiry event. Points themselves are NOT money; redeem()
+ * is the one place they turn into real Rupees, and that conversion is a
+ * WalletService::credit() call (the existing, only financial ledger) --
+ * there is no second "loyalty wallet". Every earn is idempotent per (user,
+ * booking, reason), mirroring CommissionService::applyForBooking()'s own
+ * idempotency check.
+ *
+ * REF 1CF-PROMPT-20260925-EARN3 (D2) — the balance is FIFO lot accounting
+ * (App\Services\Loyalty\LoyaltyFifoLedger), not the old "live earns + every
+ * negative row" SUM(), which went negative once an already-redeemed earn row
+ * lapsed. D1 — only customers can redeem.
  */
 class LoyaltyService
 {
@@ -25,7 +33,7 @@ class LoyaltyService
     {
     }
 
-    public function earn(User $user, int $points, string $reason, ?Booking $booking = null, array $scope = []): ?LoyaltyPoint
+    public function earn(User $user, int $points, string $reason, ?Booking $booking = null, array $scope = [], ?string $ref = null): ?LoyaltyPoint
     {
         if ($points <= 0) {
             return null;
@@ -35,6 +43,10 @@ class LoyaltyService
             return null; // already awarded for this exact booking+reason -- safe to call more than once
         }
 
+        if ($ref !== null && LoyaltyPoint::where('ref', $ref)->exists()) {
+            return null; // same idempotency key already written
+        }
+
         $expiryDays = (int) Setting::get('loyalty.points_expiry_days', '365', $scope);
 
         $entry = LoyaltyPoint::create([
@@ -42,6 +54,7 @@ class LoyaltyService
             'points' => $points,
             'reason' => $reason,
             'booking_id' => $booking?->id,
+            'ref' => $ref,
             'expires_at' => $expiryDays > 0 ? now()->addDays($expiryDays) : null,
         ]);
 
@@ -51,20 +64,34 @@ class LoyaltyService
         return $entry;
     }
 
-    /**
-     * Only earn-rows still within their expiry window count -- an expired
-     * earn simply stops contributing to the sum. Redemption/expiry rows
-     * are always negative and always count.
-     */
+    /** Live FIFO balance — correct whether or not the expiry job has run yet, never negative. */
     public function balance(User $user): int
     {
-        return (int) LoyaltyPoint::where('user_id', $user->id)
-            ->where(function ($q) {
-                $q->where('points', '<', 0)
-                    ->orWhereNull('expires_at')
-                    ->orWhere('expires_at', '>', now());
-            })
-            ->sum('points');
+        return $this->balanceAt($user, now());
+    }
+
+    public function balanceAt(User $user, CarbonInterface $at): int
+    {
+        return LoyaltyFifoLedger::compute($this->rows($user), $at)['balance'];
+    }
+
+    /**
+     * Customer-facing totals. `expired` counts both materialised expiry rows
+     * and lapsed-but-not-yet-materialised points, so it never waits on the job.
+     *
+     * @return array{available: int, earned: int, redeemed: int, expired: int}
+     */
+    public function summary(User $user): array
+    {
+        $rows = $this->rows($user);
+        $fifo = LoyaltyFifoLedger::compute($rows, now());
+
+        return [
+            'available' => $fifo['balance'],
+            'earned' => $fifo['earned'],
+            'redeemed' => (int) -$rows->where('reason', 'redeemed')->sum('points'),
+            'expired' => $fifo['expired_materialised'] + $fifo['expired_pending'],
+        ];
     }
 
     /**
@@ -73,20 +100,19 @@ class LoyaltyService
      * enforced here, not just in a UI form, so a direct API call can't
      * bypass it.
      *
-     * Phase 15 (financial reconciliation audit) finding: the balance check
-     * used to run BEFORE the transaction opened, against an unlocked
-     * SUM() -- two concurrent redeem() calls for the same user could both
-     * read a sufficient balance, both pass, and both credit the wallet,
-     * driving the aggregate loyalty balance negative (real money credited
-     * against points that were never really there). WalletService's own
-     * applyTransaction() already closes the equivalent race for
-     * wallets.balance with a row lock; loyalty_points has no stored
-     * counter to lock (balance is a live SUM(), by design), so the lock
-     * here is acquired on the ledger rows themselves instead -- a
-     * concurrent redeem() for the same user blocks until this one commits.
+     * D1 — CUSTOMERS ONLY. A provider's points must never reach a wallet that
+     * PayoutService can pay out in cash; refused here (not only in the
+     * controller) so every current and future entry point inherits it.
+     *
+     * Phase 15 race fix kept: the balance check runs inside the transaction,
+     * after locking every ledger row this user's balance is computed from.
      */
     public function redeem(User $user, int $points, array $scope = []): array
     {
+        if ($user->role !== 'customer') {
+            throw new AuthorizationException('Only customers can redeem loyalty points.');
+        }
+
         if ($points <= 0) {
             throw new \InvalidArgumentException('Redemption points must be positive.');
         }
@@ -100,12 +126,7 @@ class LoyaltyService
         $rupees = round($points / $pointsPerRupee, 2);
 
         return DB::transaction(function () use ($user, $points, $rupees, $scope) {
-            // Locks every ledger row this user's balance is computed from
-            // -- a second, concurrent redeem() for the same user blocks
-            // here until this transaction commits or rolls back.
-            LoyaltyPoint::where('user_id', $user->id)->lockForUpdate()->get();
-
-            $balance = $this->balance($user);
+            $balance = $this->lockedBalance($user);
             if ($points > $balance) {
                 throw new \RuntimeException("Insufficient points balance: has {$balance}, requested {$points}.");
             }
@@ -128,5 +149,102 @@ class LoyaltyService
 
             return ['points_redeemed' => $points, 'rupees_credited' => $rupees, 'new_balance' => $this->balance($user)];
         });
+    }
+
+    /**
+     * D4 — take back a points-type referral reward: min(reward, live FIFO
+     * balance), never more, so the balance can never go negative. Idempotent
+     * via the ref.
+     *
+     * @return array{taken: int, shortfall: int}
+     */
+    public function clawback(User $user, int $points, string $reason, string $ref): array
+    {
+        if ($points <= 0) {
+            return ['taken' => 0, 'shortfall' => 0];
+        }
+
+        return DB::transaction(function () use ($user, $points, $reason, $ref) {
+            $existing = LoyaltyPoint::where('ref', $ref)->first();
+            if ($existing) {
+                $taken = (int) -$existing->points;
+
+                return ['taken' => $taken, 'shortfall' => $points - $taken];
+            }
+
+            $take = min($points, $this->lockedBalance($user));
+
+            if ($take > 0) {
+                LoyaltyPoint::create(['user_id' => $user->id, 'points' => -$take, 'reason' => $reason, 'ref' => $ref]);
+            }
+
+            return ['taken' => $take, 'shortfall' => $points - $take];
+        });
+    }
+
+    /**
+     * D2 — materialise every lapsed, still-unconsumed lot as an `expired`
+     * row (ref loyalty-expire:{lotId}), oldest first. Per-user locked
+     * transaction; the unique ref is the backstop against overlapping runs.
+     *
+     * @return array{users: int, rows: int, points: int}
+     */
+    public function expireLapsedPoints(): array
+    {
+        $now = now();
+        $result = ['users' => 0, 'rows' => 0, 'points' => 0];
+
+        $userIds = LoyaltyPoint::query()
+            ->where('points', '>', 0)
+            ->whereNotNull('expires_at')
+            ->where('expires_at', '<=', $now)
+            ->distinct()
+            ->pluck('user_id');
+
+        foreach ($userIds as $userId) {
+            $written = DB::transaction(function () use ($userId, $now) {
+                $rows = LoyaltyPoint::where('user_id', $userId)->orderBy('id')->lockForUpdate()->get();
+                $written = ['rows' => 0, 'points' => 0];
+
+                foreach (LoyaltyFifoLedger::lapsedUnmaterialised($rows, $now) as $lotId => $remaining) {
+                    $ref = LoyaltyFifoLedger::EXPIRY_REF_PREFIX.$lotId;
+                    if (LoyaltyPoint::where('ref', $ref)->exists()) {
+                        continue;
+                    }
+
+                    LoyaltyPoint::create([
+                        'user_id' => $userId,
+                        'points' => -$remaining,
+                        'reason' => 'expired',
+                        'ref' => $ref,
+                    ]);
+                    $written['rows']++;
+                    $written['points'] += $remaining;
+                }
+
+                return $written;
+            });
+
+            if ($written['rows'] > 0) {
+                $result['users']++;
+                $result['rows'] += $written['rows'];
+                $result['points'] += $written['points'];
+            }
+        }
+
+        return $result;
+    }
+
+    /** Lock every ledger row the balance is computed from, then compute it. Call inside a transaction. */
+    private function lockedBalance(User $user): int
+    {
+        $rows = LoyaltyPoint::where('user_id', $user->id)->orderBy('id')->lockForUpdate()->get();
+
+        return LoyaltyFifoLedger::compute($rows, now())['balance'];
+    }
+
+    private function rows(User $user)
+    {
+        return LoyaltyPoint::where('user_id', $user->id)->orderBy('id')->get();
     }
 }

@@ -248,6 +248,12 @@ class ReconciliationService
             ->scopeQuery(LoyaltyPoint::query(), $user, 'operations.view', $this->userScopeColumns())
             ->select('user_id')
             ->selectRaw('SUM(points) as balance')
+            // REF 1CF-PROMPT-20260925-EARN3 (D2): FIFO expiry rows zero a lot
+            // this formula already drops once lapsed — counting them too
+            // would double-subtract and flag every healthy user. Skipped, so
+            // this keeps flagging exactly the legacy over-redemptions it
+            // always did (see also `loyalty:balance-audit`).
+            ->where(fn ($q) => $q->whereNull('ref')->orWhere('ref', 'not like', 'loyalty-expire:%'))
             ->where(function ($q) {
                 $q->where('points', '<', 0)
                     ->orWhereNull('expires_at')

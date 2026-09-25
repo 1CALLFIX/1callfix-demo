@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Contracts\PaymentGateway;
 use App\Models\BookingBundle;
 use App\Models\Payment;
+use App\Models\WalletTransaction;
 use App\Notifications\PaymentStatusNotification;
 use App\Notifications\Support\ChannelResolver;
 use Illuminate\Support\Facades\DB;
@@ -52,6 +53,26 @@ use Illuminate\Support\Facades\Log;
  *
  * Idempotent: re-running once everything is reconciled refunds 0 and
  * re-latches nothing.
+ *
+ * ── REF 1CF-PROMPT-20260925-EARN3 (D3) — one ref per refund EVENT ─────────
+ * Every wallet refund of a bundle used to write the same ref
+ * `booking_bundle:{id}:wallet-refund` against the UNIQUE
+ * wallet_transactions.ref index: the first child cancel refunded, the second
+ * hit the constraint AFTER its cancellation had committed (the QueryException
+ * is a RuntimeException, so the API even answered 409 "already cancelled"),
+ * and that child's money was never returned. Each refund now gets its own
+ * ref — `:{childId}` for the child whose cancel triggered it, else
+ * `:settle-{cumulative paise}`, which strictly increases under the Payment
+ * row lock and so can never repeat. The delta math above is unchanged and
+ * remains the double-refund guard.
+ *
+ * Refund-after-cancel durability: the cancel commits first (it must not hold
+ * the booking lock across a gateway call), so a settlement failure after it
+ * leaves the refund owed but unpaid. That state is SAFELY RETRYABLE rather
+ * than lost: settleFromChildren() refunds exactly refundDue − refunded_amount
+ * under a lock, so re-running it (or any later child reaching a terminal
+ * state, which calls it again) pays the outstanding delta once and only once.
+ * `bundles:refund-audit` lists every bundle in that state.
  */
 class BundleSettlementService
 {
@@ -71,11 +92,13 @@ class BundleSettlementService
      * or `CancelBookingBundleAction`. A completion never produces a refund
      * (no child was cancelled); only the latch runs in that case.
      *
+     * @param  ?int  $triggeringChildId  the child whose cancellation prompted
+     *        this call, used only to make the refund's ledger ref readable
      * @return float|null the amount refunded on THIS call, or null if nothing was refunded
      */
-    public function settleFromChildren(int $bundleId): ?float
+    public function settleFromChildren(int $bundleId, ?int $triggeringChildId = null): ?float
     {
-        return DB::transaction(function () use ($bundleId) {
+        return DB::transaction(function () use ($bundleId, $triggeringChildId) {
             /** @var BookingBundle|null $bundle */
             $bundle = BookingBundle::query()->whereKey($bundleId)->lockForUpdate()->first();
 
@@ -87,7 +110,7 @@ class BundleSettlementService
 
             $this->latchTerminalStatus($bundle);
 
-            return $this->reconcileRefund($bundle);
+            return $this->reconcileRefund($bundle, $triggeringChildId);
         });
     }
 
@@ -121,7 +144,7 @@ class BundleSettlementService
      * loaded. Returns the amount refunded on this call, or null for a no-op
      * (no captured bundle Payment, or nothing left owing).
      */
-    public function reconcileRefund(BookingBundle $bundle): ?float
+    public function reconcileRefund(BookingBundle $bundle, ?int $triggeringChildId = null): ?float
     {
         /** @var Payment|null $payment */
         $payment = Payment::query()
@@ -138,30 +161,24 @@ class BundleSettlementService
             return null;
         }
 
-        $retained = 0.0;
-        foreach ($bundle->children as $child) {
-            $retained += $child->status === 'cancelled'
-                ? (float) ($child->cancellation_fee ?? 0)
-                : (float) ($child->price_quoted ?? 0);
-        }
-        $retained = round($retained, 2);
-
         $paid = (float) $payment->amount;
         $alreadyRefunded = (float) ($payment->refunded_amount ?? 0);
 
-        $refundDue = round(max($paid - $retained, 0), 2);
+        $refundDue = $this->refundDue($bundle, $payment);
         $refundNow = round(max($refundDue - $alreadyRefunded, 0), 2);
 
         if ($refundNow <= 0) {
             return null;
         }
 
+        $totalRefunded = round($alreadyRefunded + $refundNow, 2);
+
         if ($payment->gateway === 'wallet') {
             $this->wallet->credit(
                 $bundle->customer,
                 $refundNow,
                 reason: "Refund for cancelled booking bundle {$bundle->code}",
-                ref: "booking_bundle:{$bundle->id}:wallet-refund",
+                ref: $this->walletRefundRef($bundle, $triggeringChildId, $totalRefunded),
             );
         } else {
             $this->gateway->refund(
@@ -170,8 +187,6 @@ class BundleSettlementService
                 "Booking bundle {$bundle->code} cancelled",
             );
         }
-
-        $totalRefunded = round($alreadyRefunded + $refundNow, 2);
 
         $payment->refunded_amount = $totalRefunded;
         $payment->status = $totalRefunded >= $paid ? 'refunded' : 'partially_refunded';
@@ -195,5 +210,37 @@ class BundleSettlementService
         }
 
         return $refundNow;
+    }
+
+    /**
+     * Total the shared bundle Payment owes back right now (before subtracting
+     * what was already refunded): paid − Σ retained per child. Pure; also
+     * used by the read-only BundleRefundAuditor.
+     */
+    public function refundDue(BookingBundle $bundle, Payment $payment): float
+    {
+        $retained = 0.0;
+        foreach ($bundle->children as $child) {
+            $retained += $child->status === 'cancelled'
+                ? (float) ($child->cancellation_fee ?? 0)
+                : (float) ($child->price_quoted ?? 0);
+        }
+
+        return round(max((float) $payment->amount - round($retained, 2), 0), 2);
+    }
+
+    /** One ref per refund event — see the class docblock (D3). */
+    private function walletRefundRef(BookingBundle $bundle, ?int $triggeringChildId, float $totalRefundedAfter): string
+    {
+        $base = "booking_bundle:{$bundle->id}:wallet-refund";
+
+        if ($triggeringChildId !== null) {
+            $ref = "{$base}:{$triggeringChildId}";
+            if (! WalletTransaction::where('ref', $ref)->exists()) {
+                return $ref;
+            }
+        }
+
+        return $base.':settle-'.(int) round($totalRefundedAfter * 100);
     }
 }
