@@ -12,6 +12,7 @@ use Database\Seeders\PrimeSilverPlanSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\Feature\Support\BookingFixtureHelpers;
 use Tests\TestCase;
+use PHPUnit\Framework\Attributes\Group;
 
 /**
  * PrimeSilverPlanSeeder — the stored configuration of the real membership
@@ -70,6 +71,7 @@ class PrimeSilverPlanSeederTest extends TestCase
         $this->assertSame(5, Plan::where('slug', '1callfix-prime-silver')->firstOrFail()->entitlements()->count());
     }
 
+    #[Group('external')]
     public function test_it_refuses_to_reconfigure_a_plan_that_already_has_subscribers(): void
     {
         $plan = $this->seedPrimeSilver();
@@ -84,6 +86,7 @@ class PrimeSilverPlanSeederTest extends TestCase
         $this->assertSame('1.00', (string) $plan->fresh()->price, 'Seeder must not touch a plan with live subscriptions.');
     }
 
+    #[Group('external')]
     public function test_the_seeded_plan_supports_a_real_subscribe_and_ac_redemption(): void
     {
         $plan = $this->seedPrimeSilver();
