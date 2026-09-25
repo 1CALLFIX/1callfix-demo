@@ -29,11 +29,17 @@
                 Your account
             </h2>
             <ul class="mt-4 divide-y divide-slate-200 border-y border-slate-200">
-                @foreach ([
-                    ['Your bookings', 'Track live jobs and revisit past ones.', route('customer.orders.index')],
-                    ['Saved addresses', 'Keep the places you book for most.', route('customer.addresses')],
-                    ['Wallet', 'Balance, top-ups and your transaction history.', route('customer.wallet')],
-                ] as [$sectionTitle, $sectionBody, $sectionUrl])
+                @php
+                    $accountSections = [
+                        ['Your bookings', 'Track live jobs and revisit past ones.', route('customer.orders.index')],
+                        ['Saved addresses', 'Keep the places you book for most.', route('customer.addresses')],
+                    ];
+                    // EARN3 — one Earnings entry, only while an Earnings tab is on.
+                    if ($earningsRoute = \App\Support\CustomerEarningsNav::firstRoute(auth()->user())) {
+                        $accountSections[] = ['Earnings', 'Wallet, loyalty points and referrals.', route($earningsRoute)];
+                    }
+                @endphp
+                @foreach ($accountSections as [$sectionTitle, $sectionBody, $sectionUrl])
                     <li>
                         <a href="{{ $sectionUrl }}" wire:navigate
                            class="flex items-center justify-between gap-4 py-4 transition hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900">

@@ -15,6 +15,11 @@
         ['label' => 'Bookings', 'route' => auth()->check() ? 'customer.orders.index' : 'customer.login', 'param' => null, 'icon' => 'clipboard'],
         ['label' => 'Account', 'route' => auth()->check() ? 'customer.account' : 'customer.login', 'param' => null, 'icon' => 'users'],
     ];
+
+    // EARN3 — the one "Earnings" entry, only while an Earnings tab is on.
+    if ($earningsRoute = \App\Support\CustomerEarningsNav::firstRoute(auth()->user())) {
+        array_splice($items, 4, 0, [['label' => 'Earnings', 'route' => $earningsRoute, 'param' => null, 'icon' => 'wallet']]);
+    }
 @endphp
 
 {{-- lg:hidden, NOT md:hidden. The desktop primary nav in
@@ -26,7 +31,7 @@
      disappears at. --}}
 <nav aria-label="Primary mobile"
      class="lg:hidden fixed inset-x-0 bottom-0 z-40 border-t border-slate-200 bg-white/90 shadow-[0_-8px_24px_-12px_rgba(15,23,42,0.15)] backdrop-blur-md pb-safe supports-[backdrop-filter]:bg-white/75">
-    <ul class="grid grid-cols-5">
+    <ul @class(['grid', 'grid-cols-5' => count($items) === 5, 'grid-cols-6' => count($items) === 6])>
         @foreach ($items as $item)
             @php
                 $href = $item['param'] ? route($item['route'], $item['param']) : route($item['route']);

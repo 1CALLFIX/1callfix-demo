@@ -95,6 +95,14 @@
                 {{-- Account --}}
                 @auth
                     <div class="flex items-center gap-1">
+                        {{-- EARN3 — the one "Earnings" entry; hidden while every Earnings tab is off. --}}
+                        @if ($earningsRoute = \App\Support\CustomerEarningsNav::firstRoute(auth()->user()))
+                            <a href="{{ route($earningsRoute) }}" wire:navigate
+                               @if (request()->routeIs('customer.earnings.*')) aria-current="page" @endif
+                               class="hidden sm:inline-flex min-h-11 items-center whitespace-nowrap rounded-md px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 hover:text-slate-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600">
+                                Earnings
+                            </a>
+                        @endif
                         @if (auth()->user()->providerProfile)
                             <a href="{{ route('provider.dashboard') }}"
                                class="hidden sm:inline-flex min-h-11 items-center whitespace-nowrap rounded-md px-3 py-2 text-sm font-medium text-blue-700 transition hover:bg-blue-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600">

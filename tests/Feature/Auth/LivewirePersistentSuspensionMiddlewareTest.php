@@ -42,6 +42,16 @@ use Tests\TestCase;
  */
 class LivewirePersistentSuspensionMiddlewareTest extends TestCase
 {
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        // EARN3: the customer wallet screen is now Earnings → Wallet
+        // (/wallet only redirects), shown only while its switches are ON.
+        \App\Models\Setting::set('earnings.enabled', '1');
+        \App\Models\Setting::set('earnings.wallet_tab', '1');
+    }
+
     use RefreshDatabase;
     use BookingFixtureHelpers;
 
@@ -121,7 +131,7 @@ class LivewirePersistentSuspensionMiddlewareTest extends TestCase
         $customer = $this->makeCustomer();
 
         $this->actingAs($customer);
-        $snapshot = $this->realSnapshotFor('/wallet');
+        $snapshot = $this->realSnapshotFor('/earnings/wallet');
 
         $customer->update(['status' => 'suspended']);
         $this->refreshActingAs($customer);
@@ -134,7 +144,7 @@ class LivewirePersistentSuspensionMiddlewareTest extends TestCase
         $customer = $this->makeCustomer();
 
         $this->actingAs($customer);
-        $snapshot = $this->realSnapshotFor('/wallet');
+        $snapshot = $this->realSnapshotFor('/earnings/wallet');
 
         $this->postUpdate($snapshot)->assertOk();
     }
@@ -202,7 +212,7 @@ class LivewirePersistentSuspensionMiddlewareTest extends TestCase
         $customer = $this->makeCustomer();
 
         $this->actingAs($customer);
-        $snapshot = $this->realSnapshotFor('/wallet');
+        $snapshot = $this->realSnapshotFor('/earnings/wallet');
 
         $customer->update(['status' => 'suspended']);
         $this->refreshActingAs($customer);

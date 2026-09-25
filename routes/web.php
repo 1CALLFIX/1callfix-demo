@@ -20,7 +20,9 @@ use App\Livewire\Customer\Home as CustomerHome;
 use App\Livewire\Customer\Orders\Show as CustomerOrderShow;
 use App\Livewire\Customer\Orders\Index as CustomerOrders;
 use App\Livewire\Customer\Search as CustomerSearch;
-use App\Livewire\Customer\Wallet\Index as CustomerWallet;
+use App\Livewire\Customer\Earnings\Loyalty as CustomerEarningsLoyalty;
+use App\Livewire\Customer\Earnings\Referrals as CustomerEarningsReferrals;
+use App\Livewire\Customer\Earnings\Wallet as CustomerEarningsWallet;
 use App\Livewire\Provider\Activity as ProviderActivity;
 use App\Livewire\Provider\Auth\Login as ProviderLogin;
 use App\Livewire\Provider\Auth\Register as ProviderRegister;
@@ -157,8 +159,15 @@ Route::middleware(['auth', \App\Http\Middleware\EnsureAccountNotSuspended::class
     // Saved addresses (the same CRUD + delete-guard rules AddressController enforces).
     Route::get('/account/addresses', CustomerAddresses::class)->name('customer.addresses');
 
-    // Wallet balance + ledger + top-up.
-    Route::get('/wallet', CustomerWallet::class)->name('customer.wallet');
+    // REF 1CF-PROMPT-20260925-EARN3 — Earnings: Wallet / Loyalty / Referrals.
+    // Each tab 404s unless earnings.enabled AND its own tab switch are ON for
+    // the customer's scope (checked inside the component, every request).
+    Route::get('/earnings/wallet', CustomerEarningsWallet::class)->name('customer.earnings.wallet');
+    Route::get('/earnings/loyalty', CustomerEarningsLoyalty::class)->name('customer.earnings.loyalty');
+    Route::get('/earnings/referrals', CustomerEarningsReferrals::class)->name('customer.earnings.referrals');
+
+    // The Phase E6 wallet screen now lives at Earnings → Wallet.
+    Route::redirect('/wallet', '/earnings/wallet')->name('customer.wallet');
 });
 
 /*

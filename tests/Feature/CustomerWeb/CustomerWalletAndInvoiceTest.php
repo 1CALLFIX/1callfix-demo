@@ -2,7 +2,7 @@
 
 namespace Tests\Feature\CustomerWeb;
 
-use App\Livewire\Customer\Wallet\Index as WalletIndex;
+use App\Livewire\Customer\Earnings\Wallet as WalletIndex;
 use App\Models\Booking;
 use App\Models\Payment;
 use App\Services\WalletService;
@@ -23,6 +23,15 @@ use Tests\TestCase;
  */
 class CustomerWalletAndInvoiceTest extends TestCase
 {
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        // EARN3: the wallet screen is Earnings → Wallet, behind its switches.
+        \App\Models\Setting::set('earnings.enabled', '1');
+        \App\Models\Setting::set('earnings.wallet_tab', '1');
+    }
+
     use \Tests\Feature\Support\WithLegacyWalletTopUp;
     use BookingFixtureHelpers;
     use CatalogFixtures;
@@ -79,7 +88,7 @@ class CustomerWalletAndInvoiceTest extends TestCase
 
     public function test_checkout_handlers_do_not_depend_on_livewire_init(): void
     {
-        foreach (['wallet/index', 'orders/show', 'bundles/show'] as $view) {
+        foreach (['earnings/wallet', 'orders/show', 'bundles/show'] as $view) {
             $source = file_get_contents(resource_path("views/livewire/customer/{$view}.blade.php"));
 
             $this->assertStringNotContainsString("addEventListener('livewire:init'", $source, "{$view} binds its checkout handler on livewire:init, which is dead after wire:navigate");
@@ -119,7 +128,7 @@ class CustomerWalletAndInvoiceTest extends TestCase
 
     public function test_guests_cannot_see_the_wallet(): void
     {
-        $this->get(route('customer.wallet'))->assertRedirect(route('customer.login'));
+        $this->get(route('customer.earnings.wallet'))->assertRedirect(route('customer.login'));
     }
 
     // ------------------------------------------------------------- invoice
