@@ -44,6 +44,7 @@ use Tests\TestCase;
  */
 class BookingBundlePaymentTest extends TestCase
 {
+    use \Tests\Feature\Support\WithLegacyWalletPayments;
     use BookingFixtureHelpers;
     use CatalogFixtures;
     use RefreshDatabase;

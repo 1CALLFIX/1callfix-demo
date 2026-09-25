@@ -107,9 +107,13 @@ class Setting extends Model
             'wallet' => 'Wallet',
         ];
 
+        // REF 1CF-PROMPT-20260925-EARN3 — wallet is null = OFF (no '1'
+        // fallback), and the all-disabled fallback never re-adds it.
+        // online/cash keep their historical '1' fallback — a listed Rule of
+        // Law gap, out of this build's scope.
         $enabled = array_filter($methods, fn ($label, $slug) =>
-            static::get("payment.{$slug}_enabled", '1', $scope) === '1', ARRAY_FILTER_USE_BOTH);
+            static::get("payment.{$slug}_enabled", $slug === 'wallet' ? null : '1', $scope) === '1', ARRAY_FILTER_USE_BOTH);
 
-        return $enabled ?: $methods;
+        return $enabled ?: array_diff_key($methods, ['wallet' => true]);
     }
 }

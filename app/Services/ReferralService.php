@@ -10,6 +10,7 @@ use App\Models\User;
 use App\Notifications\ReferralStatusNotification;
 use App\Notifications\Support\ChannelResolver;
 use Illuminate\Support\Facades\DB;
+use App\Support\EarningsSettings;
 
 /**
  * referrals is the existing table (referrer_id, referred_id, reward_amount,
@@ -169,10 +170,35 @@ class ReferralService
      */
     public function qualifyFromCompletedBooking(Booking $booking, array $scope = []): ?Referral
     {
+        // REF 1CF-PROMPT-20260925-EARN3 (Rule of Law) — the program switch,
+        // the per-customer cap and the reward itself must all be configured;
+        // anything unset = no reward (the referral simply stays pending).
+        if (! EarningsSettings::on('referral.enabled', $scope)) {
+            return null;
+        }
+
         $referral = Referral::where('referred_id', $booking->customer_id)->where('status', 'pending')->first();
 
         if (! $referral) {
             return null;
+        }
+
+        $cap = EarningsSettings::integer('referral.max_per_customer', $scope);
+        if ($cap === null || Referral::where('referrer_id', $referral->referrer_id)->where('status', 'rewarded')->count() >= $cap) {
+            return null;
+        }
+
+        $rewardType = EarningsSettings::raw('referral.reward_type', $scope);
+        $rewardValue = match ($rewardType) {
+            'wallet' => EarningsSettings::number('referral.reward_amount', $scope),
+            'points' => EarningsSettings::integer('referral.reward_points', $scope),
+            default => null,
+        };
+        if ($rewardValue === null) {
+            return null;
+        }
+        if ($rewardType === 'points' && EarningsSettings::integer('loyalty.points_expiry_days', $scope) === null) {
+            return null; // points can't be issued until the expiry policy is set
         }
 
         $completedCount = Booking::where('customer_id', $booking->customer_id)->where('status', 'completed')->count();
@@ -181,16 +207,15 @@ class ReferralService
             return null; // not their first completed booking
         }
 
-        return DB::transaction(function () use ($referral, $booking, $scope) {
+        return DB::transaction(function () use ($referral, $booking, $scope, $rewardType, $rewardValue) {
             $referrer = $referral->referrer;
-            $rewardType = Setting::get('referral.reward_type', 'wallet', $scope);
 
             if ($rewardType === 'points') {
-                $points = (int) Setting::get('referral.reward_points', '100', $scope);
+                $points = (int) $rewardValue;
                 $this->loyaltyService->earn($referrer, $points, 'referral_reward', $booking, $scope, "referral:{$referral->id}:points-reward");
                 $referral->reward_amount = 0;
             } else {
-                $amount = (float) Setting::get('referral.reward_amount', '50', $scope);
+                $amount = (float) $rewardValue;
                 if ($amount > 0) {
                     $this->walletService->credit(
                         $referrer,

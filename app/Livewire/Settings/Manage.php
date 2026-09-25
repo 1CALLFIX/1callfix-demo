@@ -9,6 +9,8 @@ use App\Models\Setting;
 use App\Models\Zone;
 use App\Services\Ranking\RankingConfigResolver;
 use Livewire\Component;
+use App\Services\SettingsAuditor;
+use App\Support\SuperAdminGate;
 
 // One config hub, not a list — unlike the catalog {Module}\Manage screens,
 // there's nothing to paginate/search here. Tabbed like the reference apps
@@ -147,11 +149,11 @@ class Manage extends Component
     public string $cancellationFeeValue = '0';
 
     // --- Wallet (WalletTopUpService, AcceptBookingAction, PayoutService) ---
-    public string $walletCustomerMinTopup = '100';
-    public string $walletCustomerMaxTopup = '10000';
-    public string $walletCustomerMaxBalance = '50000';
-    public string $walletCustomerDailyTopupLimit = '20000';
-    public string $walletCustomerMonthlyTopupLimit = '100000';
+    public string $walletCustomerMinTopup = '';
+    public string $walletCustomerMaxTopup = '';
+    public string $walletCustomerMaxBalance = '';
+    public string $walletCustomerDailyTopupLimit = '';
+    public string $walletCustomerMonthlyTopupLimit = '';
     public string $walletProviderMinBalanceToAcceptJobs = '0';
     public string $walletProviderMinPayoutAmount = '0';
     public string $walletProviderMaxPayoutAmount = '0';
@@ -173,14 +175,14 @@ class Manage extends Component
     public string $rankingWeightSubscription = '0';
 
     // --- Loyalty / Referral (LoyaltyService/ReferralService, consumed by CompleteBookingAction) ---
-    public string $loyaltyCustomerPointsPerCurrencyUnit = '0.01';
-    public string $loyaltyProviderPointsPerCompletedJob = '5';
-    public string $loyaltyPointsPerRupeeRedemption = '10';
-    public string $loyaltyMinRedemptionPoints = '100';
-    public string $loyaltyPointsExpiryDays = '365';
-    public string $referralRewardType = 'wallet';
-    public string $referralRewardAmount = '50';
-    public string $referralRewardPoints = '100';
+    public string $loyaltyCustomerPointsPerCurrencyUnit = '';
+    public string $loyaltyProviderPointsPerCompletedJob = '';
+    public string $loyaltyPointsPerRupeeRedemption = '';
+    public string $loyaltyMinRedemptionPoints = '';
+    public string $loyaltyPointsExpiryDays = '';
+    public string $referralRewardType = '';
+    public string $referralRewardAmount = '';
+    public string $referralRewardPoints = '';
     /**
      * Read via `Setting::get('referral.pending_expiry_days', '', [])` —
      * ReferralService passes a hardcoded empty scope (not the picked scope
@@ -220,7 +222,7 @@ class Manage extends Component
     // --- Payment (New Booking modal's payment-method dropdown) ---
     public string $paymentOnlineEnabled = '1';
     public string $paymentCashEnabled = '1';
-    public string $paymentWalletEnabled = '1';
+    public string $paymentWalletEnabled = '';
 
     /**
      * KYC (Phase 11 audit finding: all four keys below were read by real,
@@ -357,7 +359,7 @@ class Manage extends Component
         };
     }
 
-    /** [scopeType, scopeId] for Setting::set()/clear() — writes always target the exact picked scope, never the cascade. */
+    /** [scopeType, scopeId] for $this->put()/clear() — writes always target the exact picked scope, never the cascade. */
     private function scopeTypeAndId(): array
     {
         return match ($this->scopeType) {
@@ -390,11 +392,11 @@ class Manage extends Component
         $this->cancellationFeeType = Setting::get('cancellation.fee_type', 'flat', $scope);
         $this->cancellationFeeValue = (string) Setting::get('cancellation.fee_value', '0', $scope);
 
-        $this->walletCustomerMinTopup = (string) Setting::get('wallet.customer_min_topup', '100', $scope);
-        $this->walletCustomerMaxTopup = (string) Setting::get('wallet.customer_max_topup', '10000', $scope);
-        $this->walletCustomerMaxBalance = (string) Setting::get('wallet.customer_max_balance', '50000', $scope);
-        $this->walletCustomerDailyTopupLimit = (string) Setting::get('wallet.customer_daily_topup_limit', '20000', $scope);
-        $this->walletCustomerMonthlyTopupLimit = (string) Setting::get('wallet.customer_monthly_topup_limit', '100000', $scope);
+        $this->walletCustomerMinTopup = (string) Setting::get('wallet.customer_min_topup', '', $scope);
+        $this->walletCustomerMaxTopup = (string) Setting::get('wallet.customer_max_topup', '', $scope);
+        $this->walletCustomerMaxBalance = (string) Setting::get('wallet.customer_max_balance', '', $scope);
+        $this->walletCustomerDailyTopupLimit = (string) Setting::get('wallet.customer_daily_topup_limit', '', $scope);
+        $this->walletCustomerMonthlyTopupLimit = (string) Setting::get('wallet.customer_monthly_topup_limit', '', $scope);
         $this->walletProviderMinBalanceToAcceptJobs = (string) Setting::get('wallet.provider_min_balance_to_accept_jobs', '0', $scope);
         $this->walletProviderMinPayoutAmount = (string) Setting::get('wallet.provider_min_payout_amount', '0', $scope);
         $this->walletProviderMaxPayoutAmount = (string) Setting::get('wallet.provider_max_payout_amount', '0', $scope);
@@ -416,14 +418,14 @@ class Manage extends Component
         $this->rankingWeightOrders = (string) $rankingConfig['weights']['orders'];
         $this->rankingWeightSubscription = (string) $rankingConfig['weights']['subscription'];
 
-        $this->loyaltyCustomerPointsPerCurrencyUnit = (string) Setting::get('loyalty.customer_points_per_currency_unit', '0.01', $scope);
-        $this->loyaltyProviderPointsPerCompletedJob = (string) Setting::get('loyalty.provider_points_per_completed_job', '5', $scope);
-        $this->loyaltyPointsPerRupeeRedemption = (string) Setting::get('loyalty.points_per_rupee_redemption', '10', $scope);
-        $this->loyaltyMinRedemptionPoints = (string) Setting::get('loyalty.min_redemption_points', '100', $scope);
-        $this->loyaltyPointsExpiryDays = (string) Setting::get('loyalty.points_expiry_days', '365', $scope);
-        $this->referralRewardType = Setting::get('referral.reward_type', 'wallet', $scope);
-        $this->referralRewardAmount = (string) Setting::get('referral.reward_amount', '50', $scope);
-        $this->referralRewardPoints = (string) Setting::get('referral.reward_points', '100', $scope);
+        $this->loyaltyCustomerPointsPerCurrencyUnit = (string) Setting::get('loyalty.customer_points_per_currency_unit', '', $scope);
+        $this->loyaltyProviderPointsPerCompletedJob = (string) Setting::get('loyalty.provider_points_per_completed_job', '', $scope);
+        $this->loyaltyPointsPerRupeeRedemption = (string) Setting::get('loyalty.points_per_rupee_redemption', '', $scope);
+        $this->loyaltyMinRedemptionPoints = (string) Setting::get('loyalty.min_redemption_points', '', $scope);
+        $this->loyaltyPointsExpiryDays = (string) Setting::get('loyalty.points_expiry_days', '', $scope);
+        $this->referralRewardType = (string) Setting::get('referral.reward_type', '', $scope);
+        $this->referralRewardAmount = (string) Setting::get('referral.reward_amount', '', $scope);
+        $this->referralRewardPoints = (string) Setting::get('referral.reward_points', '', $scope);
         $this->referralPendingExpiryDays = (string) Setting::get('referral.pending_expiry_days', '', []);
 
         $configuredChannels = explode(',', Setting::get('notifications.channels', 'mail', $scope));
@@ -447,7 +449,7 @@ class Manage extends Component
 
         $this->paymentOnlineEnabled = (string) Setting::get('payment.online_enabled', '1', $scope);
         $this->paymentCashEnabled = (string) Setting::get('payment.cash_enabled', '1', $scope);
-        $this->paymentWalletEnabled = (string) Setting::get('payment.wallet_enabled', '1', $scope);
+        $this->paymentWalletEnabled = (string) Setting::get('payment.wallet_enabled', '', $scope);
 
         $this->kycWithdrawalRestrictionEnabled = (string) (int) Setting::get('kyc.withdrawal_restriction_enabled', '1', $scope);
         $this->kycRequireVerificationVideo = (string) (int) Setting::get('kyc.require_verification_video', '1', $scope);
@@ -501,10 +503,34 @@ class Manage extends Component
             return;
         }
 
+        // Earnings policy keys are Super Admin only (EARN3 Rule of Law #6) —
+        // clearing an override changes policy just as much as saving one.
+        if (self::isEarningsPolicyKey($key)) {
+            SuperAdminGate::authorize(auth()->user());
+        }
+
         [$scopeType, $scopeId] = $this->scopeTypeAndId();
-        Setting::clear($key, $scopeType, $scopeId);
+        $this->put($key, null, $scopeType, $scopeId);
         $this->loadFields();
         $this->flashMessage = 'Override cleared — now inheriting from a broader scope.';
+    }
+
+    /**
+     * REF 1CF-PROMPT-20260925-EARN3 (Rule of Law #5) — every write on every
+     * tab goes through SettingsAuditor: one activity_log entry per key whose
+     * stored value at this exact scope actually changed (admin, scope, key,
+     * old, new); unchanged keys are not logged. A blank value clears the key
+     * at this scope (UNSET) instead of storing an empty string.
+     */
+    private function put(string $key, $value, string $scopeType = 'global', $scopeId = null): void
+    {
+        SettingsAuditor::put(auth()->user(), $key, $value, $scopeType, $scopeId === null ? null : (int) $scopeId);
+    }
+
+    /** Wallet / Loyalty / Referral / Earnings keys — Super Admin only. */
+    private static function isEarningsPolicyKey(string $key): bool
+    {
+        return (bool) preg_match('/^(wallet|loyalty|referral|earnings)\./', $key);
     }
 
     // ============================== Save (per tab) ==============================
@@ -527,11 +553,11 @@ class Manage extends Component
 
         [$scopeType, $scopeId] = $this->scopeTypeAndId();
 
-        Setting::set('dispatch.offer_batch_size', $this->dispatchOfferBatchSize, $scopeType, $scopeId);
-        Setting::set('dispatch.offer_timeout_seconds', $this->dispatchOfferTimeoutSeconds, $scopeType, $scopeId);
-        Setting::set('dispatch.max_rounds', $this->dispatchMaxRounds, $scopeType, $scopeId);
-        Setting::set('dispatch.default_radius_km', $this->dispatchDefaultRadiusKm, $scopeType, $scopeId);
-        Setting::set('dispatch.max_timeouts_per_provider', $this->dispatchMaxTimeoutsPerProvider, $scopeType, $scopeId);
+        $this->put('dispatch.offer_batch_size', $this->dispatchOfferBatchSize, $scopeType, $scopeId);
+        $this->put('dispatch.offer_timeout_seconds', $this->dispatchOfferTimeoutSeconds, $scopeType, $scopeId);
+        $this->put('dispatch.max_rounds', $this->dispatchMaxRounds, $scopeType, $scopeId);
+        $this->put('dispatch.default_radius_km', $this->dispatchDefaultRadiusKm, $scopeType, $scopeId);
+        $this->put('dispatch.max_timeouts_per_provider', $this->dispatchMaxTimeoutsPerProvider, $scopeType, $scopeId);
 
         $this->flashMessage = 'Dispatch settings saved'.($scopeType === 'global' ? '.' : " for this {$scopeType}.");
     }
@@ -550,9 +576,9 @@ class Manage extends Component
 
         [$scopeType, $scopeId] = $this->scopeTypeAndId();
 
-        Setting::set('commission.default_model', $this->commissionDefaultModel, $scopeType, $scopeId);
-        Setting::set('commission.default_value', $this->commissionDefaultValue, $scopeType, $scopeId);
-        Setting::set('commission.default_platform_fee_percent', $this->commissionDefaultPlatformFeePercent, $scopeType, $scopeId);
+        $this->put('commission.default_model', $this->commissionDefaultModel, $scopeType, $scopeId);
+        $this->put('commission.default_value', $this->commissionDefaultValue, $scopeType, $scopeId);
+        $this->put('commission.default_platform_fee_percent', $this->commissionDefaultPlatformFeePercent, $scopeType, $scopeId);
 
         $this->flashMessage = 'Commission defaults saved'.($scopeType === 'global' ? '.' : " for this {$scopeType}.");
     }
@@ -569,8 +595,8 @@ class Manage extends Component
 
         [$scopeType, $scopeId] = $this->scopeTypeAndId();
 
-        Setting::set('booking.otp_length', $this->bookingOtpLength, $scopeType, $scopeId);
-        Setting::set('booking.max_schedule_days_ahead', $this->bookingMaxScheduleDaysAhead, $scopeType, $scopeId);
+        $this->put('booking.otp_length', $this->bookingOtpLength, $scopeType, $scopeId);
+        $this->put('booking.max_schedule_days_ahead', $this->bookingMaxScheduleDaysAhead, $scopeType, $scopeId);
 
         $this->flashMessage = 'Booking settings saved'.($scopeType === 'global' ? '.' : " for this {$scopeType}.");
     }
@@ -590,9 +616,9 @@ class Manage extends Component
 
         [$scopeType, $scopeId] = $this->scopeTypeAndId();
 
-        Setting::set('cancellation.free_minutes', $this->cancellationFreeMinutes, $scopeType, $scopeId);
-        Setting::set('cancellation.fee_type', $this->cancellationFeeType, $scopeType, $scopeId);
-        Setting::set('cancellation.fee_value', $this->cancellationFeeValue, $scopeType, $scopeId);
+        $this->put('cancellation.free_minutes', $this->cancellationFreeMinutes, $scopeType, $scopeId);
+        $this->put('cancellation.fee_type', $this->cancellationFeeType, $scopeType, $scopeId);
+        $this->put('cancellation.fee_value', $this->cancellationFeeValue, $scopeType, $scopeId);
 
         $this->flashMessage = 'Refund / Cancellation settings saved'.($scopeType === 'global' ? '.' : " for this {$scopeType}.");
     }
@@ -630,9 +656,9 @@ class Manage extends Component
 
         [$scopeType, $scopeId] = $this->scopeTypeAndId();
 
-        Setting::set('ranking.providers.mode', $this->rankingMode, $scopeType, $scopeId);
-        Setting::set('ranking.providers.sequential', $slots->map(fn ($s) => "{$s['key']}:{$s['direction']}")->implode(','), $scopeType, $scopeId);
-        Setting::set('ranking.providers.weights', json_encode([
+        $this->put('ranking.providers.mode', $this->rankingMode, $scopeType, $scopeId);
+        $this->put('ranking.providers.sequential', $slots->map(fn ($s) => "{$s['key']}:{$s['direction']}")->implode(','), $scopeType, $scopeId);
+        $this->put('ranking.providers.weights', json_encode([
             'priority' => (float) $this->rankingWeightPriority,
             'rating' => (float) $this->rankingWeightRating,
             'distance' => (float) $this->rankingWeightDistance,
@@ -646,20 +672,21 @@ class Manage extends Component
     /** Real consumers: App\Services\LoyaltyService (earn/redeem, wired into CompleteBookingAction), App\Services\ReferralService (qualification reward). */
     public function saveLoyalty(): void
     {
-        if (! auth()->user()->hasPermission('settings.manage')) {
-            $this->addError('permission', 'You do not have permission to manage loyalty/referral settings.');
-            return;
-        }
+        // EARN3 Rule of Law #6 — Super Admin role only, not settings.manage.
+        SuperAdminGate::authorize(auth()->user());
 
+        // Every field may be left blank = UNSET = that part of the program is
+        // OFF (EARN3 Rule of Law #3). 0 is an explicit zero; for the expiry
+        // it means "never expires".
         $this->validate([
-            'loyaltyCustomerPointsPerCurrencyUnit' => ['required', 'numeric', 'min:0'],
-            'loyaltyProviderPointsPerCompletedJob' => ['required', 'integer', 'min:0'],
-            'loyaltyPointsPerRupeeRedemption' => ['required', 'integer', 'min:1'],
-            'loyaltyMinRedemptionPoints' => ['required', 'integer', 'min:0'],
-            'loyaltyPointsExpiryDays' => ['required', 'integer', 'min:0'],
-            'referralRewardType' => ['required', 'in:wallet,points'],
-            'referralRewardAmount' => ['required', 'numeric', 'min:0'],
-            'referralRewardPoints' => ['required', 'integer', 'min:0'],
+            'loyaltyCustomerPointsPerCurrencyUnit' => ['nullable', 'numeric', 'min:0'],
+            'loyaltyProviderPointsPerCompletedJob' => ['nullable', 'integer', 'min:0'],
+            'loyaltyPointsPerRupeeRedemption' => ['nullable', 'integer', 'min:1'],
+            'loyaltyMinRedemptionPoints' => ['nullable', 'integer', 'min:0'],
+            'loyaltyPointsExpiryDays' => ['nullable', 'integer', 'min:0'],
+            'referralRewardType' => ['nullable', 'in:wallet,points'],
+            'referralRewardAmount' => ['nullable', 'numeric', 'min:0'],
+            'referralRewardPoints' => ['nullable', 'integer', 'min:0'],
             'referralPendingExpiryDays' => ['nullable', 'integer', 'min:1'],
         ], [], [
             'loyaltyCustomerPointsPerCurrencyUnit' => 'customer earn rate', 'loyaltyProviderPointsPerCompletedJob' => 'provider earn rate',
@@ -681,13 +708,13 @@ class Manage extends Component
             'referral.reward_amount' => $this->referralRewardAmount,
             'referral.reward_points' => $this->referralRewardPoints,
         ] as $key => $value) {
-            Setting::set($key, $value, $scopeType, $scopeId);
+            $this->put($key, $value, $scopeType, $scopeId);
         }
 
         // ReferralService reads this with a hardcoded empty scope ([]) —
         // always writes Global, regardless of the picker, so it's never a
         // dead "override" that the consumer would silently never see.
-        Setting::set('referral.pending_expiry_days', $this->referralPendingExpiryDays, 'global', null);
+        $this->put('referral.pending_expiry_days', $this->referralPendingExpiryDays, 'global', null);
 
         $this->flashMessage = 'Loyalty / Referral settings saved'.($scopeType === 'global' ? '.' : " for this {$scopeType}.");
     }
@@ -695,21 +722,18 @@ class Manage extends Component
     /** Real consumers: App\Services\WalletTopUpService (customer fields), App\Actions\AcceptBookingAction (min balance), App\Services\PayoutService (payout min/max). */
     public function saveWallet(): void
     {
-        // settings.manage has existed in the RBAC catalog since the RBAC
-        // phase but was never actually enforced anywhere in Settings\Manage
-        // -- enforcing it here, on this new tab, rather than retrofitting
-        // the other nine existing tabs in the same pass.
-        if (! auth()->user()->hasPermission('settings.manage')) {
-            $this->addError('permission', 'You do not have permission to manage wallet settings.');
-            return;
-        }
+        // EARN3 Rule of Law #6 — Super Admin role only, not settings.manage.
+        SuperAdminGate::authorize(auth()->user());
 
+        // Customer top-up limits may be blank = UNSET; any unset limit keeps
+        // top-up OFF (WalletTopUpService). Contradictions between configured
+        // limits are rejected below (EARN3 2.3).
         $this->validate([
-            'walletCustomerMinTopup' => ['required', 'numeric', 'min:0'],
-            'walletCustomerMaxTopup' => ['required', 'numeric', 'gt:walletCustomerMinTopup'],
-            'walletCustomerMaxBalance' => ['required', 'numeric', 'min:0'],
-            'walletCustomerDailyTopupLimit' => ['required', 'numeric', 'min:0'],
-            'walletCustomerMonthlyTopupLimit' => ['required', 'numeric', 'gte:walletCustomerDailyTopupLimit'],
+            'walletCustomerMinTopup' => ['nullable', 'numeric', 'min:0'],
+            'walletCustomerMaxTopup' => ['nullable', 'numeric', 'min:0'],
+            'walletCustomerMaxBalance' => ['nullable', 'numeric', 'min:0'],
+            'walletCustomerDailyTopupLimit' => ['nullable', 'numeric', 'min:0'],
+            'walletCustomerMonthlyTopupLimit' => ['nullable', 'numeric', 'min:0'],
             'walletProviderMinBalanceToAcceptJobs' => ['required', 'numeric', 'min:0'],
             'walletProviderMinPayoutAmount' => ['required', 'numeric', 'min:0'],
             'walletProviderMaxPayoutAmount' => ['required', 'numeric', 'min:0'],
@@ -723,6 +747,10 @@ class Manage extends Component
             'walletProviderMinPayoutAmount' => 'provider minimum payout', 'walletProviderMaxPayoutAmount' => 'provider maximum payout',
             'walletFranchiseMinPayoutAmount' => 'franchise minimum payout', 'walletFranchiseMaxPayoutAmount' => 'franchise maximum payout',
         ]);
+
+        if (! $this->walletLimitsAreConsistent()) {
+            return;
+        }
 
         if ((float) $this->walletProviderMaxPayoutAmount > 0 && (float) $this->walletProviderMaxPayoutAmount < (float) $this->walletProviderMinPayoutAmount) {
             $this->addError('walletProviderMaxPayoutAmount', 'Maximum payout must be greater than the minimum (or 0 for no cap).');
@@ -747,10 +775,41 @@ class Manage extends Component
             'wallet.franchise_min_payout_amount' => $this->walletFranchiseMinPayoutAmount,
             'wallet.franchise_max_payout_amount' => $this->walletFranchiseMaxPayoutAmount,
         ] as $key => $value) {
-            Setting::set($key, $value, $scopeType, $scopeId);
+            $this->put($key, $value, $scopeType, $scopeId);
         }
 
         $this->flashMessage = 'Wallet settings saved'.($scopeType === 'global' ? '.' : " for this {$scopeType}.");
+    }
+
+    /**
+     * EARN3 2.3 — reject contradictory customer top-up limits (only between
+     * limits that are both configured): min ≤ max top-up ≤ daily ≤ monthly,
+     * and max top-up ≤ max wallet balance.
+     */
+    private function walletLimitsAreConsistent(): bool
+    {
+        $v = fn (string $prop) => $this->{$prop} === '' ? null : (float) $this->{$prop};
+        [$min, $max, $balance, $daily, $monthly] = [
+            $v('walletCustomerMinTopup'), $v('walletCustomerMaxTopup'), $v('walletCustomerMaxBalance'),
+            $v('walletCustomerDailyTopupLimit'), $v('walletCustomerMonthlyTopupLimit'),
+        ];
+
+        $checks = [
+            ['walletCustomerMinTopup', $min, $max, 'Minimum top-up cannot be more than the maximum top-up.'],
+            ['walletCustomerMaxTopup', $max, $daily, 'Maximum top-up cannot be more than the daily top-up limit.'],
+            ['walletCustomerDailyTopupLimit', $daily, $monthly, 'Daily top-up limit cannot be more than the monthly limit.'],
+            ['walletCustomerMaxTopup', $max, $balance, 'Maximum top-up cannot be more than the maximum wallet balance.'],
+        ];
+
+        $ok = true;
+        foreach ($checks as [$field, $lower, $upper, $message]) {
+            if ($lower !== null && $upper !== null && $lower > $upper) {
+                $this->addError($field, $message);
+                $ok = false;
+            }
+        }
+
+        return $ok;
     }
 
     /** Real consumer: App\Notifications\Support\ChannelResolver, called from every BookingStatus/PaymentStatus/PayoutStatus dispatch site. */
@@ -765,7 +824,7 @@ class Manage extends Component
 
         [$scopeType, $scopeId] = $this->scopeTypeAndId();
 
-        Setting::set('notifications.channels', implode(',', $channels) ?: 'mail', $scopeType, $scopeId);
+        $this->put('notifications.channels', implode(',', $channels) ?: 'mail', $scopeType, $scopeId);
 
         $this->flashMessage = 'Notification settings saved'.($scopeType === 'global' ? '.' : " for this {$scopeType}.");
     }
@@ -779,8 +838,8 @@ class Manage extends Component
             'digestSendTimeLocal' => 'send time',
         ]);
 
-        Setting::set('digest.send_time_local', $this->digestSendTimeLocal, 'global', null);
-        Setting::set('digest.whatsapp_enabled', $this->digestWhatsappEnabled ? '1' : '0', 'global', null);
+        $this->put('digest.send_time_local', $this->digestSendTimeLocal, 'global', null);
+        $this->put('digest.whatsapp_enabled', $this->digestWhatsappEnabled ? '1' : '0', 'global', null);
 
         $this->flashMessage = 'Daily Digest settings saved.';
     }
@@ -795,7 +854,7 @@ class Manage extends Component
 
         [$scopeType, $scopeId] = $this->scopeTypeAndId();
 
-        Setting::set('locale.currency_symbol', $this->localeCurrencySymbol, $scopeType, $scopeId);
+        $this->put('locale.currency_symbol', $this->localeCurrencySymbol, $scopeType, $scopeId);
 
         $this->flashMessage = 'Locale & currency settings saved'.($scopeType === 'global' ? '.' : " for this {$scopeType}.");
     }
@@ -812,8 +871,8 @@ class Manage extends Component
 
         [$scopeType, $scopeId] = $this->scopeTypeAndId();
 
-        Setting::set('branding.platform_name', $this->brandingPlatformName, $scopeType, $scopeId);
-        Setting::set('branding.operating_city_label', $this->brandingOperatingCityLabel, $scopeType, $scopeId);
+        $this->put('branding.platform_name', $this->brandingPlatformName, $scopeType, $scopeId);
+        $this->put('branding.operating_city_label', $this->brandingOperatingCityLabel, $scopeType, $scopeId);
 
         $this->flashMessage = 'Branding settings saved'.($scopeType === 'global' ? '.' : " for this {$scopeType}.");
     }
@@ -832,7 +891,7 @@ class Manage extends Component
 
         [$scopeType, $scopeId] = $this->scopeTypeAndId();
 
-        Setting::set('system.maintenance_mode', $this->systemMaintenanceMode, $scopeType, $scopeId);
+        $this->put('system.maintenance_mode', $this->systemMaintenanceMode, $scopeType, $scopeId);
 
         $this->flashMessage = 'General / System settings saved'.($scopeType === 'global' ? '.' : " for this {$scopeType}.");
     }
@@ -850,19 +909,19 @@ class Manage extends Component
         $this->validate([
             'paymentOnlineEnabled' => ['required', 'in:0,1'],
             'paymentCashEnabled' => ['required', 'in:0,1'],
-            'paymentWalletEnabled' => ['required', 'in:0,1'],
+            'paymentWalletEnabled' => ['nullable', 'in:0,1'], // blank = UNSET = off (EARN3)
         ]);
 
-        if ($this->paymentOnlineEnabled === '0' && $this->paymentCashEnabled === '0' && $this->paymentWalletEnabled === '0') {
+        if ($this->paymentOnlineEnabled === '0' && $this->paymentCashEnabled === '0' && $this->paymentWalletEnabled !== '1') {
             $this->addError('paymentOnlineEnabled', 'At least one payment method must stay enabled.');
             return;
         }
 
         [$scopeType, $scopeId] = $this->scopeTypeAndId();
 
-        Setting::set('payment.online_enabled', $this->paymentOnlineEnabled, $scopeType, $scopeId);
-        Setting::set('payment.cash_enabled', $this->paymentCashEnabled, $scopeType, $scopeId);
-        Setting::set('payment.wallet_enabled', $this->paymentWalletEnabled, $scopeType, $scopeId);
+        $this->put('payment.online_enabled', $this->paymentOnlineEnabled, $scopeType, $scopeId);
+        $this->put('payment.cash_enabled', $this->paymentCashEnabled, $scopeType, $scopeId);
+        $this->put('payment.wallet_enabled', $this->paymentWalletEnabled, $scopeType, $scopeId);
 
         $this->flashMessage = 'Payment settings saved'.($scopeType === 'global' ? '.' : " for this {$scopeType}.");
     }
@@ -898,7 +957,7 @@ class Manage extends Component
             'kyc.max_document_size_mb' => $this->kycMaxDocumentSizeMb,
             'kyc.max_video_size_mb' => $this->kycMaxVideoSizeMb,
         ] as $key => $value) {
-            Setting::set($key, $value, $scopeType, $scopeId);
+            $this->put($key, $value, $scopeType, $scopeId);
         }
 
         $this->flashMessage = 'KYC settings saved'.($scopeType === 'global' ? '.' : " for this {$scopeType}.");
@@ -953,7 +1012,7 @@ class Manage extends Component
             'compensation.rain_flat_amount' => $this->compensationRainFlatAmount,
             'compensation.waiting_rate_per_minute' => $this->compensationWaitingRatePerMinute,
         ] as $key => $value) {
-            Setting::set($key, $value, $scopeType, $scopeId);
+            $this->put($key, $value, $scopeType, $scopeId);
         }
 
         $this->flashMessage = 'Compensation settings saved'.($scopeType === 'global' ? '.' : " for this {$scopeType}.");
@@ -992,7 +1051,7 @@ class Manage extends Component
             'auth.otp_max_attempts' => $this->authOtpMaxAttempts,
             'auth.qr_challenge_expiry_seconds' => $this->authQrChallengeExpirySeconds,
         ] as $key => $value) {
-            Setting::set($key, $value, 'global', null);
+            $this->put($key, $value, 'global', null);
         }
 
         $this->flashMessage = 'Security / OTP settings saved (global — these are read without a scope by their consumers).';
@@ -1033,7 +1092,7 @@ class Manage extends Component
             'operations.stuck_threshold_minutes.on_hold' => $this->opsStuckThresholdOnHold,
             'dispatch.offer_response_timeout_minutes' => $this->opsDispatchOfferResponseTimeoutMinutes,
         ] as $key => $value) {
-            Setting::set($key, $value, 'global', null);
+            $this->put($key, $value, 'global', null);
         }
 
         $this->flashMessage = 'Operations settings saved (global — these are read without a scope by their consumers).';
@@ -1055,7 +1114,7 @@ class Manage extends Component
             'subscriptionsGracePeriodDays' => ['required', 'integer', 'min:0', 'max:90'],
         ], [], ['subscriptionsGracePeriodDays' => 'grace period']);
 
-        Setting::set('plan.grace_period_days', $this->subscriptionsGracePeriodDays, 'global', null);
+        $this->put('plan.grace_period_days', $this->subscriptionsGracePeriodDays, 'global', null);
 
         $this->flashMessage = 'Subscription settings saved (global — read without a scope by RenewalService).';
     }

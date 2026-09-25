@@ -30,6 +30,7 @@ use Tests\TestCase;
  */
 class RentalReservationLifecycleTest extends TestCase
 {
+    use \Tests\Feature\Support\WithLegacyWalletPayments;
     use RefreshDatabase;
     use BookingFixtureHelpers;
     use RentalFixtureHelpers;

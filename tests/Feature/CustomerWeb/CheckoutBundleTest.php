@@ -20,6 +20,7 @@ use Tests\TestCase;
  */
 class CheckoutBundleTest extends TestCase
 {
+    use \Tests\Feature\Support\WithLegacyWalletPayments;
     use BookingFixtureHelpers;
     use CatalogFixtures;
     use RefreshDatabase;

@@ -23,6 +23,7 @@ use Tests\TestCase;
  */
 class ReferralHardeningTest extends TestCase
 {
+    use \Tests\Feature\Support\WithLegacyReferral;
     use RefreshDatabase;
     use RbacTestHelpers;
     use BookingFixtureHelpers;

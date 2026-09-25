@@ -17,6 +17,7 @@ use Tests\TestCase;
  */
 class LoyaltyApiTest extends TestCase
 {
+    use \Tests\Feature\Support\WithLegacyLoyalty;
     use RefreshDatabase;
     use BookingFixtureHelpers;
 

@@ -29,6 +29,7 @@ use Tests\TestCase;
  */
 class MarketplaceOrderLifecycleTest extends TestCase
 {
+    use \Tests\Feature\Support\WithLegacyWalletPayments;
     use RefreshDatabase;
     use BookingFixtureHelpers;
     use MarketplaceFixtureHelpers;

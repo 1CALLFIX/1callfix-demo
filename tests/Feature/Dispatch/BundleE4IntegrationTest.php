@@ -25,6 +25,7 @@ use Tests\TestCase;
  */
 class BundleE4IntegrationTest extends TestCase
 {
+    use \Tests\Feature\Support\WithLegacyWalletPayments;
     use RefreshDatabase;
     use BundleConsolidationHelpers;
 

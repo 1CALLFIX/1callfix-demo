@@ -7,6 +7,7 @@ use App\Models\Payment;
 use App\Models\Setting;
 use App\Models\User;
 use Illuminate\Support\Str;
+use App\Support\EarningsSettings;
 
 /**
  * The customer-initiated half of the wallet: requests a top-up, subject to
@@ -23,6 +24,8 @@ use Illuminate\Support\Str;
  */
 class WalletTopUpService
 {
+    public const UNAVAILABLE = 'Top-up is currently unavailable.';
+
     public function __construct(private PaymentGateway $gateway, private WalletService $walletService)
     {
     }
@@ -46,11 +49,22 @@ class WalletTopUpService
             throw new \RuntimeException('Online payments are currently disabled.');
         }
 
-        $min = (float) Setting::get('wallet.customer_min_topup', '100', $scope);
-        $max = (float) Setting::get('wallet.customer_max_topup', '10000', $scope);
-        $maxBalance = (float) Setting::get('wallet.customer_max_balance', '50000', $scope);
-        $dailyLimit = (float) Setting::get('wallet.customer_daily_topup_limit', '20000', $scope);
-        $monthlyLimit = (float) Setting::get('wallet.customer_monthly_topup_limit', '100000', $scope);
+        // REF 1CF-PROMPT-20260925-EARN3 (Rule of Law) — top-up has its own
+        // switch, and every limit must be configured: an unset switch or an
+        // unset limit means top-up is OFF, never a hidden in-code default.
+        if (! EarningsSettings::on('wallet.topup_enabled', $scope)) {
+            throw new \RuntimeException(self::UNAVAILABLE);
+        }
+
+        $min = EarningsSettings::number('wallet.customer_min_topup', $scope);
+        $max = EarningsSettings::number('wallet.customer_max_topup', $scope);
+        $maxBalance = EarningsSettings::number('wallet.customer_max_balance', $scope);
+        $dailyLimit = EarningsSettings::number('wallet.customer_daily_topup_limit', $scope);
+        $monthlyLimit = EarningsSettings::number('wallet.customer_monthly_topup_limit', $scope);
+
+        if (in_array(null, [$min, $max, $maxBalance, $dailyLimit, $monthlyLimit], true)) {
+            throw new \RuntimeException(self::UNAVAILABLE);
+        }
 
         if ($amount < $min) {
             throw new \RuntimeException("Minimum top-up amount is {$min}.");

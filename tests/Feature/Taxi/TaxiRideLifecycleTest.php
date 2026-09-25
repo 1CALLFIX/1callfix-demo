@@ -28,6 +28,7 @@ use Tests\TestCase;
  */
 class TaxiRideLifecycleTest extends TestCase
 {
+    use \Tests\Feature\Support\WithLegacyWalletPayments;
     use RefreshDatabase;
     use BookingFixtureHelpers;
     use TaxiRideFixtureHelpers;

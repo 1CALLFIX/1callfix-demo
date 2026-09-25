@@ -221,7 +221,7 @@ class CreateBookingBundleAction
     {
         $scope = array_filter(['zone_id' => $bundle->zone_id, 'franchise_id' => $bundle->franchise_id]);
 
-        if (Setting::get('payment.wallet_enabled', '1', $scope) !== '1') {
+        if (Setting::get('payment.wallet_enabled', null, $scope) !== '1') {
             throw new \RuntimeException('Wallet payments are not enabled.');
         }
 

@@ -4,7 +4,6 @@ namespace App\Services;
 
 use App\Models\Booking;
 use App\Models\LoyaltyPoint;
-use App\Models\Setting;
 use App\Models\User;
 use App\Notifications\LoyaltyPointsNotification;
 use App\Notifications\Support\ChannelResolver;
@@ -12,6 +11,7 @@ use App\Services\Loyalty\LoyaltyFifoLedger;
 use Carbon\CarbonInterface;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Facades\DB;
+use App\Support\EarningsSettings;
 
 /**
  * loyalty_points is a ledger, same shape as wallet_transactions -- each row
@@ -29,6 +29,8 @@ use Illuminate\Support\Facades\DB;
  */
 class LoyaltyService
 {
+    public const REDEEM_UNAVAILABLE = 'Loyalty redemption is currently unavailable.';
+
     public function __construct(private WalletService $walletService)
     {
     }
@@ -47,7 +49,15 @@ class LoyaltyService
             return null; // same idempotency key already written
         }
 
-        $expiryDays = (int) Setting::get('loyalty.points_expiry_days', '365', $scope);
+        // Rule of Law: the expiry policy must be configured before any point
+        // is issued (0 = never expires, set explicitly). Unset = the loyalty
+        // program is not configured, so nothing is issued — thrown, not
+        // silently skipped, so a caller that awards points (a campaign) sees
+        // the failure. CompleteBookingAction / ReferralService check first.
+        $expiryDays = EarningsSettings::integer('loyalty.points_expiry_days', $scope);
+        if ($expiryDays === null) {
+            throw new \RuntimeException('Loyalty points expiry (loyalty.points_expiry_days) is not configured; no points can be issued.');
+        }
 
         $entry = LoyaltyPoint::create([
             'user_id' => $user->id,
@@ -117,12 +127,19 @@ class LoyaltyService
             throw new \InvalidArgumentException('Redemption points must be positive.');
         }
 
-        $minRedemption = (int) Setting::get('loyalty.min_redemption_points', '100', $scope);
+        // Rule of Law: redemption needs its switch ON and both its rate and
+        // its minimum configured (0 = no minimum, set explicitly). Anything
+        // unset = redemption OFF, never an in-code default.
+        $minRedemption = EarningsSettings::integer('loyalty.min_redemption_points', $scope);
+        $pointsPerRupee = EarningsSettings::integer('loyalty.points_per_rupee_redemption', $scope);
+        if (! EarningsSettings::on('loyalty.redeem_enabled', $scope) || $minRedemption === null || $pointsPerRupee === null || $pointsPerRupee < 1) {
+            throw new \RuntimeException(self::REDEEM_UNAVAILABLE);
+        }
+
         if ($points < $minRedemption) {
             throw new \RuntimeException("Minimum redemption is {$minRedemption} points.");
         }
 
-        $pointsPerRupee = max(1, (int) Setting::get('loyalty.points_per_rupee_redemption', '10', $scope));
         $rupees = round($points / $pointsPerRupee, 2);
 
         return DB::transaction(function () use ($user, $points, $rupees, $scope) {

@@ -30,6 +30,7 @@ use Tests\TestCase;
  */
 class HotelReservationLifecycleTest extends TestCase
 {
+    use \Tests\Feature\Support\WithLegacyWalletPayments;
     use RefreshDatabase;
     use BookingFixtureHelpers;
     use HotelFixtureHelpers;

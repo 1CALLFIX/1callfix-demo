@@ -26,6 +26,7 @@ use Tests\TestCase;
  */
 class AdminOpsAlertTest extends TestCase
 {
+    use \Tests\Feature\Support\WithLegacyWalletPayments;
     use BookingFixtureHelpers;
     use RefreshDatabase;
 

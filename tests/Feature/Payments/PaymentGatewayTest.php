@@ -36,6 +36,7 @@ use Tests\TestCase;
  */
 class PaymentGatewayTest extends TestCase
 {
+    use \Tests\Feature\Support\WithLegacyWalletTopUp;
     use BookingFixtureHelpers;
     use RbacTestHelpers;
     use RefreshDatabase;

@@ -12,6 +12,7 @@ use Tests\TestCase;
 /** Priority 2 required test area L (Referral). */
 class ReferralServiceTest extends TestCase
 {
+    use \Tests\Feature\Support\WithLegacyReferral;
     use RefreshDatabase;
     use BookingFixtureHelpers;
 

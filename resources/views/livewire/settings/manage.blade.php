@@ -296,6 +296,7 @@
                 <div>
                     <label class="block text-xs font-medium mb-1">Wallet @if ($scoped) <x-setting-override-badge :overridden="in_array('payment.wallet_enabled', $this->overriddenKeys)" setting-key="payment.wallet_enabled" /> @endif</label>
                     <select wire:model="paymentWalletEnabled" class="w-full border rounded px-3 py-2 text-sm">
+                        <option value="">Not set (off)</option>
                         <option value="1">Enabled</option>
                         <option value="0">Disabled</option>
                     </select>
@@ -308,6 +309,10 @@
 
         {{-- Wallet — customer top-up limits (WalletTopUpService), provider min-balance-to-accept-jobs (AcceptBookingAction), payout min/max (PayoutService). --}}
         @elseif ($activeTab === 'wallet')
+            <div class="mb-4 rounded border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+                Super Admin only — every change is audited. A blank customer top-up field is <strong>not set</strong>, and top-up stays <strong>off</strong> until all five are set and the <em>wallet.topup_enabled</em> switch is ON in
+                Finance → Earnings Control. Limits must satisfy: min ≤ max top-up ≤ daily ≤ monthly, and max top-up ≤ max wallet balance.
+            </div>
             <div class="mb-4">
                 <h3 class="text-sm font-semibold mb-1">Customer Top-Up</h3>
                 <p class="text-xs text-gray-400 mb-3">Enforced in WalletTopUpService before a Razorpay order is even created — a direct API call can't bypass these.</p>
@@ -471,6 +476,11 @@
 
         {{-- Loyalty / Referral — real consumers: App\Services\LoyaltyService (CompleteBookingAction), App\Services\ReferralService. Values below are development defaults, not approved commercial numbers. --}}
         @elseif ($activeTab === 'loyalty')
+            <div class="mb-4 rounded border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+                Super Admin only — every change is audited. A blank field is <strong>not set</strong> and that part of the program is <strong>off</strong> (no hidden default). 0 is an explicit zero; for points expiry, 0 means never expire.
+                The on/off switches (customer earning, provider earning, redemption, referral rewards) and the per-customer referral cap live in
+                Finance → Earnings Control.
+            </div>
             <div class="mb-4">
                 <h3 class="text-sm font-semibold mb-1">Loyalty Points</h3>
                 <p class="text-xs text-gray-400 mb-3">Earned automatically on booking completion (customer per rupee spent, provider a flat amount per job). Redeeming converts points into a real wallet credit at the rate below — not a second balance system.</p>
@@ -505,11 +515,12 @@
 
             <div class="mb-4 border-t pt-4">
                 <h3 class="text-sm font-semibold mb-1">Referral</h3>
-                <p class="text-xs text-gray-400 mb-3">Rewards the referrer when the referred customer completes their first-ever booking. Amounts below are development defaults — not approved commercial values.</p>
+                <p class="text-xs text-gray-400 mb-3">Rewards the referrer when the referred customer completes their first-ever booking. Nothing is paid unless the reward type and its amount are set here and the referral switch and cap are set in Earnings Control.</p>
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
                         <label class="block text-xs font-medium mb-1">Reward type @if ($scoped) <x-setting-override-badge :overridden="in_array('referral.reward_type', $this->overriddenKeys)" setting-key="referral.reward_type" /> @endif</label>
                         <select wire:model="referralRewardType" class="w-full border rounded px-3 py-2 text-sm">
+                            <option value="">Not set (off)</option>
                             <option value="wallet">Wallet credit</option>
                             <option value="points">Loyalty points</option>
                         </select>

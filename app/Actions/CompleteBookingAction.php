@@ -18,6 +18,7 @@ use App\Services\LoyaltyService;
 use App\Services\ReferralService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use App\Support\EarningsSettings;
 
 class CompleteBookingAction
 {
@@ -122,17 +123,24 @@ class CompleteBookingAction
         // flat amount per completed job -- same "outside the lock, its own
         // transaction" placement as commission above. Both are idempotent
         // per (user, booking, reason) — see LoyaltyService::earn().
-        $customerRate = (float) Setting::get('loyalty.customer_points_per_currency_unit', '0.01', $scope);
-        $customerPoints = (int) floor((float) $booking->price_final * $customerRate);
-        if ($booking->customer) {
+        //
+        // REF 1CF-PROMPT-20260925-EARN3 (Rule of Law) — each side needs its
+        // own switch ON, its own rate configured, and a configured expiry
+        // policy (loyalty.points_expiry_days; 0 = never). Anything unset
+        // means that side earns nothing — no in-code default rate.
+        $expiryConfigured = EarningsSettings::integer('loyalty.points_expiry_days', $scope) !== null;
+
+        $customerRate = EarningsSettings::number('loyalty.customer_points_per_currency_unit', $scope);
+        if ($expiryConfigured && $customerRate !== null && EarningsSettings::on('loyalty.customer_enabled', $scope) && $booking->customer) {
+            $customerPoints = (int) floor((float) $booking->price_final * $customerRate);
             $this->loyaltyService->earn($booking->customer, $customerPoints, 'booking_completed', $booking, $scope);
         }
 
         // REF 1CF-PROMPT-20260925-EARN3 (D1) — provider earning has its own
         // switch, null = off. Provider points are never redeemable (see
         // LoyaltyService::redeem()); already-earned rows stay untouched.
-        $providerPoints = (int) Setting::get('loyalty.provider_points_per_completed_job', '5', $scope);
-        if (Setting::get('loyalty.provider_enabled', null, $scope) === '1' && $booking->provider && $booking->provider->user) {
+        $providerPoints = EarningsSettings::integer('loyalty.provider_points_per_completed_job', $scope);
+        if ($expiryConfigured && $providerPoints !== null && EarningsSettings::on('loyalty.provider_enabled', $scope) && $booking->provider && $booking->provider->user) {
             $this->loyaltyService->earn($booking->provider->user, $providerPoints, 'booking_completed', $booking, $scope);
         }
 

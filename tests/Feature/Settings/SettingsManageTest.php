@@ -147,7 +147,9 @@ class SettingsManageTest extends TestCase
     {
         [, , $franchise] = $this->makeFranchiseTree();
 
-        Livewire::actingAs($this->actor())->test(Manage::class)
+        // EARN3: the Loyalty / Referral tab saves are Super Admin only now
+        // (a settings.manage holder gets 403 — see RuleOfLawFoundationTest).
+        Livewire::actingAs($this->makeSuperAdmin())->test(Manage::class)
             ->set('scopeType', 'franchise')
             ->set('scopeFranchiseId', $franchise->id)
             ->set('activeTab', 'loyalty')

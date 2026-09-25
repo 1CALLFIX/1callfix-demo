@@ -13,6 +13,7 @@ use Tests\TestCase;
 /** Priority 2 required test area K (Loyalty). */
 class LoyaltyServiceTest extends TestCase
 {
+    use \Tests\Feature\Support\WithLegacyLoyalty;
     use RefreshDatabase;
     use BookingFixtureHelpers;
     use RbacTestHelpers;

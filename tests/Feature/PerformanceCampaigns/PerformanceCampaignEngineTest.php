@@ -26,6 +26,7 @@ use Tests\TestCase;
  */
 class PerformanceCampaignEngineTest extends TestCase
 {
+    use \Tests\Feature\Support\WithLegacyLoyalty;
     use RefreshDatabase;
     use RbacTestHelpers;
     use BookingFixtureHelpers;

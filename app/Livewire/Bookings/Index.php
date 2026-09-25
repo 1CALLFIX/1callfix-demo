@@ -194,10 +194,11 @@ class Index extends Component
             'wallet' => 'Wallet',
         ];
 
+        // REF 1CF-PROMPT-20260925-EARN3 — wallet: null = OFF, never re-added.
         $enabled = array_filter($methods, fn ($label, $slug) =>
-            Setting::get("payment.{$slug}_enabled", '1') === '1', ARRAY_FILTER_USE_BOTH);
+            Setting::get("payment.{$slug}_enabled", $slug === 'wallet' ? null : '1') === '1', ARRAY_FILTER_USE_BOTH);
 
-        return $enabled ?: $methods;
+        return $enabled ?: array_diff_key($methods, ['wallet' => true]);
     }
 
     /**

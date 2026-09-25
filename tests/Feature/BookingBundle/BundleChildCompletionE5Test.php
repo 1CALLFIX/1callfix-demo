@@ -30,6 +30,7 @@ use Tests\TestCase;
  */
 class BundleChildCompletionE5Test extends TestCase
 {
+    use \Tests\Feature\Support\WithLegacyWalletPayments;
     use RefreshDatabase;
     use BundleConsolidationHelpers;
 

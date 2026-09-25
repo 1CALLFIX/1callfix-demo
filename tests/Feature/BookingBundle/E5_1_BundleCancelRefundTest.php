@@ -37,6 +37,7 @@ use Tests\TestCase;
  */
 class E5_1_BundleCancelRefundTest extends TestCase
 {
+    use \Tests\Feature\Support\WithLegacyWalletPayments;
     use BundleConsolidationHelpers;
     use RefreshDatabase;
 

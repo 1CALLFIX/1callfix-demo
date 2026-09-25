@@ -14,6 +14,7 @@ use Tests\TestCase;
  */
 class CustomerBookingApiTest extends TestCase
 {
+    use \Tests\Feature\Support\WithLegacyWalletPayments;
     use RefreshDatabase;
     use BookingFixtureHelpers;
 

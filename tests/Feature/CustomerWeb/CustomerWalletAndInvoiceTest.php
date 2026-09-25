@@ -23,6 +23,7 @@ use Tests\TestCase;
  */
 class CustomerWalletAndInvoiceTest extends TestCase
 {
+    use \Tests\Feature\Support\WithLegacyWalletTopUp;
     use BookingFixtureHelpers;
     use CatalogFixtures;
     use RefreshDatabase;

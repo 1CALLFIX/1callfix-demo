@@ -50,6 +50,7 @@ use Tests\TestCase;
  */
 class E7_FullBundleLifecycleTest extends TestCase
 {
+    use \Tests\Feature\Support\WithLegacyWalletPayments;
     use BundleConsolidationHelpers;
     use RefreshDatabase;
 
