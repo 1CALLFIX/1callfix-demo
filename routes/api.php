@@ -104,6 +104,9 @@ Route::middleware(['auth:sanctum', \App\Http\Middleware\EnsureNotInMaintenanceMo
     // call-center-only-vs-self-service business-model note this resolves.
     Route::post('/bookings', [\App\Http\Controllers\API\BookingController::class, 'store']);
     Route::get('/bookings/mine', [\App\Http\Controllers\API\BookingController::class, 'mine']);
+
+    // EARN4 — the caller's own referral code, share link and referrals (404 while switched off).
+    Route::get('/referrals/mine', [\App\Http\Controllers\API\ReferralController::class, 'mine']);
     Route::get('/bookings/{bookingId}', [\App\Http\Controllers\API\BookingController::class, 'show']);
     Route::post('/bookings/{bookingId}/cancel', [\App\Http\Controllers\API\BookingController::class, 'cancel']);
 

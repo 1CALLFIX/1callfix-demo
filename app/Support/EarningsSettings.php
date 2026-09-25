@@ -153,6 +153,11 @@ final class EarningsSettings
     /** Is this switch, as the customer at $scope would resolve it, on — with the master switch on too. */
     public static function customerTabOn(string $tabKey, array $scope = []): bool
     {
+        // EARN4 — the Referrals tab (web + API) also needs the program itself on.
+        if ($tabKey === 'earnings.referral_tab' && ! self::on('referral.enabled', $scope)) {
+            return false;
+        }
+
         return self::on('earnings.enabled', $scope) && self::on($tabKey, $scope);
     }
 }
