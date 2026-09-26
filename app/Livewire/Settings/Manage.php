@@ -6,7 +6,11 @@ use App\Models\City;
 use App\Models\Country;
 use App\Models\Franchise;
 use App\Models\Setting;
+use App\Models\SocialMediaLink;
 use App\Models\Zone;
+use App\Services\BrandingAssetService;
+use App\Support\SocialPlatforms;
+use Livewire\WithFileUploads;
 use App\Services\Ranking\RankingConfigResolver;
 use Livewire\Component;
 
@@ -100,6 +104,8 @@ use Livewire\Component;
 // choice — reuses the same two systems either way.
 class Manage extends Component
 {
+    use WithFileUploads;
+
     public const PLACEHOLDER_TABS = [
         'mobile_apps' => ['label' => 'Mobile Apps', 'note' => 'Country picker, app links, upgrade prompts — no mobile apps exist yet (M6/M7 haven\'t started).'],
         'vendor' => ['label' => 'Vendor / Provider', 'note' => 'Provider self-registration rules, KYC requirements, verified badges — the Providers screen already covers approve/reject; broader policy config isn\'t built yet. No self-registration route exists (confirmed by audit) since there\'s no provider-facing app yet.'],
@@ -213,6 +219,12 @@ class Manage extends Component
     // --- Platform / Branding (admin header, <title>, login page) ---
     public string $brandingPlatformName = '1CallFix Admin';
     public string $brandingOperatingCityLabel = 'Nellore';
+
+    // Site identity — global-only (one logo/footer per site, not per scope).
+    public $brandingLogoUpload = null;
+    public string $brandingFooterCredit = '';
+    /** @var array<string,string> platform key => profile URL */
+    public array $brandingSocial = [];
 
     // --- General / System (EnsureNotInMaintenanceMode middleware, routes/api.php) ---
     public string $systemMaintenanceMode = '0';
@@ -442,6 +454,12 @@ class Manage extends Component
 
         $this->brandingPlatformName = Setting::get('branding.platform_name', '1CallFix Admin', $scope);
         $this->brandingOperatingCityLabel = Setting::get('branding.operating_city_label', 'Nellore', $scope);
+
+        $this->brandingFooterCredit = BrandingAssetService::creditLine();
+        $savedLinks = SocialMediaLink::query()->pluck('profile_url', 'platform')->all();
+        foreach (SocialPlatforms::ALL as $key => $meta) {
+            $this->brandingSocial[$key] = (string) ($savedLinks[$key] ?? '');
+        }
 
         $this->systemMaintenanceMode = (string) Setting::get('system.maintenance_mode', '0', $scope);
 
@@ -798,6 +816,73 @@ class Manage extends Component
         Setting::set('locale.currency_symbol', $this->localeCurrencySymbol, $scopeType, $scopeId);
 
         $this->flashMessage = 'Locale & currency settings saved'.($scopeType === 'global' ? '.' : " for this {$scopeType}.");
+    }
+
+    public function uploadLogo(BrandingAssetService $assets): void
+    {
+        $this->authorizeSiteIdentity();
+        $this->validate([
+            'brandingLogoUpload' => ['required', 'file', 'mimes:png,jpg,jpeg,svg', 'max:4096'],
+        ], [], ['brandingLogoUpload' => 'logo']);
+
+        $old = $assets->currentPaths();
+        try {
+            $new = $assets->store($this->brandingLogoUpload);
+        } catch (\RuntimeException $e) {
+            $this->addError('brandingLogoUpload', $e->getMessage());
+
+            return;
+        }
+
+        foreach ($new as $key => $path) {
+            Setting::set("branding.{$key}", $path);
+        }
+        $assets->deleteFiles($old);
+        $this->brandingLogoUpload = null;
+
+        $this->flashMessage = 'Logo uploaded. Favicon files were generated from it.';
+    }
+
+    public function removeLogo(BrandingAssetService $assets): void
+    {
+        $this->authorizeSiteIdentity();
+
+        $old = $assets->currentPaths();
+        foreach (array_keys($old) as $key) {
+            Setting::clear("branding.{$key}", 'global', null);
+        }
+        $assets->deleteFiles($old);
+
+        $this->flashMessage = 'Logo removed. The default 1CallFix mark is shown again.';
+    }
+
+    public function saveSiteLinks(): void
+    {
+        $this->authorizeSiteIdentity();
+
+        $rules = ['brandingFooterCredit' => ['nullable', 'string', 'max:200']];
+        foreach (array_keys(SocialPlatforms::ALL) as $key) {
+            $rules["brandingSocial.{$key}"] = ['nullable', 'url:http,https', 'max:500'];
+        }
+        $this->validate($rules, [], ['brandingFooterCredit' => 'footer credit line']);
+
+        foreach (SocialPlatforms::ALL as $key => $meta) {
+            $url = trim((string) ($this->brandingSocial[$key] ?? ''));
+            // A blank platform stays as a row with a null URL: the footer
+            // skips it, and any future OAuth columns on it are preserved.
+            SocialMediaLink::updateOrCreate(['platform' => $key], ['profile_url' => $url === '' ? null : $url]);
+        }
+        SocialMediaLink::forgetCache();
+
+        Setting::set('branding.footer_credit', trim($this->brandingFooterCredit));
+
+        $this->flashMessage = 'Footer links and credit line saved.';
+    }
+
+    private function authorizeSiteIdentity(): void
+    {
+        abort_unless(auth()->user()->hasPermissionAnywhere('settings.manage'), 403);
+        abort_unless($this->scopeType === 'global', 403, 'Site logo and footer are global settings.');
     }
 
     public function saveBranding(): void

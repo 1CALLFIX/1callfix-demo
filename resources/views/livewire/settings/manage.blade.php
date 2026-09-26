@@ -829,6 +829,72 @@
                 <x-ui.button wire:click="saveBranding">Save Branding Settings</x-ui.button>
             </div>
 
+            {{-- Site identity: logo, footer social links, credit line. Global
+                 only — the public site has one logo/footer, so a scoped
+                 override would configure nothing. --}}
+            @if ($scoped)
+                <p class="text-xs text-gray-400 mt-6 pt-4 border-t">Site logo, social links and footer credit are site-wide. Switch the scope picker back to Global to edit them.</p>
+            @else
+                @php
+                    $logoUrl = app(\App\Services\BrandingAssetService::class)->url('logo_path');
+                    $faviconUrl = app(\App\Services\BrandingAssetService::class)->url('favicon_path');
+                @endphp
+                <div class="mt-6 pt-4 border-t">
+                    <h3 class="text-sm font-semibold mb-1">Site logo</h3>
+                    <p class="text-xs text-gray-400 mb-3">PNG, JPG or SVG, up to 4&nbsp;MB. Square with a transparent background works best. Shown in the public header and footer; 32×32 favicon and 180×180 apple-touch icon are generated automatically.</p>
+                    <div class="flex flex-wrap items-center gap-4">
+                        <div class="h-20 w-20 rounded border grid place-items-center bg-[repeating-conic-gradient(#e5e7eb_0_25%,#fff_0_50%)] bg-[length:12px_12px]">
+                            @if ($logoUrl)
+                                <img src="{{ $logoUrl }}" alt="Current site logo" class="max-h-16 max-w-16 object-contain">
+                            @else
+                                <span class="text-[10px] text-gray-500 text-center px-1">Default mark</span>
+                            @endif
+                        </div>
+                        @if ($faviconUrl)
+                            <div class="text-center">
+                                <img src="{{ $faviconUrl }}" alt="Generated favicon" class="h-8 w-8 mx-auto">
+                                <span class="text-[10px] text-gray-500">favicon</span>
+                            </div>
+                        @endif
+                        <div>
+                            <input type="file" wire:model="brandingLogoUpload" accept=".png,.jpg,.jpeg,.svg,image/png,image/jpeg,image/svg+xml" class="text-xs">
+                            <div wire:loading wire:target="brandingLogoUpload" class="text-xs text-gray-500 mt-1">Uploading…</div>
+                            @error('brandingLogoUpload') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
+                            <div class="mt-2 flex gap-2">
+                                <x-ui.button wire:click="uploadLogo" wire:loading.attr="disabled" wire:target="brandingLogoUpload">Upload logo</x-ui.button>
+                                @if ($logoUrl)
+                                    <x-ui.button wire:click="removeLogo" wire:confirm="Remove the logo and revert to the default mark?">Remove</x-ui.button>
+                                @endif
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mt-6 pt-4 border-t">
+                    <h3 class="text-sm font-semibold mb-1">Social media links</h3>
+                    <p class="text-xs text-gray-400 mb-3">Full profile URLs (https://…). Leave a platform blank and no icon is shown for it in the footer.</p>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        @foreach (\App\Support\SocialPlatforms::ALL as $platformKey => $platformMeta)
+                            <div>
+                                <label class="block text-xs font-medium mb-1">{{ $platformMeta['label'] }}</label>
+                                <input type="url" wire:model="brandingSocial.{{ $platformKey }}" placeholder="https://" class="w-full border rounded px-3 py-2 text-sm">
+                                @error('brandingSocial.'.$platformKey) <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
+                            </div>
+                        @endforeach
+                    </div>
+                </div>
+
+                <div class="mt-6 pt-4 border-t">
+                    <h3 class="text-sm font-semibold mb-1">Footer credit line</h3>
+                    <p class="text-xs text-gray-400 mb-3">Shown bottom-right of the public footer. Leave empty to hide it.</p>
+                    <input type="text" wire:model="brandingFooterCredit" maxlength="200" class="w-full border rounded px-3 py-2 text-sm">
+                    @error('brandingFooterCredit') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
+                </div>
+                <div class="flex justify-end pt-4 mt-4 border-t">
+                    <x-ui.button wire:click="saveSiteLinks">Save Links &amp; Credit</x-ui.button>
+                </div>
+            @endif
+
         {{-- Maps — real, but read-only: the API key is a credential and stays
              in .env, never duplicated into an editable DB row. --}}
         @elseif ($activeTab === 'maps')
