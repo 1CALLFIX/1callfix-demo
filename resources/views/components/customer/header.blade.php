@@ -40,11 +40,7 @@
             {{-- Brand --}}
             <a href="{{ route('customer.home') }}"
                class="flex min-h-11 shrink-0 items-center gap-2 rounded focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900">
-                <span aria-hidden="true"
-                      class="grid h-9 w-9 place-items-center rounded-xl bg-blue-600 text-sm font-bold text-white shadow-sm shadow-blue-600/30">
-                    {{ \Illuminate\Support\Str::of($platformName)->substr(0, 1)->upper() }}
-                </span>
-                <span class="text-lg font-bold tracking-tight">{{ $platformName }}</span>
+                <x-customer.brand-mark />
             </a>
 
             {{-- Desktop primary navigation --}}

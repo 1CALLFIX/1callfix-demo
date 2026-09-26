@@ -24,8 +24,18 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-title" content="{{ $platformName }}">
-    <link rel="icon" href="{{ asset('icons/icon.svg') }}" type="image/svg+xml">
-    <link rel="apple-touch-icon" href="{{ asset('icons/icon-maskable.svg') }}">
+    @php
+        $brandAssets = app(\App\Services\BrandingAssetService::class);
+        $faviconUrl = $brandAssets->url('favicon_path');
+        $appleTouchUrl = $brandAssets->url('apple_touch_path');
+    @endphp
+    {{-- Admin-uploaded logo → generated favicon files; falls back to the bundled icons. --}}
+    @if ($faviconUrl)
+        <link rel="icon" href="{{ $faviconUrl }}" type="{{ str_ends_with($faviconUrl, '.svg') ? 'image/svg+xml' : 'image/png' }}"@if (! str_ends_with($faviconUrl, '.svg')) sizes="32x32"@endif>
+    @else
+        <link rel="icon" href="{{ asset('icons/icon.svg') }}" type="image/svg+xml">
+    @endif
+    <link rel="apple-touch-icon" href="{{ $appleTouchUrl ?: asset('icons/icon-maskable.svg') }}">
 
     @fonts
     {{-- The real Vite pipeline, deliberately NOT the cdn.tailwindcss.com
