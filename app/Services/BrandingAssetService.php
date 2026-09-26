@@ -24,8 +24,6 @@ use RuntimeException;
  */
 class BrandingAssetService
 {
-    public const DEFAULT_CREDIT = 'Made with ❤ in India by 1CallFix Solutions Pvt Ltd';
-
     private const DISK = 'public';
     private const DIR = 'branding';
 
@@ -119,7 +117,7 @@ class BrandingAssetService
 
     public static function creditLine(): string
     {
-        return (string) Setting::get('branding.footer_credit', self::DEFAULT_CREDIT);
+        return (string) Setting::get('branding.footer_credit', '');
     }
 
     /** Shrink to at most $max px on the long side (never upscale), alpha preserved. */

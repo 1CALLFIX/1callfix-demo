@@ -6,6 +6,7 @@ use App\Livewire\Settings\Manage as SettingsManage;
 use App\Models\Setting;
 use App\Models\SocialMediaLink;
 use App\Models\User;
+use App\Services\BrandingAssetService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Blade;
@@ -131,15 +132,31 @@ class SiteBrandingTest extends TestCase
         $this->assertTrue(Schema::hasColumns('social_media_links', ['platform', 'profile_url', 'access_token', 'token_expiry', 'connected_at']));
     }
 
-    public function test_credit_line_defaults_renders_with_heart_and_can_be_hidden(): void
+    public function test_credit_line_is_blank_on_fresh_install_and_shows_nothing(): void
     {
+        $this->assertSame('', BrandingAssetService::creditLine());
         $html = Blade::render('<x-customer.footer />');
-        $this->assertStringContainsString('Made with', $html);
-        $this->assertStringContainsString('❤', $html);
-        $this->assertStringContainsString('in India by 1CallFix Solutions Pvt Ltd', $html);
+        $this->assertStringNotContainsString('Made', $html);
+        $this->assertStringNotContainsString('text-red-500', $html);
 
-        Setting::set('branding.footer_credit', '');
-        $this->assertStringNotContainsString('Made with', Blade::render('<x-customer.footer />'));
+        $admin = Livewire::actingAs($this->admin())->test(SettingsManage::class);
+        $admin->assertSet('brandingFooterCredit', '');
+    }
+
+    public function test_credit_line_with_heart_emoji_saves_and_renders(): void
+    {
+        // U+2764 U+FE0F, i.e. what typing the emoji on most keyboards produces.
+        $text = "Made in Love \u{2764}\u{FE0F} with India by 1CallFix";
+        Livewire::actingAs($this->admin())->test(SettingsManage::class)
+            ->set('brandingFooterCredit', $text)->call('saveSiteLinks')->assertHasNoErrors();
+
+        $this->assertSame($text, Setting::get('branding.footer_credit'));
+        $html = Blade::render('<x-customer.footer />');
+        $this->assertStringContainsString("Made in Love <span class=\"text-red-500\">\u{2764}&#xFE0E;</span> with India by 1CallFix", $html);
+
+        Livewire::actingAs($this->admin())->test(SettingsManage::class)
+            ->set('brandingFooterCredit', '')->call('saveSiteLinks');
+        $this->assertStringNotContainsString('Made in Love', Blade::render('<x-customer.footer />'));
     }
 
     public function test_fallbacks_and_uploaded_logo_in_header_footer_and_head(): void

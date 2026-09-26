@@ -111,9 +111,9 @@
             @endif
         </div>
             @if (filled($creditLine))
-                {{-- U+FE0E asks for the text (not colour-emoji) heart so it takes the
+                {{-- U+FE0E asks for the text (not colour-emoji) heart (any FE0E/FE0F the admin typed is normalised) so it takes the
                      red below in every browser instead of a platform emoji. --}}
-                <p class="text-xs text-slate-500 sm:text-right">{!! str_replace('❤', '<span class="text-red-500">❤&#xFE0E;</span>', e($creditLine)) !!}</p>
+                <p class="text-xs text-slate-500 sm:text-right">{!! preg_replace('/❤[\x{FE0E}\x{FE0F}]?/u', '<span class="text-red-500">❤&#xFE0E;</span>', e($creditLine)) !!}</p>
             @endif
         </div>
     </div>
