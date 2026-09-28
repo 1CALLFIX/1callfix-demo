@@ -78,18 +78,24 @@ class HomescreenLocationSearchTest extends TestCase
         $this->assertMatchesRegularExpression('/data-placeholder-examples="[^"]*Search for/', $html);
     }
 
-    // ==================== Part 3 — location bar ====================
+    // ==================== Part 3 — location control ====================
+    // 1CF-HOMESCREEN-HERO-001 removed the homepage's second location pill
+    // (which used to show "Set your location" / the picked place's label
+    // and address in the discovery hero). The header's location control
+    // (x-customer.header -> livewire:customer.location-picker) is now the
+    // only one, so these assert against IT instead.
 
     /** Automated test. */
-    public function test_location_bar_shows_set_your_location_when_nothing_is_selected(): void
+    public function test_header_location_control_shows_set_location_when_nothing_is_selected(): void
     {
-        $this->get(route('customer.home'))
-            ->assertOk()
-            ->assertSeeText('Set your location');
+        $html = $this->get(route('customer.home'))->assertOk()->getContent();
+
+        $this->assertStringContainsString('Set location', $html);
+        $this->assertStringContainsString('data-has-zone=""', $html);
     }
 
     /** Automated test. */
-    public function test_location_bar_shows_the_saved_location_label_and_address(): void
+    public function test_header_location_control_shows_the_active_zone_once_a_place_is_selected(): void
     {
         [, , , $zone] = $this->makeFranchiseTree();
         $zone->update(['boundary_polygon' => null, 'center_lat' => 1.5, 'center_lng' => 1.5, 'default_dispatch_radius_km' => 5]);
@@ -98,10 +104,10 @@ class HomescreenLocationSearchTest extends TestCase
             ->call('selectPlace', 1.5, 1.5, 'Sunrise Apartments, Main Road', 'Sunrise Apartments')
             ->assertSet('outOfCoverage', false);
 
-        $this->get(route('customer.home'))
-            ->assertOk()
-            ->assertSeeText('Sunrise Apartments')
-            ->assertSeeText('Sunrise Apartments, Main Road');
+        $html = $this->get(route('customer.home'))->assertOk()->getContent();
+
+        $this->assertStringContainsString($zone->name, $html);
+        $this->assertStringContainsString('data-has-zone="1"', $html);
     }
 
     // ==================== Part 4/5 — picking a location ====================

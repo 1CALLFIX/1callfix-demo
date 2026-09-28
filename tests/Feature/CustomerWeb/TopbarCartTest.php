@@ -70,10 +70,4 @@ class TopbarCartTest extends TestCase
         $this->assertStringContainsString('py-2 sm:hidden', $html);
     }
 
-    public function test_the_homepage_location_pill_opens_the_picker(): void
-    {
-        $this->get(route('customer.home'))
-            ->assertOk()
-            ->assertSee("\$dispatch('open-location-picker')", escape: false);
-    }
 }

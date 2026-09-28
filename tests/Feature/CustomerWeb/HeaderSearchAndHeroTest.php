@@ -13,8 +13,10 @@ use Tests\TestCase;
  *  - search is a PERSISTENT field in the header (Urban Company parity): a
  *    compact box in the bar from `sm` up, plus a full-width row under `sm`.
  *    No icon toggle, no reveal drawer. Still none in the homepage hero.
- *  - the hero is a headline + one supporting line + the location action,
- *    laid out beside the category grid on desktop; exactly one <h1>
+ *  - the hero is a headline + one supporting line, laid out beside the
+ *    category grid on desktop; exactly one <h1>. Location is set from the
+ *    header control only (1CF-HOMESCREEN-HERO-001 removed the hero's own
+ *    second location pill)
  *  - DOM order: paid banner first, then the discovery hero headline, then
  *    the category grid (all before the first service rail)
  */

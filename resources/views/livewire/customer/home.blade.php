@@ -7,9 +7,9 @@
     Customer homepage (Phase C).
 
     Section order follows the marketplace information architecture: hero
-    banner -> discovery hero (headline + location, beside the category grid)
-    -> what's new -> what's most booked -> mid-page promotional strip ->
-    category collections -> offers -> membership -> trust -> FAQ.
+    banner -> discovery hero (headline, beside the category grid) -> what's
+    new -> what's most booked -> mid-page promotional strip -> category
+    collections -> offers -> membership -> trust -> FAQ.
 
     The hero banner is the FIRST thing under the topbar: it is paid
     commercial-ad inventory (the `top` slot, sold at the premium rate), so it
@@ -18,9 +18,11 @@
 
     There is NO search box on this page — search lives only in the topbar
     (x-customer.header). Below the paid banner, the discovery hero is a
-    headline + one supporting line + the location action on the left, and
-    the category grid in its own card on the right (stacked on mobile) —
-    the two-column opener every comparable home-services marketplace uses.
+    headline + one supporting line on the left, and the category grid in its
+    own card on the right (stacked on mobile) — the two-column opener every
+    comparable home-services marketplace uses. Location is set from the one
+    control in the header (x-customer.header); there is no second location
+    control on this page.
 
     EVERY section below is conditional on real data and disappears entirely
     when there is none. There is no section on this page that renders
@@ -53,11 +55,13 @@
     {{-- ===================== Discovery hero =====================
          A statement + the category grid, side by side on desktop and
          stacked on mobile — the layout every large home-services
-         marketplace opens with. The left column carries the one <h1> and
-         the location action; the right column is the category grid in its
-         own card, so a customer can jump straight into a category without
-         scrolling. Search is not here — it lives in the topbar
-         (x-customer.header) at every width now.
+         marketplace opens with. The left column carries the one <h1>; the
+         right column is the category grid in its own card, so a customer
+         can jump straight into a category without scrolling. Search is not
+         here — it lives in the topbar (x-customer.header) at every width
+         now, and so does the location control (1CF-HOMESCREEN-HERO-001 —
+         this hero used to carry its own "Set your location" pill, but the
+         header control is the only one now).
 
          The paid `top` banner slot still renders ABOVE this (premium ad
          inventory keeps the first position); this hero is what carries the
@@ -67,7 +71,7 @@
         <div class="mx-auto max-w-7xl px-4 py-8 sm:px-6 sm:py-10 lg:px-8">
             <div class="grid gap-8 lg:grid-cols-5 lg:items-center">
 
-                {{-- Statement + location --}}
+                {{-- Statement --}}
                 <div class="lg:col-span-2">
                     <h1 class="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl lg:text-4xl">
                         {{ $cityLabel ? 'Home services across '.$cityLabel : 'Home services, on call' }}
@@ -76,26 +80,6 @@
                         Trusted local professionals for cleaning, repairs, appliances and more —
                         priced up front and booked in a few taps.
                     </p>
-
-                    {{-- Location bar (1CF-HOMESCREEN-UX-001, part 3) — opens
-                         the one header location picker via a page-level
-                         event (no second modal in the DOM). Guests can tap
-                         this exactly like a logged-in customer: nothing
-                         about opening or using the picker requires auth. --}}
-                    <button type="button" wire:click="$dispatch('open-location-picker')"
-                            aria-haspopup="dialog"
-                            class="mt-4 flex min-h-11 max-w-full items-center gap-2 rounded-full border border-slate-300 bg-white px-4 py-2 text-left shadow-sm transition hover:border-slate-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900">
-                        <x-icon name="map-pin" class="h-4 w-4 shrink-0 text-slate-500" />
-                        <span class="min-w-0">
-                            @if ($activeZone)
-                                <span class="block truncate text-sm font-bold text-slate-900">{{ $locationLabel ?: $activeZone->name }}</span>
-                                <span class="block truncate text-xs text-slate-500">{{ $locationAddress ?: ($activeZone->franchise?->city?->name ?? $activeZone->name) }}</span>
-                            @else
-                                <span class="block truncate text-sm font-bold text-slate-900">Set your location</span>
-                            @endif
-                        </span>
-                        <x-icon name="chevron-down" class="h-3.5 w-3.5 shrink-0 text-slate-400" />
-                    </button>
                 </div>
 
                 {{-- Category grid. A real grid at every width now (was a
