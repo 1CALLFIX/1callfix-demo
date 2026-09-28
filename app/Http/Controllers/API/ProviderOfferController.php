@@ -34,8 +34,15 @@ class ProviderOfferController extends Controller
             // already elapsed can still read status='notified' here. Same
             // notified_at guard Livewire\Provider\Jobs\Index::render() uses
             // for its own pre-accept offer listing, so this endpoint can't
-            // present a stale offer as live.
-            ->where('notified_at', '>=', now()->subSeconds($offerTimeoutSeconds))
+            // present a stale ASAP offer as live.
+            //
+            // REF 1CF-SCHEDULING-DISPATCH-001 — a scheduled booking's offer
+            // is OPEN (see ScheduledDispatchService) and is never subject to
+            // this ASAP round-timeout window at all; the freshness guard is
+            // skipped for it here exactly as it is in AcceptBookingAction.
+            ->where(fn ($q) => $q
+                ->where('notified_at', '>=', now()->subSeconds($offerTimeoutSeconds))
+                ->orWhereHas('booking', fn ($b) => $b->whereNotNull('scheduled_at')))
             ->whereHas('booking', fn ($q) => $q->where('status', 'searching_provider'))
             ->with(['booking.service', 'booking.address'])
             ->orderByDesc('notified_at')

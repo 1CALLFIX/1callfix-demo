@@ -36,6 +36,28 @@ class BookingStatusNotification extends Notification
         return match ($this->event) {
             'created' => ['subject' => 'Booking confirmed', 'body' => "Your booking {$this->booking->code} has been received. We're finding a provider for you."],
             'assigned' => ['subject' => 'Provider assigned', 'body' => "A provider has been assigned to your booking {$this->booking->code}."],
+            // REF 1CF-SCHEDULING-DISPATCH-001 (Part 3) — the scheduled-
+            // booking counterpart to 'assigned' above, naming the actual
+            // day/time so "assigned" reads as confirmation of the
+            // appointment, not just a generic status change.
+            'scheduled_assigned' => (function () {
+                $providerName = $this->booking->provider?->user?->name ?? 'A professional';
+                $when = $this->booking->scheduled_at?->format('D, M j \a\t g:i A') ?? 'your scheduled time';
+
+                return ['subject' => 'Provider assigned', 'body' => "{$providerName} has been assigned to your {$when} job ({$this->booking->code})."];
+            })(),
+            // Part "B" early-warning milestone (scheduled_at minus the
+            // admin-configurable early-warning-hours) — fired only while
+            // still unassigned, see ScheduledBookingEscalationService.
+            'scheduled_still_searching' => ['subject' => 'Still finding your professional', 'body' => "We're still finding a professional for your booking {$this->booking->code}. We'll keep you posted."],
+            // scheduled_at reached with nobody assigned, auto-cancelled
+            // (dispatch.scheduled_auto_cancel_enabled = ON). Distinct
+            // wording from 'no_provider_found' (the ASAP T+30 sweep) even
+            // though the underlying cause is the same shape, because the
+            // customer-facing timeline is completely different — this
+            // booking sat open, accepting offers, right up to the moment
+            // it was due.
+            'scheduled_unassigned_cancelled' => ['subject' => 'Booking could not be completed', 'body' => "We couldn't find a professional in time for your scheduled booking {$this->booking->code}, and it has been cancelled. Any amount already paid has been refunded, and no cancellation fee applies. You're welcome to rebook."],
             'completed' => ['subject' => 'Booking completed', 'body' => "Your booking {$this->booking->code} is complete. Thank you for using 1CallFix."],
             'cancelled' => ['subject' => 'Booking cancelled', 'body' => "Your booking {$this->booking->code} has been cancelled."],
             // REF 1CF-IMPLEMENT-20260922-L01 — the T+30 platform auto-

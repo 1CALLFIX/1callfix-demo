@@ -54,6 +54,28 @@ class ProviderJobStatusNotification extends Notification
 
         return match ($this->event) {
             'assigned' => ['subject' => 'Job assigned', 'body' => "You accepted job {$code}. Head to the customer and start with their start OTP."],
+            // REF 1CF-SCHEDULING-DISPATCH-001 (Part 3) — a scheduled job's
+            // acceptance confirmation names the date/time, service and
+            // area so the provider knows exactly what they've committed
+            // to, rather than "head to the customer now" (which reads as
+            // an immediate ASAP dispatch, not a future appointment).
+            'scheduled_assigned' => (function () use ($code) {
+                $when = $this->booking->scheduled_at?->format('D, M j \a\t g:i A') ?? 'the scheduled time';
+                $service = $this->booking->service?->name ?? 'Service';
+                $area = $this->booking->address?->city ?? $this->booking->address?->label ?? 'your area';
+
+                return ['subject' => 'Scheduled job confirmed', 'body' => "You're confirmed for {$service} on {$when} in {$area} (job {$code})."];
+            })(),
+            'reminder_60' => (function () use ($code) {
+                $when = $this->booking->scheduled_at?->format('g:i A') ?? '';
+
+                return ['subject' => 'Job coming up in 1 hour', 'body' => "Reminder: job {$code} is scheduled for {$when} — about an hour from now."];
+            })(),
+            'reminder_30' => (function () use ($code) {
+                $when = $this->booking->scheduled_at?->format('g:i A') ?? '';
+
+                return ['subject' => 'Job coming up in 30 minutes', 'body' => "Reminder: job {$code} is scheduled for {$when} — about 30 minutes from now."];
+            })(),
             'en_route' => ['subject' => "You're on the way", 'body' => "You marked job {$code} as on the way."],
             'started' => ['subject' => 'Job started', 'body' => "Job {$code} is now in progress."],
             'on_hold' => ['subject' => 'Job placed on hold', 'body' => "Job {$code} has been put on hold. Your dispatcher will be in touch."],

@@ -200,7 +200,13 @@ class BookingWizardTest extends TestCase
             ->set('scheduledAt', $istWallClock)
             ->call('next')->call('next')->call('next')
             ->assertSet('step', 'pay')
-            ->set('paymentMethod', 'cash')
+            // REF 1CF-SCHEDULING-DISPATCH-001 — a scheduled booking is now
+            // online-payment-only (CreateBookingAction rejects cash for a
+            // scheduled booking outright, so its own offers never get
+            // silently stranded waiting on a payment_status that a cash
+            // booking can never reach). 'online' exercises that same real
+            // gate this test used to bypass with 'cash'.
+            ->set('paymentMethod', 'online')
             ->call('placeBooking')
             ->assertRedirect();
 

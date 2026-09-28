@@ -62,6 +62,8 @@ class AdminOpsAlertNotification extends Notification implements ShouldQueue
             'dispatch_escalation' => $this->dispatchEscalationCopy(),
             'dispatch_job_failure' => $this->dispatchJobFailureCopy(),
             'dispatch_refund_failed' => $this->dispatchRefundFailedCopy(),
+            'scheduled_early_warning' => $this->scheduledEarlyWarningCopy(),
+            'scheduled_urgent_alert' => $this->scheduledUrgentAlertCopy(),
             default => ['title' => 'Operations update', 'body' => 'An operational event occurred.'],
         };
     }
@@ -116,6 +118,34 @@ class AdminOpsAlertNotification extends Notification implements ShouldQueue
         return [
             'title' => 'Refund failed on auto-cancel',
             'body' => "Booking {$b->code} was auto-cancelled, but its refund failed. Needs manual reconciliation.",
+        ];
+    }
+
+    /** REF 1CF-SCHEDULING-DISPATCH-001 — Part "B" early-warning milestone. */
+    private function scheduledEarlyWarningCopy(): array
+    {
+        /** @var Booking $b */
+        $b = $this->subject;
+        $service = $b->service?->name ?? 'Service';
+        $when = $b->scheduled_at?->format('D, M j \a\t g:i A') ?? 'soon';
+
+        return [
+            'title' => 'Scheduled booking still unassigned',
+            'body' => "Booking {$b->code} — {$service}, due {$when} — still has no provider. Early-warning threshold reached.",
+        ];
+    }
+
+    /** REF 1CF-SCHEDULING-DISPATCH-001 — urgent milestone at scheduled_at minus the buffer. */
+    private function scheduledUrgentAlertCopy(): array
+    {
+        /** @var Booking $b */
+        $b = $this->subject;
+        $service = $b->service?->name ?? 'Service';
+        $when = $b->scheduled_at?->format('D, M j \a\t g:i A') ?? 'soon';
+
+        return [
+            'title' => 'URGENT: scheduled booking unassigned',
+            'body' => "Booking {$b->code} — {$service}, due {$when} — is about to reach its scheduled time with no provider assigned. Needs immediate attention.",
         ];
     }
 

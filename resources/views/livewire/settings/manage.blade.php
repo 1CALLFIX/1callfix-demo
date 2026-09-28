@@ -221,6 +221,58 @@
                 <x-ui.button wire:click="saveBooking">Save Booking Settings</x-ui.button>
             </div>
 
+            {{-- REF 1CF-SCHEDULING-DISPATCH-001 — Part 1 unified scheduling
+                 buffer + service window, and the Part 2/Escalation timings
+                 for a scheduled booking's open-offer dispatch. --}}
+            <p class="text-xs text-gray-400 mt-6 mb-3">Scheduled bookings: the buffer below is the ONE lead-time/cutoff/escalation-point setting used everywhere a scheduled booking's timing matters — there is deliberately no second buffer setting.</p>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-xs font-medium mb-1">Scheduling buffer (minutes) @if ($scoped) <x-setting-override-badge :overridden="in_array('booking.scheduling_buffer_minutes', $this->overriddenKeys)" setting-key="booking.scheduling_buffer_minutes" /> @endif</label>
+                    <select wire:model="bookingSchedulingBufferMinutes" class="w-full border rounded px-3 py-2 text-sm">
+                        <option value="30">30 minutes</option>
+                        <option value="60">60 minutes</option>
+                    </select>
+                    @error('bookingSchedulingBufferMinutes') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
+                </div>
+                <div>
+                    <label class="block text-xs font-medium mb-1">Service window start hour (0-23) @if ($scoped) <x-setting-override-badge :overridden="in_array('booking.service_window_start_hour', $this->overriddenKeys)" setting-key="booking.service_window_start_hour" /> @endif</label>
+                    <input type="number" step="1" min="0" max="23" wire:model="bookingServiceWindowStartHour" class="w-full border rounded px-3 py-2 text-sm">
+                    @error('bookingServiceWindowStartHour') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
+                </div>
+                <div>
+                    <label class="block text-xs font-medium mb-1">Service window end hour (1-24) @if ($scoped) <x-setting-override-badge :overridden="in_array('booking.service_window_end_hour', $this->overriddenKeys)" setting-key="booking.service_window_end_hour" /> @endif</label>
+                    <input type="number" step="1" min="1" max="24" wire:model="bookingServiceWindowEndHour" class="w-full border rounded px-3 py-2 text-sm">
+                    @error('bookingServiceWindowEndHour') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
+                </div>
+                <div>
+                    <label class="block text-xs font-medium mb-1">Early-warning hours before scheduled time @if ($scoped) <x-setting-override-badge :overridden="in_array('dispatch.scheduled_early_warning_hours', $this->overriddenKeys)" setting-key="dispatch.scheduled_early_warning_hours" /> @endif</label>
+                    <input type="number" step="1" min="1" max="72" wire:model="dispatchScheduledEarlyWarningHours" class="w-full border rounded px-3 py-2 text-sm">
+                    @error('dispatchScheduledEarlyWarningHours') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
+                </div>
+                <div>
+                    <label class="block text-xs font-medium mb-1">Provider re-offer interval (hours) @if ($scoped) <x-setting-override-badge :overridden="in_array('dispatch.scheduled_reoffer_interval_hours', $this->overriddenKeys)" setting-key="dispatch.scheduled_reoffer_interval_hours" /> @endif</label>
+                    <input type="number" step="1" min="1" max="24" wire:model="dispatchScheduledReofferIntervalHours" class="w-full border rounded px-3 py-2 text-sm">
+                    @error('dispatchScheduledReofferIntervalHours') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
+                </div>
+                <div>
+                    <label class="block text-xs font-medium mb-1">Provider reminder 1 (minutes before) @if ($scoped) <x-setting-override-badge :overridden="in_array('booking.scheduled_reminder_offset_1_minutes', $this->overriddenKeys)" setting-key="booking.scheduled_reminder_offset_1_minutes" /> @endif</label>
+                    <input type="number" step="1" min="1" max="1440" wire:model="bookingScheduledReminderOffset1Minutes" class="w-full border rounded px-3 py-2 text-sm">
+                    @error('bookingScheduledReminderOffset1Minutes') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
+                </div>
+                <div>
+                    <label class="block text-xs font-medium mb-1">Provider reminder 2 (minutes before) @if ($scoped) <x-setting-override-badge :overridden="in_array('booking.scheduled_reminder_offset_2_minutes', $this->overriddenKeys)" setting-key="booking.scheduled_reminder_offset_2_minutes" /> @endif</label>
+                    <input type="number" step="1" min="1" max="1440" wire:model="bookingScheduledReminderOffset2Minutes" class="w-full border rounded px-3 py-2 text-sm">
+                    @error('bookingScheduledReminderOffset2Minutes') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
+                </div>
+                <div class="flex items-center gap-2 pt-6">
+                    <input type="checkbox" wire:model="dispatchScheduledAutoCancelEnabled" id="dispatchScheduledAutoCancelEnabled" class="rounded">
+                    <label for="dispatchScheduledAutoCancelEnabled" class="text-xs font-medium">Auto-cancel unassigned scheduled bookings at their scheduled time @if ($scoped) <x-setting-override-badge :overridden="in_array('dispatch.scheduled_auto_cancel_enabled', $this->overriddenKeys)" setting-key="dispatch.scheduled_auto_cancel_enabled" /> @endif</label>
+                </div>
+            </div>
+            <div class="flex justify-end pt-4 mt-4 border-t">
+                <x-ui.button wire:click="saveScheduledDispatch">Save Scheduled Dispatch Settings</x-ui.button>
+            </div>
+
         {{-- Refund / Cancellation — real consumer: CancellationService,
              called from AdminCancelBookingAction. Timer measured from
              booking.created_at (confirmed decision), not provider assignment. --}}
