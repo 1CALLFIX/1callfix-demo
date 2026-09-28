@@ -14,6 +14,7 @@ use App\Models\TaxiRide;
 use App\Models\Zone;
 use App\Services\Ranking\RankingConfigResolver;
 use App\Services\Ranking\RankingEngine;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 
 class DispatchService
@@ -21,6 +22,7 @@ class DispatchService
     public function __construct(
         private RankingEngine $rankingEngine,
         private RankingConfigResolver $rankingConfigResolver,
+        private ProviderAvailabilityService $availability,
     ) {
     }
 
@@ -62,19 +64,161 @@ class DispatchService
 
         $excludedProviderIds = $this->excludedProviderIdsForBooking($booking, $scope);
 
-        // 'on_hold' counts as busy too — a paused job (awaiting spares, customer
-        // approval, or a provider-side red flag) still ties up that provider,
-        // it's not a signal that they're free for new work.
-        $busyProviderIds = Booking::whereIn('status', ['assigned', 'provider_en_route', 'in_progress', 'on_hold'])
-            ->whereNotNull('provider_id')
-            ->pluck('provider_id');
-
-        $candidates = $this->eligibleQuery($booking->zone_id, $categoryId)
+        $preFiltered = $this->eligibleQuery($booking->zone_id, $categoryId)
             ->whereNotIn('id', $excludedProviderIds)
-            ->whereNotIn('id', $busyProviderIds)
-            ->get()
+            ->get();
+
+        // REF 1CF-SCHEDULING-DISPATCH-001 — CRITICAL AVAILABILITY RULE.
+        // Replaces the old coarse "any active booking = busy" pluck (which
+        // treated a provider holding a FUTURE scheduled job, e.g. Wednesday
+        // 10-11, as busy for TODAY's instant dispatch too) with a
+        // time-aware overlap check: this booking's own requested window is
+        // [scheduled_at ?? now(), + duration) — an ASAP request (no
+        // scheduled_at) checks "busy right now", a scheduled request checks
+        // "busy at that future time" — and only a provider whose existing
+        // committed job genuinely overlaps that window is excluded. See
+        // busyProviderIdsAt()'s own docblock for the ASAP-job-has-no-
+        // scheduled_at special case.
+        $requestedStart = $booking->scheduled_at ?? now();
+        $durationMinutes = (int) ($booking->service->duration_estimate_mins ?? 0);
+        $busyProviderIds = $this->busyProviderIdsAt($preFiltered->pluck('id'), $requestedStart, $durationMinutes, $booking->id);
+
+        $candidates = $preFiltered
+            ->reject(fn (Provider $provider) => $busyProviderIds->contains($provider->id))
             ->filter(fn (Provider $provider) => $this->hasSkill($provider, $categoryId))
             ->map(fn (Provider $provider) => $this->withDistance($provider, (float) $booking->address->lat, (float) $booking->address->lng))
+            ->filter(fn ($c) => $c['distance_km'] <= $radiusKm);
+
+        return $this->rankAndLimit($candidates, $scope, $radiusKm, $limit, $this->priorOfferCountsForBooking($booking));
+    }
+
+    /**
+     * Which of $providerIds are genuinely busy for the half-open window
+     * [$at, $at + $durationMinutes)?
+     *
+     * 'on_hold' counts as busy too — a paused job (awaiting spares, customer
+     * approval, or a provider-side red flag) still ties up that provider.
+     *
+     * Two cases, deliberately different:
+     *   - A blocking booking with scheduled_at === NULL is an ASAP job that
+     *     is, by definition, happening NOW — there is no future window to
+     *     compare against, so it always counts as busy regardless of what
+     *     $at is. (Also covers the reverse case documented on
+     *     ProviderAvailabilityService's own docblock: an in-flight ASAP job
+     *     cannot be time-bounded, so it is treated as occupying the
+     *     provider indefinitely rather than silently ignored.)
+     *   - A blocking booking WITH scheduled_at uses the same half-open
+     *     overlap rule as ProviderAvailabilityService::isAvailableAt()
+     *     (kept in sync deliberately — this is the batch-candidate-list
+     *     counterpart to that per-provider primitive, not a second rule).
+     */
+    private function busyProviderIdsAt(Collection $providerIds, Carbon $at, int $durationMinutes, ?int $excludeBookingId = null): Collection
+    {
+        if ($providerIds->isEmpty()) {
+            return collect();
+        }
+
+        $requestedStart = $at->copy();
+        $requestedEnd = $at->copy()->addMinutes(max(0, $durationMinutes));
+
+        $blocking = Booking::query()
+            ->with('service:id,duration_estimate_mins')
+            ->whereIn('provider_id', $providerIds)
+            ->whereIn('status', ProviderAvailabilityService::BLOCKING_STATUSES)
+            ->when($excludeBookingId, fn ($q) => $q->where('id', '!=', $excludeBookingId))
+            ->get(['id', 'provider_id', 'scheduled_at', 'service_id']);
+
+        $busy = collect();
+
+        foreach ($blocking as $existing) {
+            if ($existing->scheduled_at === null) {
+                $busy->push($existing->provider_id);
+
+                continue;
+            }
+
+            $existingStart = $existing->scheduled_at->copy();
+            $existingEnd = $existingStart->copy()->addMinutes((int) ($existing->service->duration_estimate_mins ?? 0));
+
+            if ($existingStart < $requestedEnd && $requestedStart < $existingEnd) {
+                $busy->push($existing->provider_id);
+            }
+        }
+
+        return $busy->unique()->values();
+    }
+
+    /**
+     * REF 1CF-SCHEDULING-DISPATCH-001 (Part 2) — the scheduled-booking
+     * counterpart to findCandidates() above: an OPEN offer sent to every
+     * eligible provider at once (not a batch-of-N round), so $limit is
+     * deliberately large rather than the ASAP offer_batch_size Setting.
+     *
+     * Differs from findCandidates() in exactly the two ways the brief
+     * calls for, and nowhere else — same excludedProviderIdsForBooking()
+     * (already-offered/declined stays already-offered/declined, no second
+     * exclusion rule), same hasSkill()/withDistance()/rankAndLimit():
+     *
+     *   - Eligibility does NOT require is_online/fresh location (a
+     *     provider accepting a future commitment need not be online right
+     *     now to receive the offer — the notification architecture
+     *     already reaches an offline provider via FCM). Still requires
+     *     is_active + kyc_status=approved, same as every other dispatch
+     *     path. A provider with no current_lat/lng (never online, or
+     *     stale) still qualifies; distance simply can't be computed for
+     *     them, so they rank at the edge of the radius rather than being
+     *     silently dropped by a hard radius cut (see the null-distance
+     *     handling below).
+     *   - Busy-ness is decided purely by
+     *     ProviderAvailabilityService::isAvailableAt($provider,
+     *     scheduled_at, duration) — the FUTURE-time overlap check — not
+     *     "does the provider have any active booking right now".
+     */
+    public function findScheduledCandidates(Booking $booking, int $limit = 500): Collection
+    {
+        $booking->loadMissing(['zone', 'address', 'service', 'franchise']);
+
+        if (!$booking->zone || !$booking->address || !$booking->scheduled_at) {
+            return collect();
+        }
+
+        $radiusKm = $booking->zone->default_dispatch_radius_km ?? 8;
+        $categoryId = $booking->service->category_id;
+        $durationMinutes = (int) ($booking->service->duration_estimate_mins ?? 0);
+
+        $scope = array_filter([
+            'zone_id' => $booking->zone_id,
+            'franchise_id' => $booking->franchise_id,
+            'city_id' => $booking->franchise?->city_id,
+            'country_id' => $booking->franchise?->country_id,
+        ]);
+
+        $excludedProviderIds = $this->excludedProviderIdsForBooking($booking, $scope);
+
+        $candidates = Provider::query()
+            ->where('zone_id', $booking->zone_id)
+            ->where('is_active', true)
+            ->where('kyc_status', 'approved')
+            ->whereNotIn('id', $excludedProviderIds)
+            ->get()
+            ->filter(fn (Provider $provider) => $this->hasSkill($provider, $categoryId))
+            ->filter(fn (Provider $provider) => $this->availability->isAvailableAt($provider, $booking->scheduled_at, $durationMinutes, $booking->id))
+            ->map(function (Provider $provider) use ($booking, $radiusKm) {
+                $hasLocation = $provider->current_lat !== null && $provider->current_lng !== null;
+
+                return [
+                    'provider' => $provider,
+                    // A provider with no known location (never been
+                    // online) still gets the offer — distance is unknown,
+                    // not zero, so it is pinned at the radius edge
+                    // (ranks last among "in radius" candidates by
+                    // distance, ahead of nothing being silently dropped)
+                    // rather than excluded outright.
+                    'distance_km' => $hasLocation
+                        ? $this->haversineKm((float) $booking->address->lat, (float) $booking->address->lng, (float) $provider->current_lat, (float) $provider->current_lng)
+                        : $radiusKm,
+                ];
+            })
             ->filter(fn ($c) => $c['distance_km'] <= $radiusKm);
 
         return $this->rankAndLimit($candidates, $scope, $radiusKm, $limit, $this->priorOfferCountsForBooking($booking));
@@ -177,7 +321,18 @@ class DispatchService
      *     dispatch round.
      *   - ranking — this is a yes/no gate, not an ordering.
      */
-    public function providerEligibleForBooking(Provider $provider, Booking $booking): bool
+    /**
+     * @param  bool  $requireOnlineAndFreshLocation  REF
+     *         1CF-SCHEDULING-DISPATCH-001 — false for a scheduled booking's
+     *         acceptance re-check (AcceptBookingAction): the whole point of
+     *         an open offer is that an offline provider can still hold and
+     *         later accept it (brief: "do not require the provider to be
+     *         online now"), so the ASAP-only online/fresh-location/radius
+     *         gate below must not block that acceptance. Defaults true —
+     *         every ASAP call site (and findCandidates() itself) is
+     *         completely unchanged.
+     */
+    public function providerEligibleForBooking(Provider $provider, Booking $booking, bool $requireOnlineAndFreshLocation = true): bool
     {
         $booking->loadMissing(['zone', 'address', 'service']);
 
@@ -189,8 +344,28 @@ class DispatchService
             return false;
         }
 
-        if (! $provider->is_online || ! $provider->is_active || $provider->kyc_status !== 'approved') {
+        if (! $provider->is_active || $provider->kyc_status !== 'approved') {
             return false;
+        }
+
+        if ($requireOnlineAndFreshLocation && ! $provider->is_online) {
+            return false;
+        }
+
+        $categoryId = $booking->service->category_id;
+
+        if (! $this->hasSkill($provider, $categoryId)) {
+            return false;
+        }
+
+        if (! $requireOnlineAndFreshLocation) {
+            // Scheduled-open-offer acceptance: zone/active/kyc/skill is the
+            // whole eligibility gate. Distance/location-freshness genuinely
+            // don't apply to a provider who need not be online right now —
+            // findScheduledCandidates() already made the identical
+            // trade-off when the offer first went out (see its own
+            // docblock).
+            return true;
         }
 
         if ($provider->current_lat === null || $provider->current_lng === null) {
@@ -207,12 +382,6 @@ class DispatchService
         // fresh — there is no evidence of recency to trust.
         if ($provider->location_updated_at === null
             || ! $provider->location_updated_at->greaterThan(now()->subMinutes($this->locationStaleAfterMinutes()))) {
-            return false;
-        }
-
-        $categoryId = $booking->service->category_id;
-
-        if (! $this->hasSkill($provider, $categoryId)) {
             return false;
         }
 

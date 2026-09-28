@@ -175,9 +175,20 @@ class RazorpayWebhookHandler
                 // Payment still in 'captured' status), so this is safe even
                 // if reached more than once.
                 app(CancellationService::class)->refundIfPaid($booking->fresh(), (float) $booking->cancellation_fee);
-            } elseif ($booking->customer) {
-                $channels = ChannelResolver::resolve(['zone_id' => $booking->zone_id, 'franchise_id' => $booking->franchise_id]);
-                $booking->customer->notify(new PaymentStatusNotification('completed', $booking, $channels));
+            } else {
+                if ($booking->customer) {
+                    $channels = ChannelResolver::resolve(['zone_id' => $booking->zone_id, 'franchise_id' => $booking->franchise_id]);
+                    $booking->customer->notify(new PaymentStatusNotification('completed', $booking, $channels));
+                }
+
+                // REF 1CF-SCHEDULING-DISPATCH-001 — the PAYMENT GATE's
+                // 'online' branch: a scheduled booking sat at status
+                // 'pending' (no offers sent) until this exact moment.
+                // releaseIfEligible() is idempotent and a no-op for every
+                // other booking (ASAP, already released, non-scheduled),
+                // so this is safe to call unconditionally here rather than
+                // adding a scheduled_at branch at every webhook call site.
+                app(\App\Services\ScheduledDispatchService::class)->releaseIfEligible($booking->fresh());
             }
         }
 

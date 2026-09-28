@@ -65,10 +65,15 @@ class Index extends Component
 
         $window = (int) Setting::get('dispatch.offer_timeout_seconds', 25);
 
+        // REF 1CF-SCHEDULING-DISPATCH-001 — a scheduled booking's offer is
+        // OPEN and never subject to the ASAP notified_at freshness window;
+        // see ProviderOfferController::index()'s identical guard.
         $isLive = DispatchAttempt::where('booking_id', $bookingId)
             ->where('provider_id', $provider->id)
             ->where('status', 'notified')
-            ->where('notified_at', '>=', now()->subSeconds($window))
+            ->where(fn ($q) => $q
+                ->where('notified_at', '>=', now()->subSeconds($window))
+                ->orWhereHas('booking', fn ($b) => $b->whereNotNull('scheduled_at')))
             ->whereHas('booking', fn ($q) => $q->whereIn('status', ['pending', 'searching_provider']))
             ->exists();
 
@@ -125,10 +130,15 @@ class Index extends Component
         $provider = $this->provider();
         $window = (int) Setting::get('dispatch.offer_timeout_seconds', 25);
 
+        // REF 1CF-SCHEDULING-DISPATCH-001 — a scheduled booking's offer
+        // (scheduled_at not null) stays open regardless of $window; see
+        // mount()'s identical guard above.
         $offers = DispatchAttempt::query()
             ->where('provider_id', $provider->id)
             ->where('status', 'notified')
-            ->where('notified_at', '>=', now()->subSeconds($window))
+            ->where(fn ($q) => $q
+                ->where('notified_at', '>=', now()->subSeconds($window))
+                ->orWhereHas('booking', fn ($b) => $b->whereNotNull('scheduled_at')))
             ->with([
                 'booking.service:id,name',
                 'booking.address:id,label,address_line',

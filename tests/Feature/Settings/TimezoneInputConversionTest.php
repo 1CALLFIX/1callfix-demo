@@ -187,7 +187,10 @@ class TimezoneInputConversionTest extends TestCase
             ->set('scheduledAt', $istWallClock)
             ->call('next')->call('next')->call('next')
             ->assertSet('step', 'pay')
-            ->set('paymentMethod', 'cash')
+            // REF 1CF-SCHEDULING-DISPATCH-001 — a scheduled booking is now
+            // online-payment-only; 'online' exercises the real gate this
+            // test used to bypass with 'cash'.
+            ->set('paymentMethod', 'online')
             ->call('placeBooking')
             ->assertRedirect();
 

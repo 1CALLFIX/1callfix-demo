@@ -69,3 +69,14 @@ ScheduleRunTracker::track(Schedule::command('digest:send-daily'), 'digest:send-d
 ScheduleRunTracker::track(Schedule::command('dispatch:sweep-deadlines'), 'dispatch:sweep-deadlines')
     ->everyMinute()
     ->withoutOverlapping(10);
+
+// REF 1CF-SCHEDULING-DISPATCH-001 — the scheduled-booking counterpart to
+// the sweep above: open-offer release/catch-up/re-offer plus
+// early-warning/urgent-alert/auto-cancel escalation and provider T-60/T-30
+// reminders, all keyed off scheduled_at rather than dispatch_deadline_at.
+// Minute granularity for the same reason as dispatch:sweep-deadlines —
+// each pass decides per-booking whether its own threshold has arrived.
+// Same schedule:run cron caveat as every entry above.
+ScheduleRunTracker::track(Schedule::command('dispatch:sweep-scheduled'), 'dispatch:sweep-scheduled')
+    ->everyMinute()
+    ->withoutOverlapping(10);

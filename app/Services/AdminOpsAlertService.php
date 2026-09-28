@@ -66,6 +66,29 @@ class AdminOpsAlertService
         $this->fanOutScoped('dispatch_refund_failed', $booking);
     }
 
+    /**
+     * REF 1CF-SCHEDULING-DISPATCH-001 (Part "B" early-warning milestone) —
+     * scheduled_at minus the admin-configurable early-warning-hours
+     * (default 3), still unassigned. Same scoped fan-out as
+     * dispatchEscalation() — franchise-scoped, not platform-wide.
+     */
+    public function scheduledEarlyWarning(Booking $booking): void
+    {
+        $this->fanOutScoped('scheduled_early_warning', $booking);
+    }
+
+    /**
+     * REF 1CF-SCHEDULING-DISPATCH-001 — the urgent milestone at
+     * scheduled_at minus the unified customer-scheduling buffer (Part 1),
+     * still unassigned. Admin-only — no customer copy at this point (the
+     * customer's own "still finding your professional" notice already
+     * went out at the earlier early-warning milestone).
+     */
+    public function scheduledUrgentAlert(Booking $booking): void
+    {
+        $this->fanOutScoped('scheduled_urgent_alert', $booking);
+    }
+
     private function fanOutScoped(string $event, Booking $booking): void
     {
         $channels = array_values(array_intersect(ChannelResolver::resolve([]), [PushChannel::class]));

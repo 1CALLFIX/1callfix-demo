@@ -42,7 +42,17 @@ class NewJobOffered implements ShouldBroadcast
             'price_quoted' => $this->booking->price_quoted,
             'address_line' => $this->booking->address->address_line,
             'scheduled_at' => $this->booking->scheduled_at,
-            'expires_in_seconds' => 25, // must match ServiceMatchingJob::OFFER_TIMEOUT_SECONDS
+            // REF 1CF-SCHEDULING-DISPATCH-001 — a scheduled booking's offer
+            // is OPEN (stays live until accepted/superseded/cancelled, see
+            // ScheduledDispatchService), not subject to the ASAP
+            // offer_timeout_seconds window at all. null tells a listening
+            // client there is no countdown to show, rather than a
+            // misleading fixed 25s. Reads the live Setting (previously
+            // hardcoded 25, which could silently drift from an
+            // admin-edited dispatch.offer_timeout_seconds).
+            'expires_in_seconds' => $this->booking->scheduled_at
+                ? null
+                : (int) \App\Models\Setting::get('dispatch.offer_timeout_seconds', 25),
         ];
     }
 }

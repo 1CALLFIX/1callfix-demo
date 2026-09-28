@@ -90,6 +90,12 @@ class AdminReassignBookingAction
             return $booking->fresh();
         });
 
+        // REF 1CF-SCHEDULING-DISPATCH-001 — same late-assignment rule as
+        // AcceptBookingAction's own call: an admin manually assigning a
+        // scheduled booking settles any already-passed reminder milestone
+        // immediately rather than letting the scheduler fire a stale one.
+        app(\App\Services\ScheduledBookingReminderService::class)->markPassedMilestonesAsSkipped($booking);
+
         // Same delivery this session added to AcceptBookingAction's own
         // OTP generation — this action is a separate, legitimate path to
         // a booking's FIRST OTP assignment (the admin live-queue manual-

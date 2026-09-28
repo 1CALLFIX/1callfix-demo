@@ -15,6 +15,7 @@ use App\Notifications\Support\ChannelResolver;
 use App\Services\BookingOtpService;
 use App\Services\DispatchService;
 use App\Services\ProviderAvailabilityService;
+use App\Services\ScheduledBookingReminderService;
 use App\Services\WalletService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -92,10 +93,23 @@ class AcceptBookingAction
             // never both act on a stale read of the same row.
             $offerTimeoutSeconds = (int) Setting::get('dispatch.offer_timeout_seconds', 25);
 
+            // REF 1CF-SCHEDULING-DISPATCH-001 (Part 2, OPEN OFFER) — a
+            // scheduled booking's offer is deliberately NOT subject to the
+            // ASAP 25-second round timeout: it is sent once by
+            // ScheduledDispatchService and stays 'notified' (open) until
+            // accepted, superseded, or the booking is cancelled — nothing
+            // ever flips it to 'timeout' the way
+            // ServiceMatchingJob::timeoutExpiredAttempts() does for ASAP
+            // attempts. Applying the same notified_at freshness cutoff
+            // here would have made every open offer silently unacceptable
+            // after 25 seconds, which is exactly the bug this phase exists
+            // to prevent.
+            $isScheduledOpenOffer = $booking->scheduled_at !== null;
+
             $attempt = DispatchAttempt::where('booking_id', $bookingId)
                 ->where('provider_id', $provider->id)
                 ->where('status', 'notified')
-                ->where('notified_at', '>', now()->subSeconds($offerTimeoutSeconds))
+                ->when(! $isScheduledOpenOffer, fn ($q) => $q->where('notified_at', '>', now()->subSeconds($offerTimeoutSeconds)))
                 ->lockForUpdate()
                 ->first();
 
@@ -141,7 +155,11 @@ class AcceptBookingAction
             // The offer/notified_at timeout race LAUNCH-009 also found is
             // now closed above (REF 1CF-LAUNCH-012), not here — this check
             // is purely about provider state, not offer freshness.
-            if (! app(DispatchService::class)->providerEligibleForBooking($lockedProvider, $booking)) {
+            // REF 1CF-SCHEDULING-DISPATCH-001 — see
+            // DispatchService::providerEligibleForBooking()'s own docblock:
+            // an open scheduled offer must remain acceptable by a provider
+            // who isn't currently toggled "online".
+            if (! app(DispatchService::class)->providerEligibleForBooking($lockedProvider, $booking, ! $isScheduledOpenOffer)) {
                 throw new \RuntimeException('You are no longer eligible for this job offer.');
             }
 
@@ -192,6 +210,13 @@ class AcceptBookingAction
             return $booking->fresh();
         });
 
+        // REF 1CF-SCHEDULING-DISPATCH-001 (Part 3, late-assignment rule) —
+        // settle any provider-reminder milestone that already passed
+        // before this assignment happened, so the scheduler never fires a
+        // stale "1 hour to go" reminder with far less time actually left.
+        // No-op for an ASAP booking (scheduled_at null).
+        app(ScheduledBookingReminderService::class)->markPassedMilestonesAsSkipped($booking);
+
         if ($booking->customer) {
             $channels = ChannelResolver::resolve(['zone_id' => $booking->zone_id, 'franchise_id' => $booking->franchise_id]);
 
@@ -206,7 +231,13 @@ class AcceptBookingAction
             // acceptance despite the booking itself already being
             // committed. Guarded the same way: outside the transaction,
             // individually try/caught, failure only logged.
-            $this->sendStatusNotification($booking, 'assigned', $channels);
+            // REF 1CF-SCHEDULING-DISPATCH-001 (Part 3) — a scheduled
+            // booking's assignment confirmation names the day/time
+            // explicitly ("[Provider] has been assigned to your
+            // [day/time] job"), not the generic ASAP "a provider has been
+            // assigned" copy. Same notification class/channels, just a
+            // distinct event key so the two copies can never collide.
+            $this->sendStatusNotification($booking, $booking->scheduled_at !== null ? 'scheduled_assigned' : 'assigned', $channels);
 
             // Closes the gap AUTH_FORENSIC_DISCOVERY.md found: both codes
             // were generated right above but never actually delivered to
@@ -230,7 +261,7 @@ class AcceptBookingAction
         // provider's never was. Post-commit, guarded and logged just like
         // the customer sends above: a transport failure here leaves the
         // acceptance fully intact.
-        $this->notifyProviderOfStatus($booking, 'assigned');
+        $this->notifyProviderOfStatus($booking, $booking->scheduled_at !== null ? 'scheduled_assigned' : 'assigned');
 
         // Phase E4 — if this booking is a bundle child, try to give the same
         // provider its still-unassigned siblings before they go through a
