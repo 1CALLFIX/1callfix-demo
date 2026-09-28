@@ -34,8 +34,15 @@ class ProviderOfferController extends Controller
             // already elapsed can still read status='notified' here. Same
             // notified_at guard Livewire\Provider\Jobs\Index::render() uses
             // for its own pre-accept offer listing, so this endpoint can't
-            // present a stale offer as live.
-            ->where('notified_at', '>=', now()->subSeconds($offerTimeoutSeconds))
+            // present a stale ASAP offer as live.
+            //
+            // REF 1CF-SCHEDULING-DISPATCH-001 — a scheduled booking's offer
+            // is OPEN (see ScheduledDispatchService) and is never subject to
+            // this ASAP round-timeout window at all; the freshness guard is
+            // skipped for it here exactly as it is in AcceptBookingAction.
+            ->where(fn ($q) => $q
+                ->where('notified_at', '>=', now()->subSeconds($offerTimeoutSeconds))
+                ->orWhereHas('booking', fn ($b) => $b->whereNotNull('scheduled_at')))
             ->whereHas('booking', fn ($q) => $q->where('status', 'searching_provider'))
             ->with(['booking.service', 'booking.address'])
             ->orderByDesc('notified_at')
@@ -60,10 +67,18 @@ class ProviderOfferController extends Controller
                 'price_quoted' => $attempt->booking->price_quoted,
                 'distance_km' => $attempt->distance_km,
                 'notified_at' => optional($attempt->notified_at)->toIso8601String(),
-                'offer_expires_at' => optional($attempt->notified_at)
-                    ->copy()
-                    ->addSeconds($offerTimeoutSeconds)
-                    ->toIso8601String(),
+                // REF 1CF-SCHEDULING-DISPATCH-001 — a scheduled booking's
+                // offer is OPEN and outlives this ASAP window entirely (see
+                // the query guard above and NewJobOffered::broadcastWith()'s
+                // identical null), so notified_at + offerTimeoutSeconds is
+                // frequently already in the past here and would wrongly tell
+                // the app the offer had expired.
+                'offer_expires_at' => $attempt->booking->scheduled_at
+                    ? null
+                    : optional($attempt->notified_at)
+                        ->copy()
+                        ->addSeconds($offerTimeoutSeconds)
+                        ->toIso8601String(),
             ])->values(),
         ]);
     }

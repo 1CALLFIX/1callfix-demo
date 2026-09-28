@@ -34,6 +34,12 @@ class Booking extends Model implements Orderable
         'status',
         'dispatch_deadline_at',
         'dispatch_escalated_at',
+        'scheduled_offers_sent_at',
+        'scheduled_last_offer_at',
+        'scheduled_early_warning_at',
+        'scheduled_urgent_alert_at',
+        'scheduled_reminder_1_at',
+        'scheduled_reminder_2_at',
         'scheduled_at',
         'price_quoted',
         'price_final',
@@ -65,6 +71,13 @@ class Booking extends Model implements Orderable
         // REF 1CF-IMPLEMENT-20260922-L01
         'dispatch_deadline_at' => 'datetime',
         'dispatch_escalated_at' => 'datetime',
+        // REF 1CF-SCHEDULING-DISPATCH-001
+        'scheduled_offers_sent_at' => 'datetime',
+        'scheduled_last_offer_at' => 'datetime',
+        'scheduled_early_warning_at' => 'datetime',
+        'scheduled_urgent_alert_at' => 'datetime',
+        'scheduled_reminder_1_at' => 'datetime',
+        'scheduled_reminder_2_at' => 'datetime',
         'on_hold_since' => 'datetime',
         // Phase E5 — booking OTP hardening metadata (see BookingOtpService).
         'start_otp_expires_at' => 'datetime',

@@ -16,6 +16,7 @@ use App\Services\AdminOpsAlertService;
 use App\Services\FlashSaleService;
 use App\Services\ModuleActivationService;
 use App\Services\Plans\EntitlementService;
+use App\Services\ScheduledDispatchService;
 use App\Services\WalletService;
 use App\Support\Modules;
 use Illuminate\Support\Facades\DB;
@@ -26,6 +27,7 @@ class CreateBookingAction
         private EntitlementService $entitlementService,
         private ModuleActivationService $moduleActivation,
         private FlashSaleService $flashSales,
+        private ScheduledDispatchService $scheduledDispatch,
     ) {
     }
 
@@ -53,6 +55,17 @@ class CreateBookingAction
 
         $walletPayment = null;
 
+        // REF 1CF-SCHEDULING-DISPATCH-001 (Part 2, PAYMENT GATE) — a
+        // scheduled booking's offers must not go out until payment is
+        // confirmed, and 'cash' payment_status never reaches 'paid' on its
+        // own (no capture event exists for cash), which would silently
+        // strand a cash scheduled booking's dispatch forever. Checked
+        // before the transaction opens — this is an input-validation
+        // rejection, not a booking-state rollback.
+        if (! empty($data['scheduled_at']) && $paymentMethod === 'cash') {
+            throw new \RuntimeException('Scheduled bookings must be paid online or from wallet — cash on delivery is not available for a scheduled booking.');
+        }
+
         $booking = DB::transaction(function () use ($data, $paymentMethod, &$walletPayment) {
             $booking = $this->createWithinTransaction($data);
 
@@ -63,7 +76,18 @@ class CreateBookingAction
             return $booking;
         });
 
-        ServiceMatchingJob::dispatch($booking->id);
+        if ($booking->scheduled_at !== null) {
+            // Open-offer scheduled dispatch (Part 2) — starts discovery at
+            // CREATION, not at scheduled_at minus the buffer, subject only
+            // to the payment gate above. releaseIfEligible() is a no-op
+            // (booking stays 'pending') until payment_status is 'paid' —
+            // for 'wallet' that's already true by the time we get here
+            // (payWithWallet() ran inside the transaction above); for
+            // 'online' it fires later from RazorpayWebhookHandler instead.
+            $this->scheduledDispatch->releaseIfEligible($booking);
+        } else {
+            ServiceMatchingJob::dispatch($booking->id);
+        }
 
         if ($booking->customer) {
             $channels = ChannelResolver::resolve(['zone_id' => $booking->zone_id, 'franchise_id' => $booking->franchise_id]);

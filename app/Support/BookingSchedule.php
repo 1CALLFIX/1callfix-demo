@@ -23,6 +23,28 @@ class BookingSchedule
     }
 
     /**
+     * REF 1CF-SCHEDULING-DISPATCH-001 (Part 1) — the ONE customer
+     * scheduling buffer setting, admin-selectable 30 or 60 minutes,
+     * default 30. Used for: (1) minimum lead time for a TODAY slot here in
+     * validate(), (2) the last selectable slot on any day
+     * (service-window-end minus buffer — see BookingScheduleSlots), and
+     * (3) the final-scheduled-booking escalation point before
+     * scheduled_at (ScheduledBookingEscalationService::urgentAlerts()).
+     * Deliberately the ONLY buffer-shaped setting this phase adds — do not
+     * add a second one.
+     *
+     * Clamped to {30, 60}: any other stored value (a bad migration, a
+     * hand-edited row) falls back to the 30-minute default rather than
+     * silently accepting an arbitrary number the brief never allowed.
+     */
+    public static function bufferMinutes(): int
+    {
+        $raw = (int) Setting::get('booking.scheduling_buffer_minutes', '30');
+
+        return in_array($raw, [30, 60], true) ? $raw : 30;
+    }
+
+    /**
      * Null when the value is acceptable (ASAP, or an in-window datetime).
      * Otherwise the message to show the customer.
      */
@@ -45,6 +67,16 @@ class BookingSchedule
 
         if ($when->isPast()) {
             return 'Pick a time in the future.';
+        }
+
+        // Part 1's TODAY lead-time rule: slot_time >= now + buffer. Only
+        // applied when the chosen date is today (in the platform
+        // timezone) — a future day is never subject to the "now" rule at
+        // all (see BookingScheduleSlots's own docblock for the bug this
+        // distinction exists to prevent).
+        $platformNow = now(app(TimezoneResolver::class)->platformTimezone());
+        if ($when->isSameDay($platformNow) && $when->lessThan($platformNow->copy()->addMinutes(self::bufferMinutes()))) {
+            return 'Pick a time at least '.self::bufferMinutes().' minutes from now.';
         }
 
         if ($when->greaterThan(now()->addDays(self::maxDays()))) {

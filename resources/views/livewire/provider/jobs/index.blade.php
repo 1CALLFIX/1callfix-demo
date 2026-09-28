@@ -26,7 +26,16 @@
                 // expires_in_seconds. Not a new timer: the server still
                 // re-filters stale offers out on the next poll; this is just
                 // the visible countdown until then.
-                $expiresIn = max(0, (int) now()->diffInSeconds($offer->notified_at->copy()->addSeconds($offerWindowSeconds), false));
+                //
+                // REF 1CF-SCHEDULING-DISPATCH-001 — a scheduled booking's
+                // offer is OPEN (no ASAP round timeout), so notified_at is
+                // often far older than $offerWindowSeconds by design. Without
+                // this branch the countdown below always clamped to 0,
+                // misleadingly telling the provider a still-open offer was
+                // about to vanish.
+                $expiresIn = $b->scheduled_at
+                    ? null
+                    : max(0, (int) now()->diffInSeconds($offer->notified_at->copy()->addSeconds($offerWindowSeconds), false));
             @endphp
             <x-ui.card class="!p-4">
                 <div class="flex flex-wrap items-start justify-between gap-3">
@@ -51,11 +60,15 @@
                              every poll makes Alpine rebuild the component
                              while x-text stays bound to the old scope, which
                              freezes the pill between renders. --}}
-                        <span role="timer"
-                              x-data="providerOfferCountdown"
-                              data-seconds="{{ $expiresIn }}"
-                              class="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold tabular-nums text-amber-800"
-                              x-text="(n > 0 ? n : 0) + 's left'">{{ $expiresIn }}s left</span>
+                        @if ($expiresIn === null)
+                            <span class="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-semibold text-blue-800">Open until accepted</span>
+                        @else
+                            <span role="timer"
+                                  x-data="providerOfferCountdown"
+                                  data-seconds="{{ $expiresIn }}"
+                                  class="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold tabular-nums text-amber-800"
+                                  x-text="(n > 0 ? n : 0) + 's left'">{{ $expiresIn }}s left</span>
+                        @endif
                         <div class="flex gap-2">
                             <button type="button" wire:click="decline({{ $offer->booking_id }})"
                                     class="min-h-10 rounded-lg border border-slate-300 bg-white px-3 text-sm font-medium text-slate-700 hover:bg-slate-50">

@@ -149,6 +149,16 @@ class Manage extends Component
     public string $bookingOtpLength = '4';
     public string $bookingMaxScheduleDaysAhead = '14';
 
+    /** REF 1CF-SCHEDULING-DISPATCH-001 — the ONE unified customer-scheduling buffer (Part 1). */
+    public string $bookingSchedulingBufferMinutes = '30';
+    public string $bookingServiceWindowStartHour = '8';
+    public string $bookingServiceWindowEndHour = '20';
+    public string $dispatchScheduledEarlyWarningHours = '3';
+    public string $dispatchScheduledReofferIntervalHours = '2';
+    public bool $dispatchScheduledAutoCancelEnabled = true;
+    public string $bookingScheduledReminderOffset1Minutes = '60';
+    public string $bookingScheduledReminderOffset2Minutes = '30';
+
     // --- Refund / Cancellation (CancellationService, via AdminCancelBookingAction) ---
     public string $cancellationFreeMinutes = '15';
     public string $cancellationFeeType = 'flat';
@@ -399,6 +409,14 @@ class Manage extends Component
 
         $this->bookingOtpLength = (string) Setting::get('booking.otp_length', '4', $scope);
         $this->bookingMaxScheduleDaysAhead = (string) Setting::get('booking.max_schedule_days_ahead', '14', $scope);
+        $this->bookingSchedulingBufferMinutes = (string) Setting::get('booking.scheduling_buffer_minutes', '30', $scope);
+        $this->bookingServiceWindowStartHour = (string) Setting::get('booking.service_window_start_hour', '8', $scope);
+        $this->bookingServiceWindowEndHour = (string) Setting::get('booking.service_window_end_hour', '20', $scope);
+        $this->dispatchScheduledEarlyWarningHours = (string) Setting::get('dispatch.scheduled_early_warning_hours', '3', $scope);
+        $this->dispatchScheduledReofferIntervalHours = (string) Setting::get('dispatch.scheduled_reoffer_interval_hours', '2', $scope);
+        $this->dispatchScheduledAutoCancelEnabled = Setting::get('dispatch.scheduled_auto_cancel_enabled', '1', $scope) === '1';
+        $this->bookingScheduledReminderOffset1Minutes = (string) Setting::get('booking.scheduled_reminder_offset_1_minutes', '60', $scope);
+        $this->bookingScheduledReminderOffset2Minutes = (string) Setting::get('booking.scheduled_reminder_offset_2_minutes', '30', $scope);
 
         $this->cancellationFreeMinutes = (string) Setting::get('cancellation.free_minutes', '15', $scope);
         $this->cancellationFeeType = Setting::get('cancellation.fee_type', 'flat', $scope);
@@ -617,6 +635,55 @@ class Manage extends Component
         $this->put('booking.max_schedule_days_ahead', $this->bookingMaxScheduleDaysAhead, $scopeType, $scopeId);
 
         $this->flashMessage = 'Booking settings saved'.($scopeType === 'global' ? '.' : " for this {$scopeType}.");
+    }
+
+    /**
+     * REF 1CF-SCHEDULING-DISPATCH-001 — the unified customer-scheduling
+     * buffer (30/60 minutes, ONE setting — see BookingSchedule::
+     * bufferMinutes()), the service window hours BookingScheduleSlots
+     * generates slots against, and the scheduled-dispatch/escalation
+     * timings (open-offer re-offer interval, early-warning hours, provider
+     * reminder offsets, and the scheduled_at auto-cancel ON/OFF toggle —
+     * see ScheduledBookingEscalationService).
+     */
+    public function saveScheduledDispatch(): void
+    {
+        $this->validate([
+            'bookingSchedulingBufferMinutes' => ['required', 'in:30,60'],
+            'bookingServiceWindowStartHour' => ['required', 'integer', 'min:0', 'max:23'],
+            'bookingServiceWindowEndHour' => ['required', 'integer', 'min:1', 'max:24'],
+            'dispatchScheduledEarlyWarningHours' => ['required', 'integer', 'min:1', 'max:72'],
+            'dispatchScheduledReofferIntervalHours' => ['required', 'integer', 'min:1', 'max:24'],
+            'bookingScheduledReminderOffset1Minutes' => ['required', 'integer', 'min:1', 'max:1440'],
+            'bookingScheduledReminderOffset2Minutes' => ['required', 'integer', 'min:1', 'max:1440'],
+        ], [], [
+            'bookingSchedulingBufferMinutes' => 'scheduling buffer',
+            'bookingServiceWindowStartHour' => 'service window start hour',
+            'bookingServiceWindowEndHour' => 'service window end hour',
+            'dispatchScheduledEarlyWarningHours' => 'early-warning hours',
+            'dispatchScheduledReofferIntervalHours' => 're-offer interval',
+            'bookingScheduledReminderOffset1Minutes' => 'first provider reminder offset',
+            'bookingScheduledReminderOffset2Minutes' => 'second provider reminder offset',
+        ]);
+
+        if ((int) $this->bookingServiceWindowEndHour <= (int) $this->bookingServiceWindowStartHour) {
+            $this->addError('bookingServiceWindowEndHour', 'The service window end hour must be after the start hour.');
+
+            return;
+        }
+
+        [$scopeType, $scopeId] = $this->scopeTypeAndId();
+
+        Setting::set('booking.scheduling_buffer_minutes', $this->bookingSchedulingBufferMinutes, $scopeType, $scopeId);
+        Setting::set('booking.service_window_start_hour', $this->bookingServiceWindowStartHour, $scopeType, $scopeId);
+        Setting::set('booking.service_window_end_hour', $this->bookingServiceWindowEndHour, $scopeType, $scopeId);
+        Setting::set('dispatch.scheduled_early_warning_hours', $this->dispatchScheduledEarlyWarningHours, $scopeType, $scopeId);
+        Setting::set('dispatch.scheduled_reoffer_interval_hours', $this->dispatchScheduledReofferIntervalHours, $scopeType, $scopeId);
+        Setting::set('dispatch.scheduled_auto_cancel_enabled', $this->dispatchScheduledAutoCancelEnabled ? '1' : '0', $scopeType, $scopeId);
+        Setting::set('booking.scheduled_reminder_offset_1_minutes', $this->bookingScheduledReminderOffset1Minutes, $scopeType, $scopeId);
+        Setting::set('booking.scheduled_reminder_offset_2_minutes', $this->bookingScheduledReminderOffset2Minutes, $scopeType, $scopeId);
+
+        $this->flashMessage = 'Scheduled dispatch settings saved'.($scopeType === 'global' ? '.' : " for this {$scopeType}.");
     }
 
     /** Real consumer: App\Services\CancellationService::calculateFee(), called from AdminCancelBookingAction. */
