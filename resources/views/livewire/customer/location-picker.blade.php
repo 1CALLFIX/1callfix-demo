@@ -84,9 +84,78 @@
 
                     @if ($outOfCoverage)
                         <p role="alert" class="rounded-lg bg-amber-50 px-3 py-2.5 text-sm text-amber-900">
-                            We're not serving your current location yet. Pick a nearby area below to keep browsing.
+                            We're not in this area yet. Your previous location is still active — pick a nearby area below to keep browsing.
                         </p>
                     @endif
+
+                    {{-- Google Places search box (1CF-HOMESCREEN-UX-001). Progressive
+                         enhancement: hidden until resources/js/places-autocomplete.js
+                         confirms a Google Maps key is configured; the plain zone
+                         search box below always works regardless. --}}
+                    {{-- wire:ignore: this whole subtree is mounted and mutated
+                         entirely by resources/js/places-autocomplete.js (input
+                         listeners, the results list, hidden/shown state).
+                         Without it, any Livewire re-render while the dialog
+                         stays open (typing in the zone-search box below, or
+                         $this->outOfCoverage flipping after a failed lookup)
+                         morphs this div back to its server-rendered `hidden`
+                         state and the box silently stops working. --}}
+                    <div data-places-search hidden wire:ignore>
+                        <label for="place-search" class="sr-only">Search for your location, society or apartment</label>
+                        <div class="relative">
+                            <span aria-hidden="true" class="pointer-events-none absolute inset-y-0 left-3 grid place-items-center">
+                                <x-icon name="magnifying-glass" class="h-4 w-4 text-slate-400" />
+                            </span>
+                            <input id="place-search"
+                                   type="search"
+                                   data-places-input
+                                   autocomplete="off"
+                                   role="combobox"
+                                   aria-expanded="false"
+                                   aria-controls="place-search-results"
+                                   aria-autocomplete="list"
+                                   placeholder="Search for your location / society / apartment"
+                                   class="block min-h-11 w-full rounded-lg border border-slate-300 py-2.5 pl-9 pr-3 text-base shadow-sm transition focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-blue-600">
+                        </div>
+                        <ul id="place-search-results" role="listbox" data-places-results hidden
+                            class="mt-1 max-h-56 overflow-y-auto rounded-lg border border-slate-200 bg-white shadow-sm"></ul>
+                        <p data-places-error role="alert" hidden class="mt-1 text-xs text-amber-700"></p>
+                    </div>
+
+                    @if ($recentAddresses->isNotEmpty())
+                        <div>
+                            <h3 class="mb-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">Recent locations</h3>
+                            <ul class="space-y-1">
+                                @foreach ($recentAddresses as $address)
+                                    <li>
+                                        <button type="button"
+                                                wire:click="selectRecent({{ $address->lat }}, {{ $address->lng }}, @js($address->address_line ?: $address->city), @js($address->label ?: $address->city))"
+                                                class="flex min-h-11 w-full items-center gap-2 rounded-lg px-3 py-2 text-left transition hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-slate-900">
+                                            <x-icon name="map-pin" class="h-4 w-4 shrink-0 text-slate-400" />
+                                            <span class="min-w-0">
+                                                <span class="block truncate text-sm font-medium text-slate-900">{{ $address->label ?: $address->city }}</span>
+                                                @if ($address->address_line)
+                                                    <span class="block truncate text-xs text-slate-500">{{ $address->address_line }}</span>
+                                                @endif
+                                            </span>
+                                        </button>
+                                    </li>
+                                @endforeach
+                            </ul>
+                        </div>
+                    @endif
+
+                    {{-- Guest "recent locations" — rendered client-side from
+                         localStorage (no server-side address is created for a
+                         guest; see resources/js/places-autocomplete.js). Only
+                         shown when not authenticated, since a logged-in
+                         customer already has the list above. --}}
+                    @guest
+                        <div data-guest-recents-wrap hidden>
+                            <h3 class="mb-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">Recent locations</h3>
+                            <ul data-guest-recents class="space-y-1"></ul>
+                        </div>
+                    @endguest
 
                     <div>
                         <label for="zone-search" class="sr-only">Search areas</label>
@@ -201,6 +270,113 @@
                 }, { once: true });
             };
 
+            // --- Places search box (1CF-HOMESCREEN-UX-001) -----------------
+            // Delegates the actual Google Places calls to the shared,
+            // dependency-free helper in resources/js/places-autocomplete.js
+            // (debounce, min-length, session token, key handling all live
+            // there in one place — see that file). This just wires the
+            // markup up to it and turns a picked suggestion into the
+            // existing $wire.selectPlace() call, exactly the same shape
+            // useCurrentLocation() already uses.
+            const wirePlaces = (dialog) => {
+                if (! window.cfPlacesAutocomplete) return;
+
+                const wrap = dialog.querySelector('[data-places-search]');
+                const input = dialog.querySelector('[data-places-input]');
+                const list = dialog.querySelector('[data-places-results]');
+                const error = dialog.querySelector('[data-places-error]');
+                if (! wrap || ! input || ! list) return;
+
+                window.cfPlacesAutocomplete.mount({
+                    input,
+                    list,
+                    onReady: () => { wrap.hidden = false; },
+                    onSelect: (place) => {
+                        $wire.selectPlace(place.lat, place.lng, place.formattedAddress, place.label || null);
+                    },
+                    onError: (message) => {
+                        if (! error) return;
+                        error.textContent = message;
+                        error.hidden = ! message;
+                    },
+                });
+            };
+
+            // --- Guest "recent locations" (localStorage only) --------------
+            const GUEST_RECENTS_KEY = 'cf.recentLocations';
+            const GUEST_RECENTS_MAX = 5;
+
+            const readGuestRecents = () => {
+                try {
+                    const raw = JSON.parse(localStorage.getItem(GUEST_RECENTS_KEY) || '[]');
+                    return Array.isArray(raw) ? raw : [];
+                } catch (e) { return []; }
+            };
+
+            const renderGuestRecents = (dialog) => {
+                const wrap = dialog.querySelector('[data-guest-recents-wrap]');
+                const list = dialog.querySelector('[data-guest-recents]');
+                if (! wrap || ! list) return;
+
+                const recents = readGuestRecents();
+                list.innerHTML = '';
+
+                if (recents.length === 0) {
+                    wrap.hidden = true;
+                    return;
+                }
+
+                wrap.hidden = false;
+
+                recents.forEach((item) => {
+                    const li = document.createElement('li');
+                    const button = document.createElement('button');
+                    button.type = 'button';
+                    button.className = 'flex min-h-11 w-full items-center gap-2 rounded-lg px-3 py-2 text-left transition hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-slate-900';
+
+                    const titleLine = document.createElement('span');
+                    titleLine.className = 'block truncate text-sm font-medium text-slate-900';
+                    titleLine.textContent = item.label || item.address || '';
+
+                    const addressLine = document.createElement('span');
+                    addressLine.className = 'block truncate text-xs text-slate-500';
+                    addressLine.textContent = item.address || '';
+
+                    const textWrap = document.createElement('span');
+                    textWrap.className = 'min-w-0';
+                    textWrap.appendChild(titleLine);
+                    textWrap.appendChild(addressLine);
+                    button.appendChild(textWrap);
+
+                    button.addEventListener('click', () => {
+                        $wire.selectRecent(item.lat, item.lng, item.address || item.label || '', item.label || null);
+                    });
+                    li.appendChild(button);
+                    list.appendChild(li);
+                });
+            };
+
+            const pushGuestRecent = (entry) => {
+                try {
+                    const recents = readGuestRecents().filter((r) => r.address !== entry.address || r.label !== entry.label);
+                    recents.unshift(entry);
+                    localStorage.setItem(GUEST_RECENTS_KEY, JSON.stringify(recents.slice(0, GUEST_RECENTS_MAX)));
+                } catch (e) { /* private mode / storage disabled — recents are a convenience, not a requirement */ }
+            };
+
+            // Every successful pick (Places search, "use current location",
+            // or a recent) fires this — see selectPlace()/selectRecent() in
+            // LocationPicker.php. Recorded client-side only; no server-side
+            // address row is created for a guest.
+            Livewire.on('location-picked', (e) => {
+                // Livewire's payload shape for a named-args dispatch varies
+                // by version/context — defensively unwrap either an object
+                // or a one-element array of it, the same pattern already
+                // used for `razorpay-open` (resources/views/livewire/customer/wallet/index.blade.php).
+                const payload = (e && e.label !== undefined) ? e : (Array.isArray(e) ? e[0] : null);
+                if (payload) pushGuestRecent(payload);
+            });
+
             // --- Automatic first-load geolocation (Phase 2) --------------
             // When the visitor has no area set, ask the browser for their
             // location once, unprompted — the "detect my location" pattern
@@ -240,6 +416,8 @@
                     lastFocused = document.activeElement;
                     document.addEventListener('keydown', onKeydown);
                     wireGeolocation(dialog);
+                    wirePlaces(dialog);
+                    renderGuestRecents(dialog);
                     (focusables(dialog)[0] || dialog).focus();
                     wasOpen = true;
                 } else if (! dialog && wasOpen) {

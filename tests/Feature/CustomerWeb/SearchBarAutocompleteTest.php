@@ -86,9 +86,17 @@ class SearchBarAutocompleteTest extends TestCase
     {
         $this->makeService($this->makeCategory(['name' => 'Roofing']), ['name' => 'Roof Patch']);
 
+        // Mount first, THEN start the query log (1CF-HOMESCREEN-UX-001): the
+        // initial empty-field mount now also computes the rotating
+        // placeholder examples from the catalog once (SearchBar::render()),
+        // a one-time, deliberate cost on first paint that this test is not
+        // about — what it guards is that TYPING a below-threshold term never
+        // adds a services/categories query beyond that.
+        $component = Livewire::test(SearchBar::class);
+
         DB::enableQueryLog();
 
-        Livewire::test(SearchBar::class)
+        $component
             ->set('term', 'r')
             ->assertSet('showSuggestions', false)
             ->assertDontSee('Roof Patch');

@@ -56,6 +56,7 @@
             <input id="{{ $inputId }}"
                    type="search"
                    data-search-input
+                   data-placeholder-examples="{{ json_encode($placeholderExamples) }}"
                    wire:model.live.debounce.250ms="term"
                    wire:keydown.escape="dismiss"
                    autocomplete="off"
@@ -63,7 +64,7 @@
                    aria-expanded="{{ $hasResults ? 'true' : 'false' }}"
                    aria-controls="{{ $listId }}"
                    aria-autocomplete="list"
-                   placeholder="Search for a service"
+                   placeholder="{{ $placeholderExamples[0] ?? 'Search for a service' }}"
                    @class([
                        'customer-search block w-full rounded-lg border border-slate-300 bg-white py-3 pl-11 text-base text-slate-900 shadow-sm placeholder:text-slate-400 focus:border-blue-500 focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-blue-600',
                        'min-h-12 pr-10' => true,

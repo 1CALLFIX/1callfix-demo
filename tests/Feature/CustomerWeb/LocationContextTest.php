@@ -365,7 +365,7 @@ class LocationContextTest extends TestCase
             ->call('openPicker')
             ->call('useCurrentLocation', 51.5072, -0.1276)
             ->assertSet('outOfCoverage', true)
-            ->assertSeeText('not serving your current location yet');
+            ->assertSeeText('not in this area yet');
 
         $this->assertNull(session(CustomerLocationContext::SESSION_KEY));
     }
@@ -416,7 +416,7 @@ class LocationContextTest extends TestCase
             ->call('useCurrentLocationAuto', 51.5072, -0.1276)
             ->assertSet('open', true)
             ->assertSet('outOfCoverage', true)
-            ->assertSeeText('not serving your current location yet');
+            ->assertSeeText('not in this area yet');
 
         $this->assertNull(session(CustomerLocationContext::SESSION_KEY));
     }
@@ -442,7 +442,7 @@ class LocationContextTest extends TestCase
             ->call('useCurrentLocationAuto', 51.5072, -0.1276, 30000.0)
             ->assertSet('open', true)
             ->assertSet('outOfCoverage', false)
-            ->assertDontSeeText('not serving your current location yet');
+            ->assertDontSeeText('not in this area yet');
 
         $this->assertNull(session(CustomerLocationContext::SESSION_KEY));
     }
@@ -457,7 +457,7 @@ class LocationContextTest extends TestCase
             ->call('useCurrentLocationAuto', 51.5072, -0.1276, 40.0)
             ->assertSet('open', true)
             ->assertSet('outOfCoverage', true)
-            ->assertSeeText('not serving your current location yet');
+            ->assertSeeText('not in this area yet');
     }
 
     public function test_a_coarse_manual_fix_does_not_set_out_of_coverage(): void
@@ -469,7 +469,7 @@ class LocationContextTest extends TestCase
             ->call('openPicker')
             ->call('useCurrentLocation', 51.5072, -0.1276, 25000.0)
             ->assertSet('outOfCoverage', false)
-            ->assertDontSeeText('not serving your current location yet');
+            ->assertDontSeeText('not in this area yet');
     }
 
     public function test_searching_narrows_the_zone_list(): void

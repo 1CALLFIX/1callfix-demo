@@ -77,18 +77,24 @@
                         priced up front and booked in a few taps.
                     </p>
 
-                    {{-- Location as a tappable pill — opens the one header
-                         location picker via a page-level event (no second
-                         modal in the DOM). --}}
+                    {{-- Location bar (1CF-HOMESCREEN-UX-001, part 3) — opens
+                         the one header location picker via a page-level
+                         event (no second modal in the DOM). Guests can tap
+                         this exactly like a logged-in customer: nothing
+                         about opening or using the picker requires auth. --}}
                     <button type="button" wire:click="$dispatch('open-location-picker')"
-                            class="mt-4 inline-flex min-h-11 items-center gap-2 rounded-full border border-slate-300 bg-white px-4 text-sm text-slate-700 shadow-sm transition hover:border-slate-400 hover:text-slate-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900">
-                        <x-icon name="map-pin" class="h-4 w-4 text-slate-500" />
-                        @if ($activeZone)
-                            <span>Availability for <span class="font-semibold text-slate-900">{{ $activeZone->name }}</span></span>
-                        @else
-                            <span>Set your area</span>
-                        @endif
-                        <x-icon name="chevron-down" class="h-3.5 w-3.5 text-slate-400" />
+                            aria-haspopup="dialog"
+                            class="mt-4 flex min-h-11 max-w-full items-center gap-2 rounded-full border border-slate-300 bg-white px-4 py-2 text-left shadow-sm transition hover:border-slate-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900">
+                        <x-icon name="map-pin" class="h-4 w-4 shrink-0 text-slate-500" />
+                        <span class="min-w-0">
+                            @if ($activeZone)
+                                <span class="block truncate text-sm font-bold text-slate-900">{{ $locationLabel ?: $activeZone->name }}</span>
+                                <span class="block truncate text-xs text-slate-500">{{ $locationAddress ?: ($activeZone->franchise?->city?->name ?? $activeZone->name) }}</span>
+                            @else
+                                <span class="block truncate text-sm font-bold text-slate-900">Set your location</span>
+                            @endif
+                        </span>
+                        <x-icon name="chevron-down" class="h-3.5 w-3.5 shrink-0 text-slate-400" />
                     </button>
                 </div>
 
