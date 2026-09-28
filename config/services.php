@@ -25,6 +25,16 @@ return [
 	],
     'google_maps' => [
         'key' => env('GOOGLE_MAPS_API_KEY'),
+
+        // 1CF-HOMESCREEN-UX-001: the customer web location picker's Places
+        // search box restricts suggestions to this ISO 3166-1 alpha-2 region
+        // code (Google Places Autocomplete's `includedRegionCodes`). Every
+        // production franchise/zone today is in Nellore, India, so 'in' is a
+        // sensible default that keeps a browser key with no country
+        // restriction of its own from also serving useless, quota-burning
+        // suggestions outside the country the platform actually operates in.
+        // Blank disables the restriction (suggestions worldwide).
+        'places_region' => env('GOOGLE_PLACES_REGION', 'in'),
     ],
 
     /*

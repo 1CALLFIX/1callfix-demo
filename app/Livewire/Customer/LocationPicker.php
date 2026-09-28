@@ -2,9 +2,11 @@
 
 namespace App\Livewire\Customer;
 
+use App\Models\Address;
 use App\Models\Zone;
 use App\Services\Customer\CustomerLocationContext;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Validator;
 use Livewire\Attributes\Locked;
 use Livewire\Attributes\On;
@@ -95,6 +97,93 @@ class LocationPicker extends Component
     }
 
     /**
+     * A location chosen from the Google Places search box (1CF-HOMESCREEN-
+     * UX-001) — the customer typed a place/society/apartment and picked one
+     * of the suggestions. `$lat`/`$lng` come from a Places Details lookup the
+     * browser already did; this method does exactly what
+     * useCurrentLocation() does with a GPS fix — resolve to a REAL, active
+     * zone server-side via CustomerLocationContext::nearestCoveringZone() —
+     * so a tampered/fabricated coordinate still cannot select a zone/
+     * franchise pairing that would not also be reachable by picking that
+     * area from the plain zone list. The only difference is the descriptive
+     * label/address are also stored (display-only, see
+     * CustomerLocationContext::setZone()) so the location bar can show the
+     * place the customer actually picked, in ANY city — never overwritten by
+     * a later GPS fix, since a GPS auto-locate never fires once a zone is
+     * already set (see location-picker.blade.php's autoLocate()).
+     *
+     * A place outside every active zone/franchise leaves the previously
+     * selected zone untouched and raises the same $outOfCoverage flag
+     * useCurrentLocation() does — the picker stays open on a friendly
+     * message rather than the home screen going blank or broken.
+     */
+    public function selectPlace(float $lat, float $lng, string $formattedAddress, ?string $label, CustomerLocationContext $context): void
+    {
+        $this->assertCoordinates($lat, $lng);
+
+        $formattedAddress = trim(mb_substr($formattedAddress, 0, 255));
+        $label = $label ? trim(mb_substr($label, 0, 120)) : null;
+
+        $zone = $context->nearestCoveringZone($lat, $lng);
+
+        if (! $zone) {
+            $this->outOfCoverage = true;
+
+            return;
+        }
+
+        if ($context->setZone($zone->id, [
+            'label' => $label ?: $formattedAddress,
+            'address' => $formattedAddress,
+            'lat' => $lat,
+            'lng' => $lng,
+        ])) {
+            $this->closePicker();
+            $this->dispatch('customer-zone-changed');
+            // Client-side "recent locations" for guests (no server-side
+            // address store is created — see the class docblock and the
+            // spec's "do not create a new server-side address store" rule).
+            $this->dispatch('location-picked', label: $label ?: $formattedAddress, address: $formattedAddress, lat: $lat, lng: $lng);
+        }
+    }
+
+    /**
+     * Reusing an existing saved address (logged-in customers) or a recently
+     * picked guest location surfaced by the browser's own localStorage list
+     * — both hand back a plain lat/lng + text the same way a fresh Places
+     * pick would, through the same resolution path above.
+     */
+    public function selectRecent(float $lat, float $lng, string $formattedAddress, ?string $label, CustomerLocationContext $context): void
+    {
+        $this->selectPlace($lat, $lng, $formattedAddress, $label, $context);
+    }
+
+    /**
+     * Up to 5 of the logged-in customer's own saved addresses that have a
+     * resolvable zone, most recent first. Reuses the existing `addresses`
+     * table exactly as the booking wizard's address list does — no new
+     * server-side store. Empty for guests; their "recent" list is rendered
+     * client-side from localStorage (see the @script block in the view).
+     *
+     * @return Collection<int, Address>
+     */
+    private function recentAddresses(): Collection
+    {
+        $userId = Auth::id();
+
+        if (! $userId) {
+            return collect();
+        }
+
+        return Address::query()
+            ->where('user_id', $userId)
+            ->whereNotNull('zone_id')
+            ->latest('id')
+            ->limit(5)
+            ->get();
+    }
+
+    /**
      * The unprompted, on-page-load geolocation attempt (Phase 2 — see the
      * script at the foot of this component's view). Same resolution as
      * useCurrentLocation(), with one difference for the "no covering zone"
@@ -158,6 +247,8 @@ class LocationPicker extends Component
         return view('livewire.customer.location-picker', [
             'activeZone' => $context->zone(),
             'zones' => $this->matchingZones(),
+            'recentAddresses' => $this->recentAddresses(),
+            'googleMapsKey' => config('services.google_maps.key'),
         ]);
     }
 

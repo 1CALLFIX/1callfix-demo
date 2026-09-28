@@ -59,6 +59,8 @@ class Home extends Component
 
         return view('livewire.customer.home', [
             'activeZone' => $location->zone(),
+            'locationLabel' => $location->label(),
+            'locationAddress' => $location->addressLine(),
             'heroBanners' => $this->bannersFor('top'),
             'midBanners' => $this->bannersFor('mid'),
             'categories' => $catalog->categories()->limit(self::CATEGORY_SHORTCUT_LIMIT)->get(),
