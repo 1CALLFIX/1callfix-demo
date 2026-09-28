@@ -96,8 +96,8 @@
                 li.setAttribute('role', 'option');
                 li.id = 'place-option-' + index;
                 li.className = 'cursor-pointer px-3 py-2.5 text-sm hover:bg-slate-50';
-                const main = prediction.structuredFormat?.mainText?.text || prediction.text?.text || '';
-                const secondary = prediction.structuredFormat?.secondaryText?.text || '';
+                const main = prediction.placePrediction?.structuredFormat?.mainText?.text || prediction.placePrediction?.text?.text || '';
+                const secondary = prediction.placePrediction?.structuredFormat?.secondaryText?.text || '';
                 li.innerHTML = '<span class="block truncate font-medium text-slate-900"></span>'
                     + (secondary ? '<span class="block truncate text-xs text-slate-500"></span>' : '');
                 const spans = li.querySelectorAll('span');
@@ -122,7 +122,13 @@
             if (! placeId) return;
 
             try {
-                const response = await fetch(DETAILS_URL + placeId, {
+                // The session token travels as a `sessionToken` query param on
+                // this GET call, NOT an `X-Goog-Session-Token` header — that
+                // header isn't in this endpoint's CORS allow-list and makes
+                // the browser's preflight fail outright (a silent
+                // "TypeError: Failed to fetch", not an API error response).
+                const url = DETAILS_URL + placeId + '?sessionToken=' + encodeURIComponent(sessionToken);
+                const response = await fetch(url, {
                     method: 'GET',
                     headers: {
                         'X-Goog-Api-Key': config.key,
@@ -130,7 +136,6 @@
                         // "Essentials"-tier billing it triggers — to only
                         // what this picker actually uses.
                         'X-Goog-FieldMask': 'location,formattedAddress,shortFormattedAddress,displayName',
-                        'X-Goog-Session-Token': sessionToken,
                     },
                 });
 

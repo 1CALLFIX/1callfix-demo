@@ -92,7 +92,15 @@
                          enhancement: hidden until resources/js/places-autocomplete.js
                          confirms a Google Maps key is configured; the plain zone
                          search box below always works regardless. --}}
-                    <div data-places-search hidden>
+                    {{-- wire:ignore: this whole subtree is mounted and mutated
+                         entirely by resources/js/places-autocomplete.js (input
+                         listeners, the results list, hidden/shown state).
+                         Without it, any Livewire re-render while the dialog
+                         stays open (typing in the zone-search box below, or
+                         $this->outOfCoverage flipping after a failed lookup)
+                         morphs this div back to its server-rendered `hidden`
+                         state and the box silently stops working. --}}
+                    <div data-places-search hidden wire:ignore>
                         <label for="place-search" class="sr-only">Search for your location, society or apartment</label>
                         <div class="relative">
                             <span aria-hidden="true" class="pointer-events-none absolute inset-y-0 left-3 grid place-items-center">
