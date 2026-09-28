@@ -67,10 +67,18 @@ class ProviderOfferController extends Controller
                 'price_quoted' => $attempt->booking->price_quoted,
                 'distance_km' => $attempt->distance_km,
                 'notified_at' => optional($attempt->notified_at)->toIso8601String(),
-                'offer_expires_at' => optional($attempt->notified_at)
-                    ->copy()
-                    ->addSeconds($offerTimeoutSeconds)
-                    ->toIso8601String(),
+                // REF 1CF-SCHEDULING-DISPATCH-001 — a scheduled booking's
+                // offer is OPEN and outlives this ASAP window entirely (see
+                // the query guard above and NewJobOffered::broadcastWith()'s
+                // identical null), so notified_at + offerTimeoutSeconds is
+                // frequently already in the past here and would wrongly tell
+                // the app the offer had expired.
+                'offer_expires_at' => $attempt->booking->scheduled_at
+                    ? null
+                    : optional($attempt->notified_at)
+                        ->copy()
+                        ->addSeconds($offerTimeoutSeconds)
+                        ->toIso8601String(),
             ])->values(),
         ]);
     }
