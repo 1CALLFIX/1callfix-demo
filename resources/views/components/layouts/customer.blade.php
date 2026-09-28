@@ -36,6 +36,21 @@
          no-op unless VITE_FIREBASE_* + VITE_FIREBASE_VAPID_KEY are built in. --}}
     @vite(['resources/css/app.css', 'resources/js/app.js', 'resources/js/push-notifications.js'])
     @livewireStyles
+
+    {{-- 1CF-HOMESCREEN-UX-001: the SAME browser key config('services.google_maps.key')
+         already exposes to the admin Maps JavaScript API (resources/views/layouts/admin.blade.php)
+         — never a second/unrestricted key. resources/js/places-autocomplete.js reads this
+         and stays a silent no-op (static zone list only) when it is blank. The key itself is
+         never written into a JS bundle file; it only ever reaches the page this way, exactly
+         like the admin layout already does it. --}}
+    @if (config('services.google_maps.key'))
+        <script>
+            window.CF_GOOGLE_PLACES = {
+                key: @js(config('services.google_maps.key')),
+                regionCode: @js(config('services.google_maps.places_region')),
+            };
+        </script>
+    @endif
 </head>
 <body class="min-h-full bg-white text-slate-900 antialiased flex flex-col">
     {{-- Keyboard users tabbing from the top of the document can jump past the

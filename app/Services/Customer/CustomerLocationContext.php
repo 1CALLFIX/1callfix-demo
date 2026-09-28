@@ -51,6 +51,22 @@ class CustomerLocationContext
 {
     public const SESSION_KEY = 'customer.zone_id';
 
+    /**
+     * Purely descriptive, non-authoritative companions to SESSION_KEY, added
+     * for 1CF-HOMESCREEN-UX-001 so the location bar can show a real place
+     * name/address instead of only the zone name. These NEVER drive zone,
+     * franchise, pricing or dispatch decisions by themselves — they are only
+     * ever written in the same request that also calls setZone() with a
+     * value nearestCoveringZone()/setZone() has already validated, and they
+     * are cleared together with the zone. No second source of truth: the
+     * zone id in SESSION_KEY remains the only thing anything server-side
+     * trusts for serviceability.
+     */
+    public const SESSION_KEY_LABEL = 'customer.location_label';
+    public const SESSION_KEY_ADDRESS = 'customer.location_address';
+    public const SESSION_KEY_LAT = 'customer.location_lat';
+    public const SESSION_KEY_LNG = 'customer.location_lng';
+
     public function __construct(private DispatchService $dispatchService)
     {
     }
@@ -133,8 +149,20 @@ class CustomerLocationContext
         ], fn ($value) => $value !== null);
     }
 
-    /** Persists the chosen zone. Silently refuses an inactive/unknown zone rather than storing an id that resolves to nothing. */
-    public function setZone(int $zoneId): bool
+    /**
+     * Persists the chosen zone. Silently refuses an inactive/unknown zone
+     * rather than storing an id that resolves to nothing.
+     *
+     * `$descriptive` is optional display-only metadata (label/address/lat/
+     * lng) for the location bar — see the class docblock above on why it
+     * can never be trusted for anything but display. Omitting it (the zone
+     * list / "use current location" paths) clears any previously-stored
+     * descriptive text so the bar falls back to the zone name rather than
+     * showing a stale address for a different pick.
+     *
+     * @param  array{label?:?string,address?:?string,lat?:?float,lng?:?float}|null  $descriptive
+     */
+    public function setZone(int $zoneId, ?array $descriptive = null): bool
     {
         if (! Zone::where('is_active', true)->whereKey($zoneId)->exists()) {
             return false;
@@ -142,12 +170,59 @@ class CustomerLocationContext
 
         session([self::SESSION_KEY => $zoneId]);
 
+        if ($descriptive) {
+            session([
+                self::SESSION_KEY_LABEL => $descriptive['label'] ?? null,
+                self::SESSION_KEY_ADDRESS => $descriptive['address'] ?? null,
+                self::SESSION_KEY_LAT => $descriptive['lat'] ?? null,
+                self::SESSION_KEY_LNG => $descriptive['lng'] ?? null,
+            ]);
+        } else {
+            session()->forget([
+                self::SESSION_KEY_LABEL,
+                self::SESSION_KEY_ADDRESS,
+                self::SESSION_KEY_LAT,
+                self::SESSION_KEY_LNG,
+            ]);
+        }
+
         return true;
+    }
+
+    /** Bold headline text for the location bar — a picked place's short name, or null to fall back to the zone name. */
+    public function label(): ?string
+    {
+        return session(self::SESSION_KEY_LABEL);
+    }
+
+    /** The shorter address line under the bold label, or null when nothing more specific than the zone is known. */
+    public function addressLine(): ?string
+    {
+        return session(self::SESSION_KEY_ADDRESS);
+    }
+
+    /** The lat/lng behind the current descriptive label, purely for display/recent-location purposes — never re-trusted for zone resolution. */
+    public function coordinates(): ?array
+    {
+        $lat = session(self::SESSION_KEY_LAT);
+        $lng = session(self::SESSION_KEY_LNG);
+
+        if ($lat === null || $lng === null) {
+            return null;
+        }
+
+        return ['lat' => (float) $lat, 'lng' => (float) $lng];
     }
 
     public function clear(): void
     {
-        session()->forget(self::SESSION_KEY);
+        session()->forget([
+            self::SESSION_KEY,
+            self::SESSION_KEY_LABEL,
+            self::SESSION_KEY_ADDRESS,
+            self::SESSION_KEY_LAT,
+            self::SESSION_KEY_LNG,
+        ]);
     }
 
     /**
