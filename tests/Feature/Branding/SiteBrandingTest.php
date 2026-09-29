@@ -226,7 +226,7 @@ class SiteBrandingTest extends TestCase
         $this->assertStringNotContainsString('Acme Fix', Blade::render('<x-customer.header />'));
     }
 
-    public function test_name_beside_logo_is_hidden_on_small_screens_in_header_but_always_shown_in_footer(): void
+    public function test_name_beside_logo_is_visible_on_mobile_in_header_and_truncates_rather_than_hides(): void
     {
         Livewire::actingAs($this->admin())->test(SettingsManage::class)
             ->set('brandingLogoUpload', $this->transparentPng())->call('uploadLogo');
@@ -236,8 +236,11 @@ class SiteBrandingTest extends TestCase
         $header = Blade::render('<x-customer.header />');
         $footer = Blade::render('<x-customer.footer />');
 
-        $this->assertMatchesRegularExpression('/hidden sm:inline[^"]*"[^>]*>Acme Fix/', $header);
-        $this->assertDoesNotMatchRegularExpression('/hidden sm:inline[^"]*"[^>]*>Acme Fix/', $footer);
+        // Header: never `hidden` on mobile; truncates so a long name can't push
+        // the account/cart cluster off-screen. Footer always shows it.
+        $this->assertMatchesRegularExpression('/truncate[^"]*"[^>]*>Acme Fix/', $header);
+        $this->assertDoesNotMatchRegularExpression('/hidden[^"]*"[^>]*>Acme Fix/', $header);
+        $this->assertStringContainsString('Acme Fix', $footer);
     }
 
     public function test_name_beside_logo_html_is_escaped(): void

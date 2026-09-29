@@ -39,8 +39,12 @@
 
             {{-- Brand --}}
             <a href="{{ route('customer.home') }}"
-               class="flex min-h-11 shrink-0 items-center gap-2 rounded focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900">
-                <x-customer.brand-mark name-class="hidden sm:inline" />
+               class="flex min-h-11 min-w-0 items-center gap-2 rounded focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900 sm:shrink-0">
+                {{-- Name is shown on mobile too, smaller and truncating: the
+                     brand link may shrink (min-w-0) below `sm` so a long name
+                     ellipsises instead of pushing the account/cart cluster
+                     off-screen. From `sm` it is full size and never shrinks. --}}
+                <x-customer.brand-mark name-class="min-w-0 truncate text-base sm:text-lg" />
             </a>
 
             {{-- Desktop primary navigation --}}
