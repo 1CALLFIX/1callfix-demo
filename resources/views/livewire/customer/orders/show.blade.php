@@ -291,7 +291,7 @@
                 const o = e.order ?? e[0]?.order;
                 if (!o || !window.Razorpay) return;
                 new window.Razorpay({
-                    key: o.razorpay_key_id,
+                    key: o.razorpay_key_id ?? o.key_id,
                     order_id: o.razorpay_order_id,
                     amount: o.amount,
                     currency: o.currency,
