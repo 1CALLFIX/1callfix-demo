@@ -40,7 +40,7 @@
             {{-- Brand --}}
             <a href="{{ route('customer.home') }}"
                class="flex min-h-11 shrink-0 items-center gap-2 rounded focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900">
-                <x-customer.brand-mark />
+                <x-customer.brand-mark name-class="hidden sm:inline" />
             </a>
 
             {{-- Desktop primary navigation --}}

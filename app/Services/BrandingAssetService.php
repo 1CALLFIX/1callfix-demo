@@ -18,6 +18,7 @@ use RuntimeException;
  *   branding.favicon_path       32x32 PNG (or the SVG itself for an SVG logo)
  *   branding.apple_touch_path   180x180 PNG ('' for an SVG logo)
  *   branding.footer_credit      credit line text
+ *   branding.name_beside_logo   brand name shown next to the logo image
  *
  * Every upload gets a fresh random filename, so browsers and CDNs never
  * serve a stale favicon and no query-string cache busting is needed.
@@ -118,6 +119,12 @@ class BrandingAssetService
     public static function creditLine(): string
     {
         return (string) Setting::get('branding.footer_credit', '');
+    }
+
+    /** REF 1CF-BRANDING-NAME-BESIDE-LOGO-001 — blank means hidden, same as creditLine(). */
+    public static function nameBesideLogo(): string
+    {
+        return (string) Setting::get('branding.name_beside_logo', '');
     }
 
     /** Shrink to at most $max px on the long side (never upscale), alpha preserved. */

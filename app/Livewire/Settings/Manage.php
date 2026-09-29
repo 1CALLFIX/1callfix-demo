@@ -235,6 +235,7 @@ class Manage extends Component
     // Site identity — global-only (one logo/footer per site, not per scope).
     public $brandingLogoUpload = null;
     public string $brandingFooterCredit = '';
+    public string $brandingNameBesideLogo = '';
     /** @var array<string,string> platform key => profile URL */
     public array $brandingSocial = [];
 
@@ -476,6 +477,7 @@ class Manage extends Component
         $this->brandingOperatingCityLabel = Setting::get('branding.operating_city_label', 'Nellore', $scope);
 
         $this->brandingFooterCredit = BrandingAssetService::creditLine();
+        $this->brandingNameBesideLogo = BrandingAssetService::nameBesideLogo();
         $savedLinks = SocialMediaLink::query()->pluck('profile_url', 'platform')->all();
         foreach (SocialPlatforms::ALL as $key => $meta) {
             $this->brandingSocial[$key] = (string) ($savedLinks[$key] ?? '');
@@ -986,11 +988,17 @@ class Manage extends Component
     {
         $this->authorizeSiteIdentity();
 
-        $rules = ['brandingFooterCredit' => ['nullable', 'string', 'max:200']];
+        $rules = [
+            'brandingFooterCredit' => ['nullable', 'string', 'max:200'],
+            'brandingNameBesideLogo' => ['nullable', 'string', 'max:40'],
+        ];
         foreach (array_keys(SocialPlatforms::ALL) as $key) {
             $rules["brandingSocial.{$key}"] = ['nullable', 'url:http,https', 'max:500'];
         }
-        $this->validate($rules, [], ['brandingFooterCredit' => 'footer credit line']);
+        $this->validate($rules, [], [
+            'brandingFooterCredit' => 'footer credit line',
+            'brandingNameBesideLogo' => 'brand name beside logo',
+        ]);
 
         foreach (SocialPlatforms::ALL as $key => $meta) {
             $url = trim((string) ($this->brandingSocial[$key] ?? ''));
@@ -1001,8 +1009,9 @@ class Manage extends Component
         SocialMediaLink::forgetCache();
 
         Setting::set('branding.footer_credit', trim($this->brandingFooterCredit));
+        Setting::set('branding.name_beside_logo', trim($this->brandingNameBesideLogo));
 
-        $this->flashMessage = 'Footer links and credit line saved.';
+        $this->flashMessage = 'Footer links, credit line and brand name saved.';
     }
 
     private function authorizeSiteIdentity(): void

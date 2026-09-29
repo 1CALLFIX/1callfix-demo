@@ -934,6 +934,13 @@
                 </div>
 
                 <div class="mt-6 pt-4 border-t">
+                    <h3 class="text-sm font-semibold mb-1">Brand name beside logo</h3>
+                    <p class="text-xs text-gray-400 mb-3">Shown next to the logo in the public header and footer — the wordmark inside an uploaded logo is often unreadable at that size. Leave empty to hide it.</p>
+                    <input type="text" wire:model="brandingNameBesideLogo" maxlength="40" class="w-full border rounded px-3 py-2 text-sm">
+                    @error('brandingNameBesideLogo') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
+                </div>
+
+                <div class="mt-6 pt-4 border-t">
                     <h3 class="text-sm font-semibold mb-1">Social media links</h3>
                     <p class="text-xs text-gray-400 mb-3">Full profile URLs (https://…). Leave a platform blank and no icon is shown for it in the footer.</p>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">

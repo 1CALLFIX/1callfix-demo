@@ -182,4 +182,93 @@ class SiteBrandingTest extends TestCase
             ->set('scopeType', 'city')
             ->call('saveSiteLinks')->assertForbidden();
     }
+
+    /** REF 1CF-BRANDING-NAME-BESIDE-LOGO-001 — blank means hidden, same pattern as the footer credit line. */
+    public function test_name_beside_logo_is_blank_on_fresh_install_and_hidden(): void
+    {
+        $this->assertSame('', BrandingAssetService::nameBesideLogo());
+
+        Livewire::actingAs($this->admin())->test(SettingsManage::class)
+            ->set('brandingLogoUpload', $this->transparentPng())->call('uploadLogo');
+
+        // A logo is set but no name: no name span anywhere, and the
+        // fallback initial-square mark (which itself carries the name)
+        // must not appear either, since a real logo exists.
+        $header = Blade::render('<x-customer.header />');
+        $this->assertStringNotContainsString('tracking-tight text-slate-900', $header);
+        $this->assertStringNotContainsString('bg-blue-600 text-sm font-bold text-white', $header);
+
+        $admin = Livewire::actingAs($this->admin())->test(SettingsManage::class);
+        $admin->assertSet('brandingNameBesideLogo', '');
+    }
+
+    public function test_name_beside_logo_saves_and_renders_in_header_and_footer_only_once(): void
+    {
+        Livewire::actingAs($this->admin())->test(SettingsManage::class)
+            ->set('brandingLogoUpload', $this->transparentPng())->call('uploadLogo');
+
+        Livewire::actingAs($this->admin())->test(SettingsManage::class)
+            ->set('brandingNameBesideLogo', 'Acme Fix')
+            ->call('saveSiteLinks')->assertHasNoErrors();
+
+        $this->assertSame('Acme Fix', BrandingAssetService::nameBesideLogo());
+
+        $header = Blade::render('<x-customer.header />');
+        $footer = Blade::render('<x-customer.footer />');
+        $this->assertSame(1, substr_count($header, 'Acme Fix'));
+        $this->assertSame(1, substr_count($footer, 'Acme Fix'));
+        // The fallback initial-square + platform-name mark never renders
+        // alongside a real logo, so the name is never shown twice.
+        $this->assertStringNotContainsString('bg-blue-600 text-sm font-bold text-white', $header);
+
+        Livewire::actingAs($this->admin())->test(SettingsManage::class)
+            ->set('brandingNameBesideLogo', '')->call('saveSiteLinks');
+        $this->assertStringNotContainsString('Acme Fix', Blade::render('<x-customer.header />'));
+    }
+
+    public function test_name_beside_logo_is_hidden_on_small_screens_in_header_but_always_shown_in_footer(): void
+    {
+        Livewire::actingAs($this->admin())->test(SettingsManage::class)
+            ->set('brandingLogoUpload', $this->transparentPng())->call('uploadLogo');
+        Livewire::actingAs($this->admin())->test(SettingsManage::class)
+            ->set('brandingNameBesideLogo', 'Acme Fix')->call('saveSiteLinks');
+
+        $header = Blade::render('<x-customer.header />');
+        $footer = Blade::render('<x-customer.footer />');
+
+        $this->assertMatchesRegularExpression('/hidden sm:inline[^"]*"[^>]*>Acme Fix/', $header);
+        $this->assertDoesNotMatchRegularExpression('/hidden sm:inline[^"]*"[^>]*>Acme Fix/', $footer);
+    }
+
+    public function test_name_beside_logo_html_is_escaped(): void
+    {
+        Livewire::actingAs($this->admin())->test(SettingsManage::class)
+            ->set('brandingLogoUpload', $this->transparentPng())->call('uploadLogo');
+
+        $xss = '<script>alert(1)</script>';
+        Livewire::actingAs($this->admin())->test(SettingsManage::class)
+            ->set('brandingNameBesideLogo', $xss)
+            ->call('saveSiteLinks')->assertHasNoErrors();
+
+        $this->assertSame($xss, Setting::get('branding.name_beside_logo'));
+
+        $header = Blade::render('<x-customer.header />');
+        $this->assertStringNotContainsString('<script>alert(1)</script>', $header);
+        $this->assertStringContainsString(e($xss), $header);
+    }
+
+    public function test_name_beside_logo_over_40_characters_is_rejected(): void
+    {
+        $tooLong = str_repeat('a', 41);
+        Livewire::actingAs($this->admin())->test(SettingsManage::class)
+            ->set('brandingNameBesideLogo', $tooLong)
+            ->call('saveSiteLinks')->assertHasErrors('brandingNameBesideLogo');
+
+        $this->assertSame('', BrandingAssetService::nameBesideLogo());
+
+        Livewire::actingAs($this->admin())->test(SettingsManage::class)
+            ->set('brandingNameBesideLogo', str_repeat('a', 40))
+            ->call('saveSiteLinks')->assertHasNoErrors();
+        $this->assertSame(str_repeat('a', 40), BrandingAssetService::nameBesideLogo());
+    }
 }
