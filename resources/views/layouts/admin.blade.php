@@ -152,6 +152,7 @@
                 'label' => 'Growth', 'collapsible' => true, 'icon' => 'sparkles',
                 'items' => [
                     ['label' => 'Banners', 'route' => 'admin.banners.index', 'icon' => 'megaphone', 'permission' => 'banners.manage'],
+                    ['label' => 'Home Spotlight', 'route' => 'admin.home-spotlight.index', 'icon' => 'sparkles', 'permission' => 'banners.manage'],
                     ['label' => 'Badges', 'route' => 'admin.badges.index', 'icon' => 'tag', 'permission' => 'badges.view'],
                     ['label' => 'Flash Sales', 'route' => 'admin.flash-sales.index', 'icon' => 'bolt', 'permission' => 'flash_sales.view'],
                     ['label' => 'Performance Campaigns', 'route' => 'admin.performance-campaigns.index', 'icon' => 'trophy', 'permission' => 'performance_campaigns.view'],

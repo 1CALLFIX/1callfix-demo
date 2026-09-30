@@ -4,6 +4,7 @@ namespace App\Livewire\Customer;
 
 use App\Livewire\Customer\Concerns\ResolvesCatalogContext;
 use App\Models\Faq;
+use App\Models\HomeSpotlight;
 use App\Models\Plan;
 use App\Models\ServiceCategory;
 use Illuminate\Support\Collection;
@@ -62,8 +63,9 @@ class Home extends Component
             'heroBanners' => $this->bannersFor('top'),
             'midBanners' => $this->bannersFor('mid'),
             'categories' => $catalog->categories()->limit(self::CATEGORY_SHORTCUT_LIMIT)->get(),
-            'newServices' => $this->cardsFrom($catalog->newest(), self::RAIL_LIMIT),
-            'mostBooked' => $this->cardsFrom($catalog->mostBooked($location->franchiseId()), self::RAIL_LIMIT),
+            'newServices' => $newServices = $this->cardsFrom($catalog->newest(), self::RAIL_LIMIT),
+            'mostBooked' => $mostBooked = $this->cardsFrom($catalog->mostBooked($location->franchiseId()), self::RAIL_LIMIT),
+            'spotlight' => $this->spotlight($mostBooked, $newServices),
             'offers' => $this->offers(),
             'collections' => $this->collections(),
             'membershipPlans' => $this->membershipPlans(),
@@ -72,6 +74,75 @@ class Home extends Component
         ])->layout('components.layouts.customer', [
             'title' => 'Home services, on call',
         ]);
+    }
+
+    /**
+     * REF 1CF-HOME-SPOTLIGHT-001 — tiles for the home collage. Admin-curated
+     * slots (Home Spotlight screen) first, in number order; each is a service
+     * or a whole category and is skipped when its target is no longer live.
+     * Fewer than four tiles are topped up from the automatic pool (most
+     * booked, then newest) so the grid never shows blanks; with nothing
+     * curated at all this is exactly the previous automatic collage. The
+     * result is normalised to 0, 2, 4 or 6 tiles so the grid stays full.
+     *
+     * @return Collection<int, array{name: string, url: string, image_url: ?string, badge: ?string}>
+     */
+    private function spotlight(Collection $mostBooked, Collection $newServices): Collection
+    {
+        $auto = collect($mostBooked)->concat($newServices)
+            ->filter(fn ($c) => ! empty($c['image_url']))
+            ->unique('url')
+            ->map(fn ($c) => ['name' => $c['name'], 'url' => $c['url'], 'image_url' => $c['image_url'], 'badge' => null])
+            ->values();
+
+        $rows = HomeSpotlight::query()->where('is_active', true)->orderBy('position')->get();
+        $tiles = collect();
+
+        if ($rows->isNotEmpty()) {
+            $serviceIds = $rows->where('target_type', 'service')->pluck('target_id')->all();
+            $categoryIds = $rows->where('target_type', 'category')->pluck('target_id')->all();
+
+            $services = $serviceIds
+                ? $this->cardsFrom($this->catalog()->services()->whereIn('id', $serviceIds), HomeSpotlight::SLOTS)
+                    ->keyBy(fn ($c) => $c['service']->id)
+                : collect();
+            $categories = $categoryIds
+                ? $this->catalog()->categories()->whereIn('id', $categoryIds)->get()->keyBy('id')
+                : collect();
+
+            foreach ($rows as $row) {
+                if ($row->target_type === 'category') {
+                    $category = $categories->get($row->target_id);
+                    $tile = $category ? [
+                        'name' => $category->name,
+                        'url' => route('customer.categories.show', $category),
+                        'image_url' => $category->image_url,
+                    ] : null;
+                } else {
+                    $card = $services->get($row->target_id);
+                    $tile = $card ? ['name' => $card['name'], 'url' => $card['url'], 'image_url' => $card['image_url']] : null;
+                }
+
+                if ($tile) {
+                    $tiles->push($tile + ['badge' => $row->badge]);
+                }
+            }
+        }
+
+        if ($tiles->count() < 4) {
+            $taken = $tiles->pluck('url');
+            $tiles = $tiles->concat($auto->reject(fn ($t) => $taken->contains($t['url']))->take(4 - $tiles->count()));
+        }
+
+        $tiles = $tiles->take(HomeSpotlight::SLOTS)->values();
+        $keep = match (true) {
+            $tiles->count() >= 6 => 6,
+            $tiles->count() >= 4 => 4,
+            $tiles->count() >= 2 => 2,
+            default => 0,
+        };
+
+        return $tiles->take($keep)->values();
     }
 
     /**

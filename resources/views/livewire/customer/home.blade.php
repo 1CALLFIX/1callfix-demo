@@ -70,14 +70,10 @@
     <section class="border-b border-slate-200 bg-gradient-to-b from-blue-50/70 via-white to-white">
         <div class="mx-auto max-w-7xl px-4 py-8 sm:px-6 sm:py-10 lg:px-8">
             @php
-                // Photo collage: real cover images from the live catalogue
-                // (most booked first, then newest) — nothing invented. Fewer
-                // than two images and the collage is dropped, not padded.
-                $collage = collect($mostBooked)->concat($newServices)
-                    ->filter(fn ($c) => ! empty($c['image_url']))
-                    ->unique('url')->values();
-                $collage = $collage->take($collage->count() >= 4 ? 4 : 2);
+                // Home Spotlight tiles (admin-curated, auto-topped-up) — see Home::spotlight().
+                $collage = $spotlight;
                 $showCollage = $collage->count() >= 2;
+                $collageCols = $collage->count() >= 6 ? 3 : 2;
             @endphp
             <div @class(['grid gap-8', 'lg:grid-cols-2' => $showCollage])>
 
@@ -115,14 +111,20 @@
                 @if ($showCollage)
                     {{-- Fills exactly the height of the category card beside it
                          (grid stretch), one row of two or two rows of two. --}}
-                    <div class="hidden gap-3 md:grid" aria-label="Popular services"
-                         style="grid-template-columns:repeat(2,minmax(0,1fr));grid-template-rows:repeat({{ $collage->count() > 2 ? 2 : 1 }},minmax(0,1fr));min-height:16rem">
-                        @foreach ($collage as $card)
-                            <a href="{{ $card['url'] }}"
+                    <div class="hidden gap-3 md:grid" aria-label="Featured services"
+                         style="grid-template-columns:repeat({{ $collageCols }},minmax(0,1fr));grid-template-rows:repeat({{ (int) ceil($collage->count() / $collageCols) }},minmax(0,1fr));min-height:16rem">
+                        @foreach ($collage as $tile)
+                            <a href="{{ $tile['url'] }}"
                                class="group relative block h-full overflow-hidden rounded-2xl bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600">
-                                <img src="{{ $card['image_url'] }}" alt="{{ $card['name'] }}" loading="lazy" decoding="async"
-                                     class="absolute inset-0 h-full w-full object-cover transition duration-300 group-hover:scale-105">
-                                <span class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/60 to-transparent px-3 pb-2 pt-8 text-sm font-semibold text-white">{{ $card['name'] }}</span>
+                                @if ($tile['image_url'])
+                                    <img src="{{ $tile['image_url'] }}" alt="{{ $tile['name'] }}" loading="lazy" decoding="async"
+                                         class="absolute inset-0 h-full w-full object-cover transition duration-300 group-hover:scale-105">
+                                @endif
+                                @if ($tile['badge'])
+                                    <span class="absolute rounded-full bg-blue-600 px-2 py-0.5 text-xs font-semibold text-white shadow"
+                                          style="left:.5rem;top:.5rem">{{ $tile['badge'] }}</span>
+                                @endif
+                                <span class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/60 to-transparent px-3 pb-2 pt-8 text-sm font-semibold text-white">{{ $tile['name'] }}</span>
                             </a>
                         @endforeach
                     </div>
