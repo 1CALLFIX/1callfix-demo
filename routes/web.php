@@ -227,6 +227,9 @@ Route::get('/help', [PageController::class, 'help'])->name('customer.help');
 Route::get('/how-it-works', [PageController::class, 'howItWorks'])->name('customer.how-it-works');
 Route::get('/privacy', [PageController::class, 'privacy'])->name('customer.privacy');
 Route::get('/terms', [PageController::class, 'terms'])->name('customer.terms');
+// Conventional long-form URLs (what payment gateways and app-store listings usually ask for).
+Route::get('/privacy-policy', [PageController::class, 'privacy']);
+Route::get('/terms-and-conditions', [PageController::class, 'terms']);
 
 // Partner ("For professionals") landing page. Lives at the /coming-soon/*
 // path it historically pointed at, but is now a real page — a hero, the

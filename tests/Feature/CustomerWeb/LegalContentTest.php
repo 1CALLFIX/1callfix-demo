@@ -114,6 +114,34 @@ class LegalContentTest extends TestCase
     }
 
     /** A draft page must be indistinguishable from a missing one. */
+    public function test_cms_pages_saved_with_the_short_slugs_are_served_on_both_urls(): void
+    {
+        $this->seedPage('privacy', 'Privacy Policy', 'Short-slug privacy body.');
+        $this->seedPage('terms', 'Terms of Use', 'Short-slug terms body.');
+
+        foreach (['/privacy', '/privacy-policy'] as $url) {
+            $this->get($url)->assertOk()->assertSeeText('Short-slug privacy body.');
+        }
+        foreach (['/terms', '/terms-and-conditions'] as $url) {
+            $this->get($url)->assertOk()->assertSeeText('Short-slug terms body.');
+        }
+    }
+
+    public function test_the_long_slug_wins_when_both_exist(): void
+    {
+        $this->seedPage('privacy', 'Privacy Policy', 'Old short body.');
+        $this->seedPage('privacy-policy', 'Privacy Policy', 'Preferred long body.');
+
+        $this->get(route('customer.privacy'))->assertOk()->assertSeeText('Preferred long body.')->assertDontSeeText('Old short body.');
+    }
+
+    public function test_an_inactive_short_slug_page_is_still_a_404(): void
+    {
+        $this->seedPage('privacy', 'Privacy Policy', 'Draft.', active: false);
+
+        $this->get(route('customer.privacy'))->assertNotFound();
+    }
+
     public function test_an_inactive_page_is_a_404(): void
     {
         $this->seedPage('privacy-policy', 'Privacy Policy', 'Draft content.', active: false);

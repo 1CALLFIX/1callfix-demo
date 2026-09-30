@@ -68,12 +68,14 @@ class PageController extends Controller
 
     public function privacy(): View
     {
-        return $this->contentPage('privacy-policy');
+        // Admin CMS pages are commonly saved as `privacy` / `terms`; the seeded
+        // legal content uses the long slugs. Either one is served.
+        return $this->contentPage('privacy-policy', 'privacy');
     }
 
     public function terms(): View
     {
-        return $this->contentPage('terms-and-conditions');
+        return $this->contentPage('terms-and-conditions', 'terms');
     }
 
     /** Help centre — the real, active `faqs` rows, in the same order ContentController::faqs() returns them. */
@@ -119,10 +121,14 @@ class PageController extends Controller
         ]);
     }
 
-    /** 404s for a draft (is_active=false) page exactly like a missing one — same rule as ContentController::page(). */
-    private function contentPage(string $slug): View
+    /**
+     * 404s for a draft (is_active=false) page exactly like a missing one — same rule as ContentController::page().
+     * Slugs are tried in the order given, so the first one that exists and is active wins.
+     */
+    private function contentPage(string ...$slugs): View
     {
-        $page = ContentPage::where('slug', $slug)->where('is_active', true)->first();
+        $pages = ContentPage::whereIn('slug', $slugs)->where('is_active', true)->get()->keyBy('slug');
+        $page = collect($slugs)->map(fn ($slug) => $pages->get($slug))->filter()->first();
 
         abort_if($page === null, 404);
 
