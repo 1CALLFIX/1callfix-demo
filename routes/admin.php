@@ -25,6 +25,7 @@ use App\Livewire\Subcategories\Manage as SubcategoriesManage;
 use App\Livewire\Services\Manage as ServicesManage;
 use App\Livewire\Banners\Manage as BannersManage;
 use App\Livewire\HomeSpotlight\Manage as HomeSpotlightManage;
+use App\Livewire\SearchBox\Manage as SearchBoxManage;
 use App\Livewire\Settings\Manage as SettingsManage;
 use App\Livewire\Cms\Manage as CmsManage;
 use App\Livewire\Roles\Manage as RolesManage;
@@ -99,6 +100,7 @@ Route::middleware(['auth', \App\Http\Middleware\EnsureHasAdminAccess::class])
         Route::get('/services', ServicesManage::class)->name('admin.services.index');
         Route::get('/banners', BannersManage::class)->name('admin.banners.index');
         Route::get('/home-spotlight', HomeSpotlightManage::class)->name('admin.home-spotlight.index');
+        Route::get('/search-box', SearchBoxManage::class)->name('admin.search-box.index');
         Route::get('/badges', BadgesManage::class)->name('admin.badges.index');
         Route::get('/flash-sales', FlashSalesManage::class)->name('admin.flash-sales.index');
         Route::get('/performance-campaigns', PerformanceCampaignsManage::class)->name('admin.performance-campaigns.index');

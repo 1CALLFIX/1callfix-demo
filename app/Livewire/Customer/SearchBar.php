@@ -134,6 +134,10 @@ class SearchBar extends Component
             // the initial empty-field render) and keeps running client-side
             // from then on, so this does not affect the rotation itself.
             'placeholderExamples' => trim($this->term) === '' ? $this->placeholderExamples() : [],
+            // Admin-controlled look/speed (Admin > Growth > Search Box); defaults match the old hard-coded values.
+            'boxSize' => \App\Support\SearchBoxSettings::sizeClass(),
+            'boxColor' => \App\Support\SearchBoxSettings::color(),
+            'rotateMs' => \App\Support\SearchBoxSettings::rotationSeconds() * 1000,
         ]);
     }
 
@@ -165,6 +169,19 @@ class SearchBar extends Component
      */
     private function placeholderExamples(): array
     {
+        $prefix = \App\Support\SearchBoxSettings::prefix();
+
+        // Admin-picked services win (in the admin's order); only active, live-catalogue ones count.
+        $picked = \App\Support\SearchBoxSettings::serviceIds();
+        if ($picked !== []) {
+            $found = $this->catalog()->services()->whereIn('id', $picked)->get(['id', 'name'])->keyBy('id');
+            $pickedNames = collect($picked)->map(fn ($id) => $found->get($id)?->name)->filter()->values();
+
+            if ($pickedNames->isNotEmpty()) {
+                return $pickedNames->map(fn ($name) => "{$prefix} '{$name}'")->all();
+            }
+        }
+
         $names = $this->catalog()->mostBooked($this->location()->franchiseId())
             ->limit(8)
             ->pluck('name')
@@ -191,7 +208,7 @@ class SearchBar extends Component
             $names = collect(['a service']);
         }
 
-        return $names->take(8)->map(fn ($name) => "Search for '{$name}'")->values()->all();
+        return $names->take(8)->map(fn ($name) => "{$prefix} '{$name}'")->values()->all();
     }
 
     /**

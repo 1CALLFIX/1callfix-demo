@@ -47,6 +47,10 @@
 
     <label for="{{ $inputId }}" class="sr-only">Search for a service</label>
 
+    @if ($boxColor && $compact)
+        <style>#{{ $inputId }}::placeholder { color: {{ $boxColor }}; opacity: 1; }</style>
+    @endif
+
     <div class="flex gap-2">
         <div class="relative flex-1">
             <span aria-hidden="true" class="pointer-events-none absolute inset-y-0 left-3 grid place-items-center">
@@ -57,6 +61,7 @@
                    type="search"
                    data-search-input
                    data-placeholder-examples="{{ json_encode($placeholderExamples) }}"
+                   data-rotate-ms="{{ $rotateMs }}"
                    wire:model.live.debounce.250ms="term"
                    wire:keydown.escape="dismiss"
                    autocomplete="off"
@@ -69,23 +74,16 @@
                        'customer-search block w-full text-slate-900 placeholder:text-slate-400',
                        'rounded-lg border border-slate-300 bg-white py-3 pl-11 text-base min-h-12 pr-10 shadow-sm focus:border-blue-500 focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-blue-600' => ! $compact,
                        // Header (compact) field: shorter and quieter (1CF-HEADER-SEARCH-SIZE-001).
-                       'rounded-lg border border-slate-300 bg-white py-2 pl-10 text-sm min-h-10 pr-9 shadow-sm focus:border-blue-500 focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-blue-600' => $compact && ! $pill,
+                       'rounded-lg border border-slate-300 bg-white py-2 pl-10 min-h-10 pr-9 shadow-sm focus:border-blue-500 focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-blue-600' => $compact && ! $pill,
                        // Pill variant: lives inside the combined location+search bar, which draws the border/focus ring.
-                       'rounded-full border-0 bg-transparent py-2 pl-9 pr-11 text-sm min-h-10 shadow-none focus:outline-none focus:ring-0' => $pill,
+                       'rounded-full border-0 bg-transparent py-2 pl-9 pr-9 min-h-10 shadow-none focus:outline-none focus:ring-0' => $pill,
+                       $boxSize => $compact,
                    ])>
-
-            @if ($pill)
-                <button type="submit"
-                        class="absolute right-0.5 top-1/2 grid h-8 w-8 -translate-y-1/2 place-items-center rounded-full bg-blue-600 text-white shadow-sm shadow-blue-600/30 transition hover:bg-blue-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600">
-                    <span class="sr-only">Search</span>
-                    <x-icon name="magnifying-glass" class="h-4 w-4" />
-                </button>
-            @endif
 
             @if ($term !== '')
                 <button type="button"
                         wire:click="clear"
-                        @class(['absolute inset-y-0 grid w-10 place-items-center text-slate-400 transition hover:text-slate-900 focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-blue-600', 'right-9' => $pill, 'right-0' => ! $pill])>
+                        @class(['absolute inset-y-0 grid w-10 place-items-center text-slate-400 transition hover:text-slate-900 focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-blue-600', 'right-0' => true])>
                     <span class="sr-only">Clear search</span>
                     <x-icon name="x-circle" class="h-5 w-5" />
                 </button>

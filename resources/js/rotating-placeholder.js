@@ -55,7 +55,9 @@
         };
 
         input.placeholder = examples[0];
-        timer = setInterval(tick, ROTATE_MS);
+        // Admin sets the pace (Admin > Growth > Search Box); fall back to the default.
+        const ms = parseInt(input.dataset.rotateMs || '', 10);
+        timer = setInterval(tick, ms >= 1000 && ms <= 10000 ? ms : ROTATE_MS);
 
         // Pause while focused or mid-typing; the field's own value (not just
         // "typing") already hides the placeholder in every browser, but
