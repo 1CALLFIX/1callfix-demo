@@ -28,10 +28,12 @@
                  on the left, a divider, the search field and a round blue search button on the right.
                  On phones the location is a compact field next to the brand and search is the row below. --}}
             <div class="min-w-0 shrink sm:flex sm:flex-1 sm:justify-center">
-                <div class="flex min-w-0 items-center sm:w-full sm:max-w-xl sm:rounded-full sm:border sm:border-slate-200 sm:bg-white sm:py-1 sm:pl-1 sm:pr-1 sm:shadow-md sm:shadow-slate-900/5 sm:transition sm:duration-200 sm:focus-within:border-blue-400 sm:focus-within:shadow-lg sm:focus-within:shadow-blue-600/10 sm:hover:shadow-lg">
-                    <livewire:customer.location-picker />
+                <div class="flex min-w-0 items-center sm:w-full sm:max-w-lg sm:rounded-full sm:border sm:border-slate-200 sm:bg-white sm:py-1 sm:pl-1 sm:pr-1 sm:shadow-md sm:shadow-slate-900/5 sm:transition sm:duration-200 sm:focus-within:border-blue-400 sm:focus-within:shadow-lg sm:focus-within:shadow-blue-600/10 sm:hover:shadow-lg">
+                    <div class="min-w-0 sm:flex-1 sm:basis-0">
+                        <livewire:customer.location-picker />
+                    </div>
                     <div aria-hidden="true" class="mx-1 hidden h-6 w-px shrink-0 bg-slate-200 sm:block"></div>
-                    <div class="hidden min-w-0 flex-1 sm:block">
+                    <div class="hidden min-w-0 flex-1 basis-0 sm:block">
                         <livewire:customer.search-bar :compact="true" :pill="true" />
                     </div>
                 </div>

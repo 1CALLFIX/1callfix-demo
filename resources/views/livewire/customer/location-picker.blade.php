@@ -19,7 +19,7 @@
                  and the row overflowed by 15px with 14rem here. This is the
                  one item in the row that can give up width without anything
                  being removed from the page. --}}
-            class="inline-flex h-10 w-full min-w-0 max-w-[8.5rem] items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-2.5 text-sm font-medium text-slate-700 shadow-sm transition hover:border-blue-400 hover:bg-blue-50/50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 sm:w-auto sm:max-w-[11rem] sm:rounded-full sm:border-transparent sm:bg-transparent sm:shadow-none sm:hover:border-transparent sm:hover:bg-slate-100 lg:max-w-[13rem]">
+            class="inline-flex h-10 w-full min-w-0 max-w-[8.5rem] items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-2.5 text-sm font-medium text-slate-700 shadow-sm transition hover:border-blue-400 hover:bg-blue-50/50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 sm:max-w-none sm:rounded-full sm:border-transparent sm:bg-transparent sm:shadow-none sm:hover:border-transparent sm:hover:bg-slate-100">
         <x-icon name="map-pin" class="h-4 w-4 shrink-0 text-blue-600" />
         <span class="truncate">{{ $activeZone?->name ?? 'Set location' }}</span>
         <x-icon name="chevron-down" class="ml-auto h-4 w-4 shrink-0 text-slate-400" />
