@@ -169,6 +169,15 @@
         @endif
     </x-ui.card>
 
+    {{-- Always-visible tab rows (1CF-ADMIN-TABS-001): slot and status. They drive the
+         same filterPlacement / filterStatus the collapsible Filters panel uses. --}}
+    <x-ui.filter-tabs class="mb-2"
+                      :tabs="['' => 'All', 'top' => 'Top Banners', 'mid' => 'Mid Banners']"
+                      :active="$filterPlacement" model="filterPlacement" />
+    <x-ui.filter-tabs class="mb-3"
+                      :tabs="['' => 'All', 'live' => 'Live', 'scheduled' => 'Scheduled', 'expired' => 'Expired', 'inactive' => 'Inactive']"
+                      :active="$filterStatus" model="filterStatus" />
+
     {{-- List controls --}}
     <div class="flex items-center gap-2 mb-3 flex-wrap">
         <button type="button" wire:click="toggleReorder"

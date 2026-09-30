@@ -1,17 +1,9 @@
 <div>
     <h1 class="text-2xl font-bold mb-4">Workers</h1>
 
-    <div class="flex gap-2 mb-4">
-        @foreach (['pending' => 'Pending Review', 'approved' => 'Approved', 'rejected' => 'Rejected'] as $key => $label)
-            <button wire:click="$set('statusFilter', '{{ $key }}')"
-                    class="px-3 py-1.5 rounded text-sm {{ $statusFilter === $key ? 'bg-slate-900 text-white' : 'bg-white border' }}">
-                {{ $label }}
-                @if(isset($counts[$key]))
-                    <span class="opacity-60">({{ $counts[$key] }})</span>
-                @endif
-            </button>
-        @endforeach
-    </div>
+    <x-ui.filter-tabs class="mb-4"
+                      :tabs="['' => 'All', 'pending' => 'Pending Review', 'approved' => 'Approved', 'rejected' => 'Rejected']"
+                      :active="$statusFilter" model="statusFilter" :counts="$counts" />
 
     <x-ui.table>
         <x-slot:footer>{{ $workers->links() }}</x-slot:footer>

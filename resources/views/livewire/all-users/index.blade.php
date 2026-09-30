@@ -35,15 +35,12 @@
         </div>
     </div>
 
+    <x-ui.filter-tabs class="mb-3"
+                      :tabs="['' => 'All', 'customer' => 'Customers', 'provider' => 'Providers', 'worker' => 'Workers', 'staff' => 'Staff / Admin']"
+                      :active="$typeFilter" model="typeFilter" />
+
     <div class="flex flex-wrap gap-3 mb-4">
         <input type="text" wire:model.live.debounce.400ms="search" placeholder="Search name, phone, or email..." class="border rounded px-3 py-2 text-sm w-72">
-        <select wire:model.live="typeFilter" class="border rounded px-3 py-2 text-sm">
-            <option value="">All types</option>
-            <option value="customer">Customer</option>
-            <option value="provider">Provider</option>
-            <option value="worker">Worker</option>
-            <option value="staff">Staff / Admin</option>
-        </select>
         <select wire:model.live="franchiseIdFilter" class="border rounded px-3 py-2 text-sm">
             <option value="">All franchises</option>
             @foreach ($franchises as $f)

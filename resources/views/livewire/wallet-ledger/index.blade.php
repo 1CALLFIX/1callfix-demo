@@ -19,19 +19,13 @@
         </x-ui.card>
     </div>
 
+    <x-ui.filter-tabs class="mb-2" :tabs="['' => 'All', 'credit' => 'Credits', 'debit' => 'Debits']"
+                      :active="$typeFilter" model="typeFilter" />
+    <x-ui.filter-tabs class="mb-3" :tabs="['' => 'All', 'successful' => 'Successful', 'pending' => 'Pending', 'failed' => 'Failed']"
+                      :active="$statusFilter" model="statusFilter" />
+
     <div class="flex flex-wrap gap-3 mb-4">
         <input type="text" wire:model.live.debounce.400ms="search" placeholder="Search customer name or phone..." class="border rounded px-3 py-2 text-sm w-64">
-        <select wire:model.live="typeFilter" class="border rounded px-3 py-2 text-sm">
-            <option value="">All types</option>
-            <option value="credit">Credit</option>
-            <option value="debit">Debit</option>
-        </select>
-        <select wire:model.live="statusFilter" class="border rounded px-3 py-2 text-sm">
-            <option value="">All statuses</option>
-            <option value="successful">Successful</option>
-            <option value="pending">Pending</option>
-            <option value="failed">Failed</option>
-        </select>
         <input type="date" wire:model.live="fromDate" class="border rounded px-3 py-2 text-sm">
         <span class="self-center text-gray-400 text-sm">to</span>
         <input type="date" wire:model.live="toDate" class="border rounded px-3 py-2 text-sm">

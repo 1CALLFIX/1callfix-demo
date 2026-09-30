@@ -93,4 +93,61 @@ class AdminFilterTabsTest extends TestCase
         $this->assertSame([$captured->id], $c->viewData('payments')->pluck('id')->all());
         $this->assertNotContains($pending->id, $c->viewData('payments')->pluck('id')->all());
     }
+
+    /** @return array<string, array{0: class-string}> */
+    public static function tabbedScreens(): array
+    {
+        return [
+            'all users' => [\App\Livewire\AllUsers\Index::class],
+            'customers' => [\App\Livewire\Customers\Index::class],
+            'workers' => [\App\Livewire\Workers\Index::class],
+            'payouts' => [\App\Livewire\Payouts\Manage::class],
+            'wallet ledger' => [\App\Livewire\WalletLedger\Index::class],
+            'subscriptions' => [\App\Livewire\Subscriptions\Index::class],
+            'banners' => [\App\Livewire\Banners\Manage::class],
+            'services' => [\App\Livewire\Services\Manage::class],
+            'categories' => [\App\Livewire\Categories\Manage::class],
+            'subcategories' => [\App\Livewire\Subcategories\Manage::class],
+            'zones' => [\App\Livewire\Zones\Manage::class],
+            'franchises' => [\App\Livewire\Franchises\Manage::class],
+        ];
+    }
+
+    #[\PHPUnit\Framework\Attributes\DataProvider('tabbedScreens')]
+    public function test_every_tabbed_screen_renders_an_all_tab_that_is_selected_by_default(string $component): void
+    {
+        Livewire::actingAs($this->makeSuperAdmin())->test($component)
+            ->assertSeeHtml('role="tab"')
+            ->assertSeeHtml('aria-selected="true"')
+            ->assertSee('All');
+    }
+
+    public function test_people_tabs_filter_by_type_and_status(): void
+    {
+        $admin = $this->makeSuperAdmin();
+        $customer = $this->makeCustomer();
+        [, , $franchise, $zone] = $this->makeFranchiseTree();
+        $prov = $this->provider('Only Provider', $franchise, $zone, 'approved');
+
+        $ids = fn ($c, $var) => $c->viewData($var)->pluck('id')->all();
+
+        $all = Livewire::actingAs($admin)->test(\App\Livewire\AllUsers\Index::class);
+        $all->set('typeFilter', 'provider');
+        $this->assertContains($prov->user_id, $ids($all, 'users'));
+        $this->assertNotContains($customer->id, $ids($all, 'users'));
+
+        $all->set('typeFilter', 'customer');
+        $this->assertContains($customer->id, $ids($all, 'users'));
+        $this->assertNotContains($prov->user_id, $ids($all, 'users'));
+
+        $all->set('typeFilter', '');
+        $this->assertContains($customer->id, $ids($all, 'users'));
+        $this->assertContains($prov->user_id, $ids($all, 'users'));
+
+        $cust = Livewire::actingAs($admin)->test(\App\Livewire\Customers\Index::class);
+        $cust->set('statusFilter', 'suspended');
+        $this->assertNotContains($customer->id, $ids($cust, 'customers'));
+        $cust->set('statusFilter', 'active');
+        $this->assertContains($customer->id, $ids($cust, 'customers'));
+    }
 }

@@ -167,6 +167,10 @@
         </div>
     @endif
 
+    {{-- Always-visible tabs (1CF-ADMIN-TABS-001); same filter as the Filters panel. --}}
+    <x-ui.filter-tabs class="mb-3" :tabs="['' => 'All', 'active' => 'Active', 'inactive' => 'Inactive']"
+                      :active="$filterActive" model="filterActive" />
+
     <x-ui.table>
         <x-slot:footer>{{ $subcategories->links() }}</x-slot:footer>
         <thead class="bg-gray-50 text-left text-gray-500">

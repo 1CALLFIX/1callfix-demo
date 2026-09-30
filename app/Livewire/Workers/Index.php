@@ -12,7 +12,7 @@ class Index extends Component
 {
     use WithPagination;
 
-    public string $statusFilter = 'pending';
+    public string $statusFilter = '';
 
     protected $queryString = ['statusFilter'];
 
@@ -45,6 +45,9 @@ class Index extends Component
             ->selectRaw('kyc_status, count(*) as total')
             ->groupBy('kyc_status')
             ->pluck('total', 'kyc_status');
+
+        $counts = $counts->all();
+        $counts[''] = array_sum($counts);
 
         return view('livewire.workers.index', compact('workers', 'counts'))
             ->layout('layouts.admin', ['title' => 'Workers']);

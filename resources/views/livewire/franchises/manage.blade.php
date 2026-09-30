@@ -176,6 +176,10 @@
         </div>
     @endif
 
+    {{-- Always-visible tabs (1CF-ADMIN-TABS-001); same filter as the Filters panel. --}}
+    <x-ui.filter-tabs class="mb-3" :tabs="['' => 'All', 'active' => 'Active', 'inactive' => 'Inactive', 'pending_setup' => 'Pending setup']"
+                      :active="$filterStatus" model="filterStatus" />
+
     <div class="bg-white rounded-lg shadow-sm overflow-x-auto">
         <table class="w-full text-sm">
             <thead class="bg-gray-50 text-left text-gray-500">

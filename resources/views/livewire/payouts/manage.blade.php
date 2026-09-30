@@ -134,6 +134,10 @@
     </x-ui.card>
 
     {{-- Payout list --}}
+    <x-ui.filter-tabs class="mb-3"
+                      :tabs="['' => 'All', 'pending' => 'Pending', 'processing' => 'Processing', 'paid' => 'Paid', 'failed' => 'Failed']"
+                      :active="$statusFilter" model="statusFilter" />
+
     <x-ui.table>
         <x-slot:footer>{{ $payouts->links() }}</x-slot:footer>
 

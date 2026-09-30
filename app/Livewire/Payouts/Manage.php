@@ -40,6 +40,14 @@ class Manage extends Component
     }
 
     public string $payeeType = 'provider'; // provider|field_worker|franchise_owner
+
+    /** List tab: '' = all | pending | processing | paid | failed (REF 1CF-ADMIN-TABS-001). */
+    public string $statusFilter = '';
+
+    public function updatingStatusFilter(): void
+    {
+        $this->resetPage();
+    }
     public string $payeeSearch = '';
     public ?int $selectedPayeeId = null;
     public string $selectedPayeeLabel = '';
@@ -398,7 +406,9 @@ class Manage extends Component
 
     public function render()
     {
-        $payouts = Payout::whereIn('id', $this->visiblePayoutIds())->latest()->paginate(15);
+        $payouts = Payout::whereIn('id', $this->visiblePayoutIds())
+            ->when($this->statusFilter !== '', fn ($q) => $q->where('status', $this->statusFilter))
+            ->latest()->paginate(15);
         $this->attachPayeeLabels($payouts->getCollection());
 
         return view('livewire.payouts.manage', [

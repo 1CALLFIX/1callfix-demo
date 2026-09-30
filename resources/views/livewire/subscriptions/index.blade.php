@@ -8,19 +8,9 @@
         </div>
     @endif
 
-    <div class="mb-4">
-        <select wire:model.live="statusFilter" class="border rounded px-3 py-2 text-sm">
-            <option value="">All statuses</option>
-            <option value="pending_payment">Pending payment</option>
-            <option value="active">Active</option>
-            <option value="grace_period">Grace period</option>
-            <option value="past_due">Past due</option>
-            <option value="paused">Paused</option>
-            <option value="cancelled">Cancelled</option>
-            <option value="expired">Expired</option>
-            <option value="failed">Failed</option>
-        </select>
-    </div>
+    <x-ui.filter-tabs class="mb-4"
+                      :tabs="['' => 'All', 'pending_payment' => 'Pending payment', 'active' => 'Active', 'grace_period' => 'Grace period', 'past_due' => 'Past due', 'paused' => 'Paused', 'cancelled' => 'Cancelled', 'expired' => 'Expired', 'failed' => 'Failed']"
+                      :active="$statusFilter" model="statusFilter" />
 
     <x-ui.table>
         <x-slot:footer>{{ $subscriptions->links() }}</x-slot:footer>

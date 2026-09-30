@@ -24,14 +24,12 @@
             :run="$customersPreregRun" />
     @endif
 
+    <x-ui.filter-tabs class="mb-3"
+                      :tabs="['' => 'All', 'active' => 'Active', 'suspended' => 'Suspended', 'pending_verification' => 'Pending verification']"
+                      :active="$statusFilter" model="statusFilter" />
+
     <div class="flex flex-wrap gap-3 mb-4">
         <input type="text" wire:model.live.debounce.400ms="search" placeholder="Search name, phone, or email..." class="border rounded px-3 py-2 text-sm w-72">
-        <select wire:model.live="statusFilter" class="border rounded px-3 py-2 text-sm">
-            <option value="">All statuses</option>
-            <option value="active">Active</option>
-            <option value="suspended">Suspended</option>
-            <option value="pending_verification">Pending verification</option>
-        </select>
     </div>
 
     <x-ui.table>
