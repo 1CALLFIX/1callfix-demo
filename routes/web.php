@@ -247,3 +247,7 @@ Route::get('/coming-soon/{feature}', [PageController::class, 'comingSoon'])
     ->name('customer.coming-soon');
 
 require __DIR__.'/admin.php';
+
+// REF 1CF-CMS-ROOT-PAGES-001 - CMS pages at the site root (1callfix.com/franchise). Fallback = only
+// when no other route matches, so it can never shadow a real page.
+Route::fallback([PageController::class, 'cms']);

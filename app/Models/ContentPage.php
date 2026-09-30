@@ -16,8 +16,11 @@ class ContentPage extends Model
         'slug',
         'title',
         'content',
-        'is_active'
+        'is_active',
+        'show_in_footer',
+        'footer_order',
+        'meta_description',
     ];
 
-    protected $casts = ['is_active' => 'boolean'];
+    protected $casts = ['is_active' => 'boolean', 'show_in_footer' => 'boolean'];
 }

@@ -78,6 +78,21 @@ class PageController extends Controller
         return $this->contentPage('terms-and-conditions', 'terms');
     }
 
+    /**
+     * REF 1CF-CMS-ROOT-PAGES-001 - fallback for any address no real route owns:
+     * a single-segment path such as /franchise is served from the active CMS
+     * page with that slug; everything else is a plain 404. Because this only
+     * runs when nothing else matched, a CMS page can never shadow a site route.
+     */
+    public function cms(\Illuminate\Http\Request $request): View
+    {
+        $slug = trim($request->path(), '/');
+
+        abort_unless(preg_match('/^[A-Za-z0-9_-]+$/', $slug) === 1, 404);
+
+        return $this->contentPage($slug);
+    }
+
     /** Help centre — the real, active `faqs` rows, in the same order ContentController::faqs() returns them. */
     public function help(): View
     {

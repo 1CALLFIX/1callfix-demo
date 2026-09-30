@@ -36,6 +36,16 @@
         ],
     ];
 
+    // REF 1CF-CMS-ROOT-PAGES-001 - CMS pages the admin ticked "show in footer".
+    // Privacy/Terms already have their own Legal entries, so they are skipped here.
+    $footerPages = \App\Models\ContentPage::query()
+        ->where('is_active', true)->where('show_in_footer', true)
+        ->whereNotIn('slug', ['privacy', 'terms', 'privacy-policy', 'terms-and-conditions'])
+        ->orderBy('footer_order')->orderBy('title')->get(['slug', 'title']);
+    foreach ($footerPages as $footerPage) {
+        $columns['Company'][] = ['label' => $footerPage->title, 'href' => url('/'.$footerPage->slug)];
+    }
+
     /*
      | Social links come from the admin-managed social_media_links table
      | (Settings → Platform / Branding). A platform with no URL renders NOTHING

@@ -42,6 +42,9 @@ class Manage extends Component
     public string $pageTitle = '';
     public string $pageContent = '';
     public bool $pageIsActive = true;
+    public bool $pageShowInFooter = false;
+    public int|string $pageFooterOrder = 0;
+    public string $pageMetaDescription = '';
 
     // --- Pages: edit ---
     public bool $showEditPageModal = false;
@@ -50,6 +53,9 @@ class Manage extends Component
     public string $editPageTitle = '';
     public string $editPageContent = '';
     public bool $editPageIsActive = true;
+    public bool $editPageShowInFooter = false;
+    public int|string $editPageFooterOrder = 0;
+    public string $editPageMetaDescription = '';
 
     // --- FAQs: add ---
     public string $faqCategory = '';
@@ -92,7 +98,14 @@ class Manage extends Component
             'pageSlug' => ['required', 'string', 'max:255', 'alpha_dash', 'unique:content_pages,slug'],
             'pageTitle' => ['required', 'string', 'max:255'],
             'pageContent' => ['nullable', 'string'],
+            'pageFooterOrder' => ['nullable', 'integer', 'min:0', 'max:65000'],
+            'pageMetaDescription' => ['nullable', 'string', 'max:300'],
         ], [], ['pageSlug' => 'slug', 'pageTitle' => 'title']);
+
+        if (self::addressTaken($this->pageSlug)) {
+            $this->addError('pageSlug', 'That web address (1callfix.com/'.$this->pageSlug.') is already used by the site. Pick another slug.');
+            return;
+        }
 
         // content_pages/faqs carry no franchise column — platform-wide
         // content, same global-only scope as geography.manage.
@@ -106,9 +119,12 @@ class Manage extends Component
             'title' => $this->pageTitle,
             'content' => $this->pageContent ?: null,
             'is_active' => $this->pageIsActive,
+            'show_in_footer' => $this->pageShowInFooter,
+            'footer_order' => (int) $this->pageFooterOrder,
+            'meta_description' => $this->pageMetaDescription ?: null,
         ]);
 
-        $this->reset(['pageSlug', 'pageTitle', 'pageContent']);
+        $this->reset(['pageSlug', 'pageTitle', 'pageContent', 'pageShowInFooter', 'pageFooterOrder', 'pageMetaDescription']);
         $this->pageIsActive = true;
         $this->flashMessage = 'Page created.';
     }
@@ -122,6 +138,9 @@ class Manage extends Component
         $this->editPageTitle = $page->title;
         $this->editPageContent = $page->content ?? '';
         $this->editPageIsActive = $page->is_active;
+        $this->editPageShowInFooter = (bool) $page->show_in_footer;
+        $this->editPageFooterOrder = (int) $page->footer_order;
+        $this->editPageMetaDescription = $page->meta_description ?? '';
 
         $this->resetValidation();
         $this->showEditPageModal = true;
@@ -133,7 +152,16 @@ class Manage extends Component
             'editPageSlug' => ['required', 'string', 'max:255', 'alpha_dash', 'unique:content_pages,slug,'.$this->editPageId],
             'editPageTitle' => ['required', 'string', 'max:255'],
             'editPageContent' => ['nullable', 'string'],
+            'editPageFooterOrder' => ['nullable', 'integer', 'min:0', 'max:65000'],
+            'editPageMetaDescription' => ['nullable', 'string', 'max:300'],
         ], [], ['editPageSlug' => 'slug', 'editPageTitle' => 'title']);
+
+        // Only check the address when the slug actually changes: existing pages
+        // such as `privacy` / `terms` legitimately sit on addresses the site owns.
+        if (ContentPage::whereKey($this->editPageId)->value('slug') !== $this->editPageSlug && self::addressTaken($this->editPageSlug)) {
+            $this->addError('editPageSlug', 'That web address (1callfix.com/'.$this->editPageSlug.') is already used by the site. Pick another slug.');
+            return;
+        }
 
         if (! auth()->user()->hasPermission('cms.manage')) {
             $this->addError('permission', 'You do not have permission to manage CMS content.');
@@ -145,10 +173,29 @@ class Manage extends Component
             'title' => $this->editPageTitle,
             'content' => $this->editPageContent ?: null,
             'is_active' => $this->editPageIsActive,
+            'show_in_footer' => $this->editPageShowInFooter,
+            'footer_order' => (int) $this->editPageFooterOrder,
+            'meta_description' => $this->editPageMetaDescription ?: null,
         ]);
 
         $this->showEditPageModal = false;
         $this->flashMessage = 'Page updated.';
+    }
+
+    /**
+     * True when `/{slug}` already belongs to a real site route (services,
+     * login, admin, ...), so a CMS page saved on it could never be reached.
+     * Unmatched addresses fall through to the CMS page fallback route.
+     */
+    public static function addressTaken(string $slug): bool
+    {
+        try {
+            $route = \Illuminate\Support\Facades\Route::getRoutes()->match(\Illuminate\Http\Request::create('/'.$slug));
+        } catch (\Symfony\Component\HttpKernel\Exception\NotFoundHttpException|\Symfony\Component\HttpKernel\Exception\MethodNotAllowedHttpException) {
+            return false;
+        }
+
+        return ! $route->isFallback;
     }
 
     public function closeEditPageModal(): void

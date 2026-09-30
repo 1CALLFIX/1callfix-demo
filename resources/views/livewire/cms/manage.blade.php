@@ -42,9 +42,23 @@
                 <label class="block text-xs font-medium mb-1">Content</label>
                 <textarea wire:model="pageContent" rows="4" class="w-full border rounded px-3 py-2 text-sm"></textarea>
             </div>
+            <div class="mt-3">
+                <label class="block text-xs font-medium mb-1">Search description (optional, shown by Google under the page title, up to 300 characters)</label>
+                <input type="text" maxlength="300" wire:model="pageMetaDescription" class="w-full border rounded px-3 py-2 text-sm">
+                @error('pageMetaDescription') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
+            </div>
             <label class="inline-flex items-center gap-2 text-sm mt-3">
-                <input type="checkbox" wire:model="pageIsActive" class="rounded"> Published (reachable via <code>GET /api/pages/{slug}</code> as soon as saved)
+                <input type="checkbox" wire:model="pageIsActive" class="rounded"> Published &mdash; live at <code>1callfix.com/{{ $pageSlug !== '' ? $pageSlug : 'your-slug' }}</code> and via <code>GET /api/pages/{slug}</code> as soon as saved
             </label>
+            <div class="flex flex-wrap items-center gap-4 mt-2">
+                <label class="inline-flex items-center gap-2 text-sm">
+                    <input type="checkbox" wire:model="pageShowInFooter" class="rounded"> Show link in website footer
+                </label>
+                <label class="inline-flex items-center gap-2 text-sm">
+                    Footer order
+                    <input type="number" min="0" wire:model="pageFooterOrder" class="w-20 border rounded px-2 py-1 text-sm">
+                </label>
+            </div>
             <div class="flex justify-end mt-3">
                 <x-ui.button class="h-[38px]" wire:click="savePage">+ Add Page</x-ui.button>
             </div>
@@ -239,9 +253,23 @@
                 <label class="block text-sm font-medium mb-1">Content</label>
                 <textarea wire:model="editPageContent" rows="6" class="w-full border rounded px-3 py-2 text-sm"></textarea>
             </div>
+            <div>
+                <label class="block text-sm font-medium mb-1">Search description (optional)</label>
+                <input type="text" maxlength="300" wire:model="editPageMetaDescription" class="w-full border rounded px-3 py-2 text-sm">
+                @error('editPageMetaDescription') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
+            </div>
             <label class="inline-flex items-center gap-2 text-sm">
                 <input type="checkbox" wire:model="editPageIsActive" class="rounded"> Published
             </label>
+            <div class="flex flex-wrap items-center gap-4">
+                <label class="inline-flex items-center gap-2 text-sm">
+                    <input type="checkbox" wire:model="editPageShowInFooter" class="rounded"> Show link in website footer
+                </label>
+                <label class="inline-flex items-center gap-2 text-sm">
+                    Footer order
+                    <input type="number" min="0" wire:model="editPageFooterOrder" class="w-20 border rounded px-2 py-1 text-sm">
+                </label>
+            </div>
         </div>
 
         <x-slot:footer>
