@@ -1,31 +1,6 @@
 @php
     $platformName = \App\Models\Setting::get('branding.platform_name', '1CallFix');
 
-    /*
-     | Primary navigation. Trimmed to the two catalog-browse destinations
-     | (Urban Company's reference bar carries 2–4 top-level links, no more):
-     | the bar's job is to get a customer into the catalogue, and Search +
-     | the "Book a Service" CTA already do the rest.
-     |
-     | Offers, How It Works and Help were removed from this bar on 2026-08-31.
-     | Nothing was lost: all three already have a permanent home in
-     | components/customer/footer.blade.php (Offers under "Services", How It
-     | Works and Help & FAQs under "Company"). Re-adding one is a single line
-     | back in this array — the routes (customer.offers / customer.how-it-works
-     | / customer.help) are untouched and still live.
-     |
-     | The vertical switcher (Parcel, Taxi, Rental, Hotels, Marketplace) is
-     | deliberately absent. Those verticals have real backends but no customer
-     | screens, Services is the launch experience, and a nav row of links to
-     | placeholders would make the app look larger and emptier at the same
-     | time. Adding one later is a change to this array plus its routes —
-     | nothing about the layout, header or catalog architecture assumes a
-     | single vertical.
-     */
-    $primaryNav = [
-        ['label' => 'Services', 'route' => 'customer.services.index', 'param' => null],
-        ['label' => 'Categories', 'route' => 'customer.categories.index', 'param' => null],
-    ];
 @endphp
 
 <header class="sticky top-0 z-40 border-b border-slate-200 bg-white/85 backdrop-blur-md supports-[backdrop-filter]:bg-white/70">
@@ -47,112 +22,82 @@
                 <x-customer.brand-mark name-class="min-w-0 truncate text-base sm:text-lg" />
             </a>
 
-            {{-- Desktop primary navigation --}}
-            <nav aria-label="Primary" class="hidden lg:flex items-center gap-1">
-                @foreach ($primaryNav as $item)
-                    @php
-                        $href = $item['param']
-                            ? route($item['route'], $item['param'])
-                            : route($item['route']);
-                        $isCurrent = url()->current() === $href;
-                    @endphp
-                    <a href="{{ $href }}"
-                       @if ($isCurrent) aria-current="page" @endif
-                       @class([
-                           'rounded-md px-3 py-2 text-sm font-medium transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600',
-                           'bg-blue-50 text-blue-700' => $isCurrent,
-                           'text-slate-600 hover:bg-slate-50 hover:text-slate-900' => ! $isCurrent,
-                       ])>{{ $item['label'] }}</a>
-                @endforeach
-            </nav>
-
-            {{-- Persistent search field, from `sm` up. Urban Company and every
-                 comparable services marketplace put a live search box in the
-                 bar itself rather than behind an icon — search is the primary
-                 way people navigate a large catalogue. The same compact
-                 SearchBar island renders again as a full-width second row
-                 under `sm` (below), so search is always one tap away without
-                 depending on the bottom navigation. --}}
-            <div class="hidden flex-1 justify-center px-2 sm:flex lg:justify-end">
+            {{-- Persistent search field, from `sm` up (compact SearchBar island;
+                 a second one renders as the full-width mobile row below). --}}
+            <div class="hidden flex-1 justify-center px-2 sm:flex">
                 <livewire:customer.search-bar :compact="true" />
             </div>
 
-            {{-- Right cluster. min-w-0 so the account name's truncate can
-                 actually engage instead of forcing the row wider. --}}
-            <div class="flex min-w-0 items-center gap-1 sm:gap-2">
+            {{-- Right cluster (1CF-HEADER-HAMBURGER-001): location, cart and ONE
+                 menu button. Services / Categories / Earnings / Partner
+                 dashboard / Log out all live inside the menu, so the bar
+                 stays uncluttered like the reference marketplaces. --}}
+            <div class="ml-auto flex min-w-0 items-center gap-1 sm:ml-0 sm:gap-2">
 
-                {{-- Location. Same trigger on every breakpoint; the label
-                     collapses to the icon alone on small screens. --}}
                 <livewire:customer.location-picker />
 
-                {{-- The language switcher that used to sit here was removed
-                     when the persistent search field took the bar's spare
-                     width. It was a `2xl`-only link to a placeholder (no
-                     translation infrastructure exists yet) — the least
-                     important item in the cluster, and the one to drop first.
-                     Re-add it as a real control when lang/ files exist. --}}
-
-                {{-- Account --}}
-                @auth
-                    <div class="flex items-center gap-1">
-                        {{-- EARN3 — the one "Earnings" entry; hidden while every Earnings tab is off. --}}
-                        @if ($earningsRoute = \App\Support\CustomerEarningsNav::firstRoute(auth()->user()))
-                            <a href="{{ route($earningsRoute) }}" wire:navigate
-                               @if (request()->routeIs('customer.earnings.*')) aria-current="page" @endif
-                               class="hidden sm:inline-flex min-h-11 items-center whitespace-nowrap rounded-md px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 hover:text-slate-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600">
-                                Earnings
-                            </a>
-                        @endif
-                        @if (auth()->user()->providerProfile)
-                            <a href="{{ route('provider.dashboard') }}"
-                               class="hidden sm:inline-flex min-h-11 items-center whitespace-nowrap rounded-md px-3 py-2 text-sm font-medium text-blue-700 transition hover:bg-blue-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600">
-                                Partner dashboard
-                            </a>
-                        @endif
-                        <a href="{{ route('customer.account') }}"
-                           class="inline-flex min-h-11 items-center gap-2 rounded-md px-2 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900">
-                            <span aria-hidden="true"
-                                  class="grid h-8 w-8 place-items-center rounded-full bg-slate-100 text-xs font-semibold text-slate-700">
-                                {{ \Illuminate\Support\Str::of(auth()->user()->name)->substr(0, 1)->upper() }}
-                            </span>
-                            <span class="hidden sm:inline max-w-[10rem] truncate">{{ auth()->user()->name }}</span>
-                        </a>
-                        <form method="POST" action="{{ route('customer.logout') }}">
-                            @csrf
-                            <button type="submit"
-                                    class="hidden sm:inline-flex min-h-11 items-center rounded-md px-3 py-2 text-sm font-medium text-slate-500 transition hover:bg-slate-50 hover:text-slate-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900">
-                                Log out
-                            </button>
-                        </form>
-                    </div>
-                @else
-                    {{-- whitespace-nowrap: without it "Sign in" wraps to two
-                         lines the moment the row gets tight, which is worse
-                         than the two characters of width it saves. --}}
-                    <a href="{{ route('customer.login') }}"
-                       class="inline-flex min-h-11 items-center whitespace-nowrap rounded-md px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 hover:text-slate-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900">
-                        Sign in
-                    </a>
-                @endauth
-
-                {{-- Services cart. Its own Livewire island so the count
-                     badge updates live on `cart-updated` without a reload.
-                     Renders nothing for a guest. --}}
                 @auth
                     <livewire:customer.cart-count />
                 @endauth
 
-                {{-- Primary CTA. Held at `xl` and up: between 640 and 1279px
-                     the persistent search field owns the bar's spare width.
-                     With the primary nav down to two links there is now slack
-                     at `lg` to bring this forward — left as a follow-up so
-                     this change stays a pure nav trim. Every service page and
-                     the homepage hero carry their own booking entry, so this
-                     is a shortcut, not the only path. --}}
-                <a href="{{ route('customer.services.index') }}"
-                   class="hidden xl:inline-flex min-h-11 items-center whitespace-nowrap rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm shadow-blue-600/25 transition hover:bg-blue-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600">
-                    Book a Service
-                </a>
+                @guest
+                    <a href="{{ route('customer.login') }}"
+                       class="inline-flex min-h-11 items-center whitespace-nowrap rounded-md px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 hover:text-slate-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900">
+                        Sign in
+                    </a>
+                @endguest
+
+                {{-- Menu: hamburger-style button opening a dropdown. Alpine ships
+                     with Livewire; closes on outside click, Escape and navigation. --}}
+                <div class="relative" x-data="{ open: false }" @keydown.escape.window="open = false" @click.outside="open = false">
+                    <button type="button" @click="open = !open" :aria-expanded="open.toString()" aria-haspopup="menu" aria-label="Open menu"
+                            class="inline-flex h-11 w-11 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-700 transition hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600">
+                        @auth
+                            <span aria-hidden="true" class="text-sm font-semibold">{{ \Illuminate\Support\Str::of(auth()->user()->name)->substr(0, 1)->upper() }}</span>
+                        @else
+                            <svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" d="M4 7h16M4 12h16M4 17h16"/></svg>
+                        @endauth
+                    </button>
+
+                    <div x-show="open" style="display:none" x-transition.origin.top.right role="menu"
+                         class="absolute right-0 top-full z-50 mt-2 w-64 overflow-hidden rounded-2xl border border-slate-200 bg-white py-2 shadow-xl shadow-slate-900/10">
+                        @auth
+                            <div class="border-b border-slate-100 px-4 pb-3 pt-1">
+                                <p class="truncate text-sm font-semibold text-slate-900">{{ auth()->user()->name }}</p>
+                            </div>
+                        @endauth
+
+                        @php
+                            $menu = [
+                                ['Services', route('customer.services.index')],
+                                ['Categories', route('customer.categories.index')],
+                            ];
+                            if (auth()->check()) {
+                                $menu[] = ['My bookings', route('customer.orders.index')];
+                                if ($earningsRoute = \App\Support\CustomerEarningsNav::firstRoute(auth()->user())) {
+                                    $menu[] = ['Earnings', route($earningsRoute)];
+                                }
+                                if (auth()->user()->providerProfile) {
+                                    $menu[] = ['Partner dashboard', route('provider.dashboard')];
+                                }
+                                $menu[] = ['My account', route('customer.account')];
+                            }
+                            $menu[] = ['Help Center', route('customer.help')];
+                        @endphp
+                        @foreach ($menu as [$label, $href])
+                            <a href="{{ $href }}" role="menuitem"
+                               class="block px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50 hover:text-slate-900">{{ $label }}</a>
+                        @endforeach
+
+                        @auth
+                            <form method="POST" action="{{ route('customer.logout') }}" class="mt-1 border-t border-slate-100 pt-1">
+                                @csrf
+                                <button type="submit" role="menuitem"
+                                        class="block w-full px-4 py-2.5 text-left text-sm font-medium text-slate-700 transition hover:bg-slate-50 hover:text-slate-900">Log out</button>
+                            </form>
+                        @endauth
+                    </div>
+                </div>
             </div>
         </div>
 

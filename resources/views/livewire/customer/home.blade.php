@@ -69,18 +69,22 @@
     --}}
     <section class="border-b border-slate-200 bg-gradient-to-b from-blue-50/70 via-white to-white">
         <div class="mx-auto max-w-7xl px-4 py-8 sm:px-6 sm:py-10 lg:px-8">
-            <div class="grid gap-8 lg:grid-cols-5 lg:items-center">
+            @php
+                // Photo collage: real cover images from the live catalogue
+                // (most booked first, then newest) — nothing invented. Fewer
+                // than two images and the collage is dropped, not padded.
+                $collage = collect($mostBooked)->concat($newServices)
+                    ->filter(fn ($c) => ! empty($c['image_url']))
+                    ->unique('url')->take(4)->values();
+                $showCollage = $collage->count() >= 2;
+            @endphp
+            <div @class(['grid gap-8 lg:items-center', 'lg:grid-cols-2' => $showCollage])>
 
-                {{-- Statement --}}
-                <div class="lg:col-span-2">
-                    <h1 class="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl lg:text-4xl">
-                        {{ $cityLabel ? 'Home services across '.$cityLabel : 'Home services, on call' }}
-                    </h1>
-                    <p class="mt-3 max-w-md text-sm text-slate-600 sm:text-base">
-                        Trusted local professionals for cleaning, repairs, appliances and more —
-                        priced up front and booked in a few taps.
-                    </p>
-                </div>
+                {{-- The visible headline was removed (1CF-HEADER-HAMBURGER-001);
+                     the <h1> stays for screen readers and SEO. --}}
+                <h1 class="sr-only">
+                    {{ $cityLabel ? 'Home services across '.$cityLabel : 'Home services, on call' }}
+                </h1>
 
                 {{-- Category grid. A real grid at every width now (was a
                      horizontal scroll rail under `sm`): four columns, its
@@ -88,7 +92,7 @@
                      comparable marketplace. The compact tile variant is
                      icon-over-label with no per-tile border — the card is
                      the frame. --}}
-                <div class="lg:col-span-3">
+                <div>
                     @if ($categories->isNotEmpty())
                         <h2 id="shortcuts-heading" class="sr-only">Browse by category</h2>
                         <ul aria-labelledby="shortcuts-heading"
@@ -104,6 +108,26 @@
                                           description="Service categories will appear here once they are published from the admin panel." />
                     @endif
                 </div>
+
+                {{-- Photo collage, from `md` up. Two staggered columns of real
+                     service covers, each a link to its service. --}}
+                @if ($showCollage)
+                    <div class="hidden grid-cols-2 gap-3 md:grid" aria-label="Popular services">
+                        @foreach ($collage->chunk(2) as $col)
+                            <div @class(['flex flex-col gap-3', 'pt-8' => $loop->last])>
+                                @foreach ($col as $card)
+                                    <a href="{{ $card['url'] }}"
+                                       class="group relative block overflow-hidden rounded-2xl bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600
+                                              {{ ($loop->first xor $loop->parent->last) ? 'aspect-[4/5]' : 'aspect-[4/3]' }}">
+                                        <img src="{{ $card['image_url'] }}" alt="{{ $card['name'] }}" loading="lazy" decoding="async"
+                                             class="h-full w-full object-cover transition duration-300 group-hover:scale-105">
+                                        <span class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/60 to-transparent px-3 pb-2 pt-8 text-sm font-semibold text-white">{{ $card['name'] }}</span>
+                                    </a>
+                                @endforeach
+                            </div>
+                        @endforeach
+                    </div>
+                @endif
             </div>
         </div>
     </section>
