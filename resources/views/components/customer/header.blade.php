@@ -84,6 +84,16 @@
                             }
                             $menu[] = ['Help Center', route('customer.help')];
                             if (! auth()->check()) {
+                                // Signed out: same tab switches, global scope only. The
+                                // target is auth-gated, so this routes via sign-in.
+                                $guestEarningsRoute = collect([
+                                    'earnings.wallet_tab' => 'customer.earnings.wallet',
+                                    'earnings.loyalty_tab' => 'customer.earnings.loyalty',
+                                    'earnings.referral_tab' => 'customer.earnings.referrals',
+                                ])->first(fn ($route, $switch) => \App\Support\EarningsSettings::customerTabOn($switch, []));
+                                if ($guestEarningsRoute) {
+                                    array_splice($menu, 2, 0, [['Earnings', route($guestEarningsRoute)]]);
+                                }
                                 $menu[] = ['Sign in', route('customer.login')];
                             }
                         @endphp

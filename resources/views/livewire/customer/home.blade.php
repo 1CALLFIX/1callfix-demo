@@ -75,10 +75,11 @@
                 // than two images and the collage is dropped, not padded.
                 $collage = collect($mostBooked)->concat($newServices)
                     ->filter(fn ($c) => ! empty($c['image_url']))
-                    ->unique('url')->take(4)->values();
+                    ->unique('url')->values();
+                $collage = $collage->take($collage->count() >= 4 ? 4 : 2);
                 $showCollage = $collage->count() >= 2;
             @endphp
-            <div @class(['grid gap-8 lg:items-center', 'lg:grid-cols-2' => $showCollage])>
+            <div @class(['grid gap-8', 'lg:grid-cols-2' => $showCollage])>
 
                 {{-- The visible headline was removed (1CF-HEADER-HAMBURGER-001);
                      the <h1> stays for screen readers and SEO. --}}
@@ -112,19 +113,17 @@
                 {{-- Photo collage, from `md` up. Two staggered columns of real
                      service covers, each a link to its service. --}}
                 @if ($showCollage)
-                    <div class="hidden grid-cols-2 gap-3 md:grid" aria-label="Popular services">
-                        @foreach ($collage->chunk(2) as $col)
-                            <div @class(['flex flex-col gap-3', 'pt-8' => $loop->last])>
-                                @foreach ($col as $card)
-                                    <a href="{{ $card['url'] }}"
-                                       class="group relative block overflow-hidden rounded-2xl bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600
-                                              {{ ($loop->first xor $loop->parent->last) ? 'aspect-[4/3]' : 'aspect-video' }}">
-                                        <img src="{{ $card['image_url'] }}" alt="{{ $card['name'] }}" loading="lazy" decoding="async"
-                                             class="h-full w-full object-cover transition duration-300 group-hover:scale-105">
-                                        <span class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/60 to-transparent px-3 pb-2 pt-8 text-sm font-semibold text-white">{{ $card['name'] }}</span>
-                                    </a>
-                                @endforeach
-                            </div>
+                    {{-- Fills exactly the height of the category card beside it
+                         (grid stretch), one row of two or two rows of two. --}}
+                    <div class="hidden gap-3 md:grid" aria-label="Popular services"
+                         style="grid-template-columns:repeat(2,minmax(0,1fr));grid-template-rows:repeat({{ $collage->count() > 2 ? 2 : 1 }},minmax(0,1fr));min-height:16rem">
+                        @foreach ($collage as $card)
+                            <a href="{{ $card['url'] }}"
+                               class="group relative block h-full overflow-hidden rounded-2xl bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600">
+                                <img src="{{ $card['image_url'] }}" alt="{{ $card['name'] }}" loading="lazy" decoding="async"
+                                     class="absolute inset-0 h-full w-full object-cover transition duration-300 group-hover:scale-105">
+                                <span class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/60 to-transparent px-3 pb-2 pt-8 text-sm font-semibold text-white">{{ $card['name'] }}</span>
+                            </a>
                         @endforeach
                     </div>
                 @endif
