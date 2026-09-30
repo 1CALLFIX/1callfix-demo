@@ -1,2 +1,15 @@
 User-agent: *
-Disallow:
+Disallow: /admin
+Disallow: /provider
+Disallow: /api/
+Disallow: /cart
+Disallow: /checkout
+Disallow: /orders
+Disallow: /account
+Disallow: /wallet
+Disallow: /earnings
+Disallow: /book/
+Disallow: /login
+Disallow: /signup
+
+Sitemap: https://1callfix.com/sitemap.xml

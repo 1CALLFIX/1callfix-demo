@@ -227,6 +227,7 @@ Route::get('/help', [PageController::class, 'help'])->name('customer.help');
 Route::get('/how-it-works', [PageController::class, 'howItWorks'])->name('customer.how-it-works');
 Route::get('/privacy', [PageController::class, 'privacy'])->name('customer.privacy');
 Route::get('/terms', [PageController::class, 'terms'])->name('customer.terms');
+Route::get('/sitemap.xml', \App\Http\Controllers\Customer\SitemapController::class)->name('customer.sitemap');
 // Conventional long-form URLs (what payment gateways and app-store listings usually ask for).
 Route::get('/privacy-policy', [PageController::class, 'privacy']);
 Route::get('/terms-and-conditions', [PageController::class, 'terms']);
