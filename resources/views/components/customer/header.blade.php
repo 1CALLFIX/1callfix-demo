@@ -42,7 +42,7 @@
 
                 @guest
                     <a href="{{ route('customer.login') }}"
-                       class="inline-flex min-h-11 items-center whitespace-nowrap rounded-md px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 hover:text-slate-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900">
+                       class="hidden sm:inline-flex min-h-11 items-center whitespace-nowrap rounded-md px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 hover:text-slate-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900">
                         Sign in
                     </a>
                 @endguest
@@ -83,6 +83,9 @@
                                 $menu[] = ['My account', route('customer.account')];
                             }
                             $menu[] = ['Help Center', route('customer.help')];
+                            if (! auth()->check()) {
+                                $menu[] = ['Sign in', route('customer.login')];
+                            }
                         @endphp
                         @foreach ($menu as [$label, $href])
                             <a href="{{ $href }}" role="menuitem"
