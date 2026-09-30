@@ -67,8 +67,11 @@
          inventory keeps the first position); this hero is what carries the
          "what is this / where do I start" role.
     --}}
-    <section class="border-b border-slate-200 bg-gradient-to-b from-blue-50/70 via-white to-white">
-        <div class="mx-auto max-w-7xl px-4 py-8 sm:px-6 sm:py-10 lg:px-8">
+    <section class="relative overflow-hidden border-b border-slate-200 bg-gradient-to-b from-blue-50 via-white to-white">
+        {{-- Decorative soft colour blobs (purely visual). --}}
+        <div aria-hidden="true" class="pointer-events-none absolute -left-24 -top-24 h-72 w-72 rounded-full bg-blue-200/50 blur-3xl"></div>
+        <div aria-hidden="true" class="pointer-events-none absolute -right-20 top-10 h-64 w-64 rounded-full bg-indigo-200/40 blur-3xl"></div>
+        <div class="relative mx-auto max-w-7xl px-4 py-8 sm:px-6 sm:py-12 lg:px-8">
             @php
                 // Home Spotlight tiles (admin-curated, auto-topped-up) — see Home::spotlight().
                 $collage = $spotlight;
@@ -93,7 +96,7 @@
                     @if ($categories->isNotEmpty())
                         <h2 id="shortcuts-heading" class="sr-only">Browse by category</h2>
                         <ul aria-labelledby="shortcuts-heading"
-                            class="grid grid-cols-4 gap-1 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:gap-2 sm:p-4">
+                            class="grid grid-cols-4 gap-1 rounded-3xl border border-white/70 bg-white/90 p-3 shadow-xl shadow-blue-900/10 ring-1 ring-slate-900/5 backdrop-blur sm:gap-2 sm:p-5">
                             @foreach ($categories as $category)
                                 <li>
                                     <x-customer.category-tile :category="$category" variant="compact" class="h-full" />
@@ -115,16 +118,16 @@
                          style="grid-template-columns:repeat({{ $collageCols }},minmax(0,1fr));grid-template-rows:repeat({{ (int) ceil($collage->count() / $collageCols) }},minmax(0,1fr));min-height:16rem">
                         @foreach ($collage as $tile)
                             <a href="{{ $tile['url'] }}"
-                               class="group relative block h-full overflow-hidden rounded-2xl bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600">
+                               class="group relative block h-full overflow-hidden rounded-3xl bg-slate-100 shadow-lg shadow-slate-900/10 ring-1 ring-black/5 transition duration-300 hover:-translate-y-1 hover:shadow-xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600">
                                 @if ($tile['image_url'])
                                     <img src="{{ $tile['image_url'] }}" alt="{{ $tile['name'] }}" loading="lazy" decoding="async"
                                          class="absolute inset-0 h-full w-full object-cover transition duration-300 group-hover:scale-105">
                                 @endif
                                 @if ($tile['badge'])
-                                    <span class="absolute rounded-full bg-blue-600 px-2 py-0.5 text-xs font-semibold text-white shadow"
+                                    <span class="absolute rounded-full bg-gradient-to-r from-rose-500 to-orange-400 px-2.5 py-0.5 text-xs font-bold text-white shadow-md"
                                           style="left:.5rem;top:.5rem">{{ $tile['badge'] }}</span>
                                 @endif
-                                <span class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/60 to-transparent px-3 pb-2 pt-8 text-sm font-semibold text-white">{{ $tile['name'] }}</span>
+                                <span class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent px-4 pb-3 pt-10 text-sm font-bold text-white drop-shadow">{{ $tile['name'] }}</span>
                             </a>
                         @endforeach
                     </div>

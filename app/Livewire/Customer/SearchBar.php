@@ -47,6 +47,9 @@ class SearchBar extends Component
     public string $term = '';
     public bool $compact = false;
 
+    /** Header "pill" variant: borderless field inside the combined location + search bar, with a round search button. */
+    public bool $pill = false;
+
     /**
      * Whether the dropdown is open. Closed on every fresh render of a page,
      * opened by focusing or typing — so a suggestion list never survives a
@@ -65,9 +68,10 @@ class SearchBar extends Component
     private const CATEGORY_LIMIT = 4;
     private const DEFAULT_LIMIT = 6;
 
-    public function mount(bool $compact = false, string $term = ''): void
+    public function mount(bool $compact = false, string $term = '', bool $pill = false): void
     {
         $this->compact = $compact;
+        $this->pill = $pill;
         $this->term = $term;
     }
 

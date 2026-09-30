@@ -38,7 +38,7 @@
 
 @if ($isCompact)
     <a href="{{ route('customer.categories.show', $category) }}"
-       {{ $attributes->merge(['class' => 'group flex h-full flex-col items-center gap-2 rounded-xl p-2 text-center transition hover:bg-blue-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600']) }}>
+       {{ $attributes->merge(['class' => 'group flex h-full flex-col items-center gap-2 rounded-2xl p-2 text-center transition duration-200 hover:-translate-y-0.5 hover:bg-blue-50 hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600']) }}>
         <span aria-hidden="true"
               class="relative grid h-14 w-14 shrink-0 place-items-center overflow-hidden rounded-2xl text-lg font-semibold text-slate-700 sm:h-16 sm:w-16"
               style="background-color: {{ $tint }}">

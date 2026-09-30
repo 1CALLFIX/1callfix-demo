@@ -123,7 +123,7 @@
                         }
                     @endphp
 
-                    <div class="relative overflow-hidden rounded-2xl bg-slate-900">
+                    <div class="relative overflow-hidden rounded-3xl bg-slate-900 shadow-xl shadow-blue-900/15 ring-1 ring-black/5">
                         @if ($inner)
                             {{-- One stored image serves both breakpoints —
                                  the schema has no separate mobile asset (see
@@ -182,7 +182,7 @@
                                  banner's own title — never from hard-coded
                                  copy. --}}
                             <a href="{{ $href }}"
-                               class="absolute inset-0 rounded-2xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">
+                               class="absolute inset-0 rounded-3xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">
                                 <span class="sr-only">{{ $banner->title ?: 'Open promotion' }}</span>
                             </a>
                         @endif

@@ -3,7 +3,9 @@
 
 @endphp
 
-<header class="sticky top-0 z-40 border-b border-slate-200 bg-white/85 backdrop-blur-md supports-[backdrop-filter]:bg-white/70">
+<header class="sticky top-0 z-40 border-b border-slate-200/80 bg-white/85 shadow-sm shadow-slate-900/5 backdrop-blur-md supports-[backdrop-filter]:bg-white/75">
+    {{-- Slim brand accent line (1CF-TOPBAR-POLISH-001). --}}
+    <div aria-hidden="true" class="h-1 w-full bg-gradient-to-r from-blue-600 via-indigo-500 to-sky-400"></div>
     <div class="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         {{-- gap-2 at `lg`, back to gap-4 at `xl`: kept from when this bar
              carried a five-link primary nav and 1024–1279px was 15px over.
@@ -22,10 +24,17 @@
                 <x-customer.brand-mark name-class="min-w-0 truncate text-base sm:text-lg" />
             </a>
 
-            {{-- Persistent search field, from `sm` up (compact SearchBar island;
-                 a second one renders as the full-width mobile row below). --}}
-            <div class="hidden flex-1 justify-center px-2 sm:flex">
-                <livewire:customer.search-bar :compact="true" />
+            {{-- Location + search as ONE elevated pill from `sm` up (1CF-TOPBAR-POLISH-001): pin + area
+                 on the left, a divider, the search field and a round blue search button on the right.
+                 On phones the location is a compact field next to the brand and search is the row below. --}}
+            <div class="min-w-0 shrink sm:flex sm:flex-1 sm:justify-center">
+                <div class="flex min-w-0 items-center sm:w-full sm:max-w-xl sm:rounded-full sm:border sm:border-slate-200 sm:bg-white sm:py-1 sm:pl-1 sm:pr-1 sm:shadow-md sm:shadow-slate-900/5 sm:transition sm:duration-200 sm:focus-within:border-blue-400 sm:focus-within:shadow-lg sm:focus-within:shadow-blue-600/10 sm:hover:shadow-lg">
+                    <livewire:customer.location-picker />
+                    <div aria-hidden="true" class="mx-1 hidden h-6 w-px shrink-0 bg-slate-200 sm:block"></div>
+                    <div class="hidden min-w-0 flex-1 sm:block">
+                        <livewire:customer.search-bar :compact="true" :pill="true" />
+                    </div>
+                </div>
             </div>
 
             {{-- Right cluster (1CF-HEADER-HAMBURGER-001): location, cart and ONE
@@ -33,8 +42,6 @@
                  dashboard / Log out all live inside the menu, so the bar
                  stays uncluttered like the reference marketplaces. --}}
             <div class="ml-auto flex min-w-0 items-center gap-1 sm:ml-0 sm:gap-2">
-
-                <livewire:customer.location-picker />
 
                 @auth
                     <livewire:customer.cart-count />
@@ -46,6 +53,13 @@
                         Sign in
                     </a>
                 @endguest
+
+                {{-- Primary CTA, visible from `sm` up (it had been hidden below `xl`, and was
+                     dropped when the header was decluttered). Mobile keeps the bottom bar. --}}
+                <a href="{{ route('customer.services.index') }}"
+                   class="hidden sm:inline-flex min-h-10 items-center whitespace-nowrap rounded-lg bg-blue-600 px-4 text-sm font-semibold text-white shadow-sm shadow-blue-600/25 transition hover:bg-blue-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600">
+                    Book Now
+                </a>
 
                 {{-- Menu: hamburger-style button opening a dropdown. Alpine ships
                      with Livewire; closes on outside click, Escape and navigation. --}}

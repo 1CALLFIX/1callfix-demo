@@ -51,6 +51,13 @@ class CmsRootPagesTest extends TestCase
         $this->get('/services')->assertOk()->assertDontSeeText('SHADOW ATTEMPT');
     }
 
+    public function test_a_get_to_a_post_only_address_is_still_405_not_404(): void
+    {
+        $this->get('/logout')->assertStatus(405);
+        $this->get('/api/webhooks/razorpay')->assertStatus(405);
+        $this->get('/definitely-not-a-page')->assertNotFound();
+    }
+
     public function test_admin_cannot_save_a_page_on_an_address_the_site_already_uses_but_can_on_a_free_one(): void
     {
         $admin = $this->makeSuperAdmin();

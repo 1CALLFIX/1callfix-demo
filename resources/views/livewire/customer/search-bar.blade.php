@@ -43,7 +43,7 @@
 <form wire:submit="submit"
       role="search"
       data-search-bar
-      @class(['relative', 'w-full' => ! $compact, 'w-full sm:w-64 lg:w-80' => $compact])>
+      @class(['relative', 'w-full' => ! $compact || $pill, 'w-full sm:w-44 lg:w-56' => $compact && ! $pill])>
 
     <label for="{{ $inputId }}" class="sr-only">Search for a service</label>
 
@@ -66,14 +66,26 @@
                    aria-autocomplete="list"
                    placeholder="{{ $placeholderExamples[0] ?? 'Search for a service' }}"
                    @class([
-                       'customer-search block w-full rounded-lg border border-slate-300 bg-white py-3 pl-11 text-base text-slate-900 shadow-sm placeholder:text-slate-400 focus:border-blue-500 focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-blue-600',
-                       'min-h-12 pr-10' => true,
+                       'customer-search block w-full text-slate-900 placeholder:text-slate-400',
+                       'rounded-lg border border-slate-300 bg-white py-3 pl-11 text-base min-h-12 pr-10 shadow-sm focus:border-blue-500 focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-blue-600' => ! $compact,
+                       // Header (compact) field: shorter and quieter (1CF-HEADER-SEARCH-SIZE-001).
+                       'rounded-lg border border-slate-300 bg-white py-2 pl-10 text-sm min-h-10 pr-9 shadow-sm focus:border-blue-500 focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-blue-600' => $compact && ! $pill,
+                       // Pill variant: lives inside the combined location+search bar, which draws the border/focus ring.
+                       'rounded-full border-0 bg-transparent py-2 pl-9 pr-11 text-sm min-h-10 shadow-none focus:outline-none focus:ring-0' => $pill,
                    ])>
+
+            @if ($pill)
+                <button type="submit"
+                        class="absolute right-0.5 top-1/2 grid h-8 w-8 -translate-y-1/2 place-items-center rounded-full bg-blue-600 text-white shadow-sm shadow-blue-600/30 transition hover:bg-blue-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600">
+                    <span class="sr-only">Search</span>
+                    <x-icon name="magnifying-glass" class="h-4 w-4" />
+                </button>
+            @endif
 
             @if ($term !== '')
                 <button type="button"
                         wire:click="clear"
-                        class="absolute inset-y-0 right-0 grid w-10 place-items-center text-slate-400 transition hover:text-slate-900 focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-blue-600">
+                        @class(['absolute inset-y-0 grid w-10 place-items-center text-slate-400 transition hover:text-slate-900 focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-blue-600', 'right-9' => $pill, 'right-0' => ! $pill])>
                     <span class="sr-only">Clear search</span>
                     <x-icon name="x-circle" class="h-5 w-5" />
                 </button>
@@ -97,7 +109,7 @@
     </p>
 
     @if ($showSuggestions)
-        <div class="absolute inset-x-0 top-full z-50 mt-1 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-lg"
+        <div @class(['absolute top-full z-50 overflow-hidden border border-slate-200 bg-white', 'inset-x-0 mt-1 rounded-lg shadow-lg' => ! $pill, 'left-0 mt-3 w-[24rem] max-w-[calc(100vw-2rem)] rounded-2xl shadow-2xl shadow-slate-900/15' => $pill])
              data-search-panel>
 
             {{-- ---------- Default list (empty, focused field) ---------- --}}

@@ -88,6 +88,23 @@ class PageController extends Controller
     {
         $slug = trim($request->path(), '/');
 
+        // The fallback also catches a GET aimed at a POST-only route (e.g. /logout, the webhooks).
+        // Keep answering those with 405 + Allow, exactly as before the CMS fallback existed.
+        $allowed = [];
+        foreach (['POST', 'PUT', 'PATCH', 'DELETE'] as $method) {
+            try {
+                $route = app('router')->getRoutes()->match(\Illuminate\Http\Request::create('/'.ltrim($request->path(), '/'), $method));
+                if (! $route->isFallback) {
+                    $allowed[] = $method;
+                }
+            } catch (\Symfony\Component\HttpKernel\Exception\NotFoundHttpException|\Symfony\Component\HttpKernel\Exception\MethodNotAllowedHttpException) {
+                // not routable with this method
+            }
+        }
+        if ($allowed !== []) {
+            throw new \Symfony\Component\HttpKernel\Exception\MethodNotAllowedHttpException($allowed);
+        }
+
         abort_unless(preg_match('/^[A-Za-z0-9_-]+$/', $slug) === 1, 404);
 
         return $this->contentPage($slug);
