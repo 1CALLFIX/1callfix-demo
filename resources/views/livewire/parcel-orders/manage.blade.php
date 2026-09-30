@@ -136,12 +136,7 @@
 
         <div class="flex gap-3 mb-4">
             <input type="text" wire:model.live.debounce.400ms="search" placeholder="Search order code or customer..." class="border rounded px-3 py-2 text-sm w-96">
-            <select wire:model.live="statusFilter" class="border rounded px-3 py-2 text-sm">
-                <option value="">All statuses</option>
-                @foreach (['pending','searching_worker','assigned','worker_en_route_pickup','picked_up','en_route_dropoff','delivered','cancelled','disputed'] as $s)
-                    <option value="{{ $s }}">{{ str_replace('_', ' ', $s) }}</option>
-                @endforeach
-            </select>
+            <x-ui.filter-tabs class="w-full" :tabs="['' => 'All'] + collect(['pending','searching_worker','assigned','worker_en_route_pickup','picked_up','en_route_dropoff','delivered','cancelled','disputed'])->mapWithKeys(fn ($s) => [$s => ucfirst(str_replace('_', ' ', $s))])->all()" :active="$statusFilter" model="statusFilter" />
         </div>
 
         <x-ui.table>

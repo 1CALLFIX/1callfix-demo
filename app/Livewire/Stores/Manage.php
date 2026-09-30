@@ -2,6 +2,8 @@
 
 namespace App\Livewire\Stores;
 
+use App\Livewire\Concerns\HasRowArchive;
+use Illuminate\Database\Eloquent\Model;
 use App\Models\Provider;
 use App\Models\Store;
 use App\Models\Zone;
@@ -14,6 +16,7 @@ use Livewire\WithPagination;
 class Manage extends Component
 {
     use WithPagination;
+    use HasRowArchive;
 
     public string $search = '';
     public string $moduleFilter = '';
@@ -42,6 +45,28 @@ class Manage extends Component
     private function scopeColumns(): array
     {
         return ['zone_id' => 'zone_id', 'franchise_id' => 'franchise_id', 'city_id' => 'franchise.city_id', 'country_id' => 'franchise.country_id'];
+    }
+
+    protected function archiveModel(): string
+    {
+        return \App\Models\Store::class;
+    }
+
+    /** stores.manage within the admin's own scope (a crafted id outside it is refused). */
+    protected function canArchiveRow(Model $row): bool
+    {
+        if (! auth()->user()->hasPermissionAnywhere('stores.manage')) {
+            return false;
+        }
+
+        $q = $this->scopedStoresQuery();
+
+        return ($row->trashed() ? $q->onlyTrashed() : $q)->whereKey($row->getKey())->exists();
+    }
+
+    protected function archiveLabel(Model $row): string
+    {
+        return $row->name ?: '#'.$row->getKey();
     }
 
     private function scopedStoresQuery()
@@ -125,13 +150,16 @@ class Manage extends Component
 
     public function render()
     {
-        $stores = $this->scopedStoresQuery()
+        $stores = $this->applyActiveFilter($this->scopedStoresQuery())
             ->when($this->search !== '', fn ($q) => $q->where('name', 'like', "%{$this->search}%"))
             ->when($this->moduleFilter !== '', fn ($q) => $q->where('module', $this->moduleFilter))
             ->latest('id')
             ->paginate(20);
 
         return view('livewire.stores.manage', [
+            'canManage' => auth()->user()->hasPermissionAnywhere('stores.manage'),
+            'canForce' => $this->isSuperAdminUser(),
+            'archiveBars' => $this->archiveBars(),
             'stores' => $stores,
             'providers' => Provider::with('user')->get(),
             'zones' => Zone::where('is_active', true)->orderBy('name')->get(),

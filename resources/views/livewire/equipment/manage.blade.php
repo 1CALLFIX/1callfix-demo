@@ -61,6 +61,11 @@
         <input type="text" wire:model.live.debounce.400ms="search" placeholder="Search by name..." class="border rounded px-3 py-2 text-sm w-96">
     </div>
 
+    <x-ui.archive-bars :bars="$archiveBars" />
+
+    <x-ui.filter-tabs class="mb-3" :tabs="['' => 'All', 'active' => 'Active', 'inactive' => 'Inactive', 'archived' => 'Archived']"
+                      :active="$activeFilter" model="activeFilter" />
+
     <x-ui.table>
         <x-slot:footer>{{ $items->links() }}</x-slot:footer>
 
@@ -84,7 +89,7 @@
                     <td class="px-4 py-2">
                         @if ($i->is_active) <x-ui.badge color="green">Active</x-ui.badge> @else <x-ui.badge color="gray">Inactive</x-ui.badge> @endif
                     </td>
-                    <td class="px-4 py-2 text-right"><x-ui.button variant="ghost" wire:click="editItem({{ $i->id }})">Edit</x-ui.button></td>
+                    <td class="px-4 py-2 text-right whitespace-nowrap"><div class="flex items-center justify-end gap-1">@unless ($i->trashed())<x-ui.button variant="ghost" wire:click="editItem({{ $i->id }})">Edit</x-ui.button>@endunless<x-ui.row-actions :id="$i->id" :archived="$i->trashed()" :can-manage="$canManage" :can-force="$canForce" /></div></td>
                 </tr>
             @endforeach
         </tbody>

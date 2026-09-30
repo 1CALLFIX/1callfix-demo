@@ -4,11 +4,14 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Str;
 
 /** Phase 24 (Marketplace Foundation) — self-referential taxonomy, module-scoped. See PHASE_24_MARKETPLACE_FOUNDATION_ARCHITECTURE.md §3. */
 class MarketplaceCategory extends Model
 {
+    use SoftDeletes;
+
     use HasFactory;
 
     protected $table = 'marketplace_categories';

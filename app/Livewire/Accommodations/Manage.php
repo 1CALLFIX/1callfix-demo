@@ -2,6 +2,8 @@
 
 namespace App\Livewire\Accommodations;
 
+use App\Livewire\Concerns\HasRowArchive;
+use Illuminate\Database\Eloquent\Model;
 use App\Models\Accommodation;
 use App\Models\AccommodationType;
 use App\Models\HotelRatePlan;
@@ -25,6 +27,7 @@ use Livewire\WithPagination;
 class Manage extends Component
 {
     use WithPagination;
+    use HasRowArchive;
 
     public string $search = '';
     public ?int $selectedAccommodationId = null;
@@ -70,6 +73,28 @@ class Manage extends Component
     private function scopeColumns(): array
     {
         return ['zone_id' => 'zone_id', 'franchise_id' => 'franchise_id', 'city_id' => 'franchise.city_id', 'country_id' => 'franchise.country_id'];
+    }
+
+    protected function archiveModel(): string
+    {
+        return \App\Models\Accommodation::class;
+    }
+
+    /** accommodations.manage within the admin's own scope (a crafted id outside it is refused). */
+    protected function canArchiveRow(Model $row): bool
+    {
+        if (! auth()->user()->hasPermissionAnywhere('accommodations.manage')) {
+            return false;
+        }
+
+        $q = $this->scopedAccommodationsQuery();
+
+        return ($row->trashed() ? $q->onlyTrashed() : $q)->whereKey($row->getKey())->exists();
+    }
+
+    protected function archiveLabel(Model $row): string
+    {
+        return $row->name ?: '#'.$row->getKey();
     }
 
     private function scopedAccommodationsQuery()
@@ -249,16 +274,20 @@ class Manage extends Component
             $roomTypes = HotelRoomType::where('accommodation_id', $accommodation->id)->with('ratePlans')->orderBy('name')->get();
 
             return view('livewire.accommodations.manage', [
+                'canManage' => false, 'canForce' => false, 'archiveBars' => $this->archiveBars(),
                 'accommodation' => $accommodation, 'accommodations' => null, 'roomTypes' => $roomTypes,
             ])->layout('layouts.admin', ['title' => 'Accommodations']);
         }
 
-        $accommodations = $this->scopedAccommodationsQuery()
+        $accommodations = $this->applyActiveFilter($this->scopedAccommodationsQuery())
             ->when($this->search !== '', fn ($q) => $q->where('name', 'like', "%{$this->search}%"))
             ->latest('id')
             ->paginate(20);
 
         return view('livewire.accommodations.manage', [
+            'canManage' => auth()->user()->hasPermissionAnywhere('accommodations.manage'),
+            'canForce' => $this->isSuperAdminUser(),
+            'archiveBars' => $this->archiveBars(),
             'accommodation' => null, 'accommodations' => $accommodations, 'roomTypes' => null,
             'providers' => Provider::with('user')->get(),
             'accommodationTypes' => AccommodationType::where('is_active', true)->orderBy('name')->get(),

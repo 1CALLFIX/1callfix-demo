@@ -2,6 +2,8 @@
 
 namespace App\Livewire\PerformanceCampaigns;
 
+use App\Livewire\Concerns\HasRowArchive;
+use Illuminate\Database\Eloquent\Model;
 use App\Models\Badge;
 use App\Models\PerformanceCampaign;
 use App\Models\Setting;
@@ -21,6 +23,7 @@ use Livewire\WithPagination;
 class Manage extends Component
 {
     use WithPagination;
+    use HasRowArchive;
 
     // --- Create form ---
     public string $name = '';
@@ -219,18 +222,36 @@ class Manage extends Component
     }
 
     /** Same fix/reasoning as FlashSales\Manage::visibleFlashSaleIds() -- see that method's own docblock (KNOWN_RISKS_AND_DECISIONS.md item 44). */
-    private function visibleCampaignIds(): array
+    private function visibleCampaignIds(bool $trashed = false): array
     {
-        $candidates = PerformanceCampaign::query()->select('id', 'scope_type', 'scope_id')->get();
+        $candidates = ($trashed ? PerformanceCampaign::onlyTrashed() : PerformanceCampaign::query())->select('id', 'scope_type', 'scope_id')->get();
 
         return app(AuthorizationService::class)
             ->visibleAmong($candidates, auth()->user(), 'performance_campaigns.view')
             ->pluck('id')->all();
     }
 
+    protected function archiveModel(): string
+    {
+        return \App\Models\PerformanceCampaign::class;
+    }
+
+    /** performance_campaigns.manage for the campaign's own scope, and never one that already has participants. */
+    protected function canArchiveRow(Model $row): bool
+    {
+        return auth()->user()->hasPermission('performance_campaigns.manage', $row->authorizationScopeHint())
+            && ($row->trashed() || $row->participants()->doesntExist());
+    }
+
+    protected function archiveLabel(Model $row): string
+    {
+        return $row->name ?: 'campaign #'.$row->getKey();
+    }
+
     public function render()
     {
-        $campaigns = PerformanceCampaign::whereIn('id', $this->visibleCampaignIds())
+        $archivedTab = $this->activeFilter === 'archived';
+        $campaigns = $this->applyActiveFilter(PerformanceCampaign::query())->whereIn('id', $this->visibleCampaignIds($archivedTab))
             ->with(['badge', 'creator'])
             ->withCount('participants')
             ->latest()
@@ -238,6 +259,8 @@ class Manage extends Component
 
         return view('livewire.performance-campaigns.manage', [
             'campaigns' => $campaigns,
+            'canForce' => $this->isSuperAdminUser(),
+            'archiveBars' => $this->archiveBars(),
             'metrics' => CampaignMetricResolver::SUPPORTED,
             'countries' => \App\Models\Country::where('is_active', true)->orderBy('name')->get(),
             'cities' => $this->scopeCountryId ? \App\Models\City::where('country_id', $this->scopeCountryId)->orderBy('name')->get() : collect(),

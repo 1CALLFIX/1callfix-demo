@@ -62,6 +62,11 @@
         </select>
     </div>
 
+    <x-ui.archive-bars :bars="$archiveBars" />
+
+    <x-ui.filter-tabs class="mb-3" :tabs="['' => 'All', 'active' => 'Active', 'inactive' => 'Inactive', 'archived' => 'Archived']"
+                      :active="$activeFilter" model="activeFilter" />
+
     <x-ui.table>
         <x-slot:footer>{{ $stores->links() }}</x-slot:footer>
 
@@ -87,7 +92,7 @@
                     <td class="px-4 py-2">
                         @if ($s->is_active) <x-ui.badge color="green">Active</x-ui.badge> @else <x-ui.badge color="gray">Inactive</x-ui.badge> @endif
                     </td>
-                    <td class="px-4 py-2 text-right"><x-ui.button variant="ghost" wire:click="editStore({{ $s->id }})">Edit</x-ui.button></td>
+                    <td class="px-4 py-2 text-right whitespace-nowrap"><div class="flex items-center justify-end gap-1">@unless ($s->trashed())<x-ui.button variant="ghost" wire:click="editStore({{ $s->id }})">Edit</x-ui.button>@endunless<x-ui.row-actions :id="$s->id" :archived="$s->trashed()" :can-manage="$canManage" :can-force="$canForce" /></div></td>
                 </tr>
             @endforeach
         </tbody>

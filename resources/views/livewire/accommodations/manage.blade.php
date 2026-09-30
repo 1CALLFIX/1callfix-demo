@@ -153,6 +153,11 @@
             <input type="text" wire:model.live.debounce.400ms="search" placeholder="Search by name..." class="border rounded px-3 py-2 text-sm w-96">
         </div>
 
+        <x-ui.archive-bars :bars="$archiveBars" />
+
+        <x-ui.filter-tabs class="mb-3" :tabs="['' => 'All', 'active' => 'Active', 'inactive' => 'Inactive', 'archived' => 'Archived']"
+                          :active="$activeFilter" model="activeFilter" />
+
         <x-ui.table>
             <x-slot:footer>{{ $accommodations->links() }}</x-slot:footer>
 
@@ -176,7 +181,10 @@
                         </td>
                         <td class="px-4 py-2 text-right">
                             <x-ui.button variant="ghost" wire:click="viewAccommodation({{ $a->id }})">Rooms &amp; Rates</x-ui.button>
-                            <x-ui.button variant="ghost" wire:click="editAccommodation({{ $a->id }})">Edit</x-ui.button>
+                            @unless ($a->trashed())
+                                <x-ui.button variant="ghost" wire:click="editAccommodation({{ $a->id }})">Edit</x-ui.button>
+                            @endunless
+                            <x-ui.row-actions :id="$a->id" :archived="$a->trashed()" :can-manage="$canManage" :can-force="$canForce" />
                         </td>
                     </tr>
                 @endforeach

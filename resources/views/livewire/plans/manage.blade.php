@@ -103,6 +103,11 @@
     </x-ui.card>
 
     {{-- Plan list --}}
+    <x-ui.archive-bars :bars="$archiveBars" />
+
+    <x-ui.filter-tabs class="mb-3" :tabs="['' => 'All', 'active' => 'Active', 'inactive' => 'Inactive', 'archived' => 'Archived']"
+                      :active="$activeFilter" model="activeFilter" />
+
     <x-ui.table>
         <x-slot:footer>{{ $plans->links() }}</x-slot:footer>
 
@@ -132,7 +137,10 @@
                     </td>
                     <td class="px-4 py-2 text-right whitespace-nowrap">
                         <x-ui.button variant="ghost" class="mr-3" wire:click="expand({{ $p->id }})">{{ $expandedPlanId === $p->id ? 'Hide' : 'Entitlements' }} ({{ $p->entitlements->count() }})</x-ui.button>
-                        <x-ui.button variant="ghost" color="gray" wire:click="toggleActive({{ $p->id }})">{{ $p->is_active ? 'Deactivate' : 'Activate' }}</x-ui.button>
+                        @unless ($p->trashed())
+                            <x-ui.button variant="ghost" color="gray" wire:click="toggleActive({{ $p->id }})">{{ $p->is_active ? 'Deactivate' : 'Activate' }}</x-ui.button>
+                        @endunless
+                        <x-ui.row-actions :id="$p->id" :archived="$p->trashed()" :can-manage="$canManage && ($p->trashed() || ($p->subscriptions_count ?? 0) === 0)" :can-force="$canForce" />
                     </td>
                 </tr>
                     @if ($expandedPlanId === $p->id)

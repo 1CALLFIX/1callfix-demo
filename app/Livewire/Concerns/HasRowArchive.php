@@ -26,9 +26,28 @@ trait HasRowArchive
 
     public ?int $confirmingForceDeleteId = null;
 
+    /** '' | active | inactive | archived — for screens whose tab row filters on is_active / soft-delete state. */
+    public string $activeFilter = '';
+
     public string $rowFlash = '';
 
     public string $rowFlashType = 'success';
+
+    public function updatingActiveFilter(): void
+    {
+        $this->resetPage();
+    }
+
+    /** Apply $activeFilter to a query on a model with is_active + SoftDeletes. */
+    protected function applyActiveFilter($query)
+    {
+        return match ($this->activeFilter) {
+            'active' => $query->where('is_active', true),
+            'inactive' => $query->where('is_active', false),
+            'archived' => $query->onlyTrashed(),
+            default => $query,
+        };
+    }
 
     /** @return class-string<Model> a model that uses SoftDeletes */
     abstract protected function archiveModel(): string;

@@ -2,6 +2,8 @@
 
 namespace App\Livewire\Products;
 
+use App\Livewire\Concerns\HasRowArchive;
+use Illuminate\Database\Eloquent\Model;
 use App\Exports\ProductsExport;
 use App\Imports\HeadingRowImport;
 use App\Models\CatalogImportRun;
@@ -27,6 +29,7 @@ use Maatwebsite\Excel\Facades\Excel;
 class Manage extends Component
 {
     use WithPagination;
+    use HasRowArchive;
     use WithFileUploads;
     use HasCsvExport;
 
@@ -71,6 +74,28 @@ class Manage extends Component
             'zone_id' => 'store.zone_id', 'franchise_id' => 'store.franchise_id',
             'city_id' => 'store.franchise.city_id', 'country_id' => 'store.franchise.country_id',
         ];
+    }
+
+    protected function archiveModel(): string
+    {
+        return \App\Models\Product::class;
+    }
+
+    /** products.manage within the admin's own scope (a crafted id outside it is refused). */
+    protected function canArchiveRow(Model $row): bool
+    {
+        if (! auth()->user()->hasPermissionAnywhere('products.manage')) {
+            return false;
+        }
+
+        $q = $this->scopedProductsQuery();
+
+        return ($row->trashed() ? $q->onlyTrashed() : $q)->whereKey($row->getKey())->exists();
+    }
+
+    protected function archiveLabel(Model $row): string
+    {
+        return $row->name ?: '#'.$row->getKey();
     }
 
     private function scopedProductsQuery()
@@ -278,11 +303,14 @@ class Manage extends Component
 
     public function render()
     {
-        $products = $this->filteredProductsQuery()
+        $products = $this->applyActiveFilter($this->filteredProductsQuery())
             ->latest('id')
             ->paginate(20);
 
         return view('livewire.products.manage', [
+            'canManage' => auth()->user()->hasPermissionAnywhere('products.manage'),
+            'canForce' => $this->isSuperAdminUser(),
+            'archiveBars' => $this->archiveBars(),
             'products' => $products,
             'stores' => Store::where('is_active', true)->orderBy('name')->get(),
             'categories' => MarketplaceCategory::where('is_active', true)->orderBy('name')->get(),

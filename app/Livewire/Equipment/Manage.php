@@ -2,6 +2,8 @@
 
 namespace App\Livewire\Equipment;
 
+use App\Livewire\Concerns\HasRowArchive;
+use Illuminate\Database\Eloquent\Model;
 use App\Models\EquipmentCategory;
 use App\Models\EquipmentItem;
 use App\Models\Provider;
@@ -18,6 +20,7 @@ use Livewire\WithPagination;
 class Manage extends Component
 {
     use WithPagination;
+    use HasRowArchive;
 
     public string $search = '';
 
@@ -43,6 +46,28 @@ class Manage extends Component
     private function scopeColumns(): array
     {
         return ['zone_id' => 'zone_id', 'franchise_id' => 'franchise_id', 'city_id' => 'franchise.city_id', 'country_id' => 'franchise.country_id'];
+    }
+
+    protected function archiveModel(): string
+    {
+        return \App\Models\EquipmentItem::class;
+    }
+
+    /** equipment.manage within the admin's own scope (a crafted id outside it is refused). */
+    protected function canArchiveRow(Model $row): bool
+    {
+        if (! auth()->user()->hasPermissionAnywhere('equipment.manage')) {
+            return false;
+        }
+
+        $q = $this->scopedItemsQuery();
+
+        return ($row->trashed() ? $q->onlyTrashed() : $q)->whereKey($row->getKey())->exists();
+    }
+
+    protected function archiveLabel(Model $row): string
+    {
+        return $row->name ?: '#'.$row->getKey();
     }
 
     private function scopedItemsQuery()
@@ -123,12 +148,15 @@ class Manage extends Component
 
     public function render()
     {
-        $items = $this->scopedItemsQuery()
+        $items = $this->applyActiveFilter($this->scopedItemsQuery())
             ->when($this->search !== '', fn ($q) => $q->where('name', 'like', "%{$this->search}%"))
             ->latest('id')
             ->paginate(20);
 
         return view('livewire.equipment.manage', [
+            'canManage' => auth()->user()->hasPermissionAnywhere('equipment.manage'),
+            'canForce' => $this->isSuperAdminUser(),
+            'archiveBars' => $this->archiveBars(),
             'items' => $items,
             'providers' => Provider::with('user')->get(),
             'equipmentCategories' => EquipmentCategory::where('is_active', true)->orderBy('name')->get(),

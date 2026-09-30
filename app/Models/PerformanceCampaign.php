@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 /**
  * Performance/Growth Campaign — see the create-table migration's own
@@ -14,6 +15,8 @@ use Illuminate\Database\Eloquent\Model;
  */
 class PerformanceCampaign extends Model
 {
+    use SoftDeletes;
+
     use HasFactory;
 
     protected $table = 'performance_campaigns';

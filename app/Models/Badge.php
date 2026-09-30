@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 /**
  * A badge TYPE ("NEW", "FEATURED", a custom admin-created one) -- see the
@@ -14,6 +15,8 @@ use Illuminate\Database\Eloquent\Model;
  */
 class Badge extends Model
 {
+    use SoftDeletes;
+
     use HasFactory;
 
     protected $table = 'badges';

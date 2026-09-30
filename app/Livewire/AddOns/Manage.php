@@ -2,6 +2,8 @@
 
 namespace App\Livewire\AddOns;
 
+use App\Livewire\Concerns\HasRowArchive;
+use Illuminate\Database\Eloquent\Model;
 use App\Models\AddOn;
 use App\Models\Store;
 use App\Services\AuthorizationService;
@@ -12,6 +14,7 @@ use Livewire\WithPagination;
 class Manage extends Component
 {
     use WithPagination;
+    use HasRowArchive;
 
     public ?int $storeIdFilter = null;
 
@@ -30,6 +33,28 @@ class Manage extends Component
             'zone_id' => 'store.zone_id', 'franchise_id' => 'store.franchise_id',
             'city_id' => 'store.franchise.city_id', 'country_id' => 'store.franchise.country_id',
         ];
+    }
+
+    protected function archiveModel(): string
+    {
+        return \App\Models\AddOn::class;
+    }
+
+    /** products.manage within the admin's own scope (a crafted id outside it is refused). */
+    protected function canArchiveRow(Model $row): bool
+    {
+        if (! auth()->user()->hasPermissionAnywhere('products.manage')) {
+            return false;
+        }
+
+        $q = $this->scopedAddOnsQuery();
+
+        return ($row->trashed() ? $q->onlyTrashed() : $q)->whereKey($row->getKey())->exists();
+    }
+
+    protected function archiveLabel(Model $row): string
+    {
+        return $row->name ?: 'add-on #'.$row->getKey();
     }
 
     private function scopedAddOnsQuery()
@@ -79,13 +104,16 @@ class Manage extends Component
 
     public function render()
     {
-        $addOns = $this->scopedAddOnsQuery()
+        $addOns = $this->applyActiveFilter($this->scopedAddOnsQuery())
             ->when($this->storeIdFilter, fn ($q) => $q->where('store_id', $this->storeIdFilter))
             ->latest('id')
             ->paginate(20);
 
         return view('livewire.add-ons.manage', [
             'addOns' => $addOns,
+            'canManage' => auth()->user()->hasPermissionAnywhere('products.manage'),
+            'canForce' => $this->isSuperAdminUser(),
+            'archiveBars' => $this->archiveBars(),
             'stores' => Store::where('is_active', true)->orderBy('name')->get(),
         ])->layout('layouts.admin', ['title' => 'Add-Ons']);
     }

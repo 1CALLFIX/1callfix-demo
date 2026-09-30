@@ -2,6 +2,8 @@
 
 namespace App\Livewire\Properties;
 
+use App\Livewire\Concerns\HasRowArchive;
+use Illuminate\Database\Eloquent\Model;
 use App\Models\Property;
 use App\Models\PropertyType;
 use App\Models\Provider;
@@ -18,6 +20,7 @@ use Livewire\WithPagination;
 class Manage extends Component
 {
     use WithPagination;
+    use HasRowArchive;
 
     public string $search = '';
 
@@ -48,6 +51,28 @@ class Manage extends Component
     private function scopeColumns(): array
     {
         return ['zone_id' => 'zone_id', 'franchise_id' => 'franchise_id', 'city_id' => 'franchise.city_id', 'country_id' => 'franchise.country_id'];
+    }
+
+    protected function archiveModel(): string
+    {
+        return \App\Models\Property::class;
+    }
+
+    /** properties.manage within the admin's own scope (a crafted id outside it is refused). */
+    protected function canArchiveRow(Model $row): bool
+    {
+        if (! auth()->user()->hasPermissionAnywhere('properties.manage')) {
+            return false;
+        }
+
+        $q = $this->scopedPropertiesQuery();
+
+        return ($row->trashed() ? $q->onlyTrashed() : $q)->whereKey($row->getKey())->exists();
+    }
+
+    protected function archiveLabel(Model $row): string
+    {
+        return $row->name ?: '#'.$row->getKey();
     }
 
     private function scopedPropertiesQuery()
@@ -129,12 +154,15 @@ class Manage extends Component
 
     public function render()
     {
-        $properties = $this->scopedPropertiesQuery()
+        $properties = $this->applyActiveFilter($this->scopedPropertiesQuery())
             ->when($this->search !== '', fn ($q) => $q->where('name', 'like', "%{$this->search}%"))
             ->latest('id')
             ->paginate(20);
 
         return view('livewire.properties.manage', [
+            'canManage' => auth()->user()->hasPermissionAnywhere('properties.manage'),
+            'canForce' => $this->isSuperAdminUser(),
+            'archiveBars' => $this->archiveBars(),
             'properties' => $properties,
             'providers' => Provider::with('user')->get(),
             'propertyTypes' => PropertyType::where('is_active', true)->orderBy('name')->get(),

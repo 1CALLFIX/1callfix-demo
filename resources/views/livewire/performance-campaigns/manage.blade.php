@@ -74,6 +74,10 @@
         </div>
     </x-ui.card>
 
+    <x-ui.archive-bars :bars="$archiveBars" />
+
+    <x-ui.filter-tabs class="mb-3" :tabs="['' => 'All', 'archived' => 'Archived']" :active="$activeFilter" model="activeFilter" />
+
     <div class="space-y-3">
         @foreach ($campaigns as $campaign)
             <x-ui.card>
@@ -105,6 +109,7 @@
                 </div>
 
                 <div class="flex gap-2 mt-3 flex-wrap">
+                    <x-ui.row-actions :id="$campaign->id" :archived="$campaign->trashed()" :can-manage="auth()->user()->hasPermissionAnywhere('performance_campaigns.manage') && ($campaign->trashed() || ($campaign->participants_count ?? 1) === 0)" :can-force="$canForce" />
                     @if ($campaign->status === 'draft')
                         <x-ui.button variant="ghost" wire:click="lifecycleAction({{ $campaign->id }}, 'schedule')">Schedule</x-ui.button>
                     @endif

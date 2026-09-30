@@ -2,6 +2,8 @@
 
 namespace App\Livewire\Plans;
 
+use App\Livewire\Concerns\HasRowArchive;
+use Illuminate\Database\Eloquent\Model;
 use App\Models\Plan;
 use App\Models\PlanEntitlement;
 use App\Models\Setting;
@@ -19,6 +21,7 @@ use Livewire\WithPagination;
 class Manage extends Component
 {
     use WithPagination;
+    use HasRowArchive;
 
     // --- new plan form ---
     public string $name = '';
@@ -257,6 +260,23 @@ class Manage extends Component
         $this->flashMessage = $entitlement->is_approved ? 'Commission override approved.' : 'Commission override approval revoked.';
     }
 
+    protected function archiveModel(): string
+    {
+        return Plan::class;
+    }
+
+    /** plans.manage for this plan's own scope, and never a plan that has (or had) subscribers. */
+    protected function canArchiveRow(Model $row): bool
+    {
+        return auth()->user()->hasPermission('plans.manage', $this->planScopeHint($row))
+            && ($row->trashed() || $row->subscriptions()->doesntExist());
+    }
+
+    protected function archiveLabel(Model $row): string
+    {
+        return $row->name ?: 'plan #'.$row->getKey();
+    }
+
     private function planScopeHint(Plan $plan): array
     {
         return $plan->authorizationScopeHint();
@@ -274,9 +294,9 @@ class Manage extends Component
      * then whereIn()'d before the real paginated query runs, so pagination
      * and counts stay correct rather than being computed before this filter.
      */
-    private function visiblePlanIds(): array
+    private function visiblePlanIds(bool $trashed = false): array
     {
-        $candidates = Plan::query()->select('id', 'scope_type', 'scope_id')->get();
+        $candidates = ($trashed ? Plan::onlyTrashed() : Plan::query())->select('id', 'scope_type', 'scope_id')->get();
 
         return app(AuthorizationService::class)
             ->visibleAmong($candidates, auth()->user(), 'plans.view')
@@ -286,10 +306,14 @@ class Manage extends Component
 
     public function render()
     {
-        $plans = Plan::whereIn('id', $this->visiblePlanIds())
+        $archivedTab = $this->activeFilter === 'archived';
+        $plans = $this->applyActiveFilter(Plan::query())->whereIn('id', $this->visiblePlanIds($archivedTab))
             ->with('entitlements')->withCount('subscriptions')->latest()->paginate(15);
 
         return view('livewire.plans.manage', [
+            'canManage' => auth()->user()->hasPermissionAnywhere('plans.manage'),
+            'canForce' => $this->isSuperAdminUser(),
+            'archiveBars' => $this->archiveBars(),
             'plans' => $plans,
             'currencySymbol' => Setting::get('locale.currency_symbol', '₹'),
         ])

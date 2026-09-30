@@ -2,6 +2,8 @@
 
 namespace App\Livewire\MarketplaceCategories;
 
+use App\Livewire\Concerns\HasRowArchive;
+use Illuminate\Database\Eloquent\Model;
 use App\Models\MarketplaceCategory;
 use App\Support\Modules;
 use Livewire\Component;
@@ -11,6 +13,7 @@ use Livewire\WithPagination;
 class Manage extends Component
 {
     use WithPagination;
+    use HasRowArchive;
 
     public string $module = 'commerce';
     public string $search = '';
@@ -71,9 +74,26 @@ class Manage extends Component
         session()->flash('message', 'Category updated.');
     }
 
+    protected function archiveModel(): string
+    {
+        return \App\Models\MarketplaceCategory::class;
+    }
+
+    /** marketplace_categories.manage, and never a category that still has sub-categories or products. */
+    protected function canArchiveRow(Model $row): bool
+    {
+        return auth()->user()->hasPermissionAnywhere('marketplace_categories.manage')
+            && ($row->trashed() || ($row->children()->doesntExist() && $row->products()->doesntExist()));
+    }
+
+    protected function archiveLabel(Model $row): string
+    {
+        return $row->name ?: '#'.$row->getKey();
+    }
+
     public function render()
     {
-        $categories = MarketplaceCategory::query()
+        $categories = $this->applyActiveFilter(MarketplaceCategory::query())
             ->where('module', $this->module)
             ->when($this->search !== '', fn ($q) => $q->where('name', 'like', "%{$this->search}%"))
             ->with('parent')
@@ -82,6 +102,9 @@ class Manage extends Component
 
         return view('livewire.marketplace-categories.manage', [
             'categories' => $categories,
+            'canManage' => auth()->user()->hasPermissionAnywhere('marketplace_categories.manage'),
+            'canForce' => $this->isSuperAdminUser(),
+            'archiveBars' => $this->archiveBars(),
             'parentOptions' => MarketplaceCategory::where('module', $this->module)->whereNull('parent_id')->orderBy('name')->get(),
             'modules' => Modules::ALL,
         ])->layout('layouts.admin', ['title' => 'Marketplace Categories']);

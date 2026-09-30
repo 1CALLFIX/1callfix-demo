@@ -13,6 +13,11 @@
     </div>
 
     @if ($section === 'definitions')
+        <x-ui.archive-bars :bars="$archiveBars" />
+
+        <x-ui.filter-tabs class="mb-3" :tabs="['' => 'All', 'active' => 'Active', 'inactive' => 'Inactive', 'archived' => 'Archived']"
+                          :active="$activeFilter" model="activeFilter" />
+
         <x-ui.table>
             <thead class="bg-gray-50 text-left text-gray-500">
                 <tr>
@@ -49,9 +54,12 @@
                         </td>
                         @if ($canManage)
                             <td class="px-4 py-2">
-                                <x-ui.button variant="ghost" wire:click="toggleBadgeActive({{ $badge->id }})">
-                                    {{ $badge->is_active ? 'Deactivate' : 'Activate' }}
-                                </x-ui.button>
+                                @unless ($badge->trashed())
+                                    <x-ui.button variant="ghost" wire:click="toggleBadgeActive({{ $badge->id }})">
+                                        {{ $badge->is_active ? 'Deactivate' : 'Activate' }}
+                                    </x-ui.button>
+                                @endunless
+                                <x-ui.row-actions :id="$badge->id" :archived="$badge->trashed()" :can-manage="$canManage && ($badge->trashed() || $badge->assignments()->doesntExist())" :can-force="$canForce" />
                             </td>
                         @endif
                     </tr>

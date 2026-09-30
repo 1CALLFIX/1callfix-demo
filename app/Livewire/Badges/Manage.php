@@ -2,6 +2,8 @@
 
 namespace App\Livewire\Badges;
 
+use App\Livewire\Concerns\HasRowArchive;
+use Illuminate\Database\Eloquent\Model;
 use App\Models\Badge;
 use App\Models\BadgeAssignment;
 use App\Models\Country;
@@ -27,6 +29,7 @@ use Livewire\WithPagination;
 class Manage extends Component
 {
     use WithPagination;
+    use HasRowArchive;
 
     public string $section = 'definitions'; // definitions|assignments
 
@@ -188,9 +191,25 @@ class Manage extends Component
             ->pluck('id')->all();
     }
 
+    protected function archiveModel(): string
+    {
+        return \App\Models\Badge::class;
+    }
+
+    /** badges.manage, and never a badge that has been assigned (assignments would point at a hidden badge). */
+    protected function canArchiveRow(Model $row): bool
+    {
+        return $this->canManage() && ($row->trashed() || $row->assignments()->doesntExist());
+    }
+
+    protected function archiveLabel(Model $row): string
+    {
+        return $row->name ?? $row->label ?? ('badge #'.$row->getKey());
+    }
+
     public function render()
     {
-        $badges = Badge::orderByDesc('priority')->get();
+        $badges = $this->applyActiveFilter(Badge::query())->orderByDesc('priority')->get();
 
         $assignments = BadgeAssignment::whereIn('id', $this->visibleAssignmentIds())
             ->with(['badge', 'badgeable'])
@@ -205,6 +224,8 @@ class Manage extends Component
             'franchises' => Franchise::orderBy('name')->get(),
             'zones' => $this->scopeFranchiseId ? Zone::where('franchise_id', $this->scopeFranchiseId)->orderBy('name')->get() : collect(),
             'canManage' => $this->canManage(),
+            'canForce' => $this->isSuperAdminUser(),
+            'archiveBars' => $this->archiveBars(),
         ])->layout('layouts.admin', ['title' => 'Badges']);
     }
 }

@@ -100,17 +100,8 @@
 
         <div class="flex gap-3 mb-4">
             <input type="text" wire:model.live.debounce.400ms="search" placeholder="Search reservation code or customer..." class="border rounded px-3 py-2 text-sm w-96">
-            <select wire:model.live="typeFilter" class="border rounded px-3 py-2 text-sm">
-                <option value="">All types</option>
-                <option value="vehicle">Vehicle</option>
-                <option value="equipment">Equipment</option>
-            </select>
-            <select wire:model.live="statusFilter" class="border rounded px-3 py-2 text-sm">
-                <option value="">All statuses</option>
-                @foreach (['pending','confirmed','picked_up','active','returned','completed','cancelled'] as $s)
-                    <option value="{{ $s }}">{{ str_replace('_', ' ', $s) }}</option>
-                @endforeach
-            </select>
+            <x-ui.filter-tabs class="w-full" :tabs="['' => 'All', 'vehicle' => 'Vehicle', 'equipment' => 'Equipment']" :active="$typeFilter" model="typeFilter" />
+            <x-ui.filter-tabs class="w-full" :tabs="['' => 'All'] + collect(['pending','confirmed','picked_up','active','returned','completed','cancelled'])->mapWithKeys(fn ($s) => [$s => ucfirst(str_replace('_', ' ', $s))])->all()" :active="$statusFilter" model="statusFilter" />
         </div>
 
         <x-ui.table>
