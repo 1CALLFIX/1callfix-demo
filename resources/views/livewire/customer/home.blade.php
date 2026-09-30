@@ -118,7 +118,7 @@
                                 @foreach ($col as $card)
                                     <a href="{{ $card['url'] }}"
                                        class="group relative block overflow-hidden rounded-2xl bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600
-                                              {{ ($loop->first xor $loop->parent->last) ? 'aspect-[4/5]' : 'aspect-[4/3]' }}">
+                                              {{ ($loop->first xor $loop->parent->last) ? 'aspect-[4/3]' : 'aspect-video' }}">
                                         <img src="{{ $card['image_url'] }}" alt="{{ $card['name'] }}" loading="lazy" decoding="async"
                                              class="h-full w-full object-cover transition duration-300 group-hover:scale-105">
                                         <span class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/60 to-transparent px-3 pb-2 pt-8 text-sm font-semibold text-white">{{ $card['name'] }}</span>
