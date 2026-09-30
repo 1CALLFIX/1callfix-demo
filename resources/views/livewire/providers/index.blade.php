@@ -25,8 +25,10 @@
             :run="$providersPreregRun" />
     @endif
 
+    <x-ui.archive-bars :bars="$archiveBars" />
+
     <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
-        <x-ui.filter-tabs :tabs="['' => 'All', 'pending' => 'Pending Review', 'approved' => 'Approved', 'rejected' => 'Rejected']"
+        <x-ui.filter-tabs :tabs="['' => 'All', 'pending' => 'Pending Review', 'approved' => 'Approved', 'rejected' => 'Rejected', 'archived' => 'Archived']"
                           :active="$statusFilter" model="statusFilter" :counts="$counts" />
 
         <div class="flex items-center gap-3">
@@ -74,7 +76,9 @@
                     <td class="px-4 py-2">{{ $provider->documents->count() }} uploaded</td>
                     <td class="px-4 py-2 text-gray-500">{{ $provider->created_at->diffForHumans() }}</td>
                     <td class="px-4 py-2">
-                        <x-ui.button variant="ghost" :href="route('admin.providers.show', $provider->id)">Review</x-ui.button>
+                        <x-ui.row-actions :id="$provider->id" :archived="$provider->trashed()" :can-manage="$canManage" :can-force="$canForce"
+                                          :view-href="route('admin.providers.show', $provider->id)" view-label="Review"
+                                          :edit-href="route('admin.providers.show', $provider->id)" />
                     </td>
                 </tr>
             @empty

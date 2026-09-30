@@ -2,7 +2,9 @@
 
 namespace App\Livewire\Workers;
 
+use App\Livewire\Concerns\HasRowArchive;
 use App\Models\FieldWorker;
+use Illuminate\Database\Eloquent\Model;
 use App\Services\AuthorizationService;
 use Livewire\Component;
 use Livewire\WithPagination;
@@ -11,6 +13,7 @@ use Livewire\WithPagination;
 class Index extends Component
 {
     use WithPagination;
+    use HasRowArchive;
 
     public string $statusFilter = '';
 
@@ -20,6 +23,32 @@ class Index extends Component
     public function mount(): void
     {
         abort_unless(auth()->user()->hasPermissionAnywhere('workers.view'), 403, 'You do not have permission to view workers.');
+    }
+
+
+    protected function archiveModel(): string
+    {
+        return FieldWorker::class;
+    }
+
+    protected function canArchiveRow(Model $row): bool
+    {
+        return auth()->user()->hasPermission('workers.review_kyc', array_filter([
+            'zone_id' => $row->zone_id,
+            'franchise_id' => $row->franchise_id,
+        ]));
+    }
+
+    protected function archiveLabel(Model $row): string
+    {
+        return $row->user()->withTrashed()->value('name') ?? ('worker #'.$row->getKey());
+    }
+
+    protected function archiveWarning(Model $row): ?string
+    {
+        $open = 0;
+
+        return $open > 0 ? "Heads-up: {$open} booking".($open === 1 ? ' is' : 's are').' still in progress with this worker.' : null;
     }
 
     public function updatingStatusFilter()
@@ -37,7 +66,8 @@ class Index extends Component
         $scoped = fn ($query) => app(AuthorizationService::class)->scopeQuery($query, auth()->user(), 'workers.view', $this->scopeColumns());
 
         $workers = $scoped(FieldWorker::with(['user', 'zone', 'documents', 'capabilities']))
-            ->when($this->statusFilter, fn ($q) => $q->where('kyc_status', $this->statusFilter))
+            ->when($this->statusFilter === 'archived', fn ($q) => $q->onlyTrashed())
+            ->when($this->statusFilter !== '' && $this->statusFilter !== 'archived', fn ($q) => $q->where('kyc_status', $this->statusFilter))
             ->latest()
             ->paginate(20);
 
@@ -49,7 +79,11 @@ class Index extends Component
         $counts = $counts->all();
         $counts[''] = array_sum($counts);
 
-        return view('livewire.workers.index', compact('workers', 'counts'))
+        $canManage = auth()->user()->hasPermissionAnywhere('workers.review_kyc');
+        $canForce = $this->isSuperAdminUser();
+        $archiveBars = $this->archiveBars();
+
+        return view('livewire.workers.index', compact('workers', 'counts', 'canManage', 'canForce', 'archiveBars'))
             ->layout('layouts.admin', ['title' => 'Workers']);
     }
 }

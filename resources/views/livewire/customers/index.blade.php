@@ -24,8 +24,10 @@
             :run="$customersPreregRun" />
     @endif
 
+    <x-ui.archive-bars :bars="$archiveBars" />
+
     <x-ui.filter-tabs class="mb-3"
-                      :tabs="['' => 'All', 'active' => 'Active', 'suspended' => 'Suspended', 'pending_verification' => 'Pending verification']"
+                      :tabs="['' => 'All', 'active' => 'Active', 'suspended' => 'Suspended', 'pending_verification' => 'Pending verification', 'archived' => 'Archived']"
                       :active="$statusFilter" model="statusFilter" />
 
     <div class="flex flex-wrap gap-3 mb-4">
@@ -60,7 +62,8 @@
                     </td>
                     <td class="px-4 py-2 text-gray-500">{{ $customer->created_at->diffForHumans() }}</td>
                     <td class="px-4 py-2">
-                        <x-ui.button variant="ghost" :href="route('admin.customers.show', $customer->id)">View</x-ui.button>
+                        <x-ui.row-actions :id="$customer->id" :archived="$customer->trashed()" :can-manage="$canManage" :can-force="$canForce"
+                                          :view-href="route('admin.customers.show', $customer->id)" :edit-click="'editCustomer('.$customer->id.')'" />
                     </td>
                 </tr>
             @empty
@@ -68,4 +71,38 @@
             @endforelse
         </tbody>
     </x-ui.table>
+
+    <x-ui.modal :show="$showEditModal" title="Edit Customer" onClose="closeEditModal" maxWidth="lg">
+        <div class="space-y-3">
+            <div>
+                <label class="block text-sm font-medium mb-1">Name</label>
+                <input type="text" wire:model="editName" class="w-full border rounded px-3 py-2 text-sm">
+                @error('editName') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
+            </div>
+            <div>
+                <label class="block text-sm font-medium mb-1">Phone</label>
+                <input type="text" wire:model="editPhone" class="w-full border rounded px-3 py-2 text-sm">
+                @error('editPhone') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
+            </div>
+            <div>
+                <label class="block text-sm font-medium mb-1">Email</label>
+                <input type="email" wire:model="editEmail" class="w-full border rounded px-3 py-2 text-sm">
+                @error('editEmail') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
+            </div>
+            <div>
+                <label class="block text-sm font-medium mb-1">Status</label>
+                <select wire:model="editStatus" class="w-full border rounded px-3 py-2 text-sm">
+                    <option value="active">Active</option>
+                    <option value="suspended">Suspended</option>
+                    <option value="pending_verification">Pending verification</option>
+                </select>
+                @error('editStatus') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
+            </div>
+        </div>
+
+        <x-slot:footer>
+            <x-ui.button variant="secondary" wire:click="closeEditModal">Close</x-ui.button>
+            <x-ui.button wire:click="saveCustomer">Save</x-ui.button>
+        </x-slot:footer>
+    </x-ui.modal>
 </div>

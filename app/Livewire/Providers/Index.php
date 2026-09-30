@@ -4,7 +4,9 @@ namespace App\Livewire\Providers;
 
 use App\Imports\HeadingRowImport;
 use App\Models\CatalogImportRun;
+use App\Livewire\Concerns\HasRowArchive;
 use App\Models\Provider;
+use Illuminate\Database\Eloquent\Model;
 use App\Services\AuthorizationService;
 use App\Services\Onboarding\ProviderPreRegisterImporter;
 use App\Support\Concerns\HasCsvExport;
@@ -18,6 +20,8 @@ class Index extends Component
     use WithPagination;
     use WithFileUploads;
     use HasCsvExport;
+
+    use HasRowArchive;
 
     public string $statusFilter = '';
     public string $search = '';
@@ -39,6 +43,32 @@ class Index extends Component
     public function mount(): void
     {
         abort_unless(auth()->user()->hasPermissionAnywhere('providers.view'), 403, 'You do not have permission to view providers.');
+    }
+
+
+    protected function archiveModel(): string
+    {
+        return Provider::class;
+    }
+
+    protected function canArchiveRow(Model $row): bool
+    {
+        return auth()->user()->hasPermission('providers.manage', array_filter([
+            'zone_id' => $row->zone_id,
+            'franchise_id' => $row->franchise_id,
+        ]));
+    }
+
+    protected function archiveLabel(Model $row): string
+    {
+        return $row->user()->withTrashed()->value('name') ?? ('provider #'.$row->getKey());
+    }
+
+    protected function archiveWarning(Model $row): ?string
+    {
+        $open = $row->bookings()->whereIn('status', ['assigned', 'provider_en_route', 'in_progress', 'on_hold'])->count();
+
+        return $open > 0 ? "Heads-up: {$open} booking".($open === 1 ? ' is' : 's are').' still in progress with this provider.' : null;
     }
 
     public function updatingStatusFilter()
@@ -130,7 +160,8 @@ class Index extends Component
         $scoped = fn ($query) => app(AuthorizationService::class)->scopeQuery($query, auth()->user(), 'providers.view', $this->scopeColumns());
 
         return $scoped(Provider::with(['user', 'zone', 'documents']))
-            ->when($this->statusFilter, fn ($q) => $q->where('kyc_status', $this->statusFilter))
+            ->when($this->statusFilter === 'archived', fn ($q) => $q->onlyTrashed())
+            ->when($this->statusFilter !== '' && $this->statusFilter !== 'archived', fn ($q) => $q->where('kyc_status', $this->statusFilter))
             ->when($this->onlineOnly, fn ($q) => $q->where('is_online', true))
             ->when($this->search, fn ($q) => $q->whereHas('user', fn ($u) => $u->where('name', 'like', "%{$this->search}%")->orWhere('phone', 'like', "%{$this->search}%")));
     }
@@ -188,7 +219,11 @@ class Index extends Component
         $counts = $counts->all();
         $counts[''] = array_sum($counts);
 
-        return view('livewire.providers.index', compact('providers', 'counts'))
+        $canManage = auth()->user()->hasPermissionAnywhere('providers.manage');
+        $canForce = $this->isSuperAdminUser();
+        $archiveBars = $this->archiveBars();
+
+        return view('livewire.providers.index', compact('providers', 'counts', 'canManage', 'canForce', 'archiveBars'))
             ->layout('layouts.admin', ['title' => 'Providers']);
     }
 }

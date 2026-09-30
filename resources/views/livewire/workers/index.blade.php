@@ -1,8 +1,10 @@
 <div>
     <h1 class="text-2xl font-bold mb-4">Workers</h1>
 
+    <x-ui.archive-bars :bars="$archiveBars" />
+
     <x-ui.filter-tabs class="mb-4"
-                      :tabs="['' => 'All', 'pending' => 'Pending Review', 'approved' => 'Approved', 'rejected' => 'Rejected']"
+                      :tabs="['' => 'All', 'pending' => 'Pending Review', 'approved' => 'Approved', 'rejected' => 'Rejected', 'archived' => 'Archived']"
                       :active="$statusFilter" model="statusFilter" :counts="$counts" />
 
     <x-ui.table>
@@ -35,7 +37,9 @@
                     <td class="px-4 py-2">{{ $worker->documents->count() }} uploaded</td>
                     <td class="px-4 py-2 text-gray-500">{{ $worker->created_at->diffForHumans() }}</td>
                     <td class="px-4 py-2">
-                        <x-ui.button variant="ghost" :href="route('admin.workers.show', $worker->id)">Review</x-ui.button>
+                        <x-ui.row-actions :id="$worker->id" :archived="$worker->trashed()" :can-manage="$canManage" :can-force="$canForce"
+                                          :view-href="route('admin.workers.show', $worker->id)" view-label="Review"
+                                          :edit-href="route('admin.workers.show', $worker->id)" />
                     </td>
                 </tr>
             @empty

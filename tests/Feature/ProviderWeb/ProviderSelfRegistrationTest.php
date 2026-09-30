@@ -215,8 +215,11 @@ class ProviderSelfRegistrationTest extends TestCase
 
         $admin = $this->makeUserWithPermission('providers.view', 'global');
 
+        // The list opens on "All" (1CF-ADMIN-TABS-001); the Pending Review tab still shows the queue.
         Livewire::actingAs($admin)->test(ProvidersIndex::class)
-            ->assertSet('statusFilter', 'pending')
+            ->assertSet('statusFilter', '')
+            ->assertSee('Queue Tester')
+            ->set('statusFilter', 'pending')
             ->assertSee('Queue Tester');
     }
 
