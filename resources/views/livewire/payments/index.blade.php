@@ -7,13 +7,15 @@
     </div>
     <div class="text-xs text-gray-400 mb-4">Gateway: {{ $gatewayDisplayName }}</div>
 
+    <x-ui.archive-bars :bars="$archiveBars" />
+
     <x-ui.filter-tabs class="mb-3" :tabs="['' => 'All', 'online' => 'Online', 'wallet' => 'Wallet', 'cash' => 'Cash']"
                       :active="$methodFilter" model="methodFilter" />
 
     <x-ui.filter-tabs class="mb-3"
                       :tabs="$methodFilter === 'cash'
                           ? ['' => 'All', 'pending' => 'Pending', 'in_progress' => 'In progress', 'completed' => 'Completed', 'cancelled' => 'Cancelled']
-                          : ['' => 'All', 'pending' => 'Pending', 'captured' => 'Captured', 'failed' => 'Failed', 'refunded' => 'Refunded']"
+                          : ['' => 'All', 'pending' => 'Pending', 'captured' => 'Captured', 'failed' => 'Failed', 'refunded' => 'Refunded', 'archived' => 'Archived']"
                       :active="$statusFilter" model="statusFilter" />
 
     <div class="flex flex-wrap gap-3 mb-4">
@@ -80,6 +82,7 @@
                 <th class="px-4 py-2">Refunded</th>
                 <th class="px-4 py-2">Date</th>
                 <th class="px-4 py-2">Document</th>
+                <th class="px-4 py-2 text-right">Actions</th>
             </tr>
         </thead>
         <tbody>
@@ -137,9 +140,12 @@
                     <td class="px-4 py-2 font-mono text-gray-500">{{ $p->refunded_amount ? $currencySymbol.number_format($p->refunded_amount, 2) : '—' }}</td>
                     <td class="px-4 py-2 text-gray-500 whitespace-nowrap">{{ app(\App\Services\TimezoneResolver::class)->format($p->created_at, $payerFranchise, 'd M Y, h:i A') }}</td>
                     <td class="px-4 py-2"><x-ui.button variant="ghost" size="sm" :href="route('admin.documents.payments.show', $p->id)" target="_blank">View</x-ui.button></td>
+                    <td class="px-4 py-2">
+                        <x-ui.row-actions :id="$p->id" :archived="$p->trashed()" :can-manage="$canForce && ($p->trashed() || $p->isArchivable())" :can-force="$canForce" />
+                    </td>
                 </tr>
             @empty
-                <tr><td colspan="9" class="px-4 py-6 text-center text-gray-400">No payments match your filters.</td></tr>
+                <tr><td colspan="10" class="px-4 py-6 text-center text-gray-400">No payments match your filters.</td></tr>
             @endforelse
         </tbody>
     </x-ui.table>

@@ -42,7 +42,12 @@ class RazorpayWebhookHandler
         // it, the same row-locking convention every booking-mutating Action
         // in this codebase already uses.
         $alreadyCaptured = DB::transaction(function () use ($razorpayOrderId, $razorpayPaymentId, &$payment) {
-            $payment = Payment::where('gateway_order_id', $razorpayOrderId)->lockForUpdate()->first();
+            $payment = Payment::withTrashed()->where('gateway_order_id', $razorpayOrderId)->lockForUpdate()->first();
+
+            // REF 1CF-ADMIN-ROWACTIONS-001 — a late capture for an archived order revives the row.
+            if ($payment?->trashed()) {
+                $payment->restore();
+            }
 
             if (! $payment) {
                 return null;

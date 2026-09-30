@@ -4,10 +4,13 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 
 class Payment extends Model
 {
+    use SoftDeletes;
+
     use HasFactory;
 
     protected $table = 'payments';
@@ -60,4 +63,14 @@ class Payment extends Model
 
     /** Phase E1 -- only set for purpose = 'booking_bundle' (the multi-service wrapper). Individual child-booking payments keep using booking() above. */
     public function bookingBundle() { return $this->belongsTo(BookingBundle::class); }
+
+    /**
+     * REF 1CF-ADMIN-ROWACTIONS-001 — only a record that never moved money may be archived:
+     * a failed attempt, or a pending order old enough that no one is still paying it.
+     */
+    public function isArchivable(): bool
+    {
+        return $this->status === 'failed'
+            || ($this->status === 'pending' && $this->created_at?->lt(now()->subDay()));
+    }
 }

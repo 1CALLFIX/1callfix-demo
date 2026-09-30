@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 /**
  * A purchased plan instance, any actor — subscribable_type/id is
@@ -13,6 +14,8 @@ use Illuminate\Database\Eloquent\Model;
  */
 class Subscription extends Model
 {
+    use SoftDeletes;
+
     use HasFactory;
 
     protected $table = 'subscriptions';
@@ -56,5 +59,11 @@ class Subscription extends Model
     public function authorizationScopeHint(): array
     {
         return $this->plan?->authorizationScopeHint() ?? [];
+    }
+
+    /** REF 1CF-ADMIN-ROWACTIONS-001 — only subscriptions that are unpaid or already over. */
+    public function isArchivable(): bool
+    {
+        return in_array($this->status, ['pending_payment', 'failed', 'expired', 'cancelled'], true);
     }
 }

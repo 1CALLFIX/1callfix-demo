@@ -3,7 +3,9 @@
 namespace App\Livewire\Payments;
 
 use App\Contracts\PaymentGateway;
+use App\Livewire\Concerns\HasRowArchive;
 use App\Models\Booking;
+use Illuminate\Database\Eloquent\Model;
 use App\Models\Payment;
 use App\Models\Setting;
 use App\Services\AuthorizationService;
@@ -29,6 +31,23 @@ class Index extends Component
 {
     use WithPagination;
     use HasCsvExport;
+    use HasRowArchive;
+
+    protected function archiveModel(): string
+    {
+        return Payment::class;
+    }
+
+    /** Super Admin only, and only a record that never moved money (see Payment::isArchivable()). */
+    protected function canArchiveRow(Model $row): bool
+    {
+        return $this->isSuperAdminUser() && ($row->trashed() || $row->isArchivable());
+    }
+
+    protected function archiveLabel(Model $row): string
+    {
+        return 'payment '.($row->gateway_order_id ?: '#'.$row->getKey());
+    }
 
     public string $purposeFilter = '';
     public string $statusFilter = '';
@@ -91,7 +110,8 @@ class Index extends Component
                 'hotelReservation.customer', 'hotelReservation.franchise.country',
             ])
             ->when($this->purposeFilter !== '', fn ($q) => $q->where('purpose', $this->purposeFilter))
-            ->when($this->statusFilter !== '', fn ($q) => $q->where('status', $this->statusFilter))
+            ->when($this->statusFilter === 'archived', fn ($q) => $q->onlyTrashed())
+            ->when($this->statusFilter !== '' && $this->statusFilter !== 'archived', fn ($q) => $q->where('status', $this->statusFilter))
             ->when($this->methodFilter === 'wallet', fn ($q) => $q->where('gateway', 'wallet'))
             ->when($this->methodFilter === 'online', fn ($q) => $q->where(fn ($w) => $w->whereNull('gateway')->orWhere('gateway', '!=', 'wallet')))
             ->when($this->search !== '', fn ($q) => $q->where(function ($w) {
@@ -132,7 +152,7 @@ class Index extends Component
                     ->scopeQuery(Booking::query(), auth()->user(), 'bookings.view', ['zone_id' => 'zone_id', 'franchise_id' => 'franchise_id', 'city_id' => 'franchise.city_id', 'country_id' => 'franchise.country_id'])
                     ->with(['customer', 'service'])
                     ->where('payment_method', 'cash')
-                    ->when($this->statusFilter !== '', fn ($q) => $q->where('status', $this->statusFilter))
+                    ->when($this->statusFilter !== '' && $this->statusFilter !== 'archived', fn ($q) => $q->where('status', $this->statusFilter))
                     ->when($this->search !== '', fn ($q) => $q->where(fn ($w) => $w->where('code', 'like', "%{$this->search}%")
                         ->orWhereHas('customer', fn ($u) => $u->where('name', 'like', "%{$this->search}%")->orWhere('phone', 'like', "%{$this->search}%"))))
                     ->latest()->paginate(25)
@@ -148,6 +168,8 @@ class Index extends Component
         return view('livewire.payments.index', [
             'payments' => $payments,
             'cashBookings' => $cashBookings,
+            'canForce' => $this->isSuperAdminUser(),
+            'archiveBars' => $this->archiveBars(),
             'cashAllowed' => $cashAllowed,
             'gatewayDisplayName' => $gateway->displayName(),
             'currencySymbol' => Setting::get('locale.currency_symbol', '₹'),

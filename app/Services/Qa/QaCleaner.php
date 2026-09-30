@@ -91,9 +91,10 @@ class QaCleaner
             $deleted['booking_status_history'] = BookingStatusHistory::whereIn('booking_id', $bookingIds)->delete();
             $deleted['booking_extra_items'] = BookingExtraItem::whereIn('booking_id', $bookingIds)->delete();
             $deleted['commissions'] = Commission::whereIn('booking_id', $bookingIds)->delete();
-            $deleted['payments'] = Payment::whereIn('booking_id', $bookingIds)
+            // forceDelete: Payment is soft-deletable now (1CF-ADMIN-ROWACTIONS-001); QA cleanup must really remove rows.
+            $deleted['payments'] = Payment::withTrashed()->whereIn('booking_id', $bookingIds)
                 ->orWhereIn('id', $entries['payments'] ?? [])
-                ->delete();
+                ->forceDelete();
 
             // --- User-derived financial ledgers ---
             $walletIds = Wallet::whereIn('user_id', $userIds)->pluck('id');
@@ -123,7 +124,7 @@ class QaCleaner
             $deleted['entitlement_balances'] = EntitlementBalance::whereIn('id', $entitlementBalanceIds)
                 ->orWhereIn('subscription_id', $subscriptionIds)
                 ->delete();
-            $deleted['subscriptions'] = Subscription::whereIn('id', $subscriptionIds)->delete();
+            $deleted['subscriptions'] = Subscription::withTrashed()->whereIn('id', $subscriptionIds)->forceDelete();
 
             // --- Worker relationships ---
             $deleted['partner_workers'] = PartnerWorker::whereIn('id', $entries['partner_workers'] ?? [])->delete();

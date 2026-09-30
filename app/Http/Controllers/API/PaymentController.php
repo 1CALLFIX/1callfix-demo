@@ -79,7 +79,10 @@ class PaymentController extends Controller
             return response()->json(['message' => 'Payment signature verification failed.'], 422);
         }
 
-        $payment = Payment::where('gateway_order_id', $validated['razorpay_order_id'])->firstOrFail();
+        $payment = Payment::withTrashed()->where('gateway_order_id', $validated['razorpay_order_id'])->firstOrFail();
+        if ($payment->trashed()) {
+            $payment->restore(); // REF 1CF-ADMIN-ROWACTIONS-001 — a real payment arrived for an archived order
+        }
         $payment->gateway_payment_id = $validated['razorpay_payment_id'];
         $payment->gateway_signature = $validated['razorpay_signature'];
         // Status intentionally NOT set to 'captured' here — see webhook() below.

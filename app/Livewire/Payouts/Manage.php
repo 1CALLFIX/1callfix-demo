@@ -5,7 +5,9 @@ namespace App\Livewire\Payouts;
 use App\Exports\PayoutsExport;
 use App\Models\FieldWorker;
 use App\Models\PaymentAccount;
+use App\Livewire\Concerns\HasRowArchive;
 use App\Models\Payout;
+use Illuminate\Database\Eloquent\Model;
 use App\Models\Provider;
 use App\Models\Setting;
 use App\Models\User;
@@ -25,6 +27,25 @@ use Maatwebsite\Excel\Facades\Excel;
 class Manage extends Component
 {
     use WithPagination;
+    use HasRowArchive;
+
+    protected function archiveModel(): string
+    {
+        return Payout::class;
+    }
+
+    /** payouts.manage within the admin's own scope, and only a payout that moved no money (failed). */
+    protected function canArchiveRow(Model $row): bool
+    {
+        return auth()->user()->hasPermissionAnywhere('payouts.manage')
+            && in_array($row->id, $this->visiblePayoutIds($row->trashed()), true)
+            && ($row->trashed() || $row->isArchivable());
+    }
+
+    protected function archiveLabel(Model $row): string
+    {
+        return 'payout #'.$row->getKey();
+    }
 
     /**
      * No view-level check existed at all — only write actions checked
@@ -394,9 +415,9 @@ class Manage extends Component
      * pagination/counts stay correct rather than being computed before
      * this filter.
      */
-    private function visiblePayoutIds(): array
+    private function visiblePayoutIds(bool $trashed = false): array
     {
-        $candidates = Payout::query()->select('id', 'payee_type', 'payee_id')->get();
+        $candidates = ($trashed ? Payout::onlyTrashed() : Payout::query())->select('id', 'payee_type', 'payee_id')->get();
 
         return app(AuthorizationService::class)
             ->visibleAmong($candidates, auth()->user(), 'payouts.manage')
@@ -406,13 +427,17 @@ class Manage extends Component
 
     public function render()
     {
-        $payouts = Payout::whereIn('id', $this->visiblePayoutIds())
-            ->when($this->statusFilter !== '', fn ($q) => $q->where('status', $this->statusFilter))
+        $archivedTab = $this->statusFilter === 'archived';
+        $payouts = ($archivedTab ? Payout::onlyTrashed() : Payout::query())->whereIn('id', $this->visiblePayoutIds($archivedTab))
+            ->when($this->statusFilter !== '' && ! $archivedTab, fn ($q) => $q->where('status', $this->statusFilter))
             ->latest()->paginate(15);
         $this->attachPayeeLabels($payouts->getCollection());
 
         return view('livewire.payouts.manage', [
             'payouts' => $payouts,
+            'canManage' => auth()->user()->hasPermissionAnywhere('payouts.manage'),
+            'canForce' => $this->isSuperAdminUser(),
+            'archiveBars' => $this->archiveBars(),
             'currencySymbol' => Setting::get('locale.currency_symbol', '₹'),
         ])->layout('layouts.admin', ['title' => 'Payouts']);
     }

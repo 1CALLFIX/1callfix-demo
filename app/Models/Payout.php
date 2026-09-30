@@ -4,10 +4,13 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 
 class Payout extends Model
 {
+    use SoftDeletes;
+
     use HasFactory;
 
     protected $table = 'payouts';
@@ -45,5 +48,11 @@ class Payout extends Model
     public function authorizationScopeHint(): array
     {
         return app(\App\Services\PayoutService::class)->payoutScope($this->payee_type, $this->payee_id);
+    }
+
+    /** REF 1CF-ADMIN-ROWACTIONS-001 — a failed payout moved no money; anything else is a real record. */
+    public function isArchivable(): bool
+    {
+        return $this->status === 'failed';
     }
 }

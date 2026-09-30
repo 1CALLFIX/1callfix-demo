@@ -7,7 +7,9 @@ use App\Models\BusinessAccount;
 use App\Models\EntitlementBalance;
 use App\Models\PlanEntitlement;
 use App\Models\Setting;
+use App\Livewire\Concerns\HasRowArchive;
 use App\Models\Subscription;
+use Illuminate\Database\Eloquent\Model;
 use App\Models\User;
 use App\Services\AuthorizationService;
 use App\Services\Plans\SubscriptionService;
@@ -19,6 +21,25 @@ use Livewire\WithPagination;
 class Index extends Component
 {
     use WithPagination;
+    use HasRowArchive;
+
+    protected function archiveModel(): string
+    {
+        return Subscription::class;
+    }
+
+    /** subscriptions.manage within the admin's own scope, and only an unpaid or ended subscription. */
+    protected function canArchiveRow(Model $row): bool
+    {
+        return auth()->user()->hasPermissionAnywhere('subscriptions.manage')
+            && in_array($row->id, $this->visibleSubscriptionIds($row->trashed()), true)
+            && ($row->trashed() || $row->isArchivable());
+    }
+
+    protected function archiveLabel(Model $row): string
+    {
+        return 'subscription #'.$row->getKey();
+    }
 
     public string $statusFilter = '';
     public string $flashMessage = '';
@@ -204,9 +225,9 @@ class Index extends Component
      * "filter-then-whereIn, not filter-after-paginate" reasoning as
      * Plans\Manage::visiblePlanIds() so pagination/counts stay correct.
      */
-    private function visibleSubscriptionIds(): array
+    private function visibleSubscriptionIds(bool $trashed = false): array
     {
-        $candidates = Subscription::query()->select('id', 'plan_id')->with('plan:id,scope_type,scope_id')->get();
+        $candidates = ($trashed ? Subscription::onlyTrashed() : Subscription::query())->select('id', 'plan_id')->with('plan:id,scope_type,scope_id')->get();
 
         return app(AuthorizationService::class)
             ->visibleAmong($candidates, auth()->user(), 'subscriptions.view')
@@ -216,9 +237,10 @@ class Index extends Component
 
     public function render()
     {
-        $query = Subscription::whereIn('id', $this->visibleSubscriptionIds())
+        $archivedTab = $this->statusFilter === 'archived';
+        $query = ($archivedTab ? Subscription::onlyTrashed() : Subscription::query())->whereIn('id', $this->visibleSubscriptionIds($archivedTab))
             ->with(['plan', 'subscribable.franchise.country', 'entitlementBalances' => fn ($q) => $q->where('status', 'current')->with('planEntitlement')])->latest();
-        if ($this->statusFilter) {
+        if ($this->statusFilter && ! $archivedTab) {
             $query->where('status', $this->statusFilter);
         }
         $subscriptions = $query->paginate(15);
@@ -229,6 +251,9 @@ class Index extends Component
 
         return view('livewire.subscriptions.index', [
             'subscriptions' => $subscriptions,
+            'canManage' => auth()->user()->hasPermissionAnywhere('subscriptions.manage'),
+            'canForce' => $this->isSuperAdminUser(),
+            'archiveBars' => $this->archiveBars(),
             'currencySymbol' => Setting::get('locale.currency_symbol', '₹'),
         ])->layout('layouts.admin', ['title' => 'Subscriptions']);
     }

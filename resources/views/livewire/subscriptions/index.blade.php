@@ -8,8 +8,10 @@
         </div>
     @endif
 
+    <x-ui.archive-bars :bars="$archiveBars" />
+
     <x-ui.filter-tabs class="mb-4"
-                      :tabs="['' => 'All', 'pending_payment' => 'Pending payment', 'active' => 'Active', 'grace_period' => 'Grace period', 'past_due' => 'Past due', 'paused' => 'Paused', 'cancelled' => 'Cancelled', 'expired' => 'Expired', 'failed' => 'Failed']"
+                      :tabs="['' => 'All', 'pending_payment' => 'Pending payment', 'active' => 'Active', 'grace_period' => 'Grace period', 'past_due' => 'Past due', 'paused' => 'Paused', 'cancelled' => 'Cancelled', 'expired' => 'Expired', 'failed' => 'Failed', 'archived' => 'Archived']"
                       :active="$statusFilter" model="statusFilter" />
 
     <x-ui.table>
@@ -89,6 +91,7 @@
                             @elseif (in_array($s->status, ['past_due', 'grace_period', 'expired']))
                                 <x-ui.button variant="ghost" wire:click="renewNow({{ $s->id }})">Renew now</x-ui.button>
                             @endif
+                            <x-ui.row-actions :id="$s->id" :archived="$s->trashed()" :can-manage="$canManage && ($s->trashed() || $s->isArchivable())" :can-force="$canForce" />
                         </td>
                     </tr>
                 @empty

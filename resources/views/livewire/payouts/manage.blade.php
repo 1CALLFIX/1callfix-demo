@@ -134,8 +134,10 @@
     </x-ui.card>
 
     {{-- Payout list --}}
+    <x-ui.archive-bars :bars="$archiveBars" />
+
     <x-ui.filter-tabs class="mb-3"
-                      :tabs="['' => 'All', 'pending' => 'Pending', 'processing' => 'Processing', 'paid' => 'Paid', 'failed' => 'Failed']"
+                      :tabs="['' => 'All', 'pending' => 'Pending', 'processing' => 'Processing', 'paid' => 'Paid', 'failed' => 'Failed', 'archived' => 'Archived']"
                       :active="$statusFilter" model="statusFilter" />
 
     <x-ui.table>
@@ -169,6 +171,7 @@
                             <x-ui.button variant="ghost" color="green" class="mr-3" wire:click="startMarkPaid({{ $p->id }})">Mark Paid</x-ui.button>
                             <x-ui.button variant="ghost" color="red" wire:click="markFailed({{ $p->id }})">Mark Failed</x-ui.button>
                         @endif
+                        <x-ui.row-actions :id="$p->id" :archived="$p->trashed()" :can-manage="$canManage && ($p->trashed() || $p->isArchivable())" :can-force="$canForce" />
                     </td>
                 </tr>
             @empty
