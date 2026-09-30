@@ -3,6 +3,7 @@
 namespace App\Livewire\Payments;
 
 use App\Contracts\PaymentGateway;
+use App\Models\Booking;
 use App\Models\Payment;
 use App\Models\Setting;
 use App\Services\AuthorizationService;
@@ -31,6 +32,8 @@ class Index extends Component
 
     public string $purposeFilter = '';
     public string $statusFilter = '';
+    /** '' = all, 'online' | 'wallet' filter `payments.gateway`; 'cash' lists cash-method bookings (cash never creates a payment row). */
+    public string $methodFilter = '';
     public string $search = '';
 
     protected $queryString = ['purposeFilter', 'statusFilter', 'search'];
@@ -43,6 +46,7 @@ class Index extends Component
 
     public function updatingPurposeFilter() { $this->resetPage(); }
     public function updatingStatusFilter() { $this->resetPage(); }
+    public function updatingMethodFilter() { $this->resetPage(); }
     public function updatingSearch() { $this->resetPage(); }
 
     /**
@@ -88,6 +92,8 @@ class Index extends Component
             ])
             ->when($this->purposeFilter !== '', fn ($q) => $q->where('purpose', $this->purposeFilter))
             ->when($this->statusFilter !== '', fn ($q) => $q->where('status', $this->statusFilter))
+            ->when($this->methodFilter === 'wallet', fn ($q) => $q->where('gateway', 'wallet'))
+            ->when($this->methodFilter === 'online', fn ($q) => $q->where(fn ($w) => $w->whereNull('gateway')->orWhere('gateway', '!=', 'wallet')))
             ->when($this->search !== '', fn ($q) => $q->where(function ($w) {
                 $w->where('gateway_order_id', 'like', "%{$this->search}%")
                     ->orWhere('gateway_payment_id', 'like', "%{$this->search}%")
@@ -115,14 +121,34 @@ class Index extends Component
 
     public function render()
     {
-        $payments = $this->filteredPaymentsQuery()
-            ->latest()
-            ->paginate(25);
+        $cashBookings = null;
+        $cashAllowed = auth()->user()->hasPermissionAnywhere('bookings.view');
+
+        if ($this->methodFilter === 'cash') {
+            // Cash never creates a payment row (the provider collects after the
+            // job), so this tab lists the cash-method bookings themselves.
+            $cashBookings = $cashAllowed
+                ? app(AuthorizationService::class)
+                    ->scopeQuery(Booking::query(), auth()->user(), 'bookings.view', ['zone_id' => 'zone_id', 'franchise_id' => 'franchise_id', 'city_id' => 'franchise.city_id', 'country_id' => 'franchise.country_id'])
+                    ->with(['customer', 'service'])
+                    ->where('payment_method', 'cash')
+                    ->when($this->statusFilter !== '', fn ($q) => $q->where('status', $this->statusFilter))
+                    ->when($this->search !== '', fn ($q) => $q->where(fn ($w) => $w->where('code', 'like', "%{$this->search}%")
+                        ->orWhereHas('customer', fn ($u) => $u->where('name', 'like', "%{$this->search}%")->orWhere('phone', 'like', "%{$this->search}%"))))
+                    ->latest()->paginate(25)
+                : null;
+        }
+
+        $payments = $this->methodFilter === 'cash'
+            ? new \Illuminate\Pagination\LengthAwarePaginator([], 0, 25)
+            : $this->filteredPaymentsQuery()->latest()->paginate(25);
 
         $gateway = app(PaymentGateway::class);
 
         return view('livewire.payments.index', [
             'payments' => $payments,
+            'cashBookings' => $cashBookings,
+            'cashAllowed' => $cashAllowed,
             'gatewayDisplayName' => $gateway->displayName(),
             'currencySymbol' => Setting::get('locale.currency_symbol', '₹'),
         ])->layout('layouts.admin', ['title' => 'Payments']);

@@ -1,31 +1,71 @@
 <div>
     <div class="flex items-center justify-between mb-1">
         <h1 class="text-2xl font-bold">Payments</h1>
-        <x-ui.button variant="secondary" size="sm" wire:click="exportPaymentsCsv" title="Export the current filtered view as CSV">Export CSV</x-ui.button>
+        @if ($methodFilter !== 'cash')
+            <x-ui.button variant="secondary" size="sm" wire:click="exportPaymentsCsv" title="Export the current filtered view as CSV">Export CSV</x-ui.button>
+        @endif
     </div>
     <div class="text-xs text-gray-400 mb-4">Gateway: {{ $gatewayDisplayName }}</div>
 
+    <x-ui.filter-tabs class="mb-3" :tabs="['' => 'All', 'online' => 'Online', 'wallet' => 'Wallet', 'cash' => 'Cash']"
+                      :active="$methodFilter" model="methodFilter" />
+
+    <x-ui.filter-tabs class="mb-3"
+                      :tabs="$methodFilter === 'cash'
+                          ? ['' => 'All', 'pending' => 'Pending', 'in_progress' => 'In progress', 'completed' => 'Completed', 'cancelled' => 'Cancelled']
+                          : ['' => 'All', 'pending' => 'Pending', 'captured' => 'Captured', 'failed' => 'Failed', 'refunded' => 'Refunded']"
+                      :active="$statusFilter" model="statusFilter" />
+
     <div class="flex flex-wrap gap-3 mb-4">
-        <input type="text" wire:model.live.debounce.400ms="search" placeholder="Search order/payment id, booking code, name or phone..." class="border rounded px-3 py-2 text-sm w-80">
-        <select wire:model.live="purposeFilter" class="border rounded px-3 py-2 text-sm">
-            <option value="">All purposes</option>
-            <option value="booking">Booking</option>
-            <option value="wallet_topup">Wallet top-up</option>
-            <option value="plan_subscription">Plan subscription</option>
-            <option value="parcel_order">Parcel order</option>
-            <option value="taxi_ride">Taxi ride</option>
-            <option value="property_reservation">Property reservation</option>
-            <option value="marketplace_order">Marketplace order</option>
-        </select>
-        <select wire:model.live="statusFilter" class="border rounded px-3 py-2 text-sm">
-            <option value="">All statuses</option>
-            <option value="pending">Pending</option>
-            <option value="captured">Captured</option>
-            <option value="failed">Failed</option>
-            <option value="refunded">Refunded</option>
-        </select>
+        <input type="text" wire:model.live.debounce.400ms="search" placeholder="{{ $methodFilter === 'cash' ? 'Search booking code, name or phone...' : 'Search order/payment id, booking code, name or phone...' }}" class="border rounded px-3 py-2 text-sm w-80">
+        @if ($methodFilter !== 'cash')
+            <select wire:model.live="purposeFilter" class="border rounded px-3 py-2 text-sm">
+                <option value="">All purposes</option>
+                <option value="booking">Booking</option>
+                <option value="wallet_topup">Wallet top-up</option>
+                <option value="plan_subscription">Plan subscription</option>
+                <option value="parcel_order">Parcel order</option>
+                <option value="taxi_ride">Taxi ride</option>
+                <option value="property_reservation">Property reservation</option>
+                <option value="marketplace_order">Marketplace order</option>
+            </select>
+        @endif
     </div>
 
+    @if ($methodFilter === 'cash')
+        <p class="text-xs text-gray-500 mb-3">Cash is collected by the provider after the job, so there is no payment record. These are the bookings paid in cash.</p>
+        @if (! $cashAllowed)
+            <p class="text-sm text-gray-500">You do not have permission to view bookings.</p>
+        @else
+            <x-ui.table>
+                <x-slot:footer>{{ $cashBookings->links() }}</x-slot:footer>
+                <thead class="bg-gray-50 text-left text-gray-500">
+                    <tr>
+                        <th class="px-4 py-2">Booking</th>
+                        <th class="px-4 py-2">Customer</th>
+                        <th class="px-4 py-2">Service</th>
+                        <th class="px-4 py-2">Amount</th>
+                        <th class="px-4 py-2">Booking status</th>
+                        <th class="px-4 py-2">Date</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @forelse ($cashBookings as $b)
+                        <tr class="border-t hover:bg-gray-50">
+                            <td class="px-4 py-2"><a href="{{ route('admin.bookings.show', $b->id) }}" class="text-indigo-600 hover:underline">{{ $b->code }}</a></td>
+                            <td class="px-4 py-2">{{ $b->customer?->name ?? '—' }} @if ($b->customer)<span class="text-gray-400">({{ $b->customer->phone }})</span>@endif</td>
+                            <td class="px-4 py-2">{{ $b->service?->name ?? '—' }}</td>
+                            <td class="px-4 py-2">{{ $currencySymbol }}{{ number_format($b->orderTotalPrice(), 2) }}</td>
+                            <td class="px-4 py-2">{{ ucwords(str_replace('_', ' ', $b->status)) }}</td>
+                            <td class="px-4 py-2">{{ $b->created_at?->format('d M Y, h:i A') }}</td>
+                        </tr>
+                    @empty
+                        <tr><td colspan="6" class="px-4 py-6 text-center text-gray-400">No cash bookings match your filters.</td></tr>
+                    @endforelse
+                </tbody>
+            </x-ui.table>
+        @endif
+    @else
     <x-ui.table>
         <x-slot:footer>{{ $payments->links() }}</x-slot:footer>
 
@@ -103,4 +143,5 @@
             @endforelse
         </tbody>
     </x-ui.table>
+    @endif
 </div>

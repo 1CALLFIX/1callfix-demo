@@ -26,17 +26,8 @@
     @endif
 
     <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
-        <div class="flex gap-2">
-            @foreach (['pending' => 'Pending Review', 'approved' => 'Approved', 'rejected' => 'Rejected'] as $key => $label)
-                <button wire:click="$set('statusFilter', '{{ $key }}')"
-                        class="px-3 py-1.5 rounded text-sm {{ $statusFilter === $key ? 'bg-slate-900 text-white' : 'bg-white border' }}">
-                    {{ $label }}
-                    @if(isset($counts[$key]))
-                        <span class="opacity-60">({{ $counts[$key] }})</span>
-                    @endif
-                </button>
-            @endforeach
-        </div>
+        <x-ui.filter-tabs :tabs="['' => 'All', 'pending' => 'Pending Review', 'approved' => 'Approved', 'rejected' => 'Rejected']"
+                          :active="$statusFilter" model="statusFilter" :counts="$counts" />
 
         <div class="flex items-center gap-3">
             <label class="flex items-center gap-1.5 text-sm text-gray-600 whitespace-nowrap">

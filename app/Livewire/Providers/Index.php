@@ -19,7 +19,7 @@ class Index extends Component
     use WithFileUploads;
     use HasCsvExport;
 
-    public string $statusFilter = 'pending';
+    public string $statusFilter = '';
     public string $search = '';
     /** Narrow to providers who are online right now — the dashboard's "Providers Online" card links here with this set. */
     public bool $onlineOnly = false;
@@ -184,6 +184,9 @@ class Index extends Component
             ->selectRaw('kyc_status, count(*) as total')
             ->groupBy('kyc_status')
             ->pluck('total', 'kyc_status');
+
+        $counts = $counts->all();
+        $counts[''] = array_sum($counts);
 
         return view('livewire.providers.index', compact('providers', 'counts'))
             ->layout('layouts.admin', ['title' => 'Providers']);
