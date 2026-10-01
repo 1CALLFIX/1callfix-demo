@@ -24,7 +24,7 @@
             <h1 class="text-2xl font-bold tracking-tight">{{ $booking->service?->name ?? 'Service' }}</h1>
             <p class="text-sm text-slate-500">{{ $booking->code }} · booked {{ app(\App\Services\TimezoneResolver::class)->format($booking->created_at, $booking->franchise, 'j M Y, g:i A') }}</p>
         </div>
-        <x-customer.order-status :status="$booking->status" :paid="$booking->payment_status === 'paid'" />
+        <x-customer.order-status :status="$booking->status" :paid="$booking->payment_status === 'paid'" :cash="$booking->payment_method === 'cash'" />
     </div>
 
     @if ($notice)

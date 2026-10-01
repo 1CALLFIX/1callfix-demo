@@ -73,6 +73,7 @@ class Show extends Component
         return Provider::with('user')
             ->where('zone_id', $this->booking->zone_id)
             ->where('is_active', true)
+            ->when($this->booking->provider_id, fn ($q, $id) => $q->where('id', '!=', $id)) // handing a job to the same professional is meaningless
             ->get();
     }
 

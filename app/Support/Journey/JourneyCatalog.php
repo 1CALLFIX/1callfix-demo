@@ -38,7 +38,7 @@ final class JourneyCatalog
                 'steps' => [
                     'pending' => ['Booked', 'We received your booking.'],
                     'searching_provider' => ['Finding a professional', 'Matching you with the best available professional.'],
-                    'assigned' => ['Professional assigned', ':pro has accepted the job.'],
+                    'assigned' => ['Professional assigned', ':pro is assigned to your job.'],
                     'provider_en_route' => ['On the way', ':pro is heading to you.'],
                     'in_progress' => ['Work in progress', ':pro has started the job.'],
                     'completed' => ['Completed', 'Job finished. Thank you!'],

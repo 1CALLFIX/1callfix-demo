@@ -263,11 +263,17 @@ final class JourneyBuilder
             if ($status === 'on_hold' && str_starts_with($note, 'Hold reason:')) {
                 $rest = trim(substr($note, strlen('Hold reason:')));
                 $reason = trim(explode('—', $rest, 2)[0]);
-                $episodes[] = ['reason' => $reason, 'started_at' => $entry->changed_at, 'spares_at' => null, 'resumed_at' => null];
+                $episodes[] = ['reason' => $reason, 'started_at' => $entry->changed_at, 'spares_at' => null, 'resumed_at' => null, 'replaced_at' => null];
             } elseif ($status === 'on_hold' && str_starts_with($note, self::SPARES_NOTE) && $episodes !== []) {
                 $episodes[array_key_last($episodes)]['spares_at'] ??= $entry->changed_at;
             } elseif ($status === 'in_progress' && str_starts_with($note, 'Resumed from hold') && $episodes !== []) {
                 $episodes[array_key_last($episodes)]['resumed_at'] ??= $entry->changed_at;
+            } elseif ($status === 'assigned' && str_starts_with($note, 'Job reassigned after the previous professional left') && $episodes !== []) {
+                // The professional left mid-work and the job was handed over: that episode ends here, not in a resume.
+                $k = array_key_last($episodes);
+                if ($episodes[$k]['resumed_at'] === null) {
+                    $episodes[$k]['replaced_at'] ??= $entry->changed_at;
+                }
             }
         }
 
@@ -286,7 +292,9 @@ final class JourneyBuilder
                     'at' => $e['spares_at'],
                 ];
             }
-            $mini[] = ['label' => 'Work resumed', 'state' => $e['resumed_at'] ? 'done' : 'upcoming', 'at' => $e['resumed_at']];
+            $mini[] = $e['replaced_at']
+                ? ['label' => 'Professional replaced', 'state' => 'done', 'at' => $e['replaced_at']]
+                : ['label' => 'Work resumed', 'state' => $e['resumed_at'] ? 'done' : 'upcoming', 'at' => $e['resumed_at']];
 
             return $e + ['open' => $open, 'label' => $label, 'mini' => $mini];
         }, $episodes, array_keys($episodes));

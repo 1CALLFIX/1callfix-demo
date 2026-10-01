@@ -1,4 +1,4 @@
-@props(['status', 'paid' => false])
+@props(['status', 'paid' => false, 'cash' => false])
 
 {{--
     Phase E6 — a booking's real FSM status, worded for the customer and
@@ -15,7 +15,8 @@
     `pending` booking is shown as "Confirmed" instead.
 --}}
 @php
-    if ($status === 'pending' && $paid) {
+    if ($status === 'pending' && ($paid || $cash)) {
+        // A cash booking is never "awaiting payment": the customer pays the professional after the job.
         $status = '__paid_pending';
     }
     $map = [
@@ -26,6 +27,7 @@
         'provider_en_route'  => ['label' => 'On the way', 'tone' => 'blue', 'icon' => 'arrow-path'],
         'in_progress'        => ['label' => 'Work in progress', 'tone' => 'amber', 'icon' => 'arrow-path'],
         'completed'          => ['label' => 'Completed', 'tone' => 'emerald', 'icon' => 'check-circle'],
+        'on_hold'            => ['label' => 'On hold', 'tone' => 'amber', 'icon' => 'clock'],
         'cancelled'          => ['label' => 'Cancelled', 'tone' => 'rose', 'icon' => 'x-circle'],
         'disputed'           => ['label' => 'Under review', 'tone' => 'amber', 'icon' => 'exclamation-triangle'],
     ];

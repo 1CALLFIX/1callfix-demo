@@ -154,4 +154,27 @@ class JobWalkthroughTest extends TestCase
         $other['booking']->statusHistory()->create(['status' => 'assigned', 'note' => 'Accepted by provider #'.$new->id, 'changed_at' => now()]);
         $c->call('$refresh')->assertNotDispatched('provider-alert-status');
     }
+
+    public function test_the_hand_over_list_leaves_out_the_professional_who_left(): void
+    {
+        $s = $this->inProgress();
+        $new = $this->makeProviderIn($s['franchise'], $s['zone']);
+        $admin = $this->makeSuperAdmin();
+
+        $ids = Livewire::actingAs($admin)->test(AdminBookingShow::class, ['bookingId' => $s['booking']->id])
+            ->instance()->availableProviders->pluck('id')->all();
+
+        $this->assertContains($new->id, $ids);
+        $this->assertNotContains($s['provider']->id, $ids);
+    }
+
+    public function test_a_cash_booking_is_never_shown_as_awaiting_payment(): void
+    {
+        $s = $this->makeBookingScenario('pending');
+        $s['booking']->update(['payment_method' => 'cash', 'payment_status' => 'pending']);
+        $this->actingAs($s['customer']);
+
+        Livewire::test(CustomerOrderShow::class, ['booking' => $s['booking']])
+            ->assertDontSee('Awaiting payment')->assertSee('Confirmed');
+    }
 }

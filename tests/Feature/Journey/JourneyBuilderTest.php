@@ -59,8 +59,8 @@ class JourneyBuilderTest extends TestCase
         $named = JourneyBuilder::build('service', 'assigned', $history, ['provider_name' => 'Ravi Kumar']);
         $generic = JourneyBuilder::build('service', 'assigned', $history);
 
-        $this->assertSame('Ravi Kumar has accepted the job.', $named['headline'] === 'Professional assigned' ? $named['hint'] : '');
-        $this->assertSame('Your professional has accepted the job.', $generic['hint']);
+        $this->assertSame('Ravi Kumar is assigned to your job.', $named['headline'] === 'Professional assigned' ? $named['hint'] : '');
+        $this->assertSame('Your professional is assigned to your job.', $generic['hint']);
     }
 
     // ---------------------------------------------------------------- pending (two real meanings)
@@ -176,6 +176,23 @@ class JourneyBuilderTest extends TestCase
         $this->assertTrue($episode['open']);
         $this->assertSame(['Waiting for spare parts', 'Spares available', 'Work resumed'], array_column($episode['mini'], 'label'));
         $this->assertSame(['current', 'upcoming', 'upcoming'], array_column($episode['mini'], 'state'));
+    }
+
+    public function test_a_hold_that_ends_in_a_hand_over_reads_as_professional_replaced(): void
+    {
+        $h = [
+            $this->h('assigned', null, 0), $this->h('in_progress', null, 5),
+            $this->h('on_hold', 'Hold reason: provider_unresponsive — Customer reports the professional left the site', 20),
+            $this->h('assigned', 'Job reassigned after the previous professional left (#1 → #2)', 30),
+        ];
+
+        $j = JourneyBuilder::build('service', 'assigned', $h);
+        $ep = collect($j['steps'])->firstWhere('key', 'in_progress')['episodes'][0];
+
+        $this->assertFalse($j['paused']);
+        $this->assertFalse($ep['open']);
+        $this->assertSame(['Looking into a delay', 'Professional replaced'], array_column($ep['mini'], 'label'));
+        $this->assertSame(['done', 'done'], array_column($ep['mini'], 'state'));
     }
 
     public function test_spares_available_then_resume_then_complete_closes_the_loop(): void

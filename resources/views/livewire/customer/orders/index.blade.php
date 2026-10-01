@@ -27,7 +27,7 @@
                     <p class="truncate font-semibold text-slate-900">{{ $booking->service?->name ?? 'Service' }}</p>
                     <p class="text-xs text-slate-500">{{ $booking->code }} · {{ app(\App\Services\TimezoneResolver::class)->format($booking->created_at, $booking->franchise, 'j M Y') }}</p>
                 </div>
-                <x-customer.order-status :status="$booking->status" :paid="$booking->payment_status === 'paid'" />
+                <x-customer.order-status :status="$booking->status" :paid="$booking->payment_status === 'paid'" :cash="$booking->payment_method === 'cash'" />
             </div>
             <div class="mt-2 flex items-center justify-between text-sm">
                 <span class="text-slate-600">
