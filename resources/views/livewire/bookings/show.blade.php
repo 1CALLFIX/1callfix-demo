@@ -130,7 +130,7 @@
     @if (!in_array($booking->status, ['completed', 'cancelled']))
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
             <x-ui.card>
-                <div class="font-semibold mb-2">Manually Assign / Reassign Provider</div>
+                <div class="font-semibold mb-2">{{ $booking->status === 'on_hold' && $booking->hold_category === 'provider_side' ? 'Hand the job to another professional' : 'Manually Assign / Reassign Provider' }}</div>
                 <div class="flex gap-2">
                     <select wire:model="selectedProviderId" class="flex-1 border rounded px-3 py-2 text-sm">
                         <option value="">Select a provider...</option>
@@ -185,6 +185,10 @@
                             <input type="text" wire:model="holdNote" placeholder="Note (optional)" class="flex-1 min-w-[10rem] border rounded px-3 py-2 text-sm">
                             <x-ui.button variant="secondary" class="whitespace-nowrap" wire:click="holdJob">Put on hold</x-ui.button>
                         </div>
+                        <div class="mt-3 border-t pt-3">
+                            <p class="mb-2 text-sm text-gray-600">Did the professional leave the site mid-work?</p>
+                            <x-ui.button variant="danger" wire:click="flagProviderLeft" wire:confirm="Flag this job as: professional left? The customer will be told and you can then assign someone else or cancel with no fee.">Professional left</x-ui.button>
+                        </div>
                     @endif
                 </x-ui.card>
             @endif
@@ -196,6 +200,11 @@
                            class="flex-1 border rounded px-3 py-2 text-sm">
                     <x-ui.button variant="danger" class="whitespace-nowrap" wire:click="cancel">Cancel</x-ui.button>
                 </div>
+                @if ($booking->hold_category === 'provider_side')
+                    <p class="mt-2 text-xs text-gray-500">The professional left — no cancellation fee will be charged.</p>
+                @elseif ($booking->provider_id)
+                    <label class="mt-2 flex items-center gap-2 text-sm text-gray-600"><input type="checkbox" wire:model="waiveFee"> Waive the cancellation fee</label>
+                @endif
             </x-ui.card>
         </div>
     @endif

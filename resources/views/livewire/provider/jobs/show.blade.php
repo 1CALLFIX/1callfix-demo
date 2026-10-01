@@ -79,6 +79,20 @@
                 <p class="text-sm text-slate-600">Need a part to finish the job?</p>
                 <x-ui.button type="button" variant="secondary" class="mt-2" wire:click="holdForSpares" wire:loading.attr="disabled" wire:target="holdForSpares">Waiting for spares</x-ui.button>
             </div>
+
+            <form wire:submit="proposeExtraWork" class="mt-4 border-t border-slate-200 pt-3">
+                <p class="text-sm text-slate-600">Found extra work the customer must approve?</p>
+                <input type="text" wire:model="extraDescription" maxlength="200" placeholder="What needs doing (e.g. gas refill)" class="mt-2 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm">
+                @error('extraDescription') <p class="mt-1 text-sm text-red-700">{{ $message }}</p> @enderror
+                <input type="number" step="0.01" min="0" wire:model="extraAmount" placeholder="Extra amount" class="mt-2 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm">
+                @error('extraAmount') <p class="mt-1 text-sm text-red-700">{{ $message }}</p> @enderror
+                <x-ui.button type="submit" variant="secondary" class="mt-2" wire:loading.attr="disabled" wire:target="proposeExtraWork">Ask customer to approve</x-ui.button>
+            </form>
+
+            <div class="mt-4 border-t border-slate-200 pt-3">
+                <p class="text-sm text-slate-600">Can't finish this job?</p>
+                <x-ui.button type="button" variant="secondary" class="mt-2" wire:click="cannotContinue" wire:confirm="Report that you cannot continue? Your dispatcher will hand the job to someone else." wire:loading.attr="disabled" wire:target="cannotContinue">I can't continue</x-ui.button>
+            </div>
         </x-ui.card>
     @elseif ($booking->status === 'on_hold')
         <x-ui.card class="mt-4 !p-5">
@@ -91,6 +105,8 @@
                     <p class="mt-1 text-sm text-slate-600">Spare parts are with you. Resume the work to continue the job.</p>
                     <x-ui.button type="button" size="lg" class="mt-3" wire:click="resumeJob" wire:loading.attr="disabled" wire:target="resumeJob">Resume work</x-ui.button>
                 @endif
+            @elseif ($booking->hold_reason === 'awaiting_customer_approval')
+                <p class="mt-1 text-sm text-slate-600">Waiting for the customer to approve or decline your extra-work request. The job resumes automatically once they answer.</p>
             @else
                 <p class="mt-1 text-sm text-slate-600">This job is on hold. Your dispatcher will be in touch.</p>
             @endif
