@@ -86,3 +86,11 @@ ScheduleRunTracker::track(Schedule::command('dispatch:sweep-deadlines'), 'dispat
 ScheduleRunTracker::track(Schedule::command('dispatch:sweep-scheduled'), 'dispatch:sweep-scheduled')
     ->everyMinute()
     ->withoutOverlapping(10);
+
+// Provider heartbeat loss: a provider whose browser stopped reporting a
+// location (tab closed, signal lost, app backgrounded) is flipped offline
+// once their fix is older than provider.location_stale_after_minutes.
+// Dispatch already ignores them; this keeps is_online truthful.
+ScheduleRunTracker::track(Schedule::command('providers:expire-stale-online'), 'providers:expire-stale-online')
+    ->everyFiveMinutes()
+    ->withoutOverlapping(10);

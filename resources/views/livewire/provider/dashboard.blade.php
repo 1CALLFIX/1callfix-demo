@@ -28,23 +28,7 @@
          resources/js/push-notifications.js (loaded in the provider layout).
          A no-op if Firebase env isn't built in — the card just never
          appears because isSupported() is false. --}}
-    <div x-data="{
-            show: false,
-            busy: false,
-            msg: '',
-            async init() {
-                this.show = window.pushNotifications
-                    ? (await window.pushNotifications.isSupported()) && window.Notification && Notification.permission !== 'granted'
-                    : false;
-            },
-            async enable() {
-                this.busy = true; this.msg = '';
-                const ok = await window.pushNotifications.enable();
-                this.busy = false;
-                if (ok) { this.show = false; }
-                else { this.msg = 'Could not enable alerts. Check that notifications are allowed for this site.'; }
-            }
-         }"
+    <div x-data="providerPushOptIn"
          x-show="show" style="display: none" class="mt-4">
         <div class="flex items-start justify-between gap-4 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3">
             <div class="min-w-0">

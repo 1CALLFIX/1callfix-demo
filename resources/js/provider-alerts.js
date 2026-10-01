@@ -438,6 +438,40 @@ function setup() {
             };
         });
 
+        // Dashboard "Enable job alerts" card. Was an inline x-data object with an
+        // async init(): the support check resolved after the card had been
+        // morphed/navigated away and wrote `show` into a dead scope, which Alpine
+        // reported as "show/msg/busy is not defined". Registered here, every write
+        // after destroy() is skipped.
+        window.Alpine.data('providerPushOptIn', () => {
+            let alive = true;
+            return {
+                show: false,
+                busy: false,
+                msg: '',
+                async init() {
+                    const push = window.pushNotifications;
+                    if (!push) return;
+                    let supported = false;
+                    try { supported = await push.isSupported(); } catch (e) { supported = false; }
+                    if (!alive) return;
+                    this.show = Boolean(supported && window.Notification && Notification.permission !== 'granted');
+                },
+                async enable() {
+                    if (!window.pushNotifications) return;
+                    this.busy = true;
+                    this.msg = '';
+                    let ok = false;
+                    try { ok = await window.pushNotifications.enable(); } catch (e) { ok = false; }
+                    if (!alive) return;
+                    this.busy = false;
+                    if (ok) this.show = false;
+                    else this.msg = 'Could not enable alerts. Check that notifications are allowed for this site.';
+                },
+                destroy() { alive = false; },
+            };
+        });
+
         // The per-offer "Ns left" pill on the Job Offers list. Display only:
         // the server re-renders the list every poll and drops expired offers.
         //
