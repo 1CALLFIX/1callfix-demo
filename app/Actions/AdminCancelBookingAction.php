@@ -46,11 +46,11 @@ class AdminCancelBookingAction
      *        refundIfPaid()'s own param of the same name; see its docblock.
      *        Passed true only by DispatchDeadlineSweepService.
      */
-    public function execute(int $bookingId, string $reason, bool $reconcileBundle = true, ?string $customerNotificationEvent = null, bool $creditToMainWallet = false): Booking
+    public function execute(int $bookingId, string $reason, bool $reconcileBundle = true, ?string $customerNotificationEvent = null, bool $creditToMainWallet = false, bool $waiveFee = false): Booking
     {
         $statusBeforeCancel = null;
 
-        $booking = DB::transaction(function () use ($bookingId, $reason, &$statusBeforeCancel) {
+        $booking = DB::transaction(function () use ($bookingId, $reason, $waiveFee, &$statusBeforeCancel) {
             $booking = Booking::lockForUpdate()->findOrFail($bookingId);
 
             if (in_array($booking->status, ['completed', 'cancelled'], true)) {
@@ -59,7 +59,11 @@ class AdminCancelBookingAction
 
             $statusBeforeCancel = $booking->status;
 
-            $fee = $this->cancellationService->calculateFee($booking);
+            // REF 1CF-JOURNEY-001 — a cancellation that is the platform's / the professional's fault carries no
+            // fee: explicitly waived by the operator, or implied by a provider-side hold ("professional left").
+            $fee = ($waiveFee || $booking->hold_category === 'provider_side')
+                ? 0.0
+                : $this->cancellationService->calculateFee($booking);
 
             $booking->status = 'cancelled';
             $booking->cancellation_note = $reason;

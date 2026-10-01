@@ -64,6 +64,7 @@ class AdminOpsAlertNotification extends Notification implements ShouldQueue
             'dispatch_refund_failed' => $this->dispatchRefundFailedCopy(),
             'scheduled_early_warning' => $this->scheduledEarlyWarningCopy(),
             'scheduled_urgent_alert' => $this->scheduledUrgentAlertCopy(),
+            'job_at_risk' => $this->jobAtRiskCopy(),
             default => ['title' => 'Operations update', 'body' => 'An operational event occurred.'],
         };
     }
@@ -146,6 +147,19 @@ class AdminOpsAlertNotification extends Notification implements ShouldQueue
         return [
             'title' => 'URGENT: scheduled booking unassigned',
             'body' => "Booking {$b->code} — {$service}, due {$when} — is about to reach its scheduled time with no provider assigned. Needs immediate attention.",
+        ];
+    }
+
+    /** REF 1CF-JOURNEY-001 — a job in progress has been flagged: the professional left / cannot continue. */
+    private function jobAtRiskCopy(): array
+    {
+        /** @var Booking $b */
+        $b = $this->subject;
+        $service = $b->service?->name ?? 'Service';
+
+        return [
+            'title' => 'Job at risk: professional left',
+            'body' => "Booking {$b->code} — {$service} — was flagged mid-work ({$b->hold_note}). Reassign it or cancel (no fee).",
         ];
     }
 

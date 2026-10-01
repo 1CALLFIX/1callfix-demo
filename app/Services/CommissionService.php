@@ -89,7 +89,27 @@ class CommissionService
 
         $isCash = $booking->payment_method === 'cash';
 
-        return DB::transaction(function () use ($booking, $providerCommission, $franchiseCommission, $platformCommission, $rateOverride, $isCash) {
+        // REF 1CF-EXTRAWORK-001 — approved extra work on a PREPAID booking (online / wallet) is paid to the
+        // provider on site: the platform only ever collected the quoted price. So the wallet credits are
+        // computed on what the platform collected, and the platform + franchise share of the extra amount
+        // becomes a cash-style receivable, recovered from the provider at payout time (same one-per-booking
+        // mechanism as a cash job). A cash booking is unchanged: the provider already holds the whole total.
+        $extras = $isCash ? 0.0 : round((float) $booking->extraItems()->where('status', 'approved')->sum('amount'), 2);
+        $platformOnExtras = 0.0;
+        $franchiseOnExtras = 0.0;
+        if ($extras > 0 && $total >= $extras) {
+            $platformOnExtras = round($extras * ($platformFeePercent / 100), 2);
+            $franchiseOnExtras = $franchise->commission_model === 'revenue_share'
+                ? round($extras * (($franchise->commission_value ?? 0) / 100), 2)
+                : 0.0;
+        } else {
+            $extras = 0.0;
+        }
+        $extrasOwed = round($platformOnExtras + $franchiseOnExtras, 2);
+        $providerWalletCredit = round($providerCommission - ($extras - $platformOnExtras - $franchiseOnExtras), 2);
+        $franchiseWalletCredit = round($franchiseCommission - $franchiseOnExtras, 2);
+
+        return DB::transaction(function () use ($booking, $providerCommission, $franchiseCommission, $platformCommission, $rateOverride, $isCash, $extrasOwed, $platformOnExtras, $franchiseOnExtras, $providerWalletCredit, $franchiseWalletCredit) {
             $commission = Commission::create([
                 'booking_id' => $booking->id,
                 'provider_commission' => $providerCommission,
@@ -118,10 +138,10 @@ class CommissionService
                     ]);
                 }
             } else {
-                if ($booking->provider && $booking->provider->user && $providerCommission > 0) {
+                if ($booking->provider && $booking->provider->user && $providerWalletCredit > 0) {
                     $this->walletService->credit(
                         $booking->provider->user,
-                        $providerCommission,
+                        $providerWalletCredit,
                         reason: "Earnings for booking {$booking->code}",
                         ref: "booking:{$booking->id}:provider-earning"
                     );
@@ -133,14 +153,27 @@ class CommissionService
                 // yet (Franchises\Manage's Edit modal), the share is still
                 // recorded on this Commission row for later settlement once one
                 // is — it just isn't credited anywhere until then.
-                if ($booking->franchise && $booking->franchise->owner_user_id && $franchiseCommission > 0) {
+                if ($booking->franchise && $booking->franchise->owner_user_id && $franchiseWalletCredit > 0) {
                     $this->walletService->credit(
                         $booking->franchise->owner,
-                        $franchiseCommission,
+                        $franchiseWalletCredit,
                         reason: "Franchise revenue share for booking {$booking->code}",
                         ref: "booking:{$booking->id}:franchise-earning"
                     );
                 }
+            }
+
+            if (! $isCash && $extrasOwed > 0 && $booking->provider) {
+                ProviderCommissionReceivable::create([
+                    'provider_id' => $booking->provider->id,
+                    'booking_id' => $booking->id,
+                    'commission_id' => $commission->id,
+                    'platform_portion' => $platformOnExtras,
+                    'franchise_portion' => $franchiseOnExtras,
+                    'amount_owed' => $extrasOwed,
+                    'amount_settled' => 0,
+                    'status' => 'outstanding',
+                ]);
             }
 
             // Auditable record that this booking's commission used a

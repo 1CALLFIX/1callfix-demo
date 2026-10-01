@@ -63,6 +63,11 @@ class TestExtraWorkFlow extends Command
         $accepted = (new AcceptBookingAction())->execute($booking->id, $provider);
         $this->line("Status: {$accepted->status}, completion_otp: {$accepted->completion_otp}");
 
+        // Extra work can only be proposed once the job is in progress (REF 1CF-EXTRAWORK-001).
+        $this->info("\n--- Starting the job ---");
+        $started = app(\App\Actions\StartBookingAction::class)->execute($booking->id, (string) $accepted->start_otp);
+        $this->line("Status: {$started->status}");
+
         $this->info("\n--- Provider proposes extra work: kitchen sink leak, ₹1000 ---");
         $item = (new ProposeExtraWorkAction())->execute(
             $booking->id, $provider, 'Kitchen sink leak repair', 1000.00

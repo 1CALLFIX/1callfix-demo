@@ -82,6 +82,11 @@ class ProviderJobStatusNotification extends Notification
             'resumed' => ['subject' => 'Job resumed', 'body' => "Job {$code} is off hold and back in progress."],
             'completed' => ['subject' => 'Job completed', 'body' => "Job {$code} is complete. Your earnings have been added to your wallet."],
             'cancelled' => ['subject' => 'Job cancelled', 'body' => "Job {$code} has been cancelled."],
+            // REF 1CF-EXTRAWORK-001 / 1CF-JOURNEY-001
+            'extra_work_approved' => ['subject' => 'Extra work approved', 'body' => "The customer approved your extra-work request on job {$code}. Carry on — the extra amount is paid to you on completion."],
+            'extra_work_declined' => ['subject' => 'Extra work declined', 'body' => "The customer declined your extra-work request on job {$code}. The job continues at the original price."],
+            'reassigned_to_you' => ['subject' => 'Job assigned to you', 'body' => "Job {$code} has been handed to you to continue. Head to the customer and start with their start OTP, then finish the work."],
+            'reassigned_away' => ['subject' => 'Job moved to another professional', 'body' => "Job {$code} has been moved to another professional. No further action is needed from you."],
             default => ['subject' => 'Job update', 'body' => "Job {$code} was updated."],
         };
     }

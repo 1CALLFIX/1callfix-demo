@@ -84,6 +84,18 @@ class BookingStatusNotification extends Notification
                 return ['subject' => 'Your job is on hold', 'body' => "Booking {$this->booking->code} is on hold ({$reason}). We'll let you know as soon as work resumes."];
             })(),
             'spares_available' => ['subject' => 'Spare parts are ready', 'body' => "The spare parts for booking {$this->booking->code} are available. Work will resume shortly."],
+            'extra_work_proposed' => (function () {
+                $item = $this->booking->extraItems()->where('status', 'pending_approval')->latest('id')->first();
+                $symbol = \App\Models\Setting::get('locale.currency_symbol', '₹');
+                $what = $item ? "{$item->description} ({$symbol}".number_format((float) $item->amount, 2).')' : 'extra work';
+
+                return ['subject' => 'Approval needed: extra work', 'body' => "Your professional found extra work on booking {$this->booking->code}: {$what}. Please approve or decline it in the app; the job is paused until you answer."];
+            })(),
+            'reassigned' => (function () {
+                $name = $this->booking->provider?->user?->name ?? 'A new professional';
+
+                return ['subject' => 'A new professional will continue your job', 'body' => "{$name} will continue the work on booking {$this->booking->code}. Your new start code is sent separately."];
+            })(),
             'resumed' => ['subject' => 'Work has resumed', 'body' => "Work on booking {$this->booking->code} has resumed."],
             default => ['subject' => 'Booking update', 'body' => "Your booking {$this->booking->code} was updated."],
         };

@@ -3,6 +3,8 @@
 namespace App\Livewire\Customer\Orders;
 
 use App\Actions\AdminCancelBookingAction;
+use App\Actions\FlagProviderLeftAction;
+use App\Actions\RespondToExtraWorkAction;
 use App\Contracts\PaymentGateway;
 use App\Models\Booking;
 use App\Models\Payment;
@@ -81,6 +83,42 @@ class Show extends Component
         abort_unless($booking->customer_id === auth()->id(), 404);
 
         return $booking;
+    }
+
+    /** REF 1CF-EXTRAWORK-001 — approve or decline extra work the professional asked for. */
+    public function respondToExtraWork(int $itemId, bool $approved, RespondToExtraWorkAction $action): void
+    {
+        $this->reset('error', 'notice');
+        $this->booking(); // ownership check (404)
+
+        try {
+            $action->execute($itemId, auth()->id(), $approved);
+        } catch (\RuntimeException $e) {
+            $this->error = $e->getMessage();
+
+            return;
+        }
+
+        $this->notice = $approved
+            ? 'Approved. The professional will carry on; the extra amount is added to your final bill.'
+            : 'Declined. The job continues at the original price.';
+    }
+
+    /** REF 1CF-JOURNEY-001 — "my professional left before finishing". Pauses the job and alerts the operator. */
+    public function reportProfessionalLeft(FlagProviderLeftAction $action): void
+    {
+        $this->reset('error', 'notice');
+        $booking = $this->booking();
+
+        try {
+            $action->execute($booking->id, 'customer', auth()->id());
+        } catch (\RuntimeException $e) {
+            $this->error = $e->getMessage();
+
+            return;
+        }
+
+        $this->notice = 'Thanks for telling us. We have paused the job and our team will send another professional or cancel it with no fee.';
     }
 
     public function cancel(AdminCancelBookingAction $action): void
@@ -203,6 +241,7 @@ class Show extends Component
             // "finding a professional" panel.
             'isSearching' => in_array($booking->status, ['pending', 'searching_provider'], true)
                 && $booking->status !== 'cancelled',
+            'pendingExtra' => $booking->status === 'on_hold' ? $booking->extraItems()->where('status', 'pending_approval')->latest('id')->first() : null,
             'contactedCount' => $contactedCount,
             'providerDistanceKm' => $providerDistanceKm,
             // Both codes belong to this customer (E5 sends them by SMS on

@@ -14,19 +14,24 @@ use Illuminate\Support\Facades\Log;
  * cancelled already notified; these in-between stages used to be silent for the customer.)
  *
  * Channel policy: the minor stages go only to push and in-app — never e-mail or SMS — so a customer
- * is not sent five messages for one job; the live timeline carries the detail. A hold is the one
- * stage that can need the customer's attention, so it uses every configured channel.
+ * is not sent five messages for one job; the live timeline carries the detail. The stages that can need the
+ * customer's attention (a hold, an extra-work request, a new professional taking over) use every configured channel.
  * Always guarded: a delivery failure is logged and can never roll back the transition.
  */
 final class StageNotifier
 {
     /** Events that use the full configured channel set instead of push + in-app only. */
-    private const FULL_CHANNEL_EVENTS = ['on_hold'];
+    private const FULL_CHANNEL_EVENTS = ['on_hold', 'extra_work_proposed', 'reassigned'];
 
     public static function customer(Booking $booking, string $event): void
     {
         $customer = $booking->customer;
         if (! $customer) {
+            return;
+        }
+
+        // The extra-work request sends its own, more specific message right after the hold.
+        if ($event === 'on_hold' && $booking->hold_reason === 'awaiting_customer_approval') {
             return;
         }
 

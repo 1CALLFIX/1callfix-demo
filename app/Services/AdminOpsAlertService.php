@@ -89,6 +89,12 @@ class AdminOpsAlertService
         $this->fanOutScoped('scheduled_urgent_alert', $booking);
     }
 
+    /** REF 1CF-JOURNEY-001 — a job in progress was flagged (provider left / cannot continue). Scoped like the dispatch alerts. */
+    public function jobAtRisk(Booking $booking): void
+    {
+        $this->fanOutScoped('job_at_risk', $booking);
+    }
+
     private function fanOutScoped(string $event, Booking $booking): void
     {
         $channels = array_values(array_intersect(ChannelResolver::resolve([]), [PushChannel::class]));

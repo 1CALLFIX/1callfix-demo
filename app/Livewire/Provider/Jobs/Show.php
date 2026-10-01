@@ -3,9 +3,11 @@
 namespace App\Livewire\Provider\Jobs;
 
 use App\Actions\CompleteBookingAction;
+use App\Actions\FlagProviderLeftAction;
 use App\Actions\MarkEnRouteAction;
 use App\Actions\MarkSparesAvailableAction;
 use App\Actions\PlaceBookingOnHoldAction;
+use App\Actions\ProposeExtraWorkAction;
 use App\Actions\ResumeBookingAction;
 use App\Actions\StartBookingAction;
 use App\Livewire\Provider\Concerns\DetectsStuckJob;
@@ -50,6 +52,10 @@ class Show extends Component
     public string $error = '';
 
     public string $notice = '';
+
+    public string $extraDescription = '';
+
+    public string $extraAmount = '';
 
     /**
      * Phase PN1 — last status this component has already alerted the
@@ -202,6 +208,51 @@ class Show extends Component
 
         $this->lastSeenStatus = 'in_progress';
         $this->notice = 'Work resumed.';
+    }
+
+    /** REF 1CF-EXTRAWORK-001 — ask the customer to approve extra work; the job pauses until they answer. */
+    public function proposeExtraWork(ProposeExtraWorkAction $action): void
+    {
+        $this->reset('error', 'notice');
+        $this->validate([
+            'extraDescription' => ['required', 'string', 'min:3', 'max:200'],
+            'extraAmount' => ['required', 'numeric', 'gt:0'],
+        ], [
+            'extraDescription.required' => 'Describe the extra work.',
+            'extraAmount.required' => 'Enter the extra amount.',
+        ]);
+
+        $this->job(); // ownership check
+
+        try {
+            $action->execute($this->bookingId, $this->provider(), trim($this->extraDescription), (float) $this->extraAmount);
+        } catch (\RuntimeException|\InvalidArgumentException $e) {
+            $this->error = $e->getMessage();
+
+            return;
+        }
+
+        $this->reset('extraDescription', 'extraAmount');
+        $this->lastSeenStatus = 'on_hold';
+        $this->notice = 'Sent to the customer. The job is paused until they approve or decline.';
+    }
+
+    /** REF 1CF-JOURNEY-001 — the professional cannot continue; the dispatcher is alerted and hands the job on. */
+    public function cannotContinue(FlagProviderLeftAction $action): void
+    {
+        $this->reset('error', 'notice');
+        $this->job(); // ownership check
+
+        try {
+            $action->execute($this->bookingId, 'provider', auth()->id());
+        } catch (\RuntimeException $e) {
+            $this->error = $e->getMessage();
+
+            return;
+        }
+
+        $this->lastSeenStatus = 'on_hold';
+        $this->notice = 'Reported. Your dispatcher will arrange for another professional to finish the job.';
     }
 
     public function render()

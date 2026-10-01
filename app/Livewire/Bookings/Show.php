@@ -5,6 +5,8 @@ namespace App\Livewire\Bookings;
 use App\Actions\AdminCancelBookingAction;
 use App\Actions\AdminReassignBookingAction;
 use App\Actions\AssignBookingToWorkerAction;
+use App\Actions\FlagProviderLeftAction;
+use App\Actions\ReassignInProgressJobAction;
 use App\Actions\MarkSparesAvailableAction;
 use App\Actions\PlaceBookingOnHoldAction;
 use App\Actions\ResumeBookingAction;
@@ -25,6 +27,7 @@ class Show extends Component
     // Job-journey controls (REF 1CF-JOURNEY-001): hold / spares available / resume by the operator.
     public string $holdReason = 'awaiting_spares';
     public string $holdNote = '';
+    public bool $waiveFee = false;
     public string $flashMessage = '';
     public string $flashType = 'success';
 
@@ -139,10 +142,16 @@ class Show extends Component
         }
 
         try {
-            $this->booking = $action->execute($this->booking->id, (int) $this->selectedProviderId);
+            if ($this->booking->status === 'on_hold' && $this->booking->hold_category === 'provider_side') {
+                // REF 1CF-JOURNEY-001 — the professional left mid-work: hand the job over with a fresh start code.
+                $this->booking = app(ReassignInProgressJobAction::class)->execute($this->booking->id, (int) $this->selectedProviderId, auth()->id());
+                $this->flashMessage = 'Job handed to the new professional. The customer has a new start code.';
+            } else {
+                $this->booking = $action->execute($this->booking->id, (int) $this->selectedProviderId);
+                $this->flashMessage = 'Booking reassigned successfully.';
+            }
             $this->booking->load(['provider.user', 'statusHistory']);
             $this->flashType = 'success';
-            $this->flashMessage = 'Booking reassigned successfully.';
             $this->selectedProviderId = '';
         } catch (\Throwable $e) {
             $this->flashType = 'error';
@@ -229,6 +238,20 @@ class Show extends Component
         $this->holdNote = '';
     }
 
+    /** REF 1CF-JOURNEY-001 — an operator records that the professional left the site. */
+    public function flagProviderLeft(FlagProviderLeftAction $action): void
+    {
+        if ($this->booking->status !== 'in_progress') {
+            $this->flashType = 'error';
+            $this->flashMessage = 'Only a job in progress can be flagged as left.';
+
+            return;
+        }
+
+        $this->jobControl(fn () => $action->execute($this->booking->id, 'operator', auth()->id(), trim($this->holdNote) ?: null), 'Job flagged: professional left. Assign another professional or cancel with no fee.');
+        $this->holdNote = '';
+    }
+
     public function markSparesAvailable(MarkSparesAvailableAction $action): void
     {
         $this->jobControl(fn () => $action->execute($this->booking->id, auth()->id()), 'Marked: spare parts available.');
@@ -254,11 +277,12 @@ class Show extends Component
         }
 
         try {
-            $this->booking = $action->execute($this->booking->id, $this->cancelReason);
+            $this->booking = $action->execute($this->booking->id, $this->cancelReason, waiveFee: $this->waiveFee);
             $this->booking->load('statusHistory');
             $this->flashType = 'success';
             $this->flashMessage = 'Booking cancelled.';
             $this->cancelReason = '';
+            $this->waiveFee = false;
         } catch (\Throwable $e) {
             $this->flashType = 'error';
             $this->flashMessage = $e->getMessage();
