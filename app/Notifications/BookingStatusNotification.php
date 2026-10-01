@@ -8,7 +8,8 @@ use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 
 /**
- * Covers booking.created / booking.assigned / booking.completed /
+ * Covers booking.created / booking.assigned / booking.en_route / booking.started /
+ * booking.on_hold / booking.spares_available / booking.resumed / booking.completed /
  * booking.cancelled — one event key, one Booking, per-event copy below.
  * Sent synchronously (no ShouldQueue) so a test/verification run doesn't
  * depend on a queue worker actually running.
@@ -70,6 +71,20 @@ class BookingStatusNotification extends Notification
             // queue/job failure (see ServiceMatchingJob::failed()) as a
             // supply problem, so it stays true under either cause.
             'no_provider_found' => ['subject' => 'Booking could not be completed', 'body' => "Your booking {$this->booking->code} could not be matched to a provider in time and has been cancelled. Any amount already paid has been refunded, and no cancellation fee applies."],
+            // REF 1CF-JOURNEY-001 — the middle of the job journey (see Support\Journey\StageNotifier).
+            'en_route' => (function () {
+                $name = $this->booking->provider?->user?->name ?? 'Your professional';
+
+                return ['subject' => 'Your professional is on the way', 'body' => "{$name} is heading to you for booking {$this->booking->code}."];
+            })(),
+            'started' => ['subject' => 'Work has started', 'body' => "The job for booking {$this->booking->code} has started."],
+            'on_hold' => (function () {
+                $reason = \App\Support\Journey\JourneyCatalog::HOLD_REASONS[$this->booking->hold_reason ?? ''] ?? 'a short pause';
+
+                return ['subject' => 'Your job is on hold', 'body' => "Booking {$this->booking->code} is on hold ({$reason}). We'll let you know as soon as work resumes."];
+            })(),
+            'spares_available' => ['subject' => 'Spare parts are ready', 'body' => "The spare parts for booking {$this->booking->code} are available. Work will resume shortly."],
+            'resumed' => ['subject' => 'Work has resumed', 'body' => "Work on booking {$this->booking->code} has resumed."],
             default => ['subject' => 'Booking update', 'body' => "Your booking {$this->booking->code} was updated."],
         };
     }

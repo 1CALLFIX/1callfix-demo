@@ -76,6 +76,14 @@
             </p>
         </x-ui.card>
 
+        {{-- REF 1CF-JOURNEY-001 — the order's journey; the raw log stays below. --}}
+        @php($journey = \App\Support\Journey\JourneyBuilder::build('hotel', $reservation->status, $reservation->statusHistory))
+        @if ($journey)
+            <x-ui.card class="mb-4">
+                <x-journey.timeline :journey="$journey" variant="compact" />
+            </x-ui.card>
+        @endif
+
         <x-ui.card class="mb-4">
             <h3 class="font-semibold mb-2">Status history</h3>
             @forelse ($reservation->statusHistory as $h)

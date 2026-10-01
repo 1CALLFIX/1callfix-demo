@@ -72,6 +72,7 @@ class StartBookingAction
         // progress). Guarded + logged; a transport failure cannot roll back
         // the started booking. Same convention as AcceptBookingAction.
         $this->notifyProviderOfStatus($booking, 'started');
+        \App\Support\Journey\StageNotifier::customer($booking, 'started');
 
         return $booking;
     }

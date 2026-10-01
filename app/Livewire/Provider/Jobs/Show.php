@@ -4,6 +4,9 @@ namespace App\Livewire\Provider\Jobs;
 
 use App\Actions\CompleteBookingAction;
 use App\Actions\MarkEnRouteAction;
+use App\Actions\MarkSparesAvailableAction;
+use App\Actions\PlaceBookingOnHoldAction;
+use App\Actions\ResumeBookingAction;
 use App\Actions\StartBookingAction;
 use App\Livewire\Provider\Concerns\DetectsStuckJob;
 use App\Livewire\Provider\Concerns\InteractsWithProvider;
@@ -135,6 +138,72 @@ class Show extends Component
         $this->notice = 'Job completed.';
     }
 
+    /**
+     * REF 1CF-JOURNEY-001 — "waiting for spares": the in-progress -> on hold lane of the job journey.
+     * Providers may only hold for spare parts (every other hold reason stays a dispatcher decision).
+     */
+    public function holdForSpares(PlaceBookingOnHoldAction $action): void
+    {
+        $this->reset('error', 'notice');
+
+        $booking = $this->job();
+        if ($booking->status !== 'in_progress') {
+            $this->error = 'You can wait for spare parts once the job is in progress.';
+
+            return;
+        }
+
+        try {
+            $action->execute($this->bookingId, 'awaiting_spares', 'Provider is waiting for spare parts');
+        } catch (\RuntimeException|\InvalidArgumentException $e) {
+            $this->error = $e->getMessage();
+
+            return;
+        }
+
+        $this->lastSeenStatus = 'on_hold';
+        $this->notice = 'Job is on hold while you get the spare parts. The customer can see this.';
+    }
+
+    public function sparesAvailable(MarkSparesAvailableAction $action): void
+    {
+        $this->reset('error', 'notice');
+        $this->job(); // ownership check (404 for anyone else's job)
+
+        try {
+            $action->execute($this->bookingId, auth()->id());
+        } catch (\RuntimeException $e) {
+            $this->error = $e->getMessage();
+
+            return;
+        }
+
+        $this->notice = 'Marked: spare parts are available. Resume the work when you are ready.';
+    }
+
+    public function resumeJob(ResumeBookingAction $action): void
+    {
+        $this->reset('error', 'notice');
+
+        $booking = $this->job();
+        if ($booking->status !== 'on_hold' || $booking->hold_reason !== 'awaiting_spares') {
+            $this->error = 'Only a job held for spare parts can be resumed from here — your dispatcher handles other holds.';
+
+            return;
+        }
+
+        try {
+            $action->execute($this->bookingId, 'Spares in hand');
+        } catch (\RuntimeException $e) {
+            $this->error = $e->getMessage();
+
+            return;
+        }
+
+        $this->lastSeenStatus = 'in_progress';
+        $this->notice = 'Work resumed.';
+    }
+
     public function render()
     {
         $booking = $this->job();
@@ -153,7 +222,9 @@ class Show extends Component
         return view('livewire.provider.jobs.show', [
             'booking' => $booking,
             'stuckMinutes' => $this->stuckMinutes($booking),
-            'isLive' => in_array($booking->status, ['assigned', 'provider_en_route', 'in_progress'], true),
+            'isLive' => in_array($booking->status, ['assigned', 'provider_en_route', 'in_progress', 'on_hold'], true),
+            'journey' => \App\Support\Journey\JourneyBuilder::build('service', $booking->status, $booking->statusHistory, \App\Support\Journey\JourneyContext::forBooking($booking)),
+            'sparesMarked' => $booking->status === 'on_hold' && $booking->statusHistory->contains(fn ($h) => $h->status === 'on_hold' && str_starts_with((string) $h->note, \App\Support\Journey\JourneyBuilder::SPARES_NOTE) && (! $booking->on_hold_since || $h->changed_at >= $booking->on_hold_since)),
             'commission' => $booking->status === 'completed' ? $booking->commission()->first() : null,
         ])->layout('components.layouts.provider', ['title' => 'Job '.$booking->code]);
     }

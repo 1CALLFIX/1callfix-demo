@@ -5,6 +5,9 @@ namespace App\Livewire\Bookings;
 use App\Actions\AdminCancelBookingAction;
 use App\Actions\AdminReassignBookingAction;
 use App\Actions\AssignBookingToWorkerAction;
+use App\Actions\MarkSparesAvailableAction;
+use App\Actions\PlaceBookingOnHoldAction;
+use App\Actions\ResumeBookingAction;
 use App\Models\Booking;
 use App\Models\PartnerWorker;
 use App\Models\Provider;
@@ -18,6 +21,10 @@ class Show extends Component
     public string $selectedProviderId = '';
     public string $cancelReason = '';
     public string $selectedWorkerId = '';
+
+    // Job-journey controls (REF 1CF-JOURNEY-001): hold / spares available / resume by the operator.
+    public string $holdReason = 'awaiting_spares';
+    public string $holdNote = '';
     public string $flashMessage = '';
     public string $flashType = 'success';
 
@@ -174,6 +181,62 @@ class Show extends Component
             $this->flashType = 'error';
             $this->flashMessage = $e->getMessage();
         }
+    }
+
+    /**
+     * REF 1CF-JOURNEY-001 — manual intervention on the job journey. Reuses the existing
+     * hold / resume Actions unchanged (plus the new spares-available step). Permission:
+     * bookings.reassign — the same dispatcher capability that already decides "who is doing
+     * this job", scoped to the booking's own geography.
+     */
+    private function canControlJob(): bool
+    {
+        return auth()->user()->hasPermission('bookings.reassign', $this->bookingScope());
+    }
+
+    private function jobControl(callable $run, string $success): void
+    {
+        if (! $this->canControlJob()) {
+            $this->flashType = 'error';
+            $this->flashMessage = 'You do not have permission to control this job.';
+
+            return;
+        }
+
+        try {
+            $run();
+            $this->booking = $this->booking->fresh(['customer', 'service', 'provider.user', 'assignedWorker.user', 'address', 'zone', 'franchise.country', 'dispatchAttempts.provider.user', 'extraItems', 'payment', 'commission', 'compensations', 'statusHistory']);
+            $this->flashType = 'success';
+            $this->flashMessage = $success;
+        } catch (\Throwable $e) {
+            $this->flashType = 'error';
+            $this->flashMessage = $e->getMessage();
+        }
+    }
+
+    public function holdJob(PlaceBookingOnHoldAction $action): void
+    {
+        // Resume always returns a job to in_progress, so a hold is only offered once the job has
+        // started — otherwise "hold while assigned, then resume" would skip the start OTP.
+        if ($this->booking->status !== 'in_progress') {
+            $this->flashType = 'error';
+            $this->flashMessage = 'A job can be put on hold once it is in progress.';
+
+            return;
+        }
+
+        $this->jobControl(fn () => $action->execute($this->booking->id, $this->holdReason, trim($this->holdNote) ?: null), 'Job put on hold.');
+        $this->holdNote = '';
+    }
+
+    public function markSparesAvailable(MarkSparesAvailableAction $action): void
+    {
+        $this->jobControl(fn () => $action->execute($this->booking->id, auth()->id()), 'Marked: spare parts available.');
+    }
+
+    public function resumeJob(ResumeBookingAction $action): void
+    {
+        $this->jobControl(fn () => $action->execute($this->booking->id, 'Resumed by dispatcher'), 'Job resumed.');
     }
 
     public function cancel(AdminCancelBookingAction $action)

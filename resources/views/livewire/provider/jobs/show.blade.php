@@ -74,6 +74,26 @@
                 <x-ui.button type="submit" size="lg" wire:loading.attr="disabled" wire:target="complete">Complete</x-ui.button>
             </form>
             @error('otp') <p class="mt-1.5 text-sm text-red-700">{{ $message }}</p> @enderror
+
+            <div class="mt-4 border-t border-slate-200 pt-3">
+                <p class="text-sm text-slate-600">Need a part to finish the job?</p>
+                <x-ui.button type="button" variant="secondary" class="mt-2" wire:click="holdForSpares" wire:loading.attr="disabled" wire:target="holdForSpares">Waiting for spares</x-ui.button>
+            </div>
+        </x-ui.card>
+    @elseif ($booking->status === 'on_hold')
+        <x-ui.card class="mt-4 !p-5">
+            <h2 class="text-sm font-semibold text-gray-500 uppercase">Job on hold</h2>
+            @if ($booking->hold_reason === 'awaiting_spares')
+                @if (! $sparesMarked)
+                    <p class="mt-1 text-sm text-slate-600">You are waiting for spare parts. Tap below as soon as you have them.</p>
+                    <x-ui.button type="button" size="lg" class="mt-3" wire:click="sparesAvailable" wire:loading.attr="disabled" wire:target="sparesAvailable">Spares available</x-ui.button>
+                @else
+                    <p class="mt-1 text-sm text-slate-600">Spare parts are with you. Resume the work to continue the job.</p>
+                    <x-ui.button type="button" size="lg" class="mt-3" wire:click="resumeJob" wire:loading.attr="disabled" wire:target="resumeJob">Resume work</x-ui.button>
+                @endif
+            @else
+                <p class="mt-1 text-sm text-slate-600">This job is on hold. Your dispatcher will be in touch.</p>
+            @endif
         </x-ui.card>
     @elseif ($booking->status === 'completed')
         <x-ui.card class="mt-4 !p-5">
@@ -84,18 +104,22 @@
         </x-ui.card>
     @endif
 
-    {{-- ===================== Timeline ===================== --}}
-    <x-ui.card class="mt-4 !p-5">
-        <h2 class="text-sm font-semibold text-gray-500 uppercase">Timeline</h2>
-        <ol class="mt-3 space-y-2 text-sm">
-            @forelse ($booking->statusHistory as $h)
-                <li class="flex justify-between gap-3">
-                    <span>{{ str_replace('_', ' ', $h->status) }}@if ($h->note) — <span class="text-slate-500">{{ $h->note }}</span>@endif</span>
-                    <span class="shrink-0 text-xs text-slate-400">{{ app(\App\Services\TimezoneResolver::class)->format($h->changed_at, $booking->franchise, 'j M, g:i A') }}</span>
-                </li>
-            @empty
-                <li class="text-slate-500">No history yet.</li>
-            @endforelse
-        </ol>
-    </x-ui.card>
+    {{-- ===================== Job journey ===================== --}}
+    @if ($journey)
+        <x-ui.card class="mt-4 !p-5">
+            <x-journey.timeline :journey="$journey" :franchise="$booking->franchise" variant="compact" />
+
+            <details class="mt-4 text-sm">
+                <summary class="cursor-pointer text-slate-500">Full log</summary>
+                <ol class="mt-2 space-y-2">
+                    @foreach ($booking->statusHistory as $h)
+                        <li class="flex justify-between gap-3">
+                            <span>{{ str_replace('_', ' ', $h->status) }}@if ($h->note) — <span class="text-slate-500">{{ $h->note }}</span>@endif</span>
+                            <span class="shrink-0 text-xs text-slate-400">{{ app(\App\Services\TimezoneResolver::class)->format($h->changed_at, $booking->franchise, 'j M, g:i A') }}</span>
+                        </li>
+                    @endforeach
+                </ol>
+            </details>
+        </x-ui.card>
+    @endif
 </div>

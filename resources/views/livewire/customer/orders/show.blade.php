@@ -2,14 +2,6 @@
      an existing Action/Service; the OTP codes are display-only. --}}
 @php
     $price = (float) ($booking->price_final ?? $booking->price_quoted);
-    $timeline = [
-        'searching_provider' => 'We started looking for a professional',
-        'assigned' => 'A professional was assigned',
-        'provider_en_route' => 'Your professional is on the way',
-        'in_progress' => 'Work started',
-        'completed' => 'Job completed',
-        'cancelled' => 'Booking cancelled',
-    ];
 @endphp
 
 {{-- While the booking is still in flight (dispatch running, or the job
@@ -138,23 +130,13 @@
                 </section>
             @endif
 
-            {{-- ===================== Timeline ===================== --}}
+            {{-- ===================== Job journey (REF 1CF-JOURNEY-001) ===================== --}}
             <section class="rounded-xl border border-slate-200 p-4 sm:p-5">
-                <h2 class="text-base font-semibold">Progress</h2>
-                <ol class="mt-3 space-y-3">
-                    @foreach ($booking->statusHistory as $entry)
-                        <li class="flex gap-3 text-sm">
-                            <span aria-hidden="true" class="mt-1 h-2 w-2 shrink-0 rounded-full bg-blue-600"></span>
-                            <span>
-                                <span class="text-slate-900">{{ $timeline[$entry->status] ?? \Illuminate\Support\Str::headline($entry->status) }}</span>
-                                <span class="block text-xs text-slate-400">{{ $entry->changed_at ? app(\App\Services\TimezoneResolver::class)->format($entry->changed_at, $booking->franchise, 'j M, g:i A') : '' }}</span>
-                            </span>
-                        </li>
-                    @endforeach
-                    @if ($booking->statusHistory->isEmpty())
-                        <li class="text-sm text-slate-500">Waiting for the first update…</li>
-                    @endif
-                </ol>
+                <h2 class="sr-only">Progress</h2>
+                @php($journey = \App\Support\Journey\JourneyBuilder::build('service', $booking->status, $booking->statusHistory, \App\Support\Journey\JourneyContext::forBooking($booking)))
+                @if ($journey)
+                    <x-journey.timeline :journey="$journey" :franchise="$booking->franchise" />
+                @endif
             </section>
 
             {{-- ===================== Payment ===================== --}}

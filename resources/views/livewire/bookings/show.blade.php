@@ -161,6 +161,34 @@
                 </x-ui.card>
             @endif
 
+            @if (in_array($booking->status, ['in_progress', 'on_hold'], true))
+                <x-ui.card>
+                    <div class="font-semibold mb-2">Job controls</div>
+                    @if ($booking->status === 'on_hold')
+                        <p class="mb-2 text-sm text-gray-600">
+                            On hold: <strong>{{ \App\Support\Journey\JourneyCatalog::HOLD_REASONS[$booking->hold_reason] ?? 'on hold' }}</strong>
+                            @if ($booking->hold_note) — {{ $booking->hold_note }} @endif
+                        </p>
+                        <div class="flex flex-wrap gap-2">
+                            @if ($booking->hold_reason === 'awaiting_spares')
+                                <x-ui.button variant="secondary" wire:click="markSparesAvailable">Spares available</x-ui.button>
+                            @endif
+                            <x-ui.button wire:click="resumeJob">Resume job</x-ui.button>
+                        </div>
+                    @else
+                        <div class="flex flex-wrap gap-2">
+                            <select wire:model="holdReason" class="border rounded px-3 py-2 text-sm" aria-label="Hold reason">
+                                @foreach (\App\Support\Journey\JourneyCatalog::HOLD_REASONS as $key => $label)
+                                    <option value="{{ $key }}">{{ $label }}</option>
+                                @endforeach
+                            </select>
+                            <input type="text" wire:model="holdNote" placeholder="Note (optional)" class="flex-1 min-w-[10rem] border rounded px-3 py-2 text-sm">
+                            <x-ui.button variant="secondary" class="whitespace-nowrap" wire:click="holdJob">Put on hold</x-ui.button>
+                        </div>
+                    @endif
+                </x-ui.card>
+            @endif
+
             <x-ui.card>
                 <div class="font-semibold mb-2 text-red-700">Cancel Booking</div>
                 <div class="flex gap-2">
@@ -170,6 +198,13 @@
                 </div>
             </x-ui.card>
         </div>
+    @endif
+
+    @php($journey = \App\Support\Journey\JourneyBuilder::build('service', $booking->status, $booking->statusHistory, \App\Support\Journey\JourneyContext::forBooking($booking)))
+    @if ($journey)
+        <x-ui.card class="mb-4">
+            <x-journey.timeline :journey="$journey" :franchise="$booking->franchise" variant="compact" />
+        </x-ui.card>
     @endif
 
     <x-ui.card>

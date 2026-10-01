@@ -52,6 +52,7 @@ class ResumeBookingAction
         // Phase PN1 — post-commit provider notification (job off hold).
         // Guarded + logged; cannot roll back the committed resume.
         $this->notifyProviderOfStatus($booking, 'resumed');
+        \App\Support\Journey\StageNotifier::customer($booking, 'resumed');
 
         return $booking;
     }

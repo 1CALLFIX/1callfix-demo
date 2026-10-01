@@ -79,6 +79,7 @@ class PlaceBookingOnHoldAction
         // Phase PN1 — post-commit provider notification (job paused).
         // Guarded + logged; cannot roll back the committed hold.
         $this->notifyProviderOfStatus($booking, 'on_hold');
+        \App\Support\Journey\StageNotifier::customer($booking, 'on_hold');
 
         return $booking;
     }

@@ -66,6 +66,7 @@ class MarkEnRouteAction
         });
 
         $this->notifyProviderOfStatus($booking, 'en_route');
+        \App\Support\Journey\StageNotifier::customer($booking, 'en_route');
 
         return $booking;
     }

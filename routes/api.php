@@ -155,6 +155,14 @@ Route::middleware(['auth:sanctum', \App\Http\Middleware\EnsureNotInMaintenanceMo
 
     Route::post('/bookings/{booking}/accept', [\App\Http\Controllers\API\DispatchController::class, 'accept']);
     Route::post('/bookings/{booking}/complete', [\App\Http\Controllers\API\DispatchController::class, 'complete']);
+    // REF 1CF-JOURNEY-001 — the rest of the job journey for the native Partner / Worker apps, and the
+    // read-only journey for customers. Same Actions the web and admin screens call.
+    Route::get('/bookings/{bookingId}/journey', [\App\Http\Controllers\API\JobJourneyController::class, 'show']);
+    Route::post('/bookings/{bookingId}/en-route', [\App\Http\Controllers\API\JobJourneyController::class, 'enRoute']);
+    Route::post('/bookings/{bookingId}/start', [\App\Http\Controllers\API\JobJourneyController::class, 'start']);
+    Route::post('/bookings/{bookingId}/hold-for-spares', [\App\Http\Controllers\API\JobJourneyController::class, 'holdForSpares']);
+    Route::post('/bookings/{bookingId}/spares-available', [\App\Http\Controllers\API\JobJourneyController::class, 'sparesAvailable']);
+    Route::post('/bookings/{bookingId}/resume', [\App\Http\Controllers\API\JobJourneyController::class, 'resume']);
     // REF 1CF-PHASE01-TASK06A — read-only offer list for the native
     // Rider/Provider app; same provider-resolution pattern as accept/complete
     // above, no new dispatch state.
