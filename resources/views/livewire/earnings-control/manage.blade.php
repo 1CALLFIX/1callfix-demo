@@ -63,6 +63,7 @@
         <x-ui.table>
             <thead class="bg-gray-50 text-left text-gray-500">
                 <tr>
+                    <x-ui.sno-th />
                     <th class="px-4 py-2">Switch</th>
                     <th class="px-4 py-2">Global</th>
                     @if ($scopeType !== 'global')<th class="px-4 py-2">This {{ $scopeType }}</th>@endif
@@ -72,6 +73,7 @@
             <tbody>
                 @foreach ($switches as $key => $s)
                     <tr class="border-t">
+                        <x-ui.sno :rows="$switches" :loop="$loop" />
                         <td class="px-4 py-2">
                             <div class="font-medium">{{ $s['label'] }}</div>
                             <div class="font-mono text-xs text-gray-400">{{ $key }}@if ($s['global_only']) · global only @endif</div>
@@ -243,12 +245,14 @@
 
         <h2 class="mb-2 text-sm font-semibold">Wallet totals by source</h2>
         <x-ui.table>
-            <thead class="bg-gray-50 text-left text-gray-500"><tr><th class="px-4 py-2">Source</th><th class="px-4 py-2">Entries</th><th class="px-4 py-2">Credits</th><th class="px-4 py-2">Debits</th></tr></thead>
+            <thead class="bg-gray-50 text-left text-gray-500"><tr>
+                <x-ui.sno-th /><th class="px-4 py-2">Source</th><th class="px-4 py-2">Entries</th><th class="px-4 py-2">Credits</th><th class="px-4 py-2">Debits</th></tr></thead>
             <tbody>
                 @forelse ($totals as $t)
-                    <tr class="border-t"><td class="px-4 py-2">{{ $t['label'] }}</td><td class="px-4 py-2">{{ $t['count'] }}</td><td class="px-4 py-2 font-mono text-green-700">{{ $currencySymbol }}{{ number_format($t['credit'], 2) }}</td><td class="px-4 py-2 font-mono text-red-700">{{ $currencySymbol }}{{ number_format($t['debit'], 2) }}</td></tr>
+                    <tr class="border-t">
+                        <x-ui.sno :rows="$totals" :loop="$loop" /><td class="px-4 py-2">{{ $t['label'] }}</td><td class="px-4 py-2">{{ $t['count'] }}</td><td class="px-4 py-2 font-mono text-green-700">{{ $currencySymbol }}{{ number_format($t['credit'], 2) }}</td><td class="px-4 py-2 font-mono text-red-700">{{ $currencySymbol }}{{ number_format($t['debit'], 2) }}</td></tr>
                 @empty
-                    <tr><td colspan="4" class="px-4 py-6 text-center text-gray-400">No wallet movement in this range.</td></tr>
+                    <tr><td colspan="5" class="px-4 py-6 text-center text-gray-400">No wallet movement in this range.</td></tr>
                 @endforelse
             </tbody>
         </x-ui.table>

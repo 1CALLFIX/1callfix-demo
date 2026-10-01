@@ -473,12 +473,14 @@
             </x-ui.card>
             <x-ui.card title="Delivery stats (last 30 days)">
                 <table class="w-full text-sm">
-                    <thead class="text-left text-gray-500"><tr><th class="py-1">Channel</th><th class="py-1">Sent</th><th class="py-1">Failed</th></tr></thead>
+                    <thead class="text-left text-gray-500"><tr>
+                        <x-ui.sno-th class="py-1" /><th class="py-1">Channel</th><th class="py-1">Sent</th><th class="py-1">Failed</th></tr></thead>
                     <tbody>
                         @forelse ($deliveryStats as $channel => $counts)
-                            <tr class="border-t"><td class="py-1.5">{{ $channel }}</td><td class="py-1.5 text-green-700">{{ $counts['sent'] ?? 0 }}</td><td class="py-1.5 text-red-700">{{ $counts['failed'] ?? 0 }}</td></tr>
+                            <tr class="border-t">
+                                <x-ui.sno :rows="$deliveryStats" :loop="$loop" class="py-1.5" /><td class="py-1.5">{{ $channel }}</td><td class="py-1.5 text-green-700">{{ $counts['sent'] ?? 0 }}</td><td class="py-1.5 text-red-700">{{ $counts['failed'] ?? 0 }}</td></tr>
                         @empty
-                            <tr><td colspan="3" class="py-3 text-center text-gray-400">No deliveries in the last 30 days.</td></tr>
+                            <tr><td colspan="4" class="py-3 text-center text-gray-400">No deliveries in the last 30 days.</td></tr>
                         @endforelse
                     </tbody>
                 </table>

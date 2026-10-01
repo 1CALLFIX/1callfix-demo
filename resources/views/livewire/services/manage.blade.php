@@ -649,6 +649,7 @@
                             <tbody>
                                 @forelse ($group->options as $option)
                                     <tr class="border-t" wire:key="opt-{{ $option->id }}">
+                                        <x-ui.sno :rows="$group->options" :loop="$loop" class="py-1.5 pr-2" />
                                         <td class="py-1.5 pr-2">{{ $option->name }}</td>
                                         <td class="py-1.5 pr-2 text-gray-600">{{ $option->price_delta >= 0 ? '+' : '' }}{{ $currencySymbol }}{{ number_format($option->price_delta, 2) }}</td>
                                         <td class="py-1.5 pr-2">
@@ -662,7 +663,7 @@
                                         </td>
                                     </tr>
                                 @empty
-                                    <tr><td colspan="4" class="py-2 text-gray-400">No options in this group yet.</td></tr>
+                                    <tr><td colspan="5" class="py-2 text-gray-400">No options in this group yet.</td></tr>
                                 @endforelse
                             </tbody>
                         </table>

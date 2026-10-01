@@ -127,11 +127,13 @@
         @if ($this->editingProduct)
             <table class="w-full text-sm mb-3">
                 <thead class="text-left text-gray-500">
-                    <tr><th class="py-1">Name</th><th class="py-1">Price override</th><th class="py-1">Stock</th></tr>
+                    <tr>
+                        <x-ui.sno-th class="py-1" /><th class="py-1">Name</th><th class="py-1">Price override</th><th class="py-1">Stock</th></tr>
                 </thead>
                 <tbody>
                     @foreach ($this->editingProduct->variants as $v)
                         <tr class="border-t">
+                            <x-ui.sno :rows="$this->editingProduct->variants" :loop="$loop" class="py-1" />
                             <td class="py-1">{{ $v->name }}</td>
                             <td class="py-1">{{ $v->price_override !== null ? number_format($v->price_override, 2) : '—' }}</td>
                             <td class="py-1">{{ $v->stock }}</td>

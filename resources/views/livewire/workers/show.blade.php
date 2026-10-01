@@ -83,10 +83,12 @@
             <p class="text-sm text-gray-400">No Partner relationships — this worker is platform-direct.</p>
         @else
             <table class="w-full text-xs">
-                <thead class="text-left text-gray-500"><tr><th class="pr-3 py-1">Partner</th><th class="pr-3 py-1">Status</th><th class="pr-3 py-1">Primary</th></tr></thead>
+                <thead class="text-left text-gray-500"><tr>
+                    <x-ui.sno-th class="pr-3 py-1" /><th class="pr-3 py-1">Partner</th><th class="pr-3 py-1">Status</th><th class="pr-3 py-1">Primary</th></tr></thead>
                 <tbody>
                     @foreach ($fieldWorker->partnerLinks as $link)
-                        <tr class="border-t"><td class="pr-3 py-1">{{ $link->provider->user->name ?? 'Provider #'.$link->provider_id }}</td><td class="pr-3 py-1">{{ ucfirst($link->status) }}</td><td class="pr-3 py-1">{{ $link->is_primary ? 'Yes' : 'No' }}</td></tr>
+                        <tr class="border-t">
+                            <x-ui.sno :rows="$fieldWorker->partnerLinks" :loop="$loop" class="pr-3 py-1" /><td class="pr-3 py-1">{{ $link->provider->user->name ?? 'Provider #'.$link->provider_id }}</td><td class="pr-3 py-1">{{ ucfirst($link->status) }}</td><td class="pr-3 py-1">{{ $link->is_primary ? 'Yes' : 'No' }}</td></tr>
                     @endforeach
                 </tbody>
             </table>

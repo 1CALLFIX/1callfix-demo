@@ -148,10 +148,12 @@
                 @if ($expandedCampaignId === $campaign->id)
                     <div class="mt-3 pt-3 border-t overflow-x-auto">
                         <table class="w-full text-xs">
-                            <thead class="text-left text-gray-500"><tr><th class="pr-4 py-1">Rank</th><th class="pr-4 py-1">Participant</th><th class="pr-4 py-1">Metric value</th><th class="pr-4 py-1">Qualified</th><th class="pr-4 py-1">Reward status</th></tr></thead>
+                            <thead class="text-left text-gray-500"><tr>
+                                <x-ui.sno-th class="pr-4 py-1" /><th class="pr-4 py-1">Rank</th><th class="pr-4 py-1">Participant</th><th class="pr-4 py-1">Metric value</th><th class="pr-4 py-1">Qualified</th><th class="pr-4 py-1">Reward status</th></tr></thead>
                             <tbody>
                                 @forelse ($this->expandedParticipants as $p)
                                     <tr class="border-t">
+                                        <x-ui.sno :rows="$this->expandedParticipants" :loop="$loop" class="pr-4 py-1" />
                                         <td class="pr-4 py-1">{{ $p->rank ?? '—' }}</td>
                                         <td class="pr-4 py-1">{{ $p->actor_label }}</td>
                                         <td class="pr-4 py-1 font-mono">{{ number_format($p->metric_value, 2) }}</td>
@@ -159,7 +161,7 @@
                                         <td class="pr-4 py-1">{{ ucfirst(str_replace('_', ' ', $p->reward_status)) }}</td>
                                     </tr>
                                 @empty
-                                    <tr><td colspan="5" class="py-3 text-center text-gray-400">No participants yet — click "Refresh Progress" first.</td></tr>
+                                    <tr><td colspan="6" class="py-3 text-center text-gray-400">No participants yet — click "Refresh Progress" first.</td></tr>
                                 @endforelse
                             </tbody>
                         </table>

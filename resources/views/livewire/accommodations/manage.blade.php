@@ -70,6 +70,7 @@
                 <table class="w-full text-sm mt-2">
                     <thead class="text-left text-gray-500">
                         <tr>
+                            <x-ui.sno-th class="py-1" />
                             <th class="py-1">Rate plan</th>
                             <th class="py-1">Meal plan</th>
                             <th class="py-1">Cancellation</th>
@@ -81,6 +82,7 @@
                     <tbody>
                         @forelse ($rt->ratePlans as $rp)
                             <tr class="border-t">
+                                <x-ui.sno :rows="$rt->ratePlans" :loop="$loop" class="py-1" />
                                 <td class="py-1">{{ $rp->name }}</td>
                                 <td class="py-1">{{ str_replace('_', ' ', $rp->meal_plan) }}</td>
                                 <td class="py-1">{{ str_replace('_', ' ', $rp->cancellation_policy_label) }}</td>
@@ -91,7 +93,7 @@
                                 <td class="py-1 text-right"><x-ui.button variant="ghost" wire:click="toggleRatePlanActive({{ $rp->id }})">{{ $rp->is_active ? 'Deactivate' : 'Activate' }}</x-ui.button></td>
                             </tr>
                         @empty
-                            <tr><td colspan="6" class="py-2 text-gray-400">No rate plans yet.</td></tr>
+                            <tr><td colspan="7" class="py-2 text-gray-400">No rate plans yet.</td></tr>
                         @endforelse
                     </tbody>
                 </table>

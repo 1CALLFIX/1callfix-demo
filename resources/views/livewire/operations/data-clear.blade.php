@@ -38,6 +38,7 @@
             <table class="w-full text-sm mb-2">
                 <thead>
                     <tr class="text-left text-gray-500">
+                        <x-ui.sno-th class="pb-1" />
                         <th class="pb-1">Table</th>
                         <th class="pb-1 text-right">Rows affected</th>
                     </tr>
@@ -45,6 +46,7 @@
                 <tbody>
                     @foreach ($this->affectedRowCounts as $table => $count)
                         <tr class="border-t border-gray-100">
+                            <x-ui.sno :rows="$this->affectedRowCounts" :loop="$loop" class="py-1" />
                             <td class="py-1 font-mono text-xs">{{ $table }}</td>
                             <td class="py-1 text-right">{{ number_format($count) }}</td>
                         </tr>

@@ -71,6 +71,7 @@
                 <table class="w-full text-xs">
                     <thead class="bg-red-50 text-left sticky top-0">
                         <tr>
+                            <x-ui.sno-th class="px-2 py-1" />
                             <th class="px-2 py-1">Row</th>
                             <th class="px-2 py-1">Field</th>
                             <th class="px-2 py-1">Problem</th>
@@ -79,6 +80,7 @@
                     <tbody>
                         @foreach ($rowErrors as $err)
                             <tr class="border-t">
+                                <x-ui.sno :rows="$rowErrors" :loop="$loop" class="px-2 py-1" />
                                 <td class="px-2 py-1">{{ $err['row'] }}</td>
                                 <td class="px-2 py-1 font-mono">{{ $err['field'] }}</td>
                                 <td class="px-2 py-1">{{ $err['message'] }}</td>
@@ -112,6 +114,7 @@
                 <table class="w-full text-xs">
                     <thead class="bg-gray-50 text-left sticky top-0">
                         <tr>
+                            <x-ui.sno-th class="px-2 py-1" />
                             <th class="px-2 py-1">Row</th>
                             <th class="px-2 py-1">Name</th>
                             <th class="px-2 py-1">External ID</th>
@@ -121,6 +124,7 @@
                     <tbody>
                         @foreach ($rows as $r)
                             <tr class="border-t @if($r['possible_duplicate']) bg-amber-50 @endif">
+                                <x-ui.sno :rows="$rows" :loop="$loop" class="px-2 py-1" />
                                 <td class="px-2 py-1">{{ $r['row'] }}</td>
                                 <td class="px-2 py-1">{{ $r['name'] ?? '—' }}</td>
                                 <td class="px-2 py-1 font-mono">{{ $r['external_id'] ?? '—' }}</td>

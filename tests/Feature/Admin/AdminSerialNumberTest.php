@@ -77,22 +77,28 @@ class AdminSerialNumberTest extends TestCase
         $this->assertSame([1, 2, 3], $this->snoCells($c->html()));
     }
 
-    public function test_every_admin_list_table_carries_the_column_in_first_position(): void
+    public function test_every_table_carries_the_column_in_first_position(): void
     {
-        $files = glob(resource_path('views/livewire/{*,*/*}.blade.php'), GLOB_BRACE);
+        $files = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator(resource_path('views/livewire')));
+        $files = array_merge(
+            array_map(fn ($f) => $f->getPathname(), array_filter(iterator_to_array($files), fn ($f) => str_ends_with($f->getFilename(), '.blade.php'))),
+            [resource_path('views/components/import-panel.blade.php'), resource_path('views/components/prereg-panel.blade.php')],
+        );
         $headers = $cells = 0;
         foreach ($files as $file) {
             $src = file_get_contents($file);
-            $h = preg_match_all('/<x-ui\.sno-th \/>/', $src);
-            $c = preg_match_all('/<x-ui\.sno :rows="[^"]+" :loop="\$loop" \/>/', $src);
-            $this->assertSame($h, $c, basename(dirname($file)).'/'.basename($file).': S.No header/cell count mismatch');
+            $h = preg_match_all('/<x-ui\.sno-th[^>]*\/>/', $src);
+            $c = preg_match_all('/<x-ui\.sno :rows="[^"]+" :loop="\$loop"[^>]*\/>/', $src);
+            // the only table without a header row is the Services option-group list
+            $this->assertSame(str_contains($file, 'services') && str_contains($file, 'manage') ? $h + 1 : $h, $c, $file.": header $h cells $c mismatch");
             // header must be the first cell of its header row
-            $this->assertSame($h, preg_match_all('/<tr>\s*<x-ui\.sno-th \/>/', $src), basename($file).': S.No is not the first header column');
+            $this->assertSame($h, preg_match_all('/<tr[^>]*>\s*<x-ui\.sno-th/', $src), basename($file).': S.No is not the first header column');
             $this->assertSame(0, preg_match_all('/>SL<\/th>/', $src), basename($file).': legacy SL column left behind');
             $headers += $h;
             $cells += $c;
         }
-        $this->assertSame(59, $headers);
-        $this->assertSame(59, $cells);
+        // 59 list tables + 19 sub-tables (one of them header-less)
+        $this->assertSame(77, $headers);
+        $this->assertSame(78, $cells);
     }
 }

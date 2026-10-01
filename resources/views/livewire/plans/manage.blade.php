@@ -151,6 +151,7 @@
                                 <table class="w-full text-xs mb-3">
                                     <thead class="text-left text-gray-500">
                                         <tr>
+                                            <x-ui.sno-th class="pr-3 py-1" />
                                             <th class="pr-3 py-1">Type</th>
                                             <th class="pr-3 py-1">Label</th>
                                             <th class="pr-3 py-1">Module</th>
@@ -167,6 +168,7 @@
                                     <tbody>
                                         @forelse ($p->entitlements as $e)
                                             <tr class="border-t" wire:key="ent-{{ $e->id }}">
+                                                <x-ui.sno :rows="$p->entitlements" :loop="$loop" class="pr-3 py-1" />
                                                 <td class="pr-3 py-1">{{ str_replace('_', ' ', $e->entitlement_type) }}</td>
                                                 <td class="pr-3 py-1">{{ $e->label ?? '—' }}</td>
                                                 <td class="pr-3 py-1">{{ $e->module ?? '—' }}</td>
@@ -185,7 +187,7 @@
                                                 </td>
                                             </tr>
                                         @empty
-                                            <tr><td colspan="11" class="py-2 text-gray-400">No entitlements yet.</td></tr>
+                                            <tr><td colspan="12" class="py-2 text-gray-400">No entitlements yet.</td></tr>
                                         @endforelse
                                     </tbody>
                                 </table>

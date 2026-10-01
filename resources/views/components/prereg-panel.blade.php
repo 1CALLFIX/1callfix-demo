@@ -71,11 +71,13 @@
             <div class="border rounded overflow-hidden max-h-64 overflow-y-auto">
                 <table class="w-full text-xs">
                     <thead class="bg-red-50 text-left sticky top-0">
-                        <tr><th class="px-2 py-1">Row</th><th class="px-2 py-1">Field</th><th class="px-2 py-1">Problem</th></tr>
+                        <tr>
+                            <x-ui.sno-th class="px-2 py-1" /><th class="px-2 py-1">Row</th><th class="px-2 py-1">Field</th><th class="px-2 py-1">Problem</th></tr>
                     </thead>
                     <tbody>
                         @foreach ($rowErrors as $err)
                             <tr class="border-t">
+                                <x-ui.sno :rows="$rowErrors" :loop="$loop" class="px-2 py-1" />
                                 <td class="px-2 py-1">{{ $err['row'] }}</td>
                                 <td class="px-2 py-1 font-mono">{{ $err['field'] }}</td>
                                 <td class="px-2 py-1">{{ $err['message'] }}</td>
@@ -100,11 +102,13 @@
             <div class="border rounded overflow-hidden max-h-64 overflow-y-auto mb-3">
                 <table class="w-full text-xs">
                     <thead class="bg-gray-50 text-left sticky top-0">
-                        <tr><th class="px-2 py-1">Row</th><th class="px-2 py-1">Name</th><th class="px-2 py-1">Phone</th><th class="px-2 py-1">Outcome</th></tr>
+                        <tr>
+                            <x-ui.sno-th class="px-2 py-1" /><th class="px-2 py-1">Row</th><th class="px-2 py-1">Name</th><th class="px-2 py-1">Phone</th><th class="px-2 py-1">Outcome</th></tr>
                     </thead>
                     <tbody>
                         @foreach ($rows as $r)
                             <tr class="border-t">
+                                <x-ui.sno :rows="$rows" :loop="$loop" class="px-2 py-1" />
                                 <td class="px-2 py-1">{{ $r['row'] }}</td>
                                 <td class="px-2 py-1">{{ $r['name'] ?? '—' }}</td>
                                 <td class="px-2 py-1 font-mono">{{ $r['phone'] ?? '—' }}</td>

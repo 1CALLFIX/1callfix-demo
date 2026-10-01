@@ -34,6 +34,7 @@
             <table class="w-full text-sm">
                 <thead class="text-left text-gray-500">
                     <tr>
+                        <x-ui.sno-th class="py-1" />
                         <th class="py-1">Room type</th>
                         <th class="py-1">Rate plan</th>
                         <th class="py-1">Count</th>
@@ -44,6 +45,7 @@
                 <tbody>
                     @foreach ($reservation->rooms as $line)
                         <tr class="border-t">
+                            <x-ui.sno :rows="$reservation->rooms" :loop="$loop" class="py-1" />
                             <td class="py-1">{{ $line->roomType?->name }}</td>
                             <td class="py-1">{{ $line->ratePlan?->name }}</td>
                             <td class="py-1">{{ $line->room_count }}</td>

@@ -63,10 +63,12 @@
             <div class="font-semibold mb-2">Compensation</div>
             @if ($booking->compensations->isNotEmpty())
                 <table class="w-full text-sm mb-3">
-                    <thead class="text-left text-gray-500"><tr><th class="py-1">Type</th><th class="py-1">Amount</th></tr></thead>
+                    <thead class="text-left text-gray-500"><tr>
+                        <x-ui.sno-th class="py-1" /><th class="py-1">Type</th><th class="py-1">Amount</th></tr></thead>
                     <tbody>
                         @foreach ($booking->compensations as $c)
-                            <tr class="border-t"><td class="py-1.5 capitalize">{{ $c->type }}</td><td class="py-1.5">{{ $this->currencySymbol }}{{ number_format($c->amount, 2) }}</td></tr>
+                            <tr class="border-t">
+                                <x-ui.sno :rows="$booking->compensations" :loop="$loop" class="py-1.5" /><td class="py-1.5 capitalize">{{ $c->type }}</td><td class="py-1.5">{{ $this->currencySymbol }}{{ number_format($c->amount, 2) }}</td></tr>
                         @endforeach
                     </tbody>
                 </table>
@@ -89,11 +91,13 @@
             <div class="font-semibold mb-2">Extra Work Items</div>
             <table class="w-full text-sm">
                 <thead class="text-left text-gray-500">
-                    <tr><th class="py-1">Description</th><th class="py-1">Amount</th><th class="py-1">Status</th></tr>
+                    <tr>
+                        <x-ui.sno-th class="py-1" /><th class="py-1">Description</th><th class="py-1">Amount</th><th class="py-1">Status</th></tr>
                 </thead>
                 <tbody>
                     @foreach ($booking->extraItems as $item)
                         <tr class="border-t">
+                            <x-ui.sno :rows="$booking->extraItems" :loop="$loop" class="py-1.5" />
                             <td class="py-1.5">{{ $item->description }}</td>
                             <td class="py-1.5">{{ $this->currencySymbol }}{{ number_format($item->amount, 2) }}</td>
                             <td class="py-1.5">
@@ -111,11 +115,13 @@
             <div class="font-semibold mb-2">Dispatch Attempts</div>
             <table class="w-full text-sm">
                 <thead class="text-left text-gray-500">
-                    <tr><th class="py-1">Provider</th><th class="py-1">Status</th><th class="py-1">Distance</th><th class="py-1">Notified</th></tr>
+                    <tr>
+                        <x-ui.sno-th class="py-1" /><th class="py-1">Provider</th><th class="py-1">Status</th><th class="py-1">Distance</th><th class="py-1">Notified</th></tr>
                 </thead>
                 <tbody>
                     @foreach ($booking->dispatchAttempts as $attempt)
                         <tr class="border-t">
+                            <x-ui.sno :rows="$booking->dispatchAttempts" :loop="$loop" class="py-1.5" />
                             <td class="py-1.5">{{ $attempt->provider?->user?->name ?? '#'.$attempt->provider_id }}</td>
                             <td class="py-1.5">{{ $attempt->status }}</td>
                             <td class="py-1.5">{{ $attempt->distance_km }} km</td>
