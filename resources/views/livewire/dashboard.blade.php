@@ -245,6 +245,7 @@
 
         <thead class="bg-gray-50 text-left text-gray-500">
             <tr>
+                <x-ui.sno-th />
                 <th class="px-4 py-2">Code</th>
                 <th class="px-4 py-2">Customer</th>
                 <th class="px-4 py-2">Service</th>
@@ -256,6 +257,7 @@
         <tbody>
             @forelse ($recentBookings as $booking)
                 <tr class="border-t">
+                    <x-ui.sno :rows="$recentBookings" :loop="$loop" />
                     <td class="px-4 py-2 font-mono text-xs">{{ $booking->code }}</td>
                     <td class="px-4 py-2">{{ $booking->customer->name ?? '—' }}</td>
                     <td class="px-4 py-2">{{ $booking->service->name ?? '—' }}</td>
@@ -266,7 +268,7 @@
                     <td class="px-4 py-2">{{ $currencySymbol }}{{ number_format($booking->price_final ?? $booking->price_quoted, 2) }}</td>
                 </tr>
             @empty
-                <tr><td colspan="6"><x-ui.empty-state icon="clipboard" title="No bookings yet" /></td></tr>
+                <tr><td colspan="7"><x-ui.empty-state icon="clipboard" title="No bookings yet" /></td></tr>
             @endforelse
         </tbody>
     </x-ui.table>

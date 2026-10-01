@@ -47,11 +47,13 @@
         <x-slot:header>Recent Bookings ({{ $this->recentBookings->count() }})</x-slot:header>
 
         <thead class="bg-gray-50 text-left text-gray-500">
-            <tr><th class="px-4 py-2">Code</th><th class="px-4 py-2">Service</th><th class="px-4 py-2">Provider</th><th class="px-4 py-2">Status</th><th class="px-4 py-2">Date</th><th class="px-4 py-2"></th></tr>
+            <tr>
+                <x-ui.sno-th /><th class="px-4 py-2">Code</th><th class="px-4 py-2">Service</th><th class="px-4 py-2">Provider</th><th class="px-4 py-2">Status</th><th class="px-4 py-2">Date</th><th class="px-4 py-2"></th></tr>
         </thead>
         <tbody>
             @forelse ($this->recentBookings as $booking)
                 <tr class="border-t hover:bg-gray-50">
+                    <x-ui.sno :rows="$this->recentBookings" :loop="$loop" />
                     <td class="px-4 py-2 font-mono text-xs">{{ $booking->code }}</td>
                     <td class="px-4 py-2">{{ $booking->service->name ?? '—' }}</td>
                     <td class="px-4 py-2 text-gray-500">{{ $booking->provider->user->name ?? '— unassigned —' }}</td>
@@ -62,7 +64,7 @@
                     </td>
                 </tr>
             @empty
-                <tr><td colspan="6"><x-ui.empty-state icon="clipboard" title="No bookings yet" /></td></tr>
+                <tr><td colspan="7"><x-ui.empty-state icon="clipboard" title="No bookings yet" /></td></tr>
             @endforelse
         </tbody>
     </x-ui.table>

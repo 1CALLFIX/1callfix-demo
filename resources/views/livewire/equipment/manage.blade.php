@@ -71,6 +71,7 @@
 
         <thead class="bg-gray-50 text-left text-gray-500">
             <tr>
+                <x-ui.sno-th />
                 <th class="px-4 py-2">Item</th>
                 <th class="px-4 py-2">Category</th>
                 <th class="px-4 py-2">Owner</th>
@@ -82,6 +83,7 @@
         <tbody>
             @foreach ($items as $i)
                 <tr class="border-t">
+                    <x-ui.sno :rows="$items" :loop="$loop" />
                     <td class="px-4 py-2">{{ $i->name }}</td>
                     <td class="px-4 py-2">{{ $i->equipmentCategory?->name }}</td>
                     <td class="px-4 py-2">{{ $i->provider?->user?->name }}</td>

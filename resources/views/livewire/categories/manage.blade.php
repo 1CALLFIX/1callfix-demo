@@ -163,7 +163,7 @@
         <x-slot:footer>{{ $categories->links() }}</x-slot:footer>
         <thead class="bg-gray-50 text-left text-gray-500">
                 <tr>
-                    <th class="px-4 py-2 w-12">SL</th>
+                    <x-ui.sno-th />
                     <th class="px-4 py-2 w-20">
                         <button type="button" wire:click="sortBy('id')" class="inline-flex items-center gap-1 hover:text-gray-800">
                             ID
@@ -186,7 +186,7 @@
             <tbody>
                 @forelse ($categories as $i => $category)
                     <tr class="border-t hover:bg-gray-50" wire:key="cat-{{ $category->id }}">
-                        <td class="px-4 py-2 text-gray-400">{{ $categories->firstItem() + $i }}</td>
+                        <x-ui.sno :rows="$categories" :loop="$loop" />
                         <td class="px-4 py-2 text-gray-500">{{ $category->id }}</td>
                         <td class="px-4 py-2">
                             <span class="w-9 h-9 rounded border flex items-center justify-center overflow-hidden"

@@ -164,6 +164,7 @@
 
         <thead class="bg-gray-50 text-left text-gray-500">
             <tr>
+                <x-ui.sno-th />
                 <th class="px-4 py-2">User</th>
                 <th class="px-4 py-2">Role</th>
                 <th class="px-4 py-2">Scope</th>
@@ -173,6 +174,7 @@
         <tbody>
             @forelse ($assignments as $a)
                 <tr class="border-t hover:bg-gray-50" wire:key="assignment-{{ $a->id }}">
+                    <x-ui.sno :rows="$assignments" :loop="$loop" />
                     <td class="px-4 py-2">{{ $a->user->name ?? '#'.$a->user_id }} <span class="text-gray-400">({{ $a->user->phone ?? '—' }})</span></td>
                     <td class="px-4 py-2 font-medium">{{ $a->role->name ?? '—' }}</td>
                     <td class="px-4 py-2 text-gray-500">
@@ -191,7 +193,7 @@
                     </td>
                 </tr>
             @empty
-                <tr><td colspan="4" class="px-4 py-6 text-center text-gray-400">No role assignments yet — Super Admin has full access by default.</td></tr>
+                <tr><td colspan="5" class="px-4 py-6 text-center text-gray-400">No role assignments yet — Super Admin has full access by default.</td></tr>
             @endforelse
         </tbody>
     </x-ui.table>

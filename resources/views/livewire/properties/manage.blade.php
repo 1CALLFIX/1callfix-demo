@@ -70,6 +70,7 @@
 
         <thead class="bg-gray-50 text-left text-gray-500">
             <tr>
+                <x-ui.sno-th />
                 <th class="px-4 py-2">Name</th>
                 <th class="px-4 py-2">Type</th>
                 <th class="px-4 py-2">Owner</th>
@@ -81,6 +82,7 @@
         <tbody>
             @foreach ($properties as $p)
                 <tr class="border-t">
+                    <x-ui.sno :rows="$properties" :loop="$loop" />
                     <td class="px-4 py-2">{{ $p->name }}</td>
                     <td class="px-4 py-2">{{ $p->propertyType?->name }}</td>
                     <td class="px-4 py-2">{{ $p->provider?->user?->name }}</td>

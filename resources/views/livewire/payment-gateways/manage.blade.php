@@ -66,6 +66,7 @@
     <x-ui.table>
         <thead class="bg-gray-50 text-left text-gray-500">
             <tr>
+                <x-ui.sno-th />
                 <th class="px-4 py-2">Name</th>
                 <th class="px-4 py-2">Driver</th>
                 <th class="px-4 py-2">Mode</th>
@@ -78,6 +79,7 @@
         <tbody>
             @forelse ($gateways as $gateway)
                 <tr class="border-t hover:bg-gray-50">
+                    <x-ui.sno :rows="$gateways" :loop="$loop" />
                     <td class="px-4 py-2 font-medium">{{ $gateway->name }}</td>
                     <td class="px-4 py-2">{{ $knownDrivers[$gateway->driver] ?? $gateway->driver }}</td>
                     <td class="px-4 py-2 text-gray-500">{{ ucfirst($gateway->mode) }}</td>
@@ -98,7 +100,7 @@
                     </td>
                 </tr>
             @empty
-                <tr><td colspan="7" class="px-4 py-6 text-center text-gray-400">No gateways configured yet — Razorpay is running on environment credentials by default.</td></tr>
+                <tr><td colspan="8" class="px-4 py-6 text-center text-gray-400">No gateways configured yet — Razorpay is running on environment credentials by default.</td></tr>
             @endforelse
         </tbody>
     </x-ui.table>

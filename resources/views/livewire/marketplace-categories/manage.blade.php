@@ -44,6 +44,7 @@
 
         <thead class="bg-gray-50 text-left text-gray-500">
             <tr>
+                <x-ui.sno-th />
                 <th class="px-4 py-2">Name</th>
                 <th class="px-4 py-2">Parent</th>
                 <th class="px-4 py-2">Status</th>
@@ -53,6 +54,7 @@
         <tbody>
             @foreach ($categories as $c)
                 <tr class="border-t">
+                    <x-ui.sno :rows="$categories" :loop="$loop" />
                     <td class="px-4 py-2">{{ $c->name }}</td>
                     <td class="px-4 py-2">{{ $c->parent?->name ?? '—' }}</td>
                     <td class="px-4 py-2">

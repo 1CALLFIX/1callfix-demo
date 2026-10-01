@@ -38,6 +38,7 @@
     <x-ui.table>
         <thead class="bg-gray-50 text-left text-gray-500">
             <tr>
+                <x-ui.sno-th />
                 <th class="px-4 py-2">Country</th>
                 <th class="px-4 py-2">Code</th>
                 <th class="px-4 py-2">Currency</th>
@@ -51,6 +52,7 @@
         <tbody>
             @forelse ($countries as $country)
                 <tr class="border-t hover:bg-gray-50" wire:key="country-{{ $country->id }}">
+                    <x-ui.sno :rows="$countries" :loop="$loop" />
                     <td class="px-4 py-2 font-medium">{{ $country->name }}</td>
                     <td class="px-4 py-2 font-mono">{{ $country->code }}</td>
                     <td class="px-4 py-2">{{ $country->currency_code }}</td>
@@ -70,7 +72,7 @@
                 </tr>
                     @if ($expandedCountryId === $country->id)
                         <tr class="border-t bg-gray-50" wire:key="country-{{ $country->id }}-cities">
-                            <td colspan="8" class="px-4 py-4">
+                            <td colspan="9" class="px-4 py-4">
                                 <table class="w-full text-xs mb-3">
                                     <thead class="text-left text-gray-500"><tr><th class="pr-3 py-1">City</th><th class="pr-3 py-1">Franchises</th><th class="pr-3 py-1">Status</th><th class="pr-3 py-1"></th></tr></thead>
                                     <tbody>
@@ -101,7 +103,7 @@
                         </tr>
                     @endif
                 @empty
-                    <tr><td colspan="8" class="px-4 py-6 text-center text-gray-400">No countries yet.</td></tr>
+                    <tr><td colspan="9" class="px-4 py-6 text-center text-gray-400">No countries yet.</td></tr>
                 @endforelse
             </tbody>
     </x-ui.table>

@@ -145,11 +145,13 @@
     @if ($section === 'redemptions')
         <x-ui.table>
             <thead class="bg-gray-50 text-left text-gray-500">
-                <tr><th class="px-4 py-2">Sale</th><th class="px-4 py-2">Service</th><th class="px-4 py-2">Customer</th><th class="px-4 py-2">Original</th><th class="px-4 py-2">Final</th><th class="px-4 py-2">Discount</th><th class="px-4 py-2">Date</th></tr>
+                <tr>
+                    <x-ui.sno-th /><th class="px-4 py-2">Sale</th><th class="px-4 py-2">Service</th><th class="px-4 py-2">Customer</th><th class="px-4 py-2">Original</th><th class="px-4 py-2">Final</th><th class="px-4 py-2">Discount</th><th class="px-4 py-2">Date</th></tr>
             </thead>
             <tbody>
                 @forelse ($redemptions as $r)
                     <tr class="border-t hover:bg-gray-50">
+                        <x-ui.sno :rows="$redemptions" :loop="$loop" />
                         <td class="px-4 py-2">{{ $r->flashSale->name ?? '—' }}</td>
                         <td class="px-4 py-2">{{ $r->service->name ?? '—' }}</td>
                         <td class="px-4 py-2">{{ $r->user->name ?? '—' }}</td>
@@ -159,7 +161,7 @@
                         <td class="px-4 py-2 text-gray-500 whitespace-nowrap">{{ app(\App\Services\TimezoneResolver::class)->format($r->created_at, $r->user?->franchise, 'd M Y, h:i A') }}</td>
                     </tr>
                 @empty
-                    <tr><td colspan="7" class="px-4 py-6 text-center text-gray-400">No redemptions yet.</td></tr>
+                    <tr><td colspan="8" class="px-4 py-6 text-center text-gray-400">No redemptions yet.</td></tr>
                 @endforelse
             </tbody>
         </x-ui.table>

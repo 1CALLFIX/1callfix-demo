@@ -145,6 +145,7 @@
 
         <thead class="bg-gray-50 text-left text-gray-500">
             <tr>
+                <x-ui.sno-th />
                 <th class="px-4 py-2">Payee</th>
                 <th class="px-4 py-2">Amount</th>
                 <th class="px-4 py-2">Status</th>
@@ -156,6 +157,7 @@
         <tbody>
             @forelse ($payouts as $p)
                 <tr class="border-t hover:bg-gray-50" wire:key="payout-{{ $p->id }}">
+                    <x-ui.sno :rows="$payouts" :loop="$loop" />
                     <td class="px-4 py-2">{{ $p->display_label }}</td>
                     <td class="px-4 py-2 font-mono">{{ $currencySymbol }}{{ number_format($p->amount, 2) }}</td>
                     <td class="px-4 py-2">
@@ -175,7 +177,7 @@
                     </td>
                 </tr>
             @empty
-                <tr><td colspan="6" class="px-4 py-6 text-center text-gray-400">No payouts requested yet.</td></tr>
+                <tr><td colspan="7" class="px-4 py-6 text-center text-gray-400">No payouts requested yet.</td></tr>
             @endforelse
         </tbody>
     </x-ui.table>

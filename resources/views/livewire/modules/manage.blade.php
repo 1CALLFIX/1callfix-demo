@@ -34,6 +34,7 @@
         <x-ui.table>
             <thead class="bg-gray-50 text-left text-gray-500">
                 <tr>
+                    <x-ui.sno-th />
                     <th class="px-4 py-2">Module</th>
                     <th class="px-4 py-2">Status</th>
                     <th class="px-4 py-2">Effective state</th>
@@ -44,6 +45,7 @@
             <tbody>
                 @foreach ($moduleRows as $row)
                     <tr class="border-t">
+                        <x-ui.sno :rows="$moduleRows" :loop="$loop" />
                         <td class="px-4 py-2 font-medium">{{ $row['module']->name }}</td>
                         <td class="px-4 py-2">
                             @if ($row['module']->is_implemented)

@@ -124,7 +124,7 @@
         <table class="w-full text-sm">
             <thead class="bg-gray-50 text-left text-gray-500">
                 <tr>
-                    <th class="px-4 py-2 w-12">SL</th>
+                    <x-ui.sno-th />
                     <th class="px-4 py-2 w-20">
                         <button type="button" wire:click="sortBy('id')" class="inline-flex items-center gap-1 hover:text-gray-800">
                             ID
@@ -158,7 +158,7 @@
             <tbody>
                 @forelse ($zones as $i => $zone)
                     <tr class="border-t hover:bg-gray-50" wire:key="zone-{{ $zone->id }}">
-                        <td class="px-4 py-2 text-gray-400">{{ $zones->firstItem() + $i }}</td>
+                        <x-ui.sno :rows="$zones" :loop="$loop" />
                         <td class="px-4 py-2 text-gray-500">{{ $zone->id }}</td>
                         <td class="px-4 py-2 font-medium">{{ $zone->name }}</td>
                         <td class="px-4 py-2 text-gray-500 font-mono text-xs">{{ $zone->code ?? '—' }}</td>

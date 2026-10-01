@@ -201,11 +201,13 @@
         <x-ui.table>
             <x-slot:footer>{{ $ledger->links() }}</x-slot:footer>
             <thead class="bg-gray-50 text-left text-gray-500">
-                <tr><th class="px-4 py-2">Date</th><th class="px-4 py-2">Source</th><th class="px-4 py-2">Amount</th><th class="px-4 py-2">Details</th><th class="px-4 py-2">Ref</th><th class="px-4 py-2">Admin</th></tr>
+                <tr>
+                    <x-ui.sno-th /><th class="px-4 py-2">Date</th><th class="px-4 py-2">Source</th><th class="px-4 py-2">Amount</th><th class="px-4 py-2">Details</th><th class="px-4 py-2">Ref</th><th class="px-4 py-2">Admin</th></tr>
             </thead>
             <tbody>
                 @forelse ($ledger as $row)
                     <tr class="border-t">
+                        <x-ui.sno :rows="$ledger" :loop="$loop" />
                         <td class="px-4 py-2 whitespace-nowrap text-gray-500">{{ $row->created_at?->format('j M Y H:i') }}</td>
                         @if ($ledgerKind === 'wallet')
                             <td class="px-4 py-2">{{ \App\Support\WalletSourceLabel::labelFor($row->ref) }}</td>
@@ -220,7 +222,7 @@
                         <td class="px-4 py-2 text-gray-500">{{ $row->actor?->name }}</td>
                     </tr>
                 @empty
-                    <tr><td colspan="6" class="px-4 py-6 text-center text-gray-400">No entries.</td></tr>
+                    <tr><td colspan="7" class="px-4 py-6 text-center text-gray-400">No entries.</td></tr>
                 @endforelse
             </tbody>
         </x-ui.table>

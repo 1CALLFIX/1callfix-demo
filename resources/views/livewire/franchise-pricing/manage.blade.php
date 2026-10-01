@@ -18,6 +18,7 @@
     <x-ui.table>
         <thead class="bg-gray-50 text-left text-gray-500">
             <tr>
+                <x-ui.sno-th />
                 <th class="px-4 py-2">Service</th>
                 <th class="px-4 py-2">Category</th>
                 <th class="px-4 py-2">Base price</th>
@@ -29,6 +30,7 @@
         <tbody>
             @forelse ($services as $service)
                 <tr class="border-t hover:bg-gray-50" wire:key="row-{{ $service->id }}">
+                    <x-ui.sno :rows="$services" :loop="$loop" />
                     <td class="px-4 py-2 font-medium">{{ $service->name }}</td>
                     <td class="px-4 py-2 text-gray-500">{{ $service->category->name ?? '—' }}</td>
                     <td class="px-4 py-2 font-mono text-gray-500">{{ $currencySymbol }}{{ number_format($service->base_price, 2) }}</td>
@@ -51,7 +53,7 @@
                     </td>
                 </tr>
             @empty
-                <tr><td colspan="6" class="px-4 py-6 text-center text-gray-400">No active services match your search.</td></tr>
+                <tr><td colspan="7" class="px-4 py-6 text-center text-gray-400">No active services match your search.</td></tr>
             @endforelse
         </tbody>
     </x-ui.table>

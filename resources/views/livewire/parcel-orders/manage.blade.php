@@ -152,6 +152,7 @@
 
             <thead class="bg-gray-50 text-left text-gray-500">
                 <tr>
+                    <x-ui.sno-th />
                     <th class="px-4 py-2">Code</th>
                     <th class="px-4 py-2">Customer</th>
                     <th class="px-4 py-2">Rider</th>
@@ -163,6 +164,7 @@
             <tbody>
                 @foreach ($orders as $o)
                     <tr class="border-t">
+                        <x-ui.sno :rows="$orders" :loop="$loop" />
                         <td class="px-4 py-2 font-mono text-xs">{{ $o->code }}</td>
                         <td class="px-4 py-2">{{ $o->customer->name ?? '—' }}</td>
                         <td class="px-4 py-2">{{ $o->assignedWorker?->user?->name ?? '—' }}</td>

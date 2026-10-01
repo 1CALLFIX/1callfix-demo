@@ -21,6 +21,7 @@
         <x-ui.table>
             <thead class="bg-gray-50 text-left text-gray-500">
                 <tr>
+                    <x-ui.sno-th />
                     <th class="px-4 py-2">Badge</th>
                     <th class="px-4 py-2">Key</th>
                     <th class="px-4 py-2">Mode</th>
@@ -35,6 +36,7 @@
             <tbody>
                 @foreach ($badges as $badge)
                     <tr class="border-t hover:bg-gray-50">
+                        <x-ui.sno :rows="$badges" :loop="$loop" />
                         <td class="px-4 py-2">
                             <span class="px-2 py-0.5 rounded text-xs font-semibold" style="color: {{ $badge->text_color }}; background-color: {{ $badge->bg_color }};">{{ $badge->label }}</span>
                             <div class="text-xs text-gray-400 mt-0.5">{{ $badge->description }}</div>
@@ -133,6 +135,7 @@
         <x-ui.table>
             <thead class="bg-gray-50 text-left text-gray-500">
                 <tr>
+                    <x-ui.sno-th />
                     <th class="px-4 py-2">Badge</th>
                     <th class="px-4 py-2">Entity</th>
                     <th class="px-4 py-2">Scope</th>
@@ -146,6 +149,7 @@
             <tbody>
                 @forelse ($assignments as $a)
                     <tr class="border-t hover:bg-gray-50">
+                        <x-ui.sno :rows="$assignments" :loop="$loop" />
                         <td class="px-4 py-2">
                             <span class="px-2 py-0.5 rounded text-xs font-semibold" style="color: {{ $a->badge->text_color }}; background-color: {{ $a->badge->bg_color }};">{{ $a->badge->label }}</span>
                         </td>

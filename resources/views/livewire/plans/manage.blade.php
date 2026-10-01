@@ -113,6 +113,7 @@
 
         <thead class="bg-gray-50 text-left text-gray-500">
             <tr>
+                <x-ui.sno-th />
                 <th class="px-4 py-2">Plan</th>
                 <th class="px-4 py-2">Family</th>
                 <th class="px-4 py-2">Actor</th>
@@ -126,6 +127,7 @@
         <tbody>
             @forelse ($plans as $p)
                 <tr class="border-t hover:bg-gray-50" wire:key="plan-{{ $p->id }}">
+                    <x-ui.sno :rows="$plans" :loop="$loop" />
                     <td class="px-4 py-2 font-medium">{{ $p->name }}</td>
                     <td class="px-4 py-2 text-gray-500">{{ ucwords(str_replace('_', ' ', $p->plan_family)) }}</td>
                     <td class="px-4 py-2 text-gray-500">{{ ucwords(str_replace('_', ' ', $p->eligible_actor_type)) }}</td>
@@ -145,7 +147,7 @@
                 </tr>
                     @if ($expandedPlanId === $p->id)
                         <tr class="border-t bg-gray-50" wire:key="plan-{{ $p->id }}-entitlements">
-                            <td colspan="8" class="px-4 py-4">
+                            <td colspan="9" class="px-4 py-4">
                                 <table class="w-full text-xs mb-3">
                                     <thead class="text-left text-gray-500">
                                         <tr>
@@ -280,7 +282,7 @@
                         </tr>
                     @endif
                 @empty
-                    <tr><td colspan="8" class="px-4 py-6 text-center text-gray-400">No plans yet.</td></tr>
+                    <tr><td colspan="9" class="px-4 py-6 text-center text-gray-400">No plans yet.</td></tr>
                 @endforelse
             </tbody>
         </x-ui.table>

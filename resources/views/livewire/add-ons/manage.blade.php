@@ -41,6 +41,7 @@
 
         <thead class="bg-gray-50 text-left text-gray-500">
             <tr>
+                <x-ui.sno-th />
                 <th class="px-4 py-2">Name</th>
                 <th class="px-4 py-2">Store</th>
                 <th class="px-4 py-2">Price</th>
@@ -51,6 +52,7 @@
         <tbody>
             @foreach ($addOns as $a)
                 <tr class="border-t">
+                    <x-ui.sno :rows="$addOns" :loop="$loop" />
                     <td class="px-4 py-2">{{ $a->name }}</td>
                     <td class="px-4 py-2">{{ $a->store?->name }}</td>
                     <td class="px-4 py-2">{{ number_format($a->price, 2) }}</td>

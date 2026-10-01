@@ -55,6 +55,7 @@
 
         <thead class="bg-gray-50 text-left text-gray-500">
             <tr>
+                <x-ui.sno-th />
                 <th class="px-4 py-2">Name</th>
                 <th class="px-4 py-2">Phone</th>
                 <th class="px-4 py-2">Zone</th>
@@ -68,6 +69,7 @@
         <tbody>
             @forelse ($providers as $provider)
                 <tr class="border-t hover:bg-gray-50">
+                    <x-ui.sno :rows="$providers" :loop="$loop" />
                     <td class="px-4 py-2">{{ $provider->user->name ?? '—' }}</td>
                     <td class="px-4 py-2">{{ $provider->user->phone ?? '—' }}</td>
                     <td class="px-4 py-2">{{ $provider->zone->name ?? '—' }}</td>
@@ -82,7 +84,7 @@
                     </td>
                 </tr>
             @empty
-                <tr><td colspan="8">
+                <tr><td colspan="9">
                     <x-ui.empty-state icon="check-circle" :title="$statusFilter === 'pending' ? 'Queue is clear' : 'No providers in this status'" :description="$statusFilter === 'pending' ? 'No pending applications need review right now.' : null" />
                 </td></tr>
             @endforelse

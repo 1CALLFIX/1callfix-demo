@@ -19,6 +19,7 @@
 
         <thead class="bg-gray-50 text-left text-gray-500">
             <tr>
+                <x-ui.sno-th />
                 <th class="px-4 py-2">Subscriber</th>
                 <th class="px-4 py-2">Plan</th>
                 <th class="px-4 py-2">Status</th>
@@ -30,6 +31,7 @@
         <tbody>
             @forelse ($subscriptions as $s)
                 <tr class="border-t hover:bg-gray-50 align-top" wire:key="sub-{{ $s->id }}">
+                    <x-ui.sno :rows="$subscriptions" :loop="$loop" />
                     <td class="px-4 py-2">{{ $s->display_label }}</td>
                     <td class="px-4 py-2">{{ $s->plan?->name ?? '—' }}</td>
                     <td class="px-4 py-2">
@@ -95,7 +97,7 @@
                         </td>
                     </tr>
                 @empty
-                    <tr><td colspan="6" class="px-4 py-6 text-center text-gray-400">No subscriptions yet.</td></tr>
+                    <tr><td colspan="7" class="px-4 py-6 text-center text-gray-400">No subscriptions yet.</td></tr>
                 @endforelse
             </tbody>
     </x-ui.table>

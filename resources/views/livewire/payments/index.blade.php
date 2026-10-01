@@ -43,6 +43,7 @@
                 <x-slot:footer>{{ $cashBookings->links() }}</x-slot:footer>
                 <thead class="bg-gray-50 text-left text-gray-500">
                     <tr>
+                        <x-ui.sno-th />
                         <th class="px-4 py-2">Booking</th>
                         <th class="px-4 py-2">Customer</th>
                         <th class="px-4 py-2">Service</th>
@@ -54,6 +55,7 @@
                 <tbody>
                     @forelse ($cashBookings as $b)
                         <tr class="border-t hover:bg-gray-50">
+                            <x-ui.sno :rows="$cashBookings" :loop="$loop" />
                             <td class="px-4 py-2"><a href="{{ route('admin.bookings.show', $b->id) }}" class="text-indigo-600 hover:underline">{{ $b->code }}</a></td>
                             <td class="px-4 py-2">{{ $b->customer?->name ?? '—' }} @if ($b->customer)<span class="text-gray-400">({{ $b->customer->phone }})</span>@endif</td>
                             <td class="px-4 py-2">{{ $b->service?->name ?? '—' }}</td>
@@ -62,7 +64,7 @@
                             <td class="px-4 py-2">{{ $b->created_at?->format('d M Y, h:i A') }}</td>
                         </tr>
                     @empty
-                        <tr><td colspan="6" class="px-4 py-6 text-center text-gray-400">No cash bookings match your filters.</td></tr>
+                        <tr><td colspan="7" class="px-4 py-6 text-center text-gray-400">No cash bookings match your filters.</td></tr>
                     @endforelse
                 </tbody>
             </x-ui.table>
@@ -73,6 +75,7 @@
 
         <thead class="bg-gray-50 text-left text-gray-500">
             <tr>
+                <x-ui.sno-th />
                 <th class="px-4 py-2">Payer</th>
                 <th class="px-4 py-2">Purpose</th>
                 <th class="px-4 py-2">Amount</th>
@@ -102,6 +105,7 @@
                     $payerFranchise = $orderRelation?->franchise ?? $p->booking?->franchise ?? $p->user?->franchise;
                 @endphp
                 <tr class="border-t hover:bg-gray-50">
+                    <x-ui.sno :rows="$payments" :loop="$loop" />
                     <td class="px-4 py-2">
                         {{ $payer?->name ?? '—' }}
                         @if ($payer)
@@ -145,7 +149,7 @@
                     </td>
                 </tr>
             @empty
-                <tr><td colspan="10" class="px-4 py-6 text-center text-gray-400">No payments match your filters.</td></tr>
+                <tr><td colspan="11" class="px-4 py-6 text-center text-gray-400">No payments match your filters.</td></tr>
             @endforelse
         </tbody>
     </x-ui.table>

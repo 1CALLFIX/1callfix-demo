@@ -220,6 +220,7 @@
             <x-slot:footer>{{ $campaigns->links() }}</x-slot:footer>
                 <thead class="bg-gray-50 text-left text-gray-500">
                     <tr>
+                        <x-ui.sno-th />
                         <th class="px-4 py-2">Title</th>
                         <th class="px-4 py-2">Type</th>
                         <th class="px-4 py-2">Audience</th>
@@ -233,6 +234,7 @@
                 <tbody>
                     @forelse ($campaigns as $c)
                         <tr class="border-t hover:bg-gray-50" wire:key="campaign-{{ $c->id }}">
+                            <x-ui.sno :rows="$campaigns" :loop="$loop" />
                             <td class="px-4 py-2 font-medium">{{ $c->title }}</td>
                             <td class="px-4 py-2 text-gray-500">{{ $c->type }}</td>
                             <td class="px-4 py-2 text-gray-500">{{ $c->recipient_type }} / {{ $c->scope_type }}</td>
@@ -261,7 +263,7 @@
                             </td>
                         </tr>
                     @empty
-                        <tr><td colspan="8" class="px-4 py-6 text-center text-gray-400">No campaigns yet.</td></tr>
+                        <tr><td colspan="9" class="px-4 py-6 text-center text-gray-400">No campaigns yet.</td></tr>
                     @endforelse
                 </tbody>
         </x-ui.table>
@@ -340,6 +342,7 @@
             <x-slot:footer>{{ $meetings->links() }}</x-slot:footer>
                 <thead class="bg-gray-50 text-left text-gray-500">
                     <tr>
+                        <x-ui.sno-th />
                         <th class="px-4 py-2">Title</th>
                         <th class="px-4 py-2">Audience</th>
                         <th class="px-4 py-2">Starts</th>
@@ -351,6 +354,7 @@
                 <tbody>
                     @forelse ($meetings as $m)
                         <tr class="border-t hover:bg-gray-50" wire:key="meeting-{{ $m->id }}">
+                            <x-ui.sno :rows="$meetings" :loop="$loop" />
                             <td class="px-4 py-2 font-medium">{{ $m->title }}</td>
                             <td class="px-4 py-2 text-gray-500">{{ $m->recipient_type }}</td>
                             <td class="px-4 py-2 text-gray-500">{{ $m->starts_at->format('d M Y, g:i A') }}</td>
@@ -359,7 +363,7 @@
                             <td class="px-4 py-2">{{ $m->status }}</td>
                         </tr>
                     @empty
-                        <tr><td colspan="6" class="px-4 py-6 text-center text-gray-400">No meetings scheduled yet.</td></tr>
+                        <tr><td colspan="7" class="px-4 py-6 text-center text-gray-400">No meetings scheduled yet.</td></tr>
                     @endforelse
                 </tbody>
         </x-ui.table>
@@ -384,10 +388,12 @@
         @endif
 
         <x-ui.table>
-                <thead class="bg-gray-50 text-left text-gray-500"><tr><th class="px-4 py-2">Key</th><th class="px-4 py-2">Name</th><th class="px-4 py-2">Title template</th><th class="px-4 py-2 text-right">Actions</th></tr></thead>
+                <thead class="bg-gray-50 text-left text-gray-500"><tr>
+                    <x-ui.sno-th /><th class="px-4 py-2">Key</th><th class="px-4 py-2">Name</th><th class="px-4 py-2">Title template</th><th class="px-4 py-2 text-right">Actions</th></tr></thead>
                 <tbody>
                     @forelse ($templates as $t)
                         <tr class="border-t hover:bg-gray-50">
+                            <x-ui.sno :rows="$templates" :loop="$loop" />
                             <td class="px-4 py-2 font-mono text-xs">{{ $t->key }}</td>
                             <td class="px-4 py-2 font-medium">{{ $t->name }}</td>
                             <td class="px-4 py-2 text-gray-500">{{ \Illuminate\Support\Str::limit($t->title_template, 60) }}</td>
@@ -399,7 +405,7 @@
                             </td>
                         </tr>
                     @empty
-                        <tr><td colspan="4" class="px-4 py-6 text-center text-gray-400">No templates yet.</td></tr>
+                        <tr><td colspan="5" class="px-4 py-6 text-center text-gray-400">No templates yet.</td></tr>
                     @endforelse
                 </tbody>
         </x-ui.table>
@@ -421,10 +427,12 @@
             </div>
             <x-ui.table>
                 <x-slot:footer>{{ $logs->links() }}</x-slot:footer>
-                    <thead class="bg-gray-50 text-left text-gray-500"><tr><th class="px-4 py-2">Recipient</th><th class="px-4 py-2">Channel</th><th class="px-4 py-2">Type / Event</th><th class="px-4 py-2">Status</th><th class="px-4 py-2">Error</th><th class="px-4 py-2">Sent</th></tr></thead>
+                    <thead class="bg-gray-50 text-left text-gray-500"><tr>
+                        <x-ui.sno-th /><th class="px-4 py-2">Recipient</th><th class="px-4 py-2">Channel</th><th class="px-4 py-2">Type / Event</th><th class="px-4 py-2">Status</th><th class="px-4 py-2">Error</th><th class="px-4 py-2">Sent</th></tr></thead>
                     <tbody>
                         @forelse ($logs as $l)
                             <tr class="border-t hover:bg-gray-50">
+                                <x-ui.sno :rows="$logs" :loop="$loop" />
                                 <td class="px-4 py-2">{{ $l->notifiable?->name ?? "#{$l->notifiable_id}" }}</td>
                                 <td class="px-4 py-2 text-gray-500">{{ $l->channel }}</td>
                                 <td class="px-4 py-2 text-gray-500">{{ $l->notification_type }} / {{ $l->event }}</td>
@@ -435,7 +443,7 @@
                                 <td class="px-4 py-2 text-gray-500 whitespace-nowrap">{{ $l->sent_at?->diffForHumans() ?? $l->created_at->diffForHumans() }}</td>
                             </tr>
                         @empty
-                            <tr><td colspan="6" class="px-4 py-6 text-center text-gray-400">No delivery logs match your filters.</td></tr>
+                            <tr><td colspan="7" class="px-4 py-6 text-center text-gray-400">No delivery logs match your filters.</td></tr>
                         @endforelse
                     </tbody>
             </x-ui.table>

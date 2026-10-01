@@ -269,6 +269,7 @@
 
         <thead class="bg-gray-50 text-left text-gray-500">
             <tr>
+                <x-ui.sno-th />
                 <th class="px-4 py-2">Code</th>
                 <th class="px-4 py-2">Customer</th>
                 <th class="px-4 py-2">Service</th>
@@ -282,6 +283,7 @@
         <tbody>
             @forelse ($bookings as $booking)
                 <tr class="border-t hover:bg-gray-50">
+                    <x-ui.sno :rows="$bookings" :loop="$loop" />
                     <td class="px-4 py-2 font-mono text-xs">{{ $booking->code }}</td>
                     <td class="px-4 py-2">{{ $booking->customer->name ?? '—' }}</td>
                     <td class="px-4 py-2">{{ $booking->service->name ?? '—' }}</td>
@@ -296,7 +298,7 @@
                     </td>
                 </tr>
             @empty
-                <tr><td colspan="8"><x-ui.empty-state icon="magnifying-glass" title="No bookings match this filter" description="Try a different status, or clear the search." /></td></tr>
+                <tr><td colspan="9"><x-ui.empty-state icon="magnifying-glass" title="No bookings match this filter" description="Try a different status, or clear the search." /></td></tr>
             @endforelse
         </tbody>
     </x-ui.table>

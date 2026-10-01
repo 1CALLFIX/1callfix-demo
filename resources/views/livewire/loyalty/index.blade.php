@@ -41,6 +41,7 @@
 
             <thead class="bg-gray-50 text-left text-gray-500">
                 <tr>
+                    <x-ui.sno-th />
                     <th class="px-4 py-2">Customer</th>
                     <th class="px-4 py-2">Points</th>
                     <th class="px-4 py-2">Reason</th>
@@ -52,6 +53,7 @@
             <tbody>
                 @forelse ($points as $p)
                     <tr class="border-t hover:bg-gray-50">
+                        <x-ui.sno :rows="$points" :loop="$loop" />
                         <td class="px-4 py-2">{{ $p->user->name ?? '—' }} <span class="text-gray-400">({{ $p->user->phone ?? '—' }})</span></td>
                         <td class="px-4 py-2 font-mono @if($p->points > 0) text-green-700 @else text-red-700 @endif">
                             {{ $p->points > 0 ? '+' : '' }}{{ number_format($p->points) }}
@@ -62,7 +64,7 @@
                         <td class="px-4 py-2 text-gray-500">{{ app(\App\Services\TimezoneResolver::class)->format($p->created_at, $p->user?->franchise, 'd M Y, h:i A') }}</td>
                     </tr>
                 @empty
-                    <tr><td colspan="6" class="px-4 py-6 text-center text-gray-400">No loyalty point entries match your search.</td></tr>
+                    <tr><td colspan="7" class="px-4 py-6 text-center text-gray-400">No loyalty point entries match your search.</td></tr>
                 @endforelse
             </tbody>
         </x-ui.table>
@@ -83,6 +85,7 @@
 
             <thead class="bg-gray-50 text-left text-gray-500">
                 <tr>
+                    <x-ui.sno-th />
                     <th class="px-4 py-2">Referrer</th>
                     <th class="px-4 py-2">Referred</th>
                     <th class="px-4 py-2">Status</th>
@@ -97,6 +100,7 @@
             <tbody>
                 @forelse ($referrals as $r)
                     <tr class="border-t hover:bg-gray-50 align-top">
+                        <x-ui.sno :rows="$referrals" :loop="$loop" />
                         <td class="px-4 py-2">{{ $r->referrer->name ?? '—' }} <span class="text-gray-400">({{ $r->referrer->phone ?? '—' }})</span></td>
                         <td class="px-4 py-2">{{ $r->referred->name ?? '—' }} <span class="text-gray-400">({{ $r->referred->phone ?? '—' }})</span></td>
                         <td class="px-4 py-2">
@@ -126,7 +130,7 @@
                         @endif
                     </tr>
                 @empty
-                    <tr><td colspan="{{ ($canManageAnywhere ?? false) ? 7 : 6 }}" class="px-4 py-6 text-center text-gray-400">No referrals match your search.</td></tr>
+                    <tr><td colspan="{{ ($canManageAnywhere ?? false) ? 8 : 7 }}" class="px-4 py-6 text-center text-gray-400">No referrals match your search.</td></tr>
                 @endforelse
             </tbody>
         </x-ui.table>

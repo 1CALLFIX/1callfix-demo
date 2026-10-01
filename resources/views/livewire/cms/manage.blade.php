@@ -67,6 +67,7 @@
         <x-ui.table>
             <thead class="bg-gray-50 text-left text-gray-500">
                 <tr>
+                    <x-ui.sno-th />
                     <th class="px-4 py-2">Slug</th>
                     <th class="px-4 py-2">Title</th>
                     <th class="px-4 py-2">Status</th>
@@ -77,6 +78,7 @@
             <tbody>
                 @forelse ($pages as $page)
                     <tr class="border-t hover:bg-gray-50" wire:key="page-{{ $page->id }}">
+                        <x-ui.sno :rows="$pages" :loop="$loop" />
                         <td class="px-4 py-2 font-mono text-xs text-gray-500">{{ $page->slug }}</td>
                         <td class="px-4 py-2 font-medium">{{ $page->title }}</td>
                         <td class="px-4 py-2">
@@ -91,7 +93,7 @@
                         </td>
                     </tr>
                 @empty
-                    <tr><td colspan="5" class="px-4 py-6 text-center text-gray-400">No pages yet. Add your first one above.</td></tr>
+                    <tr><td colspan="6" class="px-4 py-6 text-center text-gray-400">No pages yet. Add your first one above.</td></tr>
                 @endforelse
             </tbody>
         </x-ui.table>
@@ -125,6 +127,7 @@
         <x-ui.table>
             <thead class="bg-gray-50 text-left text-gray-500">
                 <tr>
+                    <x-ui.sno-th />
                     <th class="px-4 py-2">Category</th>
                     <th class="px-4 py-2">Question</th>
                     <th class="px-4 py-2">Status</th>
@@ -134,6 +137,7 @@
             <tbody>
                 @forelse ($faqs as $faq)
                     <tr class="border-t hover:bg-gray-50" wire:key="faq-{{ $faq->id }}">
+                        <x-ui.sno :rows="$faqs" :loop="$loop" />
                         <td class="px-4 py-2 text-gray-500">{{ $faq->category ?? '—' }}</td>
                         <td class="px-4 py-2 font-medium">{{ $faq->question }}</td>
                         <td class="px-4 py-2">
@@ -147,7 +151,7 @@
                         </td>
                     </tr>
                 @empty
-                    <tr><td colspan="4" class="px-4 py-6 text-center text-gray-400">No FAQs yet. Add your first one above.</td></tr>
+                    <tr><td colspan="5" class="px-4 py-6 text-center text-gray-400">No FAQs yet. Add your first one above.</td></tr>
                 @endforelse
             </tbody>
         </x-ui.table>
@@ -191,6 +195,7 @@
         <x-ui.table>
             <thead class="bg-gray-50 text-left text-gray-500">
                 <tr>
+                    <x-ui.sno-th />
                     <th class="px-4 py-2">Order</th>
                     <th class="px-4 py-2">Icon</th>
                     <th class="px-4 py-2">Title</th>
@@ -202,6 +207,7 @@
             <tbody>
                 @forelse ($partnerBenefits as $benefit)
                     <tr class="border-t hover:bg-gray-50 align-top" wire:key="benefit-{{ $benefit->id }}">
+                        <x-ui.sno :rows="$partnerBenefits" :loop="$loop" />
                         <td class="px-4 py-2 whitespace-nowrap">
                             <span class="text-gray-500 mr-1">{{ $benefit->sort_order }}</span>
                             <button type="button" wire:click="moveBenefit({{ $benefit->id }}, 'up')" class="text-gray-400 hover:text-gray-700" title="Move up" @disabled($loop->first)>&uarr;</button>
@@ -221,7 +227,7 @@
                         </td>
                     </tr>
                 @empty
-                    <tr><td colspan="6" class="px-4 py-6 text-center text-gray-400">No partner benefits yet. Add your first one above.</td></tr>
+                    <tr><td colspan="7" class="px-4 py-6 text-center text-gray-400">No partner benefits yet. Add your first one above.</td></tr>
                 @endforelse
             </tbody>
         </x-ui.table>

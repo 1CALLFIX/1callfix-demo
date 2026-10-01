@@ -72,6 +72,7 @@
 
         <thead class="bg-gray-50 text-left text-gray-500">
             <tr>
+                <x-ui.sno-th />
                 <th class="px-4 py-2">Name</th>
                 <th class="px-4 py-2">Module</th>
                 <th class="px-4 py-2">Owner</th>
@@ -83,6 +84,7 @@
         <tbody>
             @foreach ($stores as $s)
                 <tr class="border-t">
+                    <x-ui.sno :rows="$stores" :loop="$loop" />
                     <td class="px-4 py-2">{{ $s->name }}</td>
                     <td class="px-4 py-2">{{ \App\Support\Modules::label($s->module) }}</td>
                     <td class="px-4 py-2">{{ $s->provider?->user?->name }}</td>

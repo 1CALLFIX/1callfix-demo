@@ -250,7 +250,7 @@
         <table class="w-full text-sm">
             <thead class="bg-gray-50 text-left text-gray-500">
                 <tr>
-                    <th class="px-4 py-2 w-12">SL</th>
+                    <x-ui.sno-th />
                     <th class="px-4 py-2 w-20">
                         <button type="button" wire:click="sortBy('id')" class="inline-flex items-center gap-1 hover:text-gray-800">
                             ID
@@ -274,7 +274,7 @@
             <tbody>
                 @forelse ($services as $i => $service)
                     <tr class="border-t hover:bg-gray-50" wire:key="svc-{{ $service->id }}">
-                        <td class="px-4 py-2 text-gray-400">{{ $services->firstItem() + $i }}</td>
+                        <x-ui.sno :rows="$services" :loop="$loop" />
                         <td class="px-4 py-2 text-gray-500">{{ $service->id }}</td>
                         <td class="px-4 py-2">
                             <span class="w-9 h-9 rounded border flex items-center justify-center overflow-hidden bg-gray-50">

@@ -34,6 +34,7 @@
 
         <thead class="bg-gray-50 text-left text-gray-500">
             <tr>
+                <x-ui.sno-th />
                 <th class="px-4 py-2">Queue</th>
                 <th class="px-4 py-2">Job</th>
                 <th class="px-4 py-2">Exception</th>
@@ -51,6 +52,7 @@
                     $exceptionFirstLine = strtok($job->exception, "\n");
                 @endphp
                 <tr class="border-t hover:bg-gray-50 align-top">
+                    <x-ui.sno :rows="$failedJobs" :loop="$loop" />
                     <td class="px-4 py-2 text-gray-500">{{ $job->queue }}</td>
                     <td class="px-4 py-2 font-mono text-xs">{{ $jobClass }}</td>
                     <td class="px-4 py-2 text-red-700 text-xs max-w-md truncate" title="{{ $job->exception }}">{{ $exceptionFirstLine }}</td>
@@ -63,7 +65,7 @@
                     @endif
                 </tr>
             @empty
-                <tr><td colspan="{{ $canManage ? 5 : 4 }}" class="px-4 py-6 text-center text-gray-400">No failed jobs.</td></tr>
+                <tr><td colspan="{{ $canManage ? 6 : 5 }}" class="px-4 py-6 text-center text-gray-400">No failed jobs.</td></tr>
             @endforelse
         </tbody>
     </x-ui.table>
@@ -76,6 +78,7 @@
 
         <thead class="bg-gray-50 text-left text-gray-500">
             <tr>
+                <x-ui.sno-th />
                 <th class="px-4 py-2">Channel</th>
                 <th class="px-4 py-2">Notification</th>
                 <th class="px-4 py-2">Event</th>
@@ -86,6 +89,7 @@
         <tbody>
             @forelse ($notificationFailures as $log)
                 <tr class="border-t hover:bg-gray-50">
+                    <x-ui.sno :rows="$notificationFailures" :loop="$loop" />
                     <td class="px-4 py-2"><x-ui.badge color="red">{{ $log->channel }}</x-ui.badge></td>
                     <td class="px-4 py-2 font-mono text-xs">{{ class_basename($log->notification_type) }}</td>
                     <td class="px-4 py-2 text-gray-500">{{ $log->event ?? '—' }}</td>
@@ -93,7 +97,7 @@
                     <td class="px-4 py-2 text-gray-500 whitespace-nowrap">{{ $log->sent_at?->format('d M Y, h:i A') ?? '—' }}</td>
                 </tr>
             @empty
-                <tr><td colspan="5" class="px-4 py-6 text-center text-gray-400">No notification delivery failures recorded.</td></tr>
+                <tr><td colspan="6" class="px-4 py-6 text-center text-gray-400">No notification delivery failures recorded.</td></tr>
             @endforelse
         </tbody>
     </x-ui.table>
@@ -310,6 +314,7 @@
 
         <thead class="bg-gray-50 text-left text-gray-500">
             <tr>
+                <x-ui.sno-th />
                 <th class="px-4 py-2">Booking</th>
                 <th class="px-4 py-2">Status</th>
                 <th class="px-4 py-2">Stuck since</th>
@@ -320,6 +325,7 @@
         <tbody>
             @forelse ($stuckBookings as $row)
                 <tr class="border-t hover:bg-gray-50">
+                    <x-ui.sno :rows="$stuckBookings" :loop="$loop" />
                     <td class="px-4 py-2"><a href="{{ route('admin.bookings.show', $row['booking']->id) }}" class="text-blue-600 hover:underline">#{{ $row['booking']->id }}</a></td>
                     <td class="px-4 py-2 text-gray-500">{{ $row['status'] }}</td>
                     <td class="px-4 py-2 text-gray-500 whitespace-nowrap">{{ app(\App\Services\TimezoneResolver::class)->format($row['stuck_since'], $row['booking']->franchise, 'd M Y, h:i A') }}</td>
@@ -327,7 +333,7 @@
                     <td class="px-4 py-2 text-gray-400">{{ $row['threshold_minutes'] }}m</td>
                 </tr>
             @empty
-                <tr><td colspan="5" class="px-4 py-6 text-center text-gray-400">No stuck bookings.</td></tr>
+                <tr><td colspan="6" class="px-4 py-6 text-center text-gray-400">No stuck bookings.</td></tr>
             @endforelse
         </tbody>
     </x-ui.table>
@@ -340,6 +346,7 @@
 
         <thead class="bg-gray-50 text-left text-gray-500">
             <tr>
+                <x-ui.sno-th />
                 <th class="px-4 py-2">Command</th>
                 <th class="px-4 py-2">Status</th>
                 <th class="px-4 py-2">Started</th>
@@ -350,6 +357,7 @@
         <tbody>
             @forelse ($scheduledTaskRuns as $run)
                 <tr class="border-t hover:bg-gray-50 align-top">
+                    <x-ui.sno :rows="$scheduledTaskRuns" :loop="$loop" />
                     <td class="px-4 py-2 font-mono text-xs">{{ $run->command }}</td>
                     <td class="px-4 py-2">
                         <x-ui.badge :color="match($run->status) { 'success' => 'green', 'failure' => 'red', default => 'gray' }">{{ $run->status }}</x-ui.badge>
@@ -359,7 +367,7 @@
                     <td class="px-4 py-2 text-gray-500 text-xs max-w-xs truncate" title="{{ $run->output }}">{{ $run->output ?? '—' }}</td>
                 </tr>
             @empty
-                <tr><td colspan="5" class="px-4 py-6 text-center text-gray-400">No scheduled tasks have run yet — this does not mean the scheduler is unhealthy, just that nothing has fired since this tracking was added.</td></tr>
+                <tr><td colspan="6" class="px-4 py-6 text-center text-gray-400">No scheduled tasks have run yet — this does not mean the scheduler is unhealthy, just that nothing has fired since this tracking was added.</td></tr>
             @endforelse
         </tbody>
     </x-ui.table>
@@ -380,6 +388,7 @@
 
         <thead class="bg-gray-50 text-left text-gray-500">
             <tr>
+                <x-ui.sno-th />
                 <th class="px-4 py-2">Event</th>
                 <th class="px-4 py-2">Outcome</th>
                 <th class="px-4 py-2">Order ID</th>
@@ -393,6 +402,7 @@
         <tbody>
             @forelse ($webhookLogs as $log)
                 <tr class="border-t hover:bg-gray-50">
+                    <x-ui.sno :rows="$webhookLogs" :loop="$loop" />
                     <td class="px-4 py-2 font-mono text-xs">{{ $log->event ?? '—' }}</td>
                     <td class="px-4 py-2">
                         <x-ui.badge :color="match(true) {
@@ -416,7 +426,7 @@
                     @endif
                 </tr>
             @empty
-                <tr><td colspan="{{ $canManage ? 6 : 5 }}" class="px-4 py-6 text-center text-gray-400">No webhook receipts logged.</td></tr>
+                <tr><td colspan="{{ $canManage ? 7 : 6 }}" class="px-4 py-6 text-center text-gray-400">No webhook receipts logged.</td></tr>
             @endforelse
         </tbody>
     </x-ui.table>
@@ -430,6 +440,7 @@
 
         <thead class="bg-gray-50 text-left text-gray-500">
             <tr>
+                <x-ui.sno-th />
                 <th class="px-4 py-2">When</th>
                 <th class="px-4 py-2">Actor</th>
                 <th class="px-4 py-2">Subject</th>
@@ -439,6 +450,7 @@
         <tbody>
             @forelse ($activityLogs as $log)
                 <tr class="border-t hover:bg-gray-50">
+                    <x-ui.sno :rows="$activityLogs" :loop="$loop" />
                     <td class="px-4 py-2 text-gray-500 whitespace-nowrap">{{ $log->created_at?->format('d M Y, h:i A') }}</td>
                     <td class="px-4 py-2">{{ $log->causer->name ?? 'System' }}</td>
                     <td class="px-4 py-2 text-gray-500 font-mono text-xs">{{ class_basename($log->subject_type) }} #{{ $log->subject_id }}</td>
@@ -451,7 +463,7 @@
                     </td>
                 </tr>
             @empty
-                <tr><td colspan="4" class="px-4 py-6 text-center text-gray-400">No activity logged yet.</td></tr>
+                <tr><td colspan="5" class="px-4 py-6 text-center text-gray-400">No activity logged yet.</td></tr>
             @endforelse
         </tbody>
     </x-ui.table>
