@@ -129,4 +129,29 @@ class JobWalkthroughTest extends TestCase
 
         $this->assertSame('provider_side', $s['booking']->fresh()->hold_category);
     }
+
+    public function test_a_job_handed_to_a_provider_rings_once_but_their_own_accept_does_not(): void
+    {
+        $s = $this->makeAssignedBookingScenario();
+        $s['booking']->update(['status' => 'searching_provider', 'provider_id' => null]);
+        $new = $this->makeProviderIn($s['franchise'], $s['zone']);
+        $this->actingAs($new->user);
+
+        // First render seeds; nothing rings.
+        $c = Livewire::test(\App\Livewire\Provider\OfferWatcher::class)->assertNotDispatched('provider-alert-status');
+
+        // An operator assigns the job.
+        $s['booking']->update(['status' => 'assigned', 'provider_id' => $new->id]);
+        $s['booking']->statusHistory()->create(['status' => 'assigned', 'note' => 'Reassigned by admin', 'changed_at' => now()]);
+        $c->call('$refresh')->assertDispatched('provider-alert-status');
+        $c->call('$refresh')->assertNotDispatched('provider-alert-status');
+
+        // A job the provider accepted themselves does not ring them.
+        $other = $this->makeAssignedBookingScenario();
+        $other['booking']->update(['status' => 'searching_provider', 'provider_id' => null]);
+        $c->call('$refresh');
+        $other['booking']->update(['status' => 'assigned', 'provider_id' => $new->id]);
+        $other['booking']->statusHistory()->create(['status' => 'assigned', 'note' => 'Accepted by provider #'.$new->id, 'changed_at' => now()]);
+        $c->call('$refresh')->assertNotDispatched('provider-alert-status');
+    }
 }

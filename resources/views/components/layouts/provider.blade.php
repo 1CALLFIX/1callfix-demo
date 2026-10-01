@@ -172,9 +172,7 @@
                  Jobs\Index and Dashboard dispatch `provider-alert-offers`
                  themselves; mounting the watcher there too would double the
                  polling and the events. --}}
-            @unless (request()->routeIs('provider.jobs.index', 'provider.dashboard'))
-                <livewire:provider.offer-watcher />
-            @endunless
+            <livewire:provider.offer-watcher :with-offers="! request()->routeIs('provider.jobs.index', 'provider.dashboard')" />
 
             {{-- Foreground job-offer alert. Purely presentational: the Alpine
                  component (resources/js/provider-alerts.js) is fed by the

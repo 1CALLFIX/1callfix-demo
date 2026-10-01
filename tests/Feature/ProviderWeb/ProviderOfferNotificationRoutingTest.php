@@ -310,7 +310,7 @@ class ProviderOfferNotificationRoutingTest extends TestCase
         $this->get(route('provider.jobs.show', $this->heldJob($s)))->assertOk();
     }
 
-    public function test_the_watcher_is_absent_where_the_page_already_dispatches_offers(): void
+    public function test_the_watcher_does_not_add_a_second_offer_source_where_the_page_already_dispatches_offers(): void
     {
         $s = $this->offerScenario();
         $this->actingAs($s['provider']->user);
@@ -319,7 +319,9 @@ class ProviderOfferNotificationRoutingTest extends TestCase
             $html = $this->get(route($name))->assertOk()->getContent();
 
             $this->assertStringContainsString('x-data="providerOfferAlert"', $html);
-            $this->assertStringNotContainsString('wire:name="provider.offer-watcher"', $html, "{$name}: a second offer source would double the polling");
+            // The watcher is mounted for the assignment chime only (1CF-JOURNEY-001), with offers switched off.
+            $this->assertSame(1, substr_count($html, 'wire:name="provider.offer-watcher"'), "{$name}: one watcher expected");
+            $this->assertStringContainsString('&quot;withOffers&quot;:false', $html, "{$name}: a second offer source would double the polling");
         }
     }
 

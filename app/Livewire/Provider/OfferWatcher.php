@@ -3,7 +3,9 @@
 namespace App\Livewire\Provider;
 
 use App\Livewire\Provider\Concerns\InteractsWithProvider;
+use App\Models\Booking;
 use App\Models\Setting;
+use Livewire\Attributes\Locked;
 use Livewire\Attributes\On;
 use Livewire\Component;
 
@@ -36,6 +38,16 @@ class OfferWatcher extends Component
 {
     use InteractsWithProvider;
 
+    /** False on the pages that already feed the offer banner from their own poll (Jobs\Index, Dashboard). */
+    public bool $withOffers = true;
+
+    /** @var list<int> assigned job ids already seen; seeded by the first render. */
+    #[Locked]
+    public array $seenAssigned = [];
+
+    #[Locked]
+    public bool $seeded = false;
+
     #[On(self::AVAILABILITY_EVENT)]
     public function syncAvailability(): void
     {
@@ -51,10 +63,42 @@ class OfferWatcher extends Component
         $online = (bool) $provider->is_online;
         $window = (int) Setting::get('dispatch.offer_timeout_seconds', 25);
 
-        $offers = $online ? $this->liveOfferAttempts($provider, $window) : collect();
+        if ($this->withOffers) {
+            $offers = $online ? $this->liveOfferAttempts($provider, $window) : collect();
 
-        $this->dispatch('provider-alert-offers', count: $offers->count(), offers: $this->offerAlertSummaries($offers, $window));
+            $this->dispatch('provider-alert-offers', count: $offers->count(), offers: $this->offerAlertSummaries($offers, $window));
+        }
+
+        $this->alertOnNewAssignments($provider->id);
 
         return view('livewire.provider.offer-watcher', ['online' => $online]);
+    }
+
+    /**
+     * REF 1CF-JOURNEY-001 — a job handed to this provider by an operator (a fresh assignment or a mid-work
+     * hand-over) is not an offer, so it never rang. Chime once when a job newly appears as assigned to them
+     * that they did not accept themselves. The first render only seeds the set, so opening a page never rings.
+     */
+    private function alertOnNewAssignments(int $providerId): void
+    {
+        $jobs = Booking::where('provider_id', $providerId)->where('status', 'assigned')
+            ->with(['statusHistory' => fn ($q) => $q->latest('id')->limit(1)])
+            ->get(['id', 'code']);
+        $ids = $jobs->pluck('id')->all();
+
+        if (! $this->seeded) {
+            $this->seeded = true;
+            $this->seenAssigned = $ids;
+
+            return;
+        }
+
+        $new = $jobs->filter(fn ($b) => ! in_array($b->id, $this->seenAssigned, true)
+            && ! str_starts_with((string) $b->statusHistory->first()?->note, 'Accepted by provider'));
+        $this->seenAssigned = $ids;
+
+        if ($new->isNotEmpty()) {
+            $this->dispatch('provider-alert-status', title: 'Job assigned to you', body: 'Job '.$new->first()->code.' has been assigned to you. Open it to start.');
+        }
     }
 }
