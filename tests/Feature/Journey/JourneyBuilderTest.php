@@ -226,6 +226,18 @@ class JourneyBuilderTest extends TestCase
         $this->assertSame(['Waiting for your approval', 'Work resumed'], array_column($ep['mini'], 'label'));
     }
 
+    public function test_approved_extra_work_reads_work_approved_not_work_resumed(): void
+    {
+        $h = [$this->h('in_progress'), $this->h('on_hold', 'Hold reason: awaiting_customer_approval — Extra work proposed', 9)];
+        $h[] = $this->h('in_progress', 'Resumed from hold (was: awaiting_customer_approval) — Extra work approved: Pipe (₹500)', 12);
+        $ep = collect(JourneyBuilder::build('service', 'in_progress', $h)['steps'])->firstWhere('key', 'in_progress')['episodes'][0];
+        $this->assertSame(['Waiting for your approval', 'Work approved'], array_column($ep['mini'], 'label'));
+
+        $h[2] = $this->h('in_progress', 'Resumed from hold (was: awaiting_customer_approval) — Extra work declined: Pipe', 12);
+        $ep = collect(JourneyBuilder::build('service', 'in_progress', $h)['steps'])->firstWhere('key', 'in_progress')['episodes'][0];
+        $this->assertSame('Extra work declined', $ep['mini'][1]['label']);
+    }
+
     public function test_two_separate_holds_are_two_episodes(): void
     {
         $h = $this->heldForSpares();
