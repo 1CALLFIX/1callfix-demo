@@ -32,10 +32,13 @@
                 @endforeach
             </ul>
         @endif
+        {{-- No progress bar for a cancelled / disputed job: "100% complete" would be wrong. --}}
+        @unless ($terminal)
         <div class="mt-3 h-2 overflow-hidden rounded-full bg-white/30" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ $journey['progress'] }}" aria-label="Progress">
             <div class="h-full rounded-full bg-white transition-all duration-700" style="width: {{ $journey['progress'] }}%"></div>
         </div>
         <p class="mt-1 text-xs text-white/80">{{ $journey['progress'] }}% complete</p>
+        @endunless
     </div>
 
     {{-- Steps --}}

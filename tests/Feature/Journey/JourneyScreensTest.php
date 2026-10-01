@@ -45,6 +45,22 @@ class JourneyScreensTest extends TestCase
             ->assertSee('500.00 refunded to your 1CallFix wallet.');
     }
 
+    public function test_a_cancelled_job_shows_the_refund_amount_even_when_the_payment_row_has_no_refunded_amount_and_no_progress_bar(): void
+    {
+        $s = $this->makeBookingScenario('cancelled');
+        $booking = $s['booking'];
+        $booking->update(['payment_status' => 'refunded', 'cancellation_fee' => 0, 'cancellation_note' => 'Platform dispatch failure — no provider could be found within the allotted dispatch window.']);
+        $booking->statusHistory()->create(['status' => 'cancelled', 'note' => 'Cancelled by admin: Platform dispatch failure', 'changed_at' => now()]);
+        Payment::create(['booking_id' => $booking->id, 'purpose' => 'booking', 'amount' => 1, 'gateway' => 'razorpay', 'status' => 'refunded']); // refunded_amount not stamped
+        app(WalletService::class)->credit($s['customer'], 1, 'Booking refund', "booking:{$booking->id}:wallet-refund");
+        $this->actingAs($s['customer']);
+
+        Livewire::test(CustomerOrderShow::class, ['booking' => $booking])
+            ->assertSee('1.00 refunded to your 1CallFix wallet.')
+            ->assertDontSee('% complete')
+            ->assertDontSeeHtml('role="progressbar"');
+    }
+
     public function test_customer_sees_the_cash_refund_destination_and_fee_when_it_went_back_to_the_source(): void
     {
         $s = $this->makeBookingScenario('assigned');

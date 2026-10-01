@@ -44,7 +44,10 @@ final class JourneyContext
             $refundLabel = null;
             if ($refunded > 0 || $booking->payment_status === 'refunded') {
                 $toWallet = WalletTransaction::where('ref', "booking:{$booking->id}:wallet-refund")->exists();
-                $amount = $refunded > 0 ? $money($refunded) : 'Your payment';
+                // Wallet refunds don't always stamp refunded_amount; fall back to what was paid minus the fee.
+                $paid = (float) ($payment?->amount ?? 0);
+                $value = $refunded > 0 ? $refunded : max($paid - $fee, 0);
+                $amount = $value > 0 ? $money($value) : 'Your payment';
                 $refundLabel = $toWallet
                     ? "{$amount} refunded to your 1CallFix wallet."
                     : "{$amount} refunded to your original payment method (usually within 3–5 working days).";
