@@ -148,6 +148,18 @@ class BookingBundleController extends Controller
      * 404 (not 403) on a bundle that isn't the caller's own — same IDOR-safe
      * convention as `show()`. 409 when the bundle is already terminal.
      */
+    /** REF 1CF-CANCEL-POLICY-001 step 8 — which visits a cancel would cancel and which it would keep (and why), before confirming. */
+    public function cancelPreview(Request $request, int $bundleId, CancelBookingBundleAction $action)
+    {
+        $bundle = BookingBundle::find($bundleId);
+
+        if (! $bundle || $bundle->customer_id !== $request->user()->id) {
+            return ApiResponse::error('Booking bundle not found.', 404);
+        }
+
+        return response()->json($action->preview($bundleId));
+    }
+
     public function cancel(CancelBookingRequest $request, int $bundleId, CancelBookingBundleAction $action)
     {
         $bundle = BookingBundle::find($bundleId);
@@ -157,7 +169,10 @@ class BookingBundleController extends Controller
         }
 
         try {
-            $result = $action->execute($bundleId, $request->validated('reason'));
+            $result = $action->execute($bundleId, $request->validated('reason'), $request->input('confirm_token'));
+        } catch (\App\Services\Cancellation\BundleCancelNeedsConfirmation $e) {
+            // A partial cancel is never silent: the client shows `preview` (visits to cancel / keep and why) and resends with confirm_token.
+            return response()->json(['message' => $e->getMessage(), 'preview' => $e->preview], 409);
         } catch (\RuntimeException $e) {
             // "This booking bundle is already completed/cancelled" — a real
             // state conflict, exactly what CancelBookingBundleAction's own

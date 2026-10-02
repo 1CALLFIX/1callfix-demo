@@ -170,9 +170,8 @@ class E5_1_BundleCancelRefundTest extends TestCase
 
     public function test_cancellation_fees_are_summed_and_retained_across_children(): void
     {
-        Setting::set('cancellation.free_minutes', '0');
-        Setting::set('cancellation.fee_type', 'flat');
-        Setting::set('cancellation.fee_value', '50');
+        // The assigned-stage fee is now cancellation.assigned_fee (read from each booking's snapshot).
+        Setting::set('cancellation.assigned_fee', '50');
 
         ['bundle' => $bundle, 'children' => $children, 'customer' => $customer, 'ctx' => $ctx, 'opening' => $opening]
             = $this->makeWalletBundle([400, 600, 500]); // total 1500
@@ -207,9 +206,8 @@ class E5_1_BundleCancelRefundTest extends TestCase
 
     public function test_online_paid_bundle_cancellation_issues_one_gateway_refund_for_the_remainder(): void
     {
-        Setting::set('cancellation.free_minutes', '0');
-        Setting::set('cancellation.fee_type', 'flat');
-        Setting::set('cancellation.fee_value', '25');
+        // The assigned-stage fee is now cancellation.assigned_fee (read from each booking's snapshot).
+        Setting::set('cancellation.assigned_fee', '25');
 
         ['bundle' => $bundle, 'children' => $children, 'customer' => $customer, 'ctx' => $ctx]
             = $this->makeWalletBundle([400, 600]); // built as wallet, then re-cast as an online capture below
@@ -445,6 +443,107 @@ class E5_1_BundleCancelRefundTest extends TestCase
             ->postJson("/api/booking-bundles/{$bundle->id}/cancel", [])
             ->assertStatus(422)
             ->assertJsonValidationErrors(['reason']);
+    }
+
+
+    // ---------------------------------------------------------------- REF 1CF-CANCEL-POLICY-001 step 8: no silent partial cancel
+
+    /** A bundle of three where the first visit is mid-work (locked) and the other two are free to cancel. */
+    private function partlyLockedBundle(): array
+    {
+        $b = $this->makeWalletBundle([400, 600, 500]);
+        Booking::whereKey($b['children'][0]->id)->update(['status' => 'in_progress']);
+
+        return $b;
+    }
+
+    public function test_bundle_cancel_preview_shows_which_visits_will_be_cancelled_and_which_stay_and_why(): void
+    {
+        ['bundle' => $bundle, 'children' => $children] = $this->partlyLockedBundle();
+
+        $preview = app(\App\Actions\CancelBookingBundleAction::class)->preview($bundle->id);
+
+        $this->assertCount(2, $preview['will_cancel']);
+        $this->assertSame([$children[1]->id, $children[2]->id], array_column($preview['will_cancel'], 'id'));
+        $this->assertCount(1, $preview['kept']);
+        $this->assertSame($children[0]->id, $preview['kept'][0]['id']);
+        $this->assertStringContainsString('can no longer be cancelled', $preview['kept'][0]['reason']);
+        $this->assertTrue($preview['partial']);
+        $this->assertFalse($preview['nothing']);
+    }
+
+    public function test_a_partial_bundle_cancel_is_never_silent_it_needs_the_confirmation_token(): void
+    {
+        ['bundle' => $bundle, 'children' => $children] = $this->partlyLockedBundle();
+        $action = app(\App\Actions\CancelBookingBundleAction::class);
+
+        try {
+            $action->execute($bundle->id, 'changed my mind');
+            $this->fail('a partial cancel without confirmation must be refused');
+        } catch (\App\Services\Cancellation\BundleCancelNeedsConfirmation $e) {
+            $this->assertCount(1, $e->preview['kept']);
+        }
+        $this->assertNotSame('cancelled', $children[1]->fresh()->status);
+
+        $token = $action->preview($bundle->id)['token'];
+        $action->execute($bundle->id, 'changed my mind', $token);
+
+        $this->assertSame('in_progress', $children[0]->fresh()->status, 'the locked visit stays');
+        $this->assertSame('cancelled', $children[1]->fresh()->status);
+        $this->assertSame('cancelled', $children[2]->fresh()->status);
+    }
+
+    public function test_a_stale_confirmation_token_is_refused_when_the_visits_changed(): void
+    {
+        ['bundle' => $bundle, 'children' => $children] = $this->partlyLockedBundle();
+        $action = app(\App\Actions\CancelBookingBundleAction::class);
+        $token = $action->preview($bundle->id)['token'];
+
+        Booking::whereKey($children[1]->id)->update(['status' => 'in_progress']); // changed while the customer was reading
+
+        $this->expectException(\App\Services\Cancellation\BundleCancelNeedsConfirmation::class);
+        $action->execute($bundle->id, 'x', $token);
+    }
+
+    public function test_bundle_cancel_api_preview_and_409_carry_the_kept_and_cancelled_visits(): void
+    {
+        ['bundle' => $bundle, 'customer' => $customer] = $this->partlyLockedBundle();
+
+        $preview = $this->actingAs($customer, 'sanctum')->getJson("/api/booking-bundles/{$bundle->id}/cancel-preview")
+            ->assertOk()->assertJsonCount(2, 'will_cancel')->assertJsonCount(1, 'kept')->json();
+
+        $this->actingAs($customer, 'sanctum')->postJson("/api/booking-bundles/{$bundle->id}/cancel", ['reason' => 'x'])
+            ->assertStatus(409)->assertJsonCount(1, 'preview.kept');
+
+        $this->actingAs($customer, 'sanctum')->postJson("/api/booking-bundles/{$bundle->id}/cancel", ['reason' => 'x', 'confirm_token' => $preview['token']])
+            ->assertOk();
+    }
+
+    public function test_bundle_cancel_screen_lists_kept_and_cancelled_visits_before_confirming(): void
+    {
+        ['bundle' => $bundle, 'customer' => $customer] = $this->partlyLockedBundle();
+
+        $c = \Livewire\Livewire::actingAs($customer)->test(\App\Livewire\Customer\Bundles\Show::class, ['bundle' => $bundle->id])
+            ->call('reviewCancel')
+            ->assertSee('Review before you cancel')
+            ->assertSee('Will be cancelled')
+            ->assertSee('Will stay booked');
+
+        $this->assertSame(2, substr_count($c->html(), 'data-testid="preview-cancel"'));
+        $this->assertSame(1, substr_count($c->html(), 'data-testid="preview-kept"'));
+        $this->assertSame(0, Booking::where('booking_bundle_id', $bundle->id)->where('status', 'cancelled')->count(), 'nothing cancelled before confirming');
+
+        $c->call('cancelBundle');
+        $this->assertSame(2, Booking::where('booking_bundle_id', $bundle->id)->where('status', 'cancelled')->count());
+    }
+
+    public function test_a_bundle_where_every_open_visit_can_go_needs_no_token(): void
+    {
+        ['bundle' => $bundle] = $this->makeWalletBundle([400, 600]);
+
+        app(\App\Actions\CancelBookingBundleAction::class)->execute($bundle->id, 'x');
+
+        $this->assertSame(2, Booking::where('booking_bundle_id', $bundle->id)->where('status', 'cancelled')->count());
     }
 
     protected function tearDown(): void

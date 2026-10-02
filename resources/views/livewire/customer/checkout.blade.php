@@ -127,6 +127,8 @@
                     @endforeach
                 </div>
 
+                <x-cancellation-policy :lines="app(\App\Services\Cancellation\CancellationPolicy::class)->policyLines()" class="mt-4" />
+
                 <button type="button" wire:click="place" wire:loading.attr="disabled"
                         class="mt-4 flex min-h-12 w-full items-center justify-center rounded-lg bg-blue-600 px-6 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:opacity-50">
                     Confirm &amp; book · {{ $currencySymbol }}{{ number_format($reviewTotal, 2) }}

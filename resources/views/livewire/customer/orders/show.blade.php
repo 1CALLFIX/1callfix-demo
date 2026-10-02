@@ -89,6 +89,64 @@
                 </section>
             @endif
 
+            {{-- ===================== Waiting for spares (REF 1CF-CANCEL-POLICY-001) ===================== --}}
+            @if ($booking->status === 'on_hold' && $booking->hold_reason === 'awaiting_spares')
+                <section class="rounded-2xl border border-amber-300 bg-amber-50 p-4 sm:p-5">
+                    <h2 class="text-sm font-semibold text-amber-900">Waiting for spare parts</h2>
+                    @if ($booking->interim_declared_at)
+                        <dl class="mt-2 grid gap-1 text-sm text-amber-900 sm:grid-cols-3">
+                            <div><dt class="text-xs text-amber-700">Work done so far</dt><dd class="font-semibold">{{ $booking->interim_progress_percent }}%</dd></div>
+                            <div><dt class="text-xs text-amber-700">Parts already fitted</dt><dd class="font-semibold">{{ $currencySymbol }}{{ number_format((float) $booking->interim_parts_cost, 2) }}</dd></div>
+                            <div><dt class="text-xs text-amber-700">Part expected</dt><dd class="font-semibold">{{ $booking->spares_expected_at?->format('j M Y') ?? 'Not given' }}</dd></div>
+                        </dl>
+                    @endif
+                    <p class="mt-2 text-sm text-amber-900">{{ $cancelQuote['message'] }}</p>
+                    @if ($booking->interim_dispute_status === 'open')
+                        <p class="mt-2 text-sm font-medium text-amber-900">You disputed these figures. Our team is reviewing them; cancellation waits for that review.</p>
+                    @elseif ($canDisputeProgress)
+                        @if ($disputing)
+                            <div class="mt-3 space-y-2">
+                                <textarea wire:model="disputeNote" rows="3" maxlength="1000" placeholder="What looks wrong?" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"></textarea>
+                                <div class="flex gap-2">
+                                    <button type="button" wire:click="disputeProgress" wire:loading.attr="disabled" class="rounded-lg bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-700">Send dispute</button>
+                                    <button type="button" wire:click="$set('disputing', false)" class="rounded-lg px-3 py-1.5 text-xs text-slate-600 hover:bg-white">Never mind</button>
+                                </div>
+                            </div>
+                        @else
+                            <button type="button" wire:click="$set('disputing', true)" class="mt-3 rounded-lg border border-amber-400 bg-white px-3 py-1.5 text-xs font-semibold text-amber-900 hover:bg-amber-100">Dispute these figures</button>
+                        @endif
+                    @endif
+                    <x-cancellation-policy :lines="$policyLines" class="mt-3" />
+                </section>
+            @endif
+
+            {{-- ===================== Professional's quote (REF 1CF-CANCEL-POLICY-001) ===================== --}}
+            @if ($pendingQuote)
+                <section class="rounded-2xl border border-blue-300 bg-blue-50 p-4 sm:p-5" aria-live="polite" data-testid="pending-quote">
+                    <h2 class="text-sm font-semibold text-blue-900">Quote from your professional</h2>
+                    <p class="mt-1 text-sm text-blue-900"><strong>{{ $currencySymbol }}{{ number_format((float) $pendingQuote->amount, 2) }}</strong> for this job. If you accept, the visit and inspection charge is adjusted in your final bill.</p>
+                    <div class="mt-3 flex flex-wrap gap-2">
+                        <button type="button" wire:click="respondToQuote({{ $pendingQuote->id }}, true)" wire:loading.attr="disabled" class="min-h-11 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700">Accept quote</button>
+                        <button type="button" wire:click="respondToQuote({{ $pendingQuote->id }}, false)" wire:loading.attr="disabled" class="min-h-11 rounded-lg border border-blue-300 bg-white px-4 py-2 text-sm font-semibold text-blue-900 hover:bg-blue-100">Decline</button>
+                    </div>
+                </section>
+            @endif
+
+            {{-- ===================== Cancellation charge waiting for payment ===================== --}}
+            @if ($pendingCancelRequest)
+                <section class="rounded-2xl border border-rose-300 bg-rose-50 p-4 sm:p-5" aria-live="polite">
+                    <h2 class="text-sm font-semibold text-rose-900">Cancellation charge to pay</h2>
+                    @if ($pendingCancelRequest->status === 'awaiting_admin')
+                        <p class="mt-1 text-sm text-rose-900">Your cancellation request ({{ $currencySymbol }}{{ number_format((float) $pendingCancelRequest->total_charge, 2) }}) is with our team for review.</p>
+                    @else
+                        <p class="mt-1 text-sm text-rose-900">Pay <strong>{{ $currencySymbol }}{{ number_format((float) $pendingCancelRequest->total_charge, 2) }}</strong> to settle the cancellation charge.@if ($booking->status !== 'cancelled') The booking stays as it is until then.@endif</p>
+                        @if ($gatewayConfigured)
+                            <button type="button" wire:click="payCancellationCharge" wire:loading.attr="disabled" class="mt-3 rounded-lg bg-rose-600 px-4 py-2 text-sm font-semibold text-white hover:bg-rose-700">{{ $booking->status === 'cancelled' ? 'Pay charge' : 'Pay and cancel' }}</button>
+                        @endif
+                    @endif
+                </section>
+            @endif
+
             {{-- ===================== OTP codes (display only) ===================== --}}
             @if ($showStartOtp || $showCompletionOtp)
                 <section class="relative overflow-hidden rounded-2xl bg-gradient-to-br from-blue-700 via-blue-600 to-blue-800 p-4 text-white shadow-xl shadow-blue-900/20 sm:p-5">
@@ -184,6 +242,18 @@
                         <x-icon name="document-text" class="h-4 w-4" /> Download receipt (PDF)
                     </a>
                 @endif
+                @if ($booking->status === 'cancelled')
+                    @if ($documents->chargeCollected($booking))
+                        <a href="{{ route('customer.orders.cancellation-invoice', $booking) }}" target="_blank" rel="noopener" class="mt-3 flex items-center gap-1.5 text-sm font-medium text-slate-700 underline hover:text-slate-900">
+                            <x-icon name="document-text" class="h-4 w-4" /> Download cancellation invoice (PDF)
+                        </a>
+                    @endif
+                    @if ($documents->refundedPayment($booking))
+                        <a href="{{ route('customer.orders.credit-note', $booking) }}" target="_blank" rel="noopener" class="mt-3 flex items-center gap-1.5 text-sm font-medium text-slate-700 underline hover:text-slate-900">
+                            <x-icon name="document-text" class="h-4 w-4" /> Download credit note (PDF)
+                        </a>
+                    @endif
+                @endif
             </section>
 
             {{-- ===================== Review ===================== --}}
@@ -258,19 +328,43 @@
                 @endif
 
                 @unless (in_array($booking->status, ['completed', 'cancelled'], true))
+                    <x-cancellation-policy :lines="$policyLines" :booking="$booking" class="mb-3" />
                     @if ($confirmingCancel)
                         <div class="rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm">
-                            <p class="text-rose-800">{{ $booking->hold_category === 'provider_side' ? 'Cancel this booking? No cancellation fee applies because the professional left.' : 'Cancel this booking? A cancellation fee may apply.' }}</p>
-                            <div class="mt-2 flex gap-2">
-                                <button wire:click="cancel" class="rounded-lg bg-rose-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-rose-700">Yes, cancel</button>
-                                <button wire:click="$set('confirmingCancel', false)" class="rounded-lg px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-100">Keep it</button>
-                            </div>
+                            @if (! $cancelQuote['allowed'])
+                                <p class="text-rose-800">{{ $cancelQuote['message'] }}</p>
+                                <button wire:click="$set('confirmingCancel', false)" class="mt-2 rounded-lg px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-100">Close</button>
+                            @else
+                                <p class="text-rose-800">{{ $cancelQuote['message'] }}</p>
+                                @if ($cancelQuote['charge'] > 0)
+                                    <dl class="mt-2 space-y-1 text-rose-900">
+                                        <div class="flex justify-between"><dt>Charge</dt><dd class="font-semibold">{{ $currencySymbol }}{{ number_format($cancelQuote['charge'], 2) }}</dd></div>
+                                        @if (! empty($cancelQuote['breakdown']['cap_percent']))
+                                            <div class="flex justify-between text-xs text-rose-700"><dt>Labour ({{ $cancelQuote['breakdown']['progress_percent'] ?? 0 }}% done, max {{ $cancelQuote['breakdown']['cap_percent'] }}%)</dt><dd>{{ $currencySymbol }}{{ number_format($cancelQuote['breakdown']['labour_charge'], 2) }}</dd></div>
+                                            <div class="flex justify-between text-xs text-rose-700"><dt>Parts fitted</dt><dd>{{ $currencySymbol }}{{ number_format($cancelQuote['breakdown']['parts_charge'], 2) }}</dd></div>
+                                        @endif
+                                        @if ($cancelQuote['refund'] > 0)
+                                            <div class="flex justify-between"><dt>Refunded to you</dt><dd class="font-semibold">{{ $currencySymbol }}{{ number_format($cancelQuote['refund'], 2) }}</dd></div>
+                                        @endif
+                                    </dl>
+                                    @if ($cancelQuote['requires_payment'])
+                                        <p class="mt-2 text-xs text-rose-700">You pay this charge first; the booking is cancelled as soon as it is paid.</p>
+                                    @endif
+                                @endif
+                                <div class="mt-2 flex gap-2">
+                                    <button wire:click="cancel" wire:loading.attr="disabled" class="rounded-lg bg-rose-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-rose-700">{{ $cancelQuote['requires_payment'] ? 'Pay and cancel' : 'Yes, cancel' }}</button>
+                                    <button wire:click="$set('confirmingCancel', false)" class="rounded-lg px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-100">Keep it</button>
+                                </div>
+                            @endif
                         </div>
                     @else
-                        <button wire:click="$set('confirmingCancel', true)"
+                        <button wire:click="openCancel"
                                 class="w-full rounded-lg px-4 py-2.5 text-sm font-medium text-rose-600 hover:bg-rose-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose-600">
                             Cancel booking
                         </button>
+                        @if (! $cancelQuote['allowed'] && $booking->status !== 'on_hold')
+                            <p class="px-1 text-xs text-slate-500">{{ $cancelQuote['message'] }}</p>
+                        @endif
                     @endif
                 @endunless
             </div>
