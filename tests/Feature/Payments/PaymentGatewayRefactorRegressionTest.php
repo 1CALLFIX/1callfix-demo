@@ -65,7 +65,7 @@ class PaymentGatewayRefactorRegressionTest extends TestCase
 
         // --- Webhook: real signature computed with the same webhook secret the gateway itself used ---
         Notification::fake();
-        $payload = ['event' => 'payment.captured', 'payload' => ['payment' => ['entity' => ['order_id' => 'order_regression_1', 'id' => 'pay_regression_1']]]];
+        $payload = ['event' => 'payment.captured', 'payload' => ['payment' => ['entity' => ['order_id' => 'order_regression_1', 'id' => 'pay_regression_1', 'amount' => (int) round((float) \App\Models\Payment::where('gateway_order_id', 'order_regression_1')->value('amount') * 100)]]]];
         $signature = hash_hmac('sha256', json_encode($payload), config('services.razorpay.webhook_secret'));
 
         $this->postJson('/api/webhooks/razorpay', $payload, ['X-Razorpay-Signature' => $signature])->assertOk();

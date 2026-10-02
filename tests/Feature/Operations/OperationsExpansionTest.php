@@ -159,7 +159,7 @@ class OperationsExpansionTest extends TestCase
         $log = PaymentWebhookLog::create([
             'event' => 'payment.captured', 'signature_valid' => true, 'processed' => false, 'outcome' => 'unmatched_order',
             'gateway_order_id' => 'order_abc123',
-            'payload' => ['payload' => ['payment' => ['entity' => ['order_id' => 'order_abc123', 'id' => 'pay_abc123']]]],
+            'payload' => ['payload' => ['payment' => ['entity' => ['order_id' => 'order_abc123', 'id' => 'pay_abc123', 'amount' => (int) round((float) \App\Models\Payment::where('gateway_order_id', 'order_abc123')->value('amount') * 100)]]]],
         ]);
 
         Livewire::actingAs($actor)->test(Health::class)

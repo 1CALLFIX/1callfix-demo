@@ -242,7 +242,7 @@ class AdminOpsAlertTest extends TestCase
         ]);
 
         app(RazorpayWebhookHandler::class)->handleCaptured([
-            'payload' => ['payment' => ['entity' => ['order_id' => 'order_gw_once', 'id' => 'pay_gw_once']]],
+            'payload' => ['payment' => ['entity' => ['order_id' => 'order_gw_once', 'id' => 'pay_gw_once', 'amount' => (int) round((float) \App\Models\Payment::where('gateway_order_id', 'order_gw_once')->value('amount') * 100)]]],
         ]);
 
         $this->assertSame(1, $this->paymentCapturedAlerts($admin), 'Gateway capture must fire exactly once — from the webhook only.');

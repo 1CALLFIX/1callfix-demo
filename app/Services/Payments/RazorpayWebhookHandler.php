@@ -23,11 +23,17 @@ use Illuminate\Support\Facades\Log;
  */
 class RazorpayWebhookHandler
 {
+    /** Outcome recorded when the gateway-reported amount differs from the Payment row. Never counts as processed. */
+    public const OUTCOME_AMOUNT_MISMATCH = 'amount_mismatch';
+
     /** @return array{outcome: string, payment: ?Payment} */
     public function handleCaptured(array $payload): array
     {
         $razorpayOrderId = $payload['payload']['payment']['entity']['order_id'] ?? null;
         $razorpayPaymentId = $payload['payload']['payment']['entity']['id'] ?? null;
+        $capturedAmount = $payload['payload']['payment']['entity']['amount'] ?? null;
+        $capturedCurrency = $payload['payload']['payment']['entity']['currency'] ?? null;
+        $amountMismatch = null;
 
         if (! $razorpayOrderId) {
             return ['outcome' => 'unhandled_event', 'payment' => null];
@@ -41,7 +47,7 @@ class RazorpayWebhookHandler
         // before either writes. lockForUpdate() inside a transaction closes
         // it, the same row-locking convention every booking-mutating Action
         // in this codebase already uses.
-        $alreadyCaptured = DB::transaction(function () use ($razorpayOrderId, $razorpayPaymentId, &$payment) {
+        $alreadyCaptured = DB::transaction(function () use ($razorpayOrderId, $razorpayPaymentId, $capturedAmount, &$payment, &$amountMismatch) {
             $payment = Payment::withTrashed()->where('gateway_order_id', $razorpayOrderId)->lockForUpdate()->first();
 
             // REF 1CF-ADMIN-ROWACTIONS-001 — a late capture for an archived order revives the row.
@@ -72,6 +78,26 @@ class RazorpayWebhookHandler
                 return true;
             }
 
+            // The captured amount (paise) must equal what this Payment row
+            // asked Razorpay to collect. Checked under the same row lock and
+            // BEFORE anything is marked captured, for every purpose — the
+            // Payment row is only ever read here, so a mismatch leaves it
+            // exactly as it was (still pending): nothing downstream (booking
+            // paid, wallet credit, subscription, dispatch) can then fire. A
+            // missing or non-integer amount is a mismatch too: it cannot be
+            // verified, so it is never trusted.
+            $expectedPaise = (int) round((float) $payment->amount * 100);
+            if (! is_int($capturedAmount) && ! (is_string($capturedAmount) && ctype_digit($capturedAmount))) {
+                $amountMismatch = ['expected_paise' => $expectedPaise, 'captured_paise' => $capturedAmount];
+
+                return false;
+            }
+            if ((int) $capturedAmount !== $expectedPaise) {
+                $amountMismatch = ['expected_paise' => $expectedPaise, 'captured_paise' => (int) $capturedAmount];
+
+                return false;
+            }
+
             $payment->status = 'captured';
             $payment->gateway_payment_id = $razorpayPaymentId;
             $payment->captured_at = now();
@@ -88,6 +114,27 @@ class RazorpayWebhookHandler
 
         if ($alreadyCaptured) {
             return ['outcome' => 'already_processed', 'payment' => $payment];
+        }
+
+        if ($amountMismatch !== null) {
+            // Return normally (the controller answers 200) so Razorpay does
+            // not retry the same wrong-amount event forever; the webhook log
+            // row (outcome = amount_mismatch, processed = false) plus the
+            // ops alert are how a human finds it.
+            Log::error('Razorpay webhook: captured amount does not match the Payment row — payment NOT marked captured.', [
+                'payment_id' => $payment->id,
+                'purpose' => $payment->purpose,
+                'gateway_order_id' => $razorpayOrderId,
+                'gateway_payment_id' => $razorpayPaymentId,
+                'expected_paise' => $amountMismatch['expected_paise'],
+                'captured_paise' => $amountMismatch['captured_paise'],
+                'currency' => $capturedCurrency,
+                'payment_status' => $payment->status,
+            ]);
+
+            app(AdminOpsAlertService::class)->paymentAmountMismatch($payment);
+
+            return ['outcome' => self::OUTCOME_AMOUNT_MISMATCH, 'payment' => $payment];
         }
 
         // Phase 2 — real-time operational push to opted-in admins. Placed
