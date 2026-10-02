@@ -86,7 +86,7 @@ class MoneyRecordArchiveTest extends TestCase
         $payment->delete();
         $this->assertSoftDeleted('payments', ['id' => $payment->id]);
 
-        $result = app(RazorpayWebhookHandler::class)->handleCaptured(['payload' => ['payment' => ['entity' => ['order_id' => 'order_LATE1', 'id' => 'pay_LATE1']]]]);
+        $result = app(RazorpayWebhookHandler::class)->handleCaptured(['payload' => ['payment' => ['entity' => ['order_id' => 'order_LATE1', 'id' => 'pay_LATE1', 'amount' => (int) round((float) \App\Models\Payment::withTrashed()->where('gateway_order_id', 'order_LATE1')->value('amount') * 100)]]]]);
 
         $this->assertNotSame('unhandled_event', $result['outcome']);
         $fresh = Payment::find($payment->id);

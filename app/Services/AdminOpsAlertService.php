@@ -31,6 +31,12 @@ class AdminOpsAlertService
         $this->fanOut('payment_captured', $payment);
     }
 
+    /** RazorpayWebhookHandler: the gateway reported a captured amount that differs from the Payment row. */
+    public function paymentAmountMismatch(Payment $payment): void
+    {
+        $this->fanOut('payment_amount_mismatch', $payment);
+    }
+
     /**
      * REF 1CF-IMPLEMENT-20260922-L01 — the T+5 dispatch-escalation alert
      * (DispatchDeadlineSweepService). Deliberately NOT routed through the

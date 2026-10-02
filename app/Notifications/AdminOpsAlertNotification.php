@@ -59,6 +59,7 @@ class AdminOpsAlertNotification extends Notification implements ShouldQueue
         return match ($this->event) {
             'booking_created' => $this->bookingCreatedCopy(),
             'payment_captured' => $this->paymentCapturedCopy(),
+            'payment_amount_mismatch' => ['title' => 'Payment amount mismatch', 'body' => "Razorpay reported a captured amount that differs from payment #{$this->subject->id}. It was NOT marked paid. Check the webhook log."],
             'dispatch_escalation' => $this->dispatchEscalationCopy(),
             'dispatch_job_failure' => $this->dispatchJobFailureCopy(),
             'dispatch_refund_failed' => $this->dispatchRefundFailedCopy(),

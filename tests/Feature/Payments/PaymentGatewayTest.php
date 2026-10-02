@@ -64,7 +64,7 @@ class PaymentGatewayTest extends TestCase
 
     private function capturedPayload(string $orderId, string $paymentId = 'pay_test_1'): array
     {
-        return ['event' => 'payment.captured', 'payload' => ['payment' => ['entity' => ['order_id' => $orderId, 'id' => $paymentId]]]];
+        return ['event' => 'payment.captured', 'payload' => ['payment' => ['entity' => ['order_id' => $orderId, 'id' => $paymentId, 'amount' => (int) round((float) \App\Models\Payment::where('gateway_order_id', $orderId)->value('amount') * 100)]]]];
     }
 
     private function failedPayload(string $orderId): array
