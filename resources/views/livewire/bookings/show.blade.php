@@ -49,6 +49,15 @@
                 <div class="flex justify-between"><dt class="text-gray-500">Payment status</dt><dd>{{ $booking->payment_status }}</dd></div>
                 @if (! is_null($booking->cancellation_fee))
                     <div class="flex justify-between"><dt class="text-gray-500">Cancellation fee</dt><dd>{{ $this->currencySymbol }}{{ number_format($booking->cancellation_fee, 2) }}</dd></div>
+                    @php
+                        $cancelDocs = app(\App\Services\Documents\CancellationDocumentService::class);
+                    @endphp
+                    @if ($cancelDocs->chargeCollected($booking))
+                        <div class="flex justify-between"><dt class="text-gray-500">Cancellation invoice</dt><dd><a class="underline" target="_blank" href="{{ route('admin.documents.bookings.cancellation', [$booking->id, 'invoice']) }}">View PDF</a></dd></div>
+                    @endif
+                    @if ($cancelDocs->refundedPayment($booking))
+                        <div class="flex justify-between"><dt class="text-gray-500">Credit note</dt><dd><a class="underline" target="_blank" href="{{ route('admin.documents.bookings.cancellation', [$booking->id, 'credit-note']) }}">View PDF</a></dd></div>
+                    @endif
                 @endif
                 @if ($booking->commission)
                     <div class="flex justify-between"><dt class="text-gray-500">Provider commission</dt><dd>{{ $this->currencySymbol }}{{ number_format($booking->commission->provider_commission, 2) }}</dd></div>
@@ -196,6 +205,56 @@
                             <x-ui.button variant="danger" wire:click="flagProviderLeft" wire:confirm="Flag this job as: professional left? The customer will be told and you can then assign someone else or cancel with no fee.">Professional left</x-ui.button>
                         </div>
                     @endif
+                </x-ui.card>
+            @endif
+
+            {{-- REF 1CF-CANCEL-POLICY-001 — interim-work declaration, its evidence, dispute review, unpaid-charge waiver --}}
+            @php $cancelRequests = $booking->cancellationRequests()->latest('id')->get(); @endphp
+            @if ($booking->interim_declared_at || $cancelRequests->isNotEmpty())
+                <x-ui.card>
+                    <div class="font-semibold mb-2">Spares delay &amp; cancellation</div>
+                    @if ($booking->interim_declared_at)
+                        <dl class="grid gap-1 text-sm sm:grid-cols-4">
+                            <div><dt class="text-xs text-gray-500">Declared progress</dt><dd class="font-medium">{{ $booking->interim_progress_percent }}%</dd></div>
+                            <div><dt class="text-xs text-gray-500">Parts fitted</dt><dd class="font-medium">{{ number_format((float) $booking->interim_parts_cost, 2) }}</dd></div>
+                            <div><dt class="text-xs text-gray-500">Part expected</dt><dd class="font-medium">{{ $booking->spares_expected_at?->format('j M Y') ?? '—' }}</dd></div>
+                            <div><dt class="text-xs text-gray-500">Sourced by</dt><dd class="font-medium capitalize">{{ $booking->spares_sourced_by ?? '—' }}</dd></div>
+                        </dl>
+                        @if (! empty($booking->interim_evidence))
+                            <p class="mt-2 text-sm">Evidence:
+                                @foreach ($booking->interim_evidence as $i => $path)
+                                    <a href="{{ \Illuminate\Support\Facades\Storage::disk('public')->url($path) }}" target="_blank" rel="noopener" class="text-blue-700 underline">file {{ $i + 1 }}</a>@if (! $loop->last), @endif
+                                @endforeach
+                            </p>
+                        @endif
+                    @endif
+
+                    @if ($booking->interim_dispute_status === 'open')
+                        <div class="mt-3 rounded border border-amber-300 bg-amber-50 p-3 text-sm">
+                            <p class="font-medium text-amber-900">Customer disputes these figures</p>
+                            <p class="mt-1 text-amber-900">{{ $booking->interim_dispute_note }}</p>
+                            <p class="mt-1 text-xs text-amber-800">Review the evidence above and the status history below. The customer cannot cancel until this is resolved.</p>
+                            <div class="mt-2 grid gap-2 sm:grid-cols-2">
+                                <input type="number" min="0" max="100" wire:model="disputeProgress" placeholder="Corrected progress % (optional)" class="border rounded px-3 py-2 text-sm">
+                                <input type="number" step="0.01" min="0" wire:model="disputeParts" placeholder="Corrected parts cost (optional)" class="border rounded px-3 py-2 text-sm">
+                            </div>
+                            <input type="text" wire:model="disputeResolution" placeholder="Resolution (required)" class="mt-2 w-full border rounded px-3 py-2 text-sm">
+                            <x-ui.button class="mt-2" wire:click="resolveDispute">Resolve dispute</x-ui.button>
+                        </div>
+                    @endif
+
+                    @foreach ($cancelRequests as $req)
+                        <div class="mt-3 rounded border p-3 text-sm">
+                            <p><strong>Cancellation request</strong> · {{ number_format((float) $req->total_charge, 2) }} · <span class="capitalize">{{ str_replace('_', ' ', $req->status) }}</span>@if ($req->due_by && $req->status === 'awaiting_payment') · due {{ $req->due_by->format('j M Y') }}@endif</p>
+                            @if ($req->resolution_note)<p class="text-xs text-gray-500">{{ $req->resolution_note }}</p>@endif
+                            @if (in_array($req->status, ['awaiting_payment', 'awaiting_admin'], true))
+                                <div class="mt-2 flex gap-2">
+                                    <input type="text" wire:model="waiveReason" placeholder="Reason for waiving (logged)" class="flex-1 border rounded px-3 py-2 text-sm">
+                                    <x-ui.button variant="secondary" class="whitespace-nowrap" wire:click="waiveCancellationCharge({{ $req->id }})" wire:confirm="Waive this charge and cancel the booking?">Waive &amp; cancel</x-ui.button>
+                                </div>
+                            @endif
+                        </div>
+                    @endforeach
                 </x-ui.card>
             @endif
 

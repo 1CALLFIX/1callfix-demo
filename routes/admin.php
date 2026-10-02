@@ -111,6 +111,8 @@ Route::middleware(['auth', \App\Http\Middleware\EnsureHasAdminAccess::class])
         Route::get('/wallet-ledger', WalletLedgerIndex::class)->name('admin.wallet-ledger.index');
         // REF 1CF-PROMPT-20260925-EARN3 — Super Admin only (enforced in the component, every action).
         Route::get('/earnings-control', \App\Livewire\EarningsControl\Manage::class)->name('admin.earnings-control.index');
+        // REF 1CF-CANCEL-POLICY-001 — Super Admin only (enforced in the component, every action).
+        Route::get('/cancellation-policy', \App\Livewire\CancellationPolicy\Manage::class)->name('admin.cancellation-policy.index');
         Route::get('/loyalty', LoyaltyIndex::class)->name('admin.loyalty.index');
         Route::get('/commissions', CommissionsIndex::class)->name('admin.commissions.index');
         Route::get('/payments', PaymentsIndex::class)->name('admin.payments.index');
@@ -142,4 +144,5 @@ Route::middleware(['auth', \App\Http\Middleware\EnsureHasAdminAccess::class])
         Route::get('/kyc/documents/field-worker/{documentId}', [\App\Http\Controllers\Admin\KycDocumentController::class, 'fieldWorkerDocument'])->name('admin.kyc.documents.field-worker');
         Route::get('/kyc/videos/{videoId}', [\App\Http\Controllers\Admin\KycDocumentController::class, 'verificationVideo'])->name('admin.kyc.videos.show');
         Route::get('/documents/payments/{paymentId}', [\App\Http\Controllers\Admin\DocumentController::class, 'paymentDocument'])->name('admin.documents.payments.show');
+        Route::get('/documents/bookings/{bookingId}/{kind}', [\App\Http\Controllers\Admin\DocumentController::class, 'cancellationDocument'])->name('admin.documents.bookings.cancellation');
     });

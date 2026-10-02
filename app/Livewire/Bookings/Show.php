@@ -224,6 +224,40 @@ class Show extends Component
         }
     }
 
+    // REF 1CF-CANCEL-POLICY-001 — dispute review + charge waiver
+    public string $disputeResolution = '';
+    public string $disputeProgress = '';
+    public string $disputeParts = '';
+    public string $waiveReason = '';
+
+    public function resolveDispute(\App\Actions\ResolveInterimDisputeAction $action): void
+    {
+        $this->jobControl(fn () => $action->execute(
+            $this->booking->id,
+            auth()->user(),
+            $this->disputeResolution,
+            $this->disputeProgress !== '' ? (int) $this->disputeProgress : null,
+            $this->disputeParts !== '' ? (float) $this->disputeParts : null,
+        ), 'Dispute resolved. The customer can now cancel or keep waiting.');
+
+        if ($this->flashType === 'success') {
+            $this->reset('disputeResolution', 'disputeProgress', 'disputeParts');
+        }
+    }
+
+    public function waiveCancellationCharge(int $requestId, \App\Actions\WaiveCancellationChargeAction $action): void
+    {
+        $this->jobControl(function () use ($requestId, $action) {
+            // the request must belong to THIS booking
+            abort_unless($this->booking->cancellationRequests()->whereKey($requestId)->exists(), 404);
+            $action->execute($requestId, auth()->user(), $this->waiveReason);
+        }, 'Charge waived and the booking cancelled. The waiver is logged.');
+
+        if ($this->flashType === 'success') {
+            $this->waiveReason = '';
+        }
+    }
+
     public function holdJob(PlaceBookingOnHoldAction $action): void
     {
         // Resume always returns a job to in_progress, so a hold is only offered once the job has
