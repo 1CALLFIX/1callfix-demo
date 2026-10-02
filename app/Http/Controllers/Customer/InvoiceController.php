@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Customer;
 use App\Http\Controllers\Controller;
 use App\Models\Booking;
 use App\Models\Payment;
+use App\Services\Documents\CancellationDocumentService;
 use App\Services\Documents\DocumentService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
@@ -48,5 +49,25 @@ class InvoiceController extends Controller
 
         return Pdf::loadView('documents.payment', $data)
             ->stream(str_replace('/', '-', $data['number']).'.pdf');
+    }
+
+    /** REF 1CF-CANCEL-POLICY-001 — the cancellation invoice (404 until a charge has actually been collected). */
+    public function cancellationInvoice(Request $request, Booking $booking, CancellationDocumentService $documents)
+    {
+        abort_unless($booking->customer_id === $request->user()->id, 404);
+        $data = $documents->invoice($booking, $request->user());
+        abort_unless($data !== null, 404);
+
+        return Pdf::loadView('documents.payment', $data)->stream(str_replace('/', '-', $data['number']).'.pdf');
+    }
+
+    /** REF 1CF-CANCEL-POLICY-001 — the credit note for the refunded part of a prepaid booking. */
+    public function creditNote(Request $request, Booking $booking, CancellationDocumentService $documents)
+    {
+        abort_unless($booking->customer_id === $request->user()->id, 404);
+        $data = $documents->creditNote($booking, $request->user());
+        abort_unless($data !== null, 404);
+
+        return Pdf::loadView('documents.payment', $data)->stream(str_replace('/', '-', $data['number']).'.pdf');
     }
 }

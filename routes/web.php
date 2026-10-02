@@ -155,6 +155,8 @@ Route::middleware(['auth', \App\Http\Middleware\EnsureAccountNotSuspended::class
     Route::get('/orders', CustomerOrders::class)->name('customer.orders.index');
     Route::get('/orders/{booking}', CustomerOrderShow::class)->name('customer.orders.show');
     Route::get('/orders/{booking}/invoice', [InvoiceController::class, 'show'])->name('customer.orders.invoice');
+    Route::get('/orders/{booking}/cancellation-invoice', [InvoiceController::class, 'cancellationInvoice'])->name('customer.orders.cancellation-invoice');
+    Route::get('/orders/{booking}/credit-note', [InvoiceController::class, 'creditNote'])->name('customer.orders.credit-note');
 
     // Saved addresses (the same CRUD + delete-guard rules AddressController enforces).
     Route::get('/account/addresses', CustomerAddresses::class)->name('customer.addresses');

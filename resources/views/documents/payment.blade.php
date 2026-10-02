@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>{{ ucfirst($type) }} {{ $number }}</title>
+    <title>{{ $title ?? ucfirst($type) }} {{ $number }}</title>
     <style>
         body { font-family: DejaVu Sans, sans-serif; font-size: 12px; color: #1f2937; }
         .header { display: flex; justify-content: space-between; margin-bottom: 24px; }
@@ -15,6 +15,7 @@
         .status { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; }
         .status-captured, .status-paid { background: #d1fae5; color: #065f46; }
         .status-pending, .status-created { background: #fef3c7; color: #92400e; }
+        .status-refunded { background: #e0e7ff; color: #3730a3; }
         .status-failed { background: #fee2e2; color: #991b1b; }
         .footer { margin-top: 40px; font-size: 10px; color: #9ca3af; }
     </style>
@@ -22,7 +23,7 @@
 <body>
     <div class="header">
         <div>
-            <h1>{{ ucfirst($type) }}</h1>
+            <h1>{{ $title ?? ucfirst($type) }}</h1>
             <div class="muted">{{ $number }}</div>
             <div class="muted">{{ $generated_at->format('d M Y, h:i A') }}</div>
         </div>
@@ -72,7 +73,7 @@
     </table>
 
     <div class="footer">
-        This is a system-generated {{ $type }} and does not require a signature.
+        This is a system-generated {{ str_replace('_', ' ', $type) }} and does not require a signature.
         @if ($captured_at) Payment captured {{ $captured_at->format('d M Y, h:i A') }}. @endif
     </div>
 </body>
