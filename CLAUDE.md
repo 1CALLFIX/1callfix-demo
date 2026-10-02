@@ -48,3 +48,26 @@ Never run git clean or npm audit fix --force on the server.
 After every deploy, run git status and git log -1 on the server. The deploy is
 not done unless the working tree is clean (only storage/ entries allowed) and
 HEAD matches the hash you pushed. Report both.
+
+## Standing business rules
+
+### THUMB RULE — ONLINE PAYMENT ONLY FOR ALL BENEFITS
+Only online payments get benefits. Online = Razorpay, wallet, or
+wallet + Razorpay.
+Benefits = every coupon type (promotional, referral, challenge, bulk,
+auto-applied), every discount, offer, cashback, and any use of wallet
+balance or promotional/referral credit.
+- Cash bookings get no benefit of any kind. Reject server-side.
+- A booking that used any benefit must be paid online at booking time
+  and can never switch to cash afterwards (web, API, provider app,
+  admin).
+- Promotional/referral credit is never withdrawable and refunds back
+  only as credit. A customer's own top-up money keeps its existing
+  refund behaviour.
+- Extra work or parts added later are outside the benefit and can be
+  paid by any method.
+- Applies to every module, current and future (services, parcel, hotel,
+  food, marketplace). Any new feature that offers a benefit must
+  enforce this rule and include tests proving cash is rejected.
+- Super Admin cannot override this per booking. Any exception needs the
+  owner's explicit approval and a code change.
