@@ -61,11 +61,33 @@ class Show extends Component
         $this->dispatch('bundle-pay-open', order: $order)->self();
     }
 
+    /** Step 1 of cancelling: show which visits will be cancelled and which will stay (and why). Nothing is cancelled yet. */
+    public ?array $cancelPreview = null;
+
+    public function reviewCancel(CancelBookingBundleAction $action): void
+    {
+        $this->reset('error', 'notice');
+        $this->bundle(); // ownership (404)
+        $this->cancelPreview = $action->preview($this->bundleId);
+    }
+
+    public function dismissCancel(): void
+    {
+        $this->cancelPreview = null;
+    }
+
+    /** Step 2: confirm exactly the set the customer was shown. */
     public function cancelBundle(CancelBookingBundleAction $action): void
     {
+        $this->bundle(); // ownership (404)
+
         try {
-            $action->execute($this->bundleId, 'Cancelled by the customer from the web.');
+            $action->execute($this->bundleId, 'Cancelled by the customer from the web.', $this->cancelPreview['token'] ?? null);
+            $this->cancelPreview = null;
             $this->notice = 'Your bundle has been cancelled. Any refund due has been processed to your wallet.';
+        } catch (\App\Services\Cancellation\BundleCancelNeedsConfirmation $e) {
+            $this->cancelPreview = $e->preview; // what changed since it was shown — the customer re-confirms
+            $this->error = 'The visits changed while you were reviewing. Please check the list and confirm again.';
         } catch (\Throwable $e) {
             $this->error = $e->getMessage();
         }

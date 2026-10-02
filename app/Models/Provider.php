@@ -35,6 +35,7 @@ class Provider extends Model
         'rating_avg',
         'priority',
         'jobs_completed',
+        'reliability_score',
         'is_active'
     ];
 

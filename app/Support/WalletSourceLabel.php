@@ -51,6 +51,23 @@ final class WalletSourceLabel
             'regex' => '/^[a-z_]+:\d+:(provider|worker)-earning$/',
             'like' => ['%:provider-earning', '%:worker-earning'],
         ],
+        // REF 1CF-CANCEL-POLICY-001 — interim-work payout on a customer-cancelled job, and the customer's cancellation charge
+        'interim_earning' => [
+            'label' => 'Interim-work earnings',
+            'regex' => '/^booking:\d+:(interim-payout|interim-franchise)$/',
+            'like' => ['%:interim-payout', '%:interim-franchise'],
+        ],
+        'cancel_charge' => [
+            'label' => 'Cancellation charge',
+            'regex' => '/^booking:\d+:cancel-charge:\d+$/',
+            'like' => ['%:cancel-charge:%'],
+            'not_like' => ['%:cancel-charge:%:%'],
+        ],
+        'cancel_charge_returned' => [
+            'label' => 'Cancellation charge returned',
+            'regex' => '/^booking:\d+:cancel-charge:\d+:(reversal|difference)$/',
+            'like' => ['%:cancel-charge:%:%'],
+        ],
         'franchise_earning' => [
             'label' => 'Franchise revenue share',
             'regex' => '/^([a-z_]+:\d+:franchise-earning|cash-commission:\d+:franchise-earning:[\w-]+)$/',
@@ -124,6 +141,9 @@ final class WalletSourceLabel
      */
     public const WRITERS = [
         'app/Actions/CreateBookingAction.php' => ['booking:1:wallet-payment'],
+        'app/Actions/CustomerCancelBookingAction.php' => [
+            'booking:1:cancel-charge:2', 'booking:1:cancel-charge:2:reversal', 'booking:1:cancel-charge:2:difference',
+        ],
         'app/Actions/CreateBookingBundleAction.php' => ['booking_bundle:1:wallet-payment'],
         'app/Actions/CreateHotelReservationAction.php' => ['hotel_reservation:1:wallet-payment'],
         'app/Actions/CreateMarketplaceOrderAction.php' => ['marketplace_order:1:wallet-payment'],
@@ -140,6 +160,7 @@ final class WalletSourceLabel
         'app/Services/CommissionService.php' => [
             'booking:1:provider-earning', 'booking:1:franchise-earning',
             'parcel_order_id:1:worker-earning', 'parcel_order_id:1:franchise-earning',
+            'booking:1:interim-payout', 'booking:1:interim-franchise',
         ],
         'app/Services/CompensationService.php' => ['compensation:1:overtime:00000000-0000-0000-0000-000000000000'],
         'app/Services/LoyaltyService.php' => ['loyalty-redeem:00000000-0000-0000-0000-000000000000'],

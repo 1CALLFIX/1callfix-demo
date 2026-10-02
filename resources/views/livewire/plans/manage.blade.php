@@ -94,6 +94,7 @@
             </div>
             <div>
                 <label class="block text-xs font-medium mb-1">Metadata (JSON object)</label>
+                <label class="mb-2 flex items-start gap-2 text-xs"><input type="checkbox" wire:model="waivesCancellationVisitCharges" class="mt-0.5"> <span>Waives the cancellation en-route and visit charges for subscribers (Prime-style). Off by default.</span></label>
                 <textarea wire:model="metadataJson" rows="3" placeholder='{"address_locked": true, "spare_parts_chargeable": true}'
                     class="w-full border rounded px-3 py-2 text-sm font-mono"></textarea>
                 @error('metadataJson') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
@@ -138,6 +139,9 @@
                         <x-ui.badge :color="$p->is_active ? 'green' : 'gray'">{{ $p->is_active ? 'active' : 'inactive' }}</x-ui.badge>
                     </td>
                     <td class="px-4 py-2 text-right whitespace-nowrap">
+                        @unless ($p->trashed())
+                            <x-ui.button variant="ghost" color="gray" class="mr-3" wire:click="toggleCancellationWaiver({{ $p->id }})" title="Whether this plan's waiver covers the cancellation en-route and visit charges">Cancel-charge waiver: {{ $p->waives_cancellation_visit_charges ? 'ON' : 'OFF' }}</x-ui.button>
+                        @endunless
                         <x-ui.button variant="ghost" class="mr-3" wire:click="expand({{ $p->id }})">{{ $expandedPlanId === $p->id ? 'Hide' : 'Entitlements' }} ({{ $p->entitlements->count() }})</x-ui.button>
                         @unless ($p->trashed())
                             <x-ui.button variant="ghost" color="gray" wire:click="toggleActive({{ $p->id }})">{{ $p->is_active ? 'Deactivate' : 'Activate' }}</x-ui.button>

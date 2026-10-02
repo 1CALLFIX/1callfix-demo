@@ -214,6 +214,7 @@ class CancellationService
     public function refundIfPaid(Booking $booking, float $fee, bool $creditToMainWallet = false): void
     {
         $payment = Payment::where('booking_id', $booking->id)
+            ->where('purpose', 'booking') // never the separate cancellation-charge payment (REF 1CF-CANCEL-POLICY-001)
             ->where('status', 'captured')
             ->latest()
             ->first();

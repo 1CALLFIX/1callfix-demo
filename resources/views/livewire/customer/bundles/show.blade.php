@@ -58,11 +58,49 @@
     </ul>
 
     @if (! in_array($derivedStatus, ['cancelled', 'completed'], true))
-        <button type="button" wire:click="cancelBundle"
-                wire:confirm="Cancel every service in this bundle?"
-                class="mt-6 text-sm font-medium text-slate-500 underline underline-offset-2 hover:text-rose-600">
-            Cancel bundle
-        </button>
+        @if ($cancelPreview === null)
+            <button type="button" wire:click="reviewCancel"
+                    class="mt-6 text-sm font-medium text-slate-500 underline underline-offset-2 hover:text-rose-600">
+                Cancel bundle
+            </button>
+        @else
+            {{-- REF 1CF-CANCEL-POLICY-001 step 8 — never a silent partial cancel: show exactly what goes and what stays. --}}
+            <section class="mt-6 rounded-2xl border border-rose-200 bg-rose-50 p-4 sm:p-5" aria-live="polite" data-testid="bundle-cancel-preview">
+                <h2 class="text-sm font-semibold text-rose-900">Review before you cancel</h2>
+
+                @if (! empty($cancelPreview['will_cancel']))
+                    <h3 class="mt-3 text-xs font-semibold uppercase text-rose-800">Will be cancelled</h3>
+                    <ul class="mt-1 space-y-1 text-sm text-slate-800">
+                        @foreach ($cancelPreview['will_cancel'] as $row)
+                            <li data-testid="preview-cancel">{{ $row['service'] ?? $row['code'] }} <span class="text-xs text-slate-500">({{ $row['code'] }}) — {{ ($row['charge'] ?? 0) > 0 ? 'charge '.$currencySymbol.number_format($row['charge'], 2).', taken from your payment' : 'no charge' }}</span></li>
+                        @endforeach
+                    </ul>
+                @endif
+
+                @if (! empty($cancelPreview['kept']))
+                    <h3 class="mt-3 text-xs font-semibold uppercase text-slate-700">Will stay booked — and why</h3>
+                    <ul class="mt-1 space-y-2 text-sm text-slate-800">
+                        @foreach ($cancelPreview['kept'] as $row)
+                            <li data-testid="preview-kept">{{ $row['service'] ?? $row['code'] }} <span class="text-xs text-slate-500">({{ $row['code'] }})</span><br><span class="text-xs text-slate-600">{{ $row['reason'] }}</span></li>
+                        @endforeach
+                    </ul>
+                @endif
+
+                @if ($cancelPreview['nothing'])
+                    <p class="mt-3 text-sm text-rose-900">Nothing in this bundle can be cancelled right now.</p>
+                @endif
+
+                <div class="mt-4 flex flex-wrap gap-2">
+                    @unless ($cancelPreview['nothing'])
+                        <button type="button" wire:click="cancelBundle" wire:loading.attr="disabled"
+                                class="min-h-11 rounded-lg bg-rose-600 px-4 py-2 text-sm font-semibold text-white hover:bg-rose-700">
+                            {{ empty($cancelPreview['kept']) ? 'Yes, cancel all' : 'Cancel only the visits listed' }}
+                        </button>
+                    @endunless
+                    <button type="button" wire:click="dismissCancel" class="min-h-11 rounded-lg px-4 py-2 text-sm text-slate-600 hover:bg-slate-100">Keep everything</button>
+                </div>
+            </section>
+        @endif
     @endif
 
     {{-- @script, not a 'livewire:init' listener, so "Pay now" still works

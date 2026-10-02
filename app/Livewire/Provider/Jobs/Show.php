@@ -15,6 +15,7 @@ use App\Livewire\Provider\Concerns\InteractsWithProvider;
 use App\Models\Booking;
 use Livewire\Attributes\Locked;
 use Livewire\Component;
+use Livewire\WithFileUploads;
 
 /**
  * PHASE PW1 §6 — one job this partner holds: customer contact + address
@@ -43,6 +44,7 @@ class Show extends Component
 {
     use DetectsStuckJob;
     use InteractsWithProvider;
+    use WithFileUploads;
 
     #[Locked]
     public int $bookingId;
@@ -56,6 +58,27 @@ class Show extends Component
     public string $extraDescription = '';
 
     public string $extraAmount = '';
+
+    // REF 1CF-CANCEL-POLICY-001 — the declaration required when holding a job for spares.
+    public bool $showSparesForm = false;
+
+    public string $sparesProgress = '';
+
+    public string $sparesParts = '0';
+
+    public string $sparesSource = 'provider';
+
+    public string $sparesExpected = '';
+
+    /** @var array<int, mixed> bill / photos of parts already fitted */
+    public array $sparesEvidence = [];
+
+    public string $newExpectedDate = '';
+
+    // REF 1CF-CANCEL-POLICY-001 — arrival check-in, in-app quote, call log, cancel.
+    public string $quoteAmount = '';
+
+    public string $cancelNote = '';
 
     /**
      * Phase PN1 — last status this component has already alerted the
@@ -159,16 +182,54 @@ class Show extends Component
             return;
         }
 
+        // REF 1CF-CANCEL-POLICY-001 — progress %, parts already fitted (with proof), who sources the part and the
+        // expected arrival date are mandatory: they are what the customer is charged on if they leave.
+        $this->validate([
+            'sparesProgress' => ['required', 'integer', 'min:0', 'max:100'],
+            'sparesParts' => ['nullable', 'numeric', 'min:0'],
+            'sparesSource' => ['required', 'in:provider,platform,customer'],
+            'sparesExpected' => ['required', 'date', 'after_or_equal:today'],
+            'sparesEvidence' => ['array', 'max:5'],
+            'sparesEvidence.*' => ['file', 'mimes:jpg,jpeg,png,webp,pdf', 'max:4096'],
+        ]);
+
+        $paths = array_map(fn ($file) => $file->store("booking-evidence/{$booking->id}", 'public'), $this->sparesEvidence);
+
         try {
-            $action->execute($this->bookingId, 'awaiting_spares', 'Provider is waiting for spare parts');
+            $action->execute($this->bookingId, 'awaiting_spares', 'Provider is waiting for spare parts', [
+                'progress_percent' => $this->sparesProgress,
+                'parts_fitted_cost' => $this->sparesParts,
+                'sourced_by' => $this->sparesSource,
+                'expected_at' => $this->sparesExpected,
+                'evidence' => $paths,
+            ]);
         } catch (\RuntimeException|\InvalidArgumentException $e) {
             $this->error = $e->getMessage();
 
             return;
         }
 
+        $this->reset('showSparesForm', 'sparesProgress', 'sparesParts', 'sparesSource', 'sparesExpected', 'sparesEvidence');
         $this->lastSeenStatus = 'on_hold';
-        $this->notice = 'Job is on hold while you get the spare parts. The customer can see this.';
+        $this->notice = 'Job is on hold while you get the spare parts. The customer can see this and the figures you declared.';
+    }
+
+    /** REF 1CF-CANCEL-POLICY-001 — a new expected arrival date once the old one has passed. */
+    public function updateExpectedDate(\App\Actions\UpdateSparesExpectedDateAction $action): void
+    {
+        $this->reset('error', 'notice');
+        $this->job(); // ownership check (404)
+
+        try {
+            $action->execute($this->bookingId, $this->provider(), $this->newExpectedDate);
+        } catch (\RuntimeException $e) {
+            $this->error = $e->getMessage();
+
+            return;
+        }
+
+        $this->newExpectedDate = '';
+        $this->notice = 'New expected date saved. The customer has been told.';
     }
 
     public function sparesAvailable(MarkSparesAvailableAction $action): void
@@ -255,6 +316,81 @@ class Show extends Component
         $this->notice = 'Reported. Your dispatcher will arrange for another professional to finish the job.';
     }
 
+    /** GPS check-in. The browser supplies lat/lng; CheckInArrivalAction (same one the API calls) verifies the radius. */
+    public function arrive(float $lat, float $lng, \App\Actions\CheckInArrivalAction $action): void
+    {
+        $this->reset('error', 'notice');
+
+        try {
+            $action->execute($this->bookingId, $this->provider(), $lat, $lng, auth()->id());
+        } catch (\RuntimeException $e) {
+            $this->error = $e->getMessage();
+
+            return;
+        }
+
+        $this->notice = 'Arrival verified.';
+    }
+
+    public function locationDenied(): void
+    {
+        $this->error = 'We could not read your location. Allow location access for this site and try again.';
+    }
+
+    public function sendQuote(\App\Actions\SendBookingQuoteAction $action): void
+    {
+        $this->reset('error', 'notice');
+        $this->validate(['quoteAmount' => ['required', 'numeric', 'min:1']], ['quoteAmount.required' => 'Enter the amount you are quoting.']);
+
+        try {
+            $action->execute($this->bookingId, $this->provider(), (float) $this->quoteAmount);
+        } catch (\RuntimeException $e) {
+            $this->error = $e->getMessage();
+
+            return;
+        }
+
+        $this->quoteAmount = '';
+        $this->notice = 'Quote sent to the customer.';
+    }
+
+    public function logCall(\App\Actions\LogCallAttemptAction $action): void
+    {
+        $this->reset('error', 'notice');
+
+        try {
+            $count = $action->execute($this->bookingId, $this->provider());
+        } catch (\RuntimeException $e) {
+            $this->error = $e->getMessage();
+
+            return;
+        }
+
+        $this->notice = "Call attempt {$count} logged.";
+    }
+
+    public function cancelJob(string $reason, \App\Actions\ProviderCancelBookingAction $action)
+    {
+        $this->reset('error', 'notice');
+        $this->job(); // ownership check
+
+        try {
+            $result = $action->execute($this->bookingId, $this->provider(), $reason, trim($this->cancelNote) !== '' ? trim($this->cancelNote) : null);
+        } catch (\App\Services\Cancellation\CancellationBlockedException $e) {
+            $this->error = $e->getMessage();
+
+            return;
+        } catch (\RuntimeException|\InvalidArgumentException $e) {
+            $this->error = $e->getMessage();
+
+            return;
+        }
+
+        session()->flash('notice', $result['charge'] > 0 ? 'Job cancelled. The visit charge will be paid to you once the customer settles it.' : 'Job cancelled.');
+
+        return redirect()->route('provider.jobs.index');
+    }
+
     public function render()
     {
         $booking = $this->job();
@@ -276,6 +412,13 @@ class Show extends Component
             'isLive' => in_array($booking->status, ['assigned', 'provider_en_route', 'in_progress', 'on_hold'], true),
             'journey' => \App\Support\Journey\JourneyBuilder::build('service', $booking->status, $booking->statusHistory, \App\Support\Journey\JourneyContext::forBooking($booking)),
             'sparesMarked' => $booking->status === 'on_hold' && $booking->statusHistory->contains(fn ($h) => $h->status === 'on_hold' && str_starts_with((string) $h->note, \App\Support\Journey\JourneyBuilder::SPARES_NOTE) && (! $booking->on_hold_since || $h->changed_at >= $booking->on_hold_since)),
+            'arrived' => $booking->arrival_verified_at !== null,
+            'callAttempts' => $booking->callAttempts()->count(),
+            'latestQuote' => $booking->quotes()->latest('id')->first(),
+            'noShowRule' => [
+                'wait' => \App\Services\Cancellation\PolicySettings::get($booking, 'cancellation.no_show_wait_minutes'),
+                'attempts' => \App\Services\Cancellation\PolicySettings::get($booking, 'cancellation.no_show_call_attempts'),
+            ],
             'commission' => $booking->status === 'completed' ? $booking->commission()->first() : null,
         ])->layout('components.layouts.provider', ['title' => 'Job '.$booking->code]);
     }

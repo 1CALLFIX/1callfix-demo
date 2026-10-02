@@ -96,6 +96,31 @@ class BookingStatusNotification extends Notification
 
                 return ['subject' => 'A new professional will continue your job', 'body' => "{$name} will continue the work on booking {$this->booking->code}. Your new start code is sent separately."];
             })(),
+            // REF 1CF-CANCEL-POLICY-001
+            'spares_declared' => (function () {
+                $b = $this->booking;
+                $date = $b->spares_expected_at?->format('j M Y') ?? 'a date to be confirmed';
+
+                return ['subject' => 'Spare part update', 'body' => "Booking {$b->code} is waiting for a spare part (expected {$date}). Work done so far: {$b->interim_progress_percent}%. If these figures look wrong you can dispute them from the booking page."];
+            })(),
+            'spares_early_unlock' => (function () {
+                $b = $this->booking;
+                $date = $b->spares_expected_at?->format('j M Y') ?? 'a later date';
+
+                return ['subject' => 'You can cancel this booking', 'body' => "The spare part for booking {$b->code} is not expected until {$date}, which is longer than the allowed wait. You can keep waiting, or cancel now and pay only for the work already done."];
+            })(),
+            'spares_delay_warning' => (function () {
+                $clock = app(\App\Services\Cancellation\SparesDelayClock::class);
+                $days = $clock->thresholdDays($this->booking);
+
+                return ['subject' => 'Parts still pending', 'body' => "The spare part for booking {$this->booking->code} is still pending. If the wait reaches {$days} days you can cancel and pay only for the work already done."];
+            })(),
+            'spares_cancel_unlocked' => ['subject' => 'You can now cancel', 'body' => "Booking {$this->booking->code} has been waiting for spare parts too long. You can now cancel it and pay only for the work already done, or keep waiting."],
+            'spares_date_passed' => ['subject' => 'Spare part is late', 'body' => "The expected arrival date for booking {$this->booking->code}'s spare part has passed. We have asked your professional for a new date."],
+            'spares_resume_overdue' => ['subject' => 'You can cancel free of charge', 'body' => "The spare part for booking {$this->booking->code} is ready but work has not resumed. You can cancel free of charge."],
+            'extra_work_expired' => ['subject' => 'Extra work request expired', 'body' => "You did not respond to the extra-work request on booking {$this->booking->code} within the allowed time, so it was declined and the job continues at the original price."],
+            'cancel_payment_due' => ['subject' => 'Pay the cancellation charge', 'body' => "To finish cancelling booking {$this->booking->code}, please pay the cancellation charge from the booking page. The booking stays as it is until you pay."],
+            'interim_resolved' => ['subject' => 'Your dispute was reviewed', 'body' => "Our team has reviewed the progress figures you disputed on booking {$this->booking->code}. You can now continue with your cancellation or keep waiting."],
             'resumed' => ['subject' => 'Work has resumed', 'body' => "Work on booking {$this->booking->code} has resumed."],
             default => ['subject' => 'Booking update', 'body' => "Your booking {$this->booking->code} was updated."],
         };

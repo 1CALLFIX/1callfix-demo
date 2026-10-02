@@ -10,9 +10,9 @@ use App\Models\UsageLedger;
 use App\Services\Plans\SubscriptionService;
 use Database\Seeders\PrimeSilverPlanSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Http;
 use Tests\Feature\Support\BookingFixtureHelpers;
 use Tests\TestCase;
-use PHPUnit\Framework\Attributes\Group;
 
 /**
  * PrimeSilverPlanSeeder — the stored configuration of the real membership
@@ -22,6 +22,20 @@ class PrimeSilverPlanSeederTest extends TestCase
 {
     use BookingFixtureHelpers;
     use RefreshDatabase;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        // Razorpay's network boundary is the only thing faked — the suite
+        // must never depend on the real sandbox or its credentials.
+        Http::fake([
+            'api.razorpay.com/v1/orders' => Http::response(
+                ['id' => 'order_test_primesilver', 'amount' => 199900, 'currency' => 'INR'],
+                200,
+            ),
+        ]);
+    }
 
     private function seedPrimeSilver(): Plan
     {
@@ -71,7 +85,6 @@ class PrimeSilverPlanSeederTest extends TestCase
         $this->assertSame(5, Plan::where('slug', '1callfix-prime-silver')->firstOrFail()->entitlements()->count());
     }
 
-    #[Group('external')]
     public function test_it_refuses_to_reconfigure_a_plan_that_already_has_subscribers(): void
     {
         $plan = $this->seedPrimeSilver();
@@ -86,7 +99,6 @@ class PrimeSilverPlanSeederTest extends TestCase
         $this->assertSame('1.00', (string) $plan->fresh()->price, 'Seeder must not touch a plan with live subscriptions.');
     }
 
-    #[Group('external')]
     public function test_the_seeded_plan_supports_a_real_subscribe_and_ac_redemption(): void
     {
         $plan = $this->seedPrimeSilver();

@@ -119,7 +119,13 @@ class JourneyScreensTest extends TestCase
         $s['booking']->update(['status' => 'in_progress']);
         $c = Livewire::test(ProviderJobShow::class, ['booking' => $s['booking']]);
 
-        $c->call('holdForSpares')->assertSet('error', '')->assertSee('Job on hold')->assertSee('Spares available');
+        // REF 1CF-CANCEL-POLICY-001 — the declaration is mandatory.
+        $c->call('holdForSpares')->assertHasErrors(['sparesProgress', 'sparesExpected']);
+        $this->assertSame('in_progress', $s['booking']->fresh()->status);
+
+        $c->set('sparesProgress', '40')->set('sparesParts', '0')->set('sparesSource', 'provider')
+            ->set('sparesExpected', now()->addDays(3)->toDateString())
+            ->call('holdForSpares')->assertSet('error', '')->assertSee('Job on hold')->assertSee('Spares available');
         $this->assertSame('on_hold', $s['booking']->fresh()->status);
 
         $c->call('sparesAvailable')->assertSee('Resume work');

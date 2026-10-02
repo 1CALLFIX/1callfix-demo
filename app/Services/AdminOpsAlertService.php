@@ -95,6 +95,12 @@ class AdminOpsAlertService
         $this->fanOutScoped('job_at_risk', $booking);
     }
 
+    /** REF 1CF-CANCEL-POLICY-001 — `cancel_charge_unpaid` | `interim_dispute` | `cancel_payout_failed`. Scoped like the dispatch alerts. */
+    public function cancellationEvent(string $event, Booking $booking): void
+    {
+        $this->fanOutScoped($event, $booking);
+    }
+
     private function fanOutScoped(string $event, Booking $booking): void
     {
         $channels = array_values(array_intersect(ChannelResolver::resolve([]), [PushChannel::class]));

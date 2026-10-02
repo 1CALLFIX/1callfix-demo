@@ -106,6 +106,9 @@ Route::middleware(['auth:sanctum', \App\Http\Middleware\EnsureNotInMaintenanceMo
     Route::get('/bookings/mine', [\App\Http\Controllers\API\BookingController::class, 'mine']);
     Route::get('/bookings/{bookingId}', [\App\Http\Controllers\API\BookingController::class, 'show']);
     Route::post('/bookings/{bookingId}/cancel', [\App\Http\Controllers\API\BookingController::class, 'cancel']);
+    // REF 1CF-CANCEL-POLICY-001
+    Route::get('/bookings/{bookingId}/cancel-quote', [\App\Http\Controllers\API\BookingController::class, 'cancelQuote']);
+    Route::post('/bookings/{bookingId}/dispute-progress', [\App\Http\Controllers\API\BookingController::class, 'disputeProgress']);
 
     // Phase E2 (Multi-Service Booking — Creation). Customer submits several
     // services in one request; one BookingBundle wraps one child Booking per
@@ -117,6 +120,7 @@ Route::middleware(['auth:sanctum', \App\Http\Middleware\EnsureNotInMaintenanceMo
     // Phase E5.1 — cancel the whole bundle: per-child FSM cancel via the
     // existing AdminCancelBookingAction, then ONE reconciliation of the
     // shared bundle Payment + the stored status latch.
+    Route::get('/booking-bundles/{bundleId}/cancel-preview', [\App\Http\Controllers\API\BookingBundleController::class, 'cancelPreview']);
     Route::post('/booking-bundles/{bundleId}/cancel', [\App\Http\Controllers\API\BookingBundleController::class, 'cancel']);
 
     // Phase E3 (Multi-Service Booking — Payment). Bundle counterparts of
@@ -163,6 +167,14 @@ Route::middleware(['auth:sanctum', \App\Http\Middleware\EnsureNotInMaintenanceMo
     Route::post('/bookings/{bookingId}/hold-for-spares', [\App\Http\Controllers\API\JobJourneyController::class, 'holdForSpares']);
     Route::post('/bookings/{bookingId}/spares-available', [\App\Http\Controllers\API\JobJourneyController::class, 'sparesAvailable']);
     Route::post('/bookings/{bookingId}/resume', [\App\Http\Controllers\API\JobJourneyController::class, 'resume']);
+    // REF 1CF-CANCEL-POLICY-001 — arrival check-in, in-app quote, call log, professional cancel, quote response, charge payment.
+    Route::post('/bookings/{bookingId}/arrive', [\App\Http\Controllers\API\CancellationFlowController::class, 'arrive']);
+    Route::post('/bookings/{bookingId}/quote', [\App\Http\Controllers\API\CancellationFlowController::class, 'quote']);
+    Route::post('/bookings/{bookingId}/call-attempt', [\App\Http\Controllers\API\CancellationFlowController::class, 'callAttempt']);
+    Route::post('/bookings/{bookingId}/provider-cancel', [\App\Http\Controllers\API\CancellationFlowController::class, 'providerCancel']);
+    Route::post('/booking-quotes/{quoteId}/respond', [\App\Http\Controllers\API\CancellationFlowController::class, 'respondToQuote']);
+    Route::post('/cancellation-requests/{requestId}/pay', [\App\Http\Controllers\API\CancellationFlowController::class, 'payCharge']);
+    Route::get('/cancellation/policy', [\App\Http\Controllers\API\CancellationFlowController::class, 'policy']);
     // REF 1CF-PHASE01-TASK06A — read-only offer list for the native
     // Rider/Provider app; same provider-resolution pattern as accept/complete
     // above, no new dispatch state.

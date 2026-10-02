@@ -170,6 +170,8 @@
                     // EARN3 — super_admin only: this permission is deliberately never seeded to
                     // any role, so only the super_admin fast path in AuthorizationService passes.
                     ['label' => 'Earnings Control', 'route' => 'admin.earnings-control.index', 'icon' => 'shield', 'permission' => 'earnings_control.manage'],
+                    // super_admin only (permission never seeded to a role) — see the Earnings Control entry.
+                    ['label' => 'Cancellation Policy', 'route' => 'admin.cancellation-policy.index', 'icon' => 'shield', 'permission' => 'cancellation_policy.manage'],
                     ['label' => 'Commissions', 'route' => 'admin.commissions.index', 'icon' => 'banknotes', 'permission' => 'commissions.view'],
                     ['label' => 'Payments', 'route' => 'admin.payments.index', 'icon' => 'banknotes', 'permission' => 'payments.view'],
                     ['label' => 'Payment Gateways', 'route' => 'admin.payment-gateways.index', 'icon' => 'shield', 'permission' => 'payment_gateways.manage'],

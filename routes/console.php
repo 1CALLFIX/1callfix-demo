@@ -94,3 +94,10 @@ ScheduleRunTracker::track(Schedule::command('dispatch:sweep-scheduled'), 'dispat
 ScheduleRunTracker::track(Schedule::command('providers:expire-stale-online'), 'providers:expire-stale-online')
     ->everyFiveMinutes()
     ->withoutOverlapping(10);
+
+// REF 1CF-CANCEL-POLICY-001 — spares-delay notices (day 7 / day 10 / date passed / not resumed), the 72h extra-work
+// timeout, unpaid cancellation charges flagged to admin after 7 days, provider payout retries. Hourly is plenty:
+// every threshold is measured in days or hours. Idempotent; same schedule:run cron caveat as every entry above.
+ScheduleRunTracker::track(Schedule::command('cancellation:sweep'), 'cancellation:sweep')
+    ->hourly()
+    ->withoutOverlapping(30);

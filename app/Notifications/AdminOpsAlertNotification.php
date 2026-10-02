@@ -65,6 +65,10 @@ class AdminOpsAlertNotification extends Notification implements ShouldQueue
             'scheduled_early_warning' => $this->scheduledEarlyWarningCopy(),
             'scheduled_urgent_alert' => $this->scheduledUrgentAlertCopy(),
             'job_at_risk' => $this->jobAtRiskCopy(),
+            // REF 1CF-CANCEL-POLICY-001
+            'cancel_charge_unpaid' => ['title' => 'Cancellation charge unpaid', 'body' => "Booking {$this->subject->code} has a cancellation charge unpaid for over 7 days. Review it: collect, or waive with a reason."],
+            'interim_dispute' => ['title' => 'Progress figures disputed', 'body' => "The customer disputed the declared progress on booking {$this->subject->code}. The cancellation is waiting for your review."],
+            'cancel_payout_failed' => ['title' => 'Provider payout failed', 'body' => "The interim-work payout for cancelled booking {$this->subject->code} failed. It will be retried; check if it persists."],
             default => ['title' => 'Operations update', 'body' => 'An operational event occurred.'],
         };
     }

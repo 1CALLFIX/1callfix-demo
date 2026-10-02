@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Payment;
 use App\Services\AuthorizationService;
+use App\Services\Documents\CancellationDocumentService;
 use App\Services\Documents\DocumentService;
 use Barryvdh\DomPDF\Facade\Pdf;
 
@@ -52,5 +53,22 @@ class DocumentController extends Controller
         // -- legible for display, but not a legal filename/Content-
         // Disposition value, so the download filename swaps it for "-".
         return $pdf->stream(str_replace('/', '-', $data['number']).'.pdf');
+    }
+
+    /** REF 1CF-CANCEL-POLICY-001 — cancellation invoice / credit note for a booking, behind the same payments.view row scope. */
+    public function cancellationDocument(int $bookingId, string $kind, CancellationDocumentService $documents)
+    {
+        abort_unless(in_array($kind, ['invoice', 'credit-note'], true), 404);
+
+        $booking = app(AuthorizationService::class)
+            ->scopeQuery(\App\Models\Booking::query(), auth()->user(), 'payments.view', [
+                'zone_id' => ['zone_id'], 'franchise_id' => ['franchise_id'], 'city_id' => ['franchise.city_id'], 'country_id' => ['franchise.country_id'],
+            ])->find($bookingId);
+        abort_if(! $booking, 404);
+
+        $data = $kind === 'invoice' ? $documents->invoice($booking, auth()->user()) : $documents->creditNote($booking, auth()->user());
+        abort_if($data === null, 404);
+
+        return Pdf::loadView('documents.payment', $data)->stream(str_replace('/', '-', $data['number']).'.pdf');
     }
 }

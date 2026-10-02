@@ -96,10 +96,11 @@ class BundleSequentialWalletRefundTest extends TestCase
 
         $balance = (float) Wallet::where('user_id', $customer->id)->value('balance');
 
-        // A retry of the same child's cancel is refused by the FSM (409) …
+        // A retry of the same child's cancel is idempotent (REF 1CF-CANCEL-POLICY-001): it answers with the
+        // already-cancelled booking and does no second cancel / refund …
         $this->actingAs($customer, 'sanctum')
             ->postJson("/api/bookings/{$children[0]->id}/cancel", ['reason' => 'again'])
-            ->assertStatus(409);
+            ->assertOk();
 
         // … and re-running the settlement itself (the safe-retry path) is a no-op.
         $this->assertNull(app(BundleSettlementService::class)->settleFromChildren($bundle->id, $children[0]->id));

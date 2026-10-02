@@ -2,7 +2,8 @@
 
 namespace App\Livewire\Customer\Orders;
 
-use App\Actions\AdminCancelBookingAction;
+use App\Actions\CustomerCancelBookingAction;
+use App\Actions\DisputeInterimDeclarationAction;
 use App\Actions\FlagProviderLeftAction;
 use App\Actions\RespondToExtraWorkAction;
 use App\Contracts\PaymentGateway;
@@ -52,6 +53,13 @@ class Show extends Component
     public string $notice = '';
 
     public bool $confirmingCancel = false;
+
+    /** REF 1CF-CANCEL-POLICY-001 — the signed quote the customer is confirming; empty when no charge applies. */
+    public string $quoteToken = '';
+
+    public bool $disputing = false;
+
+    public string $disputeNote = '';
 
     public function mount(Booking $booking): void
     {
@@ -121,26 +129,117 @@ class Show extends Component
         $this->notice = 'Thanks for telling us. We have paused the job and our team will send another professional or cancel it with no fee.';
     }
 
-    public function cancel(AdminCancelBookingAction $action): void
+    /** REF 1CF-CANCEL-POLICY-001 — show the exact amount (or why it is locked) before anything is cancelled. */
+    public function openCancel(CustomerCancelBookingAction $action): void
     {
         $this->reset('error', 'notice');
-        $booking = $this->booking();
+        $quote = $action->quote($this->booking());
 
-        if (in_array($booking->status, ['completed', 'cancelled'], true)) {
-            $this->error = "This booking is already {$booking->status}.";
+        $this->quoteToken = (string) ($quote['token'] ?? '');
+        $this->confirmingCancel = true;
+    }
+
+    public function cancel(CustomerCancelBookingAction $action): void
+    {
+        $this->reset('error', 'notice');
+        $this->booking(); // ownership check (404)
+
+        try {
+            $result = $action->execute($this->bookingId, auth()->id(), 'Cancelled by customer from the web app', $this->quoteToken !== '' ? $this->quoteToken : null);
+        } catch (\App\Services\Cancellation\CancellationBlockedException $e) {
+            $this->error = $e->getMessage();
+            $this->confirmingCancel = false;
+
+            return;
+        } catch (\App\Services\Cancellation\CancellationQuoteChangedException $e) {
+            // The figures moved since the customer looked: show the new amount and ask again.
+            $this->error = $e->getMessage();
+            $this->quoteToken = (string) ($e->quote['token'] ?? '');
+
+            return;
+        } catch (\RuntimeException $e) {
+            $this->error = $e->getMessage();
             $this->confirmingCancel = false;
 
             return;
         }
 
+        $this->confirmingCancel = false;
+        $this->quoteToken = '';
+
+        match ($result['outcome']) {
+            'payment_required' => $this->openChargeCheckout($result),
+            'awaiting_admin' => $this->notice = 'Your cancellation request has been received. Our team will review the charge and confirm shortly.',
+            default => $this->notice = $result['charge'] > 0
+                ? 'Your booking has been cancelled. A charge of '.number_format($result['charge'], 2).' applies for the work already done.'
+                : 'Your booking has been cancelled.',
+        };
+    }
+
+    private function openChargeCheckout(array $result): void
+    {
+        $this->notice = 'Pay the cancellation charge to complete the cancellation. The booking stays as it is until you pay.';
+        $this->dispatch('razorpay-open', order: $result['order'], bookingCode: $result['booking']->code)->self();
+    }
+
+    /** Re-opens checkout for a cancellation that is waiting on the customer's payment (the "payment link" on the page). */
+    public function payCancellationCharge(CustomerCancelBookingAction $action): void
+    {
+        $booking = $this->booking();
+
+        // A charge the professional raised when THEY cancelled: the booking is already cancelled, only the payment is outstanding.
+        if ($booking->status === 'cancelled') {
+            $request = $booking->cancellationRequests()->whereIn('status', ['awaiting_payment', 'awaiting_admin'])->latest('id')->first();
+            if (! $request) {
+                return;
+            }
+            $this->reset('error', 'notice');
+            $result = $action->payOutstandingCharge($request->id, auth()->id());
+            if ($result['outcome'] === 'payment_required' && $result['order']) {
+                $this->openChargeCheckout($result);
+            } else {
+                $this->notice = $result['outcome'] === 'awaiting_admin' ? 'Our team will contact you about this charge.' : 'Charge paid — thank you.';
+            }
+
+            return;
+        }
+
+        $this->openCancel($action);
+        $this->cancel($action);
+    }
+
+    /** REF 1CF-CANCEL-POLICY-001 — accept / reject the professional's in-app quote. */
+    public function respondToQuote(int $quoteId, bool $accept, \App\Actions\RespondToBookingQuoteAction $action): void
+    {
+        $this->reset('error', 'notice');
+        $this->booking(); // ownership check (404)
+
         try {
-            $action->execute($booking->id, 'Cancelled by customer from the web app');
+            $action->execute($quoteId, auth()->id(), $accept);
+            $this->notice = $accept ? 'Quote accepted — the professional will carry on.' : 'Quote declined.';
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException) {
+            abort(404);
         } catch (\RuntimeException $e) {
             $this->error = $e->getMessage();
         }
+    }
 
-        $this->confirmingCancel = false;
-        $this->notice = 'Your booking has been cancelled.';
+    public function disputeProgress(DisputeInterimDeclarationAction $action): void
+    {
+        $this->reset('error', 'notice');
+        $this->booking(); // ownership check (404)
+
+        try {
+            $action->execute($this->bookingId, auth()->id(), $this->disputeNote);
+        } catch (\RuntimeException $e) {
+            $this->error = $e->getMessage();
+
+            return;
+        }
+
+        $this->disputing = false;
+        $this->disputeNote = '';
+        $this->notice = 'Thanks. Our team will review the progress figures; you will be told the outcome. Cancellation waits for that review.';
     }
 
     /**
@@ -229,8 +328,18 @@ class Show extends Component
             ? (float) $acceptedAttempt->distance_km
             : null;
 
+        $cancelQuote = app(CustomerCancelBookingAction::class)->quote($booking);
+
         return view('livewire.customer.orders.show', [
             'booking' => $booking,
+            // REF 1CF-CANCEL-POLICY-001
+            'cancelQuote' => $cancelQuote,
+            'policyLines' => app(\App\Services\Cancellation\CancellationPolicy::class)->policyLines($booking),
+            'pendingQuote' => $booking->quotes()->where('status', 'sent')->latest('id')->first(),
+            'documents' => app(\App\Services\Documents\CancellationDocumentService::class),
+            'pendingCancelRequest' => $booking->cancellationRequests()->whereIn('status', ['awaiting_payment', 'awaiting_admin'])->latest('id')->first(),
+            'canDisputeProgress' => $booking->status === 'on_hold' && $booking->hold_reason === 'awaiting_spares' && $booking->interim_declared_at !== null && $booking->interim_dispute_status !== 'open'
+                && $booking->interim_declared_at->copy()->addHours(max(1, (int) \App\Services\Cancellation\PolicySettings::current('cancellation.dispute_window_hours')))->isFuture(),
             'currencySymbol' => $currencySymbol,
             'existingReview' => $booking->review,
             'gatewayConfigured' => app(PaymentGateway::class)->isConfigured(),

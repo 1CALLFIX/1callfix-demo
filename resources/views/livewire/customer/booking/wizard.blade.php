@@ -242,6 +242,9 @@
                         <a href="{{ route('customer.wallet') }}" wire:navigate class="mt-3 inline-block text-sm font-medium text-slate-700 underline">Top up your wallet</a>
                     @endif
 
+                    {{-- REF 1CF-CANCEL-POLICY-001 — the cancellation terms, shown before the customer commits --}}
+                    <x-cancellation-policy :lines="app(\App\Services\Cancellation\CancellationPolicy::class)->policyLines()" class="mt-4" />
+
                     <p class="mt-4 text-xs text-slate-500">
                         The amount above is an estimate. Your final price is computed by our server from the live price for your area
                         when you confirm, and shown on your order.

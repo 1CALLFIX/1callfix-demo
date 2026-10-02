@@ -4,6 +4,7 @@ namespace App\Actions;
 
 use App\Models\BookingBundle;
 use App\Services\BundleSettlementService;
+use App\Services\Cancellation\BundleCancelNeedsConfirmation;
 
 /**
  * Phase E5.1 — customer-initiated cancellation of a WHOLE multi-service
@@ -35,19 +36,60 @@ class CancelBookingBundleAction
     /** @var array<int, string> */
     private const TERMINAL = ['completed', 'cancelled'];
 
+    /** Pre-work charges (assigned / on the way / arrived) that are deducted from the shared bundle payment. */
+    private const PRE_WORK_CODES = ['assigned', 'en_route', 'visit_charge'];
+
     public function __construct(
-        private AdminCancelBookingAction $cancelChild,
+        private CustomerCancelBookingAction $cancelChild,
         private BundleSettlementService $settlement,
     ) {
     }
 
     /**
+     * What a cancel of this bundle would do right now, visit by visit — shown to the customer BEFORE they confirm.
+     *
+     * @return array{will_cancel: array<int, array>, kept: array<int, array>, token: string, partial: bool, nothing: bool}
+     */
+    public function preview(int $bundleId): array
+    {
+        $bundle = BookingBundle::query()->with('children.service')->findOrFail($bundleId);
+        $will = [];
+        $kept = [];
+
+        foreach ($bundle->children->reject(fn ($c) => in_array($c->status, self::TERMINAL, true)) as $child) {
+            $row = ['id' => $child->id, 'code' => $child->code, 'service' => $child->service?->name];
+            $decision = $this->cancelChild->quote($child);
+
+            if (! $decision['allowed']) {
+                $kept[] = $row + ['reason' => $decision['message']];
+            } elseif ($decision['charge'] > 0 && (! in_array($decision['code'], self::PRE_WORK_CODES, true) || $decision['requires_payment'])) {
+                // A spares-delay charge, or any charge that needs a separate payment, is confirmed on its own — never slipped into a bulk cancel.
+                $kept[] = $row + ['reason' => 'Cancelling this visit carries a charge of '.number_format($decision['charge'], 2).' — cancel it on its own to review and confirm the amount.'];
+            } else {
+                // Free, or a pre-work charge that comes out of the one shared payment (shown, so it is never a surprise).
+                $will[] = $row + ['charge' => $decision['charge']];
+            }
+        }
+
+        return [
+            'will_cancel' => $will,
+            'kept' => $kept,
+            'token' => hash('sha256', $bundleId.':'.implode(',', array_column($will, 'id'))),
+            'partial' => $kept !== [] && $will !== [],
+            'nothing' => $will === [],
+        ];
+    }
+
+    /**
+     * @param  ?string  $confirmToken  the token from preview(): REQUIRED when only some visits can be cancelled, so a
+     *         partial cancel is never silent. A bundle where every open visit can go needs no token.
      * @return array{bundle: BookingBundle, refunded: float|null}
      *
      * @throws \RuntimeException if the bundle is already terminal (latched
      *         completed/cancelled) — the caller maps this to HTTP 409.
+     * @throws BundleCancelNeedsConfirmation when the cancel would be partial and was not confirmed
      */
-    public function execute(int $bundleId, string $reason): array
+    public function execute(int $bundleId, string $reason, ?string $confirmToken = null): array
     {
         $bundle = BookingBundle::query()->with('children')->findOrFail($bundleId);
 
@@ -55,13 +97,25 @@ class CancelBookingBundleAction
             throw new \RuntimeException("This booking bundle is already {$bundle->status}.");
         }
 
-        foreach ($bundle->children->reject(fn ($c) => in_array($c->status, self::TERMINAL, true)) as $child) {
+        $preview = $this->preview($bundleId);
+
+        if ($preview['nothing']) {
+            throw new \RuntimeException('Nothing in this bundle can be cancelled right now. '.implode(' ', array_map(fn ($k) => "{$k['code']}: {$k['reason']}", $preview['kept'])));
+        }
+        if ($preview['kept'] !== [] && ! hash_equals($preview['token'], (string) $confirmToken)) {
+            throw new BundleCancelNeedsConfirmation($preview);
+        }
+
+        $cancelled = 0;
+        $kept = array_map(fn ($k) => "{$k['code']}: {$k['reason']}", $preview['kept']);
+
+        foreach ($preview['will_cancel'] as $row) {
             try {
-                $this->cancelChild->execute($child->id, $reason, reconcileBundle: false);
-            } catch (\RuntimeException $e) {
-                // Child already reached a terminal state (a racing cancel /
-                // completion between the snapshot above and now). Nothing to
-                // do for it; the final reconciliation below still runs.
+                $this->cancelChild->execute($row['id'], $bundle->customer_id, $reason, reconcileBundle: false, quoteWaived: true);
+                $cancelled++;
+            } catch (\RuntimeException|\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+                // Child already reached a terminal state (a racing cancel / completion), or was locked by a state
+                // change between the preview and now. Nothing to do for it; the reconciliation below still runs.
             }
         }
 
@@ -79,6 +133,7 @@ class CancelBookingBundleAction
         $fresh->save();
 
         return [
+            'kept' => $kept,
             'bundle' => $fresh->load([
                 'children.service.category',
                 'children.service.subcategory',

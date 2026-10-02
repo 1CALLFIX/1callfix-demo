@@ -59,7 +59,7 @@ class DocumentNumberService
 
     private function format(string $type, ?Country $country, int $year, int $sequenceNumber): string
     {
-        $prefix = strtoupper(substr($type, 0, 3)); // INV / REC
+        $prefix = $type === 'credit_note' ? 'CRN' : strtoupper(substr($type, 0, 3)); // INV / REC / CRN
         $countryCode = $country?->code ?? 'XX';
 
         return sprintf('%s/%s/%d/%06d', $prefix, $countryCode, $year, $sequenceNumber);

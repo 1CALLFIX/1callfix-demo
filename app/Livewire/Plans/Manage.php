@@ -29,6 +29,8 @@ class Manage extends Component
     /** Raw JSON object of structured plan flags (e.g. {"address_locked": true}). Blank = no metadata. */
     public string $metadataJson = '';
     public string $planFamily = 'customer_membership';
+    /** REF 1CF-CANCEL-POLICY-001 — do visit-fee waivers on this plan also cover the cancellation en-route and visit charges? */
+    public bool $waivesCancellationVisitCharges = false;
     public ?string $module = 'service';
     public string $scopeType = 'global';
     public ?int $scopeId = null;
@@ -147,13 +149,33 @@ class Manage extends Component
             'stacking_strategy' => $this->stackingStrategy,
             'stacking_priority' => $this->stackingPriority,
             'is_active' => true,
+            'waives_cancellation_visit_charges' => $this->waivesCancellationVisitCharges,
         ]);
 
-        $this->reset(['name', 'description', 'metadataJson', 'module', 'scopeId', 'customCycleDays', 'price', 'stackingPriority']);
+        $this->reset(['waivesCancellationVisitCharges', 'name', 'description', 'metadataJson', 'module', 'scopeId', 'customCycleDays', 'price', 'stackingPriority']);
         $this->price = '0';
         $this->module = 'service';
         $this->flashType = 'success';
         $this->flashMessage = 'Plan created.';
+    }
+
+    /** REF 1CF-CANCEL-POLICY-001 — flip whether this plan's waiver covers the cancellation en-route and visit charges (audited). */
+    public function toggleCancellationWaiver(int $planId): void
+    {
+        $plan = Plan::findOrFail($planId);
+
+        if (! auth()->user()->hasPermission('plans.manage', $this->planScopeHint($plan))) {
+            $this->flashType = 'error';
+            $this->flashMessage = 'You do not have permission to modify this plan.';
+            return;
+        }
+
+        $old = (bool) $plan->waives_cancellation_visit_charges;
+        $plan->update(['waives_cancellation_visit_charges' => ! $old]);
+        \App\Services\ActivityLogger::logModel(auth()->user(), $plan, 'plan cancellation-charge waiver changed', ['old' => $old, 'new' => ! $old]);
+
+        $this->flashType = 'success';
+        $this->flashMessage = 'Cancellation-charge waiver '.(! $old ? 'ON' : 'OFF').' for '.$plan->name.'.';
     }
 
     public function toggleActive(int $planId): void
