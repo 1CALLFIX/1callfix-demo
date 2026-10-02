@@ -409,6 +409,64 @@ class CommissionService
         });
     }
 
+    /**
+     * REF 1CF-CANCEL-POLICY-001 — pays the professional for a CUSTOMER-cancelled job whose charge the platform
+     * collected (interim work / visit fee). The charge is split exactly like a completed job (same 3-tier rate
+     * resolver, same franchise revenue share) and the provider share goes to their wallet. The platform always
+     * collected this money itself (deducted from a prepaid payment or paid before cancelling), so there is never a
+     * cash receivable here. Idempotent: one Commission row per booking + deterministic wallet refs.
+     */
+    public function applyForCancelledBooking(Booking $booking, float $charge): ?Commission
+    {
+        if ($charge <= 0 || ! $booking->provider_id) {
+            return null;
+        }
+
+        $existing = Commission::where('booking_id', $booking->id)->first();
+        if ($existing) {
+            return $existing;
+        }
+
+        $booking->loadMissing(['franchise.owner', 'provider.user']);
+        $franchise = $booking->franchise;
+
+        $platformFeePercent = $this->rateResolver->resolve($franchise, $booking->provider);
+        $platform = round($charge * ($platformFeePercent / 100), 2);
+        $franchiseShare = ($franchise && $franchise->commission_model === 'revenue_share')
+            ? round($charge * (($franchise->commission_value ?? 0) / 100), 2)
+            : 0.0;
+        $provider = round($charge - $platform - $franchiseShare, 2);
+
+        return DB::transaction(function () use ($booking, $franchise, $platform, $franchiseShare, $provider) {
+            $commission = Commission::create([
+                'booking_id' => $booking->id,
+                'provider_commission' => $provider,
+                'franchise_commission' => $franchiseShare,
+                'platform_commission' => $platform,
+            ]);
+
+            if ($booking->provider?->user && $provider > 0) {
+                $this->walletService->credit(
+                    $booking->provider->user,
+                    $provider,
+                    reason: "Interim-work payment for cancelled booking {$booking->code}",
+                    ref: "booking:{$booking->id}:interim-payout"
+                );
+            }
+
+            if ($franchise && $franchise->owner_user_id && $franchiseShare > 0) {
+                $this->walletService->credit(
+                    $franchise->owner,
+                    $franchiseShare,
+                    reason: "Franchise revenue share for cancelled booking {$booking->code}",
+                    ref: "booking:{$booking->id}:interim-franchise"
+                );
+            }
+
+            return $commission;
+        });
+    }
+
     private function resolvePlatformFeePercent(float $defaultPercent, ?array $rateOverride): float
     {
         if (! $rateOverride) {

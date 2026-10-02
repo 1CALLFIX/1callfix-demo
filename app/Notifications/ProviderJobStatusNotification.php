@@ -87,6 +87,13 @@ class ProviderJobStatusNotification extends Notification
             'extra_work_declined' => ['subject' => 'Extra work declined', 'body' => "The customer declined your extra-work request on job {$code}. The job continues at the original price."],
             'reassigned_to_you' => ['subject' => 'Job assigned to you', 'body' => "Job {$code} has been handed to you to continue. Head to the customer and start with their start OTP, then finish the work."],
             'reassigned_away' => ['subject' => 'Job moved to another professional', 'body' => "Job {$code} has been moved to another professional. No further action is needed from you."],
+            // REF 1CF-CANCEL-POLICY-001
+            'spares_delay_warning' => ['subject' => 'Spare part wait is getting long', 'body' => "Job {$code} is still waiting for spare parts. Once the wait reaches the limit the customer can cancel and you are paid only for the work done — chase the supplier or resume."],
+            'spares_cancel_unlocked' => ['subject' => 'Customer can now cancel', 'body' => "Job {$code} has been waiting for spare parts too long; the customer can now cancel and pay only for the work already done. Get the part or resume to keep the job."],
+            'spares_date_passed' => ['subject' => 'Spare part date passed', 'body' => "The expected spare-part date for job {$code} has passed. Open the job and enter a new expected date."],
+            'spares_resume_overdue' => ['subject' => 'Resume the job', 'body' => "Spares for job {$code} are ready but the job has not resumed. The customer can now cancel free of charge and this affects your reliability score."],
+            'spares_dispute' => ['subject' => 'Customer disputed your figures', 'body' => "The customer disputed the progress you declared on job {$code}. Our team will review it; the cancellation waits for that review."],
+            'cancelled_with_charge' => ['subject' => 'Job cancelled — you are paid for work done', 'body' => "The customer cancelled job {$code}. Your share of the interim-work charge has been added to your wallet."],
             default => ['subject' => 'Job update', 'body' => "Job {$code} was updated."],
         };
     }

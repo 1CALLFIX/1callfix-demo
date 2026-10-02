@@ -262,7 +262,7 @@ final class JourneyBuilder
 
             if ($status === 'on_hold' && str_starts_with($note, 'Hold reason:')) {
                 $rest = trim(substr($note, strlen('Hold reason:')));
-                $reason = trim(explode('—', $rest, 2)[0]);
+                $reason = trim(preg_replace('/\[src=\w+\]/', '', explode('—', $rest, 2)[0]));
                 $episodes[] = ['reason' => $reason, 'started_at' => $entry->changed_at, 'spares_at' => null, 'resumed_at' => null, 'resumed_note' => '', 'replaced_at' => null];
             } elseif ($status === 'on_hold' && str_starts_with($note, self::SPARES_NOTE) && $episodes !== []) {
                 $episodes[array_key_last($episodes)]['spares_at'] ??= $entry->changed_at;

@@ -149,22 +149,83 @@ class BookingController extends Controller
      * here that the admin caller doesn't need to (an admin's authority
      * comes from a permission grant, not owning the booking).
      */
-    public function cancel(CancelBookingRequest $request, int $bookingId, AdminCancelBookingAction $action)
+    public function cancel(CancelBookingRequest $request, int $bookingId, \App\Actions\CustomerCancelBookingAction $action)
     {
         $booking = Booking::find($bookingId);
         if (! $booking || $booking->customer_id !== $request->user()->id) {
             return ApiResponse::error('Booking not found.', 404);
         }
 
+        // REF 1CF-CANCEL-POLICY-001 — the customer rules (mid-work lock, spares-delay exit, interim-work charge,
+        // settle-before-cancel for cash) live in CustomerCancelBookingAction; the cancel itself is still the same engine.
         try {
-            $booking = $action->execute($bookingId, $request->validated('reason'));
+            $result = $action->execute($bookingId, $request->user()->id, $request->validated('reason'), $request->validated('quote_token'));
+        } catch (\App\Services\Cancellation\CancellationBlockedException $e) {
+            return ApiResponse::error($e->getMessage(), 409, ['code' => $e->decision['code'], 'unlocks_at' => $e->decision['unlocks_at']?->toIso8601String()]);
+        } catch (\App\Services\Cancellation\CancellationQuoteChangedException $e) {
+            return ApiResponse::error($e->getMessage(), 409, ['code' => 'quote_changed', 'quote' => $this->quotePayload($e->quote)]);
         } catch (\RuntimeException $e) {
-            // "Booking is already completed/cancelled" — a real state
-            // conflict, exactly the case AdminCancelBookingAction's own
-            // guard already refuses, not a new rule invented here.
+            // "Booking is already completed/cancelled" — a real state conflict.
             return ApiResponse::error($e->getMessage(), 409);
         }
 
-        return ApiResponse::success(new BookingResource($booking->load(['service.category', 'service.subcategory', 'address'])), 'Booking cancelled.');
+        if ($result['outcome'] !== 'cancelled') {
+            return ApiResponse::success([
+                'outcome' => $result['outcome'],
+                'charge' => $result['charge'],
+                'payment' => $result['order'],
+                'booking' => new BookingResource($result['booking']->load(['service.category', 'service.subcategory', 'address'])),
+            ], $result['outcome'] === 'payment_required'
+                ? 'Pay the cancellation charge to complete the cancellation.'
+                : 'Your request needs a team review before the booking is cancelled.', 202);
+        }
+
+        return ApiResponse::success(new BookingResource($result['booking']->load(['service.category', 'service.subcategory', 'address'])), 'Booking cancelled.');
+    }
+
+    /** GET /api/bookings/{id}/cancel-quote — what cancelling would cost right now (or why it is locked), plus the signed quote token. */
+    public function cancelQuote(Request $request, int $bookingId, \App\Actions\CustomerCancelBookingAction $action)
+    {
+        $booking = Booking::find($bookingId);
+        if (! $booking || $booking->customer_id !== $request->user()->id) {
+            return ApiResponse::error('Booking not found.', 404);
+        }
+
+        return ApiResponse::success($this->quotePayload($action->quote($booking)));
+    }
+
+    /** POST /api/bookings/{id}/dispute-progress — dispute the professional's declared progress; blocks cancellation until reviewed. */
+    public function disputeProgress(Request $request, int $bookingId, \App\Actions\DisputeInterimDeclarationAction $action)
+    {
+        $data = $request->validate(['note' => ['required', 'string', 'max:1000']]);
+
+        if (! Booking::where('customer_id', $request->user()->id)->whereKey($bookingId)->exists()) {
+            return ApiResponse::error('Booking not found.', 404);
+        }
+
+        try {
+            $booking = $action->execute($bookingId, $request->user()->id, $data['note']);
+        } catch (\RuntimeException $e) {
+            return ApiResponse::error($e->getMessage(), 409);
+        }
+
+        return ApiResponse::success(new BookingResource($booking), 'Dispute recorded. Our team will review it.');
+    }
+
+    private function quotePayload(array $quote): array
+    {
+        return [
+            'allowed' => $quote['allowed'],
+            'code' => $quote['code'],
+            'message' => $quote['message'],
+            'charge' => $quote['charge'],
+            'refund' => $quote['refund'],
+            'free' => $quote['free'],
+            'requires_payment' => $quote['requires_payment'],
+            'unlocks_at' => $quote['unlocks_at']?->toIso8601String(),
+            'breakdown' => $quote['breakdown'],
+            'quote_token' => $quote['token'],
+            'policy' => app(\App\Services\Cancellation\CancellationPolicy::class)->policyLines(),
+        ];
     }
 }

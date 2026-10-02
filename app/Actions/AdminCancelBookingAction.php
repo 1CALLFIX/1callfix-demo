@@ -46,11 +46,11 @@ class AdminCancelBookingAction
      *        refundIfPaid()'s own param of the same name; see its docblock.
      *        Passed true only by DispatchDeadlineSweepService.
      */
-    public function execute(int $bookingId, string $reason, bool $reconcileBundle = true, ?string $customerNotificationEvent = null, bool $creditToMainWallet = false, bool $waiveFee = false): Booking
+    public function execute(int $bookingId, string $reason, bool $reconcileBundle = true, ?string $customerNotificationEvent = null, bool $creditToMainWallet = false, bool $waiveFee = false, ?callable $feeResolver = null, string $cancelledByRole = 'admin'): Booking
     {
         $statusBeforeCancel = null;
 
-        $booking = DB::transaction(function () use ($bookingId, $reason, $waiveFee, &$statusBeforeCancel) {
+        $booking = DB::transaction(function () use ($bookingId, $reason, $waiveFee, $feeResolver, $cancelledByRole, &$statusBeforeCancel) {
             $booking = Booking::lockForUpdate()->findOrFail($bookingId);
 
             if (in_array($booking->status, ['completed', 'cancelled'], true)) {
@@ -61,18 +61,27 @@ class AdminCancelBookingAction
 
             // REF 1CF-JOURNEY-001 — a cancellation that is the platform's / the professional's fault carries no
             // fee: explicitly waived by the operator, or implied by a provider-side hold ("professional left").
-            $fee = ($waiveFee || $booking->hold_category === 'provider_side')
-                ? 0.0
-                : $this->cancellationService->calculateFee($booking);
+            $basis = null;
+            if ($feeResolver !== null) {
+                // REF 1CF-CANCEL-POLICY-001 — the customer path re-checks eligibility and prices the charge HERE, under
+                // the same row lock that performs the cancel, so a racing resume/hold can never slip between check and write.
+                [$fee, $basis] = $feeResolver($booking);
+            } else {
+                $fee = ($waiveFee || $booking->hold_category === 'provider_side')
+                    ? 0.0
+                    : $this->cancellationService->calculateFee($booking);
+            }
 
             $booking->status = 'cancelled';
             $booking->cancellation_note = $reason;
             $booking->cancellation_fee = $fee;
+            $booking->cancelled_by_role = $cancelledByRole;
+            $booking->cancellation_fee_basis = $basis;
             $booking->save();
 
             $booking->statusHistory()->create([
                 'status' => 'cancelled',
-                'note' => "Cancelled by admin: {$reason}".($fee > 0 ? " (cancellation fee: {$fee})" : ''),
+                'note' => "Cancelled by {$cancelledByRole}: {$reason}".($fee > 0 ? " (cancellation fee: {$fee})" : ''),
                 'changed_at' => now(),
             ]);
 

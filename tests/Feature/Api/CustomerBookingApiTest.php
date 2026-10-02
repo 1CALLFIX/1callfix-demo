@@ -321,10 +321,9 @@ class CustomerBookingApiTest extends TestCase
      */
     public function test_cancellation_fee_and_refund_behavior_is_honored_via_the_real_cancellation_service(): void
     {
+        // Assigned-stage fee is cancellation.assigned_fee (frozen onto the booking at creation, so set it first).
+        \App\Models\Setting::set('cancellation.assigned_fee', '50');
         $scenario = $this->makeAssignedBookingScenario();
-        \App\Models\Setting::set('cancellation.free_minutes', '0');
-        \App\Models\Setting::set('cancellation.fee_type', 'flat');
-        \App\Models\Setting::set('cancellation.fee_value', '50');
         $scenario['booking']->update(['payment_status' => 'paid']);
         \App\Models\Payment::create([
             'booking_id' => $scenario['booking']->id, 'purpose' => 'booking', 'amount' => 500,
@@ -332,8 +331,20 @@ class CustomerBookingApiTest extends TestCase
         ]);
         \App\Models\Wallet::create(['user_id' => $scenario['customer']->id, 'balance' => 0]);
 
-        $response = $this->actingAs($scenario['customer'], 'sanctum')
+        // REF 1CF-CANCEL-POLICY-001 — a charged cancellation is confirmed against a signed quote of the exact amount.
+        $quote = $this->actingAs($scenario['customer'], 'sanctum')
+            ->getJson("/api/bookings/{$scenario['booking']->id}/cancel-quote")
+            ->assertOk();
+        $this->assertEquals(50, $quote->json('data.charge'));
+        $this->assertEquals(450, $quote->json('data.refund'));
+
+        $this->actingAs($scenario['customer'], 'sanctum')
             ->postJson("/api/bookings/{$scenario['booking']->id}/cancel", ['reason' => 'Fee test'])
+            ->assertStatus(409)
+            ->assertJsonPath('errors.code', 'quote_changed');
+
+        $response = $this->actingAs($scenario['customer'], 'sanctum')
+            ->postJson("/api/bookings/{$scenario['booking']->id}/cancel", ['reason' => 'Fee test', 'quote_token' => $quote->json('data.quote_token')])
             ->assertOk();
 
         $this->assertEquals(50, $response->json('data.cancellation_fee'));

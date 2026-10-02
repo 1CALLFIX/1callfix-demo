@@ -17,6 +17,11 @@ class JobJourneyApiTest extends TestCase
     use BookingFixtureHelpers;
     use RefreshDatabase;
 
+    private function sparesDeclaration(): array
+    {
+        return ['progress_percent' => 40, 'parts_fitted_cost' => 0, 'sourced_by' => 'provider', 'expected_at' => now()->addDays(3)->toDateString()];
+    }
+
     public function test_unauthenticated_requests_are_rejected(): void
     {
         $s = $this->makeAssignedBookingScenario();
@@ -43,7 +48,7 @@ class JobJourneyApiTest extends TestCase
         $api->postJson("/api/bookings/{$id}/start", ['otp' => '1234'])->assertOk()
             ->assertJsonPath('booking.status', 'in_progress');
 
-        $api->postJson("/api/bookings/{$id}/hold-for-spares", ['note' => 'Need a gas cylinder'])->assertOk()
+        $api->postJson("/api/bookings/{$id}/hold-for-spares", ['note' => 'Need a gas cylinder'] + $this->sparesDeclaration())->assertOk()
             ->assertJsonPath('booking.status', 'on_hold')
             ->assertJsonPath('journey.paused', true)
             ->assertJsonPath('journey.headline', 'Job on hold');
@@ -90,7 +95,9 @@ class JobJourneyApiTest extends TestCase
         $api = $this->actingAs($s['provider']->user, 'sanctum');
 
         // Cannot wait for spares before the job has started.
-        $api->postJson("/api/bookings/{$id}/hold-for-spares")->assertStatus(409);
+        $api->postJson("/api/bookings/{$id}/hold-for-spares", $this->sparesDeclaration())->assertStatus(409);
+        // REF 1CF-CANCEL-POLICY-001 — the interim-work declaration is mandatory.
+        $api->postJson("/api/bookings/{$id}/hold-for-spares")->assertStatus(422);
         // Nothing is on hold yet.
         $api->postJson("/api/bookings/{$id}/spares-available")->assertStatus(409);
         $api->postJson("/api/bookings/{$id}/resume")->assertStatus(409);

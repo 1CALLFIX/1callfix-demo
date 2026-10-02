@@ -21,6 +21,19 @@ class Booking extends Model implements Orderable
 
     protected $table = 'bookings';
 
+    protected static function booted(): void
+    {
+        // Step 5: freeze the cancellation policy in force at booking time; every later fee reads this.
+        static::creating(function (Booking $booking) {
+            if ($booking->cancellation_policy_snapshot === null) {
+                $booking->cancellation_policy_snapshot = \App\Services\Cancellation\PolicySettings::snapshot($booking);
+            }
+        });
+    }
+
+    public function quotes() { return $this->hasMany(BookingQuote::class); }
+    public function callAttempts() { return $this->hasMany(BookingCallAttempt::class); }
+
     protected $fillable = [
         'code',
         'booking_bundle_id',
@@ -62,7 +75,25 @@ class Booking extends Model implements Orderable
         'hold_category',
         'hold_reason',
         'hold_note',
-        'on_hold_since'
+        'on_hold_since',
+        // REF 1CF-CANCEL-POLICY-001
+        'cancelled_by_role',
+        'spares_sourced_by',
+        'spares_expected_at',
+        'interim_progress_percent',
+        'interim_parts_cost',
+        'interim_evidence',
+        'interim_declared_at',
+        'interim_dispute_status',
+        'interim_disputed_at',
+        'interim_dispute_note',
+        'cancellation_fee_basis',
+        'spares_notices',
+        'cancellation_policy_snapshot',
+        'arrival_lat',
+        'arrival_lng',
+        'arrival_verified_at',
+        'arrival_distance_m',
     ];
 
     protected $casts = [
@@ -79,6 +110,14 @@ class Booking extends Model implements Orderable
         'scheduled_reminder_1_at' => 'datetime',
         'scheduled_reminder_2_at' => 'datetime',
         'on_hold_since' => 'datetime',
+        'spares_expected_at' => 'date',
+        'interim_evidence' => 'array',
+        'interim_declared_at' => 'datetime',
+        'interim_disputed_at' => 'datetime',
+        'cancellation_fee_basis' => 'array',
+        'spares_notices' => 'array',
+        'cancellation_policy_snapshot' => 'array',
+        'arrival_verified_at' => 'datetime',
         // Phase E5 — booking OTP hardening metadata (see BookingOtpService).
         'start_otp_expires_at' => 'datetime',
         'start_otp_verified_at' => 'datetime',
@@ -105,6 +144,7 @@ class Booking extends Model implements Orderable
     public function commission() { return $this->hasOne(Commission::class); }
     public function compensations() { return $this->hasMany(BookingCompensation::class); }
     public function review() { return $this->hasOne(Review::class); }
+    public function cancellationRequests() { return $this->hasMany(BookingCancellationRequest::class); }
     public function cancellationReason() { return $this->belongsTo(CancellationReason::class); }
 
     // ============================== Orderable ==============================

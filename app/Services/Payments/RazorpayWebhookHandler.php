@@ -113,6 +113,14 @@ class RazorpayWebhookHandler
             return ['outcome' => 'captured', 'payment' => $payment];
         }
 
+        // REF 1CF-CANCEL-POLICY-001 — the separate payment for a customer's cancellation charge (cash / unpaid
+        // booking): its capture is what lets the cancellation complete. Idempotent (the lock above runs this once).
+        if ($payment->purpose === 'cancellation_fee') {
+            app(\App\Actions\CustomerCancelBookingAction::class)->completeAfterChargePayment($payment);
+
+            return ['outcome' => 'captured', 'payment' => $payment];
+        }
+
         // Phase E3 — multi-service bundle. ONE payment paid the aggregate, so
         // ONE capture marks the bundle paid and propagates that to every child
         // booking, then gives each child the same customer-facing
@@ -222,6 +230,12 @@ class RazorpayWebhookHandler
 
         if ($payment->purpose === 'wallet_topup') {
             return ['outcome' => 'failed', 'payment' => $payment]; // nothing was ever credited — no booking, nothing to notify
+        }
+
+        // REF 1CF-CANCEL-POLICY-001 — a failed cancellation-charge attempt changes nothing: the booking stays as it
+        // was and the customer can retry (a new order is opened on the next confirm).
+        if ($payment->purpose === 'cancellation_fee') {
+            return ['outcome' => 'failed', 'payment' => $payment];
         }
 
         if ($payment->purpose === 'plan_subscription') {

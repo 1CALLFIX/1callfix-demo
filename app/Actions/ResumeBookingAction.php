@@ -36,6 +36,12 @@ class ResumeBookingAction
             $booking->on_hold_since = null;
             $booking->save();
 
+            // REF 1CF-CANCEL-POLICY-001 — a job that is back in progress can no longer be cancelled by the customer, so
+            // any cancellation still waiting for their payment lapses (a late payment is refunded by the webhook branch).
+            \App\Models\BookingCancellationRequest::where('booking_id', $booking->id)
+                ->whereIn('status', ['awaiting_payment', 'awaiting_admin'])
+                ->update(['status' => 'superseded', 'resolution_note' => 'Job resumed before the charge was settled.']);
+
             $booking->statusHistory()->create([
                 'status' => 'in_progress',
                 'changed_by' => $booking->provider?->user_id,

@@ -9,6 +9,8 @@ class CancelBookingRequest extends CustomerApiRequest
     {
         return [
             'reason' => ['required', 'string', 'max:500'],
+            // REF 1CF-CANCEL-POLICY-001 — required only when a charge applies; comes from GET /bookings/{id}/cancel-quote
+            'quote_token' => ['nullable', 'string', 'max:200'],
         ];
     }
 }

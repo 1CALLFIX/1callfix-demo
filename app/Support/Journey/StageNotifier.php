@@ -21,7 +21,12 @@ use Illuminate\Support\Facades\Log;
 final class StageNotifier
 {
     /** Events that use the full configured channel set instead of push + in-app only. */
-    private const FULL_CHANNEL_EVENTS = ['on_hold', 'extra_work_proposed', 'reassigned'];
+    private const FULL_CHANNEL_EVENTS = [
+        'on_hold', 'extra_work_proposed', 'reassigned',
+        // REF 1CF-CANCEL-POLICY-001 — anything that changes what the customer can do or owes
+        'spares_early_unlock', 'spares_delay_warning', 'spares_cancel_unlocked', 'spares_date_passed',
+        'spares_resume_overdue', 'extra_work_expired', 'cancel_payment_due', 'interim_resolved',
+    ];
 
     public static function customer(Booking $booking, string $event): void
     {

@@ -67,13 +67,35 @@ class JobJourneyController extends Controller
 
     public function holdForSpares(Request $request, int $bookingId, PlaceBookingOnHoldAction $action): JsonResponse
     {
-        $validated = $request->validate(['note' => 'nullable|string|max:500']);
+        // REF 1CF-CANCEL-POLICY-001 — the interim-work declaration is mandatory (it is what the customer is charged on).
+        $validated = $request->validate([
+            'note' => 'nullable|string|max:500',
+            'progress_percent' => 'required|integer|min:0|max:100',
+            'parts_fitted_cost' => 'nullable|numeric|min:0',
+            'sourced_by' => 'required|in:provider,platform,customer',
+            'expected_at' => 'required|date|after_or_equal:today',
+            'evidence' => 'nullable|array|max:5',
+            'evidence.*' => 'file|mimes:jpg,jpeg,png,webp,pdf|max:4096',
+        ]);
 
-        return $this->act($request, $bookingId, 'Job on hold while you get the spare parts.', function (Booking $booking) use ($action, $validated) {
+        return $this->act($request, $bookingId, 'Job on hold while you get the spare parts.', function (Booking $booking) use ($action, $validated, $request) {
             if ($booking->status !== 'in_progress') {
                 throw new \RuntimeException('You can wait for spare parts once the job is in progress.');
             }
-            $action->execute($booking->id, 'awaiting_spares', $validated['note'] ?? 'Provider is waiting for spare parts');
+
+            $paths = array_map(fn ($file) => $file->store("booking-evidence/{$booking->id}", 'public'), $request->file('evidence', []));
+
+            try {
+                $action->execute($booking->id, 'awaiting_spares', $validated['note'] ?? 'Provider is waiting for spare parts', [
+                    'progress_percent' => $validated['progress_percent'],
+                    'parts_fitted_cost' => $validated['parts_fitted_cost'] ?? 0,
+                    'sourced_by' => $validated['sourced_by'],
+                    'expected_at' => $validated['expected_at'],
+                    'evidence' => $paths,
+                ]);
+            } catch (\InvalidArgumentException $e) {
+                throw new \RuntimeException($e->getMessage());
+            }
         });
     }
 
