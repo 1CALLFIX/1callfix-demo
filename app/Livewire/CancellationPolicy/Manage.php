@@ -282,6 +282,7 @@ class Manage extends Component
                 ->latest('id')->limit(200)->get();
         }
 
-        return view('livewire.cancellation-policy.manage', $data);
+        return view('livewire.cancellation-policy.manage', $data)
+            ->layout('layouts.admin', ['title' => 'Cancellation Policy']);
     }
 }

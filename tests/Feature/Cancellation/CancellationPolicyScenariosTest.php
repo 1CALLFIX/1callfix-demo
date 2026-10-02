@@ -581,6 +581,21 @@ class CancellationPolicyScenariosTest extends TestCase
         return $u;
     }
 
+    public function test_the_screen_renders_as_a_full_page_inside_the_admin_layout_on_every_tab(): void
+    {
+        // A Livewire::test() renders the component alone; only a real GET proves the layout exists (a missing layout is a 500).
+        $admin = $this->superAdmin();
+
+        foreach (['', '?tab=settings', '?tab=categories', '?tab=operations', '?tab=audit'] as $query) {
+            $this->actingAs($admin)->get('/admin/cancellation-policy'.$query)
+                ->assertOk()
+                ->assertSee('Cancellation Policy')
+                ->assertSee('1CallFix', false);
+        }
+
+        $this->actingAs($this->makeCustomer())->get('/admin/cancellation-policy')->assertStatus(403);
+    }
+
     public function test_every_setting_change_is_audit_logged_with_admin_key_old_new_and_time(): void
     {
         $admin = $this->superAdmin();
