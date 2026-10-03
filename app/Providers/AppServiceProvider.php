@@ -144,6 +144,11 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // 0e — a password change signs out the user's other sessions via AuthenticateSession on the admin
+        // routes; Livewire's own /livewire/update requests only re-run middleware listed here, so add it or
+        // a stale device could keep acting through Livewire actions until its next full page load.
+        \Livewire\Livewire::addPersistentMiddleware([\Illuminate\Session\Middleware\AuthenticateSession::class]);
+
         // Mission Phase 16 (API/security/E2E hardening sweep) finding:
         // routes/api.php had NO general-purpose rate limiter at all --
         // bootstrap/app.php never called $middleware->throttleApi(), and

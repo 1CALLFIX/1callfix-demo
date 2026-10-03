@@ -25,6 +25,11 @@
                 @error('email') <p class="text-xs text-red-600 mt-1">{{ $message }}</p> @enderror
             </div>
             <div>
+                <label class="block text-xs font-medium mb-1" for="acc-email2">Confirm new email (only when you change it)</label>
+                <input id="acc-email2" type="email" wire:model="emailConfirmation" autocomplete="off" class="w-full rounded border-gray-300 text-sm">
+                @error('emailConfirmation') <p class="text-xs text-red-600 mt-1">{{ $message }}</p> @enderror
+            </div>
+            <div>
                 <label class="block text-xs font-medium mb-1" for="acc-phone">Phone (10 digits)</label>
                 <input id="acc-phone" type="text" wire:model="phone" class="w-full rounded border-gray-300 text-sm">
                 @error('phone') <p class="text-xs text-red-600 mt-1">{{ $message }}</p> @enderror
@@ -59,4 +64,19 @@
             <button type="submit" class="rounded bg-slate-800 px-4 py-2 text-sm font-semibold text-white">Change password</button>
         </form>
     </x-ui.card>
+
+    @if ($isSuperAdmin)
+        <x-ui.card class="mt-6">
+            <h2 class="text-sm font-semibold mb-1">Login-change notice (Super Admin)</h2>
+            <p class="text-xs text-gray-500 mb-3">
+                Emailed to an admin's <strong>old</strong> email address whenever their email or password changes.
+                Leave blank to use the default wording. Changes are audit-logged.
+            </p>
+            <form wire:submit="saveNotice" class="space-y-2">
+                <textarea wire:model="noticeText" rows="3" class="w-full rounded border-gray-300 text-sm"></textarea>
+                @error('noticeText') <p class="text-xs text-red-600 mt-1">{{ $message }}</p> @enderror
+                <button type="submit" class="rounded bg-slate-800 px-4 py-2 text-sm font-semibold text-white">Save notice text</button>
+            </form>
+        </x-ui.card>
+    @endif
 </div>

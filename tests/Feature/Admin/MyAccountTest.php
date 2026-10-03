@@ -48,6 +48,7 @@ class MyAccountTest extends TestCase
         Livewire::actingAs($admin)->test(MyAccount::class)
             ->set('name', 'New Name')
             ->set('email', 'new@example.com')
+            ->set('emailConfirmation', 'new@example.com')
             ->set('phone', '+91 98765 43210')
             ->set('profileCurrentPassword', 'old-password-1')
             ->call('saveProfile')
@@ -71,6 +72,7 @@ class MyAccountTest extends TestCase
 
         Livewire::actingAs($admin)->test(MyAccount::class)
             ->set('email', 'new@example.com')
+            ->set('emailConfirmation', 'new@example.com')
             ->set('profileCurrentPassword', 'wrong')
             ->call('saveProfile')
             ->assertHasErrors('profileCurrentPassword');
@@ -159,7 +161,8 @@ class MyAccountTest extends TestCase
     public function test_wrong_password_attempts_are_throttled(): void
     {
         $admin = $this->admin();
-        $c = Livewire::actingAs($admin)->test(MyAccount::class)->set('email', 'new@example.com');
+        $c = Livewire::actingAs($admin)->test(MyAccount::class)->set('email', 'new@example.com')
+            ->set('emailConfirmation', 'new@example.com');
 
         for ($i = 0; $i < 5; $i++) {
             $c->set('profileCurrentPassword', 'wrong')->call('saveProfile')->assertHasErrors('profileCurrentPassword');
