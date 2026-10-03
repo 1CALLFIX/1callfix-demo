@@ -73,6 +73,9 @@ Route::middleware(['auth', \App\Http\Middleware\EnsureHasAdminAccess::class])
     ->group(function () {
         Route::get('/dashboard', Dashboard::class)->name('admin.dashboard');
 
+        // My account — every admin edits only their OWN login details (no permission slug: it only ever touches auth()->user()).
+        Route::get('/account', \App\Livewire\Account\MyAccount::class)->name('admin.account');
+
         // Phase 2 push — admin "Enable order alerts" opt-in toggle
         // (users.push_ops_alerts). Token registration itself is the shared
         // POST /push/token in routes/web.php.

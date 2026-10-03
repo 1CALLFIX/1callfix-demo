@@ -293,7 +293,7 @@
             </div>
             <div class="flex items-center gap-4 text-sm">
                 <livewire:global-search />
-                <span class="text-gray-300">{{ auth()->user()->name }}</span>
+                <a href="{{ route('admin.account') }}" class="text-gray-300 underline" title="My account">{{ auth()->user()->name }}</a>
                 <form method="POST" action="{{ route('admin.logout') }}">
                     @csrf
                     <button type="submit" class="text-red-300 hover:text-red-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-300 rounded">Logout</button>
