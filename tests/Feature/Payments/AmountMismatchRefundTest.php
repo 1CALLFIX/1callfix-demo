@@ -3,15 +3,23 @@
 namespace Tests\Feature\Payments;
 
 use App\Contracts\PaymentGateway;
+use App\Livewire\MismatchRefunds\Index as QueueIndex;
 use App\Livewire\Operations\Health;
+use App\Livewire\RefundControls\Manage as RefundControls;
 use App\Models\ActivityLog;
+use App\Models\Booking;
+use App\Models\MismatchRefund;
 use App\Models\Payment;
 use App\Models\PaymentWebhookLog;
 use App\Models\Setting;
 use App\Models\User;
+use App\Notifications\AdminOpsAlertNotification;
 use App\Notifications\PaymentUnderReviewNotification;
+use App\Notifications\RefundProcessedNotification;
 use App\Services\Payments\AmountMismatchService;
+use App\Services\Payments\MismatchRefundService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Str;
@@ -22,16 +30,19 @@ use Tests\Feature\Support\BookingFixtureHelpers;
 use Tests\TestCase;
 
 /**
- * Step 0c — refund path for a Razorpay capture whose amount did not match:
- * Super Admin only, reason required, audit-logged, exactly the captured
- * amount, idempotent, never automatic; customer is told it is under review
- * with admin-editable copy.
+ * Step 0c — mismatch refunds under the MANUAL MONEY ACTIONS approval model:
+ * permission, franchise scope, per-level limits (null = cannot approve),
+ * maker-checker, queue + once-per-level escalation, customer notices.
+ * Unchanged guarantees: exact captured amount, reason required, idempotent,
+ * gateway failure retryable, never automatic, Payment row never marked paid.
  */
 class AmountMismatchRefundTest extends TestCase
 {
     use BookingFixtureHelpers;
     use RbacTestHelpers;
     use RefreshDatabase;
+
+    private const PERM = MismatchRefundService::PERMISSION;
 
     protected function setUp(): void
     {
@@ -45,15 +56,14 @@ class AmountMismatchRefundTest extends TestCase
         Cache::flush();
     }
 
-    /** @return array{0: User, 1: Payment, 2: PaymentWebhookLog} a wallet top-up of ₹250 for which Razorpay captured ₹249.99 */
-    private function mismatch(int $capturedPaise = 24999, string $gatewayPaymentId = 'pay_mm_1'): array
+    protected function tearDown(): void
     {
-        $user = $this->makeCustomer();
-        $payment = Payment::create([
-            'purpose' => 'wallet_topup', 'amount' => 250.00, 'gateway' => 'razorpay',
-            'gateway_order_id' => 'order_'.Str::random(10), 'status' => 'pending', 'user_id' => $user->id,
-        ]);
+        Carbon::setTestNow();
+        parent::tearDown();
+    }
 
+    private function postCapture(Payment $payment, int $capturedPaise, string $gatewayPaymentId): void
+    {
         $payload = ['event' => 'payment.captured', 'payload' => ['payment' => ['entity' => [
             'order_id' => $payment->gateway_order_id, 'id' => $gatewayPaymentId, 'amount' => $capturedPaise, 'currency' => 'INR',
         ]]]];
@@ -61,14 +71,31 @@ class AmountMismatchRefundTest extends TestCase
         $this->postJson('/api/webhooks/razorpay', $payload, [
             'X-Razorpay-Signature' => hash_hmac('sha256', json_encode($payload), config('services.razorpay.webhook_secret')),
         ])->assertOk();
-
-        $log = PaymentWebhookLog::where('gateway_order_id', $payment->gateway_order_id)->latest('id')->firstOrFail();
-        $this->assertSame('amount_mismatch', $log->outcome);
-
-        return [$user, $payment, $log];
     }
 
-    private function gatewayExpecting(float $amount, string $paymentId = 'pay_mm_1', int $times = 1): void
+    /**
+     * A ₹500 booking payment in $booking's franchise for which Razorpay captured ₹499.99.
+     *
+     * @return array{0: MismatchRefund, 1: Payment, 2: Booking}
+     */
+    private function bookingMismatch(?Booking $booking = null, int $capturedPaise = 49999, ?string $gatewayPaymentId = null): array
+    {
+        $booking ??= $this->makeBookingScenario()['booking'];
+        $gatewayPaymentId ??= 'pay_'.Str::random(8);
+
+        $payment = Payment::create([
+            'booking_id' => $booking->id, 'purpose' => 'booking', 'amount' => 500.00, 'gateway' => 'razorpay',
+            'gateway_order_id' => 'order_'.Str::random(10), 'status' => 'pending',
+        ]);
+
+        $this->postCapture($payment, $capturedPaise, $gatewayPaymentId);
+
+        $row = MismatchRefund::where('gateway_payment_id', $gatewayPaymentId)->firstOrFail();
+
+        return [$row, $payment, $booking];
+    }
+
+    private function gatewayExpecting(string $paymentId, float $amount, int $times = 1): void
     {
         $mock = Mockery::mock(PaymentGateway::class);
         $mock->shouldReceive('refund')->times($times)->withArgs(fn ($id, $amt) => $id === $paymentId && abs($amt - $amount) < 0.001)->andReturn(['id' => 'rfnd_1']);
@@ -82,131 +109,328 @@ class AmountMismatchRefundTest extends TestCase
         $this->app->instance(PaymentGateway::class, $mock);
     }
 
-    // ============================== refund ==============================
-
-    public function test_super_admin_refunds_exactly_the_captured_amount_with_a_reason_and_it_is_audit_logged(): void
+    private function holder(string $scope, ?int $scopeId = null): User
     {
-        [, $payment, $log] = $this->mismatch(24999);
-        $admin = $this->makeSuperAdmin();
-        $this->gatewayExpecting(249.99);
-
-        Livewire::actingAs($admin)->test(Health::class)
-            ->call('startRefund', $log->id)
-            ->set('refundReason', 'Customer paid ₹249.99 by mistake')
-            ->call('refundMismatch')
-            ->assertSet('flashType', 'success');
-
-        $this->assertSame('amount_mismatch_refunded', $log->fresh()->outcome);
-        $this->assertTrue($log->fresh()->processed);
-        $this->assertSame('pending', $payment->fresh()->status, 'the Payment row is never marked paid by a refund');
-
-        $audit = ActivityLog::where('description', 'like', 'Refunded mismatched payment%')->first();
-        $this->assertNotNull($audit);
-        $this->assertSame($admin->id, $audit->causer_id);
-        $this->assertSame(249.99, (float) $audit->properties['amount']);
-        $this->assertSame('Customer paid ₹249.99 by mistake', $audit->properties['reason']);
+        return $this->makeUserWithPermission(self::PERM, $scope, $scopeId);
     }
 
-    public function test_refund_is_idempotent_a_second_click_does_not_reach_the_gateway(): void
+    private function limits(?string $franchise, ?string $hq, ?string $dualAbove = null): void
     {
-        [, , $log] = $this->mismatch();
-        $admin = $this->makeSuperAdmin();
-        $this->gatewayExpecting(249.99, times: 1);
-
-        $component = Livewire::actingAs($admin)->test(Health::class);
-        $component->call('startRefund', $log->id)->set('refundReason', 'first')->call('refundMismatch')->assertSet('flashType', 'success');
-        $component->call('startRefund', $log->id)->set('refundReason', 'second')->call('refundMismatch')->assertSet('flashType', 'error');
+        foreach ([
+            MismatchRefundService::FRANCHISE_LIMIT_KEY => $franchise,
+            MismatchRefundService::HQ_LIMIT_KEY => $hq,
+            MismatchRefundService::DUAL_APPROVAL_KEY => $dualAbove,
+        ] as $key => $value) {
+            $value === null ? Setting::clear($key, 'global', null) : Setting::set($key, $value);
+        }
     }
 
-    public function test_a_redelivered_event_for_an_already_refunded_gateway_payment_cannot_be_refunded_again(): void
+    private function svc(): MismatchRefundService
     {
-        [, $payment, $log] = $this->mismatch(24999, 'pay_dup');
-        $admin = $this->makeSuperAdmin();
-        $this->gatewayExpecting(249.99, 'pay_dup', 1);
+        return app(MismatchRefundService::class);
+    }
 
-        app(AmountMismatchService::class)->refundCaptured($log, $admin, 'first');
+    // ============================== queue row ==============================
 
-        // Same gateway payment shows up again as a fresh mismatch log row.
-        $dup = PaymentWebhookLog::create([
+    public function test_a_mismatch_joins_the_queue_with_exact_paise_and_the_bookings_franchise(): void
+    {
+        [$row, $payment, $booking] = $this->bookingMismatch(null, 24999);
+
+        $this->assertSame(24999, $row->amount_paise);
+        $this->assertSame($booking->franchise_id, $row->franchise_id);
+        $this->assertSame(MismatchRefund::AWAITING_REQUEST, $row->status);
+        $this->assertSame($payment->id, $row->payment_id);
+        $this->assertSame('pending', $payment->fresh()->status);
+    }
+
+    public function test_a_payment_with_no_franchise_is_hq_only_and_old_logs_are_backfilled(): void
+    {
+        $user = $this->makeCustomer();
+        $payment = Payment::create([
+            'purpose' => 'wallet_topup', 'amount' => 250, 'gateway' => 'razorpay',
+            'gateway_order_id' => 'order_'.Str::random(10), 'status' => 'pending', 'user_id' => $user->id,
+        ]);
+        $log = PaymentWebhookLog::create([
             'gateway' => 'razorpay', 'event' => 'payment.captured', 'gateway_order_id' => $payment->gateway_order_id,
-            'gateway_payment_id' => 'pay_dup', 'payment_id' => $payment->id, 'signature_valid' => true, 'processed' => false,
-            'outcome' => 'amount_mismatch', 'payload' => $log->payload, 'created_at' => now(),
+            'gateway_payment_id' => 'pay_old', 'payment_id' => $payment->id, 'signature_valid' => true, 'processed' => false,
+            'outcome' => 'amount_mismatch', 'created_at' => now(),
+            'payload' => ['payload' => ['payment' => ['entity' => ['id' => 'pay_old', 'amount' => 100]]]],
         ]);
 
-        $result = app(AmountMismatchService::class)->refundCaptured($dup, $admin, 'again');
+        $this->svc()->syncFromLogs();
+        $this->svc()->syncFromLogs(); // idempotent
 
-        $this->assertFalse($result['ok']);
-        $this->assertSame('amount_mismatch', $dup->fresh()->outcome);
+        $row = MismatchRefund::where('payment_webhook_log_id', $log->id)->sole();
+        $this->assertNull($row->franchise_id);
+        $this->assertSame(100, $row->amount_paise);
+
+        $franchiseHolder = $this->holder('franchise', $this->makeBookingScenario()['franchise']->id);
+        $this->assertNull($this->svc()->availableAction($row, $franchiseHolder), 'franchise holders never act on an HQ-only row');
+        $this->assertSame('request', $this->svc()->availableAction($row, $this->holder('global')));
+    }
+
+    // ============================== permission ==============================
+
+    public function test_a_permission_holder_can_refund_exactly_the_captured_amount_and_it_is_audit_logged(): void
+    {
+        [$row, $payment] = $this->bookingMismatch();
+        $this->limits(null, '1000');
+        $hq = $this->holder('global');
+        $this->gatewayExpecting($row->gateway_payment_id, 499.99);
+
+        $result = $this->svc()->request($row, $hq, 'Customer paid ₹499.99 by mistake');
+
+        $this->assertTrue($result['ok'], $result['message']);
+        $row->refresh();
+        $this->assertSame(MismatchRefund::REFUNDED, $row->status);
+        $this->assertSame('rfnd_1', $row->gateway_refund_id);
+        $this->assertSame('amount_mismatch_refunded', PaymentWebhookLog::find($row->payment_webhook_log_id)->outcome);
+        $this->assertSame('pending', $payment->fresh()->status, 'the Payment row is never marked paid by a refund');
+
+        $audit = ActivityLog::where('description', 'like', 'Refunded mismatched payment%')->sole();
+        $this->assertSame($hq->id, $audit->causer_id);
+        $this->assertSame(49999, $audit->properties['amount_paise']);
+        $this->assertSame('Customer paid ₹499.99 by mistake', $audit->properties['reason']);
+        $this->assertNotNull(ActivityLog::where('description', 'like', 'Mismatch refund requested%')->first());
+    }
+
+    public function test_a_non_holder_is_refused_server_side_and_never_reaches_the_gateway(): void
+    {
+        [$row] = $this->bookingMismatch();
+        $this->limits('1000', '1000');
+        $nobody = $this->makeUserWithNoPermissions();
+        $this->gatewayNeverCalled();
+
+        $this->assertFalse($this->svc()->request($row, $nobody, 'reason')['ok']);
+        $this->assertSame(MismatchRefund::AWAITING_REQUEST, $row->fresh()->status);
+
+        Livewire::actingAs($nobody)->test(QueueIndex::class)->assertForbidden();
+    }
+
+    public function test_the_permission_is_seeded_to_super_admin_only(): void
+    {
+        $permission = \App\Models\Permission::where('slug', self::PERM)->firstOrFail();
+
+        $this->assertSame(['super_admin'], $permission->roles()->pluck('slug')->all());
     }
 
     public function test_reason_is_required(): void
     {
-        [, , $log] = $this->mismatch();
+        [$row] = $this->bookingMismatch();
         $this->gatewayNeverCalled();
 
-        Livewire::actingAs($this->makeSuperAdmin())->test(Health::class)
-            ->call('startRefund', $log->id)
-            ->set('refundReason', '')
-            ->call('refundMismatch')
-            ->assertHasErrors('refundReason');
+        $this->assertFalse($this->svc()->request($row, $this->makeSuperAdmin(), '   ')['ok']);
 
-        $this->assertSame('amount_mismatch', $log->fresh()->outcome);
+        Livewire::actingAs($this->makeSuperAdmin())->test(QueueIndex::class)
+            ->call('startAction', $row->id, 'request')
+            ->set('reason', '')
+            ->call('submitAction')
+            ->assertHasErrors('reason');
 
-        $result = app(AmountMismatchService::class)->refundCaptured($log, $this->makeSuperAdmin(), '   ');
-        $this->assertFalse($result['ok']);
+        $this->assertSame(MismatchRefund::AWAITING_REQUEST, $row->fresh()->status);
     }
 
-    public function test_only_a_super_admin_can_refund_even_with_operations_manage(): void
+    // ============================== scope ==============================
+
+    public function test_a_franchise_holder_acts_only_inside_their_franchise(): void
     {
-        [, , $log] = $this->mismatch();
+        [$row, , $booking] = $this->bookingMismatch();
+        $this->limits('1000', '1000');
+        $otherFranchise = $this->makeFranchise();
+
+        $inside = $this->holder('franchise', $booking->franchise_id);
+        $outside = $this->holder('franchise', $otherFranchise->id);
+
         $this->gatewayNeverCalled();
+        $this->assertFalse($this->svc()->request($row, $outside, 'reason')['ok']);
+        $this->assertSame(MismatchRefund::AWAITING_REQUEST, $row->fresh()->status);
 
-        $manager = $this->makeUserWithPermission('operations.manage', 'global');
-        $this->grantPermission($manager, 'operations.view', 'global');
+        Livewire::actingAs($inside)->test(QueueIndex::class)->assertSee($row->gateway_payment_id);
 
-        Livewire::actingAs($manager)->test(Health::class)
-            ->call('startRefund', $log->id)
-            ->assertForbidden();
+        // The outside holder cannot even see the row: a Livewire call on it is "not found" (404), not a 403.
+        $component = Livewire::actingAs($outside)->test(QueueIndex::class)->assertDontSee($row->gateway_payment_id);
+        $this->expectException(\Illuminate\Database\Eloquent\ModelNotFoundException::class);
+        $component->call('startAction', $row->id, 'request');
 
-        Livewire::actingAs($manager)->test(Health::class)
-            ->set('refundingLogId', $log->id)->set('refundReason', 'x y z')
-            ->call('refundMismatch')
-            ->assertForbidden();
-
-        $result = app(AmountMismatchService::class)->refundCaptured($log, $manager, 'reason');
-        $this->assertFalse($result['ok']);
-        $this->assertSame('amount_mismatch', $log->fresh()->outcome);
     }
 
-    public function test_only_amount_mismatch_rows_are_refundable(): void
+    public function test_a_franchise_holder_inside_their_franchise_can_refund_within_their_limit(): void
     {
-        [, , $log] = $this->mismatch();
+        [$row, , $booking] = $this->bookingMismatch();
+        $this->limits('1000', '5000');
+        $this->gatewayExpecting($row->gateway_payment_id, 499.99);
+
+        $this->assertTrue($this->svc()->request($row, $this->holder('franchise', $booking->franchise_id), 'reason')['ok']);
+        $this->assertSame(MismatchRefund::REFUNDED, $row->fresh()->status);
+    }
+
+    // ============================== limits ==============================
+
+    public function test_each_level_is_held_to_its_own_limit(): void
+    {
+        [$row, , $booking] = $this->bookingMismatch(); // ₹499.99
+        $this->limits('400', '450');
+        $franchise = $this->holder('franchise', $booking->franchise_id);
+        $hq = $this->holder('global');
+        $super = $this->makeSuperAdmin();
+
+        // Franchise requester is over their ₹400 limit: recorded, not executed.
         $this->gatewayNeverCalled();
-        $log->update(['outcome' => 'captured']);
+        $this->assertTrue($this->svc()->request($row, $franchise, 'over my limit')['ok']);
+        $this->assertSame(MismatchRefund::AWAITING_APPROVAL, $row->fresh()->status);
 
-        $result = app(AmountMismatchService::class)->refundCaptured($log, $this->makeSuperAdmin(), 'reason');
+        // Neither the franchise holder (different row owner aside) nor the HQ holder (₹450) may approve ₹499.99.
+        $otherFranchiseHolder = $this->holder('franchise', $booking->franchise_id);
+        $this->assertFalse($this->svc()->approve($row, $otherFranchiseHolder, 'ok')['ok']);
+        $this->assertFalse($this->svc()->approve($row, $hq, 'ok')['ok']);
+        $this->assertNull($this->svc()->availableAction($row->fresh(), $hq));
 
-        $this->assertFalse($result['ok']);
+        // Above the HQ limit it is Super Admin only.
+        $this->gatewayExpecting($row->gateway_payment_id, 499.99);
+        $this->assertTrue($this->svc()->approve($row, $super, 'approved at HQ+')['ok']);
+        $this->assertSame(MismatchRefund::REFUNDED, $row->fresh()->status);
+    }
+
+    public function test_a_null_limit_means_that_level_cannot_approve(): void
+    {
+        [$row, , $booking] = $this->bookingMismatch();
+        $this->limits(null, null);
+        $franchise = $this->holder('franchise', $booking->franchise_id);
+        $hq = $this->holder('global');
+
+        $this->gatewayNeverCalled();
+
+        // Both may still REQUEST, but nothing executes.
+        $this->assertTrue($this->svc()->request($row, $franchise, 'please')['ok']);
+        $this->assertSame(MismatchRefund::AWAITING_APPROVAL, $row->fresh()->status);
+
+        $this->assertFalse($this->svc()->approve($row, $hq, 'ok')['ok']);
+        $this->assertFalse($this->svc()->approve($row, $this->holder('franchise', $booking->franchise_id), 'ok')['ok']);
+        $this->assertSame(MismatchRefund::AWAITING_APPROVAL, $row->fresh()->status);
+    }
+
+    public function test_hq_with_no_limit_cannot_execute_its_own_request_but_super_admin_can(): void
+    {
+        [$row] = $this->bookingMismatch();
+        $this->limits(null, null);
+
+        $this->gatewayExpecting($row->gateway_payment_id, 499.99);
+        $this->assertTrue($this->svc()->request($row, $this->holder('global'), 'asking')['ok']);
+        $this->assertSame(MismatchRefund::AWAITING_APPROVAL, $row->fresh()->status);
+
+        $this->assertTrue($this->svc()->approve($row, $this->makeSuperAdmin(), 'ok')['ok']);
+    }
+
+    // ============================== maker-checker ==============================
+
+    public function test_above_the_threshold_the_requester_can_never_approve_their_own_request(): void
+    {
+        [$row] = $this->bookingMismatch(); // ₹499.99
+        $this->limits('1000', '1000', '100'); // dual approval above ₹100
+        $maker = $this->holder('global');
+        $checker = $this->holder('global');
+
+        $this->gatewayNeverCalled();
+        $this->assertTrue($this->svc()->request($row, $maker, 'needs a second pair of eyes')['ok']);
+        $this->assertSame(MismatchRefund::AWAITING_APPROVAL, $row->fresh()->status, 'within the maker\'s limit but above the dual threshold');
+
+        $self = $this->svc()->approve($row, $maker, 'approving my own');
+        $this->assertFalse($self['ok']);
+        $this->assertStringContainsString('different user', $self['message']);
+        $this->assertNull($this->svc()->availableAction($row->fresh(), $maker));
+
+        $this->gatewayExpecting($row->gateway_payment_id, 499.99);
+        $this->assertTrue($this->svc()->approve($row, $checker, 'second approval')['ok']);
+
+        $row->refresh();
+        $this->assertSame($maker->id, $row->requested_by_id);
+        $this->assertSame($checker->id, $row->approved_by_id);
+        $this->assertNotNull(ActivityLog::where('description', 'like', 'Mismatch refund requested%')->first());
+        $this->assertNotNull(ActivityLog::where('description', 'like', 'Mismatch refund approved%')->first());
+    }
+
+    public function test_super_admin_cannot_approve_their_own_request_either(): void
+    {
+        [$row] = $this->bookingMismatch();
+        $this->limits('1000', '1000', '100');
+        $super = $this->makeSuperAdmin();
+
+        $this->gatewayNeverCalled();
+        $this->assertTrue($this->svc()->request($row, $super, 'mine')['ok']);
+        $this->assertFalse($this->svc()->approve($row, $super, 'mine again')['ok']);
+        $this->assertSame(MismatchRefund::AWAITING_APPROVAL, $row->fresh()->status);
+    }
+
+    public function test_a_null_threshold_turns_maker_checker_off(): void
+    {
+        [$row] = $this->bookingMismatch();
+        $this->limits('1000', '1000', null);
+
+        $this->gatewayExpecting($row->gateway_payment_id, 499.99);
+        $this->assertTrue($this->svc()->request($row, $this->holder('global'), 'single step')['ok']);
+        $this->assertSame(MismatchRefund::REFUNDED, $row->fresh()->status);
+    }
+
+    // ============================== idempotency & failure ==============================
+
+    public function test_a_refund_happens_once_a_second_attempt_never_reaches_the_gateway(): void
+    {
+        [$row] = $this->bookingMismatch();
+        $this->limits('1000', '1000');
+        $hq = $this->holder('global');
+        $this->gatewayExpecting($row->gateway_payment_id, 499.99, 1);
+
+        $this->assertTrue($this->svc()->request($row, $hq, 'first')['ok']);
+        $this->assertFalse($this->svc()->request($row->fresh(), $hq, 'second')['ok']);
+        $this->assertFalse($this->svc()->approve($row->fresh(), $this->makeSuperAdmin(), 'third')['ok']);
+        $this->assertFalse($this->svc()->retry($row->fresh(), $this->makeSuperAdmin())['ok']);
+    }
+
+    public function test_a_redelivered_event_for_a_refunded_payment_creates_no_second_refund(): void
+    {
+        [$row, $payment] = $this->bookingMismatch(null, 49999, 'pay_dup');
+        $this->limits('1000', '1000');
+        $this->gatewayExpecting('pay_dup', 499.99, 1);
+        $this->assertTrue($this->svc()->request($row, $this->holder('global'), 'first')['ok']);
+
+        $dup = PaymentWebhookLog::create([
+            'gateway' => 'razorpay', 'event' => 'payment.captured', 'gateway_order_id' => $payment->gateway_order_id,
+            'gateway_payment_id' => 'pay_dup', 'payment_id' => $payment->id, 'signature_valid' => true, 'processed' => false,
+            'outcome' => 'amount_mismatch', 'payload' => $row->webhookLog->payload, 'created_at' => now(),
+        ]);
+
+        $this->assertSame($row->id, $this->svc()->ensureForLog($dup)->id, 'still one row per gateway payment');
+        $this->assertSame(1, MismatchRefund::where('gateway_payment_id', 'pay_dup')->count());
+        $this->assertSame(MismatchRefund::REFUNDED, $row->fresh()->status);
     }
 
     public function test_a_gateway_failure_changes_nothing_is_logged_and_can_be_retried(): void
     {
-        [, , $log] = $this->mismatch();
-        $admin = $this->makeSuperAdmin();
+        [$row] = $this->bookingMismatch();
+        $this->limits('1000', '1000');
+        $hq = $this->holder('global');
 
         $failing = Mockery::mock(PaymentGateway::class);
         $failing->shouldReceive('refund')->once()->andThrow(new \RuntimeException('gateway down'));
         $this->app->instance(PaymentGateway::class, $failing);
 
-        $result = app(AmountMismatchService::class)->refundCaptured($log, $admin, 'try');
+        Notification::fake();
+        $result = $this->svc()->request($row, $hq, 'try');
 
         $this->assertFalse($result['ok']);
-        $this->assertSame('amount_mismatch', $log->fresh()->outcome);
+        $row->refresh();
+        $this->assertSame(MismatchRefund::FAILED, $row->status);
+        $this->assertNull($row->refunded_at);
+        $this->assertNull($row->refund_notice_sent_at);
+        $this->assertSame('amount_mismatch', PaymentWebhookLog::find($row->payment_webhook_log_id)->outcome);
         $this->assertNotNull(ActivityLog::where('description', 'like', 'Mismatch refund FAILED%')->first());
+        Notification::assertNotSentTo($this->customerOf($row), RefundProcessedNotification::class);
 
-        $this->app->forgetInstance(AmountMismatchService::class);
-        $this->gatewayExpecting(249.99);
-        $this->assertTrue(app(AmountMismatchService::class)->refundCaptured($log->fresh(), $admin, 'retry')['ok']);
+        $this->gatewayExpecting($row->gateway_payment_id, 499.99);
+        $this->assertSame('retry', $this->svc()->availableAction($row, $hq));
+        $this->assertTrue($this->svc()->retry($row, $hq)['ok']);
+        $this->assertSame(MismatchRefund::REFUNDED, $row->fresh()->status);
+        Notification::assertSentToTimes($this->customerOf($row), RefundProcessedNotification::class, 1);
     }
 
     public function test_nothing_is_refunded_automatically_when_a_mismatch_arrives(): void
@@ -215,76 +439,115 @@ class AmountMismatchRefundTest extends TestCase
         $spy->shouldReceive('verifyWebhookSignature')->andReturn(true);
         $this->app->instance(PaymentGateway::class, $spy);
 
-        [, , $log] = $this->mismatch();
+        [$row] = $this->bookingMismatch();
 
-        $this->assertSame('amount_mismatch', $log->outcome);
+        $this->assertSame(MismatchRefund::AWAITING_REQUEST, $row->status);
         $spy->shouldNotHaveReceived('refund');
     }
 
-    public function test_the_refund_button_is_only_rendered_for_a_super_admin(): void
+    // ============================== escalation ==============================
+
+    private function pushAdmin(User $user): User
     {
-        [, , $log] = $this->mismatch();
+        $user->forceFill(['push_ops_alerts' => true, 'fcm_token' => 'tok-'.Str::random(6)])->save();
 
-        Livewire::actingAs($this->makeSuperAdmin())->test(Health::class)->assertSee('Refund captured amount');
-
-        $manager = $this->makeUserWithPermission('operations.manage', 'global');
-        $this->grantPermission($manager, 'operations.view', 'global');
-        Livewire::actingAs($manager)->test(Health::class)->assertDontSee('Refund captured amount');
+        return $user;
     }
 
-    // ============================== customer notice ==============================
+    public function test_escalation_alerts_the_next_level_once_per_level_after_the_set_hours(): void
+    {
+        Setting::set('notifications.channels', 'mail,push');
+        Notification::fake();
 
-    public function test_customer_is_told_the_payment_is_under_review_with_the_default_copy(): void
+        [$row, , $booking] = $this->bookingMismatch(); // ₹499.99
+        $this->limits('1000', '5000');
+        Setting::set(MismatchRefundService::ESCALATE_HOURS_KEY, '2');
+
+        $franchise = $this->pushAdmin($this->holder('franchise', $booking->franchise_id));
+        $hq = $this->pushAdmin($this->holder('global'));
+        $super = $this->pushAdmin($this->makeSuperAdmin());
+
+        // Handled at franchise level, nothing yet.
+        $this->assertSame(0, $this->svc()->escalateOverdue());
+
+        Carbon::setTestNow(now()->addHours(3));
+        $this->assertSame(1, $this->svc()->escalateOverdue());
+        Notification::assertSentTo($hq, AdminOpsAlertNotification::class);
+        Notification::assertNotSentTo($franchise, AdminOpsAlertNotification::class);
+        Notification::assertNotSentTo($super, AdminOpsAlertNotification::class);
+        $this->assertSame(2, $row->fresh()->escalation_level);
+
+        // Same age again: no duplicate.
+        $this->assertSame(0, $this->svc()->escalateOverdue());
+
+        Carbon::setTestNow(now()->addHours(2));
+        $this->assertSame(1, $this->svc()->escalateOverdue());
+        Notification::assertSentTo($super, AdminOpsAlertNotification::class);
+        $this->assertSame(3, $row->fresh()->escalation_level);
+
+        // Reached Super Admin: nothing further.
+        Carbon::setTestNow(now()->addHours(10));
+        $this->assertSame(0, $this->svc()->escalateOverdue());
+    }
+
+    public function test_escalation_is_off_when_unset_and_skips_resolved_rows(): void
+    {
+        Setting::set('notifications.channels', 'mail,push');
+        Notification::fake();
+
+        [$row, , $booking] = $this->bookingMismatch();
+        $this->limits('1000', '5000');
+        $hq = $this->pushAdmin($this->holder('global'));
+
+        Carbon::setTestNow(now()->addDays(3));
+        $this->assertSame(0, $this->svc()->escalateOverdue(), 'null hours = off');
+        Notification::assertNotSentTo($hq, AdminOpsAlertNotification::class);
+
+        Setting::set(MismatchRefundService::ESCALATE_HOURS_KEY, '2');
+        $row->update(['status' => MismatchRefund::REFUNDED]);
+        $this->assertSame(0, $this->svc()->escalateOverdue(), 'refunded rows never escalate');
+    }
+
+    public function test_the_escalation_command_runs(): void
+    {
+        $this->artisan('refunds:escalate-mismatch')->assertSuccessful();
+    }
+
+    // ============================== refund notice ==============================
+
+    private function customerOf(MismatchRefund $row): User
+    {
+        return app(AmountMismatchService::class)->customerFor($row->payment);
+    }
+
+    public function test_the_refund_notice_goes_once_with_the_amount_filled_in(): void
+    {
+        Notification::fake();
+        [$row] = $this->bookingMismatch();
+        $this->limits('1000', '1000');
+        $this->gatewayExpecting($row->gateway_payment_id, 499.99);
+
+        $this->assertTrue($this->svc()->request($row, $this->holder('global'), 'go')['ok']);
+
+        $customer = $this->customerOf($row);
+        Notification::assertSentToTimes($customer, RefundProcessedNotification::class, 1);
+        Notification::assertSentTo($customer, RefundProcessedNotification::class, fn ($n) => $n->toPush($customer)['body']
+            === 'Your refund of ₹499.99 has been processed. It will reach your account in 5–7 working days.');
+        $this->assertNotNull($row->fresh()->refund_notice_sent_at);
+    }
+
+    // ============================== under-review notice ==============================
+
+    public function test_customer_is_told_the_payment_is_under_review_once_per_gateway_payment(): void
     {
         Notification::fake();
 
-        [$user] = $this->mismatch();
-
-        Notification::assertSentTo($user, PaymentUnderReviewNotification::class);
-        $this->assertSame("Your payment is under review. We'll update you within 24 hours.", app(AmountMismatchService::class)->customerMessage());
-    }
-
-    public function test_customer_is_only_notified_once_per_gateway_payment(): void
-    {
-        Notification::fake();
-
-        [$user, $payment, $log] = $this->mismatch(24999, 'pay_once');
+        [$row, $payment] = $this->bookingMismatch(null, 49999, 'pay_once');
         app(AmountMismatchService::class)->notifyCustomer($payment, 'pay_once');
 
-        Notification::assertSentToTimes($user, PaymentUnderReviewNotification::class, 1);
-    }
-
-    public function test_admin_can_edit_the_customer_copy_and_the_customer_gets_the_new_text(): void
-    {
-        $admin = $this->makeSuperAdmin();
-
-        Livewire::actingAs($admin)->test(Health::class)
-            ->set('mismatchCopy', 'We are checking your payment and will get back within a day.')
-            ->call('saveMismatchCopy')
-            ->assertHasNoErrors();
-
-        $this->assertSame('We are checking your payment and will get back within a day.', Setting::get(AmountMismatchService::COPY_KEY));
-        $this->assertNotNull(ActivityLog::where('description', 'Edited customer payment-under-review message')->first());
-
-        Notification::fake();
-        [$user] = $this->mismatch();
-
-        Notification::assertSentTo($user, PaymentUnderReviewNotification::class, function ($n) use ($user) {
-            return $n->toPush($user)['body'] === 'We are checking your payment and will get back within a day.';
-        });
-    }
-
-    public function test_only_a_super_admin_can_edit_the_copy(): void
-    {
-        $manager = $this->makeUserWithPermission('operations.manage', 'global');
-        $this->grantPermission($manager, 'operations.view', 'global');
-
-        Livewire::actingAs($manager)->test(Health::class)
-            ->set('mismatchCopy', 'Hacked message that is long enough.')
-            ->call('saveMismatchCopy')
-            ->assertForbidden();
-
-        $this->assertNull(Setting::get(AmountMismatchService::COPY_KEY));
+        $customer = $this->customerOf($row);
+        Notification::assertSentToTimes($customer, PaymentUnderReviewNotification::class, 1);
+        $this->assertSame("Your payment is under review. We'll update you within 24 hours.", app(AmountMismatchService::class)->customerMessage());
     }
 
     public function test_a_failing_notification_never_breaks_the_webhook(): void
@@ -294,15 +557,77 @@ class AmountMismatchRefundTest extends TestCase
             'gateway_order_id' => 'order_'.Str::random(10), 'status' => 'pending',
         ]);
 
-        // No customer resolvable for this payment: must still log the mismatch and answer 200.
-        $payload = ['event' => 'payment.captured', 'payload' => ['payment' => ['entity' => [
-            'order_id' => $payment->gateway_order_id, 'id' => 'pay_x', 'amount' => 5, 'currency' => 'INR',
-        ]]]];
-
-        $this->postJson('/api/webhooks/razorpay', $payload, [
-            'X-Razorpay-Signature' => hash_hmac('sha256', json_encode($payload), config('services.razorpay.webhook_secret')),
-        ])->assertOk();
+        $this->postCapture($payment, 5, 'pay_x'); // no customer resolvable: still 200
 
         $this->assertDatabaseHas('payment_webhook_logs', ['gateway_order_id' => $payment->gateway_order_id, 'outcome' => 'amount_mismatch']);
+        $this->assertDatabaseHas('mismatch_refunds', ['gateway_payment_id' => 'pay_x', 'amount_paise' => 5]);
+    }
+
+    // ============================== Refund Controls ==============================
+
+    public function test_super_admin_saves_every_control_and_each_change_is_audit_logged(): void
+    {
+        Livewire::actingAs($this->makeSuperAdmin())->test(RefundControls::class)
+            ->set('franchiseLimit', '2000')
+            ->set('hqLimit', '10000')
+            ->set('dualApprovalAbove', '5000')
+            ->set('escalateAfterHours', '6')
+            ->set('noticeUnderReview', 'We are checking your payment and will reply within a day.')
+            ->set('noticeRefunded', 'Refunded ₹[amount]; it should reach you in 5-7 working days.')
+            ->call('save')
+            ->assertHasNoErrors();
+
+        $this->assertSame('2000', Setting::get(MismatchRefundService::FRANCHISE_LIMIT_KEY));
+        $this->assertSame('10000', Setting::get(MismatchRefundService::HQ_LIMIT_KEY));
+        $this->assertSame('5000', Setting::get(MismatchRefundService::DUAL_APPROVAL_KEY));
+        $this->assertSame('6', Setting::get(MismatchRefundService::ESCALATE_HOURS_KEY));
+        $this->assertSame('We are checking your payment and will reply within a day.', app(AmountMismatchService::class)->customerMessage());
+        $this->assertSame('Refunded ₹12.50; it should reach you in 5-7 working days.', app(AmountMismatchService::class)->refundedMessage(12.5));
+        $this->assertSame(6, ActivityLog::where('description', 'like', 'Setting refund.mismatch.%')->count());
+    }
+
+    public function test_blank_clears_a_limit_back_to_not_configured(): void
+    {
+        $this->limits('100', '200', '50');
+        Setting::set(MismatchRefundService::ESCALATE_HOURS_KEY, '4');
+
+        Livewire::actingAs($this->makeSuperAdmin())->test(RefundControls::class)
+            ->set('franchiseLimit', '')->set('hqLimit', '')->set('dualApprovalAbove', '')->set('escalateAfterHours', '')
+            ->call('save')->assertHasNoErrors();
+
+        $this->assertNull(Setting::get(MismatchRefundService::FRANCHISE_LIMIT_KEY));
+        $this->assertNull($this->svc()->limitPaise(MismatchRefundService::LEVEL_FRANCHISE));
+        $this->assertNull($this->svc()->limitPaise(MismatchRefundService::LEVEL_HQ));
+        $this->assertNull($this->svc()->escalateAfterHours());
+    }
+
+    public function test_only_a_super_admin_can_open_or_save_refund_controls(): void
+    {
+        $holder = $this->holder('global');
+
+        Livewire::actingAs($holder)->test(RefundControls::class)->assertForbidden();
+        $this->assertNull(Setting::get(MismatchRefundService::HQ_LIMIT_KEY));
+    }
+
+    public function test_controls_validate_their_values(): void
+    {
+        $c = Livewire::actingAs($this->makeSuperAdmin())->test(RefundControls::class);
+
+        $c->set('franchiseLimit', '900')->set('hqLimit', '100')->call('save')->assertHasErrors('franchiseLimit');
+        $c->set('franchiseLimit', '-5')->set('hqLimit', '')->call('save')->assertHasErrors('franchiseLimit');
+        $c->set('franchiseLimit', '')->set('escalateAfterHours', '0')->call('save')->assertHasErrors('escalateAfterHours');
+        $c->set('escalateAfterHours', '')->set('noticeRefunded', 'Your refund has been processed, thanks.')->call('save')->assertHasErrors('noticeRefunded');
+    }
+
+    // ============================== Operations link ==============================
+
+    public function test_the_operations_log_links_to_the_queue_only_for_permission_holders(): void
+    {
+        $this->bookingMismatch();
+
+        Livewire::actingAs($this->makeSuperAdmin())->test(Health::class)->assertSee('Open refund queue');
+
+        $viewer = $this->makeUserWithPermission('operations.view', 'global');
+        Livewire::actingAs($viewer)->test(Health::class)->assertDontSee('Open refund queue');
     }
 }

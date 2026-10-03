@@ -76,6 +76,14 @@ ScheduleRunTracker::track(Schedule::command('dispatch:sweep-deadlines'), 'dispat
     ->everyMinute()
     ->withoutOverlapping(10);
 
+// MANUAL MONEY ACTIONS — mismatch-refund queue escalation (refund.mismatch.
+// escalate_after_hours; no-op while unset). Every 15 minutes is plenty for an
+// hours-scale threshold; each row escalates once per level. Same
+// schedule:run cron caveat as every entry above.
+ScheduleRunTracker::track(Schedule::command('refunds:escalate-mismatch'), 'refunds:escalate-mismatch')
+    ->everyFifteenMinutes()
+    ->withoutOverlapping(10);
+
 // REF 1CF-SCHEDULING-DISPATCH-001 — the scheduled-booking counterpart to
 // the sweep above: open-offer release/catch-up/re-offer plus
 // early-warning/urgent-alert/auto-cancel escalation and provider T-60/T-30

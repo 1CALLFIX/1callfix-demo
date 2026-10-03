@@ -174,6 +174,9 @@
                     ['label' => 'Cancellation Policy', 'route' => 'admin.cancellation-policy.index', 'icon' => 'shield', 'permission' => 'cancellation_policy.manage'],
                     ['label' => 'Commissions', 'route' => 'admin.commissions.index', 'icon' => 'banknotes', 'permission' => 'commissions.view'],
                     ['label' => 'Payments', 'route' => 'admin.payments.index', 'icon' => 'banknotes', 'permission' => 'payments.view'],
+                    ['label' => 'Mismatch Refunds', 'route' => 'admin.mismatch-refunds.index', 'icon' => 'banknotes', 'permission' => 'payments.refund_mismatch'],
+                    // super_admin only (permission never seeded to a role) — see the Earnings Control entry.
+                    ['label' => 'Refund Controls', 'route' => 'admin.refund-controls.index', 'icon' => 'shield', 'permission' => 'refund_controls.manage'],
                     ['label' => 'Payment Gateways', 'route' => 'admin.payment-gateways.index', 'icon' => 'shield', 'permission' => 'payment_gateways.manage'],
                 ],
             ],

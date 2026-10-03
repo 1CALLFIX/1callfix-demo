@@ -135,12 +135,22 @@ class PaymentController extends Controller
         // Other event types (refund.processed, etc.) are logged but not
         // handled yet — safe to ignore until those flows are built.
 
-        PaymentWebhookLog::create([
+        $receipt = PaymentWebhookLog::create([
             'event' => $event, 'gateway_order_id' => $orderId, 'gateway_payment_id' => $paymentIdFromPayload,
             'payment_id' => $result['payment']?->id, 'signature_valid' => true,
             'processed' => in_array($result['outcome'], ['captured', 'failed', 'already_processed'], true),
             'outcome' => $result['outcome'], 'payload' => $payload,
         ]);
+
+        // A mismatched capture joins the refund queue (best-effort: the 200 below must not depend on it;
+        // MismatchRefundService::syncFromLogs() backfills anything missed).
+        if ($result['outcome'] === RazorpayWebhookHandler::OUTCOME_AMOUNT_MISMATCH) {
+            try {
+                app(\App\Services\Payments\MismatchRefundService::class)->ensureForLog($receipt);
+            } catch (\Throwable $e) {
+                Log::error('Could not queue the mismatch refund row.', ['webhook_log_id' => $receipt->id, 'error' => $e->getMessage()]);
+            }
+        }
 
         // Always return 200 for any recognized, signature-valid webhook,
         // even for event types we don't act on — a non-2xx tells Razorpay
