@@ -129,99 +129,48 @@ class MembershipPricingEntitlementTest extends TestCase
         $this->assertSame(0, UsageLedger::count());
     }
 
-    // ============================== fee_waiver = "Free Service Visit": the visit charge ONLY ==============================
+    // ============================== fee_waiver = "Free Service Visit": NO-WORK visit charge only ==============================
 
-    /** A ₹500 service, a member with one `fee_waiver` free visit, and the booking placed through the real API. */
-    private function memberWithFreeVisit(int $quantity = 1, array $visitSettings = ['cancellation.visit_fee_type' => 'flat', 'cancellation.visit_fee_value' => '149']): array
+    /** A ₹500 service, a member with a `fee_waiver` free visit, and the booking placed through the real API. */
+    private function memberWithFreeVisit(string $method): array
     {
-        foreach ($visitSettings as $key => $value) {
-            \App\Models\Setting::set($key, $value); // before the booking: the policy snapshot freezes them onto it
-        }
+        \App\Models\Setting::set('cancellation.visit_fee_type', 'flat'); // before the booking: the policy snapshot freezes it
+        \App\Models\Setting::set('cancellation.visit_fee_value', '149');
 
         [, , $franchise, $zone] = $this->makeFranchiseTree();
         [, $service] = $this->makeCategoryAndService(); // base_price 500
         $customer = $this->makeCustomer();
         $address = $this->makeAddress($customer, $franchise, $zone);
 
-        $plan = $this->makeMembershipPlan(['entitlement_type' => 'fee_waiver', 'quantity' => $quantity]);
+        $plan = $this->makeMembershipPlan(['entitlement_type' => 'fee_waiver', 'quantity' => 1]);
         $result = app(SubscriptionService::class)->initiateSubscribe($customer, 'customer', $plan);
-        $subscription = Subscription::findOrFail($result['subscription_id']);
+        $balance = EntitlementBalance::where('subscription_id', $result['subscription_id'])->firstOrFail();
 
-        $book = fn (string $method = 'online') => $this->actingAs($customer, 'sanctum')
+        $this->actingAs($customer, 'sanctum')
             ->postJson('/api/bookings', ['service_id' => $service->id, 'address_id' => $address->id, 'payment_method' => $method])
             ->assertStatus(201);
 
-        $balance = fn () => EntitlementBalance::where('subscription_id', $subscription->id)->firstOrFail();
-
-        return [$book, $balance, $subscription, $service];
+        return [Booking::firstOrFail(), $balance];
     }
 
-    public function test_a_fee_waiver_removes_only_the_visit_charge_and_the_service_price_is_still_charged(): void
+    /**
+     * THUMB RULE (CLAUDE.md): the visit charge exists only when no work is done, so a booking that is going ahead is
+     * never repriced by it. A ₹500 service stays ₹500; the free visit is not consumed at booking time.
+     */
+    public function test_a_fee_waiver_never_reprices_a_booking_and_is_not_consumed_at_booking_time(): void
     {
-        [$book, $balance] = $this->memberWithFreeVisit();
+        foreach (['online', 'cash'] as $method) {
+            UsageLedger::query()->delete();
+            Booking::query()->forceDelete();
+            [$booking, $balance] = $this->memberWithFreeVisit($method);
 
-        $book();
-        $first = Booking::orderBy('id')->firstOrFail();
-
-        $this->assertEquals(351, $first->price_quoted, 'Only the 149 visit charge comes off the 500 service price.');
-        $this->assertGreaterThan(0, (float) $first->price_quoted, 'The service price must never be zeroed.');
-        $this->assertSame(0, $balance()->remainingQuantity(), 'One free visit was used.');
-
-        $ledger = UsageLedger::where('booking_id', $first->id)->where('event_type', 'consume')->firstOrFail();
-        $this->assertEquals(-149, $ledger->monetary_delta, 'The ledger records exactly the visit charge that was waived.');
-
-        // Quota spent: the next booking is charged in full.
-        $book();
-        $this->assertEquals(500, Booking::orderByDesc('id')->firstOrFail()->price_quoted);
+            $this->assertEquals(500, $booking->price_quoted, "{$method}: the service price is still charged in full");
+            $this->assertSame(1, $balance->fresh()->remainingQuantity(), "{$method}: the free visit is not used by a booking that goes ahead");
+            $this->assertSame(0, UsageLedger::count());
+        }
     }
 
-    public function test_a_percent_visit_charge_is_waived_as_that_percent_of_the_job_price_only(): void
-    {
-        [$book] = $this->memberWithFreeVisit(1, ['cancellation.visit_fee_type' => 'percent', 'cancellation.visit_fee_value' => '10']);
-
-        $book();
-
-        $this->assertEquals(450, Booking::firstOrFail()->price_quoted, '10% of 500 is the visit charge; the other 450 is still charged.');
-    }
-
-    public function test_a_fee_waiver_never_takes_more_than_the_visit_charge_even_for_a_visit_only_service(): void
-    {
-        // The visit charge is capped at the price: a 100 service with a 149 visit charge is at most fully waived,
-        // never pushed negative, and a normal 500 service is never zeroed (see the first test).
-        [$book, , , $service] = $this->memberWithFreeVisit();
-        $service->update(['base_price' => 100]);
-
-        $book();
-
-        $this->assertEquals(0, Booking::firstOrFail()->price_quoted);
-    }
-
-    public function test_no_visit_charge_configured_means_nothing_is_waived_and_no_free_visit_is_used(): void
-    {
-        [$book, $balance] = $this->memberWithFreeVisit(1, []); // cancellation.visit_fee_value never set: fail closed
-
-        $book();
-
-        $this->assertEquals(500, Booking::firstOrFail()->price_quoted);
-        $this->assertSame(1, $balance()->remainingQuantity(), 'A free visit is not burned when there was nothing to waive.');
-        $this->assertSame(0, UsageLedger::count());
-    }
-
-    public function test_a_cash_booking_gets_no_waiver_because_only_online_payment_receives_benefits(): void
-    {
-        [$book, $balance] = $this->memberWithFreeVisit();
-
-        $book('cash');
-
-        $this->assertEquals(500, Booking::firstOrFail()->price_quoted, 'THUMB RULE: cash bookings get no benefit of any kind.');
-        $this->assertSame(1, $balance()->remainingQuantity());
-        $this->assertSame(0, UsageLedger::count());
-
-        $book('online'); // the same member, paying online, does get it
-        $this->assertEquals(351, Booking::orderByDesc('id')->firstOrFail()->price_quoted);
-    }
-
-    public function test_included_service_entitlements_are_unchanged_by_the_fee_waiver_fix(): void
+    public function test_included_service_entitlements_are_unchanged_by_the_visit_charge_rule(): void
     {
         [, , $franchise, $zone] = $this->makeFranchiseTree();
         [, $service] = $this->makeCategoryAndService();

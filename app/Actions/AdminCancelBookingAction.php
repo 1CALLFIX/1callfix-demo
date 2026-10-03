@@ -106,6 +106,10 @@ class AdminCancelBookingAction
             $this->entitlementService->reverseForCancelledBooking($booking);
         }
 
+        // Free Service Visit: a unit is used ONLY here — a no-work cancellation after the professional's verified
+        // arrival whose visit charge the waiver forgave. Never on creation or completion (thumb rule, CLAUDE.md).
+        app(\App\Services\Cancellation\PrimeWaiver::class)->consumeForNoWorkVisit($booking);
+
         if ($booking->customer) {
             $channels = ChannelResolver::resolve(['zone_id' => $booking->zone_id, 'franchise_id' => $booking->franchise_id]);
             $booking->customer->notify(new BookingStatusNotification($customerNotificationEvent ?? 'cancelled', $booking, $channels));
