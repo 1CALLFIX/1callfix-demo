@@ -120,7 +120,8 @@ class AppServiceProvider extends ServiceProvider
         // that keeps today's env-config behaviour identical until an admin
         // actually configures something.
         $this->app->singleton(PaymentGatewayManager::class);
-        $this->app->bind(PaymentGateway::class, fn ($app) => $app->make(PaymentGatewayManager::class)->active());
+        // 0d — every refund failure, whichever code path asked for it, raises the refund_failed admin alert.
+        $this->app->bind(PaymentGateway::class, fn ($app) => new \App\Services\Payments\RefundAlertingGateway($app->make(PaymentGatewayManager::class)->active()));
 
         // Timezone fix pass: TimezoneResolver memoises platformTimezone()
         // (one Country query for "the" platform wall clock) per instance, so

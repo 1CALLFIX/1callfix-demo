@@ -82,6 +82,10 @@ class PaymentGatewayTest extends TestCase
     public function test_razorpay_service_satisfies_the_payment_gateway_contract(): void
     {
         $gateway = app(PaymentGateway::class);
+        // 0d: the bound gateway is wrapped by RefundAlertingGateway; these assertions are about the driver underneath.
+        if ($gateway instanceof \App\Services\Payments\RefundAlertingGateway) {
+            $gateway = $gateway->unwrap();
+        }
 
         $this->assertInstanceOf(RazorpayPaymentDriver::class, $gateway);
         $this->assertSame('razorpay', $gateway->identifier());

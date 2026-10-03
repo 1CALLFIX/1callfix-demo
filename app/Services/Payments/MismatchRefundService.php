@@ -99,7 +99,7 @@ class MismatchRefundService
 
     // ============================== levels & scope ==============================
 
-    private function scopeFor(?int $franchiseId): array
+    public function scopeFor(?int $franchiseId): array
     {
         if (! $franchiseId) {
             return [];

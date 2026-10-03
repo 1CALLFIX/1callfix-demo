@@ -123,6 +123,8 @@ Route::middleware(['auth', \App\Http\Middleware\EnsureHasAdminAccess::class])
         // its Super Admin-only controls (limits, thresholds, notice copy).
         Route::get('/mismatch-refunds', \App\Livewire\MismatchRefunds\Index::class)->name('admin.mismatch-refunds.index');
         Route::get('/refund-controls', \App\Livewire\RefundControls\Manage::class)->name('admin.refund-controls.index');
+        // 0d — Super Admin on/off for the critical-alert emails.
+        Route::get('/alert-emails', \App\Livewire\AlertEmails\Manage::class)->name('admin.alert-emails.index');
         Route::get('/payment-gateways', PaymentGatewaysManage::class)->name('admin.payment-gateways.index');
         Route::get('/notifications', NotificationCenterManage::class)->name('admin.notifications.index');
         Route::get('/plans', PlansManage::class)->name('admin.plans.index');
