@@ -107,6 +107,44 @@ class AdminOpsAlertService
         $this->fanOutScoped($event, $booking);
     }
 
+    /**
+     * MANUAL MONEY ACTIONS escalation — a mismatch refund has sat open past
+     * refund.mismatch.escalate_after_hours. Goes ONLY to holders of the
+     * target level for that row's franchise (1 franchise, 2 HQ, 3 Super
+     * Admin), never platform-wide, so many branches stay quiet.
+     */
+    public function mismatchRefundEscalation(\App\Models\MismatchRefund $refund, int $level): void
+    {
+        $channels = array_values(array_intersect(ChannelResolver::resolve([]), [PushChannel::class]));
+
+        if (empty($channels)) {
+            return;
+        }
+
+        $service = app(\App\Services\Payments\MismatchRefundService::class);
+
+        User::query()
+            ->where('push_ops_alerts', true)
+            ->whereNotNull('fcm_token')
+            ->chunkById(200, function ($admins) use ($refund, $level, $channels, $service) {
+                foreach ($admins as $admin) {
+                    if ($service->levelOf($admin, $refund->franchise_id) !== $level) {
+                        continue;
+                    }
+
+                    try {
+                        $admin->notify(new AdminOpsAlertNotification('mismatch_refund_escalation', $refund, $channels));
+                    } catch (\Throwable $e) {
+                        Log::warning('AdminOpsAlertService: failed to queue mismatch refund escalation.', [
+                            'refund_id' => $refund->id,
+                            'admin_id' => $admin->id,
+                            'error' => $e->getMessage(),
+                        ]);
+                    }
+                }
+            });
+    }
+
     private function fanOutScoped(string $event, Booking $booking): void
     {
         $channels = array_values(array_intersect(ChannelResolver::resolve([]), [PushChannel::class]));

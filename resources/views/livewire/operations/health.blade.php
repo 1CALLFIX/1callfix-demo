@@ -394,7 +394,7 @@
                 <th class="px-4 py-2">Order ID</th>
                 <th class="px-4 py-2">Signature</th>
                 <th class="px-4 py-2">When</th>
-                @if ($canManage)
+                @if ($canManage || $canOpenMismatchQueue)
                     <th class="px-4 py-2">Actions</th>
                 @endif
             </tr>
@@ -406,8 +406,8 @@
                     <td class="px-4 py-2 font-mono text-xs">{{ $log->event ?? '—' }}</td>
                     <td class="px-4 py-2">
                         <x-ui.badge :color="match(true) {
-                            in_array($log->outcome, ['captured', 'failed', 'already_processed']) => 'green',
-                            in_array($log->outcome, ['invalid_signature', 'unmatched_order']) => 'red',
+                            in_array($log->outcome, ['captured', 'failed', 'already_processed', 'amount_mismatch_refunded']) => 'green',
+                            in_array($log->outcome, ['invalid_signature', 'unmatched_order', 'amount_mismatch']) => 'red',
                             $log->outcome === 'unhandled_event' => 'gray',
                             default => 'gray',
                         }">{{ $log->outcome }}</x-ui.badge>
@@ -415,10 +415,12 @@
                     <td class="px-4 py-2 text-gray-500 font-mono text-xs">{{ $log->gateway_order_id ?? '—' }}</td>
                     <td class="px-4 py-2 text-gray-500">{{ $log->signature_valid ? 'valid' : 'invalid' }}</td>
                     <td class="px-4 py-2 text-gray-500 whitespace-nowrap">{{ $log->created_at?->format('d M Y, h:i A') }}</td>
-                    @if ($canManage)
+                    @if ($canManage || $canOpenMismatchQueue)
                         <td class="px-4 py-2 whitespace-nowrap">
-                            @if (in_array($log->outcome, ['unmatched_order', 'unhandled_event', 'invalid_signature']))
+                            @if ($canManage && in_array($log->outcome, ['unmatched_order', 'unhandled_event', 'invalid_signature']))
                                 <x-ui.button variant="ghost" wire:click="reprocessWebhook({{ $log->id }})" wire:confirm="Reprocess this webhook event?">Reprocess</x-ui.button>
+                            @elseif ($canOpenMismatchQueue && $log->outcome === 'amount_mismatch')
+                                <x-ui.button variant="ghost" :href="route('admin.mismatch-refunds.index')">Open refund queue</x-ui.button>
                             @else
                                 <span class="text-gray-300 text-xs">—</span>
                             @endif
@@ -426,7 +428,7 @@
                     @endif
                 </tr>
             @empty
-                <tr><td colspan="{{ $canManage ? 7 : 6 }}" class="px-4 py-6 text-center text-gray-400">No webhook receipts logged.</td></tr>
+                <tr><td colspan="{{ ($canManage || $canOpenMismatchQueue) ? 7 : 6 }}" class="px-4 py-6 text-center text-gray-400">No webhook receipts logged.</td></tr>
             @endforelse
         </tbody>
     </x-ui.table>

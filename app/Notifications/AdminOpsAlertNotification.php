@@ -43,6 +43,10 @@ class AdminOpsAlertNotification extends Notification implements ShouldQueue
 
     public function pushLink($notifiable): string
     {
+        if ($this->subject instanceof \App\Models\MismatchRefund) {
+            return route('admin.mismatch-refunds.index');
+        }
+
         if ($this->subject instanceof Booking) {
             return route('admin.bookings.show', $this->subject->id);
         }
@@ -66,6 +70,7 @@ class AdminOpsAlertNotification extends Notification implements ShouldQueue
             'scheduled_early_warning' => $this->scheduledEarlyWarningCopy(),
             'scheduled_urgent_alert' => $this->scheduledUrgentAlertCopy(),
             'job_at_risk' => $this->jobAtRiskCopy(),
+            'mismatch_refund_escalation' => $this->mismatchRefundEscalationCopy(),
             // REF 1CF-CANCEL-POLICY-001
             'cancel_charge_unpaid' => ['title' => 'Cancellation charge unpaid', 'body' => "Booking {$this->subject->code} has a cancellation charge unpaid for over 7 days. Review it: collect, or waive with a reason."],
             'interim_dispute' => ['title' => 'Progress figures disputed', 'body' => "The customer disputed the declared progress on booking {$this->subject->code}. The cancellation is waiting for your review."],
@@ -165,6 +170,18 @@ class AdminOpsAlertNotification extends Notification implements ShouldQueue
         return [
             'title' => 'Job at risk: professional left',
             'body' => "Booking {$b->code} — {$service} — was flagged mid-work ({$b->hold_note}). Reassign it or cancel (no fee).",
+        ];
+    }
+
+    /** MANUAL MONEY ACTIONS — a mismatch refund has waited too long at a lower level. */
+    private function mismatchRefundEscalationCopy(): array
+    {
+        /** @var \App\Models\MismatchRefund $r */
+        $r = $this->subject;
+
+        return [
+            'title' => 'Mismatch refund needs approval',
+            'body' => '₹'.number_format($r->amountRupees(), 2)." mismatched payment has been waiting since {$r->created_at->format('d M, h:i A')}. Open the queue to act.",
         ];
     }
 

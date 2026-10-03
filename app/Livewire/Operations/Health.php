@@ -15,6 +15,7 @@ use App\Services\ActivityLogger;
 use App\Services\Operations\DispatchHealthService;
 use App\Services\Operations\ReconciliationService;
 use App\Services\Operations\StuckBookingService;
+use App\Services\Payments\MismatchRefundService;
 use App\Services\Payments\RazorpayWebhookHandler;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
@@ -60,6 +61,12 @@ class Health extends Component
     public function mount(): void
     {
         abort_unless(auth()->user()->hasPermissionAnywhere('operations.view'), 403, 'You do not have permission to view operations.');
+    }
+
+    /** Mismatch refunds are handled in the approval queue (MANUAL MONEY ACTIONS model), not from this screen. */
+    private function canOpenMismatchQueue(): bool
+    {
+        return app(MismatchRefundService::class)->canEnter(auth()->user());
     }
 
     private function canManage(): bool
@@ -135,6 +142,10 @@ class Health extends Component
             'processed' => in_array($result['outcome'], ['captured', 'failed', 'already_processed'], true),
             'outcome' => $result['outcome'],
         ]);
+
+        if ($result['outcome'] === RazorpayWebhookHandler::OUTCOME_AMOUNT_MISMATCH) {
+            app(MismatchRefundService::class)->ensureForLog($log->fresh());
+        }
 
         ActivityLogger::logModel(auth()->user(), $log, "Reprocessed webhook log #{$log->id}", ['new_outcome' => $result['outcome']]);
 
@@ -218,6 +229,7 @@ class Health extends Component
             'notificationFailureCount' => NotificationLog::where('status', 'failed')->count(),
             'checks' => $this->healthChecks(),
             'canManage' => $this->canManage(),
+            'canOpenMismatchQueue' => $this->canOpenMismatchQueue(),
             'reconciliation' => app(ReconciliationService::class)->detect(auth()->user()),
             'dispatchHealth' => app(DispatchHealthService::class)->stats(auth()->user()),
             'stuckBookings' => app(StuckBookingService::class)->detect(auth()->user()),

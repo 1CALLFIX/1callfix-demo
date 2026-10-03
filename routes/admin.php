@@ -119,6 +119,10 @@ Route::middleware(['auth', \App\Http\Middleware\EnsureHasAdminAccess::class])
         Route::get('/loyalty', LoyaltyIndex::class)->name('admin.loyalty.index');
         Route::get('/commissions', CommissionsIndex::class)->name('admin.commissions.index');
         Route::get('/payments', PaymentsIndex::class)->name('admin.payments.index');
+        // MANUAL MONEY ACTIONS — mismatch refund queue (permission payments.refund_mismatch, scoped in the component) and
+        // its Super Admin-only controls (limits, thresholds, notice copy).
+        Route::get('/mismatch-refunds', \App\Livewire\MismatchRefunds\Index::class)->name('admin.mismatch-refunds.index');
+        Route::get('/refund-controls', \App\Livewire\RefundControls\Manage::class)->name('admin.refund-controls.index');
         Route::get('/payment-gateways', PaymentGatewaysManage::class)->name('admin.payment-gateways.index');
         Route::get('/notifications', NotificationCenterManage::class)->name('admin.notifications.index');
         Route::get('/plans', PlansManage::class)->name('admin.plans.index');
