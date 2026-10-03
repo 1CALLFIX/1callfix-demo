@@ -201,7 +201,10 @@ class CancellationPolicy
         return $lines;
     }
 
-    /** "Visit and inspection charge ₹X, adjusted in your final bill if you go ahead with the work." — null while the charge is 0/unset. */
+    /** THUMB RULE (CLAUDE.md): the visit charge exists only for a no-work visit; never implied to be added to a job that is done. */
+    public const NO_WORK_NOTE = '. It applies only if the professional arrives and no work is done. If the work is carried out, there is no visit charge.';
+
+    /** "Visit and inspection charge ₹X. It applies only if the professional arrives and no work is done. If the work is carried out, there is no visit charge." — null while the charge is 0/unset. */
     public function visitChargeText(?Booking $booking = null, ?array $raw = null): ?string
     {
         [$type, $value] = $this->visitChargeParts($booking, $raw);
@@ -209,14 +212,14 @@ class CancellationPolicy
             return null;
         }
 
-        // Launch price configured: "Visit charge ₹X (launch price, regular ₹Y), adjusted in your final bill…"
+        // Launch price configured: "Visit charge ₹X (launch price, regular ₹Y). It applies only if…"
         if ($type !== 'percent' && $this->regularPrice($booking, $raw, $value) !== null) {
-            return $this->visitChargeLabel($booking, $raw).', adjusted in your final bill if you go ahead with the work.';
+            return $this->visitChargeLabel($booking, $raw).self::NO_WORK_NOTE;
         }
 
         $amount = $type === 'percent' ? rtrim(rtrim(number_format($value, 2), '0'), '.').'% of the job price' : self::money($value);
 
-        return "Visit and inspection charge {$amount}, adjusted in your final bill if you go ahead with the work.";
+        return "Visit and inspection charge {$amount}".self::NO_WORK_NOTE;
     }
 
     /**

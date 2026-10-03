@@ -88,7 +88,7 @@ class CancellationFlowApiAndScreensTest extends TestCase
 
         $this->actingAs($s['customer'], 'sanctum')->getJson('/api/cancellation/policy')
             ->assertOk()
-            ->assertJsonPath('visit_charge_text', 'Visit and inspection charge ₹149, adjusted in your final bill if you go ahead with the work.')
+            ->assertJsonPath('visit_charge_text', 'Visit and inspection charge ₹149. It applies only if the professional arrives and no work is done. If the work is carried out, there is no visit charge.')
             ->assertJsonStructure(['lines']);
     }
 
@@ -100,7 +100,7 @@ class CancellationFlowApiAndScreensTest extends TestCase
 
         Setting::set('cancellation.visit_fee_value', '149');
         $html = Blade::render('<x-cancellation-policy :lines="[]" />');
-        $this->assertStringContainsString('Visit and inspection charge ₹149, adjusted in your final bill if you go ahead with the work.', $html);
+        $this->assertStringContainsString('Visit and inspection charge ₹149. It applies only if the professional arrives and no work is done. If the work is carried out, there is no visit charge.', $html);
 
         Setting::set('cancellation.visit_fee_value', '200');
         $this->assertStringContainsString('₹200', Blade::render('<x-cancellation-policy :lines="[]" />'));
@@ -113,7 +113,7 @@ class CancellationFlowApiAndScreensTest extends TestCase
         BookingQuote::create(['booking_id' => $s['booking']->id, 'provider_id' => $s['provider']->id, 'amount' => 900, 'status' => 'sent', 'sent_at' => now()]);
 
         $c = Livewire::actingAs($s['customer'])->test(CustomerOrderShow::class, ['booking' => $s['booking']])
-            ->assertSee('Visit and inspection charge ₹149, adjusted in your final bill if you go ahead with the work.')
+            ->assertSee('Visit and inspection charge ₹149. It applies only if the professional arrives and no work is done. If the work is carried out, there is no visit charge.')
             ->assertDontSee('₹999')
             ->assertSee('Quote from your professional');
 

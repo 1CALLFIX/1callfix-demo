@@ -438,7 +438,7 @@ class CancellationPolicyScenariosTest extends TestCase
         $this->assertNull($b->cancellation_fee);
         $this->assertSame(0, BookingCancellationRequest::where('booking_id', $b->id)->count());
         $this->assertSame(0, Payment::where('booking_id', $b->id)->where('purpose', 'cancellation_fee')->count(), 'no separate visit-fee charge');
-        $this->assertStringContainsString('adjusted in your final bill', (string) app(CancellationPolicy::class)->visitChargeText($b));
+        $this->assertStringContainsString('there is no visit charge', (string) app(CancellationPolicy::class)->visitChargeText($b));
     }
 
     public function test_prime_waiver_toggle_on_waives_the_en_route_and_visit_charges_and_off_does_not(): void
@@ -684,7 +684,7 @@ class CancellationPolicyScenariosTest extends TestCase
             ->set('inputs.'.Manage::field('cancellation.visit_fee_value'), '149')
             ->html();
 
-        $this->assertStringContainsString('Visit and inspection charge ₹149, adjusted in your final bill if you go ahead with the work.', $html);
+        $this->assertStringContainsString('Visit and inspection charge ₹149. It applies only if the professional arrives and no work is done. If the work is carried out, there is no visit charge.', $html);
     }
 
     public function test_the_operations_tab_lists_held_pending_and_disputed_bookings(): void

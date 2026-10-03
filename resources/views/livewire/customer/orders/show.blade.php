@@ -124,7 +124,7 @@
             @if ($pendingQuote)
                 <section class="rounded-2xl border border-blue-300 bg-blue-50 p-4 sm:p-5" aria-live="polite" data-testid="pending-quote">
                     <h2 class="text-sm font-semibold text-blue-900">Quote from your professional</h2>
-                    <p class="mt-1 text-sm text-blue-900"><strong>{{ $currencySymbol }}{{ number_format((float) $pendingQuote->amount, 2) }}</strong> for this job. If you accept, the visit and inspection charge is adjusted in your final bill.</p>
+                    <p class="mt-1 text-sm text-blue-900"><strong>{{ $currencySymbol }}{{ number_format((float) $pendingQuote->amount, 2) }}</strong> for this job. If you accept and the work is carried out, there is no visit or inspection charge.</p>
                     <div class="mt-3 flex flex-wrap gap-2">
                         <button type="button" wire:click="respondToQuote({{ $pendingQuote->id }}, true)" wire:loading.attr="disabled" class="min-h-11 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700">Accept quote</button>
                         <button type="button" wire:click="respondToQuote({{ $pendingQuote->id }}, false)" wire:loading.attr="disabled" class="min-h-11 rounded-lg border border-blue-300 bg-white px-4 py-2 text-sm font-semibold text-blue-900 hover:bg-blue-100">Decline</button>
