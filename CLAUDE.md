@@ -92,3 +92,14 @@ adjustments, and any future one) must use:
    franchise users approve, they never hold or move funds.
 Never build a manual money action as "Super Admin only" without this
 model.
+
+### THUMB RULE — VISIT/INSPECTION CHARGE ONLY WHEN NO WORK IS DONE
+- The visit/inspection charge (`cancellation.visit_fee_value`, currently ₹149 launch,
+  regular ₹199) applies ONLY when the provider verifiably arrived and NO work was
+  performed: the customer refuses, postpones, takes an estimate only, says they must ask
+  the owner, cannot be reached, or rejects the quote.
+- If any service is performed, the visit charge is NEVER added. Example: ₹500 service
+  completed → customer pays ₹500.
+- The Prime "Free Service Visit" waiver only waives that no-work visit charge. On a
+  completed job it is not applied and not consumed.
+- Applies to every module and every channel (web, API, admin, bundles, invoices).
