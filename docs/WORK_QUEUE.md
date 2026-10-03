@@ -107,6 +107,18 @@ invoice line, audit service, 40 tests. Open items carried forward:
 Re-add the classes in docs/PENDING_FRONTEND_BUILD_ITEMS.md in the next change that needs a
 front-end build.
 
+## Ad launch proposals (audit 2026-10-04, proposals only — nothing built)
+
+| Tag | Proposal |
+|---|---|
+| AD-BLOCKER | Confirm what `1callfix.com` and `www.1callfix.com` really serve (vhost/docRoot/cache) via the read-only commands in the audit report; ads must not land on the old Glover page. |
+| AD-BLOCKER | Confirm the 26 Sep docRoot switch did not break the Glover mobile app (`com.call.customer`) that calls `1callfix.com/api/*` (risk R1 in PHASE_SEO_DISCOVERY_AND_MIGRATION_BASELINE.md). |
+| AD-BLOCKER | Ad landing URL: a category page `/categories/{slug}` (slug-based) or `/services/{id}`; neither shows the visit charge, the booking wizard review does. Reword that text to the Step 3 thumb rule (charge applies only when no work is done). |
+| AD-BLOCKER | UTM/gclid capture: nothing captures it today. Smallest change = a middleware that stores first-touch utm_*/gclid/fbclid in session + a 30-day cookie, copied at booking creation into one new nullable JSON column `bookings.acquisition` (migration needs owner approval; up()/down() to be shown first). |
+| LATER | SEO layer: canonical URL, Open Graph/Twitter tags, JSON-LD (LocalBusiness + Service), alt text on catalog images, slug-based service URLs (`services.slug` is not unique today). |
+| LATER | Commit PHASE_SEO_DISCOVERY_AND_MIGRATION_BASELINE.md under docs/ with a "dated 2026-09-25, partly superseded" header (sitemap.xml/robots.txt were built after it). |
+| LATER | Root-domain cutover items from that report: HTTPS + www→apex 301, `assetlinks.json` ownership, Glover `/api/*` collision decision. |
+
 ## Done (for context)
 
 | Item | Where |
