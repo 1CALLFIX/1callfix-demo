@@ -68,7 +68,7 @@ Route::post('/admin/logout', function () {
     return redirect()->route('admin.login');
 })->middleware('auth')->name('admin.logout');
 
-Route::middleware(['auth', \App\Http\Middleware\EnsureHasAdminAccess::class])
+Route::middleware(['auth', \Illuminate\Session\Middleware\AuthenticateSession::class, \App\Http\Middleware\EnsureHasAdminAccess::class])
     ->prefix('admin')
     ->group(function () {
         Route::get('/dashboard', Dashboard::class)->name('admin.dashboard');
