@@ -71,3 +71,24 @@ balance or promotional/referral credit.
   enforce this rule and include tests proving cash is rejected.
 - Super Admin cannot override this per booking. Any exception needs the
   owner's explicit approval and a code change.
+
+### MANUAL MONEY ACTIONS — APPROVAL MODEL
+Any action where a person moves, refunds, waives or adjusts money
+(mismatch refunds, cancellation charge waivers, manual payouts, wallet
+adjustments, and any future one) must use:
+1. A dedicated permission, assignable to roles by Super Admin. Super
+   Admin always holds it. Checked server-side.
+2. Scope: franchise-scoped holders act only within their franchise; HQ
+   holders act on all.
+3. Amount limits per level as settings (franchise, HQ, above HQ = Super
+   Admin only). Null limit = that level cannot approve.
+4. Maker-checker above a configurable threshold: requester and approver
+   must be different users.
+5. A queue showing age, amount, franchise and status, with time-based
+   escalation to the next level (configurable hours).
+6. Reason required, full audit log, idempotent, no automatic execution
+   unless the owner explicitly approves an automated rule.
+7. Customer-facing money always moves through the HQ gateway or ledger;
+   franchise users approve, they never hold or move funds.
+Never build a manual money action as "Super Admin only" without this
+model.
