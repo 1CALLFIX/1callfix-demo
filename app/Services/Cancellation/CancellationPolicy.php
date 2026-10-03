@@ -127,8 +127,16 @@ class CancellationPolicy
 
         if ($booking->arrival_verified_at !== null) {
             $fee = $this->calculator->visitFee($booking, $price);
+            $standard = $this->calculator->standardVisitFee($booking, $price);
 
-            return $this->allow('visit_charge', 'The professional has arrived. You can cancel; a visit and inspection charge applies.', $fee, null, $fee <= 0, ['code' => 'visit_charge', 'visit_fee' => $fee, 'prime_waived' => $waived]);
+            return $this->allow('visit_charge', 'The professional has arrived. You can cancel; a visit and inspection charge applies.', $fee, null, $fee <= 0, [
+                'code' => 'visit_charge',
+                'visit_fee' => $fee,
+                'prime_waived' => $waived,
+                // What Prime forgoes: the very same snapshot-derived amount, so it can never drift from the charge.
+                'prime_waived_amount' => $waived ? $standard : 0.0,
+                'display' => $this->visitChargeLabel($booking, null, $waived ? $standard : null),
+            ]);
         }
 
         $fee = $waived ? 0.0 : $this->cap((float) PolicySettings::get($booking, 'cancellation.en_route_fee'), $price);
@@ -196,16 +204,93 @@ class CancellationPolicy
     /** "Visit and inspection charge ₹X, adjusted in your final bill if you go ahead with the work." — null while the charge is 0/unset. */
     public function visitChargeText(?Booking $booking = null, ?array $raw = null): ?string
     {
-        $get = fn (string $key) => $raw !== null ? PolicySettings::cast($key, $raw[$key] ?? null) : ($booking ? PolicySettings::get($booking, $key) : PolicySettings::current($key));
-        $type = $get('cancellation.visit_fee_type');
-        $value = (float) $get('cancellation.visit_fee_value');
+        [$type, $value] = $this->visitChargeParts($booking, $raw);
         if ($value <= 0) {
             return null;
+        }
+
+        // Launch price configured: "Visit charge ₹X (launch price, regular ₹Y), adjusted in your final bill…"
+        if ($type !== 'percent' && $this->regularPrice($booking, $raw, $value) !== null) {
+            return $this->visitChargeLabel($booking, $raw).', adjusted in your final bill if you go ahead with the work.';
         }
 
         $amount = $type === 'percent' ? rtrim(rtrim(number_format($value, 2), '0'), '.').'% of the job price' : self::money($value);
 
         return "Visit and inspection charge {$amount}, adjusted in your final bill if you go ahead with the work.";
+    }
+
+    /**
+     * The visit charge the way customers read it, one wording everywhere (cancel quote, API, policy text):
+     *   "Visit charge ₹X"                                          no regular price configured
+     *   "Visit charge ₹X (launch price, regular ₹Y)"               `cancellation.visit_fee_regular` set and higher
+     *   "Visit charge ₹X — waived with your Prime membership"      $primeWaivedAmount given
+     * Null while the charge is 0/unset. The amounts always come from the booking's snapshot (or the live settings
+     * when there is no booking / for the admin preview); only the wording template is live.
+     */
+    public function visitChargeLabel(?Booking $booking = null, ?array $raw = null, ?float $primeWaivedAmount = null): ?string
+    {
+        [$type, $value] = $this->visitChargeParts($booking, $raw);
+        if ($value <= 0) {
+            return null;
+        }
+
+        $amount = $primeWaivedAmount !== null && $primeWaivedAmount > 0 ? $primeWaivedAmount : null;
+
+        if ($type === 'percent') {
+            $text = rtrim(rtrim(number_format($value, 2), '0'), '.').'% of the job price';
+
+            return $amount !== null ? "Visit charge {$text} — waived with your Prime membership" : "Visit charge {$text}";
+        }
+
+        if ($amount !== null) {
+            return 'Visit charge '.self::money($amount).' — waived with your Prime membership';
+        }
+
+        $regular = $this->regularPrice($booking, $raw, $value);
+
+        return $regular === null
+            ? 'Visit charge '.self::money($value)
+            : str_replace(['{charge}', '{regular}'], [self::money($value), self::money($regular)], $this->launchWording($raw));
+    }
+
+    /** @return array{0: string, 1: float} [type, value] of the visit charge from the snapshot / live / unsaved values. */
+    private function visitChargeParts(?Booking $booking, ?array $raw): array
+    {
+        $get = fn (string $key) => $raw !== null ? PolicySettings::cast($key, $raw[$key] ?? null) : ($booking ? PolicySettings::get($booking, $key) : PolicySettings::current($key));
+
+        return [(string) $get('cancellation.visit_fee_type'), (float) $get('cancellation.visit_fee_value')];
+    }
+
+    /**
+     * The "regular" price to show beside a launch price, or null (off). A booking whose frozen snapshot predates this
+     * setting shows none: it keeps the policy it was made under. Only for a flat charge, only when higher.
+     */
+    private function regularPrice(?Booking $booking, ?array $raw, float $value): ?float
+    {
+        $key = 'cancellation.visit_fee_regular';
+
+        if ($raw !== null) {
+            $regular = PolicySettings::cast($key, $raw[$key] ?? null);
+        } elseif ($booking) {
+            $snapshot = $booking->cancellation_policy_snapshot;
+            if (is_array($snapshot) && ! array_key_exists($key, $snapshot)) {
+                return null;
+            }
+            $regular = PolicySettings::get($booking, $key);
+        } else {
+            $regular = PolicySettings::current($key);
+        }
+
+        return ($regular !== null && (float) $regular > $value) ? (float) $regular : null;
+    }
+
+    private function launchWording(?array $raw): string
+    {
+        $key = 'cancellation.visit_fee_launch_wording';
+        $wording = $raw !== null ? PolicySettings::cast($key, $raw[$key] ?? null) : PolicySettings::current($key);
+        $wording = trim((string) $wording);
+
+        return ($wording !== '' && str_contains($wording, '{charge}') && str_contains($wording, '{regular}')) ? $wording : PolicySettings::DEFAULT_LAUNCH_WORDING;
     }
 
     private static function money(float $v): string

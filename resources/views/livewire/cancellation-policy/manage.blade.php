@@ -70,7 +70,7 @@
                                                 @foreach ($meta['options'] as $val => $text)<option value="{{ $val }}">{{ $text }}</option>@endforeach
                                             </select>
                                         @else
-                                            <input type="text" inputmode="decimal" wire:model.live.debounce.400ms="inputs.{{ $meta['field'] }}"
+                                            <input type="text" @if ($meta['type'] !== 'text') inputmode="decimal" @endif wire:model.live.debounce.400ms="inputs.{{ $meta['field'] }}"
                                                    placeholder="{{ $meta['default'] === null ? 'Not configured' : 'Default '.$meta['default'] }}"
                                                    class="w-full border rounded px-2 py-2">
                                         @endif
