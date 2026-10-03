@@ -20,7 +20,7 @@ class MismatchRefund extends Model
 
     protected $fillable = [
         'payment_webhook_log_id', 'payment_id', 'gateway_payment_id', 'franchise_id', 'amount_paise', 'status',
-        'requested_by_id', 'request_reason', 'requested_at', 'approved_by_id', 'approval_reason', 'approved_at',
+        'requested_by_id', 'request_reason', 'requested_at', 'approved_by_id', 'approval_reason', 'approved_at', 'rejected_at',
         'refunded_at', 'gateway_refund_id', 'failure_message', 'escalation_level', 'last_escalated_at', 'refund_notice_sent_at',
     ];
 
@@ -29,6 +29,7 @@ class MismatchRefund extends Model
         'escalation_level' => 'integer',
         'requested_at' => 'datetime',
         'approved_at' => 'datetime',
+        'rejected_at' => 'datetime',
         'refunded_at' => 'datetime',
         'last_escalated_at' => 'datetime',
         'refund_notice_sent_at' => 'datetime',
@@ -47,6 +48,12 @@ class MismatchRefund extends Model
     public function amountRupees(): float
     {
         return round($this->amount_paise / 100, 2);
+    }
+
+    /** Escalation age runs from the latest rejection, else from when the mismatch was logged. */
+    public function clockStartedAt(): \Illuminate\Support\Carbon
+    {
+        return $this->rejected_at ?? $this->created_at;
     }
 
     public function isOpen(): bool

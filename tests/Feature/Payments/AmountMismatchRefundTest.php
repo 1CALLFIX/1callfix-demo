@@ -445,6 +445,153 @@ class AmountMismatchRefundTest extends TestCase
         $spy->shouldNotHaveReceived('refund');
     }
 
+    // ============================== reject ==============================
+
+    /** A ₹499.99 row already requested by $maker (limits ₹1000, maker-checker on) and awaiting approval. */
+    private function awaitingApproval(): array
+    {
+        [$row, , $booking] = $this->bookingMismatch();
+        $this->limits('1000', '1000', '100');
+        $maker = $this->holder('global');
+        $this->assertTrue($this->svc()->request($row, $maker, 'please refund this')['ok']);
+        $this->assertSame(MismatchRefund::AWAITING_APPROVAL, $row->fresh()->status);
+
+        return [$row->fresh(), $maker, $booking];
+    }
+
+    public function test_reject_returns_the_row_to_awaiting_request_and_keeps_the_requester_in_the_audit_log(): void
+    {
+        [$row, $maker] = $this->awaitingApproval();
+        $checker = $this->holder('global');
+        $this->gatewayNeverCalled();
+        Notification::fake(); // only what the rejection itself sends counts (the under-review notice already went out on mismatch)
+
+        $result = $this->svc()->reject($row, $checker, 'amount looks genuine, ask the customer first');
+
+        $this->assertTrue($result['ok'], $result['message']);
+        $row->refresh();
+        $this->assertSame(MismatchRefund::AWAITING_REQUEST, $row->status);
+        $this->assertNull($row->requested_by_id);
+        $this->assertNull($row->request_reason);
+        $this->assertNotNull($row->rejected_at);
+
+        $audit = ActivityLog::where('description', 'like', 'Mismatch refund rejected%')->sole();
+        $this->assertSame($checker->id, $audit->causer_id);
+        $this->assertSame($maker->id, $audit->properties['requested_by_id']);
+        $this->assertSame('please refund this', $audit->properties['request_reason']);
+        $this->assertSame('amount looks genuine, ask the customer first', $audit->properties['rejection_reason']);
+
+        Notification::assertNotSentTo($this->customerOf($row), RefundProcessedNotification::class);
+        Notification::assertNotSentTo($this->customerOf($row), PaymentUnderReviewNotification::class);
+    }
+
+    public function test_the_requester_cannot_reject_their_own_request(): void
+    {
+        [$row, $maker] = $this->awaitingApproval();
+
+        $result = $this->svc()->reject($row, $maker, 'changed my mind');
+
+        $this->assertFalse($result['ok']);
+        $this->assertSame(MismatchRefund::AWAITING_APPROVAL, $row->fresh()->status);
+        $this->assertFalse($this->svc()->canReject($row, $maker));
+    }
+
+    public function test_an_out_of_scope_or_over_limit_user_cannot_reject(): void
+    {
+        [$row, , $booking] = $this->awaitingApproval();
+        $outsider = $this->holder('franchise', $this->makeFranchise()->id);
+        $insideFranchise = $this->holder('franchise', $booking->franchise_id);
+
+        // franchise limit ₹100 < ₹499.99: the in-franchise holder is over their limit
+        $this->limits('100', '1000', '100');
+
+        $this->assertFalse($this->svc()->reject($row, $this->makeUserWithNoPermissions(), 'no')['ok']);
+        $this->assertFalse($this->svc()->reject($row, $outsider, 'no')['ok'], 'out of scope');
+        $this->assertFalse($this->svc()->reject($row, $insideFranchise, 'no')['ok'], 'over limit');
+        $this->assertFalse($this->svc()->canReject($row, $insideFranchise));
+        $this->assertSame(MismatchRefund::AWAITING_APPROVAL, $row->fresh()->status);
+
+        // The outside holder cannot reach the row at all through the queue screen.
+        $component = Livewire::actingAs($outsider)->test(QueueIndex::class);
+        $this->expectException(\Illuminate\Database\Eloquent\ModelNotFoundException::class);
+        $component->call('startAction', $row->id, 'reject');
+    }
+
+    public function test_reject_needs_a_reason_and_an_awaiting_approval_row(): void
+    {
+        [$row] = $this->awaitingApproval();
+        $checker = $this->holder('global');
+
+        $this->assertFalse($this->svc()->reject($row, $checker, '   ')['ok']);
+        $this->assertSame(MismatchRefund::AWAITING_APPROVAL, $row->fresh()->status);
+
+        $this->assertTrue($this->svc()->reject($row, $checker, 'first rejection')['ok']);
+        $this->assertFalse($this->svc()->reject($row->fresh(), $checker, 'again')['ok'], 'already back at awaiting_request');
+    }
+
+    public function test_a_fresh_request_after_a_rejection_works_and_can_complete(): void
+    {
+        [$row, $maker] = $this->awaitingApproval();
+        $checker = $this->holder('global');
+        $this->assertTrue($this->svc()->reject($row, $checker, 'not yet')['ok']);
+
+        $newMaker = $this->holder('global');
+        $this->assertTrue($this->svc()->request($row->fresh(), $newMaker, 'customer confirmed the double payment')['ok']);
+        $this->assertSame(MismatchRefund::AWAITING_APPROVAL, $row->fresh()->status);
+        $this->assertSame($newMaker->id, $row->fresh()->requested_by_id);
+
+        // The earlier requester is now free to approve the new request, because they are no longer the requester.
+        $this->gatewayExpecting($row->gateway_payment_id, 499.99);
+        $this->assertTrue($this->svc()->approve($row->fresh(), $maker, 'verified')['ok']);
+        $this->assertSame(MismatchRefund::REFUNDED, $row->fresh()->status);
+    }
+
+    public function test_rejection_restarts_the_escalation_clock(): void
+    {
+        Setting::set('notifications.channels', 'mail,push');
+        Notification::fake();
+
+        [$row, $maker, $booking] = $this->awaitingApproval();
+        $this->limits('1000', '5000', '100');
+        Setting::set(MismatchRefundService::ESCALATE_HOURS_KEY, '2');
+        $hq = $this->pushAdmin($this->holder('global'));
+        $super = $this->pushAdmin($this->makeSuperAdmin());
+
+        // 3h in: escalated to HQ (handler = franchise level has no holder here, row handled at franchise level).
+        Carbon::setTestNow(now()->addHours(3));
+        $this->assertSame(1, $this->svc()->escalateOverdue());
+        $this->assertSame(2, $row->fresh()->escalation_level);
+
+        // Rejected now: progress resets and the clock restarts from this moment.
+        $this->assertTrue($this->svc()->reject($row->fresh(), $this->holder('global'), 'start over')['ok']);
+        $this->assertSame(0, $row->fresh()->escalation_level);
+        $this->assertNull($row->fresh()->last_escalated_at);
+
+        // 1h after the rejection: still inside the 2h window, although the row is 4h old overall.
+        Carbon::setTestNow(now()->addHour());
+        $this->assertSame(0, $this->svc()->escalateOverdue());
+
+        // 3h after the rejection: escalates again from the restarted clock.
+        Carbon::setTestNow(now()->addHours(2));
+        $this->assertSame(1, $this->svc()->escalateOverdue());
+        $this->assertSame(2, $row->fresh()->escalation_level);
+    }
+
+    public function test_reject_works_end_to_end_through_the_queue_screen(): void
+    {
+        [$row] = $this->awaitingApproval();
+        $checker = $this->holder('global');
+
+        Livewire::actingAs($checker)->test(QueueIndex::class)
+            ->assertSee('Reject')
+            ->call('startAction', $row->id, 'reject')
+            ->set('reason', 'wrong customer')
+            ->call('submitAction')
+            ->assertSet('flashType', 'success');
+
+        $this->assertSame(MismatchRefund::AWAITING_REQUEST, $row->fresh()->status);
+    }
+
     // ============================== escalation ==============================
 
     private function pushAdmin(User $user): User

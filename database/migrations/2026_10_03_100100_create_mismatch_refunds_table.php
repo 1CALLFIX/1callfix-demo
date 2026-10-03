@@ -27,6 +27,7 @@ return new class extends Migration
             $table->unsignedBigInteger('approved_by_id')->nullable();
             $table->text('approval_reason')->nullable();
             $table->timestamp('approved_at')->nullable();
+            $table->timestamp('rejected_at')->nullable(); // restarts the escalation clock; who/why is in the audit log
             $table->timestamp('refunded_at')->nullable();
             $table->string('gateway_refund_id')->nullable();
             $table->text('failure_message')->nullable();

@@ -215,10 +215,23 @@ class MismatchRefundService
 
         return match ($row->status) {
             MismatchRefund::AWAITING_REQUEST => 'request',
-            MismatchRefund::AWAITING_APPROVAL => ($user->id !== $row->requested_by_id && $this->canCover($level, $row)) ? 'approve' : null,
+            MismatchRefund::AWAITING_APPROVAL => $this->canDecide($row, $user, $level) ? 'approve' : null,
             MismatchRefund::FAILED => $this->canCover($level, $row) ? 'retry' : null,
             default => null,
         };
+    }
+
+    /** Approve and Reject share one eligibility rule: permission + scope (level), not the requester, within limit. */
+    private function canDecide(MismatchRefund $row, User $user, ?int $level): bool
+    {
+        return $level !== null && $user->id !== $row->requested_by_id && $this->canCover($level, $row);
+    }
+
+    /** For the queue UI only; reject() re-checks. */
+    public function canReject(MismatchRefund $row, User $user): bool
+    {
+        return $row->status === MismatchRefund::AWAITING_APPROVAL
+            && $this->canDecide($row, $user, $this->levelOf($user, $row->franchise_id));
     }
 
     // ============================== queue rows ==============================
@@ -353,6 +366,62 @@ class MismatchRefundService
         });
     }
 
+    /**
+     * An eligible approver (permission, scope, limit, not the requester)
+     * sends a request back to awaiting_request. No gateway call and no
+     * customer notice. The requester and their reason are cleared from the
+     * row (a fresh request starts clean) but kept in the audit log, the
+     * escalation clock restarts from now, and escalation progress resets.
+     *
+     * @return array{ok: bool, message: string}
+     */
+    public function reject(MismatchRefund $row, User $actor, string $reason): array
+    {
+        $reason = trim($reason);
+
+        return DB::transaction(function () use ($row, $actor, $reason) {
+            $r = MismatchRefund::whereKey($row->id)->lockForUpdate()->firstOrFail();
+
+            if ($r->status !== MismatchRefund::AWAITING_APPROVAL) {
+                return $this->no('This refund is not awaiting approval.');
+            }
+
+            $level = $this->levelOf($actor, $r->franchise_id);
+            if ($level === null) {
+                return $this->no('You are not permitted to reject this request.');
+            }
+            if ($actor->id === $r->requested_by_id) {
+                return $this->no('You cannot reject your own request. A different user must decide it.');
+            }
+            if (! $this->canCover($level, $r)) {
+                return $this->no('This amount is above your approval limit, so you cannot reject it either.');
+            }
+            if ($reason === '') {
+                return $this->no('A reason is required.');
+            }
+
+            ActivityLogger::logModel($actor, $r, "Mismatch refund rejected (queue #{$r->id})", [
+                'gateway_payment_id' => $r->gateway_payment_id,
+                'amount_paise' => $r->amount_paise,
+                'rejection_reason' => $reason,
+                'requested_by_id' => $r->requested_by_id,
+                'request_reason' => $r->request_reason,
+                'requested_at' => $r->requested_at?->toDateTimeString(),
+            ]);
+
+            $r->status = MismatchRefund::AWAITING_REQUEST;
+            $r->requested_by_id = null;
+            $r->request_reason = null;
+            $r->requested_at = null;
+            $r->rejected_at = now();
+            $r->escalation_level = 0;
+            $r->last_escalated_at = null;
+            $r->save();
+
+            return ['ok' => true, 'message' => 'Request rejected. The payment is back in the queue awaiting a new request.'];
+        });
+    }
+
     /** Retry after a gateway failure: both steps already happened, so only the permission, scope and limit are re-checked. @return array{ok: bool, message: string} */
     public function retry(MismatchRefund $row, User $actor): array
     {
@@ -467,12 +536,12 @@ class MismatchRefundService
 
         MismatchRefund::query()
             ->whereIn('status', MismatchRefund::OPEN)
-            ->where('created_at', '<=', now()->subHours($hours))
+            ->whereRaw('COALESCE(rejected_at, created_at) <= ?', [now()->subHours($hours)])
             ->orderBy('id')
             ->chunkById(200, function ($rows) use ($hours, &$raised) {
                 foreach ($rows as $row) {
                     $handler = $this->handlerLevel($row);
-                    $steps = intdiv((int) $row->created_at->diffInHours(now()), $hours);
+                    $steps = intdiv((int) $row->clockStartedAt()->diffInHours(now()), $hours);
                     $target = min(self::LEVEL_SUPER, $handler + $steps);
 
                     if ($target <= $handler || $target <= $row->escalation_level) {

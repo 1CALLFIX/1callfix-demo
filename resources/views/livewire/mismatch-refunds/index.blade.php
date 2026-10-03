@@ -68,6 +68,9 @@
                             <x-ui.button variant="ghost" wire:click="startAction({{ $row->id }}, 'request')">Request refund</x-ui.button>
                         @elseif ($action === 'approve')
                             <x-ui.button variant="ghost" wire:click="startAction({{ $row->id }}, 'approve')">Approve refund</x-ui.button>
+                            @if ($rejectable[$row->id] ?? false)
+                                <x-ui.button variant="ghost" color="red" wire:click="startAction({{ $row->id }}, 'reject')">Reject</x-ui.button>
+                            @endif
                         @elseif ($action === 'retry')
                             <x-ui.button variant="ghost" wire:click="retry({{ $row->id }})" wire:confirm="Retry this refund?">Retry</x-ui.button>
                         @else
@@ -80,8 +83,12 @@
                         <td colspan="6" class="px-4 py-3">
                             <form wire:submit="submitAction" class="space-y-2">
                                 <p class="text-sm text-amber-800">
-                                    {{ $actingType === 'approve' ? 'Approving refunds' : 'Requesting a refund of' }}
-                                    exactly ₹{{ number_format($row->amountRupees(), 2) }} to the customer's original payment method.
+                                    @if ($actingType === 'reject')
+                                        Rejecting this request sends the payment back to "awaiting request". Nothing is refunded and the customer is not notified.
+                                    @else
+                                        {{ $actingType === 'approve' ? 'Approving refunds' : 'Requesting a refund of' }}
+                                        exactly ₹{{ number_format($row->amountRupees(), 2) }} to the customer's original payment method.
+                                    @endif
                                     @if ($actingType === 'request')
                                         If it is within your limit and needs no second approval it is refunded immediately; otherwise it goes to a different approver.
                                     @endif

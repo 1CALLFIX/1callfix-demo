@@ -24,7 +24,7 @@ class Index extends Component
 
     public ?int $actingId = null;
 
-    /** 'request' | 'approve' */
+    /** 'request' | 'approve' | 'reject' */
     public string $actingType = '';
 
     public string $reason = '';
@@ -52,10 +52,13 @@ class Index extends Component
 
     public function startAction(int $id, string $type): void
     {
-        abort_unless(in_array($type, ['request', 'approve'], true), 422);
+        abort_unless(in_array($type, ['request', 'approve', 'reject'], true), 422);
 
         $row = $this->visibleRow($id);
-        abort_unless(app(MismatchRefundService::class)->availableAction($row, auth()->user()) === $type, 403);
+        $service = app(MismatchRefundService::class);
+        abort_unless($type === 'reject'
+            ? $service->canReject($row, auth()->user())
+            : $service->availableAction($row, auth()->user()) === $type, 403);
 
         $this->actingId = $row->id;
         $this->actingType = $type;
@@ -80,6 +83,7 @@ class Index extends Component
         $result = match ($this->actingType) {
             'request' => $service->request($row, auth()->user(), $this->reason),
             'approve' => $service->approve($row, auth()->user(), $this->reason),
+            'reject' => $service->reject($row, auth()->user(), $this->reason),
             default => abort(422),
         };
 
@@ -123,7 +127,9 @@ class Index extends Component
 
         $actions = $rows->getCollection()->mapWithKeys(fn ($row) => [$row->id => $service->availableAction($row, $user)]);
 
-        return view('livewire.mismatch-refunds.index', ['rows' => $rows, 'actions' => $actions])
+        $rejectable = $rows->getCollection()->mapWithKeys(fn ($row) => [$row->id => $service->canReject($row, $user)]);
+
+        return view('livewire.mismatch-refunds.index', ['rows' => $rows, 'actions' => $actions, 'rejectable' => $rejectable])
             ->layout('layouts.admin', ['title' => 'Mismatch Refunds']);
     }
 }
