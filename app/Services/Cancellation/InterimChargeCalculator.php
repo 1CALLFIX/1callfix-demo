@@ -32,6 +32,16 @@ class InterimChargeCalculator
             return 0.0;
         }
 
+        return $this->standardVisitFee($booking, $base);
+    }
+
+    /**
+     * The visit charge from the booking's snapshot BEFORE any Prime waiver. The single place the amount is computed:
+     * the charge actually levied (visitFee above) and the amount a Prime waiver forgoes (shown to the customer) are
+     * both this number, so changing `cancellation.visit_fee_value` moves them together.
+     */
+    public function standardVisitFee(Booking $booking, float $base): float
+    {
         $type = PolicySettings::get($booking, 'cancellation.visit_fee_type');
         $value = (float) PolicySettings::get($booking, 'cancellation.visit_fee_value');
 

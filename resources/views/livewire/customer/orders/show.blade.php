@@ -336,6 +336,9 @@
                                 <button wire:click="$set('confirmingCancel', false)" class="mt-2 rounded-lg px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-100">Close</button>
                             @else
                                 <p class="text-rose-800">{{ $cancelQuote['message'] }}</p>
+                                @if (! empty($cancelQuote['breakdown']['display']))
+                                    <p class="mt-1 text-xs text-rose-700" data-testid="visit-charge-display">{{ $cancelQuote['breakdown']['display'] }}</p>
+                                @endif
                                 @if ($cancelQuote['charge'] > 0)
                                     <dl class="mt-2 space-y-1 text-rose-900">
                                         <div class="flex justify-between"><dt>Charge</dt><dd class="font-semibold">{{ $currencySymbol }}{{ number_format($cancelQuote['charge'], 2) }}</dd></div>

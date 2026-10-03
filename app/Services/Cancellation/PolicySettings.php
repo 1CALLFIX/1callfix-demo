@@ -43,6 +43,16 @@ class PolicySettings
             'help' => 'Charged when the professional has verifiably arrived and the customer refuses, cannot be reached, or rejects the quote. Adjusted into the final bill if the customer proceeds.',
             'fallback' => 'cancellation.fee_value',
         ],
+        'cancellation.visit_fee_regular' => [
+            'group' => 'Charges', 'label' => 'Visit & inspection charge — regular price (launch display)', 'type' => 'decimal', 'unit' => '₹',
+            'default' => null, 'min' => 0, 'snapshot' => true,
+            'help' => 'Optional; blank = off. When set higher than the flat visit charge above, customers read "launch price, regular ₹X" next to the charge. Display only: the amount charged is always the visit charge value above. Not used for a percent charge.',
+        ],
+        'cancellation.visit_fee_launch_wording' => [
+            'group' => 'Charges', 'label' => 'Launch-price wording', 'type' => 'text', 'unit' => '',
+            'default' => null, 'snapshot' => false,
+            'help' => 'Use {charge} and {regular}. Blank = "'.self::DEFAULT_LAUNCH_WORDING.'". Wording only; the amounts always come from the two values above.',
+        ],
         // ── spares / interim work ──
         'cancellation.spares_delay_days' => [
             'group' => 'Spare parts & interim work', 'label' => 'Spares delay before the customer may cancel (global)', 'type' => 'int', 'unit' => 'days',
@@ -131,6 +141,8 @@ class PolicySettings
 
     public const CATEGORY_OVERRIDE_PREFIX = 'cancellation.spares_delay_days.category_';
 
+    public const DEFAULT_LAUNCH_WORDING = 'Visit charge {charge} (launch price, regular {regular})';
+
     /** Settings scope hints for a booking (same Global→Country→City→Zone→Module→Franchise cascade as every setting). */
     public static function scopeFor(Booking $booking): array
     {
@@ -201,7 +213,7 @@ class PolicySettings
 
         return match ($meta['type'] ?? 'int') {
             'decimal' => round((float) $value, 2),
-            'enum' => (string) $value,
+            'enum', 'text' => (string) $value,
             default => (int) $value,
         };
     }
@@ -224,6 +236,17 @@ class PolicySettings
 
         $value = trim((string) $value);
 
+        if ($meta['type'] === 'text') {
+            if (mb_strlen($value) > 200) {
+                return 'At most 200 characters.';
+            }
+            if ($key === 'cancellation.visit_fee_launch_wording' && (! str_contains($value, '{charge}') || ! str_contains($value, '{regular}'))) {
+                return 'The wording must contain both {charge} and {regular}.';
+            }
+
+            return null;
+        }
+
         if ($meta['type'] === 'enum') {
             return array_key_exists($value, $meta['options']) ? null : 'Choose one of: '.implode(', ', array_keys($meta['options'])).'.';
         }
@@ -242,6 +265,9 @@ class PolicySettings
         }
         if (isset($meta['max']) && $number > $meta['max']) {
             return "Must be at most {$meta['max']}.";
+        }
+        if ($key === 'cancellation.visit_fee_regular' && $visitFeeType === 'percent') {
+            return 'A regular price only applies to a flat visit charge, not a percent.';
         }
         if (in_array($key, ['cancellation.visit_fee_value', 'cancellation.fee_value'], true) && $visitFeeType === 'percent' && $number > 100) {
             return 'A percent must be between 0 and 100.';
