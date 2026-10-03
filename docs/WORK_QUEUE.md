@@ -37,7 +37,7 @@ Standing rules for all items:
 | 4 | Admin email-change verification link (before franchise/finance admins exist) | not started |
 | 5 | Promotional credit split + combined wallet/Razorpay + wallet_breakdown + payout leak fix | not started |
 | 6 | EARN4 referrals updated for promo credit and the thumb rule | not started |
-| 7 | Coupon engine C1–C3, then optional HQ pilot on the owner's go-ahead, then C4–C6 | not started |
+| 7 | Coupon engine C1–C3, then optional HQ pilot on the owner's go-ahead, then C4–C6 | C1 BUILT + committed (daf58fd, feature/coupon-engine-c1-c3, not merged); C2, C3 not started |
 | 8 | Re-add the classes in docs/PENDING_FRONTEND_BUILD_ITEMS.md in the next change that needs a front-end build | not started |
 
 ### 1. fee_waiver fix
@@ -88,6 +88,19 @@ EARN4 referrals updated for promo credit and the thumb rule.
 
 Coupon engine C1–C3 (docs/COUPON_ENGINE_DESIGN.md, decisions at the top), then optional HQ pilot on
 the owner's go-ahead, then C4–C6.
+
+**C1 built ahead of the queue (2026-10-04)** on `feature/coupon-engine-c1-c3` (commit `daf58fd`, off main `9be16e5`),
+committed, NOT merged; coupons stay OFF in production (`coupons.enabled` and `coupons.unpaid_hold_minutes` unset).
+Engine, pricing (`amountPayable()`), thumb-rule enforcement, dispatch gate + unpaid-hold sweep, bundles,
+invoice line, audit service, 40 tests. Open items carried forward:
+
+- Daily cap (Q9): no column approved, not built.
+- Combined wallet + Razorpay: waits for the promotional-credit step (item 5).
+- Loyalty-on-amount-paid test only pins the arithmetic, not `CompleteBookingAction` end to end.
+- Expected merge conflict in `EntitlementService.php` with `feature/fee-waiver-visit-only` (C1 extracted
+  `pricedByEntitlement()` and added `previewBestPricingEntitlement()`); resolve in the rebase step.
+- Bundle: a child already priced by a member benefit is excluded from the bundle coupon (not larger-of).
+- Still to do: C2 admin screens, C3 customer entry + API (`coupon_code` on booking APIs, bundle fingerprint).
 
 ### 8. Pending front-end classes
 
