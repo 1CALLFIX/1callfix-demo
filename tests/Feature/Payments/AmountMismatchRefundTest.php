@@ -62,6 +62,19 @@ class AmountMismatchRefundTest extends TestCase
         parent::tearDown();
     }
 
+    private static int $otherCountrySeq = 0;
+
+    /** A franchise in its own country. The shared helpers keep separate country-code counters that can collide inside one test; 'Q?' codes never are used by either. */
+    private function otherFranchise(): \App\Models\Franchise
+    {
+        $country = \App\Models\Country::create([
+            'name' => 'Otherland', 'code' => 'Q'.base_convert((string) self::$otherCountrySeq++, 10, 36),
+            'currency_code' => 'INR', 'default_timezone' => 'Asia/Kolkata', 'is_active' => true,
+        ]);
+
+        return $this->makeFranchise($this->makeCity($country));
+    }
+
     private function postCapture(Payment $payment, int $capturedPaise, string $gatewayPaymentId): void
     {
         $payload = ['event' => 'payment.captured', 'payload' => ['payment' => ['entity' => [
@@ -236,7 +249,7 @@ class AmountMismatchRefundTest extends TestCase
     {
         [$row, , $booking] = $this->bookingMismatch();
         $this->limits('1000', '1000');
-        $otherFranchise = $this->makeFranchise();
+        $otherFranchise = $this->otherFranchise();
 
         $inside = $this->holder('franchise', $booking->franchise_id);
         $outside = $this->holder('franchise', $otherFranchise->id);
@@ -499,7 +512,7 @@ class AmountMismatchRefundTest extends TestCase
     public function test_an_out_of_scope_or_over_limit_user_cannot_reject(): void
     {
         [$row, , $booking] = $this->awaitingApproval();
-        $outsider = $this->holder('franchise', $this->makeFranchise()->id);
+        $outsider = $this->holder('franchise', $this->otherFranchise()->id);
         $insideFranchise = $this->holder('franchise', $booking->franchise_id);
 
         // franchise limit ₹100 < ₹499.99: the in-franchise holder is over their limit

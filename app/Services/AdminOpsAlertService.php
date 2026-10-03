@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Booking;
 use App\Models\Payment;
+use App\Models\Setting;
 use App\Models\User;
 use App\Notifications\AdminOpsAlertNotification;
 use App\Notifications\Channels\PushChannel;
@@ -21,6 +22,95 @@ use Illuminate\Support\Facades\Log;
  */
 class AdminOpsAlertService
 {
+    /**
+     * Critical alert types that are also emailed to admins (0d). Key = the
+     * setting suffix (alerts.email.<key>), value = label on the Alert Emails
+     * screen. Default ON when the setting was never saved. Email is
+     * independent of push: no opt-in flag and no fcm_token needed.
+     */
+    public const EMAIL_TYPES = [
+        'payment_amount_mismatch' => 'Payment amount mismatch',
+        'refund_failed' => 'Refund failed (any refund path)',
+        'mismatch_refund_escalation' => 'Mismatch refund approval escalation',
+        'cancel_payout_failed' => 'Cancellation payout failed',
+        'dispatch_job_failure' => 'Dispatch job failure',
+    ];
+
+    public static function emailSettingKey(string $type): string
+    {
+        return "alerts.email.{$type}";
+    }
+
+    public function emailEnabled(string $type): bool
+    {
+        if (! array_key_exists($type, self::EMAIL_TYPES)) {
+            return false;
+        }
+
+        $value = Setting::get(self::emailSettingKey($type));
+
+        return ($value === null || trim((string) $value) === '') ? true : (bool) (int) $value;
+    }
+
+    /**
+     * Emails the alert to every admin account (Super Admin or anyone holding
+     * a role assignment) for whom $eligible() is true — the same audience
+     * test the push fan-out applies, minus the push opt-in and fcm_token.
+     * Suspended and email-less accounts are skipped. Best-effort per admin.
+     *
+     * @param  callable(User): bool  $eligible
+     */
+    private function emailTo(string $type, string $event, \Illuminate\Database\Eloquent\Model $subject, callable $eligible): void
+    {
+        if (! $this->emailEnabled($type)) {
+            return;
+        }
+
+        User::query()
+            ->whereNotNull('email')->where('email', '!=', '')
+            ->where('status', '!=', 'suspended')
+            ->where(fn ($q) => $q->where('role', 'super_admin')->orWhereHas('roleAssignments'))
+            ->chunkById(200, function ($admins) use ($type, $event, $subject, $eligible) {
+                foreach ($admins as $admin) {
+                    try {
+                        if (! $eligible($admin)) {
+                            continue;
+                        }
+
+                        $admin->notify(new AdminOpsAlertNotification($event, $subject, ['mail']));
+                    } catch (\Throwable $e) {
+                        Log::warning('AdminOpsAlertService: failed to queue alert email.', [
+                            'type' => $type,
+                            'event' => $event,
+                            'admin_id' => $admin->id,
+                            'error' => $e->getMessage(),
+                        ]);
+                    }
+                }
+            });
+    }
+
+    private function bookingScope(Booking $booking): array
+    {
+        $booking->loadMissing('franchise');
+
+        return array_filter([
+            'zone_id' => $booking->zone_id,
+            'franchise_id' => $booking->franchise_id,
+            'city_id' => $booking->franchise?->city_id,
+            'country_id' => $booking->franchise?->country_id,
+        ]);
+    }
+
+    /** Email audience for the booking-scoped alerts: operations.view covering the booking (Super Admin always). */
+    private function emailToBookingOperators(string $type, string $event, Booking $booking): void
+    {
+        $authz = app(\App\Services\AuthorizationService::class);
+        $scope = $this->bookingScope($booking);
+
+        $this->emailTo($type, $event, $booking, fn (User $admin) => $authz->can($admin, 'operations.view', $scope));
+    }
+
     public function bookingCreated(Booking $booking): void
     {
         $this->fanOut('booking_created', $booking);
@@ -35,6 +125,30 @@ class AdminOpsAlertService
     public function paymentAmountMismatch(Payment $payment): void
     {
         $this->fanOut('payment_amount_mismatch', $payment);
+
+        // Email: whoever may act on it — payments.refund_mismatch over this payment's franchise (Super Admin always).
+        $queue = app(\App\Services\Payments\MismatchRefundService::class);
+        $franchiseId = $queue->franchiseIdFor($payment);
+
+        $this->emailTo('payment_amount_mismatch', 'payment_amount_mismatch', $payment, fn (User $admin) => $queue->levelOf($admin, $franchiseId) !== null);
+    }
+
+    /**
+     * A gateway refund call failed (RefundAlertingGateway — covers every
+     * refund path, including ones that catch and only log). Email-only:
+     * operations.view over the payment's franchise (Super Admin always);
+     * an unknown or franchise-less payment reaches global holders only.
+     */
+    public function refundFailed(string $gatewayPaymentId): void
+    {
+        $payment = Payment::where('gateway_payment_id', $gatewayPaymentId)->latest('id')->first()
+            ?? new Payment(['gateway_payment_id' => $gatewayPaymentId]);
+
+        $queue = app(\App\Services\Payments\MismatchRefundService::class);
+        $authz = app(\App\Services\AuthorizationService::class);
+        $scope = $queue->scopeFor($payment->exists ? $queue->franchiseIdFor($payment) : null);
+
+        $this->emailTo('refund_failed', 'refund_failed', $payment, fn (User $admin) => $authz->can($admin, 'operations.view', $scope));
     }
 
     /**
@@ -55,6 +169,10 @@ class AdminOpsAlertService
     public function dispatchEscalation(Booking $booking, bool $jobFailed = false): void
     {
         $this->fanOutScoped($jobFailed ? 'dispatch_job_failure' : 'dispatch_escalation', $booking);
+
+        if ($jobFailed) {
+            $this->emailToBookingOperators('dispatch_job_failure', 'dispatch_job_failure', $booking);
+        }
     }
 
     /**
@@ -70,6 +188,7 @@ class AdminOpsAlertService
     public function autoCancelRefundFailed(Booking $booking): void
     {
         $this->fanOutScoped('dispatch_refund_failed', $booking);
+        $this->emailToBookingOperators('refund_failed', 'dispatch_refund_failed', $booking);
     }
 
     /**
@@ -105,6 +224,10 @@ class AdminOpsAlertService
     public function cancellationEvent(string $event, Booking $booking): void
     {
         $this->fanOutScoped($event, $booking);
+
+        if ($event === 'cancel_payout_failed') {
+            $this->emailToBookingOperators('cancel_payout_failed', 'cancel_payout_failed', $booking);
+        }
     }
 
     /**
@@ -115,6 +238,9 @@ class AdminOpsAlertService
      */
     public function mismatchRefundEscalation(\App\Models\MismatchRefund $refund, int $level): void
     {
+        $queue = app(\App\Services\Payments\MismatchRefundService::class);
+        $this->emailTo('mismatch_refund_escalation', 'mismatch_refund_escalation', $refund, fn (User $admin) => $queue->levelOf($admin, $refund->franchise_id) === $level);
+
         $channels = array_values(array_intersect(ChannelResolver::resolve([]), [PushChannel::class]));
 
         if (empty($channels)) {

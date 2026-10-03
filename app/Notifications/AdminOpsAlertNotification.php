@@ -7,6 +7,7 @@ use App\Models\Payment;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 
 /**
@@ -58,6 +59,17 @@ class AdminOpsAlertNotification extends Notification implements ShouldQueue
         return route('admin.payments.index');
     }
 
+    /** 0d — the email copy of the critical alerts (AdminOpsAlertService::EMAIL_TYPES); same wording as the push. */
+    public function toMail($notifiable): MailMessage
+    {
+        $copy = $this->toPush($notifiable);
+
+        return (new MailMessage)
+            ->subject('[1CallFix Admin] '.$copy['title'])
+            ->line($copy['body'])
+            ->action('Open in the admin panel', $this->pushLink($notifiable));
+    }
+
     public function toPush($notifiable): array
     {
         return match ($this->event) {
@@ -71,6 +83,7 @@ class AdminOpsAlertNotification extends Notification implements ShouldQueue
             'scheduled_urgent_alert' => $this->scheduledUrgentAlertCopy(),
             'job_at_risk' => $this->jobAtRiskCopy(),
             'mismatch_refund_escalation' => $this->mismatchRefundEscalationCopy(),
+            'refund_failed' => ['title' => 'Refund failed', 'body' => "A gateway refund for payment {$this->subject->gateway_payment_id} failed. Money may be stuck: check Payments and the Razorpay dashboard."],
             // REF 1CF-CANCEL-POLICY-001
             'cancel_charge_unpaid' => ['title' => 'Cancellation charge unpaid', 'body' => "Booking {$this->subject->code} has a cancellation charge unpaid for over 7 days. Review it: collect, or waive with a reason."],
             'interim_dispute' => ['title' => 'Progress figures disputed', 'body' => "The customer disputed the declared progress on booking {$this->subject->code}. The cancellation is waiting for your review."],

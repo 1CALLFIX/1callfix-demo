@@ -38,6 +38,10 @@ class PaymentGatewayManagerTest extends TestCase
     public function test_falls_back_to_env_config_when_no_gateway_row_is_active(): void
     {
         $gateway = app(PaymentGateway::class);
+        // 0d: the bound gateway is wrapped by RefundAlertingGateway; these assertions are about the driver underneath.
+        if ($gateway instanceof \App\Services\Payments\RefundAlertingGateway) {
+            $gateway = $gateway->unwrap();
+        }
 
         $this->assertInstanceOf(RazorpayPaymentDriver::class, $gateway);
         $this->assertTrue($gateway->isConfigured());
@@ -130,6 +134,10 @@ class PaymentGatewayManagerTest extends TestCase
         ]);
 
         $gateway = app(PaymentGateway::class);
+        // 0d: the bound gateway is wrapped by RefundAlertingGateway; these assertions are about the driver underneath.
+        if ($gateway instanceof \App\Services\Payments\RefundAlertingGateway) {
+            $gateway = $gateway->unwrap();
+        }
 
         $this->assertInstanceOf(RazorpayPaymentDriver::class, $gateway);
         $this->assertNotInstanceOf(PaytmPaymentDriver::class, $gateway);
