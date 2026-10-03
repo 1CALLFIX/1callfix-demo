@@ -372,6 +372,18 @@
         </tbody>
     </x-ui.table>
 
+    @if ($isSuperAdmin)
+        <x-ui.card class="mb-6">
+            <h2 class="text-sm font-semibold text-gray-500 uppercase mb-1">Customer message: payment under review</h2>
+            <p class="text-xs text-gray-500 mb-3">Sent to the customer when a payment's captured amount does not match and is held for review.</p>
+            <form wire:submit="saveMismatchCopy" class="space-y-2">
+                <textarea wire:model="mismatchCopy" rows="2" class="w-full rounded border-gray-300 text-sm"></textarea>
+                @error('mismatchCopy') <p class="text-xs text-red-600">{{ $message }}</p> @enderror
+                <x-ui.button type="submit">Save message</x-ui.button>
+            </form>
+        </x-ui.card>
+    @endif
+
     {{-- Payment webhook log --}}
     <x-ui.table>
         <x-slot:header>
@@ -394,7 +406,7 @@
                 <th class="px-4 py-2">Order ID</th>
                 <th class="px-4 py-2">Signature</th>
                 <th class="px-4 py-2">When</th>
-                @if ($canManage)
+                @if ($canManage || $isSuperAdmin)
                     <th class="px-4 py-2">Actions</th>
                 @endif
             </tr>
@@ -406,8 +418,8 @@
                     <td class="px-4 py-2 font-mono text-xs">{{ $log->event ?? '—' }}</td>
                     <td class="px-4 py-2">
                         <x-ui.badge :color="match(true) {
-                            in_array($log->outcome, ['captured', 'failed', 'already_processed']) => 'green',
-                            in_array($log->outcome, ['invalid_signature', 'unmatched_order']) => 'red',
+                            in_array($log->outcome, ['captured', 'failed', 'already_processed', 'amount_mismatch_refunded']) => 'green',
+                            in_array($log->outcome, ['invalid_signature', 'unmatched_order', 'amount_mismatch']) => 'red',
                             $log->outcome === 'unhandled_event' => 'gray',
                             default => 'gray',
                         }">{{ $log->outcome }}</x-ui.badge>
@@ -415,18 +427,39 @@
                     <td class="px-4 py-2 text-gray-500 font-mono text-xs">{{ $log->gateway_order_id ?? '—' }}</td>
                     <td class="px-4 py-2 text-gray-500">{{ $log->signature_valid ? 'valid' : 'invalid' }}</td>
                     <td class="px-4 py-2 text-gray-500 whitespace-nowrap">{{ $log->created_at?->format('d M Y, h:i A') }}</td>
-                    @if ($canManage)
+                    @if ($canManage || $isSuperAdmin)
                         <td class="px-4 py-2 whitespace-nowrap">
-                            @if (in_array($log->outcome, ['unmatched_order', 'unhandled_event', 'invalid_signature']))
+                            @if ($canManage && in_array($log->outcome, ['unmatched_order', 'unhandled_event', 'invalid_signature']))
                                 <x-ui.button variant="ghost" wire:click="reprocessWebhook({{ $log->id }})" wire:confirm="Reprocess this webhook event?">Reprocess</x-ui.button>
+                            @elseif ($isSuperAdmin && $log->outcome === 'amount_mismatch')
+                                <x-ui.button variant="ghost" wire:click="startRefund({{ $log->id }})">Refund captured amount</x-ui.button>
                             @else
                                 <span class="text-gray-300 text-xs">—</span>
                             @endif
                         </td>
                     @endif
                 </tr>
+                @if ($isSuperAdmin && $refundingLogId === $log->id)
+                    <tr class="border-t bg-amber-50">
+                        <td colspan="7" class="px-4 py-3">
+                            <form wire:submit="refundMismatch" class="space-y-2">
+                                <p class="text-sm text-amber-800">
+                                    This refunds exactly the amount Razorpay captured for this payment
+                                    (₹{{ number_format(((int) ($log->payload['payload']['payment']['entity']['amount'] ?? 0)) / 100, 2) }})
+                                    back to the customer's original payment method. It cannot be undone.
+                                </p>
+                                <input type="text" wire:model="refundReason" placeholder="Reason (required)" class="w-full rounded border-gray-300 text-sm">
+                                @error('refundReason') <p class="text-xs text-red-600">{{ $message }}</p> @enderror
+                                <div class="flex gap-2">
+                                    <x-ui.button type="submit">Confirm refund</x-ui.button>
+                                    <x-ui.button type="button" variant="ghost" wire:click="cancelRefund">Cancel</x-ui.button>
+                                </div>
+                            </form>
+                        </td>
+                    </tr>
+                @endif
             @empty
-                <tr><td colspan="{{ $canManage ? 7 : 6 }}" class="px-4 py-6 text-center text-gray-400">No webhook receipts logged.</td></tr>
+                <tr><td colspan="{{ ($canManage || $isSuperAdmin) ? 7 : 6 }}" class="px-4 py-6 text-center text-gray-400">No webhook receipts logged.</td></tr>
             @endforelse
         </tbody>
     </x-ui.table>

@@ -133,6 +133,7 @@ class RazorpayWebhookHandler
             ]);
 
             app(AdminOpsAlertService::class)->paymentAmountMismatch($payment);
+            app(AmountMismatchService::class)->notifyCustomer($payment, $razorpayPaymentId);
 
             return ['outcome' => self::OUTCOME_AMOUNT_MISMATCH, 'payment' => $payment];
         }

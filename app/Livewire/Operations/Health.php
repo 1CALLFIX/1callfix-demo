@@ -15,6 +15,7 @@ use App\Services\ActivityLogger;
 use App\Services\Operations\DispatchHealthService;
 use App\Services\Operations\ReconciliationService;
 use App\Services\Operations\StuckBookingService;
+use App\Services\Payments\AmountMismatchService;
 use App\Services\Payments\RazorpayWebhookHandler;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
@@ -60,6 +61,63 @@ class Health extends Component
     public function mount(): void
     {
         abort_unless(auth()->user()->hasPermissionAnywhere('operations.view'), 403, 'You do not have permission to view operations.');
+
+        $this->mismatchCopy = app(AmountMismatchService::class)->customerMessage();
+    }
+
+    /** Webhook log row currently showing the "refund captured amount" form. */
+    public ?int $refundingLogId = null;
+
+    public string $refundReason = '';
+
+    public string $mismatchCopy = '';
+
+    private function isSuperAdmin(): bool
+    {
+        return auth()->user()->role === 'super_admin';
+    }
+
+    public function startRefund(int $id): void
+    {
+        abort_unless($this->isSuperAdmin(), 403);
+
+        $this->refundingLogId = $id;
+        $this->refundReason = '';
+    }
+
+    public function cancelRefund(): void
+    {
+        $this->refundingLogId = null;
+        $this->refundReason = '';
+    }
+
+    /** Super Admin only, reason required, audit-logged, exactly the captured amount, idempotent — all enforced in AmountMismatchService. */
+    public function refundMismatch(): void
+    {
+        abort_unless($this->isSuperAdmin(), 403);
+
+        $this->validate(['refundReason' => ['required', 'string', 'min:3', 'max:500']], [], ['refundReason' => 'reason']);
+
+        $log = PaymentWebhookLog::findOrFail($this->refundingLogId);
+        $result = app(AmountMismatchService::class)->refundCaptured($log, auth()->user(), $this->refundReason);
+
+        $this->flashType = $result['ok'] ? 'success' : 'error';
+        $this->flashMessage = $result['message'];
+        $this->cancelRefund();
+    }
+
+    public function saveMismatchCopy(): void
+    {
+        abort_unless($this->isSuperAdmin(), 403);
+
+        $this->validate(['mismatchCopy' => ['required', 'string', 'min:10', 'max:300']], [], ['mismatchCopy' => 'message']);
+
+        $before = app(AmountMismatchService::class)->customerMessage();
+        Setting::set(AmountMismatchService::COPY_KEY, trim($this->mismatchCopy));
+        ActivityLogger::log(auth()->user(), Setting::class, 0, 'Edited customer payment-under-review message', ['before' => $before, 'after' => trim($this->mismatchCopy)]);
+
+        $this->flashType = 'success';
+        $this->flashMessage = 'Customer message saved.';
     }
 
     private function canManage(): bool
@@ -218,6 +276,7 @@ class Health extends Component
             'notificationFailureCount' => NotificationLog::where('status', 'failed')->count(),
             'checks' => $this->healthChecks(),
             'canManage' => $this->canManage(),
+            'isSuperAdmin' => $this->isSuperAdmin(),
             'reconciliation' => app(ReconciliationService::class)->detect(auth()->user()),
             'dispatchHealth' => app(DispatchHealthService::class)->stats(auth()->user()),
             'stuckBookings' => app(StuckBookingService::class)->detect(auth()->user()),
