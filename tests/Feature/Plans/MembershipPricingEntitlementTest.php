@@ -129,41 +129,139 @@ class MembershipPricingEntitlementTest extends TestCase
         $this->assertSame(0, UsageLedger::count());
     }
 
-    /**
-     * `fee_waiver` is the "free booking" membership benefit the readiness
-     * matrix describes. It must take the price to zero — and, once the quota
-     * is spent, the next booking must fall back to the full price rather
-     * than staying free.
-     */
-    public function test_a_fee_waiver_membership_makes_the_booking_free_until_the_quota_is_spent(): void
+    // ============================== fee_waiver = "Free Service Visit": the visit charge ONLY ==============================
+
+    /** A ₹500 service, a member with one `fee_waiver` free visit, and the booking placed through the real API. */
+    private function memberWithFreeVisit(int $quantity = 1, array $visitSettings = ['cancellation.visit_fee_type' => 'flat', 'cancellation.visit_fee_value' => '149']): array
+    {
+        foreach ($visitSettings as $key => $value) {
+            \App\Models\Setting::set($key, $value); // before the booking: the policy snapshot freezes them onto it
+        }
+
+        [, , $franchise, $zone] = $this->makeFranchiseTree();
+        [, $service] = $this->makeCategoryAndService(); // base_price 500
+        $customer = $this->makeCustomer();
+        $address = $this->makeAddress($customer, $franchise, $zone);
+
+        $plan = $this->makeMembershipPlan(['entitlement_type' => 'fee_waiver', 'quantity' => $quantity]);
+        $result = app(SubscriptionService::class)->initiateSubscribe($customer, 'customer', $plan);
+        $subscription = Subscription::findOrFail($result['subscription_id']);
+
+        $book = fn (string $method = 'online') => $this->actingAs($customer, 'sanctum')
+            ->postJson('/api/bookings', ['service_id' => $service->id, 'address_id' => $address->id, 'payment_method' => $method])
+            ->assertStatus(201);
+
+        $balance = fn () => EntitlementBalance::where('subscription_id', $subscription->id)->firstOrFail();
+
+        return [$book, $balance, $subscription, $service];
+    }
+
+    public function test_a_fee_waiver_removes_only_the_visit_charge_and_the_service_price_is_still_charged(): void
+    {
+        [$book, $balance] = $this->memberWithFreeVisit();
+
+        $book();
+        $first = Booking::orderBy('id')->firstOrFail();
+
+        $this->assertEquals(351, $first->price_quoted, 'Only the 149 visit charge comes off the 500 service price.');
+        $this->assertGreaterThan(0, (float) $first->price_quoted, 'The service price must never be zeroed.');
+        $this->assertSame(0, $balance()->remainingQuantity(), 'One free visit was used.');
+
+        $ledger = UsageLedger::where('booking_id', $first->id)->where('event_type', 'consume')->firstOrFail();
+        $this->assertEquals(-149, $ledger->monetary_delta, 'The ledger records exactly the visit charge that was waived.');
+
+        // Quota spent: the next booking is charged in full.
+        $book();
+        $this->assertEquals(500, Booking::orderByDesc('id')->firstOrFail()->price_quoted);
+    }
+
+    public function test_a_percent_visit_charge_is_waived_as_that_percent_of_the_job_price_only(): void
+    {
+        [$book] = $this->memberWithFreeVisit(1, ['cancellation.visit_fee_type' => 'percent', 'cancellation.visit_fee_value' => '10']);
+
+        $book();
+
+        $this->assertEquals(450, Booking::firstOrFail()->price_quoted, '10% of 500 is the visit charge; the other 450 is still charged.');
+    }
+
+    public function test_a_fee_waiver_never_takes_more_than_the_visit_charge_even_for_a_visit_only_service(): void
+    {
+        // The visit charge is capped at the price: a 100 service with a 149 visit charge is at most fully waived,
+        // never pushed negative, and a normal 500 service is never zeroed (see the first test).
+        [$book, , , $service] = $this->memberWithFreeVisit();
+        $service->update(['base_price' => 100]);
+
+        $book();
+
+        $this->assertEquals(0, Booking::firstOrFail()->price_quoted);
+    }
+
+    public function test_no_visit_charge_configured_means_nothing_is_waived_and_no_free_visit_is_used(): void
+    {
+        [$book, $balance] = $this->memberWithFreeVisit(1, []); // cancellation.visit_fee_value never set: fail closed
+
+        $book();
+
+        $this->assertEquals(500, Booking::firstOrFail()->price_quoted);
+        $this->assertSame(1, $balance()->remainingQuantity(), 'A free visit is not burned when there was nothing to waive.');
+        $this->assertSame(0, UsageLedger::count());
+    }
+
+    public function test_a_cash_booking_gets_no_waiver_because_only_online_payment_receives_benefits(): void
+    {
+        [$book, $balance] = $this->memberWithFreeVisit();
+
+        $book('cash');
+
+        $this->assertEquals(500, Booking::firstOrFail()->price_quoted, 'THUMB RULE: cash bookings get no benefit of any kind.');
+        $this->assertSame(1, $balance()->remainingQuantity());
+        $this->assertSame(0, UsageLedger::count());
+
+        $book('online'); // the same member, paying online, does get it
+        $this->assertEquals(351, Booking::orderByDesc('id')->firstOrFail()->price_quoted);
+    }
+
+    public function test_included_service_entitlements_are_unchanged_by_the_fee_waiver_fix(): void
     {
         [, , $franchise, $zone] = $this->makeFranchiseTree();
         [, $service] = $this->makeCategoryAndService();
         $customer = $this->makeCustomer();
         $address = $this->makeAddress($customer, $franchise, $zone);
 
-        $plan = $this->makeMembershipPlan([
-            'entitlement_type' => 'fee_waiver',
-            'quantity' => 1, // exactly one free booking
-        ]);
+        // An included-service ("quantity") entitlement: the price is untouched, one unit is consumed, exactly as before.
+        $plan = $this->makeMembershipPlan(['entitlement_type' => 'quantity', 'quantity' => 2]);
+        $result = app(SubscriptionService::class)->initiateSubscribe($customer, 'customer', $plan);
+        $balance = EntitlementBalance::where('subscription_id', $result['subscription_id'])->firstOrFail();
 
-        app(SubscriptionService::class)->initiateSubscribe($customer, 'customer', $plan);
-
-        $book = fn () => $this->actingAs($customer, 'sanctum')
-            ->postJson('/api/bookings', [
-                'service_id' => $service->id,
-                'address_id' => $address->id,
-                'payment_method' => 'cash',
-            ])
+        $this->actingAs($customer, 'sanctum')
+            ->postJson('/api/bookings', ['service_id' => $service->id, 'address_id' => $address->id, 'payment_method' => 'online'])
             ->assertStatus(201);
 
-        $book();
-        $first = Booking::orderBy('id')->firstOrFail();
-        $this->assertEquals(0, $first->price_quoted, 'The first booking must be waived to zero.');
+        $this->assertEquals(500, Booking::firstOrFail()->price_quoted);
+        $this->assertSame(1, $balance->fresh()->remainingQuantity());
+    }
 
-        $book();
-        $second = Booking::orderByDesc('id')->firstOrFail();
-        $this->assertNotSame($first->id, $second->id);
-        $this->assertEquals(500, $second->price_quoted, 'An exhausted quota must fall back to the full price.');
+    public function test_the_seeded_prime_silver_free_visit_is_not_reached_by_the_automatic_booking_pricing(): void
+    {
+        // Prime Silver's entitlements (all 5, incl. fee_waiver) are redeemed explicitly (RedeemEntitlementAction) and are
+        // seeded with consumption_trigger = service_completed, so the booking-time pricing resolver never sees them.
+        \App\Models\Setting::set('cancellation.visit_fee_value', '149');
+        $this->seed(\Database\Seeders\PrimeSilverPlanSeeder::class);
+        $plan = Plan::where('slug', '1callfix-prime-silver')->firstOrFail();
+        $this->assertSame(['service_completed'], $plan->entitlements()->pluck('consumption_trigger')->unique()->values()->all());
+
+        [, , $franchise, $zone] = $this->makeFranchiseTree();
+        [, $service] = $this->makeCategoryAndService();
+        $customer = $this->makeCustomer();
+        $address = $this->makeAddress($customer, $franchise, $zone);
+        // An ACTIVE member (the paid plan would otherwise open a Razorpay order when subscribing).
+        Subscription::create(['subscribable_type' => \App\Models\User::class, 'subscribable_id' => $customer->id, 'plan_id' => $plan->id, 'status' => 'active']);
+
+        $this->actingAs($customer, 'sanctum')
+            ->postJson('/api/bookings', ['service_id' => $service->id, 'address_id' => $address->id, 'payment_method' => 'online'])
+            ->assertStatus(201);
+
+        $this->assertEquals(500, Booking::firstOrFail()->price_quoted, 'a Prime member is not repriced by the automatic resolver');
+        $this->assertSame(0, UsageLedger::count());
     }
 }

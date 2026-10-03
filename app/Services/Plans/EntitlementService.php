@@ -11,6 +11,7 @@ use App\Models\UsageLedger;
 use App\Models\User;
 use App\Notifications\EntitlementNotification;
 use App\Notifications\Support\ChannelResolver;
+use App\Services\Cancellation\InterimChargeCalculator;
 use Illuminate\Support\Collection;
 
 /**
@@ -39,7 +40,7 @@ class EntitlementService
      */
     public function resolveAndConsumeForBooking(User $customer, float $basePrice, Booking $booking): ?array
     {
-        $candidates = $this->activeCustomerPricingEntitlements($customer);
+        $candidates = $this->activeCustomerPricingEntitlements($customer, $booking, $basePrice);
         if ($candidates->isEmpty()) {
             return null;
         }
@@ -134,7 +135,7 @@ class EntitlementService
         $notifiable->notify(new EntitlementNotification($event, $entitlement, $channels));
     }
 
-    private function activeCustomerPricingEntitlements(User $customer): Collection
+    private function activeCustomerPricingEntitlements(User $customer, Booking $booking, float $basePrice): Collection
     {
         $subscriptions = Subscription::where('subscribable_type', User::class)
             ->where('subscribable_id', $customer->id)
@@ -150,11 +151,20 @@ class EntitlementService
                 if (! $entitlement->isUsable()) {
                     continue;
                 }
+
+                $benefit = $this->benefitValue($entitlement, $booking, $basePrice);
+
+                // A fee waiver with nothing to waive (no visit charge configured, a cash booking, ...) is not a
+                // candidate at all: it must neither win the pricing slot nor burn one of the member's free visits.
+                if ($entitlement->entitlement_type === 'fee_waiver' && $benefit <= 0) {
+                    continue;
+                }
+
                 $candidates->push([
                     'subscription' => $subscription,
                     'plan' => $subscription->plan,
                     'entitlement' => $entitlement,
-                    'benefit_value' => $this->benefitValue($entitlement),
+                    'benefit_value' => $benefit,
                 ]);
             }
         }
@@ -162,15 +172,31 @@ class EntitlementService
         return $candidates;
     }
 
-    private function benefitValue(PlanEntitlement $entitlement): float
+    private function benefitValue(PlanEntitlement $entitlement, Booking $booking, float $basePrice): float
     {
         return match ($entitlement->entitlement_type) {
             'percentage_discount' => (float) $entitlement->percentage_value,
             'fixed_discount' => (float) $entitlement->monetary_value,
-            'fee_waiver' => PHP_FLOAT_MAX, // a full waiver always wins a benefit-value comparison against a partial discount
+            'fee_waiver' => $this->waivableVisitCharge($booking, $basePrice), // its real rupee value, compared like a fixed discount
             'member_price' => (float) $entitlement->monetary_value,
             default => 0.0,
         };
+    }
+
+    /**
+     * What a `fee_waiver` ("Free Service Visit") may remove from a booking: the visit / inspection charge and
+     * NOTHING else — never the service price. The amount is the booking's own policy-snapshot visit charge
+     * (`cancellation.visit_fee_*`, the single source), capped at the price. Zero (so no waiver, no unit used) when
+     * the charge is not configured, and for a cash booking: THUMB RULE — only online payments (Razorpay, wallet,
+     * wallet + Razorpay) receive a benefit.
+     */
+    private function waivableVisitCharge(Booking $booking, float $basePrice): float
+    {
+        if ($booking->payment_method === 'cash') {
+            return 0.0;
+        }
+
+        return app(InterimChargeCalculator::class)->standardVisitFee($booking, $basePrice);
     }
 
     private function applyPricingEntitlement(array $winner, float $basePrice, Booking $booking): array
@@ -211,7 +237,8 @@ class EntitlementService
         $adjustedPrice = match ($entitlement->entitlement_type) {
             'percentage_discount' => round($basePrice * (1 - ((float) $entitlement->percentage_value / 100)), 2),
             'fixed_discount' => max(0, round($basePrice - (float) $entitlement->monetary_value, 2)),
-            'fee_waiver' => 0.0,
+            // Only the visit charge comes off; the service price itself is still charged in full.
+            'fee_waiver' => max(0, round($basePrice - $this->waivableVisitCharge($booking, $basePrice), 2)),
             'member_price' => (float) $entitlement->monetary_value,
             'quantity' => $basePrice, // included in quota — price unchanged, just consumes a unit
             default => $basePrice,
