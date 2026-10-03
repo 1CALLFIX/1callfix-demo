@@ -76,6 +76,13 @@ ScheduleRunTracker::track(Schedule::command('dispatch:sweep-deadlines'), 'dispat
     ->everyMinute()
     ->withoutOverlapping(10);
 
+// Coupon engine — cancels coupon bookings whose online payment never arrived
+// within coupons.unpaid_hold_minutes and releases the coupon (design Q11). No-op
+// while that setting is unset. Same schedule:run cron caveat as every entry above.
+ScheduleRunTracker::track(Schedule::command('coupons:sweep-unpaid'), 'coupons:sweep-unpaid')
+    ->everyMinute()
+    ->withoutOverlapping(10);
+
 // MANUAL MONEY ACTIONS — mismatch-refund queue escalation (refund.mismatch.
 // escalate_after_hours; no-op while unset). Every 15 minutes is plenty for an
 // hours-scale threshold; each row escalates once per level. Same

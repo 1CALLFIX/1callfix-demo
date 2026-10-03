@@ -23,6 +23,14 @@ class Booking extends Model implements Orderable
 
     protected static function booted(): void
     {
+        // THUMB RULE: a booking that carries a coupon benefit can never switch payment method
+        // afterwards (web, API, provider app, admin alike) — in particular never to cash.
+        static::updating(function (Booking $booking) {
+            if ($booking->isDirty('payment_method') && $booking->hasCouponBenefit()) {
+                throw new \LogicException('A booking that used a coupon benefit must stay paid online; its payment method cannot be changed.');
+            }
+        });
+
         // Step 5: freeze the cancellation policy in force at booking time; every later fee reads this.
         static::creating(function (Booking $booking) {
             if ($booking->cancellation_policy_snapshot === null) {
@@ -32,6 +40,26 @@ class Booking extends Model implements Orderable
     }
 
     public function quotes() { return $this->hasMany(BookingQuote::class); }
+
+    /**
+     * What the customer actually pays for the quoted service: gross
+     * price_quoted minus the coupon discount (decision D1 — price_quoted
+     * itself stays gross so commission/payout/fee bases are untouched).
+     * EVERY place that collects money for a booking reads this, never
+     * price_quoted. Approved extras are never discounted.
+     */
+    public function amountPayable(): float
+    {
+        return round(max((float) $this->price_quoted - (float) ($this->coupon_discount_amount ?? 0), 0), 2);
+    }
+
+    /** True when this booking carries a coupon benefit (THUMB RULE: it must be paid online and can never switch to cash). */
+    public function hasCouponBenefit(): bool
+    {
+        return $this->coupon_id !== null || (float) ($this->coupon_discount_amount ?? 0) > 0;
+    }
+
+    public function coupon() { return $this->belongsTo(Coupon::class); }
     public function callAttempts() { return $this->hasMany(BookingCallAttempt::class); }
 
     protected $fillable = [
@@ -59,6 +87,8 @@ class Booking extends Model implements Orderable
         'payment_status',
         'payment_method',
         'coupon_id',
+        'coupon_discount_amount',
+        'coupon_snapshot',
         'cancellation_reason_id',
         'cancellation_note',
         'cancellation_fee',
@@ -121,6 +151,7 @@ class Booking extends Model implements Orderable
         'spares_notices' => 'array',
         'cancellation_policy_snapshot' => 'array',
         'acquisition' => 'array',
+        'coupon_snapshot' => 'array',
         'arrival_verified_at' => 'datetime',
         // Phase E5 — booking OTP hardening metadata (see BookingOtpService).
         'start_otp_expires_at' => 'datetime',

@@ -223,7 +223,7 @@ class BundleSettlementService
         foreach ($bundle->children as $child) {
             $retained += $child->status === 'cancelled'
                 ? (float) ($child->cancellation_fee ?? 0)
-                : (float) ($child->price_quoted ?? 0);
+                : round((float) ($child->price_quoted ?? 0) - (float) ($child->coupon_discount_amount ?? 0), 2); // net of the child's coupon share (D1)
         }
 
         return round(max((float) $payment->amount - round($retained, 2), 0), 2);

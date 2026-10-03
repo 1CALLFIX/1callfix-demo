@@ -300,7 +300,7 @@ class Show extends Component
             ['gateway_order_id' => $order['razorpay_order_id']],
             [
                 'booking_id' => $booking->id,
-                'amount' => $booking->price_quoted,
+                'amount' => $booking->amountPayable(),
                 'gateway' => $gateway->identifier(),
                 'status' => 'pending',
             ],

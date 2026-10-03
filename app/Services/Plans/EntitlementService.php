@@ -70,6 +70,48 @@ class EntitlementService
     }
 
     /**
+     * READ-ONLY twin of resolveAndConsumeForBooking(): which pricing
+     * entitlement would win and what price it would produce — without
+     * consuming a unit, writing a ledger row or notifying. The coupon engine
+     * uses it to apply whichever of coupon / member benefit is larger
+     * (Q8: one discount per booking) BEFORE anything is consumed.
+     *
+     * @return ?array{entitlement_type: string, adjusted_price: float, discount: float}
+     */
+    public function previewBestPricingEntitlement(User $customer, float $basePrice): ?array
+    {
+        $candidates = $this->activeCustomerPricingEntitlements($customer);
+        if ($candidates->isEmpty()) {
+            return null;
+        }
+
+        $winner = null;
+        foreach ($this->stackingResolver->groupByType($candidates) as $group) {
+            $picked = $this->stackingResolver->resolveSingleType($group);
+            if ($picked && (! $winner || $picked['benefit_value'] > $winner['benefit_value'])) {
+                $winner = $picked;
+            }
+        }
+        if (! $winner) {
+            return null;
+        }
+
+        $entitlement = $winner['entitlement'];
+        $balance = $this->currentBalance($winner['subscription'], $entitlement);
+        $exhausted = $balance && $entitlement->quantity !== null && $balance->remainingQuantity() <= 0;
+
+        $adjusted = $exhausted
+            ? $this->overageService->priceForExhaustedEntitlement($entitlement, $basePrice)['price']
+            : $this->pricedByEntitlement($entitlement, $basePrice);
+
+        return [
+            'entitlement_type' => $entitlement->entitlement_type,
+            'adjusted_price' => (float) $adjusted,
+            'discount' => max(0.0, round($basePrice - (float) $adjusted, 2)),
+        ];
+    }
+
+    /**
      * Provider-side commission_reduction/commission_override, resolved at
      * service_completed (approved plan §6). Returns null when no
      * applicable/usable plan exists.
@@ -216,13 +258,7 @@ class EntitlementService
             ];
         }
 
-        $adjustedPrice = match ($entitlement->entitlement_type) {
-            'percentage_discount' => round($basePrice * (1 - ((float) $entitlement->percentage_value / 100)), 2),
-            'fixed_discount' => max(0, round($basePrice - (float) $entitlement->monetary_value, 2)),
-            'member_price' => (float) $entitlement->monetary_value,
-            'quantity' => $basePrice, // included in quota — price unchanged, just consumes a unit
-            default => $basePrice,
-        };
+        $adjustedPrice = $this->pricedByEntitlement($entitlement, $basePrice);
 
         $discountAmount = max(0, round($basePrice - $adjustedPrice, 2));
 
@@ -252,6 +288,18 @@ class EntitlementService
             'adjusted_price' => $adjustedPrice,
             'was_overage' => false,
         ];
+    }
+
+    /** The one place an entitlement type turns into a price — shared by the real apply and the read-only preview. */
+    private function pricedByEntitlement(PlanEntitlement $entitlement, float $basePrice): float
+    {
+        return match ($entitlement->entitlement_type) {
+            'percentage_discount' => round($basePrice * (1 - ((float) $entitlement->percentage_value / 100)), 2),
+            'fixed_discount' => max(0, round($basePrice - (float) $entitlement->monetary_value, 2)),
+            'member_price' => (float) $entitlement->monetary_value,
+            'quantity' => $basePrice, // included in quota — price unchanged, just consumes a unit
+            default => $basePrice,
+        };
     }
 
     private function currentBalance(Subscription $subscription, PlanEntitlement $entitlement): ?EntitlementBalance

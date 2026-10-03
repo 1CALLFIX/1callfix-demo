@@ -106,7 +106,7 @@ class RazorpayPaymentDriver implements PaymentGateway
     public function createOrder(Booking $booking): array
     {
         return $this->createRawOrder(
-            (float) $booking->price_quoted,
+            $booking->amountPayable(),
             $booking->code,
             ['booking_id' => $booking->id, 'franchise_id' => $booking->franchise_id],
         );

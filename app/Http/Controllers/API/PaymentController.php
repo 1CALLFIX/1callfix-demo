@@ -37,7 +37,7 @@ class PaymentController extends Controller
 
         $payment = Payment::create([
             'booking_id' => $booking->id,
-            'amount' => $booking->price_quoted,
+            'amount' => $booking->amountPayable(),
             'gateway' => $gateway->identifier(),
             'gateway_order_id' => $order['razorpay_order_id'],
             'status' => 'pending',

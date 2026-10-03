@@ -2,6 +2,7 @@
 
 namespace App\Actions;
 
+use App\Exceptions\CouponException;
 use App\Exceptions\ModuleNotActiveException;
 use App\Jobs\ServiceMatchingJob;
 use App\Models\Booking;
@@ -13,6 +14,8 @@ use App\Models\Setting;
 use App\Notifications\BookingStatusNotification;
 use App\Notifications\Support\ChannelResolver;
 use App\Services\AdminOpsAlertService;
+use App\Services\Coupons\CouponService;
+use App\Services\Coupons\ServicePromotionContextBuilder;
 use App\Services\FlashSaleService;
 use App\Services\ModuleActivationService;
 use App\Services\Plans\EntitlementService;
@@ -30,6 +33,7 @@ class CreateBookingAction
         private ModuleActivationService $moduleActivation,
         private FlashSaleService $flashSales,
         private ScheduledDispatchService $scheduledDispatch,
+        private CouponService $coupons,
     ) {
     }
 
@@ -87,6 +91,10 @@ class CreateBookingAction
             // (payWithWallet() ran inside the transaction above); for
             // 'online' it fires later from RazorpayWebhookHandler instead.
             $this->scheduledDispatch->releaseIfEligible($booking);
+        } elseif ($booking->coupon_id !== null && $booking->payment_status !== 'paid') {
+            // A coupon booking is a benefit booking: nothing is dispatched until the
+            // online payment is captured (RazorpayWebhookHandler -> CouponDispatchGate).
+            // If payment never arrives the unpaid-hold sweep cancels it.
         } else {
             ServiceMatchingJob::dispatch($booking->id);
         }
@@ -213,7 +221,11 @@ class CreateBookingAction
         // additive to Service.base_price/FranchiseServicePricing, never a
         // parallel pricing path. Null means no applicable/usable plan;
         // today's price stands unchanged.
-        if ($booking->customer) {
+        $couponCode = trim((string) ($data['coupon_code'] ?? ''));
+
+        if ($booking->customer && $couponCode !== '') {
+            $this->applyCouponOrMemberBenefit($booking, $basePrice, $couponCode, $appliedSale !== null);
+        } elseif ($booking->customer) {
             $adjustment = $this->entitlementService->resolveAndConsumeForBooking($booking->customer, $basePrice, $booking);
             if ($adjustment) {
                 $booking->price_quoted = $adjustment['adjusted_price'];
@@ -222,6 +234,68 @@ class CreateBookingAction
         }
 
         return $booking;
+    }
+
+    /**
+     * Coupon engine, decision Q8 — ONE discount per booking. When a coupon
+     * code is supplied and the customer also holds a Prime/member pricing
+     * benefit, the larger of the two applies (ties go to the member benefit
+     * they already own) and the other is never consumed. A coupon never
+     * applies to a booking covered by a quantity-redemption entitlement.
+     *
+     * The coupon is validated and reserved here, inside the booking
+     * transaction, so an unusable coupon (including cash, which the engine
+     * rejects) fails the whole booking rather than silently charging the
+     * undiscounted price the customer was never shown.
+     *
+     * @throws \App\Exceptions\CouponException
+     */
+    private function applyCouponOrMemberBenefit(Booking $booking, float $basePrice, string $couponCode, bool $flashApplied): void
+    {
+        $builder = app(ServicePromotionContextBuilder::class);
+        $ctx = $builder->forBooking($booking, $couponCode, $flashApplied);
+
+        $preview = $this->entitlementService->previewBestPricingEntitlement($booking->customer, $basePrice);
+
+        if ($preview && $preview['entitlement_type'] === 'quantity') {
+            throw new CouponException('entitlement_covered', 'Your membership benefit already covers this booking.');
+        }
+
+        $result = $this->coupons->validate($ctx);
+        if (! $result->eligible) {
+            throw new CouponException($result->reasonCode, $result->message);
+        }
+
+        $memberDiscount = $preview['discount'] ?? 0.0;
+
+        if ($preview && $memberDiscount >= $result->discountTotal) {
+            // Member benefit is at least as good: apply it exactly as before and tell the customer which won.
+            $adjustment = $this->entitlementService->resolveAndConsumeForBooking($booking->customer, $basePrice, $booking);
+            if ($adjustment) {
+                $booking->price_quoted = $adjustment['adjusted_price'];
+            }
+            $booking->coupon_snapshot = [
+                'applied' => false,
+                'reason' => 'member_benefit_larger',
+                'code' => $couponCode,
+                'coupon_discount' => $result->discountTotal,
+                'member_discount' => $memberDiscount,
+                'benefit' => 'membership',
+            ];
+            $booking->save();
+
+            return;
+        }
+
+        [$applied] = $this->coupons->reserve($ctx, $booking);
+
+        $booking->coupon_id = $applied->coupon->id;
+        $booking->coupon_discount_amount = $applied->discountTotal;
+        $booking->coupon_snapshot = $applied->snapshot + [
+            'applied' => true,
+            'member_discount_not_used' => $memberDiscount,
+        ];
+        $booking->save();
     }
 
     /**
@@ -264,7 +338,7 @@ class CreateBookingAction
 
         app(WalletService::class)->debit(
             $booking->customer,
-            (float) $booking->price_quoted,
+            $booking->amountPayable(),
             reason: "Payment for booking {$booking->code}",
             ref: "booking:{$booking->id}:wallet-payment"
         );
@@ -276,7 +350,7 @@ class CreateBookingAction
         $payment = Payment::create([
             'booking_id' => $booking->id,
             'purpose' => 'booking',
-            'amount' => $booking->price_quoted,
+            'amount' => $booking->amountPayable(),
             'gateway' => 'wallet',
             'status' => 'captured',
             'captured_at' => now(),

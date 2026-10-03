@@ -144,14 +144,37 @@ class DocumentService
         return $payment->booking?->customer?->phone ?? $payment->user?->phone;
     }
 
+    /**
+     * Booking invoice lines. Without a coupon: the single line it always was.
+     * With one: gross service line, the coupon line (negative), and the net —
+     * frozen from the booking, never recomputed from the live coupon. The
+     * lines always sum to payment.amount (what the customer paid).
+     *
+     * @return array<int, array{label: string, amount: float}>
+     */
+    private function bookingLines(Payment $payment): array
+    {
+        $booking = $payment->booking;
+        $label = $booking ? "Service: {$booking->service?->name} (Booking {$booking->code})" : 'Booking payment';
+
+        $discount = (float) ($booking?->coupon_discount_amount ?? 0);
+        if (! $booking || $discount <= 0 || (float) $payment->amount !== round((float) $booking->price_quoted - $discount, 2)) {
+            return [['label' => $label, 'amount' => (float) $payment->amount]];
+        }
+
+        $code = $booking->coupon_snapshot['code'] ?? 'coupon';
+
+        return [
+            ['label' => $label, 'amount' => (float) $booking->price_quoted],
+            ['label' => "Coupon {$code}", 'amount' => -$discount],
+        ];
+    }
+
     /** @return array<int, array{label: string, amount: float}> */
     private function linesFor(Payment $payment, string $currencySymbol): array
     {
         return match ($payment->purpose) {
-            'booking' => [[
-                'label' => $payment->booking ? "Service: {$payment->booking->service?->name} (Booking {$payment->booking->code})" : 'Booking payment',
-                'amount' => (float) $payment->amount,
-            ]],
+            'booking' => $this->bookingLines($payment),
             'wallet_topup' => [['label' => 'Wallet top-up', 'amount' => (float) $payment->amount]],
             'plan_subscription' => [[
                 'label' => $payment->planSubscription?->plan ? "Subscription: {$payment->planSubscription->plan->name}" : 'Subscription payment',
