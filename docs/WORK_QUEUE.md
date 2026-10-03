@@ -31,7 +31,7 @@ Standing rules for all items:
 
 | # | Item | Status |
 |---|---|---|
-| 1 | fee_waiver fix (decision 1 above) | BUILT, awaiting owner review (branch feature/fee-waiver-visit-only; not merged) |
+| 1 | fee_waiver fix (decision 1 above) + visit-charge thumb rule | BUILT 2026-10-04, full suite green except the known NotificationCenterAuditTest failure; awaiting owner review (branch feature/fee-waiver-visit-only: bdc04bf rule, 9636efd wording, 38fc371 waiver; not merged) |
 | 2 | 0b — SUPER ADMIN PLACEHOLDER FIXES | not started |
 | 3 | O1–O6 — promotional credit open decisions | not started |
 | 4 | Admin email-change verification link (before franchise/finance admins exist) | not started |
@@ -52,6 +52,12 @@ See decision 1. Report every place `fee_waiver` is applied (file/line), fix, and
 `fee_waiver` removes only the visit charge; full service price still charged; included-service
 entitlements unchanged. Prod has 0 Prime subscribers, so no data fix needed; confirm by code
 reading only.
+
+Step 3 outcome (2026-10-04): CLAUDE.md now carries the VISIT/INSPECTION CHARGE ONLY WHEN NO WORK IS DONE rule. The earlier
+fix (614e663: price 500 -> 351) was itself wrong under that rule and is superseded by 38fc371: fee_waiver never touches
+a booking price; PrimeWaiver forgives the charge and uses one unit only on a no-work cancel after verified arrival
+(never for cash). Open owner decision: `InterimChargeCalculator` floors the mid-work cancellation labour at the visit
+charge (`max(visit, progress)`) even though some work was done.
 
 ### 2. 0b — SUPER ADMIN PLACEHOLDER FIXES
 
