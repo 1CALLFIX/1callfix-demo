@@ -3,6 +3,7 @@
 namespace App\Livewire\RefundControls;
 
 use App\Models\Setting;
+use App\Services\BookingDisputeService;
 use App\Services\Payments\AmountMismatchService;
 use App\Services\Payments\MismatchRefundService;
 use App\Services\SettingsAuditor;
@@ -27,6 +28,14 @@ class Manage extends Component
 
     public string $escalateAfterHours = '';
 
+    public string $dispFranchiseLimit = '';
+
+    public string $dispHqLimit = '';
+
+    public string $dispDualApprovalAbove = '';
+
+    public string $dispEscalateAfterHours = '';
+
     public string $noticeUnderReview = '';
 
     public string $noticeRefunded = '';
@@ -44,6 +53,11 @@ class Manage extends Component
         $this->dualApprovalAbove = (string) Setting::get(MismatchRefundService::DUAL_APPROVAL_KEY, '');
         $this->escalateAfterHours = (string) Setting::get(MismatchRefundService::ESCALATE_HOURS_KEY, '');
 
+        $this->dispFranchiseLimit = (string) Setting::get(BookingDisputeService::FRANCHISE_LIMIT_KEY, '');
+        $this->dispHqLimit = (string) Setting::get(BookingDisputeService::HQ_LIMIT_KEY, '');
+        $this->dispDualApprovalAbove = (string) Setting::get(BookingDisputeService::DUAL_APPROVAL_KEY, '');
+        $this->dispEscalateAfterHours = (string) Setting::get(BookingDisputeService::ESCALATE_HOURS_KEY, '');
+
         $notices = app(AmountMismatchService::class);
         $this->noticeUnderReview = $notices->customerMessage();
         $this->noticeRefunded = trim((string) Setting::get(AmountMismatchService::COPY_REFUNDED_KEY, '')) ?: AmountMismatchService::DEFAULT_REFUNDED;
@@ -58,6 +72,10 @@ class Manage extends Component
             'hqLimit' => ['nullable', 'numeric', 'min:0', 'max:100000000'],
             'dualApprovalAbove' => ['nullable', 'numeric', 'min:0', 'max:100000000'],
             'escalateAfterHours' => ['nullable', 'integer', 'min:1', 'max:720'],
+            'dispFranchiseLimit' => ['nullable', 'numeric', 'min:0', 'max:100000000'],
+            'dispHqLimit' => ['nullable', 'numeric', 'min:0', 'max:100000000'],
+            'dispDualApprovalAbove' => ['nullable', 'numeric', 'min:0', 'max:100000000'],
+            'dispEscalateAfterHours' => ['nullable', 'integer', 'min:1', 'max:720'],
             'noticeUnderReview' => ['required', 'string', 'min:10', 'max:300'],
             'noticeRefunded' => ['required', 'string', 'min:10', 'max:300'],
         ], [], [
@@ -71,6 +89,12 @@ class Manage extends Component
 
         if ($this->franchiseLimit !== '' && $this->hqLimit !== '' && (float) $this->franchiseLimit > (float) $this->hqLimit) {
             $this->addError('franchiseLimit', 'The franchise limit cannot be higher than the HQ limit.');
+
+            return;
+        }
+
+        if ($this->dispFranchiseLimit !== '' && $this->dispHqLimit !== '' && (float) $this->dispFranchiseLimit > (float) $this->dispHqLimit) {
+            $this->addError('dispFranchiseLimit', 'The franchise limit cannot be higher than the HQ limit.');
 
             return;
         }
@@ -89,6 +113,10 @@ class Manage extends Component
             MismatchRefundService::HQ_LIMIT_KEY => $this->hqLimit,
             MismatchRefundService::DUAL_APPROVAL_KEY => $this->dualApprovalAbove,
             MismatchRefundService::ESCALATE_HOURS_KEY => $this->escalateAfterHours,
+            BookingDisputeService::FRANCHISE_LIMIT_KEY => $this->dispFranchiseLimit,
+            BookingDisputeService::HQ_LIMIT_KEY => $this->dispHqLimit,
+            BookingDisputeService::DUAL_APPROVAL_KEY => $this->dispDualApprovalAbove,
+            BookingDisputeService::ESCALATE_HOURS_KEY => $this->dispEscalateAfterHours,
             AmountMismatchService::COPY_UNDER_REVIEW_KEY => trim($this->noticeUnderReview),
             AmountMismatchService::COPY_REFUNDED_KEY => trim($this->noticeRefunded),
         ] as $key => $value) {

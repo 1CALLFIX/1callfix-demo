@@ -70,8 +70,7 @@ class JobJourneyController extends Controller
         // REF 1CF-CANCEL-POLICY-001 — the interim-work declaration is mandatory (it is what the customer is charged on).
         $validated = $request->validate([
             'note' => 'nullable|string|max:500',
-            'progress_percent' => 'required|integer|min:0|max:100',
-            'parts_fitted_cost' => 'nullable|numeric|min:0',
+            'work_amount' => 'required|numeric|min:0',
             'sourced_by' => 'required|in:provider,platform,customer',
             'expected_at' => 'required|date|after_or_equal:today',
             'evidence' => 'nullable|array|max:5',
@@ -87,8 +86,7 @@ class JobJourneyController extends Controller
 
             try {
                 $action->execute($booking->id, 'awaiting_spares', $validated['note'] ?? 'Provider is waiting for spare parts', [
-                    'progress_percent' => $validated['progress_percent'],
-                    'parts_fitted_cost' => $validated['parts_fitted_cost'] ?? 0,
+                    'work_amount' => $validated['work_amount'],
                     'sourced_by' => $validated['sourced_by'],
                     'expected_at' => $validated['expected_at'],
                     'evidence' => $paths,

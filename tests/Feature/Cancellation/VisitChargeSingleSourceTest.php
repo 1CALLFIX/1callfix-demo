@@ -296,23 +296,21 @@ class VisitChargeSingleSourceTest extends TestCase
             ->assertSee('Visit charge ₹149 (launch price, regular ₹199). It applies only if the professional arrives and no work is done');
     }
 
-    public function test_the_minimum_labour_charge_is_editable_validated_and_audit_logged_separately_from_the_visit_charge(): void
+    public function test_the_interim_cap_is_editable_validated_and_audit_logged_and_the_minimum_labour_setting_is_gone(): void
     {
         $admin = $this->superAdmin();
         $field = fn (string $k) => 'inputs.'.Manage::field($k);
 
         Livewire::actingAs($admin)->test(Manage::class)
-            ->set($field('cancellation.interim_min_labour'), '75')
+            ->set($field('cancellation.interim_cap_percent'), '40')
             ->call('save')->assertHasNoErrors();
 
-        $this->assertSame('75', Setting::get('cancellation.interim_min_labour'));
-        $this->assertNotNull(ActivityLog::where('subject_type', 'setting')->where('properties->key', 'cancellation.interim_min_labour')->first());
+        $this->assertSame('40', Setting::get('cancellation.interim_cap_percent'));
+        $this->assertNotNull(ActivityLog::where('subject_type', 'setting')->where('properties->key', 'cancellation.interim_cap_percent')->first());
         $this->assertNull(Setting::get('cancellation.visit_fee_value'), 'the visit charge was not touched');
 
-        Livewire::actingAs($admin)->test(Manage::class)
-            ->set($field('cancellation.interim_min_labour'), '-1')
-            ->call('save')->assertHasErrors($field('cancellation.interim_min_labour'));
-        $this->assertNull(PolicySettings::validate('cancellation.interim_min_labour', ''), 'blank = no floor');
+        $this->assertArrayNotHasKey('cancellation.interim_min_labour', PolicySettings::REGISTRY, 'no floor of any kind');
+        $this->assertNull(PolicySettings::REGISTRY['cancellation.interim_cap_percent']['default'], 'null = not configured, fail closed');
     }
 
     public function test_only_a_super_admin_can_change_these_settings(): void

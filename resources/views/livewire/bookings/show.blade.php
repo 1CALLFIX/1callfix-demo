@@ -215,8 +215,7 @@
                     <div class="font-semibold mb-2">Spares delay &amp; cancellation</div>
                     @if ($booking->interim_declared_at)
                         <dl class="grid gap-1 text-sm sm:grid-cols-4">
-                            <div><dt class="text-xs text-gray-500">Declared progress</dt><dd class="font-medium">{{ $booking->interim_progress_percent }}%</dd></div>
-                            <div><dt class="text-xs text-gray-500">Parts fitted</dt><dd class="font-medium">{{ number_format((float) $booking->interim_parts_cost, 2) }}</dd></div>
+                            <div><dt class="text-xs text-gray-500">Declared amount for work done</dt><dd class="font-medium">{{ number_format((float) $booking->interim_amount, 2) }}</dd></div>
                             <div><dt class="text-xs text-gray-500">Part expected</dt><dd class="font-medium">{{ $booking->spares_expected_at?->format('j M Y') ?? '—' }}</dd></div>
                             <div><dt class="text-xs text-gray-500">Sourced by</dt><dd class="font-medium capitalize">{{ $booking->spares_sourced_by ?? '—' }}</dd></div>
                         </dl>
@@ -234,9 +233,8 @@
                             <p class="font-medium text-amber-900">Customer disputes these figures</p>
                             <p class="mt-1 text-amber-900">{{ $booking->interim_dispute_note }}</p>
                             <p class="mt-1 text-xs text-amber-800">Review the evidence above and the status history below. The customer cannot cancel until this is resolved.</p>
-                            <div class="mt-2 grid gap-2 sm:grid-cols-2">
-                                <input type="number" min="0" max="100" wire:model="disputeProgress" placeholder="Corrected progress % (optional)" class="border rounded px-3 py-2 text-sm">
-                                <input type="number" step="0.01" min="0" wire:model="disputeParts" placeholder="Corrected parts cost (optional)" class="border rounded px-3 py-2 text-sm">
+                            <div class="mt-2">
+                                <input type="number" step="0.01" min="0" wire:model="disputeAmount" placeholder="Corrected amount for work done (optional, within the cap)" class="w-full border rounded px-3 py-2 text-sm">
                             </div>
                             <input type="text" wire:model="disputeResolution" placeholder="Resolution (required)" class="mt-2 w-full border rounded px-3 py-2 text-sm">
                             <x-ui.button class="mt-2" wire:click="resolveDispute">Resolve dispute</x-ui.button>

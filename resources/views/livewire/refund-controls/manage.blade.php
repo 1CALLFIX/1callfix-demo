@@ -51,6 +51,36 @@
         </x-ui.card>
 
         <x-ui.card>
+            <h2 class="text-sm font-semibold mb-3">Pricing-dispute refunds (₹)</h2>
+            <p class="text-xs text-gray-500 mb-3">
+                Same model for refunds decided in a customer's pricing dispute. Blank limit = that level cannot approve; blank threshold / escalation = off.
+                Refunds are credited to the customer's wallet, never moved by franchise users.
+            </p>
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-xs font-medium mb-1" for="rc-dfl">Franchise limit</label>
+                    <input id="rc-dfl" type="text" inputmode="decimal" wire:model="dispFranchiseLimit" class="w-full rounded border-gray-300 text-sm">
+                    @error('dispFranchiseLimit') <p class="text-xs text-red-600 mt-1">{{ $message }}</p> @enderror
+                </div>
+                <div>
+                    <label class="block text-xs font-medium mb-1" for="rc-dhq">HQ limit</label>
+                    <input id="rc-dhq" type="text" inputmode="decimal" wire:model="dispHqLimit" class="w-full rounded border-gray-300 text-sm">
+                    @error('dispHqLimit') <p class="text-xs text-red-600 mt-1">{{ $message }}</p> @enderror
+                </div>
+                <div>
+                    <label class="block text-xs font-medium mb-1" for="rc-ddual">Second approval above</label>
+                    <input id="rc-ddual" type="text" inputmode="decimal" wire:model="dispDualApprovalAbove" class="w-full rounded border-gray-300 text-sm">
+                    @error('dispDualApprovalAbove') <p class="text-xs text-red-600 mt-1">{{ $message }}</p> @enderror
+                </div>
+                <div>
+                    <label class="block text-xs font-medium mb-1" for="rc-desc">Escalate after (hours)</label>
+                    <input id="rc-desc" type="text" inputmode="numeric" wire:model="dispEscalateAfterHours" class="w-full rounded border-gray-300 text-sm">
+                    @error('dispEscalateAfterHours') <p class="text-xs text-red-600 mt-1">{{ $message }}</p> @enderror
+                </div>
+            </div>
+        </x-ui.card>
+
+        <x-ui.card>
             <h2 class="text-sm font-semibold mb-3">Customer messages</h2>
             <div class="space-y-3">
                 <div>

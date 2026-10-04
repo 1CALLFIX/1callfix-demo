@@ -54,7 +54,7 @@ class DisputeInterimDeclarationAction
             $booking->statusHistory()->create([
                 'status' => 'on_hold',
                 'changed_by' => $customerId,
-                'note' => "Customer disputed declared progress ({$booking->interim_progress_percent}%): {$note}",
+                'note' => "Customer disputed the declared amount ({$booking->interim_amount}): {$note}",
                 'changed_at' => now(),
             ]);
 

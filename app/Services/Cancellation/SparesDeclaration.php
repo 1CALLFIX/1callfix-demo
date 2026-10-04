@@ -7,48 +7,43 @@ use Illuminate\Support\Carbon;
 
 /**
  * REF 1CF-CANCEL-POLICY-001 — validates and normalises what the professional must declare when putting a job
- * on hold for spares: progress %, parts already fitted (with a bill/photo), who sources the part, and the
- * expected arrival date. Figures are cumulative: a re-hold can never declare LESS than an earlier hold did.
+ * on hold for spares: the one amount for work already done (capped), optional evidence, who sources the part, and the
+ * expected arrival date. The amount is cumulative: a re-hold can never declare LESS than an earlier hold did.
  */
 final class SparesDeclaration
 {
     public const SOURCES = ['provider', 'platform', 'customer'];
 
     /**
-     * @param  array{progress_percent?: mixed, parts_fitted_cost?: mixed, expected_at?: mixed, sourced_by?: mixed, evidence?: array}  $input
-     * @return array{progress_percent: int, parts_fitted_cost: float, expected_at: Carbon, sourced_by: string, evidence: array}
+     * @param  array{work_amount?: mixed, expected_at?: mixed, sourced_by?: mixed, evidence?: array}  $input
+     * @return array{work_amount: float, expected_at: Carbon, sourced_by: string, evidence: array}
      *
      * @throws \InvalidArgumentException
      */
     public static function normalise(Booking $booking, array $input): array
     {
-        $progress = $input['progress_percent'] ?? null;
-        if (! is_numeric($progress) || (int) $progress < 0 || (int) $progress > 100) {
-            throw new \InvalidArgumentException('Enter the work completed so far as a percentage between 0 and 100.');
+        // A2: ONE amount for the work already done (labour and parts together), capped by cancellation.interim_cap_percent.
+        $amount = $input['work_amount'] ?? null;
+        if (! is_numeric($amount) || (float) $amount < 0 || (float) $amount > 10000000) {
+            throw new \InvalidArgumentException('Enter the amount for the work already done (0 if none).');
         }
-        $progress = (int) $progress;
+        $amount = round((float) $amount, 2);
 
-        if ($booking->interim_progress_percent !== null && $progress < (int) $booking->interim_progress_percent) {
-            throw new \InvalidArgumentException("Progress cannot be lower than the {$booking->interim_progress_percent}% you declared earlier.");
+        $calculator = app(InterimChargeCalculator::class);
+        $cap = $calculator->capValue($booking);
+        if ($cap === null) {
+            throw new \InvalidArgumentException('The limit for work already done has not been set up yet, so an amount cannot be submitted. Please contact support.');
         }
-
-        $parts = $input['parts_fitted_cost'] ?? 0;
-        if ($parts === '' || $parts === null) {
-            $parts = 0;
-        }
-        if (! is_numeric($parts) || (float) $parts < 0 || (float) $parts > 10000000) {
-            throw new \InvalidArgumentException('Enter the cost of parts already fitted (0 if none).');
-        }
-        $parts = round((float) $parts, 2);
-
-        if ($booking->interim_parts_cost !== null && $parts < (float) $booking->interim_parts_cost) {
-            throw new \InvalidArgumentException('Parts fitted cannot be lower than the amount you declared earlier.');
+        if ($amount > $cap) {
+            throw new \InvalidArgumentException('The amount cannot be more than ₹'.rtrim(rtrim(number_format($cap, 2), '0'), '.').' — '.PolicySettings::get($booking, 'cancellation.interim_cap_percent').'% of the job price.');
         }
 
+        if ($booking->interim_amount !== null && $amount < (float) $booking->interim_amount) {
+            throw new \InvalidArgumentException('The amount cannot be lower than the amount you declared earlier.');
+        }
+
+        // Optional bill / photos of the work or parts; kept as evidence, never required.
         $evidence = array_values(array_unique(array_merge((array) ($booking->interim_evidence ?? []), array_filter((array) ($input['evidence'] ?? [])))));
-        if ($parts > 0 && $evidence === []) {
-            throw new \InvalidArgumentException('Upload the bill or a photo of the parts already fitted — parts are only charged with proof.');
-        }
 
         $source = $input['sourced_by'] ?? null;
         if (! in_array($source, self::SOURCES, true)) {
@@ -65,8 +60,7 @@ final class SparesDeclaration
         }
 
         return [
-            'progress_percent' => $progress,
-            'parts_fitted_cost' => $parts,
+            'work_amount' => $amount,
             'expected_at' => $expected,
             'sourced_by' => $source,
             'evidence' => $evidence,

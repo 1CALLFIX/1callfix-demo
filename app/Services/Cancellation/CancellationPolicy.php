@@ -75,7 +75,7 @@ class CancellationPolicy
 
             return $this->allow(
                 $this->clock->earlyUnlocked($booking, $now) ? 'spares_expected_late' : 'spares_delay',
-                'The spare parts are taking too long, so you can cancel. You pay only for the work already done.',
+                self::interimText((int) ($breakdown['cap_percent'] ?? 0)),
                 $breakdown['total'],
                 null,
                 $breakdown['total'] <= 0,
@@ -174,7 +174,7 @@ class CancellationPolicy
     {
         $get = fn (string $key) => $raw !== null ? PolicySettings::cast($key, $raw[$key] ?? null) : ($booking ? PolicySettings::get($booking, $key) : PolicySettings::current($key));
         $days = max(1, (int) $get('cancellation.spares_delay_days'));
-        $cap = (int) $get('cancellation.interim_cap_percent');
+        $cap = (int) ($get('cancellation.interim_cap_percent') ?? 0);
         $grace = max(1, (int) $get('cancellation.spares_resume_grace_hours'));
         $lines = ['Before a professional is assigned, you can cancel free of charge.'];
 
@@ -195,14 +195,20 @@ class CancellationPolicy
         }
 
         $lines[] = 'Once the work has started, the booking cannot be cancelled in the middle of the job.';
-        $minLabour = (float) ($get('cancellation.interim_min_labour') ?? 0);
-        $minNote = $minLabour > 0 ? ' A minimum labour charge of '.self::money($minLabour).' applies once any work has been done.' : '';
-        $lines[] = "If the job is held up waiting for spare parts for {$days} days or more, you can cancel and pay only for the work already done: the labour completed (never more than {$cap}% of the labour quoted) plus the cost of parts already fitted, backed by a bill or photo. If no work was declared, only the visit charge applies.".$minNote;
+        $lines[] = $cap > 0 ? self::interimText($cap) : 'If the job is held up for spare parts and you cancel, you pay only for the work already done, as declared by the professional; you can raise a dispute and our team will review it.';
         $lines[] = "If the parts will not arrive for more than {$days} days, you can cancel straight away on the same terms. If the spare is ready but the professional has not resumed within {$grace} hours, you can cancel free of charge.";
         $lines[] = 'If the professional leaves or cannot continue, you can cancel free of charge. A part you choose to supply yourself does not count towards the waiting time.';
         $lines[] = 'You see the exact amount before you confirm, and you can dispute the declared progress for review by our team.';
 
         return $lines;
+    }
+
+    /** The one customer-facing sentence for work that was started and then stopped (A2). `{cap}` is the configured cap %. */
+    public const INTERIM_TEXT = 'Work was started but could not be completed. You pay only for the work done, up to {cap}% of the job price. If you think the amount is wrong, you can raise a dispute and our team will review it.';
+
+    public static function interimText(int|string $cap): string
+    {
+        return str_replace('{cap}', (string) $cap, self::INTERIM_TEXT);
     }
 
     /** THUMB RULE (CLAUDE.md): the visit charge exists only for a no-work visit; never implied to be added to a job that is done. */

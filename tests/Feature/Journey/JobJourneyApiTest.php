@@ -17,9 +17,15 @@ class JobJourneyApiTest extends TestCase
     use BookingFixtureHelpers;
     use RefreshDatabase;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+        \App\Models\Setting::set('cancellation.interim_cap_percent', '50'); // fail-closed until configured (A2)
+    }
+
     private function sparesDeclaration(): array
     {
-        return ['progress_percent' => 40, 'parts_fitted_cost' => 0, 'sourced_by' => 'provider', 'expected_at' => now()->addDays(3)->toDateString()];
+        return ['work_amount' => 100, 'sourced_by' => 'provider', 'expected_at' => now()->addDays(3)->toDateString()];
     }
 
     public function test_unauthenticated_requests_are_rejected(): void

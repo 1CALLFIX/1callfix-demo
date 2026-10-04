@@ -62,9 +62,7 @@ class Show extends Component
     // REF 1CF-CANCEL-POLICY-001 — the declaration required when holding a job for spares.
     public bool $showSparesForm = false;
 
-    public string $sparesProgress = '';
-
-    public string $sparesParts = '0';
+    public string $sparesAmount = '';
 
     public string $sparesSource = 'provider';
 
@@ -182,11 +180,10 @@ class Show extends Component
             return;
         }
 
-        // REF 1CF-CANCEL-POLICY-001 — progress %, parts already fitted (with proof), who sources the part and the
-        // expected arrival date are mandatory: they are what the customer is charged on if they leave.
+        // REF 1CF-CANCEL-POLICY-001 (A2) — ONE amount for the work already done (capped by cancellation.interim_cap_percent,
+        // checked in SparesDeclaration), who sources the part and the expected date: what the customer pays if they leave.
         $this->validate([
-            'sparesProgress' => ['required', 'integer', 'min:0', 'max:100'],
-            'sparesParts' => ['nullable', 'numeric', 'min:0'],
+            'sparesAmount' => ['required', 'numeric', 'min:0'],
             'sparesSource' => ['required', 'in:provider,platform,customer'],
             'sparesExpected' => ['required', 'date', 'after_or_equal:today'],
             'sparesEvidence' => ['array', 'max:5'],
@@ -197,8 +194,7 @@ class Show extends Component
 
         try {
             $action->execute($this->bookingId, 'awaiting_spares', 'Provider is waiting for spare parts', [
-                'progress_percent' => $this->sparesProgress,
-                'parts_fitted_cost' => $this->sparesParts,
+                'work_amount' => $this->sparesAmount,
                 'sourced_by' => $this->sparesSource,
                 'expected_at' => $this->sparesExpected,
                 'evidence' => $paths,
@@ -209,9 +205,9 @@ class Show extends Component
             return;
         }
 
-        $this->reset('showSparesForm', 'sparesProgress', 'sparesParts', 'sparesSource', 'sparesExpected', 'sparesEvidence');
+        $this->reset('showSparesForm', 'sparesAmount', 'sparesSource', 'sparesExpected', 'sparesEvidence');
         $this->lastSeenStatus = 'on_hold';
-        $this->notice = 'Job is on hold while you get the spare parts. The customer can see this and the figures you declared.';
+        $this->notice = 'Job is on hold while you get the spare parts. The customer can see this and the amount you declared.';
     }
 
     /** REF 1CF-CANCEL-POLICY-001 — a new expected arrival date once the old one has passed. */

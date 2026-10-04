@@ -122,6 +122,8 @@ Route::middleware(['auth', \Illuminate\Session\Middleware\AuthenticateSession::c
         // MANUAL MONEY ACTIONS — mismatch refund queue (permission payments.refund_mismatch, scoped in the component) and
         // its Super Admin-only controls (limits, thresholds, notice copy).
         Route::get('/mismatch-refunds', \App\Livewire\MismatchRefunds\Index::class)->name('admin.mismatch-refunds.index');
+        // A2 — post-payment pricing disputes (permission bookings.refund_dispute, scoped in the component).
+        Route::get('/booking-disputes', \App\Livewire\BookingDisputes\Index::class)->name('admin.booking-disputes.index');
         Route::get('/refund-controls', \App\Livewire\RefundControls\Manage::class)->name('admin.refund-controls.index');
         // 0d — Super Admin on/off for the critical-alert emails.
         Route::get('/alert-emails', \App\Livewire\AlertEmails\Manage::class)->name('admin.alert-emails.index');

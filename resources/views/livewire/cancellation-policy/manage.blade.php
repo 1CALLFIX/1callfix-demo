@@ -188,13 +188,13 @@
 
         <h2 class="mb-2 text-sm font-semibold">Disputes awaiting resolution ({{ $disputes->count() }})</h2>
         <x-ui.table>
-            <thead class="bg-gray-50 text-left text-gray-500"><tr><th class="px-4 py-2">Booking</th><th class="px-4 py-2">Customer</th><th class="px-4 py-2">Declared progress</th><th class="px-4 py-2">Customer's note</th><th class="px-4 py-2">Resolve</th></tr></thead>
+            <thead class="bg-gray-50 text-left text-gray-500"><tr><th class="px-4 py-2">Booking</th><th class="px-4 py-2">Customer</th><th class="px-4 py-2">Declared amount</th><th class="px-4 py-2">Customer's note</th><th class="px-4 py-2">Resolve</th></tr></thead>
             <tbody>
                 @forelse ($disputes as $d)
                     <tr class="border-t align-top">
                         <td class="px-4 py-2 font-mono text-xs">{{ $d->code }}</td>
                         <td class="px-4 py-2">{{ $d->customer?->name }}</td>
-                        <td class="px-4 py-2">{{ $d->interim_progress_percent }}%</td>
+                        <td class="px-4 py-2">{{ number_format((float) $d->interim_amount, 2) }}</td>
                         <td class="px-4 py-2 text-xs text-gray-600">{{ $d->interim_dispute_note }}</td>
                         <td class="px-4 py-2">
                             <div class="flex flex-wrap gap-2">

@@ -15,33 +15,31 @@ use Illuminate\Support\Facades\DB;
 class ResolveInterimDisputeAction
 {
     /** @throws \RuntimeException */
-    public function execute(int $bookingId, User $admin, string $resolution, ?int $progressPercent = null, ?float $partsCost = null): Booking
+    public function execute(int $bookingId, User $admin, string $resolution, ?float $amount = null): Booking
     {
         $resolution = trim($resolution);
         if ($resolution === '') {
             throw new \RuntimeException('Record how you resolved the dispute.');
         }
-        if ($progressPercent !== null && ($progressPercent < 0 || $progressPercent > 100)) {
-            throw new \RuntimeException('Progress must be between 0 and 100.');
-        }
-        if ($partsCost !== null && $partsCost < 0) {
-            throw new \RuntimeException('Parts cost cannot be negative.');
+        if ($amount !== null && $amount < 0) {
+            throw new \RuntimeException('The amount cannot be negative.');
         }
 
-        $booking = DB::transaction(function () use ($bookingId, $admin, $resolution, $progressPercent, $partsCost) {
+        $booking = DB::transaction(function () use ($bookingId, $admin, $resolution, $amount) {
             $booking = Booking::lockForUpdate()->findOrFail($bookingId);
 
             if ($booking->interim_dispute_status !== 'open') {
                 throw new \RuntimeException('There is no open dispute on this booking.');
             }
 
-            $before = ['progress' => $booking->interim_progress_percent, 'parts' => $booking->interim_parts_cost];
+            $before = ['amount' => $booking->interim_amount];
 
-            if ($progressPercent !== null) {
-                $booking->interim_progress_percent = $progressPercent;
-            }
-            if ($partsCost !== null) {
-                $booking->interim_parts_cost = round($partsCost, 2);
+            if ($amount !== null) {
+                $cap = app(\App\Services\Cancellation\InterimChargeCalculator::class)->capValue($booking);
+                if ($cap === null || $amount > $cap) {
+                    throw new \RuntimeException($cap === null ? 'The work-done cap is not configured.' : 'The corrected amount cannot exceed the cap of '.number_format($cap, 2).'.');
+                }
+                $booking->interim_amount = round($amount, 2);
             }
             $booking->interim_dispute_status = 'resolved';
             $booking->interim_dispute_note = trim(($booking->interim_dispute_note ?? '')."\n[Resolved by admin] {$resolution}");
@@ -50,7 +48,7 @@ class ResolveInterimDisputeAction
             $booking->statusHistory()->create([
                 'status' => $booking->status,
                 'changed_by' => $admin->id,
-                'note' => "Dispute resolved by admin: {$resolution} (progress {$before['progress']}% -> {$booking->interim_progress_percent}%, parts {$before['parts']} -> {$booking->interim_parts_cost})",
+                'note' => "Dispute resolved by admin: {$resolution} (amount {$before['amount']} -> {$booking->interim_amount})",
                 'changed_at' => now(),
             ]);
 
