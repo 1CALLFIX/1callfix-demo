@@ -28,7 +28,7 @@ class InterimChargeCalculator
      */
     public function visitFee(Booking $booking, float $base): float
     {
-        if (app(PrimeWaiver::class)->covers($booking)) {
+        if (app(PrimeWaiver::class)->coversVisitCharge($booking)) {
             return 0.0;
         }
 
@@ -50,7 +50,7 @@ class InterimChargeCalculator
         return round(max(0.0, min($fee, $base)), 2);
     }
 
-    /** @return array{declared: bool, base: float, visit_fee: float, progress_percent: ?int, progress_value: float, cap_percent: int, cap_value: float, labour_charge: float, parts_declared: float, parts_charge: float, parts_evidenced: bool, job_price: float, total: float} */
+    /** @return array{declared: bool, base: float, visit_fee: float, min_labour: float, min_labour_applied: bool, progress_percent: ?int, progress_value: float, cap_percent: int, cap_value: float, labour_charge: float, parts_declared: float, parts_charge: float, parts_evidenced: bool, job_price: float, total: float} */
     public function calculate(Booking $booking): array
     {
         $jobPrice = round((float) $booking->price_quoted
@@ -65,7 +65,13 @@ class InterimChargeCalculator
         $progressValue = $declared ? round($jobPrice * $progress / 100, 2) : 0.0;
         $capValue = round($jobPrice * $capPercent / 100, 2);
 
-        $labour = $declared ? max($visit, min($progressValue, $capValue)) : $visit;
+        // Work was done (declared progress above zero): the labour for it, never below the separately configured
+        // MINIMUM LABOUR charge (cancellation.interim_min_labour, null = no floor) — this is not a visit charge and
+        // never reads cancellation.visit_fee_value. No work declared: only the no-work visit charge applies.
+        $worked = $declared && $progress > 0;
+        $minLabour = round(max(0.0, (float) (PolicySettings::get($booking, 'cancellation.interim_min_labour') ?? 0)), 2);
+        $labour = $worked ? max($minLabour, min($progressValue, $capValue)) : $visit;
+        $minLabourApplied = $worked && $minLabour > 0 && $minLabour > min($progressValue, $capValue);
 
         $partsDeclared = round(max(0.0, (float) ($booking->interim_parts_cost ?? 0)), 2);
         $evidenced = ! empty($booking->interim_evidence);
@@ -81,6 +87,8 @@ class InterimChargeCalculator
             'progress_value' => $progressValue,
             'cap_percent' => $capPercent,
             'cap_value' => $capValue,
+            'min_labour' => $minLabour,
+            'min_labour_applied' => $minLabourApplied,
             'labour_charge' => round($labour, 2),
             'parts_declared' => $partsDeclared,
             'parts_charge' => $parts,

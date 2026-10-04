@@ -40,7 +40,7 @@ class PolicySettings
         'cancellation.visit_fee_value' => [
             'group' => 'Charges', 'label' => 'Visit & inspection charge — value', 'type' => 'decimal', 'unit' => '₹ or %',
             'default' => 0, 'min' => 0, 'snapshot' => true,
-            'help' => 'Charged when the professional has verifiably arrived and the customer refuses, cannot be reached, or rejects the quote. Adjusted into the final bill if the customer proceeds.',
+            'help' => 'Charged ONLY when the professional has verifiably arrived and NO work is done: the customer refuses, postpones, cannot be reached, or rejects the quote. Never added to a job that is carried out.',
             'fallback' => 'cancellation.fee_value',
         ],
         'cancellation.visit_fee_regular' => [
@@ -68,6 +68,11 @@ class PolicySettings
             'group' => 'Spare parts & interim work', 'label' => 'Labour cap for the interim-work charge', 'type' => 'percent', 'unit' => '%',
             'default' => 50, 'min' => 0, 'max' => 100, 'snapshot' => true,
             'help' => 'The customer never pays more than this % of the quoted labour for work already done.',
+        ],
+        'cancellation.interim_min_labour' => [
+            'group' => 'Spare parts & interim work', 'label' => 'Minimum labour charge for work already done', 'type' => 'decimal', 'unit' => '₹',
+            'default' => null, 'min' => 0, 'snapshot' => true,
+            'help' => 'Blank = no minimum. When a customer cancels mid-job after some work was declared, the labour charge is never less than this. It is not a visit or inspection charge and is not affected by the visit charge setting or the Prime visit waiver.',
         ],
         'cancellation.spares_warning_days_before' => [
             'group' => 'Spare parts & interim work', 'label' => 'Spares-delay warning notice — days before the limit', 'type' => 'int', 'unit' => 'days',

@@ -22,7 +22,13 @@ use Illuminate\Support\Collection;
 class EntitlementService
 {
     /** Only the Service module exists as a real consumer in Phase A (approved plan §6/amendment 14) — future modules pick their own trigger when built. */
-    private const PRICING_TYPES = ['percentage_discount', 'fixed_discount', 'fee_waiver', 'member_price', 'quantity'];
+    /**
+     * THUMB RULE (CLAUDE.md) — `fee_waiver` ("Free Service Visit") is deliberately NOT here. The visit / inspection
+     * charge exists only when a professional arrives and no work is done; a booking that is carried out is never
+     * charged one, so there is nothing for a booking-time pricing resolver to waive and the service price must never
+     * move. The waiver acts only in the no-work cancellation path (Cancellation\PrimeWaiver).
+     */
+    private const PRICING_TYPES = ['percentage_discount', 'fixed_discount', 'member_price', 'quantity'];
 
     public function __construct(
         private PlanStackingResolver $stackingResolver,
@@ -101,8 +107,11 @@ class EntitlementService
     /** Called from AdminCancelBookingAction for pre-service cancellations only — the caller decides eligibility, this just finds and reverses. */
     public function reverseForCancelledBooking(Booking $booking): ?UsageLedger
     {
+        // A Free Service Visit (fee_waiver) unit is spent BY the no-work cancellation itself (PrimeWaiver) — it is
+        // never given back by that same cancellation, so it is excluded here.
         $consumeEvent = UsageLedger::where('booking_id', $booking->id)
             ->where('event_type', 'consume')
+            ->whereDoesntHave('planEntitlement', fn ($q) => $q->where('entitlement_type', 'fee_waiver'))
             ->orderByDesc('id')
             ->first();
 
@@ -167,7 +176,6 @@ class EntitlementService
         return match ($entitlement->entitlement_type) {
             'percentage_discount' => (float) $entitlement->percentage_value,
             'fixed_discount' => (float) $entitlement->monetary_value,
-            'fee_waiver' => PHP_FLOAT_MAX, // a full waiver always wins a benefit-value comparison against a partial discount
             'member_price' => (float) $entitlement->monetary_value,
             default => 0.0,
         };
@@ -211,7 +219,6 @@ class EntitlementService
         $adjustedPrice = match ($entitlement->entitlement_type) {
             'percentage_discount' => round($basePrice * (1 - ((float) $entitlement->percentage_value / 100)), 2),
             'fixed_discount' => max(0, round($basePrice - (float) $entitlement->monetary_value, 2)),
-            'fee_waiver' => 0.0,
             'member_price' => (float) $entitlement->monetary_value,
             'quantity' => $basePrice, // included in quota — price unchanged, just consumes a unit
             default => $basePrice,

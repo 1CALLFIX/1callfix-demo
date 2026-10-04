@@ -87,14 +87,14 @@ class VisitChargeSingleSourceTest extends TestCase
         $a = $this->arrived();
         $this->assertSame(199.0, $this->quote($a['booking'])['charge']);
         $this->assertSame('Visit charge ₹199', $this->quote($a['booking'])['breakdown']['display']);
-        $this->assertStringContainsString('Visit and inspection charge ₹199,', $this->policy()->visitChargeText($a['booking']->fresh()));
+        $this->assertStringContainsString('Visit and inspection charge ₹199.', $this->policy()->visitChargeText($a['booking']->fresh()));
 
         // The owner changes the single setting: a NEW booking follows it everywhere ...
         $this->cfg(['visit_fee_value' => 149]);
         $b = $this->arrived();
         $this->assertSame(149.0, $this->quote($b['booking'])['charge']);
         $this->assertStringContainsString('₹149', $this->policy()->visitChargeText($b['booking']->fresh()));
-        $this->assertContains('Visit and inspection charge ₹149, adjusted in your final bill if you go ahead with the work.', $this->policy()->policyLines($b['booking']->fresh()));
+        $this->assertContains('Visit and inspection charge ₹149. It applies only if the professional arrives and no work is done. If the work is carried out, there is no visit charge.', $this->policy()->policyLines($b['booking']->fresh()));
 
         // ... while the earlier booking keeps the policy it was made under.
         $this->assertSame(199.0, $this->quote($a['booking'])['charge']);
@@ -129,8 +129,9 @@ class VisitChargeSingleSourceTest extends TestCase
 
     public function test_no_second_visit_charge_value_exists_anywhere_in_the_code(): void
     {
-        // The Prime waiver carries no money: it is a yes/no on the plan, not an amount.
-        $this->assertSame(['covers'], array_map(fn ($m) => $m->getName(), (new \ReflectionClass(PrimeWaiver::class))->getMethods(\ReflectionMethod::IS_PUBLIC)));
+        // The Prime waiver carries no money: yes/no answers (covers, coversVisitCharge), a settlement bracket, and a one-unit consumption that reads the amount from the
+        // snapshot's single visit charge — it never holds a value of its own.
+        $this->assertSame(['covers', 'coversVisitCharge', 'beginSettlement', 'endSettlement'], array_map(fn ($m) => $m->getName(), (new \ReflectionClass(PrimeWaiver::class))->getMethods(\ReflectionMethod::IS_PUBLIC)));
 
         // Exactly one registry key holds the charge itself.
         $moneyKeys = array_keys(array_filter(PolicySettings::REGISTRY, fn ($m, $k) => str_contains($k, 'visit_fee') && $m['type'] === 'decimal' && $k !== 'cancellation.visit_fee_regular', ARRAY_FILTER_USE_BOTH));
@@ -161,12 +162,12 @@ class VisitChargeSingleSourceTest extends TestCase
 
         $this->assertSame('Visit charge ₹149 (launch price, regular ₹199)', $this->quote($b)['breakdown']['display']);
         $this->assertSame(149.0, $this->quote($b)['charge'], 'display only: the amount charged is the visit charge value');
-        $this->assertSame('Visit charge ₹149 (launch price, regular ₹199), adjusted in your final bill if you go ahead with the work.', $this->policy()->visitChargeText($b));
+        $this->assertSame('Visit charge ₹149 (launch price, regular ₹199). It applies only if the professional arrives and no work is done. If the work is carried out, there is no visit charge.', $this->policy()->visitChargeText($b));
         $this->assertContains($this->policy()->visitChargeText($b), $this->policy()->policyLines($b));
 
         // The customer's own cancel screen shows it too.
         Livewire::actingAs($s['customer'])->test(CustomerOrderShow::class, ['booking' => $b])
-            ->assertSee('Visit charge ₹149 (launch price, regular ₹199), adjusted in your final bill')
+            ->assertSee('Visit charge ₹149 (launch price, regular ₹199). It applies only if the professional arrives and no work is done')
             ->call('openCancel')
             ->assertSee('Visit charge ₹149 (launch price, regular ₹199)');
     }
@@ -177,7 +178,7 @@ class VisitChargeSingleSourceTest extends TestCase
         $b = $this->arrived()['booking']->fresh();
 
         $this->assertSame('Visit charge ₹149', $this->quote($b)['breakdown']['display']);
-        $this->assertSame('Visit and inspection charge ₹149, adjusted in your final bill if you go ahead with the work.', $this->policy()->visitChargeText($b));
+        $this->assertSame('Visit and inspection charge ₹149. It applies only if the professional arrives and no work is done. If the work is carried out, there is no visit charge.', $this->policy()->visitChargeText($b));
         $this->assertStringNotContainsString('regular', $this->policy()->visitChargeText($b));
     }
 
@@ -292,7 +293,26 @@ class VisitChargeSingleSourceTest extends TestCase
         Livewire::actingAs($admin)->test(Manage::class)
             ->set($field('cancellation.visit_fee_value'), '149')
             ->set($field('cancellation.visit_fee_regular'), '199')
-            ->assertSee('Visit charge ₹149 (launch price, regular ₹199), adjusted in your final bill');
+            ->assertSee('Visit charge ₹149 (launch price, regular ₹199). It applies only if the professional arrives and no work is done');
+    }
+
+    public function test_the_minimum_labour_charge_is_editable_validated_and_audit_logged_separately_from_the_visit_charge(): void
+    {
+        $admin = $this->superAdmin();
+        $field = fn (string $k) => 'inputs.'.Manage::field($k);
+
+        Livewire::actingAs($admin)->test(Manage::class)
+            ->set($field('cancellation.interim_min_labour'), '75')
+            ->call('save')->assertHasNoErrors();
+
+        $this->assertSame('75', Setting::get('cancellation.interim_min_labour'));
+        $this->assertNotNull(ActivityLog::where('subject_type', 'setting')->where('properties->key', 'cancellation.interim_min_labour')->first());
+        $this->assertNull(Setting::get('cancellation.visit_fee_value'), 'the visit charge was not touched');
+
+        Livewire::actingAs($admin)->test(Manage::class)
+            ->set($field('cancellation.interim_min_labour'), '-1')
+            ->call('save')->assertHasErrors($field('cancellation.interim_min_labour'));
+        $this->assertNull(PolicySettings::validate('cancellation.interim_min_labour', ''), 'blank = no floor');
     }
 
     public function test_only_a_super_admin_can_change_these_settings(): void
