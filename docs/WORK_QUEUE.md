@@ -31,7 +31,7 @@ Standing rules for all items:
 
 | # | Item | Status |
 |---|---|---|
-| 1 | fee_waiver fix (decision 1 above) + visit-charge thumb rule | BUILT 2026-10-04, full suite green except the known NotificationCenterAuditTest failure; awaiting owner review (branch feature/fee-waiver-visit-only: bdc04bf rule, 9636efd wording, 38fc371 waiver; not merged) |
+| 1 | fee_waiver fix + visit-charge thumb rule + owner decisions (minimum labour charge, no cash waiver, strict unit) | MERGED to main 2026-10-04 (see Done); awaiting deploy by owner |
 | 2 | 0b — SUPER ADMIN PLACEHOLDER FIXES | not started |
 | 3 | O1–O6 — promotional credit open decisions | not started |
 | 4 | Admin email-change verification link (before franchise/finance admins exist) | not started |
@@ -117,7 +117,7 @@ front-end build.
 
 | Tag | Proposal |
 |---|---|
-| AD-BLOCKER | Confirm what `1callfix.com` and `www.1callfix.com` really serve (vhost/docRoot/cache) via the read-only commands in the audit report; ads must not land on the old Glover page. |
+| AD-BLOCKER — DONE 2026-10-04 | Homepage: `1callfix.com` and `www` serve the new Laravel site (public GETs over http/https, browser/Googlebot/curl all return the new page; the old Glover page seen earlier was a stale external copy). |
 | AD-BLOCKER | Confirm the 26 Sep docRoot switch did not break the Glover mobile app (`com.call.customer`) that calls `1callfix.com/api/*` (risk R1 in PHASE_SEO_DISCOVERY_AND_MIGRATION_BASELINE.md). |
 | AD-BLOCKER | Ad landing URL: a category page `/categories/{slug}` (slug-based) or `/services/{id}`; neither shows the visit charge, the booking wizard review does. Reword that text to the Step 3 thumb rule (charge applies only when no work is done). |
 | AD-BLOCKER | UTM/gclid capture: nothing captures it today. Smallest change = a middleware that stores first-touch utm_*/gclid/fbclid in session + a 30-day cookie, copied at booking creation into one new nullable JSON column `bookings.acquisition` (migration needs owner approval; up()/down() to be shown first). |
