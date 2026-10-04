@@ -101,7 +101,7 @@ class BookingStatusNotification extends Notification
                 $b = $this->booking;
                 $date = $b->spares_expected_at?->format('j M Y') ?? 'a date to be confirmed';
 
-                return ['subject' => 'Spare part update', 'body' => "Booking {$b->code} is waiting for a spare part (expected {$date}). Work done so far: {$b->interim_progress_percent}%. If these figures look wrong you can dispute them from the booking page."];
+                return ['subject' => 'Spare part update', 'body' => "Booking {$b->code} is waiting for a spare part (expected {$date}). Amount declared for the work done so far: ₹".number_format((float) $b->interim_amount, 2).". If this looks wrong you can dispute it from the booking page."];
             })(),
             'spares_early_unlock' => (function () {
                 $b = $this->booking;

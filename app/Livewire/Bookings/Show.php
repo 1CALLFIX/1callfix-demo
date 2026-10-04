@@ -226,8 +226,7 @@ class Show extends Component
 
     // REF 1CF-CANCEL-POLICY-001 — dispute review + charge waiver
     public string $disputeResolution = '';
-    public string $disputeProgress = '';
-    public string $disputeParts = '';
+    public string $disputeAmount = '';
     public string $waiveReason = '';
 
     public function resolveDispute(\App\Actions\ResolveInterimDisputeAction $action): void
@@ -236,12 +235,11 @@ class Show extends Component
             $this->booking->id,
             auth()->user(),
             $this->disputeResolution,
-            $this->disputeProgress !== '' ? (int) $this->disputeProgress : null,
-            $this->disputeParts !== '' ? (float) $this->disputeParts : null,
+            $this->disputeAmount !== '' ? (float) $this->disputeAmount : null,
         ), 'Dispute resolved. The customer can now cancel or keep waiting.');
 
         if ($this->flashType === 'success') {
-            $this->reset('disputeResolution', 'disputeProgress', 'disputeParts');
+            $this->reset('disputeResolution', 'disputeAmount');
         }
     }
 

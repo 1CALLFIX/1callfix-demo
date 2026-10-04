@@ -43,9 +43,9 @@ class PlaceBookingOnHoldAction
      */
     /**
      * @param  ?array  $spares  REF 1CF-CANCEL-POLICY-001 — for `awaiting_spares`: the professional's declaration
-     *        (progress %, parts fitted + proof, expected arrival date, who sources the part), see SparesDeclaration.
+     *        (one capped amount for work done, optional evidence, expected arrival date, who sources the part), see SparesDeclaration.
      *        Provider-facing callers MUST pass it; an operator hold without one is allowed and simply carries
-     *        no interim-work declaration (so a later cancellation falls back to the visit fee only).
+     *        no interim-work declaration (so a later cancellation of a started job charges nothing).
      */
     public function execute(int $bookingId, string $reason, ?string $note = null, ?array $spares = null): Booking
     {
@@ -76,8 +76,7 @@ class PlaceBookingOnHoldAction
             $sourceTag = '';
             if ($reason === 'awaiting_spares' && $spares !== null) {
                 $declared = SparesDeclaration::normalise($booking, $spares);
-                $booking->interim_progress_percent = $declared['progress_percent'];
-                $booking->interim_parts_cost = $declared['parts_fitted_cost'];
+                $booking->interim_amount = $declared['work_amount'];
                 $booking->interim_evidence = $declared['evidence'] ?: null;
                 $booking->spares_expected_at = $declared['expected_at'];
                 $booking->spares_sourced_by = $declared['sourced_by'];

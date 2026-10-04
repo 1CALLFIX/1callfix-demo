@@ -95,8 +95,7 @@
                     <h2 class="text-sm font-semibold text-amber-900">Waiting for spare parts</h2>
                     @if ($booking->interim_declared_at)
                         <dl class="mt-2 grid gap-1 text-sm text-amber-900 sm:grid-cols-3">
-                            <div><dt class="text-xs text-amber-700">Work done so far</dt><dd class="font-semibold">{{ $booking->interim_progress_percent }}%</dd></div>
-                            <div><dt class="text-xs text-amber-700">Parts already fitted</dt><dd class="font-semibold">{{ $currencySymbol }}{{ number_format((float) $booking->interim_parts_cost, 2) }}</dd></div>
+                            <div><dt class="text-xs text-amber-700">Amount declared for work done so far</dt><dd class="font-semibold">{{ $currencySymbol }}{{ number_format((float) $booking->interim_amount, 2) }}</dd></div>
                             <div><dt class="text-xs text-amber-700">Part expected</dt><dd class="font-semibold">{{ $booking->spares_expected_at?->format('j M Y') ?? 'Not given' }}</dd></div>
                         </dl>
                     @endif
@@ -256,6 +255,29 @@
                 @endif
             </section>
 
+            {{-- ===================== Pricing dispute after payment (A2) ===================== --}}
+            @if ($pricingDispute || $canRaisePricingDispute)
+                <section class="rounded-xl border border-slate-200 p-4 sm:p-5" data-testid="pricing-dispute">
+                    <h2 class="text-base font-semibold">Think the price is wrong?</h2>
+                    @if ($pricingDispute && $pricingDispute->status === 'open')
+                        <p class="mt-1 text-sm text-slate-600">You raised a dispute on {{ $pricingDispute->created_at->format('j M Y') }}. Our team is reviewing it.</p>
+                    @elseif ($pricingDispute)
+                        <p class="mt-1 text-sm text-slate-600">Your dispute was reviewed: {{ $pricingDispute->resolution_note }}</p>
+                    @elseif ($pricingDisputing)
+                        <div class="mt-2 space-y-2">
+                            <textarea wire:model="pricingDisputeReason" rows="3" maxlength="1000" placeholder="What looks wrong with the price? (required)" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"></textarea>
+                            <div class="flex gap-2">
+                                <button type="button" wire:click="raisePricingDispute" wire:loading.attr="disabled" class="rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white">Send dispute</button>
+                                <button type="button" wire:click="$set('pricingDisputing', false)" class="rounded-lg px-3 py-1.5 text-xs text-slate-600">Never mind</button>
+                            </div>
+                        </div>
+                    @else
+                        <p class="mt-1 text-sm text-slate-600">If you think the amount is wrong, you can raise a dispute and our team will review it.</p>
+                        <button type="button" wire:click="$set('pricingDisputing', true)" class="mt-2 rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50">Raise a dispute</button>
+                    @endif
+                </section>
+            @endif
+
             {{-- ===================== Review ===================== --}}
             @if ($booking->status === 'completed')
                 <section class="rounded-xl border border-slate-200 p-4 sm:p-5">
@@ -342,9 +364,8 @@
                                 @if ($cancelQuote['charge'] > 0)
                                     <dl class="mt-2 space-y-1 text-rose-900">
                                         <div class="flex justify-between"><dt>Charge</dt><dd class="font-semibold">{{ $currencySymbol }}{{ number_format($cancelQuote['charge'], 2) }}</dd></div>
-                                        @if (! empty($cancelQuote['breakdown']['cap_percent']))
-                                            <div class="flex justify-between text-xs text-rose-700"><dt>{{ ! empty($cancelQuote['breakdown']['min_labour_applied']) ? 'Minimum labour charge' : 'Labour ('.($cancelQuote['breakdown']['progress_percent'] ?? 0).'% done, max '.$cancelQuote['breakdown']['cap_percent'].'%)' }}</dt><dd>{{ $currencySymbol }}{{ number_format($cancelQuote['breakdown']['labour_charge'], 2) }}</dd></div>
-                                            <div class="flex justify-between text-xs text-rose-700"><dt>Parts fitted</dt><dd>{{ $currencySymbol }}{{ number_format($cancelQuote['breakdown']['parts_charge'], 2) }}</dd></div>
+                                        @if (! empty($cancelQuote['breakdown']['work_started']))
+                                            <div class="flex justify-between text-xs text-rose-700"><dt>Work done (max {{ $cancelQuote['breakdown']['cap_percent'] }}% of the job price)</dt><dd>{{ $currencySymbol }}{{ number_format($cancelQuote['breakdown']['total'], 2) }}</dd></div>
                                         @endif
                                         @if ($cancelQuote['refund'] > 0)
                                             <div class="flex justify-between"><dt>Refunded to you</dt><dd class="font-semibold">{{ $currencySymbol }}{{ number_format($cancelQuote['refund'], 2) }}</dd></div>

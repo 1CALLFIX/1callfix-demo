@@ -65,14 +65,9 @@ class PolicySettings
             'help' => 'After this the customer may cancel free and the professional\'s reliability score drops.',
         ],
         'cancellation.interim_cap_percent' => [
-            'group' => 'Spare parts & interim work', 'label' => 'Labour cap for the interim-work charge', 'type' => 'percent', 'unit' => '%',
-            'default' => 50, 'min' => 0, 'max' => 100, 'snapshot' => true,
-            'help' => 'The customer never pays more than this % of the quoted labour for work already done.',
-        ],
-        'cancellation.interim_min_labour' => [
-            'group' => 'Spare parts & interim work', 'label' => 'Minimum labour charge for work already done', 'type' => 'decimal', 'unit' => '₹',
-            'default' => null, 'min' => 0, 'snapshot' => true,
-            'help' => 'Blank = no minimum. When a customer cancels mid-job after some work was declared, the labour charge is never less than this. It is not a visit or inspection charge and is not affected by the visit charge setting or the Prime visit waiver.',
+            'group' => 'Spare parts & interim work', 'label' => 'Cap on the amount charged for work already done', 'type' => 'percent', 'unit' => '%',
+            'default' => null, 'min' => 0, 'max' => 100, 'snapshot' => true,
+            'help' => 'When work was started and then stopped, the professional enters ONE amount for the work done (labour and parts together). It can never exceed this % of the booking total (price + approved extras). Blank = not configured: the professional cannot submit an amount until you set it. 0 = nothing may be charged.',
         ],
         'cancellation.spares_warning_days_before' => [
             'group' => 'Spare parts & interim work', 'label' => 'Spares-delay warning notice — days before the limit', 'type' => 'int', 'unit' => 'days',

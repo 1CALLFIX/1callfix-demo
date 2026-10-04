@@ -61,6 +61,11 @@ class Show extends Component
 
     public string $disputeNote = '';
 
+    /** A2 — post-payment pricing dispute */
+    public bool $pricingDisputing = false;
+
+    public string $pricingDisputeReason = '';
+
     public function mount(Booking $booking): void
     {
         abort_unless($booking->customer_id === auth()->id(), 404);
@@ -224,6 +229,23 @@ class Show extends Component
         }
     }
 
+    public function raisePricingDispute(\App\Services\BookingDisputeService $service): void
+    {
+        $this->reset('error', 'notice');
+        $this->booking(); // ownership check (404)
+
+        try {
+            $service->raise($this->bookingId, auth()->id(), $this->pricingDisputeReason);
+        } catch (\RuntimeException $e) {
+            $this->error = $e->getMessage();
+
+            return;
+        }
+
+        $this->reset('pricingDisputing', 'pricingDisputeReason');
+        $this->notice = 'Thanks. Our team will review the price and talk to you and the professional. You will be told the outcome.';
+    }
+
     public function disputeProgress(DisputeInterimDeclarationAction $action): void
     {
         $this->reset('error', 'notice');
@@ -340,6 +362,8 @@ class Show extends Component
             'pendingCancelRequest' => $booking->cancellationRequests()->whereIn('status', ['awaiting_payment', 'awaiting_admin'])->latest('id')->first(),
             'canDisputeProgress' => $booking->status === 'on_hold' && $booking->hold_reason === 'awaiting_spares' && $booking->interim_declared_at !== null && $booking->interim_dispute_status !== 'open'
                 && $booking->interim_declared_at->copy()->addHours(max(1, (int) \App\Services\Cancellation\PolicySettings::current('cancellation.dispute_window_hours')))->isFuture(),
+            'pricingDispute' => \App\Models\BookingDispute::where('booking_id', $booking->id)->latest('id')->first(),
+            'canRaisePricingDispute' => app(\App\Services\BookingDisputeService::class)->cannotRaise($booking, (int) auth()->id()) === null,
             'currencySymbol' => $currencySymbol,
             'existingReview' => $booking->review,
             'gatewayConfigured' => app(PaymentGateway::class)->isConfigured(),

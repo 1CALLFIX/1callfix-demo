@@ -29,16 +29,49 @@ Standing rules for all items:
 
 ## Queue (in order)
 
+Owner order of 2026-10-04 (supersedes the table below where they differ): **A2 -> B -> C -> D -> E -> F -> G -> H**.
+
+| Step | Item | Status |
+|---|---|---|
+| A2 | Mid-work cancellation final rule: one declared amount, one cap (`cancellation.interim_cap_percent`), no floor, post-payment dispute | BUILT + merged to main 2026-10-04 (see section A2); awaiting owner deploy |
+| B | Rebase `feature/coupon-engine-c1-c3` on the new main, resolve the `EntitlementService` conflict, re-run related suites, do NOT merge | not started |
+| C | Coupons C2: Super Admin screens (create/edit/pause, targeting, limits, budget cap, daily cap with migration shown first, stackable toggle, HQ funding, campaign tag, live usage, `coupons.enabled` + `coupons.unpaid_hold_minutes` switches, `coupons.manage` permission, audit log) | not started |
+| D | Coupons C3: customer coupon field (wizard, cart, checkout, bundles), validate endpoint + API, full price/discount/payable, Razorpay or wallet-only (combined later), cash rejected, clear errors, rate limit, unpaid-hold countdown | not started |
+| E | Full suite, stop for review, merge on owner approval. Coupons stay OFF in prod until the owner switches them on. Give the pilot setup steps | not started |
+| F | Ad readiness: UTM capture, Open Graph + canonical, clean category slugs with 301 redirects, commit the SEO baseline doc, AAAA check | not started |
+| G | Glover app access-log investigation (read-only) | not started |
+| H | Remaining queue below (items 2-6, 8) | not started |
+
+Earlier table (kept for reference):
+
 | # | Item | Status |
 |---|---|---|
-| 1 | fee_waiver fix + visit-charge thumb rule + owner decisions (minimum labour charge, no cash waiver, strict unit) | MERGED to main 2026-10-04 (see Done); awaiting deploy by owner |
+| 1 | fee_waiver fix + visit-charge thumb rule + owner decisions (minimum labour charge, no cash waiver, strict unit) | MERGED to main 2026-10-04 (see Done); minimum labour charge REMOVED by A2 |
 | 2 | 0b — SUPER ADMIN PLACEHOLDER FIXES | not started |
 | 3 | O1–O6 — promotional credit open decisions | not started |
 | 4 | Admin email-change verification link (before franchise/finance admins exist) | not started |
 | 5 | Promotional credit split + combined wallet/Razorpay + wallet_breakdown + payout leak fix | not started |
 | 6 | EARN4 referrals updated for promo credit and the thumb rule | not started |
-| 7 | Coupon engine C1–C3, then optional HQ pilot on the owner's go-ahead, then C4–C6 | C1 BUILT + committed (daf58fd, feature/coupon-engine-c1-c3, not merged); C2, C3 not started |
+| 7 | Coupon engine C1–C3, then optional HQ pilot on the owner's go-ahead, then C4–C6 | C1 BUILT + committed (daf58fd, feature/coupon-engine-c1-c3, not merged); C2, C3 not started (steps B-E above) |
 | 8 | Re-add the classes in docs/PENDING_FRONTEND_BUILD_ITEMS.md in the next change that needs a front-end build | not started |
+
+### A2. Mid-work cancellation — final rule (2026-10-04)
+
+Rule (also in CLAUDE.md): visit charge only when the provider arrived and NO work was done. Work started then
+stopped: the provider enters ONE amount for the work done (labour + parts together); the customer pays it; it can
+never exceed `cancellation.interim_cap_percent` % of the booking total (price_quoted + approved extras). Null cap =
+provider cannot submit (fail closed). The owner will enter 40 in Super Admin -> Cancellation Policy. No floor.
+
+Built: `InterimChargeCalculator` (single cap, no floor, no visit charge once work started), `SparesDeclaration`
+(`work_amount`, cap check, cumulative), `PolicySettings` (cap default null, `interim_min_labour` removed),
+`CancellationPolicy::INTERIM_TEXT` (one shared customer sentence), provider web + API field `work_amount`, snapshot
+of the cap per booking (already in `PolicySettings::snapshot`), post-payment `BookingDispute` + `BookingDisputeService`
+(approval model: permission `bookings.refund_dispute`, scope, limits, maker-checker, escalation, idempotent wallet
+credit), admin queue `/admin/booking-disputes`, limits in Refund Controls, customer "Think the price is wrong?" card.
+Migration `2026_10_04_120000_add_interim_amount_and_booking_disputes` (additive: `bookings.interim_amount`,
+`booking_disputes`, permission row). Prod must enter the cap (40) BEFORE providers can declare an amount.
+Open: escalation records a level + audit row only (no email/push alert yet); dispute refunds credit the wallet
+(never the original gateway); legacy `interim_progress_percent` / `interim_parts_cost` columns kept, no longer written.
 
 ### 1. fee_waiver fix
 

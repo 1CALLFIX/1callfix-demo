@@ -40,6 +40,13 @@ class CustomerCancellationPolicyTest extends TestCase
     use BookingFixtureHelpers;
     use RefreshDatabase;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+        // A2: the cap is fail-closed (null = provider cannot submit an amount), so every scenario here configures it first.
+        Setting::set('cancellation.interim_cap_percent', '50');
+    }
+
     protected function tearDown(): void
     {
         Carbon::setTestNow();
@@ -51,7 +58,7 @@ class CustomerCancellationPolicyTest extends TestCase
     private function inProgress(): array
     {
         $s = $this->makeAssignedBookingScenario();
-        $s['booking']->update(['status' => 'in_progress']);
+        $s['booking']->update(['status' => 'in_progress', 'start_otp_verified_at' => now()]);
         $s['booking'] = $s['booking']->fresh();
 
         return $s;
@@ -60,8 +67,7 @@ class CustomerCancellationPolicyTest extends TestCase
     private function hold(Booking $booking, array $over = []): Booking
     {
         return app(PlaceBookingOnHoldAction::class)->execute($booking->id, 'awaiting_spares', 'Waiting for the part', array_merge([
-            'progress_percent' => 40,
-            'parts_fitted_cost' => 0,
+            'work_amount' => 200,
             'sourced_by' => 'provider',
             'expected_at' => now()->addDays(2)->toDateString(),
         ], $over));
@@ -293,119 +299,105 @@ class CustomerCancellationPolicyTest extends TestCase
 
     // ------------------------------------------------------------------ the charge
 
-    public function test_charge_is_the_lesser_of_progress_value_and_the_cap_plus_evidenced_parts(): void
-    {
-        Setting::set('cancellation.visit_fee_type', 'flat');
-        Setting::set('cancellation.visit_fee_value', '50');
-        Setting::set('cancellation.interim_min_labour', '50');
-        $s = $this->inProgress();
-        $calc = app(InterimChargeCalculator::class);
-
-        $b = $this->hold($s['booking'], ['progress_percent' => 40]);   // 40% of 500 = 200 < cap 250
-        $this->assertSame(200.0, $calc->calculate($b)['labour_charge']);
-
-        $b->update(['interim_progress_percent' => 80]);                   // 400 > cap 250
-        $this->assertSame(250.0, $calc->calculate($b->fresh())['labour_charge']);
-
-        $b->update(['interim_progress_percent' => 5]);                    // 25 < minimum labour 50: floored
-        $this->assertSame(50.0, $calc->calculate($b->fresh())['labour_charge']);
-
-        // Parts: charged only with a bill/photo.
-        $b->update(['interim_progress_percent' => 40, 'interim_parts_cost' => 120, 'interim_evidence' => null]);
-        $this->assertSame(0.0, $calc->calculate($b->fresh())['parts_charge']);
-        $this->assertSame(200.0, $calc->calculate($b->fresh())['total']);
-
-        $b->update(['interim_evidence' => ['booking-evidence/1/bill.jpg']]);
-        $this->assertSame(120.0, $calc->calculate($b->fresh())['parts_charge']);
-        $this->assertSame(320.0, $calc->calculate($b->fresh())['total']);
-    }
-
-    // ------------------------------------------------------------------ minimum labour charge (NOT a visit charge)
-
-    public function test_the_minimum_labour_floor_comes_from_its_own_setting_and_null_means_no_floor(): void
+    public function test_a_declared_amount_within_the_cap_is_the_charge_and_one_above_it_is_rejected(): void
     {
         Setting::set('cancellation.visit_fee_type', 'flat');
         Setting::set('cancellation.visit_fee_value', '149');
+        $s = $this->inProgress();                                  // job price 500, cap 50% = 250
         $calc = app(InterimChargeCalculator::class);
 
-        // Unset: no floor at all — 5% of 500 is just 25, even though a visit charge of 149 is configured.
-        $s = $this->inProgress();
-        $b = $this->hold($s['booking'], ['progress_percent' => 5]);
-        $this->assertSame(25.0, $calc->calculate($b)['labour_charge'], 'null = no floor; the visit charge is never a floor');
-        $this->assertFalse($calc->calculate($b)['min_labour_applied']);
+        $b = $this->hold($s['booking'], ['work_amount' => 250]);   // exactly the cap: accepted
+        $r = $calc->calculate($b);
+        $this->assertSame(250.0, $r['total']);
+        $this->assertSame(0.0, $r['visit_fee'], 'the visit charge is never added once work was started');
+        $this->assertSame(250.0, $r['cap_value']);
 
-        // Configured: the floor applies and is labelled as such.
-        Setting::set('cancellation.interim_min_labour', '75');
-        $s2 = $this->inProgress();
-        $b2 = $this->hold($s2['booking'], ['progress_percent' => 5]);
-        $r = $calc->calculate($b2);
-        $this->assertSame(75.0, $r['labour_charge']);
-        $this->assertTrue($r['min_labour_applied']);
-        $this->assertSame(75.0, $r['min_labour']);
-
-        // Progress above the floor is untouched by it.
-        $b2->update(['interim_progress_percent' => 40]);
-        $this->assertSame(200.0, $calc->calculate($b2->fresh())['labour_charge']);
-        $this->assertFalse($calc->calculate($b2->fresh())['min_labour_applied']);
-    }
-
-    public function test_changing_the_visit_charge_never_changes_the_minimum_labour_charge(): void
-    {
-        Setting::set('cancellation.interim_min_labour', '75');
-        $calc = app(InterimChargeCalculator::class);
-
-        foreach (['0', '149', '199'] as $visit) {
-            Setting::set('cancellation.visit_fee_value', $visit);
-            $s = $this->inProgress();
-            $b = $this->hold($s['booking'], ['progress_percent' => 5]);
-
-            $this->assertSame(75.0, $calc->calculate($b)['labour_charge'], "visit charge {$visit}");
+        $over = $this->inProgress();
+        try {
+            $this->hold($over['booking'], ['work_amount' => 250.01]);
+            $this->fail('an amount above the cap must be rejected');
+        } catch (\InvalidArgumentException $e) {
+            $this->assertStringContainsString('cannot be more than', $e->getMessage());
         }
+        $this->assertNull($over['booking']->fresh()->interim_amount);
+        $this->assertSame('in_progress', $over['booking']->fresh()->status, 'a rejected declaration holds nothing');
     }
 
-    public function test_the_minimum_labour_charge_follows_the_booking_snapshot(): void
+    public function test_the_cap_covers_approved_extras_in_the_job_total(): void
     {
-        Setting::set('cancellation.interim_min_labour', '75');
         $s = $this->inProgress();
-        $b = $this->hold($s['booking'], ['progress_percent' => 5]);
+        $s['booking']->extraItems()->create(['description' => 'Extra pipe', 'amount' => 100, 'status' => 'approved', 'added_by_provider_id' => $s['booking']->provider_id]);
 
-        Setting::set('cancellation.interim_min_labour', '300'); // owner changes it later
-        $this->assertSame(75.0, app(InterimChargeCalculator::class)->calculate($b->fresh())['labour_charge'], 'the existing booking keeps the floor it was made under');
-
-        $new = $this->hold($this->inProgress()['booking'], ['progress_percent' => 5]);
-        $this->assertSame(300.0, app(InterimChargeCalculator::class)->calculate($new)['labour_charge']);
+        $this->assertSame(300.0, app(InterimChargeCalculator::class)->capValue($s['booking']->fresh()), '50% of (500 + 100)');
     }
 
-    public function test_customer_text_calls_it_a_minimum_labour_charge_and_never_a_visit_charge(): void
+    public function test_a_null_cap_means_the_provider_cannot_submit_an_amount(): void
     {
+        Setting::set('cancellation.interim_cap_percent', null);
+        $s = $this->inProgress();
+
+        try {
+            $this->hold($s['booking'], ['work_amount' => 10]);
+            $this->fail('with no cap configured no amount may be submitted');
+        } catch (\InvalidArgumentException $e) {
+            $this->assertStringContainsString('has not been set up', $e->getMessage());
+        }
+        $this->assertNull(app(InterimChargeCalculator::class)->capValue($s['booking']->fresh()));
+    }
+
+    public function test_there_is_no_floor_a_small_amount_is_accepted_as_is_and_zero_is_allowed(): void
+    {
+        Setting::set('cancellation.visit_fee_type', 'flat');
         Setting::set('cancellation.visit_fee_value', '149');
-        Setting::set('cancellation.interim_min_labour', '75');
+        $calc = app(InterimChargeCalculator::class);
+
+        $b = $this->hold($this->inProgress()['booking'], ['work_amount' => 25]);
+        $this->assertSame(25.0, $calc->calculate($b)['total'], 'not floored to the visit charge or anything else');
+
+        $z = $this->hold($this->inProgress()['booking'], ['work_amount' => 0]);
+        $this->assertSame(0.0, $calc->calculate($z)['total']);
+    }
+
+    public function test_the_visit_charge_is_never_applied_when_work_was_started(): void
+    {
+        Setting::set('cancellation.visit_fee_type', 'flat');
+        Setting::set('cancellation.visit_fee_value', '149');
+        $s = $this->inProgress();
+        $this->backdate(11, fn () => $this->hold($s['booking'], ['work_amount' => 60]));
+
+        $d = $this->decision($s['booking']);
+        $this->assertSame(60.0, $d['charge'], 'the declared amount, not 60 + 149 and not max(60, 149)');
+        $this->assertSame(0.0, $d['breakdown']['visit_fee']);
+    }
+
+    public function test_the_cap_follows_the_booking_snapshot_when_the_setting_changes(): void
+    {
+        $s = $this->inProgress();                                  // snapshot: 50%
+        Setting::set('cancellation.interim_cap_percent', '10');    // owner changes it later
+
+        $b = $this->hold($s['booking'], ['work_amount' => 250]);   // still allowed on this booking: 50% of 500
+        $this->assertSame(250.0, app(InterimChargeCalculator::class)->calculate($b)['total']);
+
+        $new = $this->inProgress();                                // new booking snapshots 10% = 50
+        $this->expectException(\InvalidArgumentException::class);
+        $this->hold($new['booking'], ['work_amount' => 250]);
+    }
+
+    public function test_customer_text_is_the_one_shared_sentence_with_the_configured_percent(): void
+    {
         $s = $this->inProgress();
         $b = null;
-        $this->backdate(11, function () use ($s, &$b) { // past the spares-delay limit so a quote exists
-            $b = $this->hold($s['booking'], ['progress_percent' => 5]);
+        $this->backdate(11, function () use ($s, &$b) {
+            $b = $this->hold($s['booking'], ['work_amount' => 100]);
         });
 
-        $line = collect(app(CancellationPolicy::class)->policyLines($b->fresh()))->first(fn ($l) => str_contains($l, 'minimum labour charge'));
-
-        $this->assertNotNull($line);
-        $this->assertStringContainsString('A minimum labour charge of ₹75 applies once any work has been done.', $line);
-        $this->assertStringNotContainsString('minimum labour charge of ₹149', $line);
-
-        $quote = app(CustomerCancelBookingAction::class)->quote($b->fresh());
-        $this->assertTrue($quote['breakdown']['min_labour_applied'] ?? false);
-        $this->assertArrayNotHasKey('display', $quote['breakdown'] ?? [], 'no "visit charge" label on a mid-work quote');
+        $expected = 'Work was started but could not be completed. You pay only for the work done, up to 50% of the job price. If you think the amount is wrong, you can raise a dispute and our team will review it.';
+        $this->assertSame($expected, CancellationPolicy::interimText(50));
+        $this->assertSame($expected, $this->decision($b)['message']);
+        $this->assertContains($expected, app(CancellationPolicy::class)->policyLines($b->fresh()));
     }
 
-    public function test_parts_declared_without_a_bill_are_rejected_at_hold_time(): void
-    {
-        $s = $this->inProgress();
-
-        $this->expectException(\InvalidArgumentException::class);
-        $this->hold($s['booking'], ['parts_fitted_cost' => 120, 'evidence' => []]);
-    }
-
-    public function test_missing_declaration_falls_back_to_the_visit_fee_only(): void
+    public function test_missing_declaration_on_a_started_job_charges_nothing_and_never_the_visit_fee(): void
     {
         Setting::set('cancellation.visit_fee_type', 'flat');
         Setting::set('cancellation.visit_fee_value', '75');
@@ -415,7 +407,7 @@ class CustomerCancellationPolicyTest extends TestCase
 
         $d = $this->decision($s['booking']);
         $this->assertTrue($d['allowed']);
-        $this->assertSame(75.0, $d['charge']);
+        $this->assertSame(0.0, $d['charge'], 'work was started (job was in progress): no visit charge, no declared amount');
         $this->assertFalse($d['breakdown']['declared']);
         $this->assertSame(0.0, $d['breakdown']['parts_charge']);
     }
@@ -423,11 +415,11 @@ class CustomerCancellationPolicyTest extends TestCase
     public function test_a_re_hold_cannot_declare_less_than_before(): void
     {
         $s = $this->inProgress();
-        $b = $this->hold($s['booking'], ['progress_percent' => 60]);
+        $b = $this->hold($s['booking'], ['work_amount' => 240]);
         app(ResumeBookingAction::class)->execute($b->id);
 
         $this->expectException(\InvalidArgumentException::class);
-        $this->hold($b->fresh(), ['progress_percent' => 30]);
+        $this->hold($b->fresh(), ['work_amount' => 120]);
     }
 
     // ------------------------------------------------------------------ provider fault paths
@@ -471,10 +463,10 @@ class CustomerCancellationPolicyTest extends TestCase
         $this->assertSame('dispute_open', $d['code']);
 
         $admin = User::create(['uuid' => (string) \Illuminate\Support\Str::uuid(), 'name' => 'Admin', 'phone' => '9'.fake()->unique()->numerify('#########'), 'role' => 'super_admin', 'status' => 'active']);
-        app(ResolveInterimDisputeAction::class)->execute($s['booking']->id, $admin, 'Photos show 20%', 20);
+        app(ResolveInterimDisputeAction::class)->execute($s['booking']->id, $admin, 'Photos show less work', 20);
 
         $b = $s['booking']->fresh();
-        $this->assertSame(20, $b->interim_progress_percent);
+        $this->assertSame('20.00', $b->interim_amount);
         $this->assertTrue($this->decision($b)['allowed']);
     }
 
@@ -494,7 +486,7 @@ class CustomerCancellationPolicyTest extends TestCase
         Setting::set('cancellation.visit_fee_type', 'flat');
         Setting::set('cancellation.visit_fee_value', '50');
         $s = $this->inProgress();
-        $this->backdate(11, fn () => $this->hold($s['booking'], ['progress_percent' => 20]));   // 20% of 500 = 100
+        $this->backdate(11, fn () => $this->hold($s['booking'], ['work_amount' => 100]));
         $s['booking'] = $s['booking']->fresh();
 
         return $s;

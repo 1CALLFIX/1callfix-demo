@@ -107,6 +107,7 @@ class JourneyScreensTest extends TestCase
 
     public function test_provider_runs_the_spares_loop_from_the_job_screen(): void
     {
+        \App\Models\Setting::set('cancellation.interim_cap_percent', '50'); // fail-closed until configured (A2)
         $s = $this->makeAssignedBookingScenario();
         $this->actingAs($s['provider']->user);
 
@@ -120,10 +121,10 @@ class JourneyScreensTest extends TestCase
         $c = Livewire::test(ProviderJobShow::class, ['booking' => $s['booking']]);
 
         // REF 1CF-CANCEL-POLICY-001 — the declaration is mandatory.
-        $c->call('holdForSpares')->assertHasErrors(['sparesProgress', 'sparesExpected']);
+        $c->call('holdForSpares')->assertHasErrors(['sparesAmount', 'sparesExpected']);
         $this->assertSame('in_progress', $s['booking']->fresh()->status);
 
-        $c->set('sparesProgress', '40')->set('sparesParts', '0')->set('sparesSource', 'provider')
+        $c->set('sparesAmount', '100')->set('sparesSource', 'provider')
             ->set('sparesExpected', now()->addDays(3)->toDateString())
             ->call('holdForSpares')->assertSet('error', '')->assertSee('Job on hold')->assertSee('Spares available');
         $this->assertSame('on_hold', $s['booking']->fresh()->status);

@@ -151,6 +151,7 @@ final class WalletSourceLabel
         'app/Actions/CreatePropertyReservationAction.php' => ['property_reservation:1:wallet-payment'],
         'app/Actions/CreateRentalReservationAction.php' => ['rental_reservation:1:wallet-payment'],
         'app/Actions/CreateTaxiRideAction.php' => ['taxi_ride:1:wallet-payment'],
+        'app/Services/BookingDisputeService.php' => ['booking:1:wallet-refund:dispute-2'],
         'app/Services/BundleSettlementService.php' => ['booking_bundle:1:wallet-refund:2'],
         'app/Services/CancellationService.php' => [
             'booking:1:wallet-refund', 'parcel_order:1:wallet-refund', 'taxi_ride:1:wallet-refund',

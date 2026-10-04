@@ -147,15 +147,12 @@
                     {{-- REF 1CF-CANCEL-POLICY-001 — mandatory declaration: it is what the customer is charged on if they leave --}}
                     <form wire:submit="holdForSpares" class="mt-3 space-y-2 rounded-lg border border-amber-200 bg-amber-50 p-3">
                         <p class="text-xs text-amber-900">Be accurate: the customer sees these figures and can dispute them. If the part will take longer than {{ app(\App\Services\Cancellation\SparesDelayClock::class)->thresholdDays($booking) }} days the customer may cancel and pay only for work already done.</p>
-                        <label class="block text-xs font-medium text-slate-700">Work completed so far (%)
-                            <input type="number" min="0" max="100" wire:model="sparesProgress" class="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm">
+                        @php($sparesCap = app(\App\Services\Cancellation\InterimChargeCalculator::class)->capValue($booking))
+                        <label class="block text-xs font-medium text-slate-700">Amount for the work already done (labour and parts together){{ $sparesCap !== null ? ' — at most ₹'.rtrim(rtrim(number_format($sparesCap, 2), '0'), '.') : '' }}
+                            <input type="number" step="0.01" min="0" wire:model="sparesAmount" class="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm">
                         </label>
-                        @error('sparesProgress') <p class="text-sm text-red-700">{{ $message }}</p> @enderror
-                        <label class="block text-xs font-medium text-slate-700">Cost of parts already fitted (0 if none)
-                            <input type="number" step="0.01" min="0" wire:model="sparesParts" class="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm">
-                        </label>
-                        @error('sparesParts') <p class="text-sm text-red-700">{{ $message }}</p> @enderror
-                        <label class="block text-xs font-medium text-slate-700">Bill / photo of parts fitted (required if cost above 0)
+                        @error('sparesAmount') <p class="text-sm text-red-700">{{ $message }}</p> @enderror
+                        <label class="block text-xs font-medium text-slate-700">Bill / photo of the work or parts (optional)
                             <input type="file" multiple accept="image/*,application/pdf" wire:model="sparesEvidence" class="mt-1 block w-full text-sm">
                         </label>
                         @error('sparesEvidence.*') <p class="text-sm text-red-700">{{ $message }}</p> @enderror
@@ -196,7 +193,7 @@
         <x-ui.card class="mt-4 !p-5">
             <h2 class="text-sm font-semibold text-gray-500 uppercase">Job on hold</h2>
             @if ($booking->hold_reason === 'awaiting_spares')
-                <p class="mt-1 text-xs text-slate-500">Declared: {{ $booking->interim_progress_percent ?? '—' }}% done · expected {{ $booking->spares_expected_at?->format('j M Y') ?? 'no date' }}</p>
+                <p class="mt-1 text-xs text-slate-500">Declared: {{ $booking->interim_amount !== null ? '₹'.number_format((float) $booking->interim_amount, 2) : '—' }} for work done · expected {{ $booking->spares_expected_at?->format('j M Y') ?? 'no date' }}</p>
                 @if ($booking->spares_expected_at && $booking->spares_expected_at->lt(now()->startOfDay()))
                     <form wire:submit="updateExpectedDate" class="mt-2 flex flex-wrap items-end gap-2 rounded-lg border border-red-200 bg-red-50 p-3">
                         <label class="text-xs font-medium text-red-900">The expected date has passed — enter a new date

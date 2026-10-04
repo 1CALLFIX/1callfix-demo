@@ -5,19 +5,16 @@ namespace App\Services\Cancellation;
 use App\Models\Booking;
 
 /**
- * REF 1CF-CANCEL-POLICY-001 — the interim-work charge when a customer leaves a job held for spares.
+ * REF 1CF-CANCEL-POLICY-001 (A2 final rule) — the charge when a customer leaves a job that was started and then stopped.
  *
- *   labour = max(visit fee, min(base x declared progress %, base x cap %))     (cap default 50)
- *   parts  = declared cost of parts ACTUALLY FITTED, only with a bill/photo uploaded at hold time
- *   total  = min(labour + parts, job price)            — never more than the job is worth
+ *   work started  => total = the ONE amount the professional declared, never above `cancellation.interim_cap_percent`
+ *                    of the job total (price + approved extras). No floor. The visit charge is never added.
+ *   no work done  => only the visit / inspection charge.
  *
- * No declaration (progress % never entered) => visit fee only; no extra charge, no parts.
  * `base` is the quoted price plus any extra work the customer approved (that work is part of the agreed scope).
  */
 class InterimChargeCalculator
 {
-    public const DEFAULT_CAP_PERCENT = 50;
-
     public function __construct(private SparesDelayClock $clock)
     {
     }
@@ -50,51 +47,67 @@ class InterimChargeCalculator
         return round(max(0.0, min($fee, $base)), 2);
     }
 
-    /** @return array{declared: bool, base: float, visit_fee: float, min_labour: float, min_labour_applied: bool, progress_percent: ?int, progress_value: float, cap_percent: int, cap_value: float, labour_charge: float, parts_declared: float, parts_charge: float, parts_evidenced: bool, job_price: float, total: float} */
+    /** The booking total the cap applies to: the quoted price plus the extra work the customer approved. */
+    public function jobPrice(Booking $booking): float
+    {
+        return round((float) $booking->price_quoted
+            + (float) $booking->extraItems()->where('status', 'approved')->sum('amount'), 2);
+    }
+
+    /**
+     * The most the professional may declare for work done: cap % of the job price, from the booking's snapshot.
+     * Null = `cancellation.interim_cap_percent` is not configured, so NO amount can be accepted (fail closed).
+     */
+    public function capValue(Booking $booking): ?float
+    {
+        $percent = PolicySettings::get($booking, 'cancellation.interim_cap_percent');
+
+        return $percent === null ? null : round($this->jobPrice($booking) * max(0, min(100, (int) $percent)) / 100, 2);
+    }
+
+    /** True once the professional has actually begun the work (an amount declared for it / start OTP verified / job was in progress). */
+    public function workStarted(Booking $booking): bool
+    {
+        return $booking->interim_amount !== null
+            || $booking->start_otp_verified_at !== null
+            || $booking->statusHistory()->where('status', 'in_progress')->exists();
+    }
+
+    /** @return array{declared: bool, work_started: bool, base: float, visit_fee: float, cap_percent: ?int, cap_value: ?float, declared_amount: float, labour_charge: float, parts_charge: float, job_price: float, total: float} */
     public function calculate(Booking $booking): array
     {
-        $jobPrice = round((float) $booking->price_quoted
-            + (float) $booking->extraItems()->where('status', 'approved')->sum('amount'), 2);
+        $jobPrice = $this->jobPrice($booking);
+        $capPercent = PolicySettings::get($booking, 'cancellation.interim_cap_percent');
+        $capPercent = $capPercent === null ? null : max(0, min(100, (int) $capPercent));
+        $capValue = $capPercent === null ? null : round($jobPrice * $capPercent / 100, 2);
 
-        $capPercent = max(0, min(100, (int) PolicySettings::get($booking, 'cancellation.interim_cap_percent')));
-        $visit = $this->visitFee($booking, $jobPrice);
+        $declared = $booking->interim_amount !== null;
+        $declaredAmount = $declared ? round(max(0.0, (float) $booking->interim_amount), 2) : 0.0;
+        $started = $this->workStarted($booking);
 
-        $declared = $booking->interim_progress_percent !== null;
-        $progress = $declared ? max(0, min(100, (int) $booking->interim_progress_percent)) : null;
-
-        $progressValue = $declared ? round($jobPrice * $progress / 100, 2) : 0.0;
-        $capValue = round($jobPrice * $capPercent / 100, 2);
-
-        // Work was done (declared progress above zero): the labour for it, never below the separately configured
-        // MINIMUM LABOUR charge (cancellation.interim_min_labour, null = no floor) — this is not a visit charge and
-        // never reads cancellation.visit_fee_value. No work declared: only the no-work visit charge applies.
-        $worked = $declared && $progress > 0;
-        $minLabour = round(max(0.0, (float) (PolicySettings::get($booking, 'cancellation.interim_min_labour') ?? 0)), 2);
-        $labour = $worked ? max($minLabour, min($progressValue, $capValue)) : $visit;
-        $minLabourApplied = $worked && $minLabour > 0 && $minLabour > min($progressValue, $capValue);
-
-        $partsDeclared = round(max(0.0, (float) ($booking->interim_parts_cost ?? 0)), 2);
-        $evidenced = ! empty($booking->interim_evidence);
-        $parts = ($declared && $evidenced) ? $partsDeclared : 0.0;
-
-        $total = round(min($labour + $parts, $jobPrice), 2);
+        // THUMB RULE (CLAUDE.md): the visit charge exists only when NO work was done. Once work has started it is never added.
+        // Work started: the provider's one declared amount, never above the cap (a null cap charges nothing — fail closed),
+        // never above the job price, no floor. Work never started: only the no-work visit charge.
+        if ($started) {
+            $total = $declared && $capValue !== null ? min($declaredAmount, $capValue, $jobPrice) : 0.0;
+            $visit = 0.0;
+        } else {
+            $visit = $this->visitFee($booking, $jobPrice);
+            $total = $visit;
+        }
 
         return [
             'declared' => $declared,
+            'work_started' => $started,
             'base' => $jobPrice,
             'visit_fee' => $visit,
-            'progress_percent' => $progress,
-            'progress_value' => $progressValue,
             'cap_percent' => $capPercent,
             'cap_value' => $capValue,
-            'min_labour' => $minLabour,
-            'min_labour_applied' => $minLabourApplied,
-            'labour_charge' => round($labour, 2),
-            'parts_declared' => $partsDeclared,
-            'parts_charge' => $parts,
-            'parts_evidenced' => $evidenced,
+            'declared_amount' => $declaredAmount,
+            'labour_charge' => round($total, 2),
+            'parts_charge' => 0.0,
             'job_price' => $jobPrice,
-            'total' => $total,
+            'total' => round($total, 2),
         ];
     }
 }

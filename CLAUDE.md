@@ -103,3 +103,12 @@ model.
 - The Prime "Free Service Visit" waiver only waives that no-work visit charge. On a
   completed job it is not applied and not consumed.
 - Applies to every module and every channel (web, API, admin, bundles, invoices).
+
+### MID-WORK CANCELLATION — ONE DECLARED AMOUNT, ONE CAP
+- Work started, then stopped (spares unavailable or any other reason): the provider enters ONE amount for
+  the work done (labour and parts together). The customer pays that amount. The visit charge is never added.
+- It can never exceed `cancellation.interim_cap_percent` % of the booking total (price_quoted + approved
+  extras), saved on the booking at creation. Null = not configured: the provider cannot submit an amount
+  (fail closed). There is no minimum / floor of any kind.
+- After payment the customer can raise a dispute from the order page (reason required). An admin queue
+  resolves it by hand; any refund goes through the manual money approval model only (never automatic).
