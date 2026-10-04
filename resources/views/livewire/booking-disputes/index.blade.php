@@ -45,7 +45,9 @@
                         <x-ui.badge color="gray">{{ $row->status === 'open' ? 'open' : 'resolved: '.str_replace('_', ' ', (string) $row->outcome) }}</x-ui.badge>
                         @if ($row->resolution_note)<div class="text-xs text-gray-500 mt-1">{{ $row->resolution_note }}</div>@endif
                         @if ($row->refund_status)
-                            <div class="text-xs mt-1">Refund ₹{{ number_format((float) $row->refund_amount, 2) }}: {{ str_replace('_', ' ', $row->refund_status) }}</div>
+                            <div class="text-xs mt-1">Refund ₹{{ number_format((float) $row->refund_amount, 2) }} to {{ $row->refund_destination === 'original' ? 'original method' : 'wallet' }}: {{ str_replace('_', ' ', $row->refund_status) }}</div>
+                            @if ($row->bearer)<div class="text-xs text-gray-500">{{ \App\Models\BookingDispute::BEARERS[$row->bearer] ?? $row->bearer }} — provider ₹{{ number_format((float) $row->provider_share, 2) }}, company ₹{{ number_format((float) $row->company_share, 2) }}</div>@endif
+                            @if ($row->refund_wallet_choice_note)<div class="text-xs text-gray-500">Wallet chosen: {{ $row->refund_wallet_choice_note }}</div>@endif
                             @if ($row->requestedBy)<div class="text-xs text-gray-400">requested by {{ $row->requestedBy->name }}</div>@endif
                             @if ($row->approvedBy)<div class="text-xs text-gray-400">approved by {{ $row->approvedBy->name }}</div>@endif
                             @if ($row->escalation_level > 0 && in_array($row->refund_status, \App\Models\BookingDispute::REFUND_OPEN, true))
@@ -86,11 +88,39 @@
                                             <input type="text" inputmode="decimal" wire:model="refundAmount" placeholder="Refund amount (max ₹{{ number_format((float) $row->amount_paid, 2) }})" class="rounded border-gray-300 text-sm">
                                         @endif
                                     </div>
+                                    @if ($outcome === 'refund')
+                                        @php($kind = app(\App\Services\BookingDisputeService::class)->paymentKind($row->booking))
+                                        <div class="grid gap-2 sm:grid-cols-2">
+                                            <div>
+                                                <label class="block text-xs font-medium mb-1">Who bears the refund (required)</label>
+                                                <select wire:model.live="bearer" class="w-full rounded border-gray-300 text-sm">
+                                                    <option value="">Choose…</option>
+                                                    @foreach (\App\Models\BookingDispute::BEARERS as $key => $label)
+                                                        <option value="{{ $key }}">{{ $label }}</option>
+                                                    @endforeach
+                                                </select>
+                                                @if ($bearer === 'split')
+                                                    <input type="text" inputmode="decimal" wire:model="providerShare" placeholder="Provider's share ₹ (company pays the rest)" class="mt-2 w-full rounded border-gray-300 text-sm">
+                                                @endif
+                                                <p class="text-xs text-gray-500 mt-1">The provider's share is taken from their wallet through the ledger; anything the wallet cannot cover is collected from their next payout request.</p>
+                                            </div>
+                                            <div>
+                                                <label class="block text-xs font-medium mb-1">Refund goes to (paid {{ $kind }})</label>
+                                                <select wire:model.live="destination" class="w-full rounded border-gray-300 text-sm">
+                                                    @if ($kind === 'online')<option value="original">Original payment method (default)</option>@endif
+                                                    <option value="wallet">Customer's wallet</option>
+                                                </select>
+                                                @if ($kind === 'online' && $destination === 'wallet')
+                                                    <input type="text" wire:model="walletNote" placeholder="Customer agreed to a wallet refund — note (required)" class="mt-2 w-full rounded border-gray-300 text-sm">
+                                                @endif
+                                            </div>
+                                        </div>
+                                    @endif
                                     <p class="text-xs text-amber-800">Recording a refund here moves no money; it only queues the refund for a request and approval.</p>
                                 @elseif ($actingType === 'reject')
                                     <p class="text-sm text-amber-800">Rejecting sends the refund back to "awaiting request". Nothing is refunded.</p>
                                 @else
-                                    <p class="text-sm text-amber-800">{{ $actingType === 'approve' ? 'Approving credits' : 'Requesting a credit of' }} exactly ₹{{ number_format((float) $row->refund_amount, 2) }} to the customer's wallet.
+                                    <p class="text-sm text-amber-800">{{ $actingType === 'approve' ? 'Approving a refund of' : 'Requesting a refund of' }} exactly ₹{{ number_format((float) $row->refund_amount, 2) }} to the customer's {{ $row->refund_destination === 'original' ? 'original payment method' : 'wallet' }}.
                                         @if ($actingType === 'request') Within your limit and with no second approval needed it is credited immediately; otherwise a different approver must approve it. @endif</p>
                                 @endif
                                 <input type="text" wire:model="reason" placeholder="{{ $actingType === 'resolve' ? 'Resolution note (required)' : 'Reason (required)' }}" class="w-full rounded border-gray-300 text-sm">

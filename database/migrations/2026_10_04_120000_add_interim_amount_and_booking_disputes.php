@@ -68,7 +68,17 @@ return new class extends Migration
 
     public function down(): void
     {
-        $id = DB::table('permissions')->where('slug', self::SLUG)->value('id');
+        // A3: disputes and declared work amounts are financial records; never drop them silently.
+        $disputes = DB::table('booking_disputes')->count();
+        $declared = DB::table('bookings')->whereNotNull('interim_amount')->count();
+        if ($disputes > 0 || $declared > 0) {
+            throw new \RuntimeException(
+                "Cannot roll back: {$disputes} dispute(s) and {$declared} booking(s) with a declared work amount exist. "
+                .'These are financial records. Export and remove them deliberately first, then roll back.'
+            );
+        }
+
+        $id =DB::table('permissions')->where('slug', self::SLUG)->value('id');
         if ($id) {
             DB::table('permission_role')->where('permission_id', $id)->delete();
             DB::table('permissions')->where('id', $id)->delete();

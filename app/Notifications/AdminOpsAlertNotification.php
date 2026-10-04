@@ -48,6 +48,10 @@ class AdminOpsAlertNotification extends Notification implements ShouldQueue
             return route('admin.mismatch-refunds.index');
         }
 
+        if ($this->subject instanceof \App\Models\BookingDispute) {
+            return route('admin.booking-disputes.index');
+        }
+
         if ($this->subject instanceof Booking) {
             return route('admin.bookings.show', $this->subject->id);
         }
@@ -83,6 +87,7 @@ class AdminOpsAlertNotification extends Notification implements ShouldQueue
             'scheduled_urgent_alert' => $this->scheduledUrgentAlertCopy(),
             'job_at_risk' => $this->jobAtRiskCopy(),
             'mismatch_refund_escalation' => $this->mismatchRefundEscalationCopy(),
+            'dispute_refund_escalation' => $this->disputeRefundEscalationCopy(),
             'refund_failed' => ['title' => 'Refund failed', 'body' => "A gateway refund for payment {$this->subject->gateway_payment_id} failed. Money may be stuck: check Payments and the Razorpay dashboard."],
             // REF 1CF-CANCEL-POLICY-001
             'cancel_charge_unpaid' => ['title' => 'Cancellation charge unpaid', 'body' => "Booking {$this->subject->code} has a cancellation charge unpaid for over 7 days. Review it: collect, or waive with a reason."],
@@ -195,6 +200,18 @@ class AdminOpsAlertNotification extends Notification implements ShouldQueue
         return [
             'title' => 'Mismatch refund needs approval',
             'body' => '₹'.number_format($r->amountRupees(), 2)." mismatched payment has been waiting since {$r->created_at->format('d M, h:i A')}. Open the queue to act.",
+        ];
+    }
+
+    /** A2/A3 — a pricing-dispute refund has waited too long at a lower level. */
+    private function disputeRefundEscalationCopy(): array
+    {
+        /** @var \App\Models\BookingDispute $d */
+        $d = $this->subject;
+
+        return [
+            'title' => 'Dispute refund needs approval',
+            'body' => '₹'.number_format((float) $d->refund_amount, 2)." pricing-dispute refund has been waiting since {$d->refundClockStartedAt()->format('d M, h:i A')}. Open the queue to act.",
         ];
     }
 

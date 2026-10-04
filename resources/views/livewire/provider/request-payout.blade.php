@@ -28,6 +28,11 @@
                     Less ₹{{ number_format((float) $outstandingCashCommission, 2) }} cash commission owed to the platform
                 </p>
             @endif
+            @if ($outstandingDisputeDebt > 0)
+                <p class="mt-1 text-xs text-amber-700">
+                    Less ₹{{ number_format((float) $outstandingDisputeDebt, 2) }} your share of a customer pricing-dispute refund
+                </p>
+            @endif
         </x-ui.card>
         <x-ui.card class="!p-4">
             <p class="text-xs font-semibold uppercase text-gray-500">Withdrawable now</p>

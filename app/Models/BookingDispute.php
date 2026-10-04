@@ -31,6 +31,9 @@ class BookingDispute extends Model
     protected $casts = [
         'amount_paid' => 'decimal:2',
         'refund_amount' => 'decimal:2',
+        'provider_share' => 'decimal:2',
+        'company_share' => 'decimal:2',
+        'provider_recovered' => 'decimal:2',
         'escalation_level' => 'integer',
         'resolved_at' => 'datetime',
         'refund_requested_at' => 'datetime',
@@ -39,6 +42,10 @@ class BookingDispute extends Model
         'refunded_at' => 'datetime',
         'last_escalated_at' => 'datetime',
     ];
+
+    public const BEARERS = ['provider' => 'Provider pays', 'company' => 'Company pays', 'split' => 'Split'];
+
+    public function debt() { return $this->hasOne(ProviderDisputeDebt::class, 'booking_dispute_id'); }
 
     public function booking() { return $this->belongsTo(Booking::class); }
 

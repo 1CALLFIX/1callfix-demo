@@ -38,6 +38,26 @@
         @endforeach
     </div>
 
+    @if ($disputeShares->isNotEmpty())
+        <div class="mt-4 space-y-2" data-testid="dispute-shares">
+            <h2 class="text-sm font-semibold text-slate-700">Customer pricing disputes</h2>
+            @foreach ($disputeShares as $d)
+                <x-ui.card class="!p-4">
+                    <div class="flex items-center justify-between gap-3 text-sm">
+                        <div>
+                            <p class="font-medium">Dispute #{{ $d->id }} · {{ $d->booking?->code }}</p>
+                            <p class="text-xs text-slate-500">
+                                Your share of a ₹{{ number_format((float) $d->refund_amount, 2) }} refund · ₹{{ number_format((float) $d->provider_recovered, 2) }} taken from your wallet
+                                @if ($d->debt && $d->debt->status === 'outstanding') · ₹{{ number_format($d->debt->outstandingAmount(), 2) }} still owed @endif
+                            </p>
+                        </div>
+                        <p class="font-semibold text-rose-700">−₹{{ number_format((float) $d->provider_share, 2) }}</p>
+                    </div>
+                </x-ui.card>
+            @endforeach
+        </div>
+    @endif
+
     <div class="mt-4 space-y-2">
         @forelse ($rows as $row)
             <x-ui.card class="!p-4">

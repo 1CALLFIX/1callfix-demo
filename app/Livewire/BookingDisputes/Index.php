@@ -29,6 +29,14 @@ class Index extends Component
 
     public string $refundAmount = '';
 
+    public string $bearer = '';
+
+    public string $providerShare = '';
+
+    public string $destination = '';
+
+    public string $walletNote = '';
+
     public string $flashType = 'success';
 
     public string $flashMessage = '';
@@ -58,12 +66,17 @@ class Index extends Component
         $this->reason = '';
         $this->outcome = 'no_change';
         $this->refundAmount = '';
+        $this->bearer = '';
+        $this->providerShare = '';
+        $this->walletNote = '';
+        // Default destination from how the customer paid (online -> original method; wallet/cash -> wallet).
+        $this->destination = app(BookingDisputeService::class)->defaultDestination($row->booking);
         $this->resetValidation();
     }
 
     public function cancelAction(): void
     {
-        $this->reset('actingId', 'actingType', 'reason', 'outcome', 'refundAmount');
+        $this->reset('actingId', 'actingType', 'reason', 'outcome', 'refundAmount', 'bearer', 'providerShare', 'destination', 'walletNote');
     }
 
     public function submitAction(): void
@@ -74,7 +87,9 @@ class Index extends Component
         $this->validate(['reason' => ['required', 'string', 'min:3', 'max:500']], [], ['reason' => 'reason']);
 
         $result = match ($this->actingType) {
-            'resolve' => $service->resolve($row, auth()->user(), $this->outcome, $this->reason, $this->refundAmount !== '' ? (float) $this->refundAmount : null),
+            'resolve' => $service->resolve($row, auth()->user(), $this->outcome, $this->reason, $this->refundAmount !== '' ? (float) $this->refundAmount : null,
+                $this->bearer !== '' ? $this->bearer : null, $this->providerShare !== '' ? (float) $this->providerShare : null,
+                $this->destination !== '' ? $this->destination : null, $this->walletNote !== '' ? $this->walletNote : null),
             'request' => $service->requestRefund($row, auth()->user(), $this->reason),
             'approve' => $service->approveRefund($row, auth()->user(), $this->reason),
             'reject' => $service->rejectRefund($row, auth()->user(), $this->reason),
