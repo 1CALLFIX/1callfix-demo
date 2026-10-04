@@ -84,6 +84,7 @@ class CreateBookingBundleAction
         $key = $data['idempotency_key'] ?? null;
         $fingerprint = $data['request_fingerprint'];
         $children = $data['children'];
+        $acquisition = $data['acquisition'] ?? null;
 
         // ── Idempotency short-circuit — before any write ──────────────────
         if ($key !== null) {
@@ -105,7 +106,7 @@ class CreateBookingBundleAction
         $walletPayment = null;
 
         try {
-            $bundle = DB::transaction(function () use ($children, $anchor, $customerId, $paymentMethod, $key, $fingerprint, &$walletPayment) {
+            $bundle = DB::transaction(function () use ($children, $anchor, $customerId, $paymentMethod, $key, $fingerprint, $acquisition, &$walletPayment) {
                 $bundle = BookingBundle::create([
                     'idempotency_key' => $key,
                     'request_fingerprint' => $key !== null ? $fingerprint : null,
@@ -133,6 +134,7 @@ class CreateBookingBundleAction
                         'scheduled_at' => $child['scheduled_at'] ?? null,
                         'payment_method' => $paymentMethod,
                         'customer_note' => $child['customer_note'] ?? null,
+                        'acquisition' => $acquisition,
                         // deliberately NO price_quoted — the server computes it
                     ]);
 

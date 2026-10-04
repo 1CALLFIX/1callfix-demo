@@ -63,6 +63,7 @@ class Booking extends Model implements Orderable
         'cancellation_note',
         'cancellation_fee',
         'customer_note',
+        'acquisition',
         'start_otp',
         'start_otp_expires_at',
         'start_otp_attempts',
@@ -119,6 +120,7 @@ class Booking extends Model implements Orderable
         'cancellation_fee_basis' => 'array',
         'spares_notices' => 'array',
         'cancellation_policy_snapshot' => 'array',
+        'acquisition' => 'array',
         'arrival_verified_at' => 'datetime',
         // Phase E5 — booking OTP hardening metadata (see BookingOtpService).
         'start_otp_expires_at' => 'datetime',

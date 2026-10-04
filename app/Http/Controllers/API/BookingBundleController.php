@@ -92,6 +92,7 @@ class BookingBundleController extends Controller
                 'idempotency_key' => $idempotencyKey,
                 'request_fingerprint' => $this->fingerprint($children, $paymentMethod),
                 'children' => $children,
+                'acquisition' => $validated['acquisition'] ?? null,
             ]);
         } catch (ModuleNotActiveException $e) {
             return ApiResponse::error($e->getMessage(), 422);

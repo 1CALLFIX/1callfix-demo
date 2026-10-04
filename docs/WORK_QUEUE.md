@@ -39,7 +39,7 @@ Owner order of 2026-10-04 (supersedes the table below where they differ): **A2 -
 | C | Coupons C2: Super Admin screens (create/edit/pause, targeting, limits, budget cap, daily cap with migration shown first, stackable toggle, HQ funding, campaign tag, live usage, `coupons.enabled` + `coupons.unpaid_hold_minutes` switches, `coupons.manage` permission, audit log) | not started |
 | D | Coupons C3: customer coupon field (wizard, cart, checkout, bundles), validate endpoint + API, full price/discount/payable, Razorpay or wallet-only (combined later), cash rejected, clear errors, rate limit, unpaid-hold countdown | not started |
 | E | Full suite, stop for review, merge on owner approval. Coupons stay OFF in prod until the owner switches them on. Give the pilot setup steps | not started |
-| F | Ad readiness: UTM capture, Open Graph + canonical, clean category slugs with 301 redirects, commit the SEO baseline doc, AAAA check | not started |
+| F | Ad readiness: UTM capture, Open Graph + canonical, clean category slugs with 301 redirects, commit the SEO baseline doc, AAAA check | F1 BUILT on `feature/f1-utm-capture` (not merged, awaiting review; see docs/ACQUISITION_ATTRIBUTION.md); F2, F3 not started |
 | G | Glover app access-log investigation (read-only) | not started |
 | H | Remaining queue below (items 2-6, 8) | not started |
 
@@ -161,6 +161,12 @@ invoice line, audit service, 40 tests. Open items carried forward:
 
 Re-add the classes in docs/PENDING_FRONTEND_BUILD_ITEMS.md in the next change that needs a
 front-end build.
+
+### F1 LATER (not built)
+
+- Report by `utm_source` / `utm_campaign` (bookings, revenue) in Super Admin.
+- Attribute at account signup (users), not only at booking.
+- Admin filter on the bookings list by source.
 
 ## Ad launch proposals (audit 2026-10-04, proposals only — nothing built)
 

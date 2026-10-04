@@ -39,6 +39,19 @@
             </dl>
         </x-ui.card>
 
+        @if (! empty($booking->acquisition))
+            <x-ui.card>
+                <div class="font-semibold mb-2">Acquisition</div>
+                <dl class="text-sm space-y-1">
+                    <div class="flex justify-between"><dt class="text-gray-500">Source</dt><dd>{{ $booking->acquisition['utm_source'] ?? '—' }}</dd></div>
+                    <div class="flex justify-between"><dt class="text-gray-500">Medium</dt><dd>{{ $booking->acquisition['utm_medium'] ?? '—' }}</dd></div>
+                    <div class="flex justify-between"><dt class="text-gray-500">Campaign</dt><dd>{{ $booking->acquisition['utm_campaign'] ?? '—' }}</dd></div>
+                    <div class="flex justify-between"><dt class="text-gray-500">Landing path</dt><dd>{{ $booking->acquisition['landing_path'] ?? '—' }}</dd></div>
+                    <div class="flex justify-between"><dt class="text-gray-500">Captured at</dt><dd>{{ $booking->acquisition['captured_at'] ?? '—' }}</dd></div>
+                </dl>
+            </x-ui.card>
+        @endif
+
         <x-ui.card>
             <div class="font-semibold mb-2">Provider & Payment</div>
             <dl class="text-sm space-y-1">
