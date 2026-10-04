@@ -297,6 +297,7 @@ class CustomerCancellationPolicyTest extends TestCase
     {
         Setting::set('cancellation.visit_fee_type', 'flat');
         Setting::set('cancellation.visit_fee_value', '50');
+        Setting::set('cancellation.interim_min_labour', '50');
         $s = $this->inProgress();
         $calc = app(InterimChargeCalculator::class);
 
@@ -306,7 +307,7 @@ class CustomerCancellationPolicyTest extends TestCase
         $b->update(['interim_progress_percent' => 80]);                   // 400 > cap 250
         $this->assertSame(250.0, $calc->calculate($b->fresh())['labour_charge']);
 
-        $b->update(['interim_progress_percent' => 5]);                    // 25 < visit fee 50: floored
+        $b->update(['interim_progress_percent' => 5]);                    // 25 < minimum labour 50: floored
         $this->assertSame(50.0, $calc->calculate($b->fresh())['labour_charge']);
 
         // Parts: charged only with a bill/photo.
@@ -317,6 +318,83 @@ class CustomerCancellationPolicyTest extends TestCase
         $b->update(['interim_evidence' => ['booking-evidence/1/bill.jpg']]);
         $this->assertSame(120.0, $calc->calculate($b->fresh())['parts_charge']);
         $this->assertSame(320.0, $calc->calculate($b->fresh())['total']);
+    }
+
+    // ------------------------------------------------------------------ minimum labour charge (NOT a visit charge)
+
+    public function test_the_minimum_labour_floor_comes_from_its_own_setting_and_null_means_no_floor(): void
+    {
+        Setting::set('cancellation.visit_fee_type', 'flat');
+        Setting::set('cancellation.visit_fee_value', '149');
+        $calc = app(InterimChargeCalculator::class);
+
+        // Unset: no floor at all — 5% of 500 is just 25, even though a visit charge of 149 is configured.
+        $s = $this->inProgress();
+        $b = $this->hold($s['booking'], ['progress_percent' => 5]);
+        $this->assertSame(25.0, $calc->calculate($b)['labour_charge'], 'null = no floor; the visit charge is never a floor');
+        $this->assertFalse($calc->calculate($b)['min_labour_applied']);
+
+        // Configured: the floor applies and is labelled as such.
+        Setting::set('cancellation.interim_min_labour', '75');
+        $s2 = $this->inProgress();
+        $b2 = $this->hold($s2['booking'], ['progress_percent' => 5]);
+        $r = $calc->calculate($b2);
+        $this->assertSame(75.0, $r['labour_charge']);
+        $this->assertTrue($r['min_labour_applied']);
+        $this->assertSame(75.0, $r['min_labour']);
+
+        // Progress above the floor is untouched by it.
+        $b2->update(['interim_progress_percent' => 40]);
+        $this->assertSame(200.0, $calc->calculate($b2->fresh())['labour_charge']);
+        $this->assertFalse($calc->calculate($b2->fresh())['min_labour_applied']);
+    }
+
+    public function test_changing_the_visit_charge_never_changes_the_minimum_labour_charge(): void
+    {
+        Setting::set('cancellation.interim_min_labour', '75');
+        $calc = app(InterimChargeCalculator::class);
+
+        foreach (['0', '149', '199'] as $visit) {
+            Setting::set('cancellation.visit_fee_value', $visit);
+            $s = $this->inProgress();
+            $b = $this->hold($s['booking'], ['progress_percent' => 5]);
+
+            $this->assertSame(75.0, $calc->calculate($b)['labour_charge'], "visit charge {$visit}");
+        }
+    }
+
+    public function test_the_minimum_labour_charge_follows_the_booking_snapshot(): void
+    {
+        Setting::set('cancellation.interim_min_labour', '75');
+        $s = $this->inProgress();
+        $b = $this->hold($s['booking'], ['progress_percent' => 5]);
+
+        Setting::set('cancellation.interim_min_labour', '300'); // owner changes it later
+        $this->assertSame(75.0, app(InterimChargeCalculator::class)->calculate($b->fresh())['labour_charge'], 'the existing booking keeps the floor it was made under');
+
+        $new = $this->hold($this->inProgress()['booking'], ['progress_percent' => 5]);
+        $this->assertSame(300.0, app(InterimChargeCalculator::class)->calculate($new)['labour_charge']);
+    }
+
+    public function test_customer_text_calls_it_a_minimum_labour_charge_and_never_a_visit_charge(): void
+    {
+        Setting::set('cancellation.visit_fee_value', '149');
+        Setting::set('cancellation.interim_min_labour', '75');
+        $s = $this->inProgress();
+        $b = null;
+        $this->backdate(11, function () use ($s, &$b) { // past the spares-delay limit so a quote exists
+            $b = $this->hold($s['booking'], ['progress_percent' => 5]);
+        });
+
+        $line = collect(app(CancellationPolicy::class)->policyLines($b->fresh()))->first(fn ($l) => str_contains($l, 'minimum labour charge'));
+
+        $this->assertNotNull($line);
+        $this->assertStringContainsString('A minimum labour charge of ₹75 applies once any work has been done.', $line);
+        $this->assertStringNotContainsString('minimum labour charge of ₹149', $line);
+
+        $quote = app(CustomerCancelBookingAction::class)->quote($b->fresh());
+        $this->assertTrue($quote['breakdown']['min_labour_applied'] ?? false);
+        $this->assertArrayNotHasKey('display', $quote['breakdown'] ?? [], 'no "visit charge" label on a mid-work quote');
     }
 
     public function test_parts_declared_without_a_bill_are_rejected_at_hold_time(): void

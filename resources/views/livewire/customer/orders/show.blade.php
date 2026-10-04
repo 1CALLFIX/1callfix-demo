@@ -343,7 +343,7 @@
                                     <dl class="mt-2 space-y-1 text-rose-900">
                                         <div class="flex justify-between"><dt>Charge</dt><dd class="font-semibold">{{ $currencySymbol }}{{ number_format($cancelQuote['charge'], 2) }}</dd></div>
                                         @if (! empty($cancelQuote['breakdown']['cap_percent']))
-                                            <div class="flex justify-between text-xs text-rose-700"><dt>Labour ({{ $cancelQuote['breakdown']['progress_percent'] ?? 0 }}% done, max {{ $cancelQuote['breakdown']['cap_percent'] }}%)</dt><dd>{{ $currencySymbol }}{{ number_format($cancelQuote['breakdown']['labour_charge'], 2) }}</dd></div>
+                                            <div class="flex justify-between text-xs text-rose-700"><dt>{{ ! empty($cancelQuote['breakdown']['min_labour_applied']) ? 'Minimum labour charge' : 'Labour ('.($cancelQuote['breakdown']['progress_percent'] ?? 0).'% done, max '.$cancelQuote['breakdown']['cap_percent'].'%)' }}</dt><dd>{{ $currencySymbol }}{{ number_format($cancelQuote['breakdown']['labour_charge'], 2) }}</dd></div>
                                             <div class="flex justify-between text-xs text-rose-700"><dt>Parts fitted</dt><dd>{{ $currencySymbol }}{{ number_format($cancelQuote['breakdown']['parts_charge'], 2) }}</dd></div>
                                         @endif
                                         @if ($cancelQuote['refund'] > 0)
