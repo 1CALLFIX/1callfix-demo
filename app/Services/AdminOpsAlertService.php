@@ -32,6 +32,7 @@ class AdminOpsAlertService
         'payment_amount_mismatch' => 'Payment amount mismatch',
         'refund_failed' => 'Refund failed (any refund path)',
         'mismatch_refund_escalation' => 'Mismatch refund approval escalation',
+        'dispute_refund_escalation' => 'Pricing-dispute refund approval escalation',
         'cancel_payout_failed' => 'Cancellation payout failed',
         'dispatch_job_failure' => 'Dispatch job failure',
     ];
@@ -263,6 +264,44 @@ class AdminOpsAlertService
                     } catch (\Throwable $e) {
                         Log::warning('AdminOpsAlertService: failed to queue mismatch refund escalation.', [
                             'refund_id' => $refund->id,
+                            'admin_id' => $admin->id,
+                            'error' => $e->getMessage(),
+                        ]);
+                    }
+                }
+            });
+    }
+
+    /**
+     * A2/A3 — a pricing-dispute refund has waited too long at a lower level. Push + email, once per level (the caller
+     * escalates each level once), to admins at exactly the target level for the dispute's franchise. Same shape as
+     * mismatchRefundEscalation(); the email honours the alerts.email.dispute_refund_escalation switch.
+     */
+    public function disputeRefundEscalation(\App\Models\BookingDispute $dispute, int $level): void
+    {
+        $queue = app(\App\Services\BookingDisputeService::class);
+        $this->emailTo('dispute_refund_escalation', 'dispute_refund_escalation', $dispute, fn (User $admin) => $queue->levelOf($admin, $dispute->franchise_id) === $level);
+
+        $channels = array_values(array_intersect(ChannelResolver::resolve([]), [PushChannel::class]));
+
+        if (empty($channels)) {
+            return;
+        }
+
+        User::query()
+            ->where('push_ops_alerts', true)
+            ->whereNotNull('fcm_token')
+            ->chunkById(200, function ($admins) use ($dispute, $level, $channels, $queue) {
+                foreach ($admins as $admin) {
+                    if ($queue->levelOf($admin, $dispute->franchise_id) !== $level) {
+                        continue;
+                    }
+
+                    try {
+                        $admin->notify(new AdminOpsAlertNotification('dispute_refund_escalation', $dispute, $channels));
+                    } catch (\Throwable $e) {
+                        Log::warning('AdminOpsAlertService: failed to queue dispute refund escalation.', [
+                            'dispute_id' => $dispute->id,
                             'admin_id' => $admin->id,
                             'error' => $e->getMessage(),
                         ]);

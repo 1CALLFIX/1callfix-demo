@@ -46,18 +46,52 @@ Admin keeps its unrestricted override through `AdminCancelBookingAction`.
 - Early unlock: `spares_expected_at` >= today + threshold.
 - Notices to customer AND professional: warning N days before the limit (`cancellation.spares_warning_days_before`, default 3 = day 7), unlock, expected date passed (professional asked for a new date), spares-ready-not-resumed. Each is sent once (claimed under a row lock).
 
-## 5. The interim-work charge (`InterimChargeCalculator`)
+## 5. The interim-work charge (`InterimChargeCalculator`) — current rule (A2/A3, 2026-10-04)
+
+Supersedes the earlier progress-% / parts / minimum-labour model. The visit charge is only for a visit where **no work was done**
+(CLAUDE.md thumb rule); this section is about work that **was started and then stopped**.
 
 ```
-base    = price_quoted + approved extra work
-labour  = max( visit fee , min( base x declared progress % , base x cap % ) )     cap default 50 (cancellation.interim_cap_percent)
-parts   = declared cost of parts ACTUALLY FITTED, only with a bill/photo uploaded at hold time
-total   = min( labour + parts , base )
+base   = price_quoted + approved extra work
+cap    = base x cancellation.interim_cap_percent / 100        (snapshot on the booking; null = not configured)
+total  = min( the ONE amount the provider declared , cap , base )        — no floor of any kind
 ```
-- No declaration (progress % never entered) => visit fee only. Parts bought but not fitted are never charged.
-- Visit fee: `cancellation.visit_fee_type/value`, falling back to the existing `cancellation.fee_type/value`. **Default is 0 until configured.**
-- Holding for spares requires: progress %, parts fitted (+ bill/photo if > 0), who sources the part, expected arrival date. Figures are cumulative (a re-hold cannot declare less).
-- The customer sees the declared figures at hold time and can dispute within 48h (`cancellation.dispute_window_hours`). A dispute blocks cancellation; an admin reviews photos + status history and resolves (optionally correcting the figures).
+- The provider enters **one amount** for the work done (labour and parts together) when putting the job on hold for spares
+  (`bookings.interim_amount`). Above the cap it is rejected at submission. `cancellation.interim_cap_percent` blank = not
+  configured: the provider **cannot** submit an amount (fail closed). The owner's value is 40.
+- The visit charge is **never** added once work has started. No declaration on a started job charges nothing.
+- A booking where the provider never started work (cancelled before the job began) still pays only the visit charge, and only when
+  the provider verifiably arrived.
+- Holding for spares requires: the amount, who sources the part, the expected arrival date (evidence upload is optional). The amount is
+  cumulative (a re-hold cannot declare less).
+- One customer sentence everywhere (`CancellationPolicy::INTERIM_TEXT`): "Work was started but could not be completed. You pay only for the
+  work done, up to [X]% of the job price. If you think the amount is wrong, you can raise a dispute and our team will review it."
+- The customer can dispute the declared amount at hold time within 48h (`cancellation.dispute_window_hours`); an admin resolves it and may
+  correct the amount (never above the cap).
+- Removed: `cancellation.interim_min_labour` (minimum labour charge) and the separate progress-% / 50% labour-cap logic. The legacy
+  `interim_progress_percent` / `interim_parts_cost` columns remain for history and are no longer written.
+
+### 5a. Pricing disputes after payment (A2) and their refunds (A3)
+
+- After payment (booking closed and paid) the customer raises a dispute from the order page, reason required (`booking_disputes`).
+  It goes to the admin queue `/admin/booking-disputes` (open / resolved, outcome, note, audit log). Nothing is refunded automatically.
+- An admin resolves it by hand: *no change*, *refund*, or *settled another way*. A refund decision records the amount, **who bears it**
+  (provider / company / split — the admin must choose, no default; the shares add up exactly) and **where it goes**.
+- **Destination:** an online (Razorpay) payment is refunded to the original payment method (default, a partial gateway refund capped at what
+  is still refundable); a wallet payment goes to the wallet; a cash booking is credited to the customer's wallet. An admin may send an online
+  payment to the wallet instead only when the customer agrees — that choice and a note are recorded.
+- **Approval:** the refund then follows the manual-money approval model: permission `bookings.refund_dispute`, franchise/HQ scope,
+  limits (`refund.dispute.franchise_limit` / `hq_limit`), maker-checker above `refund.dispute.dual_approval_above`, queue with age and
+  escalation (`refund.dispute.escalate_after_hours`), reason required, row-locked, idempotent, audit-logged. Escalation alerts the next level
+  up by push + email (0d pipeline, once per level; switch `alerts.email.dispute_refund_escalation`).
+- **Provider share:** recovered through the wallet ledger when the refund runs — debited from the provider's wallet for what it can cover
+  (`booking:{id}:dispute-share:{dispute}`), the rest recorded in `provider_dispute_debts` and swept from the wallet at payout-request time
+  (`dispute-debt:{id}:settle:*`). All of it goes to the company; no franchise share. It never makes the wallet negative and is never a direct
+  balance edit. The provider sees each share, with the dispute reference, on their Earnings page and the debt on Request Payout.
+- **Company share:** never debited from the provider.
+- Migrations: `2026_10_04_120000` (interim amount, disputes, permission) and `2026_10_04_200000` (destination/bearer columns, debts). Both
+  `down()` methods refuse while any dispute or declared interim amount exists.
+
 
 ## 6. Money, in order
 

@@ -2,8 +2,10 @@
 
 namespace App\Services;
 
+use App\Contracts\PaymentGateway;
 use App\Models\Booking;
 use App\Models\BookingDispute;
+use App\Models\ProviderDisputeDebt;
 use App\Models\Franchise;
 use App\Models\Payment;
 use App\Models\Setting;
@@ -44,8 +46,34 @@ class BookingDisputeService
 
     public const ESCALATE_HOURS_KEY = 'refund.dispute.escalate_after_hours';
 
-    public function __construct(private AuthorizationService $authz, private WalletService $wallet)
+    public function __construct(private AuthorizationService $authz, private WalletService $wallet, private PaymentGateway $gateway)
     {
+    }
+
+    // ============================== how the customer paid ==============================
+
+    /** The captured gateway/wallet payment for the booking itself (never the separate cancellation-charge payment). */
+    public function capturedPayment(Booking $booking): ?Payment
+    {
+        return Payment::where('booking_id', $booking->id)->where('purpose', 'booking')->where('status', 'captured')->latest('id')->first();
+    }
+
+    /** 'online' (Razorpay) | 'wallet' | 'cash' (no gateway payment: the provider collected it). */
+    public function paymentKind(Booking $booking): string
+    {
+        $payment = $this->capturedPayment($booking);
+
+        return match (true) {
+            $payment === null => 'cash',
+            $payment->gateway === 'wallet' => 'wallet',
+            default => 'online',
+        };
+    }
+
+    /** Where a refund goes by default: back to the original method for an online payment, otherwise the customer's wallet. */
+    public function defaultDestination(Booking $booking): string
+    {
+        return $this->paymentKind($booking) === 'online' ? 'original' : 'wallet';
     }
 
     // ============================== customer side ==============================
@@ -68,7 +96,14 @@ class BookingDisputeService
 
     public function amountPaid(Booking $booking): float
     {
-        return round((float) Payment::where('booking_id', $booking->id)->where('status', 'captured')->sum('amount'), 2);
+        $captured = round((float) Payment::where('booking_id', $booking->id)->where('status', 'captured')->sum('amount'), 2);
+
+        // A cash booking has no gateway payment: the customer paid the provider the final price on completion.
+        if ($captured <= 0 && $booking->payment_method === 'cash' && $booking->status === 'completed') {
+            return round((float) ($booking->price_final ?? $booking->price_quoted ?? 0), 2);
+        }
+
+        return $captured;
     }
 
     /** @throws \RuntimeException */
@@ -248,11 +283,20 @@ class BookingDisputeService
      *
      * @return array{ok: bool, message: string}
      */
-    public function resolve(BookingDispute $dispute, User $admin, string $outcome, string $note, ?float $refundAmount = null): array
-    {
+    public function resolve(
+        BookingDispute $dispute,
+        User $admin,
+        string $outcome,
+        string $note,
+        ?float $refundAmount = null,
+        ?string $bearer = null,
+        ?float $providerShare = null,
+        ?string $destination = null,
+        ?string $walletNote = null,
+    ): array {
         $note = trim($note);
 
-        return DB::transaction(function () use ($dispute, $admin, $outcome, $note, $refundAmount) {
+        return DB::transaction(function () use ($dispute, $admin, $outcome, $note, $refundAmount, $bearer, $providerShare, $destination, $walletNote) {
             $d = BookingDispute::whereKey($dispute->id)->lockForUpdate()->firstOrFail();
 
             if ($d->status !== BookingDispute::OPEN) {
@@ -272,7 +316,44 @@ class BookingDisputeService
                 if ($refundAmount <= 0 || $refundAmount > (float) $d->amount_paid) {
                     return $this->no('The refund must be more than zero and not more than the '.number_format((float) $d->amount_paid, 2).' the customer paid.');
                 }
+
+                // Who bears it: the admin must choose; the two shares add up to the refund exactly (compared in paise).
+                if (! array_key_exists((string) $bearer, BookingDispute::BEARERS)) {
+                    return $this->no('Choose who bears the refund: the provider, the company, or a split.');
+                }
+                $booking = Booking::findOrFail($d->booking_id);
+                $totalPaise = (int) round($refundAmount * 100);
+                $providerPaise = match ($bearer) {
+                    'provider' => $totalPaise,
+                    'company' => 0,
+                    default => (int) round((float) $providerShare * 100),
+                };
+                if ($bearer === 'split' && ($providerPaise <= 0 || $providerPaise >= $totalPaise)) {
+                    return $this->no('For a split, the provider share must be more than zero and less than the refund; the company bears the rest.');
+                }
+                if ($providerPaise > 0 && ! $booking->provider_id) {
+                    return $this->no('This booking has no provider to recover a share from.');
+                }
+
+                // Where it goes: the original method for an online payment (default); the wallet for a wallet or cash payment.
+                $kind = $this->paymentKind($booking);
+                $destination = $destination ?: $this->defaultDestination($booking);
+                if (! in_array($destination, ['original', 'wallet'], true)) {
+                    return $this->no('Choose where the refund goes: the original payment method or the wallet.');
+                }
+                if ($destination === 'original' && $kind !== 'online') {
+                    return $this->no('Only an online payment can be refunded to the original method. This one goes to the wallet.');
+                }
+                if ($destination === 'wallet' && $kind === 'online' && mb_strlen(trim((string) $walletNote)) < 3) {
+                    return $this->no('Refunding an online payment to the wallet is only allowed when the customer agrees. Record that in the note.');
+                }
+
                 $d->refund_amount = $refundAmount;
+                $d->bearer = $bearer;
+                $d->provider_share = round($providerPaise / 100, 2);
+                $d->company_share = round(($totalPaise - $providerPaise) / 100, 2);
+                $d->refund_destination = $destination;
+                $d->refund_wallet_choice_note = ($destination === 'wallet' && $kind === 'online') ? trim((string) $walletNote) : null;
                 $d->refund_status = BookingDispute::REFUND_AWAITING_REQUEST;
             }
 
@@ -283,7 +364,10 @@ class BookingDisputeService
             $d->resolved_at = now();
             $d->save();
 
-            ActivityLogger::logModel($admin, $d, "Booking dispute #{$d->id} resolved: {$outcome}", ['note' => $note, 'refund_amount' => $d->refund_amount]);
+            ActivityLogger::logModel($admin, $d, "Booking dispute #{$d->id} resolved: {$outcome}", [
+                'note' => $note, 'refund_amount' => $d->refund_amount, 'bearer' => $d->bearer, 'provider_share' => $d->provider_share,
+                'company_share' => $d->company_share, 'destination' => $d->refund_destination, 'wallet_choice_note' => $d->refund_wallet_choice_note,
+            ]);
 
             return ['ok' => true, 'message' => $outcome === 'refund'
                 ? 'Dispute resolved. The refund now needs a request and approval before any money moves.'
@@ -417,28 +501,36 @@ class BookingDisputeService
         });
     }
 
-    /** Runs inside the caller's transaction with $d locked. A ledger failure is recorded, not thrown. */
+    /**
+     * Runs inside the caller's transaction with $d locked. A gateway/ledger failure is recorded, not thrown, so that
+     * state commits. Customer side first (original method or wallet), then the provider's share through the ledger.
+     */
     private function execute(BookingDispute $d, User $actor, string $reason): array
     {
         $booking = Booking::with('customer')->find($d->booking_id);
         $amount = round((float) $d->refund_amount, 2);
+        $destination = $d->refund_destination ?: $this->defaultDestination($booking);
 
         try {
-            $this->wallet->credit(
-                $booking->customer,
-                $amount,
-                reason: "Refund after pricing review — booking {$booking->code}",
-                ref: "booking:{$booking->id}:wallet-refund:dispute-{$d->id}", // unique at the ledger: one refund per dispute, ever; labelled "Refund" by WalletSourceLabel
-                actorId: $actor->id,
-            );
+            if ($destination === 'original') {
+                $this->refundToOriginalMethod($d, $booking, $amount, $reason);
+            } else {
+                $this->wallet->credit(
+                    $booking->customer,
+                    $amount,
+                    reason: "Refund after pricing review — booking {$booking->code}",
+                    ref: "booking:{$booking->id}:wallet-refund:dispute-{$d->id}", // unique at the ledger: one refund per dispute, ever; labelled "Refund" by WalletSourceLabel
+                    actorId: $actor->id,
+                );
+            }
         } catch (\Throwable $e) {
             $d->refund_status = BookingDispute::REFUND_FAILED;
             $d->refund_failure_message = mb_substr($e->getMessage(), 0, 1000);
             $d->save();
 
-            ActivityLogger::logModel($actor, $d, "Dispute refund FAILED (#{$d->id})", ['amount' => $amount, 'error' => $e->getMessage()]);
+            ActivityLogger::logModel($actor, $d, "Dispute refund FAILED (#{$d->id})", ['amount' => $amount, 'destination' => $destination, 'error' => $e->getMessage()]);
 
-            return $this->no('The refund could not be credited. Nothing was refunded; you can retry. Details are in the activity log.');
+            return $this->no('The refund could not be processed. Nothing was refunded; you can retry. Details are in the activity log.');
         }
 
         $d->refund_status = BookingDispute::REFUNDED;
@@ -446,11 +538,84 @@ class BookingDisputeService
         $d->refund_failure_message = null;
         $d->save();
 
-        ActivityLogger::logModel($actor, $d, "Dispute refunded to wallet (#{$d->id})", [
-            'amount' => $amount, 'reason' => $reason, 'requested_by_id' => $d->refund_requested_by_id, 'approved_by_id' => $d->refund_approved_by_id,
+        $this->recoverProviderShare($d, $booking, $actor);
+
+        ActivityLogger::logModel($actor, $d, "Dispute refunded to ".($destination === 'original' ? 'the original payment method' : 'wallet')." (#{$d->id})", [
+            'amount' => $amount, 'destination' => $destination, 'reason' => $reason, 'requested_by_id' => $d->refund_requested_by_id, 'approved_by_id' => $d->refund_approved_by_id,
+            'bearer' => $d->bearer, 'provider_share' => $d->provider_share, 'company_share' => $d->company_share,
         ]);
 
-        return ['ok' => true, 'message' => '₹'.number_format($amount, 2).' credited to the customer\'s wallet.'];
+        return ['ok' => true, 'message' => '₹'.number_format($amount, 2).($destination === 'original'
+            ? ' refunded to the customer\'s original payment method.'
+            : ' credited to the customer\'s wallet.')];
+    }
+
+    /** Partial gateway refund of the booking's own payment, capped at what is still refundable. Idempotent via the stored gateway refund id. */
+    private function refundToOriginalMethod(BookingDispute $d, Booking $booking, float $amount, string $reason): void
+    {
+        if ($d->refund_gateway_id) {
+            return; // the gateway already accepted this refund on an earlier attempt
+        }
+
+        $payment = $this->capturedPayment($booking);
+        if (! $payment || $payment->gateway === 'wallet' || ! $payment->gateway_payment_id) {
+            throw new \RuntimeException('No online payment found to refund to.');
+        }
+
+        $refundable = round((float) $payment->amount - (float) $payment->refunded_amount, 2);
+        if ($amount > $refundable) {
+            throw new \RuntimeException('Only '.number_format($refundable, 2).' of this payment can still be refunded.');
+        }
+
+        $refund = $this->gateway->refund($payment->gateway_payment_id, $amount, "Pricing dispute #{$d->id}: {$reason}");
+
+        $d->refund_gateway_id = is_array($refund) ? ($refund['id'] ?? 'accepted') : 'accepted';
+        $payment->refunded_amount = round((float) $payment->refunded_amount + $amount, 2);
+        $payment->save();
+    }
+
+    /**
+     * The provider's share comes back through the wallet ledger — never a direct balance edit. Whatever the wallet can
+     * cover is debited now; the rest becomes a provider_dispute_debts row, swept at payout time. The company's share is
+     * never taken from the provider. Idempotent: runs once (unique ledger ref, one debt row per dispute).
+     */
+    private function recoverProviderShare(BookingDispute $d, Booking $booking, User $actor): void
+    {
+        $share = round((float) $d->provider_share, 2);
+        if ($share <= 0 || (float) $d->provider_recovered > 0 || ProviderDisputeDebt::where('booking_dispute_id', $d->id)->exists()) {
+            return;
+        }
+
+        $provider = \App\Models\Provider::with('user')->find($booking->provider_id);
+        if (! $provider || ! $provider->user) {
+            return;
+        }
+
+        $take = round(min($share, max(0.0, (float) $this->wallet->balance($provider->user))), 2);
+
+        if ($take > 0) {
+            try {
+                $this->wallet->debit(
+                    $provider->user,
+                    $take,
+                    reason: "Pricing dispute #{$d->id} — your share of the refund on booking {$booking->code}",
+                    ref: "booking:{$booking->id}:dispute-share:{$d->id}",
+                    actorId: $actor->id,
+                );
+            } catch (\Throwable $e) {
+                $take = 0.0; // e.g. frozen wallet: the whole share becomes a debt rather than being lost
+            }
+        }
+
+        $d->provider_recovered = $take;
+        $d->save();
+
+        $remaining = round($share - $take, 2);
+        if ($remaining > 0) {
+            ProviderDisputeDebt::create(['booking_dispute_id' => $d->id, 'provider_id' => $provider->id, 'amount_owed' => $remaining]);
+        }
+
+        ActivityLogger::logModel($actor, $d, "Dispute #{$d->id}: provider share recovered", ['share' => $share, 'debited_now' => $take, 'debt_created' => $remaining]);
     }
 
     private function no(string $message): array
@@ -479,7 +644,8 @@ class BookingDisputeService
 
     /**
      * Raise the escalation level of every open refund older than the configured hours, one level per elapsed
-     * interval (franchise -> HQ -> Super Admin), once per level. The level shows in the queue and the audit log.
+     * interval (franchise -> HQ -> Super Admin), once per level. The level shows in the queue and the audit log, and
+     * the next level up is alerted by push + email (the 0d pipeline).
      *
      * @return int number of escalations recorded
      */
@@ -507,6 +673,7 @@ class BookingDisputeService
 
                     $d->update(['escalation_level' => $target, 'last_escalated_at' => now()]);
                     ActivityLogger::logModel(null, $d, "Dispute refund #{$d->id} escalated to level {$target}", ['hours' => $hours]);
+                    app(AdminOpsAlertService::class)->disputeRefundEscalation($d, $target);
                     $raised++;
                 }
             });

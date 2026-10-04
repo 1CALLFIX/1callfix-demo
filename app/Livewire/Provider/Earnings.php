@@ -57,6 +57,11 @@ class Earnings extends Component
             'rangeTotal' => (float) $rows->sum('provider_commission'),
             'jobsInRange' => $rows->count(),
             'walletBalance' => $wallet->balance($provider->user),
+            // A3 — the provider's share of pricing-dispute refunds, with the dispute reference.
+            'disputeShares' => \App\Models\BookingDispute::query()
+                ->where('provider_share', '>', 0)->where('refund_status', \App\Models\BookingDispute::REFUNDED)
+                ->whereHas('booking', fn ($q) => $q->where('provider_id', $provider->id))
+                ->with(['booking:id,code', 'debt'])->latest('id')->limit(50)->get(),
         ])->layout('components.layouts.provider', ['title' => 'Earnings']);
     }
 }

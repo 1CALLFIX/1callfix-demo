@@ -29,11 +29,12 @@ Standing rules for all items:
 
 ## Queue (in order)
 
-Owner order of 2026-10-04 (supersedes the table below where they differ): **A2 -> B -> C -> D -> E -> F -> G -> H**.
+Owner order of 2026-10-04 (supersedes the table below where they differ): **A2 -> A3 -> B -> C -> D -> E -> F -> G -> H**.
 
 | Step | Item | Status |
 |---|---|---|
-| A2 | Mid-work cancellation final rule: one declared amount, one cap (`cancellation.interim_cap_percent`), no floor, post-payment dispute | BUILT + merged to main 2026-10-04 (see section A2); awaiting owner deploy |
+| A2 | Mid-work cancellation final rule: one declared amount, one cap (`cancellation.interim_cap_percent`), no floor, post-payment dispute | DEPLOYED + verified by owner 2026-10-04 (main `52ce888`; migration ran, build copied, cap set to 40) |
+| A3 | Small fixes to A2: rollback guards on both migrations, dispute refund destination (original method / wallet), who bears the refund (provider / company / split) with provider recovery via ledger + `provider_dispute_debts`, dispute escalation alerts (push + email), design doc updated | BUILT + merged to main (see section A3); awaiting owner deploy |
 | B | Rebase `feature/coupon-engine-c1-c3` on the new main, resolve the `EntitlementService` conflict, re-run related suites, do NOT merge | not started |
 | C | Coupons C2: Super Admin screens (create/edit/pause, targeting, limits, budget cap, daily cap with migration shown first, stackable toggle, HQ funding, campaign tag, live usage, `coupons.enabled` + `coupons.unpaid_hold_minutes` switches, `coupons.manage` permission, audit log) | not started |
 | D | Coupons C3: customer coupon field (wizard, cart, checkout, bundles), validate endpoint + API, full price/discount/payable, Razorpay or wallet-only (combined later), cash rejected, clear errors, rate limit, unpaid-hold countdown | not started |
@@ -54,6 +55,21 @@ Earlier table (kept for reference):
 | 6 | EARN4 referrals updated for promo credit and the thumb rule | not started |
 | 7 | Coupon engine C1–C3, then optional HQ pilot on the owner's go-ahead, then C4–C6 | C1 BUILT + committed (daf58fd, feature/coupon-engine-c1-c3, not merged); C2, C3 not started (steps B-E above) |
 | 8 | Re-add the classes in docs/PENDING_FRONTEND_BUILD_ITEMS.md in the next change that needs a front-end build | not started |
+
+### A3. Small fixes to A2 (2026-10-04)
+
+Migration `2026_10_04_200000_a3_dispute_refund_destination_bearer_and_rollback_guard` (approved up()/down() shown first;
+`provider_dispute_debts` uses `restrictOnDelete`); the A2 migration's own `down()` also refuses while data exists.
+Built: refund destination (online -> original Razorpay method by default via the existing gateway refund, partial, capped at
+what is still refundable; wallet-paid and cash -> wallet; admin may choose wallet for an online payment only with a recorded
+customer-agreed note), who bears the refund (admin must choose provider / company / split; shares add up exactly in paise),
+provider share debited through `WalletService` (ref `booking:{id}:dispute-share:{dispute}`) with any shortfall in
+`provider_dispute_debts`, swept at payout-request time (`PayoutService::settleDisputeDebts`, blocks withdrawal like the
+cash-commission debt, no franchise share), provider Earnings card + Request Payout line with the dispute reference, escalation
+alerts by push + email once per level (`AdminOpsAlertService::disputeRefundEscalation`, type `dispute_refund_escalation` on the
+/admin/alert-emails switches), `docs/CANCELLATION_POLICY_DESIGN.md` brought to the current rule.
+Notes: a cash booking's "amount paid" is `price_final` (no gateway payment exists); there is one wallet per user (no separate cash
+balance), so cash-booking refunds credit that wallet; prod needs the migration, then (optionally) the `refund.dispute.*` limits.
 
 ### A2. Mid-work cancellation — final rule (2026-10-04)
 

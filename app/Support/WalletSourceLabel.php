@@ -57,6 +57,12 @@ final class WalletSourceLabel
             'regex' => '/^booking:\d+:(interim-payout|interim-franchise)$/',
             'like' => ['%:interim-payout', '%:interim-franchise'],
         ],
+        // A3 — the provider's share of a pricing-dispute refund (direct, and the payout-time sweep of what the wallet could not cover)
+        'dispute_deduction' => [
+            'label' => 'Pricing-dispute deduction',
+            'regex' => '/^(booking:\\d+:dispute-share:\\d+|dispute-debt:\\d+:settle:[\\w-]+)$/',
+            'like' => ['%:dispute-share:%', 'dispute-debt:%:settle:%'],
+        ],
         'cancel_charge' => [
             'label' => 'Cancellation charge',
             'regex' => '/^booking:\d+:cancel-charge:\d+$/',
@@ -151,7 +157,7 @@ final class WalletSourceLabel
         'app/Actions/CreatePropertyReservationAction.php' => ['property_reservation:1:wallet-payment'],
         'app/Actions/CreateRentalReservationAction.php' => ['rental_reservation:1:wallet-payment'],
         'app/Actions/CreateTaxiRideAction.php' => ['taxi_ride:1:wallet-payment'],
-        'app/Services/BookingDisputeService.php' => ['booking:1:wallet-refund:dispute-2'],
+        'app/Services/BookingDisputeService.php' => ['booking:1:wallet-refund:dispute-2', 'booking:1:dispute-share:2'],
         'app/Services/BundleSettlementService.php' => ['booking_bundle:1:wallet-refund:2'],
         'app/Services/CancellationService.php' => [
             'booking:1:wallet-refund', 'parcel_order:1:wallet-refund', 'taxi_ride:1:wallet-refund',
@@ -170,6 +176,7 @@ final class WalletSourceLabel
             'cash-commission:1:settle:00000000-0000-0000-0000-000000000000',
             'cash-commission:1:franchise-earning:00000000-0000-0000-0000-000000000000',
             'payout:1:refund',
+            'dispute-debt:1:settle:00000000-0000-0000-0000-000000000000',
         ],
         'app/Services/PerformanceCampaignService.php' => ['perf_campaign:1:participant:2'],
         'app/Services/ReferralService.php' => ['referral:1:clawback', 'referral:1:reward'],

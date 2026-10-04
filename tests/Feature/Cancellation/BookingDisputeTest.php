@@ -35,7 +35,7 @@ class BookingDisputeTest extends TestCase
     {
         $s = $this->makeAssignedBookingScenario();
         $s['booking']->update(['status' => 'completed', 'payment_status' => 'paid']);
-        Payment::create(['booking_id' => $s['booking']->id, 'purpose' => 'booking', 'amount' => 500, 'gateway' => 'razorpay', 'gateway_order_id' => 'order_'.uniqid(), 'status' => 'captured']);
+        Payment::create(['booking_id' => $s['booking']->id, 'purpose' => 'booking', 'amount' => 500, 'gateway' => 'wallet', 'gateway_order_id' => 'order_'.uniqid(), 'status' => 'captured']);
         $s['booking'] = $s['booking']->fresh();
 
         return $s;
@@ -175,8 +175,8 @@ class BookingDisputeTest extends TestCase
         $admin = $this->superAdmin();
         $svc = app(BookingDisputeService::class);
 
-        $this->assertFalse($svc->resolve($d, $admin, 'refund', 'refund too much', 501)['ok'], 'cannot exceed what was paid');
-        $this->assertTrue($svc->resolve($d, $admin, 'refund', 'Overcharged by half', 250)['ok']);
+        $this->assertFalse($svc->resolve($d, $admin, 'refund', 'refund too much', 501, 'company')['ok'], 'cannot exceed what was paid');
+        $this->assertTrue($svc->resolve($d, $admin, 'refund', 'Overcharged by half', 250, 'company')['ok']);
 
         $d = $d->fresh();
         $this->assertSame('awaiting_request', $d->refund_status);
@@ -190,7 +190,7 @@ class BookingDisputeTest extends TestCase
         $d = $this->raise($s);
         $holder = $this->holder('franchise', $s['franchise']->id);
         $svc = app(BookingDisputeService::class);
-        $svc->resolve($d, $holder, 'refund', 'Overcharged', 250);
+        $svc->resolve($d, $holder, 'refund', 'Overcharged', 250, 'company');
 
         $this->assertFalse($svc->requestRefund($d, $holder, ' ')['ok'], 'reason required');
         $this->assertTrue($svc->requestRefund($d, $holder, 'Approved by franchise manager')['ok']);
@@ -212,7 +212,7 @@ class BookingDisputeTest extends TestCase
         $franchiseUser = $this->holder('franchise', $s['franchise']->id);
         $hq = $this->holder('global');
         $svc = app(BookingDisputeService::class);
-        $svc->resolve($d, $franchiseUser, 'refund', 'Overcharged', 250);
+        $svc->resolve($d, $franchiseUser, 'refund', 'Overcharged', 250, 'company');
 
         $this->assertTrue($svc->requestRefund($d, $franchiseUser, 'Please approve')['ok']);
         $this->assertSame('awaiting_approval', $d->fresh()->refund_status);
@@ -234,7 +234,7 @@ class BookingDisputeTest extends TestCase
         $a = $this->holder('global');
         $b = $this->holder('global');
         $svc = app(BookingDisputeService::class);
-        $svc->resolve($d, $a, 'refund', 'Overcharged', 250);
+        $svc->resolve($d, $a, 'refund', 'Overcharged', 250, 'company');
 
         $this->assertTrue($svc->requestRefund($d, $a, 'request')['ok']);
         $this->assertSame('awaiting_approval', $d->fresh()->refund_status, 'above the threshold: never auto-executes');
@@ -250,7 +250,7 @@ class BookingDisputeTest extends TestCase
         $d = $this->raise($s);
         $hq = $this->holder('global');
         $svc = app(BookingDisputeService::class);
-        $svc->resolve($d, $hq, 'refund', 'Overcharged', 50);
+        $svc->resolve($d, $hq, 'refund', 'Overcharged', 50, 'company');
 
         $this->assertTrue($svc->requestRefund($d, $hq, 'request')['ok']);
         $this->assertSame('awaiting_approval', $d->fresh()->refund_status);
@@ -270,7 +270,7 @@ class BookingDisputeTest extends TestCase
         $f = $this->holder('franchise', $s['franchise']->id);
         $hq = $this->holder('global');
         $svc = app(BookingDisputeService::class);
-        $svc->resolve($d, $f, 'refund', 'Overcharged', 250);
+        $svc->resolve($d, $f, 'refund', 'Overcharged', 250, 'company');
         $svc->requestRefund($d, $f, 'request');
 
         $this->assertTrue($svc->rejectRefund($d, $hq, 'Amount too high')['ok']);
@@ -289,7 +289,7 @@ class BookingDisputeTest extends TestCase
         $d = $this->raise($s);
         $f = $this->holder('franchise', $s['franchise']->id);
         $svc = app(BookingDisputeService::class);
-        $svc->resolve($d, $f, 'refund', 'Overcharged', 50);   // within franchise limit -> handler level 1
+        $svc->resolve($d, $f, 'refund', 'Overcharged', 50, 'company');   // within franchise limit -> handler level 1
         $d->update(['resolved_at' => now()->subHours(30)]);
 
         $this->assertSame(0, $svc->escalateOverdue(), 'off while unset');

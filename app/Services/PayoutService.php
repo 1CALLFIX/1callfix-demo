@@ -8,6 +8,7 @@ use App\Models\PaymentAccount;
 use App\Models\Payout;
 use App\Models\Provider;
 use App\Models\ProviderCommissionReceivable;
+use App\Models\ProviderDisputeDebt;
 use App\Models\Setting;
 use App\Models\User;
 use App\Notifications\PayoutStatusNotification;
@@ -70,6 +71,7 @@ class PayoutService
         // runs against the already-reduced balance. Providers only.
         if ($payeeType === 'provider') {
             $this->settleCashCommissionReceivables($payeeId);
+            $this->settleDisputeDebts($payeeId);
             $this->assertNoBlockingCashDebt($payeeId, $amount);
         }
 
@@ -218,6 +220,66 @@ class PayoutService
                 .'there is nothing available to withdraw until digital earnings cover it.'
             );
         }
+
+        $disputeDebt = $this->outstandingDisputeDebt($providerId);
+        if ($disputeDebt > 0) {
+            throw new \RuntimeException(
+                'You still owe '.number_format($disputeDebt, 2)
+                .' as your share of a customer pricing-dispute refund. It is recovered from your wallet balance first — '
+                .'there is nothing available to withdraw until your earnings cover it.'
+            );
+        }
+    }
+
+    /**
+     * A3 — recovers a provider's unpaid share of pricing-dispute refunds from their wallet at payout-request time,
+     * oldest first, taking only what the balance can cover (the wallet's no-negative guard is never loosened). Every
+     * rupee goes back to the company through the wallet ledger — no franchise share, no direct balance edit.
+     */
+    private function settleDisputeDebts(int $providerId): void
+    {
+        $provider = Provider::with('user')->find($providerId);
+        if (! $provider || ! $provider->user) {
+            return;
+        }
+
+        DB::transaction(function () use ($provider) {
+            $debts = ProviderDisputeDebt::outstanding()->where('provider_id', $provider->id)->orderBy('id')->lockForUpdate()->get();
+
+            foreach ($debts as $debt) {
+                $available = $this->walletService->balance($provider->user);
+                if ($available <= 0) {
+                    break;
+                }
+
+                $take = round(min($available, $debt->outstandingAmount()), 2);
+                if ($take <= 0) {
+                    continue;
+                }
+
+                $this->walletService->debit(
+                    $provider->user,
+                    $take,
+                    reason: "Pricing dispute #{$debt->booking_dispute_id} — your share of the refund",
+                    ref: 'dispute-debt:'.$debt->id.':settle:'.Str::uuid()
+                );
+
+                $debt->amount_settled = round((float) $debt->amount_settled + $take, 2);
+                if ($debt->amount_settled >= (float) $debt->amount_owed) {
+                    $debt->status = 'settled';
+                    $debt->settled_at = now();
+                }
+                $debt->save();
+            }
+        });
+    }
+
+    /** What a provider still owes from pricing-dispute refunds — for the withdrawable-balance display. */
+    public function outstandingDisputeDebt(int $providerId): float
+    {
+        return round((float) ProviderDisputeDebt::outstanding()
+            ->where('provider_id', $providerId)
+            ->sum(DB::raw('amount_owed - amount_settled')), 2);
     }
 
     /** Total cash commission a provider still owes — for the withdrawable-balance display. */
