@@ -107,8 +107,11 @@ class EntitlementService
     /** Called from AdminCancelBookingAction for pre-service cancellations only — the caller decides eligibility, this just finds and reverses. */
     public function reverseForCancelledBooking(Booking $booking): ?UsageLedger
     {
+        // A Free Service Visit (fee_waiver) unit is spent BY the no-work cancellation itself (PrimeWaiver) — it is
+        // never given back by that same cancellation, so it is excluded here.
         $consumeEvent = UsageLedger::where('booking_id', $booking->id)
             ->where('event_type', 'consume')
+            ->whereDoesntHave('planEntitlement', fn ($q) => $q->where('entitlement_type', 'fee_waiver'))
             ->orderByDesc('id')
             ->first();
 

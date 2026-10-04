@@ -184,9 +184,81 @@ class NoWorkVisitChargeRuleTest extends TestCase
         $this->assertCount(1, $ledger);
         $this->assertEquals(-149.0, (float) $ledger->first()->monetary_delta);
 
-        // Replaying the settlement never uses a second unit.
-        app(\App\Services\Cancellation\PrimeWaiver::class)->consumeForNoWorkVisit($s['booking']->fresh());
+        // Asking again (a quote, a replay) never uses a second unit.
+        app(\App\Services\Cancellation\PrimeWaiver::class)->coversVisitCharge($s['booking']->fresh());
+        app(CustomerCancelBookingAction::class)->execute($s['booking']->id, $s['customer']->id, 'replay');
         $this->assertSame(1, $balance->fresh()->remainingQuantity());
+    }
+
+    /** A second arrived, paid, online booking for an existing customer. */
+    private function arrivedFor(User $customer): Booking
+    {
+        $this->visitFee();
+        $x = $this->makeAssignedBookingScenario();
+        $x['booking']->update(['customer_id' => $customer->id, 'status' => 'provider_en_route', 'payment_status' => 'paid']);
+        Payment::create(['booking_id' => $x['booking']->id, 'purpose' => 'booking', 'user_id' => $customer->id, 'amount' => 500, 'gateway' => 'wallet', 'status' => 'captured']);
+
+        return app(CheckInArrivalAction::class)->execute($x['booking']->id, $x['provider'], 1.0, 1.0);
+    }
+
+    public function test_two_no_work_cancels_with_one_unit_left_waive_exactly_one_and_charge_the_other(): void
+    {
+        $a = $this->arrived();
+        $balance = $this->freeVisitMember($a['customer'], 1);
+        $b = $this->arrivedFor($a['customer']);
+        $cancel = app(CustomerCancelBookingAction::class);
+
+        // Both are quoted while the single unit is still free: both quotes read "waived".
+        $this->assertSame(0.0, $cancel->quote($a['booking']->fresh())['charge']);
+        $this->assertSame(0.0, $cancel->quote($b->fresh())['charge']);
+        $tokenB = $cancel->quote($b->fresh())['token'];
+
+        // First cancel takes the unit.
+        $cancel->execute($a['booking']->id, $a['customer']->id, 'ask the owner');
+        $this->assertSame(0.0, (float) Booking::find($a['booking']->id)->cancellation_fee);
+        $this->assertSame(0, $balance->fresh()->remainingQuantity());
+
+        // The second, acting on its stale "free" quote, is NOT silently waived: the charge is now 149, the customer must reconfirm.
+        try {
+            $cancel->execute($b->id, $a['customer']->id, 'ask the owner too', $tokenB);
+            $this->fail('A waiver was granted without a unit.');
+        } catch (\App\Services\Cancellation\CancellationQuoteChangedException $e) {
+            $this->assertSame(149.0, $e->quote['charge'] ?? $cancel->quote($b->fresh())['charge']);
+        }
+        $this->assertSame('provider_en_route', Booking::find($b->id)->status, 'still not cancelled');
+
+        // Reconfirming at the real price charges it.
+        $fresh = $cancel->quote($b->fresh());
+        $this->assertSame(149.0, $fresh['charge']);
+        $cancel->execute($b->id, $a['customer']->id, 'ask the owner too', $fresh['token']);
+        $this->assertEquals(149.0, (float) Booking::find($b->id)->cancellation_fee);
+
+        $this->assertSame(1, UsageLedger::where('event_type', 'consume')->count(), 'exactly one unit consumed, exactly one waiver');
+        $this->assertSame(0, $balance->fresh()->remainingQuantity());
+    }
+
+    public function test_the_unit_is_consumed_in_the_same_transaction_as_the_waiver_and_rolls_back_with_it(): void
+    {
+        $s = $this->arrived();
+        $balance = $this->freeVisitMember($s['customer'], 1);
+        $waiver = app(\App\Services\Cancellation\PrimeWaiver::class);
+
+        try {
+            \Illuminate\Support\Facades\DB::transaction(function () use ($waiver, $s, $balance) {
+                $waiver->beginSettlement($s['booking']->id);
+                try {
+                    $this->assertTrue($waiver->coversVisitCharge($s['booking']->fresh()));
+                    $this->assertSame(0, $balance->fresh()->remainingQuantity(), 'consumed inside the transaction');
+                } finally {
+                    $waiver->endSettlement($s['booking']->id);
+                }
+                throw new \RuntimeException('cancellation failed after the waiver');
+            });
+        } catch (\RuntimeException) {
+        }
+
+        $this->assertSame(1, $balance->fresh()->remainingQuantity(), 'rolled back with the cancellation: no unit lost');
+        $this->assertSame(0, UsageLedger::count());
     }
 
     public function test_an_exhausted_free_visit_means_the_charge_applies(): void

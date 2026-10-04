@@ -129,9 +129,9 @@ class VisitChargeSingleSourceTest extends TestCase
 
     public function test_no_second_visit_charge_value_exists_anywhere_in_the_code(): void
     {
-        // The Prime waiver carries no money: a yes/no (covers) and a one-unit consumption that reads the amount from the
-        // snapshot's single visit charge (consumeForNoWorkVisit) — it never holds a value of its own.
-        $this->assertSame(['covers', 'consumeForNoWorkVisit'], array_map(fn ($m) => $m->getName(), (new \ReflectionClass(PrimeWaiver::class))->getMethods(\ReflectionMethod::IS_PUBLIC)));
+        // The Prime waiver carries no money: yes/no answers (covers, coversVisitCharge), a settlement bracket, and a one-unit consumption that reads the amount from the
+        // snapshot's single visit charge — it never holds a value of its own.
+        $this->assertSame(['covers', 'coversVisitCharge', 'beginSettlement', 'endSettlement'], array_map(fn ($m) => $m->getName(), (new \ReflectionClass(PrimeWaiver::class))->getMethods(\ReflectionMethod::IS_PUBLIC)));
 
         // Exactly one registry key holds the charge itself.
         $moneyKeys = array_keys(array_filter(PolicySettings::REGISTRY, fn ($m, $k) => str_contains($k, 'visit_fee') && $m['type'] === 'decimal' && $k !== 'cancellation.visit_fee_regular', ARRAY_FILTER_USE_BOTH));

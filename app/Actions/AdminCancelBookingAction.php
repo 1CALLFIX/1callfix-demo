@@ -62,14 +62,22 @@ class AdminCancelBookingAction
             // REF 1CF-JOURNEY-001 — a cancellation that is the platform's / the professional's fault carries no
             // fee: explicitly waived by the operator, or implied by a provider-side hold ("professional left").
             $basis = null;
-            if ($feeResolver !== null) {
-                // REF 1CF-CANCEL-POLICY-001 — the customer path re-checks eligibility and prices the charge HERE, under
-                // the same row lock that performs the cancel, so a racing resume/hold can never slip between check and write.
-                [$fee, $basis] = $feeResolver($booking);
-            } else {
-                $fee = ($waiveFee || $booking->hold_category === 'provider_side')
-                    ? 0.0
-                    : $this->cancellationService->calculateFee($booking);
+            // Free Service Visit: if the visit charge gets waived by a unit, that unit is consumed HERE, under a lock on
+            // the member's balance, in this same transaction — never a waiver without a unit (see PrimeWaiver).
+            $waiver = app(\App\Services\Cancellation\PrimeWaiver::class);
+            $waiver->beginSettlement($booking->id);
+            try {
+                if ($feeResolver !== null) {
+                    // REF 1CF-CANCEL-POLICY-001 — the customer path re-checks eligibility and prices the charge HERE, under
+                    // the same row lock that performs the cancel, so a racing resume/hold can never slip between check and write.
+                    [$fee, $basis] = $feeResolver($booking);
+                } else {
+                    $fee = ($waiveFee || $booking->hold_category === 'provider_side')
+                        ? 0.0
+                        : $this->cancellationService->calculateFee($booking);
+                }
+            } finally {
+                $waiver->endSettlement($booking->id);
             }
 
             $booking->status = 'cancelled';
@@ -105,10 +113,6 @@ class AdminCancelBookingAction
         if (in_array($statusBeforeCancel, self::PRE_SERVICE_STATUSES, true)) {
             $this->entitlementService->reverseForCancelledBooking($booking);
         }
-
-        // Free Service Visit: a unit is used ONLY here — a no-work cancellation after the professional's verified
-        // arrival whose visit charge the waiver forgave. Never on creation or completion (thumb rule, CLAUDE.md).
-        app(\App\Services\Cancellation\PrimeWaiver::class)->consumeForNoWorkVisit($booking);
 
         if ($booking->customer) {
             $channels = ChannelResolver::resolve(['zone_id' => $booking->zone_id, 'franchise_id' => $booking->franchise_id]);

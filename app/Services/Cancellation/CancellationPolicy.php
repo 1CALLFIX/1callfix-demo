@@ -104,7 +104,8 @@ class CancellationPolicy
      *   assigned, not travelling       → `cancellation.assigned_fee` (0 unless an admin sets it)
      *   on the way                     → `cancellation.en_route_fee`
      *   arrived (verified GPS)         → the visit charge
-     * A Prime plan whose waiver toggle is on pays neither the en-route nor the visit charge.
+     * A Prime plan whose waiver toggle is on pays neither the en-route nor the visit charge; a Free Service Visit unit
+     * waives the visit charge only.
      */
     private function beforeWork(Booking $booking, Carbon $now): array
     {
@@ -117,8 +118,6 @@ class CancellationPolicy
         }
 
         $price = (float) ($booking->price_quoted ?? 0);
-        $waived = app(PrimeWaiver::class)->covers($booking);
-
         if ($booking->status === 'assigned') {
             $fee = $this->cap((float) PolicySettings::get($booking, 'cancellation.assigned_fee'), $price);
 
@@ -128,6 +127,8 @@ class CancellationPolicy
         if ($booking->arrival_verified_at !== null) {
             $fee = $this->calculator->visitFee($booking, $price);
             $standard = $this->calculator->standardVisitFee($booking, $price);
+            // Waived only if there was a charge to waive and it is now nil (a Free Service Visit unit was really consumed).
+            $waived = $standard > 0 && $fee <= 0;
 
             return $this->allow('visit_charge', 'The professional has arrived. You can cancel; a visit and inspection charge applies.', $fee, null, $fee <= 0, [
                 'code' => 'visit_charge',
@@ -139,6 +140,7 @@ class CancellationPolicy
             ]);
         }
 
+        $waived = app(PrimeWaiver::class)->covers($booking); // en-route charge: the plan toggle only
         $fee = $waived ? 0.0 : $this->cap((float) PolicySettings::get($booking, 'cancellation.en_route_fee'), $price);
 
         return $this->allow('en_route', 'The professional is on the way. You can cancel.', $fee, null, $fee <= 0, ['code' => 'en_route', 'en_route_fee' => $fee, 'prime_waived' => $waived]);
@@ -193,7 +195,9 @@ class CancellationPolicy
         }
 
         $lines[] = 'Once the work has started, the booking cannot be cancelled in the middle of the job.';
-        $lines[] = "If the job is held up waiting for spare parts for {$days} days or more, you can cancel and pay only for the work already done: the labour completed (never more than {$cap}% of the labour quoted) plus the cost of parts already fitted, backed by a bill or photo. If no work was declared, only the visit fee applies.";
+        $minLabour = (float) ($get('cancellation.interim_min_labour') ?? 0);
+        $minNote = $minLabour > 0 ? ' A minimum labour charge of '.self::money($minLabour).' applies once any work has been done.' : '';
+        $lines[] = "If the job is held up waiting for spare parts for {$days} days or more, you can cancel and pay only for the work already done: the labour completed (never more than {$cap}% of the labour quoted) plus the cost of parts already fitted, backed by a bill or photo. If no work was declared, only the visit charge applies.".$minNote;
         $lines[] = "If the parts will not arrive for more than {$days} days, you can cancel straight away on the same terms. If the spare is ready but the professional has not resumed within {$grace} hours, you can cancel free of charge.";
         $lines[] = 'If the professional leaves or cannot continue, you can cancel free of charge. A part you choose to supply yourself does not count towards the waiting time.';
         $lines[] = 'You see the exact amount before you confirm, and you can dispute the declared progress for review by our team.';
