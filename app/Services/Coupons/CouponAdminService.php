@@ -21,7 +21,7 @@ class CouponAdminService
 {
     private const AUDITED = [
         'franchise_id', 'code', 'name', 'description', 'status', 'module', 'discount_type', 'value',
-        'min_order_value', 'max_discount', 'usage_limit', 'per_user_limit', 'total_budget',
+        'min_order_value', 'max_discount', 'usage_limit', 'per_user_limit', 'total_budget', 'daily_budget', 'funding_mode', 'campaign_tag',
         'stackable_with_flash', 'valid_from', 'valid_until',
     ];
 
@@ -117,6 +117,18 @@ class CouponAdminService
         if (($data['discount_type'] ?? $coupon?->discount_type) === 'percent' && isset($data['value']) && (float) $data['value'] > 100) {
             $errors['value'] = 'A percentage cannot exceed 100.';
         }
+        // Only HQ funding exists until the C4 fund ledger; franchise/split/external cannot be selected.
+        if (isset($data['funding_mode']) && $data['funding_mode'] !== 'hq') {
+            $errors['funding_mode'] = 'Only HQ funding is available.';
+        }
+        foreach (['total_budget', 'daily_budget'] as $cap) {
+            if (isset($data[$cap]) && (float) $data[$cap] <= 0) {
+                $errors[$cap] = 'A cap must be greater than zero (leave blank for no cap).';
+            }
+        }
+        if (isset($data['total_budget'], $data['daily_budget']) && (float) $data['daily_budget'] > (float) $data['total_budget']) {
+            $errors['daily_budget'] = 'The daily cap cannot exceed the total budget.';
+        }
         if (isset($data['status']) && ! in_array($data['status'], Coupon::STATUSES, true)) {
             $errors['status'] = 'Unknown coupon status.';
         }
@@ -135,5 +147,32 @@ class CouponAdminService
         if ($errors) {
             throw ValidationException::withMessages($errors);
         }
+    }
+
+    /**
+     * Archive = soft delete, with a mandatory reason. The code stays reserved (uniqueness checks include trashed rows),
+     * usage history is kept, and existing bookings are untouched (they read their frozen coupon_snapshot). Lookups skip
+     * trashed coupons, so an archived code can no longer be redeemed.
+     */
+    public function archive(User $actor, Coupon $coupon, string $reason): void
+    {
+        if (trim($reason) === '') {
+            throw ValidationException::withMessages(['reason' => 'A reason is required.']);
+        }
+
+        DB::transaction(function () use ($actor, $coupon, $reason) {
+            $locked = Coupon::lockForUpdate()->findOrFail($coupon->id);
+            $old = $locked->status;
+            $locked->status = 'paused';
+            $locked->is_active = false;
+            $locked->updated_by = $actor->id;
+            $locked->save();
+            $locked->delete();
+
+            ActivityLogger::logModel($actor, $locked, 'coupon.archived', [
+                'changes' => ['status' => [$old, 'archived']],
+                'reason' => $reason,
+            ]);
+        });
     }
 }

@@ -151,6 +151,19 @@ class CouponService
             }
         }
 
+        // Q9 daily cap: reservations count, releases give it back; resumes by itself at 00:00 IST
+        // (nothing is written — "today" simply moves on). Computed from usage rows, no counter.
+        if ($coupon->daily_budget !== null) {
+            $todayStart = now('Asia/Kolkata')->startOfDay()->utc();
+            $today = (float) CouponUsage::where('coupon_id', $coupon->id)
+                ->whereIn('status', ['reserved', 'confirmed'])
+                ->where('reserved_at', '>=', $todayStart)
+                ->sum('discount_applied');
+            if (round($today + $discount, 2) > (float) $coupon->daily_budget) {
+                return PromotionResult::reject('daily_cap_reached', "Today's limit for this coupon has been reached. Please try again tomorrow.", $coupon);
+            }
+        }
+
         $allocations = $this->allocate($eligible, $base, $discount);
 
         return new PromotionResult(

@@ -108,6 +108,8 @@ Route::middleware(['auth', \Illuminate\Session\Middleware\AuthenticateSession::c
         Route::get('/search-box', SearchBoxManage::class)->name('admin.search-box.index');
         Route::get('/badges', BadgesManage::class)->name('admin.badges.index');
         Route::get('/flash-sales', FlashSalesManage::class)->name('admin.flash-sales.index');
+        // Coupon engine C2: HQ-scope permissions coupons.view/manage/approve, re-checked in the component on every action.
+        Route::get('/coupons', \App\Livewire\Coupons\Manage::class)->name('admin.coupons.index');
         Route::get('/performance-campaigns', PerformanceCampaignsManage::class)->name('admin.performance-campaigns.index');
         Route::get('/settings', SettingsManage::class)->name('admin.settings.index');
         Route::get('/cms', CmsManage::class)->name('admin.cms.index');
