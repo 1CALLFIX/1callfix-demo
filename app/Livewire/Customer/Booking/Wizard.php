@@ -470,7 +470,9 @@ class Wizard extends Component
             'enabledMethods' => $this->enabledPaymentMethods(),
             'walletBalance' => $this->walletBalance(),
             'steps' => self::STEPS,
-            'coupon' => $this->couponView(),
+            'coupon' => $coupon = $this->couponView(),
+            // The server-computed discount of an applied, eligible coupon (0 otherwise) — folded into the estimate.
+            'couponDiscount' => ($coupon['quote']['eligible'] ?? false) ? (float) $coupon['quote']['discount'] : 0.0,
         ])->layout('components.layouts.customer', ['title' => 'Book '.$service->name]);
     }
 }

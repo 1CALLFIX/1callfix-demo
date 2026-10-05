@@ -7,7 +7,7 @@
 @php
     $stepLabels = ['configure' => 'Options', 'address' => 'Address', 'schedule' => 'Time', 'pay' => 'Payment'];
     $currentIndex = array_search($step, $steps, true);
-    $estimate = $baseEstimate + $optionsEstimate;
+    $estimate = max(0, $baseEstimate + $optionsEstimate - $couponDiscount);
 @endphp
 
 <div class="mx-auto max-w-3xl px-4 py-6 sm:px-6 lg:px-8">
@@ -287,6 +287,9 @@
                     <div class="flex justify-between"><dt class="text-slate-600">Base ({{ $card['price_prefix'] }})</dt><dd>{{ $currencySymbol }}{{ number_format($baseEstimate, 2) }}</dd></div>
                     @if ($optionsEstimate != 0)
                         <div class="flex justify-between"><dt class="text-slate-600">Options</dt><dd>{{ $optionsEstimate > 0 ? '+' : '−' }}{{ $currencySymbol }}{{ number_format(abs($optionsEstimate), 2) }}</dd></div>
+                    @endif
+                    @if ($couponDiscount > 0)
+                        <div class="flex justify-between text-emerald-700"><dt>Coupon discount</dt><dd>−{{ $currencySymbol }}{{ number_format($couponDiscount, 2) }}</dd></div>
                     @endif
                     <div class="mt-1 flex justify-between border-t border-slate-200 pt-2 font-semibold">
                         <dt>Estimated total</dt><dd>{{ $currencySymbol }}{{ number_format($estimate, 2) }}</dd>
