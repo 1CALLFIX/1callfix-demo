@@ -16,6 +16,7 @@ use App\Models\Setting;
 use App\Models\Zone;
 use App\Notifications\BookingStatusNotification;
 use App\Notifications\Support\ChannelResolver;
+use App\Services\ActivityLogger;
 use App\Services\AdminOpsAlertService;
 use App\Services\Coupons\CouponService;
 use App\Services\Coupons\ServicePromotionContextBuilder;
@@ -239,6 +240,18 @@ class CreateBookingAction
             // F1 — display/reporting only. One write path: API body first, else the web session.
             'acquisition' => AcquisitionSanitizer::clean($data['acquisition'] ?? null) ?? AcquisitionContext::current(),
         ]);
+
+        // Audit only (no behaviour change): an explicit price_quoted is the admin call-centre negotiated price.
+        // Record who set it, the catalogue price it replaced and the price it was set to.
+        if (isset($data['price_quoted'])) {
+            $catalogue = $service->resolvePrice((int) $data['franchise_id']);
+            ActivityLogger::logModel(auth()->user(), $booking, 'negotiated price set', [
+                'catalogue_price' => $catalogue,
+                'negotiated_price' => (float) $data['price_quoted'],
+                'differs' => round((float) $data['price_quoted'], 2) !== round($catalogue, 2),
+                'payment_method' => $booking->payment_method,
+            ]);
+        }
 
         // Records that this booking really used the sale — the ONLY place
         // FlashSaleService enforces quantity / per-customer limits against
