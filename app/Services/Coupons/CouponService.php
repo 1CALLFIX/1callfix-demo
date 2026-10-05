@@ -335,7 +335,7 @@ class CouponService
             'payment_method' => $ctx->paymentMethod,
         ]);
 
-        return new CouponException($result->reasonCode, $result->message);
+        return new CouponException($result->reasonCode, (string) ($result->detail ?? $result->message));
     }
 
     // ───────────────────────── usage lifecycle ─────────────────────────
