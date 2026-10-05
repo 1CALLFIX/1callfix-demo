@@ -19,6 +19,7 @@ use App\Notifications\Support\ChannelResolver;
 use App\Services\AdminOpsAlertService;
 use App\Services\Coupons\CouponService;
 use App\Services\Coupons\ServicePromotionContextBuilder;
+use App\Services\Payments\OnlinePaymentGuard;
 use App\Services\FlashSaleService;
 use App\Services\ModuleActivationService;
 use App\Services\Plans\EntitlementService;
@@ -366,6 +367,13 @@ class CreateBookingAction
             (int) $data['franchise_id'],
             array_filter($scope, fn ($value) => $value !== null),
         );
+
+        // THUMB RULE (D5): a flash-sale price is a benefit, so only an online payment (Razorpay, wallet or both)
+        // gets it. Any other method — cash, a cash leg in a split — pays the normal cascade price and the sale
+        // is neither shown on the booking nor redeemed.
+        if ($effective['sale'] !== null && ! OnlinePaymentGuard::isOnline($data['payment_method'] ?? 'online')) {
+            return [$effective['resolved_price'], null];
+        }
 
         return [$effective['price'], $effective['sale']];
     }

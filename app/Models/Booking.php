@@ -31,7 +31,10 @@ class Booking extends Model implements Orderable
             $inBenefitBundle = $booking->isDirty('payment_method') && $booking->booking_bundle_id
                 && BookingBundle::whereKey($booking->booking_bundle_id)->whereNotNull('coupon_id')->exists();
 
-            \App\Services\Payments\OnlinePaymentGuard::assertMethodUnchanged($booking, $booking->hasCouponBenefit() || $inBenefitBundle);
+            \App\Services\Payments\OnlinePaymentGuard::assertMethodUnchanged(
+                $booking,
+                $booking->isDirty('payment_method') && ($booking->hasCouponBenefit() || $inBenefitBundle || $booking->hasFlashSaleBenefit())
+            );
         });
 
         // Step 5: freeze the cancellation policy in force at booking time; every later fee reads this.
@@ -60,6 +63,12 @@ class Booking extends Model implements Orderable
     public function hasCouponBenefit(): bool
     {
         return $this->coupon_id !== null || (float) ($this->coupon_discount_amount ?? 0) > 0;
+    }
+
+    /** True when this booking was priced from a flash sale (a benefit: online payment only, never switchable to cash). */
+    public function hasFlashSaleBenefit(): bool
+    {
+        return $this->exists && FlashSaleRedemption::where('booking_id', $this->id)->exists();
     }
 
     public function coupon() { return $this->belongsTo(Coupon::class); }
