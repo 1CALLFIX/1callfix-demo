@@ -137,7 +137,7 @@
 
                 <div class="mt-4 flex items-baseline justify-between border-t border-slate-200 pt-3">
                     <span class="text-sm font-medium text-slate-700">You pay</span>
-                    <span class="text-xl font-bold text-slate-900">{{ $currencySymbol }}{{ number_format($reviewTotal, 2) }}</span>
+                    <span class="text-xl font-bold text-slate-900">{{ $currencySymbol }}{{ number_format($payTotal, 2) }}</span>
                 </div>
                 @if ($cashNote)
                     <p class="mt-1 text-xs font-medium text-slate-700">{{ $cashNote }}</p>
@@ -147,7 +147,7 @@
 
                 <button type="button" wire:click="place" wire:loading.attr="disabled"
                         class="mt-4 flex min-h-12 w-full items-center justify-center rounded-lg bg-blue-600 px-6 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:opacity-50">
-                    Confirm &amp; book · {{ $currencySymbol }}{{ number_format($reviewTotal, 2) }}
+                    Confirm &amp; book · {{ $currencySymbol }}{{ number_format($payTotal, 2) }}
                 </button>
             @endif
         @endif

@@ -355,7 +355,9 @@ class Checkout extends Component
             'enabledMethods' => $this->enabledPaymentMethods(),
             'walletBalance' => $this->walletBalance(),
             'currencySymbol' => Setting::get('locale.currency_symbol', '₹'),
-            'coupon' => $this->couponView(),
+            'coupon' => $coupon = $this->couponView(),
+            // What the customer is asked to pay: the coupon payable once a coupon is applied and eligible.
+            'payTotal' => ($coupon['quote']['eligible'] ?? false) ? $coupon['quote']['payable'] : $lines->sum('line'),
         ])->layout('components.layouts.customer', ['title' => 'Checkout']);
     }
 }
