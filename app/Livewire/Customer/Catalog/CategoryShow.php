@@ -143,6 +143,7 @@ class CategoryShow extends Component
             'hasFilters' => $this->search !== '' || $this->subcategory !== null || $this->sort !== 'recommended',
         ])->layout('components.layouts.customer', [
             'title' => $category->name,
+            'ogImage' => $category->image_url,
             'metaDescription' => $category->description ?: $category->name.' services, booked in minutes.',
         ]);
     }

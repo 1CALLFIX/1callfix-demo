@@ -1,10 +1,13 @@
 @props([
     'title' => null,
     'metaDescription' => null,
+    'ogImage' => null,
+    'ogType' => 'website',
 ])
 
 @php
     $platformName = \App\Models\Setting::get('branding.platform_name', '1CallFix');
+    $brandShareLogo = app(\App\Services\BrandingAssetService::class)->url('logo_display_path');
 @endphp
 <!DOCTYPE html>
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}" class="h-full">
@@ -16,6 +19,29 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <meta name="description" content="{{ $metaDescription ?? $platformName.' — verified local professionals for repairs, installation and maintenance.' }}">
     <title>{{ $title ? $title.' · '.$platformName : $platformName }}</title>
+
+    {{-- F2: canonical + Open Graph/Twitter. Canonical is the current URL with the
+         query string dropped, so ?utm_*/gclid/fbclid/?page= variants (F1 capture) all
+         consolidate on one address. Absolute URLs only — crawlers ignore relative ones. --}}
+    @php
+        $pageTitle = $title ? $title.' · '.$platformName : $platformName;
+        $pageDescription = $metaDescription ?? $platformName.' — verified local professionals for repairs, installation and maintenance.';
+        $canonicalUrl = request()->url();
+        $shareImage = $ogImage ?: ($brandShareLogo ?? null);
+    @endphp
+    <link rel="canonical" href="{{ $canonicalUrl }}">
+    <meta property="og:site_name" content="{{ $platformName }}">
+    <meta property="og:type" content="{{ $ogType }}">
+    <meta property="og:title" content="{{ $title ?: $platformName }}">
+    <meta property="og:description" content="{{ $pageDescription }}">
+    <meta property="og:url" content="{{ $canonicalUrl }}">
+    <meta property="og:locale" content="en_IN">
+    @if ($shareImage)
+        <meta property="og:image" content="{{ \Illuminate\Support\Str::startsWith($shareImage, ['http://', 'https://']) ? $shareImage : url($shareImage) }}">
+    @endif
+    <meta name="twitter:card" content="{{ $shareImage ? 'summary_large_image' : 'summary' }}">
+    <meta name="twitter:title" content="{{ $title ?: $platformName }}">
+    <meta name="twitter:description" content="{{ $pageDescription }}">
 
     {{-- PWA foundation: the manifest makes the app installable, theme-color
          paints the mobile browser chrome in the brand blue. --}}
