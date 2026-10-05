@@ -29,6 +29,13 @@
             <span class="text-xl font-bold text-slate-900">{{ $currencySymbol }}{{ number_format((float) $bundle->total_price_quoted, 2) }}</span>
         </div>
 
+        @if ((float) ($bundle->coupon_discount_amount ?? 0) > 0)
+            <dl class="mt-2 space-y-1.5 text-sm">
+                <div class="flex justify-between"><dt class="text-slate-600">Coupon discount</dt><dd class="text-emerald-700">−{{ $currencySymbol }}{{ number_format((float) $bundle->coupon_discount_amount, 2) }}</dd></div>
+                <div class="flex justify-between border-t border-slate-200 pt-2 font-semibold text-slate-900"><dt>You pay</dt><dd>{{ $currencySymbol }}{{ number_format($bundle->amountPayable(), 2) }}</dd></div>
+            </dl>
+        @endif
+
         @if ($bundle->payment_status !== 'paid' && $bundle->payment_method !== 'wallet')
             <button type="button" wire:click="payNow"
                     class="mt-3 flex min-h-12 w-full items-center justify-center rounded-lg bg-blue-600 px-6 text-sm font-semibold text-white transition hover:bg-blue-700">
