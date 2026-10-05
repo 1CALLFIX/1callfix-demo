@@ -7,7 +7,7 @@
     </div>
     <p class="text-sm text-gray-500 mb-4">
         Coupons are a benefit: they are valid for <strong>online payments only</strong> (Razorpay, wallet, or both). Cash bookings can never use one,
-        and nothing on this screen can change that. A coupon never reduces the visit charge and never touches extra work or parts.
+        and nothing on this screen can change that. Visit and inspection charges are separate from coupon discounts.
         Every change is audit-logged; bookings already made keep the rules they were created with.
     </p>
 
@@ -23,7 +23,7 @@
             Coupons are <strong>{{ $available ? 'AVAILABLE to customers' : 'OFF for customers' }}</strong>.
             They need the switch on <em>and</em> an unpaid-hold length. Blank hold = coupon bookings are not allowed.
         </p>
-        @if ($canApprove)
+        @if ($isSuperAdmin)
             <form wire:submit="saveSettings" class="flex flex-wrap items-end gap-4">
                 <label class="flex items-center gap-2 text-sm">
                     <input type="checkbox" wire:model="settingEnabled" class="rounded border-gray-300">
@@ -37,7 +37,7 @@
                 <button type="submit" class="px-4 py-2 text-sm rounded bg-slate-900 text-white">Save settings</button>
             </form>
         @else
-            <p class="text-xs text-gray-500">Enabled: {{ $settingEnabled ? 'yes' : 'no' }} · Unpaid hold: {{ $settingHoldMinutes !== '' ? $settingHoldMinutes.' min' : 'not set' }}. Changing these needs the coupons.approve permission.</p>
+            <p class="text-xs text-gray-500">Enabled: {{ $settingEnabled ? 'yes' : 'no' }} · Unpaid hold: {{ $settingHoldMinutes !== '' ? $settingHoldMinutes.' min' : 'not set' }}. Only a Super Admin can change these.</p>
         @endif
     </x-ui.card>
 

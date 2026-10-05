@@ -11,7 +11,7 @@ use App\Models\ServiceSubcategory;
 use App\Models\Setting;
 use App\Services\Coupons\CouponAdminService;
 use App\Services\Coupons\CouponSettings;
-use App\Services\SettingsAuditor;
+use App\Support\SuperAdminGate;
 use Illuminate\Validation\ValidationException;
 use Livewire\Component;
 
@@ -26,7 +26,8 @@ use Livewire\Component;
  *
  *   coupons.view     see the list and live usage
  *   coupons.manage   create, edit a non-live coupon, pause, archive
- *   coupons.approve  activate / resume, edit a live coupon, the two coupons.* settings
+ *   coupons.approve  activate / resume, edit a live coupon, global scope
+ *   Super Admin only  the global coupons.* settings (coupons.approve does not grant them)
  */
 class Manage extends Component
 {
@@ -300,13 +301,12 @@ class Manage extends Component
 
     public function saveSettings(): void
     {
-        $this->allow('coupons.approve');
+        // Global settings are Super Admin only (hardening §J) — checked again inside CouponSettings::save().
+        abort_unless(SuperAdminGate::allows(auth()->user()), 403, 'Only a Super Admin can change global coupon settings.');
 
         $this->validate(['settingHoldMinutes' => ['nullable', 'integer', 'min:1', 'max:1440']], [], ['settingHoldMinutes' => 'unpaid hold minutes']);
 
-        $admin = auth()->user();
-        $changed = SettingsAuditor::put($admin, 'coupons.enabled', $this->settingEnabled ? '1' : '0');
-        $changed = SettingsAuditor::put($admin, 'coupons.unpaid_hold_minutes', $this->settingHoldMinutes) || $changed;
+        $changed = CouponSettings::save(auth()->user(), $this->settingEnabled, $this->settingHoldMinutes);
 
         $this->flashType = 'success';
         $this->flashMessage = $changed ? 'Coupon settings saved.' : 'Nothing changed.';
@@ -350,6 +350,7 @@ class Manage extends Component
             'rows' => $rows,
             'canManage' => $user->hasPermission('coupons.manage'),
             'canApprove' => $user->hasPermission('coupons.approve'),
+            'isSuperAdmin' => SuperAdminGate::allows($user),
             'cities' => $this->showForm ? City::orderBy('name')->get(['id', 'name']) : collect(),
             'categories' => $this->showForm ? ServiceCategory::orderBy('name')->get(['id', 'name']) : collect(),
             'subcategories' => $this->showForm ? ServiceSubcategory::orderBy('name')->get(['id', 'name']) : collect(),

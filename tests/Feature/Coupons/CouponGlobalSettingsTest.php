@@ -8,7 +8,7 @@ use App\Models\Setting;
 use App\Models\User;
 use App\Services\Coupons\CouponSettings;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Http\Exceptions\HttpException;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 use Livewire\Livewire;
 use Tests\Feature\Rbac\RbacTestHelpers;
 use Tests\TestCase;
