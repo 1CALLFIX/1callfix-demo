@@ -161,7 +161,7 @@ class CouponAdminService
     private function assertScope(User $actor, array $data, ?array $targets, ?Coupon $coupon): void
     {
         $effective = $targets !== null
-            ? collect($targets)->map(fn (array $t) => new CouponTarget(['target_type' => $t['target_type'], 'operator' => $t['operator'] ?? 'include']))
+            ? collect($targets)->map(fn (array $t) => new CouponTarget(['target_type' => $t['target_type'], 'operator' => $t['operator'] ?? 'include', 'params' => $t['params'] ?? null]))
             : ($coupon?->targets()->get() ?? collect());
 
         $owner = new Coupon(['franchise_id' => array_key_exists('franchise_id', $data) ? $data['franchise_id'] : $coupon?->franchise_id]);
@@ -169,6 +169,17 @@ class CouponAdminService
 
         if (! $matcher->hasExplicitScope($owner, $effective)) {
             throw ValidationException::withMessages(['targets' => 'Choose where this coupon applies: pick a city, or tick "Global / all eligible scope".']);
+        }
+
+        // D1: a new-customers-only coupon must carry the explicit Global marker; empty or city-only targeting is not enough.
+        if ($matcher->isNewCustomerOnly($effective)) {
+            if (! $matcher->isGlobal($effective)) {
+                throw ValidationException::withMessages(['targets' => 'A new-customers-only coupon needs the explicit "Global / all eligible scope" choice.']);
+            }
+            $newlyNewOnly = $targets !== null && ! ($coupon && $matcher->isNewCustomerOnly($coupon->targets()->get()));
+            if ($newlyNewOnly && ! $actor->hasPermission('coupons.approve')) {
+                throw ValidationException::withMessages(['targets' => 'A new-customers-only coupon needs the coupons.approve permission.']);
+            }
         }
 
         $newlyGlobal = $targets !== null && $matcher->isGlobal($effective)

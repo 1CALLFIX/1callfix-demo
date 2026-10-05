@@ -51,6 +51,16 @@ class TargetMatcher
         return $targets->contains(fn (CouponTarget $t) => $t->target_type === self::GLOBAL_TYPE && $t->operator === 'include');
     }
 
+    /**
+     * D1: a new-customers-only coupon (an include row customer_type=new). Such a coupon is a platform-wide
+     * acquisition offer, so it is only valid with the explicit Global marker (see CouponAdminService / CouponService).
+     */
+    public function isNewCustomerOnly(Collection $targets): bool
+    {
+        return $targets->contains(fn (CouponTarget $t) => $t->target_type === 'customer_type'
+            && $t->operator === 'include' && (($t->params['type'] ?? null) === 'new'));
+    }
+
     /** @return ?string null when the whole-coupon context passes, else the reason code */
     public function contextRejection(Coupon $coupon, PromotionContext $ctx, Collection $targets): ?string
     {

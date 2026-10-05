@@ -101,6 +101,10 @@ class CouponService
         if (! $this->matcher->hasExplicitScope($coupon, $targets)) {
             return PromotionResult::reject('no_scope', 'This coupon has no scope configured.', $coupon);
         }
+        // D1: a new-customers-only coupon without the explicit Global marker is never redeemable.
+        if ($this->matcher->isNewCustomerOnly($targets) && ! $this->matcher->isGlobal($targets)) {
+            return PromotionResult::reject('no_scope', 'This coupon has no scope configured.', $coupon);
+        }
         // "All live franchises" is judged now, at redemption time: a franchise that is not live is never reached.
         if ($this->matcher->isGlobal($targets) && $coupon->franchise_id === null
             && Franchise::where('id', $ctx->franchiseId)->value('status') !== 'active') {
