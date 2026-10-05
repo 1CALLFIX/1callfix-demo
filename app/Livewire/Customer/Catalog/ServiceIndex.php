@@ -115,6 +115,7 @@ class ServiceIndex extends Component
             'hasFilters' => $this->search !== '' || $this->category !== null || $this->sort !== 'recommended',
         ])->layout('components.layouts.customer', [
             'title' => $this->offersOnly ? 'Offers' : 'All services',
+            'indexable' => true,
             'metaDescription' => $this->offersOnly
                 ? 'Current offers and limited-time pricing on home services in your area.'
                 : 'Browse every home service available in your area.',

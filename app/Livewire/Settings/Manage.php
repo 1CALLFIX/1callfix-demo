@@ -236,6 +236,7 @@ class Manage extends Component
     public $brandingLogoUpload = null;
     public string $brandingFooterCredit = '';
     public string $brandingNameBesideLogo = '';
+    public string $seoCanonicalBaseUrl = '';
     /** @var array<string,string> platform key => profile URL */
     public array $brandingSocial = [];
 
@@ -478,6 +479,7 @@ class Manage extends Component
 
         $this->brandingFooterCredit = BrandingAssetService::creditLine();
         $this->brandingNameBesideLogo = BrandingAssetService::nameBesideLogo();
+        $this->seoCanonicalBaseUrl = \App\Support\Seo::canonicalBase();
         $savedLinks = SocialMediaLink::query()->pluck('profile_url', 'platform')->all();
         foreach (SocialPlatforms::ALL as $key => $meta) {
             $this->brandingSocial[$key] = (string) ($savedLinks[$key] ?? '');
@@ -991,6 +993,8 @@ class Manage extends Component
         $rules = [
             'brandingFooterCredit' => ['nullable', 'string', 'max:200'],
             'brandingNameBesideLogo' => ['nullable', 'string', 'max:40'],
+            // Origin only: https, no path/query/trailing slash. Blank = built-in default.
+            'seoCanonicalBaseUrl' => ['nullable', 'string', 'max:200', 'regex:#^https://[a-z0-9.-]+(:\d+)?/?$#i'],
         ];
         foreach (array_keys(SocialPlatforms::ALL) as $key) {
             $rules["brandingSocial.{$key}"] = ['nullable', 'url:http,https', 'max:500'];
@@ -998,6 +1002,7 @@ class Manage extends Component
         $this->validate($rules, [], [
             'brandingFooterCredit' => 'footer credit line',
             'brandingNameBesideLogo' => 'brand name beside logo',
+            'seoCanonicalBaseUrl' => 'canonical base URL',
         ]);
 
         foreach (SocialPlatforms::ALL as $key => $meta) {
@@ -1010,6 +1015,8 @@ class Manage extends Component
 
         Setting::set('branding.footer_credit', trim($this->brandingFooterCredit));
         Setting::set('branding.name_beside_logo', trim($this->brandingNameBesideLogo));
+        // Audited (activity_log) via SettingsAuditor; blank clears back to the default.
+        SettingsAuditor::put(auth()->user(), \App\Support\Seo::SETTING_KEY, rtrim(trim($this->seoCanonicalBaseUrl), '/') ?: null);
 
         $this->flashMessage = 'Footer links, credit line and brand name saved.';
     }

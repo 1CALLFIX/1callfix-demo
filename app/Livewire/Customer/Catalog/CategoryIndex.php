@@ -34,6 +34,7 @@ class CategoryIndex extends Component
             'banners' => $this->bannersFor('mid'),
         ])->layout('components.layouts.customer', [
             'title' => 'All categories',
+            'indexable' => true,
             'metaDescription' => 'Browse every home service category available in your area.',
         ]);
     }

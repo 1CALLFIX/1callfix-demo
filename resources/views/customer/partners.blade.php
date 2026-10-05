@@ -39,7 +39,7 @@
     ];
 @endphp
 
-<x-layouts.customer title="{{ $ctaLabel }}"
+<x-layouts.customer title="{{ $ctaLabel }}" :indexable="true"
     metaDescription="Partner with {{ $platformName }}: steady local jobs for verified trade professionals{{ $cityLabel ? ' in '.$cityLabel : '' }}. Set your own hours, get paid on time.">
 
     {{-- Hero --}}

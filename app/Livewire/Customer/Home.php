@@ -73,6 +73,7 @@ class Home extends Component
             'currencySymbol' => $this->presenter()->currencySymbol(),
         ])->layout('components.layouts.customer', [
             'title' => 'Home services, on call',
+            'indexable' => true,
         ]);
     }
 

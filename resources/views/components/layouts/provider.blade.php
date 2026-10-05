@@ -33,6 +33,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <title>{{ $title ? $title.' · '.$platformName.' Partner' : $platformName.' Partner' }}</title>
+    <meta name="robots" content="noindex, nofollow">
     <meta name="theme-color" content="#2563eb">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     {{-- PWA manifest — needed for installability and (on iOS) for closed-app
