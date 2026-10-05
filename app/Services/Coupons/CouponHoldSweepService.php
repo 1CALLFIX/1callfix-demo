@@ -25,6 +25,25 @@ class CouponHoldSweepService
     {
     }
 
+    /**
+     * When an unpaid coupon booking runs out of time to pay (created_at + coupons.unpaid_hold_minutes), or null
+     * when no hold applies to it. The same rule sweep() cancels on, exposed so the customer sees the real clock.
+     */
+    public static function expiresAt(Booking $booking): ?\Illuminate\Support\Carbon
+    {
+        $minutes = CouponSettings::unpaidHoldMinutes();
+
+        if ($minutes === null
+            || $booking->coupon_id === null
+            || $booking->status !== 'pending'
+            || $booking->payment_status !== 'pending'
+            || $booking->payment_method !== 'online') {
+            return null;
+        }
+
+        return $booking->created_at?->copy()->addMinutes($minutes);
+    }
+
     /** @return int how many unpaid coupon bookings were cancelled */
     public function sweep(): int
     {

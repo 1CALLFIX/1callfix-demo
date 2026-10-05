@@ -65,6 +65,7 @@ class CouponUnpaidHoldTest extends TestCase
 
     public function test_reservation_shows_a_countdown_from_the_configured_hold_and_the_discounted_amount_due(): void
     {
+        $this->freezeTime();
         $w = $this->world();
         $booking = $this->book($w);
 
@@ -78,6 +79,7 @@ class CouponUnpaidHoldTest extends TestCase
 
     public function test_the_countdown_follows_the_clock_and_the_setting(): void
     {
+        $this->freezeTime();
         $w = $this->world();
         $booking = $this->book($w);
 
