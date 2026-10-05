@@ -107,6 +107,9 @@
                 <span class="text-xl font-bold text-slate-900">{{ $currencySymbol }}{{ number_format($reviewTotal, 2) }}</span>
             </div>
             <p class="mt-1 text-xs text-slate-500">This is the amount you will be charged.</p>
+            @if ($cashNote)
+                <p class="mt-1 text-xs font-medium text-slate-700">{{ $cashNote }}</p>
+            @endif
 
         {{-- ---------------------------------------------- pay --}}
         @elseif ($step === 'pay')
@@ -118,7 +121,7 @@
                 <div class="mt-3 space-y-2">
                     @foreach ($enabledMethods as $value => $label)
                         <label class="flex cursor-pointer items-center gap-3 rounded-lg border border-slate-200 p-3 has-[:checked]:border-blue-600 has-[:checked]:bg-blue-50/40">
-                            <input type="radio" wire:model="paymentMethod" value="{{ $value }}">
+                            <input type="radio" wire:model.live="paymentMethod" value="{{ $value }}">
                             <span class="text-sm text-slate-900">{{ $label }}</span>
                             @if ($value === 'wallet')
                                 <span class="ml-auto text-xs text-slate-500">Balance {{ $currencySymbol }}{{ number_format($walletBalance, 2) }}</span>
@@ -126,6 +129,14 @@
                         </label>
                     @endforeach
                 </div>
+
+                <div class="mt-4 flex items-baseline justify-between border-t border-slate-200 pt-3">
+                    <span class="text-sm font-medium text-slate-700">You pay</span>
+                    <span class="text-xl font-bold text-slate-900">{{ $currencySymbol }}{{ number_format($reviewTotal, 2) }}</span>
+                </div>
+                @if ($cashNote)
+                    <p class="mt-1 text-xs font-medium text-slate-700">{{ $cashNote }}</p>
+                @endif
 
                 <x-cancellation-policy :lines="app(\App\Services\Cancellation\CancellationPolicy::class)->policyLines()" class="mt-4" />
 

@@ -288,6 +288,10 @@
                     </div>
                 </dl>
 
+                @if ($cashNote)
+                    <p class="mt-2 text-[11px] font-medium leading-snug text-slate-700">{{ $cashNote }}</p>
+                @endif
+
                 <p class="mt-2 text-[11px] leading-snug text-slate-500">Estimate only — the server confirms your final price when you book.</p>
 
                 @if ($step !== 'configure')

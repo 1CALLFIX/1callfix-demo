@@ -54,3 +54,8 @@
         @endif
     @endif
 </div>
+
+{{-- THUMB RULE (D5/D6): the shown price is the online/offer price; a cash customer is told the full price. --}}
+@if ($card['offer_requires_online'] ?? false)
+    <p class="mt-1 text-[11px] leading-snug text-slate-500">{{ app(\App\Services\Customer\CatalogPresenter::class)->cashNote((float) $card['cash_price']) }}</p>
+@endif

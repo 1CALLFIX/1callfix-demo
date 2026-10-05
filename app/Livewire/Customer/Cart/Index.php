@@ -110,8 +110,25 @@ class Index extends Component
         return view('livewire.customer.cart.index', [
             'groups' => $cart->groupedForUser(auth()->user()),
             'estimateTotal' => $cart->estimateTotal(auth()->user()),
+            'cashNote' => $this->cashNote($cart),
             'currencySymbol' => \App\Models\Setting::get('locale.currency_symbol', '₹'),
         ])->layout('components.layouts.customer', ['title' => 'Your cart']);
+    }
+
+    /** The full-price wording when any line is on an online-only offer; null otherwise. */
+    private function cashNote(ServiceCartService $cart): ?string
+    {
+        $presenter = app(\App\Services\Customer\CatalogPresenter::class);
+        $cashTotal = 0.0;
+        $anyOffer = false;
+
+        foreach ($cart->itemsFor(auth()->user()) as $item) {
+            $card = $presenter->card($item->service);
+            $anyOffer = $anyOffer || $card['offer_requires_online'];
+            $cashTotal += (float) $card['cash_price'] * $item->quantity;
+        }
+
+        return $anyOffer ? $presenter->cashNote($cashTotal) : null;
     }
 
     /** The row, only if it belongs to the current customer. */

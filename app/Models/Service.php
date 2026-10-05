@@ -51,6 +51,8 @@ class Service extends Model
      * the database (the N+1 CatalogPresenter's batching exists to avoid).
      */
     private ?float $preresolvedEffectivePrice = null;
+    private ?float $preresolvedCashPrice = null;
+    private bool $preresolvedOfferRequiresOnline = false;
 
     /**
      * `quote_on_inspection` shows as "Starts From" in the admin UI — Glover's
@@ -120,6 +122,23 @@ class Service extends Model
             : null;
 
         return (float) ($override ?? $this->discount_price ?? $this->base_price);
+    }
+
+    public function setCashPrice(float $price, bool $offerRequiresOnline): void
+    {
+        $this->preresolvedCashPrice = $price;
+        $this->preresolvedOfferRequiresOnline = $offerRequiresOnline;
+    }
+
+    /** The full price a cash customer pays (an offer, if any, needs an online payment). */
+    public function cashPrice(?int $franchiseId = null): float
+    {
+        return $this->preresolvedCashPrice ?? $this->resolvePrice($franchiseId);
+    }
+
+    public function offerRequiresOnline(): bool
+    {
+        return $this->preresolvedOfferRequiresOnline;
     }
 
     public function setEffectivePrice(float $price): void

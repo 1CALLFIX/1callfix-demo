@@ -426,6 +426,7 @@ class Wizard extends Component
         $presenter = app(CatalogPresenter::class);
         $card = $presenter->card($service);
         $selectedOptions = $this->selectedOptions();
+        $optionsEstimate = $this->optionsTotal($selectedOptions);
 
         return view('livewire.customer.booking.wizard', [
             'service' => $service,
@@ -433,8 +434,10 @@ class Wizard extends Component
             'currencySymbol' => $presenter->currencySymbol(),
             'groups' => $this->optionGroups(),
             'selectedOptions' => $selectedOptions,
-            'optionsEstimate' => $this->optionsTotal($selectedOptions),
-            'baseEstimate' => (float) $card['price'],
+            'optionsEstimate' => $optionsEstimate,
+            // Offer price on an online method, full price on cash: switched server-side from the card's two numbers.
+            'baseEstimate' => $presenter->payablePrice($card, $this->paymentMethod),
+            'cashNote' => $card['offer_requires_online'] ? $presenter->cashNote((float) $card['cash_price'] + $optionsEstimate) : null,
             'addresses' => Address::where('user_id', auth()->id())->orderByDesc('is_default')->latest()->get(),
             'enabledMethods' => $this->enabledPaymentMethods(),
             'walletBalance' => $this->walletBalance(),

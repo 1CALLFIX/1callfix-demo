@@ -6,6 +6,7 @@ use App\Models\Service;
 use App\Models\Setting;
 use App\Services\BadgeService;
 use App\Services\FlashSaleService;
+use App\Services\Payments\OnlinePaymentGuard;
 use Illuminate\Support\Collection;
 
 /**
@@ -102,6 +103,24 @@ class CatalogPresenter
         ))->values();
     }
 
+    /**
+     * The amount a customer pays for this card's base price on the chosen payment method: the offer price when
+     * they pay online (Razorpay / wallet), the full price otherwise. Only SWITCHES between the two numbers the
+     * server already computed; the booking itself is always re-priced by CreateBookingAction.
+     */
+    public function payablePrice(array $card, ?string $paymentMethod): float
+    {
+        return $card['offer_requires_online'] && ! OnlinePaymentGuard::isOnline($paymentMethod)
+            ? (float) $card['cash_price']
+            : (float) $card['price'];
+    }
+
+    /** The cash-price wording shown beside any offer price. $cashAmount is the full price for the same basket. */
+    public function cashNote(float $cashAmount): string
+    {
+        return 'Offer price applies when you pay online. Pay by cash: '.$this->currencySymbol().number_format($cashAmount, 2).'.';
+    }
+
     /** One card. Prefer cards() — this exists for the detail page, which genuinely has a single service. */
     public function card(
         Service $service,
@@ -141,6 +160,10 @@ class CatalogPresenter
             'price_prefix' => $service->price_type === 'quote_on_inspection' ? 'Starts from' : 'From',
             'price_type' => $service->price_type,
             'flash_sale' => $flashSale,
+            // THUMB RULE (D5/D6): the offer price only exists on an online payment. Both numbers come from the
+            // server's one cascade: `price` is the offer price, `cash_price` the full price a cash customer pays.
+            'cash_price' => $resolvedPrice,
+            'offer_requires_online' => $flashSale !== null,
 
             'duration_mins' => $service->duration_estimate_mins ?: null,
             'badges' => $badges ?? [],

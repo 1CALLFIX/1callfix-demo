@@ -291,12 +291,15 @@ class Checkout extends Component
         $presenter = app(CatalogPresenter::class);
 
         $lines = $cart->itemsFor(auth()->user())->map(function ($item) use ($presenter) {
-            $unit = (float) ($presenter->card($item->service)['price'] ?? 0);
+            $card = $presenter->card($item->service);
+            $unit = $presenter->payablePrice($card, $this->paymentMethod);
 
             return [
                 'item' => $item,
                 'unit' => $unit,
                 'line' => $unit * $item->quantity,
+                'cash_line' => (float) $card['cash_price'] * $item->quantity,
+                'offer' => $card['offer_requires_online'],
             ];
         });
 
@@ -304,6 +307,7 @@ class Checkout extends Component
             'steps' => self::STEPS,
             'lines' => $lines,
             'reviewTotal' => $lines->sum('line'),
+            'cashNote' => $lines->contains('offer', true) ? $presenter->cashNote((float) $lines->sum('cash_line')) : null,
             'addresses' => Address::where('user_id', auth()->id())->orderByDesc('is_default')->latest()->get(),
             'enabledMethods' => $this->enabledPaymentMethods(),
             'walletBalance' => $this->walletBalance(),
