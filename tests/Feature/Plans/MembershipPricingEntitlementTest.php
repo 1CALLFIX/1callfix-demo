@@ -89,7 +89,7 @@ class MembershipPricingEntitlementTest extends TestCase
             ->postJson('/api/bookings', [
                 'service_id' => $service->id,
                 'address_id' => $address->id,
-                'payment_method' => 'cash',
+                'payment_method' => 'online',
             ])
             ->assertStatus(201);
 

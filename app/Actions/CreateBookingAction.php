@@ -269,7 +269,7 @@ class CreateBookingAction
         if ($booking->customer && $couponCode !== '') {
             $this->applyCouponOrMemberBenefit($booking, $basePrice, $couponCode, $appliedSale !== null);
         } elseif ($booking->customer) {
-            $adjustment = $this->entitlementService->resolveAndConsumeForBooking($booking->customer, $basePrice, $booking);
+            $adjustment = $this->entitlementService->resolveAndConsumeForBooking($booking->customer, $basePrice, $booking, $booking->payment_method);
             if ($adjustment) {
                 $booking->price_quoted = $adjustment['adjusted_price'];
                 $booking->save();
@@ -298,7 +298,7 @@ class CreateBookingAction
         $builder = app(ServicePromotionContextBuilder::class);
         $ctx = $builder->forBooking($booking, $couponCode, $flashApplied);
 
-        $preview = $this->entitlementService->previewBestPricingEntitlement($booking->customer, $basePrice);
+        $preview = $this->entitlementService->previewBestPricingEntitlement($booking->customer, $basePrice, $booking->payment_method);
 
         if ($preview && $preview['entitlement_type'] === 'quantity') {
             throw new CouponException('entitlement_covered', 'Your membership benefit already covers this booking.');
@@ -313,7 +313,7 @@ class CreateBookingAction
 
         if ($preview && $memberDiscount >= $result->discountTotal) {
             // Member benefit is at least as good: apply it exactly as before and tell the customer which won.
-            $adjustment = $this->entitlementService->resolveAndConsumeForBooking($booking->customer, $basePrice, $booking);
+            $adjustment = $this->entitlementService->resolveAndConsumeForBooking($booking->customer, $basePrice, $booking, $booking->payment_method);
             if ($adjustment) {
                 $booking->price_quoted = $adjustment['adjusted_price'];
             }

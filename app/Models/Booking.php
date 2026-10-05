@@ -33,7 +33,7 @@ class Booking extends Model implements Orderable
 
             \App\Services\Payments\OnlinePaymentGuard::assertMethodUnchanged(
                 $booking,
-                $booking->isDirty('payment_method') && ($booking->hasCouponBenefit() || $inBenefitBundle || $booking->hasFlashSaleBenefit())
+                $booking->isDirty('payment_method') && ($booking->hasCouponBenefit() || $inBenefitBundle || $booking->hasFlashSaleBenefit() || $booking->hasMemberDiscountBenefit())
             );
         });
 
@@ -69,6 +69,13 @@ class Booking extends Model implements Orderable
     public function hasFlashSaleBenefit(): bool
     {
         return $this->exists && FlashSaleRedemption::where('booking_id', $this->id)->exists();
+    }
+
+    /** True when a Prime / membership price discount was consumed for this booking (online payment only, never switchable to cash). */
+    public function hasMemberDiscountBenefit(): bool
+    {
+        return $this->exists && UsageLedger::where('booking_id', $this->id)
+            ->where('event_type', 'consume')->where('monetary_delta', '<', 0)->exists();
     }
 
     public function coupon() { return $this->belongsTo(Coupon::class); }

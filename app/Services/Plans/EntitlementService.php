@@ -2,6 +2,7 @@
 
 namespace App\Services\Plans;
 
+use App\Services\Payments\OnlinePaymentGuard;
 use App\Models\Booking;
 use App\Models\EntitlementBalance;
 use App\Models\PlanEntitlement;
@@ -30,6 +31,12 @@ class EntitlementService
      */
     private const PRICING_TYPES = ['percentage_discount', 'fixed_discount', 'member_price', 'quantity'];
 
+    /**
+     * THUMB RULE (D6) — these are DISCOUNTS, i.e. benefits: they apply only when the booking is paid online
+     * (OnlinePaymentGuard). `quantity` is an included-in-quota unit, not a price discount, and is unaffected.
+     */
+    private const DISCOUNT_TYPES = ['percentage_discount', 'fixed_discount', 'member_price'];
+
     public function __construct(
         private PlanStackingResolver $stackingResolver,
         private OverageService $overageService,
@@ -43,9 +50,9 @@ class EntitlementService
      * per the approved plan's explicit §6 decision). Returns null when no
      * applicable/usable plan exists — caller keeps today's unmodified price.
      */
-    public function resolveAndConsumeForBooking(User $customer, float $basePrice, Booking $booking): ?array
+    public function resolveAndConsumeForBooking(User $customer, float $basePrice, Booking $booking, ?string $paymentMethod = null): ?array
     {
-        $candidates = $this->activeCustomerPricingEntitlements($customer);
+        $candidates = $this->activeCustomerPricingEntitlements($customer, $paymentMethod);
         if ($candidates->isEmpty()) {
             return null;
         }
@@ -78,9 +85,9 @@ class EntitlementService
      *
      * @return ?array{entitlement_type: string, adjusted_price: float, discount: float}
      */
-    public function previewBestPricingEntitlement(User $customer, float $basePrice): ?array
+    public function previewBestPricingEntitlement(User $customer, float $basePrice, ?string $paymentMethod = null): ?array
     {
-        $candidates = $this->activeCustomerPricingEntitlements($customer);
+        $candidates = $this->activeCustomerPricingEntitlements($customer, $paymentMethod);
         if ($candidates->isEmpty()) {
             return null;
         }
@@ -185,8 +192,14 @@ class EntitlementService
         $notifiable->notify(new EntitlementNotification($event, $entitlement, $channels));
     }
 
-    private function activeCustomerPricingEntitlements(User $customer): Collection
+    /**
+     * @param  ?string  $paymentMethod  the booking's method; null = not judged (legacy callers). Any non-online
+     *                                  method drops the discount types so a cash booking never gets (or consumes) one.
+     */
+    private function activeCustomerPricingEntitlements(User $customer, ?string $paymentMethod = null): Collection
     {
+        $discountsAllowed = $paymentMethod === null || OnlinePaymentGuard::isOnline($paymentMethod);
+
         $subscriptions = Subscription::where('subscribable_type', User::class)
             ->where('subscribable_id', $customer->id)
             ->whereIn('status', ['active', 'grace_period'])
@@ -199,6 +212,9 @@ class EntitlementService
         foreach ($subscriptions as $subscription) {
             foreach ($subscription->plan->entitlements as $entitlement) {
                 if (! $entitlement->isUsable()) {
+                    continue;
+                }
+                if (! $discountsAllowed && in_array($entitlement->entitlement_type, self::DISCOUNT_TYPES, true)) {
                     continue;
                 }
                 $candidates->push([
