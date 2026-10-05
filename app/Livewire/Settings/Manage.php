@@ -237,6 +237,7 @@ class Manage extends Component
     public string $brandingFooterCredit = '';
     public string $brandingNameBesideLogo = '';
     public string $seoCanonicalBaseUrl = '';
+    public string $seoMinProvidersToIndex = '1';
     /** @var array<string,string> platform key => profile URL */
     public array $brandingSocial = [];
 
@@ -480,6 +481,7 @@ class Manage extends Component
         $this->brandingFooterCredit = BrandingAssetService::creditLine();
         $this->brandingNameBesideLogo = BrandingAssetService::nameBesideLogo();
         $this->seoCanonicalBaseUrl = \App\Support\Seo::canonicalBase();
+        $this->seoMinProvidersToIndex = (string) \App\Services\Seo\ProviderCoverage::minToIndex();
         $savedLinks = SocialMediaLink::query()->pluck('profile_url', 'platform')->all();
         foreach (SocialPlatforms::ALL as $key => $meta) {
             $this->brandingSocial[$key] = (string) ($savedLinks[$key] ?? '');
@@ -995,6 +997,7 @@ class Manage extends Component
             'brandingNameBesideLogo' => ['nullable', 'string', 'max:40'],
             // Origin only: https, no path/query/trailing slash. Blank = built-in default.
             'seoCanonicalBaseUrl' => ['nullable', 'string', 'max:200', 'regex:#^https://[a-z0-9.-]+(:\d+)?/?$#i'],
+            'seoMinProvidersToIndex' => ['required', 'integer', 'min:0', 'max:1000'],
         ];
         foreach (array_keys(SocialPlatforms::ALL) as $key) {
             $rules["brandingSocial.{$key}"] = ['nullable', 'url:http,https', 'max:500'];
@@ -1003,6 +1006,7 @@ class Manage extends Component
             'brandingFooterCredit' => 'footer credit line',
             'brandingNameBesideLogo' => 'brand name beside logo',
             'seoCanonicalBaseUrl' => 'canonical base URL',
+            'seoMinProvidersToIndex' => 'minimum providers to index',
         ]);
 
         foreach (SocialPlatforms::ALL as $key => $meta) {
@@ -1017,6 +1021,7 @@ class Manage extends Component
         Setting::set('branding.name_beside_logo', trim($this->brandingNameBesideLogo));
         // Audited (activity_log) via SettingsAuditor; blank clears back to the default.
         SettingsAuditor::put(auth()->user(), \App\Support\Seo::SETTING_KEY, rtrim(trim($this->seoCanonicalBaseUrl), '/') ?: null);
+        SettingsAuditor::put(auth()->user(), \App\Services\Seo\ProviderCoverage::SETTING_KEY, (string) (int) $this->seoMinProvidersToIndex);
 
         $this->flashMessage = 'Footer links, credit line and brand name saved.';
     }

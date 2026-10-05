@@ -11,6 +11,7 @@ use Illuminate\Support\Str;
 use Livewire\Livewire;
 use Tests\Feature\CustomerWeb\Support\CatalogFixtures;
 use Tests\Feature\Support\BookingFixtureHelpers;
+use Tests\Feature\Support\LiveCity;
 use Tests\TestCase;
 
 /** F2: canonical + Open Graph (public pages) and noindex (private pages). */
@@ -18,7 +19,16 @@ class OpenGraphCanonicalTest extends TestCase
 {
     use BookingFixtureHelpers;
     use CatalogFixtures;
+    use LiveCity;
     use RefreshDatabase;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->liveCity();
+        // F3: index only real pages. These tests are about tags, not coverage: index every live page.
+        Setting::set('seo.min_providers_to_index', '0');
+    }
 
     private const BASE = 'https://1callfix.com';
 
@@ -45,7 +55,7 @@ class OpenGraphCanonicalTest extends TestCase
     {
         Setting::set('seo.canonical_base_url', 'https://example.org');
         $service = $this->makeService($this->makeCategory(), ['name' => 'AC Repair']);
-        $path = '/services/'.$service->getRouteKey();
+        $path = '/nellore/'.$service->slug;
 
         foreach (['http://www.1callfix.com', 'https://api.1callfix.com', 'http://127.0.0.1:8000'] as $host) {
             $html = $this->get($host.$path.'?utm=1')->assertOk()->getContent();
@@ -58,7 +68,7 @@ class OpenGraphCanonicalTest extends TestCase
     {
         $service = $this->makeService($this->makeCategory(), ['cover_image' => 'https://cdn.example.com/ac.jpg']);
 
-        $html = $this->get(route('customer.services.show', $service))->assertOk()->getContent();
+        $html = $this->get(\App\Support\Seo\PublicUrl::service($service))->assertOk()->getContent();
 
         $this->assertStringContainsString('<meta property="og:image" content="https://cdn.example.com/ac.jpg">', $html);
         $this->assertStringContainsString('content="summary_large_image"', $html);
@@ -68,7 +78,7 @@ class OpenGraphCanonicalTest extends TestCase
     {
         $service = $this->makeService($this->makeCategory(), ['cover_image' => 'services/x.jpg']);
 
-        $html = $this->get(route('customer.services.show', $service))->assertOk()->getContent();
+        $html = $this->get(\App\Support\Seo\PublicUrl::service($service))->assertOk()->getContent();
 
         $this->assertMatchesRegularExpression('#<meta property="og:image" content="https?://[^"]+services/x\.jpg">#', $html);
     }
@@ -79,7 +89,7 @@ class OpenGraphCanonicalTest extends TestCase
         $service = $this->makeService($category);
 
         foreach ([
-            '/', '/categories', '/categories/'.$category->slug, '/services', '/services/'.$service->getRouteKey(),
+            '/', '/categories', '/nellore', '/nellore/'.$category->slug, '/services', '/nellore/'.$service->slug,
             '/help', '/how-it-works', '/coming-soon/partners',
         ] as $path) {
             $html = $this->get($path)->assertOk()->getContent();

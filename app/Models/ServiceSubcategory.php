@@ -2,12 +2,14 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasManagedSlug;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 class ServiceSubcategory extends Model
 {
+    use HasManagedSlug;
     protected $table = 'service_subcategories';
 
     protected $fillable = [

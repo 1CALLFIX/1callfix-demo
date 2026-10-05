@@ -120,7 +120,7 @@
                          class="max-h-80 overflow-y-auto pb-1">
                         @foreach ($defaultServices as $service)
                             @php $optId = $listId.'-opt-'.$optSeq++; @endphp
-                            <a href="{{ route('customer.services.show', $service) }}"
+                            <a href="{{ \App\Support\Seo\PublicUrl::service($service) }}"
                                role="option" id="{{ $optId }}" data-search-option aria-selected="false" tabindex="-1"
                                class="flex min-h-12 items-center gap-3 px-4 py-2 text-left transition hover:bg-slate-50 data-[active=true]:bg-slate-100 focus-visible:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-blue-600">
                                 <x-customer.result-icon :name="$service->category?->name ?? $service->name"
@@ -160,7 +160,7 @@
                             </p>
                             @foreach ($matchedCategories as $category)
                                 @php $optId = $listId.'-opt-'.$optSeq++; @endphp
-                                <a href="{{ route('customer.categories.show', $category) }}"
+                                <a href="{{ \App\Support\Seo\PublicUrl::category($category) }}"
                                    role="option" id="{{ $optId }}" data-search-option aria-selected="false" tabindex="-1"
                                    class="flex min-h-12 items-center gap-3 px-4 py-2 text-left transition hover:bg-slate-50 data-[active=true]:bg-slate-100 focus-visible:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-blue-600">
                                     <x-customer.result-icon :name="$category->name"
@@ -181,7 +181,7 @@
                             </p>
                             @foreach ($group['services'] as $service)
                                 @php $optId = $listId.'-opt-'.$optSeq++; @endphp
-                                <a href="{{ route('customer.services.show', $service) }}"
+                                <a href="{{ \App\Support\Seo\PublicUrl::service($service) }}"
                                    role="option" id="{{ $optId }}" data-search-option aria-selected="false" tabindex="-1"
                                    class="flex min-h-12 items-center gap-3 px-4 py-2 text-left transition hover:bg-slate-50 data-[active=true]:bg-slate-100 focus-visible:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-blue-600">
                                     <x-customer.result-icon :name="$group['category']?->name ?? $service->name"

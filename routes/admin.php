@@ -19,6 +19,7 @@ use App\Livewire\Drivers\Index as DriversIndex;
 use App\Livewire\Franchises\Manage as FranchisesManage;
 use App\Livewire\FranchisePricing\Manage as FranchisePricingManage;
 use App\Livewire\Geography\Manage as GeographyManage;
+use App\Livewire\Seo\CityContent as SeoCityContent;
 use App\Livewire\Zones\Manage as ZonesManage;
 use App\Livewire\Categories\Manage as CategoriesManage;
 use App\Livewire\Subcategories\Manage as SubcategoriesManage;
@@ -95,6 +96,7 @@ Route::middleware(['auth', \Illuminate\Session\Middleware\AuthenticateSession::c
         // exists yet; see App\Livewire\Drivers\Index's own docblock.
         Route::get('/drivers', DriversIndex::class)->name('admin.drivers.index');
         Route::get('/geography', GeographyManage::class)->name('admin.geography.index');
+        Route::get('/seo/city-content', SeoCityContent::class)->name('admin.seo.city-content');
         Route::get('/franchises', FranchisesManage::class)->name('admin.franchises.index');
         Route::get('/franchises/{franchiseId}/pricing', FranchisePricingManage::class)->name('admin.franchises.pricing');
         Route::get('/zones', ZonesManage::class)->name('admin.zones.index');

@@ -507,6 +507,17 @@
                     </div>
 
                     <div>
+                        <label class="block text-sm font-medium mb-1">URL slug</label>
+                        @if ($this->canEditSlug(\App\Models\Service::find($editServiceId) ?? new \App\Models\Service))
+                            <input type="text" wire:model="editSlug" class="w-full border rounded px-3 py-2 text-sm font-mono" autocomplete="off">
+                            <p class="text-xs text-gray-500 mt-1">Part of the public web address. The old address keeps redirecting here.</p>
+                        @else
+                            <p class="text-sm font-mono text-gray-600">{{ $editSlug }}</p>
+                        @endif
+                        @error('editSlug') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
+                    </div>
+
+                    <div>
                         <label class="block text-sm font-medium mb-1">Description</label>
                         {{-- wire:ignore: Trix manages this DOM itself (cursor position,
                              toolbar state) and Livewire's morph-on-update — triggered by

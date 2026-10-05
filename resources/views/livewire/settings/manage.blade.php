@@ -966,6 +966,12 @@
                     <input type="text" wire:model="seoCanonicalBaseUrl" placeholder="https://1callfix.com" maxlength="200" class="w-full border rounded px-3 py-2 text-sm">
                     @error('seoCanonicalBaseUrl') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
                 </div>
+                <div class="mt-6 pt-4 border-t">
+                    <h3 class="text-sm font-semibold mb-1">Minimum providers before a city page is indexed (SEO)</h3>
+                    <p class="text-xs text-gray-400 mb-3">A city, category or service page is offered to search engines (and listed in the sitemap) only when the city has at least this many approved providers for it. Default 1. Set 0 to index every live page.</p>
+                    <input type="number" min="0" max="1000" wire:model="seoMinProvidersToIndex" class="w-32 border rounded px-3 py-2 text-sm">
+                    @error('seoMinProvidersToIndex') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
+                </div>
                 <div class="flex justify-end pt-4 mt-4 border-t">
                     <x-ui.button wire:click="saveSiteLinks">Save Links &amp; Credit</x-ui.button>
                 </div>

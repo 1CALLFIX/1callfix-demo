@@ -63,6 +63,7 @@ class SubcategoryImporter extends CatalogImporter
 
     protected function generateSlug(string $name): string
     {
-        return Str::slug($name).'-'.Str::random(4);
+        // F3: clean slug; HasManagedSlug adds -2, -3 only if it collides.
+        return Str::slug($name);
     }
 }

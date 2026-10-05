@@ -12,7 +12,7 @@
 
 <div class="mx-auto max-w-3xl px-4 py-6 sm:px-6 lg:px-8">
 
-    <a href="{{ route('customer.services.show', $service) }}"
+    <a href="{{ \App\Support\Seo\PublicUrl::service($service) }}"
        class="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600">
         <x-icon name="arrow-left" class="h-4 w-4" /> Back to {{ $service->name }}
     </a>

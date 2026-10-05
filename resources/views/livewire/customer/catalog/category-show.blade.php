@@ -27,7 +27,9 @@
 
             <div class="min-w-0">
                 <h1 class="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">{{ $category->name }}</h1>
-                @if ($category->description)
+                @if ($cityIntro)
+                    <p class="mt-2 max-w-2xl whitespace-pre-line text-sm leading-relaxed text-slate-600">{{ $cityIntro }}</p>
+                @elseif ($category->description)
                     <p class="mt-2 max-w-2xl text-sm leading-relaxed text-slate-600">{{ $category->description }}</p>
                 @endif
             </div>

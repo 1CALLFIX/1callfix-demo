@@ -294,6 +294,17 @@
                     </div>
 
                     <div>
+                        <label class="block text-sm font-medium mb-1">URL slug</label>
+                        @if ($this->canEditSlug(\App\Models\ServiceSubcategory::find($editSubcategoryId) ?? new \App\Models\ServiceSubcategory))
+                            <input type="text" wire:model="editSlug" class="w-full border rounded px-3 py-2 text-sm font-mono" autocomplete="off">
+                            <p class="text-xs text-gray-500 mt-1">Part of the public web address. The old address keeps redirecting here.</p>
+                        @else
+                            <p class="text-sm font-mono text-gray-600">{{ $editSlug }}</p>
+                        @endif
+                        @error('editSlug') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
+                    </div>
+
+                    <div>
                         <label class="block text-sm font-medium mb-1">Category <span class="text-red-500">*</span></label>
                         <select wire:model="editCategoryId" class="w-full border rounded px-3 py-2 text-sm">
                             @foreach ($categories->groupBy('module') as $moduleSlug => $group)

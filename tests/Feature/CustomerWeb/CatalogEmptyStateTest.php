@@ -10,6 +10,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
 use Tests\Feature\CustomerWeb\Support\CatalogFixtures;
 use Tests\Feature\Support\BookingFixtureHelpers;
+use Tests\Feature\Support\LiveCity;
 use Tests\TestCase;
 
 /**
@@ -24,7 +25,14 @@ class CatalogEmptyStateTest extends TestCase
 {
     use BookingFixtureHelpers;
     use CatalogFixtures;
+    use LiveCity;
     use RefreshDatabase;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->liveCity();
+    }
 
     public function test_every_discovery_route_renders_against_a_completely_empty_catalog(): void
     {
@@ -164,8 +172,8 @@ class CatalogEmptyStateTest extends TestCase
         $category = $this->makeCategory(['name' => 'Public Category']);
         $service = $this->makeService($category, ['name' => 'Public Service']);
 
-        $this->get(route('customer.categories.show', $category))->assertOk()->assertSeeText('Public Category');
-        $this->get(route('customer.services.show', $service))->assertOk()->assertSeeText('Public Service');
+        $this->get(\App\Support\Seo\PublicUrl::category($category))->assertOk()->assertSeeText('Public Category');
+        $this->get(\App\Support\Seo\PublicUrl::service($service))->assertOk()->assertSeeText('Public Service');
         $this->get(route('customer.search', ['q' => 'Public']))->assertOk();
     }
 
@@ -174,7 +182,7 @@ class CatalogEmptyStateTest extends TestCase
         $category = $this->makeCategory(['name' => 'Shared Category']);
 
         $this->actingAs($this->makeCustomer())
-            ->get(route('customer.categories.show', $category))
+            ->get(\App\Support\Seo\PublicUrl::category($category))
             ->assertOk()
             ->assertSeeText('Shared Category');
     }

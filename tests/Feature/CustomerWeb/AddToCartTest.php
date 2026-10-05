@@ -8,6 +8,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
 use Tests\Feature\CustomerWeb\Support\CatalogFixtures;
 use Tests\Feature\Support\BookingFixtureHelpers;
+use Tests\Feature\Support\LiveCity;
 use Tests\TestCase;
 
 /**
@@ -17,7 +18,14 @@ class AddToCartTest extends TestCase
 {
     use BookingFixtureHelpers;
     use CatalogFixtures;
+    use LiveCity;
     use RefreshDatabase;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->liveCity();
+    }
 
     public function test_a_guest_is_sent_to_sign_in(): void
     {
@@ -25,7 +33,7 @@ class AddToCartTest extends TestCase
 
         Livewire::test(ServiceShow::class, ['service' => $service])
             ->call('addToCart')
-            ->assertRedirect(route('customer.login', ['intended' => route('customer.services.show', $service->id)]));
+            ->assertRedirect(route('customer.login', ['intended' => \App\Support\Seo\PublicUrl::service($service)]));
 
         $this->assertSame(0, ServiceCartItem::count());
     }

@@ -37,7 +37,7 @@
                             <li class="p-4" wire:key="cart-item-{{ $item->id }}">
                                 <div class="flex items-start justify-between gap-3">
                                     <div class="min-w-0">
-                                        <a href="{{ route('customer.services.show', $item->service) }}" wire:navigate
+                                        <a href="{{ \App\Support\Seo\PublicUrl::service($item->service) }}" wire:navigate
                                            class="block truncate text-sm font-medium text-slate-900 hover:underline">
                                             {{ $item->service->name }}
                                         </a>

@@ -14,6 +14,8 @@ class AcquisitionSanitizer
         'utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content',
         'gclid', 'fbclid', 'msclkid',
         'landing_path', 'referrer_host', 'captured_at',
+        // F3: the city slug of the first city-scoped page seen with the campaign. Not a tracking key on its own.
+        'city',
     ];
 
     /** Keys that carry a real campaign signal (landing/referrer/time alone are not worth storing). */

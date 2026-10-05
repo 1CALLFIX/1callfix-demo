@@ -119,6 +119,13 @@ class CategoryShow extends Component
     {
         $category = ServiceCategory::findOrFail($this->categoryId);
         $catalog = $this->catalog();
+        // F3: franchise-edited copy and the "real page" indexing decision for this category in the URL's city.
+        $seo = $this->citySeo(
+            \App\Models\CityPageContent::SUBJECT_CATEGORY,
+            $category->id,
+            $category->name,
+            $category->description ?: $category->name.' services, booked in minutes.',
+        );
 
         $query = $catalog->services([
             'category_id' => $category->id,
@@ -141,11 +148,12 @@ class CategoryShow extends Component
             'banners' => $this->bannersFor('mid', $category->id),
             'currencySymbol' => $this->presenter()->currencySymbol(),
             'hasFilters' => $this->search !== '' || $this->subcategory !== null || $this->sort !== 'recommended',
+            'cityIntro' => $seo['intro'],
         ])->layout('components.layouts.customer', [
-            'title' => $category->name,
-            'indexable' => true,
+            'title' => $seo['title'],
+            'indexable' => $seo['indexable'],
             'ogImage' => $category->image_url,
-            'metaDescription' => $category->description ?: $category->name.' services, booked in minutes.',
+            'metaDescription' => $seo['metaDescription'],
         ]);
     }
 

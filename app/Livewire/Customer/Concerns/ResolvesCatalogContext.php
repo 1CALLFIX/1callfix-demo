@@ -6,6 +6,8 @@ use App\Models\Banner;
 use App\Services\Catalog\ServiceCatalogQuery;
 use App\Services\Customer\CatalogPresenter;
 use App\Services\Customer\CustomerLocationContext;
+use App\Services\Seo\CityContext;
+use App\Services\Seo\CityPageSeo;
 use Illuminate\Support\Collection;
 use Livewire\Attributes\On;
 
@@ -43,6 +45,23 @@ trait ResolvesCatalogContext
     public function zoneChanged(): void
     {
         // Intentionally empty — see the docblock.
+    }
+
+    /**
+     * F3: title / meta / intro / indexability for a catalog page in the city of the current URL (or, failing
+     * that, the visitor's city). With no city at all the page keeps its own defaults and stays noindex.
+     *
+     * @return array{title: string, metaDescription: ?string, intro: ?string, indexable: bool}
+     */
+    protected function citySeo(string $subjectType, int $subjectId, string $defaultTitle, ?string $defaultMeta): array
+    {
+        $city = request()->attributes->get('f3.city') ?? app(CityContext::class)->current();
+
+        if (! $city) {
+            return ['title' => $defaultTitle, 'metaDescription' => $defaultMeta, 'intro' => null, 'indexable' => false];
+        }
+
+        return app(CityPageSeo::class)->for($city, $subjectType, $subjectId, $defaultTitle, $defaultMeta);
     }
 
     protected function catalog(): ServiceCatalogQuery

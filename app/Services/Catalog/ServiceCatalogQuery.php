@@ -8,6 +8,7 @@ use App\Models\Service;
 use App\Models\ServiceCategory;
 use App\Models\ServiceSubcategory;
 use App\Support\Modules;
+use App\Support\Seo\QaRows;
 use Illuminate\Database\Eloquent\Builder;
 
 /**
@@ -58,6 +59,7 @@ class ServiceCatalogQuery
         return ServiceCategory::query()
             ->where('module', Modules::SERVICE)
             ->where('is_active', true)
+            ->when(QaRows::hiding(), fn ($q) => $q->where('name', 'not like', QaRows::LIKE))
             ->orderBy('sort_order')
             ->orderBy('name');
     }
@@ -68,6 +70,7 @@ class ServiceCatalogQuery
         return ServiceSubcategory::query()
             ->where('is_active', true)
             ->whereHas('category', fn ($q) => $q->where('module', Modules::SERVICE)->where('is_active', true))
+            ->when(QaRows::hiding(), fn ($q) => $q->where('name', 'not like', QaRows::LIKE))
             ->when($categoryId !== null, fn ($q) => $q->where('category_id', $categoryId))
             ->orderBy('sort_order')
             ->orderBy('name');
@@ -97,7 +100,9 @@ class ServiceCatalogQuery
 
         return Service::query()
             ->where('is_active', true)
-            ->whereHas('category', fn ($q) => $q->where('module', Modules::SERVICE)->where('is_active', true))
+            ->whereHas('category', fn ($q) => $q->where('module', Modules::SERVICE)->where('is_active', true)
+                ->when(QaRows::hiding(), fn ($c) => $c->where('name', 'not like', QaRows::LIKE)))
+            ->when(QaRows::hiding(), fn ($q) => $q->where('name', 'not like', QaRows::LIKE))
             ->when(($filters['category_id'] ?? null) !== null, fn ($q) => $q->where('category_id', $filters['category_id']))
             ->when(($filters['subcategory_id'] ?? null) !== null, fn ($q) => $q->where('subcategory_id', $filters['subcategory_id']))
             // `name_like` is left UNESCAPED on purpose: that is byte-for-byte

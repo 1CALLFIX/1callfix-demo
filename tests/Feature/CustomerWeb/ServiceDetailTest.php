@@ -10,6 +10,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
 use Tests\Feature\CustomerWeb\Support\CatalogFixtures;
 use Tests\Feature\Support\BookingFixtureHelpers;
+use Tests\Feature\Support\LiveCity;
 use Tests\TestCase;
 
 /**
@@ -26,7 +27,14 @@ class ServiceDetailTest extends TestCase
 {
     use BookingFixtureHelpers;
     use CatalogFixtures;
+    use LiveCity;
     use RefreshDatabase;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->liveCity();
+    }
 
     // ==================== Visibility / 404 ====================
 
@@ -35,7 +43,7 @@ class ServiceDetailTest extends TestCase
         $category = $this->makeCategory();
         $service = $this->makeService($category, ['name' => 'Renders Fine']);
 
-        $this->get(route('customer.services.show', $service))
+        $this->get(\App\Support\Seo\PublicUrl::service($service))
             ->assertOk()
             ->assertSeeText('Renders Fine');
     }
@@ -44,21 +52,21 @@ class ServiceDetailTest extends TestCase
     {
         $service = $this->makeService($this->makeCategory(), ['is_active' => false]);
 
-        $this->get(route('customer.services.show', $service))->assertNotFound();
+        $this->get(\App\Support\Seo\PublicUrl::service($service))->assertNotFound();
     }
 
     public function test_a_service_in_an_inactive_category_is_a_404(): void
     {
         $service = $this->makeService($this->makeCategory(['is_active' => false]));
 
-        $this->get(route('customer.services.show', $service))->assertNotFound();
+        $this->get(\App\Support\Seo\PublicUrl::service($service))->assertNotFound();
     }
 
     public function test_a_service_from_another_vertical_is_a_404(): void
     {
         $service = $this->makeService($this->makeCategory(['module' => 'commerce']));
 
-        $this->get(route('customer.services.show', $service))->assertNotFound();
+        $this->get(\App\Support\Seo\PublicUrl::service($service))->assertNotFound();
     }
 
     public function test_an_unknown_service_id_is_a_404(): void
@@ -70,14 +78,14 @@ class ServiceDetailTest extends TestCase
     {
         $category = $this->makeCategory(['is_active' => false]);
 
-        $this->get(route('customer.categories.show', $category))->assertNotFound();
+        $this->get(\App\Support\Seo\PublicUrl::category($category))->assertNotFound();
     }
 
     public function test_a_category_from_another_vertical_is_a_404(): void
     {
         $category = $this->makeCategory(['module' => 'hotel']);
 
-        $this->get(route('customer.categories.show', $category))->assertNotFound();
+        $this->get(\App\Support\Seo\PublicUrl::category($category))->assertNotFound();
     }
 
     // ==================== Options ====================

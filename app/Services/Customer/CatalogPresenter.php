@@ -130,7 +130,7 @@ class CatalogPresenter
             'category' => $service->category,
             'subcategory' => $service->subcategory,
             'image_url' => $service->cover_image_url,
-            'url' => route('customer.services.show', $service),
+            'url' => \App\Support\Seo\PublicUrl::service($service),
 
             'price' => $finalPrice,
             'original_price' => $hasSaving ? $listPrice : null,
