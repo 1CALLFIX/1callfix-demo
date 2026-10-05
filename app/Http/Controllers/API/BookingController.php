@@ -98,6 +98,7 @@ class BookingController extends Controller
                 'scheduled_at' => $validated['scheduled_at'] ?? null,
                 'payment_method' => $paymentMethod,
                 'customer_note' => $validated['customer_note'] ?? null,
+                'acquisition' => $validated['acquisition'] ?? null,
             ]);
         } catch (ModuleNotActiveException $e) {
             return ApiResponse::error($e->getMessage(), 422);

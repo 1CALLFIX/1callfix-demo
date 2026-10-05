@@ -18,6 +18,8 @@ use App\Services\ModuleActivationService;
 use App\Services\Plans\EntitlementService;
 use App\Services\ScheduledDispatchService;
 use App\Services\WalletService;
+use App\Support\Acquisition\AcquisitionContext;
+use App\Support\Acquisition\AcquisitionSanitizer;
 use App\Support\Modules;
 use Illuminate\Support\Facades\DB;
 
@@ -183,6 +185,8 @@ class CreateBookingAction
             'price_quoted' => $basePrice,
             'payment_method' => $data['payment_method'] ?? 'online',
             'customer_note' => $data['customer_note'] ?? null,
+            // F1 — display/reporting only. One write path: API body first, else the web session.
+            'acquisition' => AcquisitionSanitizer::clean($data['acquisition'] ?? null) ?? AcquisitionContext::current(),
         ]);
 
         // Records that this booking really used the sale — the ONLY place

@@ -40,6 +40,9 @@ return Application::configure(basePath: dirname(__DIR__))
         // route in routes/api.php.
         $middleware->throttleApi();
 
+        // F1 — first-touch UTM / click-id capture on web pages.
+        $middleware->web(append: [\App\Http\Middleware\CaptureAcquisition::class]);
+
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         // api/* is stateless JSON. The Phase 2 push-token endpoints

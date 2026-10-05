@@ -30,6 +30,8 @@ class StoreBookingRequest extends CustomerApiRequest
                 'before_or_equal:'.now()->addDays($maxDays)->toDateTimeString(),
             ],
             'customer_note' => ['nullable', 'string', 'max:1000'],
+            // F1 — contents are whitelisted by AcquisitionSanitizer, not here.
+            'acquisition' => ['nullable', 'array'],
         ];
     }
 }
