@@ -4,7 +4,9 @@ namespace App\Http\Controllers\API;
 
 use App\Actions\AdminCancelBookingAction;
 use App\Actions\CreateBookingAction;
+use App\Exceptions\CouponEntryBlockedException;
 use App\Exceptions\ModuleNotActiveException;
+use App\Services\Coupons\CouponEntryGate;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Customer\CancelBookingRequest;
 use App\Http\Requests\Customer\StoreBookingRequest;
@@ -88,6 +90,15 @@ class BookingController extends Controller
             return ApiResponse::error("Payment method '{$paymentMethod}' is not currently available.", 422);
         }
 
+        $couponCode = trim((string) ($validated['coupon_code'] ?? ''));
+        if ($couponCode !== '') {
+            try {
+                CouponEntryGate::attempt($customer, 'wizard', $request->ip());
+            } catch (CouponEntryBlockedException $e) {
+                return ApiResponse::error($e->getMessage(), $e->status);
+            }
+        }
+
         try {
             $booking = $action->execute([
                 'franchise_id' => $address->franchise_id,
@@ -98,6 +109,7 @@ class BookingController extends Controller
                 'scheduled_at' => $validated['scheduled_at'] ?? null,
                 'payment_method' => $paymentMethod,
                 'customer_note' => $validated['customer_note'] ?? null,
+                'coupon_code' => $couponCode !== '' ? $couponCode : null,
                 'acquisition' => $validated['acquisition'] ?? null,
             ]);
         } catch (ModuleNotActiveException $e) {

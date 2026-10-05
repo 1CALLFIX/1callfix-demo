@@ -4,7 +4,9 @@ namespace App\Http\Controllers\API;
 
 use App\Actions\CancelBookingBundleAction;
 use App\Actions\CreateBookingBundleAction;
+use App\Exceptions\CouponEntryBlockedException;
 use App\Exceptions\ModuleNotActiveException;
+use App\Services\Coupons\CouponEntryGate;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Customer\CancelBookingRequest;
 use App\Http\Requests\Customer\StoreBookingBundleRequest;
@@ -85,13 +87,23 @@ class BookingBundleController extends Controller
             ];
         }
 
+        $couponCode = trim((string) ($validated['coupon_code'] ?? ''));
+        if ($couponCode !== '') {
+            try {
+                CouponEntryGate::attempt($customer, 'bundles', $request->ip());
+            } catch (CouponEntryBlockedException $e) {
+                return ApiResponse::error($e->getMessage(), $e->status);
+            }
+        }
+
         try {
             $bundle = $action->execute([
                 'customer_id' => $customer->id,
                 'payment_method' => $paymentMethod,
                 'idempotency_key' => $idempotencyKey,
-                'request_fingerprint' => $this->fingerprint($children, $paymentMethod),
+                'request_fingerprint' => $this->fingerprint($children, $paymentMethod, $couponCode),
                 'children' => $children,
+                'coupon_code' => $couponCode !== '' ? $couponCode : null,
                 'acquisition' => $validated['acquisition'] ?? null,
             ]);
         } catch (ModuleNotActiveException $e) {
@@ -195,7 +207,7 @@ class BookingBundleController extends Controller
      * service (or changes the payment method) hashes differently and is
      * rejected rather than silently mutating the first bundle.
      */
-    private function fingerprint(array $children, string $paymentMethod): string
+    private function fingerprint(array $children, string $paymentMethod, string $couponCode = ''): string
     {
         $normalised = array_map(fn ($c) => [
             'service_id' => (int) $c['service_id'],
@@ -204,6 +216,8 @@ class BookingBundleController extends Controller
             'customer_note' => $c['customer_note'] ?? null,
         ], $children);
 
-        return hash('sha256', json_encode([$paymentMethod, $normalised]));
+        // The coupon code is part of the request body, so a replay with a different code is a different request.
+        // Without a code the hash is byte-identical to what it always was.
+        return hash('sha256', json_encode($couponCode === '' ? [$paymentMethod, $normalised] : [$paymentMethod, $normalised, strtolower($couponCode)]));
     }
 }

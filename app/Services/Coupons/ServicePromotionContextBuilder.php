@@ -5,6 +5,8 @@ namespace App\Services\Coupons;
 use App\Models\Booking;
 use App\Models\BookingBundle;
 use App\Models\FlashSaleRedemption;
+use App\Models\Franchise;
+use App\Models\User;
 use App\Models\UsageLedger;
 use App\Support\Modules;
 use Illuminate\Support\Collection;
@@ -24,6 +26,42 @@ class ServicePromotionContextBuilder
     public function forBooking(Booking $booking, ?string $code, bool $flashApplied = false): PromotionContext
     {
         return $this->make($booking, [$this->line($booking, $flashApplied, false)], $code, [$booking->id]);
+    }
+
+    /**
+     * A read-only preview with no booking yet (CouponQuoteService). $lines: service + the server-resolved unit
+     * price + whether a flash sale priced it. Never takes an amount from a client.
+     *
+     * @param  array<int, array{service: \App\Models\Service, unit_price: float, flash_applied: bool}>  $lines
+     */
+    public function forQuote(User $customer, ?int $franchiseId, ?int $zoneId, ?Franchise $franchise, array $lines, string $paymentMethod, ?string $code): PromotionContext
+    {
+        $built = [];
+        foreach ($lines as $i => $line) {
+            $service = $line['service'];
+            $built[] = [
+                'line_ref' => 'q'.$i,
+                'category_id' => $service->category_id,
+                'subcategory_id' => $service->subcategory_id,
+                'service_id' => $service->id,
+                'line_total' => (float) $line['unit_price'],
+                'flash_applied' => (bool) $line['flash_applied'],
+                'entitlement_covered' => false,
+            ];
+        }
+
+        return new PromotionContext(
+            module: Modules::SERVICE,
+            franchiseId: $franchiseId,
+            cityId: $franchise?->city_id,
+            zoneId: $zoneId,
+            customer: $customer,
+            paymentMethod: $paymentMethod,
+            lines: $built,
+            code: $code,
+            ignoreBookingIds: [],
+            countryId: $franchise?->country_id,
+        );
     }
 
     /** @param  Collection<int, Booking>  $children */
