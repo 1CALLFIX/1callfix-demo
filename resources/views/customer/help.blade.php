@@ -1,7 +1,7 @@
 {{-- Help centre. Every question and answer is a real, active `faqs` row —
      the same source and ordering the public API's /api/faqs already serves.
      Nothing is written here. --}}
-<x-layouts.customer title="Help centre">
+<x-layouts.customer title="Help centre" :indexable="true">
     <div class="mx-auto max-w-3xl px-4 py-12 sm:px-6 sm:py-16 lg:px-8">
         <header>
             <h1 class="text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">Help centre</h1>

@@ -960,6 +960,12 @@
                     <input type="text" wire:model="brandingFooterCredit" maxlength="200" class="w-full border rounded px-3 py-2 text-sm">
                     @error('brandingFooterCredit') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
                 </div>
+                <div class="mt-6 pt-4 border-t">
+                    <h3 class="text-sm font-semibold mb-1">Canonical site address (SEO)</h3>
+                    <p class="text-xs text-gray-400 mb-3">Used for canonical and Open Graph URLs on public pages, whatever host the visitor arrived on. https only, no trailing slash. Default: https://1callfix.com</p>
+                    <input type="text" wire:model="seoCanonicalBaseUrl" placeholder="https://1callfix.com" maxlength="200" class="w-full border rounded px-3 py-2 text-sm">
+                    @error('seoCanonicalBaseUrl') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
+                </div>
                 <div class="flex justify-end pt-4 mt-4 border-t">
                     <x-ui.button wire:click="saveSiteLinks">Save Links &amp; Credit</x-ui.button>
                 </div>

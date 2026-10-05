@@ -267,6 +267,8 @@ class ServiceShow extends Component
             'currencySymbol' => $this->presenter()->currencySymbol(),
         ])->layout('components.layouts.customer', [
             'title' => $service->name,
+            'indexable' => true,
+            'ogImage' => $service->cover_image_url,
             'metaDescription' => $service->description
                 ? \Illuminate\Support\Str::limit(strip_tags($service->description), 150)
                 : $service->name.' — book a verified professional.',
