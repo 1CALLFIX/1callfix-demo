@@ -41,6 +41,41 @@
         @endif
     </x-ui.card>
 
+    <x-ui.card class="mb-6">
+        <h2 class="text-sm font-semibold mb-2">Coupon entry controls</h2>
+        <p class="text-xs text-gray-500 mb-3">Where customers can type a coupon, and how many attempts they get. Only a Super Admin can change these.</p>
+        @if ($isSuperAdmin)
+            <form wire:submit="saveEntryControls" class="space-y-3">
+                <div class="flex flex-wrap gap-4 text-sm">
+                    <label class="flex items-center gap-2"><input type="checkbox" wire:model="surfaceWizard" class="rounded border-gray-300"> Booking wizard</label>
+                    <label class="flex items-center gap-2"><input type="checkbox" wire:model="surfaceCart" class="rounded border-gray-300"> Cart</label>
+                    <label class="flex items-center gap-2"><input type="checkbox" wire:model="surfaceCheckout" class="rounded border-gray-300"> Checkout</label>
+                    <label class="flex items-center gap-2"><input type="checkbox" wire:model="surfaceBundles" class="rounded border-gray-300"> Bundles</label>
+                </div>
+                <div class="flex flex-wrap items-end gap-4">
+                    <div>
+                        <label class="block text-xs font-medium mb-1" for="rl-cust">Attempts per customer</label>
+                        <input id="rl-cust" type="text" inputmode="numeric" wire:model="attemptsPerCustomer" class="w-28 border rounded px-3 py-2 text-sm">
+                        @error('attemptsPerCustomer') <p class="text-xs text-red-600 mt-1">{{ $message }}</p> @enderror
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium mb-1" for="rl-ip">Attempts per IP</label>
+                        <input id="rl-ip" type="text" inputmode="numeric" wire:model="attemptsPerIp" class="w-28 border rounded px-3 py-2 text-sm">
+                        @error('attemptsPerIp') <p class="text-xs text-red-600 mt-1">{{ $message }}</p> @enderror
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium mb-1" for="rl-win">Window (seconds)</label>
+                        <input id="rl-win" type="text" inputmode="numeric" wire:model="attemptWindowSeconds" class="w-28 border rounded px-3 py-2 text-sm">
+                        @error('attemptWindowSeconds') <p class="text-xs text-red-600 mt-1">{{ $message }}</p> @enderror
+                    </div>
+                    <button type="submit" class="px-4 py-2 text-sm rounded bg-slate-900 text-white">Save entry controls</button>
+                </div>
+            </form>
+        @else
+            <p class="text-xs text-gray-500">Wizard {{ $surfaceWizard ? 'on' : 'off' }} · Cart {{ $surfaceCart ? 'on' : 'off' }} · Checkout {{ $surfaceCheckout ? 'on' : 'off' }} · Bundles {{ $surfaceBundles ? 'on' : 'off' }} · {{ $attemptsPerCustomer }} per customer / {{ $attemptsPerIp }} per IP every {{ $attemptWindowSeconds }}s.</p>
+        @endif
+    </x-ui.card>
+
     @if ($showForm)
         <x-ui.card class="mb-6">
             <h2 class="text-sm font-semibold mb-3">{{ $editingId ? 'Edit coupon' : 'New coupon (saved as a draft)' }}</h2>

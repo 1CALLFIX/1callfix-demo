@@ -94,6 +94,21 @@ class Manage extends Component
 
     public string $settingHoldMinutes = '';
 
+    // Coupon-entry controls (C3): per-surface switches + attempt rate limit.
+    public bool $surfaceWizard = true;
+
+    public bool $surfaceCart = true;
+
+    public bool $surfaceCheckout = true;
+
+    public bool $surfaceBundles = true;
+
+    public string $attemptsPerCustomer = '';
+
+    public string $attemptsPerIp = '';
+
+    public string $attemptWindowSeconds = '';
+
     public string $flashType = 'success';
 
     public string $flashMessage = '';
@@ -104,6 +119,14 @@ class Manage extends Component
 
         $this->settingEnabled = CouponSettings::enabled();
         $this->settingHoldMinutes = (string) Setting::get('coupons.unpaid_hold_minutes', '');
+
+        $this->surfaceWizard = CouponSettings::surfaceEnabled('wizard');
+        $this->surfaceCart = CouponSettings::surfaceEnabled('cart');
+        $this->surfaceCheckout = CouponSettings::surfaceEnabled('checkout');
+        $this->surfaceBundles = CouponSettings::surfaceEnabled('bundles');
+        $this->attemptsPerCustomer = (string) CouponSettings::attemptsPerCustomer();
+        $this->attemptsPerIp = (string) CouponSettings::attemptsPerIp();
+        $this->attemptWindowSeconds = (string) CouponSettings::attemptWindowSeconds();
     }
 
     private function allow(string $permission): void
@@ -310,6 +333,31 @@ class Manage extends Component
 
         $this->flashType = 'success';
         $this->flashMessage = $changed ? 'Coupon settings saved.' : 'Nothing changed.';
+    }
+
+    public function saveEntryControls(): void
+    {
+        // Super Admin only (C3 items 5/6) — checked again inside CouponSettings::saveEntryControls().
+        abort_unless(SuperAdminGate::allows(auth()->user()), 403, 'Only a Super Admin can change global coupon settings.');
+
+        $this->validate([
+            'attemptsPerCustomer' => ['nullable', 'integer', 'min:1', 'max:100000'],
+            'attemptsPerIp' => ['nullable', 'integer', 'min:1', 'max:100000'],
+            'attemptWindowSeconds' => ['nullable', 'integer', 'min:1', 'max:86400'],
+        ], [], ['attemptsPerCustomer' => 'attempts per customer', 'attemptsPerIp' => 'attempts per IP', 'attemptWindowSeconds' => 'window seconds']);
+
+        $int = fn (string $v): ?int => trim($v) === '' ? null : (int) $v;
+
+        $changed = CouponSettings::saveEntryControls(
+            auth()->user(),
+            ['wizard' => $this->surfaceWizard, 'cart' => $this->surfaceCart, 'checkout' => $this->surfaceCheckout, 'bundles' => $this->surfaceBundles],
+            $int($this->attemptsPerCustomer),
+            $int($this->attemptsPerIp),
+            $int($this->attemptWindowSeconds),
+        );
+
+        $this->flashType = 'success';
+        $this->flashMessage = $changed ? 'Coupon entry controls saved.' : 'Nothing changed.';
     }
 
     private function resetForm(): void
