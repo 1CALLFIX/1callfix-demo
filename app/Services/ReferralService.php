@@ -9,6 +9,7 @@ use App\Models\Setting;
 use App\Models\User;
 use App\Notifications\ReferralStatusNotification;
 use App\Notifications\Support\ChannelResolver;
+use App\Services\Payments\OnlinePaymentGuard;
 use Illuminate\Support\Facades\DB;
 use App\Support\EarningsSettings;
 
@@ -180,6 +181,17 @@ class ReferralService
         $referral = Referral::where('referred_id', $booking->customer_id)->where('status', 'pending')->first();
 
         if (! $referral) {
+            return null;
+        }
+
+        // THUMB RULE (D8) — the reward is a benefit: only a completed booking that was paid ONLINE (Razorpay,
+        // wallet or both, captured) qualifies. A cash / cash+online completion, or a payment that was only
+        // initiated, pays nothing; the referral stays pending and the withhold is audited.
+        if (! OnlinePaymentGuard::isOnline($booking->payment_method) || $booking->payment_status !== 'paid') {
+            ActivityLogger::logModel(null, $referral, "Referral reward withheld: booking #{$booking->id} was not completed with an online payment", [
+                'booking_id' => $booking->id, 'payment_method' => $booking->payment_method, 'payment_status' => $booking->payment_status,
+            ]);
+
             return null;
         }
 

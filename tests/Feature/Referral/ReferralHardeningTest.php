@@ -82,6 +82,7 @@ class ReferralHardeningTest extends TestCase
         Setting::set('referral.pending_expiry_days', '30');
         $referrer = $this->makeCustomer();
         ['booking' => $booking, 'customer' => $referred] = $this->makeBookingScenario('completed');
+        $booking->update(['payment_status' => 'paid']); // D8
         $referred->update(['referred_by' => $referrer->id]);
         app(ReferralService::class)->createFromSignup($referred->fresh());
 
