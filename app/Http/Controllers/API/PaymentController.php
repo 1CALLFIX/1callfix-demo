@@ -33,7 +33,12 @@ class PaymentController extends Controller
             return response()->json(['message' => 'Online payments are currently disabled.'], 422);
         }
 
-        $order = $gateway->createOrder($booking);
+        try {
+            $order = $gateway->createOrder($booking);
+        } catch (\App\Exceptions\PaymentGatewayException $e) {
+            // Customer-safe by construction; the gateway's detail is already in the log.
+            return response()->json(['message' => $e->getMessage()], 409);
+        }
 
         $payment = Payment::create([
             'booking_id' => $booking->id,

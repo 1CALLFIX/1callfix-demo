@@ -294,7 +294,13 @@ class Show extends Component
             return;
         }
 
-        $order = $gateway->createOrder($booking);
+        try {
+            $order = $gateway->createOrder($booking);
+        } catch (\App\Exceptions\PaymentGatewayException $e) {
+            $this->error = $e->getMessage();
+
+            return;
+        }
 
         Payment::firstOrCreate(
             ['gateway_order_id' => $order['razorpay_order_id']],
