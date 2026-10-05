@@ -36,6 +36,7 @@ use Maatwebsite\Excel\Facades\Excel;
 // shown read-only, and filterable via that relation.
 class Manage extends Component
 {
+    use \App\Livewire\Concerns\EditsManagedSlug;
     use WithFileUploads;
     use WithPagination;
     use HasCsvExport;
@@ -158,7 +159,6 @@ class Manage extends Component
         ServiceSubcategory::create([
             'category_id' => $this->categoryId,
             'name' => $this->name,
-            'slug' => Str::slug($this->name).'-'.Str::random(4),
             'image' => $this->storeIcon($this->iconFile),
             // New rows go to the end of the list; Reorder moves them from there.
             'sort_order' => (int) ServiceSubcategory::max('sort_order') + 1,
@@ -205,6 +205,7 @@ class Manage extends Component
 
         $this->editSubcategoryId = $sub->id;
         $this->editName = $sub->name;
+        $this->loadEditSlug($sub);
         $this->editIconFile = null;
         $this->editExistingImage = $sub->image;
         $this->editCategoryId = (string) $sub->category_id;
@@ -238,6 +239,10 @@ class Manage extends Component
 
         $sub = ServiceSubcategory::findOrFail($this->editSubcategoryId);
 
+        if (! $this->applyEditSlug($sub)) {
+            return;
+        }
+
         $image = $sub->image;
         if ($this->editIconFile) {
             $image = $this->storeIcon($this->editIconFile);
@@ -252,6 +257,11 @@ class Manage extends Component
             'image' => $image,
             'is_active' => $this->editIsActive,
         ]);
+
+        // Moved to another category: its slug only has to be unique inside the new one.
+        if ($sub->wasChanged('category_id') && \App\Services\Slug\SlugManager::problem($sub, (string) $sub->slug)) {
+            $sub->update(['slug' => \App\Services\Slug\SlugManager::generate($sub)]);
+        }
 
         $this->showEditModal = false;
         $this->editIconFile = null;

@@ -180,6 +180,15 @@ front-end build.
 | LATER | Commit PHASE_SEO_DISCOVERY_AND_MIGRATION_BASELINE.md under docs/ with a "dated 2026-09-25, partly superseded" header (sitemap.xml/robots.txt were built after it). |
 | LATER | Root-domain cutover items from that report: HTTPS + www→apex 301, `assetlinks.json` ownership, Glover `/api/*` collision decision. |
 
+## F-series: SEO / acquisition
+
+| Step | Item | Status |
+|---|---|---|
+| F1 | First-touch UTM/click-id capture on bookings | merged, main `2094881`; migration `2026_10_04_300000_add_acquisition_to_bookings` pending on prod |
+| F2 | Canonical + Open Graph, `seo.canonical_base_url` setting, noindex on private pages | merged, main `cad12de`; not deployed |
+| F3 | Clean, admin-controlled, multi-city public URLs (`/{city}/{slug}`, generic `slug_redirects`, `catalog:clean-slugs`, franchise city content, per-city sitemap) | thumb rule added to CLAUDE.md (`d1d2da2`); URL plan + migrations SHOWN, awaiting owner approval; nothing built |
+| F3-later | Franchise slugs (random-suffix today, e.g. `nellore-central-DjGv`): clean + editable + redirects, same helper | LATER |
+
 ## Done (for context)
 
 | Item | Where |

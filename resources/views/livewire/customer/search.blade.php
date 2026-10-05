@@ -93,7 +93,7 @@
                     <ul class="mt-3 flex flex-wrap gap-2">
                         @foreach ($categories as $category)
                             <li>
-                                <a href="{{ route('customer.categories.show', $category) }}"
+                                <a href="{{ \App\Support\Seo\PublicUrl::category($category) }}"
                                    class="inline-flex min-h-11 items-center rounded-full border border-slate-300 bg-white px-4 text-sm font-medium text-slate-700 transition hover:border-slate-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900">
                                     {{ $category->name }}
                                 </a>
@@ -105,7 +105,7 @@
                                      already filtered to it — the same URL the
                                      category page's own chips produce, so the
                                      two routes into that view are identical. --}}
-                                <a href="{{ $sub->category ? route('customer.categories.show', [$sub->category, 'sub' => $sub->id]) : route('customer.categories.index') }}"
+                                <a href="{{ $sub->category ? \App\Support\Seo\PublicUrl::category($sub->category, null, ['sub' => $sub->id]) : route('customer.categories.index') }}"
                                    class="inline-flex min-h-11 items-center rounded-full border border-slate-200 bg-slate-50 px-4 text-sm text-slate-700 transition hover:border-slate-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900">
                                     {{ $sub->name }}
                                     @if ($sub->category)

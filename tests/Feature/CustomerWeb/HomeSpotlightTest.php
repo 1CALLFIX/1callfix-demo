@@ -8,6 +8,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
 use Tests\Feature\Rbac\RbacTestHelpers;
 use Tests\Feature\Support\BookingFixtureHelpers;
+use Tests\Feature\Support\LiveCity;
 use Tests\TestCase;
 
 /**
@@ -17,7 +18,14 @@ class HomeSpotlightTest extends TestCase
 {
     use BookingFixtureHelpers;
     use RbacTestHelpers;
+    use LiveCity;
     use RefreshDatabase;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->liveCity();
+    }
 
     private function admin()
     {
@@ -64,8 +72,8 @@ class HomeSpotlightTest extends TestCase
 
         $this->assertStringContainsString('Spotlit Cooler', $html);
         $this->assertStringContainsString('Just launched', $html);
-        $this->assertStringContainsString(route('customer.services.show', $service), $html);
-        $this->assertStringContainsString(route('customer.categories.show', $category), $html);
+        $this->assertStringContainsString(\App\Support\Seo\PublicUrl::service($service), $html);
+        $this->assertStringContainsString(\App\Support\Seo\PublicUrl::category($category), $html);
     }
 
     public function test_inactive_slot_is_not_shown_in_the_collage(): void

@@ -75,12 +75,20 @@
                             <td colspan="9" class="px-4 py-4">
                                 <table class="w-full text-xs mb-3">
                                     <thead class="text-left text-gray-500"><tr>
-                                        <x-ui.sno-th class="pr-3 py-1" /><th class="pr-3 py-1">City</th><th class="pr-3 py-1">Franchises</th><th class="pr-3 py-1">Status</th><th class="pr-3 py-1"></th></tr></thead>
+                                        <x-ui.sno-th class="pr-3 py-1" /><th class="pr-3 py-1">City</th><th class="pr-3 py-1">URL slug</th><th class="pr-3 py-1">Franchises</th><th class="pr-3 py-1">Status</th><th class="pr-3 py-1"></th></tr></thead>
                                     <tbody>
                                         @forelse (($citiesByCountry[$country->id] ?? collect()) as $city)
                                             <tr class="border-t" wire:key="city-{{ $city->id }}">
                                                 <x-ui.sno :rows="($citiesByCountry[$country->id] ?? collect())" :loop="$loop" class="pr-3 py-1" />
                                                 <td class="pr-3 py-1">{{ $city->name }}</td>
+                                                <td class="pr-3 py-1">
+                                                    @if (\App\Support\SuperAdminGate::allows(auth()->user()))
+                                                        <input type="text" wire:model="citySlugs.{{ $city->id }}" placeholder="{{ $city->slug }}" class="border rounded px-2 py-1 text-xs font-mono w-32">
+                                                        <x-ui.button variant="ghost" wire:click="saveCitySlug({{ $city->id }})">Save</x-ui.button>
+                                                    @else
+                                                        <span class="font-mono text-gray-600">{{ $city->slug }}</span>
+                                                    @endif
+                                                </td>
                                                 <td class="pr-3 py-1">{{ $city->franchises_count }}</td>
                                                 <td class="pr-3 py-1">{{ $city->is_active ? 'active' : 'inactive' }}</td>
                                                 <td class="pr-3 py-1 text-right whitespace-nowrap">
@@ -89,7 +97,7 @@
                                                 </td>
                                             </tr>
                                         @empty
-                                            <tr><td colspan="5" class="py-2 text-gray-400">No cities in {{ $country->name }} yet.</td></tr>
+                                            <tr><td colspan="6" class="py-2 text-gray-400">No cities in {{ $country->name }} yet.</td></tr>
                                         @endforelse
                                     </tbody>
                                 </table>

@@ -116,7 +116,7 @@ class Home extends Component
                     $category = $categories->get($row->target_id);
                     $tile = $category ? [
                         'name' => $category->name,
-                        'url' => route('customer.categories.show', $category),
+                        'url' => \App\Support\Seo\PublicUrl::category($category),
                         'image_url' => $category->image_url,
                     ] : null;
                 } else {

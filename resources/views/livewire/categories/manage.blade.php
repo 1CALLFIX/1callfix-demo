@@ -281,6 +281,17 @@
                         @error('editName') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
                     </div>
 
+                    <div>
+                        <label class="block text-sm font-medium mb-1">URL slug</label>
+                        @if ($this->canEditSlug(\App\Models\ServiceCategory::find($editCategoryId) ?? new \App\Models\ServiceCategory))
+                            <input type="text" wire:model="editSlug" class="w-full border rounded px-3 py-2 text-sm font-mono" autocomplete="off">
+                            <p class="text-xs text-gray-500 mt-1">Part of the public web address. The old address keeps redirecting here.</p>
+                        @else
+                            <p class="text-sm font-mono text-gray-600">{{ $editSlug }}</p>
+                        @endif
+                        @error('editSlug') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
+                    </div>
+
                     <div class="grid grid-cols-2 gap-4">
                         <div>
                             <label class="block text-sm font-medium mb-1">Icon <span class="text-red-500">*</span></label>

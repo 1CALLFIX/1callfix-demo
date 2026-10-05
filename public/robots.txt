@@ -11,5 +11,6 @@ Disallow: /earnings
 Disallow: /book/
 Disallow: /login
 Disallow: /signup
+Disallow: /choose-city
 
 Sitemap: https://1callfix.com/sitemap.xml

@@ -203,7 +203,7 @@
                 <x-customer.section-heading :id="'collection-'.$collectionCategory->id"
                                             :title="$collectionCategory->name"
                                             :description="$collectionCategory->description"
-                                            :link="route('customer.categories.show', $collectionCategory)" />
+                                            :link="\App\Support\Seo\PublicUrl::category($collectionCategory)" />
 
                 <x-customer.service-rail :cards="$collection['cards']"
                                          :currency-symbol="$currencySymbol"

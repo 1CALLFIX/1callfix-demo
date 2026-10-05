@@ -195,6 +195,12 @@ class Manage extends Component
             return false;
         }
 
+        // F3: the /{city} wildcard matches every single segment; it only claims the address when a city really has that slug.
+        if ($route->getName() === 'customer.city.show') {
+            return \App\Models\City::query()->where('slug', $slug)->exists()
+                || \App\Models\SlugRedirect::query()->where(['scope' => 'city', 'old_slug' => $slug])->exists();
+        }
+
         return ! $route->isFallback;
     }
 

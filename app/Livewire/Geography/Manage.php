@@ -4,6 +4,8 @@ namespace App\Livewire\Geography;
 
 use App\Models\City;
 use App\Models\Country;
+use App\Services\Slug\SlugManager;
+use Illuminate\Validation\ValidationException;
 use Livewire\Component;
 
 /**
@@ -36,6 +38,9 @@ class Manage extends Component
     // --- New city form, scoped to the expanded country ---
     public ?int $expandedCountryId = null;
     public string $cityName = '';
+
+    /** @var array<int, string> city id => slug being typed (Super Admin only) */
+    public array $citySlugs = [];
 
     public string $flashMessage = '';
     public string $flashType = 'success';
@@ -147,6 +152,37 @@ class Manage extends Component
         $this->reset('cityName');
         $this->flashType = 'success';
         $this->flashMessage = 'City added.';
+    }
+
+    /** F3: city slugs are Super Admin only. SlugManager re-checks, validates, leaves the redirect and audit-logs. */
+    public function saveCitySlug(int $cityId): void
+    {
+        $city = City::findOrFail($cityId);
+
+        if (! SlugManager::canEdit(auth()->user(), $city)) {
+            $this->flashType = 'error';
+            $this->flashMessage = 'Only a Super Admin can change a city slug.';
+            return;
+        }
+
+        $typed = trim((string) ($this->citySlugs[$cityId] ?? ''));
+        if ($typed === '') {
+            $this->flashType = 'error';
+            $this->flashMessage = 'Type the new slug first.';
+            return;
+        }
+
+        try {
+            $changed = SlugManager::change($city, $typed, auth()->user());
+        } catch (ValidationException $e) {
+            $this->flashType = 'error';
+            $this->flashMessage = $e->errors()['slug'][0] ?? 'This slug cannot be used.';
+            return;
+        }
+
+        unset($this->citySlugs[$cityId]);
+        $this->flashType = 'success';
+        $this->flashMessage = $changed ? 'City slug updated. The old address redirects to the new one.' : 'Slug unchanged.';
     }
 
     public function toggleCityActive(int $cityId): void

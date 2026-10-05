@@ -1,6 +1,9 @@
 <?php
 
+use App\Http\Controllers\Customer\CityChooserController;
+use App\Http\Controllers\Customer\CityRouteController;
 use App\Http\Controllers\Customer\InvoiceController;
+use App\Http\Controllers\Customer\LegacyCatalogRedirectController;
 use App\Http\Controllers\Customer\PageController;
 use App\Livewire\Customer\Account\Addresses as CustomerAddresses;
 use App\Livewire\Customer\Auth\ForgotPassword as CustomerForgotPassword;
@@ -13,9 +16,7 @@ use App\Livewire\Customer\Bundles\Show as CustomerBundleShow;
 use App\Livewire\Customer\Cart\Index as CustomerCart;
 use App\Livewire\Customer\Catalog\CategoryIndex as CustomerCategoryIndex;
 use App\Livewire\Customer\Checkout as CustomerCheckout;
-use App\Livewire\Customer\Catalog\CategoryShow as CustomerCategoryShow;
 use App\Livewire\Customer\Catalog\ServiceIndex as CustomerServiceIndex;
-use App\Livewire\Customer\Catalog\ServiceShow as CustomerServiceShow;
 use App\Livewire\Customer\Home as CustomerHome;
 use App\Livewire\Customer\Orders\Show as CustomerOrderShow;
 use App\Livewire\Customer\Orders\Index as CustomerOrders;
@@ -88,12 +89,15 @@ Route::get('/', CustomerHome::class)->name('customer.home');
  */
 Route::get('/search', CustomerSearch::class)->name('customer.search');
 Route::get('/categories', CustomerCategoryIndex::class)->name('customer.categories.index');
-Route::get('/categories/{category:slug}', CustomerCategoryShow::class)->name('customer.categories.show');
+// F3: the city-less catalog URLs are permanent 301s to /{city}/{slug} (query string kept). The public pages
+// themselves live at the city-prefixed wildcards at the bottom of this file. Names kept for the shims.
+Route::get('/categories/{slug}', [LegacyCatalogRedirectController::class, 'category'])->name('customer.categories.show');
 Route::get('/services', CustomerServiceIndex::class)->name('customer.services.index');
 // Same component, narrowed to services carrying a live flash sale — see
 // ServiceIndex::mount(), which reads this route's name.
 Route::get('/offers', CustomerServiceIndex::class)->name('customer.offers');
-Route::get('/services/{service}', CustomerServiceShow::class)->name('customer.services.show');
+Route::get('/services/{service}', [LegacyCatalogRedirectController::class, 'service'])->name('customer.services.show');
+Route::get('/choose-city', CityChooserController::class)->name('customer.city.choose');
 
 /*
  | Auth (rebuild): password-first login, plus the one-time verification
@@ -229,7 +233,9 @@ Route::get('/help', [PageController::class, 'help'])->name('customer.help');
 Route::get('/how-it-works', [PageController::class, 'howItWorks'])->name('customer.how-it-works');
 Route::get('/privacy', [PageController::class, 'privacy'])->name('customer.privacy');
 Route::get('/terms', [PageController::class, 'terms'])->name('customer.terms');
-Route::get('/sitemap.xml', \App\Http\Controllers\Customer\SitemapController::class)->name('customer.sitemap');
+Route::get('/sitemap.xml', [\App\Http\Controllers\Customer\SitemapController::class, 'index'])->name('customer.sitemap');
+Route::get('/sitemap-static.xml', [\App\Http\Controllers\Customer\SitemapController::class, 'static'])->name('customer.sitemap.static');
+Route::get('/sitemap-{city}.xml', [\App\Http\Controllers\Customer\SitemapController::class, 'city'])->where('city', '[a-z0-9-]+')->name('customer.sitemap.city');
 // Conventional long-form URLs (what payment gateways and app-store listings usually ask for).
 Route::get('/privacy-policy', [PageController::class, 'privacy']);
 Route::get('/terms-and-conditions', [PageController::class, 'terms']);
@@ -250,6 +256,14 @@ Route::get('/coming-soon/{feature}', [PageController::class, 'comingSoon'])
     ->name('customer.coming-soon');
 
 require __DIR__.'/admin.php';
+
+// F3: public city catalog. /{city} and /{city}/{slug}. MUST stay after every fixed route above and before the
+// fallback: anything that is not a city/catalog slug is handed on to the CMS fallback by the controller itself.
+// First segments that are never a city (JSON API, admin/provider areas, framework + asset paths) are excluded
+// up front, so those requests never even touch the cities table.
+$cityPattern = '(?!(?:api|admin|provider|livewire|storage|build|vendor|push)(?![A-Za-z0-9_-]))[A-Za-z0-9_-]+';
+Route::get('/{city}', [CityRouteController::class, 'city'])->where('city', $cityPattern)->name('customer.city.show');
+Route::get('/{city}/{slug}', [CityRouteController::class, 'item'])->where(['city' => $cityPattern, 'slug' => '[A-Za-z0-9_-]+'])->name('customer.city.item');
 
 // REF 1CF-CMS-ROOT-PAGES-001 - CMS pages at the site root (1callfix.com/franchise). Fallback = only
 // when no other route matches, so it can never shadow a real page.

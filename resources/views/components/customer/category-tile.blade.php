@@ -37,7 +37,7 @@
 @endphp
 
 @if ($isCompact)
-    <a href="{{ route('customer.categories.show', $category) }}"
+    <a href="{{ \App\Support\Seo\PublicUrl::category($category) }}"
        {{ $attributes->merge(['class' => 'group flex h-full flex-col items-center gap-2 rounded-2xl p-2 text-center transition duration-200 hover:-translate-y-0.5 hover:bg-blue-50 hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600']) }}>
         <span aria-hidden="true"
               class="relative grid h-14 w-14 shrink-0 place-items-center overflow-hidden rounded-2xl text-lg font-semibold text-slate-700 sm:h-16 sm:w-16"
@@ -54,7 +54,7 @@
         <span class="line-clamp-2 text-xs font-medium leading-tight text-slate-900 sm:text-sm">{{ $category->name }}</span>
     </a>
 @else
-    <a href="{{ route('customer.categories.show', $category) }}"
+    <a href="{{ \App\Support\Seo\PublicUrl::category($category) }}"
        {{ $attributes->merge(['class' => 'group flex h-full min-h-28 flex-col justify-between gap-3 rounded-xl border border-slate-200 bg-white p-4 transition hover:-translate-y-0.5 hover:border-blue-300 hover:shadow-md hover:shadow-blue-900/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600']) }}>
         {{-- The lettered placeholder is always rendered, and the image (when
              there is one) sits on top of it. That is deliberate rather than an

@@ -7,6 +7,7 @@ use App\Imports\HeadingRowImport;
 use App\Models\CatalogImportRun;
 use App\Models\ServiceCategory;
 use App\Services\Catalog\CategoryImporter;
+use App\Livewire\Concerns\EditsManagedSlug;
 use App\Support\Concerns\HasCsvExport;
 use App\Support\Modules;
 use Illuminate\Support\Facades\DB;
@@ -28,6 +29,7 @@ class Manage extends Component
     use WithFileUploads;
     use WithPagination;
     use HasCsvExport;
+    use EditsManagedSlug;
 
     /**
      * No view-level check existed at all — only write actions checked
@@ -133,7 +135,6 @@ class Manage extends Component
         ServiceCategory::create([
             'module' => $this->module,
             'name' => $this->name,
-            'slug' => Str::slug($this->name).'-'.Str::random(4),
             'image' => $this->storeIcon($this->iconFile),
             'color' => $this->color ?: null,
             // New rows go to the end of the list; Reorder moves them from there.
@@ -188,6 +189,7 @@ class Manage extends Component
 
         $this->editCategoryId = $category->id;
         $this->editName = $category->name;
+        $this->loadEditSlug($category);
         $this->editIconFile = null;
         $this->editExistingImage = $category->image;
         $this->editModule = $category->module ?? Modules::SERVICE;
@@ -223,6 +225,10 @@ class Manage extends Component
         }
 
         $category = ServiceCategory::findOrFail($this->editCategoryId);
+
+        if (! $this->applyEditSlug($category)) {
+            return;
+        }
 
         $image = $category->image;
         if ($this->editIconFile) {

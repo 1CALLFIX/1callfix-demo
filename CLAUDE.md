@@ -112,3 +112,20 @@ model.
   (fail closed). There is no minimum / floor of any kind.
 - After payment the customer can raise a dispute from the order page (reason required). An admin queue
   resolves it by hand; any refund goes through the manual money approval model only (never automatic).
+
+### THUMB RULE — EVERY PUBLIC LINK IS ADMIN-CONTROLLED, CITY-AWARE AND NEVER BREAKS
+- Every public catalog page (city, category, subcategory, service, and every future
+  module: parcel, hotel, food, marketplace, products, vendors) has a clean, readable
+  slug. Never random suffixes; -2, -3 only on collision.
+- Public URLs are city-prefixed: /{city}/{slug}. Item slugs are global and
+  HQ-controlled; the city prefix scopes price, availability and providers to that city.
+- Super Admin (or a role with the permission) edits slugs from the item's admin screen.
+  Validated, unique, audit-logged.
+- Franchise admins may edit their own city's page content (title, meta description,
+  intro text), never slugs.
+- Any slug change and any old URL format permanently 301-redirects to the current URL
+  with the query string kept (UTM survives).
+- Public URLs are never removed without a redirect.
+- Business thumb rules (online-only benefits, visit charge only when no work is done,
+  manual money approval model) are NOT admin switchable. Their values are
+  admin-controlled; the rules are not.

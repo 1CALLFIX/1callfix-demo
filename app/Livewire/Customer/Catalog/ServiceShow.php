@@ -177,7 +177,7 @@ class ServiceShow extends Component
         $this->resetErrorBag();
 
         if (! auth()->check()) {
-            $this->redirectRoute('customer.login', ['intended' => route('customer.services.show', $this->serviceId)]);
+            $this->redirectRoute('customer.login', ['intended' => \App\Support\Seo\PublicUrl::service(Service::findOrFail($this->serviceId))]);
 
             return;
         }
@@ -265,14 +265,29 @@ class ServiceShow extends Component
             'activeZone' => $this->location()->zone(),
             'related' => $this->related($service),
             'currencySymbol' => $this->presenter()->currencySymbol(),
+            'cityIntro' => $this->seoFor($service)['intro'],
         ])->layout('components.layouts.customer', [
-            'title' => $service->name,
-            'indexable' => true,
+            'title' => $this->seoFor($service)['title'],
+            'indexable' => $this->seoFor($service)['indexable'],
             'ogImage' => $service->cover_image_url,
-            'metaDescription' => $service->description
+            'metaDescription' => $this->seoFor($service)['metaDescription'],
+        ]);
+    }
+
+    /** @var array{title: string, metaDescription: ?string, intro: ?string, indexable: bool}|null per-render memo; private so Livewire never serialises it */
+    private ?array $seoMemo = null;
+
+    /** F3: franchise-edited copy and the "real page" indexing decision for this service in the URL's city. */
+    private function seoFor(Service $service): array
+    {
+        return $this->seoMemo ??= $this->citySeo(
+            \App\Models\CityPageContent::SUBJECT_SERVICE,
+            $service->id,
+            $service->name,
+            $service->description
                 ? \Illuminate\Support\Str::limit(strip_tags($service->description), 150)
                 : $service->name.' — book a verified professional.',
-        ]);
+        );
     }
 
     /**

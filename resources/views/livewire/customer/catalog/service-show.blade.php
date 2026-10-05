@@ -16,7 +16,7 @@
         <x-customer.breadcrumbs :items="array_values(array_filter([
             ['label' => 'Home', 'url' => route('customer.home')],
             ['label' => 'Categories', 'url' => route('customer.categories.index')],
-            $service->category ? ['label' => $service->category->name, 'url' => route('customer.categories.show', $service->category)] : null,
+            $service->category ? ['label' => $service->category->name, 'url' => \App\Support\Seo\PublicUrl::category($service->category)] : null,
             ['label' => $service->name, 'url' => null],
         ]))" />
 
@@ -84,6 +84,11 @@
                         @endif
                     </div>
                 </div>
+
+                {{-- F3: the franchise's own intro for this city, when it wrote one --}}
+                @if ($cityIntro)
+                    <p class="mt-6 whitespace-pre-line text-sm leading-relaxed text-slate-700">{{ $cityIntro }}</p>
+                @endif
 
                 {{-- Description --}}
                 @if ($service->description)
