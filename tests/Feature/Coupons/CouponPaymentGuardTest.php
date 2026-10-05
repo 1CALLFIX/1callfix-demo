@@ -223,7 +223,8 @@ class CouponPaymentGuardTest extends TestCase
         $b = $this->book($w, ['coupon_code' => 'SAVE100', 'payment_method' => 'wallet']);
 
         // Mid-job approved extra work: recorded on its own table, never on bookings.payment_method.
-        BookingExtraItem::create(['booking_id' => $b->id, 'description' => 'Extra part', 'amount' => 200, 'status' => 'approved']);
+        $provider = $this->makeProviderIn($w['franchise'], $w['zone']);
+        BookingExtraItem::create(['booking_id' => $b->id, 'description' => 'Extra part', 'amount' => 200, 'status' => 'approved', 'added_by_provider_id' => $provider->id]);
         $b->status = 'completed';
         $b->price_final = (float) $b->price_quoted + 200; // exactly what CompleteBookingAction does
         $b->save();

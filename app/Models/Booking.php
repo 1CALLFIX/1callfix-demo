@@ -26,9 +26,12 @@ class Booking extends Model implements Orderable
         // THUMB RULE: a booking that carries a coupon benefit can never switch payment method
         // afterwards (web, API, provider app, admin alike) — in particular never to cash.
         static::updating(function (Booking $booking) {
-            if ($booking->isDirty('payment_method') && $booking->hasCouponBenefit()) {
-                throw new \LogicException('A booking that used a coupon benefit must stay paid online; its payment method cannot be changed.');
-            }
+            // A child of a coupon bundle keeps the bundle's method even when its own coupon_id is empty
+            // (e.g. a member-priced child), so no child can diverge from the parent.
+            $inBenefitBundle = $booking->isDirty('payment_method') && $booking->booking_bundle_id
+                && BookingBundle::whereKey($booking->booking_bundle_id)->whereNotNull('coupon_id')->exists();
+
+            \App\Services\Payments\OnlinePaymentGuard::assertMethodUnchanged($booking, $booking->hasCouponBenefit() || $inBenefitBundle);
         });
 
         // Step 5: freeze the cancellation policy in force at booking time; every later fee reads this.

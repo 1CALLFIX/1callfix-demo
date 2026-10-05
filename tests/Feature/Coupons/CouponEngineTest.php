@@ -184,7 +184,7 @@ class CouponEngineTest extends TestCase
             $this->fail('Cash + coupon must be rejected.');
         } catch (CouponException $e) {
             $this->assertSame('online_payment_required', $e->reason);
-            $this->assertSame('Coupons are valid only for online payments', $e->getMessage());
+            $this->assertSame('Offers apply on online payment only.', $e->getMessage());
         }
 
         $this->assertSame(0, Booking::count(), 'The whole booking rolls back.');

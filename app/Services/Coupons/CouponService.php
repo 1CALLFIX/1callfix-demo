@@ -9,6 +9,7 @@ use App\Models\Coupon;
 use App\Models\CouponUsage;
 use App\Models\Franchise;
 use App\Services\ModuleActivationService;
+use App\Services\Payments\OnlinePaymentGuard;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
@@ -29,7 +30,8 @@ use Illuminate\Support\Facades\DB;
  */
 class CouponService
 {
-    public const ONLINE_METHODS = ['online', 'wallet'];
+    /** @deprecated kept for callers; the single source is OnlinePaymentGuard. */
+    public const ONLINE_METHODS = OnlinePaymentGuard::ONLINE_METHODS;
 
     /** Razorpay cannot create an order below ₹1 and a zero wallet debit is meaningless — technical floor on what is left to pay. */
     private const MIN_PAYABLE = 1.00;
@@ -46,8 +48,8 @@ class CouponService
             return PromotionResult::reject('coupons_unavailable', 'Coupons are not available right now.');
         }
 
-        if (! in_array($ctx->paymentMethod, self::ONLINE_METHODS, true)) {
-            return PromotionResult::reject('online_payment_required', 'Coupons are valid only for online payments');
+        if (! OnlinePaymentGuard::isOnline($ctx->paymentMethod)) {
+            return PromotionResult::reject('online_payment_required', OnlinePaymentGuard::MESSAGE);
         }
 
         // Hardening §G: only modules wired into the engine are redeemable, and only where the module is enabled.

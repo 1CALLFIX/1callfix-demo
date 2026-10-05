@@ -56,6 +56,19 @@ class BookingBundle extends Model implements Orderable
 
     protected $casts = ['coupon_snapshot' => 'array'];
 
+    protected static function booted(): void
+    {
+        // THUMB RULE: mirror of Booking::booted — a bundle carrying a coupon benefit never switches payment method.
+        static::updating(function (BookingBundle $bundle) {
+            \App\Services\Payments\OnlinePaymentGuard::assertMethodUnchanged($bundle, $bundle->hasCouponBenefit());
+        });
+    }
+
+    public function hasCouponBenefit(): bool
+    {
+        return $this->coupon_id !== null || (float) ($this->coupon_discount_amount ?? 0) > 0;
+    }
+
     /** What the customer pays for the whole bundle: the settled/quoted total minus the bundle coupon discount (D1). */
     public function amountPayable(): float
     {
