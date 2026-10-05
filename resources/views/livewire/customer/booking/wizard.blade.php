@@ -206,6 +206,11 @@
                 <section class="rounded-xl border border-slate-200 p-4 sm:p-5">
                     <h2 class="text-base font-semibold">How would you like to pay?</h2>
 
+                    <x-customer.coupon-box :coupon="$coupon" :currency-symbol="$currencySymbol" class="mt-3" />
+                    @if ($coupon['enabled'] && $couponCode !== '' && ! in_array($paymentMethod, ['online', 'wallet'], true))
+                        <p class="mt-2 text-sm text-rose-600">{{ \App\Exceptions\CouponException::ONLINE_ONLY_MESSAGE }}</p>
+                    @endif
+
                     <div class="mt-3 space-y-2">
                         @foreach ($enabledMethods as $key => $label)
                             @php

@@ -104,6 +104,8 @@
                 <p class="mt-1 text-xs font-medium text-slate-700">{{ $cashNote }}</p>
             @endif
 
+            <x-customer.coupon-box :coupon="$coupon" :currency-symbol="$currencySymbol" class="mt-4" />
+
             <button type="button" wire:click="proceed"
                     @disabled(! empty($scheduleErrors))
                     class="mt-4 flex min-h-12 w-full items-center justify-center rounded-lg bg-blue-600 px-6 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:opacity-50">

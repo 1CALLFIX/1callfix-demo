@@ -3,6 +3,7 @@
 namespace App\Livewire\Customer;
 
 use App\Actions\CreateBookingBundleAction;
+use App\Livewire\Customer\Concerns\HasCouponEntry;
 use App\Models\Address;
 use App\Models\Setting;
 use App\Services\Customer\CatalogPresenter;
@@ -31,6 +32,8 @@ use Livewire\Component;
  */
 class Checkout extends Component
 {
+    use HasCouponEntry;
+
     private const STEPS = ['address', 'schedule', 'review', 'pay'];
 
     public string $step = 'address';
@@ -71,6 +74,10 @@ class Checkout extends Component
             // datetime-local field, the inverse of BookingSchedule::parse().
             $this->schedules[$item->id] = $tz->toLocalInput($item->scheduled_at) ?? '';
         }
+
+        // A code applied on the cart page comes along; it is judged again here, for this address and payment method.
+        $this->couponCode = (string) session('coupon.cart_code', '');
+        $this->couponApplied = $this->couponCode !== '';
 
         $this->addressId = Address::where('user_id', auth()->id())
             ->whereNotNull('zone_id')
@@ -191,6 +198,31 @@ class Checkout extends Component
         return null;
     }
 
+    // ----------------------------------------------------------------- coupon
+
+    protected function couponSurface(): string
+    {
+        return 'checkout';
+    }
+
+    protected function couponItems(): array
+    {
+        return app(ServiceCartService::class)->itemsFor(auth()->user())
+            ->map(fn ($item) => ['service' => $item->service, 'quantity' => max(1, (int) $item->quantity)])->all();
+    }
+
+    protected function couponLocation(): array
+    {
+        $address = $this->resolvedAddress();
+
+        return [$address?->franchise_id, $address?->zone_id];
+    }
+
+    protected function couponPaymentMethod(): string
+    {
+        return $this->paymentMethod;
+    }
+
     // ----------------------------------------------------------------- pay
 
     public function enabledPaymentMethods(): array
@@ -259,20 +291,31 @@ class Checkout extends Component
         }
 
         try {
+            $couponCode = $this->couponCodeForBooking();
+
             $bundle = $action->execute([
                 'customer_id' => auth()->id(),
                 'payment_method' => $this->paymentMethod,
                 'idempotency_key' => $this->idempotencyKey,
-                'request_fingerprint' => sha1(json_encode($children).'|'.$this->paymentMethod),
+                'request_fingerprint' => sha1(json_encode($children).'|'.$this->paymentMethod.($couponCode !== null ? '|'.strtolower($couponCode) : '')),
                 'children' => $children,
+                'coupon_code' => $couponCode,
             ]);
-        } catch (\Throwable $e) {
-            // Nothing was created — CreateBookingBundleAction is atomic.
+        } catch (\RuntimeException $e) {
+            // Nothing was created — CreateBookingBundleAction is atomic. A coupon rejection or a refused attempt
+            // carries customer-safe text by construction (CouponException / CouponEntryBlockedException).
             $this->error = $e->getMessage();
+
+            return null;
+        } catch (\Throwable $e) {
+            // Anything else is not for a customer's eyes: log it, show a neutral line.
+            report($e);
+            $this->error = 'Something went wrong. Please try again.';
 
             return null;
         }
 
+        session()->forget('coupon.cart_code');
         $cart->clear(auth()->user());
         $this->dispatch('cart-updated');
 
@@ -312,6 +355,7 @@ class Checkout extends Component
             'enabledMethods' => $this->enabledPaymentMethods(),
             'walletBalance' => $this->walletBalance(),
             'currencySymbol' => Setting::get('locale.currency_symbol', '₹'),
+            'coupon' => $this->couponView(),
         ])->layout('components.layouts.customer', ['title' => 'Checkout']);
     }
 }

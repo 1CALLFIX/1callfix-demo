@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Customer\Cart;
 
+use App\Livewire\Customer\Concerns\HasCouponEntry;
 use App\Models\ServiceCartItem;
 use App\Services\Customer\ServiceCartService;
 use App\Services\TimezoneResolver;
@@ -21,6 +22,8 @@ use Livewire\Component;
  */
 class Index extends Component
 {
+    use HasCouponEntry;
+
     /** item id => 'Y-m-d\TH:i' local string ('' = ASAP). Bound per row. */
     public array $schedules = [];
 
@@ -111,6 +114,7 @@ class Index extends Component
             'groups' => $cart->groupedForUser(auth()->user()),
             'estimateTotal' => $cart->estimateTotal(auth()->user()),
             'cashNote' => $this->cashNote($cart),
+            'coupon' => $this->couponView(),
             'currencySymbol' => \App\Models\Setting::get('locale.currency_symbol', '₹'),
         ])->layout('components.layouts.customer', ['title' => 'Your cart']);
     }
@@ -129,6 +133,45 @@ class Index extends Component
         }
 
         return $anyOffer ? $presenter->cashNote($cashTotal) : null;
+    }
+
+    protected function couponSurface(): string
+    {
+        return 'cart';
+    }
+
+    protected function couponItems(): array
+    {
+        return app(ServiceCartService::class)->itemsFor(auth()->user())
+            ->map(fn ($item) => ['service' => $item->service, 'quantity' => max(1, (int) $item->quantity)])->all();
+    }
+
+    /** The cart has no address yet: the browsing location the catalog prices are shown for, else the default address. */
+    protected function couponLocation(): array
+    {
+        $location = app(\App\Services\Customer\CustomerLocationContext::class);
+        $franchiseId = $location->franchiseId();
+        $zoneId = $location->viewerScope()['zone_id'] ?? null;
+
+        if (! $franchiseId || ! $zoneId) {
+            $address = \App\Models\Address::where('user_id', auth()->id())->whereNotNull('zone_id')->orderByDesc('is_default')->latest()->first();
+
+            return [$address?->franchise_id, $address?->zone_id];
+        }
+
+        return [$franchiseId, $zoneId];
+    }
+
+    /** Online, the only payment an offer exists on; checkout re-judges with the real method and address. */
+    protected function couponPaymentMethod(): string
+    {
+        return 'online';
+    }
+
+    /** Hand the applied code on to checkout. */
+    protected function couponApplied(): void
+    {
+        session(['coupon.cart_code' => trim($this->couponCode)]);
     }
 
     /** The row, only if it belongs to the current customer. */
