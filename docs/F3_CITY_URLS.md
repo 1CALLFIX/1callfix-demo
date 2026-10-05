@@ -67,3 +67,19 @@ deactivated; nothing is ever deleted), leaves `[QA]` rows alone, and only REPORT
 - Franchise slugs (`nellore-central-DjGv`) are F3-later.
 - Deleting a city/category with live redirects pointing at it makes those URLs 404; the admin screens already refuse
   deleting a category with services/subcategories and a city with franchises.
+
+## Deploy order (owner runs every server step; see CLAUDE.md deploy rule)
+
+Pending migrations: the four F3 ones above, plus F1's `2026_10_04_300000_add_acquisition_to_bookings` if it has not
+run yet (the booking code already writes that column). No composer change. No front-end build needed (no JS/CSS
+change; every utility class used is already in the compiled CSS).
+
+After the normal deploy steps (migrate, cache clear, worker restart):
+
+1. `php artisan catalog:clean-slugs` (dry run). Review the table and every REPORT line.
+2. `php artisan catalog:clean-slugs --apply` (add `--keep=ID` to choose the fridge duplicate that keeps the slug).
+3. Deactivate the other fridge duplicate from Admin > Services; its URL then 301s to the kept one.
+4. Admin > Categories > edit the AC category and set its slug (needs `catalog.edit_slugs`).
+5. Use the new ad link; the old `/categories/appliance-ac-repair-Bs7r?...` link keeps working as a 301 with UTM.
+6. Check `https://1callfix.com/sitemap.xml` (index), `/sitemap-nellore.xml`, and view-source of `/nellore` for the
+   canonical and robots tags. With `seo.min_providers_to_index` = 1 only pages backed by an approved provider are indexed.

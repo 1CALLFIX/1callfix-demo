@@ -39,7 +39,7 @@ Owner order of 2026-10-04 (supersedes the table below where they differ): **A2 -
 | C | Coupons C2: Super Admin screens (create/edit/pause, targeting, limits, budget cap, daily cap with migration shown first, stackable toggle, HQ funding, campaign tag, live usage, `coupons.enabled` + `coupons.unpaid_hold_minutes` switches, `coupons.manage` permission, audit log) | not started |
 | D | Coupons C3: customer coupon field (wizard, cart, checkout, bundles), validate endpoint + API, full price/discount/payable, Razorpay or wallet-only (combined later), cash rejected, clear errors, rate limit, unpaid-hold countdown | not started |
 | E | Full suite, stop for review, merge on owner approval. Coupons stay OFF in prod until the owner switches them on. Give the pilot setup steps | not started |
-| F | Ad readiness: UTM capture, Open Graph + canonical, clean category slugs with 301 redirects, commit the SEO baseline doc, AAAA check | F1 BUILT on `feature/f1-utm-capture` (not merged, awaiting review; see docs/ACQUISITION_ATTRIBUTION.md); F2, F3 not started |
+| F | Ad readiness: UTM capture, Open Graph + canonical, clean category slugs with 301 redirects, commit the SEO baseline doc, AAAA check | F1, F2, F3 merged to main (F3: merge `5dc1946`, pushed). NOT deployed: F1 + F3 migrations pending on prod, F3 post-deploy steps in docs/F3_CITY_URLS.md. Baseline doc commit + AAAA check still open |
 | G | Glover app access-log investigation (read-only) | not started |
 | H | Remaining queue below (items 2-6, 8) | not started |
 
@@ -186,7 +186,7 @@ front-end build.
 |---|---|---|
 | F1 | First-touch UTM/click-id capture on bookings | merged, main `2094881`; migration `2026_10_04_300000_add_acquisition_to_bookings` pending on prod |
 | F2 | Canonical + Open Graph, `seo.canonical_base_url` setting, noindex on private pages | merged, main `cad12de`; not deployed |
-| F3 | Clean, admin-controlled, multi-city public URLs (`/{city}/{slug}`, generic `slug_redirects`, `catalog:clean-slugs`, franchise city content, per-city sitemap) | thumb rule added to CLAUDE.md (`d1d2da2`); URL plan + migrations SHOWN, awaiting owner approval; nothing built |
+| F3 | Clean, admin-controlled, multi-city public URLs (`/{city}/{slug}`, generic `slug_redirects`, `catalog:clean-slugs`, franchise city content, per-city sitemap) | BUILT + MERGED, main `5dc1946` (feature `816311f`), pushed, NOT deployed. 4 new migrations (`2026_10_05_1000*`), no front-end build needed. Suite 3246 tests, only the known `NotificationCenterAuditTest` failure. See docs/F3_CITY_URLS.md. Owner: run the fridge-duplicate query, then deploy, then `catalog:clean-slugs` dry run -> review -> `--apply`, set the AC category slug, use the new ad link. Later: `unique(services.slug)` migration only after the clean-up has run on prod |
 | F3-later | Franchise slugs (random-suffix today, e.g. `nellore-central-DjGv`): clean + editable + redirects, same helper | LATER |
 
 ## Done (for context)
