@@ -305,7 +305,7 @@ class CreateBookingAction
 
         $result = $this->coupons->validate($ctx);
         if (! $result->eligible) {
-            throw new CouponException($result->reasonCode, $result->message);
+            throw $this->coupons->rejection($result, $ctx);
         }
 
         $memberDiscount = $preview['discount'] ?? 0.0;

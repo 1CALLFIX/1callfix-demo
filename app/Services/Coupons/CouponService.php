@@ -12,6 +12,7 @@ use App\Services\ModuleActivationService;
 use App\Services\Payments\OnlinePaymentGuard;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 /**
  * The coupon engine (docs/COUPON_ENGINE_DESIGN.md). One public surface:
@@ -285,14 +286,14 @@ class CouponService
         return DB::transaction(function () use ($ctx, $booking, $bundle) {
             $pre = $this->validate($ctx);
             if (! $pre->eligible) {
-                throw new CouponException($pre->reasonCode, $pre->message);
+                throw $this->rejection($pre, $ctx);
             }
 
             // Fixed lock order: coupon row first.
             $coupon = Coupon::lockForUpdate()->findOrFail($pre->coupon->id);
             $result = $this->validate($ctx, $coupon);
             if (! $result->eligible) {
-                throw new CouponException($result->reasonCode, $result->message);
+                throw $this->rejection($result, $ctx);
             }
 
             $usage = CouponUsage::create([
@@ -312,6 +313,25 @@ class CouponService
 
             return [$result, $usage];
         });
+    }
+
+    /**
+     * The exception for a rejected coupon. The customer text is the generic one; the precise reason and detail
+     * go to the server log (hardening §H) so support and admin diagnostics can still see why.
+     */
+    public function rejection(PromotionResult $result, PromotionContext $ctx): CouponException
+    {
+        Log::info('coupon.rejected', [
+            'reason' => $result->reasonCode,
+            'detail' => $result->detail,
+            'coupon_id' => $result->coupon?->id,
+            'customer_id' => $ctx->customer->id,
+            'module' => $ctx->module,
+            'franchise_id' => $ctx->franchiseId,
+            'payment_method' => $ctx->paymentMethod,
+        ]);
+
+        return new CouponException($result->reasonCode, $result->message);
     }
 
     // ───────────────────────── usage lifecycle ─────────────────────────
