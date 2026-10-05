@@ -164,8 +164,9 @@ class ReferralService
     }
 
     /**
-     * Called from CompleteBookingAction. Qualification condition: the
-     * referred user's FIRST EVER completed booking. Idempotent via the
+     * Called from CompleteBookingAction. Qualification condition: any
+     * completed booking of the referred user that was paid ONLINE (a
+     * cash booking earlier does not use up the referral). Idempotent via the
      * 'pending' status guard -- a referral can only be rewarded once,
      * ever, and once rewarded this is a no-op on any later booking.
      */
@@ -215,19 +216,13 @@ class ReferralService
 
         // EARN3 D5 — a frozen referrer's wallet takes no referral credit
         // (wallet or points). Withheld and audited; the referral stays
-        // pending (and will not re-qualify on a later booking — see report).
+        // pending (a later qualifying online booking can still reward it).
         if ($referral->referrer && $this->walletService->isFrozen($referral->referrer)) {
             ActivityLogger::logModel(null, $referral, "Referral reward withheld: referrer #{$referral->referrer_id} wallet is frozen", [
                 'booking_id' => $booking->id, 'reward_type' => $rewardType, 'reward_value' => $rewardValue,
             ]);
 
             return null;
-        }
-
-        $completedCount = Booking::where('customer_id', $booking->customer_id)->where('status', 'completed')->count();
-
-        if ($completedCount !== 1) {
-            return null; // not their first completed booking
         }
 
         return DB::transaction(function () use ($referral, $booking, $scope, $rewardType, $rewardValue) {

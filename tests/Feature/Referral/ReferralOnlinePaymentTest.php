@@ -82,6 +82,56 @@ class ReferralOnlinePaymentTest extends TestCase
         $this->assertSame('rewarded', app(ReferralService::class)->qualifyFromCompletedBooking($booking)->status);
     }
 
+    private function laterBooking(array $s, string $method, string $paymentStatus): Booking
+    {
+        return Booking::create([
+            'code' => 'TSTL-'.now()->format('dm').'-'.str_pad((string) random_int(1, 99999999), 8, '0', STR_PAD_LEFT),
+            'franchise_id' => $s['franchise']->id, 'zone_id' => $s['zone']->id,
+            'customer_id' => $s['customer']->id, 'service_id' => $s['booking']->service_id, 'address_id' => $s['address']->id,
+            'status' => 'completed', 'price_quoted' => 500, 'payment_status' => $paymentStatus, 'payment_method' => $method,
+        ]);
+    }
+
+    public function test_a_cash_first_booking_then_an_online_completed_booking_pays_the_reward_once(): void
+    {
+        [$referrer, $cash, $s] = $this->scenario('cash', 'paid');
+        $svc = app(ReferralService::class);
+
+        $this->assertNull($svc->qualifyFromCompletedBooking($cash));
+        $online = $this->laterBooking($s, 'online', 'paid');
+
+        $referral = $svc->qualifyFromCompletedBooking($online);
+
+        $this->assertSame('rewarded', $referral->status);
+        $this->assertSame($online->id, $referral->qualifying_booking_id);
+        $this->assertEquals(50.0, app(WalletService::class)->balance($referrer));
+    }
+
+    public function test_several_qualifying_online_bookings_pay_the_reward_only_once(): void
+    {
+        [$referrer, $first, $s] = $this->scenario('online', 'paid');
+        $svc = app(ReferralService::class);
+
+        $svc->qualifyFromCompletedBooking($first);
+        $this->assertNull($svc->qualifyFromCompletedBooking($this->laterBooking($s, 'online', 'paid')));
+        $this->assertNull($svc->qualifyFromCompletedBooking($this->laterBooking($s, 'wallet', 'paid')));
+
+        $this->assertEquals(50.0, app(WalletService::class)->balance($referrer));
+    }
+
+    public function test_later_cash_or_cash_plus_online_bookings_do_not_qualify(): void
+    {
+        [$referrer, $first, $s] = $this->scenario('cash', 'paid');
+        $svc = app(ReferralService::class);
+
+        $svc->qualifyFromCompletedBooking($first);
+        $this->assertNull($svc->qualifyFromCompletedBooking($this->laterBooking($s, 'cash', 'paid')));
+        $this->assertNull($svc->qualifyFromCompletedBooking($this->laterBooking($s, 'cash+online', 'paid')));
+
+        $this->assertSame('pending', Referral::where('referrer_id', $referrer->id)->firstOrFail()->status);
+        $this->assertEquals(0.0, app(WalletService::class)->balance($referrer));
+    }
+
     public function test_code_entry_registration_and_booking_creation_pay_no_reward(): void
     {
         $referrer = $this->makeCustomer();
