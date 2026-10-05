@@ -2,15 +2,18 @@
 
 namespace App\Actions;
 
+use App\Exceptions\BookingContextMismatchException;
 use App\Exceptions\CouponException;
 use App\Exceptions\ModuleNotActiveException;
 use App\Jobs\ServiceMatchingJob;
+use App\Models\Address;
 use App\Models\Booking;
 use App\Models\FlashSale;
 use App\Models\Franchise;
 use App\Models\Payment;
 use App\Models\Service;
 use App\Models\Setting;
+use App\Models\Zone;
 use App\Notifications\BookingStatusNotification;
 use App\Notifications\Support\ChannelResolver;
 use App\Services\AdminOpsAlertService;
@@ -121,6 +124,42 @@ class CreateBookingAction
     }
 
     /**
+     * Server-authoritative franchise / zone for a booking: derived from the customer's own address.
+     * A caller-supplied franchise_id / zone_id / address_id that disagrees is rejected, not corrected, so a
+     * forged context can never reach pricing, module activation, dispatch or the coupon engine. Public so
+     * CreateBookingBundleAction derives the bundle wrapper row the same way (one rule, not two copies).
+     *
+     * @return array{franchise_id: int, zone_id: int|null}
+     *
+     * @throws BookingContextMismatchException
+     */
+    public function resolveLocation(array $data): array
+    {
+        $address = Address::find($data['address_id'] ?? null);
+        if (! $address || (int) $address->user_id !== (int) ($data['customer_id'] ?? 0)) {
+            throw new BookingContextMismatchException('The address does not belong to this customer.');
+        }
+
+        $zone = $address->zone_id ? Zone::find($address->zone_id) : null;
+        $franchiseId = $address->franchise_id ?? $zone?->franchise_id;
+        if ($franchiseId === null) {
+            throw new BookingContextMismatchException('The address is not served by any franchise.');
+        }
+        if ($zone && (int) $zone->franchise_id !== (int) $franchiseId) {
+            throw new BookingContextMismatchException('The address zone does not belong to its franchise.');
+        }
+
+        if (isset($data['franchise_id']) && (int) $data['franchise_id'] !== (int) $franchiseId) {
+            throw new BookingContextMismatchException('The franchise does not serve this address.');
+        }
+        if (isset($data['zone_id']) && $zone && (int) $data['zone_id'] !== (int) $zone->id) {
+            throw new BookingContextMismatchException('The zone does not match this address.');
+        }
+
+        return ['franchise_id' => (int) $franchiseId, 'zone_id' => $zone?->id];
+    }
+
+    /**
      * The full booking-creation body — module-activation gate, Phase-D
      * server-authoritative pricing, the `bookings` row itself, flash-sale
      * redemption and the plan-entitlement price adjustment — with NO
@@ -146,6 +185,9 @@ class CreateBookingAction
     public function createWithinTransaction(array $data): Booking
     {
         $service = Service::findOrFail($data['service_id']);
+
+        // Hardening §F — ownership context is derived here, never trusted from the caller.
+        $data = array_merge($data, $this->resolveLocation($data));
 
         // Phase 22.1 (Module Activation Foundation) — the real enforcement
         // point PHASE_22_PLATFORM_CAPABILITY_RECOVERY_AUDIT.md §16 named as

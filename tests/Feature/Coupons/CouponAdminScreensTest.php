@@ -48,6 +48,7 @@ class CouponAdminScreensTest extends TestCase
             'discountType' => 'flat',
             'value' => '50',
             'perUserLimit' => '1',
+            'globalScope' => true, // blank targeting is not allowed (hardening §E)
         ], $overrides);
 
         foreach ($fields as $k => $v) {
@@ -182,6 +183,9 @@ class CouponAdminScreensTest extends TestCase
         $manager = $this->holder(['coupons.view', 'coupons.manage']);
         $live = Coupon::create(['code' => 'LIVE', 'name' => 'l', 'status' => 'active', 'is_active' => true, 'discount_type' => 'flat', 'value' => 10, 'per_user_limit' => 1]);
         $draft = Coupon::create(['code' => 'DRF', 'name' => 'd', 'status' => 'draft', 'discount_type' => 'flat', 'value' => 10, 'per_user_limit' => 1]);
+        foreach ([$live, $draft] as $c) {
+            \App\Models\CouponTarget::create(['coupon_id' => $c->id, 'target_type' => 'global', 'operator' => 'include']);
+        }
 
         Livewire::actingAs($manager)->test(Manage::class)->call('edit', $live->id)->assertForbidden();
 
@@ -257,7 +261,7 @@ class CouponAdminScreensTest extends TestCase
         app(CouponAdminService::class)->save($admin, [
             'code' => 'DAILY', 'name' => 'Daily', 'status' => 'active', 'discount_type' => 'flat', 'value' => 100,
             'per_user_limit' => 5, 'daily_budget' => 150,
-        ]);
+        ], [['target_type' => 'global', 'operator' => 'include']]);
 
         $first = $this->book($w, $this->makeCustomer(), ['coupon_code' => 'DAILY']);
         $this->assertEquals(100.00, (float) $first->coupon_discount_amount);
@@ -266,8 +270,8 @@ class CouponAdminScreensTest extends TestCase
             $this->book($w, $this->makeCustomer(), ['coupon_code' => 'DAILY']);
             $this->fail('100 + 100 exceeds the 150 daily cap.');
         } catch (CouponException $e) {
-            $this->assertSame('daily_cap_reached', $e->reason);
-            $this->assertStringContainsString('try again tomorrow', $e->getMessage());
+            $this->assertSame('daily_cap_reached', $e->reason, 'The real reason stays internal.');
+            $this->assertSame('This coupon cannot be applied to this order.', $e->getMessage(), 'Customers get the generic text (hardening §H).');
         }
 
         // A release gives the cap back immediately.

@@ -32,6 +32,7 @@ class CouponAdminService
     public function save(User $actor, array $data, ?array $targets = null, ?Coupon $coupon = null): Coupon
     {
         $this->assertValid($data, $coupon);
+        $this->assertScope($actor, $data, $targets, $coupon);
 
         return DB::transaction(function () use ($actor, $data, $targets, $coupon) {
             $creating = $coupon === null;
@@ -121,9 +122,10 @@ class CouponAdminService
         if (isset($data['funding_mode']) && $data['funding_mode'] !== 'hq') {
             $errors['funding_mode'] = 'Only HQ funding is available.';
         }
-        foreach (['total_budget', 'daily_budget'] as $cap) {
+        // Null = no limit, 0 = invalid, positive = valid (hardening §K) — enforced here, not only in the form.
+        foreach (['usage_limit', 'total_budget', 'daily_budget'] as $cap) {
             if (isset($data[$cap]) && (float) $data[$cap] <= 0) {
-                $errors[$cap] = 'A cap must be greater than zero (leave blank for no cap).';
+                $errors[$cap] = 'A limit must be greater than zero (leave blank for no limit).';
             }
         }
         if (isset($data['total_budget'], $data['daily_budget']) && (float) $data['daily_budget'] > (float) $data['total_budget']) {
@@ -146,6 +148,33 @@ class CouponAdminService
 
         if ($errors) {
             throw ValidationException::withMessages($errors);
+        }
+    }
+
+    /**
+     * Hardening §E: blank targeting never means "everywhere". The resulting coupon must carry an explicit scope
+     * (a franchise owner, a city/zone/franchise/customer include, or the explicit global marker), and choosing
+     * the global marker is an approval-level act (coupons.approve; Super Admin always holds it).
+     *
+     * @param  array<int, array<string, mixed>>|null  $targets  null = existing targets stay
+     */
+    private function assertScope(User $actor, array $data, ?array $targets, ?Coupon $coupon): void
+    {
+        $effective = $targets !== null
+            ? collect($targets)->map(fn (array $t) => new CouponTarget(['target_type' => $t['target_type'], 'operator' => $t['operator'] ?? 'include']))
+            : ($coupon?->targets()->get() ?? collect());
+
+        $owner = new Coupon(['franchise_id' => array_key_exists('franchise_id', $data) ? $data['franchise_id'] : $coupon?->franchise_id]);
+        $matcher = app(TargetMatcher::class);
+
+        if (! $matcher->hasExplicitScope($owner, $effective)) {
+            throw ValidationException::withMessages(['targets' => 'Choose where this coupon applies: pick a city, or tick "Global / all eligible scope".']);
+        }
+
+        $newlyGlobal = $targets !== null && $matcher->isGlobal($effective)
+            && ! ($coupon && $matcher->isGlobal($coupon->targets()->get()));
+        if ($newlyGlobal && ! $actor->hasPermission('coupons.approve')) {
+            throw ValidationException::withMessages(['targets' => 'Global scope needs the coupons.approve permission.']);
         }
     }
 

@@ -78,6 +78,9 @@ class Manage extends Component
 
     public string $customerType = '';
 
+    /** Explicit "Global / all eligible scope" — blank targeting never means everywhere (hardening §E). */
+    public bool $globalScope = false;
+
     // Status change / archive modal
     public ?int $actionCouponId = null;
 
@@ -144,6 +147,7 @@ class Manage extends Component
         $this->subcategoryIds = $ids('service_subcategory');
         $this->serviceIds = $ids('service');
         $this->customerType = (string) ($coupon->targets->where('target_type', 'customer_type')->first()?->params['type'] ?? '');
+        $this->globalScope = $coupon->targets->contains(fn ($t) => $t->target_type === 'global' && $t->operator === 'include');
 
         $this->showForm = true;
     }
@@ -220,7 +224,7 @@ class Manage extends Component
         try {
             app(CouponAdminService::class)->save(auth()->user(), $data, $this->buildTargets(), $coupon);
         } catch (ValidationException $e) {
-            $map = ['discount_type' => 'discountType', 'per_user_limit' => 'perUserLimit', 'total_budget' => 'totalBudget', 'daily_budget' => 'dailyBudget', 'funding_mode' => 'code'];
+            $map = ['discount_type' => 'discountType', 'per_user_limit' => 'perUserLimit', 'total_budget' => 'totalBudget', 'daily_budget' => 'dailyBudget', 'usage_limit' => 'usageLimit', 'funding_mode' => 'code'];
             foreach ($e->errors() as $field => $messages) {
                 $this->addError($map[$field] ?? $field, $messages[0]);
             }
@@ -241,6 +245,9 @@ class Manage extends Component
             foreach (array_unique(array_map('intval', $ids)) as $id) {
                 $rows[] = ['target_type' => $type, 'target_id' => $id, 'operator' => 'include'];
             }
+        }
+        if ($this->globalScope) {
+            $rows[] = ['target_type' => 'global', 'target_id' => null, 'operator' => 'include'];
         }
         if ($this->customerType !== '') {
             $rows[] = ['target_type' => 'customer_type', 'target_id' => null, 'operator' => 'include', 'params' => ['type' => $this->customerType]];
@@ -307,7 +314,7 @@ class Manage extends Component
 
     private function resetForm(): void
     {
-        $this->reset(['editingId', 'showForm', 'code', 'name', 'description', 'value', 'maxDiscount', 'usageLimit', 'perUserLimit', 'totalBudget', 'dailyBudget', 'campaignTag', 'stackableWithFlash', 'validFrom', 'validUntil', 'cityIds', 'categoryIds', 'subcategoryIds', 'serviceIds', 'customerType']);
+        $this->reset(['editingId', 'showForm', 'code', 'name', 'description', 'value', 'maxDiscount', 'usageLimit', 'perUserLimit', 'totalBudget', 'dailyBudget', 'campaignTag', 'stackableWithFlash', 'validFrom', 'validUntil', 'cityIds', 'categoryIds', 'subcategoryIds', 'serviceIds', 'customerType', 'globalScope']);
         $this->discountType = 'percent';
         $this->minOrderValue = '0';
         $this->resetErrorBag();

@@ -62,7 +62,7 @@ class CouponEngineTest extends TestCase
 
     private function coupon(array $attributes = []): Coupon
     {
-        return Coupon::create(array_merge([
+        $coupon = Coupon::create(array_merge([
             'code' => 'SAVE100',
             'name' => 'Save 100',
             'status' => 'active',
@@ -73,6 +73,11 @@ class CouponEngineTest extends TestCase
             'min_order_value' => 0,
             'per_user_limit' => 1,
         ], $attributes));
+
+        // Hardening §E: blank targeting is not "everywhere" — these engine tests use the explicit global scope.
+        CouponTarget::create(['coupon_id' => $coupon->id, 'target_type' => 'global', 'operator' => 'include']);
+
+        return $coupon;
     }
 
     private function book(array $w, array $extra = []): Booking
@@ -271,6 +276,7 @@ class CouponEngineTest extends TestCase
                 $this->fail("{$code} should be rejected");
             } catch (CouponException $e) {
                 $this->assertSame($reason, $e->reason, $code);
+                $this->assertSame('This coupon cannot be applied to this order.', $e->getMessage(), "{$code}: generic customer text (hardening §H)");
             }
         }
     }
@@ -776,7 +782,7 @@ class CouponEngineTest extends TestCase
         $coupon = $svc->save($admin, [
             'code' => 'AUD1', 'name' => 'Audit', 'status' => 'draft', 'discount_type' => 'flat',
             'value' => 50, 'per_user_limit' => 2,
-        ]);
+        ], [['target_type' => 'city', 'target_id' => $this->makeFranchiseTree()[1]->id, 'operator' => 'include']]);
         $svc->save($admin, ['value' => 75], null, $coupon);
         $svc->setStatus($admin, $coupon, 'active', 'launch');
 

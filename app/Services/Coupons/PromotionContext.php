@@ -28,6 +28,7 @@ final class PromotionContext
         public readonly ?string $code,
         /** Bookings being created right now (excluded from "new customer" history). */
         public readonly array $ignoreBookingIds = [],
+        public readonly ?int $countryId = null,
     ) {
     }
 

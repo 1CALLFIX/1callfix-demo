@@ -7,6 +7,8 @@ use App\Models\Booking;
 use App\Models\BookingBundle;
 use App\Models\Coupon;
 use App\Models\CouponUsage;
+use App\Models\Franchise;
+use App\Services\ModuleActivationService;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
@@ -48,6 +50,16 @@ class CouponService
             return PromotionResult::reject('online_payment_required', 'Coupons are valid only for online payments');
         }
 
+        // Hardening §G: only modules wired into the engine are redeemable, and only where the module is enabled.
+        if (! in_array($ctx->module, (array) config('coupons.connected_modules', []), true)) {
+            return PromotionResult::reject('module_not_connected', 'This module is not connected to the coupon engine.');
+        }
+        if (! app(ModuleActivationService::class)->isActive($ctx->module, array_filter([
+            'zone_id' => $ctx->zoneId, 'franchise_id' => $ctx->franchiseId, 'city_id' => $ctx->cityId, 'country_id' => $ctx->countryId,
+        ]))) {
+            return PromotionResult::reject('module_not_enabled', 'The module is not enabled for this location.');
+        }
+
         $code = mb_strtolower(trim((string) $ctx->code));
         if ($code === '') {
             return PromotionResult::reject('invalid_code', 'This coupon code is not valid.');
@@ -81,6 +93,16 @@ class CouponService
         }
 
         $targets = $coupon->targets()->get();
+
+        // Hardening §E: no scope rows is NOT "everywhere".
+        if (! $this->matcher->hasExplicitScope($coupon, $targets)) {
+            return PromotionResult::reject('no_scope', 'This coupon has no scope configured.', $coupon);
+        }
+        // "All live franchises" is judged now, at redemption time: a franchise that is not live is never reached.
+        if ($this->matcher->isGlobal($targets) && $coupon->franchise_id === null
+            && Franchise::where('id', $ctx->franchiseId)->value('status') !== 'active') {
+            return PromotionResult::reject('franchise_not_live', 'The franchise is not live.', $coupon);
+        }
 
         if ($rejection = $this->matcher->contextRejection($coupon, $ctx, $targets)) {
             return PromotionResult::reject($rejection, 'This coupon does not apply to this order.', $coupon);

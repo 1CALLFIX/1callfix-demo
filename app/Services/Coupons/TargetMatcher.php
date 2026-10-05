@@ -26,6 +26,31 @@ class TargetMatcher
 
     public const LINE_TYPES = ['service_category', 'service_subcategory', 'service'];
 
+    /** Explicit "Global / all eligible scope" marker row (hardening §E). Reaches only LIVE franchises (§Q). */
+    public const GLOBAL_TYPE = 'global';
+
+    /** Include rows of these types are an explicit scope on their own. customer_type alone is not (it is an audience, not a scope). */
+    private const SCOPING_TYPES = ['city', 'zone', 'franchise', 'customer'];
+
+    /**
+     * Blank targeting never means "everywhere". A coupon is scoped only when it is owned by a franchise,
+     * has an include row on city / zone / franchise / customer, or carries the explicit global marker.
+     */
+    public function hasExplicitScope(Coupon $coupon, Collection $targets): bool
+    {
+        if ($coupon->franchise_id !== null) {
+            return true;
+        }
+
+        return $targets->contains(fn (CouponTarget $t) => $t->operator === 'include'
+            && ($t->target_type === self::GLOBAL_TYPE || in_array($t->target_type, self::SCOPING_TYPES, true)));
+    }
+
+    public function isGlobal(Collection $targets): bool
+    {
+        return $targets->contains(fn (CouponTarget $t) => $t->target_type === self::GLOBAL_TYPE && $t->operator === 'include');
+    }
+
     /** @return ?string null when the whole-coupon context passes, else the reason code */
     public function contextRejection(Coupon $coupon, PromotionContext $ctx, Collection $targets): ?string
     {

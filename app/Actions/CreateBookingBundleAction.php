@@ -104,6 +104,10 @@ class CreateBookingBundleAction
         // one address, several services) these are all identical anyway.
         $anchor = $children[0];
 
+        // Hardening §F: the wrapper row's franchise/zone come from the anchor child's own address, never
+        // from the caller. Every child is re-derived (and a forged one rejected) in createWithinTransaction.
+        $anchor = array_merge($anchor, $this->createBooking->resolveLocation($anchor + ['customer_id' => $customerId]));
+
         $walletPayment = null;
 
         try {

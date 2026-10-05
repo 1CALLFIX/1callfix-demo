@@ -70,6 +70,7 @@ class ServicePromotionContextBuilder
             lines: $lines,
             code: $code,
             ignoreBookingIds: $ignoreIds,
+            countryId: $franchise?->country_id,
         );
     }
 }

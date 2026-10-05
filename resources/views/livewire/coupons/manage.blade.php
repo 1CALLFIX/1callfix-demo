@@ -132,7 +132,14 @@
                 </div>
 
                 <div>
-                    <h3 class="text-xs font-semibold text-gray-500 uppercase mb-2">Targeting (nothing selected = no restriction on that axis)</h3>
+                    <h3 class="text-xs font-semibold text-gray-500 uppercase mb-2">Targeting (a coupon must name a city, or be explicitly global)</h3>
+                    <div class="mb-3">
+                        <label class="flex items-center gap-2 text-sm">
+                            <input type="checkbox" wire:model="globalScope" id="ct-global" class="rounded border-gray-300" @disabled(! $canApprove)>
+                            Global / all eligible scope (every live franchise; needs approval permission)
+                        </label>
+                        @error('targets') <p class="text-xs text-red-600 mt-1">{{ $message }}</p> @enderror
+                    </div>
                     <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
                         <div>
                             <label class="block text-xs font-medium mb-1" for="ct-city">Cities</label>
