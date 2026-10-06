@@ -145,6 +145,15 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // Sitemap freshness: saving anything the sitemap lists (or the SEO/branding settings) rebuilds it on the next hit.
+        foreach ([
+            \App\Models\Setting::class, \App\Models\City::class, \App\Models\ServiceCategory::class,
+            \App\Models\ServiceSubcategory::class, \App\Models\Service::class, \App\Models\ContentPage::class,
+            \App\Models\CityPageContent::class,
+        ] as $model) {
+            $model::observe(\App\Observers\SitemapInvalidationObserver::class);
+        }
+
         // 0e — a password change signs out the user's other sessions via AuthenticateSession on the admin
         // routes; Livewire's own /livewire/update requests only re-run middleware listed here, so add it or
         // a stale device could keep acting through Livewire actions until its next full page load.

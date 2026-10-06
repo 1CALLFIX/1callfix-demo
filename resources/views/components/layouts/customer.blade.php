@@ -6,10 +6,14 @@
     // Public marketing/catalogue pages opt in. Default is private (noindex, no
     // canonical) so any new page fails safe rather than leaking into search.
     'indexable' => false,
+    // The title is already complete (home page): do not wrap it in the site title template.
+    'rawTitle' => false,
+    // Structured data blocks (arrays) for this page, rendered as JSON-LD.
+    'schema' => [],
 ])
 
 @php
-    $platformName = \App\Models\Setting::get('branding.platform_name', '1CallFix');
+    $platformName = \App\Services\Seo\SeoSettings::siteName();
     $brandShareLogo = app(\App\Services\BrandingAssetService::class)->url('logo_display_path');
 @endphp
 <!DOCTYPE html>
@@ -20,17 +24,28 @@
          real value on notched/gesture-bar devices; without it the sticky
          bottom navigation sits underneath the iOS home indicator. --}}
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-    <meta name="description" content="{{ $metaDescription ?? $platformName.' — verified local professionals for repairs, installation and maintenance.' }}">
-    <title>{{ $title ? $title.' · '.$platformName : $platformName }}</title>
+    @php
+        // Title and description: the page's own value, else the admin's SEO settings, else the built-in fallback.
+        $pageTitle = $rawTitle ? ($title ?: $platformName) : \App\Services\Seo\SeoSettings::renderTitle($title);
+        $pageDescription = $metaDescription ?: \App\Services\Seo\SeoSettings::defaultDescription();
+        $verification = \App\Services\Seo\SeoSettings::verification();
+    @endphp
+    <meta name="description" content="{{ $pageDescription }}">
+    <title>{{ $pageTitle }}</title>
+    @if ($verification['google'])
+        <meta name="google-site-verification" content="{{ $verification['google'] }}">
+    @endif
+    @if ($verification['bing'])
+        <meta name="msvalidate.01" content="{{ $verification['bing'] }}">
+    @endif
 
     {{-- F2: canonical + Open Graph/Twitter. Canonical is the current URL with the
          query string dropped, so ?utm_*/gclid/fbclid/?page= variants (F1 capture) all
          consolidate on one address. Absolute URLs only — crawlers ignore relative ones. --}}
     @php
-        $pageTitle = $title ? $title.' · '.$platformName : $platformName;
-        $pageDescription = $metaDescription ?? $platformName.' — verified local professionals for repairs, installation and maintenance.';
         $canonicalUrl = \App\Support\Seo::canonicalUrl();
-        $shareImage = $ogImage ?: ($brandShareLogo ?? null);
+        // Share image: the page's own, else the admin's default share image, else the logo. Always on the canonical host.
+        $shareImage = $ogImage ?: (\App\Services\Seo\SeoSettings::defaultImage() ?: ($brandShareLogo ?? null));
     @endphp
     @if ($indexable)
         <meta name="robots" content="index, follow">
@@ -42,11 +57,14 @@
         <meta property="og:url" content="{{ $canonicalUrl }}">
         <meta property="og:locale" content="en_IN">
         @if ($shareImage)
-            <meta property="og:image" content="{{ \Illuminate\Support\Str::startsWith($shareImage, ['http://', 'https://']) ? $shareImage : url($shareImage) }}">
+            <meta property="og:image" content="{{ \App\Support\Seo::absoluteUrl($shareImage) }}">
         @endif
         <meta name="twitter:card" content="{{ $shareImage ? 'summary_large_image' : 'summary' }}">
         <meta name="twitter:title" content="{{ $title ?: $platformName }}">
         <meta name="twitter:description" content="{{ $pageDescription }}">
+        @foreach ($schema as $block)
+            <script type="application/ld+json">{!! json_encode($block, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) !!}</script>
+        @endforeach
     @else
         <meta name="robots" content="noindex, nofollow">
     @endif

@@ -52,7 +52,7 @@ class SitemapController extends Controller
 
     private function xml(string $key, \Closure $build): Response
     {
-        $xml = Cache::remember('sitemap:'.md5(Seo::canonicalBase()).':'.$key, 3600, $build);
+        $xml = Cache::remember('sitemap:v'.Seo::sitemapVersion().':'.md5(Seo::canonicalBase()).':'.$key, 3600, $build);
 
         return response($xml, 200, ['Content-Type' => 'application/xml; charset=UTF-8']);
     }

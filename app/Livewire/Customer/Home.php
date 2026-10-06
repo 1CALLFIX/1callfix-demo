@@ -72,8 +72,12 @@ class Home extends Component
             'faqs' => $this->faqs(),
             'currencySymbol' => $this->presenter()->currencySymbol(),
         ])->layout('components.layouts.customer', [
-            'title' => 'Home services, on call',
+            // Admin → SEO → Search & social controls the home title and description; the old wording is the fallback.
+            'title' => \App\Services\Seo\SeoSettings::homeTitle() ?? 'Home services, on call',
+            'rawTitle' => \App\Services\Seo\SeoSettings::homeTitle() !== null,
+            'metaDescription' => \App\Services\Seo\SeoSettings::homeDescription(),
             'indexable' => true,
+            'schema' => \App\Services\Seo\SeoSettings::homeSchema(app(\App\Services\BrandingAssetService::class)->url('logo_display_path')),
         ]);
     }
 

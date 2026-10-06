@@ -44,14 +44,15 @@
             <div class="space-y-4">
                 <div>
                     <label class="block text-sm font-medium mb-1">Page title</label>
-                    <input type="text" wire:model="title" maxlength="160" class="w-full border rounded px-3 py-2 text-sm">
+                    <input type="text" wire:model.live.debounce.300ms="title" maxlength="160" class="w-full border rounded px-3 py-2 text-sm">
                     @error('title') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
                 </div>
                 <div>
                     <label class="block text-sm font-medium mb-1">Meta description</label>
-                    <textarea wire:model="metaDescription" rows="2" maxlength="320" class="w-full border rounded px-3 py-2 text-sm"></textarea>
+                    <textarea wire:model.live.debounce.300ms="metaDescription" rows="2" maxlength="320" class="w-full border rounded px-3 py-2 text-sm"></textarea>
                     @error('metaDescription') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
                 </div>
+                <x-seo.preview :title="\App\Services\Seo\SeoSettings::renderTitle($title)" :description="$metaDescription" :url="\App\Support\Seo::canonicalBase()" />
                 <div>
                     <label class="block text-sm font-medium mb-1">Intro text</label>
                     <textarea wire:model="intro" rows="5" maxlength="4000" class="w-full border rounded px-3 py-2 text-sm"></textarea>

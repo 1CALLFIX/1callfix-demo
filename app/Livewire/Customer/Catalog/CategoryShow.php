@@ -151,7 +151,8 @@ class CategoryShow extends Component
             'cityIntro' => $seo['intro'],
         ])->layout('components.layouts.customer', [
             'title' => $seo['title'],
-            'indexable' => $seo['indexable'],
+            // A searched, sorted or subcategory-filtered list is a duplicate of the plain category page.
+            'indexable' => $seo['indexable'] && ! ($this->search !== '' || $this->subcategory !== null || $this->sort !== 'recommended'),
             'ogImage' => $category->image_url,
             'metaDescription' => $seo['metaDescription'],
         ]);
