@@ -7,7 +7,7 @@
 @php
     $stepLabels = ['configure' => 'Options', 'address' => 'Address', 'schedule' => 'Time', 'pay' => 'Payment'];
     $currentIndex = array_search($step, $steps, true);
-    $estimate = $baseEstimate + $optionsEstimate;
+    $estimate = max(0, $baseEstimate + $optionsEstimate - $couponDiscount);
 @endphp
 
 <div class="mx-auto max-w-3xl px-4 py-6 sm:px-6 lg:px-8">
@@ -206,6 +206,11 @@
                 <section class="rounded-xl border border-slate-200 p-4 sm:p-5">
                     <h2 class="text-base font-semibold">How would you like to pay?</h2>
 
+                    <x-customer.coupon-box :coupon="$coupon" :currency-symbol="$currencySymbol" class="mt-3" />
+                    @if ($coupon['enabled'] && $couponCode !== '' && $coupon['message'] === '' && ! in_array($paymentMethod, ['online', 'wallet'], true))
+                        <p class="mt-2 text-sm text-rose-600">{{ \App\Exceptions\CouponException::ONLINE_ONLY_MESSAGE }}</p>
+                    @endif
+
                     <div class="mt-3 space-y-2">
                         @foreach ($enabledMethods as $key => $label)
                             @php
@@ -283,10 +288,17 @@
                     @if ($optionsEstimate != 0)
                         <div class="flex justify-between"><dt class="text-slate-600">Options</dt><dd>{{ $optionsEstimate > 0 ? '+' : '−' }}{{ $currencySymbol }}{{ number_format(abs($optionsEstimate), 2) }}</dd></div>
                     @endif
+                    @if ($couponDiscount > 0)
+                        <div class="flex justify-between text-emerald-700"><dt>Coupon discount</dt><dd>−{{ $currencySymbol }}{{ number_format($couponDiscount, 2) }}</dd></div>
+                    @endif
                     <div class="mt-1 flex justify-between border-t border-slate-200 pt-2 font-semibold">
                         <dt>Estimated total</dt><dd>{{ $currencySymbol }}{{ number_format($estimate, 2) }}</dd>
                     </div>
                 </dl>
+
+                @if ($cashNote)
+                    <p class="mt-2 text-[11px] font-medium leading-snug text-slate-700">{{ $cashNote }}</p>
+                @endif
 
                 <p class="mt-2 text-[11px] leading-snug text-slate-500">Estimate only — the server confirms your final price when you book.</p>
 

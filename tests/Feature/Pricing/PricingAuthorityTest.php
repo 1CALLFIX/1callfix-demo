@@ -81,7 +81,7 @@ class PricingAuthorityTest extends TestCase
             ->postJson('/api/bookings', array_merge([
                 'service_id' => $world['service']->id,
                 'address_id' => $world['address']->id,
-                'payment_method' => 'cash',
+                'payment_method' => 'online',
             ], $payload))
             ->assertStatus(201);
 

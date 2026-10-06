@@ -214,18 +214,32 @@
                 <dl class="mt-3 space-y-1.5 text-sm">
                     <div class="flex justify-between"><dt class="text-slate-600">Method</dt><dd class="capitalize">{{ $booking->payment_method }}</dd></div>
                     <div class="flex justify-between"><dt class="text-slate-600">Status</dt><dd class="capitalize">{{ str_replace('_', ' ', $booking->payment_status) }}</dd></div>
+                    @if ((float) ($booking->coupon_discount_amount ?? 0) > 0)
+                        <div class="flex justify-between"><dt class="text-slate-600">Coupon discount</dt><dd class="text-emerald-700">−{{ $currencySymbol }}{{ number_format((float) $booking->coupon_discount_amount, 2) }}</dd></div>
+                        <div class="flex justify-between"><dt class="text-slate-600">You pay</dt><dd class="font-semibold">{{ $currencySymbol }}{{ number_format($booking->amountPayable(), 2) }}</dd></div>
+                    @endif
                     <div class="flex justify-between border-t border-slate-200 pt-2 font-semibold">
                         <dt>{{ $booking->price_final !== null ? 'Final total' : 'Quoted total' }}</dt>
                         <dd>{{ $currencySymbol }}{{ number_format($price, 2) }}</dd>
                     </div>
                 </dl>
 
+                @if ($holdSecondsLeft !== null)
+                    <p class="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800" role="status"
+                       data-hold-seconds="{{ $holdSecondsLeft }}"
+                       x-data="{ s: {{ $holdSecondsLeft }}, t: null, fmt() { const m = Math.floor(this.s / 60), r = this.s % 60; return String(m).padStart(2, '0') + ':' + String(r).padStart(2, '0'); } }"
+                       x-init="t = setInterval(() => { if (s > 0) s--; }, 1000)" x-on:livewire:navigating.window="clearInterval(t)">
+                        Complete payment within <strong class="tabular-nums" x-text="fmt()">{{ sprintf('%02d:%02d', intdiv($holdSecondsLeft, 60), $holdSecondsLeft % 60) }}</strong>
+                        or this booking is cancelled and your coupon is released.
+                    </p>
+                @endif
+
                 @if ($booking->payment_status !== 'paid' && $booking->payment_method === 'online' && ! in_array($booking->status, ['cancelled'], true))
                     <div class="mt-3">
                         @if ($gatewayConfigured)
                             <button wire:click="startPayment"
                                     class="inline-flex min-h-11 items-center rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm shadow-blue-600/25 hover:bg-blue-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600">
-                                Pay {{ $currencySymbol }}{{ number_format((float) $booking->price_quoted, 2) }} now
+                                Pay {{ $currencySymbol }}{{ number_format($booking->amountPayable(), 2) }} now
                             </button>
                         @else
                             <p class="rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-600">

@@ -37,6 +37,9 @@ class ServiceResource extends JsonResource
             'base_price' => (float) $this->base_price,
             'discount_price' => $this->discount_price !== null ? (float) $this->discount_price : null,
             'effective_price' => $this->resource->effectivePrice($franchiseId),
+            // THUMB RULE (D5/D6): effective_price is the ONLINE (offer) price; cash_price is the full price.
+            'cash_price' => $this->resource->cashPrice($franchiseId),
+            'offer_requires_online' => $this->resource->offerRequiresOnline(),
             'price_type' => $this->price_type,
             'price_type_label' => $this->price_type_label,
             'duration_estimate_mins' => $this->duration_estimate_mins,

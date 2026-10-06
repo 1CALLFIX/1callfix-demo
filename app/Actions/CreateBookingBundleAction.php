@@ -10,6 +10,7 @@ use App\Notifications\BookingStatusNotification;
 use App\Notifications\Support\ChannelResolver;
 use App\Jobs\ServiceMatchingJob;
 use App\Services\AdminOpsAlertService;
+use App\Services\Coupons\CouponService;
 use App\Services\Payments\BookingBundlePaymentService;
 use App\Services\WalletService;
 use Illuminate\Database\QueryException;
@@ -103,10 +104,14 @@ class CreateBookingBundleAction
         // one address, several services) these are all identical anyway.
         $anchor = $children[0];
 
+        // Hardening §F: the wrapper row's franchise/zone come from the anchor child's own address, never
+        // from the caller. Every child is re-derived (and a forged one rejected) in createWithinTransaction.
+        $anchor = array_merge($anchor, $this->createBooking->resolveLocation($anchor + ['customer_id' => $customerId]));
+
         $walletPayment = null;
 
         try {
-            $bundle = DB::transaction(function () use ($children, $anchor, $customerId, $paymentMethod, $key, $fingerprint, $acquisition, &$walletPayment) {
+            $bundle = DB::transaction(function () use ($data, $children, $anchor, $customerId, $paymentMethod, $key, $fingerprint, $acquisition, &$walletPayment) {
                 $bundle = BookingBundle::create([
                     'idempotency_key' => $key,
                     'request_fingerprint' => $key !== null ? $fingerprint : null,
@@ -145,6 +150,18 @@ class CreateBookingBundleAction
                 $bundle->total_price_quoted = round($total, 2);
                 $bundle->save();
 
+                // Coupon engine: ONE coupon per bundle, judged on the children's gross lines;
+                // each child carries its allocated share. Runs before the wallet debit so an
+                // unusable coupon (or cash) rolls the whole bundle back.
+                $couponCode = trim((string) ($data['coupon_code'] ?? ''));
+                if ($couponCode !== '') {
+                    app(CouponService::class)->applyToBundle(
+                        $bundle,
+                        Booking::whereIn('id', $childIds)->with('service')->orderBy('id')->get(),
+                        $couponCode,
+                    );
+                }
+
                 // ONE aggregate debit for the whole bundle — never per child.
                 if ($paymentMethod === 'wallet') {
                     $walletPayment = $this->payBundleWithWallet($bundle);
@@ -166,8 +183,14 @@ class CreateBookingBundleAction
         // ── After commit: the normal per-booking dispatch + notification ──
         $bundle->loadMissing(self::CHILD_RELATIONS);
 
+        // A coupon bundle is a benefit booking: no dispatch until the online payment is
+        // captured (RazorpayWebhookHandler dispatches the children then).
+        $awaitingCouponPayment = $bundle->coupon_id !== null && $bundle->fresh()->payment_status !== 'paid';
+
         foreach ($bundle->children as $child) {
-            ServiceMatchingJob::dispatch($child->id);
+            if (! $awaitingCouponPayment) {
+                ServiceMatchingJob::dispatch($child->id);
+            }
         }
 
         foreach ($bundle->children as $child) {
@@ -229,7 +252,7 @@ class CreateBookingBundleAction
 
         $this->wallet->debit(
             $bundle->customer,
-            (float) $bundle->total_price_quoted,
+            $bundle->amountPayable(),
             reason: "Payment for booking bundle {$bundle->code}",
             ref: "booking_bundle:{$bundle->id}:wallet-payment"
         );
@@ -237,7 +260,7 @@ class CreateBookingBundleAction
         $payment = Payment::create([
             'booking_bundle_id' => $bundle->id,
             'purpose' => 'booking_bundle',
-            'amount' => $bundle->total_price_quoted,
+            'amount' => $bundle->amountPayable(),
             'gateway' => 'wallet',
             'status' => 'captured',
             'captured_at' => now(),

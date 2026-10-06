@@ -41,6 +41,7 @@ class StoreBookingBundleRequest extends CustomerApiRequest
         return [
             'payment_method' => ['nullable', 'string', 'in:online,cash,wallet'],
             'idempotency_key' => ['nullable', 'string', 'max:255'],
+            'coupon_code' => ['nullable', 'string', 'max:50'],
 
             'services' => ['required', 'array', 'min:'.self::MIN_SERVICES, 'max:'.self::MAX_SERVICES],
             'services.*.service_id' => ['required', 'integer', 'exists:services,id'],

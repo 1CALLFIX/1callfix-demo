@@ -180,6 +180,9 @@ class RazorpayWebhookHandler
             if ($bundle) {
                 app(BookingBundlePaymentService::class)->markBundlePaid($bundle);
 
+                // Coupon bundle: the children were held at creation and are dispatched only now.
+                app(\App\Services\Coupons\CouponDispatchGate::class)->releaseBundle($bundle->fresh());
+
                 foreach ($bundle->children()->with('customer')->get() as $child) {
                     if ($child->customer) {
                         $channels = ChannelResolver::resolve(['zone_id' => $child->zone_id, 'franchise_id' => $child->franchise_id]);
@@ -250,6 +253,9 @@ class RazorpayWebhookHandler
                 // so this is safe to call unconditionally here rather than
                 // adding a scheduled_at branch at every webhook call site.
                 app(\App\Services\ScheduledDispatchService::class)->releaseIfEligible($booking->fresh());
+
+                // Coupon (benefit) bookings are held at creation and dispatched only now, on capture.
+                app(\App\Services\Coupons\CouponDispatchGate::class)->releaseIfEligible($booking->fresh());
             }
         }
 

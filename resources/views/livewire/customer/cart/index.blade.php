@@ -100,6 +100,11 @@
                 <span class="text-xl font-bold text-slate-900">{{ $currencySymbol }}{{ number_format($estimateTotal, 2) }}</span>
             </div>
             <p class="mt-1 text-xs text-slate-500">Estimate only. Your final price is confirmed at checkout.</p>
+            @if ($cashNote)
+                <p class="mt-1 text-xs font-medium text-slate-700">{{ $cashNote }}</p>
+            @endif
+
+            <x-customer.coupon-box :coupon="$coupon" :currency-symbol="$currencySymbol" class="mt-4" />
 
             <button type="button" wire:click="proceed"
                     @disabled(! empty($scheduleErrors))

@@ -102,6 +102,7 @@ Route::middleware(['auth:sanctum', \App\Http\Middleware\EnsureNotInMaintenanceMo
     // before the dynamic '{bookingId}' routes so 'mine' is never captured
     // as an id. See BookingController's own docblock for the real
     // call-center-only-vs-self-service business-model note this resolves.
+    Route::post('/coupons/validate', [\App\Http\Controllers\API\CouponController::class, 'validateCoupon']);
     Route::post('/bookings', [\App\Http\Controllers\API\BookingController::class, 'store']);
     Route::get('/bookings/mine', [\App\Http\Controllers\API\BookingController::class, 'mine']);
     Route::get('/bookings/{bookingId}', [\App\Http\Controllers\API\BookingController::class, 'show']);

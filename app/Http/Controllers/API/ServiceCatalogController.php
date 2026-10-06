@@ -108,7 +108,10 @@ class ServiceCatalogController extends Controller
             'country_id' => $franchise?->country_id,
         ], fn ($value) => $value !== null));
 
-        $services->each(fn ($service) => $service->setEffectivePrice($prices[$service->id]['price']));
+        $services->each(function ($service) use ($prices) {
+            $service->setEffectivePrice($prices[$service->id]['price']);
+            $service->setCashPrice($prices[$service->id]['resolved_price'], $prices[$service->id]['sale'] !== null);
+        });
 
         return ApiResponse::success(ServiceResource::collection($services));
     }

@@ -59,7 +59,7 @@ class BundlePricingAuthorityTest extends TestCase
     {
         $this->actingAs($world['customer'], 'sanctum')
             ->postJson('/api/booking-bundles', array_merge([
-                'payment_method' => 'cash',
+                'payment_method' => 'online',
                 'services' => [
                     ['service_id' => $world['serviceA']->id, 'address_id' => $world['address']->id],
                     ['service_id' => $world['serviceB']->id, 'address_id' => $world['address']->id],

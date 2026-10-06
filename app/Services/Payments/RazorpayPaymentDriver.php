@@ -106,7 +106,7 @@ class RazorpayPaymentDriver implements PaymentGateway
     public function createOrder(Booking $booking): array
     {
         return $this->createRawOrder(
-            (float) $booking->price_quoted,
+            $booking->amountPayable(),
             $booking->code,
             ['booking_id' => $booking->id, 'franchise_id' => $booking->franchise_id],
         );
@@ -130,9 +130,11 @@ class RazorpayPaymentDriver implements PaymentGateway
             ]);
 
         if (!$response->successful()) {
-            throw new \RuntimeException(
-                "Razorpay order creation failed for receipt [{$receipt}]: " . $response->body()
-            );
+            // The gateway's wording and the receipt are for the log, never for the customer.
+            $detail = "Razorpay order creation failed for receipt [{$receipt}]: " . $response->body();
+            \Illuminate\Support\Facades\Log::error('payment.gateway_order_failed', ['gateway' => 'razorpay', 'receipt' => $receipt, 'status' => $response->status(), 'detail' => $detail]);
+
+            throw new \App\Exceptions\PaymentGatewayException($detail);
         }
 
         $order = $response->json();

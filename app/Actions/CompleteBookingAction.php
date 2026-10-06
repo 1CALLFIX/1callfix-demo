@@ -132,7 +132,8 @@ class CompleteBookingAction
 
         $customerRate = EarningsSettings::number('loyalty.customer_points_per_currency_unit', $scope);
         if ($expiryConfigured && $customerRate !== null && EarningsSettings::on('loyalty.customer_enabled', $scope) && $booking->customer) {
-            $customerPoints = (int) floor((float) $booking->price_final * $customerRate);
+            // Q7: points on what the customer actually paid — the coupon discount earns nothing.
+            $customerPoints = (int) floor(max((float) $booking->price_final - (float) ($booking->coupon_discount_amount ?? 0), 0) * $customerRate);
             $this->loyaltyService->earn($booking->customer, $customerPoints, 'booking_completed', $booking, $scope);
         }
 

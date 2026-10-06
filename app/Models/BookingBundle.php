@@ -49,8 +49,33 @@ class BookingBundle extends Model implements Orderable
         'total_price_final',
         'cancellation_note',
         'cancellation_fee',
+        'coupon_id',
+        'coupon_discount_amount',
+        'coupon_snapshot',
     ];
 
+    protected $casts = ['coupon_snapshot' => 'array'];
+
+    protected static function booted(): void
+    {
+        // THUMB RULE: mirror of Booking::booted — a bundle carrying a coupon benefit never switches payment method.
+        static::updating(function (BookingBundle $bundle) {
+            \App\Services\Payments\OnlinePaymentGuard::assertMethodUnchanged($bundle, $bundle->hasCouponBenefit());
+        });
+    }
+
+    public function hasCouponBenefit(): bool
+    {
+        return $this->coupon_id !== null || (float) ($this->coupon_discount_amount ?? 0) > 0;
+    }
+
+    /** What the customer pays for the whole bundle: the settled/quoted total minus the bundle coupon discount (D1). */
+    public function amountPayable(): float
+    {
+        return round(max((float) ($this->total_price_final ?? $this->total_price_quoted) - (float) ($this->coupon_discount_amount ?? 0), 0), 2);
+    }
+
+    public function coupon() { return $this->belongsTo(Coupon::class); }
     public function franchise() { return $this->belongsTo(Franchise::class); }
     public function zone() { return $this->belongsTo(Zone::class); }
     public function customer() { return $this->belongsTo(User::class, 'customer_id'); }

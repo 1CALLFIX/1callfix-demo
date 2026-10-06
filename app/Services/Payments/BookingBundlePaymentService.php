@@ -176,6 +176,6 @@ class BookingBundlePaymentService
      */
     private function authoritativeAmount(BookingBundle $bundle): float
     {
-        return (float) ($bundle->total_price_final ?? $bundle->total_price_quoted);
+        return $bundle->amountPayable();
     }
 }

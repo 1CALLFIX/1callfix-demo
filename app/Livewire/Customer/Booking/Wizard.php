@@ -5,6 +5,7 @@ namespace App\Livewire\Customer\Booking;
 use App\Actions\CreateBookingAction;
 use App\Exceptions\ModuleNotActiveException;
 use App\Livewire\Customer\Concerns\ConfiguresServiceOptions;
+use App\Livewire\Customer\Concerns\HasCouponEntry;
 use App\Models\Address;
 use App\Models\Service;
 use App\Models\Setting;
@@ -44,6 +45,7 @@ use Livewire\Component;
 class Wizard extends Component
 {
     use ConfiguresServiceOptions;
+    use HasCouponEntry;
 
     private const STEPS = ['configure', 'address', 'schedule', 'pay'];
 
@@ -324,6 +326,30 @@ class Wizard extends Component
         return \App\Support\BookingSchedule::validate($this->scheduledAt);
     }
 
+    // ----------------------------------------------------------------- coupon
+
+    protected function couponSurface(): string
+    {
+        return 'wizard';
+    }
+
+    protected function couponItems(): array
+    {
+        return [['service' => Service::findOrFail($this->serviceId), 'quantity' => 1]];
+    }
+
+    protected function couponLocation(): array
+    {
+        $address = $this->resolvedAddress();
+
+        return [$address?->franchise_id, $address?->zone_id];
+    }
+
+    protected function couponPaymentMethod(): string
+    {
+        return $this->paymentMethod;
+    }
+
     // ----------------------------------------------------------------- pay
 
     /**
@@ -403,6 +429,8 @@ class Wizard extends Component
                 'scheduled_at' => \App\Support\BookingSchedule::parse($this->scheduledAt),
                 'payment_method' => $this->paymentMethod,
                 'customer_note' => $this->customerNote ?: null,
+                // Judged server-side by the engine; cash is rejected there (online only).
+                'coupon_code' => $this->couponCodeForBooking(),
             ]);
         } catch (ModuleNotActiveException $e) {
             $this->error = $e->getMessage();
@@ -426,6 +454,7 @@ class Wizard extends Component
         $presenter = app(CatalogPresenter::class);
         $card = $presenter->card($service);
         $selectedOptions = $this->selectedOptions();
+        $optionsEstimate = $this->optionsTotal($selectedOptions);
 
         return view('livewire.customer.booking.wizard', [
             'service' => $service,
@@ -433,12 +462,17 @@ class Wizard extends Component
             'currencySymbol' => $presenter->currencySymbol(),
             'groups' => $this->optionGroups(),
             'selectedOptions' => $selectedOptions,
-            'optionsEstimate' => $this->optionsTotal($selectedOptions),
-            'baseEstimate' => (float) $card['price'],
+            'optionsEstimate' => $optionsEstimate,
+            // Offer price on an online method, full price on cash: switched server-side from the card's two numbers.
+            'baseEstimate' => $presenter->payablePrice($card, $this->paymentMethod),
+            'cashNote' => $card['offer_requires_online'] ? $presenter->cashNote((float) $card['cash_price'] + $optionsEstimate) : null,
             'addresses' => Address::where('user_id', auth()->id())->orderByDesc('is_default')->latest()->get(),
             'enabledMethods' => $this->enabledPaymentMethods(),
             'walletBalance' => $this->walletBalance(),
             'steps' => self::STEPS,
+            'coupon' => $coupon = $this->couponView(),
+            // The server-computed discount of an applied, eligible coupon (0 otherwise) — folded into the estimate.
+            'couponDiscount' => ($coupon['quote']['eligible'] ?? false) ? (float) $coupon['quote']['discount'] : 0.0,
         ])->layout('components.layouts.customer', ['title' => 'Book '.$service->name]);
     }
 }

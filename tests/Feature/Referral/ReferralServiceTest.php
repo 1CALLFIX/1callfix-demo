@@ -68,6 +68,7 @@ class ReferralServiceTest extends TestCase
     {
         $referrer = $this->makeCustomer();
         ['booking' => $booking, 'customer' => $referred] = $this->makeBookingScenario('completed');
+        $booking->update(['payment_status' => 'paid']); // D8
         $referred->update(['referred_by' => $referrer->id]);
         Referral::create(['referrer_id' => $referrer->id, 'referred_id' => $referred->id, 'status' => 'pending']);
 
@@ -84,6 +85,7 @@ class ReferralServiceTest extends TestCase
     {
         $referrer = $this->makeCustomer();
         ['booking' => $firstBooking, 'customer' => $referred, 'franchise' => $franchise, 'zone' => $zone, 'category' => $category, 'address' => $address] = $this->makeBookingScenario('completed');
+        $firstBooking->update(['payment_status' => 'paid']); // D8
         $referred->update(['referred_by' => $referrer->id]);
         Referral::create(['referrer_id' => $referrer->id, 'referred_id' => $referred->id, 'status' => 'pending']);
         app(ReferralService::class)->qualifyFromCompletedBooking($firstBooking);

@@ -55,7 +55,7 @@ class CustomerCancelBookingAction
 
         return $decision + [
             'requires_payment' => $decision['allowed'] && $charge > 0 && ! $prepaid,
-            'refund' => $decision['allowed'] && $prepaid ? round(max((float) $booking->price_quoted - $charge, 0), 2) : 0.0,
+            'refund' => $decision['allowed'] && $prepaid ? round(max($booking->amountPayable() - $charge, 0), 2) : 0.0,
             'token' => $decision['allowed'] && $charge > 0 ? CancellationQuoteToken::issue($booking, $charge) : null,
         ];
     }

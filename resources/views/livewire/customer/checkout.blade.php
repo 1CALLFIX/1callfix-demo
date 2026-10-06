@@ -107,6 +107,9 @@
                 <span class="text-xl font-bold text-slate-900">{{ $currencySymbol }}{{ number_format($reviewTotal, 2) }}</span>
             </div>
             <p class="mt-1 text-xs text-slate-500">This is the amount you will be charged.</p>
+            @if ($cashNote)
+                <p class="mt-1 text-xs font-medium text-slate-700">{{ $cashNote }}</p>
+            @endif
 
         {{-- ---------------------------------------------- pay --}}
         @elseif ($step === 'pay')
@@ -115,10 +118,15 @@
             @if (empty($enabledMethods))
                 <p class="mt-2 text-sm text-rose-600">No payment method is available for this address.</p>
             @else
+                <x-customer.coupon-box :coupon="$coupon" :currency-symbol="$currencySymbol" class="mt-3" />
+                @if ($coupon['enabled'] && $couponCode !== '' && $coupon['message'] === '' && ! in_array($paymentMethod, ['online', 'wallet'], true))
+                    <p class="mt-2 text-sm text-rose-600">{{ \App\Exceptions\CouponException::ONLINE_ONLY_MESSAGE }}</p>
+                @endif
+
                 <div class="mt-3 space-y-2">
                     @foreach ($enabledMethods as $value => $label)
                         <label class="flex cursor-pointer items-center gap-3 rounded-lg border border-slate-200 p-3 has-[:checked]:border-blue-600 has-[:checked]:bg-blue-50/40">
-                            <input type="radio" wire:model="paymentMethod" value="{{ $value }}">
+                            <input type="radio" wire:model.live="paymentMethod" value="{{ $value }}">
                             <span class="text-sm text-slate-900">{{ $label }}</span>
                             @if ($value === 'wallet')
                                 <span class="ml-auto text-xs text-slate-500">Balance {{ $currencySymbol }}{{ number_format($walletBalance, 2) }}</span>
@@ -127,11 +135,19 @@
                     @endforeach
                 </div>
 
+                <div class="mt-4 flex items-baseline justify-between border-t border-slate-200 pt-3">
+                    <span class="text-sm font-medium text-slate-700">You pay</span>
+                    <span class="text-xl font-bold text-slate-900">{{ $currencySymbol }}{{ number_format($payTotal, 2) }}</span>
+                </div>
+                @if ($cashNote)
+                    <p class="mt-1 text-xs font-medium text-slate-700">{{ $cashNote }}</p>
+                @endif
+
                 <x-cancellation-policy :lines="app(\App\Services\Cancellation\CancellationPolicy::class)->policyLines()" class="mt-4" />
 
                 <button type="button" wire:click="place" wire:loading.attr="disabled"
                         class="mt-4 flex min-h-12 w-full items-center justify-center rounded-lg bg-blue-600 px-6 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:opacity-50">
-                    Confirm &amp; book · {{ $currencySymbol }}{{ number_format($reviewTotal, 2) }}
+                    Confirm &amp; book · {{ $currencySymbol }}{{ number_format($payTotal, 2) }}
                 </button>
             @endif
         @endif

@@ -294,13 +294,19 @@ class Show extends Component
             return;
         }
 
-        $order = $gateway->createOrder($booking);
+        try {
+            $order = $gateway->createOrder($booking);
+        } catch (\App\Exceptions\PaymentGatewayException $e) {
+            $this->error = $e->getMessage();
+
+            return;
+        }
 
         Payment::firstOrCreate(
             ['gateway_order_id' => $order['razorpay_order_id']],
             [
                 'booking_id' => $booking->id,
-                'amount' => $booking->price_quoted,
+                'amount' => $booking->amountPayable(),
                 'gateway' => $gateway->identifier(),
                 'status' => 'pending',
             ],
@@ -367,6 +373,10 @@ class Show extends Component
             'currencySymbol' => $currencySymbol,
             'existingReview' => $booking->review,
             'gatewayConfigured' => app(PaymentGateway::class)->isConfigured(),
+            // C3: seconds left to pay a coupon booking before the sweep cancels it and releases the coupon (null = no hold).
+            'holdSecondsLeft' => ($expires = \App\Services\Coupons\CouponHoldSweepService::expiresAt($booking))
+                ? max(0, (int) ceil(now()->diffInSeconds($expires, false)))
+                : null,
             'capturedPaymentId' => $capturedPayment?->id,
             // The page re-polls itself while this is true (see the blade).
             'isInFlight' => in_array($booking->status, self::IN_FLIGHT_STATUSES, true),

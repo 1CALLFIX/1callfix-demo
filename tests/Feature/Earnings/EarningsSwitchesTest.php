@@ -303,6 +303,7 @@ class EarningsSwitchesTest extends TestCase
     private function qualifyingReferral(): array
     {
         ['booking' => $booking, 'customer' => $referred] = $this->makeBookingScenario('completed');
+        $booking->update(['payment_status' => 'paid']); // D8: only an online-paid completion qualifies
         $referrer = $this->makeCustomer();
         $referral = Referral::create(['referrer_id' => $referrer->id, 'referred_id' => $referred->id, 'status' => 'pending']);
 
