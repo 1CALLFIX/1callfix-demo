@@ -14,6 +14,9 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
 
+        // Opt-in canonical-host redirect (SEO). A no-op until the owner enables it in admin.
+        $middleware->web(prepend: [\App\Http\Middleware\RedirectToCanonicalHost::class]);
+
         // Two distinct audiences now share this application: staff on
         // /admin/* (session login at admin.login) and customers on the
         // Phase B customer web app (OTP session login at customer.login).

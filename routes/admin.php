@@ -97,6 +97,8 @@ Route::middleware(['auth', \Illuminate\Session\Middleware\AuthenticateSession::c
         Route::get('/drivers', DriversIndex::class)->name('admin.drivers.index');
         Route::get('/geography', GeographyManage::class)->name('admin.geography.index');
         Route::get('/seo/city-content', SeoCityContent::class)->name('admin.seo.city-content');
+        // Global SEO (site name template, home, modules, business details, verification): Super Admin only, checked in the component.
+        Route::get('/seo/settings', \App\Livewire\Seo\Settings::class)->name('admin.seo.settings');
         Route::get('/franchises', FranchisesManage::class)->name('admin.franchises.index');
         Route::get('/franchises/{franchiseId}/pricing', FranchisePricingManage::class)->name('admin.franchises.pricing');
         Route::get('/zones', ZonesManage::class)->name('admin.zones.index');

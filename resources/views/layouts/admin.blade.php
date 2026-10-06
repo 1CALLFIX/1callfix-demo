@@ -147,6 +147,7 @@
                     ['label' => 'Services', 'route' => 'admin.services.index', 'icon' => 'wrench', 'permission' => 'services.manage'],
                     ['label' => 'Categories', 'route' => 'admin.categories.index', 'icon' => 'wrench', 'permission' => 'categories.manage'],
                     ['label' => 'Subcategories', 'route' => 'admin.subcategories.index', 'icon' => 'wrench', 'permission' => 'categories.manage'],
+                    ['label' => 'Search & Social', 'route' => 'admin.seo.settings', 'icon' => 'magnifying-glass', 'permission' => 'seo.manage_global'],
                     ['label' => 'City Page Content', 'route' => 'admin.seo.city-content', 'icon' => 'map', 'permission' => 'seo.edit_city_content'],
                 ],
             ],

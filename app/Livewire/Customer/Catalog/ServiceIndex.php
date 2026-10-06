@@ -114,11 +114,12 @@ class ServiceIndex extends Component
             'currencySymbol' => $this->presenter()->currencySymbol(),
             'hasFilters' => $this->search !== '' || $this->category !== null || $this->sort !== 'recommended',
         ])->layout('components.layouts.customer', [
-            'title' => $this->offersOnly ? 'Offers' : 'All services',
-            'indexable' => true,
+            'title' => $this->offersOnly ? 'Offers' : (\App\Services\Seo\SeoSettings::moduleMeta('service')['title'] ?? 'All services'),
+            // A searched, sorted or category-filtered list is a duplicate of the plain list: keep it out of the index.
+            'indexable' => ! ($this->search !== '' || $this->category !== null || $this->sort !== 'recommended'),
             'metaDescription' => $this->offersOnly
                 ? 'Current offers and limited-time pricing on home services in your area.'
-                : 'Browse every home service available in your area.',
+                : (\App\Services\Seo\SeoSettings::moduleMeta('service')['description'] ?? 'Browse every home service available in your area.'),
         ]);
     }
 
