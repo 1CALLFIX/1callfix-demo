@@ -74,6 +74,7 @@ class ApplyForm extends Component
             'consent' => ['accepted'],
         ], [
             'role.required' => 'Choose a role.', 'role.in' => 'Choose a role.',
+            'name.required' => 'Enter your full name.', 'phone.required' => 'Enter your mobile number.', 'city.required' => 'Enter your city.',
             'name.regex' => 'Enter your name.', 'city.regex' => 'Enter your city.',
             'phone.regex' => 'Enter a valid mobile number.',
             'consent.accepted' => 'Please tick the box to continue.',

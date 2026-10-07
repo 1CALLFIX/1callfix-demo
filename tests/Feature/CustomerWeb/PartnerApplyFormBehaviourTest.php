@@ -60,4 +60,10 @@ class PartnerApplyFormBehaviourTest extends TestCase
         \App\Models\Setting::set(\App\Support\PartnerPage\PartnerPageSettings::key('store.android_url'), 'https://play.google.com/store/apps/details?id=example');
         $this->get('/')->assertOk()->assertSee('Get the Android app')->assertDontSee('Get the iPhone app');
     }
+
+    public function test_required_field_errors_use_plain_wording(): void
+    {
+        Livewire::test(ApplyForm::class)->call('submit')
+            ->assertSee('Enter your full name.')->assertSee('Enter your mobile number.')->assertSee('Enter your city.');
+    }
 }
