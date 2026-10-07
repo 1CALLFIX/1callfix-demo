@@ -123,7 +123,7 @@ php artisan down --secret="$(openssl rand -hex 16)" --render=errors::503
 #    with symlinks under vendor/bin/*, avoid it).
 git pull origin main
 # -- or --
-# scp -r <local-build-folder> callf1207@31.97.186.175:/home/1callfix.com/public_html/
+# scp -r <local-build-folder> callf1207@31.97.186.175:/home/1callfix.com/public_html/public/build/
 
 # 3. PHP dependencies — production flags: no dev packages, optimized
 #    class-map autoloader.
