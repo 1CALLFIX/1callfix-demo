@@ -120,4 +120,47 @@ class SharedFooterTest extends TestCase
         Setting::set(P::key('footer_contact'), 'Call us on 0861 000 0000');
         $this->get('/')->assertOk()->assertSeeText('Call us on 0861 000 0000');
     }
+
+    public static function unsafeAddresses(): array
+    {
+        return [
+            'javascript' => ['javascript:alert(1)'],
+            'javascript upper' => ['JaVaScRiPt:alert(1)'],
+            'java TAB script' => ["java\tscript:alert(1)"],
+            'java newline script' => ["java\nscript:alert(1)"],
+            'java CR script' => ["java\rscript:alert(1)"],
+            'data' => ['data:text/html,<script>alert(1)</script>'],
+            'vbscript' => ['vbscript:msgbox(1)'],
+            'protocol-relative' => ['//evil.example/x'],
+            'backslash host' => ['/\evil.example'],
+            'leading space' => [' /help'],
+            'leading tab' => ["\t/help"],
+            'trailing space' => ['/help '],
+            'leading control char' => ["\x01/help"],
+            'ftp' => ['ftp://example.com/file'],
+            'empty scheme host' => ['https:///x'],
+            'bare word' => ['help'],
+        ];
+    }
+
+    /** @dataProvider unsafeAddresses */
+    #[\PHPUnit\Framework\Attributes\DataProvider('unsafeAddresses')]
+    public function test_unsafe_link_addresses_are_refused_and_never_rendered(string $href): void
+    {
+        $this->assertFalse(P::safeHref($href));
+
+        $json = json_encode([['title' => 'X', 'links' => [['label' => 'Link', 'href' => $href]]]]);
+        $this->assertArrayHasKey('footer.groups', P::validate(['footer.groups' => $json]));
+
+        // Even if such a value were stored directly (bypassing the admin screen) the footer renders the default.
+        Setting::set(P::key('footer.groups'), $json);
+        $this->assertSame($this->snapshot(), $this->footerOf('/'));
+    }
+
+    public function test_only_relative_http_https_mailto_and_tel_addresses_are_accepted(): void
+    {
+        foreach (['/help', '/a/b?x=1#y', 'http://example.com/a', 'https://example.com/a', 'mailto:hello@example.com', 'tel:+911234567890'] as $ok) {
+            $this->assertTrue(P::safeHref($ok), $ok);
+        }
+    }
 }

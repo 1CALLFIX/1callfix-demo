@@ -372,9 +372,8 @@ final class PartnerPageSettings
                         return 'Each group needs a title (max 40) and 1 to 12 links.';
                     }
                     foreach ($g['links'] as $l) {
-                        if (! is_array($l) || ! $str($l['label'] ?? null, 40) || ! is_string($l['href'] ?? null)
-                            || preg_match('#^(/(?!/)[^\s]*|https://[^\s]+|mailto:[^\s]+|tel:[+0-9 ()-]+)$#i', $l['href']) !== 1) {
-                            return 'Each link needs a label (max 40) and an address starting with /, https://, mailto: or tel:.';
+                        if (! is_array($l) || ! $str($l['label'] ?? null, 40) || ! self::safeHref($l['href'] ?? null)) {
+                            return 'Each link needs a label (max 40) and an address starting with /, http://, https://, mailto: or tel:.';
                         }
                     }
                 }
@@ -389,6 +388,24 @@ final class PartnerPageSettings
         }
 
         return null;
+    }
+
+    /**
+     * A link address is safe only if it is a root-relative path, or an http, https, mailto or tel address. Anything
+     * else is refused: javascript:, data:, vbscript:, protocol-relative //host, a backslash (browsers read "/\host"
+     * as "//host"), leading whitespace, and any whitespace or control character anywhere (so "java<TAB>script:" and
+     * "java<LF>script:" can never reach a browser that strips them).
+     */
+    public static function safeHref(mixed $href): bool
+    {
+        if (! is_string($href) || $href === '' || strlen($href) > 500) {
+            return false;
+        }
+        if (preg_match('/[\x00-\x20\x7F\\\\]/', $href) === 1) {
+            return false;
+        }
+
+        return preg_match('#^(/(?!/)[^\s]*|https?://[^\s/][^\s]*|mailto:[^\s]+|tel:[+0-9()-]+)$#i', $href) === 1;
     }
 
     /** Every settings key this page owns (for cache clearing and the admin screen). */
