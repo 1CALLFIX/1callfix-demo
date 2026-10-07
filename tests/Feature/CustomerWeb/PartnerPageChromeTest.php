@@ -33,4 +33,20 @@ class PartnerPageChromeTest extends TestCase
             $this->assertStringContainsString('<footer', $html, $path.' footer');
         }
     }
+
+    public function test_the_partner_bar_uses_the_same_brand_mark_as_the_home_header_and_links_home(): void
+    {
+        \App\Models\Setting::set('branding.platform_name', 'Acme Fix');
+
+        $partners = $this->get(route('customer.partners'))->assertOk()->getContent();
+        $this->assertSame(1, preg_match('#<div class="top">(.*?)</nav>#s', $partners, $bar), 'partner bar found');
+
+        $this->assertStringContainsString('<a class="logo" href="'.route('customer.home').'"', $bar[1]);
+        $this->assertStringNotContainsString('href="#top"', $bar[1]);
+        $this->assertStringContainsString('Acme Fix', $bar[1], 'the platform name comes from the shared brand mark');
+        $this->assertStringNotContainsString('<i aria-hidden="true">1</i>', $partners, 'the hardcoded "1" badge is gone');
+
+        $home = $this->get('/')->assertOk()->getContent();
+        $this->assertStringContainsString('Acme Fix', $home);
+    }
 }
