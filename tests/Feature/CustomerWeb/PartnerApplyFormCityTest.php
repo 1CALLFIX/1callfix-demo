@@ -9,6 +9,7 @@ use App\Models\Country;
 use App\Models\PartnerLead;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\Facades\Schema;
 use Livewire\Livewire;
 use Tests\Feature\Support\RebuiltAuthHelpers;
 use Tests\TestCase;
@@ -74,11 +75,28 @@ class PartnerApplyFormCityTest extends TestCase
 
     public function test_the_server_validates_the_city(): void
     {
-        $this->form()->call('submit')->assertHasErrors(['cityChoice']);
+        $this->assertSame(['Choose your city.'], $this->form()->set('cityChoice', '')->call('submit')->errors()->get('cityChoice'));
         $this->form()->set('cityChoice', 'no-such-city')->call('submit')->assertHasErrors(['cityChoice']);
         $this->form()->set('cityChoice', 'dormant-town')->call('submit')->assertHasErrors(['cityChoice']);
         $this->form()->set('cityChoice', ApplyForm::OTHER_CITY)->call('submit')->assertHasErrors(['city']);
         $this->form()->set('cityChoice', ApplyForm::OTHER_CITY)->set('city', '<script>')->call('submit')->assertHasErrors(['city']);
         $this->assertSame(0, PartnerLead::count());
+    }
+
+    public function test_without_the_cities_slug_column_the_page_still_renders_with_a_free_text_city_only(): void
+    {
+        Schema::partialMock()->shouldReceive('hasColumn')->with('cities', 'slug')->andReturn(false);
+
+        $this->get(route('customer.partners'))->assertOk()
+            ->assertDontSee('<select id="pl-city"', false)
+            ->assertDontSee('My city is not listed')
+            ->assertSeeHtml('id="pl-city-other"');
+
+        // A typed city still saves, and the sign-up link holds with no prefill (and no query on the missing column).
+        $this->form()->set('city', 'Ongole')->call('submit')->assertHasNoErrors()->assertSet('outcome', 'handoff');
+        $lead = PartnerLead::sole();
+        $this->assertSame('Ongole', $lead->city);
+        $this->assertSame(['id' => $lead->id, 'role' => 'service', 'city' => null], session('partner_lead'));
+        Livewire::test(Register::class)->assertSet('leadId', $lead->id)->assertSet('address', '');
     }
 }

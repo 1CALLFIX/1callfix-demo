@@ -68,7 +68,8 @@ class PartnerApplyFormBehaviourTest extends TestCase
 
         $this->assertSame(['Enter your full name.'], $errors->get('name'));
         $this->assertSame(['Enter your mobile number.'], $errors->get('phone'));
-        $this->assertSame(['Choose your city.'], $errors->get('cityChoice'));
+        // No listed cities in this database: the free-text city is the only field, so its message applies.
+        $this->assertSame(['Enter your city.'], $errors->get('city'));
         $this->assertSame(['Please tick the box to continue.'], $errors->get('consent'));
     }
 }

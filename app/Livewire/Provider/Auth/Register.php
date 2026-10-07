@@ -118,7 +118,8 @@ class Register extends Component
             // nothing. The applicant confirms or replaces it, and the pin still decides the service area.
             $slug = (string) ($lead['city'] ?? '');
             if (preg_match('/^[a-z0-9-]{1,80}$/', $slug) === 1) {
-                $this->address = (string) (\App\Models\City::query()->where('slug', $slug)->value('name') ?? \Illuminate\Support\Str::headline($slug));
+                $name = \App\Livewire\Partner\ApplyForm::citySlugColumnExists() ? \App\Models\City::query()->where('slug', $slug)->value('name') : null;
+                $this->address = (string) ($name ?? \Illuminate\Support\Str::headline($slug));
             }
         }
 

@@ -56,6 +56,11 @@ class ApplyForm extends Component
 
     public function mount(): void
     {
+        // No listed cities (or no cities.slug column yet): the free-text city is the only way in.
+        if (self::listedCities()->isEmpty()) {
+            $this->cityChoice = self::OTHER_CITY;
+        }
+
         $codes = array_column(PartnerPageData::roles(), 'code');
         $this->role = in_array('service', $codes, true) ? 'service' : ($codes[0] ?? '');
     }
@@ -162,9 +167,31 @@ class ApplyForm extends Component
         $this->outcome = 'waitlist';
     }
 
+    /**
+     * Whether cities.slug exists (it arrives with an earlier migration). Checked once per request; when it is missing
+     * the page must still render, with the free-text city only and no query on the column.
+     */
+    public static function citySlugColumnExists(): bool
+    {
+        $attributes = request()->attributes;
+        if (! $attributes->has('partner_cities_slug')) {
+            try {
+                $attributes->set('partner_cities_slug', \Illuminate\Support\Facades\Schema::hasColumn('cities', 'slug'));
+            } catch (\Throwable) {
+                $attributes->set('partner_cities_slug', false);
+            }
+        }
+
+        return (bool) $attributes->get('partner_cities_slug');
+    }
+
     /** Active cities that have a slug (QA/demo cities excluded), for the select. */
     public static function listedCities(): \Illuminate\Support\Collection
     {
+        if (! self::citySlugColumnExists()) {
+            return collect();
+        }
+
         try {
             return City::query()->where('is_active', true)->whereNotNull('slug')->notQa()->orderBy('name')->get(['id', 'name', 'slug']);
         } catch (\Throwable) {
