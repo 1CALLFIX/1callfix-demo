@@ -8,6 +8,7 @@ use App\Models\City;
 use App\Models\Country;
 use App\Models\PartnerLead;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Schema;
 use Livewire\Livewire;
@@ -96,6 +97,28 @@ class PartnerApplyFormCityTest extends TestCase
         $this->form()->set('city', 'Ongole')->call('submit')->assertHasNoErrors()->assertSet('outcome', 'handoff');
         $lead = PartnerLead::sole();
         $this->assertSame('Ongole', $lead->city);
+        $this->assertSame(['id' => $lead->id, 'role' => 'service', 'city' => null], session('partner_lead'));
+        Livewire::test(Register::class)->assertSet('leadId', $lead->id)->assertSet('address', '');
+    }
+
+    public function test_a_city_with_a_null_slug_is_left_out_of_the_select_and_not_listed_still_works(): void
+    {
+        // The City model fills a slug on create, so a null slug can only come from a raw write or a legacy row.
+        City::create(['country_id' => $this->country->id, 'name' => 'Slugless Town', 'is_active' => true]);
+        DB::table('cities')->where('name', 'Slugless Town')->update(['slug' => null]);
+
+        $this->get(route('customer.partners'))->assertOk()
+            ->assertSeeHtml('<option value="nellore">Nellore</option>')
+            ->assertDontSee('Slugless Town')
+            ->assertSee('My city is not listed');
+
+        $this->assertSame(['Nellore', 'Sri City'], ApplyForm::listedCities()->pluck('name')->all());
+
+        $this->form()->set('cityChoice', ApplyForm::OTHER_CITY)->set('city', 'Slugless Town')->call('submit')
+            ->assertHasNoErrors()->assertSet('outcome', 'handoff');
+
+        $lead = PartnerLead::sole();
+        $this->assertSame('Slugless Town', $lead->city);
         $this->assertSame(['id' => $lead->id, 'role' => 'service', 'city' => null], session('partner_lead'));
         Livewire::test(Register::class)->assertSet('leadId', $lead->id)->assertSet('address', '');
     }
