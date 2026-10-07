@@ -192,7 +192,7 @@ html:has(.pp){scroll-behavior:smooth}
                     <small>New job offer</small>
                     <h3>AC service</h3>
                     <div class="meta"><span>2.4 km from you</span><span>Starts at 10:30 AM</span></div>
-                    <div class="acts"><span>Reject</span><span>Accept</span></div>
+                    <div class="acts"><span>Decline</span><span>Accept</span></div>
                 </div>
                 <div class="earn"><span>Today's earnings</span><b>₹1,850</b></div>
                 <div class="sample">Sample screen with example numbers</div>
@@ -327,7 +327,7 @@ html:has(.pp){scroll-behavior:smooth}
                     @isset($claims['joining_free']) <li><span class="chk">{!! $check !!}</span>{{ $claims['joining_free'] }} No fee to apply.</li> @endisset
                     <li><span class="chk">{!! $check !!}</span>You finish your application in the 1CallFix app</li>
                     @isset($claims['save_finish_later']) <li><span class="chk">{!! $check !!}</span>Save your progress and finish later</li> @endisset
-                    <li><span class="chk">{!! $check !!}</span>Status updates by notification when your application moves</li>
+                    <li><span class="chk">{!! $check !!}</span>You are notified when your KYC is approved or rejected</li>
                 </ul>
                 @if ($phones !== [])
                     <p class="help">Need a hand applying? Contact partner support on

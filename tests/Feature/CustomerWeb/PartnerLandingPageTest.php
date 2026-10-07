@@ -124,10 +124,37 @@ class PartnerLandingPageTest extends TestCase
 
     public function test_truth_rule_wording_is_present_and_the_old_unbacked_claims_are_gone(): void
     {
-        $this->get(route('customer.partners'))->assertOk()
-            ->assertSeeText('Payouts to your bank or UPI')
-            ->assertSeeText('Go online when you want')
-            ->assertDontSeeText('paid on time')->assertDontSeeText('Prices set up front');
+        $text = strip_tags($this->get(route('customer.partners'))->assertOk()->getContent());
+
+        // Wording that matches what the provider screens really do.
+        foreach ([
+            'Request a payout to your verified bank or UPI account.',
+            'Go online when you want work and offline when you do not.',
+            'The customer shares a one-time code to start the job and another to finish it.',
+            'Track each completed job and your wallet in the app.',
+            'You are notified when your KYC is approved or rejected.',
+        ] as $verified) {
+            $this->assertStringContainsString($verified, $text, $verified);
+        }
+
+        // Claims the provider code cannot back must never appear on the page.
+        foreach (['well-paid', 'on-time', 'on time', 'itemised', 'settlements', 'tracked end to end', 'Your earnings go to the account you add',
+            'pharmacy licence', 'driving licence', 'Skill proof', 'Vehicle papers', 'Prices set up front', 'paid on time'] as $banned) {
+            $this->assertStringNotContainsStringIgnoringCase($banned, $text, $banned);
+        }
+    }
+
+    public function test_approval_time_and_payout_timing_are_hidden_until_the_admin_sets_them(): void
+    {
+        $text = strip_tags($this->get(route('customer.partners'))->assertOk()->getContent());
+        $this->assertStringNotContainsString('working days', $text);
+        $this->assertStringNotContainsString('Payout timing', $text);
+
+        Setting::set(P::key('approval_time'), 'Approval usually takes 2 working days.');
+        Setting::set(P::key('payout_timing'), 'Payouts are processed within 3 working days.');
+        $text = strip_tags($this->get(route('customer.partners'))->assertOk()->getContent());
+        $this->assertStringContainsString('Approval usually takes 2 working days.', $text);
+        $this->assertStringContainsString('Payouts are processed within 3 working days.', $text);
     }
 
     public function test_the_page_no_longer_reads_the_cms_partner_benefits_table(): void

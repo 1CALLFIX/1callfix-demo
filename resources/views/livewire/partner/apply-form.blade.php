@@ -7,7 +7,7 @@
     @if ($outcome === 'handoff')
         <div role="status" class="done">
             <h3>Saved. Continue in the app.</h3>
-            <p>Thanks, {{ \Illuminate\Support\Str::of($name)->trim()->before(' ') }}. Next, verify your mobile number with a one-time code and upload your documents in the 1CallFix app.</p>
+            <p>Thanks, {{ \Illuminate\Support\Str::of($name)->trim()->before(' ') }}. Next, verify your mobile number with a one-time code and upload your documents in the app sign-up.</p>
             <a href="{{ route('provider.register') }}" class="btn btn-accent submit">Continue in the app {!! $arrow !!}</a>
             <button type="button" class="btn btn-out" wire:click="again">Add another application</button>
         </div>

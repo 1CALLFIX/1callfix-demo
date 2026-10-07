@@ -96,7 +96,7 @@ final class PartnerPageSettings
         'parcel' => ['Delivery rider', 'Pick up and deliver parcels across your city with your own vehicle. Join the waitlist and be first in line.'],
         'food' => ['Restaurant partner', 'List your kitchen and menu, take orders, and let delivery riders bring them to customers.'],
         'grocery' => ['Grocery store', 'Put your store online and sell groceries to customers nearby.'],
-        'pharmacy' => ['Pharmacy', 'List health products and medicines for nearby customers. A valid pharmacy licence is required.'],
+        'pharmacy' => ['Pharmacy', 'List health products and medicines for nearby customers.'],
         'taxi' => ['Cab driver', 'Drive with your own vehicle once rides open in your city.'],
         'hotel' => ['Hotel or stay host', 'List your hotel, homestay or guest house for travellers.'],
         'rental' => ['Property or rental owner', 'List your property or rental for customers who want to rent.'],
@@ -475,8 +475,8 @@ final class PartnerPageSettings
             'join.lead' => 'Tell us who you are and which role you want. We save your details, then you continue in the 1CallFix app, where your mobile number is verified with a one-time code.',
             'nellore_band.text' => 'Starting in Nellore. More cities open as local franchises launch.',
             'commission.note' => 'Standard commission is {min} to {max} percent of the job value. Your exact rate is agreed with 1CallFix or your local franchise and shown in your partner terms.',
-            'needs' => "A smartphone with data\nA government ID and a recent photo\nA bank account or UPI for payouts\nSkill proof or certificates, if you have them\nVehicle papers, for riders and drivers",
-            'form.consent_text' => 'I agree that 1CallFix may contact me about my application and I accept the Partner Terms and Privacy Policy.',
+            'needs' => "A mobile number that can receive a one-time code\nThe ID and proof documents requested during sign-up\nA bank account or UPI to receive payouts",
+            'form.consent_text' => 'I agree to be contacted by 1CallFix about partnering, and to my details being stored for this purpose.',
             'form.done_title' => 'You are on the waitlist',
             'form.done_body' => 'This role is not open yet. We have saved your details and will contact you on your mobile number when it opens.',
         ];
@@ -486,8 +486,8 @@ final class PartnerPageSettings
     {
         return [
             ['title' => 'Apply', 'body' => 'Choose your role and enter your name and mobile number on this page.'],
-            ['title' => 'Verify', 'body' => 'Continue in the 1CallFix app. We confirm your number with a one-time code, then you upload your ID and details. We check every partner before they go live.'],
-            ['title' => 'Get approved', 'body' => 'Our team reviews your application. You get a notification when it changes.'],
+            ['title' => 'Verify', 'body' => 'In the app sign-up, confirm your mobile with a one-time code, then upload the ID and proof documents we ask for. Our team checks every application.'],
+            ['title' => 'Get approved', 'body' => 'Our team reviews your documents. You are notified when your KYC is approved or rejected.'],
             ['title' => 'Go online', 'body' => 'Open the 1CallFix Partner app, go online, and start receiving job offers near you.'],
         ];
     }
@@ -497,24 +497,24 @@ final class PartnerPageSettings
         return [
             ['icon' => 'clipboard', 'color' => 'amber', 'title' => 'Job offers near you', 'body' => 'Jobs reach you by area and skill, so your offers fit the work you actually do.'],
             ['icon' => 'clock', 'color' => 'blue', 'title' => 'You choose your hours', 'body' => 'Go online when you want work and offline when you do not. Accept or reject each offer.'],
-            ['icon' => 'shield', 'color' => 'green', 'title' => 'Safe start and finish', 'body' => 'Jobs start and end with a one-time code from the customer, so both sides know the work is real.'],
+            ['icon' => 'shield', 'color' => 'green', 'title' => 'Safe start and finish', 'body' => 'The customer shares a one-time code to start the job and another to finish it.'],
             ['icon' => 'wallet', 'color' => 'rose', 'title' => 'Earnings you can see', 'body' => 'Track each completed job and your wallet in the app.'],
-            ['icon' => 'banknotes', 'color' => 'violet', 'title' => 'Payouts to your bank or UPI', 'body' => 'Your earnings go to the account you add.'],
+            ['icon' => 'banknotes', 'color' => 'violet', 'title' => 'Payouts to your bank or UPI', 'body' => 'Request a payout to your verified bank or UPI account.'],
         ];
     }
 
     public static function defaultFaq(): array
     {
         return [
-            ['tab' => 'everyone', 'q' => 'What documents do I need?', 'a' => 'A government ID, a recent photo, and a bank account or UPI for payouts. Some roles also need skill proof or vehicle papers. The exact list appears in the app when you choose your role.'],
-            ['tab' => 'everyone', 'q' => 'How long does approval take?', 'a' => 'You get a notification in the app whenever your status changes.'],
+            ['tab' => 'everyone', 'q' => 'What documents do I need?', 'a' => 'The app sign-up asks for the ID and proof documents set up for providers, and our team checks them before you can take jobs. The exact list appears during sign-up.'],
+            ['tab' => 'everyone', 'q' => 'How long does approval take?', 'a' => 'Our team reviews each application. You are notified when your KYC is approved or rejected.'],
             ['tab' => 'everyone', 'q' => 'Can I choose my own hours?', 'a' => 'Yes. You go online when you want to receive jobs and offline when you do not. You can accept or reject any offer.'],
-            ['tab' => 'everyone', 'q' => 'How do I get paid?', 'a' => 'Earnings for each completed job show in your app wallet. Payouts go to your bank account or UPI.'],
+            ['tab' => 'everyone', 'q' => 'How do I get paid?', 'a' => 'Your earnings for each completed job and your wallet balance show in the app. Request a payout to your verified bank or UPI account.'],
             ['tab' => 'everyone', 'q' => 'Which cities can I work in?', 'a' => '1CallFix is starting in Nellore. More cities open as local franchises launch. Choose your city in the form, or join the waitlist for yours.'],
-            ['tab' => 'service', 'q' => 'How do I know a job is real?', 'a' => 'Jobs start and finish with a one-time code from the customer. You enter it in the app, so both sides know the work happened.'],
-            ['tab' => 'riders', 'q' => 'What do riders and drivers need?', 'a' => 'A smartphone, a valid driving licence, and your vehicle papers.'],
+            ['tab' => 'service', 'q' => 'How does a job start and finish?', 'a' => 'The customer shares a one-time code to start the job and another to finish it. You enter each in the app.'],
+            ['tab' => 'riders', 'q' => 'What do riders and drivers need?', 'a' => 'These roles are not open yet. Apply on this page to join the waitlist; we will tell you what is needed when yours opens.'],
             ['tab' => 'riders', 'q' => 'When will rider and driver roles open?', 'a' => 'Each module opens city by city. Join the waitlist and we will message you when yours opens.'],
-            ['tab' => 'shops', 'q' => 'What do shops and restaurants need?', 'a' => 'Your business details, a bank account for payouts, and any licence the law requires for your category, such as a food licence or a pharmacy licence.'],
+            ['tab' => 'shops', 'q' => 'What do shops and restaurants need?', 'a' => 'These roles are not open yet. Apply on this page to join the waitlist; we will tell you what is needed when yours opens.'],
         ];
     }
 }
