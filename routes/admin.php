@@ -100,6 +100,7 @@ Route::middleware(['auth', \Illuminate\Session\Middleware\AuthenticateSession::c
         // Global SEO (site name template, home, modules, business details, verification): Super Admin only, checked in the component.
         Route::get('/seo/settings', \App\Livewire\Seo\Settings::class)->name('admin.seo.settings');
         // REF 1CF-PARTNER-PAGE-001: the public /partners page's words and lists. Permission partner_page.manage, checked in the component.
+        Route::get('/partner-leads', \App\Livewire\PartnerPage\Leads::class)->name('admin.partner-leads.index');
         Route::get('/partner-page', \App\Livewire\PartnerPage\Settings::class)->name('admin.partner-page.settings');
         Route::get('/franchises', FranchisesManage::class)->name('admin.franchises.index');
         Route::get('/franchises/{franchiseId}/pricing', FranchisePricingManage::class)->name('admin.franchises.pricing');
