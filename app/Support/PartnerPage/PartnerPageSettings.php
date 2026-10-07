@@ -108,9 +108,26 @@ final class PartnerPageSettings
         return self::PREFIX.$short;
     }
 
+    public const CACHE_KEY = 'partner_page:all';
+
+    /**
+     * Every global partner_page.* setting in ONE cached array. Reading each key through Setting::get() would
+     * re-query the database on every request for each key that is unset (the store caches "no row" as a miss), and
+     * the footer reads these keys on every customer page. One cached read means a warm request adds no queries.
+     * Cleared by forgetCache() (admin save) and whenever a partner_page.* Setting row is saved (see AppServiceProvider).
+     *
+     * @return array<string, string> full key => value
+     */
+    private static function all(): array
+    {
+        return cache()->rememberForever(self::CACHE_KEY, fn () => Setting::query()
+            ->where('scope_type', 'global')->whereNull('scope_id')->where('key', 'like', self::PREFIX.'%')
+            ->pluck('value', 'key')->map(fn ($v) => (string) $v)->all());
+    }
+
     private static function raw(string $short): ?string
     {
-        $v = Setting::get(self::key($short));
+        $v = self::all()[self::key($short)] ?? null;
 
         return ($v === null || trim((string) $v) === '') ? null : trim((string) $v);
     }
@@ -416,6 +433,7 @@ final class PartnerPageSettings
 
     public static function forgetCache(): void
     {
+        cache()->forget(self::CACHE_KEY);
         foreach (self::allShortKeys() as $short) {
             cache()->forget('setting:global::'.self::key($short));
         }

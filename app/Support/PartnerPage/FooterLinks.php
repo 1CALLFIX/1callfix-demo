@@ -40,7 +40,7 @@ final class FooterLinks
     public static function custom(): ?array
     {
         try {
-            $raw = \App\Models\Setting::get(P::key('footer.groups'));
+            $raw = P::text('footer.groups');
             if (! is_string($raw) || trim($raw) === '') {
                 return null;
             }

@@ -163,4 +163,42 @@ class SharedFooterTest extends TestCase
             $this->assertTrue(P::safeHref($ok), $ok);
         }
     }
+
+    /** @return array{total:int, partner_page:int} queries on the SECOND request (cache warm) */
+    private function warmQueryCounts(string $uri): array
+    {
+        $this->get($uri)->assertOk();
+        \Illuminate\Support\Facades\DB::flushQueryLog();
+        \Illuminate\Support\Facades\DB::enableQueryLog();
+        $this->get($uri)->assertOk();
+        $log = \Illuminate\Support\Facades\DB::getQueryLog();
+
+        return [
+            'total' => count($log),
+            'partner_page' => count(array_filter($log, fn ($q) => str_contains($q['query'].json_encode($q['bindings']), 'partner_page'))),
+        ];
+    }
+
+    public function test_the_footer_adds_no_queries_per_request_when_the_cache_is_warm(): void
+    {
+        // Unset settings (the default) must not be re-read from the database on every request.
+        $this->assertSame(0, $this->warmQueryCounts('/')['partner_page']);
+        $this->assertSame(0, $this->warmQueryCounts('/partners')['partner_page']);
+
+        // Same with values saved.
+        Setting::set(P::key('footer_contact'), 'Call us');
+        Setting::set(P::key('footer.groups'), json_encode([['title' => 'Company', 'links' => [['label' => 'Our story', 'href' => '/our-story']]]]));
+        $this->assertSame(0, $this->warmQueryCounts('/')['partner_page']);
+    }
+
+    public function test_saving_a_value_is_visible_on_the_very_next_request(): void
+    {
+        $this->get('/')->assertOk()->assertDontSeeText('Call us on');
+        Setting::set(P::key('footer_contact'), 'Call us on 0861 000 0000');
+        $this->get('/')->assertOk()->assertSeeText('Call us on 0861 000 0000');
+
+        Setting::clear(P::key('footer_contact'), 'global', null);
+        P::forgetCache();
+        $this->get('/')->assertOk()->assertDontSeeText('Call us on');
+    }
 }
