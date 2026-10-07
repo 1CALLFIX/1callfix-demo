@@ -145,7 +145,7 @@ body:has(.pp) footer{margin-bottom:0}
 .pp .done h3{font-size:28px}
 .pp .done p{color:var(--muted);font-size:17px}
 @media (max-width:900px){.pp .roles,.pp .tiles{grid-template-columns:repeat(2,minmax(0,1fr))}}
-@media (max-width:640px){.pp .nav{display:none}.pp .top{padding-block:14px;flex-wrap:nowrap}.pp .top .btn{min-height:40px;padding:0 14px;font-size:14px}.pp .logo span{display:none}.pp .hero-grid{padding-block:20px 48px;gap:36px}.pp .hero h1{margin-top:18px}.pp .roles,.pp .tiles{grid-template-columns:minmax(0,1fr)}.pp .sec{padding-block:64px}.pp .card{padding:22px}.pp .step{gap:16px}}
+@media (max-width:640px){.pp .nav{display:none}.pp .top{padding-block:14px;flex-wrap:nowrap}.pp .top .btn{min-height:40px;padding:0 12px;font-size:13px;white-space:nowrap}.pp .top>div:last-child{flex-wrap:nowrap!important;gap:8px!important}.pp .wrap{padding-inline:16px}.pp .logo b{font-size:19px}.pp .logo span{display:none}.pp .hero-grid{padding-block:20px 48px;gap:36px}.pp .hero h1{margin-top:18px}.pp .roles,.pp .tiles{grid-template-columns:minmax(0,1fr)}.pp .sec{padding-block:64px}.pp .card{padding:22px}.pp .step{gap:16px}}
 @media (prefers-reduced-motion:reduce){html:has(.pp){scroll-behavior:auto}.pp .q button svg{transition:none}}
 </style>
 
