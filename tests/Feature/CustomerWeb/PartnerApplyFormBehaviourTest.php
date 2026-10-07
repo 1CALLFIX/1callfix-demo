@@ -70,6 +70,5 @@ class PartnerApplyFormBehaviourTest extends TestCase
         $this->assertSame(['Enter your mobile number.'], $errors->get('phone'));
         $this->assertSame(['Enter your city.'], $errors->get('city'));
         $this->assertSame(['Please tick the box to continue.'], $errors->get('consent'));
-}
     }
 }
