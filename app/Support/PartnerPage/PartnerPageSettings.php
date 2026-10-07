@@ -191,20 +191,8 @@ final class PartnerPageSettings
     /** @return list<array{icon:string, color:string, title:string, body:string}> */
     public static function benefits(): array
     {
-        $own = self::raw('benefits');
-        if ($own !== null) {
-            return self::decoded('benefits', self::defaultBenefits());
-        }
-
-        // The Website / CMS "partner benefits" list stays honoured until the owner saves this page's own tiles.
-        $rows = PartnerBenefit::forDisplay()->get();
-        if ($rows->isNotEmpty()) {
-            return $rows->values()->map(fn ($b, $i) => [
-                'icon' => $b->icon, 'color' => self::COLORS[$i % count(self::COLORS)], 'title' => $b->title, 'body' => $b->description,
-            ])->all();
-        }
-
-        return self::defaultBenefits();
+        // The public page no longer reads the Website / CMS partner_benefits table; tiles are edited under Partner page.
+        return self::decoded('benefits', self::defaultBenefits());
     }
 
     /** @return list<array{tab:string, q:string, a:string}> */

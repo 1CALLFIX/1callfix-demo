@@ -130,25 +130,26 @@ class PartnerLandingPageTest extends TestCase
             ->assertDontSeeText('paid on time')->assertDontSeeText('Prices set up front');
     }
 
-    public function test_active_cms_benefits_are_honoured_until_the_page_has_its_own_tiles(): void
+    public function test_the_page_no_longer_reads_the_cms_partner_benefits_table(): void
     {
-        PartnerBenefit::create(['icon' => 'wallet', 'title' => 'Shown benefit', 'description' => 'This one is active.', 'sort_order' => 1, 'is_active' => true]);
-        PartnerBenefit::create(['icon' => 'clock', 'title' => 'Hidden benefit', 'description' => 'inactive', 'sort_order' => 2, 'is_active' => false]);
-
-        $this->get(route('customer.partners'))->assertOk()->assertSeeText('Shown benefit')->assertDontSeeText('Hidden benefit');
-
-        Setting::set(P::key('benefits'), json_encode([['icon' => 'star', 'color' => 'rose', 'title' => 'Own tile', 'body' => 'x']]));
-        $this->get(route('customer.partners'))->assertOk()->assertSeeText('Own tile')->assertDontSeeText('Shown benefit');
-    }
-
-    public function test_cms_benefits_render_in_sort_order(): void
-    {
-        PartnerBenefit::create(['icon' => 'wallet', 'title' => 'Second benefit', 'description' => 'b', 'sort_order' => 20, 'is_active' => true]);
-        PartnerBenefit::create(['icon' => 'clock', 'title' => 'First benefit', 'description' => 'a', 'sort_order' => 10, 'is_active' => true]);
+        foreach (['Steady, well-paid work', 'Work on your schedule', 'Clear, on-time payouts', 'A verified, protected profile'] as $i => $title) {
+            PartnerBenefit::create(['icon' => 'wallet', 'title' => $title, 'description' => 'old', 'sort_order' => $i, 'is_active' => true]);
+        }
 
         $html = $this->get(route('customer.partners'))->assertOk()->getContent();
 
-        $this->assertLessThan(strpos($html, 'Second benefit'), strpos($html, 'First benefit'));
+        foreach (P::defaultBenefits() as $tile) {
+            $this->assertStringContainsString($tile['title'], $html);
+        }
+        foreach (['Steady, well-paid work', 'Work on your schedule', 'Clear, on-time payouts', 'A verified, protected profile'] as $old) {
+            $this->assertStringNotContainsString($old, $html);
+        }
+    }
+
+    public function test_tiles_saved_in_the_partner_page_screen_replace_the_defaults(): void
+    {
+        Setting::set(P::key('benefits'), json_encode([['icon' => 'star', 'color' => 'rose', 'title' => 'Own tile', 'body' => 'x']]));
+        $this->get(route('customer.partners'))->assertOk()->assertSeeText('Own tile')->assertDontSeeText('Earnings you can see');
     }
 
     public function test_the_footer_links_to_the_partner_page(): void

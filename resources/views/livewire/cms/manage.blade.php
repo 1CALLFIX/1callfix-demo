@@ -159,8 +159,7 @@
 
     @if ($section === 'benefits')
         <p class="text-sm text-gray-500 mb-4">
-            Shown on the public <a href="{{ route('customer.partners') }}" target="_blank" class="text-blue-600 hover:underline">Join as a Partner</a> page,
-            in this order. Inactive rows are hidden from the page but kept here.
+            The public <a href="{{ route('customer.partners') }}" target="_blank" class="text-blue-600 hover:underline">Join as a Partner</a> page is now edited under Admin → Partner page; these rows are no longer shown there.
         </p>
 
         {{-- Add New Benefit --}}
