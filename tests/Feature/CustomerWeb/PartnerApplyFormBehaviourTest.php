@@ -39,7 +39,7 @@ class PartnerApplyFormBehaviourTest extends TestCase
     public function test_add_another_application_returns_to_a_clean_form(): void
     {
         Livewire::test(ApplyForm::class)
-            ->set('role', 'parcel')->set('name', 'Asha Rao')->set('phone', '9876543210')->set('city', 'Nellore')->set('consent', true)
+            ->set('role', 'parcel')->set('name', 'Asha Rao')->set('phone', '9876543210')->set('cityChoice', ApplyForm::OTHER_CITY)->set('city', 'Nellore')->set('consent', true)
             ->call('submit')->assertSet('outcome', 'waitlist')->assertSee('Add another application')
             ->call('again')->assertSet('outcome', '')->assertSet('name', '')->assertSet('phone', '')->assertSet('consent', false);
     }
@@ -68,7 +68,7 @@ class PartnerApplyFormBehaviourTest extends TestCase
 
         $this->assertSame(['Enter your full name.'], $errors->get('name'));
         $this->assertSame(['Enter your mobile number.'], $errors->get('phone'));
-        $this->assertSame(['Enter your city.'], $errors->get('city'));
+        $this->assertSame(['Choose your city.'], $errors->get('cityChoice'));
         $this->assertSame(['Please tick the box to continue.'], $errors->get('consent'));
     }
 }

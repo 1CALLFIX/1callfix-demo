@@ -112,11 +112,14 @@ class Register extends Component
     public function mount(): void
     {
         $lead = session('partner_lead');
-        if (is_array($lead) && ($lead['role'] ?? null) === 'service' && is_int($lead['id'] ?? null)
-            && preg_match('/^[a-z0-9-]{1,80}$/', (string) ($lead['city'] ?? '')) === 1) {
+        if (is_array($lead) && ($lead['role'] ?? null) === 'service' && is_int($lead['id'] ?? null)) {
             $this->leadId = $lead['id'];
-            // Safe slug only; the applicant confirms or replaces it, and the pin still decides the service area.
-            $this->address = \Illuminate\Support\Str::headline($lead['city']);
+            // A listed city's slug prefills the address (its stored name); a typed city sends no slug and prefills
+            // nothing. The applicant confirms or replaces it, and the pin still decides the service area.
+            $slug = (string) ($lead['city'] ?? '');
+            if (preg_match('/^[a-z0-9-]{1,80}$/', $slug) === 1) {
+                $this->address = (string) (\App\Models\City::query()->where('slug', $slug)->value('name') ?? \Illuminate\Support\Str::headline($slug));
+            }
         }
 
         if (auth()->guard('web')->check()) {

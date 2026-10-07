@@ -51,8 +51,18 @@
             </div>
             <div>
                 <label class="t" for="pl-city">City</label>
-                <input id="pl-city" type="text" autocomplete="address-level2" maxlength="120" placeholder="Your city" wire:model="city" @class(['inp', 'err' => $errors->has('city')])>
-                @error('city') <p class="msg">{{ $message }}</p> @enderror
+                <select id="pl-city" wire:model.live="cityChoice" @class(['inp', 'err' => $errors->has('cityChoice')])>
+                    <option value="">Select your city</option>
+                    @foreach ($cities as $c)
+                        <option value="{{ $c->slug }}">{{ $c->name }}</option>
+                    @endforeach
+                    <option value="{{ \App\Livewire\Partner\ApplyForm::OTHER_CITY }}">My city is not listed</option>
+                </select>
+                @error('cityChoice') <p class="msg">{{ $message }}</p> @enderror
+                @if ($cityChoice === \App\Livewire\Partner\ApplyForm::OTHER_CITY)
+                    <input id="pl-city-other" type="text" autocomplete="address-level2" maxlength="120" placeholder="Type your city" aria-label="Your city" wire:model="city" style="margin-top:10px" @class(['inp', 'err' => $errors->has('city')])>
+                    @error('city') <p class="msg">{{ $message }}</p> @enderror
+                @endif
             </div>
 
             {{-- Honeypot: hidden from people and assistive tech. --}}

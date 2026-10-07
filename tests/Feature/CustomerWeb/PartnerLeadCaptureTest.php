@@ -29,6 +29,7 @@ class PartnerLeadCaptureTest extends TestCase
     {
         parent::setUp();
         $this->bindFakeFirebase();
+        \App\Models\City::create(['country_id' => \App\Models\Country::create(['name' => 'Testland', 'code' => 'TL', 'currency_code' => 'INR', 'default_timezone' => 'Asia/Kolkata', 'is_active' => true])->id, 'name' => 'Nellore', 'slug' => 'nellore', 'is_active' => true]);
         RateLimiter::clear('x');
     }
 
@@ -36,7 +37,7 @@ class PartnerLeadCaptureTest extends TestCase
     {
         return Livewire::test(ApplyForm::class)
             ->set('role', $role)->set('name', 'Ramesh Kumar')->set('phone', $phone ?? $this->randomPhone())
-            ->set('city', 'Nellore')->set('consent', true);
+            ->set('cityChoice', 'nellore')->set('consent', true);
     }
 
     public function test_the_form_is_on_the_page_with_a_csrf_protected_livewire_endpoint(): void
@@ -83,7 +84,7 @@ class PartnerLeadCaptureTest extends TestCase
         $this->fill('service')->call('submit');
         $this->assertSame(PartnerLead::STATUS_HANDED_OFF, PartnerLead::sole()->status);
 
-        Livewire::test(ApplyForm::class)->set('role', 'god_mode')->set('name', 'Aa Bb')->set('phone', $this->randomPhone())->set('city', 'Nellore')->set('consent', true)
+        Livewire::test(ApplyForm::class)->set('role', 'god_mode')->set('name', 'Aa Bb')->set('phone', $this->randomPhone())->set('cityChoice', 'nellore')->set('consent', true)
             ->call('submit')->assertHasErrors(['role']);
 
         Setting::set(P::key('modules_hidden'), json_encode(['taxi']));
@@ -99,7 +100,7 @@ class PartnerLeadCaptureTest extends TestCase
 
     public function test_validation_runs_server_side(): void
     {
-        Livewire::test(ApplyForm::class)->set('role', '')->call('submit')->assertHasErrors(['role', 'name', 'phone', 'city', 'consent']);
+        Livewire::test(ApplyForm::class)->set('role', '')->call('submit')->assertHasErrors(['role', 'name', 'phone', 'cityChoice', 'consent']);
         $this->fill()->set('phone', '12345')->call('submit')->assertHasErrors(['phone']);
         $this->fill()->set('name', '<script>')->call('submit')->assertHasErrors(['name']);
         $this->fill()->set('consent', false)->call('submit')->assertHasErrors(['consent']);
@@ -181,7 +182,8 @@ class PartnerLeadCaptureTest extends TestCase
         Livewire::test(Register::class)->assertSet('leadId', $lead->id)->assertSet('address', 'Nellore')->assertSet('phone', '');
 
         $this->withSession(['partner_lead' => ['id' => $lead->id, 'role' => 'service', 'city' => '<script>alert(1)</script>']]);
-        Livewire::test(Register::class)->assertSet('leadId', null)->assertSet('address', '');
+        // An unsafe city value is never used for the prefill; the lead link itself (a server-set id) still holds.
+        Livewire::test(Register::class)->assertSet('leadId', $lead->id)->assertSet('address', '');
 
         $this->withSession(['partner_lead' => ['id' => $lead->id, 'role' => 'taxi', 'city' => 'nellore']]);
         Livewire::test(Register::class)->assertSet('leadId', null);

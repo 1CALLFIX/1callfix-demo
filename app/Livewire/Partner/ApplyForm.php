@@ -3,6 +3,7 @@
 namespace App\Livewire\Partner;
 
 use App\Livewire\Customer\Auth\Concerns\InteractsWithAuthThrottle;
+use App\Models\City;
 use App\Models\PartnerLead;
 use App\Support\Acquisition\AcquisitionContext;
 use App\Support\PartnerPage\PartnerPageData;
@@ -34,7 +35,13 @@ class ApplyForm extends Component
 
     public string $phone = '';
 
+    /** Slug of a listed city, or OTHER_CITY when the person's city is not in the list. */
+    public string $cityChoice = '';
+
+    /** The typed city; used only when OTHER_CITY is chosen. */
     public string $city = '';
+
+    public const OTHER_CITY = '__other';
 
     public bool $consent = false;
 
@@ -56,7 +63,7 @@ class ApplyForm extends Component
     /** "Add another application": back to a clean form (the role stays as the person left it). */
     public function again(): void
     {
-        $this->reset(['name', 'phone', 'city', 'consent', 'website', 'error', 'outcome']);
+        $this->reset(['name', 'phone', 'cityChoice', 'city', 'consent', 'website', 'error', 'outcome']);
         $this->resetErrorBag();
     }
 
@@ -70,9 +77,11 @@ class ApplyForm extends Component
             'role' => ['required', Rule::in($roles->keys()->all())],
             'name' => ['required', 'string', 'min:2', 'max:120', "regex:/^[\\p{L}\\p{M}][\\p{L}\\p{M} .'\\-]*$/u"],
             'phone' => ['required', 'string', 'max:20', 'regex:/^[0-9+][0-9 \\-]*$/'],
-            'city' => ['required', 'string', 'min:2', 'max:120', "regex:/^[\\p{L}\\p{M}][\\p{L}\\p{M} .'\\-]*$/u"],
+            'cityChoice' => ['required', 'string', 'max:120'],
+            'city' => [Rule::requiredIf($this->cityChoice === self::OTHER_CITY), 'nullable', 'string', 'min:2', 'max:120', "regex:/^[\\p{L}\\p{M}][\\p{L}\\p{M} .'\\-]*$/u"],
             'consent' => ['accepted'],
         ], [
+            'cityChoice.required' => 'Choose your city.',
             'role.required' => 'Choose a role.', 'role.in' => 'Choose a role.',
             'name.required' => 'Enter your full name.', 'phone.required' => 'Enter your mobile number.', 'city.required' => 'Enter your city.',
             'name.regex' => 'Enter your name.', 'city.regex' => 'Enter your city.',
@@ -93,6 +102,22 @@ class ApplyForm extends Component
             return;
         }
 
+        // The city comes from the server's list, never from the browser's text: a listed choice is looked up by slug
+        // and its stored name and slug are used; the free-text box counts only for "My city is not listed".
+        $citySlug = null;
+        if ($this->cityChoice === self::OTHER_CITY) {
+            $cityName = trim($this->city);
+        } else {
+            $listed = self::listedCities()->firstWhere('slug', $this->cityChoice);
+            if ($listed === null) {
+                $this->addError('cityChoice', 'Choose your city.');
+
+                return;
+            }
+            $cityName = $listed->name;
+            $citySlug = $listed->slug;
+        }
+
         $national = PhoneNumber::national($this->phone);
 
         if ($this->isThrottled('partner-lead', $national, maxPerIdentifier: 3, maxPerIp: 10)) {
@@ -106,7 +131,7 @@ class ApplyForm extends Component
             $lead = PartnerLead::capture([
                 'name' => trim($this->name),
                 'phone' => $national,
-                'city' => trim($this->city),
+                'city' => $cityName,
                 'role' => $this->role,
                 // Set here from the registry; never from the browser.
                 'status' => $card['hands_off'] ? PartnerLead::STATUS_HANDED_OFF : PartnerLead::STATUS_WAITLIST,
@@ -126,7 +151,8 @@ class ApplyForm extends Component
             session()->put('partner_lead', [
                 'id' => $lead->id,
                 'role' => $this->role,
-                'city' => Str::slug($this->city),
+                // The slug of a listed city only; nothing for a typed city (the sign-up then starts with an empty address).
+                'city' => $citySlug,
             ]);
             $this->outcome = 'handoff';
 
@@ -136,9 +162,20 @@ class ApplyForm extends Component
         $this->outcome = 'waitlist';
     }
 
+    /** Active cities that have a slug (QA/demo cities excluded), for the select. */
+    public static function listedCities(): \Illuminate\Support\Collection
+    {
+        try {
+            return City::query()->where('is_active', true)->whereNotNull('slug')->notQa()->orderBy('name')->get(['id', 'name', 'slug']);
+        } catch (\Throwable) {
+            return collect();
+        }
+    }
+
     public function render()
     {
         return view('livewire.partner.apply-form', [
+            'cities' => self::listedCities(),
             'roles' => PartnerPageData::roles(),
             'consentText' => P::text('form.consent_text'),
             'doneTitle' => P::text('form.done_title'),
