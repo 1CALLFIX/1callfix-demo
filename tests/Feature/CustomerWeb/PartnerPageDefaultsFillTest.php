@@ -23,14 +23,14 @@ class PartnerPageDefaultsFillTest extends TestCase
 
     private function assertFullPage(string $html): void
     {
-        $this->assertStringContainsString('Get job offers from customers near you', $html, 'hero title');
-        $this->assertStringContainsString('Join 1CallFix as a partner.', $html, 'hero subtitle');
+        $this->assertStringContainsString('Your skills.', $html, 'hero title');
+        $this->assertStringContainsString('One page for every role.', $html, 'hero subtitle');
         $this->assertSame(9, substr_count($html, 'data-role="'), 'nine role cards');
         foreach (P::defaultSteps() as $step) {
             $this->assertStringContainsString($step['title'], $html, 'step: '.$step['title']);
         }
         $this->assertCount(4, P::defaultSteps());
-        $this->assertCount(6, P::defaultBenefits());
+        $this->assertCount(5, P::defaultBenefits());
         foreach (P::defaultBenefits() as $tile) {
             $this->assertStringContainsString($tile['title'], $html, 'tile: '.$tile['title']);
         }

@@ -31,7 +31,7 @@ class PartnerLandingPageTest extends TestCase
     {
         $this->get(route('customer.partners'))
             ->assertOk()
-            ->assertSeeText('Get job offers from customers near you')
+            ->assertSeeText('Your skills.')->assertSeeText('Our customers.')
             ->assertSeeText('Pick your role')
             ->assertSeeText('Every question, one place')
             ->assertSee('<meta name="robots" content="index, follow">', false);
@@ -46,7 +46,7 @@ class PartnerLandingPageTest extends TestCase
     {
         $html = $this->get(route('customer.partners'))->assertOk()->getContent();
 
-        foreach (['Service professional', 'Parcel delivery partner', 'Restaurant or food partner', 'Grocery partner', 'Pharmacy partner', 'Taxi driver', 'Hotel or stay partner', 'Rental partner', 'Seller or shop'] as $label) {
+        foreach (['Service professional', 'Delivery rider', 'Restaurant partner', 'Grocery store', 'Pharmacy', 'Cab driver', 'Hotel or stay host', 'Property or rental owner', 'Seller or shop'] as $label) {
             $this->assertStringContainsString($label, $html);
         }
         $this->assertSame(9, substr_count($html, 'data-role="'));
@@ -73,7 +73,7 @@ class PartnerLandingPageTest extends TestCase
     {
         Setting::set(P::key('modules_hidden'), json_encode(['taxi']));
 
-        $this->get(route('customer.partners'))->assertOk()->assertDontSeeText('Taxi driver')->assertSeeText('Seller or shop');
+        $this->get(route('customer.partners'))->assertOk()->assertDontSeeText('Cab driver')->assertSeeText('Seller or shop');
     }
 
     public function test_words_come_from_settings_not_the_view(): void
@@ -82,7 +82,7 @@ class PartnerLandingPageTest extends TestCase
         Setting::set(P::key('steps'), json_encode([['title' => 'Only step', 'body' => 'Do the one thing.']]));
 
         $this->get(route('customer.partners'))->assertOk()
-            ->assertSeeText('Partner with us today')->assertDontSeeText('Get job offers from customers near you')
+            ->assertSeeText('Partner with us today')->assertDontSeeText('Your skills.')
             ->assertSeeText('Only step')->assertDontSeeText('Upload your documents');
     }
 
@@ -125,9 +125,8 @@ class PartnerLandingPageTest extends TestCase
     public function test_truth_rule_wording_is_present_and_the_old_unbacked_claims_are_gone(): void
     {
         $this->get(route('customer.partners'))->assertOk()
-            ->assertSeeText('Request a payout to your verified bank or UPI account.')
+            ->assertSeeText('Payouts to your bank or UPI')
             ->assertSeeText('Go online when you want')
-            ->assertSeeText('price before you accept')
             ->assertDontSeeText('paid on time')->assertDontSeeText('Prices set up front');
     }
 

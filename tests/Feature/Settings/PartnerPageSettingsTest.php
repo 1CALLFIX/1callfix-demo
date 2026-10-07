@@ -38,8 +38,9 @@ class PartnerPageSettingsTest extends TestCase
     {
         $admin = $this->makeSuperAdmin();
         Setting::get(P::key('hero.title')); // prime the null in the cache
-        $this->assertSame('Get job offers from customers near you', P::text('hero.title'));
-
+        $this->assertSame("Your skills.
+Our customers.
+Your schedule.", P::text('hero.title'));
         Livewire::actingAs($admin)->test(Screen::class)
             ->set('f.hero__title', 'Work with 1CallFix')
             ->set('f.commission__min', '25')->set('f.commission__max', '30')

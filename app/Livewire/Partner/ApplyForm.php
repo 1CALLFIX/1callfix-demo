@@ -47,6 +47,19 @@ class ApplyForm extends Component
     #[Locked]
     public string $outcome = '';
 
+    public function mount(): void
+    {
+        $codes = array_column(PartnerPageData::roles(), 'code');
+        $this->role = in_array('service', $codes, true) ? 'service' : ($codes[0] ?? '');
+    }
+
+    /** "Add another application": back to a clean form (the role stays as the person left it). */
+    public function again(): void
+    {
+        $this->reset(['name', 'phone', 'city', 'consent', 'website', 'error', 'outcome']);
+        $this->resetErrorBag();
+    }
+
     public function submit(): void
     {
         $this->error = '';

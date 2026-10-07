@@ -62,7 +62,7 @@ class PartnerLeadCaptureTest extends TestCase
     public function test_a_role_that_is_not_live_is_a_waitlist_entry_with_no_continue_button(): void
     {
         $this->fill('taxi')->call('submit')->assertHasNoErrors()->assertSet('outcome', 'waitlist')
-            ->assertDontSee('Continue in the app')->assertSee('Thank you, we have your details');
+            ->assertDontSee('Continue in the app')->assertSee('You are on the waitlist');
 
         $this->assertSame(PartnerLead::STATUS_WAITLIST, PartnerLead::sole()->status);
         $this->assertNull(session('partner_lead'));
@@ -99,7 +99,7 @@ class PartnerLeadCaptureTest extends TestCase
 
     public function test_validation_runs_server_side(): void
     {
-        Livewire::test(ApplyForm::class)->call('submit')->assertHasErrors(['role', 'name', 'phone', 'city', 'consent']);
+        Livewire::test(ApplyForm::class)->set('role', '')->call('submit')->assertHasErrors(['role', 'name', 'phone', 'city', 'consent']);
         $this->fill()->set('phone', '12345')->call('submit')->assertHasErrors(['phone']);
         $this->fill()->set('name', '<script>')->call('submit')->assertHasErrors(['name']);
         $this->fill()->set('consent', false)->call('submit')->assertHasErrors(['consent']);

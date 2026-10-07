@@ -26,6 +26,10 @@ final class PartnerPageSettings
         'hero.title' => ['Hero title', 120],
         'hero.subtitle' => ['Hero subtitle', 300],
         'hero.cta_label' => ['Hero button label', 40],
+        'hero.badge' => ['Hero badge', 80],
+        'hero.ticks' => ['Hero tick lines (one per line)', 300],
+        'roles.lead' => ['Role section intro', 300],
+        'join.lead' => ['Join section intro', 300],
         'nellore_band.text' => ['"First city" band text', 240],
         'commission.min' => ['Commission range: lowest (%)', 6],
         'commission.max' => ['Commission range: highest (%)', 6],
@@ -88,15 +92,21 @@ final class PartnerPageSettings
     public const ROLE_ORDER = ['service', 'parcel', 'food', 'grocery', 'pharmacy', 'taxi', 'hotel', 'rental', 'commerce'];
 
     public const ROLE_DEFAULTS = [
-        'service' => ['Service professional', 'Electricians, plumbers, AC technicians and other trades.'],
-        'parcel' => ['Parcel delivery partner', 'Pick up and deliver parcels.'],
-        'food' => ['Restaurant or food partner', 'Cook and deliver food orders.'],
-        'grocery' => ['Grocery partner', 'Supply and deliver groceries.'],
-        'pharmacy' => ['Pharmacy partner', 'Supply and deliver medicines.'],
-        'taxi' => ['Taxi driver', 'Drive passengers on booked rides.'],
-        'hotel' => ['Hotel or stay partner', 'List rooms and stays.'],
-        'rental' => ['Rental partner', 'List properties, vehicles or equipment for rent.'],
-        'commerce' => ['Seller or shop', 'Sell products through 1CallFix.'],
+        'service' => ['Service professional', 'AC, electrical, plumbing, carpentry and appliance repair. Get jobs near you and work on your schedule.'],
+        'parcel' => ['Delivery rider', 'Pick up and deliver parcels across your city with your own vehicle. Join the waitlist and be first in line.'],
+        'food' => ['Restaurant partner', 'List your kitchen and menu, take orders, and let delivery riders bring them to customers.'],
+        'grocery' => ['Grocery store', 'Put your store online and sell groceries to customers nearby.'],
+        'pharmacy' => ['Pharmacy', 'List health products and medicines for nearby customers. A valid pharmacy licence is required.'],
+        'taxi' => ['Cab driver', 'Drive with your own vehicle once rides open in your city.'],
+        'hotel' => ['Hotel or stay host', 'List your hotel, homestay or guest house for travellers.'],
+        'rental' => ['Property or rental owner', 'List your property or rental for customers who want to rent.'],
+        'commerce' => ['Seller or shop', 'Sell your products to customers near you.'],
+    ];
+
+    /** Module name shown on each role card. */
+    public const ROLE_MODULE_NAMES = [
+        'service' => 'Home services', 'parcel' => 'Parcel delivery', 'food' => 'Food delivery', 'grocery' => 'Grocery',
+        'pharmacy' => 'Pharmacy', 'taxi' => 'Taxi', 'hotel' => 'Hotel booking', 'rental' => 'Rentals', 'commerce' => 'Marketplace',
     ];
 
     private const MAX_JSON_BYTES = 20000;
@@ -468,50 +478,55 @@ final class PartnerPageSettings
     public static function defaults(): array
     {
         return [
-            'hero.title' => 'Get job offers from customers near you',
-            'hero.subtitle' => 'Join 1CallFix as a partner. Go online when you want and accept the jobs that suit you.',
-            'hero.cta_label' => 'Apply now',
-            'nellore_band.text' => 'We are starting in Nellore. Tell us your city and we will keep your details for when we open there.',
+            'hero.title' => "Your skills.\nOur customers.\nYour schedule.",
+            'hero.subtitle' => 'One page for every role. Pick yours, apply with your mobile number, and get every question answered before you start.',
+            'hero.cta_label' => 'Start your application',
+            'hero.badge' => 'Now onboarding partners in Nellore',
+            'hero.ticks' => "Apply with your mobile number\nGo online or offline whenever you choose\nAccept or reject every job offer",
+            'roles.lead' => 'Every 1CallFix module has its own partner role. A role goes live when its module opens in your city. Until then, join the waitlist and we will tell you the day it opens.',
+            'join.lead' => 'Tell us who you are and which role you want. We save your details, then you continue in the 1CallFix app, where your mobile number is verified with a one-time code.',
+            'nellore_band.text' => 'Starting in Nellore. More cities open as local franchises launch.',
             'commission.note' => 'Standard commission is {min} to {max} percent of the job value. Your exact rate is agreed with 1CallFix or your local franchise and shown in your partner terms.',
-            'needs' => "A mobile number that can receive a one-time code\nThe ID and proof documents requested during sign-up\nThe area you work in",
-            'form.consent_text' => 'I agree to be contacted by 1CallFix about partnering, and to my details being stored for this purpose.',
-            'form.done_title' => 'Thank you, we have your details',
-            'form.done_body' => 'This role is not open yet. We have saved your details on the waiting list.',
+            'needs' => "A smartphone with data\nA government ID and a recent photo\nA bank account or UPI for payouts\nSkill proof or certificates, if you have them\nVehicle papers, for riders and drivers",
+            'form.consent_text' => 'I agree that 1CallFix may contact me about my application and I accept the Partner Terms and Privacy Policy.',
+            'form.done_title' => 'You are on the waitlist',
+            'form.done_body' => 'This role is not open yet. We have saved your details and will contact you on your mobile number when it opens.',
         ];
     }
 
     public static function defaultSteps(): array
     {
         return [
-            ['title' => 'Apply on this page', 'body' => 'Tell us your role, name, mobile number and city.'],
-            ['title' => 'Verify your mobile', 'body' => 'In the app sign-up, confirm the one-time code sent to your mobile.'],
-            ['title' => 'Upload your documents', 'body' => 'Submit the ID and proof documents we ask for. Our team checks them.'],
-            ['title' => 'Get approved and go online', 'body' => 'Once approved, go online and start receiving job offers.'],
+            ['title' => 'Apply', 'body' => 'Choose your role and enter your name and mobile number on this page.'],
+            ['title' => 'Verify', 'body' => 'Continue in the 1CallFix app. We confirm your number with a one-time code, then you upload your ID and details. We check every partner before they go live.'],
+            ['title' => 'Get approved', 'body' => 'Our team reviews your application. You get a notification when it changes.'],
+            ['title' => 'Go online', 'body' => 'Open the 1CallFix Partner app, go online, and start receiving job offers near you.'],
         ];
     }
 
     public static function defaultBenefits(): array
     {
         return [
-            ['icon' => 'clipboard', 'color' => 'blue', 'title' => 'Job offers near you', 'body' => 'Each offer shows the service, distance and price before you accept. Take the ones that suit you.'],
-            ['icon' => 'clock', 'color' => 'green', 'title' => 'Go online when you want', 'body' => 'Switch online or offline whenever you like.'],
-            ['icon' => 'shield', 'color' => 'violet', 'title' => 'One-time codes for every job', 'body' => 'The customer shares a one-time code to start the job and another to finish it.'],
-            ['icon' => 'wallet', 'color' => 'amber', 'title' => 'Earnings in your wallet', 'body' => 'See your earnings and wallet balance in the app.'],
-            ['icon' => 'banknotes', 'color' => 'teal', 'title' => 'Request a payout', 'body' => 'Request a payout to your verified bank or UPI account.'],
-            ['icon' => 'chat', 'color' => 'rose', 'title' => 'Job updates', 'body' => 'Get notified about new job offers and changes to your jobs.'],
+            ['icon' => 'clipboard', 'color' => 'amber', 'title' => 'Job offers near you', 'body' => 'Jobs reach you by area and skill, so your offers fit the work you actually do.'],
+            ['icon' => 'clock', 'color' => 'blue', 'title' => 'You choose your hours', 'body' => 'Go online when you want work and offline when you do not. Accept or reject each offer.'],
+            ['icon' => 'shield', 'color' => 'green', 'title' => 'Safe start and finish', 'body' => 'Jobs start and end with a one-time code from the customer, so both sides know the work is real.'],
+            ['icon' => 'wallet', 'color' => 'rose', 'title' => 'Earnings you can see', 'body' => 'Track each completed job and your wallet in the app.'],
+            ['icon' => 'banknotes', 'color' => 'violet', 'title' => 'Payouts to your bank or UPI', 'body' => 'Your earnings go to the account you add.'],
         ];
     }
 
     public static function defaultFaq(): array
     {
         return [
-            ['tab' => 'everyone', 'q' => 'How do I apply?', 'a' => 'Fill in the form on this page. Service professionals then continue in the app to verify their mobile and upload documents.'],
-            ['tab' => 'everyone', 'q' => 'What if my role is not open yet?', 'a' => 'We save your details on a waiting list for that role and city.'],
-            ['tab' => 'service', 'q' => 'Do I need documents?', 'a' => 'Yes. The app sign-up asks for ID and proof documents, and our team checks them before you can take jobs.'],
-            ['tab' => 'service', 'q' => 'When can I receive jobs?', 'a' => 'After your profile is approved, go online to receive job offers.'],
-            ['tab' => 'service', 'q' => 'How do I get my earnings?', 'a' => 'Request a payout to your verified bank or UPI account from the app.'],
-            ['tab' => 'riders', 'q' => 'Are rider and driver roles open?', 'a' => 'Not yet. Apply on this page to join the waiting list for your city and role.'],
-            ['tab' => 'shops', 'q' => 'Can I list my shop or restaurant?', 'a' => 'Not yet. Apply on this page to join the waiting list for your city and role.'],
+            ['tab' => 'everyone', 'q' => 'What documents do I need?', 'a' => 'A government ID, a recent photo, and a bank account or UPI for payouts. Some roles also need skill proof or vehicle papers. The exact list appears in the app when you choose your role.'],
+            ['tab' => 'everyone', 'q' => 'How long does approval take?', 'a' => 'You get a notification in the app whenever your status changes.'],
+            ['tab' => 'everyone', 'q' => 'Can I choose my own hours?', 'a' => 'Yes. You go online when you want to receive jobs and offline when you do not. You can accept or reject any offer.'],
+            ['tab' => 'everyone', 'q' => 'How do I get paid?', 'a' => 'Earnings for each completed job show in your app wallet. Payouts go to your bank account or UPI.'],
+            ['tab' => 'everyone', 'q' => 'Which cities can I work in?', 'a' => '1CallFix is starting in Nellore. More cities open as local franchises launch. Choose your city in the form, or join the waitlist for yours.'],
+            ['tab' => 'service', 'q' => 'How do I know a job is real?', 'a' => 'Jobs start and finish with a one-time code from the customer. You enter it in the app, so both sides know the work happened.'],
+            ['tab' => 'riders', 'q' => 'What do riders and drivers need?', 'a' => 'A smartphone, a valid driving licence, and your vehicle papers.'],
+            ['tab' => 'riders', 'q' => 'When will rider and driver roles open?', 'a' => 'Each module opens city by city. Join the waitlist and we will message you when yours opens.'],
+            ['tab' => 'shops', 'q' => 'What do shops and restaurants need?', 'a' => 'Your business details, a bank account for payouts, and any licence the law requires for your category, such as a food licence or a pharmacy licence.'],
         ];
     }
 }

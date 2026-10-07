@@ -1,69 +1,79 @@
-{{-- Application form (REF 1CF-PARTNER-PAGE-001). Wording comes from the settings store via the component. --}}
-<div x-data x-on:partner-role-select.window="$wire.set('role', $event.detail.role)" class="mt-8">
+{{-- Application form (REF 1CF-PARTNER-PAGE-001). Wording comes from the settings store via the component; styles are the .pp scope on the page. --}}
+@php
+    $current = collect($roles)->firstWhere('code', $role);
+    $arrow = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>';
+@endphp
+<div x-data x-on:partner-role-select.window="$wire.set('role', $event.detail.role)" id="formCard">
     @if ($outcome === 'handoff')
-        <div role="status" class="rounded-2xl bg-white p-6 text-slate-900">
-            <h3 class="text-xl font-bold">Thank you, we have your details</h3>
-            <p class="mt-2 text-sm text-slate-600">Next, verify your mobile number and upload your documents in the app sign-up.</p>
-            <a href="{{ route('provider.register') }}" class="mt-5 inline-flex min-h-11 items-center rounded-lg bg-amber-400 px-6 py-3 text-sm font-semibold text-slate-900 hover:bg-amber-300">Continue in the app</a>
+        <div role="status" class="done">
+            <h3>Saved. Continue in the app.</h3>
+            <p>Thanks, {{ \Illuminate\Support\Str::of($name)->trim()->before(' ') }}. Next, verify your mobile number with a one-time code and upload your documents in the 1CallFix app.</p>
+            <a href="{{ route('provider.register') }}" class="btn btn-accent submit">Continue in the app {!! $arrow !!}</a>
+            <button type="button" class="btn btn-out" wire:click="again">Add another application</button>
         </div>
     @elseif ($outcome !== '')
-        <div role="status" class="rounded-2xl bg-white p-6 text-slate-900">
-            @if (filled($doneTitle)) <h3 class="text-xl font-bold">{{ $doneTitle }}</h3> @endif
-            @if (filled($doneBody)) <p class="mt-2 text-sm text-slate-600">{{ $doneBody }}</p> @endif
+        <div role="status" class="done">
+            @if (filled($doneTitle)) <h3>{{ $doneTitle }}</h3> @endif
+            @if (filled($doneBody)) <p>{{ $doneBody }}</p> @endif
+            <button type="button" class="btn btn-out" wire:click="again">Add another application</button>
         </div>
     @else
-        <form wire:submit="submit" class="space-y-5 rounded-2xl bg-white p-6 text-slate-900" novalidate>
-            @csrf
-            <fieldset>
-                <legend class="text-sm font-semibold">I am a</legend>
-                <div class="mt-2 flex flex-wrap gap-2">
+        <form wire:submit="submit" class="form" novalidate>
+            <fieldset style="border:0;margin:0;padding:0;min-width:0">
+                <legend>I want to join as</legend>
+                <div class="chips">
                     @foreach ($roles as $card)
-                        <label class="cursor-pointer">
-                            <input type="radio" class="peer sr-only" name="role" value="{{ $card['code'] }}" wire:model.live="role">
-                            <span class="inline-flex min-h-11 items-center rounded-full border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 peer-checked:border-slate-900 peer-checked:bg-slate-900 peer-checked:text-white peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-blue-600">{{ $card['label'] }}</span>
+                        <label>
+                            <input type="radio" class="sr" name="role" value="{{ $card['code'] }}" wire:model.live="role">
+                            <span class="chip">{{ $card['label'] }}</span>
                         </label>
                     @endforeach
                 </div>
-                @error('role') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                @error('role') <p class="msg">{{ $message }}</p> @enderror
             </fieldset>
 
-            <div class="grid gap-4 sm:grid-cols-2">
-                <div>
-                    <label for="pl-name" class="block text-sm font-medium">Your name</label>
-                    <input id="pl-name" type="text" autocomplete="name" wire:model="name" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm">
-                    @error('name') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+            @if ($current && ! $current['live'])
+                <div class="waitnote" id="waitNote">This role is not live yet. Apply now to join the waitlist and we will tell you when it opens in your city.</div>
+            @endif
+
+            <div>
+                <label class="t" for="pl-name">Full name</label>
+                <input id="pl-name" type="text" autocomplete="name" maxlength="120" placeholder="As on your ID" wire:model="name" @class(['inp', 'err' => $errors->has('name')])>
+                @error('name') <p class="msg">{{ $message }}</p> @enderror
+            </div>
+            <div>
+                <label class="t" for="pl-phone">Mobile number</label>
+                <div class="row2">
+                    <span class="cc">+91</span>
+                    <input id="pl-phone" type="tel" inputmode="numeric" autocomplete="tel-national" maxlength="20" placeholder="10-digit number" wire:model="phone" @class(['inp', 'err' => $errors->has('phone')])>
                 </div>
-                <div>
-                    <label for="pl-phone" class="block text-sm font-medium">Mobile number</label>
-                    <input id="pl-phone" type="tel" inputmode="tel" autocomplete="tel" wire:model="phone" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm">
-                    @error('phone') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
-                </div>
-                <div class="sm:col-span-2">
-                    <label for="pl-city" class="block text-sm font-medium">City</label>
-                    <input id="pl-city" type="text" autocomplete="address-level2" wire:model="city" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm">
-                    @error('city') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
-                </div>
+                @error('phone') <p class="msg">{{ $message }}</p> @enderror
+            </div>
+            <div>
+                <label class="t" for="pl-city">City</label>
+                <input id="pl-city" type="text" autocomplete="address-level2" maxlength="120" placeholder="Your city" wire:model="city" @class(['inp', 'err' => $errors->has('city')])>
+                @error('city') <p class="msg">{{ $message }}</p> @enderror
             </div>
 
             {{-- Honeypot: hidden from people and assistive tech. --}}
-            <div aria-hidden="true" style="position:absolute;left:-9999px;top:auto;width:1px;height:1px;overflow:hidden">
+            <div class="hp" aria-hidden="true">
                 <label for="pl-website">Leave this empty</label>
                 <input id="pl-website" type="text" tabindex="-1" autocomplete="off" wire:model="website">
             </div>
 
             <div>
-                <label class="flex items-start gap-2 text-sm text-slate-700">
-                    <input type="checkbox" wire:model="consent" class="mt-1 h-4 w-4">
+                <label class="cons">
+                    <input type="checkbox" wire:model="consent">
                     <span>{{ $consentText }}</span>
                 </label>
-                @error('consent') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                @error('consent') <p class="msg">{{ $message }}</p> @enderror
             </div>
 
-            @if ($error)
-                <p role="alert" class="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{{ $error }}</p>
-            @endif
+            @if ($error) <p role="alert" class="msg">{{ $error }}</p> @endif
 
-            <button type="submit" wire:loading.attr="disabled" class="inline-flex min-h-11 items-center rounded-lg bg-slate-900 px-6 py-3 text-sm font-semibold text-white hover:bg-slate-800">Apply</button>
+            <button type="submit" wire:loading.attr="disabled" class="btn btn-accent submit">
+                {{ ($current['hands_off'] ?? false) ? 'Continue in the app' : 'Join the waitlist' }} {!! $arrow !!}
+            </button>
         </form>
     @endif
 </div>

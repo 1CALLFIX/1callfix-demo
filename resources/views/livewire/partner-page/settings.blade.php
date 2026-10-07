@@ -2,9 +2,10 @@
     use App\Support\PartnerPage\PartnerPageSettings as P;
     use App\Livewire\PartnerPage\Settings as S;
     $input = 'w-full border rounded px-3 py-2 text-sm';
-    $textareaKeys = ['hero.subtitle', 'nellore_band.text', 'commission.note', 'needs', 'support_phones', 'form.consent_text', 'form.done_body', 'seo.description', 'payout_timing', 'approval_time', 'footer_contact'];
+    $textareaKeys = ['hero.subtitle', 'nellore_band.text', 'commission.note', 'needs', 'support_phones', 'form.consent_text', 'form.done_body', 'seo.description', 'payout_timing', 'approval_time', 'footer_contact', 'hero.title', 'hero.ticks', 'roles.lead', 'join.lead'];
     $groups = [
-        'Hero and band' => ['hero.title', 'hero.subtitle', 'hero.cta_label', 'nellore_band.text'],
+        'Hero and band' => ['hero.badge', 'hero.title', 'hero.subtitle', 'hero.cta_label', 'hero.ticks', 'nellore_band.text'],
+        'Section intros' => ['roles.lead', 'join.lead'],
         'Commission, payout and approval' => ['commission.min', 'commission.max', 'commission.note', 'payout_timing', 'approval_time'],
         'Support and footer' => ['support_phones', 'footer_contact', 'needs'],
         'Application form' => ['form.consent_text', 'form.done_title', 'form.done_body'],

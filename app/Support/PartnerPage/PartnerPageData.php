@@ -17,7 +17,7 @@ final class PartnerPageData
      * a module that is not live is "Opening soon" and its leads go to the waiting list. Only the service role can
      * continue into the existing provider sign-up.
      *
-     * @return list<array{code:string, label:string, blurb:string, live:bool, hands_off:bool}>
+     * @return list<array{code:string, label:string, blurb:string, module:string, live:bool, hands_off:bool}>
      */
     public static function roles(): array
     {
@@ -36,6 +36,7 @@ final class PartnerPageData
                 'code' => $code,
                 'label' => $wording[$code]['label'],
                 'blurb' => $wording[$code]['blurb'],
+                'module' => P::ROLE_MODULE_NAMES[$code] ?? '',
                 'live' => $live,
                 'hands_off' => $code === 'service' && $live,
             ];
@@ -62,6 +63,11 @@ final class PartnerPageData
 
         return [
             'heroTitle' => P::text('hero.title'),
+            'heroLines' => P::lines('hero.title'),
+            'heroBadge' => P::text('hero.badge'),
+            'heroTicks' => P::lines('hero.ticks'),
+            'rolesLead' => P::text('roles.lead'),
+            'joinLead' => P::text('join.lead'),
             'heroSubtitle' => P::text('hero.subtitle'),
             'heroCta' => P::text('hero.cta_label'),
             'band' => P::on('show.nellore_band') ? P::text('nellore_band.text') : null,
