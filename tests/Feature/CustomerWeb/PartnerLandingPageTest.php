@@ -2,15 +2,19 @@
 
 namespace Tests\Feature\CustomerWeb;
 
+use App\Models\Country;
+use App\Models\Module;
 use App\Models\PartnerBenefit;
+use App\Models\Setting;
+use App\Services\ModuleActivationService;
+use App\Support\PartnerPage\PartnerPageData;
+use App\Support\PartnerPage\PartnerPageSettings as P;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 /**
- * The public "For professionals" landing page (route customer.partners,
- * URL /coming-soon/partners). Replaces the old coming-soon placeholder for
- * that one key: the benefits grid is driven by the admin-managed
- * `partner_benefits` table, and every CTA points at /provider/register.
+ * The public partner page (REF 1CF-PARTNER-PAGE-001, B2): role cards from the module registry, every word and list
+ * from the settings store, unconfirmed claims off by default, empty blocks hidden.
  */
 class PartnerLandingPageTest extends TestCase
 {
@@ -23,73 +27,138 @@ class PartnerLandingPageTest extends TestCase
         PartnerBenefit::query()->delete();
     }
 
-    public function test_the_page_renders_for_a_guest(): void
+    public function test_the_page_renders_for_a_guest_from_code_defaults(): void
     {
         $this->get(route('customer.partners'))
             ->assertOk()
-            ->assertSeeText('For professionals')
-            ->assertSee(route('provider.register'));
+            ->assertSeeText('Get job offers from customers near you')
+            ->assertSeeText('Pick your role')
+            ->assertSeeText('Every question, one place')
+            ->assertSee('<meta name="robots" content="index, follow">', false);
     }
 
-    public function test_the_legacy_coming_soon_url_now_serves_the_real_page(): void
+    public function test_the_legacy_coming_soon_url_still_serves_the_page_in_this_step(): void
     {
-        $this->get('/coming-soon/partners')
-            ->assertOk()
-            ->assertSeeText('How to get started');
+        $this->get('/coming-soon/partners')->assertOk()->assertSeeText('Pick your role');
     }
 
     public function test_partners_is_no_longer_a_coming_soon_placeholder_key(): void
     {
-        $this->assertNotContains(
-            'partners',
-            \App\Http\Controllers\Customer\PageController::COMING_SOON_FEATURES,
-        );
+        $this->assertNotContains('partners', \App\Http\Controllers\Customer\PageController::COMING_SOON_FEATURES);
     }
 
-    public function test_active_benefits_are_shown_and_inactive_are_hidden(): void
+    public function test_nine_role_cards_come_from_the_registry_and_only_live_modules_are_live(): void
     {
-        PartnerBenefit::create([
-            'icon' => 'wallet', 'title' => 'Shown benefit',
-            'description' => 'This one is active.', 'sort_order' => 1, 'is_active' => true,
-        ]);
-        PartnerBenefit::create([
-            'icon' => 'clock', 'title' => 'Hidden benefit',
-            'description' => 'This one is inactive.', 'sort_order' => 2, 'is_active' => false,
-        ]);
+        $html = $this->get(route('customer.partners'))->assertOk()->getContent();
 
-        $this->get(route('customer.partners'))
-            ->assertOk()
-            ->assertSeeText('Shown benefit')
-            ->assertDontSeeText('Hidden benefit');
+        foreach (['Service professional', 'Parcel delivery partner', 'Restaurant or food partner', 'Grocery partner', 'Pharmacy partner', 'Taxi driver', 'Hotel or stay partner', 'Rental partner', 'Seller or shop'] as $label) {
+            $this->assertStringContainsString($label, $html);
+        }
+        $this->assertSame(9, substr_count($html, 'data-role="'));
+        $this->assertSame(1, substr_count($html, '>Live<'));
+        $this->assertSame(8, substr_count($html, '>Opening soon<'));
     }
 
-    public function test_benefits_render_in_sort_order(): void
+    public function test_a_card_follows_the_registry_answer_read_live(): void
+    {
+        $roles = fn () => collect(PartnerPageData::roles())->keyBy('code');
+        $this->assertFalse($roles()['parcel']['live']);
+
+        Module::where('code', 'parcel')->update(['is_implemented' => true]);
+        $country = Country::create(['name' => 'T', 'code' => 'ZZ', 'currency_code' => 'INR', 'default_timezone' => 'Asia/Kolkata', 'is_active' => true]);
+        app(ModuleActivationService::class)->setActive('parcel', 'country', $country->id, true);
+
+        // Whatever the registry answers for the global scope is exactly what the card shows.
+        $this->assertSame(app(ModuleActivationService::class)->isActive('parcel'), $roles()['parcel']['live']);
+        $this->assertTrue($roles()['service']['hands_off']);
+        $this->assertFalse($roles()['parcel']['hands_off'], 'only the service role continues into the provider sign-up');
+    }
+
+    public function test_a_hidden_module_card_is_not_rendered(): void
+    {
+        Setting::set(P::key('modules_hidden'), json_encode(['taxi']));
+
+        $this->get(route('customer.partners'))->assertOk()->assertDontSeeText('Taxi driver')->assertSeeText('Seller or shop');
+    }
+
+    public function test_words_come_from_settings_not_the_view(): void
+    {
+        Setting::set(P::key('hero.title'), 'Partner with us today');
+        Setting::set(P::key('steps'), json_encode([['title' => 'Only step', 'body' => 'Do the one thing.']]));
+
+        $this->get(route('customer.partners'))->assertOk()
+            ->assertSeeText('Partner with us today')->assertDontSeeText('Get job offers from customers near you')
+            ->assertSeeText('Only step')->assertDontSeeText('Upload your documents');
+    }
+
+    public function test_unconfirmed_claims_are_off_by_default_and_each_switch_shows_its_own_sentence(): void
+    {
+        $page = $this->get(route('customer.partners'))->assertOk();
+        foreach (P::CLAIM_TEXT as $text) {
+            $page->assertDontSeeText($text);
+        }
+
+        Setting::set(P::key('claims.joining_free'), '1');
+        $this->get(route('customer.partners'))->assertSeeText('Joining is free.')->assertDontSeeText('We send you updates on WhatsApp.');
+    }
+
+    public function test_empty_blocks_are_hidden_and_configured_ones_show(): void
+    {
+        $this->get(route('customer.partners'))->assertOk()
+            ->assertDontSeeText('Standard commission')->assertDontSee('Get the Android app')->assertDontSee('Get the iPhone app');
+
+        Setting::set(P::key('commission.min'), '25');
+        Setting::set(P::key('commission.max'), '30');
+        Setting::set(P::key('store.android_url'), 'https://play.google.com/store/apps/details?id=x');
+        Setting::set(P::key('payout_timing'), 'Payouts are processed after verification.');
+
+        $this->get(route('customer.partners'))->assertOk()
+            ->assertSeeText('Standard commission is 25 to 30 percent of the job value.')
+            ->assertSee('Get the Android app')->assertDontSee('Get the iPhone app')
+            ->assertSeeText('Payouts are processed after verification.');
+    }
+
+    public function test_the_faq_is_tabbed_and_empty_tabs_are_dropped(): void
+    {
+        $this->get(route('customer.partners'))->assertOk()
+            ->assertSeeText('Everyone')->assertSeeText('Service professionals')->assertSeeText('Riders and drivers')->assertSeeText('Shops and restaurants');
+
+        Setting::set(P::key('faq'), json_encode([['tab' => 'service', 'q' => 'Only question?', 'a' => 'Yes.']]));
+        $this->get(route('customer.partners'))->assertOk()->assertSeeText('Only question?')->assertDontSeeText('Riders and drivers');
+    }
+
+    public function test_truth_rule_wording_is_present_and_the_old_unbacked_claims_are_gone(): void
+    {
+        $this->get(route('customer.partners'))->assertOk()
+            ->assertSeeText('Request a payout to your verified bank or UPI account.')
+            ->assertSeeText('Go online when you want')
+            ->assertSeeText('price before you accept')
+            ->assertDontSeeText('paid on time')->assertDontSeeText('Prices set up front');
+    }
+
+    public function test_active_cms_benefits_are_honoured_until_the_page_has_its_own_tiles(): void
+    {
+        PartnerBenefit::create(['icon' => 'wallet', 'title' => 'Shown benefit', 'description' => 'This one is active.', 'sort_order' => 1, 'is_active' => true]);
+        PartnerBenefit::create(['icon' => 'clock', 'title' => 'Hidden benefit', 'description' => 'inactive', 'sort_order' => 2, 'is_active' => false]);
+
+        $this->get(route('customer.partners'))->assertOk()->assertSeeText('Shown benefit')->assertDontSeeText('Hidden benefit');
+
+        Setting::set(P::key('benefits'), json_encode([['icon' => 'star', 'color' => 'rose', 'title' => 'Own tile', 'body' => 'x']]));
+        $this->get(route('customer.partners'))->assertOk()->assertSeeText('Own tile')->assertDontSeeText('Shown benefit');
+    }
+
+    public function test_cms_benefits_render_in_sort_order(): void
     {
         PartnerBenefit::create(['icon' => 'wallet', 'title' => 'Second benefit', 'description' => 'b', 'sort_order' => 20, 'is_active' => true]);
         PartnerBenefit::create(['icon' => 'clock', 'title' => 'First benefit', 'description' => 'a', 'sort_order' => 10, 'is_active' => true]);
 
         $html = $this->get(route('customer.partners'))->assertOk()->getContent();
 
-        $this->assertLessThan(
-            strpos($html, 'Second benefit'),
-            strpos($html, 'First benefit'),
-        );
-    }
-
-    public function test_the_page_still_renders_with_no_benefit_rows(): void
-    {
-        PartnerBenefit::query()->delete();
-
-        $this->get(route('customer.partners'))
-            ->assertOk()
-            ->assertSee(route('provider.register'));
+        $this->assertLessThan(strpos($html, 'Second benefit'), strpos($html, 'First benefit'));
     }
 
     public function test_the_footer_links_to_the_partner_page(): void
     {
-        $this->get(route('customer.home'))
-            ->assertOk()
-            ->assertSee(route('customer.partners'))
-            ->assertSeeText('Join as a Partner');
+        $this->get(route('customer.home'))->assertOk()->assertSee(route('customer.partners'))->assertSeeText('Join as a Partner');
     }
 }

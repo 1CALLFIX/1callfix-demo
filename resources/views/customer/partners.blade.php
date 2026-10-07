@@ -1,138 +1,190 @@
 {{--
-    Public "For professionals" landing page (route customer.partners,
-    URL /coming-soon/partners). The benefits grid is driven entirely by the
-    admin-managed `partner_benefits` table — nothing in it is hardcoded here.
-    The rest is static copy describing the real /provider/register flow
-    (phone OTP -> details -> documents -> admin review). Single CTA phrase
-    throughout: "Join as a Partner", always linking to /provider/register.
-
-    Visual language matches customer/how-it-works.blade.php: the customer
-    layout, blue-600 accent, slate text, numbered circular step markers,
-    slate-50 bordered cards.
+    Public partner page (REF 1CF-PARTNER-PAGE-001). This view holds NO wording: role cards come from the module
+    registry and every text block and list from the settings store (App\Support\PartnerPage\PartnerPageData). A block
+    whose value is empty is not rendered. Visual language follows the owner's design (dark hero and benefit band,
+    light sections, coloured benefit icons, tabbed FAQ).
 --}}
 @php
-    $platformName = \App\Models\Setting::get('branding.platform_name', '1CallFix');
-    $cityLabel = \App\Models\Setting::get('branding.operating_city_label', null);
-
-    $ctaLabel = 'Join as a Partner';
-    $registerUrl = route('provider.register');
-
-    // Mirrors App\Livewire\Provider\Auth\Register's step machine
-    // (phone | verify_phone | details) plus the admin review that follows.
-    $steps = [
-        [
-            'title' => 'Verify your phone',
-            'body' => 'Enter your mobile number and confirm the one-time code. That number is your login.',
-        ],
-        [
-            'title' => 'Tell us about your work',
-            'body' => 'Add your name, a password, the area you cover and the trades you handle.',
-        ],
-        [
-            'title' => 'Upload your documents',
-            'body' => 'Submit the ID and proof documents we ask for. Uploads are checked before you can take jobs.',
-        ],
-        [
-            'title' => 'Get approved and go online',
-            'body' => 'Our team reviews your profile. Once approved, sign in, go online and start accepting job offers.',
-        ],
+    $tones = [
+        'blue' => 'bg-blue-100 text-blue-700', 'green' => 'bg-emerald-100 text-emerald-700', 'amber' => 'bg-amber-100 text-amber-700',
+        'rose' => 'bg-rose-100 text-rose-700', 'violet' => 'bg-violet-100 text-violet-700', 'teal' => 'bg-teal-100 text-teal-700',
     ];
+    $firstTab = array_key_first($faqTabs);
 @endphp
 
-<x-layouts.customer title="{{ $ctaLabel }}" :indexable="true"
-    metaDescription="Partner with {{ $platformName }}: steady local jobs for verified trade professionals{{ $cityLabel ? ' in '.$cityLabel : '' }}. Set your own hours, get paid on time.">
+<x-layouts.customer :title="$seoTitle" :indexable="true" :metaDescription="$seoDescription">
 
     {{-- Hero --}}
-    <section class="border-b border-slate-200 bg-slate-50">
-        <div class="mx-auto max-w-4xl px-4 py-16 text-center sm:px-6 sm:py-20 lg:px-8">
-            <p class="text-sm font-semibold uppercase tracking-wide text-blue-700">For professionals</p>
-            <h1 class="mt-3 text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">
-                Grow your trade business with {{ $platformName }}
-            </h1>
-            <p class="mx-auto mt-4 max-w-2xl text-base leading-relaxed text-slate-600 sm:text-lg">
-                Verified local professionals get matched with real jobs{{ $cityLabel ? ' across '.$cityLabel : '' }} —
-                work the hours you choose, on prices set up front, with payouts you can track.
-            </p>
-            <div class="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
-                <a href="{{ $registerUrl }}"
-                   class="inline-flex min-h-11 items-center justify-center rounded-lg bg-blue-600 px-6 py-3 text-sm font-semibold text-white transition hover:bg-blue-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600">
-                    {{ $ctaLabel }}
-                </a>
-                <a href="#how-it-works"
-                   class="inline-flex min-h-11 items-center justify-center rounded-lg border border-slate-300 bg-white px-6 py-3 text-sm font-semibold text-slate-800 transition hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600">
-                    See how it works
-                </a>
+    <section class="bg-slate-900 text-white">
+        <div class="mx-auto max-w-5xl px-4 py-16 sm:px-6 sm:py-24 lg:px-8">
+            <h1 class="max-w-3xl text-4xl font-extrabold tracking-tight sm:text-5xl">{{ $heroTitle }}</h1>
+            @if (filled($heroSubtitle))
+                <p class="mt-5 max-w-2xl text-base leading-relaxed text-slate-300 sm:text-lg">{{ $heroSubtitle }}</p>
+            @endif
+            <div class="mt-8 flex flex-wrap items-center gap-3">
+                <a href="#apply" class="inline-flex min-h-11 items-center rounded-lg bg-amber-400 px-6 py-3 text-sm font-semibold text-slate-900 transition hover:bg-amber-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-300">{{ $heroCta }}</a>
+                @if ($androidUrl)
+                    <a href="{{ $androidUrl }}" rel="noopener" class="inline-flex min-h-11 items-center rounded-lg border border-slate-600 px-5 py-3 text-sm font-semibold text-white hover:bg-slate-800">Get the Android app</a>
+                @endif
+                @if ($iosUrl)
+                    <a href="{{ $iosUrl }}" rel="noopener" class="inline-flex min-h-11 items-center rounded-lg border border-slate-600 px-5 py-3 text-sm font-semibold text-white hover:bg-slate-800">Get the iPhone app</a>
+                @endif
             </div>
+            @isset($claims['joining_free'])
+                <p class="mt-4 text-sm font-medium text-amber-300">{{ $claims['joining_free'] }}</p>
+            @endisset
         </div>
     </section>
 
-    {{-- Benefits grid — admin-managed, hidden entirely if there are no active rows --}}
-    @if ($benefits->isNotEmpty())
-        <section aria-labelledby="benefits-heading" class="mx-auto max-w-5xl px-4 py-14 sm:px-6 sm:py-16 lg:px-8">
-            <h2 id="benefits-heading" class="text-center text-2xl font-bold tracking-tight text-slate-900">
-                Why partner with {{ $platformName }}
-            </h2>
-            <div class="mt-10 grid gap-6 sm:grid-cols-2">
-                @foreach ($benefits as $benefit)
-                    <div class="flex gap-4 rounded-xl border border-slate-200 bg-slate-50 p-6">
-                        <span aria-hidden="true"
-                              class="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-blue-600 text-white">
-                            <x-icon :name="$benefit->icon" class="h-5 w-5" />
-                        </span>
-                        <div>
-                            <h3 class="text-base font-semibold text-slate-900">{{ $benefit->title }}</h3>
-                            <p class="mt-1.5 text-sm leading-relaxed text-slate-600">{{ $benefit->description }}</p>
-                        </div>
+    @if (filled($band))
+        <section class="border-b border-amber-200 bg-amber-50">
+            <p class="mx-auto max-w-5xl px-4 py-3 text-sm font-medium text-amber-900 sm:px-6 lg:px-8">{{ $band }}</p>
+        </section>
+    @endif
+
+    {{-- Role cards (module registry) --}}
+    @if ($roles !== [])
+        <section aria-labelledby="roles-heading" class="mx-auto max-w-5xl px-4 py-14 sm:px-6 lg:px-8">
+            <h2 id="roles-heading" class="text-3xl font-extrabold tracking-tight text-slate-900">Pick your role</h2>
+            <ul class="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                @foreach ($roles as $role)
+                    <li>
+                        <a href="#apply" data-role="{{ $role['code'] }}" x-data x-on:click="$dispatch('partner-role-select', { role: '{{ $role['code'] }}' })"
+                           class="flex h-full flex-col rounded-2xl border border-slate-200 bg-white p-5 transition hover:border-blue-400 hover:shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600">
+                            <span @class([
+                                'w-fit rounded-full px-2.5 py-0.5 text-xs font-semibold',
+                                'bg-emerald-100 text-emerald-700' => $role['live'],
+                                'bg-slate-100 text-slate-600' => ! $role['live'],
+                            ])>{{ $role['live'] ? 'Live' : 'Opening soon' }}</span>
+                            <h3 class="mt-3 text-lg font-bold text-slate-900">{{ $role['label'] }}</h3>
+                            <p class="mt-1 text-sm text-slate-600">{{ $role['blurb'] }}</p>
+                        </a>
+                    </li>
+                @endforeach
+            </ul>
+        </section>
+    @endif
+
+    {{-- Steps and what you will need --}}
+    @if ($steps !== [] || $needs !== [])
+        <section id="how-it-works" aria-labelledby="steps-heading" class="border-y border-slate-200 bg-stone-50">
+            <div class="mx-auto grid max-w-5xl gap-10 px-4 py-14 sm:px-6 lg:grid-cols-3 lg:px-8">
+                @if ($steps !== [])
+                    <div class="lg:col-span-2">
+                        <h2 id="steps-heading" class="text-3xl font-extrabold tracking-tight text-slate-900">How it works</h2>
+                        <ol class="mt-8 space-y-6">
+                            @foreach ($steps as $i => $step)
+                                <li class="flex gap-4">
+                                    <span aria-hidden="true" class="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-slate-900 text-sm font-bold text-white">{{ $i + 1 }}</span>
+                                    <div>
+                                        <h3 class="text-lg font-bold text-slate-900"><span class="sr-only">Step {{ $i + 1 }}: </span>{{ $step['title'] }}</h3>
+                                        <p class="mt-1 text-sm leading-relaxed text-slate-600">{{ $step['body'] }}</p>
+                                    </div>
+                                </li>
+                            @endforeach
+                        </ol>
                     </div>
+                @endif
+                @if ($needs !== [] || filled($approvalTime) || isset($claims['save_finish_later']))
+                    <div class="rounded-2xl border border-slate-200 bg-white p-6">
+                        @if ($needs !== [])
+                            <h3 class="text-lg font-bold text-slate-900">What you will need</h3>
+                            <ul class="mt-3 list-disc space-y-2 pl-5 text-sm text-slate-700">
+                                @foreach ($needs as $need)
+                                    <li>{{ $need }}</li>
+                                @endforeach
+                            </ul>
+                        @endif
+                        @if (filled($approvalTime))
+                            <p class="mt-4 text-sm text-slate-600">{{ $approvalTime }}</p>
+                        @endif
+                        @isset($claims['save_finish_later'])
+                            <p class="mt-4 text-sm text-slate-600">{{ $claims['save_finish_later'] }}</p>
+                        @endisset
+                    </div>
+                @endif
+            </div>
+        </section>
+    @endif
+
+    {{-- Benefits --}}
+    @if ($benefits !== [])
+        <section aria-labelledby="benefits-heading" class="bg-slate-900 text-white">
+            <div class="mx-auto max-w-5xl px-4 py-14 sm:px-6 lg:px-8">
+                <h2 id="benefits-heading" class="text-3xl font-extrabold tracking-tight">Built so partners can do their best work</h2>
+                <div class="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                    @foreach ($benefits as $b)
+                        <div class="rounded-2xl bg-slate-800 p-5">
+                            <span aria-hidden="true" class="grid h-11 w-11 place-items-center rounded-xl {{ $tones[$b['color']] ?? $tones['blue'] }}">
+                                <x-icon :name="$b['icon']" class="h-5 w-5" />
+                            </span>
+                            <h3 class="mt-4 text-lg font-bold">{{ $b['title'] }}</h3>
+                            <p class="mt-1 text-sm leading-relaxed text-slate-300">{{ $b['body'] }}</p>
+                        </div>
+                    @endforeach
+                </div>
+                @foreach (['company_accounts', 'whatsapp_updates'] as $claim)
+                    @isset($claims[$claim])
+                        <p class="mt-4 text-sm text-slate-300">{{ $claims[$claim] }}</p>
+                    @endisset
                 @endforeach
             </div>
         </section>
     @endif
 
-    {{-- How it works — the real registration flow --}}
-    <section id="how-it-works" aria-labelledby="how-heading" class="border-t border-slate-200 bg-slate-50">
-        <div class="mx-auto max-w-4xl px-4 py-14 sm:px-6 sm:py-16 lg:px-8">
-            <h2 id="how-heading" class="text-center text-2xl font-bold tracking-tight text-slate-900">
-                How to get started
-            </h2>
-            <ol class="mt-10 grid gap-8 sm:grid-cols-2">
-                @foreach ($steps as $index => $step)
-                    <li class="flex gap-4">
-                        <span aria-hidden="true"
-                              class="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-blue-600 text-sm font-bold text-white">
-                            {{ $index + 1 }}
-                        </span>
-                        <div>
-                            <h3 class="text-base font-semibold text-slate-900">
-                                <span class="sr-only">Step {{ $index + 1 }}: </span>{{ $step['title'] }}
-                            </h3>
-                            <p class="mt-1.5 text-sm leading-relaxed text-slate-600">{{ $step['body'] }}</p>
-                        </div>
-                    </li>
-                @endforeach
-            </ol>
-        </div>
-    </section>
+    {{-- Commission and payout notes --}}
+    @if (filled($commission) || filled($payoutTiming))
+        <section class="mx-auto max-w-5xl px-4 py-10 sm:px-6 lg:px-8">
+            <div class="space-y-2 rounded-2xl border border-slate-200 bg-white p-6 text-sm text-slate-700">
+                @if (filled($commission)) <p>{{ $commission }}</p> @endif
+                @if (filled($payoutTiming)) <p>{{ $payoutTiming }}</p> @endif
+            </div>
+        </section>
+    @endif
 
-    {{-- Final CTA --}}
-    <section class="mx-auto max-w-4xl px-4 py-16 text-center sm:px-6 sm:py-20 lg:px-8">
-        <h2 class="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
-            Ready to take on more work?
-        </h2>
-        <p class="mx-auto mt-3 max-w-xl text-base text-slate-600">
-            Registration takes a few minutes. You can take jobs as soon as your profile is approved.
-        </p>
-        <div class="mt-8">
-            <a href="{{ $registerUrl }}"
-               class="inline-flex min-h-11 items-center justify-center rounded-lg bg-blue-600 px-6 py-3 text-sm font-semibold text-white transition hover:bg-blue-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600">
-                {{ $ctaLabel }}
-            </a>
+    {{-- FAQ (tabs) --}}
+    @if ($faqTabs !== [])
+        <section aria-labelledby="faq-heading" class="mx-auto max-w-3xl px-4 py-14 sm:px-6 lg:px-8" x-data="{ tab: '{{ $firstTab }}' }">
+            <h2 id="faq-heading" class="text-3xl font-extrabold tracking-tight text-slate-900">Every question, one place</h2>
+            <div role="tablist" class="mt-6 flex flex-wrap gap-2">
+                @foreach ($faqTabs as $key => $group)
+                    <button type="button" role="tab" id="faq-tab-{{ $key }}" aria-controls="faq-panel-{{ $key }}"
+                            x-on:click="tab = '{{ $key }}'" x-bind:aria-selected="tab === '{{ $key }}'"
+                            x-bind:class="tab === '{{ $key }}' ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-700'"
+                            class="min-h-11 rounded-full px-4 py-2 text-sm font-semibold">{{ $group['label'] }}</button>
+                @endforeach
+            </div>
+            @foreach ($faqTabs as $key => $group)
+                <div role="tabpanel" id="faq-panel-{{ $key }}" aria-labelledby="faq-tab-{{ $key }}" x-show="tab === '{{ $key }}'" @if ($key !== $firstTab) x-cloak @endif class="mt-4 divide-y divide-slate-200 rounded-2xl border border-slate-200 bg-white">
+                    @foreach ($group['items'] as $item)
+                        <details class="group p-5">
+                            <summary class="cursor-pointer list-none text-base font-semibold text-slate-900">{{ $item['q'] }}</summary>
+                            <p class="mt-2 text-sm leading-relaxed text-slate-600">{{ $item['a'] }}</p>
+                        </details>
+                    @endforeach
+                </div>
+            @endforeach
+        </section>
+    @endif
+
+    {{-- Application form lands here in B3 --}}
+    <section id="apply" aria-labelledby="apply-heading" class="bg-slate-900 text-white">
+        <div class="mx-auto max-w-5xl px-4 py-14 sm:px-6 lg:px-8">
+            <h2 id="apply-heading" class="text-3xl font-extrabold tracking-tight">{{ $heroCta }}</h2>
+
+            @foreach ($phones as $phone)
+                <p class="mt-2 text-sm text-slate-300">
+                    @if ($phone['tel'] !== '') <a class="underline" href="tel:{{ $phone['tel'] }}">{{ $phone['text'] }}</a> @else {{ $phone['text'] }} @endif
+                </p>
+            @endforeach
+            @if (filled($footerContact))
+                <p class="mt-2 text-sm text-slate-300">{{ $footerContact }}</p>
+            @endif
+            <p class="mt-6 text-sm text-slate-300">
+                Already a partner?
+                <a href="{{ route('provider.login') }}" class="font-semibold text-white underline underline-offset-4">Sign in</a>
+            </p>
         </div>
-        <p class="mt-4 text-sm text-slate-500">
-            Already a partner?
-            <a href="{{ route('provider.login') }}"
-               class="font-medium text-slate-900 underline underline-offset-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 rounded">Sign in</a>
-        </p>
     </section>
 
 </x-layouts.customer>

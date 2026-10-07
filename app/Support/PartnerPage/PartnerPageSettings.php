@@ -64,6 +64,14 @@ final class PartnerPageSettings
         'claims.save_finish_later' => ['Claim: save and finish later', false],
     ];
 
+    /** The sentence each claim switch shows when ON. Code, not views; nothing here is shown until the owner switches it on. */
+    public const CLAIM_TEXT = [
+        'claims.joining_free' => 'Joining is free.',
+        'claims.company_accounts' => 'Teams and companies can apply too.',
+        'claims.whatsapp_updates' => 'We send you updates on WhatsApp.',
+        'claims.save_finish_later' => 'You can save your sign-up and finish it later.',
+    ];
+
     public const LEAD_RETENTION = 'lead_retention_days';
 
     public const FAQ_TABS = [
@@ -408,7 +416,7 @@ final class PartnerPageSettings
     public static function defaultBenefits(): array
     {
         return [
-            ['icon' => 'clipboard', 'color' => 'blue', 'title' => 'Job offers near you', 'body' => 'Get offers for jobs in your area and accept the ones that suit you.'],
+            ['icon' => 'clipboard', 'color' => 'blue', 'title' => 'Job offers near you', 'body' => 'Each offer shows the service, distance and price before you accept. Take the ones that suit you.'],
             ['icon' => 'clock', 'color' => 'green', 'title' => 'Go online when you want', 'body' => 'Switch online or offline whenever you like.'],
             ['icon' => 'shield', 'color' => 'violet', 'title' => 'One-time codes for every job', 'body' => 'The customer shares a one-time code to start the job and another to finish it.'],
             ['icon' => 'wallet', 'color' => 'amber', 'title' => 'Earnings in your wallet', 'body' => 'See your earnings and wallet balance in the app.'],

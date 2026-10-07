@@ -5,7 +5,7 @@ namespace App\Http\Controllers\Customer;
 use App\Http\Controllers\Controller;
 use App\Models\ContentPage;
 use App\Models\Faq;
-use App\Models\PartnerBenefit;
+use App\Support\PartnerPage\PartnerPageData;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Str;
 
@@ -128,16 +128,12 @@ class PageController extends Controller
     }
 
     /**
-     * The public "For professionals" landing page. The benefits list is the
-     * admin-managed `partner_benefits` table (edited from Website / CMS);
-     * everything else on the page is static copy describing the real
-     * /provider/register flow. No provider data is read or written here.
+     * The public partner page (REF 1CF-PARTNER-PAGE-001). Role cards come from the module registry and every word
+     * and list from the settings store, assembled by PartnerPageData; the view holds no wording of its own.
      */
     public function partners(): View
     {
-        return view('customer.partners', [
-            'benefits' => PartnerBenefit::forDisplay()->get(),
-        ]);
+        return view('customer.partners', PartnerPageData::build());
     }
 
     public function comingSoon(string $feature): View
