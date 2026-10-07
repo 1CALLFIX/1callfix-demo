@@ -3,14 +3,15 @@
 **Written:** Production Hardening session, 2026-08-20.
 **Target:** the one real production environment — Hostinger VPS
 (`srv1422426.hstgr.cloud`), CyberPanel + OpenLiteSpeed, live at
-`https://api.1callfix.com`. Server path: `/home/1callfix.com/public_html/api/`.
+`https://1callfix.com`. Server path: `/home/1callfix.com/public_html/`.
 Deploy user: `callf1207` (prefer this over `root` — using `root` for
 git/deploy operations has caused file-permission issues before; see
 `PROJECT_HANDOFF.md` §9).
 
 **There is no separate staging environment.** Per `PROJECT_CURRENT_STATE.md`
-§2: deploys go directly against the production checkout via SCP or `git
-pull`. Treat every deploy accordingly — the checks in this runbook are not
+§2: deploys go directly against the production checkout via `git
+pull` (compiled assets only via scp). Treat every deploy
+accordingly — the checks in this runbook are not
 optional formality, they are the only safety net that exists.
 
 **Production data volume as of the last confirmed check (2026-08-20):** 0
@@ -107,7 +108,7 @@ proceed to Section 2 with an unresolved failure here.
 ## 2. Deploy sequence
 
 ```bash
-# On the server, as callf1207, inside /home/1callfix.com/public_html/api/
+# On the server, as callf1207, inside /home/1callfix.com/public_html/
 
 # 1. Maintenance mode — brief, and only really matters while a migration
 #    is running. Given the pre-launch traffic level (see header), a short
@@ -117,49 +118,41 @@ proceed to Section 2 with an unresolved failure here.
 #    before reopening to everyone.
 php artisan down --secret="$(openssl rand -hex 16)" --render=errors::503
 
-# 2. Pull the deployed code (or SCP it in, per PROJECT_HANDOFF.md §9's
-#    documented alternative — SCP has been the more reliable path
-#    historically; CyberPanel's File Manager zip-upload has a known bug
-#    with symlinks under vendor/bin/*, avoid it).
-git pull origin main
-# -- or --
-# scp -r <local-build-folder> callf1207@31.97.186.175:/home/1callfix.com/public_html/api/
+# 2. Pull the deployed code. Code reaches the server through git ONLY --
+#    never scp/copy source files, tarballs or bundles (CLAUDE.md "Deploy
+#    rule"). CyberPanel's File Manager zip-upload also has a known bug with
+#    symlinks under vendor/bin/*; avoid it.
+git fetch origin && git merge --ff-only origin/main
 
-# 3. PHP dependencies — production flags: no dev packages, optimized
-#    class-map autoloader.
+# 3. PHP dependencies -- only if composer.lock/composer.json changed
+#    (`git diff --stat <old> HEAD -- composer.lock composer.json`).
+#    Production flags: no dev packages, optimized class-map autoloader.
 composer install --no-dev --optimize-autoloader
 
-# 4. Frontend build — REQUIRED. resources/views/welcome.blade.php already
-#    calls @vite(['resources/css/app.css', 'resources/js/app.js']); Vite's
-#    compiled manifest (public/build/manifest.json) does not exist until
-#    this runs, and public/build is git-ignored (never shipped via `git
-#    pull`/SCP of source) -- skipping this step is not "the old CDN
-#    version keeps working", it is a broken public "/" route
-#    (ViteManifestNotFoundException) until this has run at least once on
-#    THIS server. This is true independent of item 56 (admin panel's own
-#    Tailwind CDN vs. compiled-build status, still unresolved as of this
-#    writing).
-#
-#    IMPORTANT — this server's system-wide Node is v18.20.8
-#    (/usr/bin/node), too old for this repo's Vite toolchain (vite@8,
-#    rolldown, @tailwindcss/oxide all require Node >=20; confirmed to fail
-#    with a `node:util` styleText SyntaxError under v18). Node is managed
-#    via `nvm`, installed user-scoped for callf1207 at ~/.nvm — it does
-#    NOT touch /usr/bin/node or any other user/service on this shared box
-#    (PM2 and other global npm packages under /usr/local/lib/node_modules
-#    stay linked to the system Node, untouched). Every deploy that runs
-#    npm install/npm run build MUST select Node 22 first, or it silently
-#    falls back to the system Node 18 and fails the same way:
-#    export NVM_DIR="$HOME/.nvm" && [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh" && nvm use 22
-#    (.nvmrc at the repo root pins this to 22 — `nvm use` with no argument
-#    also works from inside the repo checkout.)
-npm install
-npm run build
-
-# 5. Database migrations. --force is required in production (Artisan
-#    refuses to run migrations in a non-interactive production shell
-#    without it) -- you already backed up in §1 step 1.
+# 4. Database migrations. Check `php artisan migrate:status` first: only the
+#    migrations you expect may be pending. --force is required in production
+#    (Artisan refuses to run migrations in a non-interactive production
+#    shell without it) -- you already backed up in §1 step 1. Migrate
+#    straight away: the new code is already on disk.
 php artisan migrate --force
+
+# 5. Frontend build -- REQUIRED, built LOCALLY, never on the server (the
+#    server cannot run `npm run build`: CyberPanel filesystem restriction,
+#    and its system Node is v18). public/build is git-ignored, so it never
+#    arrives via git; skipping this step is not "the old CDN version keeps
+#    working", it is a broken public "/" route (ViteManifestNotFoundException)
+#    -- resources/views/welcome.blade.php calls @vite([...]) and
+#    public/build/manifest.json does not exist until a build is uploaded.
+#
+#    a) On the LOCAL machine, confirm every VITE_FIREBASE_* key is present in
+#       the local .env (push notifications break without them), then build:
+#         nvm use 22        # .nvmrc pins 22
+#         npm run build
+#    b) On the SERVER, back up the current build first:
+#         cp -a public/build ~/backups/public-build-<label>-<timestamp>
+#    c) Asset upload (the ONLY scp allowed -- compiled assets, not source).
+#       From the LOCAL machine, BEFORE the cache clear in step 6:
+#         scp -r public\build\* callf1207@31.97.186.175:/home/1callfix.com/public_html/public/build/
 
 # 6. Production caches -- verified this session to run cleanly against
 #    this exact codebase (config:cache does NOT fail on a .env-dependent
@@ -201,21 +194,21 @@ a low-risk, no-migration deploy.
    connectivity in one request (extended this session; previously only
    confirmed the app process was alive):
    ```bash
-   curl -s -o /dev/null -w "%{http_code}\n" https://api.1callfix.com/up
+   curl -s -o /dev/null -w "%{http_code}\n" https://1callfix.com/up
    ```
    Expect `200`. A `500` means the app booted but a real dependency (DB or
    queue) failed its check — do NOT reopen to the public; investigate via
    `storage/logs/laravel.log` first (the response body itself never
    contains the failure detail, by design — see `HealthCheckTest.php`).
 
-2. **Public route smoke test** (confirms the Vite build from §2 step 4
+2. **Public route smoke test** (confirms the Vite build from §2 step 5
    actually produced a working manifest):
    ```bash
-   curl -s -o /dev/null -w "%{http_code}\n" https://api.1callfix.com/
+   curl -s -o /dev/null -w "%{http_code}\n" https://1callfix.com/
    ```
    Expect `200`, not a 500 from a missing Vite manifest.
 
-3. **Admin login smoke test** — log in at `https://api.1callfix.com/admin/login`
+3. **Admin login smoke test** — log in at `https://1callfix.com/admin/login`
    with a real admin account. Confirms session auth, RBAC role-assignment
    lookup, and (as of this session) the new login rate limiter doesn't
    misfire on a normal login.
@@ -241,7 +234,7 @@ a low-risk, no-migration deploy.
    something is stale) — the same live test `KNOWN_RISKS_AND_DECISIONS.md`
    item 25 used:
    ```bash
-   curl -s -H "Accept: application/json" https://api.1callfix.com/api/this-route-does-not-exist-deploy-check
+   curl -s -H "Accept: application/json" https://1callfix.com/api/this-route-does-not-exist-deploy-check
    ```
    Expect a plain `{"message": "..."}` 404 with no `exception`/`file`/
    `line`/`trace` fields. If those fields appear, debug mode is leaking —
@@ -261,7 +254,7 @@ changes in this repo:
 
 ```bash
 # run as root (this server's supervisord runs as root; no `sudo` needed once you are root)
-cp /home/1callfix.com/public_html/api/deploy/supervisor/onecallfix-worker.conf \
+cp /home/1callfix.com/public_html/deploy/supervisor/onecallfix-worker.conf \
    /etc/supervisord.d/onecallfix-worker.ini
 supervisorctl reread
 supervisorctl update
@@ -289,13 +282,13 @@ and `directory=` / `user=` were not confirmed present. The repo file is the
 declared source of truth (see its own header). Reconcile with:
 
 ```bash
-diff <(sed 's/;.*//' /home/1callfix.com/public_html/api/deploy/supervisor/onecallfix-worker.conf) \
+diff <(sed 's/;.*//' /home/1callfix.com/public_html/deploy/supervisor/onecallfix-worker.conf) \
      /etc/supervisord.d/onecallfix-worker.ini
 ```
 
 then copy the repo file over as above. Before/after, verify:
 
-- `ls -la /home/1callfix.com/public_html/api/storage/logs/worker.log` — must be
+- `ls -la /home/1callfix.com/public_html/storage/logs/worker.log` — must be
   owned by `callf1207`, not `root`. A worker with no `user=` under a
   root supervisord runs as root and leaves root-owned files in `storage/` and
   `bootstrap/cache/` that the web user then cannot overwrite (see §0).
@@ -371,7 +364,7 @@ to this vhost:
 - **Resolved 2026-08-21:** `npm run build` was verified end-to-end for
   real against this codebase on the production server. It fails under the
   server's system Node 18 (Vite 8/rolldown require Node >=20); fixed by
-  installing Node 22 via user-scoped `nvm` (see §2 step 4's note) — this
+  installing Node 22 via user-scoped `nvm` (see §2 step 5's note) — this
   does not touch the system Node or anything else on the shared box. A
   clean `rm -rf node_modules package-lock.json && npm install && npm run
   build` under Node 22 produced a working `public/build/manifest.json`.
