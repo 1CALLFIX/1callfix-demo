@@ -37,11 +37,6 @@ class PartnerLandingPageTest extends TestCase
             ->assertSee('<meta name="robots" content="index, follow">', false);
     }
 
-    public function test_the_legacy_coming_soon_url_still_serves_the_page_in_this_step(): void
-    {
-        $this->get('/coming-soon/partners')->assertOk()->assertSeeText('Pick your role');
-    }
-
     public function test_partners_is_no_longer_a_coming_soon_placeholder_key(): void
     {
         $this->assertNotContains('partners', \App\Http\Controllers\Customer\PageController::COMING_SOON_FEATURES);

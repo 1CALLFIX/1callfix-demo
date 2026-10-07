@@ -136,6 +136,12 @@ class PageController extends Controller
         return view('customer.partners', PartnerPageData::build());
     }
 
+    /** Permanent redirect from every older/alternative partner address, keeping the query string. */
+    public function partnersMoved(\Illuminate\Http\Request $request): \Illuminate\Http\RedirectResponse
+    {
+        return redirect()->to(\App\Support\Seo\PublicUrl::keepingQueryOf(route('customer.partners'), $request), 301);
+    }
+
     public function comingSoon(string $feature): View
     {
         $copy = self::COMING_SOON_COPY[$feature] ?? [

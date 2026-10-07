@@ -90,7 +90,7 @@ class OpenGraphCanonicalTest extends TestCase
 
         foreach ([
             '/', '/categories', '/nellore', '/nellore/'.$category->slug, '/services', '/nellore/'.$service->slug,
-            '/help', '/how-it-works', '/coming-soon/partners',
+            '/help', '/how-it-works', '/partners',
         ] as $path) {
             $html = $this->get($path)->assertOk()->getContent();
             $this->assertStringContainsString('<meta name="robots" content="index, follow">', $html, $path);
