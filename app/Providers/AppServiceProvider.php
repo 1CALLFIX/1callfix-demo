@@ -145,6 +145,13 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // REF 1CF-PARTNER-PAGE-001: the Partner page reads all its settings from one cached array; saving any of its rows clears it.
+        \App\Models\Setting::saved(function (\App\Models\Setting $setting) {
+            if (str_starts_with((string) $setting->key, \App\Support\PartnerPage\PartnerPageSettings::PREFIX)) {
+                \App\Support\PartnerPage\PartnerPageSettings::forgetCache();
+            }
+        });
+
         // Sitemap freshness: saving anything the sitemap lists (or the SEO/branding settings) rebuilds it on the next hit.
         foreach ([
             \App\Models\Setting::class, \App\Models\City::class, \App\Models\ServiceCategory::class,
