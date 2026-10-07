@@ -75,4 +75,18 @@ class PartnerWordingTest extends TestCase
         }
         $this->assertStringContainsString("sign-up page", $text);
     }
+
+    public function test_the_joining_free_claim_and_the_fee_line_are_one_toggle_off_by_default(): void
+    {
+        $this->assertFalse(P::SWITCHES['claims.joining_free'][1]);
+
+        $text = strip_tags($this->get(route("customer.partners"))->assertOk()->getContent());
+        $this->assertStringNotContainsString("Joining is free", $text);
+        $this->assertStringNotContainsString("No fee to apply", $text);
+
+        \App\Models\Setting::set(P::key('claims.joining_free'), '1');
+        $text = strip_tags($this->get(route("customer.partners"))->assertOk()->getContent());
+        $this->assertStringContainsString("Joining is free. No fee to apply.", $text);
+        $this->assertSame(2, substr_count($text, "No fee to apply"), "the claim shows in the hero and in the join list, never doubled");
+    }
 }

@@ -72,7 +72,7 @@ final class PartnerPageSettings
 
     /** The sentence each claim switch shows when ON. Code, not views; nothing here is shown until the owner switches it on. */
     public const CLAIM_TEXT = [
-        'claims.joining_free' => 'Joining is free.',
+        'claims.joining_free' => 'Joining is free. No fee to apply.',
         'claims.company_accounts' => 'Teams and companies can apply too.',
         'claims.whatsapp_updates' => 'We send you updates on WhatsApp.',
         'claims.save_finish_later' => 'You can save your sign-up and finish it later.',

@@ -325,7 +325,7 @@ body:has(.pp) footer{margin-bottom:0}
                 <h2 id="apply-heading">Ready? Start your <em>application</em>.</h2>
                 @if (filled($joinLead)) <p class="lead">{{ $joinLead }}</p> @endif
                 <ul class="join-points">
-                    @isset($claims['joining_free']) <li><span class="chk">{!! $check !!}</span>{{ $claims['joining_free'] }} No fee to apply.</li> @endisset
+                    @isset($claims['joining_free']) <li><span class="chk">{!! $check !!}</span>{{ $claims['joining_free'] }}</li> @endisset
                     <li><span class="chk">{!! $check !!}</span>You finish your application on the sign-up page</li>
                     @isset($claims['save_finish_later']) <li><span class="chk">{!! $check !!}</span>Save your progress and finish later</li> @endisset
                     <li><span class="chk">{!! $check !!}</span>Your KYC status shows on your partner dashboard when you sign in.</li>
