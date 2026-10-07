@@ -178,9 +178,6 @@
                     @if ($phone['tel'] !== '') <a class="underline" href="tel:{{ $phone['tel'] }}">{{ $phone['text'] }}</a> @else {{ $phone['text'] }} @endif
                 </p>
             @endforeach
-            @if (filled($footerContact))
-                <p class="mt-2 text-sm text-slate-300">{{ $footerContact }}</p>
-            @endif
             <p class="mt-6 text-sm text-slate-300">
                 Already a partner?
                 <a href="{{ route('provider.login') }}" class="font-semibold text-white underline underline-offset-4">Sign in</a>

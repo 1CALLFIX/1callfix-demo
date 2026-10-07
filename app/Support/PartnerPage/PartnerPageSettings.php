@@ -50,6 +50,7 @@ final class PartnerPageSettings
         'faq' => 'FAQ',
         'role_cards' => 'Role card wording',
         'modules_hidden' => 'Hidden role cards',
+        'footer.groups' => 'Footer link groups',
     ];
 
     /** Switches. true = default ON. */
@@ -357,6 +358,24 @@ final class PartnerPageSettings
                     if (! in_array($code, self::ROLE_ORDER, true) || ! is_array($w)
                         || (isset($w['label']) && ! $str($w['label'], 60)) || (isset($w['blurb']) && ! $str($w['blurb'], 160))) {
                         return 'Keys must be role codes ('.implode(', ', self::ROLE_ORDER).') with label (max 60) and blurb (max 160).';
+                    }
+                }
+
+                return null;
+            case 'footer.groups':
+                if (! array_is_list($data) || count($data) < 1 || count($data) > 6) {
+                    return 'Provide 1 to 6 groups.';
+                }
+                foreach ($data as $g) {
+                    if (! is_array($g) || ! $str($g['title'] ?? null, 40) || ! is_array($g['links'] ?? null) || ! array_is_list($g['links'])
+                        || count($g['links']) < 1 || count($g['links']) > 12) {
+                        return 'Each group needs a title (max 40) and 1 to 12 links.';
+                    }
+                    foreach ($g['links'] as $l) {
+                        if (! is_array($l) || ! $str($l['label'] ?? null, 40) || ! is_string($l['href'] ?? null)
+                            || preg_match('#^(/(?!/)[^\s]*|https://[^\s]+|mailto:[^\s]+|tel:[+0-9 ()-]+)$#i', $l['href']) !== 1) {
+                            return 'Each link needs a label (max 40) and an address starting with /, https://, mailto: or tel:.';
+                        }
                     }
                 }
 

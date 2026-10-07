@@ -3,48 +3,10 @@
     $cityLabel = \App\Models\Setting::get('branding.operating_city_label', null);
     $legalEntityLine = \App\Models\Setting::get('branding.legal_entity_line', null);
 
-    /*
-     | Only real, reachable destinations appear here. Legal links point at
-     | the genuinely seeded content_pages rows (privacy-policy /
-     | terms-and-conditions); everything whose screen belongs to a later
-     | phase goes through customer.coming-soon rather than a dead link.
-     */
-    $columns = [
-        'Company' => [
-            ['label' => 'How It Works', 'href' => route('customer.how-it-works')],
-            ['label' => 'Help & FAQs', 'href' => route('customer.help')],
-        ],
-        'Services' => [
-            // Phase C: all three are real screens now. `route()` would have
-            // gone on happily generating /coming-soon/services URLs after
-            // those keys left the whitelist — the route's whereIn only
-            // rejects them on the way IN — so these were dead links until
-            // they were repointed here, not compile errors.
-            ['label' => 'Browse services', 'href' => route('customer.services.index')],
-            ['label' => 'Categories', 'href' => route('customer.categories.index')],
-            ['label' => 'Offers', 'href' => route('customer.offers')],
-        ],
-        'For professionals' => [
-            // Real landing page now (customer.partners) — hero, admin-managed
-            // benefits, the registration walkthrough and a CTA into
-            // /provider/register. Same CTA phrase the page itself uses.
-            ['label' => 'Join as a Partner', 'href' => route('customer.partners')],
-        ],
-        'Legal' => [
-            ['label' => 'Privacy Policy', 'href' => route('customer.privacy')],
-            ['label' => 'Terms of Use', 'href' => route('customer.terms')],
-        ],
-    ];
-
-    // REF 1CF-CMS-ROOT-PAGES-001 - CMS pages the admin ticked "show in footer".
-    // Privacy/Terms already have their own Legal entries, so they are skipped here.
-    $footerPages = \App\Models\ContentPage::query()
-        ->where('is_active', true)->where('show_in_footer', true)
-        ->whereNotIn('slug', ['privacy', 'terms', 'privacy-policy', 'terms-and-conditions'])
-        ->orderBy('footer_order')->orderBy('title')->get(['slug', 'title']);
-    foreach ($footerPages as $footerPage) {
-        $columns['Company'][] = ['label' => $footerPage->title, 'href' => url('/'.$footerPage->slug)];
-    }
+    // Link groups: the code default (App\Support\PartnerPage\FooterLinks::defaults, the groups that used to be
+    // listed here) unless the admin saved a valid list. CMS pages ticked "show in footer" are appended to Company.
+    $columns = \App\Support\PartnerPage\FooterLinks::groups();
+    $contactLine = \App\Support\PartnerPage\FooterLinks::contactLine();
 
     /*
      | Social links come from the admin-managed social_media_links table
@@ -68,6 +30,9 @@
                         ? 'Trusted local professionals for your home and business in '.$cityLabel.'.'
                         : 'Trusted local professionals for your home and business.' }}
                 </p>
+                @if (filled($contactLine))
+                    <p class="mt-2 max-w-xs text-sm text-slate-600">{{ $contactLine }}</p>
+                @endif
 
                 @if ($socialLinks->isNotEmpty())
                     <ul class="mt-5 flex flex-wrap gap-2">

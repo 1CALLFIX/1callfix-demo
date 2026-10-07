@@ -113,4 +113,17 @@ class PartnerPageSettingsTest extends TestCase
         $this->assertSame(['taxi'], P::hiddenModules());
         $this->assertSame(90, P::retentionDays());
     }
+
+    public function test_the_footer_list_is_saved_from_the_screen_and_an_unsafe_one_is_refused(): void
+    {
+        $admin = $this->makeSuperAdmin();
+        $good = json_encode([['title' => 'Company', 'links' => [['label' => 'Our story', 'href' => '/our-story']]]]);
+
+        Livewire::actingAs($admin)->test(Screen::class)->set('f.footer__groups', $good)->call('save')->assertHasNoErrors();
+        $this->get('/')->assertSeeText('Our story');
+
+        $bad = json_encode([['title' => 'Company', 'links' => [['label' => 'x', 'href' => 'javascript:alert(1)']]]]);
+        Livewire::actingAs($admin)->test(Screen::class)->set('f.footer__groups', $bad)->call('save')->assertHasErrors(['f.footer__groups']);
+        $this->assertSame($good, Setting::get(P::key('footer.groups')));
+    }
 }
