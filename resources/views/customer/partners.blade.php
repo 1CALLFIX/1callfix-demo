@@ -15,13 +15,14 @@
     $lineCount = count($heroLines);
 @endphp
 
-<x-layouts.customer :title="$seoTitle" :indexable="true" :metaDescription="$seoDescription">
+<x-layouts.customer :title="$seoTitle" :indexable="true" :metaDescription="$seoDescription" :minimalChrome="true">
 <style>
 .pp{--navy:#0B1220;--navy-2:#131C2E;--line:#26324C;--line-2:#4A5670;--cream:#F5F3EE;--white:#fff;--ink:#12161F;--muted:#3A4150;--soft:#4A5260;--sky:#B4BDCB;--mist:#E4E9F2;--sand:#E3DFD5;--edge:#B9B4A6;--accent:#FFC21A;--bad:#B3261E;
  background:var(--cream);color:var(--ink);font-size:16px;line-height:1.5}
 .pp *{box-sizing:border-box}
 .pp [x-cloak]{display:none!important}
 html:has(.pp){scroll-behavior:smooth}
+body:has(.pp) footer{margin-bottom:0}
 .pp h1,.pp h2,.pp h3,.pp p,.pp ul,.pp ol{margin:0}
 .pp h1,.pp h2,.pp h3{text-wrap:balance}
 .pp a{color:inherit}
@@ -144,7 +145,7 @@ html:has(.pp){scroll-behavior:smooth}
 .pp .done h3{font-size:28px}
 .pp .done p{color:var(--muted);font-size:17px}
 @media (max-width:900px){.pp .roles,.pp .tiles{grid-template-columns:repeat(2,minmax(0,1fr))}}
-@media (max-width:640px){.pp .roles,.pp .tiles{grid-template-columns:minmax(0,1fr)}.pp .sec{padding-block:64px}.pp .card{padding:22px}.pp .step{gap:16px}}
+@media (max-width:640px){.pp .nav{display:none}.pp .top{padding-block:14px;flex-wrap:nowrap}.pp .top .btn{min-height:40px;padding:0 14px;font-size:14px}.pp .logo span{display:none}.pp .hero-grid{padding-block:20px 48px;gap:36px}.pp .hero h1{margin-top:18px}.pp .roles,.pp .tiles{grid-template-columns:minmax(0,1fr)}.pp .sec{padding-block:64px}.pp .card{padding:22px}.pp .step{gap:16px}}
 @media (prefers-reduced-motion:reduce){html:has(.pp){scroll-behavior:auto}.pp .q button svg{transition:none}}
 </style>
 
