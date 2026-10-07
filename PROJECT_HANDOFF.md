@@ -155,3 +155,4 @@ Core tables: `franchises`, `zones`, `users`, `addresses`, `service_categories`, 
 2. **Settings screen**
 3. **M6/M7** — the two Flutter mobile apps
 4. Only after Service vertical has real, proven revenue: begin Phase 5+ (Parcel, then Food, etc.)
+Note (2026-10): app moved to public_html/; api.1callfix.com is being retired; public base is https://1callfix.com.

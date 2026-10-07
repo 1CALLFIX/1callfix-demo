@@ -97,7 +97,7 @@ class PaymentController extends Controller
     }
 
     /**
-     * POST /api/v1/webhooks/razorpay
+     * POST /api/webhooks/razorpay
      * Server-to-server callback from Razorpay — this is the actual source
      * of truth for payment status, since (unlike the confirm() endpoint
      * above) it cannot be spoofed by a compromised or modified client app.

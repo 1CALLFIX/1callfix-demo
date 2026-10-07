@@ -3,7 +3,7 @@
 **Written:** Production Hardening session, 2026-08-20.
 **Target:** the one real production environment — Hostinger VPS
 (`srv1422426.hstgr.cloud`), CyberPanel + OpenLiteSpeed, live at
-`https://api.1callfix.com`. Server path: `/home/1callfix.com/public_html/api/`.
+`https://1callfix.com`. Server path: `/home/1callfix.com/public_html/`.
 Deploy user: `callf1207` (prefer this over `root` — using `root` for
 git/deploy operations has caused file-permission issues before; see
 `PROJECT_HANDOFF.md` §9).
@@ -107,7 +107,7 @@ proceed to Section 2 with an unresolved failure here.
 ## 2. Deploy sequence
 
 ```bash
-# On the server, as callf1207, inside /home/1callfix.com/public_html/api/
+# On the server, as callf1207, inside /home/1callfix.com/public_html/
 
 # 1. Maintenance mode — brief, and only really matters while a migration
 #    is running. Given the pre-launch traffic level (see header), a short
@@ -123,7 +123,7 @@ php artisan down --secret="$(openssl rand -hex 16)" --render=errors::503
 #    with symlinks under vendor/bin/*, avoid it).
 git pull origin main
 # -- or --
-# scp -r <local-build-folder> callf1207@31.97.186.175:/home/1callfix.com/public_html/api/
+# scp -r <local-build-folder> callf1207@31.97.186.175:/home/1callfix.com/public_html/
 
 # 3. PHP dependencies — production flags: no dev packages, optimized
 #    class-map autoloader.
@@ -201,7 +201,7 @@ a low-risk, no-migration deploy.
    connectivity in one request (extended this session; previously only
    confirmed the app process was alive):
    ```bash
-   curl -s -o /dev/null -w "%{http_code}\n" https://api.1callfix.com/up
+   curl -s -o /dev/null -w "%{http_code}\n" https://1callfix.com/up
    ```
    Expect `200`. A `500` means the app booted but a real dependency (DB or
    queue) failed its check — do NOT reopen to the public; investigate via
@@ -211,11 +211,11 @@ a low-risk, no-migration deploy.
 2. **Public route smoke test** (confirms the Vite build from §2 step 4
    actually produced a working manifest):
    ```bash
-   curl -s -o /dev/null -w "%{http_code}\n" https://api.1callfix.com/
+   curl -s -o /dev/null -w "%{http_code}\n" https://1callfix.com/
    ```
    Expect `200`, not a 500 from a missing Vite manifest.
 
-3. **Admin login smoke test** — log in at `https://api.1callfix.com/admin/login`
+3. **Admin login smoke test** — log in at `https://1callfix.com/admin/login`
    with a real admin account. Confirms session auth, RBAC role-assignment
    lookup, and (as of this session) the new login rate limiter doesn't
    misfire on a normal login.
@@ -241,7 +241,7 @@ a low-risk, no-migration deploy.
    something is stale) — the same live test `KNOWN_RISKS_AND_DECISIONS.md`
    item 25 used:
    ```bash
-   curl -s -H "Accept: application/json" https://api.1callfix.com/api/this-route-does-not-exist-deploy-check
+   curl -s -H "Accept: application/json" https://1callfix.com/api/this-route-does-not-exist-deploy-check
    ```
    Expect a plain `{"message": "..."}` 404 with no `exception`/`file`/
    `line`/`trace` fields. If those fields appear, debug mode is leaking —
@@ -261,7 +261,7 @@ changes in this repo:
 
 ```bash
 # run as root (this server's supervisord runs as root; no `sudo` needed once you are root)
-cp /home/1callfix.com/public_html/api/deploy/supervisor/onecallfix-worker.conf \
+cp /home/1callfix.com/public_html/deploy/supervisor/onecallfix-worker.conf \
    /etc/supervisord.d/onecallfix-worker.ini
 supervisorctl reread
 supervisorctl update
@@ -289,13 +289,13 @@ and `directory=` / `user=` were not confirmed present. The repo file is the
 declared source of truth (see its own header). Reconcile with:
 
 ```bash
-diff <(sed 's/;.*//' /home/1callfix.com/public_html/api/deploy/supervisor/onecallfix-worker.conf) \
+diff <(sed 's/;.*//' /home/1callfix.com/public_html/deploy/supervisor/onecallfix-worker.conf) \
      /etc/supervisord.d/onecallfix-worker.ini
 ```
 
 then copy the repo file over as above. Before/after, verify:
 
-- `ls -la /home/1callfix.com/public_html/api/storage/logs/worker.log` — must be
+- `ls -la /home/1callfix.com/public_html/storage/logs/worker.log` — must be
   owned by `callf1207`, not `root`. A worker with no `user=` under a
   root supervisord runs as root and leaves root-owned files in `storage/` and
   `bootstrap/cache/` that the web user then cannot overwrite (see §0).

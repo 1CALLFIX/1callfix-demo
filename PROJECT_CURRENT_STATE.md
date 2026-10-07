@@ -271,3 +271,4 @@ All P1 testing-gap items from the original list (Dispatch race, Booking FSM, Pro
 
 - **`PROJECT_HANDOFF.md`** — superseded by this document. It predates RBAC, the Plan Engine, Worker/Rider architecture, and most of the current Admin Panel screens; it incorrectly describes several shipped features ("Banners management" etc.) as not yet built. Kept for its infrastructure/deployment notes (server paths, backup schedule, known one-time infra bugs), which are still accurate.
 - **`PHASE_B0_1_WORKER_FOUNDATION.md`**, **`PHASE_B0_2_SERVICE_WORKER_DELEGATION.md`**, **`PHASE_B0_3_DISPATCH_POLYMORPHISM.md`** — accurate as phase-completion records of the work they describe; not updated to reflect this session's changes, which build on top of them without altering their content.
+Note (2026-10): app moved to public_html/; api.1callfix.com is being retired; public base is https://1callfix.com.
