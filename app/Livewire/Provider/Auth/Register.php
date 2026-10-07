@@ -105,8 +105,20 @@ class Register extends Component
     #[Locked]
     public bool $outOfCoverage = false;
 
+    /** REF 1CF-PARTNER-PAGE-001: the /partners lead this sign-up continues (id only; the phone is never trusted from it). */
+    #[Locked]
+    public ?int $leadId = null;
+
     public function mount(): void
     {
+        $lead = session('partner_lead');
+        if (is_array($lead) && ($lead['role'] ?? null) === 'service' && is_int($lead['id'] ?? null)
+            && preg_match('/^[a-z0-9-]{1,80}$/', (string) ($lead['city'] ?? '')) === 1) {
+            $this->leadId = $lead['id'];
+            // Safe slug only; the applicant confirms or replaces it, and the pin still decides the service area.
+            $this->address = \Illuminate\Support\Str::headline($lead['city']);
+        }
+
         if (auth()->guard('web')->check()) {
             $this->redirectRoute(
                 auth()->user()->providerProfile()->exists() ? 'provider.dashboard' : 'customer.home',
@@ -395,8 +407,9 @@ class Register extends Component
 
         $this->hitThrottle('provider-reg-submit', $this->verifiedPhoneE164);
 
+        $providerId = null;
         try {
-            DB::transaction(function () use ($register, $kyc, $zone, $requirements) {
+            DB::transaction(function () use ($register, $kyc, $zone, $requirements, &$providerId) {
                 $provider = $register->execute(
                     name: $this->name,
                     phone: PhoneNumber::national($this->verifiedPhoneE164),
@@ -412,6 +425,8 @@ class Register extends Component
                     ],
                 );
 
+                $providerId = $provider->id;
+
                 foreach ($requirements as $req) {
                     $file = $this->documents[$req->document_type] ?? null;
                     if ($file) {
@@ -424,6 +439,8 @@ class Register extends Component
 
             return;
         }
+
+        \App\Models\PartnerLead::markConverted($this->leadId, PhoneNumber::national($this->verifiedPhoneE164), (int) $providerId);
 
         $this->clearThrottle('provider-reg-phone', $this->phone);
         $this->clearThrottle('provider-reg-submit', $this->verifiedPhoneE164);

@@ -167,11 +167,12 @@
         </section>
     @endif
 
-    {{-- Application form lands here in B3 --}}
+    {{-- Application form --}}
     <section id="apply" aria-labelledby="apply-heading" class="bg-slate-900 text-white">
         <div class="mx-auto max-w-5xl px-4 py-14 sm:px-6 lg:px-8">
             <h2 id="apply-heading" class="text-3xl font-extrabold tracking-tight">{{ $heroCta }}</h2>
 
+            <livewire:partner.apply-form />
             @foreach ($phones as $phone)
                 <p class="mt-2 text-sm text-slate-300">
                     @if ($phone['tel'] !== '') <a class="underline" href="tel:{{ $phone['tel'] }}">{{ $phone['text'] }}</a> @else {{ $phone['text'] }} @endif
