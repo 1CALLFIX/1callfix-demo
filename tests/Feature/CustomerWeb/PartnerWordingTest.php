@@ -45,4 +45,34 @@ class PartnerWordingTest extends TestCase
             ->assertSee('Your details are saved. Our team will call you when this role opens.')
             ->assertDontSee(self::WAITLIST_SENTENCE);
     }
+
+    private function submitted(string $role)
+    {
+        return Livewire::test(ApplyForm::class)
+            ->set('role', $role)->set('name', 'Ramesh Kumar')->set('phone', '9876543210')
+            ->set("cityChoice", ApplyForm::OTHER_CITY)->set("city", "Nellore")->set("consent", true)
+            ->call("submit")->assertHasNoErrors();
+    }
+
+    public function test_the_service_end_screen_points_to_the_sign_up_page_not_the_app(): void
+    {
+        $this->submitted("service")->assertSet("outcome", "handoff")
+            ->assertSee("Saved. Continue to sign-up.")
+            ->assertSee("Continue to sign-up")
+            ->assertSee("Add another application")
+            ->assertSee("Thanks, Ramesh. Next, verify your mobile number with a one-time code and upload your documents on the sign-up page.")
+            ->assertDontSee("in the app")
+            ->assertDontSee("app sign-up");
+    }
+
+    public function test_the_form_button_and_the_page_never_say_in_the_app_for_sign_up(): void
+    {
+        Livewire::test(ApplyForm::class)->assertSee("Continue to sign-up")->assertDontSee("Continue in the app");
+
+        $text = strip_tags($this->get(route("customer.partners"))->assertOk()->getContent());
+        foreach (["Continue in the app", "app sign-up", "In the app sign-up", "continue in the 1CallFix app"] as $old) {
+            $this->assertStringNotContainsStringIgnoringCase($old, $text);
+        }
+        $this->assertStringContainsString("sign-up page", $text);
+    }
 }

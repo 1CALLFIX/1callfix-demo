@@ -18,7 +18,7 @@ use Livewire\Component;
  * The application form on /partners (REF 1CF-PARTNER-PAGE-001). Collects role, name, mobile, city and consent, saves
  * a lead, and hands the service role off to the EXISTING provider sign-up (/provider/register) — OTP and KYC stay
  * there; this is not a second sign-up. Roles whose module is not live are saved as waiting-list entries and end on a
- * confirmation screen with no "Continue in the app" button.
+ * confirmation screen with no "Continue to sign-up" button.
  *
  * Rules: server-side validation with the existing phone rule; throttled per mobile and per IP; a honeypot; the lead
  * status is set here from the role's registry state and is never read from the browser; the reply is identical

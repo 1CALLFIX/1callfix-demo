@@ -24,7 +24,7 @@ class PartnerApplyFormBehaviourTest extends TestCase
         Livewire::test(ApplyForm::class)
             ->assertSet('role', 'service')
             ->assertDontSee('We have saved your details. We will contact you')
-            ->assertSee('Continue in the app');
+            ->assertSee('Continue to sign-up');
     }
 
     public function test_a_role_that_is_not_live_shows_the_waitlist_note_and_waitlist_button(): void
@@ -33,7 +33,7 @@ class PartnerApplyFormBehaviourTest extends TestCase
             ->set('role', 'parcel')
             ->assertSee('We will contact you on your mobile number when this role opens in your city.')
             ->assertSee('Join the waitlist')
-            ->assertDontSee('Continue in the app');
+            ->assertDontSee('Continue to sign-up');
     }
 
     public function test_add_another_application_returns_to_a_clean_form(): void

@@ -6,9 +6,9 @@
 <div x-data x-on:partner-role-select.window="$wire.set('role', $event.detail.role)" id="formCard">
     @if ($outcome === 'handoff')
         <div role="status" class="done">
-            <h3>Saved. Continue in the app.</h3>
-            <p>Thanks, {{ \Illuminate\Support\Str::of($name)->trim()->before(' ') }}. Next, verify your mobile number with a one-time code and upload your documents in the app sign-up.</p>
-            <a href="{{ route('provider.register') }}" class="btn btn-accent submit">Continue in the app {!! $arrow !!}</a>
+            <h3>Saved. Continue to sign-up.</h3>
+            <p>Thanks, {{ \Illuminate\Support\Str::of($name)->trim()->before(' ') }}. Next, verify your mobile number with a one-time code and upload your documents on the sign-up page.</p>
+            <a href="{{ route('provider.register') }}" class="btn btn-accent submit">Continue to sign-up {!! $arrow !!}</a>
             <button type="button" class="btn btn-out" wire:click="again">Add another application</button>
         </div>
     @elseif ($outcome !== '')
@@ -84,7 +84,7 @@
             @if ($error) <p role="alert" class="msg">{{ $error }}</p> @endif
 
             <button type="submit" wire:loading.attr="disabled" class="btn btn-accent submit">
-                {{ ($current['hands_off'] ?? false) ? 'Continue in the app' : 'Join the waitlist' }} {!! $arrow !!}
+                {{ ($current['hands_off'] ?? false) ? 'Continue to sign-up' : 'Join the waitlist' }} {!! $arrow !!}
             </button>
         </form>
     @endif

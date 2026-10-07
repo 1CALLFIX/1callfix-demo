@@ -473,7 +473,7 @@ final class PartnerPageSettings
             'hero.badge' => 'Now onboarding partners in Nellore',
             'hero.ticks' => "Apply with your mobile number\nGo online or offline whenever you choose\nAccept or reject every job offer",
             'roles.lead' => 'Every 1CallFix module has its own partner role. A role goes live when its module opens in your city. Until then, join the waitlist and we will tell you the day it opens.',
-            'join.lead' => 'Tell us who you are and which role you want. We save your details, then you continue in the 1CallFix app, where your mobile number is verified with a one-time code.',
+            'join.lead' => 'Tell us who you are and which role you want. We save your details, then you continue to the sign-up page, where your mobile number is verified with a one-time code.',
             'nellore_band.text' => 'Starting in Nellore. More cities open as local franchises launch.',
             'commission.note' => 'Standard commission is {min} to {max} percent of the job value. Your exact rate is agreed with 1CallFix or your local franchise and shown in your partner terms.',
             'needs' => "A mobile number that can receive a one-time code\nThe ID and proof documents requested during sign-up\nA bank account or UPI to receive payouts",
@@ -488,7 +488,7 @@ final class PartnerPageSettings
     {
         return [
             ['title' => 'Apply', 'body' => 'Choose your role and enter your name and mobile number on this page.'],
-            ['title' => 'Verify', 'body' => 'In the app sign-up, confirm your mobile with a one-time code, then upload the ID and proof documents we ask for. Our team checks every application.'],
+            ['title' => 'Verify', 'body' => 'On the sign-up page, confirm your mobile with a one-time code, then upload the ID and proof documents we ask for. Our team checks every application.'],
             ['title' => 'Get approved', 'body' => 'Our team reviews your documents. Your KYC status shows on your partner dashboard when you sign in.'],
             ['title' => 'Go online', 'body' => 'Open the 1CallFix Partner app, go online, and start receiving job offers near you.'],
         ];
@@ -508,7 +508,7 @@ final class PartnerPageSettings
     public static function defaultFaq(): array
     {
         return [
-            ['tab' => 'everyone', 'q' => 'What documents do I need?', 'a' => 'The app sign-up asks for the ID and proof documents set up for providers, and our team checks them before you can take jobs. The exact list appears during sign-up.'],
+            ['tab' => 'everyone', 'q' => 'What documents do I need?', 'a' => 'The sign-up page asks for the ID and proof documents set up for providers, and our team checks them before you can take jobs. The exact list appears during sign-up.'],
             ['tab' => 'everyone', 'q' => 'How long does approval take?', 'a' => 'Our team reviews each application. Your KYC status shows on your partner dashboard when you sign in.'],
             ['tab' => 'everyone', 'q' => 'Can I choose my own hours?', 'a' => 'Yes. You go online when you want to receive jobs and offline when you do not. You can accept or reject any offer.'],
             ['tab' => 'everyone', 'q' => 'How do I get paid?', 'a' => 'Your earnings for each completed job and your wallet balance show in the app. Request a payout to your verified bank or UPI account.'],

@@ -49,7 +49,7 @@ class PartnerLeadCaptureTest extends TestCase
     {
         $phone = $this->randomPhone();
         $c = $this->fill('service', $phone)->call('submit')->assertHasNoErrors()->assertSet('outcome', 'handoff')
-            ->assertSee('Continue in the app')->assertSeeHtml(route('provider.register'));
+            ->assertSee('Continue to sign-up')->assertSeeHtml(route('provider.register'));
 
         $lead = PartnerLead::sole();
         $this->assertSame(PartnerLead::STATUS_HANDED_OFF, $lead->status);
@@ -63,7 +63,7 @@ class PartnerLeadCaptureTest extends TestCase
     public function test_a_role_that_is_not_live_is_a_waitlist_entry_with_no_continue_button(): void
     {
         $this->fill('taxi')->call('submit')->assertHasNoErrors()->assertSet('outcome', 'waitlist')
-            ->assertDontSee('Continue in the app')->assertSee('You are on the waitlist');
+            ->assertDontSee('Continue to sign-up')->assertSee('You are on the waitlist');
 
         $this->assertSame(PartnerLead::STATUS_WAITLIST, PartnerLead::sole()->status);
         $this->assertNull(session('partner_lead'));
@@ -75,7 +75,7 @@ class PartnerLeadCaptureTest extends TestCase
         $country = \App\Models\Country::create(['name' => 'T', 'code' => 'ZY', 'currency_code' => 'INR', 'default_timezone' => 'Asia/Kolkata', 'is_active' => true]);
         app(\App\Services\ModuleActivationService::class)->setActive('parcel', 'country', $country->id, true);
 
-        $this->fill('parcel')->call('submit')->assertSet('outcome', 'waitlist')->assertDontSee('Continue in the app');
+        $this->fill('parcel')->call('submit')->assertSet('outcome', 'waitlist')->assertDontSee('Continue to sign-up');
         $this->assertSame(PartnerLead::STATUS_WAITLIST, PartnerLead::sole()->status);
     }
 
@@ -148,7 +148,7 @@ class PartnerLeadCaptureTest extends TestCase
 
     public function test_the_honeypot_saves_nothing_and_looks_like_success(): void
     {
-        $this->fill('service')->set('website', 'http://spam.example')->call('submit')->assertSet('outcome', 'received')->assertDontSee('Continue in the app');
+        $this->fill('service')->set('website', 'http://spam.example')->call('submit')->assertSet('outcome', 'received')->assertDontSee('Continue to sign-up');
         $this->assertSame(0, PartnerLead::count());
         $this->assertNull(session('partner_lead'));
     }
