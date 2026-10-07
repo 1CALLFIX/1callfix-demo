@@ -328,7 +328,7 @@ body:has(.pp) footer{margin-bottom:0}
                     @isset($claims['joining_free']) <li><span class="chk">{!! $check !!}</span>{{ $claims['joining_free'] }} No fee to apply.</li> @endisset
                     <li><span class="chk">{!! $check !!}</span>You finish your application in the 1CallFix app</li>
                     @isset($claims['save_finish_later']) <li><span class="chk">{!! $check !!}</span>Save your progress and finish later</li> @endisset
-                    <li><span class="chk">{!! $check !!}</span>You are notified when your KYC is approved or rejected</li>
+                    <li><span class="chk">{!! $check !!}</span>Your KYC status shows on your partner dashboard when you sign in.</li>
                 </ul>
                 @if ($phones !== [])
                     <p class="help">Need a hand applying? Contact partner support on

@@ -132,12 +132,17 @@ class PartnerLandingPageTest extends TestCase
             'Go online when you want work and offline when you do not.',
             'The customer shares a one-time code to start the job and another to finish it.',
             'Track each completed job and your wallet in the app.',
-            'You are notified when your KYC is approved or rejected.',
+            'Your KYC status shows on your partner dashboard when you sign in.',
         ] as $verified) {
             $this->assertStringContainsString($verified, $text, $verified);
         }
 
         // Claims the provider code cannot back must never appear on the page.
+        // KYC approval/rejection notices go out only on admin-configured channels (default: email), and a new applicant has
+        // no app, device or notification centre; the page may only promise the dashboard status line.
+        $this->assertStringNotContainsString('You are notified when your KYC', $text);
+        $this->assertStringContainsString('Your KYC status shows on your partner dashboard when you sign in', strip_tags($this->get(route('customer.partners'))->getContent()));
+
         foreach (['well-paid', 'on-time', 'on time', 'itemised', 'settlements', 'tracked end to end', 'Your earnings go to the account you add',
             'pharmacy licence', 'driving licence', 'Skill proof', 'Vehicle papers', 'Prices set up front', 'paid on time'] as $banned) {
             $this->assertStringNotContainsStringIgnoringCase($banned, $text, $banned);

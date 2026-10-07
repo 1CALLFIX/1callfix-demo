@@ -487,7 +487,7 @@ final class PartnerPageSettings
         return [
             ['title' => 'Apply', 'body' => 'Choose your role and enter your name and mobile number on this page.'],
             ['title' => 'Verify', 'body' => 'In the app sign-up, confirm your mobile with a one-time code, then upload the ID and proof documents we ask for. Our team checks every application.'],
-            ['title' => 'Get approved', 'body' => 'Our team reviews your documents. You are notified when your KYC is approved or rejected.'],
+            ['title' => 'Get approved', 'body' => 'Our team reviews your documents. Your KYC status shows on your partner dashboard when you sign in.'],
             ['title' => 'Go online', 'body' => 'Open the 1CallFix Partner app, go online, and start receiving job offers near you.'],
         ];
     }
@@ -507,7 +507,7 @@ final class PartnerPageSettings
     {
         return [
             ['tab' => 'everyone', 'q' => 'What documents do I need?', 'a' => 'The app sign-up asks for the ID and proof documents set up for providers, and our team checks them before you can take jobs. The exact list appears during sign-up.'],
-            ['tab' => 'everyone', 'q' => 'How long does approval take?', 'a' => 'Our team reviews each application. You are notified when your KYC is approved or rejected.'],
+            ['tab' => 'everyone', 'q' => 'How long does approval take?', 'a' => 'Our team reviews each application. Your KYC status shows on your partner dashboard when you sign in.'],
             ['tab' => 'everyone', 'q' => 'Can I choose my own hours?', 'a' => 'Yes. You go online when you want to receive jobs and offline when you do not. You can accept or reject any offer.'],
             ['tab' => 'everyone', 'q' => 'How do I get paid?', 'a' => 'Your earnings for each completed job and your wallet balance show in the app. Request a payout to your verified bank or UPI account.'],
             ['tab' => 'everyone', 'q' => 'Which cities can I work in?', 'a' => '1CallFix is starting in Nellore. More cities open as local franchises launch. Choose your city in the form, or join the waitlist for yours.'],
