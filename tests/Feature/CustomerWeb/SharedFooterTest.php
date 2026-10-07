@@ -12,7 +12,7 @@ use Tests\TestCase;
 
 /**
  * REF 1CF-PARTNER-PAGE-001, B5: the shared customer footer is admin-controlled, and with nothing saved it renders
- * exactly what it rendered before (snapshot taken from the hardcoded footer at the start of B5).
+ * exactly what it rendered before (baseline = origin/main's footer output, see snapshot()).
  */
 class SharedFooterTest extends TestCase
 {
@@ -32,9 +32,16 @@ class SharedFooterTest extends TestCase
         return self::normalise($this->get($uri)->assertOk()->getContent());
     }
 
+    /**
+     * The baseline is the footer as rendered by origin/main (9af9569, captured in a clean worktree of that commit).
+     * The ONLY allowed difference is the partner link: /coming-soon/partners became /partners (301 from the old one).
+     */
     private function snapshot(): string
     {
-        return trim((string) file_get_contents(__DIR__.'/fixtures/footer_default.html'));
+        $raw = trim((string) file_get_contents(__DIR__.'/fixtures/footer_origin_main.html'));
+        $this->assertSame(1, substr_count($raw, '/coming-soon/partners'), 'baseline must hold exactly one partner link');
+
+        return str_replace('/coming-soon/partners', '/partners', $raw);
     }
 
     public function test_with_no_settings_saved_the_footer_equals_the_snapshot_on_every_kind_of_page(): void
