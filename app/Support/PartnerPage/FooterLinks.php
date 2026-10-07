@@ -91,4 +91,16 @@ final class FooterLinks
             return null;
         }
     }
+
+    /** An app-store link for the footer buttons: https only, null when unset or when the store fails. */
+    public static function appUrl(string $key): ?string
+    {
+        try {
+            $v = P::text($key);
+
+            return is_string($v) && preg_match('#^https://[^\s]+$#i', $v) === 1 ? $v : null;
+        } catch (\Throwable) {
+            return null;
+        }
+    }
 }

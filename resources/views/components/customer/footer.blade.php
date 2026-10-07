@@ -73,6 +73,21 @@
             @endforeach
         </div>
 
+        {{-- App buttons: shown only when the admin has set the link (Admin → Partner page → App links). --}}
+        @php
+            $appLinks = array_filter([
+                'Get the Android app' => \App\Support\PartnerPage\FooterLinks::appUrl('store.android_url'),
+                'Get the iPhone app' => \App\Support\PartnerPage\FooterLinks::appUrl('store.ios_url'),
+            ]);
+        @endphp
+        @if ($appLinks !== [])
+            <ul class="mt-8 flex flex-wrap gap-3">
+                @foreach ($appLinks as $label => $url)
+                    <li><a href="{{ $url }}" rel="noopener" class="inline-flex min-h-11 items-center rounded-lg border border-slate-300 px-4 text-sm font-semibold text-slate-700 hover:border-blue-400 hover:text-blue-700">{{ $label }}</a></li>
+                @endforeach
+            </ul>
+        @endif
+
         <div class="mt-10 flex flex-col gap-3 border-t border-slate-200 pt-6 sm:flex-row sm:items-end sm:justify-between">
         <div class="space-y-1">
             <p class="text-xs text-slate-500">

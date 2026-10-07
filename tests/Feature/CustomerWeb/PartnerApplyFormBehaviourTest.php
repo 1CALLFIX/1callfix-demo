@@ -52,4 +52,12 @@ class PartnerApplyFormBehaviourTest extends TestCase
         }
         $this->assertStringContainsString(route('provider.login'), $html);
     }
+
+    public function test_footer_app_buttons_show_only_when_the_admin_sets_a_link(): void
+    {
+        $this->get('/')->assertOk()->assertDontSee('Get the Android app');
+
+        \App\Models\Setting::set(\App\Support\PartnerPage\PartnerPageSettings::key('store.android_url'), 'https://play.google.com/store/apps/details?id=example');
+        $this->get('/')->assertOk()->assertSee('Get the Android app')->assertDontSee('Get the iPhone app');
+    }
 }
