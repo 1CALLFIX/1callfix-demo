@@ -33,7 +33,7 @@
             </fieldset>
 
             @if ($current && ! $current['live'])
-                <div class="waitnote" id="waitNote">This role is not live yet. Apply now to join the waitlist and we will tell you when it opens in your city.</div>
+                <div class="waitnote" id="waitNote">{{ $waitlistNote }}</div>
             @endif
 
             <div>

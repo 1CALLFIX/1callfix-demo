@@ -40,6 +40,7 @@ final class PartnerPageSettings
         'footer_contact' => ['Footer contact line', 240],
         'needs' => ['What you will need (one per line)', 600],
         'form.consent_text' => ['Form consent wording', 300],
+        'form.waitlist_note' => ['Waitlist note above the form', 300],
         'form.done_title' => ['Confirmation title (waitlist roles)', 120],
         'form.done_body' => ['Confirmation text (waitlist roles)', 400],
         'store.android_url' => ['Android app link', 300],
@@ -478,7 +479,8 @@ final class PartnerPageSettings
             'needs' => "A mobile number that can receive a one-time code\nThe ID and proof documents requested during sign-up\nA bank account or UPI to receive payouts",
             'form.consent_text' => 'I agree to be contacted by 1CallFix about partnering, and to my details being stored for this purpose.',
             'form.done_title' => 'You are on the waitlist',
-            'form.done_body' => 'This role is not open yet. We have saved your details and will contact you on your mobile number when it opens.',
+            'form.waitlist_note' => 'We have saved your details. We will contact you on your mobile number when this role opens in your city.',
+            'form.done_body' => 'We have saved your details. We will contact you on your mobile number when this role opens in your city.',
         ];
     }
 

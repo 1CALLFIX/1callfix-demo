@@ -205,6 +205,7 @@ class ApplyForm extends Component
             'cities' => self::listedCities(),
             'roles' => PartnerPageData::roles(),
             'consentText' => P::text('form.consent_text'),
+            'waitlistNote' => P::text('form.waitlist_note'),
             'doneTitle' => P::text('form.done_title'),
             'doneBody' => P::text('form.done_body'),
         ]);

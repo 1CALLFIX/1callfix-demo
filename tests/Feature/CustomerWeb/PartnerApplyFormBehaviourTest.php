@@ -23,7 +23,7 @@ class PartnerApplyFormBehaviourTest extends TestCase
     {
         Livewire::test(ApplyForm::class)
             ->assertSet('role', 'service')
-            ->assertDontSee('This role is not live yet')
+            ->assertDontSee('We have saved your details. We will contact you')
             ->assertSee('Continue in the app');
     }
 
@@ -31,7 +31,7 @@ class PartnerApplyFormBehaviourTest extends TestCase
     {
         Livewire::test(ApplyForm::class)
             ->set('role', 'parcel')
-            ->assertSee('This role is not live yet')
+            ->assertSee('We will contact you on your mobile number when this role opens in your city.')
             ->assertSee('Join the waitlist')
             ->assertDontSee('Continue in the app');
     }
