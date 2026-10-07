@@ -120,10 +120,31 @@ final class PartnerPageSettings
      */
     private static function all(): array
     {
-        return cache()->rememberForever(self::CACHE_KEY, fn () => Setting::query()
+        // Memoised for the current request only: a request reads the cached array once, not once per key. The memo
+        // is tied to the request instance (a new request, or a test's next call, starts clean) and is not used by
+        // long-running console processes such as queue workers, where one request instance lives for hours.
+        $request = app()->bound('request') ? app('request') : null;
+        $memoise = $request !== null && (! app()->runningInConsole() || app()->runningUnitTests());
+        if ($memoise && self::$memoRequest?->get() === $request && self::$memo !== null) {
+            return self::$memo;
+        }
+
+        $all = cache()->rememberForever(self::CACHE_KEY, fn () => Setting::query()
             ->where('scope_type', 'global')->whereNull('scope_id')->where('key', 'like', self::PREFIX.'%')
             ->pluck('value', 'key')->map(fn ($v) => (string) $v)->all());
+
+        if ($memoise) {
+            self::$memo = $all;
+            self::$memoRequest = \WeakReference::create($request);
+        }
+
+        return $all;
     }
+
+    /** @var array<string, string>|null */
+    private static ?array $memo = null;
+
+    private static ?\WeakReference $memoRequest = null;
 
     private static function raw(string $short): ?string
     {
@@ -433,6 +454,8 @@ final class PartnerPageSettings
 
     public static function forgetCache(): void
     {
+        self::$memo = null;
+        self::$memoRequest = null;
         cache()->forget(self::CACHE_KEY);
         foreach (self::allShortKeys() as $short) {
             cache()->forget('setting:global::'.self::key($short));
