@@ -3,7 +3,7 @@
 **Written:** Production Hardening session, 2026-08-20. Companion to
 `docs/DEPLOYMENT_RUNBOOK.md` — read that first for the deploy sequence this
 plan reverses. Same target environment: Hostinger VPS, CyberPanel +
-OpenLiteSpeed, `/home/1callfix.com/public_html/api/`, deploy user
+OpenLiteSpeed, `/home/1callfix.com/public_html/`, deploy user
 `callf1207`. No separate staging environment exists — a rollback here is a
 rollback of the one real production system.
 
@@ -36,7 +36,7 @@ in today.
 
 ```bash
 ssh callf1207@srv1422426.hstgr.cloud
-cd /home/1callfix.com/public_html/api/
+cd /home/1callfix.com/public_html/
 
 # 1. Maintenance mode first -- a half-rolled-back codebase serving live
 #    traffic is worse than a maintenance page.
@@ -76,7 +76,7 @@ php artisan event:cache
 sudo supervisorctl restart onecallfix-worker:*
 
 # 7. Verify (same checks as DEPLOYMENT_RUNBOOK.md §3) BEFORE reopening.
-curl -s -o /dev/null -w "%{http_code}\n" https://api.1callfix.com/up
+curl -s -o /dev/null -w "%{http_code}\n" https://1callfix.com/up
 
 # 8. Reopen once verified.
 php artisan up
