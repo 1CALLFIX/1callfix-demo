@@ -14,7 +14,7 @@ set -euo pipefail
 DB_NAME="1cal_api"
 DB_USER="1cal_apiadmin"
 DB_PASS="Call@123#609"
-BACKUP_DIR="/home/1callfix.com/public_html/api/storage/backups"
+BACKUP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/storage/backups"
 TIMESTAMP=$(date +%Y-%m-%d_%H-%M-%S)
 BACKUP_FILE="${BACKUP_DIR}/1cal_api_${TIMESTAMP}.sql.gz"
 RETENTION_DAYS=14
