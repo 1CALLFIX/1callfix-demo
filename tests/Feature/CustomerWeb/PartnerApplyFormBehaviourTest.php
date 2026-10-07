@@ -63,7 +63,13 @@ class PartnerApplyFormBehaviourTest extends TestCase
 
     public function test_required_field_errors_use_plain_wording(): void
     {
-        Livewire::test(ApplyForm::class)->call('submit')
-            ->assertSee('Enter your full name.')->assertSee('Enter your mobile number.')->assertSee('Enter your city.');
+        $c = Livewire::test(ApplyForm::class)->call('submit');
+        $errors = $c->errors();
+
+        $this->assertSame(['Enter your full name.'], $errors->get('name'));
+        $this->assertSame(['Enter your mobile number.'], $errors->get('phone'));
+        $this->assertSame(['Enter your city.'], $errors->get('city'));
+        $this->assertSame(['Please tick the box to continue.'], $errors->get('consent'));
+}
     }
 }
