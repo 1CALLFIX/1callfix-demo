@@ -153,32 +153,47 @@ class EntitlementService
         return $this->stackingResolver->resolveSingleType($candidates);
     }
 
-    /** Called from AdminCancelBookingAction for pre-service cancellations only — the caller decides eligibility, this just finds and reverses. */
+    /**
+     * Called from AdminCancelBookingAction for pre-service cancellations only —
+     * the caller decides eligibility, this just finds and reverses. Every live
+     * (not yet reversed) consume row for the booking is reversed, so a booking
+     * that carried more than one benefit gives all of them back. Each reversal
+     * is itself idempotent (UsageService::reverse), so a repeated cancellation
+     * restores nothing twice.
+     *
+     * @return UsageLedger|null the last reversal written, or null if nothing was reversed
+     */
     public function reverseForCancelledBooking(Booking $booking): ?UsageLedger
     {
-        // A Free Service Visit (fee_waiver) unit is spent BY the no-work cancellation itself (PrimeWaiver) — it is
-        // never given back by that same cancellation, so it is excluded here.
-        $consumeEvent = UsageLedger::where('booking_id', $booking->id)
+        // A Free Service Visit / free-cancellation (fee_waiver) unit is spent BY the no-work cancellation itself
+        // (PrimeWaiver) — it is never given back by that same cancellation, so it is excluded here.
+        $consumeEvents = UsageLedger::where('booking_id', $booking->id)
             ->where('event_type', 'consume')
             ->whereDoesntHave('planEntitlement', fn ($q) => $q->where('entitlement_type', 'fee_waiver'))
-            ->orderByDesc('id')
-            ->first();
+            ->orderBy('id')
+            ->get();
 
-        if (! $consumeEvent) {
-            return null;
-        }
+        $last = null;
 
-        $reversal = $this->usageService->reverse($consumeEvent, 'Booking cancelled before service began — entitlement restored');
+        foreach ($consumeEvents as $consumeEvent) {
+            // A zero-delta consume is an audit marker (quota-exhausted / rate-adjusted) — nothing to give back.
+            if ((int) $consumeEvent->quantity_delta === 0 && (float) $consumeEvent->monetary_delta === 0.0) {
+                continue;
+            }
 
-        if ($reversal) {
-            $subscription = $consumeEvent->subscription;
-            $entitlement = $consumeEvent->planEntitlement;
-            if ($subscription && $entitlement) {
-                $this->notify($subscription, $entitlement, 'reversed');
+            $reversal = $this->usageService->reverse($consumeEvent, 'Booking cancelled before service began — entitlement restored');
+
+            if ($reversal) {
+                $last = $reversal;
+                $subscription = $consumeEvent->subscription;
+                $entitlement = $consumeEvent->planEntitlement;
+                if ($subscription && $entitlement) {
+                    $this->notify($subscription, $entitlement, 'reversed');
+                }
             }
         }
 
-        return $reversal;
+        return $last;
     }
 
     private function notify(Subscription $subscription, PlanEntitlement $entitlement, string $event): void
@@ -204,6 +219,10 @@ class EntitlementService
             ->where('subscribable_id', $customer->id)
             ->whereIn('status', ['active', 'grace_period'])
             ->with(['plan.entitlements' => fn ($q) => $q->whereIn('entitlement_type', self::PRICING_TYPES)
+                // Redemption-based entitlements (Prime-style vouchers) are handled by
+                // MembershipBenefitService. They must never reach this legacy discount
+                // resolver: a fee_waiver here would zero the WHOLE booking price.
+                ->whereNull('redemption_effect')
                 ->where('consumption_trigger', 'booking_created')
                 ->where(fn ($qq) => $qq->whereNull('module')->orWhere('module', 'service'))])
             ->get();

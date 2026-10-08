@@ -125,6 +125,10 @@ class AddressController extends Controller
             return ApiResponse::error('This address is used by an existing booking and cannot be deleted.', 409);
         }
 
+        if ($address->registersLiveMembership()) {
+            return ApiResponse::error('A membership is registered to this address and it cannot be deleted.', 409);
+        }
+
         $address->delete();
 
         return ApiResponse::success(null, 'Address deleted.');

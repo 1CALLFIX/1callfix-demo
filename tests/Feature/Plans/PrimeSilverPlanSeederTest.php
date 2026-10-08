@@ -12,6 +12,7 @@ use Database\Seeders\PrimeSilverPlanSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Tests\Feature\Support\BookingFixtureHelpers;
+use Tests\Feature\Support\PrimeSilverFixtures;
 use Tests\TestCase;
 
 /**
@@ -20,7 +21,7 @@ use Tests\TestCase;
  */
 class PrimeSilverPlanSeederTest extends TestCase
 {
-    use BookingFixtureHelpers;
+    use PrimeSilverFixtures;
     use RefreshDatabase;
 
     protected function setUp(): void
@@ -68,8 +69,8 @@ class PrimeSilverPlanSeederTest extends TestCase
             ['electrical', 'plumbing', 'carpenter'],
             $byLabel['Home Service Credit']->redeem_categories
         );
-        $this->assertSame('fee_waiver', $byLabel['Free Service Visit (waives visit/inspection fee only)']->entitlement_type);
-        $this->assertSame(5, $byLabel['Free Service Visit (waives visit/inspection fee only)']->quantity);
+        $this->assertSame('fee_waiver', $byLabel['5 Free Cancellations (visit charge waived when no work is done)']->entitlement_type);
+        $this->assertSame(5, $byLabel['5 Free Cancellations (visit charge waived when no work is done)']->quantity);
 
         foreach ($plan->entitlements as $e) {
             $this->assertSame('none', $e->rollover_policy, "{$e->label} must not carry over.");
@@ -89,8 +90,11 @@ class PrimeSilverPlanSeederTest extends TestCase
     {
         $plan = $this->seedPrimeSilver();
 
+        $this->fakeRazorpay();
+        [, , $franchise, $zone] = $this->makeFranchiseTree();
         $customer = $this->makeCustomer();
-        $result = app(SubscriptionService::class)->initiateSubscribe($customer, 'customer', $plan);
+        $address = $this->makeAddress($customer, $franchise, $zone);
+        $result = app(SubscriptionService::class)->initiateSubscribe($customer, 'customer', $plan, $address->id);
         $this->assertNotNull(Subscription::find($result['subscription_id']));
 
         $plan->update(['price' => 1.00]);
@@ -102,11 +106,14 @@ class PrimeSilverPlanSeederTest extends TestCase
     public function test_the_seeded_plan_supports_a_real_subscribe_and_ac_redemption(): void
     {
         $plan = $this->seedPrimeSilver();
+        $this->fakeRazorpay();
+        [, , $franchise, $zone] = $this->makeFranchiseTree();
         $customer = $this->makeCustomer();
+        $address = $this->makeAddress($customer, $franchise, $zone);
 
         // Priced plan (₹1,999) — initiateSubscribe leaves it pending_payment;
         // activate() is what the captured-payment webhook calls.
-        $result = app(SubscriptionService::class)->initiateSubscribe($customer, 'customer', $plan);
+        $result = app(SubscriptionService::class)->initiateSubscribe($customer, 'customer', $plan, $address->id);
         $sub = Subscription::find($result['subscription_id']);
         app(SubscriptionService::class)->activate($sub);
         $sub->refresh();

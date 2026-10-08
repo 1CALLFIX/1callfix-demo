@@ -29,11 +29,12 @@ class EntitlementNotification extends Notification
     private function copy(): array
     {
         $planName = $this->entitlement->plan?->name ?? 'your plan';
+        $benefit = $this->entitlement->displayName();
 
         return match ($this->event) {
-            'consumed' => ['subject' => 'Benefit used', 'body' => "A {$this->entitlement->entitlement_type} benefit from {$planName} was used on your last booking."],
-            'exhausted' => ['subject' => 'Benefit quota used up', 'body' => "You've used your full {$this->entitlement->entitlement_type} quota from {$planName} for this period."],
-            'reversed' => ['subject' => 'Benefit restored', 'body' => "A benefit from {$planName} was restored to your balance after a cancellation."],
+            'consumed' => ['subject' => 'Membership benefit used', 'body' => "{$benefit} from {$planName} was used on your booking."],
+            'exhausted' => ['subject' => 'Membership benefit used up', 'body' => "You've used all of your {$benefit} from {$planName} for this period."],
+            'reversed' => ['subject' => 'Membership benefit restored', 'body' => "{$benefit} from {$planName} was restored to your balance after a cancellation."],
             default => ['subject' => 'Plan benefit update', 'body' => "Your {$planName} benefits were updated."],
         };
     }

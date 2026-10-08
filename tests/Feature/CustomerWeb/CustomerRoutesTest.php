@@ -93,8 +93,8 @@ class CustomerRoutesTest extends TestCase
 
     // ==================== Coming-soon placeholder ====================
 
-    /** 1CF-LAUNCH-20260924-WALLET-MEMBERSHIP: the card used to link to the "Online booking is on its way" placeholder. */
-    public function test_homepage_membership_card_links_to_the_membership_placeholder(): void
+    /** Membership launch: the card used to link to the coming-soon placeholder; it now opens the real membership page. */
+    public function test_homepage_membership_card_links_to_the_real_membership_page(): void
     {
         \App\Models\Plan::create([
             'name' => '1CallFix Prime Silver', 'slug' => 'prime-silver', 'plan_family' => 'customer_membership',
@@ -106,9 +106,10 @@ class CustomerRoutesTest extends TestCase
             ->assertOk()
             ->assertSee('1CallFix Prime Silver')
             ->assertSee('1,999.00')
-            ->assertSee(route('customer.coming-soon', 'membership'), false)
-            ->assertDontSee(route('customer.coming-soon', 'booking'), false);
+            ->assertSee(route('customer.membership.show', 'prime-silver'), false)
+            ->assertDontSee(route('customer.coming-soon', 'membership'), false);
 
+        // The old placeholder URL keeps working (public URLs are never removed).
         $this->get(route('customer.coming-soon', 'membership'))
             ->assertOk()
             ->assertSee('Membership sign-up is on its way');

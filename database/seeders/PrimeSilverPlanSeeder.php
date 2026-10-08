@@ -10,23 +10,29 @@ use Illuminate\Support\Facades\DB;
 /**
  * Configures the "1CallFix Prime Silver — Home Protection Plan" against the
  * existing Plan Engine (plans / plan_entitlements). The numbers and terms
- * come verbatim from the business's printed membership card — this seeder
- * only stores them, it does not invent pricing or benefits.
+ * come verbatim from the business's approved printed membership card — this
+ * seeder only stores them, it does not invent pricing or benefits.
  *
- * Idempotent: keyed on slug '1callfix-prime-silver', re-running replaces
- * the plan's own columns and rebuilds its entitlement rows. It refuses to
- * touch a plan that already has live subscriptions (guards against a
- * re-run silently changing what existing members are entitled to) —
- * reports and skips instead.
+ * Idempotent and SAFE ON A LIVE DATABASE: keyed on slug '1callfix-prime-silver',
+ * and each entitlement is matched BY LABEL and updated in place — never deleted
+ * and re-created — so entitlement ids, and any catalog targets an admin has
+ * already mapped in /admin/plans, survive a re-run. It refuses to touch a plan
+ * that already has live subscriptions (guards against a re-run silently
+ * changing what existing members are entitled to) — reports and skips instead.
  *
- * Structural rule, not a per-entitlement note: spare parts and materials
- * are always separately chargeable on every use of every entitlement.
- * That is recorded once in metadata.spare_parts_chargeable and in the
- * description, never repeated five times.
+ * It does NOT guess which catalog services a benefit covers. Mapping each
+ * entitlement to real categories / services is a catalog decision made in
+ * /admin/plans (Entitlements → Eligible catalog targets). Until an included-
+ * service entitlement is mapped it is inert by design — it can never give away
+ * every service.
+ *
+ * Structural rule: spare parts, materials and out-of-scope work are always
+ * separately chargeable on every use of every entitlement. That is recorded
+ * once in metadata and in the terms, never repeated per entitlement.
  */
 class PrimeSilverPlanSeeder extends Seeder
 {
-    private const SLUG = '1callfix-prime-silver';
+    public const SLUG = '1callfix-prime-silver';
 
     public function run(): void
     {
@@ -54,7 +60,8 @@ class PrimeSilverPlanSeeder extends Seeder
                     'scope_id' => null,
                     'eligible_actor_type' => 'customer',
                     'billing_cycle' => 'custom',
-                    'custom_cycle_days' => 334, // 11 months from activation
+                    'custom_cycle_days' => 334, // fallback only; validity_months below is authoritative
+                    'validity_months' => 11,    // 11 months from the activation date
                     'price' => 1999.00,         // ₹1,999/year founding member offer
                     'stacking_strategy' => 'exclusive',
                     'stacking_priority' => 0,
@@ -63,28 +70,47 @@ class PrimeSilverPlanSeeder extends Seeder
                 ]
             );
 
-            // Rebuild entitlements from scratch (safe: guarded against
-            // subscriptions above, so no live balance references these).
-            PlanEntitlement::where('plan_id', $plan->id)->delete();
+            $labels = [];
+            foreach ($this->entitlements() as $spec) {
+                $labels[] = $spec['label'];
 
-            foreach ($this->entitlements() as $entitlement) {
-                PlanEntitlement::create(array_merge([
-                    'plan_id' => $plan->id,
-                    'module' => 'service',
-                    'usage_period' => 'monthly',
-                    // Consumed via the explicit RedeemEntitlementAction, not
-                    // the automatic booking-time pricing resolver — but a
-                    // trigger value is required, and service_completed is the
-                    // honest one (the visit has to have happened).
-                    'consumption_trigger' => 'service_completed',
-                    'rollover_policy' => 'none', // reset to zero, no carryover
-                ], $entitlement));
+                PlanEntitlement::updateOrCreate(
+                    ['plan_id' => $plan->id, 'label' => $spec['label']],
+                    array_merge([
+                        'module' => 'service',
+                        'usage_period' => 'monthly',
+                        // Redeemed at booking creation — the stage the existing
+                        // entitlement architecture already consumes at.
+                        'consumption_trigger' => 'booking_created',
+                        'rollover_policy' => 'none', // reset to zero, no carry-over
+                        'redemption_effect' => null,
+                        'monetary_value' => null,
+                        'redeem_categories' => null,
+                        'quantity' => null,
+                    ], $spec)
+                );
             }
 
+            // Drop only rows that are no longer part of the card. Model-level
+            // delete on purpose: PlanEntitlement refuses if it has history.
+            PlanEntitlement::where('plan_id', $plan->id)
+                ->whereNotIn('label', $labels)
+                ->get()
+                ->each->delete();
+
+            $entitlements = $plan->entitlements()->withCount('targets')->get();
+            $unmapped = $entitlements->filter(fn ($e) => $e->redemption_effect === PlanEntitlement::EFFECT_SERVICE_INCLUDED && $e->targets_count === 0);
+
             $this->command?->info(
-                ($existing ? 'Updated' : 'Created')." plan #{$plan->id} '{$plan->name}' with ".
-                count($this->entitlements()).' entitlements.'
+                ($existing ? 'Updated' : 'Created')." plan #{$plan->id} '{$plan->name}' with {$entitlements->count()} entitlements."
             );
+
+            if ($unmapped->isNotEmpty()) {
+                $this->command?->warn(
+                    $unmapped->count().' included-service benefit(s) have no catalog services mapped yet and will not apply: '
+                    .$unmapped->pluck('label')->implode('; ').'. Map them in /admin/plans → Entitlements.'
+                );
+            }
         });
     }
 
@@ -93,48 +119,130 @@ class PrimeSilverPlanSeeder extends Seeder
     {
         return [
             [
-                'entitlement_type' => 'quantity',
                 'label' => 'Premium AC Jet Pump Service',
+                'entitlement_type' => 'quantity',
                 'quantity' => 2,
-                // Included: jet pump cleaning, indoor/outdoor unit cleaning,
-                // filter cleaning, drain line cleaning, performance check,
-                // basic inspection. Excluded (chargeable): gas charging, gas
-                // leak rectification, compressor repair, PCB repair, install/
-                // uninstall/shifting, drain pipe replacement, spare parts,
-                // copper pipe replacement.
+                'monetary_value' => 1500.00, // advertised value PER service (₹1,500 each, ₹3,000 total)
+                'redemption_effect' => PlanEntitlement::EFFECT_SERVICE_INCLUDED,
+                'description' => 'Two Premium AC Jet Pump Services. Advertised value ₹1,500 each (₹3,000 in total).',
+                'includes' => [
+                    'Jet Pump Cleaning',
+                    'Indoor Unit Cleaning',
+                    'Outdoor Unit Cleaning',
+                    'Filter Cleaning',
+                    'Drain Line Cleaning',
+                    'Performance Check',
+                    'Basic Inspection',
+                ],
+                'excludes' => [
+                    'Gas Charging',
+                    'Gas Leak Rectification',
+                    'Compressor Repair',
+                    'PCB Repair',
+                    'Refrigerant Refill',
+                    'AC Installation',
+                    'AC Shifting',
+                    'Drain Pipe Replacement',
+                    'Spare Parts Replacement',
+                    'Copper Pipe Replacement',
+                ],
             ],
             [
-                'entitlement_type' => 'quantity',
                 'label' => 'Appliance General Service',
-                'quantity' => 1,
-                // Included: geyser repair minor service, purifier service
-                // excluding filters, appliance inspection, basic
-                // troubleshooting. Excluded: full servicing, water
-                // replacement, PCB repairs, compressor repairs, major
-                // internal repairs.
-            ],
-            [
                 'entitlement_type' => 'quantity',
-                'label' => 'Home Service Credit',
                 'quantity' => 1,
-                // Category-agnostic until redeemed: the customer picks ONE of
-                // these per use, recorded on usage_ledger.redeemed_category.
+                'redemption_effect' => PlanEntitlement::EFFECT_SERVICE_INCLUDED,
+                'description' => 'One Appliance General Service. This is a separate benefit — it is not one of the Home Service Credit choices.',
+                'includes' => [
+                    'Geyser Minor Service',
+                    'Minor Service for Home Appliances',
+                    'Appliance Inspection',
+                    'Basic Troubleshooting',
+                ],
+                'excludes' => [
+                    'Refrigerant / Gas Charging',
+                    'Spare Parts Replacement',
+                    'Motor Replacement',
+                    'PCB Repairs',
+                    'Compressor Repairs',
+                    'Major Internal Repairs',
+                ],
+            ],
+            [
+                'label' => 'Home Service Credit',
+                'entitlement_type' => 'quantity',
+                'quantity' => 1,
+                // Choose ONE. Appliance is deliberately NOT a choice — it has its own entitlement.
                 'redeem_categories' => ['electrical', 'plumbing', 'carpenter'],
+                'redemption_effect' => PlanEntitlement::EFFECT_SERVICE_INCLUDED,
+                // No monetary_value on purpose: the founding configuration covers the eligible
+                // category/service mapped in /admin/plans. An admin may instead (or also) set a
+                // maximum service-benefit value on this entitlement (e.g. ₹499) — the engine
+                // caps the waiver at it. It is a benefit against ONE service, never wallet credit.
+                'description' => 'One Home Service Credit, usable once for ONE of Electrical, Plumbing or Carpenter General Service. Once used it cannot be used for another category. It is a service benefit — not wallet or cash credit.',
+                'includes' => [
+                    'electrical' => [
+                        'Minor Electrical Inspection',
+                        'MCB Replacement',
+                        'Fan Installation',
+                        'Loose Connection Rectification',
+                        'Switch & Socket Checking',
+                    ],
+                    'plumbing' => [
+                        'Tap Replacement',
+                        'Kitchen Sink Pipe',
+                        'WC Coupling',
+                        'Minor Leak Inspection',
+                    ],
+                    'carpenter' => [
+                        'Door Adjustment',
+                        'Hinges / Lock Replacement',
+                        'Drawer Repair',
+                        'Wooden Panel Fixing',
+                        'Minor Woodwork Repair',
+                    ],
+                ],
+                'excludes' => [
+                    'electrical' => [
+                        'Concrete House Wiring',
+                        'Rewiring Works',
+                        'New Electrical Installation',
+                        'Distribution Board Replacement',
+                        'Spare Parts & Materials',
+                    ],
+                    'plumbing' => [
+                        'Major Leakage Repair',
+                        'Drainage Block Repair',
+                        'Underground Pipeline Works',
+                        'Bathroom Renovation Works',
+                        'Water Tank Cleaning',
+                        'Spare Parts & Materials',
+                    ],
+                    'carpenter' => [
+                        'Furniture Manufacturing',
+                        'Full Door/Window Replacement',
+                        'Polish / Paint Works',
+                        'Plywood / Board Replacement',
+                        'Spare Parts & Materials',
+                    ],
+                ],
             ],
             [
+                'label' => '5 Free Cancellations (visit charge waived when no work is done)',
                 'entitlement_type' => 'fee_waiver',
-                'label' => 'Free Service Visit (waives visit/inspection fee only)',
                 'quantity' => 5,
-                // Waives the minimum viewing/call-out charge. The work itself
-                // is still priced normally.
+                // Exactly 5 free cancellations. Each waives ONLY the visit/inspection charge, and only
+                // when a provider arrived and NO work was done (PrimeWaiver, inside the no-work cancellation).
+                // Never applied at booking time, never on a completed job; online-paid bookings only.
+                'monetary_value' => null, // the amount is the live `cancellation.visit_fee_value` setting, never a copy
+                'redemption_effect' => PlanEntitlement::EFFECT_VISIT_FEE_WAIVER,
+                'description' => 'Five free cancellations. If the technician arrives and no work is done (you cancel, postpone, or decline the quote), the visit charge is waived. It does not apply when a service is carried out, and no service itself is free — the service price, spare parts, materials and out-of-scope work remain chargeable. Online-paid bookings only.',
             ],
             [
-                'entitlement_type' => 'priority',
                 'label' => 'Priority-based service (allocation preference; no immediate-service guarantee)',
+                'entitlement_type' => 'priority',
                 'quantity' => null,
-                // Recorded as a plan fact. Nothing in dispatch reads it yet;
-                // the plan's own terms state it does not guarantee immediate
-                // service.
+                'description' => 'Priority Based Service — preference in technician allocation. It does NOT guarantee immediate service; availability depends on technician availability.',
             ],
         ];
     }
@@ -142,7 +250,7 @@ class PrimeSilverPlanSeeder extends Seeder
     private function description(): string
     {
         return implode(' ', [
-            'Founding member offer at ₹1,999/year.',
+            'Founding member offer at ₹1,999.',
             'Validity: 11 months from the activation date.',
             'Membership is valid for the registered address only and is not transferable to another address.',
             'All benefits reset to zero once used; unused benefits cannot be carried forward or transferred.',
@@ -166,9 +274,29 @@ class PrimeSilverPlanSeeder extends Seeder
             'carry_forward' => false,
             'priority_guarantees_immediate_service' => false,
             'spare_parts_chargeable' => true,
+            'materials_chargeable' => true,
+            'additional_visits_chargeable' => true,
+            'out_of_scope_chargeable' => true,
+            'free_visits_limit' => 5,
             'eligibility_inspection_reserved' => true,
             'zone_availability_subject_to_technician' => true,
             'excludes' => ['installation', 'uninstallation', 'major_repairs', 'replacements'],
+            // The card's terms, in card order — shown verbatim on the membership page.
+            'terms' => [
+                'Membership is valid for 11 months from the activation date.',
+                'Membership is valid only for the customer\'s registered address.',
+                'Spare parts and materials are chargeable.',
+                'Additional visits outside the covered scope are chargeable.',
+                'Free cancellations are limited to 5. Each waives the visit charge only when the technician arrives and no work is done.',
+                'Unused benefits cannot be carried forward.',
+                'Benefits are non-transferable.',
+                'Priority service means preference in technician allocation.',
+                'Priority service does not guarantee immediate service.',
+                'Service availability depends on technician availability.',
+                '1CallFix may inspect and determine service eligibility.',
+                'Membership does not include installation, uninstallation, major repairs or replacements.',
+                'Out-of-scope AC work is chargeable.',
+            ],
         ];
     }
 }

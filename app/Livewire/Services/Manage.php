@@ -67,6 +67,8 @@ class Manage extends Component
     public string $editDescription = '';
     public string $editBasePrice = '';
     public string $editDiscountPrice = '';
+    /** The part of the price that is the visiting / service-call charge (a membership Free Service Visit waives this and nothing else). */
+    public string $editVisitingCharge = '';
     public string $editPriceType = 'fixed';
     public string $editDurationEstimateMins = '60';
     public $editCoverImageFile = null;
@@ -307,6 +309,7 @@ class Manage extends Component
         $this->editDescription = $service->description ?? '';
         $this->editBasePrice = (string) $service->base_price;
         $this->editDiscountPrice = $service->discount_price !== null ? (string) $service->discount_price : '';
+        $this->editVisitingCharge = $service->visiting_charge !== null ? (string) $service->visiting_charge : '';
         $this->editPriceType = $service->price_type;
         $this->editDurationEstimateMins = (string) $service->duration_estimate_mins;
         $this->editCoverImageFile = null;
@@ -516,12 +519,18 @@ class Manage extends Component
             $rules['editDiscountPrice'] = ['numeric', 'min:0', 'lt:editBasePrice'];
         }
 
+        // Included WITHIN the price, so it can never exceed it.
+        if ($this->editVisitingCharge !== '') {
+            $rules['editVisitingCharge'] = ['numeric', 'min:0', 'lte:editBasePrice'];
+        }
+
         $this->validate($rules, [
             'editCoverImageFile.max' => 'The cover image must be 2 MB or smaller.',
         ], [
             'editCategoryId' => 'category',
             'editBasePrice' => 'base price',
             'editDiscountPrice' => 'discount price',
+            'editVisitingCharge' => 'visiting charge',
             'editPriceType' => 'price type',
             'editDurationEstimateMins' => 'duration',
             'editCoverImageFile' => 'cover image',
@@ -555,6 +564,7 @@ class Manage extends Component
             'description' => $this->editDescription ?: null,
             'base_price' => $this->editBasePrice,
             'discount_price' => $this->editDiscountPrice !== '' ? $this->editDiscountPrice : null,
+            'visiting_charge' => $this->editVisitingCharge !== '' ? $this->editVisitingCharge : null,
             'price_type' => $this->editPriceType,
             'duration_estimate_mins' => $this->editDurationEstimateMins,
             'cover_image' => $cover,

@@ -26,6 +26,7 @@ class Service extends Model
         'description',
         'base_price',
         'discount_price',
+        'visiting_charge',
         'price_type',
         'duration_estimate_mins',
         'cover_image',
@@ -36,6 +37,7 @@ class Service extends Model
     ];
 
     protected $casts = [
+        'visiting_charge' => 'decimal:2',
         'is_active' => 'boolean',
         'location_required' => 'boolean',
         'age_restriction' => 'boolean',

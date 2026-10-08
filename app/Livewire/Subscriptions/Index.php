@@ -6,6 +6,7 @@ use App\Actions\RedeemEntitlementAction;
 use App\Models\BusinessAccount;
 use App\Models\EntitlementBalance;
 use App\Models\PlanEntitlement;
+use App\Models\UsageLedger;
 use App\Models\Setting;
 use App\Livewire\Concerns\HasRowArchive;
 use App\Models\Subscription;
@@ -54,6 +55,9 @@ class Index extends Component
     // --- inline entitlement redemption (deliberate "use one voucher now") ---
     public ?int $redeemingBalanceId = null;
     public string $redeemCategory = '';
+
+    // --- usage / redemption history for one expanded subscription ---
+    public ?int $historySubscriptionId = null;
 
     /**
      * subscriptions.view was seeded (2026_08_11_038000) but never checked on
@@ -113,6 +117,57 @@ class Index extends Component
             $this->flashType = 'error';
             $this->flashMessage = $e->getMessage();
         }
+    }
+
+    public function toggleHistory(int $id): void
+    {
+        $this->historySubscriptionId = $this->historySubscriptionId === $id ? null : $id;
+    }
+
+    /**
+     * Gives a redeemed benefit back — a 'reverse' ledger row pointing at the
+     * consume row it undoes, stamped with this admin (UsageService::reverse is
+     * idempotent, so a double click restores nothing twice). Same
+     * subscriptions.manage scope gate as every other mutation on this screen.
+     */
+    public function reverseUsage(int $ledgerId, UsageService $service): void
+    {
+        $row = UsageLedger::findOrFail($ledgerId);
+        $subscription = $row->subscription;
+
+        if (! auth()->user()->hasPermission('subscriptions.manage', $this->scopeHint($subscription))) {
+            $this->flashType = 'error';
+            $this->flashMessage = 'You do not have permission to reverse usage on this subscription.';
+            return;
+        }
+
+        try {
+            $reversal = $service->reverse($row, 'Reversed by admin', auth()->id());
+        } catch (\InvalidArgumentException $e) {
+            $this->flashType = 'error';
+            $this->flashMessage = $e->getMessage();
+            return;
+        }
+
+        $this->flashType = $reversal ? 'success' : 'error';
+        $this->flashMessage = $reversal ? 'Usage reversed — the benefit is back on the balance and recorded in the ledger.' : 'That usage was already reversed.';
+    }
+
+    /** @return array{rows: \Illuminate\Support\Collection, reversed: array<int,bool>} */
+    private function historyFor(?int $subscriptionId): array
+    {
+        if (! $subscriptionId) {
+            return ['rows' => collect(), 'reversed' => []];
+        }
+
+        $rows = UsageLedger::where('subscription_id', $subscriptionId)
+            ->with(['planEntitlement', 'booking:id,code', 'createdBy:id,name'])
+            ->latest('id')->limit(60)->get();
+
+        $reversed = UsageLedger::where('subscription_id', $subscriptionId)
+            ->where('event_type', 'reverse')->pluck('related_usage_ledger_id')->flip()->map(fn () => true)->all();
+
+        return ['rows' => $rows, 'reversed' => $reversed];
     }
 
     public function startAdjust(int $balanceId): void
@@ -239,7 +294,7 @@ class Index extends Component
     {
         $archivedTab = $this->statusFilter === 'archived';
         $query = ($archivedTab ? Subscription::onlyTrashed() : Subscription::query())->whereIn('id', $this->visibleSubscriptionIds($archivedTab))
-            ->with(['plan', 'subscribable.franchise.country', 'entitlementBalances' => fn ($q) => $q->where('status', 'current')->with('planEntitlement')])->latest();
+            ->with(['plan', 'registeredAddress', 'subscribable.franchise.country', 'entitlementBalances' => fn ($q) => $q->where('status', 'current')->with('planEntitlement')])->latest();
         if ($this->statusFilter && ! $archivedTab) {
             $query->where('status', $this->statusFilter);
         }
@@ -254,6 +309,7 @@ class Index extends Component
             'canManage' => auth()->user()->hasPermissionAnywhere('subscriptions.manage'),
             'canForce' => $this->isSuperAdminUser(),
             'archiveBars' => $this->archiveBars(),
+            'history' => $this->historyFor($this->historySubscriptionId),
             'currencySymbol' => Setting::get('locale.currency_symbol', '₹'),
         ])->layout('layouts.admin', ['title' => 'Subscriptions']);
     }

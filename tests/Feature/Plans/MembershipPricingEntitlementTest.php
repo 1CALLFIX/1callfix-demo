@@ -197,7 +197,7 @@ class MembershipPricingEntitlementTest extends TestCase
         \App\Models\Setting::set('cancellation.visit_fee_value', '149');
         $this->seed(\Database\Seeders\PrimeSilverPlanSeeder::class);
         $plan = Plan::where('slug', '1callfix-prime-silver')->firstOrFail();
-        $this->assertSame(['service_completed'], $plan->entitlements()->pluck('consumption_trigger')->unique()->values()->all());
+        $this->assertTrue($plan->entitlements()->where('entitlement_type', 'fee_waiver')->whereNotNull('redemption_effect')->exists(), 'the free-cancellation row is excluded from the legacy resolver by its redemption_effect');
 
         [, , $franchise, $zone] = $this->makeFranchiseTree();
         [, $service] = $this->makeCategoryAndService();

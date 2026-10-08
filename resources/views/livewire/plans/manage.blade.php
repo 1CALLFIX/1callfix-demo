@@ -8,6 +8,26 @@
         </div>
     @endif
 
+    @if ($canManage)
+        <x-ui.card class="mb-6">
+            <h2 class="text-sm font-semibold mb-1">Membership settings</h2>
+            <p class="text-xs text-gray-500 mb-3">Price, validity, quantities and values are edited per plan and benefit below. The visit charge a free cancellation waives is the one in Cancellation Policy settings.</p>
+            <div class="grid grid-cols-3 gap-3 items-end">
+                <div>
+                    <label class="block text-xs font-medium mb-1">"Ending soon" reminder (days before expiry)</label>
+                    <input type="number" min="1" max="90" wire:model="memberReminderDays" class="w-full border rounded px-3 py-2 text-sm">
+                    @error('memberReminderDays') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
+                </div>
+                <div>
+                    <label class="block text-xs font-medium mb-1">Priority service — offer batch multiplier (1 = off)</label>
+                    <input type="number" min="1" max="10" wire:model="memberPriorityMultiplier" class="w-full border rounded px-3 py-2 text-sm">
+                    @error('memberPriorityMultiplier') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
+                </div>
+                <div><x-ui.button wire:click="saveMembershipSettings">Save membership settings</x-ui.button></div>
+            </div>
+        </x-ui.card>
+    @endif
+
     {{-- New plan --}}
     <x-ui.card class="mb-6">
         <h2 class="text-sm font-semibold mb-3">New Plan</h2>
@@ -66,6 +86,11 @@
                     <input type="number" wire:model="customCycleDays" class="w-full border rounded px-3 py-2 text-sm">
                 </div>
             @endif
+            <div>
+                <label class="block text-xs font-medium mb-1">Validity (months)</label>
+                <input type="number" min="1" max="120" wire:model="validityMonths" placeholder="e.g. 11" class="w-full border rounded px-3 py-2 text-sm">
+                <p class="text-[11px] text-gray-400 mt-0.5">Optional. Overrides the billing cycle when set.</p>
+            </div>
             <div>
                 <label class="block text-xs font-medium mb-1">Price ({{ $currencySymbol }})</label>
                 <input type="number" step="0.01" wire:model="price" class="w-full border rounded px-3 py-2 text-sm">
@@ -133,7 +158,7 @@
                     <td class="px-4 py-2 text-gray-500">{{ ucwords(str_replace('_', ' ', $p->plan_family)) }}</td>
                     <td class="px-4 py-2 text-gray-500">{{ ucwords(str_replace('_', ' ', $p->eligible_actor_type)) }}</td>
                     <td class="px-4 py-2 text-gray-500">{{ ucfirst($p->scope_type) }}{{ $p->scope_id ? ' #'.$p->scope_id : '' }}</td>
-                    <td class="px-4 py-2 font-mono">{{ $currencySymbol }}{{ number_format($p->price, 2) }}/{{ $p->billing_cycle }}</td>
+                    <td class="px-4 py-2 font-mono">{{ $currencySymbol }}{{ number_format($p->price, 2) }}/{{ $p->validityLabel() }}</td>
                     <td class="px-4 py-2">{{ $p->subscriptions_count }}</td>
                     <td class="px-4 py-2">
                         <x-ui.badge :color="$p->is_active ? 'green' : 'gray'">{{ $p->is_active ? 'active' : 'inactive' }}</x-ui.badge>
@@ -142,6 +167,7 @@
                         @unless ($p->trashed())
                             <x-ui.button variant="ghost" color="gray" class="mr-3" wire:click="toggleCancellationWaiver({{ $p->id }})" title="Whether this plan's waiver covers the cancellation en-route and visit charges">Cancel-charge waiver: {{ $p->waives_cancellation_visit_charges ? 'ON' : 'OFF' }}</x-ui.button>
                         @endunless
+                        <x-ui.button variant="ghost" class="mr-3" wire:click="startEditPlan({{ $p->id }})">Edit</x-ui.button>
                         <x-ui.button variant="ghost" class="mr-3" wire:click="expand({{ $p->id }})">{{ $expandedPlanId === $p->id ? 'Hide' : 'Entitlements' }} ({{ $p->entitlements->count() }})</x-ui.button>
                         @unless ($p->trashed())
                             <x-ui.button variant="ghost" color="gray" wire:click="toggleActive({{ $p->id }})">{{ $p->is_active ? 'Deactivate' : 'Activate' }}</x-ui.button>
@@ -149,6 +175,53 @@
                         <x-ui.row-actions :id="$p->id" :archived="$p->trashed()" :can-manage="$canManage && ($p->trashed() || ($p->subscriptions_count ?? 0) === 0)" :can-force="$canForce" />
                     </td>
                 </tr>
+                    @if ($editingPlanId === $p->id)
+                        <tr class="border-t bg-blue-50/40" wire:key="plan-{{ $p->id }}-edit">
+                            <td colspan="8" class="px-4 py-4">
+                                <h3 class="text-sm font-semibold mb-1">Edit plan</h3>
+                                <p class="text-xs text-gray-500 mb-3">Price, validity and copy apply to future purchases and renewals only — periods already granted keep their balances.@if ($p->subscriptions_count) This plan has {{ $p->subscriptions_count }} subscriber(s), so its family and actor type are locked.@endif</p>
+                                <div class="grid grid-cols-4 gap-3">
+                                    <div>
+                                        <label class="block text-xs font-medium mb-1">Name</label>
+                                        <input type="text" wire:model="editName" class="w-full border rounded px-3 py-2 text-sm">
+                                        @error('editName') <p class="text-xs text-red-600">{{ $message }}</p> @enderror
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs font-medium mb-1">Price ({{ $currencySymbol }})</label>
+                                        <input type="number" step="0.01" wire:model="editPrice" class="w-full border rounded px-3 py-2 text-sm">
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs font-medium mb-1">Validity (months)</label>
+                                        <input type="number" min="1" max="120" wire:model="editValidityMonths" class="w-full border rounded px-3 py-2 text-sm">
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs font-medium mb-1">Billing cycle</label>
+                                        <select wire:model.live="editBillingCycle" class="w-full border rounded px-3 py-2 text-sm">
+                                            @foreach (['daily', 'weekly', 'monthly', 'quarterly', 'half_yearly', 'annual', 'custom'] as $cycle)
+                                                <option value="{{ $cycle }}">{{ ucfirst(str_replace('_', '-', $cycle)) }}</option>
+                                            @endforeach
+                                        </select>
+                                    </div>
+                                    @if ($editBillingCycle === 'custom')
+                                        <div>
+                                            <label class="block text-xs font-medium mb-1">Custom cycle (days)</label>
+                                            <input type="number" wire:model="editCustomCycleDays" class="w-full border rounded px-3 py-2 text-sm">
+                                        </div>
+                                    @endif
+                                    <div class="col-span-2">
+                                        <label class="block text-xs font-medium mb-1">Description</label>
+                                        <textarea wire:model="editDescription" rows="3" class="w-full border rounded px-3 py-2 text-sm"></textarea>
+                                    </div>
+                                    <div class="col-span-2">
+                                        <label class="block text-xs font-medium mb-1">Metadata JSON (terms, address lock…)</label>
+                                        <textarea wire:model="editMetadataJson" rows="6" class="w-full border rounded px-3 py-2 text-xs font-mono"></textarea>
+                                    </div>
+                                </div>
+                                <x-ui.button size="sm" class="mt-3 !h-8" wire:click="updatePlan">Save plan</x-ui.button>
+                                <x-ui.button size="sm" variant="ghost" class="mt-3 !h-8" wire:click="cancelEditPlan">Cancel</x-ui.button>
+                            </td>
+                        </tr>
+                    @endif
                     @if ($expandedPlanId === $p->id)
                         <tr class="border-t bg-gray-50" wire:key="plan-{{ $p->id }}-entitlements">
                             <td colspan="9" class="px-4 py-4">
@@ -166,6 +239,8 @@
                                             <th class="pr-3 py-1">Trigger</th>
                                             <th class="pr-3 py-1">Rollover</th>
                                             <th class="pr-3 py-1">Overage</th>
+                                            <th class="pr-3 py-1">Effect</th>
+                                            <th class="pr-3 py-1">Catalog targets</th>
                                             <th class="pr-3 py-1"></th>
                                         </tr>
                                     </thead>
@@ -183,19 +258,91 @@
                                                 <td class="pr-3 py-1">{{ str_replace('_', ' ', $e->consumption_trigger) }}</td>
                                                 <td class="pr-3 py-1">{{ $e->rollover_policy }}</td>
                                                 <td class="pr-3 py-1">{{ $e->overage_enabled ? ($e->overage_rate_type.' '.$e->overage_rate_value) : 'off' }}</td>
+                                                <td class="pr-3 py-1">{{ $e->redemption_effect ? str_replace('_', ' ', $e->redemption_effect) : '—' }}</td>
+                                                <td class="pr-3 py-1">
+                                                    @if ($e->targets->isEmpty())
+                                                        <span @class(['text-amber-600' => $e->redemption_effect === 'service_included'])>{{ $e->redemption_effect === 'service_included' ? 'none mapped — inactive' : ($e->redemption_effect ? 'any service' : '—') }}</span>
+                                                    @else
+                                                        {{ $e->targets->where('is_excluded', false)->count() }} covered @if ($e->targets->where('is_excluded', true)->count()), {{ $e->targets->where('is_excluded', true)->count() }} excluded @endif
+                                                    @endif
+                                                </td>
                                                 <td class="pr-3 py-1 text-right whitespace-nowrap">
                                                     @if ($e->entitlement_type === 'commission_override')
                                                         <x-ui.button variant="ghost" class="mr-2" wire:click="approveOverride({{ $e->id }})">{{ $e->is_approved ? 'Revoke approval' : 'Approve' }}</x-ui.button>
                                                     @endif
-                                                    <x-ui.button variant="ghost" color="red" wire:click="deleteEntitlement({{ $e->id }})" wire:confirm="Remove this entitlement?">Remove</x-ui.button>
+                                                    <x-ui.button variant="ghost" class="mr-2" wire:click="startEditEntitlement({{ $e->id }})">Edit</x-ui.button>
+                                                    <x-ui.button variant="ghost" class="mr-2" wire:click="toggleTargets({{ $e->id }})">Targets</x-ui.button>
+                                                    @if ($e->hasHistory())
+                                                        <span class="text-[11px] text-gray-400" title="Has subscriber balances or usage history — cannot be deleted">in use</span>
+                                                    @else
+                                                        <x-ui.button variant="ghost" color="red" wire:click="deleteEntitlement({{ $e->id }})" wire:confirm="Remove this entitlement?">Remove</x-ui.button>
+                                                    @endif
                                                 </td>
                                             </tr>
                                         @empty
-                                            <tr><td colspan="12" class="py-2 text-gray-400">No entitlements yet.</td></tr>
+                                            <tr><td colspan="13" class="py-2 text-gray-400">No entitlements yet.</td></tr>
                                         @endforelse
                                     </tbody>
                                 </table>
 
+                                @if ($targetingEntitlementId && ($te = $p->entitlements->firstWhere('id', $targetingEntitlementId)))
+                                    <div class="mb-4 rounded border border-blue-200 bg-white p-3" wire:key="targets-{{ $te->id }}">
+                                        <h4 class="text-xs font-semibold mb-1">Eligible catalog targets — {{ $te->displayName() }}</h4>
+                                        <p class="text-[11px] text-gray-500 mb-2">Maps this benefit onto the existing service catalog. A category or subcategory covers everything under it; mark a row "excluded" to carve a service out. @if ($te->redemption_effect === 'service_included')An included-service benefit with no covered target never applies.@endif</p>
+                                        <ul class="mb-2 text-xs">
+                                            @forelse ($te->targets as $t)
+                                                <li class="flex items-center justify-between border-t py-1" wire:key="tgt-{{ $t->id }}">
+                                                    <span>
+                                                        <span @class(['text-red-600' => $t->is_excluded, 'text-green-700' => ! $t->is_excluded])>{{ $t->is_excluded ? 'Excluded' : 'Covered' }}</span>
+                                                        — {{ $t->label() }}@if ($t->choice_key) <span class="text-gray-500">(choice: {{ $t->choice_key }})</span>@endif
+                                                    </span>
+                                                    <x-ui.button variant="ghost" color="red" wire:click="removeTarget({{ $t->id }})">Remove</x-ui.button>
+                                                </li>
+                                            @empty
+                                                <li class="text-gray-400">No targets yet.</li>
+                                            @endforelse
+                                        </ul>
+                                        <div class="grid grid-cols-5 gap-2 items-end">
+                                            <div>
+                                                <label class="block text-xs mb-1">Catalog level</label>
+                                                <select wire:model.live="tgtType" class="w-full border rounded px-2 py-1.5 text-xs">
+                                                    <option value="category">Category</option>
+                                                    <option value="subcategory">Subcategory</option>
+                                                    <option value="service">Service</option>
+                                                </select>
+                                            </div>
+                                            <div class="col-span-2">
+                                                <label class="block text-xs mb-1">Catalog item</label>
+                                                <select wire:model="tgtId" class="w-full border rounded px-2 py-1.5 text-xs">
+                                                    <option value="">— choose —</option>
+                                                    @foreach ($targetOptions as $opt)
+                                                        <option value="{{ $opt['id'] }}">{{ $opt['name'] }}</option>
+                                                    @endforeach
+                                                </select>
+                                            </div>
+                                            @if ($te->requiresCategoryChoice())
+                                                <div>
+                                                    <label class="block text-xs mb-1">Choice</label>
+                                                    <select wire:model="tgtChoice" class="w-full border rounded px-2 py-1.5 text-xs">
+                                                        <option value="">—</option>
+                                                        @foreach ($te->redeem_categories as $choice)
+                                                            <option value="{{ $choice }}">{{ $choice }}</option>
+                                                        @endforeach
+                                                    </select>
+                                                </div>
+                                            @endif
+                                            <div class="flex items-center gap-1 pb-1.5">
+                                                <input type="checkbox" wire:model="tgtExcluded" id="tgt-ex-{{ $te->id }}">
+                                                <label for="tgt-ex-{{ $te->id }}" class="text-xs">Excluded</label>
+                                            </div>
+                                        </div>
+                                        <x-ui.button size="sm" class="mt-2 !h-8" wire:click="addTarget">Add target</x-ui.button>
+                                    </div>
+                                @endif
+
+                                @if ($editingEntitlementId)
+                                    <p class="text-xs font-semibold text-blue-700 mb-2">Editing entitlement #{{ $editingEntitlementId }} — changes apply to future periods; existing balances are preserved.</p>
+                                @endif
                                 <div class="grid grid-cols-6 gap-2 items-end">
                                     <div>
                                         <label class="block text-xs mb-1">Type</label>
@@ -228,6 +375,26 @@
                                     <div>
                                         <label class="block text-xs mb-1">% value</label>
                                         <input type="number" step="0.01" wire:model="entPercentageValue" class="w-full border rounded px-2 py-1.5 text-xs">
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs mb-1">Redemption effect</label>
+                                        <select wire:model="entEffect" class="w-full border rounded px-2 py-1.5 text-xs">
+                                            <option value="">Legacy discount rule</option>
+                                            <option value="service_included">Service included (waives service price)</option>
+                                            <option value="visit_fee_waiver">Visiting charge waived only</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-span-2">
+                                        <label class="block text-xs mb-1">Benefit description (customer-facing)</label>
+                                        <textarea wire:model="entDescription" rows="2" class="w-full border rounded px-2 py-1.5 text-xs"></textarea>
+                                    </div>
+                                    <div class="col-span-3">
+                                        <label class="block text-xs mb-1">Covered examples — one per line ("# group" starts a group)</label>
+                                        <textarea wire:model="entIncludes" rows="3" class="w-full border rounded px-2 py-1.5 text-xs"></textarea>
+                                    </div>
+                                    <div class="col-span-3">
+                                        <label class="block text-xs mb-1">Not included — one per line ("# group" starts a group)</label>
+                                        <textarea wire:model="entExcludes" rows="3" class="w-full border rounded px-2 py-1.5 text-xs"></textarea>
                                     </div>
                                     <div>
                                         <label class="block text-xs mb-1">Usage period</label>
@@ -283,7 +450,12 @@
                                         </div>
                                     @endif
                                 </div>
-                                <x-ui.button size="sm" class="mt-3 !h-8" wire:click="addEntitlement">Add Entitlement</x-ui.button>
+                                @if ($editingEntitlementId)
+                                    <x-ui.button size="sm" class="mt-3 !h-8" wire:click="updateEntitlement">Save changes</x-ui.button>
+                                    <x-ui.button size="sm" variant="ghost" class="mt-3 !h-8" wire:click="cancelEditEntitlement">Cancel</x-ui.button>
+                                @else
+                                    <x-ui.button size="sm" class="mt-3 !h-8" wire:click="addEntitlement">Add Entitlement</x-ui.button>
+                                @endif
                             </td>
                         </tr>
                     @endif

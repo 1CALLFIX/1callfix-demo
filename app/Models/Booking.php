@@ -105,6 +105,7 @@ class Booking extends Model implements Orderable
         'price_final',
         'payment_status',
         'payment_method',
+        'is_priority',
         'coupon_id',
         'coupon_discount_amount',
         'coupon_snapshot',
@@ -148,6 +149,7 @@ class Booking extends Model implements Orderable
     ];
 
     protected $casts = [
+        'is_priority' => 'boolean',
         'scheduled_at' => 'datetime',
         'completed_at' => 'datetime',
         // REF 1CF-IMPLEMENT-20260922-L01

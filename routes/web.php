@@ -24,6 +24,8 @@ use App\Livewire\Customer\Search as CustomerSearch;
 use App\Livewire\Customer\Earnings\Loyalty as CustomerEarningsLoyalty;
 use App\Livewire\Customer\Earnings\Referrals as CustomerEarningsReferrals;
 use App\Livewire\Customer\Earnings\Wallet as CustomerEarningsWallet;
+use App\Livewire\Customer\Membership\Account as CustomerMembershipAccount;
+use App\Livewire\Customer\Membership\Show as CustomerMembershipShow;
 use App\Livewire\Provider\Activity as ProviderActivity;
 use App\Livewire\Provider\Auth\Login as ProviderLogin;
 use App\Livewire\Provider\Auth\Register as ProviderRegister;
@@ -98,6 +100,11 @@ Route::get('/services', CustomerServiceIndex::class)->name('customer.services.in
 Route::get('/offers', CustomerServiceIndex::class)->name('customer.offers');
 Route::get('/services/{service}', [LegacyCatalogRedirectController::class, 'service'])->name('customer.services.show');
 Route::get('/choose-city', CityChooserController::class)->name('customer.city.choose');
+
+// Membership details + purchase (public — browse first, log in to buy). Binds on
+// the plan's unique slug; Show::mount() 404s anything that is not a live
+// customer membership, so a draft or provider plan is never reachable here.
+Route::get('/membership/{plan:slug}', CustomerMembershipShow::class)->name('customer.membership.show');
 
 /*
  | Auth (rebuild): password-first login, plus the one-time verification
@@ -174,6 +181,9 @@ Route::middleware(['auth', \App\Http\Middleware\EnsureAccountNotSuspended::class
 
     // The Phase E6 wallet screen now lives at Earnings → Wallet.
     Route::redirect('/wallet', '/earnings/wallet')->name('customer.wallet');
+
+    // The customer's own memberships: status, remaining benefits, usage, renew/cancel.
+    Route::get('/account/membership', CustomerMembershipAccount::class)->name('customer.membership.account');
 });
 
 /*

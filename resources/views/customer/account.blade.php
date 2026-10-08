@@ -7,8 +7,7 @@
     real screens). Still shows only what the session already knows about the
     customer — name and phone — but the section list below is now real
     navigation to the booking history, saved addresses and wallet that E6
-    built. Membership stays an honest "not yet available" row: it has a
-    backend but no customer UI in this phase.
+    built. Membership links to its own page (customer.membership.account).
 --}}
 <x-layouts.customer title="Your account">
     <div class="mx-auto max-w-3xl px-4 py-12 sm:px-6 sm:py-16 lg:px-8">
@@ -33,6 +32,7 @@
                     $accountSections = [
                         ['Your bookings', 'Track live jobs and revisit past ones.', route('customer.orders.index')],
                         ['Saved addresses', 'Keep the places you book for most.', route('customer.addresses')],
+                        ['Membership', 'Plan benefits, what you have used, renewal.', route('customer.membership.account')],
                     ];
                     // EARN3 — one Earnings entry, only while an Earnings tab is on.
                     if ($earningsRoute = \App\Support\CustomerEarningsNav::firstRoute(auth()->user())) {
@@ -51,17 +51,6 @@
                         </a>
                     </li>
                 @endforeach
-                <li class="flex items-center justify-between gap-4 py-4">
-                    <div class="min-w-0">
-                        <p class="text-sm font-medium text-slate-900">Membership</p>
-                        <p class="mt-0.5 text-sm text-slate-600">Plan benefits and what you have used.</p>
-                    </div>
-                    {{-- Status is spelled out in words, never conveyed by
-                         colour or position alone (WCAG 2.1 AA 1.4.1). --}}
-                    <span class="shrink-0 rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600">
-                        Not yet available
-                    </span>
-                </li>
             </ul>
         </section>
 
