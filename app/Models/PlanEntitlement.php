@@ -24,7 +24,7 @@ class PlanEntitlement extends Model
         'redeem_categories', 'quantity', 'monetary_value',
         'percentage_value', 'usage_period', 'consumption_trigger', 'rollover_policy',
         'rollover_cap', 'rollover_expiry_days', 'overage_enabled', 'overage_rate_type',
-        'overage_rate_value', 'requires_approval', 'is_approved',
+        'overage_rate_value', 'requires_approval', 'is_approved', 'is_enabled',
     ];
 
     protected $casts = [
@@ -34,6 +34,7 @@ class PlanEntitlement extends Model
         'overage_enabled' => 'boolean',
         'requires_approval' => 'boolean',
         'is_approved' => 'boolean',
+        'is_enabled' => 'boolean',
         'monetary_value' => 'decimal:2',
         'percentage_value' => 'decimal:2',
         'overage_rate_value' => 'decimal:2',
@@ -167,6 +168,11 @@ class PlanEntitlement extends Model
      */
     public function isUsable(): bool
     {
+        // Switched off by an admin: never granted, redeemed or shown.
+        if ($this->is_enabled === false) {
+            return false;
+        }
+
         if ($this->entitlement_type === 'commission_override') {
             return $this->requires_approval && $this->is_approved;
         }

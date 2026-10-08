@@ -170,7 +170,7 @@ class RenewalService
                 $old->save();
             }
 
-            foreach ($plan->entitlements as $entitlement) {
+            foreach ($plan->entitlements->where('is_enabled', true) as $entitlement) {
                 [$rolloverQty, $rolloverVal] = $rolloverByEntitlementId[$entitlement->id] ?? [0, 0.0];
                 $oldMatch = $oldBalances->firstWhere('plan_entitlement_id', $entitlement->id);
 

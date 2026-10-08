@@ -39,7 +39,7 @@ class MembershipPresenter
             'address_locked' => $plan->isAddressLocked(),
             'terms' => array_values($plan->metadata['terms'] ?? []),
             'metadata' => $plan->metadata ?? [],
-            'entitlements' => $plan->entitlements->map(fn (PlanEntitlement $e) => $this->entitlement($e))->values()->all(),
+            'entitlements' => $plan->entitlements->where('is_enabled', true)->map(fn (PlanEntitlement $e) => $this->entitlement($e))->values()->all(),
         ];
     }
 

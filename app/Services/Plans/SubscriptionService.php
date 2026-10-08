@@ -225,7 +225,7 @@ class SubscriptionService
             $subscription->expiry_reminder_sent_at = null;
             $subscription->save();
 
-            foreach ($plan->entitlements as $entitlement) {
+            foreach ($plan->entitlements->where('is_enabled', true) as $entitlement) {
                 EntitlementBalance::create([
                     'subscription_id' => $subscription->id,
                     'plan_entitlement_id' => $entitlement->id,

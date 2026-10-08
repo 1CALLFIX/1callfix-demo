@@ -454,6 +454,134 @@ class Manage extends Component
         ];
     }
 
+    private function authorizedEntitlement(int $entitlementId): ?PlanEntitlement
+    {
+        $entitlement = PlanEntitlement::with('plan')->findOrFail($entitlementId);
+
+        if (! auth()->user()->hasPermission('plans.manage', $this->planScopeHint($entitlement->plan))) {
+            $this->flash('You do not have permission to configure this plan.', 'error');
+            return null;
+        }
+
+        return $entitlement;
+    }
+
+    /** The "5 Free Cancellations (…)" label follows its quantity; any other label an admin typed is left alone. */
+    private function syncCancellationLabel(PlanEntitlement $entitlement): void
+    {
+        if ($entitlement->entitlement_type === 'fee_waiver' && $entitlement->label !== null && preg_match('/^\d+ Free Cancellations?\b/', $entitlement->label)) {
+            $n = (int) $entitlement->quantity;
+            $entitlement->label = $n.' Free '.($n === 1 ? 'Cancellation' : 'Cancellations').' (visit charge waived when no work is done)';
+        }
+    }
+
+    /** + / - on a benefit's quantity (services, free cancellations). Applies from the next period; live balances are untouched. */
+    public function adjustQuantity(int $entitlementId, int $delta): void
+    {
+        $entitlement = $this->authorizedEntitlement($entitlementId);
+        if (! $entitlement) {
+            return;
+        }
+        if ($entitlement->quantity === null) {
+            $this->flash('This benefit is unlimited; set a quantity in Edit first.', 'error');
+            return;
+        }
+
+        $new = (int) $entitlement->quantity + ($delta <=> 0);
+        if ($new < 1 || $new > 99) {
+            $this->flash('Quantity must be between 1 and 99. To take a benefit away, switch it off or remove it.', 'error');
+            return;
+        }
+
+        $old = (int) $entitlement->quantity;
+        $entitlement->quantity = $new;
+        $this->syncCancellationLabel($entitlement);
+        $entitlement->save();
+        \App\Services\ActivityLogger::log(auth()->user(), 'plan_entitlement', $entitlement->id, 'plan benefit quantity changed', ['old' => $old, 'new' => $new]);
+        $this->flash('Quantity set to '.$new.' for '.$entitlement->displayName().'. It applies from the next period; current balances are unchanged.');
+    }
+
+    /** The tick: switch a benefit on/off on a package without deleting it (works even with usage history). */
+    public function toggleEntitlementEnabled(int $entitlementId): void
+    {
+        $entitlement = $this->authorizedEntitlement($entitlementId);
+        if (! $entitlement) {
+            return;
+        }
+
+        $entitlement->is_enabled = ! $entitlement->is_enabled;
+        $entitlement->save();
+        \App\Services\ActivityLogger::log(auth()->user(), 'plan_entitlement', $entitlement->id, 'plan benefit '.($entitlement->is_enabled ? 'enabled' : 'disabled'), []);
+        $this->flash($entitlement->displayName().' is now '.($entitlement->is_enabled ? 'ON' : 'OFF').' for this package.');
+    }
+
+    /** Priority bookings tick: creates the priority benefit on first use, then toggles it. */
+    public function togglePriority(int $planId, PlanService $service): void
+    {
+        $plan = Plan::findOrFail($planId);
+        if (! auth()->user()->hasPermission('plans.manage', $this->planScopeHint($plan))) {
+            $this->flash('You do not have permission to configure this plan.', 'error');
+            return;
+        }
+
+        $priority = $plan->entitlements()->where('entitlement_type', 'priority')->first();
+        if (! $priority) {
+            $priority = $service->addEntitlement($plan, [
+                'entitlement_type' => 'priority', 'module' => 'service', 'label' => 'Priority-based service (allocation preference; no immediate-service guarantee)',
+                'quantity' => null, 'usage_period' => 'monthly', 'consumption_trigger' => 'booking_created', 'rollover_policy' => 'none',
+                'is_enabled' => true, 'is_approved' => false, 'requires_approval' => false,
+            ]);
+        } else {
+            $priority->is_enabled = ! $priority->is_enabled;
+            $priority->save();
+        }
+        \App\Services\ActivityLogger::log(auth()->user(), 'plan_entitlement', $priority->id, 'plan priority '.($priority->is_enabled ? 'enabled' : 'disabled'), []);
+        $this->flash('Priority bookings are '.($priority->is_enabled ? 'ON' : 'OFF').' for '.$plan->name.'.');
+    }
+
+    /** Quick-add a ready-made benefit: 'service' (an included service, then map it to catalog services) or 'cancellations'. */
+    public function quickAdd(int $planId, string $kind, PlanService $service): void
+    {
+        $plan = Plan::findOrFail($planId);
+        if (! auth()->user()->hasPermission('plans.manage', $this->planScopeHint($plan))) {
+            $this->flash('You do not have permission to configure this plan.', 'error');
+            return;
+        }
+
+        $base = ['module' => 'service', 'usage_period' => 'monthly', 'consumption_trigger' => 'booking_created', 'rollover_policy' => 'none',
+            'is_enabled' => true, 'is_approved' => false, 'requires_approval' => false];
+
+        if ($kind === 'service') {
+            $e = $service->addEntitlement($plan, $base + ['entitlement_type' => 'quantity', 'label' => 'New included service', 'quantity' => 1,
+                'redemption_effect' => PlanEntitlement::EFFECT_SERVICE_INCLUDED]);
+            $this->flash('Added "New included service". Rename it with Edit, set the quantity with + / -, then map it to catalog services under Targets — it stays inactive until mapped.');
+        } elseif ($kind === 'cancellations') {
+            if ($plan->entitlements()->where('entitlement_type', 'fee_waiver')->exists()) {
+                $this->flash('This package already has free cancellations; change the number with + / -.', 'error');
+                return;
+            }
+            $e = $service->addEntitlement($plan, $base + ['entitlement_type' => 'fee_waiver', 'quantity' => 3,
+                'label' => '3 Free Cancellations (visit charge waived when no work is done)', 'redemption_effect' => PlanEntitlement::EFFECT_VISIT_FEE_WAIVER]);
+            $this->flash('Added 3 free cancellations. Change the number with + / -.');
+        } else {
+            return;
+        }
+        \App\Services\ActivityLogger::log(auth()->user(), 'plan_entitlement', $e->id, 'plan benefit quick-added ('.$kind.')', []);
+    }
+
+    public function duplicatePlan(int $planId, PlanService $service): void
+    {
+        $plan = Plan::findOrFail($planId);
+        if (! auth()->user()->hasPermission('plans.manage', $this->planScopeHint($plan))) {
+            $this->flash('You do not have permission to configure this plan.', 'error');
+            return;
+        }
+
+        $copy = $service->duplicate($plan);
+        \App\Services\ActivityLogger::log(auth()->user(), 'plan', $copy->id, 'plan duplicated', ['from' => $plan->id]);
+        $this->flash('Duplicated as "'.$copy->name.'" (inactive). Edit its price, benefits and targets, then activate it.');
+    }
+
     public function addEntitlement(PlanService $service): void
     {
         $plan = Plan::findOrFail($this->expandedPlanId);

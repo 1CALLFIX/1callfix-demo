@@ -167,6 +167,9 @@
                         @unless ($p->trashed())
                             <x-ui.button variant="ghost" color="gray" class="mr-3" wire:click="toggleCancellationWaiver({{ $p->id }})" title="Whether this plan's waiver covers the cancellation en-route and visit charges">Cancel-charge waiver: {{ $p->waives_cancellation_visit_charges ? 'ON' : 'OFF' }}</x-ui.button>
                         @endunless
+                        @unless ($p->trashed())
+                            <x-ui.button variant="ghost" class="mr-3" wire:click="duplicatePlan({{ $p->id }})" wire:confirm="Duplicate this package (inactive copy with all benefits and targets)?">Duplicate</x-ui.button>
+                        @endunless
                         <x-ui.button variant="ghost" class="mr-3" wire:click="startEditPlan({{ $p->id }})">Edit</x-ui.button>
                         <x-ui.button variant="ghost" class="mr-3" wire:click="expand({{ $p->id }})">{{ $expandedPlanId === $p->id ? 'Hide' : 'Entitlements' }} ({{ $p->entitlements->count() }})</x-ui.button>
                         @unless ($p->trashed())
@@ -225,10 +228,20 @@
                     @if ($expandedPlanId === $p->id)
                         <tr class="border-t bg-gray-50" wire:key="plan-{{ $p->id }}-entitlements">
                             <td colspan="9" class="px-4 py-4">
+                                @php $priorityEnt = $p->entitlements->firstWhere('entitlement_type', 'priority'); @endphp
+                                <div class="flex flex-wrap items-center gap-4 mb-3 text-xs">
+                                    <label class="inline-flex items-center gap-2">
+                                        <input type="checkbox" @checked($priorityEnt && $priorityEnt->is_enabled) wire:click="togglePriority({{ $p->id }})">
+                                        <span class="font-medium">Priority bookings</span>
+                                    </label>
+                                    <x-ui.button size="sm" variant="ghost" wire:click="quickAdd({{ $p->id }}, 'service')">+ Add included service</x-ui.button>
+                                    <x-ui.button size="sm" variant="ghost" wire:click="quickAdd({{ $p->id }}, 'cancellations')">+ Add free cancellations</x-ui.button>
+                                </div>
                                 <table class="w-full text-xs mb-3">
                                     <thead class="text-left text-gray-500">
                                         <tr>
                                             <x-ui.sno-th class="pr-3 py-1" />
+                                            <th class="pr-3 py-1">On</th>
                                             <th class="pr-3 py-1">Type</th>
                                             <th class="pr-3 py-1">Label</th>
                                             <th class="pr-3 py-1">Module</th>
@@ -248,11 +261,18 @@
                                         @forelse ($p->entitlements as $e)
                                             <tr class="border-t" wire:key="ent-{{ $e->id }}">
                                                 <x-ui.sno :rows="$p->entitlements" :loop="$loop" class="pr-3 py-1" />
+                                                <td class="pr-3 py-1"><input type="checkbox" @checked($e->is_enabled) wire:click="toggleEntitlementEnabled({{ $e->id }})" title="Tick = part of this package"></td>
                                                 <td class="pr-3 py-1">{{ str_replace('_', ' ', $e->entitlement_type) }}</td>
-                                                <td class="pr-3 py-1">{{ $e->label ?? '—' }}</td>
+                                                <td class="pr-3 py-1 {{ $e->is_enabled ? '' : 'text-gray-400 line-through' }}">{{ $e->label ?? '—' }}</td>
                                                 <td class="pr-3 py-1">{{ $e->module ?? '—' }}</td>
                                                 <td class="pr-3 py-1">{{ $e->redeem_categories ? implode(', ', $e->redeem_categories) : '—' }}</td>
-                                                <td class="pr-3 py-1">{{ $e->quantity ?? '—' }}</td>
+                                                <td class="pr-3 py-1 whitespace-nowrap">
+                                                    @if ($e->quantity !== null)
+                                                        <button type="button" class="px-1.5 border rounded" wire:click="adjustQuantity({{ $e->id }}, -1)" aria-label="Decrease">−</button>
+                                                        <span class="px-1 font-mono">{{ $e->quantity }}</span>
+                                                        <button type="button" class="px-1.5 border rounded" wire:click="adjustQuantity({{ $e->id }}, 1)" aria-label="Increase">+</button>
+                                                    @else — @endif
+                                                </td>
                                                 <td class="pr-3 py-1">{{ $e->monetary_value !== null ? $currencySymbol.number_format($e->monetary_value, 2) : '—' }}</td>
                                                 <td class="pr-3 py-1">{{ $e->percentage_value !== null ? $e->percentage_value.'%' : '—' }}</td>
                                                 <td class="pr-3 py-1">{{ str_replace('_', ' ', $e->consumption_trigger) }}</td>
@@ -280,7 +300,7 @@
                                                 </td>
                                             </tr>
                                         @empty
-                                            <tr><td colspan="13" class="py-2 text-gray-400">No entitlements yet.</td></tr>
+                                            <tr><td colspan="14" class="py-2 text-gray-400">No entitlements yet.</td></tr>
                                         @endforelse
                                     </tbody>
                                 </table>

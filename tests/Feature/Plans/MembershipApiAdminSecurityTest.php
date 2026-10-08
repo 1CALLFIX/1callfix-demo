@@ -322,6 +322,145 @@ class MembershipApiAdminSecurityTest extends TestCase
         $this->assertEquals(199.0, app(\App\Services\Plans\MembershipPresenter::class)->entitlement($visits)['advertised_value']);
     }
 
+    // ============================================== package builder: +/-, tick, priority, duplicate
+
+    public function test_quantities_step_up_and_down_and_the_cancellation_label_follows(): void
+    {
+        $m = $this->primeMember();
+        $admin = $this->makeSuperAdmin();
+        $ac = $m['plan']->entitlements->firstWhere('label', self::AC);
+        $visits = $m['plan']->entitlements->firstWhere('label', self::VISITS);
+
+        Livewire::actingAs($admin)->test(PlansManage::class)
+            ->call('adjustQuantity', $ac->id, 1)->call('adjustQuantity', $ac->id, 1)
+            ->call('adjustQuantity', $visits->id, -1)->call('adjustQuantity', $visits->id, -1);
+
+        $this->assertSame(4, $ac->fresh()->quantity);
+        $this->assertSame(3, $visits->fresh()->quantity);
+        $this->assertSame('3 Free Cancellations (visit charge waived when no work is done)', $visits->fresh()->label);
+        $this->assertDatabaseHas('activity_log', ['description' => 'plan benefit quantity changed']);
+
+        // never below 1 / above 99; the live member's balance is untouched (applies from the next period).
+        $component = Livewire::actingAs($admin)->test(PlansManage::class);
+        foreach ([1, 1] as $_) {
+            $component->call('adjustQuantity', $visits->id, -1);
+        }
+        $component->call('adjustQuantity', $visits->id, -1)->assertSee('between 1 and 99');
+        $this->assertSame(1, $visits->fresh()->quantity);
+        $this->assertSame(2, $this->balanceOf($m['subscription'], self::AC)->granted_quantity);
+    }
+
+    public function test_a_benefit_switched_off_is_not_granted_redeemed_or_shown(): void
+    {
+        $m = $this->primeMember();
+        $admin = $this->makeSuperAdmin();
+        $ac = $m['plan']->entitlements->firstWhere('label', self::AC);
+
+        Livewire::actingAs($admin)->test(PlansManage::class)->call('toggleEntitlementEnabled', $ac->id);
+        $this->assertFalse($ac->fresh()->is_enabled);
+
+        // Not redeemable even by a member who already holds a balance for it.
+        $booking = $this->bookService($m['customer'], $m['address'], $m['catalog']['ac_jet']);
+        $this->assertEquals(1800, $booking->price_quoted);
+
+        // Hidden from customers.
+        $names = collect(app(\App\Services\Plans\MembershipPresenter::class)->plan($m['plan']->fresh())['entitlements'])->pluck('name');
+        $this->assertFalse($names->contains(fn ($n) => str_contains($n, 'AC Jet Pump')));
+
+        // Not granted to a NEW member.
+        [, , $franchise, $zone] = $this->makeFranchiseTree();
+        $customer = $this->makeCustomer();
+        $address = $this->makeAddress($customer, $franchise, $zone);
+        $sub = $this->activatePrime($customer, $m['plan']->fresh(), $address);
+        $this->assertSame(0, \App\Models\EntitlementBalance::where('subscription_id', $sub->id)->where('plan_entitlement_id', $ac->id)->count());
+
+        // ...and it can be switched back on.
+        Livewire::actingAs($admin)->test(PlansManage::class)->call('toggleEntitlementEnabled', $ac->id);
+        $this->assertTrue($ac->fresh()->is_enabled);
+    }
+
+    public function test_the_priority_tick_creates_then_toggles_the_priority_benefit(): void
+    {
+        $m = $this->primeMember();
+        $admin = $this->makeSuperAdmin();
+        $priority = $m['plan']->entitlements->firstWhere('entitlement_type', 'priority');
+        $benefits = app(\App\Services\Plans\MembershipBenefitService::class);
+        $this->assertTrue($benefits->customerHasPriority($m['customer'], $m['address']->id));
+
+        Livewire::actingAs($admin)->test(PlansManage::class)->call('togglePriority', $m['plan']->id);
+        $this->assertFalse($priority->fresh()->is_enabled);
+        $this->assertFalse($benefits->customerHasPriority($m['customer'], $m['address']->id));
+
+        Livewire::actingAs($admin)->test(PlansManage::class)->call('togglePriority', $m['plan']->id);
+        $this->assertTrue($benefits->customerHasPriority($m['customer'], $m['address']->id));
+
+        // A package with no priority benefit gets one on first tick.
+        $blank = \App\Models\Plan::create([
+            'name' => 'Bare', 'slug' => 'bare', 'plan_family' => 'customer_membership', 'module' => 'service', 'scope_type' => 'global',
+            'eligible_actor_type' => 'customer', 'billing_cycle' => 'custom', 'custom_cycle_days' => 365, 'price' => 999, 'is_active' => true,
+        ]);
+        Livewire::actingAs($admin)->test(PlansManage::class)->call('togglePriority', $blank->id);
+        $this->assertTrue($blank->entitlements()->where('entitlement_type', 'priority')->where('is_enabled', true)->exists());
+    }
+
+    public function test_quick_add_builds_a_water_ro_style_service_and_free_cancellations(): void
+    {
+        $admin = $this->makeSuperAdmin();
+        $plan = \App\Models\Plan::create([
+            'name' => 'Starter', 'slug' => 'starter', 'plan_family' => 'customer_membership', 'module' => 'service', 'scope_type' => 'global',
+            'eligible_actor_type' => 'customer', 'billing_cycle' => 'custom', 'custom_cycle_days' => 365, 'price' => 499, 'is_active' => true,
+        ]);
+
+        $component = Livewire::actingAs($admin)->test(PlansManage::class);
+        $component->call('quickAdd', $plan->id, 'service')->call('quickAdd', $plan->id, 'cancellations');
+        $component->call('quickAdd', $plan->id, 'cancellations')->assertSee('already has free cancellations');
+
+        $service = $plan->entitlements()->where('entitlement_type', 'quantity')->firstOrFail();
+        $this->assertSame(PlanEntitlement::EFFECT_SERVICE_INCLUDED, $service->redemption_effect);
+        $this->assertSame(0, $service->targets()->count(), 'inert until an admin maps it to catalog services');
+        $this->assertSame(3, $plan->entitlements()->where('entitlement_type', 'fee_waiver')->value('quantity'));
+    }
+
+    public function test_duplicating_a_package_copies_benefits_and_targets_as_an_inactive_draft(): void
+    {
+        $m = $this->primeMember();
+        $admin = $this->makeSuperAdmin();
+
+        Livewire::actingAs($admin)->test(PlansManage::class)->call('duplicatePlan', $m['plan']->id);
+
+        $copy = \App\Models\Plan::where('name', $m['plan']->name.' (copy)')->firstOrFail();
+        $this->assertFalse((bool) $copy->is_active);
+        $this->assertNotSame($m['plan']->slug, $copy->slug);
+        $this->assertSame(0, $copy->subscriptions()->count());
+        $this->assertSame($m['plan']->entitlements()->count(), $copy->entitlements()->count());
+        $this->assertSame(
+            PlanEntitlementTarget::whereIn('plan_entitlement_id', $m['plan']->entitlements()->pluck('id'))->count(),
+            PlanEntitlementTarget::whereIn('plan_entitlement_id', $copy->entitlements()->pluck('id'))->count(),
+        );
+        // editing the copy leaves the original alone
+        $copy->entitlements()->where('entitlement_type', 'fee_waiver')->update(['quantity' => 4]);
+        $this->assertSame(5, $m['plan']->entitlements()->where('entitlement_type', 'fee_waiver')->value('quantity'));
+    }
+
+    public function test_a_viewer_cannot_use_the_package_builder_controls(): void
+    {
+        $m = $this->primeMember();
+        $viewer = $this->makeUserWithPermission('plans.view', 'global');
+        $visits = $m['plan']->entitlements->firstWhere('label', self::VISITS);
+
+        Livewire::actingAs($viewer)->test(PlansManage::class)
+            ->call('adjustQuantity', $visits->id, 1)->assertSee('do not have permission')
+            ->call('toggleEntitlementEnabled', $visits->id)
+            ->call('togglePriority', $m['plan']->id)
+            ->call('quickAdd', $m['plan']->id, 'service')
+            ->call('duplicatePlan', $m['plan']->id);
+
+        $this->assertSame(5, $visits->fresh()->quantity);
+        $this->assertTrue($visits->fresh()->is_enabled);
+        $this->assertSame(1, \App\Models\Plan::where('slug', $m['plan']->slug)->count());
+        $this->assertSame(1, \App\Models\Plan::count());
+    }
+
     public function test_a_viewer_without_manage_permission_cannot_change_plans_or_targets(): void
     {
         $m = $this->primeMember();

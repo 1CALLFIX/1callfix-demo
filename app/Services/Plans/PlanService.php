@@ -53,6 +53,35 @@ class PlanService
         return $plan->fresh();
     }
 
+    /**
+     * Copies a package: same price, validity, copy and benefits (quantities, values, catalog targets, enabled state).
+     * The copy is inactive and has no subscribers, so it can be edited freely before it goes live.
+     */
+    public function duplicate(Plan $plan): Plan
+    {
+        return \Illuminate\Support\Facades\DB::transaction(function () use ($plan) {
+            $copy = $plan->replicate(['slug', 'is_active', 'deleted_at']);
+            $copy->name = $plan->name.' (copy)';
+            $copy->slug = $this->uniqueSlug($copy->name);
+            $copy->is_active = false;
+            $copy->save();
+
+            foreach ($plan->entitlements()->with('targets')->get() as $entitlement) {
+                $newEntitlement = $entitlement->replicate();
+                $newEntitlement->plan_id = $copy->id;
+                $newEntitlement->save();
+
+                foreach ($entitlement->targets as $target) {
+                    $newTarget = $target->replicate();
+                    $newTarget->plan_entitlement_id = $newEntitlement->id;
+                    $newTarget->save();
+                }
+            }
+
+            return $copy->fresh();
+        });
+    }
+
     public function addEntitlement(Plan $plan, array $data): PlanEntitlement
     {
         $data['plan_id'] = $plan->id;
