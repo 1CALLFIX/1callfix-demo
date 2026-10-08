@@ -115,7 +115,11 @@
                          | renders as a non-clickable panel.
                          */
                         $href = null;
-                        if (filled($banner->link)) {
+                        if (blank($banner->link)) {
+                            // No destination set in admin: send the click to the
+                            // services page rather than leaving a dead banner.
+                            $href = route('customer.services.index');
+                        } else {
                             $scheme = parse_url($banner->link, PHP_URL_SCHEME);
                             if ($scheme === null || in_array(strtolower((string) $scheme), ['http', 'https', 'mailto', 'tel'], true)) {
                                 $href = $banner->link;
