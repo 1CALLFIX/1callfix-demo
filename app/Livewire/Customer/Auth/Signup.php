@@ -14,6 +14,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
 use Livewire\Attributes\Locked;
 use Livewire\Attributes\On;
+use App\Livewire\Customer\Concerns\RedirectsAfterLogin;
 use Livewire\Component;
 
 /**
@@ -39,6 +40,8 @@ use Livewire\Component;
  */
 class Signup extends Component
 {
+    use RedirectsAfterLogin;
+
     use InteractsWithAuthThrottle;
 
     /** phone | verify_phone | details */
@@ -271,7 +274,7 @@ class Signup extends Component
         Auth::guard('web')->login($user);
         session()->regenerate();
 
-        $this->redirectRoute('customer.home', navigate: true);
+        $this->redirectAfterLogin();
     }
 
     public function render()

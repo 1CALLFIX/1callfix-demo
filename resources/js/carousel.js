@@ -146,6 +146,15 @@ function initCarousel(root) {
      * which is what makes a finger-swipe update the dots correctly.
      */
     const syncControls = (index = currentIndex()) => {
+        // Off-screen slides stay in the DOM (scroll-snap row) but must not
+        // count as visible content: hide them from assistive tech and
+        // automated readers, and take their links out of the tab order.
+        slides.forEach((slide, i) => {
+            const isCurrent = i === index;
+            slide.setAttribute('aria-hidden', isCurrent ? 'false' : 'true');
+            slide.toggleAttribute('inert', !isCurrent);
+        });
+
         dots.forEach((dot, i) => {
             const isCurrent = i === index;
             dot.setAttribute('aria-current', isCurrent ? 'true' : 'false');

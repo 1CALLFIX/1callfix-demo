@@ -109,6 +109,51 @@ class ServiceShow extends Component
         $this->serviceId = $service->id;
         $this->preselectRequiredGroups($service);
         $this->loadExistingCartLine();
+        $this->replayPendingAdd();
+    }
+
+    private static function pendingKey(int $serviceId): string
+    {
+        return 'pending_cart_add.'.$serviceId;
+    }
+
+    /**
+     * A guest pressed "Add to cart", signed in, and landed back here: apply
+     * exactly what they staged (quantity, slot, note, options) and add it,
+     * so the cart holds their real selection rather than defaults.
+     */
+    private function replayPendingAdd(): void
+    {
+        if (! auth()->check()) {
+            return;
+        }
+
+        $pending = session()->pull(self::pendingKey($this->serviceId));
+        if (! is_array($pending)) {
+            return;
+        }
+
+        // The line this replaces (if any) is the one the guest never saw.
+        $this->cartItemId = null;
+        $this->quantity = max(1, min(ServiceCartService::MAX_QUANTITY, (int) ($pending['quantity'] ?? 1)));
+        $this->preferredAt = (string) ($pending['preferredAt'] ?? '');
+        $this->customerNote = (string) ($pending['note'] ?? '');
+
+        $groups = $this->groups()->keyBy('id');
+        foreach ((array) ($pending['selected'] ?? []) as $groupId => $value) {
+            $group = $groups->get((int) $groupId);
+            if (! $group) {
+                continue;
+            }
+            $valid = collect((array) $value)->map(fn ($id) => (int) $id)
+                ->filter(fn ($id) => $group->options->contains('id', $id))
+                ->values()->all();
+            if ($valid !== []) {
+                $this->selected[$group->id] = $group->allow_multiple ? $valid : $valid[0];
+            }
+        }
+
+        $this->addToCart(app(ServiceCartService::class));
     }
 
     public function incrementQuantity(): void
@@ -177,7 +222,18 @@ class ServiceShow extends Component
         $this->resetErrorBag();
 
         if (! auth()->check()) {
-            $this->redirectRoute('customer.login', ['intended' => \App\Support\Seo\PublicUrl::service(Service::findOrFail($this->serviceId))]);
+            // Stage what the guest entered; mount() replays it after sign-in.
+            session()->put(self::pendingKey($this->serviceId), [
+                'quantity' => $this->quantity,
+                'preferredAt' => $this->preferredAt,
+                'note' => $this->customerNote,
+                'selected' => $this->selected,
+            ]);
+
+            $intended = \App\Support\Seo\PublicUrl::service(Service::findOrFail($this->serviceId));
+            session()->put('customer.intended', parse_url($intended, PHP_URL_PATH) ?: '/');
+
+            $this->redirectRoute('customer.login', ['intended' => $intended]);
 
             return;
         }
