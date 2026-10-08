@@ -10,6 +10,8 @@
     'rawTitle' => false,
     // Structured data blocks (arrays) for this page, rendered as JSON-LD.
     'schema' => [],
+    // A page with its own top bar (the partner page) drops the customer search header and mobile bottom nav. The footer stays.
+    'minimalChrome' => false,
 ])
 
 @php
@@ -120,7 +122,9 @@
          hidden until focused — see .skip-link in resources/css/app.css. --}}
     <a href="#customer-main" class="skip-link">Skip to main content</a>
 
-    <x-customer.header />
+    @unless ($minimalChrome)
+        <x-customer.header />
+    @endunless
 
     <main id="customer-main" tabindex="-1" class="flex-1 focus:outline-none">
         {{ $slot }}
@@ -130,7 +134,9 @@
 
     {{-- Mobile-only sticky navigation. Last in source order because it is
          fixed-position chrome, not document content. --}}
-    <x-customer.bottom-nav />
+    @unless ($minimalChrome)
+        <x-customer.bottom-nav />
+    @endunless
 
     @livewireScripts
     {{-- Auth screens push the Firebase JS SDK bundle here so it loads only

@@ -250,13 +250,15 @@ Route::get('/sitemap-{city}.xml', [\App\Http\Controllers\Customer\SitemapControl
 Route::get('/privacy-policy', [PageController::class, 'privacy']);
 Route::get('/terms-and-conditions', [PageController::class, 'terms']);
 
-// Partner ("For professionals") landing page. Lives at the /coming-soon/*
-// path it historically pointed at, but is now a real page — a hero, the
-// admin-managed benefits list (partner_benefits, edited from Website / CMS),
-// a "how it works" walkthrough of the actual registration flow, and a CTA
-// into /provider/register. Declared BEFORE the {feature} wildcard below so
-// it wins the match; 'partners' has been dropped from COMING_SOON_FEATURES.
-Route::get('/coming-soon/partners', [PageController::class, 'partners'])->name('customer.partners');
+// REF 1CF-PARTNER-PAGE-001: the public partner page lives at /partners. The older and alternative addresses
+// (/coming-soon/partners, /join, /become-a-partner, /work-with-us) permanently 301 to it, query string kept (UTM
+// survives). Code-only redirects: declared BEFORE the {feature} wildcard and the /{city} routes below so no city or
+// CMS slug can ever shadow them; ReservedSlugs reads the live route list, so none of these words can become a city,
+// category or service slug.
+Route::get('/partners', [PageController::class, 'partners'])->name('customer.partners');
+foreach (['/coming-soon/partners', '/join', '/become-a-partner', '/work-with-us'] as $legacyPartnerPath) {
+    Route::get($legacyPartnerPath, [PageController::class, 'partnersMoved']);
+}
 
 // Honest placeholder for every destination whose real screen lands in a
 // later phase. Whitelisted to known feature keys so it can never render an
