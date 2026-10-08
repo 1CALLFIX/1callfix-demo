@@ -37,6 +37,23 @@ class BannerCarouselIntervalTest extends TestCase
             ->assertSee('data-carousel-interval="3500"', false);
     }
 
+    public function test_a_banner_without_a_link_falls_back_to_the_services_page(): void
+    {
+        $banners = collect([$this->makeBanner('top', ['title' => 'No link', 'link' => null])]);
+
+        $this->blade('<x-customer.banner-carousel :banners="$banners" id="x" />', compact('banners'))
+            ->assertSee('href="'.route('customer.services.index').'"', false);
+    }
+
+    public function test_an_explicit_banner_link_beats_the_fallback(): void
+    {
+        $banners = collect([$this->makeBanner('top', ['title' => 'Linked', 'link' => '/categories'])]);
+
+        $this->blade('<x-customer.banner-carousel :banners="$banners" id="x" />', compact('banners'))
+            ->assertSee('href="/categories"', false)
+            ->assertDontSee('href="'.route('customer.services.index').'"', false);
+    }
+
     public function test_no_interval_prop_leaves_the_component_on_the_js_default(): void
     {
         $banners = collect([

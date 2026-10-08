@@ -14,6 +14,7 @@ use App\Support\PhoneNumber;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Locked;
 use Livewire\Attributes\On;
+use App\Livewire\Customer\Concerns\RedirectsAfterLogin;
 use Livewire\Component;
 
 /**
@@ -32,6 +33,8 @@ use Livewire\Component;
  */
 class GoogleAuth extends Component
 {
+    use RedirectsAfterLogin;
+
     use ChecksAccountSuspension;
     use InteractsWithAuthThrottle;
 
@@ -89,7 +92,7 @@ class GoogleAuth extends Component
             Auth::guard('web')->login($linked);
             session()->regenerate();
             session()->forget('auth.google');
-            $this->redirectRoute('customer.home', navigate: true);
+            $this->redirectAfterLogin();
 
             return;
         }
@@ -222,7 +225,7 @@ class GoogleAuth extends Component
         Auth::guard('web')->login($user);
         session()->regenerate();
 
-        $this->redirectRoute('customer.home', navigate: true);
+        $this->redirectAfterLogin();
     }
 
     public function render()

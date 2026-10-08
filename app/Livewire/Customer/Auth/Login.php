@@ -10,6 +10,7 @@ use App\Services\Auth\CustomerAccountResolver;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Livewire\Attributes\On;
+use App\Livewire\Customer\Concerns\RedirectsAfterLogin;
 use Livewire\Component;
 
 /**
@@ -31,6 +32,8 @@ use Livewire\Component;
  */
 class Login extends Component
 {
+    use RedirectsAfterLogin;
+
     use ChecksAccountSuspension;
     use InteractsWithAuthThrottle;
 
@@ -44,8 +47,10 @@ class Login extends Component
 
     public function mount(): void
     {
+        $this->rememberIntended(request()->query('intended'));
+
         if (Auth::guard('web')->check()) {
-            $this->redirectRoute('customer.home', navigate: true);
+            $this->redirectAfterLogin();
         }
     }
 
@@ -95,7 +100,7 @@ class Login extends Component
         Auth::guard('web')->login($user);
         session()->regenerate();
 
-        $this->redirectRoute('customer.home', navigate: true);
+        $this->redirectAfterLogin();
     }
 
     #[On('firebase-error')]
@@ -149,7 +154,7 @@ class Login extends Component
             $accounts->linkFirebaseIdentity($linked, $identity);
             Auth::guard('web')->login($linked);
             session()->regenerate();
-            $this->redirectRoute('customer.home', navigate: true);
+            $this->redirectAfterLogin();
 
             return;
         }

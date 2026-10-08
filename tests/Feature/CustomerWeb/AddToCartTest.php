@@ -38,6 +38,29 @@ class AddToCartTest extends TestCase
         $this->assertSame(0, ServiceCartItem::count());
     }
 
+    public function test_a_guests_staged_quantity_time_and_note_survive_sign_in(): void
+    {
+        $service = $this->makeService($this->makeCategory());
+        $when = now()->addDays(2)->setTime(10, 30)->format('Y-m-d\TH:i');
+
+        Livewire::test(ServiceShow::class, ['service' => $service])
+            ->set('quantity', 2)
+            ->set('preferredAt', $when)
+            ->set('customerNote', 'Please call before arrival.')
+            ->call('addToCart');
+
+        $this->assertSame(0, ServiceCartItem::count());
+
+        // Same session, now signed in: landing back on the service page replays the add.
+        $customer = $this->makeCustomer();
+        Livewire::actingAs($customer)->test(ServiceShow::class, ['service' => $service]);
+
+        $item = ServiceCartItem::where('user_id', $customer->id)->sole();
+        $this->assertSame(2, $item->quantity);
+        $this->assertSame('Please call before arrival.', $item->customer_note);
+        $this->assertNotNull($item->scheduled_at);
+    }
+
     public function test_an_authed_customer_adds_a_line_with_a_preferred_time(): void
     {
         $customer = $this->makeCustomer();
