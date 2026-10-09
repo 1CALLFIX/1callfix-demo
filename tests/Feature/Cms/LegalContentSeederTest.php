@@ -23,7 +23,8 @@ class LegalContentSeederTest extends TestCase
     {
         $this->seed(LegalContentSeeder::class);
 
-        $this->assertDatabaseCount('content_pages', 2);
+        // The About / Contact / Refund drafts come from a migration; count only the legal rows.
+        $this->assertSame(2, ContentPage::whereIn('slug', ['privacy-policy', 'terms-and-conditions'])->count());
 
         $privacy = ContentPage::where('slug', 'privacy-policy')->first();
         $terms = ContentPage::where('slug', 'terms-and-conditions')->first();
@@ -45,7 +46,8 @@ class LegalContentSeederTest extends TestCase
         $this->seed(LegalContentSeeder::class);
         $this->seed(LegalContentSeeder::class);
 
-        $this->assertDatabaseCount('content_pages', 2);
+        // The About / Contact / Refund drafts come from a migration; count only the legal rows.
+        $this->assertSame(2, ContentPage::whereIn('slug', ['privacy-policy', 'terms-and-conditions'])->count());
     }
 
     public function test_skips_a_page_without_seeding_a_placeholder_when_its_source_file_is_missing(): void
@@ -58,7 +60,7 @@ class LegalContentSeederTest extends TestCase
         try {
             $this->seed(LegalContentSeeder::class);
 
-            $this->assertDatabaseCount('content_pages', 1);
+            $this->assertSame(1, ContentPage::whereIn('slug', ['privacy-policy', 'terms-and-conditions'])->count());
             $this->assertDatabaseMissing('content_pages', ['slug' => 'privacy-policy']);
             $this->assertDatabaseHas('content_pages', ['slug' => 'terms-and-conditions']);
         } finally {
