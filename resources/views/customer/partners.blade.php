@@ -40,8 +40,9 @@ body:has(.pp) footer{margin-bottom:0}
 .pp .hero{background:var(--navy);color:#fff;overflow:hidden}
 .pp .top{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:16px;padding-block:22px}
 .pp .logo{display:flex;align-items:center;gap:10px;text-decoration:none;color:#fff}
-.pp .logo i{display:flex;align-items:center;justify-content:center;width:38px;height:38px;border-radius:11px;background:var(--accent);color:var(--navy);font-weight:800;font-size:22px;font-style:normal}
-.pp .logo b{font-size:22px}.pp .logo span{font-weight:500;font-size:15px;color:var(--sky)}
+.pp .logo .chip-logo{display:flex;align-items:center;gap:8px;background:#fff;border-radius:12px;padding:4px 12px 4px 6px;min-height:44px}
+.pp .logo .tag{font-weight:500;font-size:15px;color:var(--sky)}
+.pp .logo:focus-visible{outline:3px solid var(--accent);outline-offset:3px;border-radius:12px}
 .pp .nav{display:flex;flex-wrap:wrap;gap:6px 26px}
 .pp .nav a{color:var(--mist);text-decoration:none;font-weight:500;font-size:15px;padding:10px 0}
 .pp .hero-grid{display:flex;flex-wrap:wrap;align-items:center;gap:56px 64px;padding-block:48px 72px}
@@ -153,7 +154,7 @@ body:has(.pp) footer{margin-bottom:0}
     {{-- Hero with its own partner bar --}}
     <section class="hero" id="top"><div class="wrap">
         <div class="top">
-            <a class="logo" href="#top"><i aria-hidden="true">1</i><b>1CallFix</b><span>Partners</span></a>
+            <a class="logo" href="{{ route('customer.home') }}" aria-label="Home"><span class="chip-logo"><x-customer.brand-mark img-class="h-9 w-9" /></span><span class="tag">Partners</span></a>
             <nav class="nav" aria-label="Page sections">
                 @if ($roles !== []) <a href="#roles">Roles</a> @endif
                 @if ($steps !== [] || $needs !== []) <a href="#how">How it works</a> @endif
