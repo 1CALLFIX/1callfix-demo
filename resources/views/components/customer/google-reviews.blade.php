@@ -5,6 +5,9 @@
 --}}
 @php
     $google = app(\App\Services\Reviews\GoogleReviews::class)->display();
+
+    // The Facebook page the owner already manages as a footer social link (Settings → Platform / Branding).
+    $facebook = collect(\App\Models\SocialMediaLink::footerLinks())->firstWhere('platform', 'facebook')['url'] ?? null;
 @endphp
 
 @if ($google)
@@ -29,6 +32,10 @@
                     @if ($google['url'])
                         <a href="{{ $google['url'] }}" target="_blank" rel="noopener nofollow"
                            class="font-semibold text-blue-700 underline-offset-2 hover:underline">See all reviews on Google</a>
+                    @endif
+                    @if ($facebook)
+                        <a href="{{ $facebook }}" target="_blank" rel="noopener nofollow"
+                           class="rounded-lg border border-slate-300 bg-white px-3 py-2 font-semibold text-slate-800 hover:bg-slate-100">Follow us on Facebook</a>
                     @endif
                     @if ($google['write_url'])
                         <a href="{{ $google['write_url'] }}" target="_blank" rel="noopener nofollow"

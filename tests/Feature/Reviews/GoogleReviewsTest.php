@@ -81,6 +81,20 @@ class GoogleReviewsTest extends TestCase
             ->assertDontSee('Noor');           // empty text is never shown
     }
 
+    public function test_the_facebook_follow_button_uses_the_footer_social_link_and_hides_without_one(): void
+    {
+        $this->enable();
+        $this->fakeGoogle();
+        app(G::class)->refresh(true);
+
+        $this->get('/')->assertOk()->assertDontSee('Follow us on Facebook');
+
+        \App\Models\SocialMediaLink::updateOrCreate(['platform' => 'facebook'], ['profile_url' => 'https://www.facebook.com/1CallFix/']);
+        \App\Models\SocialMediaLink::forgetCache();
+
+        $this->get('/')->assertOk()->assertSee('Follow us on Facebook')->assertSee('https://www.facebook.com/1CallFix/', false);
+    }
+
     public function test_the_minimum_and_the_count_are_admin_settings(): void
     {
         $this->enable([G::MIN_RATING => 1, G::MAX => 1]);
