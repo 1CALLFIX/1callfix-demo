@@ -11,6 +11,17 @@
 
     @php $input = 'w-full border rounded px-3 py-2 text-sm'; @endphp
 
+    <x-ui.card class="mb-6">
+        <h2 class="text-sm font-semibold mb-2">Readiness for "Required"</h2>
+        <div class="grid gap-3 sm:grid-cols-4 text-sm">
+            <div><p class="text-xs text-gray-500">Approved providers</p><p class="text-xl font-bold">{{ $readiness['total'] }}</p></div>
+            <div><p class="text-xs text-gray-500">Have chosen a shift</p><p class="text-xl font-bold">{{ $readiness['with_shift'] }}</p></div>
+            <div><p class="text-xs text-gray-500">Not chosen yet</p><p class="text-xl font-bold">{{ $readiness['without_shift'] }}</p></div>
+            <div><p class="text-xs text-gray-500">Ready</p><p class="text-xl font-bold {{ $readiness['percent'] >= (int) $requiredMinPercent ? 'text-green-700' : 'text-amber-700' }}">{{ $readiness['percent'] }}%</p></div>
+        </div>
+        <p class="text-xs text-gray-500 mt-2">Required mode will only save once at least {{ (int) $requiredMinPercent }}% of approved providers have chosen a shift and there is at least one active shift. Stay on Reminder until then.</p>
+    </x-ui.card>
+
     <form wire:submit="saveSettings" class="space-y-6 mb-8">
         <x-ui.card>
             <h2 class="text-sm font-semibold mb-3">Online rules</h2>
@@ -41,6 +52,11 @@
                     <p class="text-xs text-gray-500 mt-1">Required mode only: how long a provider may stay online after their shift ends, so a job in progress is not cut off.</p>
                     @error('graceMinutes') <p class="text-xs text-red-600 mt-1">{{ $message }}</p> @enderror
                 </div>
+            </div>
+            <div class="mt-4 md:w-1/2">
+                <label class="block text-sm font-medium mb-1" for="av-minpct">Required needs at least this % of providers to have chosen a shift</label>
+                <input id="av-minpct" type="number" min="0" max="100" wire:model="requiredMinPercent" class="{{ $input }}">
+                @error('requiredMinPercent') <p class="text-xs text-red-600 mt-1">{{ $message }}</p> @enderror
             </div>
             @if ($mode === 'required' && $shifts->where('is_active', true)->isEmpty())
                 <p class="mt-3 text-sm text-amber-700">Required mode with no active shifts means nobody can go online. Add a shift below first.</p>

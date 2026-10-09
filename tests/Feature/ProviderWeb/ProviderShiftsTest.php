@@ -247,9 +247,11 @@ class ProviderShiftsTest extends TestCase
     public function test_the_admin_saves_settings_and_manages_shifts_with_an_audit_trail(): void
     {
         $admin = $this->makeSuperAdmin();
+        $this->shift('Existing', '08:00', '14:00');
 
         Livewire::actingAs($admin)->test(Availability::class)
             ->set('staleMinutes', '15')->set('mode', 'required')->set('reminderMinutes', '5')->set('graceMinutes', '20')
+            ->set('requiredMinPercent', '0')
             ->call('saveSettings')->assertHasNoErrors();
 
         $this->assertSame(15, ShiftSchedule::staleMinutes());
@@ -261,7 +263,7 @@ class ProviderShiftsTest extends TestCase
             ->set('shiftName', 'Morning')->set('shiftStart', '08:00')->set('shiftEnd', '14:00')->set('shiftDays', ['1', '2', '3'])
             ->call('saveShift')->assertHasNoErrors();
 
-        $shift = ProviderShift::sole();
+        $shift = ProviderShift::where('name', 'Morning')->sole();
         $this->assertSame([1, 2, 3], $shift->days);
         $this->assertTrue(ActivityLog::where('description', 'like', 'Provider shift created: Morning%')->exists());
 
@@ -270,7 +272,58 @@ class ProviderShiftsTest extends TestCase
         $this->assertSame('15:00', $shift->fresh()->end_time);
 
         Livewire::actingAs($admin)->test(Availability::class)->call('deleteShift', $shift->id);
-        $this->assertSame(0, ProviderShift::count());
+        $this->assertSame(1, ProviderShift::count());   // only the pre-existing shift is left
+    }
+
+    public function test_required_mode_will_not_save_without_an_active_shift(): void
+    {
+        Livewire::actingAs($this->makeSuperAdmin())->test(Availability::class)
+            ->set('mode', 'required')->set('requiredMinPercent', '0')
+            ->call('saveSettings')->assertHasErrors('mode');
+
+        $this->assertSame('off', ShiftSchedule::mode());
+    }
+
+    public function test_required_mode_will_not_save_until_enough_providers_have_chosen_a_shift(): void
+    {
+        $shift = $this->shift('Morning', '08:00', '14:00');
+        $admin = $this->makeSuperAdmin();
+
+        // The one approved provider has not chosen a shift: 0% < 80%.
+        Livewire::actingAs($admin)->test(Availability::class)
+            ->set('mode', 'required')->set('requiredMinPercent', '80')
+            ->call('saveSettings')->assertHasErrors('mode');
+        $this->assertSame('off', ShiftSchedule::mode());
+        $this->assertSame(0, ShiftSchedule::readiness()['percent']);
+
+        // Once they choose one, readiness is 100% and it saves.
+        $this->choose($shift);
+        $this->assertSame(100, ShiftSchedule::readiness()['percent']);
+
+        Livewire::actingAs($admin)->test(Availability::class)
+            ->set('mode', 'required')->set('requiredMinPercent', '80')
+            ->call('saveSettings')->assertHasNoErrors();
+        $this->assertSame('required', ShiftSchedule::mode());
+    }
+
+    public function test_the_readiness_check_only_applies_when_switching_into_required(): void
+    {
+        $this->shift('Morning', '08:00', '14:00');
+        Setting::set(ShiftSchedule::MODE, 'required');
+
+        // Already required: saving other settings must not be blocked by the readiness check.
+        Livewire::actingAs($this->makeSuperAdmin())->test(Availability::class)
+            ->set('graceMinutes', '30')->call('saveSettings')->assertHasNoErrors();
+
+        $this->assertSame(30, ShiftSchedule::graceMinutes());
+    }
+
+    public function test_inactive_or_unapproved_providers_are_not_counted_in_readiness(): void
+    {
+        $this->provider->update(['kyc_status' => 'pending']);
+
+        $this->assertSame(0, ShiftSchedule::readiness()['total']);
+        $this->assertSame(100, ShiftSchedule::readiness()['percent']);
     }
 
     public function test_the_admin_screen_rejects_bad_times_and_out_of_range_numbers(): void

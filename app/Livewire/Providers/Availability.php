@@ -21,6 +21,7 @@ class Availability extends Component
     public string $mode = 'off';
     public string $reminderMinutes = '10';
     public string $graceMinutes = '15';
+    public string $requiredMinPercent = '80';
 
     public ?int $editingId = null;
     public string $shiftName = '';
@@ -40,6 +41,7 @@ class Availability extends Component
         $this->mode = S::mode();
         $this->reminderMinutes = (string) S::reminderMinutes();
         $this->graceMinutes = (string) S::graceMinutes();
+        $this->requiredMinPercent = (string) S::requiredMinPercent();
     }
 
     public function saveSettings(): void
@@ -51,11 +53,29 @@ class Availability extends Component
             'mode' => ['required', 'in:'.implode(',', S::MODES)],
             'reminderMinutes' => ['required', 'integer', 'between:0,240'],
             'graceMinutes' => ['required', 'integer', 'between:0,240'],
-        ], [], ['staleMinutes' => 'auto-offline minutes', 'reminderMinutes' => 'reminder minutes', 'graceMinutes' => 'grace minutes']);
+            'requiredMinPercent' => ['required', 'integer', 'between:0,100'],
+        ], [], ['requiredMinPercent' => 'minimum % of providers', 'staleMinutes' => 'auto-offline minutes', 'reminderMinutes' => 'reminder minutes', 'graceMinutes' => 'grace minutes']);
+
+        // Safety check: switching INTO required mode needs active shifts and enough providers who have chosen one,
+        // otherwise most providers would be locked out the moment it is saved.
+        if ($this->mode === 'required' && S::mode() !== 'required') {
+            $r = S::readiness();
+            if ($r['active_shifts'] === 0) {
+                $this->addError('mode', 'Add at least one active shift before switching to Required.');
+
+                return;
+            }
+            if ($r['percent'] < (int) $this->requiredMinPercent) {
+                $this->addError('mode', "Only {$r['percent']}% of approved providers ({$r['with_shift']} of {$r['total']}) have chosen a shift; Required needs at least {$this->requiredMinPercent}%. Stay on Reminder until more have chosen.");
+
+                return;
+            }
+        }
 
         $admin = auth()->user();
         $changed = false;
         foreach ([
+            S::REQUIRED_MIN_PERCENT => (string) (int) $this->requiredMinPercent,
             S::STALE_MINUTES => (string) (int) $this->staleMinutes,
             S::MODE => $this->mode,
             S::REMINDER_MINUTES => (string) (int) $this->reminderMinutes,
@@ -159,6 +179,7 @@ class Availability extends Component
     public function render()
     {
         return view('livewire.providers.availability', [
+            'readiness' => S::readiness(),
             'shifts' => ProviderShift::query()->withCount('providers')->orderBy('sort_order')->orderBy('id')->get(),
             'dayNames' => ProviderShift::DAY_NAMES,
         ])->layout('layouts.admin', ['title' => 'Availability & shifts']);

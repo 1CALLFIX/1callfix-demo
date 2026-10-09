@@ -27,6 +27,7 @@ class ShiftSchedule
     public const REMINDER_MINUTES = 'provider.shifts.reminder_minutes_before';
     public const GRACE_MINUTES = 'provider.shifts.grace_minutes';
     public const STALE_MINUTES = 'provider.location_stale_after_minutes';
+    public const REQUIRED_MIN_PERCENT = 'provider.shifts.required_min_percent';
 
     public const MODES = ['off', 'reminder', 'required'];
 
@@ -55,6 +56,33 @@ class ShiftSchedule
     {
         // Same floor as the dispatcher's own reading of this setting, so the two can never disagree.
         return max(1, min(1440, (int) Setting::get(self::STALE_MINUTES, 30)));
+    }
+
+    /** Required mode refuses to switch on until at least this % of approved providers have chosen a shift. */
+    public static function requiredMinPercent(): int
+    {
+        return max(0, min(100, (int) Setting::get(self::REQUIRED_MIN_PERCENT, 80)));
+    }
+
+    /**
+     * Readiness for "required" mode: of the approved, active providers (the same pool dispatch uses), how many have
+     * chosen at least one active shift.
+     *
+     * @return array{total: int, with_shift: int, without_shift: int, percent: int, active_shifts: int}
+     */
+    public static function readiness(): array
+    {
+        $pool = Provider::query()->where('is_active', true)->where('kyc_status', 'approved');
+        $total = (clone $pool)->count();
+        $with = (clone $pool)->whereHas('shifts', fn ($q) => $q->where('provider_shifts.is_active', true))->count();
+
+        return [
+            'total' => $total,
+            'with_shift' => $with,
+            'without_shift' => $total - $with,
+            'percent' => $total === 0 ? 100 : (int) floor($with * 100 / $total),
+            'active_shifts' => ProviderShift::where('is_active', true)->count(),
+        ];
     }
 
     public static function isValidTime(string $value): bool
