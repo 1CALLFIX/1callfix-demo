@@ -150,6 +150,41 @@ final class SeoSettings
     }
 
     /**
+     * Structured data for one service page: Service + Offer (real price), AggregateRating only when real reviews
+     * exist, and a BreadcrumbList.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public static function serviceSchema(string $name, ?string $description, ?string $imageUrl, string $url, float $price, ?array $rating): array
+    {
+        $base = Seo::canonicalBase();
+        $service = array_filter([
+            '@context' => 'https://schema.org', '@type' => 'Service', 'name' => $name, 'url' => $url,
+            'description' => $description,
+            'image' => $imageUrl ? Seo::absoluteUrl($imageUrl) : null,
+            'provider' => ['@type' => 'Organization', 'name' => self::business()['legal_name'] ?? self::siteName(), 'url' => $base.'/'],
+            'areaServed' => self::business()['city'] ?? null,
+        ], fn ($v) => $v !== null && $v !== '');
+
+        if ($price > 0) {
+            $service['offers'] = ['@type' => 'Offer', 'price' => number_format($price, 2, '.', ''), 'priceCurrency' => 'INR', 'url' => $url, 'availability' => 'https://schema.org/InStock'];
+        }
+
+        // Only ever real review data — never an invented rating.
+        if ($rating && ($rating['count'] ?? 0) > 0) {
+            $service['aggregateRating'] = ['@type' => 'AggregateRating', 'ratingValue' => round((float) $rating['average'], 1), 'reviewCount' => (int) $rating['count']];
+        }
+
+        $crumbs = ['@context' => 'https://schema.org', '@type' => 'BreadcrumbList', 'itemListElement' => [
+            ['@type' => 'ListItem', 'position' => 1, 'name' => 'Home', 'item' => $base.'/'],
+            ['@type' => 'ListItem', 'position' => 2, 'name' => 'Services', 'item' => $base.'/services'],
+            ['@type' => 'ListItem', 'position' => 3, 'name' => $name, 'item' => $url],
+        ]];
+
+        return [$service, $crumbs];
+    }
+
+    /**
      * Structured data for the home page: Organization and WebSite always; LocalBusiness only when the business
      * details are complete. Built from the settings above, never from guesses.
      *

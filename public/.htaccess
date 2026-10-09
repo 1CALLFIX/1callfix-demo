@@ -18,8 +18,16 @@
     RewriteCond %{REQUEST_URI} (.+)/$
     RewriteRule ^ %1 [L,R=301]
 
+    # Speed: Vite build files carry a content hash in their name, so they can be cached
+    # for a year and never revalidated. Only /build/assets/ — never manifest.json.
+    RewriteRule ^build/assets/ - [E=ONECF_IMMUTABLE_ASSET:1]
+
     # Send Requests To Front Controller...
     RewriteCond %{REQUEST_FILENAME} !-d
     RewriteCond %{REQUEST_FILENAME} !-f
     RewriteRule ^ index.php [L]
+</IfModule>
+
+<IfModule mod_headers.c>
+    Header set Cache-Control "public, max-age=31536000, immutable" env=ONECF_IMMUTABLE_ASSET
 </IfModule>

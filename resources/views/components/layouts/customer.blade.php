@@ -98,7 +98,12 @@
          tool, and a material first-paint cost on a consumer-facing page. --}}
     {{-- push-notifications.js: FCM web token registration (Phase 2). Inert
          no-op unless VITE_FIREBASE_* + VITE_FIREBASE_VAPID_KEY are built in. --}}
-    @vite(['resources/css/app.css', 'resources/js/app.js', 'resources/js/push-notifications.js'])
+    @vite(['resources/css/app.css', 'resources/js/app.js'])
+    {{-- Speed: the Firebase push bundle (~55 KB) is only useful to a signed-in
+         customer, so a guest — most first visits — never downloads it. --}}
+    @auth
+        @vite(['resources/js/push-notifications.js'])
+    @endauth
     @livewireStyles
 
     {{-- 1CF-HOMESCREEN-UX-001: the SAME browser key config('services.google_maps.key')
