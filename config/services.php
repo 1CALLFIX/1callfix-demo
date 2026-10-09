@@ -23,6 +23,11 @@ return [
     'key_secret' => env('RAZORPAY_KEY_SECRET'),
     'webhook_secret' => env('RAZORPAY_WEBHOOK_SECRET'),
 	],
+    // Server-side key for the Google Business reviews on the home page (Places API). Separate from the
+    // browser key above: this one must NOT be referrer-restricted. Settings live in Admin → Google reviews.
+    'google_places' => [
+        'key' => env('GOOGLE_PLACES_API_KEY'),
+    ],
     'google_maps' => [
         'key' => env('GOOGLE_MAPS_API_KEY'),
 
