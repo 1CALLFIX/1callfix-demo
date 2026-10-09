@@ -99,6 +99,8 @@ Route::middleware(['auth', \Illuminate\Session\Middleware\AuthenticateSession::c
         Route::get('/seo/city-content', SeoCityContent::class)->name('admin.seo.city-content');
         // Global SEO (site name template, home, modules, business details, verification): Super Admin only, checked in the component.
         Route::get('/seo/settings', \App\Livewire\Seo\Settings::class)->name('admin.seo.settings');
+        // HTTP security response headers: Super Admin only, checked in the component.
+        Route::get('/security/headers', \App\Livewire\Security\Headers::class)->name('admin.security.headers');
         // REF 1CF-PARTNER-PAGE-001: the public /partners page's words and lists. Permission partner_page.manage, checked in the component.
         Route::get('/partner-leads', \App\Livewire\PartnerPage\Leads::class)->name('admin.partner-leads.index');
         Route::get('/partner-page', \App\Livewire\PartnerPage\Settings::class)->name('admin.partner-page.settings');
