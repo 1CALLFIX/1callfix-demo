@@ -327,6 +327,14 @@ class ServiceShow extends Component
             'indexable' => $this->seoFor($service)['indexable'],
             'ogImage' => $service->cover_image_url,
             'metaDescription' => $this->seoFor($service)['metaDescription'],
+            'schema' => \App\Services\Seo\SeoSettings::serviceSchema(
+                $service->name,
+                $this->seoFor($service)['metaDescription'],
+                $service->cover_image_url,
+                \App\Support\Seo::canonicalUrl(),
+                (float) $card['price'],
+                $ratings->forService($service->id),
+            ),
         ]);
     }
 
