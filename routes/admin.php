@@ -100,6 +100,8 @@ Route::middleware(['auth', \Illuminate\Session\Middleware\AuthenticateSession::c
         // Global SEO (site name template, home, modules, business details, verification): Super Admin only, checked in the component.
         Route::get('/seo/settings', \App\Livewire\Seo\Settings::class)->name('admin.seo.settings');
         // HTTP security response headers: Super Admin only, checked in the component.
+        // Google Business reviews on the home page: Super Admin only, checked in the component.
+        Route::get('/reviews/google', \App\Livewire\Reviews\GoogleSettings::class)->name('admin.reviews.google');
         Route::get('/security/headers', \App\Livewire\Security\Headers::class)->name('admin.security.headers');
         // REF 1CF-PARTNER-PAGE-001: the public /partners page's words and lists. Permission partner_page.manage, checked in the component.
         Route::get('/partner-leads', \App\Livewire\PartnerPage\Leads::class)->name('admin.partner-leads.index');

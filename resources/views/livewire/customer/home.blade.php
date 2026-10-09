@@ -295,6 +295,9 @@
         </section>
     @endif
 
+    {{-- Real Google Business reviews (admin-controlled; renders nothing without fresh data). --}}
+    <x-customer.google-reviews />
+
     {{-- ===================== Trust / service quality =====================
          Deliberately qualitative. No counts, ratings or "10,000+ happy
          customers" figures appear anywhere on this page — there is no

@@ -31,6 +31,12 @@ ScheduleRunTracker::track(Schedule::command('campaigns:dispatch-due'), 'campaign
 // expired. Hourly is enough granularity for billing-period boundaries
 // (unlike campaign dispatch, which needs minute precision for scheduled
 // sends) -- see RenewalService. Same schedule:run cron caveat as above.
+// Google Business reviews for the home page. Hourly tick; the command itself only calls Google every
+// reviews.google.refresh_hours and does nothing while the feature is off. Same schedule:run cron caveat as above.
+ScheduleRunTracker::track(Schedule::command('google-reviews:refresh'), 'google-reviews:refresh')
+    ->hourly()
+    ->withoutOverlapping(10);
+
 ScheduleRunTracker::track(Schedule::command('plans:renew-due'), 'plans:renew-due')->hourly();
 
 // Referral Engine: expires pending referrals past their opt-in
