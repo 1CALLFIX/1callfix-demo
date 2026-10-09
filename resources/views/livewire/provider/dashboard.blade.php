@@ -44,6 +44,37 @@
         </div>
     </div>
 
+    {{-- ===================== Today at a glance ===================== --}}
+    <div class="mt-4 grid grid-cols-2 gap-3 lg:grid-cols-4" aria-label="Today at a glance">
+        <a href="{{ route('provider.history') }}" wire:navigate class="rounded-xl border border-slate-200 bg-white px-4 py-3 hover:border-blue-300">
+            <p class="text-xs text-slate-500">Jobs done today</p>
+            <p class="mt-1 text-2xl font-bold text-slate-900">{{ $summary['done_today'] }}</p>
+        </a>
+        <a href="{{ route('provider.earnings') }}" wire:navigate class="rounded-xl border border-slate-200 bg-white px-4 py-3 hover:border-blue-300">
+            <p class="text-xs text-slate-500">Earned today</p>
+            <p class="mt-1 text-2xl font-bold text-slate-900">₹{{ number_format($summary['earned_today'], 2) }}</p>
+        </a>
+        <a href="{{ route('provider.jobs.index') }}" wire:navigate class="rounded-xl border border-slate-200 bg-white px-4 py-3 hover:border-blue-300">
+            <p class="text-xs text-slate-500">Upcoming booked jobs</p>
+            <p class="mt-1 text-2xl font-bold text-slate-900">{{ $summary['upcoming'] }}</p>
+        </a>
+        @if ($summary['shift'])
+            @php $tzr = app(\App\Services\TimezoneResolver::class); @endphp
+            <a href="{{ route('provider.shifts') }}" wire:navigate class="rounded-xl border border-slate-200 bg-white px-4 py-3 hover:border-blue-300">
+                <p class="text-xs text-slate-500">Shift</p>
+                @if ($summary['shift']['current'])
+                    <p class="mt-1 text-sm font-bold text-slate-900">{{ $summary['shift']['current']['shift']->name }}</p>
+                    <p class="text-xs text-slate-600">until {{ $tzr->format($summary['shift']['current']['end'], $summary['franchise'], 'h:i A') }}</p>
+                @elseif ($summary['shift']['next'])
+                    <p class="mt-1 text-sm font-bold text-slate-900">Next: {{ $summary['shift']['next']['shift']->name }}</p>
+                    <p class="text-xs text-slate-600">{{ $tzr->format($summary['shift']['next']['start'], $summary['franchise'], 'D, h:i A') }}</p>
+                @else
+                    <p class="mt-1 text-sm font-bold text-blue-700">Choose your shifts →</p>
+                @endif
+            </a>
+        @endif
+    </div>
+
     {{-- ===================== Online / offline ===================== --}}
     <x-ui.card class="mt-4 !p-5">
         <div class="flex items-center justify-between gap-4">

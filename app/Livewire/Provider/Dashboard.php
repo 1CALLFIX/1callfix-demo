@@ -43,7 +43,13 @@ class Dashboard extends Component
         // real offline → online flip needs to tell the sibling components.
         $wasOnline = (bool) $this->provider()->is_online;
 
-        app(SetProviderOnlineStatusAction::class)->execute($this->provider(), true, $lat, $lng);
+        try {
+            app(SetProviderOnlineStatusAction::class)->execute($this->provider(), true, $lat, $lng);
+        } catch (\App\Exceptions\ShiftRequiredException $e) {
+            $this->error = $e->getMessage();
+
+            return;
+        }
 
         $this->notice = ($lat !== null && $lng !== null)
             ? "You're online."
@@ -71,6 +77,34 @@ class Dashboard extends Component
     #[On(self::AVAILABILITY_EVENT)]
     public function syncAvailability(): void
     {
+    }
+
+    /**
+     * The at-a-glance strip: how today is going. "Today" starts at local midnight in the provider's own city, and
+     * earnings are the same per-job `provider_commission` the Earnings page lists — nothing is recomputed here.
+     *
+     * @return array{done_today: int, earned_today: float, upcoming: int, shift: ?array, shift_mode: string, franchise: mixed}
+     */
+    private function summary(\App\Models\Provider $provider): array
+    {
+        $provider->loadMissing('franchise.country');
+        $tz = app(\App\Services\TimezoneResolver::class)->timezoneFor($provider->franchise);
+        $dayStart = now($tz)->startOfDay()->utc();
+
+        $completedToday = fn ($q) => $q->where('provider_id', $provider->id)->where('status', 'completed')->where('completed_at', '>=', $dayStart);
+
+        $schedule = app(\App\Services\Providers\ShiftSchedule::class);
+        $mode = \App\Services\Providers\ShiftSchedule::mode();
+
+        return [
+            'done_today' => Booking::query()->where($completedToday)->count(),
+            'earned_today' => (float) \App\Models\Commission::query()->whereHas('booking', $completedToday)->sum('provider_commission'),
+            'upcoming' => Booking::query()->where('provider_id', $provider->id)->where('status', 'assigned')
+                ->whereNotNull('scheduled_at')->where('scheduled_at', '>', now())->count(),
+            'shift_mode' => $mode,
+            'shift' => $mode === 'off' ? null : ['current' => $schedule->current($provider), 'next' => $schedule->next($provider)],
+            'franchise' => $provider->franchise,
+        ];
     }
 
     public function render()
@@ -103,6 +137,7 @@ class Dashboard extends Component
         $this->dispatch('provider-alert-offers', count: $pendingOffers, offers: $this->offerAlertSummaries($liveOffers, $window));
 
         return view('livewire.provider.dashboard', [
+            'summary' => $this->summary($provider),
             'provider' => $provider,
             'checks' => $checks,
             'dispatchBlocked' => $this->dispatchBlocked($checks),

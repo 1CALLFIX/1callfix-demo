@@ -32,6 +32,7 @@ use App\Livewire\Provider\Auth\Register as ProviderRegister;
 use App\Livewire\Provider\Dashboard as ProviderDashboard;
 use App\Livewire\Provider\Earnings as ProviderEarnings;
 use App\Livewire\Provider\History as ProviderHistory;
+use App\Livewire\Provider\Shifts as ProviderShifts;
 use App\Livewire\Provider\Jobs\Index as ProviderJobs;
 use App\Livewire\Provider\Jobs\Show as ProviderJobShow;
 use App\Livewire\Provider\PaymentAccounts as ProviderPaymentAccounts;
@@ -234,6 +235,7 @@ Route::middleware(['auth', \App\Http\Middleware\EnsureIsProvider::class, \App\Ht
         Route::get('/request-payout', ProviderRequestPayout::class)->name('provider.request-payout');
         Route::get('/history', ProviderHistory::class)->name('provider.history');
         Route::get('/activity', ProviderActivity::class)->name('provider.activity');
+        Route::get('/shifts', ProviderShifts::class)->name('provider.shifts');
     });
 
 // Public content. `page` renders real seeded `content_pages` rows — the

@@ -2,7 +2,10 @@
 
 namespace App\Actions;
 
+use App\Exceptions\ShiftRequiredException;
 use App\Models\Provider;
+use App\Services\Providers\ShiftSchedule;
+use App\Services\TimezoneResolver;
 use App\Services\ActivityLogger;
 use Illuminate\Support\Facades\DB;
 
@@ -45,6 +48,8 @@ class SetProviderOnlineStatusAction
 {
     public function execute(Provider $provider, bool $online, ?float $lat = null, ?float $lng = null): Provider
     {
+        $this->assertShiftAllowsOnline($provider, $online);
+
         $hasFix = $online && $this->isUsableFix($lat, $lng);
 
         $fresh = DB::transaction(function () use ($provider, $online, $lat, $lng, $hasFix) {
@@ -72,6 +77,31 @@ class SetProviderOnlineStatusAction
         );
 
         return $fresh->refresh();
+    }
+
+    /**
+     * Admin setting provider.shifts.mode = required: a provider may only go online inside a shift they have chosen
+     * (plus the admin's grace minutes after it ends). Any other mode is a no-op, so nothing changes by default.
+     */
+    private function assertShiftAllowsOnline(Provider $provider, bool $online): void
+    {
+        if (! $online || ShiftSchedule::mode() !== 'required') {
+            return;
+        }
+
+        $provider->loadMissing('franchise.country');
+        $schedule = app(ShiftSchedule::class);
+
+        if ($schedule->isWithinShift($provider, now(), ShiftSchedule::graceMinutes())) {
+            return;
+        }
+
+        $next = $schedule->next($provider);
+        $tz = app(TimezoneResolver::class);
+
+        throw new ShiftRequiredException($next
+            ? sprintf('You can go online during your shifts. Your next shift is %s, starting %s.', $next['shift']->name, $tz->format($next['start'], $provider->franchise, 'D, h:i A'))
+            : 'Shifts are required to go online. Choose at least one shift in "My shifts" first.');
     }
 
     /**

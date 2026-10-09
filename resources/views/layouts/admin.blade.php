@@ -226,6 +226,7 @@
                     ['label' => 'Alert Emails', 'route' => 'admin.alert-emails.index', 'icon' => 'activity', 'permission' => 'alert_emails.manage'],
                     ['label' => 'Clear Data', 'route' => 'admin.operations.data-clear', 'icon' => 'exclamation-triangle', 'permission' => 'operations.data_clear'],
                     // super_admin only (permission never seeded to a role), like Alert Emails above.
+                    ['label' => 'Availability & Shifts', 'route' => 'admin.providers.availability', 'icon' => 'clock', 'permission' => 'provider_availability.manage'],
                     ['label' => 'Google Reviews', 'route' => 'admin.reviews.google', 'icon' => 'star', 'permission' => 'google_reviews.manage'],
                     ['label' => 'Security Headers', 'route' => 'admin.security.headers', 'icon' => 'shield', 'permission' => 'security_headers.manage'],
                     ['label' => 'Roles & Permissions', 'route' => 'admin.roles.index', 'icon' => 'shield', 'permission' => 'roles.manage'],

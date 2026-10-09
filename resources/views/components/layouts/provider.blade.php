@@ -26,6 +26,10 @@
         ['label' => 'Earnings', 'route' => 'provider.earnings', 'icon' => 'banknotes'],
         ['label' => 'Activity', 'route' => 'provider.activity', 'icon' => 'activity'],
     ];
+    // Shifts only appear once the admin has switched them on (Admin → Providers → Availability & shifts).
+    if (\App\Services\Providers\ShiftSchedule::mode() !== 'off') {
+        $navItems[] = ['label' => 'My Shifts', 'route' => 'provider.shifts', 'icon' => 'clock'];
+    }
 @endphp
 <!DOCTYPE html>
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}" class="h-full">

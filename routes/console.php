@@ -37,6 +37,11 @@ ScheduleRunTracker::track(Schedule::command('google-reviews:refresh'), 'google-r
     ->hourly()
     ->withoutOverlapping(10);
 
+// Provider shifts: reminder a few minutes before a chosen shift starts. No-op while provider.shifts.mode is off.
+ScheduleRunTracker::track(Schedule::command('providers:shift-reminders'), 'providers:shift-reminders')
+    ->everyMinute()
+    ->withoutOverlapping(10);
+
 ScheduleRunTracker::track(Schedule::command('plans:renew-due'), 'plans:renew-due')->hourly();
 
 // Referral Engine: expires pending referrals past their opt-in

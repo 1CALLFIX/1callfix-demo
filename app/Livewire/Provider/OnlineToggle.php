@@ -40,7 +40,13 @@ class OnlineToggle extends Component
         // sibling components.
         $wasOnline = (bool) $this->provider()->is_online;
 
-        app(SetProviderOnlineStatusAction::class)->execute($this->provider(), true, $lat, $lng);
+        try {
+            app(SetProviderOnlineStatusAction::class)->execute($this->provider(), true, $lat, $lng);
+        } catch (\App\Exceptions\ShiftRequiredException $e) {
+            $this->error = $e->getMessage();
+
+            return;
+        }
 
         if (! $wasOnline) {
             $this->announceAvailabilityChange();

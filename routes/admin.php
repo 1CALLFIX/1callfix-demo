@@ -101,6 +101,8 @@ Route::middleware(['auth', \Illuminate\Session\Middleware\AuthenticateSession::c
         Route::get('/seo/settings', \App\Livewire\Seo\Settings::class)->name('admin.seo.settings');
         // HTTP security response headers: Super Admin only, checked in the component.
         // Google Business reviews on the home page: Super Admin only, checked in the component.
+        // Provider availability + Swiggy-style shifts: Super Admin only, checked in the component.
+        Route::get('/provider-availability', \App\Livewire\Providers\Availability::class)->name('admin.providers.availability');
         Route::get('/reviews/google', \App\Livewire\Reviews\GoogleSettings::class)->name('admin.reviews.google');
         Route::get('/security/headers', \App\Livewire\Security\Headers::class)->name('admin.security.headers');
         // REF 1CF-PARTNER-PAGE-001: the public /partners page's words and lists. Permission partner_page.manage, checked in the component.

@@ -42,6 +42,9 @@ class Provider extends Model
     protected $casts = ['skills' => 'array', 'is_online' => 'boolean', 'location_updated_at' => 'datetime', 'kyc_deadline_at' => 'datetime'];
     public function user() { return $this->belongsTo(User::class); }
     public function franchise() { return $this->belongsTo(Franchise::class); }
+
+    /** The shift slots this provider has chosen to work (Admin → Providers → Availability & shifts). */
+    public function shifts() { return $this->belongsToMany(ProviderShift::class, 'provider_shift_selections')->withTimestamps(); }
     public function zone() { return $this->belongsTo(Zone::class); }
     public function parent() { return $this->belongsTo(Provider::class, 'parent_provider_id'); }
     public function technicians() { return $this->hasMany(Provider::class, 'parent_provider_id'); }
