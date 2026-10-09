@@ -23,7 +23,7 @@ class ExpireStaleOnlineProviders extends Command
 
     public function handle(): int
     {
-        $cutoff = now()->subMinutes(max(1, (int) Setting::get('provider.location_stale_after_minutes', '30')));
+        $cutoff = now()->subMinutes(\App\Services\Providers\ShiftSchedule::staleMinutes());
 
         $count = Provider::query()
             ->where('is_online', true)
@@ -35,7 +35,22 @@ class ExpireStaleOnlineProviders extends Command
             })
             ->update(['is_online' => false]);
 
-        $this->info("Set {$count} stale provider(s) offline.");
+        // Shifts required: anyone still online outside every chosen shift (past the admin's grace) goes offline too.
+        $outOfShift = 0;
+        if (\App\Services\Providers\ShiftSchedule::mode() === 'required') {
+            $schedule = app(\App\Services\Providers\ShiftSchedule::class);
+            $grace = \App\Services\Providers\ShiftSchedule::graceMinutes();
+
+            Provider::query()->where('is_online', true)->with('franchise.country')->get()
+                ->each(function (Provider $provider) use ($schedule, $grace, &$outOfShift) {
+                    if (! $schedule->isWithinShift($provider, now(), $grace)) {
+                        $provider->forceFill(['is_online' => false])->save();
+                        $outOfShift++;
+                    }
+                });
+        }
+
+        $this->info("Set {$count} stale provider(s) offline" . ($outOfShift ? " and {$outOfShift} outside their shift." : '.'));
 
         return self::SUCCESS;
     }
