@@ -47,7 +47,6 @@ class Home extends Component
 {
     use ResolvesCatalogContext;
 
-    private const CATEGORY_SHORTCUT_LIMIT = 8;
     private const RAIL_LIMIT = 8;
     private const COLLECTION_CATEGORY_LIMIT = 4;
     private const COLLECTION_SERVICE_LIMIT = 4;
@@ -62,7 +61,7 @@ class Home extends Component
             'activeZone' => $location->zone(),
             'heroBanners' => $this->bannersFor('top'),
             'midBanners' => $this->bannersFor('mid'),
-            'categories' => $catalog->categories()->limit(self::CATEGORY_SHORTCUT_LIMIT)->get(),
+            'categories' => $catalog->categories()->limit(\App\Support\SiteControls::categoryLimit())->get(),
             'newServices' => $newServices = $this->cardsFrom($catalog->newest(), self::RAIL_LIMIT),
             'mostBooked' => $mostBooked = $this->cardsFrom($catalog->mostBooked($location->franchiseId()), self::RAIL_LIMIT),
             'spotlight' => $this->spotlight($mostBooked, $newServices),

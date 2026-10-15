@@ -333,6 +333,9 @@ class ProviderSelfRegistrationTest extends TestCase
             $this->attachRequiredDocs($c);
         };
 
+        // The per-mobile submit limit is a Super Admin setting; pin it to 3 for this test.
+        \App\Models\Setting::set(\App\Support\SiteControls::LIMIT_SUBMIT, '3');
+
         // Phone is free at OTP time, so the fail-fast check passes and the
         // details step is reachable.
         $c = Livewire::test(Register::class)->set('phone', $phone);
@@ -343,7 +346,7 @@ class ProviderSelfRegistrationTest extends TestCase
         // window between OTP verify and submit. Every submit from here
         // clears validation, increments the submit throttle, then fails on
         // RegisterProviderAction's race-backstop check. The 4th is stopped
-        // by the maxPerIdentifier=3 guard before it runs.
+        // by the per-mobile limit (set to 3 above) before it runs.
         User::create([
             'uuid' => (string) Str::uuid(), 'name' => 'Raced In', 'phone' => $phone,
             'role' => 'customer', 'status' => 'active', 'password' => Hash::make('whatever12'),
@@ -457,5 +460,92 @@ class ProviderSelfRegistrationTest extends TestCase
         $c->assertSeeHtml('data-locate-address')
             ->assertSeeHtml('data-locate-address-error')
             ->assertSeeHtml('We could not get your location.');
+    }
+
+    // ── REF 1CF-PROVIDER-SIGNUP-SERVICES-001: "Services you offer" ───────────
+
+    private function category(string $name, bool $active = true): \App\Models\ServiceCategory
+    {
+        return \App\Models\ServiceCategory::create([
+            'module' => 'service', 'name' => $name, 'slug' => Str::slug($name).'-'.Str::random(4),
+            'sort_order' => 1, 'is_active' => $active,
+        ]);
+    }
+
+    public function test_the_form_lists_active_categories_to_choose_from(): void
+    {
+        $this->category('AC Repair');
+        $this->category('Hidden Old', active: false);
+
+        Livewire::test(Register::class)
+            ->assertSee('Services you offer')
+            ->assertSee('AC Repair')
+            ->assertDontSee('Hidden Old');
+    }
+
+    public function test_required_by_default_when_categories_exist(): void
+    {
+        $this->coveredZone();
+        $this->category('AC Repair');
+
+        $c = $this->readyToSubmit($this->randomPhone());
+        $this->attachRequiredDocs($c);
+
+        $c->call('submitApplication')->assertHasErrors('skills')->assertSet('submitted', false);
+        $this->assertSame(0, Provider::count());
+    }
+
+    public function test_chosen_services_are_saved_as_the_providers_dispatch_skills(): void
+    {
+        $this->coveredZone();
+        $ac = $this->category('AC Repair');
+        $plumbing = $this->category('Plumbing');
+        $inactive = $this->category('Retired', active: false);
+        $phone = $this->randomPhone();
+
+        $c = $this->readyToSubmit($phone);
+        $this->attachRequiredDocs($c);
+        // An inactive id and a made-up id (client-editable state) are silently dropped.
+        $c->set('skills', [$ac->id, $plumbing->id, $inactive->id, 999999])
+            ->call('submitApplication')->assertHasNoErrors()->assertSet('submitted', true);
+
+        $skills = User::where('phone', $phone)->sole()->providerProfile->skills;
+        sort($skills);
+        $this->assertSame([$ac->id, $plumbing->id], $skills);
+    }
+
+    public function test_optional_mode_lets_an_applicant_skip_it(): void
+    {
+        \App\Models\Setting::set(\App\Support\SiteControls::SIGNUP_SERVICES, 'optional');
+        $this->coveredZone();
+        $this->category('AC Repair');
+        $phone = $this->randomPhone();
+
+        $c = $this->readyToSubmit($phone);
+        $this->attachRequiredDocs($c);
+        $c->call('submitApplication')->assertHasNoErrors()->assertSet('submitted', true);
+
+        $this->assertNull(User::where('phone', $phone)->sole()->providerProfile->skills);
+    }
+
+    public function test_hidden_mode_removes_the_step(): void
+    {
+        \App\Models\Setting::set(\App\Support\SiteControls::SIGNUP_SERVICES, 'hidden');
+        $this->category('AC Repair');
+
+        Livewire::test(Register::class)->assertDontSee('Services you offer');
+    }
+
+    public function test_the_admin_maximum_is_enforced(): void
+    {
+        \App\Models\Setting::set(\App\Support\SiteControls::SIGNUP_SERVICES_MAX, '1');
+        $this->coveredZone();
+        $a = $this->category('AC Repair');
+        $b = $this->category('Plumbing');
+
+        $c = $this->readyToSubmit($this->randomPhone());
+        $this->attachRequiredDocs($c);
+        $c->set('skills', [$a->id, $b->id])->call('submitApplication')->assertHasErrors('skills');
+        $this->assertSame(0, Provider::count());
     }
 }

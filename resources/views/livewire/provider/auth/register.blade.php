@@ -113,6 +113,56 @@
                     @error('email') <p class="mt-1.5 text-sm text-red-700">{{ $message }}</p> @enderror
                 </div>
 
+                {{-- Services you offer (REF 1CF-PROVIDER-SIGNUP-SERVICES-001). Saved to providers.skills,
+                     the category list dispatch matches jobs against. Required / optional / hidden is a
+                     Super Admin setting (Admin → Homepage & sign-up). --}}
+                @if ($servicesStep !== 'hidden' && $serviceCategories->isNotEmpty())
+                    @php
+                        $frame = \App\Support\SiteControls::frameClasses();
+                        $imgFit = \App\Support\SiteControls::imageClasses();
+                    @endphp
+                    <fieldset id="pr-services">
+                        <legend class="block text-sm font-medium text-slate-900">
+                            Services you offer
+                            @if ($servicesStep === 'required')
+                                <span class="text-red-600">*</span>
+                            @else
+                                <span class="font-normal text-slate-500">(optional)</span>
+                            @endif
+                        </legend>
+                        <p class="mt-1 text-xs text-slate-500">
+                            Tick every kind of work you do. You will only get jobs for these.
+                            @if ($servicesMax > 0) Up to {{ $servicesMax }}. @endif
+                        </p>
+                        <div class="mt-2.5 grid grid-cols-2 gap-2">
+                            @foreach ($serviceCategories as $cat)
+                                @php $checked = in_array($cat->id, array_map('intval', $skills), true); @endphp
+                                <label wire:key="svc-{{ $cat->id }}"
+                                       @class([
+                                           'flex min-h-14 cursor-pointer items-center gap-2 rounded-xl border p-2 text-xs font-medium leading-tight transition has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-blue-600 sm:text-sm',
+                                           'border-blue-600 bg-blue-50 text-blue-900 ring-1 ring-blue-600' => $checked,
+                                           'border-slate-200 bg-white text-slate-800 hover:border-blue-300' => ! $checked,
+                                       ])>
+                                    <input type="checkbox" value="{{ $cat->id }}" wire:model.live="skills" class="sr-only">
+                                    <span aria-hidden="true"
+                                          class="{{ $frame }} relative grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-lg text-sm font-semibold text-slate-700"
+                                          style="background-color: {{ preg_match('/^#[0-9a-fA-F]{6}$/', (string) $cat->color) ? $cat->color.'26' : '#E2E8F0' }}">
+                                        <x-customer.initial :name="$cat->name" />
+                                        @if ($cat->image_url)
+                                            <img src="{{ $cat->image_url }}" alt="" loading="lazy" decoding="async" width="80" height="80"
+                                                 class="absolute inset-0 h-full w-full p-0.5 {{ $imgFit }}">
+                                        @endif
+                                    </span>
+                                    <span class="min-w-0 flex-1">{{ $cat->name }}</span>
+                                    <span aria-hidden="true" @class(['grid h-5 w-5 shrink-0 place-items-center rounded-full border text-[11px] font-bold',
+                                        'border-blue-600 bg-blue-600 text-white' => $checked, 'border-slate-300 text-transparent' => ! $checked])>&check;</span>
+                                </label>
+                            @endforeach
+                        </div>
+                        @error('skills') <p class="mt-1.5 text-sm text-red-700">{{ $message }}</p> @enderror
+                    </fieldset>
+                @endif
+
                 <div>
                     <label for="pr-address" class="block text-sm font-medium text-slate-900">Work address</label>
                     <textarea id="pr-address" rows="2" wire:model="address" placeholder="Area / street you work from"

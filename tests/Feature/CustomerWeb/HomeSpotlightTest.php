@@ -25,6 +25,8 @@ class HomeSpotlightTest extends TestCase
     {
         parent::setUp();
         $this->liveCity();
+        // These tests cover the photo tiles themselves, which are off by default since 1CF-HOME-CATEGORY-HERO-001.
+        \App\Models\Setting::set(\App\Support\SiteControls::HOME_SHOW_PHOTOS, '1');
     }
 
     private function admin()

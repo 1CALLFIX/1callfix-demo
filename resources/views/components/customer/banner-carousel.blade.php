@@ -127,7 +127,8 @@
                         }
                     @endphp
 
-                    <div class="relative overflow-hidden rounded-3xl bg-slate-900 shadow-xl shadow-blue-900/15 ring-1 ring-black/5">
+                    @php $bannerWhole = \App\Support\SiteControls::imageFit() === 'contain'; @endphp
+                    <div class="{{ \App\Support\SiteControls::frameClasses() }} relative overflow-hidden rounded-3xl bg-slate-900 shadow-xl shadow-blue-900/15 ring-1 ring-black/5">
                         @if ($inner)
                             {{-- One stored image serves both breakpoints —
                                  the schema has no separate mobile asset (see
@@ -141,9 +142,12 @@
                                  width="1200"
                                  height="{{ $isHero ? 420 : 260 }}"
                                  @class([
-                                     'w-full object-cover',
-                                     'h-40 sm:h-64 lg:h-[22rem]' => $isHero,
-                                     'h-36 sm:h-44 lg:h-52' => ! $isHero,
+                                     // Admin → Homepage & sign-up → Images. "contain" (default) shows the whole
+                                     // banner at its own shape — never cropped or zoomed; "cover" is the old fixed-height crop.
+                                     'block h-auto w-full' => $bannerWhole,
+                                     'w-full object-cover' => ! $bannerWhole,
+                                     'h-40 sm:h-64 lg:h-[22rem]' => $isHero && ! $bannerWhole,
+                                     'h-36 sm:h-44 lg:h-52' => ! $isHero && ! $bannerWhole,
                                  ])>
                         @else
                             {{-- A banner row with no usable image. Still a

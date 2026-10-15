@@ -70,26 +70,38 @@ class HeaderSearchAndHeroTest extends TestCase
         $this->assertStringNotContainsString('What do you need help with?', $html);
         $this->assertStringNotContainsString('Verified professionals for repairs, installation and maintenance', $html);
 
-        $this->assertStringContainsString('Home services, on call', $html);
+        $this->assertStringContainsString('Home services at your doorstep', $html);
 
         // Exactly one <h1> in the document body — the category grid's own
         // heading (when categories exist) is a visually-hidden <h2>.
         $this->assertSame(1, substr_count($html, '<h1'));
     }
 
-    public function test_dom_order_is_banner_then_hero_headline_then_category_grid(): void
+    public function test_dom_order_is_hero_headline_then_category_grid_then_banner_by_default(): void
     {
         $this->makeBanner('top', ['title' => 'Hero Ad Banner']);
         $category = $this->makeCategory(['name' => 'Cleaning Cat']);
         $this->makeService($category, ['name' => 'Some Service']);
 
+        // Default since 1CF-HOME-CATEGORY-HERO-001: headline and category icons first, then the paid banner.
         $this->get(route('customer.home'))
             ->assertOk()
             ->assertSeeInOrder([
-                'Hero Ad Banner',          // paid top banner slot
-                'Home services, on call',  // discovery hero headline (left column)
-                'shortcuts-heading',       // category grid (right column)
-                'New &amp; noteworthy',    // first service rail comes after
+                'Home services at your doorstep',
+                'shortcuts-heading',
+                'Hero Ad Banner',
+                'New &amp; noteworthy',
+            ], escape: false);
+
+        // Admin → Homepage & sign-up → "Category icons first" off: the banner goes back to the top.
+        \App\Models\Setting::set(\App\Support\SiteControls::HOME_CATEGORIES_FIRST, '0');
+        $this->get(route('customer.home'))
+            ->assertOk()
+            ->assertSeeInOrder([
+                'Hero Ad Banner',
+                'Home services at your doorstep',
+                'shortcuts-heading',
+                'New &amp; noteworthy',
             ], escape: false);
     }
 }

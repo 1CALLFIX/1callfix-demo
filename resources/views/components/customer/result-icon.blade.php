@@ -21,6 +21,6 @@
 
     @if ($imageUrl)
         <img src="{{ $imageUrl }}" alt="" loading="lazy" decoding="async" width="36" height="36"
-             class="absolute inset-0 h-full w-full object-cover">
+             class="absolute inset-0 h-full w-full {{ \App\Support\SiteControls::imageClasses() }}">
     @endif
 </span>

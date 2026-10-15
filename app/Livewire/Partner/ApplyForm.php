@@ -9,6 +9,7 @@ use App\Support\Acquisition\AcquisitionContext;
 use App\Support\PartnerPage\PartnerPageData;
 use App\Support\PartnerPage\PartnerPageSettings as P;
 use App\Support\PhoneNumber;
+use App\Support\SiteControls;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Livewire\Attributes\Locked;
@@ -70,6 +71,10 @@ class ApplyForm extends Component
     {
         $this->reset(['name', 'phone', 'cityChoice', 'city', 'consent', 'website', 'error', 'outcome']);
         $this->resetErrorBag();
+        // Same default as mount(): with no listed cities the typed city is the only way in, so the box must come back.
+        if (self::listedCities()->isEmpty()) {
+            $this->cityChoice = self::OTHER_CITY;
+        }
     }
 
     public function submit(): void
@@ -125,10 +130,15 @@ class ApplyForm extends Component
 
         $national = PhoneNumber::national($this->phone);
 
-        if ($this->isThrottled('partner-lead', $national, maxPerIdentifier: 3, maxPerIp: 10)) {
-            return;
+        // Coming back to the form in the same browser for the same mobile and role (back/forward between /partners and
+        // the sign-up) is the same application, not a new attempt: the lead row is updated in place, so it is not
+        // counted. Counting it is what locked real applicants out for up to 10 minutes (owner report 2026-10-15).
+        if (! $this->isReturningApplicant($national)) {
+            if ($this->isThrottled('partner-lead', $national, maxPerIdentifier: SiteControls::partnerFormPerMobile(), maxPerIp: 30)) {
+                return;
+            }
+            $this->hitThrottle('partner-lead', $national, SiteControls::partnerFormWindowSeconds());
         }
-        $this->hitThrottle('partner-lead', $national, 600);
 
         $card = $roles[$this->role];
 
@@ -165,6 +175,17 @@ class ApplyForm extends Component
         }
 
         $this->outcome = 'waitlist';
+    }
+
+    /** This browser already handed this mobile + role's lead off (it is in the session) — a revisit, not a new try. */
+    private function isReturningApplicant(string $national): bool
+    {
+        $held = session('partner_lead');
+        if (! is_array($held) || ! is_int($held['id'] ?? null) || ($held['role'] ?? null) !== $this->role) {
+            return false;
+        }
+
+        return PartnerLead::where('id', $held['id'])->where('phone', $national)->where('role', $this->role)->exists();
     }
 
     /**
