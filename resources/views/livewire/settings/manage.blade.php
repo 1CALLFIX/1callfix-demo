@@ -405,6 +405,18 @@
                         <label class="block text-xs font-medium mb-1">Min balance to accept jobs @if ($scoped) <x-setting-override-badge :overridden="in_array('wallet.provider_min_balance_to_accept_jobs', $this->overriddenKeys)" setting-key="wallet.provider_min_balance_to_accept_jobs" /> @endif</label>
                         <input type="number" step="0.01" wire:model="walletProviderMinBalanceToAcceptJobs" class="w-full border rounded px-3 py-2 text-sm">
                         @error('walletProviderMinBalanceToAcceptJobs') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
+                        <label class="mt-2 flex items-center gap-2 text-xs">
+                            <input type="checkbox" wire:model="walletProviderMinBalanceEnabled"> Minimum balance active
+                        </label>
+                        <label class="mt-1 flex items-center gap-2 text-xs">
+                            <input type="checkbox" wire:model="walletProviderFloorCountsDues"> Unpaid cash commission counts against the minimum
+                        </label>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium mb-1">Max unpaid cash commission (blank = no limit) @if ($scoped) <x-setting-override-badge :overridden="in_array('wallet.provider_max_cash_dues', $this->overriddenKeys)" setting-key="wallet.provider_max_cash_dues" /> @endif</label>
+                        <input type="number" step="0.01" wire:model="walletProviderMaxCashDues" class="w-full border rounded px-3 py-2 text-sm">
+                        <p class="text-xs text-gray-400 mt-1">Above this, the provider gets no new job offers until they pay. 0 = any unpaid amount blocks.</p>
+                        @error('walletProviderMaxCashDues') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
                     </div>
                     <div>
                         <label class="block text-xs font-medium mb-1">Min payout amount @if ($scoped) <x-setting-override-badge :overridden="in_array('wallet.provider_min_payout_amount', $this->overriddenKeys)" setting-key="wallet.provider_min_payout_amount" /> @endif</label>
@@ -792,6 +804,12 @@
                     <label class="block text-xs font-medium mb-1">Dispatch offer response timeout (minutes)</label>
                     <input type="number" step="1" wire:model="opsDispatchOfferResponseTimeoutMinutes" class="w-full border rounded px-3 py-2 text-sm">
                     @error('opsDispatchOfferResponseTimeoutMinutes') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
+                </div>
+                <div>
+                    <label class="block text-xs font-medium mb-1">Business WhatsApp number (signature on provider messages)</label>
+                    <input type="text" wire:model="opsWhatsappBusinessNumber" placeholder="e.g. 9014609609" class="w-full border rounded px-3 py-2 text-sm">
+                    <p class="text-xs text-gray-400 mt-1">Shown at the end of the WhatsApp text admins send to providers. Messages go from whichever WhatsApp is open on the admin's computer. Blank = no signature.</p>
+                    @error('opsWhatsappBusinessNumber') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
                 </div>
             </div>
             <div class="flex justify-end pt-4 mt-4 border-t">

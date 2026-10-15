@@ -4,6 +4,7 @@ namespace App\Livewire\Provider\Concerns;
 
 use App\Models\Provider;
 use App\Models\Setting;
+use App\Services\Providers\ProviderStanding;
 
 /**
  * PHASE PW1 §3.3 — "why you will / won't get jobs". Pure presentation of the
@@ -25,6 +26,10 @@ trait BuildsProviderEligibility
         $fixFresh = $hasFix
             && $p->location_updated_at !== null
             && $p->location_updated_at->greaterThan(now()->subMinutes($staleMinutes));
+        $money = array_values(array_filter(
+            app(ProviderStanding::class)->blockers($p),
+            fn ($blocker) => in_array($blocker['code'], [ProviderStanding::BELOW_FLOOR, ProviderStanding::DUES_OVER_LIMIT], true),
+        ));
 
         return [
             [
@@ -54,6 +59,11 @@ trait BuildsProviderEligibility
             [
                 'key' => 'zone', 'label' => 'Zone assigned', 'ok' => $p->zone_id !== null, 'advisory' => false,
                 'fail' => 'No zone assigned — an admin sets this.',
+            ],
+            // Audit 2026-10-15 L1/L3 — the same money rule dispatch enforces (ProviderStanding).
+            [
+                'key' => 'wallet', 'label' => 'Wallet & dues in order', 'ok' => $money === [], 'advisory' => false,
+                'fail' => implode(' ', array_column($money, 'message')).' Open Payments → Wallet & dues to pay.',
             ],
         ];
     }

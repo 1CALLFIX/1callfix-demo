@@ -155,6 +155,93 @@
         </x-ui.card>
     @endif
 
+    {{-- Admin WhatsApp / Call fallback (owner approved 2026-10-16). wa.me click-to-chat from the business WhatsApp
+         open on this computer; nothing is sent by the server. Only eligible providers get buttons. --}}
+    @if ($this->canContactProviders() || $this->canSendAssignedMessage())
+        <x-ui.card class="mb-6">
+            <div class="font-semibold mb-1">Reach a provider directly</div>
+            <p class="text-xs text-gray-500 mb-3">Opens WhatsApp with the message typed — press Send from the business WhatsApp. Customer name, phone and full address are not included until the job is assigned.</p>
+
+            @if ($this->canSendAssignedMessage())
+                @php
+                    $assigned = $booking->provider;
+                    $assignedWa = \App\Support\ProviderContactMessage::whatsappUrl($assigned?->user?->phone, \App\Support\ProviderContactMessage::assigned($booking));
+                    $assignedTel = \App\Support\ProviderContactMessage::telUrl($assigned?->user?->phone);
+                @endphp
+                <div class="flex flex-wrap items-center gap-2 text-sm">
+                    <span>Assigned: <strong>{{ $assigned?->user?->name ?? 'Provider #'.$booking->provider_id }}</strong></span>
+                    @if ($assignedWa)
+                        <a href="{{ $assignedWa }}" target="_blank" rel="noopener" wire:click="logContact({{ $booking->provider_id }}, 'whatsapp', 'assigned')"
+                           class="rounded bg-green-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-green-700">WhatsApp "job assigned"</a>
+                    @endif
+                    @if ($assignedTel)
+                        <a href="{{ $assignedTel }}" wire:click="logContact({{ $booking->provider_id }}, 'call', 'assigned')"
+                           class="rounded border border-slate-300 px-3 py-1.5 text-xs font-medium hover:bg-slate-50">Call</a>
+                    @endif
+                </div>
+            @endif
+
+            @if ($this->canContactProviders())
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead>
+                            <tr class="text-left text-xs uppercase text-gray-500 border-b">
+                                <th class="py-1.5 pr-3">Provider</th>
+                                <th class="py-1.5 pr-3">Status</th>
+                                <th class="py-1.5 pr-3">Eligibility</th>
+                                <th class="py-1.5"></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @forelse ($this->availableProviders as $row)
+                                @php
+                                    $p = $row->provider;
+                                    $wa = $row->blockers === [] ? \App\Support\ProviderContactMessage::whatsappUrl($p->user?->phone, \App\Support\ProviderContactMessage::offer($booking, $p)) : null;
+                                    $tel = $row->blockers === [] ? \App\Support\ProviderContactMessage::telUrl($p->user?->phone) : null;
+                                @endphp
+                                <tr class="border-b last:border-0 align-top">
+                                    <td class="py-1.5 pr-3">{{ $p->user->name ?? 'Provider #'.$p->id }}</td>
+                                    <td class="py-1.5 pr-3">{{ $p->is_online ? 'Online' : 'Offline' }}</td>
+                                    <td class="py-1.5 pr-3">
+                                        @if ($row->blockers === [])
+                                            <span class="text-emerald-700">Eligible</span>
+                                        @else
+                                            <span class="text-gray-500">{{ implode(' ', array_column($row->blockers, 'message')) }}</span>
+                                        @endif
+                                    </td>
+                                    <td class="py-1.5 whitespace-nowrap text-right">
+                                        @if ($wa)
+                                            <a href="{{ $wa }}" target="_blank" rel="noopener" wire:click="logContact({{ $p->id }}, 'whatsapp')"
+                                               class="rounded bg-green-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-green-700">WhatsApp</a>
+                                        @endif
+                                        @if ($tel)
+                                            <a href="{{ $tel }}" wire:click="logContact({{ $p->id }}, 'call')"
+                                               class="ml-1 rounded border border-slate-300 px-3 py-1.5 text-xs font-medium hover:bg-slate-50">Call</a>
+                                        @endif
+                                        @if ($row->blockers === [] && ! $wa)
+                                            <span class="text-xs text-gray-400">No valid mobile</span>
+                                        @endif
+                                    </td>
+                                </tr>
+                            @empty
+                                <tr><td colspan="4" class="py-3 text-center text-gray-400">No active providers in this zone.</td></tr>
+                            @endforelse
+                        </tbody>
+                    </table>
+                </div>
+            @endif
+
+            @if ($this->contactLog->isNotEmpty())
+                <div class="mt-3 border-t pt-2 text-xs text-gray-500">
+                    <div class="font-medium text-gray-600 mb-1">Contact log</div>
+                    @foreach ($this->contactLog as $log)
+                        <div>{{ app(\App\Services\TimezoneResolver::class)->format($log->created_at, $booking->franchise, 'd M, h:i A') }} — {{ $log->causer?->name ?? 'System' }}: {{ $log->description }} (provider #{{ $log->properties['provider_id'] ?? '?' }})</div>
+                    @endforeach
+                </div>
+            @endif
+        </x-ui.card>
+    @endif
+
     @if (!in_array($booking->status, ['completed', 'cancelled']))
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
             <x-ui.card>
@@ -162,12 +249,15 @@
                 <div class="flex gap-2">
                     <select wire:model="selectedProviderId" class="flex-1 border rounded px-3 py-2 text-sm">
                         <option value="">Select a provider...</option>
-                        @foreach ($this->availableProviders as $p)
-                            <option value="{{ $p->id }}">{{ $p->user->name ?? 'Provider #'.$p->id }} ({{ $p->is_online ? 'online' : 'offline' }})</option>
+                        @foreach ($this->availableProviders as $row)
+                            <option value="{{ $row->provider->id }}">{{ $row->provider->user->name ?? 'Provider #'.$row->provider->id }} ({{ $row->provider->is_online ? 'online' : 'offline' }}){{ $row->blockers === [] ? '' : ' — NOT ELIGIBLE' }}</option>
                         @endforeach
                     </select>
                     <x-ui.button class="whitespace-nowrap" wire:click="reassign">Assign</x-ui.button>
                 </div>
+                <input type="text" wire:model="overrideReason" maxlength="500" placeholder="Reason — required only if the provider is not eligible"
+                       class="mt-2 w-full border rounded px-3 py-2 text-sm">
+                <p class="mt-1 text-xs text-gray-500">Not-eligible providers can only be assigned with a reason. The reason is logged.</p>
             </x-ui.card>
 
             @if ($this->canAssignWorker())

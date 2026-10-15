@@ -12,6 +12,7 @@ use App\Models\Service;
 use App\Models\Setting;
 use App\Models\TaxiRide;
 use App\Models\Zone;
+use App\Services\Providers\ProviderStanding;
 use App\Services\Ranking\RankingConfigResolver;
 use App\Services\Ranking\RankingEngine;
 use Illuminate\Support\Carbon;
@@ -64,9 +65,13 @@ class DispatchService
 
         $excludedProviderIds = $this->excludedProviderIdsForBooking($booking, $scope);
 
-        $preFiltered = $this->eligibleQuery($booking->zone_id, $categoryId)
-            ->whereNotIn('id', $excludedProviderIds)
-            ->get();
+        // Audit 2026-10-15 L1/L3/L6 — wallet floor, cash-commission limit and suspension are checked BEFORE an offer
+        // is made, so a blocked provider is never rung or pushed (one rule: ProviderStanding).
+        $preFiltered = app(ProviderStanding::class)->filterCanTakeNewWork(
+            $this->eligibleQuery($booking->zone_id, $categoryId)
+                ->whereNotIn('id', $excludedProviderIds)
+                ->get()
+        );
 
         // REF 1CF-SCHEDULING-DISPATCH-001 — CRITICAL AVAILABILITY RULE.
         // Replaces the old coarse "any active booking = busy" pluck (which
@@ -201,6 +206,7 @@ class DispatchService
             ->where('kyc_status', 'approved')
             ->whereNotIn('id', $excludedProviderIds)
             ->get()
+            ->pipe(fn (Collection $providers) => app(ProviderStanding::class)->filterCanTakeNewWork($providers))
             ->filter(fn (Provider $provider) => $this->hasSkill($provider, $categoryId))
             ->filter(fn (Provider $provider) => $this->availability->isAvailableAt($provider, $booking->scheduled_at, $durationMinutes, $booking->id))
             ->map(function (Provider $provider) use ($booking, $radiusKm) {
@@ -348,6 +354,11 @@ class DispatchService
             return false;
         }
 
+        // Audit 2026-10-15 — same standing rule as findCandidates() (suspension, wallet floor, cash-commission limit).
+        if (! app(ProviderStanding::class)->canTakeNewWork($provider)) {
+            return false;
+        }
+
         if ($requireOnlineAndFreshLocation && ! $provider->is_online) {
             return false;
         }
@@ -409,8 +420,7 @@ class DispatchService
         $radiusKm = $zone->default_dispatch_radius_km ?? 8;
         $categoryId = $service->category_id;
 
-        $candidates = $this->eligibleQuery($zone->id, $categoryId)
-            ->get()
+        $candidates = app(ProviderStanding::class)->filterCanTakeNewWork($this->eligibleQuery($zone->id, $categoryId)->get())
             ->filter(fn (Provider $provider) => $this->hasSkill($provider, $categoryId))
             ->map(fn (Provider $provider) => $this->withDistance($provider, $lat, $lng))
             ->filter(fn ($c) => $c['distance_km'] <= $radiusKm);
@@ -646,6 +656,8 @@ class DispatchService
             ->where('is_online', true)
             ->where('is_active', true)
             ->where('kyc_status', 'approved')
+            // Audit 2026-10-15 L6 — a suspended account is never offered work.
+            ->whereHas('user', fn ($q) => $q->where('status', '!=', 'suspended'))
             ->whereNotNull('current_lat')
             ->whereNotNull('current_lng')
             // REF 1CF-LAUNCH-008 — same freshness rule as

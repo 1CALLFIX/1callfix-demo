@@ -171,6 +171,13 @@ class Manage extends Component
     public string $walletCustomerDailyTopupLimit = '';
     public string $walletCustomerMonthlyTopupLimit = '';
     public string $walletProviderMinBalanceToAcceptJobs = '0';
+
+    /** Audit 2026-10-15 L2/L3 — owner decisions 2026-10-16. */
+    public bool $walletProviderMinBalanceEnabled = false;
+
+    public bool $walletProviderFloorCountsDues = false;
+
+    public string $walletProviderMaxCashDues = '';
     public string $walletProviderMinPayoutAmount = '0';
     public string $walletProviderMaxPayoutAmount = '0';
     public string $walletFranchiseMinPayoutAmount = '0';
@@ -309,6 +316,9 @@ class Manage extends Component
     public string $opsStuckThresholdOnHold = '1440';
     public string $opsDispatchOfferResponseTimeoutMinutes = '2';
 
+    /** Admin WhatsApp fallback (2026-10-16): the business number shown in the message signature. Blank = no signature. */
+    public string $opsWhatsappBusinessNumber = '';
+
     /**
      * Subscriptions (Phase 11 audit finding: RenewalService calls
      * `Setting::get('plan.grace_period_days', '0', [])` — hardcoded empty
@@ -431,6 +441,12 @@ class Manage extends Component
         $this->walletCustomerDailyTopupLimit = (string) Setting::get('wallet.customer_daily_topup_limit', '', $scope);
         $this->walletCustomerMonthlyTopupLimit = (string) Setting::get('wallet.customer_monthly_topup_limit', '', $scope);
         $this->walletProviderMinBalanceToAcceptJobs = (string) Setting::get('wallet.provider_min_balance_to_accept_jobs', '0', $scope);
+        $floorSwitch = Setting::get('wallet.provider_min_balance_enabled', null, $scope);
+        $this->walletProviderMinBalanceEnabled = $floorSwitch === null || $floorSwitch === ''
+            ? (float) $this->walletProviderMinBalanceToAcceptJobs > 0
+            : (string) $floorSwitch === '1';
+        $this->walletProviderFloorCountsDues = (string) Setting::get('wallet.provider_floor_counts_dues', '', $scope) === '1';
+        $this->walletProviderMaxCashDues = (string) Setting::get('wallet.provider_max_cash_dues', '', $scope);
         $this->walletProviderMinPayoutAmount = (string) Setting::get('wallet.provider_min_payout_amount', '0', $scope);
         $this->walletProviderMaxPayoutAmount = (string) Setting::get('wallet.provider_max_payout_amount', '0', $scope);
         $this->walletFranchiseMinPayoutAmount = (string) Setting::get('wallet.franchise_min_payout_amount', '0', $scope);
@@ -523,6 +539,7 @@ class Manage extends Component
         $this->opsStuckThresholdInProgress = (string) Setting::get('operations.stuck_threshold_minutes.in_progress', '240');
         $this->opsStuckThresholdOnHold = (string) Setting::get('operations.stuck_threshold_minutes.on_hold', '1440');
         $this->opsDispatchOfferResponseTimeoutMinutes = (string) Setting::get('dispatch.offer_response_timeout_minutes', '2');
+        $this->opsWhatsappBusinessNumber = (string) Setting::get('ops.whatsapp_business_number', '');
 
         $this->subscriptionsGracePeriodDays = (string) Setting::get('plan.grace_period_days', '0');
     }
@@ -826,6 +843,7 @@ class Manage extends Component
             'walletCustomerDailyTopupLimit' => ['nullable', 'numeric', 'min:0'],
             'walletCustomerMonthlyTopupLimit' => ['nullable', 'numeric', 'min:0'],
             'walletProviderMinBalanceToAcceptJobs' => ['required', 'numeric', 'min:0'],
+            'walletProviderMaxCashDues' => ['nullable', 'numeric', 'min:0'],
             'walletProviderMinPayoutAmount' => ['required', 'numeric', 'min:0'],
             'walletProviderMaxPayoutAmount' => ['required', 'numeric', 'min:0'],
             'walletFranchiseMinPayoutAmount' => ['required', 'numeric', 'min:0'],
@@ -835,6 +853,7 @@ class Manage extends Component
             'walletCustomerMaxBalance' => 'maximum wallet balance', 'walletCustomerDailyTopupLimit' => 'daily top-up limit',
             'walletCustomerMonthlyTopupLimit' => 'monthly top-up limit',
             'walletProviderMinBalanceToAcceptJobs' => 'minimum balance to accept jobs',
+            'walletProviderMaxCashDues' => 'maximum unpaid cash commission',
             'walletProviderMinPayoutAmount' => 'provider minimum payout', 'walletProviderMaxPayoutAmount' => 'provider maximum payout',
             'walletFranchiseMinPayoutAmount' => 'franchise minimum payout', 'walletFranchiseMaxPayoutAmount' => 'franchise maximum payout',
         ]);
@@ -861,6 +880,9 @@ class Manage extends Component
             'wallet.customer_daily_topup_limit' => $this->walletCustomerDailyTopupLimit,
             'wallet.customer_monthly_topup_limit' => $this->walletCustomerMonthlyTopupLimit,
             'wallet.provider_min_balance_to_accept_jobs' => $this->walletProviderMinBalanceToAcceptJobs,
+            'wallet.provider_min_balance_enabled' => $this->walletProviderMinBalanceEnabled ? '1' : '0',
+            'wallet.provider_floor_counts_dues' => $this->walletProviderFloorCountsDues ? '1' : '0',
+            'wallet.provider_max_cash_dues' => trim($this->walletProviderMaxCashDues),
             'wallet.provider_min_payout_amount' => $this->walletProviderMinPayoutAmount,
             'wallet.provider_max_payout_amount' => $this->walletProviderMaxPayoutAmount,
             'wallet.franchise_min_payout_amount' => $this->walletFranchiseMinPayoutAmount,
@@ -1251,7 +1273,9 @@ class Manage extends Component
             'opsStuckThresholdInProgress' => ['required', 'integer', 'min:1'],
             'opsStuckThresholdOnHold' => ['required', 'integer', 'min:1'],
             'opsDispatchOfferResponseTimeoutMinutes' => ['required', 'integer', 'min:1'],
+            'opsWhatsappBusinessNumber' => ['nullable', 'string', 'max:20', 'regex:/^[0-9+ ]*$/'],
         ], [], [
+            'opsWhatsappBusinessNumber' => 'business WhatsApp number',
             'opsStuckThresholdSearchingProvider' => 'searching-provider threshold', 'opsStuckThresholdAssigned' => 'assigned threshold',
             'opsStuckThresholdProviderEnRoute' => 'en-route threshold', 'opsStuckThresholdInProgress' => 'in-progress threshold',
             'opsStuckThresholdOnHold' => 'on-hold threshold', 'opsDispatchOfferResponseTimeoutMinutes' => 'dispatch offer response timeout',
@@ -1264,6 +1288,7 @@ class Manage extends Component
             'operations.stuck_threshold_minutes.in_progress' => $this->opsStuckThresholdInProgress,
             'operations.stuck_threshold_minutes.on_hold' => $this->opsStuckThresholdOnHold,
             'dispatch.offer_response_timeout_minutes' => $this->opsDispatchOfferResponseTimeoutMinutes,
+            'ops.whatsapp_business_number' => trim($this->opsWhatsappBusinessNumber),
         ] as $key => $value) {
             $this->put($key, $value, 'global', null);
         }

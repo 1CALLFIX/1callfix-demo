@@ -81,10 +81,43 @@ Reuse, no parallel engine:
 
 Ship 2 and 3 together, otherwise a cash-only provider with dues is locked out with no way to pay.
 
-## Decisions needed
+## 6. Admin WhatsApp / Call fallback (added 2026-10-16, owner approved the idea)
 
-1. Floor amount (you said ₹500) and whether it applies everywhere or per franchise/zone.
-2. Max outstanding cash commission (after you see the real total).
-3. Does the floor count dues (switch above)?
-4. Admin assign: hard block, or allow with a written override reason?
-5. Withdrawable option (a) or (b).
+Purpose: when no provider responds in the app, Super Admin or franchise staff reach a provider directly, so no
+customer is left waiting. No WhatsApp API: `wa.me` click-to-chat with a pre-typed message; the admin presses Send.
+
+- **Where:** admin booking page (`app/Livewire/Bookings/Show.php`) while the job is unassigned / searching, and the
+  stuck-jobs list (highlighted once the T+5 dispatch escalation fires).
+- **Who:** permission `bookings.reassign`, scoped: Super Admin all, franchise head/operator own franchise only.
+- **Provider list:** built from the shared `ProviderStanding` eligibility check (§1) + skill + zone. Ineligible
+  providers are shown greyed with the reason (dues, low balance, KYC, suspended), no buttons.
+- **Buttons per eligible provider:** WhatsApp (`https://wa.me/91XXXXXXXXXX?text=…`, number from the provider's
+  registered `users.phone`) and Call (`tel:`).
+- **Offer message:** job code, service, area/landmark (not the full address), date/time, provider earning, link to the
+  job in the provider web app, signed "1CallFix Operations, {business number}". **No customer name, phone or full
+  address** before assignment.
+- **After the provider agrees:** admin assigns on the same page. Assign goes through the L5 eligibility check (this
+  feature depends on L5). A second button sends a "Job assigned to you" WhatsApp with the link.
+- **Audit:** every WhatsApp/Call click is logged (who, provider, booking, time) via ActivityLog and shown on the booking
+  timeline, so two staff don't message the same provider unknowingly.
+- **Sender number:** the owner's business WhatsApp **90146 09609**. A `wa.me` link always sends from the WhatsApp
+  logged in on that computer/phone, so staff must use WhatsApp Web/Desktop linked to the business account (WhatsApp
+  Business allows linked devices). Setting `ops.whatsapp_business_number` (Super Admin, audit-logged) holds the number
+  used in the message signature; null = no signature line.
+- **No migration, no money movement** (approval model not involved).
+- **Tests:** button only for permitted, in-scope users; ineligible providers get no button; message never contains
+  customer phone/name/full address; click is logged; assign still refuses an ineligible provider.
+
+## Owner decisions (2026-10-16)
+
+1. **Minimum wallet balance:** Super Admin sets the amount and can activate / deactivate it (switch + amount; off =
+   no floor). Not fixed at ₹500.
+2. **Maximum unpaid cash commission:** a Super Admin setting; the owner will enter ₹1,000 or ₹1,500. Live impact
+   (prod 2026-10-15): at ₹1,000 all 3 providers are over (₹2,618.20 / ₹1,499.40 / ₹1,099.50); at ₹1,500 only
+   provider 71 is over.
+3. **Dues count against the wallet floor: yes.** Dues are cleared from the wallet when the provider pays
+   (settle-on-top-up, §3) and, as today, at payout request.
+4. **Admin assign:** admins pick from eligible providers only; if an ineligible provider is assigned anyway, a written
+   reason is mandatory and logged.
+5. **Withdrawable:** option (a), ledger-derived, no migration. The provider requests a withdrawal and it is paid;
+   otherwise the money stays in the wallet.

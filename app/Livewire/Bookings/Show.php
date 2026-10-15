@@ -10,11 +10,14 @@ use App\Actions\ReassignInProgressJobAction;
 use App\Actions\MarkSparesAvailableAction;
 use App\Actions\PlaceBookingOnHoldAction;
 use App\Actions\ResumeBookingAction;
+use App\Models\ActivityLog;
 use App\Models\Booking;
 use App\Models\PartnerWorker;
 use App\Models\Provider;
 use App\Models\Setting;
+use App\Services\ActivityLogger;
 use App\Services\AuthorizationService;
+use App\Services\Providers\ProviderStanding;
 use Livewire\Component;
 
 class Show extends Component
@@ -23,6 +26,9 @@ class Show extends Component
     public string $selectedProviderId = '';
     public string $cancelReason = '';
     public string $selectedWorkerId = '';
+
+    /** Audit 2026-10-15 L5 — required (and logged) only when the chosen provider is not eligible. */
+    public string $overrideReason = '';
 
     // Job-journey controls (REF 1CF-JOURNEY-001): hold / spares available / resume by the operator.
     public string $holdReason = 'awaiting_spares';
@@ -68,12 +74,85 @@ class Show extends Component
         $this->booking = $booking;
     }
 
+    /**
+     * Audit 2026-10-15 L5 — every active provider in the booking's zone, each with the reasons (if any) they may not
+     * take this job, from the same ProviderStanding rule dispatch uses. Eligible first, then online first.
+     *
+     * @return \Illuminate\Support\Collection<int, object{provider: Provider, blockers: array}>
+     */
     public function getAvailableProvidersProperty()
     {
-        return Provider::with('user')
+        $standing = app(ProviderStanding::class);
+
+        return Provider::with(['user', 'franchise'])
             ->where('zone_id', $this->booking->zone_id)
             ->where('is_active', true)
             ->when($this->booking->provider_id, fn ($q, $id) => $q->where('id', '!=', $id)) // handing a job to the same professional is meaningless
+            ->get()
+            ->map(fn (Provider $p) => (object) ['provider' => $p, 'blockers' => $standing->blockersForBooking($p, $this->booking)])
+            ->sortBy(fn ($row) => ($row->blockers === [] ? 0 : 2) + ($row->provider->is_online ? 0 : 1))
+            ->values();
+    }
+
+    /**
+     * Admin WhatsApp / Call fallback (owner approved 2026-10-16): staff reach a provider directly while the job has
+     * nobody, or after a professional left mid-work. Same permission and scope as assigning.
+     */
+    public function canContactProviders(): bool
+    {
+        $needsSomeone = in_array($this->booking->status, ['pending', 'searching_provider'], true)
+            || ($this->booking->status === 'on_hold' && $this->booking->hold_category === 'provider_side');
+
+        return $needsSomeone && auth()->user()->hasPermission('bookings.reassign', $this->bookingScope());
+    }
+
+    /** The assigned provider can be sent a "job assigned" WhatsApp until the work starts. */
+    public function canSendAssignedMessage(): bool
+    {
+        return (bool) $this->booking->provider_id
+            && in_array($this->booking->status, ['assigned', 'provider_en_route'], true)
+            && auth()->user()->hasPermission('bookings.reassign', $this->bookingScope());
+    }
+
+    /**
+     * Logs a WhatsApp / Call click (the link itself opens in the browser — nothing is sent by the server). Refuses a
+     * provider who is not eligible for this job, so the buttons can't be used to reach a blocked provider.
+     */
+    public function logContact(int $providerId, string $channel, string $kind = 'offer'): void
+    {
+        if (! in_array($channel, ['whatsapp', 'call'], true) || ! in_array($kind, ['offer', 'assigned'], true)) {
+            return;
+        }
+
+        if ($kind === 'offer') {
+            if (! $this->canContactProviders()) {
+                return;
+            }
+            $row = $this->availableProviders->first(fn ($r) => $r->provider->id === $providerId);
+            if (! $row || $row->blockers !== []) {
+                return;
+            }
+        } elseif (! $this->canSendAssignedMessage() || (int) $this->booking->provider_id !== $providerId) {
+            return;
+        }
+
+        ActivityLogger::log(auth()->user(), Booking::class, $this->booking->id,
+            $channel === 'whatsapp' ? 'Admin sent provider a WhatsApp' : 'Admin called provider', [
+                'provider_id' => $providerId,
+                'channel' => $channel,
+                'kind' => $kind,
+            ]);
+    }
+
+    /** @return \Illuminate\Support\Collection<int, ActivityLog> */
+    public function getContactLogProperty()
+    {
+        return ActivityLog::with('causer')
+            ->where('subject_type', Booking::class)
+            ->where('subject_id', $this->booking->id)
+            ->whereIn('description', ['Admin sent provider a WhatsApp', 'Admin called provider', 'Admin assigned an ineligible provider (override)'])
+            ->latest('id')
+            ->limit(20)
             ->get();
     }
 
@@ -145,15 +224,16 @@ class Show extends Component
         try {
             if ($this->booking->status === 'on_hold' && $this->booking->hold_category === 'provider_side') {
                 // REF 1CF-JOURNEY-001 — the professional left mid-work: hand the job over with a fresh start code.
-                $this->booking = app(ReassignInProgressJobAction::class)->execute($this->booking->id, (int) $this->selectedProviderId, auth()->id());
+                $this->booking = app(ReassignInProgressJobAction::class)->execute($this->booking->id, (int) $this->selectedProviderId, auth()->id(), null, $this->overrideReason);
                 $this->flashMessage = 'Job handed to the new professional. The customer has a new start code.';
             } else {
-                $this->booking = $action->execute($this->booking->id, (int) $this->selectedProviderId);
+                $this->booking = $action->execute($this->booking->id, (int) $this->selectedProviderId, '', $this->overrideReason, auth()->user());
                 $this->flashMessage = 'Booking reassigned successfully.';
             }
             $this->booking->load(['provider.user', 'statusHistory']);
             $this->flashType = 'success';
             $this->selectedProviderId = '';
+            $this->overrideReason = '';
         } catch (\Throwable $e) {
             $this->flashType = 'error';
             $this->flashMessage = $e->getMessage();

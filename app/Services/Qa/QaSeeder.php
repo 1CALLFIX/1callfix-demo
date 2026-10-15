@@ -1050,7 +1050,9 @@ class QaSeeder
             // AdminReassignBookingAction an admin uses from the live queue,
             // not a synthetic shortcut.
             $provider = $activeProviders[array_rand($activeProviders)] ?? $providers[0];
-            $booking = app(AdminReassignBookingAction::class)->execute($booking->id, $provider->id, 'QA seed: assigned');
+            // Synthetic data: the random provider may not match the booking's zone/skill, so the seed uses the
+            // admin override path (audit 2026-10-15 L5) with an explicit reason, exactly as an admin would.
+            $booking = app(AdminReassignBookingAction::class)->execute($booking->id, $provider->id, 'QA seed: assigned', 'QA seed data (synthetic assignment)');
 
             if ($targetStatus === 'assigned') {
                 $stats['assigned']++;

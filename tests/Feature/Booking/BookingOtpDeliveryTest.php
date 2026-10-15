@@ -92,6 +92,8 @@ class BookingOtpDeliveryTest extends TestCase
         ['booking' => $booking, 'franchise' => $franchise, 'zone' => $zone, 'customer' => $customer] = $this->makeBookingScenario('pending');
         $provider = $this->makeProviderIn($franchise, $zone);
 
+        $provider->update(['skills' => [$booking->service->category_id]]); // eligible for this job (audit 2026-10-15 L5)
+
         app(AdminReassignBookingAction::class)->execute($booking->id, $provider->id);
 
         Notification::assertSentToTimes($customer, BookingOtpNotification::class, 2);
@@ -102,6 +104,8 @@ class BookingOtpDeliveryTest extends TestCase
         Notification::fake();
         ['booking' => $booking, 'franchise' => $franchise, 'zone' => $zone, 'customer' => $customer] = $this->makeAssignedBookingScenario();
         $newProvider = $this->makeProviderIn($franchise, $zone);
+
+        $newProvider->update(['skills' => [$booking->service->category_id]]); // eligible for this job (audit 2026-10-15 L5)
 
         app(AdminReassignBookingAction::class)->execute($booking->id, $newProvider->id, 'original unresponsive');
 

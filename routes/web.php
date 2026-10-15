@@ -37,6 +37,7 @@ use App\Livewire\Provider\Jobs\Index as ProviderJobs;
 use App\Livewire\Provider\Jobs\Show as ProviderJobShow;
 use App\Livewire\Provider\PaymentAccounts as ProviderPaymentAccounts;
 use App\Livewire\Provider\RequestPayout as ProviderRequestPayout;
+use App\Livewire\Provider\WalletDues as ProviderWalletDues;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 
@@ -233,6 +234,7 @@ Route::middleware(['auth', \App\Http\Middleware\EnsureIsProvider::class, \App\Ht
         Route::get('/earnings', ProviderEarnings::class)->name('provider.earnings');
         Route::get('/payment-accounts', ProviderPaymentAccounts::class)->name('provider.payment-accounts');
         Route::get('/request-payout', ProviderRequestPayout::class)->name('provider.request-payout');
+        Route::get('/wallet', ProviderWalletDues::class)->name('provider.wallet');
         Route::get('/history', ProviderHistory::class)->name('provider.history');
         Route::get('/activity', ProviderActivity::class)->name('provider.activity');
         Route::get('/shifts', ProviderShifts::class)->name('provider.shifts');

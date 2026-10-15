@@ -58,6 +58,7 @@ class ProviderLeftTest extends TestCase
         Notification::fake();
         $s = $this->inProgress();
         $new = $this->makeProviderIn($s['franchise'], $s['zone']);
+        $new->update(['skills' => [$s['booking']->service->category_id]]); // eligible for this job (audit 2026-10-15 L5)
         app(FlagProviderLeftAction::class)->execute($s['booking']->id, 'operator');
 
         $b = app(ReassignInProgressJobAction::class)->execute($s['booking']->id, $new->id);
@@ -78,6 +79,7 @@ class ProviderLeftTest extends TestCase
     {
         $s = $this->inProgress();
         $new = $this->makeProviderIn($s['franchise'], $s['zone']);
+        $new->update(['skills' => [$s['booking']->service->category_id]]); // eligible for this job (audit 2026-10-15 L5)
         try {
             app(ReassignInProgressJobAction::class)->execute($s['booking']->id, $new->id);
             $this->fail('expected refusal');
