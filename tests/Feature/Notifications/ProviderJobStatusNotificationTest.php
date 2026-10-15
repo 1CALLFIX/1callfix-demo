@@ -118,6 +118,21 @@ class ProviderJobStatusNotificationTest extends TestCase
         $this->assertProviderNotified($s['provider']->user, 'completed');
     }
 
+    /** Audit 2026-10-15 L4: an unpaid online job credits nobody, so the message must not claim the wallet was credited. */
+    public function test_completed_message_says_earnings_credited_only_when_the_online_job_is_paid(): void
+    {
+        $s = $this->makeAssignedBookingScenario(); // online
+        $user = $s['provider']->user;
+
+        $s['booking']->update(['payment_status' => 'pending']);
+        $unpaid = (new ProviderJobStatusNotification('completed', $s['booking']->fresh(), ['sms']))->toSms($user);
+        $this->assertStringContainsString('no earnings have been added', $unpaid);
+
+        $s['booking']->update(['payment_status' => 'paid']);
+        $paid = (new ProviderJobStatusNotification('completed', $s['booking']->fresh(), ['sms']))->toSms($user);
+        $this->assertStringContainsString('Your earnings have been added to your wallet', $paid);
+    }
+
     public function test_admin_cancel_notifies_the_assigned_provider(): void
     {
         $s = $this->makeAssignedBookingScenario();

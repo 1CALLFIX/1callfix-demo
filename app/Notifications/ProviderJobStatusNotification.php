@@ -80,7 +80,10 @@ class ProviderJobStatusNotification extends Notification
             'started' => ['subject' => 'Job started', 'body' => "Job {$code} is now in progress."],
             'on_hold' => ['subject' => 'Job placed on hold', 'body' => "Job {$code} has been put on hold. Your dispatcher will be in touch."],
             'resumed' => ['subject' => 'Job resumed', 'body' => "Job {$code} is off hold and back in progress."],
-            'completed' => ['subject' => 'Job completed', 'body' => "Job {$code} is complete. Your earnings have been added to your wallet."],
+            // Audit 2026-10-15 L4: an unpaid online job credits nobody, so don't claim the wallet was credited.
+            'completed' => $this->booking->payment_method === 'online' && $this->booking->payment_status !== 'paid'
+                ? ['subject' => 'Job completed', 'body' => "Job {$code} is complete. The customer's online payment is not complete yet, so no earnings have been added to your wallet. Our team will follow up."]
+                : ['subject' => 'Job completed', 'body' => "Job {$code} is complete. Your earnings have been added to your wallet."],
             'cancelled' => ['subject' => 'Job cancelled', 'body' => "Job {$code} has been cancelled."],
             // REF 1CF-EXTRAWORK-001 / 1CF-JOURNEY-001
             'extra_work_approved' => ['subject' => 'Extra work approved', 'body' => "The customer approved your extra-work request on job {$code}. Carry on — the extra amount is paid to you on completion."],
