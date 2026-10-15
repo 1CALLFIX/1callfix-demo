@@ -122,6 +122,9 @@
                     <div class="text-xs text-gray-500 border-t py-1.5">
                         <a href="{{ route('admin.bookings.show', $booking->id) }}" class="text-blue-600 hover:underline">Booking #{{ $booking->id }}</a>
                         — {{ $booking->provider->user->name ?? 'Unknown provider' }}
+                        @if ($booking->payment_method === 'online' && $booking->payment_status !== 'paid')
+                            — <span class="text-amber-700">online payment not received; provider not credited</span>
+                        @endif
                     </div>
                 @empty
                     <div class="text-xs text-gray-400">None.</div>

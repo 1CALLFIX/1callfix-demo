@@ -59,6 +59,7 @@ class ProviderEnRouteLifecycleTest extends TestCase
     public function test_full_lifecycle_accept_then_en_route_then_start_then_complete(): void
     {
         $s = $this->makeAssignedBookingScenario(); // already assigned; start 1234 / completion 5678
+        $s['booking']->update(['payment_status' => 'paid']); // paid online job: L4 credits only paid online bookings
         $this->actingAs($s['provider']->user);
 
         Livewire::test(Show::class, ['booking' => $s['booking']])->call('enRoute');

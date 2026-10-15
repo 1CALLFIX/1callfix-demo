@@ -34,6 +34,7 @@ class ProviderJourneyPW1Test extends TestCase
         Queue::fake();
 
         $s = $this->makeBookingScenario('pending');
+        $s['booking']->update(['payment_status' => 'paid']);  // paid online job: L4 credits only paid online bookings
         $password = 'partner-pass-77';
         $s['provider']->user->update(['password' => Hash::make($password)]);
         $s['provider']->update([

@@ -66,6 +66,7 @@ class BookingFsmTest extends TestCase
     public function test_correct_completion_otp_completes_the_booking(): void
     {
         ['booking' => $booking, 'provider' => $provider] = $this->makeAssignedBookingScenario();
+        $booking->update(['payment_status' => 'paid']);  // paid online job: L4 credits only paid online bookings
 
         $result = app(CompleteBookingAction::class)->execute($booking->id, $provider, '5678');
 
@@ -99,6 +100,7 @@ class BookingFsmTest extends TestCase
     public function test_duplicate_completion_is_rejected_and_does_not_double_apply_commission(): void
     {
         ['booking' => $booking, 'provider' => $provider] = $this->makeAssignedBookingScenario();
+        $booking->update(['payment_status' => 'paid']);  // paid online job: L4 credits only paid online bookings
         app(CompleteBookingAction::class)->execute($booking->id, $provider, '5678');
 
         $this->expectException(\RuntimeException::class);
@@ -146,6 +148,7 @@ class BookingFsmTest extends TestCase
     public function test_a_completed_booking_cannot_be_cancelled(): void
     {
         ['booking' => $booking, 'provider' => $provider] = $this->makeAssignedBookingScenario();
+        $booking->update(['payment_status' => 'paid']);  // paid online job: L4 credits only paid online bookings
         app(CompleteBookingAction::class)->execute($booking->id, $provider, '5678');
 
         $this->expectException(\RuntimeException::class);

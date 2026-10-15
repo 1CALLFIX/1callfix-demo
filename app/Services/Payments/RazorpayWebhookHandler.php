@@ -180,8 +180,13 @@ class RazorpayWebhookHandler
             if ($bundle) {
                 app(BookingBundlePaymentService::class)->markBundlePaid($bundle);
 
-                // Coupon bundle: the children were held at creation and are dispatched only now.
+                // Coupon / online bundle: the children were held at creation and are dispatched only now.
                 app(\App\Services\Coupons\CouponDispatchGate::class)->releaseBundle($bundle->fresh());
+
+                // A child already completed while unpaid got no commission (audit L4 guard) — split it now, once.
+                foreach ($bundle->children()->where('status', 'completed')->get() as $done) {
+                    app(\App\Services\CommissionService::class)->applyForBooking($done);
+                }
 
                 foreach ($bundle->children()->with('customer')->get() as $child) {
                     if ($child->customer) {
@@ -254,8 +259,13 @@ class RazorpayWebhookHandler
                 // adding a scheduled_at branch at every webhook call site.
                 app(\App\Services\ScheduledDispatchService::class)->releaseIfEligible($booking->fresh());
 
-                // Coupon (benefit) bookings are held at creation and dispatched only now, on capture.
+                // Coupon and online bookings are held at creation and dispatched only now, on capture.
                 app(\App\Services\Coupons\CouponDispatchGate::class)->releaseIfEligible($booking->fresh());
+
+                // Paid after the job was already completed (audit L4 guard skipped the split) — split it now, once.
+                if (($fresh = $booking->fresh()) && $fresh->status === 'completed') {
+                    app(\App\Services\CommissionService::class)->applyForBooking($fresh);
+                }
             }
         }
 

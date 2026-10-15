@@ -98,10 +98,12 @@ class CreateBookingAction
             // (payWithWallet() ran inside the transaction above); for
             // 'online' it fires later from RazorpayWebhookHandler instead.
             $this->scheduledDispatch->releaseIfEligible($booking);
-        } elseif ($booking->coupon_id !== null && $booking->payment_status !== 'paid') {
-            // A coupon booking is a benefit booking: nothing is dispatched until the
-            // online payment is captured (RazorpayWebhookHandler -> CouponDispatchGate).
-            // If payment never arrives the unpaid-hold sweep cancels it.
+        } elseif (($booking->coupon_id !== null || $booking->payment_method === 'online') && $booking->payment_status !== 'paid') {
+            // Pay before dispatch (audit 2026-10-15 L4): an online booking — and every
+            // coupon booking — sends no provider offers until the Razorpay payment is
+            // captured (RazorpayWebhookHandler -> CouponDispatchGate). If payment never
+            // arrives the unpaid-hold sweep cancels it. Wallet bookings are paid inside
+            // the transaction above; cash is unchanged.
         } else {
             ServiceMatchingJob::dispatch($booking->id);
         }

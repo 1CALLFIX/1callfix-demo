@@ -8,11 +8,12 @@ use App\Models\BookingBundle;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Payment gate for coupon (benefit) bookings. An instant booking is normally
- * dispatched at creation, before payment; for a coupon booking that would let
- * a discounted job be worked unpaid, so CreateBookingAction /
- * CreateBookingBundleAction hold the dispatch and RazorpayWebhookHandler
- * releases it here once the capture lands.
+ * Payment gate: pay before dispatch. Coupon (benefit) bookings and — since the
+ * 2026-10-15 audit (L4) — every online-paid instant booking are held at
+ * creation by CreateBookingAction / CreateBookingBundleAction, and
+ * RazorpayWebhookHandler releases them here once the capture lands. Before
+ * L4 an online booking went to providers unpaid and could be worked and
+ * completed without the customer ever paying.
  *
  * Scheduled bookings keep using ScheduledDispatchService::releaseIfEligible
  * (already payment-gated). Idempotent: only a still-`pending`, paid, never
@@ -22,7 +23,7 @@ class CouponDispatchGate
 {
     public function releaseIfEligible(Booking $booking): void
     {
-        if ($booking->coupon_id === null || $booking->scheduled_at !== null) {
+        if ($booking->scheduled_at !== null || ($booking->coupon_id === null && $booking->payment_method !== 'online')) {
             return;
         }
 
@@ -32,7 +33,7 @@ class CouponDispatchGate
     /** A coupon bundle's children, once the one aggregate payment is captured (same dispatch the bundle path always used). */
     public function releaseBundle(BookingBundle $bundle): void
     {
-        if ($bundle->coupon_id === null) {
+        if ($bundle->coupon_id === null && $bundle->payment_method !== 'online') {
             return;
         }
 

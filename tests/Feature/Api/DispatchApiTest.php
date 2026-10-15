@@ -86,6 +86,7 @@ class DispatchApiTest extends TestCase
     public function test_provider_can_complete_their_own_job_via_http_and_commission_is_credited(): void
     {
         ['booking' => $booking, 'provider' => $provider] = $this->makeAssignedBookingScenario();
+        $booking->update(['payment_status' => 'paid']);  // paid online job: L4 credits only paid online bookings
 
         $response = $this->actingAs($provider->user, 'sanctum')
             ->postJson("/api/bookings/{$booking->id}/complete", ['otp' => $booking->completion_otp]);

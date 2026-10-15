@@ -36,6 +36,22 @@ class DataClearAuditLogTest extends TestCase
     use RefreshDatabase;
     use DataClearTestHelpers;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        // Under --parallel every process shares storage/logs/data-clear.log, and other DataClear tests append to it
+        // mid-assertion. Give each test process its own log file so the content assertions here are deterministic.
+        $this->app->singleton(DataClearAuditLogger::class, fn () => new class extends DataClearAuditLogger
+        {
+            public function logPath(): string
+            {
+                return storage_path('logs/data-clear-test-'.(getenv('TEST_TOKEN') ?: getmypid()).'.log');
+            }
+        });
+        @unlink(app(DataClearAuditLogger::class)->logPath());
+    }
+
     protected function tearDown(): void
     {
         @unlink(app(DataClearAuditLogger::class)->logPath());

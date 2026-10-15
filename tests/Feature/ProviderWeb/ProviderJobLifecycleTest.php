@@ -50,7 +50,7 @@ class ProviderJobLifecycleTest extends TestCase
     public function test_correct_completion_otp_completes_the_job_and_credits_the_provider(): void
     {
         $s = $this->makeAssignedBookingScenario();
-        $s['booking']->update(['status' => 'in_progress']);
+        $s['booking']->update(['status' => 'in_progress', 'payment_status' => 'paid']); // paid online job: L4 credits only paid online bookings
         $this->actingAs($s['provider']->user);
 
         Livewire::test(Show::class, ['booking' => $s['booking']])
@@ -71,7 +71,7 @@ class ProviderJobLifecycleTest extends TestCase
     public function test_completion_screen_shows_the_earnings_line(): void
     {
         $s = $this->makeAssignedBookingScenario();
-        $s['booking']->update(['status' => 'in_progress']);
+        $s['booking']->update(['status' => 'in_progress', 'payment_status' => 'paid']); // paid online job: L4 credits only paid online bookings
         $this->actingAs($s['provider']->user);
 
         Livewire::test(Show::class, ['booking' => $s['booking']])

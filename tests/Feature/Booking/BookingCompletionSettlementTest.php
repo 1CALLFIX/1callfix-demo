@@ -30,6 +30,7 @@ class BookingCompletionSettlementTest extends TestCase
     private function makePaidAssignedScenario(): array
     {
         $scenario = $this->makeAssignedBookingScenario();
+        $scenario['booking']->update(['payment_status' => 'paid']);  // paid online job: L4 credits only paid online bookings
         $scenario['payment'] = Payment::create([
             'booking_id' => $scenario['booking']->id,
             'purpose' => 'booking',
