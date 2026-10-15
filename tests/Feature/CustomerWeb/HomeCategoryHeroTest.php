@@ -105,4 +105,18 @@ class HomeCategoryHeroTest extends TestCase
         $this->assertSame('20', Setting::get(SiteControls::LIMIT_PARTNER_FORM));
         $this->assertTrue(ActivityLog::where('description', 'Setting '.SiteControls::IMAGE_FIT.' changed')->exists());
     }
+
+    public function test_icon_size_is_an_admin_setting(): void
+    {
+        $this->makeCategoryAndService();
+
+        $this->get('/')->assertSee('h-16 w-16 sm:h-20 sm:w-20', false);
+
+        Setting::set(SiteControls::HOME_ICON_SIZE, 'large');
+        $this->get('/')->assertSee('h-20 w-20 sm:h-24 sm:w-24', false);
+
+        Setting::set(SiteControls::HOME_ICON_SIZE, 'small');
+        Setting::set(SiteControls::HOME_COLUMNS_MOBILE, '6');
+        $this->get('/')->assertSee('h-12 w-12 sm:h-14 sm:w-14', false)->assertSee('--cf-cols-m: 6;', false);
+    }
 }

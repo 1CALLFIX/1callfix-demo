@@ -23,6 +23,7 @@ final class SiteControls
     public const HOME_COLUMNS_MOBILE = 'home.layout.columns_mobile';
     public const HOME_COLUMNS_DESKTOP = 'home.layout.columns_desktop';
     public const HOME_CATEGORIES_FIRST = 'home.layout.categories_first';
+    public const HOME_ICON_SIZE = 'home.layout.icon_size';
 
     // Images
     public const IMAGE_FIT = 'images.fit';
@@ -42,6 +43,7 @@ final class SiteControls
 
     public const SERVICES_MODES = ['required', 'optional', 'hidden'];
     public const FITS = ['contain', 'cover'];
+    public const ICON_SIZES = ['small', 'medium', 'large'];
 
     public const DEFAULT_HEADLINE = 'Home services at your doorstep';
 
@@ -76,12 +78,30 @@ final class SiteControls
 
     public static function columnsMobile(): int
     {
-        return self::int(self::HOME_COLUMNS_MOBILE, 4, 3, 5);
+        return self::int(self::HOME_COLUMNS_MOBILE, 4, 3, 6);
     }
 
     public static function columnsDesktop(): int
     {
-        return self::int(self::HOME_COLUMNS_DESKTOP, 8, 4, 10);
+        return self::int(self::HOME_COLUMNS_DESKTOP, 8, 4, 12);
+    }
+
+    /** Homepage category icon size: small | medium (default) | large. */
+    public static function iconSize(): string
+    {
+        $v = (string) self::raw(self::HOME_ICON_SIZE);
+
+        return in_array($v, self::ICON_SIZES, true) ? $v : 'medium';
+    }
+
+    /** Tailwind size classes for the homepage icon box (full literals so the build keeps them). */
+    public static function iconBoxClasses(): string
+    {
+        return match (self::iconSize()) {
+            'small' => 'h-12 w-12 sm:h-14 sm:w-14',
+            'large' => 'h-20 w-20 sm:h-24 sm:w-24',
+            default => 'h-16 w-16 sm:h-20 sm:w-20',
+        };
     }
 
     /** 'contain' = the whole picture, never cropped or zoomed (default); 'cover' = fill the box, edges may be cut. */

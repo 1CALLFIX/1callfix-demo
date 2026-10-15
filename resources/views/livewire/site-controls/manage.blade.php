@@ -32,22 +32,30 @@
                     <input id="sc-limit" type="number" min="4" max="40" wire:model="categoryLimit" class="{{ $input }}">
                     @error('categoryLimit') <p class="text-xs text-red-600 mt-1">{{ $message }}</p> @enderror
                 </div>
-                <div class="grid grid-cols-2 gap-3">
+                <div class="grid grid-cols-3 gap-3">
                     <div>
                         <label class="block text-sm font-medium mb-1" for="sc-colm">Icons per row, phone</label>
                         <select id="sc-colm" wire:model="columnsMobile" class="{{ $input }}">
-                            @foreach ([3, 4, 5] as $n) <option value="{{ $n }}">{{ $n }}</option> @endforeach
+                            @foreach (range(3, 6) as $n) <option value="{{ $n }}">{{ $n }}</option> @endforeach
                         </select>
                     </div>
                     <div>
                         <label class="block text-sm font-medium mb-1" for="sc-cold">Icons per row, computer</label>
                         <select id="sc-cold" wire:model="columnsDesktop" class="{{ $input }}">
-                            @foreach (range(4, 10) as $n) <option value="{{ $n }}">{{ $n }}</option> @endforeach
+                            @foreach (range(4, 12) as $n) <option value="{{ $n }}">{{ $n }}</option> @endforeach
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-1" for="sc-isize">Icon size</label>
+                        <select id="sc-isize" wire:model="iconSize" class="{{ $input }}">
+                            <option value="small">Small</option>
+                            <option value="medium">Medium</option>
+                            <option value="large">Large</option>
                         </select>
                     </div>
                 </div>
             </div>
-            <p class="text-xs text-gray-500 mt-3">Category order and icons come from Catalogue → Categories (sort order and image).</p>
+            <p class="text-xs text-gray-500 mt-3">Category order and icons come from Catalogue → Categories (sort order and image). With 6 per row on a phone, Small icons fit best.</p>
         </x-ui.card>
 
         <x-ui.card>

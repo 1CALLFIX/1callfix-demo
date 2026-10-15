@@ -22,6 +22,7 @@ class Manage extends Component
     public string $categoryLimit = '16';
     public string $columnsMobile = '4';
     public string $columnsDesktop = '8';
+    public string $iconSize = 'medium';
 
     public string $imageFit = 'contain';
     public bool $imageBorder = true;
@@ -49,6 +50,7 @@ class Manage extends Component
         $this->categoryLimit = (string) S::categoryLimit();
         $this->columnsMobile = (string) S::columnsMobile();
         $this->columnsDesktop = (string) S::columnsDesktop();
+        $this->iconSize = S::iconSize();
         $this->imageFit = S::imageFit();
         $this->imageBorder = S::imageBorder();
         $this->imageGloss = S::imageGloss();
@@ -68,8 +70,9 @@ class Manage extends Component
         $this->validate([
             'headline' => ['required', 'string', 'max:120'],
             'categoryLimit' => ['required', 'integer', 'between:4,40'],
-            'columnsMobile' => ['required', 'integer', 'between:3,5'],
-            'columnsDesktop' => ['required', 'integer', 'between:4,10'],
+            'columnsMobile' => ['required', 'integer', 'between:3,6'],
+            'iconSize' => ['required', 'in:'.implode(',', S::ICON_SIZES)],
+            'columnsDesktop' => ['required', 'integer', 'between:4,12'],
             'imageFit' => ['required', 'in:'.implode(',', S::FITS)],
             'servicesStep' => ['required', 'in:'.implode(',', S::SERVICES_MODES)],
             'servicesMax' => ['required', 'integer', 'between:0,50'],
@@ -95,6 +98,7 @@ class Manage extends Component
             S::HOME_CATEGORY_LIMIT => (string) (int) $this->categoryLimit,
             S::HOME_COLUMNS_MOBILE => (string) (int) $this->columnsMobile,
             S::HOME_COLUMNS_DESKTOP => (string) (int) $this->columnsDesktop,
+            S::HOME_ICON_SIZE => $this->iconSize,
             S::IMAGE_FIT => $this->imageFit,
             S::IMAGE_BORDER => $bool($this->imageBorder),
             S::IMAGE_GLOSS => $bool($this->imageGloss),

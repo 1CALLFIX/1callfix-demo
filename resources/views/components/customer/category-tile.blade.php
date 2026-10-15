@@ -43,7 +43,7 @@
     <a href="{{ \App\Support\Seo\PublicUrl::category($category) }}"
        {{ $attributes->merge(['class' => 'group flex h-full flex-col items-center gap-2 rounded-2xl p-1 text-center transition duration-200 hover:bg-blue-50/60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600']) }}>
         <span aria-hidden="true"
-              class="{{ $frame }} relative grid h-16 w-16 shrink-0 place-items-center overflow-hidden rounded-2xl text-lg font-semibold text-slate-700 transition duration-200 group-hover:shadow-md sm:h-20 sm:w-20"
+              class="{{ $frame }} relative grid {{ \App\Support\SiteControls::iconBoxClasses() }} shrink-0 place-items-center overflow-hidden rounded-2xl text-lg font-semibold text-slate-700 transition duration-200 group-hover:shadow-md"
               style="background-color: {{ $tint }}">
             <x-customer.initial :name="$category->name" />
 
