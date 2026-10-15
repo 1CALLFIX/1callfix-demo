@@ -127,6 +127,7 @@ class CommissionAbuseTest extends TestCase
     public function test_a_legitimate_completion_pays_the_provider_exactly_once(): void
     {
         $scenario = $this->makeAssignedBookingScenario();
+        $scenario['booking']->update(['payment_status' => 'paid']); // paid online job: L4 credits only paid online bookings
 
         $this->actingAs($scenario['provider']->user, 'sanctum')
             ->postJson("/api/bookings/{$scenario['booking']->id}/complete", ['otp' => '5678'])
@@ -151,6 +152,7 @@ class CommissionAbuseTest extends TestCase
     public function test_replaying_the_completion_request_does_not_pay_a_second_time(): void
     {
         $scenario = $this->makeAssignedBookingScenario();
+        $scenario['booking']->update(['payment_status' => 'paid']); // paid online job: L4 credits only paid online bookings
         $url = "/api/bookings/{$scenario['booking']->id}/complete";
 
         $this->actingAs($scenario['provider']->user, 'sanctum')->postJson($url, ['otp' => '5678'])->assertOk();
@@ -174,6 +176,7 @@ class CommissionAbuseTest extends TestCase
     public function test_the_payout_is_computed_from_the_stored_price_not_from_the_request_body(): void
     {
         $scenario = $this->makeAssignedBookingScenario();
+        $scenario['booking']->update(['payment_status' => 'paid']); // paid online job: L4 credits only paid online bookings
 
         $this->actingAs($scenario['provider']->user, 'sanctum')
             ->postJson("/api/bookings/{$scenario['booking']->id}/complete", [

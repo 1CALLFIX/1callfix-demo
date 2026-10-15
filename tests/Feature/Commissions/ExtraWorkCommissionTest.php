@@ -29,6 +29,7 @@ class ExtraWorkCommissionTest extends TestCase
     public function test_prepaid_booking_with_approved_extra_credits_only_the_collected_share_and_records_a_receivable(): void
     {
         $s = $this->makeAssignedBookingScenario(); // online, ₹500
+        $s['booking']->update(['payment_status' => 'paid']);  // prepaid = paid online job: L4 credits only paid online bookings
         $this->extra($s['booking']->id, 100, 'approved', $s['provider']->id);
 
         app(CompleteBookingAction::class)->execute($s['booking']->id, $s['provider'], '5678');
