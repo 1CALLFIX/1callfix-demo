@@ -155,13 +155,33 @@ class PartnerLeadCaptureTest extends TestCase
 
     public function test_submits_are_throttled_per_mobile(): void
     {
+        // The limit is a Super Admin setting (SiteControls); 3 here to keep the test short.
+        \App\Models\Setting::set(\App\Support\SiteControls::LIMIT_PARTNER_FORM, '3');
+
         $phone = $this->randomPhone();
         for ($i = 0; $i < 3; $i++) {
+            // A different browser each time (no hand-off in the session), so every submit counts.
+            session()->forget('partner_lead');
             $this->fill('service', $phone)->call('submit')->assertHasNoErrors();
         }
 
+        session()->forget('partner_lead');
         $this->fill('service', $phone)->call('submit')->assertSeeText('Too many attempts');
         $this->assertSame(3, PartnerLead::sole()->submit_count);
+    }
+
+    public function test_going_back_and_forth_in_the_same_browser_is_never_locked_out(): void
+    {
+        // Owner report 2026-10-15: back/forward between /partners and the sign-up locked a real applicant out with
+        // "try again in 441 seconds". The same browser re-submitting the same mobile + role is one application.
+        \App\Models\Setting::set(\App\Support\SiteControls::LIMIT_PARTNER_FORM, '2');
+
+        $phone = $this->randomPhone();
+        for ($i = 0; $i < 6; $i++) {
+            $this->fill('service', $phone)->call('submit')->assertHasNoErrors()->assertSet('outcome', 'handoff')->assertSet('error', '');
+        }
+
+        $this->assertSame(6, PartnerLead::sole()->submit_count);
     }
 
     public function test_a_save_failure_shows_only_the_generic_sentence(): void
@@ -250,5 +270,16 @@ class PartnerLeadCaptureTest extends TestCase
 
         $this->expectException(\RuntimeException::class);
         $migration->down();
+    }
+
+    public function test_add_another_application_brings_the_typed_city_box_back_when_no_city_is_listed(): void
+    {
+        \App\Models\City::query()->update(['is_active' => false]);
+
+        $this->fill('service')->set('cityChoice', \App\Livewire\Partner\ApplyForm::OTHER_CITY)->set('city', 'Nellore')
+            ->call('submit')->assertSet('outcome', 'handoff')
+            ->call('again')
+            ->assertSet('outcome', '')
+            ->assertSet('cityChoice', \App\Livewire\Partner\ApplyForm::OTHER_CITY);
     }
 }

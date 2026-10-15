@@ -10,9 +10,11 @@ use App\Livewire\Customer\Auth\Concerns\InteractsWithAuthThrottle;
 use App\Models\User;
 use App\Models\Zone;
 use App\Services\Customer\CustomerLocationContext;
+use App\Services\Catalog\ServiceCatalogQuery;
 use App\Services\DispatchService;
 use App\Services\Kyc\KycDocumentService;
 use App\Support\PhoneNumber;
+use App\Support\SiteControls;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Locked;
@@ -42,8 +44,10 @@ use Livewire\WithFileUploads;
  * signup; an out-of-coverage pin queues for manual placement, never blocks
  * (D3) — and neither does a missing pin: a typed work address alone is
  * enough, the row is flagged out-of-coverage for an operator to place; the
- * optional email is stored unverified (D4); no skills picker
- * (D2); no applicant notification (D8); no existing-customer -> provider
+ * optional email is stored unverified (D4); the applicant picks the
+ * service categories they offer (D2 reversed by the owner 2026-10-15 —
+ * required / optional / hidden is a Super Admin setting, SiteControls);
+ * no applicant notification (D8); no existing-customer -> provider
  * attach (D10) — a taken phone is refused with "sign in instead".
  */
 class Register extends Component
@@ -74,6 +78,9 @@ class Register extends Component
     public string $address = '';
 
     public bool $terms = false;
+
+    /** Service category ids the applicant offers — saved to providers.skills (what dispatch matches on). */
+    public array $skills = [];
 
     /** Staged uploads keyed by kyc_document_requirements.document_type. */
     public array $documents = [];
@@ -160,10 +167,10 @@ class Register extends Component
             return;
         }
 
-        if ($this->isThrottled('provider-reg-phone', $this->phone, maxPerIdentifier: 5)) {
+        if ($this->isThrottled('provider-reg-phone', $this->phone, maxPerIdentifier: SiteControls::otpPerMobile())) {
             return;
         }
-        $this->hitThrottle('provider-reg-phone', $this->phone);
+        $this->hitThrottle('provider-reg-phone', $this->phone, SiteControls::windowSeconds());
 
         // Ask the browser to run Firebase signInWithPhoneNumber. The step
         // advances to code entry only once the SMS has really gone out
@@ -339,7 +346,7 @@ class Register extends Component
             return;
         }
 
-        if ($this->isThrottled('provider-reg-submit', $this->verifiedPhoneE164, maxPerIdentifier: 3, maxPerIp: 10)) {
+        if ($this->isThrottled('provider-reg-submit', $this->verifiedPhoneE164, maxPerIdentifier: SiteControls::submitPerMobile(), maxPerIp: 20)) {
             return;
         }
 
@@ -354,11 +361,26 @@ class Register extends Component
             'terms' => ['accepted'],
             'documents' => ['array'],
             'documents.*' => ['file', 'mimes:jpg,jpeg,png,pdf', 'max:10240'],
+            'skills' => array_values(array_filter([
+                'nullable',
+                'array',
+                SiteControls::servicesMax() > 0 ? 'max:'.SiteControls::servicesMax() : null,
+            ])),
+            'skills.*' => ['integer'],
         ], [
+            'skills.max' => 'Choose up to '.SiteControls::servicesMax().' services.',
             'terms.accepted' => 'Please accept the partner terms to continue.',
             'password.confirmed' => 'The two passwords do not match.',
             'address.required' => 'Enter your work address.',
         ]);
+
+        // Only real, active, customer-visible categories count — the array is client-editable state.
+        // "Required" never blocks when no category is published yet — there would be nothing to tick.
+        $offerable = SiteControls::servicesStep() === 'hidden' ? collect() : $this->offerableCategories();
+        $skillIds = $offerable->whereIn('id', array_map('intval', $this->skills))->pluck('id')->values()->all();
+        if (SiteControls::servicesStep() === 'required' && $offerable->isNotEmpty() && $skillIds === []) {
+            $this->addError('skills', 'Choose at least one service you offer.');
+        }
 
         foreach ($requiredTypes as $type) {
             if (! isset($this->documents[$type])) {
@@ -409,11 +431,11 @@ class Register extends Component
             $this->outOfCoverage = true;
         }
 
-        $this->hitThrottle('provider-reg-submit', $this->verifiedPhoneE164);
+        $this->hitThrottle('provider-reg-submit', $this->verifiedPhoneE164, SiteControls::windowSeconds());
 
         $providerId = null;
         try {
-            DB::transaction(function () use ($register, $kyc, $zone, $requirements, &$providerId) {
+            DB::transaction(function () use ($register, $kyc, $zone, $requirements, $skillIds, &$providerId) {
                 $provider = $register->execute(
                     name: $this->name,
                     phone: PhoneNumber::national($this->verifiedPhoneE164),
@@ -427,6 +449,7 @@ class Register extends Component
                         'lat' => $this->lat,
                         'lng' => $this->lng,
                     ],
+                    skills: $skillIds,
                 );
 
                 $providerId = $provider->id;
@@ -455,6 +478,12 @@ class Register extends Component
         $this->reset('password', 'password_confirmation', 'documents');
     }
 
+    /** The categories an applicant can offer: the same active service categories customers browse. */
+    private function offerableCategories(): \Illuminate\Support\Collection
+    {
+        return app(ServiceCatalogQuery::class)->categories()->get(['id', 'name', 'slug', 'image', 'color', 'module']);
+    }
+
     private function resolvedCountryId(): ?int
     {
         if (! $this->resolvedZoneId) {
@@ -468,7 +497,14 @@ class Register extends Component
     {
         $requirements = app(KycDocumentService::class)->requirementsFor('provider', $this->resolvedCountryId());
 
-        return view('livewire.provider.auth.register', ['requirements' => $requirements])
+        $servicesStep = SiteControls::servicesStep();
+
+        return view('livewire.provider.auth.register', [
+            'requirements' => $requirements,
+            'servicesStep' => $servicesStep,
+            'servicesMax' => SiteControls::servicesMax(),
+            'serviceCategories' => $servicesStep === 'hidden' ? collect() : $this->offerableCategories(),
+        ])
             ->layout('components.layouts.provider', ['title' => 'Become a partner']);
     }
 }

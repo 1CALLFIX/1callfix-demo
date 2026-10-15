@@ -52,9 +52,10 @@ class RegisterProviderAction
         ?string $email = null,
         bool $phoneVerified = false,
         array $registration = [],
+        array $skills = [],
     ): Provider {
         return DB::transaction(function () use (
-            $name, $phone, $franchiseId, $zoneId, $plainPassword, $email, $phoneVerified, $registration
+            $name, $phone, $franchiseId, $zoneId, $plainPassword, $email, $phoneVerified, $registration, $skills
         ) {
             if (User::where('phone', $phone)->lockForUpdate()->exists()) {
                 throw new AccountAlreadyExistsException('mobile number');
@@ -86,6 +87,9 @@ class RegisterProviderAction
                 'registration_address' => $registration['address'] ?? null,
                 'registration_lat' => $registration['lat'] ?? null,
                 'registration_lng' => $registration['lng'] ?? null,
+                // Category ids the applicant offers (self sign-up "Services you offer"); the same
+                // `skills` column DispatchService::hasSkill() matches and admins edit on the provider screen.
+                'skills' => $skills !== [] ? array_values(array_unique(array_map('intval', $skills))) : null,
             ]);
         });
     }

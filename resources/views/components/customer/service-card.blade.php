@@ -67,7 +67,7 @@
    {{ $attributes->merge(['class' => 'group relative flex h-full flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white transition duration-200 hover:-translate-y-0.5 hover:border-blue-300 hover:shadow-lg hover:shadow-blue-900/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600']) }}>
 
     {{-- Media --}}
-    <div class="relative aspect-[4/3] w-full overflow-hidden bg-slate-100">
+    <div class="{{ \App\Support\SiteControls::frameClasses() }} relative aspect-[4/3] w-full overflow-hidden bg-slate-100">
         {{-- A lettered tile keyed to the service's own category colour is
              ALWAYS rendered, with the cover image (when there is one) layered
              on top. Deliberately not an if/else: a stored image path that
@@ -87,8 +87,8 @@
                  alt=""
                  loading="lazy"
                  decoding="async"
-                 width="400" height="300"
-                 class="absolute inset-0 h-full w-full object-cover transition duration-300 group-hover:scale-[1.03]">
+                 width="800" height="600"
+                 class="absolute inset-0 h-full w-full {{ \App\Support\SiteControls::imageClasses() }}">
         @endif
 
         @if (! empty($card['badges']))

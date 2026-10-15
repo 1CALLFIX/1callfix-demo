@@ -42,13 +42,24 @@ trait InteractsWithAuthThrottle
 
         foreach ([[$idKey, $maxPerIdentifier], [$ipKey, $maxPerIp]] as [$key, $max]) {
             if (RateLimiter::tooManyAttempts($key, $max)) {
-                $this->error = 'Too many attempts. Please try again in '.RateLimiter::availableIn($key).' seconds.';
+                $this->error = 'Too many attempts. Please try again in '.self::waitPhrase(RateLimiter::availableIn($key)).'.';
 
                 return true;
             }
         }
 
         return false;
+    }
+
+    /** "45 seconds" / "about 8 minutes" — a raw "441 seconds" reads like a fault, not a pause. */
+    protected static function waitPhrase(int $seconds): string
+    {
+        $seconds = max(1, $seconds);
+        if ($seconds < 90) {
+            return $seconds.' '.($seconds === 1 ? 'second' : 'seconds');
+        }
+
+        return 'about '.(int) ceil($seconds / 60).' minutes';
     }
 
     protected function hitThrottle(string $action, string $identifier, int $decaySeconds = 60): void

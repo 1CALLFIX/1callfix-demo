@@ -34,20 +34,23 @@
 @php
     $isCompact = $variant === 'compact';
     $tint = preg_match('/^#[0-9a-fA-F]{6}$/', (string) $category->color) ? $category->color.'26' : '#E2E8F0';
+    // Admin → Homepage & sign-up → Images: never cropped/zoomed by default, optional border + gloss.
+    $imgFit = \App\Support\SiteControls::imageClasses();
+    $frame = \App\Support\SiteControls::frameClasses();
 @endphp
 
 @if ($isCompact)
     <a href="{{ \App\Support\Seo\PublicUrl::category($category) }}"
-       {{ $attributes->merge(['class' => 'group flex h-full flex-col items-center gap-2 rounded-2xl p-2 text-center transition duration-200 hover:-translate-y-0.5 hover:bg-blue-50 hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600']) }}>
+       {{ $attributes->merge(['class' => 'group flex h-full flex-col items-center gap-2 rounded-2xl p-1 text-center transition duration-200 hover:bg-blue-50/60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600']) }}>
         <span aria-hidden="true"
-              class="relative grid h-14 w-14 shrink-0 place-items-center overflow-hidden rounded-2xl text-lg font-semibold text-slate-700 sm:h-16 sm:w-16"
+              class="{{ $frame }} relative grid {{ \App\Support\SiteControls::iconBoxClasses() }} shrink-0 place-items-center overflow-hidden rounded-2xl text-lg font-semibold text-slate-700 transition duration-200 group-hover:shadow-md"
               style="background-color: {{ $tint }}">
             <x-customer.initial :name="$category->name" />
 
             @if ($category->image_url)
                 <img src="{{ $category->image_url }}" alt="" loading="lazy" decoding="async"
-                     width="64" height="64"
-                     class="absolute inset-0 h-full w-full object-cover">
+                     width="160" height="160"
+                     class="absolute inset-0 h-full w-full p-1 {{ $imgFit }}">
             @endif
         </span>
 
@@ -63,14 +66,14 @@
              the customer's homepage. This way the letter is simply revealed, with
              no JavaScript and no onerror handler. --}}
         <span aria-hidden="true"
-              class="relative grid h-12 w-12 shrink-0 place-items-center overflow-hidden rounded-lg text-base font-semibold text-slate-700"
+              class="{{ $frame }} relative grid h-12 w-12 shrink-0 place-items-center overflow-hidden rounded-lg text-base font-semibold text-slate-700"
               style="background-color: {{ $tint }}">
             <x-customer.initial :name="$category->name" />
 
             @if ($category->image_url)
                 <img src="{{ $category->image_url }}" alt="" loading="lazy" decoding="async"
-                     width="48" height="48"
-                     class="absolute inset-0 h-full w-full object-cover">
+                     width="96" height="96"
+                     class="absolute inset-0 h-full w-full p-0.5 {{ $imgFit }}">
             @endif
         </span>
 

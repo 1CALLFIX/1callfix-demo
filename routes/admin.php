@@ -116,6 +116,8 @@ Route::middleware(['auth', \Illuminate\Session\Middleware\AuthenticateSession::c
         Route::get('/services', ServicesManage::class)->name('admin.services.index');
         Route::get('/banners', BannersManage::class)->name('admin.banners.index');
         Route::get('/home-spotlight', HomeSpotlightManage::class)->name('admin.home-spotlight.index');
+        // REF 1CF-HOME-CATEGORY-HERO-001: homepage opener, pictures, partner sign-up services step + limits. Super Admin only, checked in the component.
+        Route::get('/homepage-signup', \App\Livewire\SiteControls\Manage::class)->name('admin.site-controls');
         Route::get('/search-box', SearchBoxManage::class)->name('admin.search-box.index');
         Route::get('/badges', BadgesManage::class)->name('admin.badges.index');
         Route::get('/flash-sales', FlashSalesManage::class)->name('admin.flash-sales.index');

@@ -37,66 +37,57 @@
 
 <div class="mb-bottom-nav">
 
+    @php
+        $controls = \App\Support\SiteControls::class;
+        $categoriesFirst = $controls::categoriesFirst();
+    @endphp
+
     {{-- ======================= Banner slot #1 (hero) =======================
-         Paid `top`-slot ad inventory, placed first — directly under the
-         topbar, above the discovery hero. Renders nothing when no banner is
-         live, and the discovery hero below stands on its own in that case.
+         Paid `top`-slot ad inventory. By default it now sits UNDER the
+         category opener (Admin → Homepage & sign-up → "Category icons
+         first"), so the first screen says what we do; switched off, it goes
+         back to the very top. Renders nothing when no banner is live.
     --}}
-    @if ($heroBanners->isNotEmpty())
-        <section class="mx-auto max-w-7xl px-4 pt-3 sm:px-6 sm:pt-5 lg:px-8">
-            <x-customer.banner-carousel :banners="$heroBanners"
-                                        id="hero-banners"
-                                        label="Featured promotions"
-                                        variant="hero"
-                                        :interval="config('banners.hero_rotation_ms')" />
-        </section>
+    @if (! $categoriesFirst)
+        @include('livewire.customer.partials.home-hero-banner')
     @endif
 
-    {{-- ===================== Discovery hero =====================
-         A statement + the category grid, side by side on desktop and
-         stacked on mobile — the layout every large home-services
-         marketplace opens with. The left column carries the one <h1>; the
-         right column is the category grid in its own card, so a customer
-         can jump straight into a category without scrolling. Search is not
-         here — it lives in the topbar (x-customer.header) at every width
-         now, and so does the location control (1CF-HOMESCREEN-HERO-001 —
-         this hero used to carry its own "Set your location" pill, but the
-         header control is the only one now).
-
-         The paid `top` banner slot still renders ABOVE this (premium ad
-         inventory keeps the first position); this hero is what carries the
-         "what is this / where do I start" role.
+    {{-- ===================== Discovery opener =====================
+         REF 1CF-HOME-CATEGORY-HERO-001 (owner brief 2026-10-15): a clear
+         headline over the category icons in even rows — the opener every
+         large home-services marketplace uses. Columns, how many categories,
+         the headline and whether the photo tiles show beside the icons are
+         all Super Admin settings (App\Support\SiteControls); the photo
+         tiles are OFF by default because they made the first screen read as
+         clutter. Search and location stay in the topbar.
     --}}
-    <section class="relative overflow-hidden border-b border-slate-200 bg-gradient-to-b from-blue-50 via-white to-white">
-        {{-- Decorative soft colour blobs (purely visual). --}}
-        <div aria-hidden="true" class="pointer-events-none absolute -left-24 -top-24 h-72 w-72 rounded-full bg-blue-200/50 blur-3xl"></div>
-        <div aria-hidden="true" class="pointer-events-none absolute -right-20 top-10 h-64 w-64 rounded-full bg-indigo-200/40 blur-3xl"></div>
-        <div class="relative mx-auto max-w-7xl px-4 py-8 sm:px-6 sm:py-12 lg:px-8">
+    <section class="relative border-b border-slate-200 bg-gradient-to-b from-blue-50 via-white to-white">
+        <div class="relative mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-10 lg:px-8">
             @php
                 // Home Spotlight tiles (admin-curated, auto-topped-up) — see Home::spotlight().
                 $collage = $spotlight;
-                $showCollage = $collage->count() >= 2;
+                $showCollage = $controls::showPhotoTiles() && $collage->count() >= 2;
                 $collageCols = $collage->count() >= 6 ? 3 : 2;
+                $colsMobile = $controls::columnsMobile();
+                // Beside the photo tiles the grid only has half the width.
+                $colsDesktop = $showCollage ? min(4, $controls::columnsDesktop()) : $controls::columnsDesktop();
+                $headline = $controls::headline();
             @endphp
-            <div @class(['grid gap-8', 'lg:grid-cols-2' => $showCollage])>
 
-                {{-- The visible headline was removed (1CF-HEADER-HAMBURGER-001);
-                     the <h1> stays for screen readers and SEO. --}}
-                <h1 class="sr-only">
-                    {{ $cityLabel ? 'Home services across '.$cityLabel : 'Home services, on call' }}
-                </h1>
+            <h1 @class([
+                    'text-2xl font-bold tracking-tight text-slate-900 sm:text-4xl',
+                    'sr-only' => ! $controls::showHeadline(),
+                ])>{{ $headline }}</h1>
 
-                {{-- Category grid. A real grid at every width now (was a
-                     horizontal scroll rail under `sm`): four columns, its
-                     own card, matching the homepage category block on every
-                     comparable marketplace. The compact tile variant is
-                     icon-over-label with no per-tile border — the card is
-                     the frame. --}}
+            <div @class(['grid gap-8', 'mt-5 sm:mt-7' => $controls::showHeadline(), 'lg:grid-cols-2 lg:items-start' => $showCollage])>
+
+                {{-- Category icons, in rows. Columns per Admin setting. --}}
                 <div>
                     @if ($categories->isNotEmpty())
                         <h2 id="shortcuts-heading" class="sr-only">Browse by category</h2>
                         <ul aria-labelledby="shortcuts-heading"
-                            class="grid grid-cols-4 gap-1 rounded-3xl border border-white/70 bg-white/90 p-3 shadow-xl shadow-blue-900/10 ring-1 ring-slate-900/5 backdrop-blur sm:gap-2 sm:p-5">
+                            class="cf-cat-grid grid gap-x-2 gap-y-4 rounded-3xl border border-slate-200 bg-white p-3 shadow-lg shadow-blue-900/5 sm:gap-x-4 sm:gap-y-6 sm:p-6"
+                            style="--cf-cols-m: {{ $colsMobile }}; --cf-cols-d: {{ $colsDesktop }};">
                             @foreach ($categories as $category)
                                 <li>
                                     <x-customer.category-tile :category="$category" variant="compact" class="h-full" />
@@ -109,25 +100,24 @@
                     @endif
                 </div>
 
-                {{-- Photo collage, from `md` up. Two staggered columns of real
-                     service covers, each a link to its service. --}}
+                {{-- Optional photo tiles (Admin switch, default off), from `md` up. --}}
                 @if ($showCollage)
-                    {{-- Fills exactly the height of the category card beside it
-                         (grid stretch), one row of two or two rows of two. --}}
                     <div class="hidden gap-3 md:grid" aria-label="Featured services"
                          style="grid-template-columns:repeat({{ $collageCols }},minmax(0,1fr));grid-template-rows:repeat({{ (int) ceil($collage->count() / $collageCols) }},minmax(0,1fr));min-height:16rem">
                         @foreach ($collage as $tile)
                             <a href="{{ $tile['url'] }}"
-                               class="group relative block h-full overflow-hidden rounded-3xl bg-slate-100 shadow-lg shadow-slate-900/10 ring-1 ring-black/5 transition duration-300 hover:-translate-y-1 hover:shadow-xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600">
+                               class="group relative block h-full overflow-hidden rounded-3xl bg-white shadow-lg shadow-slate-900/10 transition duration-300 hover:shadow-xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600">
                                 @if ($tile['image_url'])
-                                    <img src="{{ $tile['image_url'] }}" alt="{{ $tile['name'] }}" loading="lazy" decoding="async"
-                                         class="absolute inset-0 h-full w-full object-cover transition duration-300 group-hover:scale-105">
+                                    <span class="{{ $controls::frameClasses() }} absolute inset-0 overflow-hidden rounded-3xl">
+                                        <img src="{{ $tile['image_url'] }}" alt="{{ $tile['name'] }}" loading="lazy" decoding="async"
+                                             class="h-full w-full {{ $controls::imageClasses() }}">
+                                    </span>
                                 @endif
                                 @if ($tile['badge'])
                                     <span class="absolute rounded-full bg-gradient-to-r from-rose-500 to-orange-400 px-2.5 py-0.5 text-xs font-bold text-white shadow-md"
                                           style="left:.5rem;top:.5rem">{{ $tile['badge'] }}</span>
                                 @endif
-                                <span class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent px-4 pb-3 pt-10 text-sm font-bold text-white drop-shadow">{{ $tile['name'] }}</span>
+                                <span class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent px-4 pb-3 pt-10 text-sm font-bold text-white">{{ $tile['name'] }}</span>
                             </a>
                         @endforeach
                     </div>
@@ -135,6 +125,10 @@
             </div>
         </div>
     </section>
+
+    @if ($categoriesFirst)
+        @include('livewire.customer.partials.home-hero-banner')
+    @endif
 
     {{-- ========================= New & noteworthy ========================= --}}
     @if ($newServices->isNotEmpty())
