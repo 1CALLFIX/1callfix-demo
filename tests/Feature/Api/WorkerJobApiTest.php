@@ -92,7 +92,7 @@ class WorkerJobApiTest extends TestCase
     {
         ['franchise' => $franchise, 'zone' => $zone, 'booking' => $booking] = $this->makeAssignedBookingScenario();
         [$user, $worker] = $this->makeFieldWorkerUser($franchise->id, $zone->id);
-        $booking->update(['assigned_worker_id' => $worker->id]);
+        $booking->update(['assigned_worker_id' => $worker->id, 'payment_status' => 'paid']);  // paid online job: L4 credits only paid online bookings
 
         $this->actingAs($user, 'sanctum')
             ->postJson("/api/worker/jobs/{$booking->id}/start", ['otp' => $booking->start_otp])
@@ -115,7 +115,7 @@ class WorkerJobApiTest extends TestCase
     {
         ['franchise' => $franchise, 'zone' => $zone, 'booking' => $booking] = $this->makeAssignedBookingScenario();
         [$user, $worker] = $this->makeFieldWorkerUser($franchise->id, $zone->id);
-        $booking->update(['assigned_worker_id' => $worker->id]);
+        $booking->update(['assigned_worker_id' => $worker->id, 'payment_status' => 'paid']);  // paid online job: L4 credits only paid online bookings
 
         $this->actingAs($user, 'sanctum')
             ->postJson("/api/worker/jobs/{$booking->id}/start", ['otp' => '0000'])
@@ -126,7 +126,7 @@ class WorkerJobApiTest extends TestCase
     {
         ['franchise' => $franchise, 'zone' => $zone, 'booking' => $booking] = $this->makeAssignedBookingScenario();
         [$user, $worker] = $this->makeFieldWorkerUser($franchise->id, $zone->id);
-        $booking->update(['assigned_worker_id' => $worker->id]);
+        $booking->update(['assigned_worker_id' => $worker->id, 'payment_status' => 'paid']);  // paid online job: L4 credits only paid online bookings
 
         $this->actingAs($user, 'sanctum')
             ->postJson("/api/worker/jobs/{$booking->id}/start", [])

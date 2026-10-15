@@ -75,6 +75,7 @@ class CashCommissionCollectionTest extends TestCase
     public function test_a_completed_digital_booking_is_unchanged_no_receivable(): void
     {
         $scenario = $this->makeAssignedBookingScenario(); // payment_method = 'online'
+        $scenario['booking']->update(['payment_status' => 'paid']);  // paid online job: L4 credits only paid online bookings
         app(CompleteBookingAction::class)->execute($scenario['booking']->id, $scenario['provider'], '5678');
 
         $this->assertSame(0, ProviderCommissionReceivable::where('booking_id', $scenario['booking']->id)->count());

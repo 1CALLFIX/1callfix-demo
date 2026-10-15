@@ -183,9 +183,11 @@ class CreateBookingBundleAction
         // ── After commit: the normal per-booking dispatch + notification ──
         $bundle->loadMissing(self::CHILD_RELATIONS);
 
-        // A coupon bundle is a benefit booking: no dispatch until the online payment is
-        // captured (RazorpayWebhookHandler dispatches the children then).
-        $awaitingCouponPayment = $bundle->coupon_id !== null && $bundle->fresh()->payment_status !== 'paid';
+        // A coupon bundle, and every online-paid bundle (audit 2026-10-15 L4), sends no
+        // offers until the online payment is captured (RazorpayWebhookHandler dispatches
+        // the children then).
+        $awaitingCouponPayment = ($bundle->coupon_id !== null || $bundle->payment_method === 'online')
+            && $bundle->fresh()->payment_status !== 'paid';
 
         foreach ($bundle->children as $child) {
             if (! $awaitingCouponPayment) {

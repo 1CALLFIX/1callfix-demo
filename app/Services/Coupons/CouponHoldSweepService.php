@@ -14,6 +14,11 @@ use Illuminate\Support\Facades\Log;
  * BookingObserver then releases the coupon usage (no work had started), so no
  * discounted booking survives unpaid and the reservation is given back.
  *
+ * Since the 2026-10-15 audit (L4, pay before dispatch) the same hold also
+ * covers every unpaid INSTANT online booking, which is now held (no offers)
+ * until payment exactly like a coupon booking. Scheduled non-coupon bookings
+ * keep their own ScheduledDispatchService payment gate and are not swept here.
+ *
  * No-op while the hold length is unset (null = coupon bookings not allowed).
  * Wallet-paid coupon bookings are captured inside the creation transaction and
  * never reach this sweep. Idempotent and row-locked, like
@@ -34,7 +39,7 @@ class CouponHoldSweepService
         $minutes = CouponSettings::unpaidHoldMinutes();
 
         if ($minutes === null
-            || $booking->coupon_id === null
+            || ! self::isHeldForPayment($booking)
             || $booking->status !== 'pending'
             || $booking->payment_status !== 'pending'
             || $booking->payment_method !== 'online') {
@@ -44,7 +49,13 @@ class CouponHoldSweepService
         return $booking->created_at?->copy()->addMinutes($minutes);
     }
 
-    /** @return int how many unpaid coupon bookings were cancelled */
+    /** A booking this gate holds until paid: every coupon booking, and every instant (unscheduled) booking. */
+    public static function isHeldForPayment(Booking $booking): bool
+    {
+        return $booking->coupon_id !== null || $booking->scheduled_at === null;
+    }
+
+    /** @return int how many unpaid held bookings were cancelled */
     public function sweep(): int
     {
         $minutes = CouponSettings::unpaidHoldMinutes();
@@ -55,7 +66,7 @@ class CouponHoldSweepService
         $cutoff = now()->subMinutes($minutes);
 
         $ids = Booking::query()
-            ->whereNotNull('coupon_id')
+            ->where(fn ($q) => $q->whereNotNull('coupon_id')->orWhereNull('scheduled_at'))
             ->where('status', 'pending')
             ->where('payment_status', 'pending')
             ->where('payment_method', 'online')
@@ -78,7 +89,8 @@ class CouponHoldSweepService
             return $b
                 && $b->status === 'pending'
                 && $b->payment_status === 'pending'
-                && $b->coupon_id !== null
+                && $b->payment_method === 'online'
+                && self::isHeldForPayment($b)
                 && $b->created_at <= $cutoff;
         });
 
@@ -86,10 +98,14 @@ class CouponHoldSweepService
             return false;
         }
 
+        $hadCoupon = Booking::whereKey($id)->value('coupon_id') !== null;
+
         try {
             $this->cancelAction->execute(
                 $id,
-                'Coupon booking not paid within the hold period — cancelled automatically; the coupon has been released.',
+                $hadCoupon
+                    ? 'Coupon booking not paid within the hold period — cancelled automatically; the coupon has been released.'
+                    : 'Online booking not paid within the hold period — cancelled automatically before any professional was sent.',
                 cancelledByRole: 'system',
             );
         } catch (\Throwable $e) {

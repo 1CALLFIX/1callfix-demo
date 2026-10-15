@@ -51,6 +51,7 @@ class ExtraWorkCommissionTest extends TestCase
     public function test_rejected_or_pending_extras_change_nothing(): void
     {
         $s = $this->makeAssignedBookingScenario();
+        $s['booking']->update(['payment_status' => 'paid']);  // paid online job: L4 credits only paid online bookings
         $this->extra($s['booking']->id, 100, 'rejected', $s['provider']->id);
 
         app(CompleteBookingAction::class)->execute($s['booking']->id, $s['provider'], '5678');

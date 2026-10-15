@@ -140,8 +140,9 @@ class CouponUnpaidHoldTest extends TestCase
         $this->assertNotSame('released', CouponUsage::firstOrFail()->status);
     }
 
-    public function test_a_booking_without_a_coupon_has_no_countdown(): void
+    public function test_an_online_booking_without_a_coupon_gets_the_same_hold_without_coupon_wording(): void
     {
+        // Audit 2026-10-15 L4: every instant online booking is held until paid, coupon or not.
         $w = $this->world();
         Queue::fake();
         $booking = app(CreateBookingAction::class)->execute([
@@ -149,6 +150,9 @@ class CouponUnpaidHoldTest extends TestCase
             'service_id' => $w['service']->id, 'address_id' => $w['address']->id, 'payment_method' => 'online',
         ]);
 
-        $this->page($w, $booking)->assertDontSee('Complete payment within');
+        $this->page($w, $booking)
+            ->assertSee('Complete payment within')
+            ->assertDontSee('your coupon is released')
+            ->assertSee('We start finding a professional as soon as your payment is received');
     }
 }

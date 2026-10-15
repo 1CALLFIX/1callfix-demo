@@ -230,12 +230,16 @@
                        x-data="{ s: {{ $holdSecondsLeft }}, t: null, fmt() { const m = Math.floor(this.s / 60), r = this.s % 60; return String(m).padStart(2, '0') + ':' + String(r).padStart(2, '0'); } }"
                        x-init="t = setInterval(() => { if (s > 0) s--; }, 1000)" x-on:livewire:navigating.window="clearInterval(t)">
                         Complete payment within <strong class="tabular-nums" x-text="fmt()">{{ sprintf('%02d:%02d', intdiv($holdSecondsLeft, 60), $holdSecondsLeft % 60) }}</strong>
-                        or this booking is cancelled and your coupon is released.
+                        or this booking is cancelled{{ $booking->coupon_id ? ' and your coupon is released' : '' }}.
                     </p>
                 @endif
 
                 @if ($booking->payment_status !== 'paid' && $booking->payment_method === 'online' && ! in_array($booking->status, ['cancelled'], true))
                     <div class="mt-3">
+                        @if ($booking->status === 'pending')
+                            {{-- Pay before dispatch (audit 2026-10-15 L4): no professional is sent until this is paid. --}}
+                            <p class="mb-2 text-sm text-slate-700">Pay now to confirm. We start finding a professional as soon as your payment is received.</p>
+                        @endif
                         @if ($gatewayConfigured)
                             <button wire:click="startPayment"
                                     class="inline-flex min-h-11 items-center rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm shadow-blue-600/25 hover:bg-blue-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600">
@@ -243,7 +247,7 @@
                             </button>
                         @else
                             <p class="rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-600">
-                                Online payment isn't configured in this environment. Our team can take payment over the phone, or pay the professional directly.
+                                Online payment isn't available right now. Our team will contact you to take payment before a professional is sent.
                             </p>
                         @endif
                     </div>

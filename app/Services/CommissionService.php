@@ -15,6 +15,7 @@ use App\Models\TaxiRide;
 use App\Services\Plans\EntitlementService;
 use App\Services\Plans\UsageService;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class CommissionService
 {
@@ -63,12 +64,29 @@ class CommissionService
      * now owes. That debt is recovered by a wallet debit at payout-request
      * time (PayoutService::settleCashCommissionReceivables); the wallet's
      * no-negative guard is never loosened.
+     *
+     * Audit 2026-10-15 L4 (second guard): an ONLINE booking that is not paid
+     * splits nothing and credits no wallet — returns null and logs it for
+     * admin (Operations → Health lists it under "completed without
+     * commission"). Before this, the provider was credited from money the
+     * platform never received. RazorpayWebhookHandler calls this again when
+     * the late payment is captured, so the split then happens exactly once.
      */
-    public function applyForBooking(Booking $booking): Commission
+    public function applyForBooking(Booking $booking): ?Commission
     {
         $existing = Commission::where('booking_id', $booking->id)->first();
         if ($existing) {
             return $existing;
+        }
+
+        if ($booking->payment_method === 'online' && $booking->payment_status !== 'paid') {
+            Log::warning("CommissionService: booking [{$booking->id}] completed while its online payment is {$booking->payment_status} — no commission split, provider not credited.");
+            ActivityLogger::log(null, Booking::class, $booking->id, 'Completed while online payment is unpaid — provider not credited', [
+                'payment_status' => $booking->payment_status,
+                'provider_id' => $booking->provider_id,
+            ]);
+
+            return null;
         }
 
         $booking->loadMissing(['franchise.owner', 'provider.user']);
