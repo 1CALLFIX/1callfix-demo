@@ -124,7 +124,7 @@ Core tables: `franchises`, `zones`, `users`, `addresses`, `service_categories`, 
 
 - **Queue worker:** `onecallfix-worker`, managed by Supervisor, runs continuously — no manual `php artisan queue:work` needed anymore.
 - **Backups:** nightly local `mysqldump` (14-day retention, `storage/backups/`, excluded from git) + weekly Hostinger VPS snapshot (Thursdays, built-in).
-- **Deployment method:** SCP from a local PC (`scp -r <folder> callf1207@31.97.186.175:/home/1callfix.com/public_html/api/`) — reliable and fast. **Avoid CyberPanel's File Manager for zip uploads into `api/`** — it has a bug where it scans the whole destination tree for symlinks (false-positives on `vendor/bin/*`) and blocks the upload.
+- **Deployment method:** `git pull`, or a `git archive` tarball copied with SCP — see docs/DEPLOYMENT_RUNBOOK.md §2 step 2. Never `scp -r` a whole local folder: it overwrites the server's vendor/ (dev packages), node_modules/, .env and storage/ (REF 1CF-PROMPT-20260925-EARN4). **Avoid CyberPanel's File Manager for zip uploads into `api/`** — it has a bug where it scans the whole destination tree for symlinks (false-positives on `vendor/bin/*`) and blocks the upload.
 - **Known one-time infra bugs already fixed:** OpenLiteSpeed `docRoot` was initially pointed at the project root instead of `public/` (fixed in `/usr/local/lsws/conf/vhosts/api.1callfix.com/vhost.conf`); `User` model needed to extend `Authenticatable`, not plain `Model`, for session login to work.
 
 ---

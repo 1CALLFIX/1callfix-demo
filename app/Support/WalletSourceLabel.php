@@ -105,10 +105,15 @@ final class WalletSourceLabel
             'regex' => '/^referral:\d+:reward$/',
             'like' => ['referral:%:reward'],
         ],
+        'referee_reward' => [
+            'label' => 'Referral welcome reward',
+            'regex' => '/^referral:\d+:referee-reward$/',
+            'like' => ['referral:%:referee-reward'],
+        ],
         'referral_clawback' => [
             'label' => 'Referral reward reversed',
-            'regex' => '/^referral:\d+:clawback$/',
-            'like' => ['referral:%:clawback'],
+            'regex' => '/^referral:\d+:(referee-)?clawback$/',
+            'like' => ['referral:%:clawback', 'referral:%:referee-clawback'],
         ],
         'compensation' => [
             'label' => 'Compensation',
@@ -179,7 +184,7 @@ final class WalletSourceLabel
             'dispute-debt:1:settle:00000000-0000-0000-0000-000000000000',
         ],
         'app/Services/PerformanceCampaignService.php' => ['perf_campaign:1:participant:2'],
-        'app/Services/ReferralService.php' => ['referral:1:clawback', 'referral:1:reward'],
+        'app/Services/ReferralService.php' => ['referral:1:clawback', 'referral:1:referee-clawback', 'referral:1:reward', 'referral:1:referee-reward'],
         'app/Services/TipService.php' => [
             'tip:1:00000000-0000-0000-0000-000000000000:debit',
             'tip:1:00000000-0000-0000-0000-000000000000:credit',
@@ -246,7 +251,8 @@ final class WalletSourceLabel
         return match (true) {
             str_starts_with($ref, 'loyalty-expire:') => 'Points expired',
             str_starts_with($ref, 'admin-adjust:') => 'Admin adjustment',
-            str_ends_with($ref, ':points-clawback') => 'Referral reward reversed',
+            str_ends_with($ref, 'points-clawback') => 'Referral reward reversed',
+            $row->reason === 'referral_referee_reward' => 'Referral welcome reward',
             $row->reason === 'redeemed' => 'Redeemed to wallet',
             $row->reason === 'booking_completed' => 'Booking completed',
             $row->reason === 'referral_reward' => 'Referral reward',

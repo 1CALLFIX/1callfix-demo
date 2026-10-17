@@ -32,7 +32,8 @@ class CustomerEarningsTest extends TestCase
 
     private function allOn(): void
     {
-        foreach (['earnings.enabled', 'earnings.wallet_tab', 'earnings.loyalty_tab', 'earnings.referral_tab'] as $key) {
+        // EARN4: the Referrals tab also needs the referral program itself on.
+        foreach (['earnings.enabled', 'earnings.wallet_tab', 'earnings.loyalty_tab', 'earnings.referral_tab', 'referral.enabled'] as $key) {
             Setting::set($key, '1');
         }
     }
@@ -308,9 +309,9 @@ class CustomerEarningsTest extends TestCase
     {
         $this->allOn();
         $a = $this->makeCustomer();
-        $a->update(['referral_code' => 'AAA111']);
+        $a->forceFill(['referral_code' => 'AAA111'])->save();
         $b = $this->makeCustomer();
-        $b->update(['referral_code' => 'BBB222']);
+        $b->forceFill(['referral_code' => 'BBB222'])->save();
         $friendOfA = $this->makeCustomer();
         $friendOfA->update(['name' => 'Alicefriend Person']);
         $friendOfB = $this->makeCustomer();

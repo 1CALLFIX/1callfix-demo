@@ -34,7 +34,7 @@ class ReferralHardeningTest extends TestCase
     {
         $referrer = $this->makeCustomer();
         $newUser = $this->makeCustomer();
-        $newUser->update(['referred_by' => $referrer->id]);
+        $newUser->forceFill(['referred_by' => $referrer->id])->save();
 
         $referral = app(ReferralService::class)->createFromSignup($newUser->fresh());
 
@@ -46,7 +46,7 @@ class ReferralHardeningTest extends TestCase
         Setting::set('referral.pending_expiry_days', '30');
         $referrer = $this->makeCustomer();
         $newUser = $this->makeCustomer();
-        $newUser->update(['referred_by' => $referrer->id]);
+        $newUser->forceFill(['referred_by' => $referrer->id])->save();
 
         $referral = app(ReferralService::class)->createFromSignup($newUser->fresh());
 
@@ -83,7 +83,7 @@ class ReferralHardeningTest extends TestCase
         $referrer = $this->makeCustomer();
         ['booking' => $booking, 'customer' => $referred] = $this->makeBookingScenario('completed');
         $booking->update(['payment_status' => 'paid']); // D8
-        $referred->update(['referred_by' => $referrer->id]);
+        $referred->forceFill(['referred_by' => $referrer->id])->save();
         app(ReferralService::class)->createFromSignup($referred->fresh());
 
         $referral = app(ReferralService::class)->qualifyFromCompletedBooking($booking);

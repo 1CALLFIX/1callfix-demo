@@ -16,6 +16,10 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
+use App\Services\Auth\SignupContext;
+use App\Services\Auth\LoginFingerprint;
+use App\Services\Referrals\ReferralCapture;
+use App\Services\Referrals\InvalidReferralCode;
 
 /**
  * Authentication for Customer / Partner / Worker.
@@ -111,6 +115,7 @@ class AuthController extends Controller
             'google_id_token' => ['nullable', 'string'],
             'name' => ['nullable', 'string', 'max:255'],
             'password' => ['nullable', 'string', 'min:8', 'max:255'],
+            'referral_code' => ['nullable', 'string', 'max:32'],
         ]);
 
         $this->assertNotThrottled('api-auth-firebase|'.$request->ip(), 20);
@@ -133,7 +138,7 @@ class AuthController extends Controller
                 return response()->json(['message' => 'A verified mobile number is required to finish Google sign-up.'], 422);
             }
 
-            return $this->linkOrCreateGoogleAccount($google, $identity, $data['password'] ?? null, $data['actor_type'], $request);
+            return $this->linkOrCreateGoogleAccount($google, $identity, $data['password'] ?? null, $data['actor_type'], $request, $data['referral_code'] ?? null);
         }
 
         // ── Phone-auth token ─────────────────────────────────────────────
@@ -178,7 +183,7 @@ class AuthController extends Controller
         }
 
         // completeSignup() resumes a password-less shell in place, or creates a fresh row.
-        return $this->registerCustomer($identity, $data['name'], $data['password'], null, $request);
+        return $this->registerCustomer($identity, $data['name'], $data['password'], null, $request, 200, $data['referral_code'] ?? null);
     }
 
     /**
@@ -192,6 +197,7 @@ class AuthController extends Controller
             'name' => ['required', 'string', 'max:255'],
             'password' => ['required', 'string', 'min:8', 'max:255'],
             'email' => ['nullable', 'email', 'max:255'],
+            'referral_code' => ['nullable', 'string', 'max:32'],
         ]);
 
         $this->assertNotThrottled('api-auth-register|'.$request->ip(), 10);
@@ -212,7 +218,7 @@ class AuthController extends Controller
             $verifiedEmail = $data['email'];
         }
 
-        return $this->registerCustomer($identity, $data['name'], $data['password'], $verifiedEmail, $request, 201);
+        return $this->registerCustomer($identity, $data['name'], $data['password'], $verifiedEmail, $request, 201, $data['referral_code'] ?? null);
     }
 
     // ═══════════════════════════ Password reset ═══════════════════════════
@@ -412,7 +418,7 @@ class AuthController extends Controller
         ], 200);
     }
 
-    private function linkOrCreateGoogleAccount(FirebaseIdentity $google, FirebaseIdentity $phone, ?string $password, string $actorType, Request $request)
+    private function linkOrCreateGoogleAccount(FirebaseIdentity $google, FirebaseIdentity $phone, ?string $password, string $actorType, Request $request, ?string $referralCode = null)
     {
         $existing = $google->email ? $this->accounts->findByEmail($google->email) : null;
 
@@ -432,7 +438,8 @@ class AuthController extends Controller
                 $this->accounts->markPhoneVerified($existing);
                 $user = $existing;
             } else {
-                $user = $this->accounts->createFromGoogle($google, $phone, $password);
+                $context = SignupContext::fromRequest($request, $this->referrerIdOrFail($referralCode, (string) $phone->phoneNumber));
+                $user = $this->accounts->createFromGoogle($google, $phone, $password, $context);
             }
         } catch (AccountAlreadyExistsException $e) {
             return response()->json(['message' => $e->getMessage()], 409);
@@ -445,10 +452,12 @@ class AuthController extends Controller
         return $this->tokenResponse($user, $actorType, $request);
     }
 
-    private function registerCustomer(FirebaseIdentity $phone, string $name, string $password, ?string $verifiedEmail, Request $request, int $status = 200)
+    private function registerCustomer(FirebaseIdentity $phone, string $name, string $password, ?string $verifiedEmail, Request $request, int $status = 200, ?string $referralCode = null)
     {
+        $context = SignupContext::fromRequest($request, $this->referrerIdOrFail($referralCode, (string) $phone->phoneNumber));
+
         try {
-            ['user' => $user] = $this->accounts->completeSignup($phone, $password, $name, $verifiedEmail);
+            ['user' => $user] = $this->accounts->completeSignup($phone, $password, $name, $verifiedEmail, $context);
         } catch (AccountAlreadyExistsException $e) {
             return response()->json(['message' => $e->getMessage().' Please sign in instead.'], 409);
         } catch (FirebaseAuthException $e) {
@@ -469,8 +478,24 @@ class AuthController extends Controller
         return $this->tokenResponse($user, 'customer', $request, $status);
     }
 
+    /**
+     * EARN4 R3 — a typed referral code that isn't valid is a field-level 422
+     * (errors.referral_code) so the app can show it and let the customer fix
+     * or clear it. Program off → the code is ignored entirely (R4).
+     */
+    private function referrerIdOrFail(?string $code, string $refereePhone): ?int
+    {
+        try {
+            return app(ReferralCapture::class)->resolveForSignup($code, $refereePhone);
+        } catch (InvalidReferralCode $e) {
+            throw ValidationException::withMessages(['referral_code' => $e->getMessage()]);
+        }
+    }
+
     private function tokenResponse(User $user, string $actorType, Request $request, int $status = 200)
     {
+        LoginFingerprint::record($user, $request->ip(), SignupContext::deviceIdFrom($request)); // EARN4 R5
+
         $deviceId = $request->header('X-Device-Id') ?: Str::random(12);
         $token = $user->createToken("web-auth:{$deviceId}")->plainTextToken;
 

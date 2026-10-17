@@ -24,7 +24,7 @@ namespace App\Support;
 final class WalletFreezePolicy
 {
     /** Credits a frozen wallet refuses. */
-    private const BLOCKED_CREDITS = ['loyalty_redemption', 'referral_reward', 'campaign_reward', 'admin_adjustment'];
+    private const BLOCKED_CREDITS = ['loyalty_redemption', 'referral_reward', 'referee_reward', 'campaign_reward', 'admin_adjustment'];
 
     /** Debits a frozen wallet still allows. */
     private const ALLOWED_DEBITS = ['referral_clawback', 'cash_commission'];

@@ -14,7 +14,7 @@
     @endif
 
     <div class="mb-4 flex flex-wrap gap-1 border-b">
-        @foreach (['switches' => 'Switches & limits', 'freeze' => 'Freeze', 'adjust' => 'Adjustments', 'ledger' => 'Ledger viewer', 'monitoring' => 'Monitoring'] as $key => $label)
+        @foreach (['switches' => 'Switches & limits', 'freeze' => 'Freeze', 'adjust' => 'Adjustments', 'ledger' => 'Ledger viewer', 'referrals' => 'Referrals', 'monitoring' => 'Monitoring'] as $key => $label)
             <button type="button" wire:click="setTab('{{ $key }}')"
                     @class(['px-4 py-2 text-sm font-medium border-b-2 -mb-px', 'border-slate-900 text-slate-900' => $tab === $key, 'border-transparent text-gray-500 hover:text-gray-700' => $tab !== $key])>
                 {{ $label }}
@@ -230,6 +230,146 @@
         </x-ui.table>
     @endif
 
+    {{-- ═══════════════════════ Referrals (EARN4) ═══════════════════════ --}}
+    @if ($tab === 'referrals')
+        <div class="mb-4 grid gap-4 md:grid-cols-2">
+            <x-ui.card>
+                <h2 class="mb-1 text-sm font-semibold">Fraud holds <span class="text-xs font-normal text-gray-400">(global only · protective: UNSET = ON)</span></h2>
+                <p class="mb-3 text-xs text-gray-500">A referral whose referee shares a signup IP or app device (X-Device-Id) with the referrer's signup or last login is created as <em>held_review</em> and never rewards until released.</p>
+                @foreach ($protections as $key => $p)
+                    <div class="flex flex-wrap items-center justify-between gap-2 border-t py-2 text-sm">
+                        <div>
+                            <div>{{ $p['label'] }}</div>
+                            <div class="font-mono text-xs text-gray-400">{{ $key }}</div>
+                        </div>
+                        <div class="flex items-center gap-1 whitespace-nowrap">
+                            <x-ui.badge :color="['ON' => 'green', 'OFF' => 'red'][$p['status']] ?? 'green'">{{ $p['status'] === 'UNSET' ? 'UNSET → ON' : $p['status'] }}</x-ui.badge>
+                            <button type="button" wire:click="setProtection('{{ $key }}', '1')" class="rounded border px-2 py-1 text-xs hover:bg-green-50">ON</button>
+                            <button type="button" wire:click="setProtection('{{ $key }}', '0')" class="rounded border px-2 py-1 text-xs hover:bg-red-50">OFF</button>
+                            <button type="button" wire:click="setProtection('{{ $key }}', 'unset')" class="rounded border px-2 py-1 text-xs hover:bg-gray-50">UNSET</button>
+                        </div>
+                    </div>
+                @endforeach
+            </x-ui.card>
+
+            <x-ui.card>
+                <h2 class="mb-1 text-sm font-semibold">Referee (welcome) reward <span class="text-xs font-normal text-gray-400">(global only · UNSET = no reward)</span></h2>
+                <p class="mb-3 text-xs text-gray-500">Paid to the new customer on the same trigger as the referrer's reward (their first completed booking paid online — cash jobs do not count), once. Same freeze, cap and clawback rules.</p>
+                <form wire:submit="saveRefereeReward" class="grid gap-2">
+                    @foreach ($refereeMeta as $key => $meta)
+                        @php $f = \App\Livewire\EarningsControl\Manage::field($key); @endphp
+                        <label class="block text-sm">
+                            <span class="block text-xs font-medium mb-1">{{ $meta['label'] }}</span>
+                            @if ($key === 'referral.referee_reward_type')
+                                <select wire:model="refereeInputs.{{ $f }}" class="w-full border rounded px-2 py-1.5">
+                                    <option value="">UNSET (no referee reward)</option>
+                                    <option value="wallet">Wallet</option>
+                                    <option value="points">Points</option>
+                                </select>
+                            @else
+                                <input type="text" inputmode="decimal" wire:model="refereeInputs.{{ $f }}" placeholder="UNSET" class="w-full border rounded px-2 py-1.5">
+                            @endif
+                            @error('refereeInputs.'.$f) <span class="text-xs text-red-600">{{ $message }}</span> @enderror
+                        </label>
+                    @endforeach
+                    <div><x-ui.button type="submit">Save referee reward</x-ui.button></div>
+                </form>
+            </x-ui.card>
+        </div>
+
+        @if ($reviewing)
+            <x-ui.card class="mb-4">
+                <h2 class="mb-2 text-sm font-semibold">Review referral #{{ $reviewing->id }} — {{ $reviewing->referrer?->name }} → {{ $reviewing->referred?->name }} ({{ $reviewing->status }})</h2>
+                <label class="block text-sm"><span class="block text-xs font-medium mb-1">Reason (required)</span>
+                    <input type="text" wire:model="reviewReason" class="w-full max-w-lg border rounded px-3 py-2">
+                </label>
+                <div class="mt-3 flex gap-2">
+                    <x-ui.button wire:click="releaseReferral">Release</x-ui.button>
+                    <x-ui.button variant="secondary" wire:click="rejectReferral">Reject (final)</x-ui.button>
+                    <button type="button" wire:click="$set('reviewingReferralId', null)" class="text-sm text-gray-500 underline">Cancel</button>
+                </div>
+            </x-ui.card>
+        @endif
+
+        @if ($blocking)
+            <x-ui.card class="mb-4">
+                <h2 class="mb-2 text-sm font-semibold">{{ $blocking->referral_blocked_at ? 'Unblock' : 'Block' }} {{ $blocking->name }} {{ $blocking->referral_blocked_at ? 'for' : 'from' }} the referral program</h2>
+                @if ($blocking->referral_blocked_at)
+                    <p class="mb-2 text-xs text-gray-500">Blocked {{ $blocking->referral_blocked_at->format('j M Y') }}: {{ $blocking->referral_blocked_reason }}</p>
+                @endif
+                <label class="block text-sm"><span class="block text-xs font-medium mb-1">Reason (required)</span>
+                    <input type="text" wire:model="blockReason" class="w-full max-w-lg border rounded px-3 py-2">
+                </label>
+                <div class="mt-3 flex gap-2">
+                    @if ($blocking->referral_blocked_at)
+                        <x-ui.button wire:click="unblockReferrals">Unblock</x-ui.button>
+                    @else
+                        <x-ui.button wire:click="blockReferrals">Block</x-ui.button>
+                    @endif
+                    <button type="button" wire:click="$set('blockingUserId', null)" class="text-sm text-gray-500 underline">Cancel</button>
+                </div>
+            </x-ui.card>
+        @endif
+
+        <div class="mb-3 flex flex-wrap items-end gap-3 text-sm">
+            <label class="block"><span class="block text-xs font-medium mb-1">Status</span>
+                <select wire:model.live="refStatus" class="border rounded px-2 py-1.5">
+                    <option value="">All</option>
+                    @foreach (['pending', 'held_review', 'rewarded', 'expired', 'fraud_flagged', 'rejected'] as $s)<option value="{{ $s }}">{{ $s }}</option>@endforeach
+                </select>
+            </label>
+            <label class="block"><span class="block text-xs font-medium mb-1">From</span><input type="date" wire:model.live="refFrom" class="border rounded px-2 py-1.5"></label>
+            <label class="block"><span class="block text-xs font-medium mb-1">To</span><input type="date" wire:model.live="refTo" class="border rounded px-2 py-1.5"></label>
+            <label class="block"><span class="block text-xs font-medium mb-1">Referrer franchise</span>
+                <select wire:model.live="refFranchiseId" class="border rounded px-2 py-1.5">
+                    <option value="">All</option>
+                    @foreach ($franchises as $f)<option value="{{ $f->id }}">{{ $f->name }}</option>@endforeach
+                </select>
+            </label>
+        </div>
+
+        <x-ui.table>
+            <x-slot:footer>{{ $referrals->links() }}</x-slot:footer>
+            <thead class="bg-gray-50 text-left text-gray-500">
+                <tr><th class="px-4 py-2">#</th><th class="px-4 py-2">Referrer</th><th class="px-4 py-2">Referee</th><th class="px-4 py-2">Status</th><th class="px-4 py-2">Hold / no-reward reason</th><th class="px-4 py-2">Rewards issued</th><th class="px-4 py-2">Signup IP / device</th><th class="px-4 py-2">Review</th><th class="px-4 py-2"></th></tr>
+            </thead>
+            <tbody>
+                @forelse ($referrals as $r)
+                    <tr class="border-t align-top">
+                        <td class="px-4 py-2 text-gray-400">{{ $r->id }}<div class="text-xs">{{ $r->created_at?->format('j M Y') }}</div></td>
+                        <td class="px-4 py-2">{{ $r->referrer?->name }}<div class="text-xs text-gray-400">{{ $r->referrer?->phone }}</div>
+                            @if ($r->referrer?->referral_blocked_at)<x-ui.badge color="red">blocked</x-ui.badge>@endif
+                        </td>
+                        <td class="px-4 py-2">{{ $r->referred?->name }}<div class="text-xs text-gray-400">{{ $r->referred?->phone }}</div></td>
+                        <td class="px-4 py-2"><x-ui.badge :color="['rewarded' => 'green', 'held_review' => 'amber', 'pending' => 'blue', 'rejected' => 'red', 'fraud_flagged' => 'red'][$r->status] ?? 'gray'">{{ $r->status }}</x-ui.badge></td>
+                        <td class="px-4 py-2 text-xs text-gray-600">{{ $r->hold_reason }}@if ($r->hold_reason && $r->no_reward_reason) · @endif{{ $r->no_reward_reason }}</td>
+                        <td class="px-4 py-2 text-xs">
+                            @if ($r->status === 'rewarded' || $r->status === 'fraud_flagged')
+                                Referrer: {{ (float) $r->reward_amount > 0 ? $currencySymbol.number_format((float) $r->reward_amount, 2) : 'points' }}<br>
+                            @endif
+                            @if ($r->referee_rewarded_at)
+                                Referee: {{ $r->referee_reward_points ? number_format($r->referee_reward_points).' pts' : $currencySymbol.number_format((float) $r->referee_reward_amount, 2) }}
+                            @endif
+                        </td>
+                        {{-- Personal data — this whole screen is Super Admin only. --}}
+                        <td class="px-4 py-2 font-mono text-xs text-gray-500">{{ $r->getAttribute('signup_ip') ?? '—' }}<br>{{ $r->getAttribute('signup_device_id') ?? '—' }}</td>
+                        <td class="px-4 py-2 text-xs text-gray-500">@if ($r->reviewed_at){{ $r->reviewedBy?->name }}, {{ $r->reviewed_at->format('j M Y') }}: {{ $r->review_note }}@endif</td>
+                        <td class="px-4 py-2 whitespace-nowrap">
+                            @if (in_array($r->status, ['pending', 'held_review', 'rewarded'], true))
+                                <button type="button" wire:click="startReview({{ $r->id }})" class="rounded border px-2 py-1 text-xs hover:bg-gray-50">Review</button>
+                            @endif
+                            @if ($r->referrer)
+                                <button type="button" wire:click="startBlock({{ $r->referrer_id }})" class="rounded border px-2 py-1 text-xs hover:bg-gray-50">{{ $r->referrer->referral_blocked_at ? 'Unblock' : 'Block' }} referrer</button>
+                            @endif
+                        </td>
+                    </tr>
+                @empty
+                    <tr><td colspan="9" class="px-4 py-6 text-center text-gray-400">No referrals.</td></tr>
+                @endforelse
+            </tbody>
+        </x-ui.table>
+    @endif
+
     {{-- ═══════════════════════ Monitoring ═══════════════════════ --}}
     @if ($tab === 'monitoring')
         <div class="mb-4 flex flex-wrap items-end gap-3 text-sm">
@@ -257,8 +397,16 @@
             </tbody>
         </x-ui.table>
 
+        <h2 class="mb-2 mt-6 text-sm font-semibold">Referrals by status</h2>
+        <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-6">
+            @foreach ($referralCounts as $status => $n)
+                <x-ui.card><div class="text-xs text-gray-500">{{ $status }}</div><div class="text-xl font-semibold font-mono">{{ $n }}</div></x-ui.card>
+            @endforeach
+        </div>
+
         @php
             $flagSections = [
+                ['Referrals held for review', $heldReferrals->map(fn ($r) => '#'.$r->id.' '.($r->referrer->name ?? '?').' → '.($r->referred->name ?? '?').' — '.$r->hold_reason)],
                 ['Frozen wallets', $frozenWallets->map(fn ($w) => '#'.$w->user_id.' '.($w->user->name ?? '').' — since '.$w->frozen_at->format('j M Y').' — '.$w->frozen_reason.' (by '.($w->frozenBy->name ?? '?').')')],
                 ['Money credited to frozen wallets', $frozenCredits->map(fn ($t) => ($t->wallet->user->name ?? '#'.$t->wallet_id).' — '.\App\Support\WalletSourceLabel::labelFor($t->ref).' '.$currencySymbol.number_format((float) $t->amount, 2).' on '.$t->created_at->format('j M Y'))],
                 ['Admin wallet adjustments', $walletAdjustments->map(fn ($t) => ($t->wallet->user->name ?? '').' — '.($t->is_credit ? '+' : '−').$currencySymbol.number_format((float) $t->amount, 2).' by '.($t->actor->name ?? '?').' — '.$t->reason)],

@@ -31,7 +31,7 @@ class ReferralOnlinePaymentTest extends TestCase
         $referrer = $this->makeCustomer();
         $s = $this->makeBookingScenario('completed');
         $s['booking']->update(['payment_method' => $method, 'payment_status' => $paymentStatus]);
-        $s['customer']->update(['referred_by' => $referrer->id]);
+        $s['customer']->forceFill(['referred_by' => $referrer->id])->save();
         Referral::create(['referrer_id' => $referrer->id, 'referred_id' => $s['customer']->id, 'status' => 'pending']);
 
         return [$referrer, $s['booking']->fresh(), $s];
@@ -138,7 +138,7 @@ class ReferralOnlinePaymentTest extends TestCase
         [, , $franchise, $zone] = $this->makeFranchiseTree();
         [, $service] = $this->makeCategoryAndService();
         $newUser = $this->makeCustomer();
-        $newUser->update(['referred_by' => $referrer->id]);
+        $newUser->forceFill(['referred_by' => $referrer->id])->save();
         $referral = app(ReferralService::class)->createFromSignup($newUser->fresh());
         $address = $this->makeAddress($newUser, $franchise, $zone);
 

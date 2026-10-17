@@ -42,7 +42,9 @@ class AuthPathEquivalenceTest extends TestCase
         $rows = DB::table('users')->where('phone', $phone)->get()->all();
         $this->assertCount(1, $rows, "Expected exactly one users row for {$phone}.");
 
-        return (array) $rows[0];
+        // EARN4 (R5) — every login deliberately refreshes the login
+        // fingerprint; that is the only write a login may make to the row.
+        return array_diff_key((array) $rows[0], array_flip(['last_login_ip', 'last_login_device_id', 'last_login_at']));
     }
 
     public function test_a_customer_registered_via_the_api_is_the_same_row_the_web_login_resolves(): void
@@ -127,11 +129,11 @@ class AuthPathEquivalenceTest extends TestCase
         {
             public array $completeSignupCalls = [];
 
-            public function completeSignup(\App\Services\Auth\FirebaseIdentity $phoneIdentity, string $plainPassword, ?string $name = null, ?string $verifiedEmail = null): array
+            public function completeSignup(\App\Services\Auth\FirebaseIdentity $phoneIdentity, string $plainPassword, ?string $name = null, ?string $verifiedEmail = null, ?\App\Services\Auth\SignupContext $context = null): array
             {
                 $this->completeSignupCalls[] = $phoneIdentity->phoneNumber;
 
-                return parent::completeSignup($phoneIdentity, $plainPassword, $name, $verifiedEmail);
+                return parent::completeSignup($phoneIdentity, $plainPassword, $name, $verifiedEmail, $context);
             }
         };
         $this->app->instance(CustomerAccountResolver::class, $spy);

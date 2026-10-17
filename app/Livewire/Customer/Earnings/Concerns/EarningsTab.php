@@ -19,7 +19,13 @@ trait EarningsTab
 
     protected function ensureTabOn(): void
     {
-        abort_unless(EarningsSettings::customerTabOn($this->tabSwitch(), $this->earningsScope()), 404);
+        abort_unless(EarningsSettings::customerTabOn($this->tabSwitch(), $this->earningsScope()) && $this->tabAllowedForUser($this->tabSwitch()), 404);
+    }
+
+    /** Only customers can refer (ReferralCapture rejects any other referrer's code), so only they see the Referrals tab. */
+    protected function tabAllowedForUser(string $switch): bool
+    {
+        return $switch !== 'earnings.referral_tab' || auth()->user()?->role === 'customer';
     }
 
     /** @return array<string, int> the customer's own scope hint for Setting::get() */
@@ -40,6 +46,6 @@ trait EarningsTab
             'wallet' => ['label' => 'Wallet', 'route' => 'customer.earnings.wallet', 'switch' => 'earnings.wallet_tab'],
             'loyalty' => ['label' => 'Loyalty points', 'route' => 'customer.earnings.loyalty', 'switch' => 'earnings.loyalty_tab'],
             'referrals' => ['label' => 'Referrals', 'route' => 'customer.earnings.referrals', 'switch' => 'earnings.referral_tab'],
-        ], fn ($t) => EarningsSettings::customerTabOn($t['switch'], $scope));
+        ], fn ($t) => EarningsSettings::customerTabOn($t['switch'], $scope) && $this->tabAllowedForUser($t['switch']));
     }
 }

@@ -235,6 +235,13 @@ class AppServiceProvider extends ServiceProvider
         Review::observe(ReviewObserver::class);
         User::observe(UserObserver::class);
 
+        // EARN4 (R5) — last web-login IP for the referral same-IP hold.
+        \Illuminate\Support\Facades\Event::listen(\Illuminate\Auth\Events\Login::class, function (\Illuminate\Auth\Events\Login $event) {
+            if ($event->user instanceof User) {
+                \App\Services\Auth\LoginFingerprint::record($event->user, request()->ip(), null);
+            }
+        });
+
         // One listener records every notification attempt (any channel: the
         // built-in 'mail', or our custom SmsChannel/PushChannel) into
         // notification_logs -- the real audit trail behind the Notifications
