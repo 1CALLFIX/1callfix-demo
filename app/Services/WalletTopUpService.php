@@ -4,8 +4,10 @@ namespace App\Services;
 
 use App\Contracts\PaymentGateway;
 use App\Models\Payment;
+use App\Models\Provider;
 use App\Models\Setting;
 use App\Models\User;
+use App\Services\Providers\ProviderStanding;
 use Illuminate\Support\Str;
 use App\Support\EarningsSettings;
 
@@ -134,5 +136,58 @@ class WalletTopUpService
             reason: 'Wallet top-up',
             ref: "topup:{$payment->id}"
         );
+
+        // Audit 2026-10-15 L8 (owner decision 2026-10-16: dues are deducted from the wallet) — money a provider
+        // adds goes to what they owe first, oldest first, franchise share paid out as at payout time.
+        $provider = Provider::where('user_id', $payment->user_id)->first();
+        if ($provider) {
+            app(PayoutService::class)->settleProviderDebts($provider->id);
+        }
+    }
+
+    /**
+     * Audit 2026-10-15 L8 — a provider pays exactly what restores their standing: every rupee of unpaid cash
+     * commission plus the active minimum balance, less what the wallet already holds. This is not a voluntary
+     * top-up, so the customer top-up switch and caps do not apply; online payments must be on and the wallet must
+     * not be frozen. Same gateway order and webhook as every top-up (purpose wallet_topup), and the capture runs
+     * the dues sweep above.
+     *
+     * @throws \RuntimeException when there is nothing to pay or online payment is unavailable
+     */
+    public function requestProviderDuesPayment(Provider $provider): array
+    {
+        $provider->loadMissing('user');
+        $standing = app(ProviderStanding::class);
+        $scope = $standing->scope($provider);
+
+        if (Setting::get('payment.online_enabled', '1', $scope) !== '1') {
+            throw new \RuntimeException('Online payments are currently disabled.');
+        }
+
+        $this->walletService->assertNotFrozen($provider->user);
+
+        $amount = $standing->snapshot($provider)['pay_to_restore'];
+        if ($amount <= 0) {
+            throw new \RuntimeException('Nothing to pay — your wallet already covers what you owe.');
+        }
+
+        $order = $this->gateway->createRawOrder($amount, 'dues-'.Str::random(8), ['user_id' => $provider->user_id, 'purpose' => 'wallet_topup']);
+
+        $payment = Payment::create([
+            'user_id' => $provider->user_id,
+            'purpose' => 'wallet_topup',
+            'amount' => $amount,
+            'gateway' => $this->gateway->identifier(),
+            'gateway_order_id' => $order['razorpay_order_id'],
+            'status' => 'pending',
+        ]);
+
+        return [
+            'payment_id' => $payment->id,
+            'razorpay_order_id' => $order['razorpay_order_id'],
+            'razorpay_key_id' => $order['key_id'],
+            'amount' => $order['amount'],
+            'currency' => $order['currency'],
+        ];
     }
 }

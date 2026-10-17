@@ -14,6 +14,7 @@ use App\Models\User;
 use App\Notifications\PayoutStatusNotification;
 use App\Notifications\Support\ChannelResolver;
 use App\Services\Kyc\KycWithdrawalPolicyService;
+use App\Services\Providers\ProviderStanding;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
@@ -73,6 +74,7 @@ class PayoutService
             $this->settleCashCommissionReceivables($payeeId);
             $this->settleDisputeDebts($payeeId);
             $this->assertNoBlockingCashDebt($payeeId, $amount);
+            $this->assertLeavesWalletFloor($payeeId, $amount);
         }
 
         $this->assertWithinPayoutLimits($payeeType, $payeeId, $amount);
@@ -129,9 +131,10 @@ class PayoutService
      * the shortfall simply carries forward to be paid once one is, same as
      * CommissionService::applyForBooking()'s own "no owner yet" handling.
      *
-     * Called at payout-request time only (the approved design's
-     * "sweep at payout-request time" decision) — there is deliberately no
-     * hook on every wallet credit.
+     * Called at payout-request time (the approved design's "sweep at
+     * payout-request time" decision) and, since audit 2026-10-15 L8, when a
+     * provider's own top-up is captured or they press "Settle from wallet"
+     * (settleProviderDebts()). There is still no hook on job earnings.
      */
     private function settleCashCommissionReceivables(int $providerId): void
     {
@@ -199,6 +202,42 @@ class PayoutService
                 $receivable->save();
             }
         });
+    }
+
+    /**
+     * Audit 2026-10-15 L8 — clears what a provider owes (cash commission, then pricing-dispute debt) from their
+     * current wallet balance, oldest first, using the same sweeps a payout request runs. Called when the provider
+     * pays dues (top-up capture) and from the provider's own "Settle from wallet" button. Idempotent: with nothing
+     * owed, or nothing in the wallet, it moves nothing.
+     */
+    public function settleProviderDebts(int $providerId): void
+    {
+        $this->settleCashCommissionReceivables($providerId);
+        $this->settleDisputeDebts($providerId);
+    }
+
+    /**
+     * Audit 2026-10-15 W1/W2 (owner decision 2026-10-16) — a withdrawal may not take the wallet below the active
+     * minimum balance, otherwise the provider is blocked from jobs the moment the payout is held (and topped-up
+     * floor money could be withdrawn straight back out).
+     */
+    private function assertLeavesWalletFloor(int $providerId, float $amount): void
+    {
+        $provider = Provider::with('user')->find($providerId);
+        if (! $provider || ! $provider->user) {
+            return;
+        }
+
+        $floor = app(ProviderStanding::class)->floor($provider);
+        if ($floor === null) {
+            return;
+        }
+
+        $withdrawable = max(0, round($this->walletService->balance($provider->user) - $floor, 2));
+        if ($amount > $withdrawable) {
+            throw new \RuntimeException('You can withdraw up to '.number_format($withdrawable, 2)
+                .' — a minimum wallet balance of '.number_format($floor, 2).' must stay in your wallet to keep taking jobs.');
+        }
     }
 
     /**

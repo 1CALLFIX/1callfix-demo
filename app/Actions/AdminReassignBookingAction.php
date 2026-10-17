@@ -7,9 +7,11 @@ use App\Models\Booking;
 use App\Models\DispatchAttempt;
 use App\Models\Provider;
 use App\Models\Setting;
+use App\Models\User;
 use App\Notifications\BookingOtpNotification;
 use App\Notifications\Support\ChannelResolver;
 use App\Services\BookingOtpService;
+use App\Services\Providers\ProviderStanding;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
@@ -22,13 +24,20 @@ class AdminReassignBookingAction
      * provider mid-flow. Bypasses the normal dispatch_attempts offer/accept
      * cycle since the admin is making the call directly, not the provider.
      */
-    public function execute(int $bookingId, int $providerId, string $adminNote = ''): Booking
+    public function execute(int $bookingId, int $providerId, string $adminNote = '', ?string $overrideReason = null, ?User $admin = null): Booking
     {
         $freshlyGeneratedOtps = false;
 
-        $booking = DB::transaction(function () use ($bookingId, $providerId, $adminNote, &$freshlyGeneratedOtps) {
+        $booking = DB::transaction(function () use ($bookingId, $providerId, $adminNote, $overrideReason, $admin, &$freshlyGeneratedOtps) {
             $booking = Booking::lockForUpdate()->findOrFail($bookingId);
             $provider = Provider::findOrFail($providerId);
+
+            // Audit 2026-10-15 L5 — the same eligibility rule as dispatch (KYC, active, suspension, wallet floor,
+            // cash-commission limit, zone, skill). An ineligible provider needs a written, logged reason.
+            $overrideNote = app(ProviderStanding::class)->authorizeAdminAssign($provider, $booking, $overrideReason, $admin);
+            if ($overrideNote !== '') {
+                $adminNote = trim($adminNote.' '.$overrideNote);
+            }
 
             $previousProviderId = $booking->provider_id;
 

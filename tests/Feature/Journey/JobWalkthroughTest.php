@@ -82,6 +82,7 @@ class JobWalkthroughTest extends TestCase
     {
         $s = $this->inProgress();
         $new = $this->makeProviderIn($s['franchise'], $s['zone']);
+        $new->update(['skills' => [$s['booking']->service->category_id]]); // eligible for this job (audit 2026-10-15 L5)
 
         $this->actingAs($s['customer']);
         Livewire::test(CustomerOrderShow::class, ['booking' => $s['booking']])
@@ -135,6 +136,7 @@ class JobWalkthroughTest extends TestCase
         $s = $this->makeAssignedBookingScenario();
         $s['booking']->update(['status' => 'searching_provider', 'provider_id' => null]);
         $new = $this->makeProviderIn($s['franchise'], $s['zone']);
+        $new->update(['skills' => [$s['booking']->service->category_id]]); // eligible for this job (audit 2026-10-15 L5)
         $this->actingAs($new->user);
 
         // First render seeds; nothing rings.
@@ -159,10 +161,11 @@ class JobWalkthroughTest extends TestCase
     {
         $s = $this->inProgress();
         $new = $this->makeProviderIn($s['franchise'], $s['zone']);
+        $new->update(['skills' => [$s['booking']->service->category_id]]); // eligible for this job (audit 2026-10-15 L5)
         $admin = $this->makeSuperAdmin();
 
         $ids = Livewire::actingAs($admin)->test(AdminBookingShow::class, ['bookingId' => $s['booking']->id])
-            ->instance()->availableProviders->pluck('id')->all();
+            ->instance()->availableProviders->pluck('provider.id')->all();
 
         $this->assertContains($new->id, $ids);
         $this->assertNotContains($s['provider']->id, $ids);

@@ -283,6 +283,8 @@ class Show extends Component
         // (users.status) concern, not a dispatch-eligibility one.
         if ($user->status === 'suspended') {
             $user->tokens()->delete();
+            // Audit 2026-10-15 L6 — take the provider offline at once (dispatch also skips suspended accounts).
+            $this->provider->forceFill(['is_online' => false])->save();
         }
 
         $this->provider->load('user');

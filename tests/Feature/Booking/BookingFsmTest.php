@@ -173,6 +173,8 @@ class BookingFsmTest extends TestCase
         ['booking' => $booking, 'franchise' => $franchise, 'zone' => $zone] = $this->makeAssignedBookingScenario();
         $newProvider = $this->makeProviderIn($franchise, $zone);
 
+        $newProvider->update(['skills' => [$booking->service->category_id]]); // eligible for this job (audit 2026-10-15 L5)
+
         $result = app(AdminReassignBookingAction::class)->execute($booking->id, $newProvider->id, 'original unresponsive');
 
         $this->assertSame($newProvider->id, $result->provider_id);
@@ -193,6 +195,8 @@ class BookingFsmTest extends TestCase
         $booking->update(['assigned_worker_id' => $staleWorker->id]);
         $newProvider = $this->makeProviderIn($franchise, $zone);
 
+        $newProvider->update(['skills' => [$booking->service->category_id]]); // eligible for this job (audit 2026-10-15 L5)
+
         $result = app(AdminReassignBookingAction::class)->execute($booking->id, $newProvider->id);
 
         $this->assertNull($result->assigned_worker_id, 'A worker assigned under the OLD provider must not carry over to a different one.');
@@ -202,6 +206,8 @@ class BookingFsmTest extends TestCase
     {
         ['booking' => $booking, 'franchise' => $franchise, 'zone' => $zone] = $this->makeBookingScenario('pending');
         $provider = $this->makeProviderIn($franchise, $zone);
+
+        $provider->update(['skills' => [$booking->service->category_id]]); // eligible for this job (audit 2026-10-15 L5)
 
         $result = app(AdminReassignBookingAction::class)->execute($booking->id, $provider->id);
 

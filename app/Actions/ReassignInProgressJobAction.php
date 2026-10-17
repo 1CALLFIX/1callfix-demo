@@ -12,6 +12,7 @@ use App\Notifications\ProviderJobStatusNotification;
 use App\Notifications\Support\ChannelResolver;
 use App\Services\ActivityLogger;
 use App\Services\BookingOtpService;
+use App\Services\Providers\ProviderStanding;
 use App\Support\Journey\StageNotifier;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -33,12 +34,12 @@ class ReassignInProgressJobAction
     /**
      * @throws \RuntimeException if the job is not on a provider-side hold, or the new professional is not eligible
      */
-    public function execute(int $bookingId, int $newProviderId, ?int $adminUserId = null, ?string $note = null): Booking
+    public function execute(int $bookingId, int $newProviderId, ?int $adminUserId = null, ?string $note = null, ?string $overrideReason = null): Booking
     {
         $previousProviderId = null;
         $newStartOtp = null;
 
-        $booking = DB::transaction(function () use ($bookingId, $newProviderId, $adminUserId, $note, &$previousProviderId, &$newStartOtp) {
+        $booking = DB::transaction(function () use ($bookingId, $newProviderId, $adminUserId, $note, $overrideReason, &$previousProviderId, &$newStartOtp) {
             $booking = Booking::lockForUpdate()->findOrFail($bookingId);
             $new = Provider::findOrFail($newProviderId);
 
@@ -50,6 +51,12 @@ class ReassignInProgressJobAction
             }
             if ($new->kyc_status !== 'approved' || ! $new->is_active) {
                 throw new \RuntimeException('That professional is not eligible to take jobs.');
+            }
+
+            // Audit 2026-10-15 L5 — same rule as every other assignment; an override needs a logged reason.
+            $overrideNote = app(ProviderStanding::class)->authorizeAdminAssign($new, $booking, $overrideReason, $adminUserId ? User::find($adminUserId) : null);
+            if ($overrideNote !== '') {
+                $note = trim(trim((string) $note).' '.$overrideNote);
             }
 
             $previousProviderId = $booking->provider_id;

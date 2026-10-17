@@ -7,6 +7,7 @@ use App\Jobs\BundleConsolidationJob;
 use App\Models\Booking;
 use App\Models\DispatchAttempt;
 use App\Models\Provider;
+use App\Services\Providers\ProviderStanding;
 use App\Models\Setting;
 use App\Notifications\BookingOtpNotification;
 use App\Notifications\BookingStatusNotification;
@@ -321,31 +322,20 @@ class AcceptBookingAction
     }
 
     /**
-     * A credit-worthiness gate, not a payment — the provider's own wallet
-     * balance (topped up from commission earnings) has to stay above this
-     * floor to keep accepting new jobs. 0 (the default) means no gate.
-     * Checked before the transaction starts — this isn't part of the
-     * booking's own atomicity, just an eligibility pre-check.
+     * Audit 2026-10-15 L2/L3 — money standing (wallet floor, unpaid cash commission over the limit), checked before
+     * the transaction with a message the provider can act on. The same rule (ProviderStanding) also keeps a blocked
+     * provider out of dispatch; this is the race backstop. Suspension / KYC / zone are re-checked inside the
+     * transaction by providerEligibleForBooking().
      */
     private function assertMeetsMinimumWalletBalance(Provider $provider): void
     {
-        $scope = array_filter([
-            'zone_id' => $provider->zone_id,
-            'franchise_id' => $provider->franchise_id,
-            'city_id' => $provider->franchise?->city_id,
-            'country_id' => $provider->franchise?->country_id,
-        ]);
+        $standing = app(ProviderStanding::class);
 
-        $minBalance = (float) Setting::get('wallet.provider_min_balance_to_accept_jobs', '0', $scope);
-
-        if ($minBalance <= 0) {
-            return;
-        }
-
-        $balance = app(WalletService::class)->balance($provider->user);
-
-        if ($balance < $minBalance) {
-            throw new \RuntimeException("Your wallet balance ({$balance}) is below the minimum ({$minBalance}) required to accept new jobs.");
+        foreach ($standing->blockers($provider) as $blocker) {
+            if (in_array($blocker['code'], [ProviderStanding::BELOW_FLOOR, ProviderStanding::DUES_OVER_LIMIT], true)) {
+                throw new \RuntimeException('You cannot accept new jobs right now. '.$blocker['message']
+                    .' Pay your dues from Payments → Wallet & dues to start taking jobs again.');
+            }
         }
     }
 }
