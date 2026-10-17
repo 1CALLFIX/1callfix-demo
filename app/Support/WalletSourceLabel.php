@@ -184,7 +184,6 @@ final class WalletSourceLabel
             'dispute-debt:1:settle:00000000-0000-0000-0000-000000000000',
         ],
         'app/Services/PerformanceCampaignService.php' => ['perf_campaign:1:participant:2'],
-        'app/Services/ReferralService.php' => ['referral:1:clawback', 'referral:1:referee-clawback', 'referral:1:reward', 'referral:1:referee-reward'],
         'app/Services/TipService.php' => [
             'tip:1:00000000-0000-0000-0000-000000000000:debit',
             'tip:1:00000000-0000-0000-0000-000000000000:credit',

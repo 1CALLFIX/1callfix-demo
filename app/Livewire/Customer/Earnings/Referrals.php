@@ -43,6 +43,7 @@ class Referrals extends Component
             'shareLink' => $presenter->shareLink($user),
             'referrals' => $presenter->paginate($user),
             'rules' => $presenter->rules($user),
+            'referralBalance' => app(\App\Services\ReferralBalanceService::class)->available($user),
             'currencySymbol' => Setting::get('locale.currency_symbol', '₹'),
             'platformName' => Setting::get('branding.platform_name', '1CallFix'),
         ])->layout('components.layouts.customer', ['title' => 'Referrals']);

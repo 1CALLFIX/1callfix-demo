@@ -57,6 +57,9 @@ class Manage extends Component
     /** Keyed by self::field($key), like limitInputs. */
     public array $refereeInputs = [];
 
+    /** Owner decision 2026-10-17 — referral rules and referral balance settings (global). */
+    public array $ruleInputs = [];
+
     // ── Switches ──
     public string $scopeType = 'global'; // global|franchise|zone
     public ?int $scopeFranchiseId = null;
@@ -101,6 +104,7 @@ class Manage extends Component
         $this->monTo = now()->toDateString();
         $this->loadLimits();
         $this->loadRefereeInputs();
+        $this->loadRuleInputs();
     }
 
     public function setTab(string $tab): void
@@ -244,6 +248,34 @@ class Manage extends Component
 
         $this->loadRefereeInputs();
         $this->flash('Referee reward saved.');
+    }
+
+    private function loadRuleInputs(): void
+    {
+        foreach (array_keys(EarningsSettings::REFERRAL_RULES) as $key) {
+            $status = EarningsSettings::statusAt($key, 'global', null);
+            $this->ruleInputs[self::field($key)] = $status === 'UNSET' ? '' : $status;
+        }
+    }
+
+    public function saveReferralRules(): void
+    {
+        SuperAdminGate::authorize(auth()->user());
+
+        $this->validate([
+            'ruleInputs.'.self::field('referral.qualifying_payment') => ['nullable', 'in:online_or_cash,online'],
+            'ruleInputs.'.self::field('referral.min_job_value') => ['nullable', 'numeric', 'min:0'],
+            'ruleInputs.'.self::field('referral.balance_max_use_percent') => ['nullable', 'numeric', 'min:0', 'max:100'],
+            'ruleInputs.'.self::field('referral.balance_expiry_days') => ['nullable', 'integer', 'min:1'],
+        ]);
+
+        foreach (array_keys(EarningsSettings::REFERRAL_RULES) as $key) {
+            $value = trim((string) ($this->ruleInputs[self::field($key)] ?? ''));
+            SettingsAuditor::put(auth()->user(), $key, $value === '' ? null : $value, 'global', null);
+        }
+
+        $this->loadRuleInputs();
+        $this->flash('Referral rules saved.');
     }
 
     public function startReview(int $referralId): void
@@ -485,6 +517,7 @@ class Manage extends Component
                     'label' => $meta['label'], 'status' => EarningsSettings::statusAt($key, 'global', null),
                 ])->all(),
                 'refereeMeta' => EarningsSettings::REFEREE_REWARD,
+                'ruleMeta' => EarningsSettings::REFERRAL_RULES,
                 'reviewing' => $this->reviewingReferralId ? Referral::with(['referrer:id,name', 'referred:id,name'])->find($this->reviewingReferralId) : null,
                 'blocking' => $this->blockingUserId ? User::find($this->blockingUserId) : null,
             ];

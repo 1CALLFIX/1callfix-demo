@@ -78,7 +78,7 @@ class ReferralServiceTest extends TestCase
         $this->assertSame('rewarded', $referral->status);
         $this->assertSame($booking->id, $referral->qualifying_booking_id);
         $this->assertEquals(50.0, $referral->reward_amount); // default referral.reward_amount
-        $this->assertEquals(50.0, app(WalletService::class)->balance($referrer));
+        $this->assertEquals(50.0, app(\App\Services\ReferralBalanceService::class)->available($referrer));
     }
 
     public function test_second_completed_booking_does_not_qualify_or_double_reward(): void
@@ -101,7 +101,7 @@ class ReferralServiceTest extends TestCase
         $result = app(ReferralService::class)->qualifyFromCompletedBooking($secondBooking);
 
         $this->assertNull($result, 'A referral already rewarded (pending guard consumed) must not qualify again.');
-        $this->assertEquals(50.0, app(WalletService::class)->balance($referrer), 'Wallet must not be credited twice.');
+        $this->assertEquals(50.0, app(\App\Services\ReferralBalanceService::class)->available($referrer), 'Wallet must not be credited twice.');
     }
 
     public function test_a_customer_with_no_referral_qualifying_is_a_no_op(): void

@@ -84,6 +84,10 @@ final class EarningsSettings
         'referral.referee_reward_type' => 'Earnings Control → Referrals (global only)',
         'referral.referee_reward_amount' => 'Earnings Control → Referrals (global only)',
         'referral.referee_reward_points' => 'Earnings Control → Referrals (global only)',
+        'referral.qualifying_payment' => 'Earnings Control → Referrals (global only; blank = online or cash)',
+        'referral.min_job_value' => 'Earnings Control → Referrals (global only; blank = no minimum)',
+        'referral.balance_max_use_percent' => 'Earnings Control → Referrals (global only; blank = cannot be spent)',
+        'referral.balance_expiry_days' => 'Earnings Control → Referrals (global only; blank = never)',
     ];
 
     /**
@@ -101,6 +105,17 @@ final class EarningsSettings
         'referral.referee_reward_type' => ['label' => 'Referee reward type (wallet | points)', 'integer' => false],
         'referral.referee_reward_amount' => ['label' => 'Referee wallet reward (₹)', 'integer' => false],
         'referral.referee_reward_points' => ['label' => 'Referee points reward', 'integer' => true],
+    ];
+
+    /**
+     * Owner decision 2026-10-17 — referral rules and the separate referral balance. GLOBAL only, edited in
+     * Earnings Control → Referrals. Blank = the stated default.
+     */
+    public const REFERRAL_RULES = [
+        'referral.qualifying_payment' => ['label' => 'Jobs that count for a referral', 'blank' => 'online or cash'],
+        'referral.min_job_value' => ['label' => 'Minimum job value (₹)', 'blank' => 'no minimum'],
+        'referral.balance_max_use_percent' => ['label' => 'Max % of a booking payable from referral balance', 'blank' => 'referral balance cannot be spent'],
+        'referral.balance_expiry_days' => ['label' => 'Referral balance expires after (days)', 'blank' => 'never expires'],
     ];
 
     public static function protectionOn(string $key, array $scope = []): bool

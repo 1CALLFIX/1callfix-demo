@@ -254,7 +254,7 @@
 
             <x-ui.card>
                 <h2 class="mb-1 text-sm font-semibold">Referee (welcome) reward <span class="text-xs font-normal text-gray-400">(global only · UNSET = no reward)</span></h2>
-                <p class="mb-3 text-xs text-gray-500">Paid to the new customer on the same trigger as the referrer's reward (their first completed booking paid online — cash jobs do not count), once. Same freeze, cap and clawback rules.</p>
+                <p class="mb-3 text-xs text-gray-500">Paid to the new customer on the same trigger as the referrer's reward (the first completed job that counts under the referral rules below), once. Same freeze, cap and clawback rules.</p>
                 <form wire:submit="saveRefereeReward" class="grid gap-2">
                     @foreach ($refereeMeta as $key => $meta)
                         @php $f = \App\Livewire\EarningsControl\Manage::field($key); @endphp
@@ -276,6 +276,31 @@
                 </form>
             </x-ui.card>
         </div>
+
+        <x-ui.card class="mb-4">
+            <h2 class="mb-1 text-sm font-semibold">Referral rules &amp; referral balance <span class="text-xs font-normal text-gray-400">(global only)</span></h2>
+            <p class="mb-3 text-xs text-gray-500">Rewards go to a separate referral balance, never to the customer's own wallet, and can never be withdrawn. The balance can pay only part of a booking; the rest is paid online (Razorpay). It is never combined with the customer's own wallet.</p>
+            <form wire:submit="saveReferralRules" class="grid gap-3 sm:grid-cols-2">
+                @foreach ($ruleMeta as $key => $meta)
+                    @php $f = \App\Livewire\EarningsControl\Manage::field($key); @endphp
+                    <label class="block text-sm">
+                        <span class="block text-xs font-medium mb-1">{{ $meta['label'] }}</span>
+                        @if ($key === 'referral.qualifying_payment')
+                            <select wire:model="ruleInputs.{{ $f }}" class="w-full border rounded px-2 py-1.5">
+                                <option value="">Online or cash (default)</option>
+                                <option value="online_or_cash">Online or cash</option>
+                                <option value="online">Online only</option>
+                            </select>
+                        @else
+                            <input type="text" inputmode="decimal" wire:model="ruleInputs.{{ $f }}" placeholder="Blank = {{ $meta['blank'] }}" class="w-full border rounded px-2 py-1.5">
+                        @endif
+                        <span class="mt-0.5 block text-xs text-gray-400">Blank = {{ $meta['blank'] }}</span>
+                        @error('ruleInputs.'.$f) <span class="text-xs text-red-600">{{ $message }}</span> @enderror
+                    </label>
+                @endforeach
+                <div class="sm:col-span-2"><x-ui.button type="submit">Save referral rules</x-ui.button></div>
+            </form>
+        </x-ui.card>
 
         @if ($reviewing)
             <x-ui.card class="mb-4">

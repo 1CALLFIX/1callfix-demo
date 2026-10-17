@@ -102,6 +102,11 @@ class ReferralPresenter
             'friend_reward_type' => in_array($refType, ['wallet', 'points'], true) ? $refType : null,
             'friend_reward_amount' => $refType === 'wallet' ? $refAmount : null,
             'friend_reward_points' => $refType === 'points' ? $refPoints : null,
+            // Owner decision 2026-10-17 — which jobs count, and how the separate referral balance can be spent.
+            'online_only' => EarningsSettings::raw('referral.qualifying_payment', $scope) === 'online',
+            'min_job_value' => EarningsSettings::number('referral.min_job_value', $scope),
+            'balance_max_use_percent' => EarningsSettings::number('referral.balance_max_use_percent'),
+            'balance_expiry_days' => EarningsSettings::integer('referral.balance_expiry_days'),
         ];
     }
 }

@@ -4,6 +4,22 @@
 <div class="mx-auto max-w-2xl px-4 py-6 sm:px-6 lg:px-8">
     @include('livewire.customer.earnings._tabs')
 
+    <div class="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 p-4">
+        <p class="text-sm text-emerald-800">Referral balance</p>
+        <p class="mt-1 text-2xl font-bold text-emerald-900">{{ $currencySymbol }}{{ number_format($referralBalance, 2) }}</p>
+        <p class="mt-1 text-xs text-emerald-800">
+            Kept separate from your wallet and can't be withdrawn.
+            @if ($rules['balance_max_use_percent'] !== null && $rules['balance_max_use_percent'] > 0)
+                It can pay up to {{ rtrim(rtrim(number_format($rules['balance_max_use_percent'], 2), '0'), '.') }}% of a booking; the rest is paid online.
+            @else
+                It can't be used on bookings yet.
+            @endif
+            @if ($rules['balance_expiry_days'] !== null)
+                Each reward expires {{ $rules['balance_expiry_days'] }} days after you get it.
+            @endif
+        </p>
+    </div>
+
     <div class="mt-4 rounded-xl border border-slate-200 p-4">
         <p class="text-sm text-slate-500">Your referral code</p>
         <p class="mt-1 font-mono text-2xl font-bold tracking-wider">{{ $code ?: '—' }}</p>
@@ -37,14 +53,14 @@
         <p class="font-semibold text-slate-800">How referrals work</p>
         <ul class="mt-2 list-disc space-y-1 pl-5">
             @if ($rules['reward_type'] && ($rules['reward_amount'] !== null || $rules['reward_points'] !== null) && $rules['max_rewarded_referrals'] !== null)
-                <li>When a friend you refer completes a booking paid online (cash jobs do not count), you get
-                    {{ $rules['reward_type'] === 'wallet' ? $currencySymbol.number_format($rules['reward_amount'], 2).' in your wallet' : number_format($rules['reward_points']).' loyalty points' }}.</li>
+                <li>When a friend you refer completes a booking{{ $rules['online_only'] ? ' paid online (cash jobs do not count)' : ' and pays for it' }}{{ $rules['min_job_value'] !== null ? ' of at least '.$currencySymbol.number_format($rules['min_job_value'], 2) : '' }}, you get
+                    {{ $rules['reward_type'] === 'wallet' ? $currencySymbol.number_format($rules['reward_amount'], 2).' in your referral balance' : number_format($rules['reward_points']).' loyalty points' }}.</li>
                 <li>Up to {{ number_format($rules['max_rewarded_referrals']) }} rewarded referrals per customer.</li>
             @else
                 <li>Referral rewards are currently paused.</li>
             @endif
             @if ($rules['friend_reward_type'] && ($rules['friend_reward_amount'] !== null || $rules['friend_reward_points'] !== null))
-                <li>Your friend gets {{ $rules['friend_reward_type'] === 'wallet' ? $currencySymbol.number_format($rules['friend_reward_amount'], 2).' in their wallet' : number_format($rules['friend_reward_points']).' loyalty points' }} too.</li>
+                <li>Your friend gets {{ $rules['friend_reward_type'] === 'wallet' ? $currencySymbol.number_format($rules['friend_reward_amount'], 2).' in their referral balance' : number_format($rules['friend_reward_points']).' loyalty points' }} too.</li>
             @endif
             <li>Your friend must enter your code when they create their account — it can't be added later.</li>
         </ul>

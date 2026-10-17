@@ -63,7 +63,7 @@ class ReferralControlsTest extends TestCase
 
     private function balance(User $u): float
     {
-        return (float) app(WalletService::class)->balance($u);
+        return (float) app(\App\Services\ReferralBalanceService::class)->available($u);
     }
 
     // ───────────────────────── release / reject ─────────────────────────
@@ -83,8 +83,8 @@ class ReferralControlsTest extends TestCase
         $this->assertSame('nothing_to_release', $second['outcome']);
         $this->assertEqualsWithDelta(50.0, $this->balance($referrer), 0.001);
         $this->assertEqualsWithDelta(30.0, $this->balance($referee), 0.001);
-        $this->assertSame(1, WalletTransaction::where('ref', "referral:{$referral->id}:reward")->count());
-        $this->assertSame(1, WalletTransaction::where('ref', "referral:{$referral->id}:referee-reward")->count());
+        $this->assertSame(1, \App\Models\ReferralBalanceTransaction::where('ref', "referral:{$referral->id}:reward")->count());
+        $this->assertSame(1, \App\Models\ReferralBalanceTransaction::where('ref', "referral:{$referral->id}:referee-reward")->count());
 
         $fresh = $referral->fresh();
         $this->assertSame($this->admin->id, $fresh->reviewed_by);
@@ -101,9 +101,10 @@ class ReferralControlsTest extends TestCase
         $this->assertSame('pending', $referral->fresh()->status);
     }
 
-    /** D8 thumb rule: a Super Admin release cannot pay on a cash job, but a later online-paid job still qualifies. */
+    /** Admin mode "online only": a Super Admin release cannot pay on a cash job, but a later online-paid job still qualifies. */
     public function test_release_never_pays_on_a_cash_job_but_uses_a_later_online_paid_job(): void
     {
+        Setting::set('referral.qualifying_payment', 'online');
         [$referral, $referrer, , $booking] = $this->scenario('held_review');
         $booking->update(['payment_method' => 'cash', 'payment_status' => 'paid']);
 
@@ -265,7 +266,7 @@ class ReferralControlsTest extends TestCase
         $flagged = app(ReferralService::class)->flagAsFraud($referral->fresh(), $this->admin, 'farming');
 
         $this->assertSame(0.0, $this->balance($referee));
-        $this->assertSame(1, WalletTransaction::where('ref', "referral:{$referral->id}:referee-clawback")->count());
+        $this->assertSame(1, \App\Models\ReferralBalanceTransaction::where('ref', "referral:{$referral->id}:referee-clawback")->count());
         $this->assertStringContainsString('Referee reward of 30', $flagged->reversal_note);
     }
 

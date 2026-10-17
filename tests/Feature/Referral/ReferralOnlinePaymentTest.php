@@ -28,6 +28,7 @@ class ReferralOnlinePaymentTest extends TestCase
 
     private function scenario(string $method, string $paymentStatus): array
     {
+        \App\Models\Setting::set('referral.qualifying_payment', 'online'); // this class covers the admin's "online only" mode
         $referrer = $this->makeCustomer();
         $s = $this->makeBookingScenario('completed');
         $s['booking']->update(['payment_method' => $method, 'payment_status' => $paymentStatus]);
@@ -43,7 +44,7 @@ class ReferralOnlinePaymentTest extends TestCase
 
         $this->assertNull(app(ReferralService::class)->qualifyFromCompletedBooking($booking));
         $this->assertSame('pending', Referral::where('referrer_id', $referrer->id)->firstOrFail()->status);
-        $this->assertEquals(0.0, app(WalletService::class)->balance($referrer));
+        $this->assertEquals(0.0, app(\App\Services\ReferralBalanceService::class)->available($referrer));
     }
 
     public function test_a_cash_completion_pays_no_reward(): void
@@ -71,7 +72,7 @@ class ReferralOnlinePaymentTest extends TestCase
         $referral = app(ReferralService::class)->qualifyFromCompletedBooking($booking);
 
         $this->assertSame('rewarded', $referral->status);
-        $this->assertEquals(50.0, app(WalletService::class)->balance($referrer));
+        $this->assertEquals(50.0, app(\App\Services\ReferralBalanceService::class)->available($referrer));
         $this->assertNull(app(ReferralService::class)->qualifyFromCompletedBooking($booking), 'Idempotent.');
     }
 
@@ -104,7 +105,7 @@ class ReferralOnlinePaymentTest extends TestCase
 
         $this->assertSame('rewarded', $referral->status);
         $this->assertSame($online->id, $referral->qualifying_booking_id);
-        $this->assertEquals(50.0, app(WalletService::class)->balance($referrer));
+        $this->assertEquals(50.0, app(\App\Services\ReferralBalanceService::class)->available($referrer));
     }
 
     public function test_several_qualifying_online_bookings_pay_the_reward_only_once(): void
@@ -116,7 +117,7 @@ class ReferralOnlinePaymentTest extends TestCase
         $this->assertNull($svc->qualifyFromCompletedBooking($this->laterBooking($s, 'online', 'paid')));
         $this->assertNull($svc->qualifyFromCompletedBooking($this->laterBooking($s, 'wallet', 'paid')));
 
-        $this->assertEquals(50.0, app(WalletService::class)->balance($referrer));
+        $this->assertEquals(50.0, app(\App\Services\ReferralBalanceService::class)->available($referrer));
     }
 
     public function test_later_cash_or_cash_plus_online_bookings_do_not_qualify(): void
@@ -129,7 +130,7 @@ class ReferralOnlinePaymentTest extends TestCase
         $this->assertNull($svc->qualifyFromCompletedBooking($this->laterBooking($s, 'cash+online', 'paid')));
 
         $this->assertSame('pending', Referral::where('referrer_id', $referrer->id)->firstOrFail()->status);
-        $this->assertEquals(0.0, app(WalletService::class)->balance($referrer));
+        $this->assertEquals(0.0, app(\App\Services\ReferralBalanceService::class)->available($referrer));
     }
 
     public function test_code_entry_registration_and_booking_creation_pay_no_reward(): void
@@ -149,6 +150,6 @@ class ReferralOnlinePaymentTest extends TestCase
         ]);
 
         $this->assertSame('pending', $referral->fresh()->status);
-        $this->assertEquals(0.0, app(WalletService::class)->balance($referrer));
+        $this->assertEquals(0.0, app(\App\Services\ReferralBalanceService::class)->available($referrer));
     }
 }

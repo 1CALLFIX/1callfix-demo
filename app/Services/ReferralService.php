@@ -37,10 +37,16 @@ class ReferralService
 
     public const REASON_REFEREE_FROZEN = 'referee_wallet_frozen';
 
-    /** D8 thumb rule: the qualifying booking was not paid online; a later online-paid completion can still qualify. */
+    /** referral.qualifying_payment = online: the job was not paid online; a later online-paid job can still qualify. */
     public const REASON_NOT_ONLINE = 'booking_not_paid_online';
 
-    public function __construct(private WalletService $walletService, private LoyaltyService $loyaltyService)
+    /** An online job whose payment was not captured. */
+    public const REASON_NOT_PAID = 'booking_not_paid';
+
+    /** The job was below referral.min_job_value; a later job can still qualify. */
+    public const REASON_BELOW_MIN = 'booking_below_min_value';
+
+    public function __construct(private WalletService $walletService, private LoyaltyService $loyaltyService, private ReferralBalanceService $referralBalance)
     {
     }
 
@@ -170,17 +176,13 @@ class ReferralService
         }
 
         if ($wasRewarded && (float) $referral->reward_amount > 0) {
-            try {
-                $this->walletService->debit(
-                    $referral->referrer,
-                    (float) $referral->reward_amount,
-                    reason: "Referral reward clawback (flagged as fraud): {$notes}",
-                    ref: "referral:{$referral->id}:clawback"
-                );
-                $clawbackNote = "Reward of {$referral->reward_amount} clawed back from wallet.";
-            } catch (\Throwable $e) {
-                $clawbackNote = "Clawback attempted but failed (referrer balance insufficient): {$e->getMessage()}";
-            }
+            $taken = (float) ($this->referralBalance->debitUpTo(
+                $referral->referrer,
+                (float) $referral->reward_amount,
+                "Referral reward clawback (flagged as fraud): {$notes}",
+                "referral:{$referral->id}:clawback"
+            )?->amount ?? 0);
+            $clawbackNote = "Reward of {$referral->reward_amount} clawed back from referral balance: took {$taken}, shortfall ".round((float) $referral->reward_amount - $taken, 2).'.';
         }
 
         // EARN4 R7 — the referee reward is clawed back under the same rules:
@@ -196,17 +198,13 @@ class ReferralService
                 );
                 $clawbackNote = trim($clawbackNote."Referee points reward of {$referral->referee_reward_points} clawed back: took {$result['taken']}, shortfall {$result['shortfall']}.");
             } elseif ((float) $referral->referee_reward_amount > 0) {
-                try {
-                    $this->walletService->debit(
-                        $referral->referred,
-                        (float) $referral->referee_reward_amount,
-                        reason: "Referee reward clawback (flagged as fraud): {$notes}",
-                        ref: "referral:{$referral->id}:referee-clawback"
-                    );
-                    $clawbackNote = trim($clawbackNote." Referee reward of {$referral->referee_reward_amount} clawed back from wallet.");
-                } catch (\Throwable $e) {
-                    $clawbackNote = trim($clawbackNote." Referee clawback attempted but failed (balance insufficient): {$e->getMessage()}");
-                }
+                $taken = (float) ($this->referralBalance->debitUpTo(
+                    $referral->referred,
+                    (float) $referral->referee_reward_amount,
+                    "Referee reward clawback (flagged as fraud): {$notes}",
+                    "referral:{$referral->id}:referee-clawback"
+                )?->amount ?? 0);
+                $clawbackNote = trim($clawbackNote." Referee reward of {$referral->referee_reward_amount} clawed back from referral balance: took {$taken}, shortfall ".round((float) $referral->referee_reward_amount - $taken, 2).'.');
             }
         }
 
@@ -243,10 +241,11 @@ class ReferralService
     }
 
     /**
-     * Called from CompleteBookingAction. Qualification condition: any
-     * completed booking of the referred user that was paid ONLINE (a cash
-     * booking earlier does not use up the referral — D8). Idempotent via the
-     * 'pending' status guard and the row lock in issueRewards().
+     * Called from CompleteBookingAction. Qualification: any completed booking
+     * of the referred user that passes qualificationProblem() (admin rules:
+     * payment type, minimum value); a job that does not qualify does not use up
+     * the referral. Idempotent via the 'pending' status guard and the row lock
+     * in issueRewards().
      */
     public function qualifyFromCompletedBooking(Booking $booking, array $scope = []): ?Referral
     {
@@ -257,6 +256,36 @@ class ReferralService
         }
 
         return $this->issueRewards($referral, $booking, $scope);
+    }
+
+    /**
+     * Owner decision 2026-10-17 — does this completed job make the referral count? Null = yes, else the reason.
+     *
+     *   referral.qualifying_payment  'online' = only online-paid jobs (Razorpay / wallet, captured);
+     *                                anything else, or unset = online OR cash. A cash job counts once it is
+     *                                completed (the provider collected the money at the completion code —
+     *                                cash bookings never get payment_status 'paid').
+     *   referral.min_job_value       the job's final price must be at least this. Blank = no minimum.
+     */
+    public function qualificationProblem(Booking $booking, array $scope = []): ?string
+    {
+        if ($booking->status !== 'completed') {
+            return self::REASON_NOT_PAID;
+        }
+
+        $min = EarningsSettings::number('referral.min_job_value', $scope);
+        if ($min !== null && $booking->orderTotalPrice() + 0.0001 < $min) {
+            return self::REASON_BELOW_MIN;
+        }
+
+        if (OnlinePaymentGuard::isOnline($booking->payment_method)) {
+            return $booking->payment_status === 'paid' ? null : self::REASON_NOT_PAID;
+        }
+
+        $onlineOnly = EarningsSettings::raw('referral.qualifying_payment', $scope) === 'online';
+
+        // A cash or cash+online job: the provider collected the cash part at completion.
+        return ! $onlineOnly && in_array($booking->payment_method, ['cash', 'cash+online'], true) ? null : self::REASON_NOT_ONLINE;
     }
 
     /**
@@ -310,14 +339,13 @@ class ReferralService
             return false;
         }
 
-        // THUMB RULE (D8) — the reward is a benefit: only a completed booking that was paid ONLINE (Razorpay,
-        // wallet or both, captured) qualifies. A cash / cash+online completion, or a payment that was only
-        // initiated, pays nothing; the referral stays pending and the withhold is audited.
-        if (! OnlinePaymentGuard::isOnline($booking->payment_method) || $booking->payment_status !== 'paid') {
-            ActivityLogger::logModel(null, $referral, "Referral reward withheld: booking #{$booking->id} was not completed with an online payment", [
+        // Owner decision 2026-10-17 — which completed jobs qualify is Super Admin controlled
+        // (referral.qualifying_payment, referral.min_job_value); see qualificationProblem().
+        if (($problem = $this->qualificationProblem($booking, $scope)) !== null) {
+            ActivityLogger::logModel(null, $referral, "Referral reward withheld: booking #{$booking->id} does not qualify ({$problem})", [
                 'booking_id' => $booking->id, 'payment_method' => $booking->payment_method, 'payment_status' => $booking->payment_status,
             ]);
-            $this->recordNoReward($referral, self::REASON_NOT_ONLINE);
+            $this->recordNoReward($referral, $problem);
 
             return false;
         }
@@ -359,11 +387,13 @@ class ReferralService
         } else {
             $amount = (float) $rewardValue;
             if ($amount > 0) {
-                $this->walletService->credit(
+                // Owner decision 2026-10-17 — referral money goes to the separate referral balance, not the wallet.
+                $this->referralBalance->credit(
                     $referrer,
                     $amount,
-                    reason: "Referral reward for referring {$referral->referred?->name}",
-                    ref: "referral:{$referral->id}:reward"
+                    "Referral reward for referring {$referral->referred?->name}",
+                    "referral:{$referral->id}:reward",
+                    $booking->id
                 );
             }
             $referral->reward_amount = $amount;
@@ -418,11 +448,12 @@ class ReferralService
             $this->loyaltyService->earn($referee, (int) $value, 'referral_referee_reward', null, $scope, "referral:{$referral->id}:referee-points-reward");
             $referral->referee_reward_points = (int) $value;
         } else {
-            $this->walletService->credit(
+            $this->referralBalance->credit(
                 $referee,
                 (float) $value,
-                reason: 'Welcome reward for joining with a referral code',
-                ref: "referral:{$referral->id}:referee-reward"
+                'Welcome reward for joining with a referral code',
+                "referral:{$referral->id}:referee-reward",
+                $referral->qualifying_booking_id
             );
             $referral->referee_reward_amount = (float) $value;
         }
@@ -460,11 +491,10 @@ class ReferralService
             }
             $referral->forceFill(['reviewed_at' => now(), 'reviewed_by' => $admin->id, 'review_note' => $reason])->save();
 
-            // D8 — only an online-paid completed job qualifies, so look for the first of those; a cash job
-            // never blocks the release (the referral waits for an online-paid completion instead).
-            $booking = Booking::where('customer_id', $referral->referred_id)->where('status', 'completed')
-                ->whereIn('payment_method', OnlinePaymentGuard::ONLINE_METHODS)->where('payment_status', 'paid')
-                ->orderBy('id')->first();
+            // The first completed job that qualifies under the admin's rules (payment type, minimum value);
+            // a job that does not qualify never blocks the release — the referral waits for one that does.
+            $booking = Booking::where('customer_id', $referral->referred_id)->where('status', 'completed')->orderBy('id')->get()
+                ->first(fn (Booking $b) => $this->qualificationProblem($b, array_filter(['zone_id' => $b->zone_id, 'franchise_id' => $b->franchise_id])) === null);
             $refereeDoneBefore = $referral->referee_rewarded_at !== null;
 
             if (! $booking) {

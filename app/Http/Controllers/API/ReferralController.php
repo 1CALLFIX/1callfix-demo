@@ -26,6 +26,7 @@ class ReferralController extends Controller
             'code' => $user->referral_code,
             'share_link' => $presenter->shareLink($user),
             'rules' => $presenter->rules($user),
+            'referral_balance' => app(\App\Services\ReferralBalanceService::class)->available($user),
             'referrals' => $page->items(),
             'meta' => [
                 'current_page' => $page->currentPage(),
