@@ -29,7 +29,7 @@ queries). Every click and save ran on a throwaway copy of the local database.
 | B5 | Blocker (known) | Admin → Payouts "Mark paid / Mark failed"; Earnings Control wallet adjustment (W3) | Outside the approval model (already in GO_LIVE_READINESS.md) | Open: L7 |
 | F3 | Medium | Admin → Settings → Branding & Links → Save | The live site has no platform name saved. The form pre-filled "1CallFix Admin", so one untouched Save renamed the public header, footer and page titles to "1CallFix Admin" | **Fixed** (`7813be6`) + test |
 | F4 | Low | Provider → Payments → Wallet & dues, when online payment is off | The page explained a "Pay" button that was not shown and never said how much to pay | **Fixed** (`7813be6`): now "pay ₹X to your Franchise Office" + test |
-| F5 | Low | `/admin/kyc/documents/provider/{id}`, `/field-worker/{id}`, `/admin/kyc/videos/{id}`, `/admin/chat/attachments/{id}` | A non-number ID gives a server error (500) instead of "not found". Admin only, nothing leaks | Open: small route fix, to do with the next code change |
+| F5 | Low | `/admin/kyc/documents/provider/{id}`, `/field-worker/{id}`, `/admin/kyc/videos/{id}`, `/admin/chat/attachments/{id}` | A non-number ID gave a server error (500) instead of "not found". Admin only, nothing leaked | **Fixed**: the four routes accept numbers only, so other IDs get "not found" + test |
 | F6 | Owner action | Live site `/about`, `/contact`, `/refund-policy` | The pages already exist on production as **empty drafts** (that is why they show "not found"). Write the text in Admin → CMS and switch each one on. Footer links appear automatically | Owner (S1) |
 | F7 | Info | Customer `/earnings/wallet`, `/loyalty`, `/referrals` | Show "not found" because the Earnings feature is switched off (EARN3, off by default). Correct | No action |
 
@@ -62,6 +62,8 @@ the minimum; business WhatsApp 9014609609. Provider A: wallet ₹300 and owes �
 
 - `7813be6` Branding Save keeps the public name "1CallFix" (F3); Wallet & dues states the amount to pay when
   online payment is off (F4). Two tests added; both test files pass (17 + 17).
+- F5: the four admin file links accept numbers only (`routes/admin.php`); `tests/Feature/Admin/AdminFileRouteIdTest.php`
+  fails on the old routes (500) and passes now. KYC + chat tests still pass (68/68).
 
 ## Method notes (for repeating the check)
 
