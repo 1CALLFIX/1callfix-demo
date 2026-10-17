@@ -18,7 +18,7 @@ queries). Every click and save ran on a throwaway copy of the local database.
 | 5 | Mobile-app API | 66 API read endpoints as guest, customer, provider, Super Admin (264 calls) | Done | **0 server errors.** 401/403/404 all correct |
 | 6 | Live site links | Read-only crawl of https://1callfix.com public pages, two levels deep (72 addresses) | Done | **0 broken links**, none slower than 2 s |
 | 7 | New features in a real browser | Local server on the copy; signed in as a test provider and a test admin | Done | All work; 1 wording gap (fixed). Details below |
-| 8 | Full automated test suite | All test folders on the branch, including the fixes | **Stopped** | The computer ran low on memory and the run was stopped after 5 of ~70 folders (Unit, Acquisition, Admin, Ai, AllUsers: 124/124 pass). Must be re-run in full before the push (deploy rule step 1), ideally with Chrome closed |
+| 8 | Full automated test suite | All 70 test folders on the branch, run one folder at a time (with the F3/F4/F5 fixes) | Done | **3,793 tests, 3,792 pass.** The 1 failure is the known `.env` one (`NotificationCenterAuditTest::test_provider_status_shows_log_fallback_by_default`, listed in docs/CANCELLATION_POLICY_DESIGN.md and WORK_QUEUE.md; fails the same on `main`). Admin folder re-run with the new F5 test: 80/80 |
 
 ## Findings
 
