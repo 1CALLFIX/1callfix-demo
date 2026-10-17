@@ -110,6 +110,7 @@ class BookingController extends Controller
                 'payment_method' => $paymentMethod,
                 'customer_note' => $validated['customer_note'] ?? null,
                 'coupon_code' => $couponCode !== '' ? $couponCode : null,
+                'use_referral_balance' => (bool) ($validated['use_referral_balance'] ?? false),
                 'acquisition' => $validated['acquisition'] ?? null,
             ]);
         } catch (ModuleNotActiveException $e) {

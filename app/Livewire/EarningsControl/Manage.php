@@ -81,7 +81,7 @@ class Manage extends Component
     public string $adjustReason = '';
 
     // ── Ledger ──
-    public string $ledgerKind = 'wallet'; // wallet|points
+    public string $ledgerKind = 'wallet'; // wallet|points|referral
     public string $ledgerLabel = '';
     public string $ledgerFrom = '';
     public string $ledgerTo = '';
@@ -556,6 +556,15 @@ class Manage extends Component
         if ($this->ledgerKind === 'points') {
             return LoyaltyPoint::query()->with(['booking:id,code', 'actor:id,name'])
                 ->where('user_id', $user->id)
+                ->when($from, fn ($q) => $q->where('created_at', '>=', $from))
+                ->when($to, fn ($q) => $q->where('created_at', '<=', $to))
+                ->latest('id');
+        }
+
+        // Owner decision 2026-10-17 — the separate referral balance has its own ledger.
+        if ($this->ledgerKind === 'referral') {
+            return \App\Models\ReferralBalanceTransaction::query()->with(['booking:id,code', 'actor:id,name'])
+                ->where('referral_balance_id', \App\Models\ReferralBalance::where('user_id', $user->id)->value('id') ?? 0)
                 ->when($from, fn ($q) => $q->where('created_at', '>=', $from))
                 ->when($to, fn ($q) => $q->where('created_at', '<=', $to))
                 ->latest('id');

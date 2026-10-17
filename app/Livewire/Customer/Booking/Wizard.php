@@ -62,6 +62,9 @@ class Wizard extends Component
 
     public string $paymentMethod = 'wallet';
 
+    /** Owner decision 2026-10-17 — pay part from the referral balance (online only; the rest via Razorpay). */
+    public bool $useReferralBalance = false;
+
     public string $customerNote = '';
 
     public string $error = '';
@@ -431,6 +434,7 @@ class Wizard extends Component
                 'customer_note' => $this->customerNote ?: null,
                 // Judged server-side by the engine; cash is rejected there (online only).
                 'coupon_code' => $this->couponCodeForBooking(),
+                'use_referral_balance' => $this->useReferralBalance && $this->paymentMethod === 'online',
             ]);
         } catch (ModuleNotActiveException $e) {
             $this->error = $e->getMessage();
@@ -485,6 +489,8 @@ class Wizard extends Component
             'addresses' => Address::where('user_id', auth()->id())->orderByDesc('is_default')->latest()->get(),
             'enabledMethods' => $this->enabledPaymentMethods(),
             'walletBalance' => $this->walletBalance(),
+            'referralBalance' => app(\App\Services\ReferralBalanceService::class)->available(auth()->user()),
+            'referralMaxPercent' => \App\Support\EarningsSettings::number('referral.balance_max_use_percent'),
             'steps' => self::STEPS,
             'coupon' => $coupon = $this->couponView(),
             // The server-computed discount of an applied, eligible coupon (0 otherwise) — folded into the estimate.

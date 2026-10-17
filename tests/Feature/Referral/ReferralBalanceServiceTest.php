@@ -82,6 +82,34 @@ class ReferralBalanceServiceTest extends TestCase
         $this->assertSame(1, ReferralBalanceTransaction::where('ref', "referral-balance:expire:{$grant->id}")->count());
     }
 
+    public function test_the_daily_command_expires_due_grants(): void
+    {
+        Setting::set('referral.balance_expiry_days', '10');
+        $u = $this->makeCustomer();
+        $this->svc()->credit($u, 50, 'a', 'g:1');
+        $this->travel(11)->days();
+
+        $this->artisan('referrals:expire-balance')->expectsOutputToContain('Expired 1 referral balance grant(s).')->assertSuccessful();
+        $this->assertSame(0.0, (float) \App\Models\ReferralBalance::where('user_id', $u->id)->value('balance'));
+    }
+
+    public function test_admin_ledger_viewer_shows_the_referral_balance_history(): void
+    {
+        $u = $this->makeCustomer();
+        $this->svc()->credit($u, 50, 'Referral reward for referring Anil', 'referral:7:reward');
+        $admin = \App\Models\User::create([
+            'uuid' => (string) \Illuminate\Support\Str::uuid(), 'name' => 'Admin', 'phone' => '8'.fake()->unique()->numerify('#########'),
+            'role' => 'super_admin', 'status' => 'active',
+        ]);
+
+        \Livewire\Livewire::actingAs($admin)->test(\App\Livewire\EarningsControl\Manage::class)
+            ->call('setTab', 'ledger')
+            ->call('selectUser', $u->id)
+            ->set('ledgerKind', 'referral')
+            ->assertSee('Referral reward for referring Anil')
+            ->assertSee('referral:7:reward');
+    }
+
     public function test_blank_expiry_means_the_grant_never_expires(): void
     {
         $u = $this->makeCustomer();

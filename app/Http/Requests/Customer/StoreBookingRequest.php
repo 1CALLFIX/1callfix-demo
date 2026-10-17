@@ -32,6 +32,8 @@ class StoreBookingRequest extends CustomerApiRequest
             'customer_note' => ['nullable', 'string', 'max:1000'],
             // The engine judges it server-side; no amount is ever accepted from the client.
             'coupon_code' => ['nullable', 'string', 'max:50'],
+            // Owner decision 2026-10-17 — pay part from the referral balance (online bookings only; rest via Razorpay).
+            'use_referral_balance' => ['nullable', 'boolean'],
             // F1 — contents are whitelisted by AcquisitionSanitizer, not here.
             'acquisition' => ['nullable', 'array'],
         ];

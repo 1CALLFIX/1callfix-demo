@@ -186,7 +186,7 @@
     @if ($tab === 'ledger' && $selectedUser)
         <div class="mb-3 flex flex-wrap items-end gap-3 text-sm">
             <label class="block"><span class="block text-xs font-medium mb-1">Ledger</span>
-                <select wire:model.live="ledgerKind" class="border rounded px-2 py-1.5"><option value="wallet">Wallet</option><option value="points">Points</option></select>
+                <select wire:model.live="ledgerKind" class="border rounded px-2 py-1.5"><option value="wallet">Wallet</option><option value="points">Points</option><option value="referral">Referral balance ({{ $currencySymbol }}{{ number_format(app(\App\Services\ReferralBalanceService::class)->available($selectedUser), 2) }} now)</option></select>
             </label>
             @if ($ledgerKind === 'wallet')
                 <label class="block"><span class="block text-xs font-medium mb-1">Source</span>
@@ -215,6 +215,10 @@
                             <td class="px-4 py-2">{{ \App\Support\WalletSourceLabel::labelFor($row->ref) }}</td>
                             <td class="px-4 py-2 font-mono {{ $row->is_credit ? 'text-green-700' : 'text-red-700' }}">{{ $row->is_credit ? '+' : '−' }}{{ $currencySymbol }}{{ number_format((float) $row->amount, 2) }}</td>
                             <td class="px-4 py-2 text-gray-500">{{ $row->reason }}</td>
+                        @elseif ($ledgerKind === 'referral')
+                            <td class="px-4 py-2">Referral balance</td>
+                            <td class="px-4 py-2 font-mono {{ $row->is_credit ? 'text-green-700' : 'text-red-700' }}">{{ $row->is_credit ? '+' : '−' }}{{ $currencySymbol }}{{ number_format((float) $row->amount, 2) }}</td>
+                            <td class="px-4 py-2 text-gray-500">{{ $row->reason }}@if ($row->booking) · {{ $row->booking->code }}@endif @if ($row->is_credit && $row->expires_at) · expires {{ $row->expires_at->format('j M Y') }}@endif</td>
                         @else
                             <td class="px-4 py-2">{{ \App\Support\WalletSourceLabel::loyaltyLabel($row) }}</td>
                             <td class="px-4 py-2 font-mono {{ $row->points >= 0 ? 'text-green-700' : 'text-red-700' }}">{{ $row->points > 0 ? '+' : '' }}{{ number_format($row->points) }} pts</td>

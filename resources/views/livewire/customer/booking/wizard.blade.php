@@ -243,6 +243,18 @@
                         @endif
                     </div>
 
+                    {{-- Owner decision 2026-10-17 — part of the booking from the referral balance, the rest online. --}}
+                    @if ($paymentMethod === 'online' && $referralBalance > 0 && $referralMaxPercent !== null && $referralMaxPercent > 0)
+                        @php $referralPart = round(min($referralBalance, floor($estimate * min($referralMaxPercent, 100)) / 100), 2); @endphp
+                        <label class="mt-3 flex items-start gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm">
+                            <input type="checkbox" wire:model.live="useReferralBalance" class="mt-0.5">
+                            <span>
+                                <span class="block font-medium text-emerald-900">Use referral balance (about {{ $currencySymbol }}{{ number_format($referralPart, 2) }})</span>
+                                <span class="block text-emerald-800">Up to {{ rtrim(rtrim(number_format($referralMaxPercent, 2), '0'), '.') }}% of this booking from your {{ $currencySymbol }}{{ number_format($referralBalance, 2) }} referral balance; you pay the rest online.</span>
+                            </span>
+                        </label>
+                    @endif
+
                     @if ($walletBalance < $estimate)
                         <a href="{{ route('customer.wallet') }}" wire:navigate class="mt-3 inline-block text-sm font-medium text-slate-700 underline">Top up your wallet</a>
                     @endif
