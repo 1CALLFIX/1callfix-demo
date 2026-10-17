@@ -60,8 +60,10 @@
             <x-ui.button wire:click="payNow">Pay {{ $currency }}{{ number_format($standing['pay_to_restore'], 2) }} now</x-ui.button>
         @endif
     </div>
-    @if ($standing['pay_to_restore'] > 0)
+    @if ($standing['pay_to_restore'] > 0 && $gatewayConfigured)
         <p class="mt-2 text-xs text-gray-500">This clears all unpaid commission{{ $standing['floor'] !== null ? ' and keeps the minimum balance in your wallet' : '' }}. Payments are applied to your oldest dues first.</p>
+    @elseif ($standing['pay_to_restore'] > 0)
+        <p class="mt-2 text-sm text-gray-700">To clear your dues{{ $standing['floor'] !== null ? ' and keep the minimum balance' : '' }}, pay {{ $currency }}{{ number_format($standing['pay_to_restore'], 2) }} to your Franchise Office. Online payment is not available right now.</p>
     @endif
 
     <x-ui.card class="!p-0 mt-4">

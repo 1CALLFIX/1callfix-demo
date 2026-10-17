@@ -235,8 +235,8 @@ class Manage extends Component
     // --- Locale & Currency (display symbol used across admin money fields) ---
     public string $localeCurrencySymbol = '₹';
 
-    // --- Platform / Branding (admin header, <title>, login page) ---
-    public string $brandingPlatformName = '1CallFix Admin';
+    // --- Platform / Branding (public header/footer/titles and admin) — default matches the public fallback '1CallFix' ---
+    public string $brandingPlatformName = '1CallFix';
     public string $brandingOperatingCityLabel = 'Nellore';
 
     // Site identity — global-only (one logo/footer per site, not per scope).
@@ -491,7 +491,7 @@ class Manage extends Component
 
         $this->localeCurrencySymbol = Setting::get('locale.currency_symbol', '₹', $scope);
 
-        $this->brandingPlatformName = Setting::get('branding.platform_name', '1CallFix Admin', $scope);
+        $this->brandingPlatformName = Setting::get('branding.platform_name', '1CallFix', $scope);
         $this->brandingOperatingCityLabel = Setting::get('branding.operating_city_label', 'Nellore', $scope);
 
         $this->brandingFooterCredit = BrandingAssetService::creditLine();

@@ -257,6 +257,17 @@ class ProviderStandingTest extends TestCase
         $this->assertEquals(0, app(WalletService::class)->balance($s['provider']->user));
     }
 
+    /** Check 2026-10-17: with online payment off there is no Pay button, so the page states the amount and where to pay. */
+    public function test_wallet_page_without_online_payment_states_the_amount_to_pay_at_the_office(): void
+    {
+        $s = $this->scenario();
+        $this->owe($s['provider'], $s['booking'], 400);
+
+        Livewire::actingAs($s['provider']->user)->test(WalletDues::class)
+            ->assertDontSee('now</button>', false)
+            ->assertSee('pay ₹400.00 to your Franchise Office');
+    }
+
     public function test_a_withdrawal_must_leave_the_active_floor(): void
     {
         $s = $this->scenario();

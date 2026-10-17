@@ -49,6 +49,20 @@ class SiteBrandingTest extends TestCase
         return UploadedFile::fake()->createWithContent('logo.png', ob_get_clean());
     }
 
+    /** Check 2026-10-17: saving Branding untouched on a fresh install must not rename the public site "1CallFix Admin". */
+    public function test_saving_branding_untouched_keeps_the_public_platform_name(): void
+    {
+        $this->assertNull(Setting::get('branding.platform_name'));
+
+        Livewire::actingAs($this->admin())->test(SettingsManage::class)
+            ->set('activeTab', 'branding')
+            ->assertSet('brandingPlatformName', '1CallFix')
+            ->call('saveBranding')
+            ->assertHasNoErrors();
+
+        $this->assertSame('1CallFix', Setting::get('branding.platform_name'));
+    }
+
     public function test_upload_stores_logo_and_generates_transparent_favicons(): void
     {
         Livewire::actingAs($this->admin())->test(SettingsManage::class)
