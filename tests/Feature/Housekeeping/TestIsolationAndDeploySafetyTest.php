@@ -71,7 +71,9 @@ class TestIsolationAndDeploySafetyTest extends TestCase
     {
         $runbook = file_get_contents(base_path('docs/DEPLOYMENT_RUNBOOK.md'));
 
+        // CLAUDE.md deploy rule: code reaches the server through git only (no archive/tarball of source).
         $this->assertStringNotContainsString('# scp -r <local-build-folder>', $runbook);
-        $this->assertStringContainsString("git archive --format=tar.gz -o release.tar.gz HEAD -- . ':(exclude)storage'", $runbook);
+        $this->assertStringNotContainsString('git archive', $runbook);
+        $this->assertStringContainsString('git fetch origin && git merge --ff-only origin/main', $runbook);
     }
 }
