@@ -28,6 +28,8 @@ class BookingObserver
             app(CouponService::class)->onBookingCompleted($booking);
         } elseif ($booking->status === 'cancelled') {
             app(CouponService::class)->onBookingCancelled($booking, $booking->getOriginal('status'));
+            // Owner decision 2026-10-17 — the part paid from the referral balance goes back to it (idempotent).
+            app(\App\Services\ReferralBalanceUse::class)->returnOnCancel($booking);
         }
     }
 

@@ -103,6 +103,7 @@ class CustomerAccountResolver
         string $plainPassword,
         ?string $name = null,
         ?string $verifiedEmail = null,
+        ?SignupContext $context = null,
     ): array {
         $phone = PhoneNumber::national((string) $phoneIdentity->phoneNumber);
         if ($phone === '') {
@@ -116,7 +117,7 @@ class CustomerAccountResolver
             }
         }
 
-        return DB::transaction(function () use ($phone, $plainPassword, $name, $verifiedEmail, $phoneIdentity) {
+        return DB::transaction(function () use ($phone, $plainPassword, $name, $verifiedEmail, $phoneIdentity, $context) {
             $existing = User::where('phone', $phone)->lockForUpdate()->first();
 
             if ($existing && filled($existing->password)) {
@@ -143,6 +144,14 @@ class CustomerAccountResolver
                 $user->email_verified_at = now();
             }
 
+            // EARN4 R1 — the signup fingerprint and any referral are written
+            // only when this call CREATES the row. A resumed shell already
+            // exists (its UserObserver::created() ran long ago), so a code
+            // offered now would be "attached after creation": ignored.
+            if (! $existing) {
+                self::applySignupContext($user, $context);
+            }
+
             $user->save();
 
             return ['user' => $user, 'resumed' => (bool) $existing];
@@ -154,14 +163,14 @@ class CustomerAccountResolver
      * created in one atomic write — an abandoned phone step before this
      * point leaves nothing persisted.
      */
-    public function createFromGoogle(FirebaseIdentity $google, FirebaseIdentity $phoneIdentity, ?string $plainPassword = null): User
+    public function createFromGoogle(FirebaseIdentity $google, FirebaseIdentity $phoneIdentity, ?string $plainPassword = null, ?SignupContext $context = null): User
     {
         $phone = PhoneNumber::national((string) $phoneIdentity->phoneNumber);
         if ($phone === '') {
             throw FirebaseAuthException::invalid('phone token carried no phone number');
         }
 
-        return DB::transaction(function () use ($google, $phoneIdentity, $phone, $plainPassword) {
+        return DB::transaction(function () use ($google, $phoneIdentity, $phone, $plainPassword, $context) {
             if (User::where('phone', $phone)->lockForUpdate()->exists()) {
                 throw new AccountAlreadyExistsException('mobile number');
             }
@@ -169,7 +178,7 @@ class CustomerAccountResolver
                 throw new AccountAlreadyExistsException('email');
             }
 
-            return User::create([
+            $user = new User([
                 'uuid' => (string) Str::uuid(),
                 'name' => $google->name ?: 'Customer',
                 'phone' => $phone,
@@ -187,6 +196,11 @@ class CustomerAccountResolver
                 'google_id' => $google->uid,
                 'avatar_url' => $google->picture,
             ]);
+
+            self::applySignupContext($user, $context); // EARN4 — set before the first save, so UserObserver sees it
+            $user->save();
+
+            return $user;
         });
     }
 
@@ -243,6 +257,20 @@ class CustomerAccountResolver
     }
 
     // ───────────────────────────── Helpers ────────────────────────────────
+
+    /** EARN4 — forceFill (these columns are not mass-assignable) before the first save. */
+    private static function applySignupContext(User $user, ?SignupContext $context): void
+    {
+        if ($context === null) {
+            return;
+        }
+
+        $user->forceFill([
+            'signup_ip' => $context->ip,
+            'signup_device_id' => $context->deviceId,
+            'referred_by' => $context->referrerId,
+        ]);
+    }
 
     public static function isEmail(string $identifier): bool
     {

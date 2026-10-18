@@ -34,7 +34,7 @@ class ReferralHardeningTest extends TestCase
     {
         $referrer = $this->makeCustomer();
         $newUser = $this->makeCustomer();
-        $newUser->update(['referred_by' => $referrer->id]);
+        $newUser->forceFill(['referred_by' => $referrer->id])->save();
 
         $referral = app(ReferralService::class)->createFromSignup($newUser->fresh());
 
@@ -46,7 +46,7 @@ class ReferralHardeningTest extends TestCase
         Setting::set('referral.pending_expiry_days', '30');
         $referrer = $this->makeCustomer();
         $newUser = $this->makeCustomer();
-        $newUser->update(['referred_by' => $referrer->id]);
+        $newUser->forceFill(['referred_by' => $referrer->id])->save();
 
         $referral = app(ReferralService::class)->createFromSignup($newUser->fresh());
 
@@ -83,7 +83,7 @@ class ReferralHardeningTest extends TestCase
         $referrer = $this->makeCustomer();
         ['booking' => $booking, 'customer' => $referred] = $this->makeBookingScenario('completed');
         $booking->update(['payment_status' => 'paid']); // D8
-        $referred->update(['referred_by' => $referrer->id]);
+        $referred->forceFill(['referred_by' => $referrer->id])->save();
         app(ReferralService::class)->createFromSignup($referred->fresh());
 
         $referral = app(ReferralService::class)->qualifyFromCompletedBooking($booking);
@@ -109,13 +109,13 @@ class ReferralHardeningTest extends TestCase
     public function test_flagging_a_rewarded_referral_claws_back_the_wallet_credit(): void
     {
         $referrer = $this->makeCustomer();
-        app(WalletService::class)->credit($referrer, 50, 'referral reward', 'test:seed');
+        app(\App\Services\ReferralBalanceService::class)->credit($referrer, 50, 'referral reward', 'test:seed');
         $referral = Referral::create(['referrer_id' => $referrer->id, 'referred_id' => $this->makeCustomer()->id, 'status' => 'rewarded', 'reward_amount' => 50]);
         $admin = $this->makeSuperAdmin();
 
         app(ReferralService::class)->flagAsFraud($referral, $admin, 'Confirmed reward farming');
 
-        $this->assertSame(0.0, app(WalletService::class)->balance($referrer));
+        $this->assertSame(0.0, app(\App\Services\ReferralBalanceService::class)->available($referrer));
         $this->assertNotNull($referral->fresh()->reversed_at);
     }
 
@@ -130,8 +130,8 @@ class ReferralHardeningTest extends TestCase
 
         $this->assertSame('fraud_flagged', $flagged->status);
         $this->assertNotNull($flagged->reversed_at);
-        $this->assertStringContainsString('failed', $flagged->reversal_note);
-        $this->assertSame(0.0, app(WalletService::class)->balance($referrer), 'Must never go negative.');
+        $this->assertStringContainsString('shortfall 50', $flagged->reversal_note);
+        $this->assertSame(0.0, app(\App\Services\ReferralBalanceService::class)->available($referrer), 'Must never go negative.');
     }
 
     public function test_a_points_type_reward_has_nothing_to_claw_back_from_the_wallet(): void
@@ -143,7 +143,7 @@ class ReferralHardeningTest extends TestCase
         $flagged = app(ReferralService::class)->flagAsFraud($referral, $admin, 'test');
 
         $this->assertSame('fraud_flagged', $flagged->status);
-        $this->assertSame(0.0, app(WalletService::class)->balance($referrer));
+        $this->assertSame(0.0, app(\App\Services\ReferralBalanceService::class)->available($referrer));
     }
 
     // ============================== Admin authorization ==============================

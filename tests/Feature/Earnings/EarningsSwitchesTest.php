@@ -318,7 +318,7 @@ class EarningsSwitchesTest extends TestCase
         app(ReferralService::class)->qualifyFromCompletedBooking($booking);
 
         $this->assertSame('rewarded', $referral->fresh()->status);
-        $this->assertEqualsWithDelta(50.0, (float) app(WalletService::class)->balance($referrer), 0.001);
+        $this->assertEqualsWithDelta(50.0, app(\App\Services\ReferralBalanceService::class)->available($referrer), 0.001);
     }
 
     #[DataProvider('offStates')]
@@ -330,7 +330,7 @@ class EarningsSwitchesTest extends TestCase
 
         $this->assertNull(app(ReferralService::class)->qualifyFromCompletedBooking($booking));
         $this->assertSame('pending', $referral->fresh()->status);
-        $this->assertSame(0.0, (float) app(WalletService::class)->balance($referrer));
+        $this->assertSame(0.0, app(\App\Services\ReferralBalanceService::class)->available($referrer));
     }
 
     public function test_referral_cap_unset_rewards_nothing(): void

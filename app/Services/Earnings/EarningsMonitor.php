@@ -125,6 +125,22 @@ class EarningsMonitor
             ->get();
     }
 
+    /** EARN4 — referral counts per status (every status, zero included). @return array<string, int> */
+    public function referralCountsByStatus(): array
+    {
+        $counts = Referral::query()->selectRaw('status, COUNT(*) as n')->groupBy('status')->pluck('n', 'status');
+
+        return collect(['pending', 'held_review', 'rewarded', 'expired', 'fraud_flagged', 'rejected'])
+            ->mapWithKeys(fn ($s) => [$s => (int) ($counts[$s] ?? 0)])->all();
+    }
+
+    /** EARN4 — referrals waiting on a Super Admin decision. */
+    public function heldReferrals(): Collection
+    {
+        return Referral::query()->with(['referrer:id,name', 'referred:id,name'])
+            ->where('status', 'held_review')->latest('id')->limit(200)->get();
+    }
+
     /** Money owed to the holder that landed while the wallet was frozen (D5: allowed, but flagged). */
     public function creditsToFrozenWallets(): Collection
     {

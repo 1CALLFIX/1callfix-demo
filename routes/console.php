@@ -50,6 +50,8 @@ ScheduleRunTracker::track(Schedule::command('plans:renew-due'), 'plans:renew-due
 // can never race a legitimate reward). Daily is enough granularity for a
 // day-scale expiry window; same schedule:run cron caveat as above.
 ScheduleRunTracker::track(Schedule::command('referrals:expire-due'), 'referrals:expire-due')->daily();
+// Owner decision 2026-10-17 — referral balance grants past their expiry date (blank expiry setting = never).
+ScheduleRunTracker::track(Schedule::command('referrals:expire-balance'), 'referrals:expire-balance')->daily();
 ScheduleRunTracker::track(Schedule::command('kyc:send-reminders'), 'kyc:send-reminders')->daily();
 
 // Loyalty FIFO expiry (REF 1CF-PROMPT-20260925-EARN3, D2): writes one

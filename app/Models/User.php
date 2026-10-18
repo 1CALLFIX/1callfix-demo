@@ -36,12 +36,18 @@ class User extends Authenticatable
         'avatar_url',
         'fcm_token',
         'push_ops_alerts',
-        'referral_code',
-        'referred_by'
+        // REF 1CF-PROMPT-20260925-EARN4 (R1) — referral_code and referred_by
+        // are deliberately NOT mass-assignable: a referral is fixed at account
+        // creation (CustomerAccountResolver, forceFill) and no request payload
+        // can attach or change one afterwards. Same for the referral block and
+        // signup/login fingerprint columns (Super Admin / auth code only).
     ];
 
     protected $hidden = ['password', 'remember_token'];
-    protected $casts = ['phone_verified_at' => 'datetime', 'email_verified_at' => 'datetime', 'push_ops_alerts' => 'boolean'];
+    protected $casts = ['phone_verified_at' => 'datetime', 'email_verified_at' => 'datetime', 'push_ops_alerts' => 'boolean',
+        'referral_blocked_at' => 'datetime', 'last_login_at' => 'datetime'];
+    public function referrer() { return $this->belongsTo(User::class, 'referred_by'); }
+    public function referralBlockedBy() { return $this->belongsTo(User::class, 'referral_blocked_by'); }
     public function franchise() { return $this->belongsTo(Franchise::class); }
     public function zone() { return $this->belongsTo(Zone::class); }
     public function providerProfile() { return $this->hasOne(Provider::class); }

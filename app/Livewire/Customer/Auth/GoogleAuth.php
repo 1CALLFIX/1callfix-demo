@@ -16,6 +16,9 @@ use Livewire\Attributes\Locked;
 use Livewire\Attributes\On;
 use App\Livewire\Customer\Concerns\RedirectsAfterLogin;
 use Livewire\Component;
+use App\Services\Auth\SignupContext;
+use App\Services\Referrals\InvalidReferralCode;
+use App\Services\Referrals\ReferralCapture;
 
 /**
  * Second leg of "Continue with Google": Login::continueWithGoogle() has
@@ -206,7 +209,18 @@ class GoogleAuth extends Component
                 $accounts->linkFirebaseIdentity($user, $google);
                 $accounts->markPhoneVerified($user);
             } else {
-                $user = $accounts->createFromGoogle($google, $phoneIdentity, null);
+                // EARN4 R2 — a code captured on /signup?ref= travels in the
+                // session; invalid or program-off → no referral, never a block.
+                try {
+                    $referrerId = app(ReferralCapture::class)->resolveForSignup(
+                        (string) session(Signup::REFERRAL_SESSION_KEY, ''), (string) $phoneIdentity->phoneNumber,
+                    );
+                } catch (InvalidReferralCode) {
+                    $referrerId = null;
+                }
+
+                $user = $accounts->createFromGoogle($google, $phoneIdentity, null, new SignupContext(request()->ip(), null, $referrerId));
+                session()->forget(Signup::REFERRAL_SESSION_KEY);
             }
         } catch (AccountAlreadyExistsException $e) {
             $this->error = $e->getMessage().' Sign in with that account instead.';

@@ -80,6 +80,19 @@
                     @endif
                 </fieldset>
 
+                {{-- EARN4 — referral code, only while the program is on. --}}
+                @if ($referralsOn)
+                    <div>
+                        <label for="su-referral" class="block text-sm font-medium text-slate-900">Referral code (optional)</label>
+                        <input id="su-referral" type="text" autocomplete="off" wire:model.blur="referralCode" maxlength="32"
+                               @class(['mt-1.5 block min-h-11 w-full rounded-lg border px-3 py-2.5 text-base uppercase shadow-sm focus:outline focus:outline-2 focus:outline-slate-900',
+                                       'border-red-400' => $referralError !== '', 'border-slate-300' => $referralError === ''])>
+                        @if ($referralError !== '')
+                            <p class="mt-1.5 text-sm text-red-700" role="alert">{{ $referralError }} You can still create your account without it.</p>
+                        @endif
+                    </div>
+                @endif
+
                 <x-ui.button type="submit" size="lg" class="w-full !min-h-11" wire:loading.attr="disabled">
                     <span wire:loading.remove wire:target="completeSignup">Create account</span>
                     <span wire:loading wire:target="completeSignup">Creating…</span>

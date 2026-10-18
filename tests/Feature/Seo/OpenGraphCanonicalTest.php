@@ -112,7 +112,7 @@ class OpenGraphCanonicalTest extends TestCase
             $this->assertStringNotContainsString('og:url', $html, $path);
         }
 
-        foreach (['earnings.enabled', 'earnings.wallet_tab', 'earnings.loyalty_tab', 'earnings.referral_tab'] as $key) {
+        foreach (['earnings.enabled', 'earnings.wallet_tab', 'earnings.loyalty_tab', 'earnings.referral_tab', 'referral.enabled'] as $key) {
             Setting::set($key, '1');
         }
         $this->actingAs($this->makeCustomer());

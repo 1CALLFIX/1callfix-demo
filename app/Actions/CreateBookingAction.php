@@ -82,6 +82,13 @@ class CreateBookingAction
         $booking = DB::transaction(function () use ($data, $paymentMethod, &$walletPayment) {
             $booking = $this->createWithinTransaction($data);
 
+            // Owner decision 2026-10-17 — part of the booking from the referral balance, the rest online.
+            // ReferralBalanceUse refuses anything but an online booking, so it never mixes with wallet or cash.
+            if (! empty($data['use_referral_balance'])) {
+                app(\App\Services\ReferralBalanceUse::class)->apply($booking);
+                $booking->refresh();
+            }
+
             if ($paymentMethod === 'wallet') {
                 $walletPayment = $this->payWithWallet($booking);
             }

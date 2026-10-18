@@ -79,7 +79,49 @@ final class EarningsSettings
         'referral.reward_amount' => 'Settings → Loyalty / Referral',
         'referral.reward_points' => 'Settings → Loyalty / Referral',
         'referral.pending_expiry_days' => 'Settings → Loyalty / Referral (global only)',
+        'referral.hold_same_signup_ip' => 'Earnings Control (global only; PROTECTIVE — unset = ON)',
+        'referral.hold_same_device' => 'Earnings Control (global only; PROTECTIVE — unset = ON)',
+        'referral.referee_reward_type' => 'Earnings Control → Referrals (global only)',
+        'referral.referee_reward_amount' => 'Earnings Control → Referrals (global only)',
+        'referral.referee_reward_points' => 'Earnings Control → Referrals (global only)',
+        'referral.qualifying_payment' => 'Earnings Control → Referrals (global only; blank = online or cash)',
+        'referral.min_job_value' => 'Earnings Control → Referrals (global only; blank = no minimum)',
+        'referral.balance_max_use_percent' => 'Earnings Control → Referrals (global only; blank = cannot be spent)',
+        'referral.balance_expiry_days' => 'Earnings Control → Referrals (global only; blank = never)',
     ];
+
+    /**
+     * REF 1CF-PROMPT-20260925-EARN4 — PROTECTIVE switches (Rule of Law #10):
+     * unset means the protection is ON; only an explicit '0' turns it off.
+     * Global only (read at signup, before the customer has a scope).
+     */
+    public const PROTECTIONS = [
+        'referral.hold_same_signup_ip' => ['label' => 'Hold referrals where referee and referrer share an IP', 'global' => true],
+        'referral.hold_same_device' => ['label' => 'Hold referrals where referee and referrer share a device', 'global' => true],
+    ];
+
+    /** EARN4 R7 — referee (welcome) reward. GLOBAL only; unset type or value = no referee reward. */
+    public const REFEREE_REWARD = [
+        'referral.referee_reward_type' => ['label' => 'Referee reward type (wallet | points)', 'integer' => false],
+        'referral.referee_reward_amount' => ['label' => 'Referee wallet reward (₹)', 'integer' => false],
+        'referral.referee_reward_points' => ['label' => 'Referee points reward', 'integer' => true],
+    ];
+
+    /**
+     * Owner decision 2026-10-17 — referral rules and the separate referral balance. GLOBAL only, edited in
+     * Earnings Control → Referrals. Blank = the stated default.
+     */
+    public const REFERRAL_RULES = [
+        'referral.qualifying_payment' => ['label' => 'Jobs that count for a referral', 'blank' => 'online or cash'],
+        'referral.min_job_value' => ['label' => 'Minimum job value (₹)', 'blank' => 'no minimum'],
+        'referral.balance_max_use_percent' => ['label' => 'Max % of a booking payable from referral balance', 'blank' => 'referral balance cannot be spent'],
+        'referral.balance_expiry_days' => ['label' => 'Referral balance expires after (days)', 'blank' => 'never expires'],
+    ];
+
+    public static function protectionOn(string $key, array $scope = []): bool
+    {
+        return (string) Setting::get($key, null, $scope) !== '0';
+    }
 
     public static function on(string $key, array $scope = []): bool
     {
@@ -126,6 +168,11 @@ final class EarningsSettings
     /** Is this switch, as the customer at $scope would resolve it, on — with the master switch on too. */
     public static function customerTabOn(string $tabKey, array $scope = []): bool
     {
+        // EARN4 — the Referrals tab (web + API) also needs the program itself on.
+        if ($tabKey === 'earnings.referral_tab' && ! self::on('referral.enabled', $scope)) {
+            return false;
+        }
+
         return self::on('earnings.enabled', $scope) && self::on($tabKey, $scope);
     }
 }

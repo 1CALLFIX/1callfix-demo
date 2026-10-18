@@ -20,7 +20,7 @@ class ReferralServiceTest extends TestCase
     {
         $referrer = $this->makeCustomer();
         $newUser = $this->makeCustomer();
-        $newUser->update(['referred_by' => $referrer->id]);
+        $newUser->forceFill(['referred_by' => $referrer->id])->save();
 
         $referral = app(ReferralService::class)->createFromSignup($newUser->fresh());
 
@@ -42,7 +42,7 @@ class ReferralServiceTest extends TestCase
     public function test_self_referral_is_rejected(): void
     {
         $user = $this->makeCustomer();
-        $user->update(['referred_by' => $user->id]);
+        $user->forceFill(['referred_by' => $user->id])->save();
 
         $referral = app(ReferralService::class)->createFromSignup($user->fresh());
 
@@ -54,10 +54,10 @@ class ReferralServiceTest extends TestCase
         $referrerA = $this->makeCustomer();
         $referrerB = $this->makeCustomer();
         $newUser = $this->makeCustomer();
-        $newUser->update(['referred_by' => $referrerA->id]);
+        $newUser->forceFill(['referred_by' => $referrerA->id])->save();
         app(ReferralService::class)->createFromSignup($newUser->fresh());
 
-        $newUser->update(['referred_by' => $referrerB->id]); // simulated duplicate attempt
+        $newUser->forceFill(['referred_by' => $referrerB->id])->save(); // simulated duplicate attempt
         $second = app(ReferralService::class)->createFromSignup($newUser->fresh());
 
         $this->assertNull($second);
@@ -69,7 +69,7 @@ class ReferralServiceTest extends TestCase
         $referrer = $this->makeCustomer();
         ['booking' => $booking, 'customer' => $referred] = $this->makeBookingScenario('completed');
         $booking->update(['payment_status' => 'paid']); // D8
-        $referred->update(['referred_by' => $referrer->id]);
+        $referred->forceFill(['referred_by' => $referrer->id])->save();
         Referral::create(['referrer_id' => $referrer->id, 'referred_id' => $referred->id, 'status' => 'pending']);
 
         $referral = app(ReferralService::class)->qualifyFromCompletedBooking($booking);
@@ -78,7 +78,7 @@ class ReferralServiceTest extends TestCase
         $this->assertSame('rewarded', $referral->status);
         $this->assertSame($booking->id, $referral->qualifying_booking_id);
         $this->assertEquals(50.0, $referral->reward_amount); // default referral.reward_amount
-        $this->assertEquals(50.0, app(WalletService::class)->balance($referrer));
+        $this->assertEquals(50.0, app(\App\Services\ReferralBalanceService::class)->available($referrer));
     }
 
     public function test_second_completed_booking_does_not_qualify_or_double_reward(): void
@@ -86,7 +86,7 @@ class ReferralServiceTest extends TestCase
         $referrer = $this->makeCustomer();
         ['booking' => $firstBooking, 'customer' => $referred, 'franchise' => $franchise, 'zone' => $zone, 'category' => $category, 'address' => $address] = $this->makeBookingScenario('completed');
         $firstBooking->update(['payment_status' => 'paid']); // D8
-        $referred->update(['referred_by' => $referrer->id]);
+        $referred->forceFill(['referred_by' => $referrer->id])->save();
         Referral::create(['referrer_id' => $referrer->id, 'referred_id' => $referred->id, 'status' => 'pending']);
         app(ReferralService::class)->qualifyFromCompletedBooking($firstBooking);
 
@@ -101,7 +101,7 @@ class ReferralServiceTest extends TestCase
         $result = app(ReferralService::class)->qualifyFromCompletedBooking($secondBooking);
 
         $this->assertNull($result, 'A referral already rewarded (pending guard consumed) must not qualify again.');
-        $this->assertEquals(50.0, app(WalletService::class)->balance($referrer), 'Wallet must not be credited twice.');
+        $this->assertEquals(50.0, app(\App\Services\ReferralBalanceService::class)->available($referrer), 'Wallet must not be credited twice.');
     }
 
     public function test_a_customer_with_no_referral_qualifying_is_a_no_op(): void

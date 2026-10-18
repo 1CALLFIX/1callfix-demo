@@ -33,7 +33,7 @@ class Booking extends Model implements Orderable
 
             \App\Services\Payments\OnlinePaymentGuard::assertMethodUnchanged(
                 $booking,
-                $booking->isDirty('payment_method') && ($booking->hasCouponBenefit() || $inBenefitBundle || $booking->hasFlashSaleBenefit() || $booking->hasMemberDiscountBenefit())
+                $booking->isDirty('payment_method') && ($booking->hasCouponBenefit() || $inBenefitBundle || $booking->hasFlashSaleBenefit() || $booking->hasMemberDiscountBenefit() || (float) $booking->referral_balance_used > 0)
             );
         });
 
@@ -52,11 +52,13 @@ class Booking extends Model implements Orderable
      * price_quoted minus the coupon discount (decision D1 — price_quoted
      * itself stays gross so commission/payout/fee bases are untouched).
      * EVERY place that collects money for a booking reads this, never
-     * price_quoted. Approved extras are never discounted.
+     * price_quoted. Approved extras are never discounted. The part paid
+     * from the referral balance (owner decision 2026-10-17) is subtracted
+     * the same way, so Razorpay collects only the rest.
      */
     public function amountPayable(): float
     {
-        return round(max((float) $this->price_quoted - (float) ($this->coupon_discount_amount ?? 0), 0), 2);
+        return round(max((float) $this->price_quoted - (float) ($this->coupon_discount_amount ?? 0) - (float) ($this->referral_balance_used ?? 0), 0), 2);
     }
 
     /** True when this booking carries a coupon benefit (THUMB RULE: it must be paid online and can never switch to cash). */

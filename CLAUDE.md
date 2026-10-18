@@ -64,6 +64,14 @@ balance or promotional/referral credit.
 - Promotional/referral credit is never withdrawable and refunds back
   only as credit. A customer's own top-up money keeps its existing
   refund behaviour.
+- Referrals (owner decision 2026-10-17): referral rewards go to a
+  separate referral balance, never the wallet. Which completed jobs earn a
+  reward is a Super Admin setting (`referral.qualifying_payment`: online
+  or cash by default, or online only; `referral.min_job_value`). Spending
+  referral balance is a benefit: it pays at most
+  `referral.balance_max_use_percent` % of a booking, the rest online
+  (Razorpay) only, and it is never combined with the customer's own wallet
+  on one booking.
 - Extra work or parts added later are outside the benefit and can be
   paid by any method.
 - Applies to every module, current and future (services, parcel, hotel,
