@@ -124,6 +124,7 @@ class ReferralQualificationRulesTest extends TestCase
         \Livewire\Livewire::actingAs($admin)->test(\App\Livewire\EarningsControl\Manage::class)
             ->call('setTab', 'referrals')
             ->assertSee('Referral rules')
+            ->assertSee('single-service bookings only')
             ->set('ruleInputs.referral__balance_max_use_percent', '150')
             ->call('saveReferralRules')
             ->assertHasErrors('ruleInputs.referral__balance_max_use_percent')

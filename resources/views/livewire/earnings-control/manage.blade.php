@@ -284,6 +284,7 @@
         <x-ui.card class="mb-4">
             <h2 class="mb-1 text-sm font-semibold">Referral rules &amp; referral balance <span class="text-xs font-normal text-gray-400">(global only)</span></h2>
             <p class="mb-3 text-xs text-gray-500">Rewards go to a separate referral balance, never to the customer's own wallet, and can never be withdrawn. The balance can pay only part of a booking; the rest is paid online (Razorpay). It is never combined with the customer's own wallet.</p>
+            <p class="mb-3 rounded border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">For now the referral balance can be used on single-service bookings only. Cart checkout (several services in one order) does not offer it yet.</p>
             <form wire:submit="saveReferralRules" class="grid gap-3 sm:grid-cols-2">
                 @foreach ($ruleMeta as $key => $meta)
                     @php $f = \App\Livewire\EarningsControl\Manage::field($key); @endphp
