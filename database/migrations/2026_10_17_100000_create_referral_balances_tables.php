@@ -39,7 +39,8 @@ return new class extends Migration
             $table->foreignId('actor_id')->nullable()->constrained('users')->nullOnDelete();
             $table->timestamps();
 
-            $table->index(['referral_balance_id', 'is_credit', 'expires_at']);
+            // Explicit short name: the generated one is 77 characters and MySQL allows 64 (failed on prod 2026-10-20).
+            $table->index(['referral_balance_id', 'is_credit', 'expires_at'], 'rbt_balance_credit_expiry_idx');
         });
     }
 
