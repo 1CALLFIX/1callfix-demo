@@ -237,6 +237,8 @@ class Show extends Component
         } catch (\Throwable $e) {
             $this->flashType = 'error';
             $this->flashMessage = $e->getMessage();
+            // The page may be stale (e.g. auto-cancelled while it was open): show the booking as it is now.
+            $this->booking->refresh()->load(['provider.user', 'statusHistory']);
         }
     }
 

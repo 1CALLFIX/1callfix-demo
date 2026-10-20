@@ -776,8 +776,8 @@
             <p class="text-xs text-gray-400 mb-3">Thresholds for the Operations screen's stuck-booking and stale-offer detection. <strong>Global only</strong> — read without a scope by their consumers, so the scope picker above has no effect here.</p>
             <div class="grid grid-cols-2 md:grid-cols-3 gap-4 mb-4">
                 <div>
-                    <label class="block text-xs font-medium mb-1">Searching provider (minutes)</label>
-                    <input type="number" step="1" wire:model="opsStuckThresholdSearchingProvider" class="w-full border rounded px-3 py-2 text-sm">
+                    <label class="block text-xs font-medium mb-1">Searching provider — auto-cancel after (minutes)</label>
+                    <input type="number" step="1" wire:model.live.debounce.500ms="opsStuckThresholdSearchingProvider" class="w-full border rounded px-3 py-2 text-sm">
                     @error('opsStuckThresholdSearchingProvider') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
                 </div>
                 <div>
@@ -810,6 +810,35 @@
                     <input type="text" wire:model="opsWhatsappBusinessNumber" placeholder="e.g. 9014609609" class="w-full border rounded px-3 py-2 text-sm">
                     <p class="text-xs text-gray-400 mt-1">Shown at the end of the WhatsApp text admins send to providers. Messages go from whichever WhatsApp is open on the admin's computer. Blank = no signature.</p>
                     @error('opsWhatsappBusinessNumber') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
+                </div>
+            </div>
+            @php
+                $tlBroadcast = \App\Support\DispatchTimeline::broadcastSeconds();
+                $tlCancel = (int) $opsStuckThresholdSearchingProvider;
+                $tlProblem = \App\Support\DispatchTimeline::problem($tlBroadcast, $tlCancel, (int) $opsMinAdminWindowMinutes);
+            @endphp
+            <div class="rounded border {{ $tlProblem ? 'border-red-200 bg-red-50 text-red-800' : 'border-blue-200 bg-blue-50 text-blue-900' }} px-3 py-2 text-xs mb-4">
+                <div class="font-semibold mb-1">Instant booking call timeline</div>
+                <div>{{ \App\Support\DispatchTimeline::describe($tlBroadcast, $tlCancel) }} Admins get an alert at {{ (int) $opsEscalationMinutes }} min; the live-calls bar turns red and beeps in the last {{ (int) $opsAdminWarningMinutes }} min.</div>
+                @if ($tlProblem)<div class="mt-1 font-medium">{{ $tlProblem }}</div>@endif
+                <div class="mt-1 opacity-75">Broadcast = Dispatch tab "Max rounds" × "Offer timeout". Scheduled bookings are never auto-cancelled by this timer.</div>
+            </div>
+            <div class="grid grid-cols-2 md:grid-cols-3 gap-4 mb-4">
+                <div>
+                    <label class="block text-xs font-medium mb-1">Minimum admin window after broadcast (minutes)</label>
+                    <input type="number" step="1" wire:model.live.debounce.500ms="opsMinAdminWindowMinutes" class="w-full border rounded px-3 py-2 text-sm">
+                    <p class="text-[11px] text-gray-400 mt-1">Auto-cancel never happens sooner than broadcast + this.</p>
+                    @error('opsMinAdminWindowMinutes') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
+                </div>
+                <div>
+                    <label class="block text-xs font-medium mb-1">Admin alert after (minutes)</label>
+                    <input type="number" step="1" wire:model="opsEscalationMinutes" class="w-full border rounded px-3 py-2 text-sm">
+                    @error('opsEscalationMinutes') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
+                </div>
+                <div>
+                    <label class="block text-xs font-medium mb-1">Red + beep before auto-cancel (minutes)</label>
+                    <input type="number" step="1" wire:model="opsAdminWarningMinutes" class="w-full border rounded px-3 py-2 text-sm">
+                    @error('opsAdminWarningMinutes') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
                 </div>
             </div>
             <div class="flex justify-end pt-4 mt-4 border-t">

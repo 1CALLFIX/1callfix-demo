@@ -318,6 +318,9 @@
             </div>
         </header>
 
+        {{-- Owner request 2026-10-20 — live calls with countdown to auto-cancel, red + beep in the last minutes. --}}
+        <livewire:live-dispatch-calls />
+
         <div class="flex">
             <nav id="admin-sidebar" aria-label="Main navigation" class="bg-slate-800 min-h-[calc(100vh-52px)] flex flex-col items-center py-4 gap-1 sticky top-[52px] shrink-0 overflow-y-auto">
                 @foreach ($navGroups as $groupKey => $group)
