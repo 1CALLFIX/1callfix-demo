@@ -117,7 +117,7 @@ class SettingsManageTest extends TestCase
             ->set('scopeType', 'franchise')
             ->set('scopeFranchiseId', $franchise->id)
             ->set('activeTab', 'operations')
-            ->set('opsStuckThresholdSearchingProvider', '15')
+            ->set('opsStuckThresholdSearchingProvider', '25')
             ->set('opsStuckThresholdAssigned', '45')
             ->set('opsStuckThresholdProviderEnRoute', '45')
             ->set('opsStuckThresholdInProgress', '180')
@@ -126,7 +126,7 @@ class SettingsManageTest extends TestCase
             ->call('saveOperations')
             ->assertHasNoErrors();
 
-        $this->assertDatabaseHas('settings', ['key' => 'operations.stuck_threshold_minutes.searching_provider', 'scope_type' => 'global', 'value' => '15']);
+        $this->assertDatabaseHas('settings', ['key' => 'operations.stuck_threshold_minutes.searching_provider', 'scope_type' => 'global', 'value' => '25']);
         $this->assertDatabaseMissing('settings', ['key' => 'operations.stuck_threshold_minutes.searching_provider', 'scope_type' => 'franchise']);
         $this->assertSame(3, (int) Setting::get('dispatch.offer_response_timeout_minutes', '2'));
     }

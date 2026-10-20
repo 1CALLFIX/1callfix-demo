@@ -17,6 +17,9 @@ use Illuminate\Support\Facades\Log;
 
 class AdminReassignBookingAction
 {
+    /** A booking in one of these is finished; nobody can be assigned to it. */
+    public const CLOSED_STATUSES = ['cancelled', 'completed', 'disputed'];
+
     /**
      * Admin manually assigns (or reassigns) a booking to a specific
      * provider — used from the admin panel's live queue when auto-dispatch
@@ -30,6 +33,14 @@ class AdminReassignBookingAction
 
         $booking = DB::transaction(function () use ($bookingId, $providerId, $adminNote, $overrideReason, $admin, &$freshlyGeneratedOtps) {
             $booking = Booking::lockForUpdate()->findOrFail($bookingId);
+
+            // Live 2026-10-19: an admin's assign landed 2 s after the auto-cancel and attached a provider to a
+            // cancelled booking. Checked under the row lock, so whichever of the two runs second sees the other.
+            if (in_array($booking->status, self::CLOSED_STATUSES, true)) {
+                throw new \RuntimeException("This booking is already {$booking->status}"
+                    .($booking->status === 'cancelled' ? ' — create a new booking for the customer instead.' : ' and cannot be assigned.'));
+            }
+
             $provider = Provider::findOrFail($providerId);
 
             // Audit 2026-10-15 L5 — the same eligibility rule as dispatch (KYC, active, suspension, wallet floor,

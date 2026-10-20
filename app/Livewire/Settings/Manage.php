@@ -316,6 +316,11 @@ class Manage extends Component
     public string $opsStuckThresholdOnHold = '1440';
     public string $opsDispatchOfferResponseTimeoutMinutes = '2';
 
+    /** Owner request 2026-10-20 — the instant-booking call timeline (see App\Support\DispatchTimeline). */
+    public string $opsMinAdminWindowMinutes = '10';
+    public string $opsAdminWarningMinutes = '5';
+    public string $opsEscalationMinutes = '5';
+
     /** Admin WhatsApp fallback (2026-10-16): the business number shown in the message signature. Blank = no signature. */
     public string $opsWhatsappBusinessNumber = '';
 
@@ -539,6 +544,9 @@ class Manage extends Component
         $this->opsStuckThresholdInProgress = (string) Setting::get('operations.stuck_threshold_minutes.in_progress', '240');
         $this->opsStuckThresholdOnHold = (string) Setting::get('operations.stuck_threshold_minutes.on_hold', '1440');
         $this->opsDispatchOfferResponseTimeoutMinutes = (string) Setting::get('dispatch.offer_response_timeout_minutes', '2');
+        $this->opsMinAdminWindowMinutes = (string) Setting::get('dispatch.min_admin_window_minutes', '10');
+        $this->opsAdminWarningMinutes = (string) Setting::get('dispatch.admin_warning_minutes', '5');
+        $this->opsEscalationMinutes = (string) Setting::get('dispatch.escalation_minutes', '5');
         $this->opsWhatsappBusinessNumber = (string) Setting::get('ops.whatsapp_business_number', '');
 
         $this->subscriptionsGracePeriodDays = (string) Setting::get('plan.grace_period_days', '0');
@@ -611,6 +619,18 @@ class Manage extends Component
         ]);
 
         [$scopeType, $scopeId] = $this->scopeTypeAndId();
+
+        // Owner request 2026-10-20 — the broadcast must end early enough to leave admins their assign window
+        // before the auto-cancel. Global only: ServiceMatchingJob reads these without a scope.
+        if ($scopeType === 'global' && ($problem = \App\Support\DispatchTimeline::problem(
+            \App\Support\DispatchTimeline::broadcastSeconds((int) $this->dispatchMaxRounds, (int) $this->dispatchOfferTimeoutSeconds),
+            \App\Support\DispatchTimeline::configuredCancelMinutes(),
+            \App\Support\DispatchTimeline::minAdminWindowMinutes(),
+        ))) {
+            $this->addError('dispatchMaxRounds', $problem);
+
+            return;
+        }
 
         $this->put('dispatch.offer_batch_size', $this->dispatchOfferBatchSize, $scopeType, $scopeId);
         $this->put('dispatch.offer_timeout_seconds', $this->dispatchOfferTimeoutSeconds, $scopeType, $scopeId);
@@ -1273,13 +1293,29 @@ class Manage extends Component
             'opsStuckThresholdInProgress' => ['required', 'integer', 'min:1'],
             'opsStuckThresholdOnHold' => ['required', 'integer', 'min:1'],
             'opsDispatchOfferResponseTimeoutMinutes' => ['required', 'integer', 'min:1'],
+            'opsMinAdminWindowMinutes' => ['required', 'integer', 'min:1', 'max:240'],
+            'opsAdminWarningMinutes' => ['required', 'integer', 'min:1', 'max:60'],
+            'opsEscalationMinutes' => ['required', 'integer', 'min:1', 'max:240'],
             'opsWhatsappBusinessNumber' => ['nullable', 'string', 'max:20', 'regex:/^[0-9+ ]*$/'],
         ], [], [
             'opsWhatsappBusinessNumber' => 'business WhatsApp number',
+            'opsMinAdminWindowMinutes' => 'minimum admin window', 'opsAdminWarningMinutes' => 'warning time',
+            'opsEscalationMinutes' => 'admin alert time',
             'opsStuckThresholdSearchingProvider' => 'searching-provider threshold', 'opsStuckThresholdAssigned' => 'assigned threshold',
             'opsStuckThresholdProviderEnRoute' => 'en-route threshold', 'opsStuckThresholdInProgress' => 'in-progress threshold',
             'opsStuckThresholdOnHold' => 'on-hold threshold', 'opsDispatchOfferResponseTimeoutMinutes' => 'dispatch offer response timeout',
         ]);
+
+        // Owner request 2026-10-20 — refuse an auto-cancel that would leave admins less than the minimum window.
+        if ($problem = \App\Support\DispatchTimeline::problem(
+            \App\Support\DispatchTimeline::broadcastSeconds(),
+            (int) $this->opsStuckThresholdSearchingProvider,
+            (int) $this->opsMinAdminWindowMinutes,
+        )) {
+            $this->addError('opsStuckThresholdSearchingProvider', $problem);
+
+            return;
+        }
 
         foreach ([
             'operations.stuck_threshold_minutes.searching_provider' => $this->opsStuckThresholdSearchingProvider,
@@ -1288,6 +1324,9 @@ class Manage extends Component
             'operations.stuck_threshold_minutes.in_progress' => $this->opsStuckThresholdInProgress,
             'operations.stuck_threshold_minutes.on_hold' => $this->opsStuckThresholdOnHold,
             'dispatch.offer_response_timeout_minutes' => $this->opsDispatchOfferResponseTimeoutMinutes,
+            'dispatch.min_admin_window_minutes' => $this->opsMinAdminWindowMinutes,
+            'dispatch.admin_warning_minutes' => $this->opsAdminWarningMinutes,
+            'dispatch.escalation_minutes' => $this->opsEscalationMinutes,
             'ops.whatsapp_business_number' => trim($this->opsWhatsappBusinessNumber),
         ] as $key => $value) {
             $this->put($key, $value, 'global', null);

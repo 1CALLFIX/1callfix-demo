@@ -77,7 +77,7 @@ class DispatchDeadlineSweepService
     /** No existing Setting key for this — StuckBookingService's own thresholds start at "stuck", not "worth telling an admin about yet". New, narrow key. */
     private function escalationMinutes(): int
     {
-        return (int) Setting::get('dispatch.escalation_minutes', 5);
+        return \App\Support\DispatchTimeline::escalationMinutes();
     }
 
     /**
@@ -89,7 +89,9 @@ class DispatchDeadlineSweepService
      */
     private function cancellationMinutes(): int
     {
-        return (int) Setting::get('operations.stuck_threshold_minutes.searching_provider', 30);
+        // Owner request 2026-10-20 — never before the broadcast ends plus the minimum admin window
+        // (see DispatchTimeline), even when the configured threshold is shorter.
+        return \App\Support\DispatchTimeline::effectiveCancelMinutes();
     }
 
     private function escalateOverdue(): int
