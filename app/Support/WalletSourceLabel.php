@@ -164,6 +164,7 @@ final class WalletSourceLabel
         'app/Actions/CreateTaxiRideAction.php' => ['taxi_ride:1:wallet-payment'],
         'app/Services/BookingDisputeService.php' => ['booking:1:wallet-refund:dispute-2', 'booking:1:dispute-share:2'],
         'app/Services/BundleSettlementService.php' => ['booking_bundle:1:wallet-refund:2'],
+        'app/Services/ChargeWaiverService.php' => ['booking:1:wallet-refund:fee-waiver-2'],
         'app/Services/CancellationService.php' => [
             'booking:1:wallet-refund', 'parcel_order:1:wallet-refund', 'taxi_ride:1:wallet-refund',
             'property_reservation:1:wallet-refund', 'rental_reservation:1:wallet-refund',

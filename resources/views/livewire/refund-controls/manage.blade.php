@@ -81,6 +81,36 @@
         </x-ui.card>
 
         <x-ui.card>
+            <h2 class="text-sm font-semibold mb-3">Charge waivers (₹)</h2>
+            <p class="text-xs text-gray-500 mb-3">
+                Waiving a charge the customer owes: a cancellation charge, an admin-cancel fee, or a lowered work-done amount. Needs the
+                "Waive a customer charge" permission. Blank limit = that level cannot approve (only Super Admin can); blank threshold / escalation = off.
+            </p>
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-xs font-medium mb-1" for="rc-wfl">Franchise limit</label>
+                    <input id="rc-wfl" type="text" inputmode="decimal" wire:model="waiveFranchiseLimit" class="w-full rounded border-gray-300 text-sm">
+                    @error('waiveFranchiseLimit') <p class="text-xs text-red-600 mt-1">{{ $message }}</p> @enderror
+                </div>
+                <div>
+                    <label class="block text-xs font-medium mb-1" for="rc-whq">HQ limit</label>
+                    <input id="rc-whq" type="text" inputmode="decimal" wire:model="waiveHqLimit" class="w-full rounded border-gray-300 text-sm">
+                    @error('waiveHqLimit') <p class="text-xs text-red-600 mt-1">{{ $message }}</p> @enderror
+                </div>
+                <div>
+                    <label class="block text-xs font-medium mb-1" for="rc-wdual">Second approval above</label>
+                    <input id="rc-wdual" type="text" inputmode="decimal" wire:model="waiveDualApprovalAbove" class="w-full rounded border-gray-300 text-sm">
+                    @error('waiveDualApprovalAbove') <p class="text-xs text-red-600 mt-1">{{ $message }}</p> @enderror
+                </div>
+                <div>
+                    <label class="block text-xs font-medium mb-1" for="rc-wesc">Escalate after (hours)</label>
+                    <input id="rc-wesc" type="text" inputmode="numeric" wire:model="waiveEscalateAfterHours" class="w-full rounded border-gray-300 text-sm">
+                    @error('waiveEscalateAfterHours') <p class="text-xs text-red-600 mt-1">{{ $message }}</p> @enderror
+                </div>
+            </div>
+        </x-ui.card>
+
+        <x-ui.card>
             <h2 class="text-sm font-semibold mb-3">Customer messages</h2>
             <div class="space-y-3">
                 <div>

@@ -338,6 +338,7 @@
                             <p class="mt-1 text-xs text-amber-800">Review the evidence above and the status history below. The customer cannot cancel until this is resolved.</p>
                             <div class="mt-2">
                                 <input type="number" step="0.01" min="0" wire:model="disputeAmount" placeholder="Corrected amount for work done (optional, within the cap)" class="w-full border rounded px-3 py-2 text-sm">
+                                <p class="mt-1 text-xs text-amber-800">Lowering the amount waives the difference: it needs the waive-charge permission and goes to Charge Waivers when above your limit.</p>
                             </div>
                             <input type="text" wire:model="disputeResolution" placeholder="Resolution (required)" class="mt-2 w-full border rounded px-3 py-2 text-sm">
                             <x-ui.button class="mt-2" wire:click="resolveDispute">Resolve dispute</x-ui.button>
@@ -348,10 +349,10 @@
                         <div class="mt-3 rounded border p-3 text-sm">
                             <p><strong>Cancellation request</strong> · {{ number_format((float) $req->total_charge, 2) }} · <span class="capitalize">{{ str_replace('_', ' ', $req->status) }}</span>@if ($req->due_by && $req->status === 'awaiting_payment') · due {{ $req->due_by->format('j M Y') }}@endif</p>
                             @if ($req->resolution_note)<p class="text-xs text-gray-500">{{ $req->resolution_note }}</p>@endif
-                            @if (in_array($req->status, ['awaiting_payment', 'awaiting_admin'], true))
+                            @if (in_array($req->status, ['awaiting_payment', 'awaiting_admin'], true) && app(\App\Services\ChargeWaiverService::class)->canWaive(auth()->user(), $booking))
                                 <div class="mt-2 flex gap-2">
                                     <input type="text" wire:model="waiveReason" placeholder="Reason for waiving (logged)" class="flex-1 border rounded px-3 py-2 text-sm">
-                                    <x-ui.button variant="secondary" class="whitespace-nowrap" wire:click="waiveCancellationCharge({{ $req->id }})" wire:confirm="Waive this charge and cancel the booking?">Waive &amp; cancel</x-ui.button>
+                                    <x-ui.button variant="secondary" class="whitespace-nowrap" wire:click="waiveCancellationCharge({{ $req->id }})" wire:confirm="Waive this charge and cancel the booking? Above your limit it goes for approval first.">Waive &amp; cancel</x-ui.button>
                                 </div>
                             @endif
                         </div>
@@ -368,8 +369,9 @@
                 </div>
                 @if ($booking->hold_category === 'provider_side')
                     <p class="mt-2 text-xs text-gray-500">The professional left — no cancellation fee will be charged.</p>
-                @elseif ($booking->provider_id)
+                @elseif ($booking->provider_id && app(\App\Services\ChargeWaiverService::class)->canWaive(auth()->user(), $booking))
                     <label class="mt-2 flex items-center gap-2 text-sm text-gray-600"><input type="checkbox" wire:model="waiveFee"> Waive the cancellation fee</label>
+                    <p class="mt-1 text-xs text-gray-500">Above your waiver limit the booking is cancelled with the fee, and the waiver goes to Charge Waivers for approval.</p>
                 @endif
             </x-ui.card>
         </div>

@@ -52,6 +52,10 @@ class AdminOpsAlertNotification extends Notification implements ShouldQueue
             return route('admin.booking-disputes.index');
         }
 
+        if ($this->subject instanceof \App\Models\ChargeWaiver) {
+            return route('admin.charge-waivers.index');
+        }
+
         if ($this->subject instanceof Booking) {
             return route('admin.bookings.show', $this->subject->id);
         }
@@ -88,6 +92,7 @@ class AdminOpsAlertNotification extends Notification implements ShouldQueue
             'job_at_risk' => $this->jobAtRiskCopy(),
             'mismatch_refund_escalation' => $this->mismatchRefundEscalationCopy(),
             'dispute_refund_escalation' => $this->disputeRefundEscalationCopy(),
+            'charge_waiver_escalation' => ['title' => 'Charge waiver needs approval', 'body' => '₹'.number_format((float) $this->subject->amount, 2)." charge waiver has been waiting since {$this->subject->requested_at->format('d M, h:i A')}. Open Charge Waivers to act."],
             'refund_failed' => ['title' => 'Refund failed', 'body' => "A gateway refund for payment {$this->subject->gateway_payment_id} failed. Money may be stuck: check Payments and the Razorpay dashboard."],
             // REF 1CF-CANCEL-POLICY-001
             'cancel_charge_unpaid' => ['title' => 'Cancellation charge unpaid', 'body' => "Booking {$this->subject->code} has a cancellation charge unpaid for over 7 days. Review it: collect, or waive with a reason."],

@@ -142,6 +142,7 @@ Route::middleware(['auth', \Illuminate\Session\Middleware\AuthenticateSession::c
         // A2 — post-payment pricing disputes (permission bookings.refund_dispute, scoped in the component).
         Route::get('/booking-disputes', \App\Livewire\BookingDisputes\Index::class)->name('admin.booking-disputes.index');
         Route::get('/refund-controls', \App\Livewire\RefundControls\Manage::class)->name('admin.refund-controls.index');
+        Route::get('/charge-waivers', \App\Livewire\ChargeWaivers\Index::class)->name('admin.charge-waivers.index');
         // 0d — Super Admin on/off for the critical-alert emails.
         Route::get('/alert-emails', \App\Livewire\AlertEmails\Manage::class)->name('admin.alert-emails.index');
         Route::get('/payment-gateways', PaymentGatewaysManage::class)->name('admin.payment-gateways.index');

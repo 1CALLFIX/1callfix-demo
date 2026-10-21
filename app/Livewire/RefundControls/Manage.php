@@ -4,6 +4,7 @@ namespace App\Livewire\RefundControls;
 
 use App\Models\Setting;
 use App\Services\BookingDisputeService;
+use App\Services\ChargeWaiverService;
 use App\Services\Payments\AmountMismatchService;
 use App\Services\Payments\MismatchRefundService;
 use App\Services\SettingsAuditor;
@@ -36,6 +37,14 @@ class Manage extends Component
 
     public string $dispEscalateAfterHours = '';
 
+    public string $waiveFranchiseLimit = '';
+
+    public string $waiveHqLimit = '';
+
+    public string $waiveDualApprovalAbove = '';
+
+    public string $waiveEscalateAfterHours = '';
+
     public string $noticeUnderReview = '';
 
     public string $noticeRefunded = '';
@@ -58,6 +67,11 @@ class Manage extends Component
         $this->dispDualApprovalAbove = (string) Setting::get(BookingDisputeService::DUAL_APPROVAL_KEY, '');
         $this->dispEscalateAfterHours = (string) Setting::get(BookingDisputeService::ESCALATE_HOURS_KEY, '');
 
+        $this->waiveFranchiseLimit = (string) Setting::get(ChargeWaiverService::FRANCHISE_LIMIT_KEY, '');
+        $this->waiveHqLimit = (string) Setting::get(ChargeWaiverService::HQ_LIMIT_KEY, '');
+        $this->waiveDualApprovalAbove = (string) Setting::get(ChargeWaiverService::DUAL_APPROVAL_KEY, '');
+        $this->waiveEscalateAfterHours = (string) Setting::get(ChargeWaiverService::ESCALATE_HOURS_KEY, '');
+
         $notices = app(AmountMismatchService::class);
         $this->noticeUnderReview = $notices->customerMessage();
         $this->noticeRefunded = trim((string) Setting::get(AmountMismatchService::COPY_REFUNDED_KEY, '')) ?: AmountMismatchService::DEFAULT_REFUNDED;
@@ -76,6 +90,10 @@ class Manage extends Component
             'dispHqLimit' => ['nullable', 'numeric', 'min:0', 'max:100000000'],
             'dispDualApprovalAbove' => ['nullable', 'numeric', 'min:0', 'max:100000000'],
             'dispEscalateAfterHours' => ['nullable', 'integer', 'min:1', 'max:720'],
+            'waiveFranchiseLimit' => ['nullable', 'numeric', 'min:0', 'max:100000000'],
+            'waiveHqLimit' => ['nullable', 'numeric', 'min:0', 'max:100000000'],
+            'waiveDualApprovalAbove' => ['nullable', 'numeric', 'min:0', 'max:100000000'],
+            'waiveEscalateAfterHours' => ['nullable', 'integer', 'min:1', 'max:720'],
             'noticeUnderReview' => ['required', 'string', 'min:10', 'max:300'],
             'noticeRefunded' => ['required', 'string', 'min:10', 'max:300'],
         ], [], [
@@ -99,6 +117,12 @@ class Manage extends Component
             return;
         }
 
+        if ($this->waiveFranchiseLimit !== '' && $this->waiveHqLimit !== '' && (float) $this->waiveFranchiseLimit > (float) $this->waiveHqLimit) {
+            $this->addError('waiveFranchiseLimit', 'The franchise limit cannot be higher than the HQ limit.');
+
+            return;
+        }
+
         if (! str_contains($this->noticeRefunded, '[amount]')) {
             $this->addError('noticeRefunded', 'The refund message must contain [amount] so the customer sees the refunded amount.');
 
@@ -117,6 +141,10 @@ class Manage extends Component
             BookingDisputeService::HQ_LIMIT_KEY => $this->dispHqLimit,
             BookingDisputeService::DUAL_APPROVAL_KEY => $this->dispDualApprovalAbove,
             BookingDisputeService::ESCALATE_HOURS_KEY => $this->dispEscalateAfterHours,
+            ChargeWaiverService::FRANCHISE_LIMIT_KEY => $this->waiveFranchiseLimit,
+            ChargeWaiverService::HQ_LIMIT_KEY => $this->waiveHqLimit,
+            ChargeWaiverService::DUAL_APPROVAL_KEY => $this->waiveDualApprovalAbove,
+            ChargeWaiverService::ESCALATE_HOURS_KEY => $this->waiveEscalateAfterHours,
             AmountMismatchService::COPY_UNDER_REVIEW_KEY => trim($this->noticeUnderReview),
             AmountMismatchService::COPY_REFUNDED_KEY => trim($this->noticeRefunded),
         ] as $key => $value) {
