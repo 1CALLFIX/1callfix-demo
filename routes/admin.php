@@ -135,6 +135,7 @@ Route::middleware(['auth', \Illuminate\Session\Middleware\AuthenticateSession::c
         Route::get('/cancellation-policy', \App\Livewire\CancellationPolicy\Manage::class)->name('admin.cancellation-policy.index');
         Route::get('/loyalty', LoyaltyIndex::class)->name('admin.loyalty.index');
         Route::get('/commissions', CommissionsIndex::class)->name('admin.commissions.index');
+        Route::get('/franchise-earnings', \App\Livewire\Franchises\Earnings::class)->name('admin.franchise-earnings.index');
         Route::get('/payments', PaymentsIndex::class)->name('admin.payments.index');
         // MANUAL MONEY ACTIONS — mismatch refund queue (permission payments.refund_mismatch, scoped in the component) and
         // its Super Admin-only controls (limits, thresholds, notice copy).

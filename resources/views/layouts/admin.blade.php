@@ -180,6 +180,7 @@
                     // super_admin only (permission never seeded to a role) — see the Earnings Control entry.
                     ['label' => 'Cancellation Policy', 'route' => 'admin.cancellation-policy.index', 'icon' => 'shield', 'permission' => 'cancellation_policy.manage'],
                     ['label' => 'Commissions', 'route' => 'admin.commissions.index', 'icon' => 'banknotes', 'permission' => 'commissions.view'],
+                    ['label' => 'Franchise Earnings', 'route' => 'admin.franchise-earnings.index', 'icon' => 'banknotes', 'permission' => 'commissions.view'],
                     ['label' => 'Payments', 'route' => 'admin.payments.index', 'icon' => 'banknotes', 'permission' => 'payments.view'],
                     ['label' => 'Pricing Disputes', 'route' => 'admin.booking-disputes.index', 'icon' => 'banknotes', 'permission' => 'bookings.refund_dispute'],
                     ['label' => 'Charge Waivers', 'route' => 'admin.charge-waivers.index', 'icon' => 'banknotes', 'permission' => 'bookings.waive_charge'],
