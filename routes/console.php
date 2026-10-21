@@ -109,6 +109,11 @@ ScheduleRunTracker::track(Schedule::command('refunds:escalate-disputes'), 'refun
     ->everyFifteenMinutes()
     ->withoutOverlapping(10);
 
+// F1/F2 — charge-waiver queue escalation (waiver.charge.escalate_after_hours; no-op while unset).
+ScheduleRunTracker::track(Schedule::command('waivers:escalate'), 'waivers:escalate')
+    ->everyFifteenMinutes()
+    ->withoutOverlapping(10);
+
 // REF 1CF-SCHEDULING-DISPATCH-001 — the scheduled-booking counterpart to
 // the sweep above: open-offer release/catch-up/re-offer plus
 // early-warning/urgent-alert/auto-cancel escalation and provider T-60/T-30

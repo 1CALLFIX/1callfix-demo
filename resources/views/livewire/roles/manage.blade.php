@@ -200,19 +200,67 @@
 
     {{-- Role -> permission catalog (read-only reference) --}}
     <x-ui.card>
-        <h2 class="text-sm font-semibold mb-3">Role Catalog</h2>
+        @php($isSuper = auth()->user()->role === 'super_admin')
+        <h2 class="text-sm font-semibold mb-1">Role Catalog</h2>
+        <p class="text-xs text-gray-500 mb-3">What each role can do. @if ($isSuper) Click <strong>Edit permissions</strong> to change a role; changes are logged and apply to everyone holding it. @else Only a Super Admin can change these. @endif</p>
+
+        @if ($isSuper)
+            <form wire:submit="createRole" class="mb-4 flex flex-wrap items-start gap-2 rounded border border-dashed p-3">
+                <div class="flex-1 min-w-[12rem]">
+                    <input type="text" wire:model="newRoleName" placeholder="New role name, e.g. HQ Finance" class="w-full border rounded px-3 py-2 text-sm">
+                    @error('newRoleName') <p class="text-xs text-red-600 mt-1">{{ $message }}</p> @enderror
+                </div>
+                <input type="text" wire:model="newRoleDescription" placeholder="What this role is for (optional)" class="flex-1 min-w-[12rem] border rounded px-3 py-2 text-sm">
+                <x-ui.button type="submit">+ New role</x-ui.button>
+            </form>
+        @endif
+
         <div class="space-y-3">
             @foreach ($roles as $r)
-                <div class="border rounded p-3">
-                    <div class="font-medium text-sm">{{ $r->name }}</div>
-                    <div class="text-xs text-gray-500 mb-2">{{ $r->description }}</div>
-                    <div class="flex flex-wrap gap-1">
-                        @forelse ($r->permissions as $p)
-                            <x-ui.badge>{{ $p->label }}</x-ui.badge>
-                        @empty
-                            <span class="text-xs text-gray-400">No permissions granted.</span>
-                        @endforelse
+                <div class="border rounded p-3" wire:key="role-{{ $r->id }}">
+                    <div class="flex items-start justify-between gap-2">
+                        <div>
+                            <div class="font-medium text-sm">{{ $r->name }}</div>
+                            <div class="text-xs text-gray-500 mb-2">{{ $r->description }}</div>
+                        </div>
+                        @if ($isSuper && $r->slug !== 'super_admin' && $editingRoleId !== $r->id)
+                            <x-ui.button variant="ghost" wire:click="editPermissions({{ $r->id }})">Edit permissions</x-ui.button>
+                        @endif
                     </div>
+
+                    @if ($editingRoleId === $r->id)
+                        <div class="mt-2 space-y-3">
+                            @foreach ($allPermissions as $group => $perms)
+                                <fieldset class="rounded border p-2">
+                                    <legend class="px-1 text-xs font-semibold text-gray-600">{{ $group }}</legend>
+                                    <div class="grid gap-1 sm:grid-cols-2">
+                                        @foreach ($perms as $p)
+                                            <label class="flex items-start gap-2 text-xs">
+                                                <input type="checkbox" value="{{ $p->id }}" wire:model="editingPermissionIds" class="mt-0.5">
+                                                <span>{{ $p->label }} <span class="text-gray-400 font-mono">{{ $p->slug }}</span></span>
+                                            </label>
+                                        @endforeach
+                                    </div>
+                                </fieldset>
+                            @endforeach
+                            <div class="flex gap-2">
+                                <x-ui.button wire:click="savePermissions">Save permissions</x-ui.button>
+                                <x-ui.button variant="ghost" wire:click="cancelEditPermissions">Cancel</x-ui.button>
+                            </div>
+                        </div>
+                    @else
+                        <div class="flex flex-wrap gap-1">
+                            @if ($r->slug === 'super_admin')
+                                <span class="text-xs text-gray-500">Every permission, always.</span>
+                            @else
+                                @forelse ($r->permissions as $p)
+                                    <x-ui.badge>{{ $p->label }}</x-ui.badge>
+                                @empty
+                                    <span class="text-xs text-gray-400">No permissions granted.</span>
+                                @endforelse
+                            @endif
+                        </div>
+                    @endif
                 </div>
             @endforeach
         </div>

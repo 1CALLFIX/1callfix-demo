@@ -33,6 +33,7 @@ class AdminOpsAlertService
         'refund_failed' => 'Refund failed (any refund path)',
         'mismatch_refund_escalation' => 'Mismatch refund approval escalation',
         'dispute_refund_escalation' => 'Pricing-dispute refund approval escalation',
+        'charge_waiver_escalation' => 'Charge waiver approval escalation',
         'cancel_payout_failed' => 'Cancellation payout failed',
         'dispatch_job_failure' => 'Dispatch job failure',
     ];
@@ -277,6 +278,35 @@ class AdminOpsAlertService
      * escalates each level once), to admins at exactly the target level for the dispute's franchise. Same shape as
      * mismatchRefundEscalation(); the email honours the alerts.email.dispute_refund_escalation switch.
      */
+    /** F1/F2 — a charge waiver waiting too long reached $level: email (alerts.email.charge_waiver_escalation) + push to that level. */
+    public function chargeWaiverEscalation(\App\Models\ChargeWaiver $waiver, int $level): void
+    {
+        $queue = app(\App\Services\ChargeWaiverService::class);
+        $this->emailTo('charge_waiver_escalation', 'charge_waiver_escalation', $waiver, fn (User $admin) => $queue->levelOf($admin, $waiver->franchise_id) === $level);
+
+        $channels = array_values(array_intersect(ChannelResolver::resolve([]), [PushChannel::class]));
+        if (empty($channels)) {
+            return;
+        }
+
+        User::query()
+            ->where('push_ops_alerts', true)
+            ->whereNotNull('fcm_token')
+            ->chunkById(200, function ($admins) use ($waiver, $level, $channels, $queue) {
+                foreach ($admins as $admin) {
+                    if ($queue->levelOf($admin, $waiver->franchise_id) !== $level) {
+                        continue;
+                    }
+
+                    try {
+                        $admin->notify(new AdminOpsAlertNotification('charge_waiver_escalation', $waiver, $channels));
+                    } catch (\Throwable $e) {
+                        Log::warning('AdminOpsAlertService: failed to queue charge waiver escalation.', ['waiver_id' => $waiver->id, 'admin_id' => $admin->id, 'error' => $e->getMessage()]);
+                    }
+                }
+            });
+    }
+
     public function disputeRefundEscalation(\App\Models\BookingDispute $dispute, int $level): void
     {
         $queue = app(\App\Services\BookingDisputeService::class);

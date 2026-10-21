@@ -313,6 +313,21 @@ class Show extends Component
 
     public function resolveDispute(\App\Actions\ResolveInterimDisputeAction $action): void
     {
+        // F1 — lowering the work-done amount is a waiver of the difference: manual money approval model.
+        $current = (float) $this->booking->interim_amount;
+        if ($this->disputeAmount !== '' && (float) $this->disputeAmount < $current) {
+            $result = app(\App\Services\ChargeWaiverService::class)->request(
+                $this->booking, 'interim_reduction', $current - (float) $this->disputeAmount, auth()->user(),
+                $this->disputeResolution, payload: ['amount' => round((float) $this->disputeAmount, 2), 'resolution' => trim($this->disputeResolution)],
+            );
+            $this->afterWaiver($result);
+            if ($result['ok']) {
+                $this->reset('disputeResolution', 'disputeAmount');
+            }
+
+            return;
+        }
+
         $this->jobControl(fn () => $action->execute(
             $this->booking->id,
             auth()->user(),
@@ -325,17 +340,27 @@ class Show extends Component
         }
     }
 
-    public function waiveCancellationCharge(int $requestId, \App\Actions\WaiveCancellationChargeAction $action): void
+    /** F1 — waiving a pending cancellation charge goes through the manual money approval model (ChargeWaiverService). */
+    public function waiveCancellationCharge(int $requestId): void
     {
-        $this->jobControl(function () use ($requestId, $action) {
-            // the request must belong to THIS booking
-            abort_unless($this->booking->cancellationRequests()->whereKey($requestId)->exists(), 404);
-            $action->execute($requestId, auth()->user(), $this->waiveReason);
-        }, 'Charge waived and the booking cancelled. The waiver is logged.');
+        // the request must belong to THIS booking
+        $request = $this->booking->cancellationRequests()->whereKey($requestId)->firstOrFail();
 
-        if ($this->flashType === 'success') {
+        $result = app(\App\Services\ChargeWaiverService::class)->request(
+            $this->booking, 'cancellation_request', (float) $request->total_charge, auth()->user(), $this->waiveReason, $request->id,
+        );
+        $this->afterWaiver($result);
+
+        if ($result['ok']) {
             $this->waiveReason = '';
         }
+    }
+
+    private function afterWaiver(array $result): void
+    {
+        $this->booking = $this->booking->fresh(['customer', 'service', 'provider.user', 'assignedWorker.user', 'address', 'zone', 'franchise.country', 'dispatchAttempts.provider.user', 'extraItems', 'payment', 'commission', 'compensations', 'statusHistory']);
+        $this->flashType = $result['ok'] ? 'success' : 'error';
+        $this->flashMessage = $result['message'];
     }
 
     public function holdJob(PlaceBookingOnHoldAction $action): void
@@ -391,11 +416,41 @@ class Show extends Component
             return;
         }
 
+        // F2 — waiving the cancel fee is a manual money action. Within the operator's own limit it is waived at once;
+        // otherwise the booking is cancelled with the fee and the waiver waits for approval (the fee is then returned).
+        $waivers = app(\App\Services\ChargeWaiverService::class);
+        $fee = ($this->waiveFee && $this->booking->hold_category !== 'provider_side')
+            ? app(\App\Services\CancellationService::class)->calculateFee($this->booking->fresh())
+            : 0.0;
+        $atOnce = true;
+        if ($fee > 0) {
+            if (! $waivers->canWaive(auth()->user(), $this->booking)) {
+                $this->flashType = 'error';
+                $this->flashMessage = 'You do not have permission to waive the cancellation fee. Untick "Waive" to cancel with the fee.';
+
+                return;
+            }
+            $atOnce = $waivers->appliesAtOnce(auth()->user(), $this->booking->franchise_id, $fee);
+            if (! $atOnce && $this->booking->booking_bundle_id) {
+                $this->flashType = 'error';
+                $this->flashMessage = 'This fee is above your waiver limit. For a cart booking, ask an approver with a higher limit to cancel it.';
+
+                return;
+            }
+        }
+
         try {
-            $this->booking = $action->execute($this->booking->id, $this->cancelReason, waiveFee: $this->waiveFee);
+            $this->booking = $action->execute($this->booking->id, $this->cancelReason, waiveFee: $this->waiveFee && $atOnce);
             $this->booking->load('statusHistory');
             $this->flashType = 'success';
             $this->flashMessage = 'Booking cancelled.';
+
+            if ($fee > 0) {
+                $result = $waivers->request($this->booking, 'cancel_fee', $fee, auth()->user(), 'Admin cancel: '.$this->cancelReason);
+                $this->flashType = $result['ok'] ? 'success' : 'error';
+                $this->flashMessage = 'Booking cancelled. '.($atOnce ? 'The fee was waived.' : $result['message']);
+            }
+
             $this->cancelReason = '';
             $this->waiveFee = false;
         } catch (\Throwable $e) {
