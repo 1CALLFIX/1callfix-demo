@@ -6,6 +6,7 @@ use App\Models\City;
 use App\Models\Country;
 use App\Models\Franchise;
 use App\Models\Module;
+use App\Models\Permission;
 use App\Models\Role;
 use App\Models\RoleAssignment;
 use App\Models\User;
@@ -13,10 +14,10 @@ use App\Models\Zone;
 use Livewire\Component;
 use Livewire\WithPagination;
 
-// RBAC admin screen: grant a Role to a User at a chosen scope. The Role /
-// Permission catalog itself is seeded (see the create_roles/permissions
-// migrations) and read-only here — v1 is "assign the seven system roles at
-// a scope", not a role/permission builder UI. Enforcement lives in
+// RBAC admin screen: grant a Role to a User at a chosen scope. The system
+// roles are seeded (see the create_roles/permissions migrations); since
+// 2026-10-21 a Super Admin can also tick what each role can do and add new
+// roles here (editPermissions()/createRole()). Enforcement lives in
 // AuthorizationService::can(), called from each gated action
 // (Bookings\Show::cancel()/reassign(), Franchises\Manage::save() so far).
 class Manage extends Component
@@ -325,9 +326,100 @@ class Manage extends Component
         $this->flashMessage = 'Role assignment revoked.';
     }
 
+    // --- Owner request 2026-10-21: what each role can do is edited here (no hard-coded role permissions). Super Admin
+    // only — the role itself, not roles.manage — so nobody can widen their own role. The Super Admin role is never
+    // edited (it always has everything). Every change is audit-logged.
+    public ?int $editingRoleId = null;
+
+    /** @var array<int, string> permission ids ticked for the role being edited */
+    public array $editingPermissionIds = [];
+
+    public string $newRoleName = '';
+
+    public string $newRoleDescription = '';
+
+    public function editPermissions(int $roleId): void
+    {
+        abort_unless(auth()->user()->role === 'super_admin', 403, 'Only a Super Admin can change what a role can do.');
+        $role = Role::with('permissions')->findOrFail($roleId);
+        abort_if($role->slug === 'super_admin', 422, 'The Super Admin role always has every permission.');
+
+        $this->editingRoleId = $role->id;
+        $this->editingPermissionIds = $role->permissions->pluck('id')->map(fn ($id) => (string) $id)->all();
+    }
+
+    public function cancelEditPermissions(): void
+    {
+        $this->reset('editingRoleId', 'editingPermissionIds');
+    }
+
+    public function savePermissions(): void
+    {
+        abort_unless(auth()->user()->role === 'super_admin', 403, 'Only a Super Admin can change what a role can do.');
+        $role = Role::with('permissions')->findOrFail((int) $this->editingRoleId);
+        abort_if($role->slug === 'super_admin', 422, 'The Super Admin role always has every permission.');
+
+        $wanted = Permission::whereIn('id', array_map('intval', $this->editingPermissionIds))->get();
+
+        // A permission that may only be granted at a wide scope (e.g. "Manage zones" only globally or per country/city)
+        // cannot be added to a role someone already holds at a narrower scope.
+        $authz = app(\App\Services\AuthorizationService::class);
+        foreach (RoleAssignment::where('role_id', $role->id)->pluck('scope_type')->unique() as $scopeType) {
+            $probe = new Role(['slug' => $role->slug]);
+            $probe->setRelation('permissions', $wanted);
+            if ($bad = $authz->disallowedRestrictedPermission($probe, $scopeType)) {
+                $this->flashType = 'error';
+                $this->flashMessage = "\"{$bad}\" cannot be given to {$role->name}: someone holds this role at {$scopeType} scope, where it is not allowed.";
+
+                return;
+            }
+        }
+
+        $before = $role->permissions->pluck('slug')->all();
+        $role->permissions()->sync($wanted->pluck('id')->all());
+        $after = $wanted->pluck('slug')->all();
+
+        $added = array_values(array_diff($after, $before));
+        $removed = array_values(array_diff($before, $after));
+        if ($added || $removed) {
+            \App\Services\ActivityLogger::logModel(auth()->user(), $role, "Role permissions changed: {$role->name}", ['added' => $added, 'removed' => $removed]);
+        }
+
+        $this->reset('editingRoleId', 'editingPermissionIds');
+        $this->flashType = 'success';
+        $this->flashMessage = ($added || $removed)
+            ? "{$role->name}: ".count($added).' added, '.count($removed).' removed. Takes effect on the holders\' next page load.'
+            : 'Nothing changed.';
+    }
+
+    public function createRole(): void
+    {
+        abort_unless(auth()->user()->role === 'super_admin', 403, 'Only a Super Admin can create roles.');
+        $this->validate([
+            'newRoleName' => ['required', 'string', 'min:3', 'max:60'],
+            'newRoleDescription' => ['nullable', 'string', 'max:255'],
+        ], [], ['newRoleName' => 'role name', 'newRoleDescription' => 'description']);
+
+        $slug = \Illuminate\Support\Str::slug($this->newRoleName, '_');
+        if (Role::where('slug', $slug)->orWhere('name', trim($this->newRoleName))->exists()) {
+            $this->addError('newRoleName', 'A role with this name already exists.');
+
+            return;
+        }
+
+        $role = Role::create(['name' => trim($this->newRoleName), 'slug' => $slug, 'description' => trim($this->newRoleDescription) ?: null, 'is_system' => false]);
+        \App\Services\ActivityLogger::logModel(auth()->user(), $role, "Role created: {$role->name}");
+
+        $this->reset('newRoleName', 'newRoleDescription');
+        $this->editPermissions($role->id);
+        $this->flashType = 'success';
+        $this->flashMessage = "Role \"{$role->name}\" created. Tick what it can do, then save.";
+    }
+
     public function render()
     {
         return view('livewire.roles.manage', [
+            'allPermissions' => Permission::orderBy('group')->orderBy('label')->get()->groupBy(fn ($p) => $p->group ?: 'Other'),
             'roles' => Role::with('permissions')->orderBy('name')->get(),
             'assignments' => RoleAssignment::with(['user', 'role'])->latest()->paginate(15),
             'countries' => Country::where('is_active', true)->orderBy('name')->get(),
