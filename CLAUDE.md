@@ -4,6 +4,10 @@ bundles to the server. The one exception is the compiled front-end,
 `public/build` (git-ignored), because the server cannot run `npm run build`
 (CyberPanel filesystem restriction).
 
+Copy-paste commands for every step: `docs/DEPLOY_RUNBOOK.md`. Each release adds a note in
+`docs/deploys/` (copy `TEMPLATE.md`) with its expected migrations, build yes/no, new scheduled
+commands and post-deploy settings.
+
 Order, one step at a time, raw output reported for each. If a step fails, STOP
 and report; do not work around it.
 
