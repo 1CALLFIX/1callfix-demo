@@ -36,12 +36,19 @@ the Google account that owns the Drive folder, Hostinger + CyberPanel logins, Gi
 rclone version | head -1; rclone listremotes --long
 ```
 ✅ A version line, and a `drive` remote is listed (the POS one, e.g. `gdrive: drive`).
-If no drive remote is listed for this user: the POS remote lives on another server or under another user. Either copy
-that user's `~/.config/rclone/rclone.conf` here (same Google account), or run `rclone config` → `n` → name `gdrive` →
-type `drive` → scope `1` (full) → defaults → **Use auto config? `n`** → run the shown `rclone authorize "drive" ...`
-line on your Windows PC (rclone installed there) and paste the token back.
 
-Use a **separate folder** from the POS backups. Replace `gdrive` below with the remote name A1 printed.
+The POS (`pos.1callfix.com`, files in `/home/1callfix.com/public_html/pos/callfixpos-saas/`) runs on this same VPS,
+so its Google Drive login can be reused. If nothing is listed, the POS remote was set up as **root**. Copy root's
+config to `callf1207` (exit to root, as in runbook step 9):
+```bash
+ls -l /root/.config/rclone/rclone.conf && U=callf1207 && H=$(getent passwd $U | cut -d: -f6) && mkdir -p $H/.config/rclone && test ! -e $H/.config/rclone/rclone.conf && install -o $U -g $(id -gn $U) -m 600 /root/.config/rclone/rclone.conf $H/.config/rclone/rclone.conf && echo COPIED
+```
+✅ `COPIED`. (If it stops at `test ! -e`, callf1207 already has a config: send its `rclone listremotes --long`
+output instead of overwriting it.) Then `su - callf1207` and run the A1 check again. The POS cron keeps working
+unchanged; both configs use the same Google login.
+
+The super app backups go to their **own folder** (`1callfix-superapp-backups`, A2), never into the POS folder.
+Replace `gdrive` below with the remote name A1 printed.
 
 ### A2. Create the encrypted remote on top of Google Drive
 The DB holds customer phone numbers, addresses and KYC data, so it is encrypted before it leaves the server.

@@ -43,3 +43,6 @@ storage/backups/
 # hero/mid crops generated for manual upload through the admin panel. Not
 # application data — never committed.
 /Banners/
+
+# POS app (pos.1callfix.com) lives in this folder on the server; never part of this repo
+/pos/
