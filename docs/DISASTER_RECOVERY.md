@@ -8,6 +8,23 @@ Copy-paste commands, same style as `docs/DEPLOY_RUNBOOK.md`. Paste **only the gr
 | App folder | `/home/1callfix.com/public_html` |
 | Off-site remote | `gdrive-crypt:superapp` (Google Drive, encrypted by rclone) |
 
+## EMERGENCY: site down, VPS dead
+
+| Situation | Do this | Time |
+|---|---|---|
+| VPS dead / broken / hacked | **D1**: hPanel → restore newest snapshot → log in → **one command** | ~30–45 min |
+| Hostinger itself unavailable | **D2**: new server, base setup, then the **same one command** | ~3 hours |
+| Server fine, data went wrong | **C**: the same command with `--file <dump> --db-only` | ~10 min |
+
+The one command (as `callf1207`):
+```bash
+bash /home/1callfix.com/public_html/scripts/restore-from-offsite.sh
+```
+It picks the last dump taken on the failed server, asks you to type `RESTORE`, then does everything else:
+maintenance mode, safety dump, code to `origin/main` (+ composer), database import, migrations, uploaded files,
+front-end build, cache clear, worker restart, site live, health check. If any step fails it stops and leaves the site
+in maintenance mode; send the output.
+
 ## What is backed up
 
 | Layer | What | When | Kept | Where |
@@ -17,11 +34,13 @@ Copy-paste commands, same style as `docs/DEPLOY_RUNBOOK.md`. Paste **only the gr
 | 3 | DB dump (`scripts/backup-offsite.sh hourly`) | every hour at :15 | 48 hours | Google Drive `db/hourly` |
 | 4 | Newest nightly dump (`backup-offsite.sh daily`) | daily 03:30 | 30 days, plus the 1st of each month for 400 days | Google Drive `db/daily`, `db/monthly` |
 | 5 | `storage/app` (KYC docs, photos, banners) | daily 03:30 | current + 30 days of changed/deleted files | Google Drive `files/current`, `files/archive` |
-| 6 | `.env` (APP_KEY + every live secret) | daily 03:30 | 90 days | Google Drive `env/` (crypt remote only) |
-| 7 | Code | every push | forever | GitHub |
+| 6 | `public/build` (compiled front-end) | daily 03:30 | current + 30 days of replaced files | Google Drive `build/` |
+| 7 | user crontab | daily 03:30 | latest | Google Drive `server/crontab.txt` |
+| 8 | `.env` (APP_KEY + every live secret) | daily 03:30 | 90 days | Google Drive `env/` (crypt remote only) |
+| 9 | Code | every push | forever | GitHub |
 
 **Worst case data loss: 1 hour of database, 1 day of uploaded files.**
-Missed backups email the owner through healthchecks.io (one-time setup, part A step 5).
+Missed backups email the owner through healthchecks.io (one-time setup, A3).
 
 **Must also be kept outside the server, in the password manager:**
 the rclone crypt password + salt (without them the Drive backups cannot be decrypted, by anyone), a copy of `.env`,
@@ -126,70 +145,50 @@ rclone ls gdrive-crypt:superapp/files/current | wc -l; ls -R /home/1callfix.com/
 
 ---
 
-## C. Something went wrong, server still alive (bad data, bad migration, wrong admin action)
-Use the newest dump from **before** the problem. Restore into a separate database first if only a few rows are
-needed; restore over the live DB only when the whole DB must go back.
-
+## C. Server fine, data went wrong (bad migration, wrong admin action)
+Pick the last dump from **before** the problem:
 ```bash
-cd /home/1callfix.com/public_html && php artisan down && DBU=$(grep '^DB_USERNAME=' .env | cut -d= -f2- | tr -d '"') && DBN=$(grep '^DB_DATABASE=' .env | cut -d= -f2- | tr -d '"') && DBP=$(grep '^DB_PASSWORD=' .env | cut -d= -f2- | tr -d '"') && S=~/backups/before-restore-$(date +%Y%m%d-%H%M%S).sql && MYSQL_PWD="$DBP" mysqldump -u "$DBU" --single-transaction --routines --triggers "$DBN" > "$S" && ls -lh "$S" && tail -1 "$S"
+ls -lt /home/1callfix.com/public_html/storage/backups | head; rclone lsf gdrive-crypt:superapp/db/hourly | sort | tail -12; rclone lsf gdrive-crypt:superapp/db/daily | sort | tail -5
 ```
-✅ A safety dump of the current state, ending with `-- Dump completed`. Then pick the dump to restore:
 ```bash
-ls -lt ~/backups storage/backups | head -20; rclone lsl gdrive-crypt:superapp/db/hourly | sort -k2,3 | tail -10
+bash /home/1callfix.com/public_html/scripts/restore-from-offsite.sh --file PUT_DUMP_NAME --db-only
 ```
-Restore (set `F` to the chosen file; from Drive, `rclone copy gdrive-crypt:superapp/db/hourly/<name> ~/` first):
-```bash
-F=PUT_FILE_PATH; gzip -t "$F" && zcat "$F" | tail -1 && zcat "$F" | MYSQL_PWD="$DBP" mysql -u "$DBU" "$DBN" && php artisan migrate:status | grep -i pending; echo "(end of pending list)"
-```
-✅ `-- Dump completed`, no mysql error, nothing pending. Then runbook step 8 (cache clear), step 9 (worker restart),
-`php artisan up`, and section E.
+✅ Ends with `RESTORE DONE`. Code, uploaded files and build are not touched. If only a few rows are wrong, do not
+restore the whole DB: import the dump into a separate database and copy those rows back by hand.
 
 ---
 
 ## D. VPS dead or unusable
 
-### D1. Fastest: Hostinger snapshot + newest off-site data (about 1 hour)
-1. hPanel → VPS → Snapshots & Backups → restore the newest weekly snapshot. This brings back code, `.env`, cron,
-   supervisor, vhost and SSL, but the DB and files are up to 7 days old.
-2. Log in, take the site down and set the DB variables:
+### D1. Hostinger snapshot + one command (~30–45 min)
+1. hPanel → VPS → Snapshots & Backups → restore the newest weekly snapshot. Wait until the VPS is running.
+   (This brings back the server setup, `.env`, rclone login, cron, supervisor and SSL. Its DB and files are up to a
+   week old; the command below replaces them with the last hour's data.)
+2. `ssh callf1207@srv1422426.hstgr.cloud`, then:
 ```bash
-cd /home/1callfix.com/public_html && php artisan down && DBU=$(grep '^DB_USERNAME=' .env | cut -d= -f2- | tr -d '"') && DBN=$(grep '^DB_DATABASE=' .env | cut -d= -f2- | tr -d '"') && DBP=$(grep '^DB_PASSWORD=' .env | cut -d= -f2- | tr -d '"') && rclone listremotes
+bash /home/1callfix.com/public_html/scripts/restore-from-offsite.sh
 ```
-✅ `gdrive-crypt:` is listed (the snapshot carries rclone's config). If not, redo A1 + A2 with the **saved** crypt
-password and salt (entered with `y`, not `g`).
-3. Bring the code to the last deployed commit (the snapshot may be older):
-```bash
-git fetch origin && git merge --ff-only origin/main && git log -1 --oneline
-```
-If `composer.lock` changed since the snapshot: `composer install --no-dev --optimize-autoloader`. If the front-end
-changed: runbook steps 6–7 (local build + scp).
-4. Newest DB dump from Drive:
-```bash
-mkdir -p ~/restore && F=$(rclone lsf gdrive-crypt:superapp/db/hourly | sort | tail -1) && echo "$F" && rclone copy "gdrive-crypt:superapp/db/hourly/$F" ~/restore/ && gzip -t ~/restore/$F && zcat ~/restore/$F | tail -1 && zcat ~/restore/$F | MYSQL_PWD="$DBP" mysql -u "$DBU" "$DBN" && php artisan migrate:status | grep -i pending; echo "(end of pending list)"
-```
-✅ File name shows the last hour before the failure, `-- Dump completed`, no error. If migrations are pending
-(dump older than the code), run `php artisan migrate --force`.
-5. Uploaded files (copy, never sync, so nothing on the server is deleted):
-```bash
-rclone copy gdrive-crypt:superapp/files/current storage/app && ls storage/app
-```
-6. Runbook step 8 (four-phase cache clear), step 9 (worker restart), then `php artisan up`, then section E.
+✅ It prints `Dump: db/hourly/1cal_api_hourly_<time>`. That time should be within an hour of when the server failed.
+Type `RESTORE`. It ends with `RESTORE DONE`, `/up -> 200`, the schedule list, a clean `git status` and the HEAD.
+3. Exit to root and restart the worker the normal way (runbook step 9). The script already sent `queue:restart`;
+   this just confirms it in `supervisorctl status`.
+4. Browser check + section E.
 
-### D2. Hostinger itself unavailable: new server from scratch (about 3–4 hours)
-1. New VPS (Ubuntu), install CyberPanel, create website `1callfix.com`, PHP version matching `composer.json`,
-   MySQL DB + user (new password), SSL. Install rclone, git, composer, supervisor.
-2. `cd /home/1callfix.com/public_html && git clone <GitHub repo> .` and
-   `composer install --no-dev --optimize-autoloader`.
-3. Set up `gdrive` + `gdrive-crypt` exactly as A1–A2, entering the **saved** password and salt.
-4. `.env`: `rclone lsf gdrive-crypt:superapp/env | sort | tail -1`, copy it to `.env`, then change only the
-   `DB_*` lines to the new DB. **Keep APP_KEY unchanged.** (Or take `.env` from the password manager.)
-5. DB and files: D1 steps 4–5.
-6. `php artisan storage:link`. Upload the build (runbook steps 6–7). Supervisor worker from
-   `deploy/supervisor/onecallfix-worker.conf`. Cron: `* * * * * php artisan schedule:run` + the A6 lines + the
-   02:00 `backup-database.sh` line.
-7. Point DNS (`1callfix.com`, `www`, `api`) to the new IP. Keep the TTL at 300 seconds in normal times so this
-   takes minutes, not hours.
-8. Runbook step 8, step 9, step 10 checks, then section E.
+If the snapshot is older than a front-end deploy made **today after 03:30**, the restored build is the one before
+that deploy: redo runbook steps 6–7.
+
+### D2. Hostinger unavailable: new server (~3 hours)
+1. New VPS (Ubuntu) → CyberPanel → website `1callfix.com` with SSL, PHP version matching `composer.json`, a MySQL DB
+   and user. Install git, composer, rclone, supervisor.
+2. App folder (empty it of CyberPanel's default files first): `cd /home/1callfix.com/public_html && git clone https://github.com/1CALLFIX/1callfix-demo.git .`
+   then `composer install --no-dev --optimize-autoloader`.
+3. rclone: A1 (Google login) and A2 with the **saved** crypt password and salt (answer `y` and type them, not `g`).
+4. `.env`: `rclone copyto "gdrive-crypt:superapp/env/$(rclone lsf gdrive-crypt:superapp/env | sort | tail -1)" .env`,
+   then change only the `DB_*` lines to the new DB. **Never change APP_KEY.**
+5. Worker: `deploy/supervisor/onecallfix-worker.conf` into supervisor. Cron: `rclone cat gdrive-crypt:superapp/server/crontab.txt | crontab -`.
+6. Run the one command (D1 step 2). Then point DNS (`1callfix.com`, `www`, `api`) to the new IP; keep the TTL at 300
+   seconds in normal times so this takes minutes. The POS needs its own restore from its own backups.
+7. Section E.
 
 ---
 

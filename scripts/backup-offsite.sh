@@ -8,14 +8,17 @@
 #   backup-offsite.sh daily    newest nightly dump -> db/daily      (kept 30 days)
 #                              on the 1st of the month also -> db/monthly (kept 400 days)
 #                              storage/app -> files/current, changed/deleted files -> files/archive/<date> (kept 30 days)
+#                              public/build -> build/current (same archive scheme), crontab -> server/crontab.txt
 #                              .env -> env/ (ONLY when the remote is an rclone crypt remote)
+#
+# Restore: scripts/restore-from-offsite.sh (docs/DISASTER_RECOVERY.md).
 #
 # Settings, read from the app's .env (never stored in this script or in git):
 #   BACKUP_RCLONE_REMOTE      required, e.g. gdrive-crypt:1callfix-superapp
 #   BACKUP_PING_URL_HOURLY    optional healthchecks.io URL, pinged on success, <url>/fail on failure
 #   BACKUP_PING_URL_DAILY     optional, same for the daily run
 
-set -euo pipefail
+set -Eeuo pipefail
 
 MODE="${1:-}"
 if [ "$MODE" != "hourly" ] && [ "$MODE" != "daily" ]; then
@@ -105,16 +108,29 @@ else
   rclone delete "$REMOTE/files/archive" --min-age 30d "${RCLONE_OPTS[@]}"
   rclone rmdirs "$REMOTE/files/archive" --leave-root "${RCLONE_OPTS[@]}"
 
+  # Compiled front-end (git-ignored, cannot be built on the server), so a restore never waits for a local build.
+  if [ -d "$APP_DIR/public/build" ]; then
+    rclone sync "$APP_DIR/public/build" "$REMOTE/build/current" \
+      --backup-dir "$REMOTE/build/archive/$TIMESTAMP" "${RCLONE_OPTS[@]}"
+    rclone delete "$REMOTE/build/archive" --min-age 30d "${RCLONE_OPTS[@]}"
+    rclone rmdirs "$REMOTE/build/archive" --leave-root "${RCLONE_OPTS[@]}"
+  fi
+
+  # The user crontab (schedule:run + backups) is the one piece of server setup not in git.
+  crontab -l > "/tmp/1callfix-crontab-$TIMESTAMP.txt" 2>/dev/null || true
+  rclone copyto "/tmp/1callfix-crontab-$TIMESTAMP.txt" "$REMOTE/server/crontab.txt" "${RCLONE_OPTS[@]}"
+  rm -f "/tmp/1callfix-crontab-$TIMESTAMP.txt"
+
   # .env holds APP_KEY and every live secret: only ever upload it encrypted.
   REMOTE_NAME="${REMOTE%%:*}"
-  if rclone listremotes --long | grep -E "^${REMOTE_NAME}:[[:space:]]+crypt" -q; then
+  if rclone listremotes --long | grep -E "^${REMOTE_NAME}:[[:space:]]+crypt" > /dev/null; then
     rclone copyto "$APP_DIR/.env" "$REMOTE/env/env_${TIMESTAMP}" "${RCLONE_OPTS[@]}"
     rclone delete "$REMOTE/env" --min-age 90d "${RCLONE_OPTS[@]}"
   else
     echo "WARNING: $REMOTE_NAME is not a crypt remote; .env NOT uploaded. Keep it in the password manager." >&2
   fi
 
-  echo "Daily offsite backup OK: $(basename "$LATEST") + storage/app"
+  echo "Daily offsite backup OK: $(basename "$LATEST") + storage/app + public/build"
 fi
 
 ping_check ""
