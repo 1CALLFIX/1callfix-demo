@@ -1,5 +1,6 @@
 <div>
     <h1 class="text-2xl font-bold mb-4">Zones</h1>
+    <x-ui.deleted-items-link type="zone" />
 
     @if ($flashMessage)
         <div class="bg-green-50 text-green-700 rounded p-3 mb-4 text-sm">{{ $flashMessage }}</div>

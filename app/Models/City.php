@@ -5,10 +5,12 @@ namespace App\Models;
 use App\Models\Concerns\HasManagedSlug;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class City extends Model
 {
     use HasManagedSlug;
+    use SoftDeletes;
 
     protected $table = 'cities';
 

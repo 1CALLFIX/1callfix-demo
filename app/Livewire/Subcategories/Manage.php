@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Subcategories;
 
+use App\Services\ActivityLogger;
 use App\Exports\SubcategoriesExport;
 use App\Imports\HeadingRowImport;
 use App\Models\CatalogImportRun;
@@ -315,12 +316,12 @@ class Manage extends Component
         }
 
         $sub = ServiceSubcategory::findOrFail($this->confirmingDeleteId);
-        $image = $sub->image;
+        // Archived, not removed: the icon file stays so a restore brings it back.
         $sub->delete();
-        $this->deleteStoredIcon($image);
+        ActivityLogger::logModel(auth()->user(), $sub, 'archived', ['label' => $sub->name]);
 
         $this->confirmingDeleteId = null;
-        $this->flashMessage = 'Subcategory deleted.';
+        $this->flashMessage = 'Subcategory deleted. It can be restored from System > Backup & Restore > Deleted items.';
     }
 
     public function cancelDelete(): void

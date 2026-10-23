@@ -4,12 +4,14 @@ namespace App\Models;
 
 use App\Models\Concerns\HasManagedSlug;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 class ServiceSubcategory extends Model
 {
     use HasManagedSlug;
+    use SoftDeletes;
     protected $table = 'service_subcategories';
 
     protected $fillable = [

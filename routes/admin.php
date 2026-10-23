@@ -152,6 +152,8 @@ Route::middleware(['auth', \Illuminate\Session\Middleware\AuthenticateSession::c
         Route::get('/subscriptions', SubscriptionsIndex::class)->name('admin.subscriptions.index');
         Route::get('/operations', OperationsHealth::class)->name('admin.operations.index');
         Route::get('/operations/clear-data', OperationsDataClear::class)->name('admin.operations.data-clear');
+        // REF 1CF-BACKUP-RESTORE-001 — backup status, Deleted items, Restore one (permission backups.restore).
+        Route::get('/operations/backup-restore', \App\Livewire\Operations\BackupRestore::class)->name('admin.operations.backup-restore');
         Route::get('/modules', ModulesManage::class)->name('admin.modules.index');
         Route::get('/parcel-orders', ParcelOrdersManage::class)->name('admin.parcel-orders.index');
         Route::get('/taxi-rides', TaxiRidesManage::class)->name('admin.taxi-rides.index');

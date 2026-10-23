@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Categories;
 
+use App\Services\ActivityLogger;
 use App\Exports\CategoriesExport;
 use App\Imports\HeadingRowImport;
 use App\Models\CatalogImportRun;
@@ -307,12 +308,12 @@ class Manage extends Component
         }
 
         $category = ServiceCategory::findOrFail($this->confirmingDeleteId);
-        $image = $category->image;
+        // Archived, not removed: the icon file stays so a restore brings it back.
         $category->delete();
-        $this->deleteStoredIcon($image);
+        ActivityLogger::logModel(auth()->user(), $category, 'archived', ['label' => $category->name]);
 
         $this->confirmingDeleteId = null;
-        $this->flashMessage = 'Category deleted.';
+        $this->flashMessage = 'Category deleted. It can be restored from System > Backup & Restore > Deleted items.';
     }
 
     public function cancelDelete(): void

@@ -1,5 +1,6 @@
 <div>
     <h1 class="text-2xl font-bold mb-1">Geography</h1>
+    <x-ui.deleted-items-link type="city" />
     <p class="text-sm text-gray-500 mb-4">Countries and cities — the reference data Franchises, Bookings, and Settings scope resolve against. Zones live under a Franchise, not here.</p>
 
     @if ($flashMessage)

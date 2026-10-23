@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Franchises;
 
+use App\Services\ActivityLogger;
 use App\Models\City;
 use App\Models\Country;
 use App\Models\Franchise;
@@ -526,9 +527,10 @@ class Manage extends Component
         }
 
         $franchise->delete();
+        ActivityLogger::logModel(auth()->user(), $franchise, 'archived', ['label' => $franchise->name]);
 
         $this->confirmingDeleteId = null;
-        $this->flashMessage = 'Franchise deleted.';
+        $this->flashMessage = 'Franchise deleted. It can be restored from System > Backup & Restore > Deleted items.';
     }
 
     public function cancelDelete(): void

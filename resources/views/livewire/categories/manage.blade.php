@@ -3,6 +3,7 @@
         <div>
             <a href="{{ route('admin.services.index') }}" class="text-sm text-blue-600 hover:underline">&larr; Back to Services</a>
             <h1 class="text-2xl font-bold mt-1">Categories</h1>
+            <x-ui.deleted-items-link type="category" />
         </div>
         <div class="flex gap-2 text-sm">
             <x-ui.button variant="secondary" size="sm" wire:click="exportCategoriesCsv" title="Export the current filtered view as CSV">Export CSV</x-ui.button>

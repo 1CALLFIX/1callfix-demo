@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Services;
 
+use App\Services\ActivityLogger;
 use App\Exports\ServicesExport;
 use App\Imports\HeadingRowImport;
 use App\Models\CatalogImportRun;
@@ -626,11 +627,13 @@ class Manage extends Component
 
         // Soft delete: the file stays put deliberately, since restoring a
         // trashed service should bring its picture back with it.
-        Service::findOrFail($this->confirmingDeleteId)->delete();
+        $service = Service::findOrFail($this->confirmingDeleteId);
+        $service->delete();
+        ActivityLogger::logModel(auth()->user(), $service, 'archived', ['label' => $service->name]);
 
         $this->confirmingDeleteId = null;
         $this->deleteWarning = '';
-        $this->flashMessage = 'Service deleted.';
+        $this->flashMessage = 'Service deleted. It can be restored from System > Backup & Restore > Deleted items.';
     }
 
     public function cancelDelete(): void

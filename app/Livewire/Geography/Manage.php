@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Geography;
 
+use App\Services\ActivityLogger;
 use App\Models\City;
 use App\Models\Country;
 use App\Services\Slug\SlugManager;
@@ -114,8 +115,9 @@ class Manage extends Component
         }
 
         $country->delete();
+        ActivityLogger::logModel(auth()->user(), $country, 'archived', ['label' => $country->name]);
         $this->flashType = 'success';
-        $this->flashMessage = 'Country deleted.';
+        $this->flashMessage = 'Country deleted. It can be restored from System > Backup & Restore > Deleted items.';
     }
 
     public function expand(int $countryId): void
@@ -217,8 +219,9 @@ class Manage extends Component
         }
 
         $city->delete();
+        ActivityLogger::logModel(auth()->user(), $city, 'archived', ['label' => $city->name]);
         $this->flashType = 'success';
-        $this->flashMessage = 'City deleted.';
+        $this->flashMessage = 'City deleted. It can be restored from System > Backup & Restore > Deleted items.';
     }
 
     public function render()

@@ -176,15 +176,15 @@ class QaCleaner
 
             // --- Catalog ---
             $deleted['services'] = Service::whereIn('id', $entries['services'] ?? [])->forceDelete();
-            $deleted['service_subcategories'] = ServiceSubcategory::whereIn('id', $entries['service_subcategories'] ?? [])->delete();
-            $deleted['service_categories'] = ServiceCategory::whereIn('id', $entries['service_categories'] ?? [])->delete();
+            $deleted['service_subcategories'] = ServiceSubcategory::withTrashed()->whereIn('id', $entries['service_subcategories'] ?? [])->forceDelete();
+            $deleted['service_categories'] = ServiceCategory::withTrashed()->whereIn('id', $entries['service_categories'] ?? [])->forceDelete();
 
             // --- Geography (deepest-nested first) ---
             $deleted['franchise_modules'] = FranchiseModule::whereIn('id', $entries['franchise_modules'] ?? [])->delete();
-            $deleted['zones'] = Zone::whereIn('id', $entries['zones'] ?? [])->delete();
+            $deleted['zones'] = Zone::withTrashed()->whereIn('id', $entries['zones'] ?? [])->forceDelete();
             $deleted['franchises'] = Franchise::whereIn('id', $entries['franchises'] ?? [])->forceDelete();
-            $deleted['cities'] = City::whereIn('id', $entries['cities'] ?? [])->delete();
-            $deleted['countries'] = Country::whereIn('id', $entries['countries'] ?? [])->delete();
+            $deleted['cities'] = City::withTrashed()->whereIn('id', $entries['cities'] ?? [])->forceDelete();
+            $deleted['countries'] = Country::withTrashed()->whereIn('id', $entries['countries'] ?? [])->forceDelete();
         });
 
         QaManifest::delete();

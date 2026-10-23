@@ -110,7 +110,7 @@ class SlugManager
         return self::problem($model, $slug) !== null;
     }
 
-    /** True when some other row currently owns the slug in this model's scope. */
+    /** True when some other row owns the slug in this model's scope. Archived rows count: restoring one must never collide. */
     private static function liveOwnerExists(Model $model, string $slug): bool
     {
         $exceptSelf = fn ($query, string $type) => $query->when(
@@ -119,17 +119,17 @@ class SlugManager
         );
 
         if ($model instanceof City) {
-            return $exceptSelf(City::query()->where('slug', $slug), self::TYPE_CITY)->exists();
+            return $exceptSelf(City::withTrashed()->where('slug', $slug), self::TYPE_CITY)->exists();
         }
 
         if ($model instanceof ServiceSubcategory) {
             return $exceptSelf(
-                ServiceSubcategory::query()->where('category_id', $model->category_id)->where('slug', $slug),
+                ServiceSubcategory::withTrashed()->where('category_id', $model->category_id)->where('slug', $slug),
                 self::TYPE_SUBCATEGORY,
             )->exists();
         }
 
-        return $exceptSelf(ServiceCategory::query()->where('slug', $slug), self::TYPE_CATEGORY)->exists()
+        return $exceptSelf(ServiceCategory::withTrashed()->where('slug', $slug), self::TYPE_CATEGORY)->exists()
             || $exceptSelf(Service::withTrashed()->where('slug', $slug), self::TYPE_SERVICE)->exists();
     }
 

@@ -227,6 +227,7 @@
                     ['label' => 'Operations', 'route' => 'admin.operations.index', 'icon' => 'activity', 'permission' => 'operations.view'],
                     // super_admin only (permission never seeded to a role) — see the Earnings Control entry.
                     ['label' => 'Alert Emails', 'route' => 'admin.alert-emails.index', 'icon' => 'activity', 'permission' => 'alert_emails.manage'],
+                    ['label' => 'Backup & Restore', 'route' => 'admin.operations.backup-restore', 'icon' => 'shield', 'permission' => 'backups.restore'],
                     ['label' => 'Clear Data', 'route' => 'admin.operations.data-clear', 'icon' => 'exclamation-triangle', 'permission' => 'operations.data_clear'],
                     // super_admin only (permission never seeded to a role), like Alert Emails above.
                     ['label' => 'Availability & Shifts', 'route' => 'admin.providers.availability', 'icon' => 'clock', 'permission' => 'provider_availability.manage'],

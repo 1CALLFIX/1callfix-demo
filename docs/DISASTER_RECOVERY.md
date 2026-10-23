@@ -16,7 +16,9 @@ Copy-paste commands, same style as `docs/DEPLOY_RUNBOOK.md`. Paste **only the gr
 |---|---|---|
 | VPS dead / broken / hacked | **D1**: hPanel → restore newest snapshot → log in → **one command** | ~30–45 min |
 | Hostinger itself unavailable | **D2**: new server, base setup, then the **same one command** | ~3 hours |
-| Server fine, data went wrong | **C**: the same command with `--file <dump> --db-only` | ~10 min |
+| One franchise / city / store / provider lost data | **Admin panel**: System > Backup & Restore > Restore one (section F) | ~5 min |
+| Something deleted by mistake in the admin | **Admin panel**: System > Backup & Restore > Deleted items > Restore | 1 min |
+| Server fine, whole database went wrong | **C**: the same command with `--file <dump> --db-only` | ~10 min |
 
 The one command (as `callf1207`):
 ```bash
@@ -155,8 +157,9 @@ ls -lt /home/1callfix.com/public_html/storage/backups | head; rclone lsf gdrive-
 ```bash
 bash /home/1callfix.com/public_html/scripts/restore-from-offsite.sh --file PUT_DUMP_NAME --db-only
 ```
-✅ Ends with `RESTORE DONE`. Code, uploaded files and build are not touched. If only a few rows are wrong, do not
-restore the whole DB: import the dump into a separate database and copy those rows back by hand.
+✅ Ends with `RESTORE DONE`. Code, uploaded files and build are not touched. This puts the **whole** database back:
+everything after the dump is lost for everyone. If only one franchise, city, store or provider is affected, use
+section F instead.
 
 ---
 
@@ -205,6 +208,36 @@ that deploy: redo runbook steps 6–7.
 3. `tail -n 50 storage/logs/laravel.log` (no new errors), `php artisan queue:failed`, `php artisan schedule:list`.
 4. Browser: home page, login, one booking page, admin dashboard.
 5. Run section B once on the restored server so backups are confirmed working again, and check healthchecks is green.
+
+---
+
+## F. Restore one item from the admin panel (System > Backup & Restore)
+
+Permission `backups.restore` (Super Admin always). Two tabs:
+
+- **Deleted items**: every deleted franchise, country, city, zone, category, subcategory, service, provider, store and
+  banner, with who deleted it and when. **Restore** puts it straight back (deleting only archives; no backup needed).
+- **Restore one**: choose franchise / city / store / provider, then a backup time (hourly for 48 h, daily for 30 days,
+  monthly), then **Compare with now**. The backup is loaded into the separate `1cal_restore` database (the live one is
+  never loaded over) and the item's records are compared:
+  - **Missing / Deleted**: brought back by **Restore missing records** (reason + type `RESTORE`), with their original ids.
+  - **Changed**: listed; **Put back the backup version** restores one record at a time.
+  - **New since**: never touched.
+  - **Money** (payments, wallets, payouts, commissions, refunds, waivers): listed only, never written. Fix through
+    the money approval screens.
+  - A safety copy of every table it writes is saved first in `storage/backups/restore-work/` and named on screen;
+    every restore is in the audit log with the reason.
+
+One-time server settings (in `.env`, then runbook step 8 cache clear):
+```
+BACKUP_RCLONE_CONFIG=/home/1callfix.com/.config/rclone/rclone.conf
+RESTORE_DB_DATABASE=1cal_restore
+```
+The `1cal_restore` database was created 2026-10-23 (`GRANT ALL ON 1cal_restore.* TO 1cal_apiadmin@localhost`).
+The work runs on the queue worker (one worker: keep it that way, or raise `DB_QUEUE_RETRY_AFTER` above 1200 first,
+because a restore job may run longer than the 90-second default).
+
+To undo a restore: import its safety copy (`zcat <file> | mysql ...`, as in section C) for those tables only.
 
 ---
 

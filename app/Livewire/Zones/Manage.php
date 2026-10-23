@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Zones;
 
+use App\Services\ActivityLogger;
 use App\Models\Franchise;
 use App\Models\Setting;
 use App\Models\Zone;
@@ -332,9 +333,10 @@ class Manage extends Component
         }
 
         $zone->delete();
+        ActivityLogger::logModel(auth()->user(), $zone, 'archived', ['label' => $zone->name]);
 
         $this->confirmingDeleteId = null;
-        $this->flashMessage = 'Zone deleted.';
+        $this->flashMessage = 'Zone deleted. It can be restored from System > Backup & Restore > Deleted items.';
     }
 
     public function cancelDelete(): void

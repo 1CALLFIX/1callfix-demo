@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Models\Concerns\HasManagedSlug;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
@@ -13,6 +14,7 @@ class ServiceCategory extends Model
 {
     use HasManagedSlug;
     use HasFactory;
+    use SoftDeletes;
 
     protected $table = 'service_categories';
 
