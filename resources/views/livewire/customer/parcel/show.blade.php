@@ -159,7 +159,7 @@
                         @endif
                     </p>
                     <label for="cancel-reason" class="mt-3 block text-sm font-medium text-rose-900">Reason</label>
-                    <input id="cancel-reason" type="text" wire:model="cancelReason" maxlength="255" class="mt-1 block w-full rounded-lg border-rose-300 text-sm">
+                    <input id="cancel-reason" type="text" wire:model="cancelReason" maxlength="255" class="mt-1 block min-h-10 w-full rounded-lg border border-rose-300 px-3 text-sm">
                     @error('cancelReason') <p class="mt-1 text-xs text-rose-700">{{ $message }}</p> @enderror
                     <div class="mt-3 flex gap-2">
                         <button type="button" wire:click="cancel" class="inline-flex min-h-10 items-center rounded-lg bg-rose-600 px-4 text-sm font-semibold text-white hover:bg-rose-700">Yes, cancel</button>

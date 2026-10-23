@@ -128,7 +128,7 @@
                     <label for="pickup-otp" class="block text-sm font-medium">Pickup code from the sender</label>
                     <div class="mt-1 flex gap-2">
                         <input id="pickup-otp" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="8" wire:model="pickupOtp" required
-                               class="block w-full rounded-lg border-slate-300 text-lg tracking-widest">
+                               class="block min-h-11 w-full rounded-lg border border-slate-300 px-3 text-lg tracking-widest focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/30">
                         <button type="submit" class="inline-flex min-h-11 shrink-0 items-center rounded-lg bg-blue-600 px-4 text-sm font-semibold text-white hover:bg-blue-700">Picked up</button>
                     </div>
                 </form>
@@ -137,7 +137,7 @@
                     <label for="delivery-otp" class="block text-sm font-medium">Delivery code from the recipient</label>
                     <div class="mt-1 flex gap-2">
                         <input id="delivery-otp" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="8" wire:model="deliveryOtp" required
-                               class="block w-full rounded-lg border-slate-300 text-lg tracking-widest">
+                               class="block min-h-11 w-full rounded-lg border border-slate-300 px-3 text-lg tracking-widest focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/30">
                         <button type="submit" class="inline-flex min-h-11 shrink-0 items-center rounded-lg bg-emerald-600 px-4 text-sm font-semibold text-white hover:bg-emerald-700">Delivered</button>
                     </div>
                 </form>

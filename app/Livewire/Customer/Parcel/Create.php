@@ -355,6 +355,7 @@ class Create extends Component
 
         return view('livewire.customer.parcel.create', [
             'activeHere' => $activeHere,
+            'browsingZoneKnown' => $browsingZone !== null,
             'recentRecipients' => $this->recentRecipients(),
             'savedAddresses' => $this->savedAddresses(),
             'sizes' => ParcelSettings::SIZES,

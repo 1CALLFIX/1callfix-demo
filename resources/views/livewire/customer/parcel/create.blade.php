@@ -4,7 +4,7 @@
 @php
     $fmt = fn ($n) => $currencySymbol.number_format((float) $n, 2);
     $hasPlaces = (bool) config('services.google_maps.key');
-    $inputClass = 'mt-1 block w-full rounded-lg border-slate-300 text-sm shadow-sm focus:border-blue-500 focus:ring-blue-500';
+    $inputClass = 'mt-1 block min-h-11 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/30';
     $labelClass = 'block text-sm font-medium text-slate-700';
 @endphp
 
@@ -12,11 +12,11 @@
     <h1 class="text-2xl font-bold tracking-tight">Send a parcel</h1>
     <p class="mt-1 text-sm text-slate-600">A rider picks it up and delivers it the same trip. Pay online, from your wallet, or cash at pickup.</p>
 
-    @unless ($activeHere)
+    @if ($browsingZoneKnown && ! $activeHere)
         <div class="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
             Parcel delivery may not be available in the area you are browsing. Choose your pickup point below and we'll tell you if we pick up from there.
         </div>
-    @endunless
+    @endif
 
     @if ($error)
         <div class="mt-4 rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800" role="alert">{{ $error }}</div>
