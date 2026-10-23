@@ -7,6 +7,8 @@ Copy-paste commands, same style as `docs/DEPLOY_RUNBOOK.md`. Paste **only the gr
 | Server | `callf1207@srv1422426.hstgr.cloud` |
 | App folder | `/home/1callfix.com/public_html` |
 | Off-site remote | `gdrive-crypt:superapp` (Google Drive, encrypted by rclone) |
+| Under it | `pos-gdrive:` (the POS Google login, copied from root) → Drive folder `1callfix-superapp-backups` |
+| Alerts | healthchecks.io `1callfix-superapp-hourly` + `-daily`, emails 1callfixs@gmail.com |
 
 ## EMERGENCY: site down, VPS dead
 
@@ -182,7 +184,8 @@ that deploy: redo runbook steps 6–7.
    and user. Install git, composer, rclone, supervisor.
 2. App folder (empty it of CyberPanel's default files first): `cd /home/1callfix.com/public_html && git clone https://github.com/1CALLFIX/1callfix-demo.git .`
    then `composer install --no-dev --optimize-autoloader`.
-3. rclone: A1 (Google login) and A2 with the **saved** crypt password and salt (answer `y` and type them, not `g`).
+3. rclone: a `drive` remote named **`pos-gdrive`** (A1, same Google account), then A2 with remote
+   `pos-gdrive:1callfix-superapp-backups` and the **saved** crypt password and salt (answer `y` and type them, not `g`).
 4. `.env`: `rclone copyto "gdrive-crypt:superapp/env/$(rclone lsf gdrive-crypt:superapp/env | sort | tail -1)" .env`,
    then change only the `DB_*` lines to the new DB. **Never change APP_KEY.**
 5. Worker: `deploy/supervisor/onecallfix-worker.conf` into supervisor. Cron: `rclone cat gdrive-crypt:superapp/server/crontab.txt | crontab -`.
@@ -208,4 +211,4 @@ that deploy: redo runbook steps 6–7.
 ## Drill log
 | Date | Who | Result |
 |---|---|---|
-| | | |
+| 2026-10-23 | owner | Setup done. Newest hourly dump downloaded + decrypted, `-- Dump completed`, 1.7M; files 41 = 41 |
