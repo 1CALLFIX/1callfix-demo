@@ -154,7 +154,7 @@ class Index extends Component
         $zoneId = $location->viewerScope()['zone_id'] ?? null;
 
         if (! $franchiseId || ! $zoneId) {
-            $address = \App\Models\Address::where('user_id', auth()->id())->whereNotNull('zone_id')->orderByDesc('is_default')->latest()->first();
+            $address = \App\Models\Address::where('user_id', auth()->id())->listed()->whereNotNull('zone_id')->orderByDesc('is_default')->latest()->first();
 
             return [$address?->franchise_id, $address?->zone_id];
         }

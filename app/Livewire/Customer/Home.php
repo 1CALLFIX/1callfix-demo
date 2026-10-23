@@ -59,6 +59,10 @@ class Home extends Component
 
         return view('livewire.customer.home', [
             'activeZone' => $location->zone(),
+            'parcelActive' => $location->zone() !== null && app(\App\Services\ModuleActivationService::class)->isActive(
+                \App\Support\Modules::PARCEL,
+                array_filter(['zone_id' => $location->zone()->id, 'franchise_id' => $location->zone()->franchise_id, 'city_id' => $location->zone()->franchise?->city_id, 'country_id' => $location->zone()->franchise?->country_id])
+            ),
             'heroBanners' => $this->bannersFor('top'),
             'midBanners' => $this->bannersFor('mid'),
             'categories' => $catalog->categories()->limit(\App\Support\SiteControls::categoryLimit())->get(),

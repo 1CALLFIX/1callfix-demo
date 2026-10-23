@@ -296,6 +296,22 @@ class CancellationService
             return;
         }
 
+        $this->refundParcelPayment($order, $payment, $fee);
+    }
+
+    /**
+     * Refunds ONE captured parcel payment, keeping $fee. Split out of refundIfPaidForParcelOrder() for the
+     * Razorpay capture webhook (ParcelPaymentService::markPaid()): a payment captured after its order was
+     * cancelled, or a duplicate capture for an order already paid, is refunded by itself. Idempotent — a
+     * payment no longer 'captured' is left alone. The order's own payment_status only changes when the
+     * order is cancelled (a duplicate capture on a live order does not touch it).
+     */
+    public function refundParcelPayment(ParcelOrder $order, Payment $payment, float $fee): void
+    {
+        if ($payment->status !== 'captured') {
+            return;
+        }
+
         $refundAmount = round(max((float) $payment->amount - $fee, 0), 2);
 
         if ($refundAmount <= 0) {
@@ -321,8 +337,10 @@ class CancellationService
         $payment->status = 'refunded';
         $payment->save();
 
-        $order->payment_status = $refundAmount >= (float) $payment->amount ? 'refunded' : 'partially_refunded';
-        $order->save();
+        if ($order->status === 'cancelled') {
+            $order->payment_status = $refundAmount >= (float) $payment->amount ? 'refunded' : 'partially_refunded';
+            $order->save();
+        }
 
         if ($order->customer) {
             $channels = ChannelResolver::resolve(['zone_id' => $order->zone_id, 'franchise_id' => $order->franchise_id]);

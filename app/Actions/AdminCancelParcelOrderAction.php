@@ -22,9 +22,9 @@ class AdminCancelParcelOrderAction
     {
     }
 
-    public function execute(int $parcelOrderId, string $reason): ParcelOrder
+    public function execute(int $parcelOrderId, string $reason, string $cancelledBy = 'admin'): ParcelOrder
     {
-        $order = DB::transaction(function () use ($parcelOrderId, $reason) {
+        $order = DB::transaction(function () use ($parcelOrderId, $reason, $cancelledBy) {
             $order = ParcelOrder::lockForUpdate()->findOrFail($parcelOrderId);
 
             if (in_array($order->status, ['delivered', 'cancelled'], true)) {
@@ -38,9 +38,15 @@ class AdminCancelParcelOrderAction
             $order->cancellation_fee = $fee;
             $order->save();
 
+            // Withdraw any offer still ringing on a rider's screen.
+            \App\Models\DispatchAttempt::where('dispatchable_type', ParcelOrder::class)
+                ->where('dispatchable_id', $order->id)
+                ->where('status', 'notified')
+                ->update(['status' => 'timeout', 'responded_at' => now()]);
+
             $order->statusHistory()->create([
                 'status' => 'cancelled',
-                'note' => "Cancelled by admin: {$reason}".($fee > 0 ? " (cancellation fee: {$fee})" : ''),
+                'note' => "Cancelled by {$cancelledBy}: {$reason}".($fee > 0 ? " (cancellation fee: {$fee})" : ''),
                 'changed_at' => now(),
             ]);
 

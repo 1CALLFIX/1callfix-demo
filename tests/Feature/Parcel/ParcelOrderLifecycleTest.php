@@ -131,19 +131,21 @@ class ParcelOrderLifecycleTest extends TestCase
 
     // ============================== Pricing ==============================
 
-    public function test_pricing_defaults_to_zero_base_fare_when_unconfigured(): void
+    public function test_pricing_refuses_to_quote_while_a_required_price_is_unset(): void
     {
         [$country, $city, $franchise, $zone] = $this->makeFranchiseTree();
         $this->activateParcelFor($franchise);
+        \App\Models\Setting::clear('parcel.per_km_rate', 'global', null);
         $customer = $this->makeCustomer();
         [$pickup, $dropoff] = $this->makeParcelAddresses($franchise, $zone, $customer);
 
-        $order = app(CreateParcelOrderAction::class)->execute([
+        // Parcel completion (2026-10-23): an unset required price is never treated as 0 — nothing can be booked.
+        $this->expectException(\App\Exceptions\ParcelQuoteException::class);
+
+        app(CreateParcelOrderAction::class)->execute([
             'franchise_id' => $franchise->id, 'zone_id' => $zone->id, 'customer_id' => $customer->id,
             'pickup_address_id' => $pickup->id, 'dropoff_address_id' => $dropoff->id, 'package_weight_kg' => 5,
         ]);
-
-        $this->assertSame(0.0, (float) $order->price_quoted, 'No pricing tier is a real business decision -- must never be invented as a nonzero default.');
     }
 
     public function test_pricing_uses_configured_base_fare_and_per_kg_rate(): void

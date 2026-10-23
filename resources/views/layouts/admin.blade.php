@@ -206,6 +206,8 @@
                 'label' => 'Other Verticals', 'collapsible' => true, 'icon' => 'building', 'preLaunch' => true,
                 'items' => [
                     ['label' => 'Parcel Orders', 'route' => 'admin.parcel-orders.index', 'icon' => 'clipboard', 'permission' => 'parcel_orders.view'],
+                    // super_admin only (permission never seeded to a role) — see the Earnings Control entry.
+                    ['label' => 'Parcel Settings', 'route' => 'admin.parcel-orders.settings', 'icon' => 'gear', 'permission' => 'parcel_settings.manage'],
                     ['label' => 'Taxi Rides', 'route' => 'admin.taxi-rides.index', 'icon' => 'clipboard', 'permission' => 'taxi_rides.view'],
                     ['label' => 'Properties', 'route' => 'admin.properties.index', 'icon' => 'building', 'permission' => 'properties.manage'],
                     ['label' => 'Property Reservations', 'route' => 'admin.property-reservations.index', 'icon' => 'clipboard', 'permission' => 'property_reservations.view'],

@@ -1,5 +1,15 @@
 # Phase 22.4 — Parcel: Implementation Record
 
+> **2026-10-23 — Parcel delivery completed.** Everything listed below as "deliberately NOT built" for payment,
+> pricing and riders is now built: distance + weight + size pricing (`ParcelPricing`, `ParcelSettings`, Admin →
+> Parcel Settings), Razorpay payment held until capture (`ParcelPaymentService`), cash at pickup with rider cash dues
+> (`FieldWorkerCashDueService`, no double pay), customer web (`/parcel`, `/parcels`), rider web area (`/rider`),
+> admin manual assignment and "Add parcel rider", recipient name/phone + SMS of the delivery code, and the
+> `worker_en_route_pickup` step. `modules.is_implemented` is now `true` for parcel (migration
+> `2026_10_23_200000_complete_parcel_delivery`); it stays inactive until activated on the Modules screen. Still not
+> built: chat, reviews, loyalty/referral (parcel offers no benefit — thumb rule), live rider map. Release note:
+> `docs/deploys/2026-10-23-parcel-delivery.md`.
+
 **Status: CORE LIFECYCLE IMPLEMENTED AND TESTED. Ships fully disabled** (`modules.is_implemented` for `parcel` remains `false` — deliberately not flipped by this phase, per Phase 22.1's own hard gate and this document's own "last step, not an early one" instruction). This document originally shipped as a design-only deliverable; this revision replaces it with what was actually built, including the real deviations from the original design found while building it — the second real `Orderable` implementer this mission always intended Parcel to be.
 
 ---

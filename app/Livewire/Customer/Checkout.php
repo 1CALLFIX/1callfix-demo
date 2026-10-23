@@ -79,7 +79,7 @@ class Checkout extends Component
         $this->couponCode = (string) session('coupon.cart_code', '');
         $this->couponApplied = $this->couponCode !== '';
 
-        $this->addressId = Address::where('user_id', auth()->id())
+        $this->addressId = Address::where('user_id', auth()->id())->listed()
             ->whereNotNull('zone_id')
             ->orderByDesc('is_default')
             ->latest()
@@ -351,7 +351,7 @@ class Checkout extends Component
             'lines' => $lines,
             'reviewTotal' => $lines->sum('line'),
             'cashNote' => $lines->contains('offer', true) ? $presenter->cashNote((float) $lines->sum('cash_line')) : null,
-            'addresses' => Address::where('user_id', auth()->id())->orderByDesc('is_default')->latest()->get(),
+            'addresses' => Address::where('user_id', auth()->id())->listed()->orderByDesc('is_default')->latest()->get(),
             'enabledMethods' => $this->enabledPaymentMethods(),
             'walletBalance' => $this->walletBalance(),
             'currencySymbol' => Setting::get('locale.currency_symbol', '₹'),

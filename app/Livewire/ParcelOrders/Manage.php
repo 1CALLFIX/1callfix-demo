@@ -2,9 +2,11 @@
 
 namespace App\Livewire\ParcelOrders;
 
+use App\Actions\AdminAssignParcelRiderAction;
 use App\Actions\AdminCancelParcelOrderAction;
 use App\Actions\CreateParcelOrderAction;
 use App\Models\Address;
+use App\Models\FieldWorker;
 use App\Models\ParcelOrder;
 use App\Models\User;
 use App\Models\Zone;
@@ -47,6 +49,9 @@ class Manage extends Component
     public ?float $packageWeightKg = null;
     public string $packageSize = 'small';
     public string $paymentMethod = 'online';
+
+    // --- Manual rider assignment (detail view) ---
+    public ?int $assignWorkerId = null;
 
     public function mount(): void
     {
@@ -188,6 +193,39 @@ class Manage extends Component
         }
     }
 
+    /**
+     * Assign a rider by hand (parcel_orders.reassign, checked at the order's own scope). The action re-checks
+     * that the order still needs a rider, is paid if online, and the rider is free, active and in its franchise.
+     */
+    public function assignRider(AdminAssignParcelRiderAction $action): void
+    {
+        $order = $this->scopedOrdersQuery()->find($this->selectedOrderId);
+        abort_if(! $order, 404);
+        abort_unless(auth()->user()->hasPermission('parcel_orders.reassign', $this->orderScope($order)), 403);
+
+        if (! $this->assignWorkerId) {
+            $this->addError('assign', 'Choose a rider.');
+
+            return;
+        }
+
+        try {
+            $action->execute($order->id, $this->assignWorkerId);
+            $this->assignWorkerId = null;
+            session()->flash('message', 'Rider assigned.');
+        } catch (\RuntimeException $e) {
+            $this->addError('assign', $e->getMessage());
+        }
+    }
+
+    private function orderScope(ParcelOrder $order): array
+    {
+        return [
+            'zone_id' => $order->zone_id, 'franchise_id' => $order->franchise_id,
+            'city_id' => $order->franchise?->city_id, 'country_id' => $order->franchise?->country_id,
+        ];
+    }
+
     public function getSelectedOrderProperty(): ?ParcelOrder
     {
         if (! $this->selectedOrderId) {
@@ -199,8 +237,24 @@ class Manage extends Component
 
     public function render()
     {
-        if ($this->selectedOrder) {
-            return view('livewire.parcel-orders.manage', ['order' => $this->selectedOrder])->layout('layouts.admin', ['title' => 'Parcel Orders']);
+        if ($order = $this->selectedOrder) {
+            $canAssign = in_array($order->status, ['pending', 'searching_worker'], true)
+                && $order->assigned_worker_id === null
+                && ! $order->isAwaitingOnlinePayment()
+                && auth()->user()->hasPermission('parcel_orders.reassign', $this->orderScope($order));
+
+            $riders = $canAssign
+                ? FieldWorker::with('user')
+                    ->where('franchise_id', $order->franchise_id)
+                    ->where('is_active', true)
+                    ->whereHas('capabilities', fn ($q) => $q->where('capability_type', 'parcel_rider'))
+                    ->whereNotIn('id', ParcelOrder::whereIn('status', ParcelOrder::ACTIVE_RIDER_STATUSES)->whereNotNull('assigned_worker_id')->pluck('assigned_worker_id'))
+                    ->orderByDesc('is_online')
+                    ->get()
+                : collect();
+
+            return view('livewire.parcel-orders.manage', ['order' => $order, 'canAssign' => $canAssign, 'riders' => $riders])
+                ->layout('layouts.admin', ['title' => 'Parcel Orders']);
         }
 
         $zones = Zone::where('is_active', true)->orderBy('name')->get(['id', 'name', 'franchise_id']);

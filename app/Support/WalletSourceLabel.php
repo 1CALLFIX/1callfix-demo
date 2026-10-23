@@ -76,13 +76,14 @@ final class WalletSourceLabel
         ],
         'franchise_earning' => [
             'label' => 'Franchise revenue share',
-            'regex' => '/^([a-z_]+:\d+:franchise-earning|cash-commission:\d+:franchise-earning:[\w-]+)$/',
-            'like' => ['%:franchise-earning', 'cash-commission:%:franchise-earning:%'],
+            'regex' => '/^([a-z_]+:\d+:franchise-earning|(cash-commission|rider-cash-due):\d+:franchise-earning:[\w-]+)$/',
+            'like' => ['%:franchise-earning', 'cash-commission:%:franchise-earning:%', 'rider-cash-due:%:franchise-earning:%'],
         ],
         'cash_commission' => [
             'label' => 'Cash-job commission settled',
-            'regex' => '/^cash-commission:\d+:settle:[\w-]+$/',
-            'like' => ['cash-commission:%:settle:%'],
+            // Parcel (2026-10-23): a rider's cash dues settled from their wallet (FieldWorkerCashDueService).
+            'regex' => '/^(cash-commission|rider-cash-due):\d+:settle:[\w-]+$/',
+            'like' => ['cash-commission:%:settle:%', 'rider-cash-due:%:settle:%'],
         ],
         'payout_reversal' => [
             'label' => 'Payout returned',
@@ -176,6 +177,10 @@ final class WalletSourceLabel
             'booking:1:interim-payout', 'booking:1:interim-franchise',
         ],
         'app/Services/CompensationService.php' => ['compensation:1:overtime:00000000-0000-0000-0000-000000000000'],
+        'app/Services/Parcel/FieldWorkerCashDueService.php' => [
+            'rider-cash-due:1:settle:00000000-0000-0000-0000-000000000000',
+            'rider-cash-due:1:franchise-earning:00000000-0000-0000-0000-000000000000',
+        ],
         'app/Services/LoyaltyService.php' => ['loyalty-redeem:00000000-0000-0000-0000-000000000000'],
         'app/Services/PayoutService.php' => [
             'payout:00000000-0000-0000-0000-000000000000',

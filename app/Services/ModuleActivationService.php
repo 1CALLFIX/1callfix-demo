@@ -70,6 +70,23 @@ class ModuleActivationService
      *
      * @return array{level: string, scope_id: int, is_active: bool}|null
      */
+    /**
+     * True when the module is implemented and switched on in at least one location — used to decide whether
+     * a module's own pages and links exist at all (parcel: the Send a Parcel page, home tile, rider area).
+     * Whether a SPECIFIC location may order is still isActive() with that location's scope.
+     */
+    public function isActiveAnywhere(string $moduleCode): bool
+    {
+        $module = Module::where('code', $moduleCode)->first();
+
+        if (! $module || ! $module->is_implemented) {
+            return false;
+        }
+
+        return $moduleCode === ModuleList::SERVICE
+            || ModuleActivation::where('module_id', $module->id)->where('is_active', true)->exists();
+    }
+
     public function resolvedFrom(string $moduleCode, array $scope = []): ?array
     {
         $module = Module::where('code', $moduleCode)->first();

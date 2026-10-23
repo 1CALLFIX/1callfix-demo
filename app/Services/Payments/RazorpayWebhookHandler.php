@@ -169,6 +169,15 @@ class RazorpayWebhookHandler
             return ['outcome' => 'captured', 'payment' => $payment];
         }
 
+        // Parcel delivery (2026-10-23): an online parcel order is held undispatched until this capture.
+        // markPaid() marks it paid and starts the rider search — or refunds it if the order was cancelled
+        // (customer cancel / unpaid expiry) before the money arrived.
+        if ($payment->purpose === 'parcel_order') {
+            app(\App\Services\Parcel\ParcelPaymentService::class)->markPaid($payment);
+
+            return ['outcome' => 'captured', 'payment' => $payment];
+        }
+
         // Phase E3 — multi-service bundle. ONE payment paid the aggregate, so
         // ONE capture marks the bundle paid and propagates that to every child
         // booking, then gives each child the same customer-facing
@@ -306,6 +315,12 @@ class RazorpayWebhookHandler
             app(SubscriptionService::class)->failPayment($payment);
 
             return ['outcome' => 'failed', 'payment' => $payment]; // subscription stays unactivated/unusable — no booking involved
+        }
+
+        // A failed parcel attempt changes nothing: the order stays pending and the customer can pay again
+        // (a new gateway order is opened each time) or cancel; unpaid orders expire on their own.
+        if ($payment->purpose === 'parcel_order') {
+            return ['outcome' => 'failed', 'payment' => $payment];
         }
 
         // Phase E3 — a failed bundle payment leaves the bundle AND every child

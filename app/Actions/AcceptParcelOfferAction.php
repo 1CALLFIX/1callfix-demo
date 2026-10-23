@@ -8,6 +8,7 @@ use App\Models\FieldWorker;
 use App\Models\ParcelOrder;
 use App\Models\Setting;
 use App\Notifications\ParcelOrderStatusNotification;
+use App\Notifications\ParcelRecipientNotification;
 use App\Notifications\Support\ChannelResolver;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -82,6 +83,14 @@ class AcceptParcelOfferAction
             } catch (\Throwable $e) {
                 Log::error("Failed to deliver parcel order assigned status notification for parcel order [{$order->id}]: ".$e->getMessage());
             }
+        }
+
+        // The recipient is usually not a 1CallFix user: they get the delivery OTP by SMS (when SMS is one of
+        // this location's channels) so they can hand it to the rider. The sender also sees it on their order.
+        try {
+            ParcelRecipientNotification::sendFor($order);
+        } catch (\Throwable $e) {
+            Log::error("Failed to send parcel recipient SMS for parcel order [{$order->id}]: ".$e->getMessage());
         }
 
         return $order;

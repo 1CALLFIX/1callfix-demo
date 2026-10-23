@@ -206,6 +206,12 @@ class Addresses extends Component
             return;
         }
 
+        if ($address->usedByParcelOrder()) {
+            $this->error = 'This address is used by a parcel order and can\'t be deleted.';
+
+            return;
+        }
+
         if ($address->registersLiveMembership()) {
             $this->error = "A membership is registered to this address, so it can't be deleted.";
 
@@ -237,7 +243,7 @@ class Addresses extends Component
     public function render()
     {
         return view('livewire.customer.account.addresses', [
-            'addresses' => Address::where('user_id', auth()->id())->orderByDesc('is_default')->latest()->get(),
+            'addresses' => Address::where('user_id', auth()->id())->listed()->orderByDesc('is_default')->latest()->get(),
         ])->layout('components.layouts.customer', ['title' => 'Saved addresses']);
     }
 }

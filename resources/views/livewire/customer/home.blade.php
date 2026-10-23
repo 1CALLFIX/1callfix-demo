@@ -130,6 +130,26 @@
         @include('livewire.customer.partials.home-hero-banner')
     @endif
 
+    {{-- ========================= Send a parcel ========================= --}}
+    {{-- Only where parcel is switched on (Admin → Modules) for the zone being browsed. --}}
+    @if ($parcelActive)
+        <section aria-labelledby="parcel-heading" class="mx-auto max-w-7xl px-4 pt-10 sm:px-6 lg:px-8">
+            <a href="{{ route('customer.parcels.create') }}" wire:navigate
+               class="flex items-center justify-between gap-4 rounded-2xl border border-blue-200 bg-gradient-to-r from-blue-50 to-white p-5 transition hover:border-blue-300 hover:shadow-sm">
+                <div class="flex items-center gap-4">
+                    <span class="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-blue-600 text-white" aria-hidden="true">
+                        <x-icon name="shopping-bag" class="h-6 w-6" />
+                    </span>
+                    <div>
+                        <h2 id="parcel-heading" class="text-lg font-bold tracking-tight text-slate-900">Send a parcel</h2>
+                        <p class="text-sm text-slate-600">Keys, documents, lunch boxes — picked up and delivered across town.</p>
+                    </div>
+                </div>
+                <x-icon name="arrow-right" class="h-5 w-5 shrink-0 text-blue-700" />
+            </a>
+        </section>
+    @endif
+
     {{-- ========================= New & noteworthy ========================= --}}
     @if ($newServices->isNotEmpty())
         <section aria-labelledby="new-heading" class="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">

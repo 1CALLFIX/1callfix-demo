@@ -31,6 +31,18 @@ class ParcelOrderResource extends JsonResource
             'payment_status' => $this->payment_status,
             'payment_method' => $this->payment_method,
             'customer_note' => $this->customer_note,
+            'pickup_contact_name' => $this->pickup_contact_name,
+            'pickup_contact_phone' => $this->pickup_contact_phone,
+            'recipient_name' => $this->recipient_name,
+            'recipient_phone' => $this->recipient_phone,
+            'distance_km' => $this->distance_km !== null ? (float) $this->distance_km : null,
+            'price_breakdown' => $this->price_breakdown,
+            'awaiting_payment' => $this->resource->isAwaitingOnlinePayment(),
+            'can_cancel' => $this->resource->canBeCancelledByCustomer(),
+            // Only ever served to the order's own customer (every endpoint checks ownership). The sender gives
+            // the pickup OTP to the rider and passes the delivery OTP to the recipient.
+            'pickup_otp' => in_array($this->status, ['assigned', 'worker_en_route_pickup'], true) ? $this->pickup_otp : null,
+            'delivery_otp' => in_array($this->status, \App\Models\ParcelOrder::ACTIVE_RIDER_STATUSES, true) ? $this->delivery_otp : null,
             'cancellation_note' => $this->cancellation_note,
             'cancellation_fee' => $this->cancellation_fee !== null ? (float) $this->cancellation_fee : null,
             'created_at' => $this->created_at,

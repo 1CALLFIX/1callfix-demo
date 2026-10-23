@@ -2,9 +2,10 @@
 
 namespace App\Http\Controllers\API;
 
-use App\Actions\AdminCancelParcelOrderAction;
 use App\Actions\CreateParcelOrderAction;
+use App\Actions\CustomerCancelParcelOrderAction;
 use App\Exceptions\ModuleNotActiveException;
+use App\Exceptions\ParcelQuoteException;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Customer\CancelParcelOrderRequest;
 use App\Http\Requests\Customer\ParcelQuoteRequest;
@@ -14,47 +15,34 @@ use App\Models\Address;
 use App\Models\ParcelOrder;
 use App\Models\Setting;
 use App\Services\ModuleActivationService;
+use App\Services\Parcel\ParcelPaymentService;
 use App\Support\Api\ApiResponse;
 use App\Support\Modules;
 use Illuminate\Http\Request;
 
 /**
  * P1 Customer Parcel API. Built entirely on `CreateParcelOrderAction`/
- * `AdminCancelParcelOrderAction`/`CancellationService` as they already
- * exist — no parcel business logic duplicated here.
+ * `CustomerCancelParcelOrderAction`/`ParcelPaymentService` — no parcel
+ * business logic duplicated here. The customer web page
+ * (Customer\Parcel\Create) runs the same Actions.
  *
- * Real, audited fact confirmed before writing this controller:
- * `modules.is_implemented` for `parcel` is `false` in every real migration
- * (`create_parcel_orders_table`'s own docblock: "Ships fully inert...
- * deliberately"). Building this API does NOT make Parcel usable in
- * production — `ModuleActivationService::isActive()` still hard-refuses
- * every request until a human flips that flag as a real, separate
- * deployment decision (Phase 22.1's own documented gate, unchanged here).
- * This mirrors exactly how Rental/Hotel/Marketplace were each built fully
- * then shipped disabled.
+ * Parcel is implemented but off in every location until an admin activates
+ * it on the Modules screen; `ModuleActivationService::isActive()` refuses
+ * quote and create everywhere else.
  *
  * Both `pickup_address_id` AND `dropoff_address_id` must belong to the
- * authenticated customer (checked identically, 404-not-403 on mismatch) —
- * a deliberate scoping decision, not an oversight: `CreateParcelOrderAction`
- * itself enforces no ownership on either address (the admin/call-center
- * caller may act for any customer), so real-world "deliver to someone
- * else's saved address" would require a genuinely new concept (a
- * non-owned recipient address, or free-text recipient details) this
- * session does not invent — logged in `KNOWN_RISKS_AND_DECISIONS.md`.
+ * authenticated customer (checked identically, 404-not-403 on mismatch) so a
+ * client can never probe other users' address ids. Sending to someone else
+ * (owner decision 2026-10-23: deliver to anyone) works by the client saving
+ * the drop point as one of the customer's own addresses (POST /addresses)
+ * and passing `recipient_name`/`recipient_phone` — the web page does exactly
+ * that.
  */
 class ParcelOrderController extends Controller
 {
     /**
-     * POST /api/parcel-orders/quote — a pure preview: computes the exact
-     * same price `POST /parcel-orders` would charge (both call
-     * `CreateParcelOrderAction::quote()`), but creates nothing. No quote
-     * token/expiry exists (`CreateParcelOrderAction::quote()` has none to
-     * preserve) — a client may call this as many times as it likes and
-     * `POST /parcel-orders` always recomputes fresh, server-side, matching
-     * the mission's own "do not invent a policy that doesn't exist" rule.
-     * `module_active` is included so a Flutter client can grey out
-     * "Confirm" without a wasted failed create call — one round trip
-     * carries everything the next screen needs.
+     * POST /api/parcel-orders/quote — a pure preview: the exact price and breakdown `POST /parcel-orders`
+     * would charge (both run CreateParcelOrderAction::quote()), creates nothing.
      */
     public function quote(ParcelQuoteRequest $request, CreateParcelOrderAction $action)
     {
@@ -74,27 +62,33 @@ class ParcelOrderController extends Controller
         }
 
         $scope = $this->deriveScope($pickup);
-        $price = $action->quote(['package_weight_kg' => $validated['package_weight_kg'] ?? null], $scope);
+        $moduleActive = app(ModuleActivationService::class)->isActive(Modules::PARCEL, $scope);
+
+        try {
+            $quote = $action->quote([
+                'pickup_address_id' => $pickup->id,
+                'dropoff_address_id' => $dropoff->id,
+                'package_weight_kg' => $validated['package_weight_kg'] ?? null,
+                'package_size' => $validated['package_size'] ?? 'small',
+            ], $scope);
+        } catch (ParcelQuoteException $e) {
+            return ApiResponse::error($e->getMessage(), 422);
+        }
 
         return ApiResponse::success([
-            'price_quoted' => $price,
+            'price_quoted' => $quote['total'],
+            'distance_km' => $quote['distance_km'],
+            'price_breakdown' => $quote['lines'],
             'currency_code' => $pickup->franchise?->country?->currency_code,
             'package_size' => $validated['package_size'] ?? 'small',
             'package_size_options' => ['small', 'medium', 'large'],
-            'module_active' => app(ModuleActivationService::class)->isActive(Modules::PARCEL, $scope),
+            'payment_methods' => $this->parcelPaymentMethods($pickup),
+            'module_active' => $moduleActive,
             'pickup_address' => ['id' => $pickup->id, 'label' => $pickup->label, 'address_line' => $pickup->address_line],
             'dropoff_address' => ['id' => $dropoff->id, 'label' => $dropoff->label, 'address_line' => $dropoff->address_line],
         ]);
     }
 
-    /**
-     * POST /api/parcel-orders — a client that already knows what it wants
-     * (a "Book Again" repeat, or a client that skipped the quote preview)
-     * can call this directly with just the two address ids and package
-     * details; `CreateParcelOrderAction::execute()` computes price
-     * server-side internally exactly like `quote()` above, so this is
-     * never a second pricing path.
-     */
     public function store(StoreParcelOrderRequest $request, CreateParcelOrderAction $action)
     {
         $validated = $request->validated();
@@ -113,8 +107,7 @@ class ParcelOrderController extends Controller
         }
 
         $paymentMethod = $validated['payment_method'] ?? 'online';
-        $enabledMethods = Setting::enabledPaymentMethods(['zone_id' => $pickup->zone_id, 'franchise_id' => $pickup->franchise_id]);
-        if (! array_key_exists($paymentMethod, $enabledMethods)) {
+        if (! array_key_exists($paymentMethod, $this->parcelPaymentMethods($pickup))) {
             return ApiResponse::error("Payment method '{$paymentMethod}' is not currently available.", 422);
         }
 
@@ -125,13 +118,18 @@ class ParcelOrderController extends Controller
                 'customer_id' => $customer->id,
                 'pickup_address_id' => $pickup->id,
                 'dropoff_address_id' => $dropoff->id,
+                'pickup_contact_name' => $validated['pickup_contact_name'] ?? null,
+                'pickup_contact_phone' => $validated['pickup_contact_phone'] ?? null,
+                'recipient_name' => $validated['recipient_name'] ?? null,
+                'recipient_phone' => $validated['recipient_phone'] ?? null,
                 'package_description' => $validated['package_description'] ?? null,
                 'package_weight_kg' => $validated['package_weight_kg'] ?? null,
                 'package_size' => $validated['package_size'] ?? 'small',
                 'payment_method' => $paymentMethod,
                 'customer_note' => $validated['customer_note'] ?? null,
+                'coupon_code' => $request->input('coupon_code'),
             ]);
-        } catch (ModuleNotActiveException $e) {
+        } catch (ModuleNotActiveException|ParcelQuoteException $e) {
             return ApiResponse::error($e->getMessage(), 422);
         } catch (\RuntimeException $e) {
             return ApiResponse::error($e->getMessage(), 409);
@@ -139,12 +137,30 @@ class ParcelOrderController extends Controller
 
         return ApiResponse::success(
             new ParcelOrderResource($order->load(['pickupAddress', 'dropoffAddress'])),
-            'Parcel order created.',
+            $order->isAwaitingOnlinePayment() ? 'Parcel order created. Complete the payment to send it to a rider.' : 'Parcel order created.',
             201
         );
     }
 
-    /** GET /api/parcel-orders/mine */
+    /**
+     * POST /api/parcel-orders/{id}/pay — opens a Razorpay order for an online parcel that is still unpaid.
+     * The client opens Razorpay checkout with this payload; the capture webhook marks it paid and starts
+     * the rider search.
+     */
+    public function pay(Request $request, int $parcelOrderId, ParcelPaymentService $payments)
+    {
+        $order = ParcelOrder::find($parcelOrderId);
+        if (! $order || $order->customer_id !== $request->user()->id) {
+            return ApiResponse::error('Parcel order not found.', 404);
+        }
+
+        try {
+            return ApiResponse::success($payments->startOnlinePayment($order));
+        } catch (\RuntimeException $e) {
+            return ApiResponse::error($e->getMessage(), 409);
+        }
+    }
+
     public function mine(Request $request)
     {
         $orders = ParcelOrder::where('customer_id', $request->user()->id)
@@ -155,7 +171,6 @@ class ParcelOrderController extends Controller
         return ApiResponse::paginated(ParcelOrderResource::collection($orders));
     }
 
-    /** GET /api/parcel-orders/{id} */
     public function show(Request $request, int $parcelOrderId)
     {
         $order = ParcelOrder::with(['pickupAddress', 'dropoffAddress', 'assignedWorker.user', 'statusHistory'])
@@ -168,8 +183,7 @@ class ParcelOrderController extends Controller
         return ApiResponse::success(new ParcelOrderResource($order));
     }
 
-    /** POST /api/parcel-orders/{id}/cancel — delegates entirely to AdminCancelParcelOrderAction, same reuse convention BookingController::cancel() established. */
-    public function cancel(CancelParcelOrderRequest $request, int $parcelOrderId, AdminCancelParcelOrderAction $action)
+    public function cancel(CancelParcelOrderRequest $request, int $parcelOrderId, CustomerCancelParcelOrderAction $action)
     {
         $order = ParcelOrder::find($parcelOrderId);
         if (! $order || $order->customer_id !== $request->user()->id) {
@@ -177,12 +191,21 @@ class ParcelOrderController extends Controller
         }
 
         try {
-            $order = $action->execute($parcelOrderId, $request->validated('reason'));
+            $order = $action->execute($order, $request->user(), $request->validated('reason'));
         } catch (\RuntimeException $e) {
             return ApiResponse::error($e->getMessage(), 409);
         }
 
         return ApiResponse::success(new ParcelOrderResource($order->load(['pickupAddress', 'dropoffAddress'])), 'Parcel order cancelled.');
+    }
+
+    /** Payment methods a parcel can use at this pickup: the location's enabled methods, limited to online / wallet / cash. */
+    private function parcelPaymentMethods(Address $pickup): array
+    {
+        return array_intersect_key(
+            Setting::enabledPaymentMethods(['zone_id' => $pickup->zone_id, 'franchise_id' => $pickup->franchise_id]),
+            array_flip(CreateParcelOrderAction::PAYMENT_METHODS)
+        );
     }
 
     private function ownedAddress(int $addressId, int $customerId): ?Address

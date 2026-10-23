@@ -5,6 +5,7 @@ namespace App\Actions;
 use App\Events\ParcelOrderStatusUpdated;
 use App\Models\FieldWorker;
 use App\Models\ParcelOrder;
+use App\Models\Payment;
 use App\Notifications\ParcelOrderStatusNotification;
 use App\Notifications\Support\ChannelResolver;
 use Illuminate\Support\Facades\DB;
@@ -39,8 +40,29 @@ class MarkParcelPickedUpAction
                 throw new \RuntimeException('Incorrect pickup OTP.');
             }
 
+            // Defence in depth: an online order is only dispatched once paid, so this never trips in normal flow.
+            if ($order->payment_method !== 'cash' && $order->payment_status !== 'paid') {
+                throw new \RuntimeException('This parcel has not been paid yet. Do not pick it up.');
+            }
+
             $order->status = 'picked_up';
             $order->picked_up_at = now();
+
+            // Cash is collected from the sender at pickup (the rider's screen says so before they enter the
+            // OTP). Recorded as a captured 'cash' payment so the order reconciles like any other paid order.
+            if ($order->payment_method === 'cash' && $order->payment_status !== 'paid') {
+                Payment::create([
+                    'parcel_order_id' => $order->id,
+                    'purpose' => 'parcel_order',
+                    'amount' => $order->price_quoted,
+                    'gateway' => 'cash',
+                    'status' => 'captured',
+                    'captured_at' => now(),
+                ]);
+                $order->payment_status = 'paid';
+                $order->cash_collected_at = now();
+            }
+
             $order->save();
 
             $order->statusHistory()->create([

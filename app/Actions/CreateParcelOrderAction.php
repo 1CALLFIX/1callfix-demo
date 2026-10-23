@@ -3,7 +3,9 @@
 namespace App\Actions;
 
 use App\Exceptions\ModuleNotActiveException;
+use App\Exceptions\ParcelQuoteException;
 use App\Jobs\ParcelDispatchJob;
+use App\Models\Address;
 use App\Models\Franchise;
 use App\Models\ParcelOrder;
 use App\Models\Payment;
@@ -11,28 +13,42 @@ use App\Models\Setting;
 use App\Notifications\ParcelOrderStatusNotification;
 use App\Notifications\Support\ChannelResolver;
 use App\Services\ModuleActivationService;
+use App\Services\Parcel\ParcelPricing;
 use App\Services\WalletService;
 use App\Support\Modules;
 use Illuminate\Support\Facades\DB;
 
 /**
  * Phase 22.4 (Parcel) — the Parcel counterpart to CreateBookingAction. The
- * single real entry point for every parcel order, mirroring that class's
- * own structure (module-activation guard, DB transaction, wallet-payment
- * branch, dispatch dispatch, notification) closely enough that a reader
- * already familiar with CreateBookingAction can follow this immediately.
+ * single real entry point for every parcel order (customer web, customer
+ * API, admin call-centre screen), mirroring that class's own structure
+ * (module-activation guard, DB transaction, wallet-payment branch,
+ * dispatch, notification).
  *
- * Module-activation gate is the FIRST thing checked (Phase 22.1) — since
- * `modules.is_implemented` for `parcel` is deliberately left `false` (not
- * flipped by this phase — see PHASE_22_4_PARCEL_DESIGN.md's own "last
- * step, not an early one" instruction), this action refuses to create any
- * real order until a human explicitly ships the module, no matter how
- * complete the rest of this implementation is.
+ * Module-activation gate is the FIRST thing checked (Phase 22.1): parcel is
+ * implemented, but stays off in every location until an admin activates it
+ * on the Modules screen.
+ *
+ * Parcel completion (2026-10-23):
+ *  - Price comes from ParcelPricing (distance + weight + size, all admin
+ *    settings) using the two addresses' map pins — never client input.
+ *  - Payment: 'wallet' is debited here and the order dispatches at once;
+ *    'cash' dispatches at once and the rider collects at pickup; 'online'
+ *    is HELD (status pending, no riders offered) until the Razorpay capture
+ *    webhook calls ParcelPaymentService::markPaid(), which dispatches it.
+ *  - THUMB RULE (online payment only for all benefits): parcel offers no
+ *    coupon, discount or credit of any kind, so a cash parcel can never
+ *    carry a benefit. A coupon code is refused outright rather than
+ *    silently ignored.
  */
 class CreateParcelOrderAction
 {
-    public function __construct(private ModuleActivationService $moduleActivation)
-    {
+    public const PAYMENT_METHODS = ['online', 'wallet', 'cash'];
+
+    public function __construct(
+        private ModuleActivationService $moduleActivation,
+        private ParcelPricing $pricing,
+    ) {
     }
 
     public function execute(array $data): ParcelOrder
@@ -48,21 +64,38 @@ class CreateParcelOrderAction
             throw new ModuleNotActiveException(Modules::PARCEL);
         }
 
-        $paymentMethod = $data['payment_method'] ?? 'online';
-        $price = $this->quote($data, $scope);
+        if (! empty($data['coupon_code'])) {
+            throw new \RuntimeException('Coupons and offers are not available on parcel delivery.');
+        }
 
-        $order = DB::transaction(function () use ($data, $paymentMethod, $price) {
+        $paymentMethod = $data['payment_method'] ?? 'online';
+        if (! in_array($paymentMethod, self::PAYMENT_METHODS, true)) {
+            throw new \RuntimeException("Payment method '{$paymentMethod}' is not available for parcel delivery.");
+        }
+
+        $quote = $this->quote($data, $scope);
+
+        $order = DB::transaction(function () use ($data, $paymentMethod, $quote) {
             $order = ParcelOrder::create([
                 'franchise_id' => $data['franchise_id'],
                 'zone_id' => $data['zone_id'] ?? null,
                 'customer_id' => $data['customer_id'],
                 'pickup_address_id' => $data['pickup_address_id'],
                 'dropoff_address_id' => $data['dropoff_address_id'],
+                'pickup_contact_name' => $data['pickup_contact_name'] ?? null,
+                'pickup_contact_phone' => $data['pickup_contact_phone'] ?? null,
+                'recipient_name' => $data['recipient_name'] ?? null,
+                'recipient_phone' => $data['recipient_phone'] ?? null,
                 'package_description' => $data['package_description'] ?? null,
                 'package_weight_kg' => $data['package_weight_kg'] ?? null,
                 'package_size' => $data['package_size'] ?? 'small',
+                'distance_km' => $quote['distance_km'],
                 'status' => 'pending',
-                'price_quoted' => $price,
+                'price_quoted' => $quote['total'],
+                'price_breakdown' => $quote['lines'],
+                // Explicit, not left to the column default: callers read isAwaitingOnlinePayment() on the
+                // returned model straight away (the web page opens Razorpay from it).
+                'payment_status' => 'pending',
                 'payment_method' => $paymentMethod,
                 'customer_note' => $data['customer_note'] ?? null,
             ]);
@@ -74,44 +107,49 @@ class CreateParcelOrderAction
             return $order;
         });
 
+        // An online order is dispatched by ParcelPaymentService::markPaid() once the payment is captured.
+        if ($paymentMethod !== 'online') {
+            self::dispatchAndNotify($order);
+        }
+
+        return $order;
+    }
+
+    /** Start the rider search and tell the customer. Called at creation (wallet/cash) or on capture (online). */
+    public static function dispatchAndNotify(ParcelOrder $order): void
+    {
         ParcelDispatchJob::dispatch($order->id);
 
         if ($order->customer) {
             $channels = ChannelResolver::resolve(['zone_id' => $order->zone_id, 'franchise_id' => $order->franchise_id]);
             $order->customer->notify(new ParcelOrderStatusNotification('created', $order, $channels));
         }
-
-        return $order;
     }
 
     /**
-     * Configurable pricing infrastructure, deliberately NOT a real
-     * commercial pricing model — package-pricing tiers are an explicitly
-     * named open business decision (PHASE_22_4_PARCEL_DESIGN.md). Every
-     * rate below defaults to 0, the same "no invented values" discipline
-     * this codebase's own compensation/tip rates already established —
-     * a real parcel order costs exactly `parcel.base_fare` (flat) until an
-     * admin actually configures per-kg pricing, never a guessed number.
+     * The price for this order, from ParcelPricing and the two saved addresses' pins.
+     * `price_quoted` lets an already-trusted internal caller fix the price (none of the customer paths ever
+     * populate it from client input).
      *
-     * Public (P1 Customer Parcel API) so `ParcelOrderController`'s own
-     * `POST /parcel-orders/quote` preview endpoint can compute the exact
-     * same number a real `execute()` call would charge, without a second
-     * pricing implementation — `isset($data['price_quoted'])` still lets
-     * an already-trusted internal caller (none exist today) override it,
-     * but ParcelOrderController never populates that key from client
-     * input, so a customer can never reach this branch.
+     * @return array{total: float, distance_km: ?float, lines: array}
+     *
+     * @throws ParcelQuoteException
      */
-    public function quote(array $data, array $scope): float
+    public function quote(array $data, array $scope): array
     {
         if (isset($data['price_quoted'])) {
-            return (float) $data['price_quoted'];
+            return ['total' => round((float) $data['price_quoted'], 2), 'distance_km' => null, 'lines' => [['label' => 'Fixed price', 'amount' => round((float) $data['price_quoted'], 2)]]];
         }
 
-        $baseFare = (float) Setting::get('parcel.base_fare', '0', $scope);
-        $perKgRate = (float) Setting::get('parcel.per_kg_rate', '0', $scope);
-        $weight = (float) ($data['package_weight_kg'] ?? 0);
+        $pickup = Address::findOrFail($data['pickup_address_id']);
+        $dropoff = Address::findOrFail($data['dropoff_address_id']);
 
-        return round($baseFare + ($perKgRate * $weight), 2);
+        return $this->pricing->quote(
+            (float) $pickup->lat, (float) $pickup->lng, (float) $dropoff->lat, (float) $dropoff->lng,
+            isset($data['package_weight_kg']) ? (float) $data['package_weight_kg'] : null,
+            $data['package_size'] ?? 'small',
+            $scope,
+        );
     }
 
     private function payWithWallet(ParcelOrder $order): void

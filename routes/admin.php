@@ -156,6 +156,7 @@ Route::middleware(['auth', \Illuminate\Session\Middleware\AuthenticateSession::c
         Route::get('/operations/backup-restore', \App\Livewire\Operations\BackupRestore::class)->name('admin.operations.backup-restore');
         Route::get('/modules', ModulesManage::class)->name('admin.modules.index');
         Route::get('/parcel-orders', ParcelOrdersManage::class)->name('admin.parcel-orders.index');
+        Route::get('/parcel-settings', \App\Livewire\ParcelOrders\Settings::class)->name('admin.parcel-orders.settings');
         Route::get('/taxi-rides', TaxiRidesManage::class)->name('admin.taxi-rides.index');
         Route::get('/properties', PropertiesManage::class)->name('admin.properties.index');
         Route::get('/property-reservations', PropertyReservationsManage::class)->name('admin.property-reservations.index');

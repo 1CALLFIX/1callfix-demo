@@ -483,10 +483,28 @@ class DispatchService
             ->whereNotNull('assigned_worker_id')
             ->pluck('assigned_worker_id');
 
+        // A cash order is never offered to a rider whose unpaid cash dues have reached the admin's limit
+        // (parcel.rider_cash_due_limit; unset = no limit).
+        $scope = array_filter([
+            'zone_id' => $order->zone_id, 'franchise_id' => $order->franchise_id,
+            'city_id' => $order->franchise?->city_id, 'country_id' => $order->franchise?->country_id,
+        ]);
+        $overCashLimitIds = collect();
+        $cashLimit = \App\Services\Parcel\ParcelSettings::get('parcel.rider_cash_due_limit', $scope);
+        if ($order->payment_method === 'cash' && $cashLimit !== null) {
+            // Compared in PHP, not HAVING: a bound number compares as text on SQLite, which would never match.
+            $overCashLimitIds = \App\Models\FieldWorkerCashDue::outstanding()
+                ->selectRaw('field_worker_id, SUM(amount_owed - amount_settled) as owed')
+                ->groupBy('field_worker_id')
+                ->get()
+                ->filter(fn ($row) => round((float) $row->owed, 2) >= (float) $cashLimit)
+                ->pluck('field_worker_id');
+        }
+
         return $this->rankedFieldWorkerCandidates(
             capabilityType: 'parcel_rider',
             zoneId: $order->zone_id,
-            excludeWorkerIds: $alreadyOfferedWorkerIds->merge($busyWorkerIds),
+            excludeWorkerIds: $alreadyOfferedWorkerIds->merge($busyWorkerIds)->merge($overCashLimitIds),
             pickupLat: (float) $order->pickupAddress->lat,
             pickupLng: (float) $order->pickupAddress->lng,
             radiusKm: $order->zone->default_dispatch_radius_km ?? 8,
@@ -495,6 +513,7 @@ class DispatchService
                 'city_id' => $order->franchise?->city_id, 'country_id' => $order->franchise?->country_id,
             ]),
             limit: $limit,
+            requireFreshLocation: true,
         );
     }
 
@@ -616,7 +635,8 @@ class DispatchService
         float $pickupLng,
         float $radiusKm,
         array $scope,
-        int $limit
+        int $limit,
+        bool $requireFreshLocation = false
     ): Collection {
         $candidates = FieldWorker::query()
             ->where('zone_id', $zoneId)
@@ -625,6 +645,13 @@ class DispatchService
             ->where('kyc_status', 'approved')
             ->whereNotNull('current_lat')
             ->whereNotNull('current_lng')
+            // Parcel (rider web area, 2026-10-23): the rider page re-sends the location every few minutes
+            // while open, so a rider who closed it stops getting offers once the fix goes stale — the same
+            // freshness rule and setting providers use. A suspended account is never offered work.
+            ->when($requireFreshLocation, fn ($q) => $q
+                ->whereNotNull('location_updated_at')
+                ->where('location_updated_at', '>', now()->subMinutes($this->locationStaleAfterMinutes()))
+                ->whereHas('user', fn ($u) => $u->where('status', '!=', 'suspended')))
             ->whereHas('capabilities', fn ($q) => $q->where('capability_type', $capabilityType))
             ->whereNotIn('id', $excludeWorkerIds)
             ->get()

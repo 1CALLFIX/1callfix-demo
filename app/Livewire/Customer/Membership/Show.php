@@ -73,7 +73,7 @@ class Show extends Component
             return collect();
         }
 
-        return Address::where('user_id', auth()->id())->orderByDesc('is_default')->latest()->get();
+        return Address::where('user_id', auth()->id())->listed()->orderByDesc('is_default')->latest()->get();
     }
 
     /** The viewer's own subscription to this plan that still matters (held, or awaiting payment). */

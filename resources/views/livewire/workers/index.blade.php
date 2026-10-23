@@ -1,5 +1,53 @@
 <div>
-    <h1 class="text-2xl font-bold mb-4">Workers</h1>
+    <div class="mb-4 flex flex-wrap items-center justify-between gap-2">
+        <h1 class="text-2xl font-bold">Workers</h1>
+        @if ($canManage)
+            <x-ui.button wire:click="$toggle('showAddRider')">{{ $showAddRider ? 'Close' : 'Add parcel rider' }}</x-ui.button>
+        @endif
+    </div>
+
+    @if ($riderMessage)
+        <div class="mb-4 bg-green-50 text-green-700 text-sm px-4 py-2 rounded">{{ $riderMessage }}</div>
+    @endif
+
+    {{-- Parcel delivery: the only way to create a rider (CreateParcelRiderAction). --}}
+    @if ($canManage && $showAddRider)
+        <x-ui.card class="mb-4">
+            <h2 class="font-semibold mb-1">Add parcel rider</h2>
+            <p class="text-xs text-gray-500 mb-3">An existing account with this mobile number is linked and keeps its own password; otherwise a new account is created with the password below. The rider signs in at <span class="font-mono">{{ route('rider.login') }}</span>.</p>
+            <form wire:submit="addRider" class="grid gap-3 sm:grid-cols-2 text-sm">
+                <label class="block"><span class="block text-xs font-medium mb-1">Name</span>
+                    <input type="text" wire:model="riderName" class="w-full border rounded px-2 py-2">
+                    @error('riderName') <span class="text-xs text-red-600">{{ $message }}</span> @enderror
+                </label>
+                <label class="block"><span class="block text-xs font-medium mb-1">Mobile number</span>
+                    <input type="tel" wire:model="riderPhone" class="w-full border rounded px-2 py-2">
+                    @error('riderPhone') <span class="text-xs text-red-600">{{ $message }}</span> @enderror
+                </label>
+                <label class="block"><span class="block text-xs font-medium mb-1">Email (optional)</span>
+                    <input type="email" wire:model="riderEmail" class="w-full border rounded px-2 py-2">
+                    @error('riderEmail') <span class="text-xs text-red-600">{{ $message }}</span> @enderror
+                </label>
+                <label class="block"><span class="block text-xs font-medium mb-1">Password (new accounts, min 8)</span>
+                    <input type="text" wire:model="riderPassword" autocomplete="new-password" class="w-full border rounded px-2 py-2">
+                    @error('riderPassword') <span class="text-xs text-red-600">{{ $message }}</span> @enderror
+                </label>
+                <label class="block"><span class="block text-xs font-medium mb-1">Zone</span>
+                    <select wire:model="riderZoneId" class="w-full border rounded px-2 py-2">
+                        <option value="">Choose a zone</option>
+                        @foreach ($riderZones as $z)<option value="{{ $z->id }}">{{ $z->name }}</option>@endforeach
+                    </select>
+                    @error('riderZoneId') <span class="text-xs text-red-600">{{ $message }}</span> @enderror
+                </label>
+                <label class="flex items-start gap-2 sm:col-span-2">
+                    <input type="checkbox" wire:model="riderVerified" class="mt-0.5">
+                    <span>I have checked this rider's ID and driving licence in person. <span class="text-gray-500">(Recorded in the activity log with your name.)</span></span>
+                </label>
+                @error('riderVerified') <span class="text-xs text-red-600 sm:col-span-2">{{ $message }}</span> @enderror
+                <div class="sm:col-span-2"><x-ui.button type="submit">Add rider</x-ui.button></div>
+            </form>
+        </x-ui.card>
+    @endif
 
     <x-ui.archive-bars :bars="$archiveBars" />
 

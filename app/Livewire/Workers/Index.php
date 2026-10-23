@@ -19,6 +19,16 @@ class Index extends Component
 
     protected $queryString = ['statusFilter'];
 
+    // --- Add parcel rider (CreateParcelRiderAction) ---
+    public bool $showAddRider = false;
+    public string $riderName = '';
+    public string $riderPhone = '';
+    public string $riderEmail = '';
+    public string $riderPassword = '';
+    public ?int $riderZoneId = null;
+    public bool $riderVerified = false;
+    public string $riderMessage = '';
+
     /** workers.view was seeded (2026_08_11_047000) but never checked -- see Commissions\Index's identical fix for the full reasoning. */
     public function mount(): void
     {
@@ -49,6 +59,37 @@ class Index extends Component
         $open = 0;
 
         return $open > 0 ? "Heads-up: {$open} booking".($open === 1 ? ' is' : 's are').' still in progress with this worker.' : null;
+    }
+
+    /** workers.review_kyc at the chosen zone's own scope — the same permission that approves worker KYC. */
+    public function addRider(\App\Actions\CreateParcelRiderAction $action): void
+    {
+        $this->riderMessage = '';
+        $this->validate([
+            'riderName' => ['required', 'string', 'max:120'],
+            'riderPhone' => ['required', 'string', 'max:20'],
+            'riderEmail' => ['nullable', 'email', 'max:190'],
+            'riderPassword' => ['nullable', 'string', 'min:8', 'max:190'],
+            'riderZoneId' => ['required', 'integer', 'exists:zones,id'],
+            'riderVerified' => ['accepted'],
+        ], ['riderVerified.accepted' => "Confirm you checked the rider's ID and driving licence in person."]);
+
+        $zone = \App\Models\Zone::with('franchise')->findOrFail($this->riderZoneId);
+        abort_unless(auth()->user()->hasPermission('workers.review_kyc', array_filter([
+            'zone_id' => $zone->id, 'franchise_id' => $zone->franchise_id,
+            'city_id' => $zone->franchise?->city_id, 'country_id' => $zone->franchise?->country_id,
+        ])), 403);
+
+        try {
+            $worker = $action->execute(auth()->user(), $zone, trim($this->riderName), $this->riderPhone, trim($this->riderEmail) ?: null, $this->riderPassword ?: null);
+        } catch (\RuntimeException $e) {
+            $this->addError('riderPhone', $e->getMessage());
+
+            return;
+        }
+
+        $this->reset(['riderName', 'riderPhone', 'riderEmail', 'riderPassword', 'riderZoneId', 'riderVerified', 'showAddRider']);
+        $this->riderMessage = "Rider {$worker->user?->name} added. They sign in at ".route('rider.login').' with their mobile number and password.';
     }
 
     public function updatingStatusFilter()
@@ -83,7 +124,12 @@ class Index extends Component
         $canForce = $this->isSuperAdminUser();
         $archiveBars = $this->archiveBars();
 
-        return view('livewire.workers.index', compact('workers', 'counts', 'canManage', 'canForce', 'archiveBars'))
+        $riderZones = $canManage
+            ? app(AuthorizationService::class)->scopeQuery(\App\Models\Zone::query()->where('is_active', true), auth()->user(), 'workers.review_kyc', ['zone_id' => 'id', 'franchise_id' => 'franchise_id', 'city_id' => 'franchise.city_id', 'country_id' => 'franchise.country_id'])
+                ->orderBy('name')->get(['id', 'name', 'franchise_id'])
+            : collect();
+
+        return view('livewire.workers.index', compact('workers', 'counts', 'canManage', 'canForce', 'archiveBars', 'riderZones'))
             ->layout('layouts.admin', ['title' => 'Workers']);
     }
 }

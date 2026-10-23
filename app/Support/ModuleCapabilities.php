@@ -65,19 +65,23 @@ class ModuleCapabilities
             'availability' => false, // no calendar/slot inventory system exists -- scheduled_at is a single free-text-ish timestamp, not slot capacity management
         ],
 
-        // Dispatch foundation exists (dispatch_attempts is polymorphic,
-        // Phase B0.3) but zero operational module -- classification B.
-        // Capabilities below are what a Parcel order will evidently need
-        // once built (a delivery, not a technician visit), not a
-        // commitment about how they'll be implemented.
+        // Parcel delivery completion (2026-10-23): fully built -- customer web
+        // + API, rider web area, admin screen + Parcel Settings. Evidence:
+        // ParcelPricing (distance + weight + size), ParcelPaymentService +
+        // RazorpayWebhookHandler 'parcel_order' branch, CancellationService
+        // parcel fee/refund, CommissionService::applyForParcelOrder (+ cash
+        // dues, FieldWorkerCashDueService), ParcelOrderStatusNotification +
+        // ParcelRecipientNotification. 'coupons'/'loyalty'/'referrals' are
+        // false on purpose: parcel offers no benefit of any kind (THUMB RULE,
+        // CreateParcelOrderAction refuses a coupon). 'reviews' not built.
         'parcel' => [
-            'order' => true /* dispatch_attempts foundation only, no ParcelOrder yet */,
-            'pricing' => null, 'payment' => null, 'cancellation' => null,
-            'dispatch' => true, 'delivery' => true, 'provider' => true,
-            'wallet' => null, 'commission' => null, 'settlement' => null, 'notifications' => null,
+            'order' => true, 'pricing' => true, 'payment' => true, 'cancellation' => true,
+            'dispatch' => true, 'delivery' => true, 'provider' => true /* FieldWorker, parcel_rider */,
+            'wallet' => true /* pay from wallet; rider earnings */, 'commission' => true, 'settlement' => true /* rider cash dues */,
+            'notifications' => true,
             'catalog' => false, // no product catalog concept -- a parcel isn't a cataloged item
-            'availability' => false, 'scheduling' => false, 'reviews' => null, 'coupons' => null,
-            'loyalty' => null, 'referrals' => null,
+            'availability' => false, 'scheduling' => false, 'reviews' => false,
+            'coupons' => false, 'loyalty' => false, 'referrals' => false,
         ],
 
         // Classification D -- zero 1CallFix implementation. Glover's real

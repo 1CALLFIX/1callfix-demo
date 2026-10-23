@@ -38,6 +38,7 @@ class CustomerParcelApiTest extends TestCase
         [, , $franchise, $zone] = $this->makeFranchiseTree();
         $customer = $this->makeCustomer();
         [$pickup, $dropoff] = $this->makeParcelAddresses($franchise, $zone, $customer);
+        $this->configureParcelPricing(); // the required pricing keys (parcel completion 2026-10-23)
         Setting::set('parcel.base_fare', '20', 'franchise', $franchise->id);
         Setting::set('parcel.per_kg_rate', '5', 'franchise', $franchise->id);
 
@@ -48,7 +49,7 @@ class CustomerParcelApiTest extends TestCase
             ->assertOk()
             ->assertJson(['success' => true]);
 
-        $this->assertEquals(35, $response->json('data.price_quoted')); // 20 + 5*3
+        $this->assertEquals(35, $response->json('data.price_quoted')); // 20 + 5*3 (the ~1.6 km trip is inside the 2 km in the base fare)
         $this->assertFalse($response->json('data.module_active'), 'parcel is not activated for this franchise yet.');
 
         $this->activateParcelFor($franchise);
@@ -85,7 +86,7 @@ class CustomerParcelApiTest extends TestCase
         [$pickup, $dropoff] = $this->makeParcelAddresses($franchise, $zone, $customer);
 
         $this->actingAs($customer, 'sanctum')
-            ->postJson('/api/parcel-orders', ['pickup_address_id' => $pickup->id, 'dropoff_address_id' => $dropoff->id])
+            ->postJson('/api/parcel-orders', ['pickup_address_id' => $pickup->id, 'dropoff_address_id' => $dropoff->id, 'recipient_name' => 'Ravi', 'recipient_phone' => '9876543210'])
             ->assertStatus(422)
             ->assertJson(['success' => false]);
 
@@ -102,7 +103,7 @@ class CustomerParcelApiTest extends TestCase
         $response = $this->actingAs($customer, 'sanctum')
             ->postJson('/api/parcel-orders', [
                 'pickup_address_id' => $pickup->id, 'dropoff_address_id' => $dropoff->id,
-                'package_size' => 'medium', 'package_weight_kg' => 2, 'payment_method' => 'cash',
+                'package_size' => 'medium', 'package_weight_kg' => 2, 'payment_method' => 'cash', 'recipient_name' => 'Ravi', 'recipient_phone' => '9876543210',
             ])
             ->assertStatus(201)
             ->assertJson(['success' => true]);
@@ -127,7 +128,7 @@ class CustomerParcelApiTest extends TestCase
             ->postJson('/api/parcel-orders', [
                 'pickup_address_id' => $pickup->id, 'dropoff_address_id' => $dropoff->id,
                 'price_quoted' => 1, 'franchise_id' => $otherFranchise->id, 'zone_id' => $otherZone->id,
-                'customer_id' => $otherCustomer->id,
+                'customer_id' => $otherCustomer->id, 'recipient_name' => 'Ravi', 'recipient_phone' => '9876543210',
             ])
             ->assertStatus(201);
 
@@ -146,7 +147,7 @@ class CustomerParcelApiTest extends TestCase
         [$othersPickup, $othersDropoff] = $this->makeParcelAddresses($franchise, $zone, $other);
 
         $this->actingAs($customer, 'sanctum')
-            ->postJson('/api/parcel-orders', ['pickup_address_id' => $othersPickup->id, 'dropoff_address_id' => $othersDropoff->id])
+            ->postJson('/api/parcel-orders', ['pickup_address_id' => $othersPickup->id, 'dropoff_address_id' => $othersDropoff->id, 'recipient_name' => 'Ravi', 'recipient_phone' => '9876543210'])
             ->assertStatus(404);
 
         $this->assertSame(0, ParcelOrder::count());
@@ -172,7 +173,7 @@ class CustomerParcelApiTest extends TestCase
         Setting::set('parcel.base_fare', '30', 'franchise', $franchise->id);
 
         $this->actingAs($customer, 'sanctum')
-            ->postJson('/api/parcel-orders', ['pickup_address_id' => $pickup->id, 'dropoff_address_id' => $dropoff->id, 'payment_method' => 'wallet'])
+            ->postJson('/api/parcel-orders', ['pickup_address_id' => $pickup->id, 'dropoff_address_id' => $dropoff->id, 'payment_method' => 'wallet', 'recipient_name' => 'Ravi', 'recipient_phone' => '9876543210'])
             ->assertStatus(201);
 
         $this->assertSame('paid', ParcelOrder::first()->payment_status);

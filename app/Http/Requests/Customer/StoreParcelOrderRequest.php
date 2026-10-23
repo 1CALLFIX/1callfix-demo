@@ -20,6 +20,10 @@ class StoreParcelOrderRequest extends CustomerApiRequest
             'package_size' => ['nullable', 'string', 'in:small,medium,large'],
             'payment_method' => ['nullable', 'string', 'in:online,cash,wallet'],
             'customer_note' => ['nullable', 'string', 'max:1000'],
+            'pickup_contact_name' => ['nullable', 'string', 'max:120'],
+            'pickup_contact_phone' => ['nullable', 'string', 'regex:/^\+?[0-9]{10,15}$/'],
+            'recipient_name' => ['nullable', 'string', 'max:120'],
+            'recipient_phone' => ['required', 'string', 'regex:/^\+?[0-9]{10,15}$/'],
         ];
     }
 }

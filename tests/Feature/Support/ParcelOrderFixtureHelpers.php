@@ -47,6 +47,26 @@ trait ParcelOrderFixtureHelpers
     {
         $this->enableParcelModuleForTests();
         app(ModuleActivationService::class)->setActive(Modules::PARCEL, 'franchise', $franchise->id, true);
+        $this->configureParcelPricing();
+    }
+
+    /**
+     * Parcel completion (2026-10-23): the required pricing keys must be set or nothing can be quoted.
+     * Test-only values — base 40 covers 2 km, then 10/km; weight and size free unless a test sets them.
+     */
+    protected function configureParcelPricing(array $overrides = []): void
+    {
+        $values = array_merge([
+            'parcel.base_fare' => '40',
+            'parcel.base_km' => '2',
+            'parcel.per_km_rate' => '10',
+            'parcel.max_distance_km' => '50',
+            'parcel.max_weight_kg' => '20',
+        ], $overrides);
+
+        foreach ($values as $key => $value) {
+            \App\Models\Setting::set($key, $value);
+        }
     }
 
     protected function makeParcelAddresses($franchise, $zone, User $customer): array
@@ -73,7 +93,7 @@ trait ParcelOrderFixtureHelpers
         $worker = FieldWorker::create([
             'user_id' => $user->id, 'franchise_id' => $franchise->id, 'zone_id' => $zone->id,
             'kyc_status' => 'approved', 'is_active' => true, 'is_online' => true,
-            'current_lat' => 1.0, 'current_lng' => 1.0,
+            'current_lat' => 1.0, 'current_lng' => 1.0, 'location_updated_at' => now(),
         ]);
 
         FieldWorkerCapability::create(['field_worker_id' => $worker->id, 'capability_type' => 'parcel_rider']);
@@ -96,7 +116,9 @@ trait ParcelOrderFixtureHelpers
             'code' => 'PTST-'.now()->format('dm').'-'.str_pad((string) random_int(1, 99999999), 8, '0', STR_PAD_LEFT),
             'franchise_id' => $franchise->id, 'zone_id' => $zone->id,
             'customer_id' => $customer->id, 'pickup_address_id' => $pickup->id, 'dropoff_address_id' => $dropoff->id,
-            'status' => $status, 'price_quoted' => 100, 'payment_status' => 'pending', 'payment_method' => 'online',
+            // Paid: an unpaid online order is never dispatched (ParcelPaymentService), and these scenarios
+            // exercise dispatch and the rider lifecycle.
+            'status' => $status, 'price_quoted' => 100, 'payment_status' => 'paid', 'payment_method' => 'online',
         ]);
 
         return compact('country', 'city', 'franchise', 'zone', 'customer', 'pickup', 'dropoff', 'rider', 'order');
@@ -106,6 +128,7 @@ trait ParcelOrderFixtureHelpers
     {
         $scenario = $this->makeParcelOrderScenario('assigned');
         $scenario['order']->update([
+            'payment_status' => 'paid',
             'assigned_worker_id' => $scenario['rider']->id,
             'pickup_otp' => '1234',
             'delivery_otp' => '5678',

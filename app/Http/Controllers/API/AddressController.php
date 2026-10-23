@@ -33,7 +33,7 @@ class AddressController extends Controller
     /** GET /api/addresses */
     public function index(Request $request)
     {
-        $addresses = Address::where('user_id', $request->user()->id)->orderByDesc('is_default')->latest()->get();
+        $addresses = Address::where('user_id', $request->user()->id)->listed()->orderByDesc('is_default')->latest()->get();
 
         return ApiResponse::success(AddressResource::collection($addresses));
     }
@@ -123,6 +123,10 @@ class AddressController extends Controller
 
         if (Booking::where('address_id', $address->id)->exists()) {
             return ApiResponse::error('This address is used by an existing booking and cannot be deleted.', 409);
+        }
+
+        if ($address->usedByParcelOrder()) {
+            return ApiResponse::error('This address is used by a parcel order and cannot be deleted.', 409);
         }
 
         if ($address->registersLiveMembership()) {

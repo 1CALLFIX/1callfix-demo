@@ -77,6 +77,22 @@ class PayoutService
             $this->assertLeavesWalletFloor($payeeId, $amount);
         }
 
+        // Parcel completion (2026-10-23) — a rider's cash dues are senior to their withdrawal too, same rule
+        // as a provider's cash commission above: recover from the wallet first, and refuse while any remain.
+        if ($payeeType === 'field_worker') {
+            $worker = FieldWorker::findOrFail($payeeId);
+            $dues = app(\App\Services\Parcel\FieldWorkerCashDueService::class);
+            $dues->settle($worker);
+            $stillOwed = $dues->outstanding($worker);
+            if ($stillOwed > 0) {
+                throw new \RuntimeException(
+                    'Unsettled cash dues of '.number_format($stillOwed, 2)
+                    .' are owed to the platform. They are recovered from the wallet balance first — '
+                    .'there is nothing available to withdraw until earnings cover them.'
+                );
+            }
+        }
+
         $this->assertWithinPayoutLimits($payeeType, $payeeId, $amount);
         $this->assertKycWithdrawalAllowed($payeeType, $payeeId);
 

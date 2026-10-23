@@ -24,16 +24,23 @@
             <x-ui.card>
                 <h3 class="font-semibold mb-2">Pickup</h3>
                 <p class="text-sm text-gray-600">{{ $order->pickupAddress->address_line ?? '—' }}</p>
+                @if ($order->pickup_contact_name || $order->pickup_contact_phone)
+                    <p class="text-sm text-gray-500 mt-1">{{ $order->pickup_contact_name }} {{ $order->pickup_contact_phone }}</p>
+                @endif
             </x-ui.card>
             <x-ui.card>
                 <h3 class="font-semibold mb-2">Dropoff</h3>
                 <p class="text-sm text-gray-600">{{ $order->dropoffAddress->address_line ?? '—' }}</p>
+                @if ($order->recipient_name || $order->recipient_phone)
+                    <p class="text-sm text-gray-500 mt-1">Recipient: {{ $order->recipient_name }} {{ $order->recipient_phone }}</p>
+                @endif
             </x-ui.card>
         </div>
 
         <x-ui.card class="mb-4">
             <h3 class="font-semibold mb-2">Package</h3>
-            <p class="text-sm text-gray-600">{{ $order->package_description ?: '—' }} &middot; {{ ucfirst($order->package_size) }}{{ $order->package_weight_kg ? ' · '.$order->package_weight_kg.' kg' : '' }}</p>
+            <p class="text-sm text-gray-600">{{ $order->package_description ?: '—' }} &middot; {{ ucfirst($order->package_size) }}{{ $order->package_weight_kg ? ' · '.$order->package_weight_kg.' kg' : '' }}{{ $order->distance_km ? ' · '.$order->distance_km.' km' : '' }}</p>
+            @if ($order->customer_note) <p class="text-sm text-gray-500 mt-1">Note: {{ $order->customer_note }}</p> @endif
         </x-ui.card>
 
         <x-ui.card class="mb-4">
@@ -42,8 +49,38 @@
                 Quoted: {{ number_format($order->price_quoted, 2) }}
                 @if ($order->price_final) &middot; Final: {{ number_format($order->price_final, 2) }} @endif
                 &middot; {{ ucfirst($order->payment_status) }} ({{ $order->payment_method ?? '—' }})
+                @if ($order->isAwaitingOnlinePayment()) &middot; <span class="text-amber-700">waiting for the customer's online payment — not sent to riders yet</span> @endif
+                @if ($order->cash_collected_at) &middot; cash collected {{ $order->cash_collected_at->format('d M, h:i A') }} @endif
             </p>
+            @if ($order->price_breakdown)
+                <ul class="text-xs text-gray-500 mt-2 space-y-0.5">
+                    @foreach ($order->price_breakdown as $line)
+                        <li>{{ $line['label'] }}: {{ number_format((float) $line['amount'], 2) }}</li>
+                    @endforeach
+                </ul>
+            @endif
         </x-ui.card>
+
+        {{-- Manual assignment: where dispatch hands over when its rounds run out with no acceptance. --}}
+        @if ($canAssign)
+            <x-ui.card class="mb-4">
+                <h3 class="font-semibold mb-2">Assign a rider</h3>
+                @if ($riders->isEmpty())
+                    <p class="text-sm text-gray-500">No free, active parcel rider in this franchise right now.</p>
+                @else
+                    <div class="flex flex-wrap items-center gap-2">
+                        <select wire:model="assignWorkerId" class="border rounded px-3 py-2 text-sm">
+                            <option value="">Choose a rider</option>
+                            @foreach ($riders as $rider)
+                                <option value="{{ $rider->id }}">{{ $rider->user?->name }} · {{ $rider->user?->phone }}{{ $rider->is_online ? ' · online' : '' }}</option>
+                            @endforeach
+                        </select>
+                        <x-ui.button wire:click="assignRider">Assign</x-ui.button>
+                    </div>
+                @endif
+                @error('assign') <p class="text-sm text-red-700 mt-2">{{ $message }}</p> @enderror
+            </x-ui.card>
+        @endif
 
         {{-- REF 1CF-JOURNEY-001 — the order's journey; the raw log stays below. --}}
         @php($journey = \App\Support\Journey\JourneyBuilder::build('parcel', $order->status, $order->statusHistory))

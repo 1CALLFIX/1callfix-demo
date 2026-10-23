@@ -50,7 +50,8 @@ class ParcelOrderStatusNotification extends Notification
 
         return match ($this->event) {
             'created' => ['subject' => 'Parcel order confirmed', 'body' => "Your parcel order {$this->order->code} has been received. We're finding a rider for you."],
-            'assigned' => ['subject' => 'Rider assigned', 'body' => "A rider has been assigned to your parcel order {$this->order->code}."],
+            'assigned' => ['subject' => 'Rider assigned', 'body' => "A rider has been assigned to your parcel order {$this->order->code}. Pickup OTP: {$this->order->pickup_otp}."],
+            'en_route' => ['subject' => 'Rider on the way', 'body' => "Your rider is on the way to pick up parcel {$this->order->code}."],
             'picked_up' => ['subject' => 'Parcel picked up', 'body' => "Your parcel {$this->order->code} has been picked up and is on its way."],
             'delivered' => ['subject' => 'Parcel delivered', 'body' => "Your parcel {$this->order->code} has been delivered. Thank you for using 1CallFix."],
             'cancelled' => ['subject' => 'Parcel order cancelled', 'body' => "Your parcel order {$this->order->code} has been cancelled."],
@@ -69,6 +70,12 @@ class ParcelOrderStatusNotification extends Notification
     public function toSms($notifiable): string
     {
         return $this->copy()['body'];
+    }
+
+    /** Push deep link to the customer's parcel tracking page (PushChannel reads this when present). */
+    public function pushLink($notifiable): string
+    {
+        return route('customer.parcels.show', $this->order);
     }
 
     public function toPush($notifiable): array

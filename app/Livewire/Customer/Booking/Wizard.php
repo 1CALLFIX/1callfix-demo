@@ -104,7 +104,7 @@ class Wizard extends Component
         $this->serviceId = $service->id;
         $this->preselectRequiredGroups();
 
-        $default = Address::where('user_id', auth()->id())
+        $default = Address::where('user_id', auth()->id())->listed()
             ->whereNotNull('zone_id')
             ->orderByDesc('is_default')
             ->latest()
@@ -486,7 +486,7 @@ class Wizard extends Component
             'baseEstimate' => $presenter->payablePrice($card, $this->paymentMethod),
             'cashNote' => $card['offer_requires_online'] ? $presenter->cashNote((float) $card['cash_price'] + $optionsEstimate) : null,
             'membershipPreview' => $this->membershipPreview($service, (float) $card['price']),
-            'addresses' => Address::where('user_id', auth()->id())->orderByDesc('is_default')->latest()->get(),
+            'addresses' => Address::where('user_id', auth()->id())->listed()->orderByDesc('is_default')->latest()->get(),
             'enabledMethods' => $this->enabledPaymentMethods(),
             'walletBalance' => $this->walletBalance(),
             'referralBalance' => app(\App\Services\ReferralBalanceService::class)->available(auth()->user()),

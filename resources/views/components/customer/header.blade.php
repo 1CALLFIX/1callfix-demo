@@ -90,6 +90,14 @@
                             ];
                             if (auth()->check()) {
                                 $menu[] = ['My bookings', route('customer.orders.index')];
+                                // Parcel: shown while parcel is on somewhere, or for anyone who already has parcels.
+                                if (app(\App\Services\ModuleActivationService::class)->isActiveAnywhere(\App\Support\Modules::PARCEL)
+                                    || \App\Models\ParcelOrder::where('customer_id', auth()->id())->exists()) {
+                                    $menu[] = ['My parcels', route('customer.parcels.index')];
+                                }
+                                if (auth()->user()->fieldWorkerProfile?->hasCapability('parcel_rider')) {
+                                    $menu[] = ['Rider dashboard', route('rider.dashboard')];
+                                }
                                 if ($earningsRoute = \App\Support\CustomerEarningsNav::firstRoute(auth()->user())) {
                                     $menu[] = ['Earnings', route($earningsRoute)];
                                 }

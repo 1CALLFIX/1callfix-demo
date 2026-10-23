@@ -234,13 +234,30 @@ class CommissionService
     public function applyForParcelOrder(ParcelOrder $order): Commission
     {
         $order->loadMissing(['franchise.owner', 'assignedWorker.user']);
+        $isCash = $order->payment_method === 'cash';
 
-        return $this->applyForFieldWorkerOrder(
+        $commission = $this->applyForFieldWorkerOrder(
             identifyingColumn: 'parcel_order_id', identifyingId: $order->id,
             franchise: $order->franchise, worker: $order->assignedWorker,
             total: (float) ($order->price_final ?? $order->price_quoted),
             orderCode: $order->code, orderLabel: 'parcel order',
+            earnerHoldsCash: $isCash,
         );
+
+        // Parcel completion (2026-10-23) — same fix as cash commission collection for Service: the rider
+        // physically holds a cash price, so they get no wallet credit (that would pay them twice) and owe
+        // the platform + franchise share instead, recovered from their wallet later.
+        if ($order->assignedWorker) {
+            $dues = app(\App\Services\Parcel\FieldWorkerCashDueService::class);
+            if ($isCash) {
+                $dues->recordForParcel($order, $commission);
+            } else {
+                // Online earnings just landed in the wallet: clear any older cash dues from them first.
+                $dues->settle($order->assignedWorker);
+            }
+        }
+
+        return $commission;
     }
 
     /**
@@ -376,7 +393,8 @@ class CommissionService
         \App\Models\FieldWorker|\App\Models\Provider|null $worker,
         float $total,
         string $orderCode,
-        string $orderLabel
+        string $orderLabel,
+        bool $earnerHoldsCash = false
     ): Commission {
         $existing = Commission::where($identifyingColumn, $identifyingId)->first();
         if ($existing) {
@@ -397,13 +415,19 @@ class CommissionService
 
         $workerCommission = round($total - $platformCommission - $franchiseCommission, 2);
 
-        return DB::transaction(function () use ($identifyingColumn, $identifyingId, $worker, $franchise, $workerCommission, $franchiseCommission, $platformCommission, $orderCode, $orderLabel) {
+        return DB::transaction(function () use ($identifyingColumn, $identifyingId, $worker, $franchise, $workerCommission, $franchiseCommission, $platformCommission, $orderCode, $orderLabel, $earnerHoldsCash) {
             $commission = Commission::create([
                 $identifyingColumn => $identifyingId,
                 'provider_commission' => $workerCommission, // reusing the same column Service uses for its "earner" share -- a FieldWorker's share here, not a Provider's
                 'franchise_commission' => $franchiseCommission,
                 'platform_commission' => $platformCommission,
             ]);
+
+            // The earner already holds the whole price in cash: nothing is credited to anyone here. The
+            // caller records what the earner owes (see applyForParcelOrder()).
+            if ($earnerHoldsCash) {
+                return $commission;
+            }
 
             if ($worker && $worker->user && $workerCommission > 0) {
                 $this->walletService->credit(

@@ -28,6 +28,10 @@
         </div>
     </x-ui.card>
 
+    @if ($activationError)
+        <div class="mb-4 bg-amber-50 text-amber-900 text-sm px-4 py-2 rounded" role="alert">{{ $activationError }}</div>
+    @endif
+
     @if (! $scopeId)
         <p class="text-sm text-gray-400 py-6 text-center">Select a {{ $scopeLevel }} above to view/edit its module activation.</p>
     @else
@@ -46,7 +50,15 @@
                 @foreach ($moduleRows as $row)
                     <tr class="border-t">
                         <x-ui.sno :rows="$moduleRows" :loop="$loop" />
-                        <td class="px-4 py-2 font-medium">{{ $row['module']->name }}</td>
+                        <td class="px-4 py-2 font-medium">
+                            {{ $row['module']->name }}
+                            @if ($row['readiness'])
+                                <span @class(['block text-xs font-normal', 'text-green-700' => ! $row['readiness']['problems'], 'text-amber-700' => $row['readiness']['problems']])>
+                                    {{ $row['readiness']['riders'] }} {{ \Illuminate\Support\Str::plural('rider', $row['readiness']['riders']) }} onboarded ·
+                                    {{ $row['readiness']['problems'] ? 'not ready to activate' : 'ready to activate' }}
+                                </span>
+                            @endif
+                        </td>
                         <td class="px-4 py-2">
                             @if ($row['module']->is_implemented)
                                 <x-ui.badge color="blue">Implemented</x-ui.badge>

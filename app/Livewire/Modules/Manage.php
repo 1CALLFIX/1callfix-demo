@@ -10,6 +10,8 @@ use App\Models\Zone;
 use App\Services\ActivityLogger;
 use App\Services\AuthorizationService;
 use App\Services\ModuleActivationService;
+use App\Services\Parcel\ParcelReadiness;
+use App\Support\Modules;
 use Livewire\Component;
 
 /**
@@ -29,6 +31,9 @@ use Livewire\Component;
 class Manage extends Component
 {
     public string $scopeLevel = 'franchise';
+
+    /** Why an Activate click was refused (parcel readiness). */
+    public string $activationError = '';
     public ?int $scopeId = null;
 
     public function mount(): void
@@ -132,6 +137,11 @@ class Manage extends Component
                 'is_active' => $svc->isActive($module->code, $scope),
                 'set_here' => $resolvedFrom && $resolvedFrom['level'] === $this->scopeLevel,
                 'inherited_from' => $resolvedFrom && $resolvedFrom['level'] !== $this->scopeLevel ? $resolvedFrom['level'] : null,
+                // Parcel only: what must be in place before it can be switched on here.
+                'readiness' => $module->code === Modules::PARCEL && $module->is_implemented ? [
+                    'riders' => app(ParcelReadiness::class)->riderCount($this->scopeLevel, (int) $this->scopeId),
+                    'problems' => app(ParcelReadiness::class)->problems($this->scopeLevel, (int) $this->scopeId, $scope),
+                ] : null,
             ];
         })->all();
     }
@@ -193,6 +203,18 @@ class Manage extends Component
 
         $current = app(ModuleActivationService::class)->isActive($moduleCode, $this->resolvedScope());
         $newValue = ! $current;
+
+        // Owner rule 2026-10-24: parcel is only switched ON once riders are onboarded and prices are set here.
+        // Switching it off is never blocked.
+        $this->activationError = '';
+        if ($newValue && $moduleCode === Modules::PARCEL) {
+            $problems = app(ParcelReadiness::class)->problems($this->scopeLevel, (int) $this->scopeId, $this->resolvedScope());
+            if ($problems !== []) {
+                $this->activationError = 'Parcel Delivery cannot be activated here yet. '.implode(' ', $problems);
+
+                return;
+            }
+        }
 
         $activation = app(ModuleActivationService::class)->setActive(
             $moduleCode,

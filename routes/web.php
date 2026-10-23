@@ -186,6 +186,12 @@ Route::middleware(['auth', \App\Http\Middleware\EnsureAccountNotSuspended::class
 
     // The customer's own memberships: status, remaining benefits, usage, renew/cancel.
     Route::get('/account/membership', CustomerMembershipAccount::class)->name('customer.membership.account');
+
+    // Parcel delivery (2026-10-23). The send page 404s while parcel is off everywhere (Modules screen);
+    // a customer's own parcels stay reachable regardless.
+    Route::get('/parcel', \App\Livewire\Customer\Parcel\Create::class)->name('customer.parcels.create');
+    Route::get('/parcels', \App\Livewire\Customer\Parcel\Index::class)->name('customer.parcels.index');
+    Route::get('/parcels/{parcelOrder}', \App\Livewire\Customer\Parcel\Show::class)->name('customer.parcels.show');
 });
 
 /*
@@ -240,6 +246,29 @@ Route::middleware(['auth', \App\Http\Middleware\EnsureIsProvider::class, \App\Ht
         Route::get('/shifts', ProviderShifts::class)->name('provider.shifts');
     });
 
+/*
+ | Rider web (parcel delivery, owner decision 2026-10-23). FieldWorkers holding the `parcel_rider`
+ | capability: online switch, offers, pickup / delivery OTP, history, earnings and cash dues. Same shared
+ | `web` session as the customer and partner areas; every write goes through the parcel Actions.
+ */
+Route::middleware('guest')->get('/rider/login', \App\Livewire\Rider\Auth\Login::class)->name('rider.login');
+
+Route::post('/rider/logout', function () {
+    Auth::guard('web')->logout();
+    request()->session()->invalidate();
+    request()->session()->regenerateToken();
+
+    return redirect()->route('rider.login');
+})->middleware('auth')->name('rider.logout');
+
+Route::middleware(['auth', \App\Http\Middleware\EnsureIsParcelRider::class, \App\Http\Middleware\EnsureAccountNotSuspended::class])
+    ->prefix('rider')
+    ->group(function () {
+        Route::get('/', \App\Livewire\Rider\Dashboard::class)->name('rider.dashboard');
+        Route::get('/history', \App\Livewire\Rider\History::class)->name('rider.history');
+        Route::get('/earnings', \App\Livewire\Rider\Earnings::class)->name('rider.earnings');
+    });
+
 // Public content. `page` renders real seeded `content_pages` rows — the
 // legal text itself is never authored or altered here (see
 // database/seeders/LegalContentSeeder.php's own docblock).
@@ -277,7 +306,7 @@ require __DIR__.'/admin.php';
 // fallback: anything that is not a city/catalog slug is handed on to the CMS fallback by the controller itself.
 // First segments that are never a city (JSON API, admin/provider areas, framework + asset paths) are excluded
 // up front, so those requests never even touch the cities table.
-$cityPattern = '(?!(?:api|admin|provider|livewire|storage|build|vendor|push)(?![A-Za-z0-9_-]))[A-Za-z0-9_-]+';
+$cityPattern = '(?!(?:api|admin|provider|rider|livewire|storage|build|vendor|push)(?![A-Za-z0-9_-]))[A-Za-z0-9_-]+';
 Route::get('/{city}', [CityRouteController::class, 'city'])->where('city', $cityPattern)->name('customer.city.show');
 Route::get('/{city}/{slug}', [CityRouteController::class, 'item'])->where(['city' => $cityPattern, 'slug' => '[A-Za-z0-9_-]+'])->name('customer.city.item');
 

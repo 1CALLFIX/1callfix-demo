@@ -96,6 +96,12 @@ ScheduleRunTracker::track(Schedule::command('coupons:sweep-unpaid'), 'coupons:sw
     ->everyMinute()
     ->withoutOverlapping(10);
 
+// Parcel delivery — cancels online parcel orders not paid within parcel.unpaid_expiry_minutes
+// (default 30). Such an order was never offered to a rider; a late capture is refunded.
+ScheduleRunTracker::track(Schedule::command('parcel:expire-unpaid'), 'parcel:expire-unpaid')
+    ->everyFiveMinutes()
+    ->withoutOverlapping(10);
+
 // MANUAL MONEY ACTIONS — mismatch-refund queue escalation (refund.mismatch.
 // escalate_after_hours; no-op while unset). Every 15 minutes is plenty for an
 // hours-scale threshold; each row escalates once per level. Same

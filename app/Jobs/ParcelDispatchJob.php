@@ -67,6 +67,11 @@ class ParcelDispatchJob implements ShouldQueue
                 return null;
             }
 
+            // An online order is only searched for once its payment is captured (ParcelPaymentService).
+            if ($order->isAwaitingOnlinePayment()) {
+                return null;
+            }
+
             $justStartedSearching = false;
 
             if ($order->status === 'pending') {
@@ -123,6 +128,9 @@ class ParcelDispatchJob implements ShouldQueue
                 'distance_km' => $candidate['distance_km'],
                 'notified_at' => now(),
             ]);
+
+            // Closed-app alert; the rider page rings on its own while open. Queued, so FCM never blocks a round.
+            optional($candidate['provider']->user)->notify(new \App\Notifications\RiderParcelOfferNotification($order));
 
             // No NewJobOffered-equivalent broadcast event exists yet for
             // Parcel -- ParcelOrderStatusUpdated (fired on real status
