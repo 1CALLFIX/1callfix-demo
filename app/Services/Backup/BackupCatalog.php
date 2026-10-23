@@ -20,12 +20,35 @@ class BackupCatalog
 {
     public const FOLDERS = ['hourly', 'daily', 'monthly'];
 
+    /** Listing the encrypted Drive takes seconds, so the screen reads this cache; backups:refresh-catalog keeps it warm. */
+    public const CACHE_KEY = 'backup-catalog.remote';
+
+    private ?array $memo = null;
+
     public function __construct(private BackupShell $shell) {}
 
     /**
      * @return array{backups: list<array{id: string, folder: string, file: string, at: CarbonImmutable, label: string}>, remote_error: ?string}
      */
     public function all(): array
+    {
+        return $this->memo ??= $this->build();
+    }
+
+    /** True when the off-site list is already cached (or not set up), so all() answers without calling rclone. */
+    public function isReady(): bool
+    {
+        return ! config('backup.remote') || Cache::has(self::CACHE_KEY);
+    }
+
+    /** List the off-site folder again now (scheduler, after Back up now). */
+    public function refresh(): void
+    {
+        $this->forgetCache();
+        $this->all();
+    }
+
+    private function build(): array
     {
         $remoteError = null;
         $byId = [];
@@ -102,7 +125,8 @@ class BackupCatalog
 
     public function forgetCache(): void
     {
-        Cache::forget('backup-catalog.remote');
+        Cache::forget(self::CACHE_KEY);
+        $this->memo = null;
     }
 
     /** @return array<string, list<string>> */
@@ -112,14 +136,24 @@ class BackupCatalog
             throw new RuntimeException('Off-site backup is not set up on this server (BACKUP_RCLONE_REMOTE).');
         }
 
-        return Cache::remember('backup-catalog.remote', now()->addMinutes(2), function () {
-            $files = [];
-            foreach (self::FOLDERS as $folder) {
-                $files[$folder] = $this->shell->remoteList('db/'.$folder);
+        $cached = Cache::get(self::CACHE_KEY);
+        if ($cached === null) {
+            // A failure is cached too (briefly), so an unreachable Drive does not make every page load wait.
+            try {
+                $tree = $this->shell->remoteTree('db');
+                $cached = ['files' => array_map(fn ($folder) => $tree[$folder] ?? [], array_combine(self::FOLDERS, self::FOLDERS)), 'error' => null];
+                Cache::put(self::CACHE_KEY, $cached, now()->addMinutes(15));
+            } catch (Throwable $e) {
+                $cached = ['files' => [], 'error' => $e->getMessage()];
+                Cache::put(self::CACHE_KEY, $cached, now()->addMinute());
             }
+        }
 
-            return $files;
-        });
+        if ($cached['error']) {
+            throw new RuntimeException($cached['error']);
+        }
+
+        return $cached['files'];
     }
 
     private function entry(string $folder, string $file): ?array

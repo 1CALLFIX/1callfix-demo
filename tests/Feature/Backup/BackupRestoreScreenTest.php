@@ -48,6 +48,8 @@ class BackupRestoreScreenTest extends TestCase
         $catalog->shouldReceive('all')->andReturn(['backups' => [$backup], 'remote_error' => null]);
         $catalog->shouldReceive('status')->andReturn(['last_at' => $backup['at'], 'healthy' => true, 'copies' => 1, 'remote_error' => null]);
         $catalog->shouldReceive('forgetCache');
+        $catalog->shouldReceive('refresh');
+        $catalog->shouldReceive('isReady')->andReturn(true);
         $this->app->instance(BackupCatalog::class, $catalog);
 
         $snapshot = Mockery::mock(RestoreSnapshot::class);
@@ -155,17 +157,57 @@ class BackupRestoreScreenTest extends TestCase
     {
         $recent = CarbonImmutable::now()->subMinutes(10);
         $shell = Mockery::mock(BackupShell::class);
-        $shell->shouldReceive('remoteList')->with('db/hourly')->andReturn(['1cal_api_hourly_'.$recent->format('Y-m-d_H-i-s').'.sql.gz', 'not-a-dump.txt']);
-        $shell->shouldReceive('remoteList')->with('db/daily')->andReturn(['1cal_api_2026-10-01_02-00-01.sql.gz']);
-        $shell->shouldReceive('remoteList')->with('db/monthly')->andReturn([]);
+        $shell->shouldReceive('remoteTree')->once()->with('db')->andReturn([
+            'hourly' => ['1cal_api_hourly_'.$recent->format('Y-m-d_H-i-s').'.sql.gz', 'not-a-dump.txt'],
+            'daily' => ['1cal_api_2026-10-01_02-00-01.sql.gz'],
+        ]);
         config(['backup.remote' => 'gdrive-crypt:superapp', 'backup.local_dir' => storage_path('framework/testing/no-backups-here')]);
 
         $catalog = new BackupCatalog($shell);
+        $this->assertFalse($catalog->isReady());
         $all = $catalog->all();
 
         $this->assertCount(2, $all['backups']);
         $this->assertSame('hourly', $all['backups'][0]['folder']);
         $this->assertStringEndsWith('(daily)', $all['backups'][1]['label']);
         $this->assertTrue($catalog->status()['healthy']);
+
+        // One rclone call (once() above) serves every later page load from the cache.
+        $this->assertTrue($catalog->isReady());
+        $this->assertCount(2, (new BackupCatalog($shell))->all()['backups']);
+    }
+
+    public function test_an_unreachable_drive_is_remembered_briefly_so_pages_do_not_wait_on_it(): void
+    {
+        $shell = Mockery::mock(BackupShell::class);
+        $shell->shouldReceive('remoteTree')->once()->andThrow(new RuntimeException('Could not list the off-site backups: timeout'));
+        config(['backup.remote' => 'gdrive-crypt:superapp', 'backup.local_dir' => storage_path('framework/testing/no-backups-here')]);
+
+        $this->assertStringContainsString('timeout', (new BackupCatalog($shell))->all()['remote_error']);
+        $this->assertStringContainsString('timeout', (new BackupCatalog($shell))->status()['remote_error']);
+    }
+
+    public function test_screen_opens_without_waiting_for_the_backup_list_then_loads_it(): void
+    {
+        $shell = Mockery::mock(BackupShell::class);
+        $shell->shouldReceive('remoteTree')->once()->andReturn(['hourly' => ['1cal_api_hourly_'.now()->subMinutes(5)->format('Y-m-d_H-i-s').'.sql.gz']]);
+        $this->app->instance(BackupShell::class, $shell);
+        config(['backup.remote' => 'gdrive-crypt:superapp', 'backup.local_dir' => storage_path('framework/testing/no-backups-here')]);
+
+        Livewire::actingAs($this->makeSuperAdmin())->test(BackupRestore::class)
+            ->assertSee('Checking the off-site backups')->assertDontSee('Healthy')
+            ->call('loadCatalog')
+            ->assertSee('Healthy')->assertDontSee('Checking the off-site backups');
+    }
+
+    public function test_refresh_command_relists_the_backups(): void
+    {
+        $shell = Mockery::mock(BackupShell::class);
+        $shell->shouldReceive('remoteTree')->twice()->andReturn(['daily' => ['1cal_api_2026-10-01_02-00-01.sql.gz']]);
+        $this->app->instance(BackupShell::class, $shell);
+        config(['backup.remote' => 'gdrive-crypt:superapp', 'backup.local_dir' => storage_path('framework/testing/no-backups-here')]);
+
+        $this->artisan('backups:refresh-catalog')->expectsOutput('1 backups listed.')->assertSuccessful();
+        $this->artisan('backups:refresh-catalog')->assertSuccessful();
     }
 }

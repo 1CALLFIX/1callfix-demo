@@ -28,5 +28,6 @@
                 <span wire:loading>Logging in...</span>
             </x-ui.button>
         </form>
+        <x-ui.app-version class="mt-6 text-center" />
     </x-ui.card>
 </div>

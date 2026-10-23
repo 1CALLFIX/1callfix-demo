@@ -36,7 +36,7 @@ class RunBackupNowJob implements ShouldQueue
         } catch (Throwable $e) {
             Cache::put(self::STATUS_KEY, ['state' => 'failed', 'message' => $e->getMessage(), 'at' => now()->toDateTimeString()], now()->addDay());
         } finally {
-            $catalog->forgetCache();
+            $catalog->refresh();
         }
     }
 }

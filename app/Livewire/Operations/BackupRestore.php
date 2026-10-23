@@ -52,6 +52,9 @@ class BackupRestore extends Component
 
     public string $flashType = 'success';
 
+    /** Set by wire:init: the page opens at once and the off-site list (seconds when not cached) loads after. */
+    public bool $catalogRequested = false;
+
     public function mount(): void
     {
         abort_unless(auth()->user()->hasPermissionAnywhere('backups.restore'), 403, 'You do not have permission to use Backup & Restore.');
@@ -59,6 +62,11 @@ class BackupRestore extends Component
         $this->restoreId = DataRestore::query()->where('requested_by', auth()->id())
             ->whereIn('status', [DataRestore::PREPARING, DataRestore::READY, DataRestore::RESTORING])
             ->latest('id')->value('id');
+    }
+
+    public function loadCatalog(): void
+    {
+        $this->catalogRequested = true;
     }
 
     public function updatedScopeType(): void
@@ -209,8 +217,9 @@ class BackupRestore extends Component
         $catalog = app(BackupCatalog::class);
         $all = ['backups' => [], 'remote_error' => null];
         $status = ['last_at' => null, 'healthy' => false, 'copies' => 0, 'remote_error' => null];
+        $catalogLoading = $this->tab === 'backup' && ! $this->catalogRequested && ! $catalog->isReady();
 
-        if ($this->tab === 'backup') {
+        if ($this->tab === 'backup' && ! $catalogLoading) {
             try {
                 $all = $catalog->all();
                 $status = $catalog->status();
@@ -223,6 +232,7 @@ class BackupRestore extends Component
 
         return view('livewire.operations.backup-restore', [
             'status' => $status,
+            'catalogLoading' => $catalogLoading,
             'backupNow' => Cache::get(RunBackupNowJob::STATUS_KEY),
             'backups' => $all['backups'],
             'types' => ScopedRestoreService::TYPES,

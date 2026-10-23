@@ -14,22 +14,36 @@ use RuntimeException;
  */
 class BackupShell
 {
-    /** File names in one remote folder, e.g. db/hourly. Empty when rclone is not configured. */
-    public function remoteList(string $folder): array
+    /**
+     * Files one level below a remote folder, grouped by sub-folder: remoteTree('db') gives
+     * ['hourly' => [...], 'daily' => [...], 'monthly' => [...]]. One rclone call for all of them
+     * (each call to the encrypted Drive costs seconds). Empty when rclone is not configured.
+     *
+     * @return array<string, list<string>>
+     */
+    public function remoteTree(string $folder): array
     {
         $remote = config('backup.remote');
         if (! $remote) {
             return [];
         }
 
-        $result = Process::timeout(60)->env($this->rcloneEnv())
-            ->run([config('backup.rclone_binary'), 'lsf', rtrim($remote, '/').'/'.$folder, '--files-only']);
+        $result = Process::timeout(90)->env($this->rcloneEnv())
+            ->run([config('backup.rclone_binary'), 'lsf', rtrim($remote, '/').'/'.$folder, '-R', '--files-only', '--max-depth', '2']);
 
         if (! $result->successful()) {
             throw new RuntimeException('Could not list the off-site backups: '.$this->firstLine($result->errorOutput()));
         }
 
-        return array_values(array_filter(array_map('trim', explode("\n", $result->output()))));
+        $tree = [];
+        foreach (array_filter(array_map('trim', explode("\n", $result->output()))) as $path) {
+            if (str_contains($path, '/')) {
+                [$sub, $file] = explode('/', $path, 2);
+                $tree[$sub][] = $file;
+            }
+        }
+
+        return $tree;
     }
 
     /** Download one remote file into $dir; returns the local path. */

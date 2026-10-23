@@ -56,6 +56,7 @@
             New to {{ $platformName }}?
             <a href="{{ route('customer.signup') }}" wire:navigate class="font-medium text-slate-900 underline underline-offset-2">Create an account</a>
         </p>
+        <x-ui.app-version class="mt-4 text-center" />
     </x-ui.card>
 
     <p class="mt-6 text-center text-xs leading-relaxed text-slate-500">

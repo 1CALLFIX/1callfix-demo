@@ -99,6 +99,7 @@
             @if (filled($legalEntityLine))
                 <p class="text-xs text-slate-400">{{ $legalEntityLine }}</p>
             @endif
+            <x-ui.app-version />
         </div>
             @if (filled($creditLine))
                 {{-- U+FE0E asks for the text (not colour-emoji) heart (any FE0E/FE0F the admin typed is normalised) so it takes the

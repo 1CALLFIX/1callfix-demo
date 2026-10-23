@@ -1,4 +1,4 @@
-<div @if ($restore?->isBusy() || ($backupNow['state'] ?? null) === 'running') wire:poll.3s @endif>
+<div @if ($catalogLoading) wire:init="loadCatalog" @endif @if ($restore?->isBusy() || ($backupNow['state'] ?? null) === 'running') wire:poll.3s @endif>
     {{-- REF 1CF-BACKUP-RESTORE-001 --}}
     <h1 class="text-2xl font-bold mb-4">Backup &amp; Restore</h1>
 
@@ -15,7 +15,9 @@
                 <div>
                     <h2 class="font-semibold text-gray-900">Data backup</h2>
                     <p class="text-sm text-gray-600 mt-1">
-                        @if ($status['last_at'])
+                        @if ($catalogLoading)
+                            Checking the off-site backups…
+                        @elseif ($status['last_at'])
                             Last copy: {{ $status['last_at']->format('d/m/Y, H:i') }} (server clock). {{ $status['copies'] }} copies kept.
                         @else
                             No backup found yet.
@@ -30,9 +32,11 @@
                         </p>
                     @endif
                 </div>
-                <span @class(['rounded-full px-2 py-0.5 text-xs font-medium shrink-0', 'bg-green-50 text-green-700' => $status['healthy'], 'bg-amber-50 text-amber-700' => ! $status['healthy']])>
-                    {{ $status['healthy'] ? 'Healthy' : 'Late' }}
-                </span>
+                @unless ($catalogLoading)
+                    <span @class(['rounded-full px-2 py-0.5 text-xs font-medium shrink-0', 'bg-green-50 text-green-700' => $status['healthy'], 'bg-amber-50 text-amber-700' => ! $status['healthy']])>
+                        {{ $status['healthy'] ? 'Healthy' : 'Late' }}
+                    </span>
+                @endunless
             </div>
             <div class="mt-3">
                 <x-ui.button variant="secondary" wire:click="backUpNow" wire:loading.attr="disabled" :disabled="($backupNow['state'] ?? null) === 'running'">Back up now</x-ui.button>
@@ -66,7 +70,7 @@
                     </div>
                     @error('scopeId') <p class="text-xs text-red-600">{{ $message }}</p> @enderror
                     <select wire:model="backupId" class="border rounded px-3 py-2 text-sm">
-                        <option value="">Choose a backup time (server clock)…</option>
+                        <option value="">{{ $catalogLoading ? 'Loading backup times…' : 'Choose a backup time (server clock)…' }}</option>
                         @foreach ($backups as $b)
                             <option value="{{ $b['id'] }}">{{ $b['label'] }}</option>
                         @endforeach

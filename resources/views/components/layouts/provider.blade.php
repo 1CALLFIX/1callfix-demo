@@ -166,6 +166,7 @@
                             Sign out
                         </button>
                     </form>
+                    <x-ui.app-version class="px-7 pb-4" />
                 </div>
             </div>
         </div>
@@ -239,6 +240,10 @@
         @endauth
 
         {{ $slot }}
+
+        @auth
+            <x-ui.app-version class="mt-10 text-center" />
+        @endauth
     </main>
 
     @livewireScripts

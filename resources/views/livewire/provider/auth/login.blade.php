@@ -39,5 +39,6 @@
         <p class="mt-2 text-center text-sm text-slate-600">
             Not a partner? <a href="{{ route('customer.login') }}" wire:navigate class="font-medium text-slate-900 underline underline-offset-2">Customer sign in</a>
         </p>
+        <x-ui.app-version class="mt-4 text-center" />
     </x-ui.card>
 </div>

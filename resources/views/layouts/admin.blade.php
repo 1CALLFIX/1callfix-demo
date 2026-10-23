@@ -228,7 +228,8 @@
                     // super_admin only (permission never seeded to a role) — see the Earnings Control entry.
                     ['label' => 'Alert Emails', 'route' => 'admin.alert-emails.index', 'icon' => 'activity', 'permission' => 'alert_emails.manage'],
                     ['label' => 'Backup & Restore', 'route' => 'admin.operations.backup-restore', 'icon' => 'shield', 'permission' => 'backups.restore'],
-                    ['label' => 'Clear Data', 'route' => 'admin.operations.data-clear', 'icon' => 'exclamation-triangle', 'permission' => 'operations.data_clear'],
+                    // Test/staging tool only: the screen itself 404s in production, so the link is hidden there.
+                    ['label' => 'Clear Data', 'route' => 'admin.operations.data-clear', 'icon' => 'exclamation-triangle', 'permission' => 'operations.data_clear', 'hide_in_production' => true],
                     // super_admin only (permission never seeded to a role), like Alert Emails above.
                     ['label' => 'Availability & Shifts', 'route' => 'admin.providers.availability', 'icon' => 'clock', 'permission' => 'provider_availability.manage'],
                     ['label' => 'Google Reviews', 'route' => 'admin.reviews.google', 'icon' => 'star', 'permission' => 'google_reviews.manage'],
@@ -239,8 +240,8 @@
             ],
         ];
 
-        $canSeeNavItem = fn ($item) => collect((array) $item['permission'])
-            ->contains(fn ($p) => auth()->user()->hasPermissionAnywhere($p));
+        $canSeeNavItem = fn ($item) => ! (($item['hide_in_production'] ?? false) && app()->environment('production'))
+            && collect((array) $item['permission'])->contains(fn ($p) => auth()->user()->hasPermissionAnywhere($p));
 
         foreach ($navGroups as $key => $group) {
             $items = array_values(array_filter($group['items'], $canSeeNavItem));
@@ -366,6 +367,7 @@
                         </div>
                     </div>
                 @endforeach
+                <x-ui.app-version class="mt-auto w-full break-words px-2 pt-4 text-center !text-slate-500" />
             </nav>
 
             <main id="admin-main-content" class="flex-1 p-6 max-w-6xl" tabindex="-1">

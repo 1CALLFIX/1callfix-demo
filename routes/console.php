@@ -139,3 +139,9 @@ ScheduleRunTracker::track(Schedule::command('providers:expire-stale-online'), 'p
 ScheduleRunTracker::track(Schedule::command('cancellation:sweep'), 'cancellation:sweep')
     ->hourly()
     ->withoutOverlapping(30);
+
+// REF 1CF-BACKUP-RESTORE-001 — keeps the off-site backup list cached (15 min) so System > Backup & Restore opens at
+// once. Read-only rclone listing; no-op where BACKUP_RCLONE_REMOTE is unset.
+ScheduleRunTracker::track(Schedule::command('backups:refresh-catalog'), 'backups:refresh-catalog')
+    ->everyFiveMinutes()
+    ->withoutOverlapping(10);

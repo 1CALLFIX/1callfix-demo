@@ -15,6 +15,12 @@ return [
 
     'name' => env('APP_NAME', 'Laravel'),
 
+    // Shown on login screens, side menus and the site footer (App\Support\AppVersion). VERSION file =
+    // release number, bumped with each release note; build = the git commit the server is on.
+    'version' => \App\Support\AppVersion::release(),
+
+    'build' => \App\Support\AppVersion::commit(),
+
     /*
     |--------------------------------------------------------------------------
     | Application Environment

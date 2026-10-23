@@ -9,6 +9,7 @@ Use with `docs/DEPLOY_RUNBOOK.md`.
 | Full test suite | `<passed / failed>` of `<total>`; known failures only: `<list or "none">` |
 | Composer | `<composer.lock changed: yes/no>` |
 | Front-end build (steps 6–7) | `<yes/no>` |
+| Version | `VERSION` file bumped to `<yyyy.mm.dd>` (add `.2`, `.3` for a second release the same day); shown on logins, side menus, footer |
 
 ## What's in it
 - …

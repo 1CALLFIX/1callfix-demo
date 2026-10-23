@@ -24,6 +24,9 @@ class SharedFooterTest extends TestCase
         $end = strpos($html, '</footer>');
         $footer = substr($html, $start, $end - $start + strlen('</footer>'));
 
+        // The version label changes every release, so it is compared as a placeholder (before {YEAR}: it holds the year).
+        $footer = str_replace(e(\App\Support\AppVersion::label()), '{VERSION}', $footer);
+
         return trim((string) preg_replace('/\s+/', ' ', str_replace((string) now()->year, '{YEAR}', $footer)));
     }
 
@@ -34,14 +37,21 @@ class SharedFooterTest extends TestCase
 
     /**
      * The baseline is the footer as rendered by origin/main (9af9569, captured in a clean worktree of that commit).
-     * The ONLY allowed difference is the partner link: /coming-soon/partners became /partners (301 from the old one).
+     * The ONLY allowed differences are the partner link (/coming-soon/partners became /partners, 301 from the old one)
+     * and the version label under the copyright line (2026-10-23).
      */
     private function snapshot(): string
     {
         $raw = trim((string) file_get_contents(__DIR__.'/fixtures/footer_origin_main.html'));
         $this->assertSame(1, substr_count($raw, '/coming-soon/partners'), 'baseline must hold exactly one partner link');
 
-        return str_replace('/coming-soon/partners', '/partners', $raw);
+        $this->assertSame(1, substr_count($raw, 'All rights reserved. </p>'), 'baseline must hold exactly one copyright line');
+
+        return str_replace(
+            ['/coming-soon/partners', 'All rights reserved. </p>'],
+            ['/partners', 'All rights reserved. </p> <p class="text-[11px] leading-4 text-slate-400">{VERSION}</p>'],
+            $raw,
+        );
     }
 
     public function test_with_no_settings_saved_the_footer_equals_the_snapshot_on_every_kind_of_page(): void
