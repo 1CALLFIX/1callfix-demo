@@ -105,6 +105,8 @@ else
   rclone sync "$APP_DIR/storage/app" "$REMOTE/files/current" \
     --backup-dir "$REMOTE/files/archive/$TIMESTAMP" \
     --exclude "backups/**" "${RCLONE_OPTS[@]}"
+  # Exists only once something was pushed aside; make sure it does before cleaning it up.
+  rclone mkdir "$REMOTE/files/archive" "${RCLONE_OPTS[@]}"
   rclone delete "$REMOTE/files/archive" --min-age 30d "${RCLONE_OPTS[@]}"
   rclone rmdirs "$REMOTE/files/archive" --leave-root "${RCLONE_OPTS[@]}"
 
@@ -112,6 +114,7 @@ else
   if [ -d "$APP_DIR/public/build" ]; then
     rclone sync "$APP_DIR/public/build" "$REMOTE/build/current" \
       --backup-dir "$REMOTE/build/archive/$TIMESTAMP" "${RCLONE_OPTS[@]}"
+    rclone mkdir "$REMOTE/build/archive" "${RCLONE_OPTS[@]}"
     rclone delete "$REMOTE/build/archive" --min-age 30d "${RCLONE_OPTS[@]}"
     rclone rmdirs "$REMOTE/build/archive" --leave-root "${RCLONE_OPTS[@]}"
   fi
