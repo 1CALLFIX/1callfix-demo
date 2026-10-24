@@ -10,7 +10,7 @@
 
 <div class="mx-auto max-w-2xl px-4 py-6 sm:px-6 lg:px-8">
     <h1 class="text-2xl font-bold tracking-tight">Send a parcel</h1>
-    <p class="mt-1 text-sm text-slate-600">A rider picks it up and delivers it the same trip. Pay online, from your wallet, or cash at pickup.</p>
+    <p class="mt-1 text-sm text-slate-600">A rider picks it up and delivers it the same trip. Pay online, from your wallet, or cash at pickup or drop.</p>
 
     @if ($browsingZoneKnown && ! $activeHere)
         <div class="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">

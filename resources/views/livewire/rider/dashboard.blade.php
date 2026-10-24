@@ -81,27 +81,31 @@
                 <span class="text-lg font-semibold tabular-nums">{{ $fmt($job->price_quoted) }}</span>
             </div>
 
-            @php $beforePickup = in_array($job->status, ['assigned', 'worker_en_route_pickup'], true); @endphp
+            @php
+                $beforePickup = in_array($job->status, ['assigned', 'worker_en_route_pickup'], true);
+                // Heading to the sender: before pickup, or bringing a refused pay-at-drop parcel back ('disputed').
+                $toPickup = $beforePickup || $job->status === 'disputed';
+            @endphp
 
             <div class="mt-4 space-y-3 text-sm">
-                <div @class(['rounded-xl p-3', 'bg-blue-50' => $beforePickup, 'bg-slate-50 opacity-70' => ! $beforePickup])>
+                <div @class(['rounded-xl p-3', 'bg-blue-50' => $toPickup, 'bg-slate-50 opacity-70' => ! $toPickup])>
                     <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Pickup</p>
                     <p class="font-medium">{{ $job->pickupAddress?->address_line }}</p>
                     <p class="text-slate-600">{{ $job->pickup_contact_name ?: $job->customer?->name }} · {{ $job->pickup_contact_phone ?: $job->customer?->phone }}</p>
-                    @if ($beforePickup)
+                    @if ($toPickup)
                         <div class="mt-2 flex flex-wrap gap-2">
                             <a href="{{ $mapsLink($job->pickupAddress) }}" target="_blank" rel="noopener" class="inline-flex min-h-9 items-center rounded-lg border border-slate-300 bg-white px-3 font-medium">Directions</a>
                             @if ($job->pickup_contact_phone ?: $job->customer?->phone)
-                                <a href="tel:{{ $job->pickup_contact_phone ?: $job->customer?->phone }}" class="inline-flex min-h-9 items-center rounded-lg border border-slate-300 bg-white px-3 font-medium">Call</a>
+                                <a href="tel:{{ $job->pickup_contact_phone ?: $job->customer?->phone }}" class="inline-flex min-h-9 items-center rounded-lg border border-slate-300 bg-white px-3 font-medium">{{ $job->status === 'disputed' ? 'Call sender' : 'Call' }}</a>
                             @endif
                         </div>
                     @endif
                 </div>
-                <div @class(['rounded-xl p-3', 'bg-emerald-50' => ! $beforePickup, 'bg-slate-50' => $beforePickup])>
+                <div @class(['rounded-xl p-3', 'bg-emerald-50' => ! $toPickup, 'bg-slate-50 opacity-70' => $toPickup])>
                     <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Drop</p>
                     <p class="font-medium">{{ $job->dropoffAddress?->address_line }}</p>
                     <p class="text-slate-600">{{ $job->recipient_name }} · {{ $job->recipient_phone }}</p>
-                    @unless ($beforePickup)
+                    @unless ($toPickup)
                         <div class="mt-2 flex flex-wrap gap-2">
                             <a href="{{ $mapsLink($job->dropoffAddress) }}" target="_blank" rel="noopener" class="inline-flex min-h-9 items-center rounded-lg border border-slate-300 bg-white px-3 font-medium">Directions</a>
                             @if ($job->recipient_phone)
