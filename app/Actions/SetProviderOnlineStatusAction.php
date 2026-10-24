@@ -80,6 +80,38 @@ class SetProviderOnlineStatusAction
     }
 
     /**
+     * The location heartbeat. Re-stamps the fix ONLY while the row is still
+     * online, under the same row lock, so a heartbeat (or the catch-up sent
+     * when a locked phone is opened again) can never put back online a
+     * provider who went offline or whom providers:expire-stale-online set
+     * offline. Not a status change, so nothing is written to the activity log.
+     *
+     * @return bool true when a fix was recorded
+     */
+    public function refreshLocation(Provider $provider, ?float $lat, ?float $lng): bool
+    {
+        if (! $this->isUsableFix($lat, $lng)) {
+            return false;
+        }
+
+        return DB::transaction(function () use ($provider, $lat, $lng) {
+            /** @var Provider $locked */
+            $locked = Provider::whereKey($provider->getKey())->lockForUpdate()->firstOrFail();
+
+            if (! $locked->is_online) {
+                return false;
+            }
+
+            $locked->current_lat = $lat;
+            $locked->current_lng = $lng;
+            $locked->location_updated_at = now();
+            $locked->save();
+
+            return true;
+        });
+    }
+
+    /**
      * Admin setting provider.shifts.mode = required: a provider may only go online inside a shift they have chosen
      * (plus the admin's grace minutes after it ends). Any other mode is a no-op, so nothing changes by default.
      */

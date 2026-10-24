@@ -53,6 +53,12 @@ class OnlineToggle extends Component
         }
     }
 
+    /** The location heartbeat: refreshes the fix while online, never flips a provider back online. */
+    public function refreshLocation(?float $lat = null, ?float $lng = null): void
+    {
+        app(SetProviderOnlineStatusAction::class)->refreshLocation($this->provider(), $lat, $lng);
+    }
+
     public function goOffline(): void
     {
         $this->error = '';

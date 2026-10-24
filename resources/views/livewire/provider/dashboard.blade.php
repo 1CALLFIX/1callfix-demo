@@ -95,10 +95,25 @@
             </div>
 
             @if ($provider->is_online)
-                <button type="button" wire:click="goOffline"
-                        class="inline-flex min-h-11 items-center rounded-lg border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-800 hover:bg-slate-50">
-                    Go offline
-                </button>
+                <div class="flex flex-wrap items-center justify-end gap-2">
+                    <button type="button" x-data
+                            x-on:click="
+                                $el.disabled = true;
+                                navigator.geolocation
+                                    ? navigator.geolocation.getCurrentPosition(
+                                        p => { $wire.refreshLocation(p.coords.latitude, p.coords.longitude); $el.disabled = false; },
+                                        () => { $wire.refreshLocation(null, null); $el.disabled = false; },
+                                        { timeout: 8000 })
+                                    : ($wire.refreshLocation(null, null), $el.disabled = false)
+                            "
+                            class="inline-flex min-h-11 items-center rounded-lg border border-blue-300 bg-white px-4 text-sm font-semibold text-blue-700 hover:bg-blue-50 disabled:opacity-50">
+                        Refresh location
+                    </button>
+                    <button type="button" wire:click="goOffline"
+                            class="inline-flex min-h-11 items-center rounded-lg border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-800 hover:bg-slate-50">
+                        Go offline
+                    </button>
+                </div>
             @else
                 <button type="button" x-data
                         x-on:click="

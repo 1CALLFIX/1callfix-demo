@@ -13,8 +13,10 @@ use App\Services\Providers\ProviderStanding;
  * nothing is enforced: the components only render this.
  *
  * `blocking` = a hard dispatch exclusion today. `advisory` = a warning the
- * dispatcher does not currently act on (location staleness) — surfaced so a
- * provider isn't blindsided, but it never flips `dispatchBlocked()`.
+ * dispatcher does not act on; it never flips `dispatchBlocked()`. Location
+ * staleness used to be advisory, but DispatchService::eligibleQuery() has
+ * enforced it since 1CF-LAUNCH-008, so it is blocking here too: the panel
+ * must never say "eligible" to a provider dispatch is skipping.
  */
 trait BuildsProviderEligibility
 {
@@ -41,8 +43,9 @@ trait BuildsProviderEligibility
                 'fail' => "You're online but we don't have your location — you will NOT receive jobs. Allow location access and go online again.",
             ],
             [
-                'key' => 'location_fresh', 'label' => 'Location current', 'ok' => $fixFresh, 'advisory' => true,
-                'fail' => "Your last location fix is over {$staleMinutes} min old — it may be inaccurate. Refresh it.",
+                // Only once a fix exists; with none, the check above already names the problem.
+                'key' => 'location_fresh', 'label' => 'Location current', 'ok' => ! $hasFix || $fixFresh, 'advisory' => false,
+                'fail' => "Your location hasn't updated for over {$staleMinutes} min — you will NOT receive jobs. Tap \"Refresh location\", and keep this page open with the screen on while you wait for jobs.",
             ],
             [
                 'key' => 'kyc', 'label' => 'KYC approved', 'ok' => $p->kyc_status === 'approved', 'advisory' => false,

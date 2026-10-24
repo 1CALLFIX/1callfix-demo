@@ -107,4 +107,65 @@ class ProviderDashboardTest extends TestCase
             ->call('goOnline', 12.9716, 77.5946)
             ->assertSee("You're eligible for dispatch.", false);
     }
+
+    /** Dispatch skips a stale fix (DispatchService::eligibleQuery), so the panel must not say "eligible". */
+    public function test_a_stale_location_blocks_the_panel_instead_of_showing_eligible(): void
+    {
+        [$provider] = $this->readyProvider();
+        $provider->update([
+            'is_online' => true, 'current_lat' => 12.9716, 'current_lng' => 77.5946,
+            'location_updated_at' => now()->subMinutes(31),
+        ]);
+        $this->actingAsProvider($provider);
+
+        Livewire::test(Dashboard::class)
+            ->assertSee('You will not be offered jobs right now', false)
+            ->assertSee("Your location hasn't updated for over 30 min")
+            ->assertDontSee("You're eligible for dispatch.", false)
+            ->assertSee('Refresh location');
+    }
+
+    public function test_refresh_location_makes_a_stale_online_provider_eligible_again(): void
+    {
+        [$provider] = $this->readyProvider();
+        $provider->update([
+            'is_online' => true, 'current_lat' => 12.9716, 'current_lng' => 77.5946,
+            'location_updated_at' => now()->subMinutes(31),
+        ]);
+        $this->actingAsProvider($provider);
+
+        Livewire::test(Dashboard::class)
+            ->call('refreshLocation', 12.98, 77.60)
+            ->assertSet('notice', 'Location updated.')
+            ->assertSee("You're eligible for dispatch.", false);
+
+        $this->assertTrue($provider->fresh()->location_updated_at->greaterThan(now()->subMinute()));
+    }
+
+    public function test_refresh_location_without_a_fix_explains_and_changes_nothing(): void
+    {
+        [$provider] = $this->readyProvider();
+        $provider->update(['is_online' => true]);
+        $this->actingAsProvider($provider);
+
+        Livewire::test(Dashboard::class)
+            ->call('refreshLocation', null, null)
+            ->assertSee("We couldn't read your location");
+
+        $this->assertNull($provider->fresh()->location_updated_at);
+    }
+
+    /** The heartbeat must never undo going offline (by hand or providers:expire-stale-online). */
+    public function test_refresh_location_never_puts_an_offline_provider_back_online(): void
+    {
+        [$provider] = $this->readyProvider();
+        $this->actingAsProvider($provider);
+
+        Livewire::test(Dashboard::class)->call('refreshLocation', 12.98, 77.60);
+        Livewire::test(\App\Livewire\Provider\OnlineToggle::class)->call('refreshLocation', 12.98, 77.60);
+
+        $fresh = $provider->fresh();
+        $this->assertFalse((bool) $fresh->is_online);
+        $this->assertNull($fresh->location_updated_at);
+    }
 }
