@@ -76,14 +76,15 @@ final class WalletSourceLabel
         ],
         'franchise_earning' => [
             'label' => 'Franchise revenue share',
-            'regex' => '/^([a-z_]+:\d+:franchise-earning|(cash-commission|rider-cash-due):\d+:franchise-earning:[\w-]+)$/',
-            'like' => ['%:franchise-earning', 'cash-commission:%:franchise-earning:%', 'rider-cash-due:%:franchise-earning:%'],
+            // E-commerce Phase 0: marketplace delivery-fee share, and the share of cash a rider/seller paid back.
+            'regex' => '/^([a-z_]+:\d+:(delivery-)?franchise-earning|(cash-commission|rider-cash-due|mkt-cash-due):\d+:franchise-earning:[\w-]+)$/',
+            'like' => ['%:franchise-earning', '%:delivery-franchise-earning', 'cash-commission:%:franchise-earning:%', 'rider-cash-due:%:franchise-earning:%', 'mkt-cash-due:%:franchise-earning:%'],
         ],
         'cash_commission' => [
             'label' => 'Cash-job commission settled',
             // Parcel (2026-10-23): a rider's cash dues settled from their wallet (FieldWorkerCashDueService).
-            'regex' => '/^(cash-commission|rider-cash-due):\d+:settle:[\w-]+$/',
-            'like' => ['cash-commission:%:settle:%', 'rider-cash-due:%:settle:%'],
+            'regex' => '/^(cash-commission|rider-cash-due|mkt-cash-due):\d+:settle:[\w-]+$/',
+            'like' => ['cash-commission:%:settle:%', 'rider-cash-due:%:settle:%', 'mkt-cash-due:%:settle:%'],
         ],
         'payout_reversal' => [
             'label' => 'Payout returned',
@@ -177,6 +178,12 @@ final class WalletSourceLabel
             'booking:1:interim-payout', 'booking:1:interim-franchise',
         ],
         'app/Services/CompensationService.php' => ['compensation:1:overtime:00000000-0000-0000-0000-000000000000'],
+        'app/Services/Marketplace/MarketplaceSettlementService.php' => [
+            'marketplace_order:1:worker-earning', 'marketplace_order:1:delivery-franchise-earning',
+            'marketplace_order:1:provider-earning', 'marketplace_order:1:franchise-earning',
+            'mkt-cash-due:1:settle:00000000-0000-0000-0000-000000000000',
+            'mkt-cash-due:1:franchise-earning:00000000-0000-0000-0000-000000000000',
+        ],
         'app/Services/Parcel/FieldWorkerCashDueService.php' => [
             'rider-cash-due:1:settle:00000000-0000-0000-0000-000000000000',
             'rider-cash-due:1:franchise-earning:00000000-0000-0000-0000-000000000000',

@@ -6,6 +6,7 @@ use App\Actions\CreateMarketplaceOrderAction;
 use App\Exceptions\ModuleNotActiveException;
 use App\Http\Controllers\Controller;
 use App\Models\MarketplaceOrder;
+use App\Services\Marketplace\MarketplacePaymentService;
 use Illuminate\Http\Request;
 
 /**
@@ -55,9 +56,31 @@ class MarketplaceOrderController extends Controller
         }
 
         return response()->json([
-            'message' => 'Order placed.',
-            'order' => ['id' => $order->id, 'code' => $order->code, 'status' => $order->status, 'total_amount' => $order->total_amount],
+            'message' => $order->isAwaitingOnlinePayment() ? 'Order created. Complete the payment to send it to the shop.' : 'Order placed.',
+            'order' => [
+                'id' => $order->id, 'code' => $order->code, 'status' => $order->status,
+                'total_amount' => $order->total_amount, 'discount_amount' => $order->discount_amount,
+                'payment_status' => $order->payment_status, 'awaiting_payment' => $order->isAwaitingOnlinePayment(),
+            ],
         ], 201);
+    }
+
+    /**
+     * POST /api/marketplace-orders/{id}/pay — E-commerce Phase 0: opens a Razorpay order for an online shop
+     * order that is still unpaid. The capture webhook marks it paid; only then can the shop accept it.
+     */
+    public function pay(Request $request, int $orderId, MarketplacePaymentService $payments)
+    {
+        $order = MarketplaceOrder::find($orderId);
+        if (! $order || $order->customer_id !== $request->user()->id) {
+            return response()->json(['message' => 'Order not found.'], 404);
+        }
+
+        try {
+            return response()->json($payments->startOnlinePayment($order));
+        } catch (\RuntimeException $e) {
+            return response()->json(['message' => $e->getMessage()], 409);
+        }
     }
 
     /** GET /api/marketplace-orders/{id} */

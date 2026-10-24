@@ -48,6 +48,7 @@ class MarketplaceMultiVerticalReuseTest extends TestCase
         $this->assertSame('food', $order->module);
         $this->assertSame('food', $order->moduleCode());
 
+        $order->update(['payment_status' => 'paid']); // the online payment's capture webhook (E-commerce Phase 0)
         app(\App\Actions\AdvanceMarketplaceOrderAction::class)->execute($order->id, 'accepted');
         app(\App\Actions\AdvanceMarketplaceOrderAction::class)->execute($order->id, 'preparing');
         app(\App\Actions\AdvanceMarketplaceOrderAction::class)->execute($order->id, 'ready');

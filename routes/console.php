@@ -96,6 +96,15 @@ ScheduleRunTracker::track(Schedule::command('coupons:sweep-unpaid'), 'coupons:sw
     ->everyMinute()
     ->withoutOverlapping(10);
 
+// E-commerce Phase 0 — cancels online shop orders not paid within marketplace.unpaid_expiry_minutes
+// (default 30; stock goes back), and pays sellers once the return window has passed.
+ScheduleRunTracker::track(Schedule::command('marketplace:expire-unpaid'), 'marketplace:expire-unpaid')
+    ->everyFiveMinutes()
+    ->withoutOverlapping(10);
+ScheduleRunTracker::track(Schedule::command('marketplace:release-earnings'), 'marketplace:release-earnings')
+    ->hourly()
+    ->withoutOverlapping(30);
+
 // Parcel delivery — cancels online parcel orders not paid within parcel.unpaid_expiry_minutes
 // (default 30). Such an order was never offered to a rider; a late capture is refunded.
 ScheduleRunTracker::track(Schedule::command('parcel:expire-unpaid'), 'parcel:expire-unpaid')

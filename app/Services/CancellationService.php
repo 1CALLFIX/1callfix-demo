@@ -642,6 +642,12 @@ class CancellationService
             return 0.0;
         }
 
+        // E-commerce Phase 0 — an online order never paid was never shown to the seller, so cancelling it (or its
+        // unpaid expiry) costs nothing, and a payment that lands afterwards is refunded in full.
+        if ($order->isAwaitingOnlinePayment()) {
+            return 0.0;
+        }
+
         $order->loadMissing('franchise');
 
         return $this->calculateFeeGeneric(
@@ -665,6 +671,21 @@ class CancellationService
             ->first();
 
         if (!$payment) {
+            return;
+        }
+
+        $this->refundMarketplacePayment($order, $payment, $fee);
+    }
+
+    /**
+     * E-commerce Phase 0 — refunds ONE captured marketplace payment, keeping $fee. Split out for the capture
+     * webhook (MarketplacePaymentService::markPaid()): a payment captured after its order was cancelled, or a
+     * duplicate capture, is refunded by itself. Idempotent — a payment no longer 'captured' is left alone. The
+     * order's payment_status only changes when the order is cancelled.
+     */
+    public function refundMarketplacePayment(MarketplaceOrder $order, Payment $payment, float $fee): void
+    {
+        if ($payment->status !== 'captured') {
             return;
         }
 
@@ -693,8 +714,10 @@ class CancellationService
         $payment->status = 'refunded';
         $payment->save();
 
-        $order->payment_status = $refundAmount >= (float) $payment->amount ? 'refunded' : 'partially_refunded';
-        $order->save();
+        if ($order->status === 'cancelled') {
+            $order->payment_status = $refundAmount >= (float) $payment->amount ? 'refunded' : 'partially_refunded';
+            $order->save();
+        }
 
         if ($order->customer) {
             $channels = ChannelResolver::resolve(['zone_id' => $order->zone_id, 'franchise_id' => $order->franchise_id]);

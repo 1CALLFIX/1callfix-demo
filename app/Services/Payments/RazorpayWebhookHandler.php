@@ -178,6 +178,13 @@ class RazorpayWebhookHandler
             return ['outcome' => 'captured', 'payment' => $payment];
         }
 
+        // E-commerce Phase 0 (2026-10-25): an online shop order is held from the seller until this capture.
+        if ($payment->purpose === 'marketplace_order') {
+            app(\App\Services\Marketplace\MarketplacePaymentService::class)->markPaid($payment);
+
+            return ['outcome' => 'captured', 'payment' => $payment];
+        }
+
         // Phase E3 — multi-service bundle. ONE payment paid the aggregate, so
         // ONE capture marks the bundle paid and propagates that to every child
         // booking, then gives each child the same customer-facing
@@ -319,7 +326,7 @@ class RazorpayWebhookHandler
 
         // A failed parcel attempt changes nothing: the order stays pending and the customer can pay again
         // (a new gateway order is opened each time) or cancel; unpaid orders expire on their own.
-        if ($payment->purpose === 'parcel_order') {
+        if ($payment->purpose === 'parcel_order' || $payment->purpose === 'marketplace_order') {
             return ['outcome' => 'failed', 'payment' => $payment];
         }
 

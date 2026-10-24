@@ -55,6 +55,19 @@ class MarketplaceOrder extends Model implements Orderable
     public function payments() { return $this->hasMany(Payment::class); }
     /** Reverse side of DispatchAttempt::dispatchable() -- Operations/Health dispatch monitoring (mission Phase 7). */
     public function dispatchAttempts() { return $this->morphMany(DispatchAttempt::class, 'dispatchable'); }
+    public function settlement() { return $this->hasOne(MarketplaceSettlement::class); }
+
+    /** E-commerce Phase 0: an online order is held from the seller until the Razorpay capture webhook marks it paid. */
+    public function isAwaitingOnlinePayment(): bool
+    {
+        return $this->payment_method === 'online' && $this->payment_status === 'pending' && $this->status === 'pending';
+    }
+
+    /** THUMB RULE — any discount or coupon on the order is a benefit, so the order must be paid online. */
+    public function usesBenefit(): bool
+    {
+        return (float) $this->discount_amount > 0 || (float) $this->coupon_discount_amount > 0 || ! empty($this->coupon_code);
+    }
 
     // ============================== Orderable ==============================
 

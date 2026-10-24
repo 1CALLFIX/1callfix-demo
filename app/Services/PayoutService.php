@@ -93,6 +93,21 @@ class PayoutService
             }
         }
 
+        // E-commerce Phase 0 (2026-10-25) — cash a rider (cash on delivery) or a seller (cash at pickup) collected
+        // for a shop order and still owes back. Same rule: recovered from the wallet first, refused while any remain.
+        if (in_array($payeeType, ['provider', 'field_worker'], true)) {
+            $shopCash = app(\App\Services\Marketplace\MarketplaceSettlementService::class);
+            $shopCash->settleCash($payeeType, $payeeId);
+            $shopOwed = $shopCash->outstanding($payeeType, $payeeId);
+            if ($shopOwed > 0) {
+                throw new \RuntimeException(
+                    'Shop order cash of '.number_format($shopOwed, 2)
+                    .' collected by you is still owed to the platform. It is recovered from your wallet balance first — '
+                    .'there is nothing available to withdraw until it is covered.'
+                );
+            }
+        }
+
         $this->assertWithinPayoutLimits($payeeType, $payeeId, $amount);
         $this->assertKycWithdrawalAllowed($payeeType, $payeeId);
 

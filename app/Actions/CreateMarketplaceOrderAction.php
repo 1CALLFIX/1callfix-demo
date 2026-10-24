@@ -81,6 +81,11 @@ class CreateMarketplaceOrderAction
             $deliveryFee = ($freeAbove !== null && $subtotal >= (float) $freeAbove) ? 0.0 : (float) $store->delivery_fee_flat;
         }
 
+        // E-commerce Phase 0: the cart price already has the product's discount % taken off
+        // (Product::effective_price). Record how much that discount was, because a discount is a benefit and
+        // decides whether cash is allowed (thumb rule below). The subtotal is not reduced again.
+        $discountAmount = round($lines->sum(fn (CartItem $l) => $this->lineDiscount($l)), 2);
+
         // Store-level tax rate only -- products carry their own `tax_percent`
         // column (real 6amMart evidence) but it is deliberately NOT combined
         // into this calculation without a real evidenced rule for how the
@@ -89,7 +94,20 @@ class CreateMarketplaceOrderAction
         $totalAmount = round($subtotal + $deliveryFee + $taxAmount, 2);
         $paymentMethod = $data['payment_method'] ?? 'online';
 
-        $order = DB::transaction(function () use ($lines, $store, $customer, $orderType, $data, $subtotal, $deliveryFee, $taxAmount, $totalAmount, $paymentMethod) {
+        if (! in_array($paymentMethod, ['online', 'wallet', 'cash'], true)) {
+            throw new \RuntimeException("Payment method '{$paymentMethod}' is not available.");
+        }
+
+        // THUMB RULE — ONLINE PAYMENT ONLY FOR ALL BENEFITS. A discounted order is a benefit: never cash.
+        // Coupons are not connected to the marketplace yet (config coupons.connected_modules), so a code is refused.
+        if (! empty($data['coupon_code'])) {
+            throw new \RuntimeException('Coupons are not available for shop orders yet.');
+        }
+        if ($paymentMethod === 'cash' && $discountAmount > 0) {
+            throw new \RuntimeException('Discounted items must be paid online. Please choose online payment or wallet.');
+        }
+
+        $order = DB::transaction(function () use ($lines, $store, $customer, $orderType, $data, $subtotal, $discountAmount, $deliveryFee, $taxAmount, $totalAmount, $paymentMethod) {
             $this->lockAndDecrementStock($lines);
 
             $order = MarketplaceOrder::create([
@@ -103,9 +121,11 @@ class CreateMarketplaceOrderAction
                 'delivery_address_id' => $data['delivery_address_id'] ?? null,
                 'subtotal' => $subtotal,
                 'delivery_fee' => $deliveryFee,
+                'discount_amount' => $discountAmount,
                 'tax_amount' => $taxAmount,
                 'total_amount' => $totalAmount,
                 'status' => 'pending',
+                'payment_status' => 'pending',
                 'payment_method' => $paymentMethod,
                 'special_instructions' => $data['special_instructions'] ?? null,
             ]);
@@ -134,7 +154,8 @@ class CreateMarketplaceOrderAction
             return $order;
         });
 
-        if ($order->customer) {
+        // An online order is confirmed to the customer when the payment lands (MarketplacePaymentService::markPaid()).
+        if ($order->customer && ! $order->isAwaitingOnlinePayment()) {
             $channels = ChannelResolver::resolve(['zone_id' => $order->zone_id, 'franchise_id' => $order->franchise_id]);
             $order->customer->notify(new MarketplaceOrderStatusNotification('created', $order, $channels));
         }
@@ -186,6 +207,24 @@ class CreateMarketplaceOrderAction
                 $product->decrement('stock', $line->quantity);
             }
         }
+    }
+
+    /**
+     * The discount inside a cart line's price. Product::effective_price takes discount_percent off the product
+     * price; a variant with its own price_override carries no discount (ProductVariant::effectivePrice()).
+     * Worked back from the cart's fixed price, so a later product price change does not invent a discount.
+     */
+    private function lineDiscount(CartItem $line): float
+    {
+        $percent = min(max((float) $line->product->discount_percent, 0), 100);
+        if ($percent <= 0 || ($line->variant && $line->variant->price_override !== null)) {
+            return 0.0;
+        }
+
+        $paid = (float) $line->unit_price_snapshot * $line->quantity;
+        $listPrice = $percent >= 100 ? (float) $line->product->price * $line->quantity : $paid / (1 - $percent / 100);
+
+        return max(round($listPrice - $paid, 2), 0.0);
     }
 
     private function addOnsSnapshot(CartItem $line): array
