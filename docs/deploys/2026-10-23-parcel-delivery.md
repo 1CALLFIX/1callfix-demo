@@ -6,10 +6,10 @@ Use with `docs/DEPLOY_RUNBOOK.md`.
 |---|---|
 | Deploys | `main` at the commit that adds this file (`git log -1` in runbook step 1) |
 | Live before | `d330232` (check with `git log -1` on the server) |
-| Full test suite | 4028 of 4029 pass. Only failure: the known `NotificationCenterAuditTest::test_provider_status_shows_log_fallback_by_default` (local `.env`) |
+| Full test suite | 4028 of 4029 pass (re-run on the merged commit). Only failure: the known `NotificationCenterAuditTest::test_provider_status_shows_log_fallback_by_default` (local `.env`) |
 | Composer | composer.lock changed: no |
 | Front-end build (steps 6–7) | **yes** (new customer, rider and admin pages) |
-| Version | `VERSION` file = `2026.10.23.3` (bump the date if it ships another day) |
+| Version | `VERSION` file = `2026.10.24.1` (shipped 2026-10-24) |
 
 ## What's in it
 Owner decisions 2026-10-23: riders work in a web area, price = distance + weight + size, pay online / wallet / cash,
