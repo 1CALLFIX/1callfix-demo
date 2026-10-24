@@ -5,6 +5,7 @@ namespace App\Actions;
 use App\Events\ParcelOrderStatusUpdated;
 use App\Models\FieldWorker;
 use App\Models\ParcelOrder;
+use App\Models\Payment;
 use App\Notifications\ParcelOrderStatusNotification;
 use App\Notifications\Support\ChannelResolver;
 use App\Services\CommissionService;
@@ -43,6 +44,21 @@ class MarkParcelDeliveredAction
 
             if (empty($order->delivery_otp) || $order->delivery_otp !== $enteredOtp) {
                 throw new \RuntimeException('Incorrect delivery OTP.');
+            }
+
+            // Recipient pays cash: collected at the door (the rider's screen says so before the code is entered),
+            // recorded exactly like a sender's cash at pickup.
+            if ($order->collectsCashAtDelivery() && $order->payment_status !== 'paid') {
+                Payment::create([
+                    'parcel_order_id' => $order->id,
+                    'purpose' => 'parcel_order',
+                    'amount' => $order->price_quoted,
+                    'gateway' => 'cash',
+                    'status' => 'captured',
+                    'captured_at' => now(),
+                ]);
+                $order->payment_status = 'paid';
+                $order->cash_collected_at = now();
             }
 
             $order->status = 'delivered';

@@ -73,9 +73,16 @@ class CreateParcelOrderAction
             throw new \RuntimeException("Payment method '{$paymentMethod}' is not available for parcel delivery.");
         }
 
+        // Pay at: Pickup | Drop (owner decision 2026-10-24), cash only. Drop = the recipient pays the rider at the
+        // door. Nothing waits for the recipient; a refusal at the door is the rider's (ParcelRecipientRefusedAction).
+        $cashCollectAt = $paymentMethod === 'cash' && ($data['cash_collect_at'] ?? 'pickup') === 'drop' ? 'drop' : 'pickup';
+        if ($cashCollectAt === 'drop' && blank($data['recipient_phone'] ?? null)) {
+            throw new \RuntimeException("Enter the recipient's phone number. They pay the rider at the drop.");
+        }
+
         $quote = $this->quote($data, $scope);
 
-        $order = DB::transaction(function () use ($data, $paymentMethod, $quote) {
+        $order = DB::transaction(function () use ($data, $paymentMethod, $cashCollectAt, $quote) {
             $order = ParcelOrder::create([
                 'franchise_id' => $data['franchise_id'],
                 'zone_id' => $data['zone_id'] ?? null,
@@ -97,6 +104,7 @@ class CreateParcelOrderAction
                 // returned model straight away (the web page opens Razorpay from it).
                 'payment_status' => 'pending',
                 'payment_method' => $paymentMethod,
+                'cash_collect_at' => $cashCollectAt,
                 'customer_note' => $data['customer_note'] ?? null,
             ]);
 

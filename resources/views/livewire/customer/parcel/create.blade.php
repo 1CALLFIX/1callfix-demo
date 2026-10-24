@@ -253,6 +253,24 @@
                         @endforeach
                     </div>
                 </fieldset>
+
+                {{-- Pay at: Pickup | Drop (owner decision 2026-10-24), cash only. Drop = the recipient pays the rider. --}}
+                @if ($paymentMethod === 'cash')
+                    <div class="mt-3 flex items-center justify-between gap-3">
+                        <span class="text-sm font-semibold text-slate-800">Pay at</span>
+                        <div class="inline-flex rounded-full border border-slate-200 p-1" role="radiogroup" aria-label="Pay at">
+                            @foreach (['pickup' => 'Pickup', 'drop' => 'Drop'] as $value => $label)
+                                <label @class([
+                                    'inline-flex min-h-10 cursor-pointer items-center rounded-full px-5 text-sm font-semibold transition',
+                                    'bg-blue-600 text-white' => $cashCollectAt === $value,
+                                    'text-slate-700 hover:bg-slate-100' => $cashCollectAt !== $value,
+                                ])>
+                                    <input type="radio" wire:model.live="cashCollectAt" value="{{ $value }}" class="sr-only">{{ $label }}
+                                </label>
+                            @endforeach
+                        </div>
+                    </div>
+                @endif
             @endif
 
         </section>
@@ -263,7 +281,7 @@
                 <div class="min-w-0 flex-1">
                     @if ($quote)
                         <p class="text-lg font-bold tabular-nums leading-tight">{{ $fmt($quote['total']) }}</p>
-                        <p class="truncate text-xs text-slate-500">{{ rtrim(rtrim(number_format($quote['distance_km'], 1), '0'), '.') }} km · {{ $methods[$paymentMethod] ?? '' }}</p>
+                        <p class="truncate text-xs text-slate-500">{{ rtrim(rtrim(number_format($quote['distance_km'], 1), '0'), '.') }} km · {{ $paymentMethod === 'cash' ? ($cashCollectAt === 'drop' ? 'Cash at drop' : 'Cash at pickup') : ($methods[$paymentMethod] ?? '') }}</p>
                     @else
                         <p class="text-sm text-slate-500">{{ $quoteError ?: 'Choose where it goes' }}</p>
                     @endif

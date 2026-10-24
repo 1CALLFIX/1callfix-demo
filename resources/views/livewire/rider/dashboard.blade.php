@@ -120,8 +120,10 @@
                     <button type="button" wire:click="onTheWay({{ $job->id }})" class="mt-4 inline-flex min-h-11 w-full items-center justify-center rounded-xl border border-blue-300 bg-white text-sm font-semibold text-blue-700 hover:bg-blue-50">I'm on my way to pickup</button>
                 @endif
 
-                @if ($job->payment_method === 'cash' && $job->payment_status !== 'paid')
+                @if ($job->payment_method === 'cash' && ! $job->collectsCashAtDelivery() && $job->payment_status !== 'paid')
                     <p class="mt-4 rounded-xl bg-amber-50 p-3 text-sm font-semibold text-amber-900">Collect {{ $fmt($job->price_quoted) }} cash from the sender before you confirm pickup.</p>
+                @elseif ($job->collectsCashAtDelivery())
+                    <p class="mt-4 rounded-xl bg-slate-50 p-3 text-sm text-slate-700">Nothing to collect at pickup — the recipient pays {{ $fmt($job->price_quoted) }} cash at delivery.</p>
                 @endif
 
                 <form wire:submit="confirmPickup({{ $job->id }})" class="mt-4">
@@ -132,7 +134,21 @@
                         <button type="submit" class="inline-flex min-h-11 shrink-0 items-center rounded-lg bg-blue-600 px-4 text-sm font-semibold text-white hover:bg-blue-700">Picked up</button>
                     </div>
                 </form>
+            @elseif ($job->status === 'disputed')
+                {{-- Recipient refused at the door: bring it back; the SENDER's pickup code closes it. --}}
+                <p class="mt-4 rounded-xl bg-amber-50 p-3 text-sm font-semibold text-amber-900">Return this parcel to the sender at the pickup address. Ask them for their pickup code.</p>
+                <form wire:submit="returnToSender({{ $job->id }})" class="mt-4">
+                    <label for="return-otp" class="block text-sm font-medium">Sender's pickup code</label>
+                    <div class="mt-1 flex gap-2">
+                        <input id="return-otp" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="8" wire:model="returnOtp" required
+                               class="block min-h-11 w-full rounded-lg border border-slate-300 px-3 text-lg tracking-widest focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/30">
+                        <button type="submit" class="inline-flex min-h-11 shrink-0 items-center rounded-lg bg-slate-800 px-4 text-sm font-semibold text-white hover:bg-slate-900">Returned</button>
+                    </div>
+                </form>
             @else
+                @if ($job->collectsCashAtDelivery() && $job->payment_status !== 'paid')
+                    <p class="mt-4 rounded-xl bg-amber-50 p-3 text-sm font-semibold text-amber-900">Collect {{ $fmt($job->price_quoted) }} cash from the recipient before you enter the delivery code.</p>
+                @endif
                 <form wire:submit="confirmDelivery({{ $job->id }})" class="mt-4">
                     <label for="delivery-otp" class="block text-sm font-medium">Delivery code from the recipient</label>
                     <div class="mt-1 flex gap-2">
@@ -141,6 +157,10 @@
                         <button type="submit" class="inline-flex min-h-11 shrink-0 items-center rounded-lg bg-emerald-600 px-4 text-sm font-semibold text-white hover:bg-emerald-700">Delivered</button>
                     </div>
                 </form>
+                @if ($job->collectsCashAtDelivery() && $job->payment_status !== 'paid')
+                    <button type="button" wire:click="recipientRefused({{ $job->id }})" wire:confirm="The recipient refuses to pay? You will bring the parcel back to the sender."
+                            class="mt-3 text-sm font-medium text-rose-700 underline underline-offset-2">Recipient refused to pay</button>
+                @endif
             @endif
         </section>
     @endif
@@ -164,7 +184,9 @@
                     </div>
                     <p class="mt-2 truncate text-sm text-slate-700"><span class="font-medium">From:</span> {{ $offer->pickupAddress?->address_line }}</p>
                     <p class="truncate text-sm text-slate-700"><span class="font-medium">To:</span> {{ $offer->dropoffAddress?->address_line }}</p>
-                    @if ($offer->payment_method === 'cash')
+                    @if ($offer->collectsCashAtDelivery())
+                        <p class="mt-1 text-xs font-semibold text-amber-800">Cash order — recipient pays {{ $fmt($offer->price_quoted) }} at delivery</p>
+                    @elseif ($offer->payment_method === 'cash')
                         <p class="mt-1 text-xs font-semibold text-amber-800">Cash order — collect {{ $fmt($offer->price_quoted) }} at pickup</p>
                     @endif
                     <div class="mt-3 grid grid-cols-2 gap-2">

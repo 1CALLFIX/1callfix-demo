@@ -126,6 +126,7 @@ class ParcelOrderController extends Controller
                 'package_weight_kg' => $validated['package_weight_kg'] ?? null,
                 'package_size' => $validated['package_size'] ?? 'small',
                 'payment_method' => $paymentMethod,
+                'cash_collect_at' => $validated['cash_collect_at'] ?? 'pickup',
                 'customer_note' => $validated['customer_note'] ?? null,
                 'coupon_code' => $request->input('coupon_code'),
             ]);

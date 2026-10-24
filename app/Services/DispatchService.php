@@ -479,7 +479,7 @@ class DispatchService
             ->where('notifiable_type', FieldWorker::class)
             ->pluck('notifiable_id');
 
-        $busyWorkerIds = ParcelOrder::whereIn('status', ['assigned', 'worker_en_route_pickup', 'picked_up', 'en_route_dropoff'])
+        $busyWorkerIds = ParcelOrder::whereIn('status', ParcelOrder::ACTIVE_RIDER_STATUSES)
             ->whereNotNull('assigned_worker_id')
             ->pluck('assigned_worker_id');
 

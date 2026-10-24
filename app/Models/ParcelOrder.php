@@ -32,6 +32,7 @@ class ParcelOrder extends Model implements Orderable
         'pickup_contact_phone',
         'recipient_name',
         'recipient_phone',
+        'recipient_refused_at',
         'assigned_worker_id',
         'package_description',
         'package_weight_kg',
@@ -43,6 +44,7 @@ class ParcelOrder extends Model implements Orderable
         'price_breakdown',
         'payment_status',
         'payment_method',
+        'cash_collect_at',
         'pickup_otp',
         'delivery_otp',
         'cancellation_reason_id',
@@ -57,12 +59,13 @@ class ParcelOrder extends Model implements Orderable
     protected $casts = [
         'picked_up_at' => 'datetime',
         'cash_collected_at' => 'datetime',
+        'recipient_refused_at' => 'datetime',
         'delivered_at' => 'datetime',
         'price_breakdown' => 'array',
     ];
 
     /** Rider has committed and the parcel is not yet handed over or closed. */
-    public const ACTIVE_RIDER_STATUSES = ['assigned', 'worker_en_route_pickup', 'picked_up', 'en_route_dropoff'];
+    public const ACTIVE_RIDER_STATUSES = ['assigned', 'worker_en_route_pickup', 'picked_up', 'en_route_dropoff', 'disputed'];
 
     /** The customer may still cancel: the parcel has not left the sender. */
     public const CUSTOMER_CANCELLABLE_STATUSES = ['pending', 'searching_worker', 'assigned', 'worker_en_route_pickup'];
@@ -83,6 +86,12 @@ class ParcelOrder extends Model implements Orderable
     public function isAwaitingOnlinePayment(): bool
     {
         return $this->payment_method === 'online' && $this->payment_status === 'pending' && $this->status === 'pending';
+    }
+
+    /** Pay at: Drop (owner decision 2026-10-24): the recipient pays the rider cash at the door, not the sender at pickup. */
+    public function collectsCashAtDelivery(): bool
+    {
+        return $this->payment_method === 'cash' && $this->cash_collect_at === 'drop';
     }
 
     public function canBeCancelledByCustomer(): bool

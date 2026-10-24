@@ -6,7 +6,7 @@ Use with `docs/DEPLOY_RUNBOOK.md`.
 |---|---|
 | Deploys | `main` at the commit that adds this file (`git log -1` in runbook step 1) |
 | Live before | `d330232` (check with `git log -1` on the server) |
-| Full test suite | 4000 of 4001 pass. Only failure: the known `NotificationCenterAuditTest::test_provider_status_shows_log_fallback_by_default` (local `.env`) |
+| Full test suite | 4028 of 4029 pass. Only failure: the known `NotificationCenterAuditTest::test_provider_status_shows_log_fallback_by_default` (local `.env`) |
 | Composer | composer.lock changed: no |
 | Front-end build (steps 6–7) | **yes** (new customer, rider and admin pages) |
 | Version | `VERSION` file = `2026.10.23.3` (bump the date if it ships another day) |
@@ -36,6 +36,12 @@ deliver to anyone.
   Field-worker payouts are refused while dues remain. Optional dues limit stops cash offers to that rider.
 - **Thumb rule:** parcel offers no coupon, discount or credit of any kind. A coupon code is refused for every payment
   method (tests prove it).
+- **Pay at: Pickup | Drop (owner 2026-10-24):** when Cash is chosen, a Pickup / Drop toggle appears. Drop = the
+  recipient pays the rider cash at the door. Nothing waits for the recipient: the order goes to riders at once. The
+  rider's screen says "collect from the recipient"; the cash is recorded at delivery and becomes a rider cash due,
+  exactly like cash at pickup. If the recipient refuses, the rider taps **Recipient refused to pay**, brings the
+  parcel back and closes it with the **sender's pickup code** (sender is told; no charge, no money moves
+  automatically). Customer API: `cash_collect_at` = `pickup` (default) or `drop` on create, returned on every order.
 - **Rider web area:** `/rider/login`, `/rider` (go online with location, ringing offer alert, accept / decline, on my
   way, pickup code, delivery code, directions and call), `/rider/history`, `/rider/earnings` (wallet, cash dues,
   settle). Offers need a fresh location (same staleness setting as providers).
@@ -53,8 +59,10 @@ deliver to anyone.
 ## Step 5 — migrations that must be pending (exactly these)
 - `2026_10_23_200000_complete_parcel_delivery` — adds 7 nullable columns to `parcel_orders`, `addresses.is_parcel_only`
   (default false), creates `field_worker_cash_dues`, sets `modules.is_implemented = 1` for `parcel`. No enum widened.
+- `2026_10_24_100000_add_cash_collect_at_to_parcel_orders` — adds `parcel_orders.cash_collect_at` (string, default
+  `pickup`) and `parcel_orders.recipient_refused_at` (nullable). No enum widened.
 
-Rollback count for `migrate:rollback --step=`: `1`
+Rollback count for `migrate:rollback --step=`: `2`
 
 ## Step 10 — scheduled commands that must be listed
 - `parcel:expire-unpaid` (every 5 minutes)

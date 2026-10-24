@@ -55,6 +55,8 @@ class Create extends Component
     public string $packageDescription = '';
     public string $customerNote = '';
     public string $paymentMethod = '';
+    /** Pay at: pickup|drop (owner decision 2026-10-24) — cash only; drop = the recipient pays the rider at the door. */
+    public string $cashCollectAt = 'pickup';
 
     public string $error = '';
 
@@ -78,6 +80,7 @@ class Create extends Component
         if ($last) {
             $this->packageSize = $last->package_size ?: 'small';
             $this->paymentMethod = (string) $last->payment_method; // dropped in render() if not offered here
+            $this->cashCollectAt = $last->cash_collect_at === 'drop' ? 'drop' : 'pickup';
         }
     }
 
@@ -208,6 +211,7 @@ class Create extends Component
                     'package_weight_kg' => $this->packageWeightKg !== '' ? (float) $this->packageWeightKg : null,
                     'package_size' => $this->packageSize,
                     'payment_method' => $this->paymentMethod,
+                    'cash_collect_at' => $this->paymentMethod === 'cash' ? $this->cashCollectAt : 'pickup',
                     'customer_note' => $this->customerNote ?: null,
                 ]);
             });
@@ -256,6 +260,7 @@ class Create extends Component
             'packageDescription' => ['nullable', 'string', 'max:255'],
             'customerNote' => ['nullable', 'string', 'max:500'],
             'paymentMethod' => ['required', 'string'],
+            'cashCollectAt' => ['required', 'in:pickup,drop'],
         ];
     }
 
@@ -308,7 +313,7 @@ class Create extends Component
 
     private function paymentMethods(Zone $zone): array
     {
-        $labels = ['online' => 'Pay online (UPI / card)', 'wallet' => 'Wallet', 'cash' => 'Cash to the rider at pickup'];
+        $labels = ['online' => 'Pay online (UPI / card)', 'wallet' => 'Wallet', 'cash' => 'Cash'];
 
         return array_intersect_key($labels, Setting::enabledPaymentMethods(['zone_id' => $zone->id, 'franchise_id' => $zone->franchise_id]));
     }

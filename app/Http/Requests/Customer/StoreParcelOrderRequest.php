@@ -19,6 +19,8 @@ class StoreParcelOrderRequest extends CustomerApiRequest
             'package_weight_kg' => ['nullable', 'numeric', 'min:0', 'max:9999.99'],
             'package_size' => ['nullable', 'string', 'in:small,medium,large'],
             'payment_method' => ['nullable', 'string', 'in:online,cash,wallet'],
+            // Pay at: Pickup | Drop (owner decision 2026-10-24) — cash only; drop = the recipient pays the rider.
+            'cash_collect_at' => ['nullable', 'string', 'in:pickup,drop'],
             'customer_note' => ['nullable', 'string', 'max:1000'],
             'pickup_contact_name' => ['nullable', 'string', 'max:120'],
             'pickup_contact_phone' => ['nullable', 'string', 'regex:/^\+?[0-9]{10,15}$/'],

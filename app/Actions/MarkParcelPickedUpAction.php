@@ -50,7 +50,7 @@ class MarkParcelPickedUpAction
 
             // Cash is collected from the sender at pickup (the rider's screen says so before they enter the
             // OTP). Recorded as a captured 'cash' payment so the order reconciles like any other paid order.
-            if ($order->payment_method === 'cash' && $order->payment_status !== 'paid') {
+            if ($order->payment_method === 'cash' && ! $order->collectsCashAtDelivery() && $order->payment_status !== 'paid') {
                 Payment::create([
                     'parcel_order_id' => $order->id,
                     'purpose' => 'parcel_order',

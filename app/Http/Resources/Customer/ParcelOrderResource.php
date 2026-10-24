@@ -30,6 +30,8 @@ class ParcelOrderResource extends JsonResource
             'price_final' => $this->price_final !== null ? (float) $this->price_final : null,
             'payment_status' => $this->payment_status,
             'payment_method' => $this->payment_method,
+            // Cash only: pickup = the sender pays the rider at pickup, drop = the recipient pays the rider at delivery.
+            'cash_collect_at' => $this->cash_collect_at ?? 'pickup',
             'customer_note' => $this->customer_note,
             'pickup_contact_name' => $this->pickup_contact_name,
             'pickup_contact_phone' => $this->pickup_contact_phone,
@@ -41,8 +43,9 @@ class ParcelOrderResource extends JsonResource
             'can_cancel' => $this->resource->canBeCancelledByCustomer(),
             // Only ever served to the order's own customer (every endpoint checks ownership). The sender gives
             // the pickup OTP to the rider and passes the delivery OTP to the recipient.
-            'pickup_otp' => in_array($this->status, ['assigned', 'worker_en_route_pickup'], true) ? $this->pickup_otp : null,
-            'delivery_otp' => in_array($this->status, \App\Models\ParcelOrder::ACTIVE_RIDER_STATUSES, true) ? $this->delivery_otp : null,
+            // 'disputed' = the recipient refused to pay at drop; the sender gives the pickup code back to close the return.
+            'pickup_otp' => in_array($this->status, ['assigned', 'worker_en_route_pickup', 'disputed'], true) ? $this->pickup_otp : null,
+            'delivery_otp' => in_array($this->status, ['assigned', 'worker_en_route_pickup', 'picked_up', 'en_route_dropoff'], true) ? $this->delivery_otp : null,
             'cancellation_note' => $this->cancellation_note,
             'cancellation_fee' => $this->cancellation_fee !== null ? (float) $this->cancellation_fee : null,
             'created_at' => $this->created_at,
