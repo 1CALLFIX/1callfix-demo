@@ -43,9 +43,8 @@ class ParcelOrderResource extends JsonResource
             'can_cancel' => $this->resource->canBeCancelledByCustomer(),
             // Only ever served to the order's own customer (every endpoint checks ownership). The sender gives
             // the pickup OTP to the rider and passes the delivery OTP to the recipient.
-            // 'disputed' = the recipient refused to pay at drop; the sender gives the pickup code back to close the return.
-            'pickup_otp' => in_array($this->status, ['assigned', 'worker_en_route_pickup', 'disputed'], true) ? $this->pickup_otp : null,
-            'delivery_otp' => in_array($this->status, ['assigned', 'worker_en_route_pickup', 'picked_up', 'en_route_dropoff'], true) ? $this->delivery_otp : null,
+            'pickup_otp' => in_array($this->status, ['assigned', 'worker_en_route_pickup'], true) ? $this->pickup_otp : null,
+            'delivery_otp' => in_array($this->status, \App\Models\ParcelOrder::ACTIVE_RIDER_STATUSES, true) ? $this->delivery_otp : null,
             'cancellation_note' => $this->cancellation_note,
             'cancellation_fee' => $this->cancellation_fee !== null ? (float) $this->cancellation_fee : null,
             'created_at' => $this->created_at,

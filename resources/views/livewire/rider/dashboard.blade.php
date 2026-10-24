@@ -81,31 +81,27 @@
                 <span class="text-lg font-semibold tabular-nums">{{ $fmt($job->price_quoted) }}</span>
             </div>
 
-            @php
-                $beforePickup = in_array($job->status, ['assigned', 'worker_en_route_pickup'], true);
-                // Heading to the sender: before pickup, or bringing a refused pay-at-drop parcel back ('disputed').
-                $toPickup = $beforePickup || $job->status === 'disputed';
-            @endphp
+            @php $beforePickup = in_array($job->status, ['assigned', 'worker_en_route_pickup'], true); @endphp
 
             <div class="mt-4 space-y-3 text-sm">
-                <div @class(['rounded-xl p-3', 'bg-blue-50' => $toPickup, 'bg-slate-50 opacity-70' => ! $toPickup])>
+                <div @class(['rounded-xl p-3', 'bg-blue-50' => $beforePickup, 'bg-slate-50 opacity-70' => ! $beforePickup])>
                     <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Pickup</p>
                     <p class="font-medium">{{ $job->pickupAddress?->address_line }}</p>
                     <p class="text-slate-600">{{ $job->pickup_contact_name ?: $job->customer?->name }} · {{ $job->pickup_contact_phone ?: $job->customer?->phone }}</p>
-                    @if ($toPickup)
+                    @if ($beforePickup)
                         <div class="mt-2 flex flex-wrap gap-2">
                             <a href="{{ $mapsLink($job->pickupAddress) }}" target="_blank" rel="noopener" class="inline-flex min-h-9 items-center rounded-lg border border-slate-300 bg-white px-3 font-medium">Directions</a>
                             @if ($job->pickup_contact_phone ?: $job->customer?->phone)
-                                <a href="tel:{{ $job->pickup_contact_phone ?: $job->customer?->phone }}" class="inline-flex min-h-9 items-center rounded-lg border border-slate-300 bg-white px-3 font-medium">{{ $job->status === 'disputed' ? 'Call sender' : 'Call' }}</a>
+                                <a href="tel:{{ $job->pickup_contact_phone ?: $job->customer?->phone }}" class="inline-flex min-h-9 items-center rounded-lg border border-slate-300 bg-white px-3 font-medium">Call</a>
                             @endif
                         </div>
                     @endif
                 </div>
-                <div @class(['rounded-xl p-3', 'bg-emerald-50' => ! $toPickup, 'bg-slate-50 opacity-70' => $toPickup])>
+                <div @class(['rounded-xl p-3', 'bg-emerald-50' => ! $beforePickup, 'bg-slate-50' => $beforePickup])>
                     <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Drop</p>
                     <p class="font-medium">{{ $job->dropoffAddress?->address_line }}</p>
                     <p class="text-slate-600">{{ $job->recipient_name }} · {{ $job->recipient_phone }}</p>
-                    @unless ($toPickup)
+                    @unless ($beforePickup)
                         <div class="mt-2 flex flex-wrap gap-2">
                             <a href="{{ $mapsLink($job->dropoffAddress) }}" target="_blank" rel="noopener" class="inline-flex min-h-9 items-center rounded-lg border border-slate-300 bg-white px-3 font-medium">Directions</a>
                             @if ($job->recipient_phone)
@@ -138,17 +134,6 @@
                         <button type="submit" class="inline-flex min-h-11 shrink-0 items-center rounded-lg bg-blue-600 px-4 text-sm font-semibold text-white hover:bg-blue-700">Picked up</button>
                     </div>
                 </form>
-            @elseif ($job->status === 'disputed')
-                {{-- Recipient refused at the door: bring it back; the SENDER's pickup code closes it. --}}
-                <p class="mt-4 rounded-xl bg-amber-50 p-3 text-sm font-semibold text-amber-900">Return this parcel to the sender at the pickup address. Ask them for their pickup code.</p>
-                <form wire:submit="returnToSender({{ $job->id }})" class="mt-4">
-                    <label for="return-otp" class="block text-sm font-medium">Sender's pickup code</label>
-                    <div class="mt-1 flex gap-2">
-                        <input id="return-otp" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="8" wire:model="returnOtp" required
-                               class="block min-h-11 w-full rounded-lg border border-slate-300 px-3 text-lg tracking-widest focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/30">
-                        <button type="submit" class="inline-flex min-h-11 shrink-0 items-center rounded-lg bg-slate-800 px-4 text-sm font-semibold text-white hover:bg-slate-900">Returned</button>
-                    </div>
-                </form>
             @else
                 @if ($job->collectsCashAtDelivery() && $job->payment_status !== 'paid')
                     <p class="mt-4 rounded-xl bg-amber-50 p-3 text-sm font-semibold text-amber-900">Collect {{ $fmt($job->price_quoted) }} cash from the recipient before you enter the delivery code.</p>
@@ -162,8 +147,18 @@
                     </div>
                 </form>
                 @if ($job->collectsCashAtDelivery() && $job->payment_status !== 'paid')
-                    <button type="button" wire:click="recipientRefused({{ $job->id }})" wire:confirm="The recipient refuses to pay? You will bring the parcel back to the sender."
-                            class="mt-3 text-sm font-medium text-rose-700 underline underline-offset-2">Recipient refused to pay</button>
+                    {{-- Recipient won't pay: the sender pays the rider on the spot (UPI or cash), then deliver as normal. --}}
+                    <div class="mt-4 rounded-xl border border-slate-200 p-3 text-sm">
+                        <p class="font-medium text-slate-800">Recipient not paying?</p>
+                        <p class="mt-0.5 text-slate-600">Call the sender. They pay you {{ $fmt($job->price_quoted) }} now by UPI or cash, then deliver as normal.</p>
+                        <div class="mt-2 flex flex-wrap gap-2">
+                            @if ($job->pickup_contact_phone ?: $job->customer?->phone)
+                                <a href="tel:{{ $job->pickup_contact_phone ?: $job->customer?->phone }}" class="inline-flex min-h-10 items-center rounded-lg border border-slate-300 bg-white px-3 font-medium">Call sender</a>
+                            @endif
+                            <button type="button" wire:click="senderPaid({{ $job->id }})" wire:confirm="Did the sender pay you {{ $fmt($job->price_quoted) }}?"
+                                    class="inline-flex min-h-10 items-center rounded-lg bg-slate-800 px-3 font-semibold text-white hover:bg-slate-900">Sender paid me</button>
+                        </div>
+                    </div>
                 @endif
             @endif
         </section>

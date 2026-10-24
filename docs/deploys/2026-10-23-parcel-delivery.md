@@ -39,9 +39,9 @@ deliver to anyone.
 - **Pay at: Pickup | Drop (owner 2026-10-24):** when Cash is chosen, a Pickup / Drop toggle appears. Drop = the
   recipient pays the rider cash at the door. Nothing waits for the recipient: the order goes to riders at once. The
   rider's screen says "collect from the recipient"; the cash is recorded at delivery and becomes a rider cash due,
-  exactly like cash at pickup. If the recipient refuses, the rider taps **Recipient refused to pay**, brings the
-  parcel back and closes it with the **sender's pickup code** (sender is told; no charge, no money moves
-  automatically). Customer API: `cash_collect_at` = `pickup` (default) or `drop` on create, returned on every order.
+  exactly like cash at pickup. If the recipient refuses to pay, the rider calls the sender, who pays the rider on the
+  spot (UPI or cash); the rider taps **Sender paid me** and delivers as normal (no return trip, no second charge; the
+  sender is told). Customer API: `cash_collect_at` = `pickup` (default) or `drop` on create, returned on every order.
 - **Rider web area:** `/rider/login`, `/rider` (go online with location, ringing offer alert, accept / decline, on my
   way, pickup code, delivery code, directions and call), `/rider/history`, `/rider/earnings` (wallet, cash dues,
   settle). Offers need a fresh location (same staleness setting as providers).

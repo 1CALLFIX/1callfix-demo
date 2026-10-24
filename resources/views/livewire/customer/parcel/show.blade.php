@@ -18,7 +18,6 @@
     $headline = match (true) {
         $order->status === 'cancelled' => 'Cancelled',
         $order->isAwaitingOnlinePayment() => 'Waiting for your payment',
-        $order->status === 'disputed' => 'Coming back to you',
         $order->status === 'pending', $order->status === 'searching_worker' => 'Finding a rider near the pickup',
         $order->status === 'assigned' => 'Rider assigned',
         $order->status === 'worker_en_route_pickup' => 'Rider on the way to pickup',
@@ -71,29 +70,21 @@
         </ol>
     @endif
 
-    @if ($order->status === 'disputed')
-        <div class="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
-            The recipient refused to pay at the door, so the rider is bringing the parcel back to you. Nothing has been charged. Give the rider your pickup code when they arrive.
-        </div>
-    @endif
-
     {{-- Codes the sender hands out --}}
     @if (in_array($order->status, \App\Models\ParcelOrder::ACTIVE_RIDER_STATUSES, true))
         <div class="mt-5 grid gap-3 sm:grid-cols-2">
-            @if (in_array($order->status, ['assigned', 'worker_en_route_pickup', 'disputed'], true))
+            @if (in_array($order->status, ['assigned', 'worker_en_route_pickup'], true))
                 <div class="rounded-2xl border border-slate-200 bg-white p-4">
                     <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Pickup code</p>
                     <p class="mt-1 text-3xl font-bold tracking-[0.3em] tabular-nums">{{ $order->pickup_otp }}</p>
                     <p class="mt-1 text-xs text-slate-600">Give this to the rider when they collect the parcel.</p>
                 </div>
             @endif
-            @if ($order->status !== 'disputed')
             <div class="rounded-2xl border border-slate-200 bg-white p-4">
                 <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Delivery code</p>
                 <p class="mt-1 text-3xl font-bold tracking-[0.3em] tabular-nums">{{ $order->delivery_otp }}</p>
                 <p class="mt-1 text-xs text-slate-600">Share it with {{ $order->recipient_name ?: 'the recipient' }}. They give it to the rider on delivery.</p>
             </div>
-            @endif
         </div>
     @endif
 
@@ -147,7 +138,7 @@
         <p class="mt-2 text-slate-600">
             @php $atDrop = $order->collectsCashAtDelivery(); @endphp
             Payment: {{ ['online' => 'Online', 'wallet' => 'Wallet', 'cash' => $atDrop ? 'Cash at drop' : 'Cash at pickup'][$order->payment_method] ?? $order->payment_method }}
-            · {{ ['pending' => $order->payment_method === 'cash' ? ($atDrop ? 'The recipient pays the rider at drop' : 'Pay the rider at pickup') : 'Not paid', 'paid' => 'Paid', 'refunded' => 'Refunded', 'partially_refunded' => 'Partly refunded'][$order->payment_status] ?? $order->payment_status }}
+            · {{ ['pending' => $order->payment_method === 'cash' ? ($atDrop ? 'The recipient pays the rider at drop' : 'Pay the rider at pickup') : 'Not paid', 'paid' => $atDrop && $order->recipient_refused_at ? 'You paid the rider at the door' : 'Paid', 'refunded' => 'Refunded', 'partially_refunded' => 'Partly refunded'][$order->payment_status] ?? $order->payment_status }}
         </p>
         @if ($order->status === 'cancelled' && (float) $order->cancellation_fee > 0)
             <p class="mt-1 text-slate-600">Cancellation charge: {{ $fmt($order->cancellation_fee) }}</p>

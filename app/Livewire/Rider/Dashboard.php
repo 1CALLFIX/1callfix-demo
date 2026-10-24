@@ -7,7 +7,7 @@ use App\Actions\DeclineParcelOfferAction;
 use App\Actions\MarkParcelDeliveredAction;
 use App\Actions\MarkParcelEnRouteAction;
 use App\Actions\MarkParcelPickedUpAction;
-use App\Actions\ParcelRecipientRefusedAction;
+use App\Actions\ParcelSenderPaidAtDoorAction;
 use App\Livewire\Rider\Concerns\InteractsWithRider;
 use App\Models\Setting;
 use App\Services\Parcel\FieldWorkerCashDueService;
@@ -27,8 +27,6 @@ class Dashboard extends Component
     public string $pickupOtp = '';
 
     public string $deliveryOtp = '';
-
-    public string $returnOtp = '';
 
     public string $notice = '';
 
@@ -125,29 +123,15 @@ class Dashboard extends Component
         }
     }
 
-    /** Recipient-pays cash: the recipient refuses at the door → bring it back (ParcelRecipientRefusedAction). */
-    public function recipientRefused(int $orderId, ParcelRecipientRefusedAction $action): void
+    /** Pay at drop, recipient refuses: the rider calls the sender, who pays the rider on the spot (UPI or cash). */
+    public function senderPaid(int $orderId, ParcelSenderPaidAtDoorAction $action): void
     {
         $this->reset('notice', 'error');
         $rider = $this->rider();
         $this->ownOrder($orderId, $rider);
         try {
-            $action->refused($orderId, $rider);
-            $this->notice = 'Noted. Take the parcel back to the sender.';
-        } catch (\RuntimeException $e) {
-            $this->error = $e->getMessage();
-        }
-    }
-
-    public function returnToSender(int $orderId, ParcelRecipientRefusedAction $action): void
-    {
-        $this->reset('notice', 'error');
-        $rider = $this->rider();
-        $this->ownOrder($orderId, $rider);
-        try {
-            $action->returned($orderId, $rider, trim($this->returnOtp));
-            $this->returnOtp = '';
-            $this->notice = 'Returned to the sender.';
+            $action->execute($orderId, $rider);
+            $this->notice = 'Recorded: the sender paid you. Now hand over the parcel and enter the delivery code.';
         } catch (\RuntimeException $e) {
             $this->error = $e->getMessage();
         }

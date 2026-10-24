@@ -74,7 +74,8 @@ class CreateParcelOrderAction
         }
 
         // Pay at: Pickup | Drop (owner decision 2026-10-24), cash only. Drop = the recipient pays the rider at the
-        // door. Nothing waits for the recipient; a refusal at the door is the rider's (ParcelRecipientRefusedAction).
+        // door. Nothing waits for the recipient; if they refuse at the door, the sender pays the rider on the spot
+        // (ParcelSenderPaidAtDoorAction).
         $cashCollectAt = $paymentMethod === 'cash' && ($data['cash_collect_at'] ?? 'pickup') === 'drop' ? 'drop' : 'pickup';
         if ($cashCollectAt === 'drop' && blank($data['recipient_phone'] ?? null)) {
             throw new \RuntimeException("Enter the recipient's phone number. They pay the rider at the drop.");

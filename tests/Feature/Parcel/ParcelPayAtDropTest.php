@@ -5,7 +5,7 @@ namespace Tests\Feature\Parcel;
 use App\Actions\CreateParcelOrderAction;
 use App\Actions\MarkParcelDeliveredAction;
 use App\Actions\MarkParcelPickedUpAction;
-use App\Actions\ParcelRecipientRefusedAction;
+use App\Actions\ParcelSenderPaidAtDoorAction;
 use App\Jobs\ParcelDispatchJob;
 use App\Livewire\Customer\Parcel\Create;
 use App\Livewire\Rider\Dashboard as RiderDashboard;
@@ -24,8 +24,8 @@ use Tests\TestCase;
 
 /**
  * Parcel "Pay at: Pickup | Drop" (owner decision 2026-10-24). Cash only: drop = the recipient pays the rider at the
- * door. Nothing waits for the recipient — the order goes to riders at once — and a refusal at the door is handled
- * by the rider (bring it back, close it with the sender's pickup code). No money moves automatically.
+ * door. Nothing waits for the recipient — the order goes to riders at once. If the recipient refuses at the door,
+ * the sender pays the rider on the spot (UPI or cash) and the parcel is delivered as normal: no return, no second charge.
  */
 class ParcelPayAtDropTest extends TestCase
 {
@@ -149,75 +149,78 @@ class ParcelPayAtDropTest extends TestCase
         $this->assertNotNull($order->cash_collected_at);
     }
 
-    // ═══════════════════════ refusal and return ═══════════════════════
+    // ═══════════════════════ recipient refuses: the sender pays on the spot ═══════════════════════
 
-    public function test_recipient_refuses_the_rider_brings_it_back_and_closes_it_with_the_senders_code(): void
+    public function test_recipient_refuses_the_sender_pays_the_rider_and_the_parcel_is_delivered_once_charged(): void
     {
         Notification::fake();
         $w = $this->world();
-        $order = $this->pickedUp($w, $this->create($w));
+        $order = $this->pickedUp($w, $this->create($w, ['price_quoted' => 200]));
 
-        $refused = app(ParcelRecipientRefusedAction::class)->refused($order->id, $w['rider']);
+        $paid = app(ParcelSenderPaidAtDoorAction::class)->execute($order->id, $w['rider']);
 
-        $this->assertSame('disputed', $refused->status);
-        $this->assertNotNull($refused->recipient_refused_at);
+        $this->assertSame('picked_up', $paid->status, 'Still on its way: no return trip.');
+        $this->assertSame('paid', $paid->payment_status);
+        $this->assertNotNull($paid->recipient_refused_at);
+        $this->assertNotNull($paid->cash_collected_at);
         Notification::assertSentTo($w['customer'], ParcelOrderStatusNotification::class);
 
-        try {
-            app(ParcelRecipientRefusedAction::class)->returned($order->id, $w['rider'], '9999');
-            $this->fail('A wrong sender code must not close the return.');
-        } catch (\RuntimeException $e) {
-            $this->assertStringContainsString('Incorrect code', $e->getMessage());
-        }
+        app(MarkParcelDeliveredAction::class)->execute($order->id, $w['rider'], '2222');
 
-        $returned = app(ParcelRecipientRefusedAction::class)->returned($order->id, $w['rider'], '1111');
-
-        $this->assertSame('cancelled', $returned->status);
-        $this->assertSame(0.0, (float) $returned->cancellation_fee);
-        $this->assertSame('pending', $returned->payment_status, 'Nothing was collected and nothing moves automatically.');
-        $this->assertSame(0, Payment::where('parcel_order_id', $order->id)->count());
-        $this->assertSame(0, FieldWorkerCashDue::where('parcel_order_id', $order->id)->count());
+        $order->refresh();
+        $this->assertSame('delivered', $order->status);
+        $this->assertSame(1, Payment::where('parcel_order_id', $order->id)->count(), 'One charge only — never a second one at delivery.');
+        $this->assertEquals((float) $order->price_quoted, (float) Payment::where('parcel_order_id', $order->id)->value('amount'));
+        $this->assertSame('outstanding', FieldWorkerCashDue::where('parcel_order_id', $order->id)->value('status'), 'The rider holds the money and owes the platform share.');
+        $this->assertTrue($order->statusHistory()->where('note', 'like', '%sender paid the rider%')->exists());
     }
 
-    public function test_the_rider_stays_busy_until_the_returned_parcel_is_handed_back(): void
-    {
-        $w = $this->world();
-        $order = $this->pickedUp($w, $this->create($w));
-        app(ParcelRecipientRefusedAction::class)->refused($order->id, $w['rider']);
-
-        $this->assertContains('disputed', ParcelOrder::ACTIVE_RIDER_STATUSES);
-
-        $next = $this->create($w);
-        $this->expectExceptionMessage('already on another parcel');
-        app(\App\Actions\AdminAssignParcelRiderAction::class)->execute($next->id, $w['rider']->id);
-    }
-
-    public function test_refusal_is_only_for_an_unpaid_pay_at_drop_parcel_on_its_way(): void
+    public function test_sender_paid_is_only_for_an_unpaid_pay_at_drop_parcel_on_its_way(): void
     {
         $w = $this->world();
 
         $atPickup = $this->pickedUp($w, $this->create($w, ['cash_collect_at' => 'pickup']));
         try {
-            app(ParcelRecipientRefusedAction::class)->refused($atPickup->id, $w['rider']);
-            $this->fail('Cash at pickup is already paid; there is nothing to refuse.');
+            app(ParcelSenderPaidAtDoorAction::class)->execute($atPickup->id, $w['rider']);
+            $this->fail('Cash at pickup is already paid.');
         } catch (\RuntimeException $e) {
             $this->assertStringContainsString('pay-at-drop', $e->getMessage());
         }
 
         $notPickedUp = $this->create($w);
         $notPickedUp->update(['status' => 'assigned', 'assigned_worker_id' => $w['rider']->id]);
-        $this->expectExceptionMessage('pay-at-drop');
-        app(ParcelRecipientRefusedAction::class)->refused($notPickedUp->id, $w['rider']);
+        try {
+            app(ParcelSenderPaidAtDoorAction::class)->execute($notPickedUp->id, $w['rider']);
+            $this->fail('Not on its way yet.');
+        } catch (\RuntimeException $e) {
+            $this->assertStringContainsString('pay-at-drop', $e->getMessage());
+        }
     }
 
-    public function test_another_rider_cannot_mark_a_refusal(): void
+    public function test_a_double_tap_never_charges_twice(): void
+    {
+        $w = $this->world();
+        $order = $this->pickedUp($w, $this->create($w));
+        app(ParcelSenderPaidAtDoorAction::class)->execute($order->id, $w['rider']);
+
+        try {
+            app(ParcelSenderPaidAtDoorAction::class)->execute($order->id, $w['rider']);
+            $this->fail('Second tap must be refused.');
+        } catch (\RuntimeException $e) {
+            $this->assertStringContainsString('pay-at-drop', $e->getMessage());
+        }
+
+        $this->assertSame(1, Payment::where('parcel_order_id', $order->id)->count());
+    }
+
+    public function test_another_rider_cannot_record_the_sender_paid(): void
     {
         $w = $this->world();
         $order = $this->pickedUp($w, $this->create($w));
         $other = $this->makeParcelRiderIn($w['franchise'], $w['zone']);
 
         $this->expectExceptionMessage('not assigned to you');
-        app(ParcelRecipientRefusedAction::class)->refused($order->id, $other);
+        app(ParcelSenderPaidAtDoorAction::class)->execute($order->id, $other);
     }
 
     // ═══════════════════════ web ═══════════════════════
@@ -273,27 +276,26 @@ class ParcelPayAtDropTest extends TestCase
             ->assertSee('The recipient pays the rider at drop');
     }
 
-    public function test_rider_screen_collects_at_the_door_and_handles_a_refusal_and_return(): void
+    public function test_rider_screen_collects_at_the_door_and_records_the_sender_paying(): void
     {
         $w = $this->world();
         $order = $this->pickedUp($w, $this->create($w, ['price_quoted' => 150]));
 
-        $page = Livewire::actingAs($w['rider']->user)->test(RiderDashboard::class)
+        Livewire::actingAs($w['rider']->user)->test(RiderDashboard::class)
             ->assertSee('cash from the recipient')
-            ->assertSee('Recipient refused to pay')
-            ->call('recipientRefused', $order->id)
+            ->assertSee('Recipient not paying?')
+            ->assertSee('Sender paid me')
+            ->call('senderPaid', $order->id)
+            ->assertSet('error', '')
+            ->assertDontSee('Recipient not paying?')
+            ->set('deliveryOtp', '2222')
+            ->call('confirmDelivery', $order->id)
             ->assertSet('error', '');
 
-        $this->assertSame('disputed', $order->fresh()->status);
+        $this->assertSame('delivered', $order->fresh()->status);
+        $this->assertSame(1, Payment::where('parcel_order_id', $order->id)->count());
 
-        $page->call('$refresh')
-            ->assertSee('Return this parcel to the sender')
-            ->set('returnOtp', '1111')
-            ->call('returnToSender', $order->id)
-            ->assertSet('error', '')
-            ->assertSet('notice', 'Returned to the sender.');
-
-        $this->assertSame('cancelled', $order->fresh()->status);
+        $this->actingAs($w['customer'])->get('/parcels/'.$order->id)->assertOk()->assertSee('You paid the rider at the door');
     }
 
     // ═══════════════════════ customer API ═══════════════════════
@@ -329,19 +331,5 @@ class ParcelPayAtDropTest extends TestCase
             ->assertStatus(422);
 
         $this->assertSame(0, ParcelOrder::count());
-    }
-
-    public function test_api_shows_the_pickup_code_not_the_delivery_code_while_returning(): void
-    {
-        $w = $this->world();
-        $order = $this->pickedUp($w, $this->create($w));
-        app(ParcelRecipientRefusedAction::class)->refused($order->id, $w['rider']);
-
-        $this->actingAs($w['customer'], 'sanctum')
-            ->getJson('/api/parcel-orders/'.$order->id)
-            ->assertOk()
-            ->assertJsonPath('data.status', 'disputed')
-            ->assertJsonPath('data.pickup_otp', '1111')
-            ->assertJsonPath('data.delivery_otp', null);
     }
 }

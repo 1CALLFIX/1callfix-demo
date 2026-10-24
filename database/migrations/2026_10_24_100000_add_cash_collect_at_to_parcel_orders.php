@@ -7,7 +7,8 @@ use Illuminate\Support\Facades\Schema;
 /**
  * Parcel "Pay at: Pickup | Drop" (owner decision 2026-10-24). A cash parcel is paid to the rider either by the
  * sender at pickup (as before) or by the recipient at drop. Nothing waits for the recipient: the order goes to
- * riders at once, and a recipient who refuses at the door is handled by the rider (bring it back to the sender).
+ * riders at once. If the recipient refuses at the door, the sender pays the rider on the spot (UPI or cash) and the
+ * parcel is delivered; `recipient_refused_at` records that it happened.
  *
  * `cash_collect_at` is a plain string (pickup|drop), not an enum, so no enum widening is involved.
  */

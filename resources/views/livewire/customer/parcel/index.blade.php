@@ -8,7 +8,7 @@
         'en_route_dropoff' => ['On the way', 'bg-blue-100 text-blue-800'],
         'delivered' => ['Delivered', 'bg-emerald-100 text-emerald-800'],
         'cancelled' => ['Cancelled', 'bg-rose-100 text-rose-800'],
-        'disputed' => ['Returning to you', 'bg-amber-100 text-amber-800'],
+        'disputed' => ['Under review', 'bg-amber-100 text-amber-800'],
     ];
     $tz = app(\App\Services\TimezoneResolver::class);
 @endphp

@@ -65,7 +65,7 @@ class ParcelOrder extends Model implements Orderable
     ];
 
     /** Rider has committed and the parcel is not yet handed over or closed. */
-    public const ACTIVE_RIDER_STATUSES = ['assigned', 'worker_en_route_pickup', 'picked_up', 'en_route_dropoff', 'disputed'];
+    public const ACTIVE_RIDER_STATUSES = ['assigned', 'worker_en_route_pickup', 'picked_up', 'en_route_dropoff'];
 
     /** The customer may still cancel: the parcel has not left the sender. */
     public const CUSTOMER_CANCELLABLE_STATUSES = ['pending', 'searching_worker', 'assigned', 'worker_en_route_pickup'];
