@@ -45,6 +45,8 @@ class TaxiDispatchJob implements ShouldQueue
         public int $taxiRideId,
         public int $round = 1,
     ) {
+        // Every queueing of this job, including its own re-dispatch each round, lands on the offer queue.
+        $this->onQueue(\App\Support\DispatchQueue::name()); // null = unchanged
     }
 
     public function handle(DispatchService $dispatchService): void

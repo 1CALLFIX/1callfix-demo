@@ -4,6 +4,7 @@ namespace App\Notifications;
 
 use App\Models\ParcelOrder;
 use App\Notifications\Channels\PushChannel;
+use App\Support\DispatchQueue;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Notification;
@@ -24,6 +25,12 @@ class RiderParcelOfferNotification extends Notification implements ShouldQueue
     public function via($notifiable): array
     {
         return [PushChannel::class];
+    }
+
+    /** The offer push rides the offer queue (DispatchQueue). Null (not configured) = unchanged. */
+    public function viaQueues(): array
+    {
+        return [PushChannel::class => DispatchQueue::name()];
     }
 
     public function eventKey(): string

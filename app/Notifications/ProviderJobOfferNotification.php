@@ -3,6 +3,8 @@
 namespace App\Notifications;
 
 use App\Models\Booking;
+use App\Notifications\Channels\PushChannel;
+use App\Support\DispatchQueue;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
@@ -36,6 +38,15 @@ class ProviderJobOfferNotification extends Notification implements ShouldQueue
     public function via($notifiable): array
     {
         return $this->channels;
+    }
+
+    /**
+     * The offer push rides the offer queue (DispatchQueue), so it never waits behind emails or a backup; mail
+     * and the other channels keep their usual queue. Null (not configured) = unchanged.
+     */
+    public function viaQueues(): array
+    {
+        return [PushChannel::class => DispatchQueue::name()];
     }
 
     public function eventKey(): string
