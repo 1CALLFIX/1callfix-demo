@@ -5,8 +5,7 @@ Use with `docs/DEPLOY_RUNBOOK.md`.
 | | |
 |---|---|
 | Deploys | `main` at the commit that adds this file (`git log -1` in runbook step 1) |
-| Live before | `0c4e21e` |
-| Also ships | `7e8a2e2` fix(partner): sign-up prefills name and mobile from the /partners application (another session; PHP + test only) |
+| Live before | `7e8a2e2` (partner sign-up prefill, deployed separately just before) |
 | Full test suite | 4038 of 4039 pass. Only failure: the known `NotificationCenterAuditTest::test_provider_status_shows_log_fallback_by_default` (local `.env`) |
 | Composer | composer.lock changed: no |
 | Front-end build (steps 6–7) | no |
