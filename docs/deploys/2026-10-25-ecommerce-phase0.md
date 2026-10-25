@@ -6,7 +6,7 @@ Use with `docs/DEPLOY_RUNBOOK.md`.
 |---|---|
 | Deploys | `main` at the commit that adds this file (`git log -1` in runbook step 1) |
 | Live before | `ba5d908` |
-| Full test suite | see the merge commit / PR; known failures only: `NotificationCenterAuditTest` (.env) |
+| Full test suite | see the merge commit / PR; known failures only: `NotificationCenterAuditTest` (.env); the membership date test is fixed on main (`0c4e21e`) |
 | Composer | `composer.lock changed: no` |
 | Front-end build (steps 6–7) | `no` (no views or JS changed) |
 | Version | `VERSION` file bumped to `2026.10.25.1` |
@@ -22,6 +22,10 @@ The Commerce module stays OFF. This release only makes shop orders safe for when
   back everything except their own share; cash at pickup: the seller owes the commission. Owed cash is
   recovered from the wallet and blocks payouts until covered. A rider at `parcel.rider_cash_due_limit` gets no
   cash shop orders.
+- Minimum rider payout: on a free-delivery order (or any order whose fee share is below it) the rider still gets
+  `marketplace.rider_min_payout`. The gap comes out of the platform commission by default
+  (`marketplace.rider_min_payout_funded_by` = platform), or out of the seller's share when set to `seller`.
+  Pickup orders have no rider, so no rider pay and no delivery commission.
 
 ## Step 5 — migrations that must be pending (exactly these)
 - `2026_10_25_100000_create_marketplace_settlements_table`
@@ -36,5 +40,8 @@ Rollback count for `migrate:rollback --step=`: `1`
 - Admin → Marketplace Orders opens; Admin → Modules still shows Commerce inactive.
 
 ## Admin settings to do after deploy (owner)
-- None required. Optional: `marketplace.return_window_days` (default 3), `marketplace.unpaid_expiry_minutes`
+- Before Commerce is switched ON: `marketplace.rider_min_payout` (unset = no minimum, so riders earn nothing on
+  free-delivery orders). Funding defaults to the platform. There is no screen for it yet (Phase 1 seller/admin
+  screens); until then it is set with tinker.
+- Optional: `marketplace.return_window_days` (default 3), `marketplace.unpaid_expiry_minutes`
   (default 30), `parcel.rider_cash_due_limit` (applies to shop cash too).

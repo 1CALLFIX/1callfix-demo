@@ -33,6 +33,10 @@ return new class extends Migration
             $table->decimal('rider_share', 10, 2)->default(0);
             $table->decimal('delivery_platform', 10, 2)->default(0);
             $table->decimal('delivery_franchise', 10, 2)->default(0);
+            // Minimum rider payout (marketplace.rider_min_payout): what was added on top of the rider's share of the
+            // fee, e.g. on a free-delivery order. Already included in rider_share. Funded by the platform or the seller.
+            $table->decimal('rider_topup', 10, 2)->default(0);
+            $table->string('rider_topup_funded_by', 20)->nullable(); // platform | seller
 
             // Return-window hold on the seller's share (and, for online orders, the franchise's goods share).
             $table->timestamp('release_at');

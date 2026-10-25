@@ -24,6 +24,11 @@ use Illuminate\Support\Str;
  *  - goods (subtotal − discount + tax): seller / platform / franchise;
  *  - delivery fee: rider / platform / franchise (a FieldWorker has no negotiated agreement, so franchise → global).
  *
+ * Minimum rider payout (marketplace.rider_min_payout, unset = none): when the rider's share of the fee is below
+ * it — a free-delivery order has no fee at all — the gap is added to the rider's share. Who pays the gap is
+ * marketplace.rider_min_payout_funded_by: 'platform' (default) takes it out of the platform's commission,
+ * 'seller' out of the seller's share (never more than that share). Pickup orders have no rider, so no payout.
+ *
  * When each share is paid:
  *  - rider share: at delivery (online), or kept out of the cash the rider collected (cash_delivery);
  *  - seller share: after the return window (marketplace.return_window_days, default 3 — owner decision
@@ -62,6 +67,25 @@ class MarketplaceSettlementService
         [$goodsPlatform, $goodsFranchise, $sellerShare] = $this->split($franchise, $seller, $goodsAmount);
         [$deliveryPlatform, $deliveryFranchise, $riderShare] = $this->split($franchise, null, $deliveryAmount);
 
+        $scope = array_filter([
+            'zone_id' => $order->zone_id, 'franchise_id' => $order->franchise_id,
+            'city_id' => $franchise?->city_id, 'country_id' => $franchise?->country_id,
+        ]);
+
+        [$riderTopup, $topupFundedBy] = [0.0, null];
+        $minPayout = $rider ? (float) Setting::get('marketplace.rider_min_payout', '', $scope) : 0.0;
+        if ($minPayout > $riderShare) {
+            $topupFundedBy = Setting::get('marketplace.rider_min_payout_funded_by', 'platform', $scope) === 'seller'
+                ? 'seller' : 'platform';
+            $riderTopup = round($minPayout - $riderShare, 2);
+            if ($topupFundedBy === 'seller') {
+                $riderTopup = round(min($riderTopup, $sellerShare), 2);
+                $sellerShare = round($sellerShare - $riderTopup, 2);
+            }
+            $riderShare = round($riderShare + $riderTopup, 2);
+        }
+        $platformTopup = $topupFundedBy === 'platform' ? $riderTopup : 0.0;
+
         $mode = match (true) {
             $order->payment_method !== 'cash' => 'online',
             $order->order_type === 'delivery' => 'cash_delivery',
@@ -70,20 +94,17 @@ class MarketplaceSettlementService
 
         // What the cash holder owes back: the rider keeps only their own share; the seller (pickup) keeps theirs.
         [$debtorType, $cashOwed, $cashFranchise] = match ($mode) {
-            'cash_delivery' => ['field_worker', round($total - $riderShare, 2), round($goodsFranchise + $deliveryFranchise, 2)],
+            'cash_delivery' => ['field_worker', max(round($total - $riderShare, 2), 0.0), round($goodsFranchise + $deliveryFranchise, 2)],
             'cash_pickup' => ['provider', round($goodsPlatform + $goodsFranchise, 2), $goodsFranchise],
             default => [null, 0.0, 0.0],
         };
 
-        $scope = array_filter([
-            'zone_id' => $order->zone_id, 'franchise_id' => $order->franchise_id,
-            'city_id' => $franchise?->city_id, 'country_id' => $franchise?->country_id,
-        ]);
         $windowDays = max(0, (int) Setting::get('marketplace.return_window_days', '3', $scope));
 
         $settlement = DB::transaction(function () use (
             $order, $seller, $rider, $mode, $goodsAmount, $sellerShare, $goodsPlatform, $goodsFranchise,
-            $deliveryAmount, $riderShare, $deliveryPlatform, $deliveryFranchise, $debtorType, $cashOwed, $cashFranchise, $windowDays
+            $deliveryAmount, $riderShare, $deliveryPlatform, $deliveryFranchise, $debtorType, $cashOwed, $cashFranchise, $windowDays,
+            $riderTopup, $topupFundedBy, $platformTopup
         ) {
             $locked = MarketplaceSettlement::where('marketplace_order_id', $order->id)->lockForUpdate()->first();
             if ($locked) {
@@ -94,7 +115,8 @@ class MarketplaceSettlementService
                 'marketplace_order_id' => $order->id,
                 'provider_commission' => $sellerShare, // the seller's share; the rider's is on the settlement row
                 'franchise_commission' => round($goodsFranchise + $deliveryFranchise, 2),
-                'platform_commission' => round($goodsPlatform + $deliveryPlatform, 2),
+                // Net of a platform-funded rider top-up (can be negative: the platform paid to get it delivered).
+                'platform_commission' => round($goodsPlatform + $deliveryPlatform - $platformTopup, 2),
             ]);
 
             $settlement = MarketplaceSettlement::create([
@@ -111,6 +133,8 @@ class MarketplaceSettlementService
                 'rider_share' => $riderShare,
                 'delivery_platform' => $deliveryPlatform,
                 'delivery_franchise' => $deliveryFranchise,
+                'rider_topup' => $riderTopup,
+                'rider_topup_funded_by' => $riderTopup > 0 ? $topupFundedBy : null,
                 // A cash-pickup seller already holds their share, so there is nothing to hold back.
                 'release_at' => ($order->completed_at ?? now())->copy()->addDays($windowDays),
                 'status' => $mode === 'cash_pickup' ? 'released' : 'held',

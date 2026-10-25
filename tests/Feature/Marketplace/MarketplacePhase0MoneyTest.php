@@ -85,10 +85,10 @@ class MarketplacePhase0MoneyTest extends TestCase
      * Franchise at 20% platform fee + 10% revenue share, with an owner. A completed delivery order: goods 1000,
      * delivery fee 50, rider assigned. Goods split 200/100/700, delivery split 10/5/35.
      */
-    private function deliveredOrder(string $paymentMethod): array
+    private function deliveredOrder(string $paymentMethod, float $deliveryFee = 50): array
     {
         $scenario = $this->makeMarketplaceOrderScenario('ready', [
-            'order_type' => 'delivery', 'subtotal' => 1000, 'delivery_fee' => 50, 'total_amount' => 1050,
+            'order_type' => 'delivery', 'subtotal' => 1000, 'delivery_fee' => $deliveryFee, 'total_amount' => 1000 + $deliveryFee,
             'payment_method' => $paymentMethod, 'payment_status' => $paymentMethod === 'cash' ? 'pending' : 'paid',
         ]);
         $franchiseOwner = $this->makeCustomer();
@@ -201,6 +201,102 @@ class MarketplacePhase0MoneyTest extends TestCase
         $this->captureWebhook($payment);
 
         $this->assertSame('refunded', $payment->fresh()->status);
+    }
+
+    public function test_a_replayed_capture_webhook_marks_the_order_paid_once_and_refunds_nothing(): void
+    {
+        Notification::fake();
+        $gateway = $this->mock(PaymentGateway::class);
+        $gateway->shouldNotReceive('refund');
+        $gateway->shouldReceive('identifier')->andReturn('razorpay');
+
+        $w = $this->shop();
+        $order = $this->checkout($w, 'online');
+        $payment = $this->pendingOnlinePayment($order);
+
+        $this->captureWebhook($payment);
+        $this->captureWebhook($payment->fresh()); // Razorpay retries the same event
+
+        $this->assertSame('paid', $order->fresh()->payment_status);
+        $this->assertSame('captured', $payment->fresh()->status);
+        $this->assertSame(1, $order->statusHistory()->where('note', 'Payment received online')->count());
+        Notification::assertSentToTimes($w['customer'], MarketplaceOrderStatusNotification::class, 1);
+    }
+
+    public function test_a_second_payment_for_an_already_paid_order_is_refunded_in_full(): void
+    {
+        Setting::create(['key' => 'cancellation.free_minutes', 'value' => '0']);
+        Setting::create(['key' => 'cancellation.fee_type', 'value' => 'flat']);
+        Setting::create(['key' => 'cancellation.fee_value', 'value' => '50']);
+        $gateway = $this->mock(PaymentGateway::class);
+        $gateway->shouldReceive('refund')->once()->withArgs(fn ($id, $amount) => (float) $amount === 200.0)->andReturn(['id' => 'rfnd_dup']);
+        $gateway->shouldReceive('identifier')->andReturn('razorpay');
+
+        $w = $this->shop();
+        $order = $this->checkout($w, 'online');
+        // The customer tapped Pay twice and both went through.
+        $first = $this->pendingOnlinePayment($order);
+        $second = $this->pendingOnlinePayment($order);
+
+        $this->captureWebhook($first);
+        $this->captureWebhook($second);
+        $this->captureWebhook($second->fresh()); // and the duplicate's webhook is replayed
+
+        $this->assertSame('captured', $first->fresh()->status);
+        $this->assertSame('refunded', $second->fresh()->status);
+        $this->assertEquals(200, $second->fresh()->refunded_amount, 'No cancellation fee on a duplicate.');
+        $this->assertSame('paid', $order->fresh()->payment_status, 'The order stays paid by the first payment.');
+        $this->assertSame('pending', $order->fresh()->status);
+    }
+
+    public function test_a_duplicate_payment_after_the_order_was_cancelled_is_refunded_in_full_too(): void
+    {
+        $gateway = $this->mock(PaymentGateway::class);
+        $gateway->shouldReceive('refund')->twice()->withArgs(fn ($id, $amount) => (float) $amount === 200.0)->andReturn(['id' => 'rfnd_x']);
+        $gateway->shouldReceive('identifier')->andReturn('razorpay');
+
+        $w = $this->shop();
+        $order = $this->checkout($w, 'online');
+        $first = $this->pendingOnlinePayment($order);
+        $second = $this->pendingOnlinePayment($order);
+
+        $this->travel(31)->minutes();
+        $this->artisan('marketplace:expire-unpaid')->assertSuccessful();
+        $this->captureWebhook($first);
+        $this->captureWebhook($second);
+
+        $this->assertSame('refunded', $first->fresh()->status);
+        $this->assertSame('refunded', $second->fresh()->status);
+        $this->assertSame('refunded', $order->fresh()->payment_status);
+    }
+
+    public function test_a_wallet_paid_order_cancelled_before_the_seller_accepts_is_refunded_to_the_wallet_in_full_once(): void
+    {
+        $gateway = $this->mock(PaymentGateway::class);
+        $gateway->shouldNotReceive('refund');
+        $gateway->shouldReceive('identifier')->andReturn('razorpay');
+        Setting::create(['key' => 'payment.wallet_enabled', 'value' => '1']);
+        Setting::create(['key' => 'cancellation.free_minutes', 'value' => '5']);
+        Setting::create(['key' => 'cancellation.fee_type', 'value' => 'flat']);
+        Setting::create(['key' => 'cancellation.fee_value', 'value' => '50']);
+
+        $w = $this->shop();
+        Wallet::updateOrCreate(['user_id' => $w['customer']->id], ['balance' => 500]);
+        $order = $this->checkout($w, 'wallet');
+        $this->assertSame(300.0, $this->balance($w['customer']));
+
+        app(AdminCancelMarketplaceOrderAction::class)->execute($order->id, 'Seller out of stock');
+        // A second refund attempt (retry / repeated admin action) must not pay twice.
+        app(\App\Services\CancellationService::class)->refundIfPaidForMarketplaceOrder($order->fresh(), 0);
+        try {
+            app(AdminCancelMarketplaceOrderAction::class)->execute($order->id, 'again');
+        } catch (\RuntimeException) {
+        }
+
+        $this->assertSame(500.0, $this->balance($w['customer']), 'Full 200 back, once.');
+        $this->assertEquals(0, $order->fresh()->cancellation_fee);
+        $this->assertSame('refunded', $order->fresh()->payment_status);
+        $this->assertSame(1, \App\Models\WalletTransaction::where('ref', "marketplace_order:{$order->id}:wallet-refund")->count());
     }
 
     public function test_unpaid_online_orders_expire_and_their_stock_comes_back(): void
@@ -333,6 +429,98 @@ class MarketplacePhase0MoneyTest extends TestCase
 
         $this->artisan('marketplace:release-earnings')->assertSuccessful();
         $this->assertSame(700.0, $this->balance($s['owner']->user), 'Released once only.');
+    }
+
+    public function test_free_delivery_without_a_minimum_payout_pays_the_rider_nothing(): void
+    {
+        $s = $this->deliveredOrder('online', 0);
+
+        $row = MarketplaceSettlement::where('marketplace_order_id', $s['order']->id)->firstOrFail();
+        $this->assertEquals(0, $row->rider_share);
+        $this->assertEquals(0, $row->rider_topup);
+        $this->assertSame(0.0, $this->balance($s['rider']->user));
+    }
+
+    public function test_free_delivery_pays_the_rider_the_minimum_funded_by_the_platform(): void
+    {
+        Setting::create(['key' => 'marketplace.rider_min_payout', 'value' => '30']);
+        $s = $this->deliveredOrder('online', 0);
+
+        $row = MarketplaceSettlement::where('marketplace_order_id', $s['order']->id)->firstOrFail();
+        $this->assertEquals(30, $row->rider_share);
+        $this->assertEquals(30, $row->rider_topup);
+        $this->assertSame('platform', $row->rider_topup_funded_by);
+        $this->assertEquals(700, $row->seller_share, 'The seller is not touched.');
+        $this->assertEquals(170, $row->commission->platform_commission, '200 goods commission - 30 paid to the rider.');
+        $this->assertSame(30.0, $this->balance($s['rider']->user), 'Paid at delivery.');
+
+        $this->travel(3)->days();
+        $this->artisan('marketplace:release-earnings')->assertSuccessful();
+        $this->assertSame(700.0, $this->balance($s['owner']->user));
+    }
+
+    public function test_the_minimum_payout_can_be_funded_by_the_seller(): void
+    {
+        Setting::create(['key' => 'marketplace.rider_min_payout', 'value' => '30']);
+        Setting::create(['key' => 'marketplace.rider_min_payout_funded_by', 'value' => 'seller']);
+        $s = $this->deliveredOrder('online', 0);
+
+        $row = MarketplaceSettlement::where('marketplace_order_id', $s['order']->id)->firstOrFail();
+        $this->assertEquals(30, $row->rider_share);
+        $this->assertSame('seller', $row->rider_topup_funded_by);
+        $this->assertEquals(670, $row->seller_share);
+        $this->assertEquals(200, $row->commission->platform_commission);
+
+        $this->travel(3)->days();
+        $this->artisan('marketplace:release-earnings')->assertSuccessful();
+        $this->assertSame(670.0, $this->balance($s['owner']->user));
+    }
+
+    public function test_the_minimum_payout_only_tops_up_and_never_cuts_a_bigger_share(): void
+    {
+        Setting::create(['key' => 'marketplace.rider_min_payout', 'value' => '30']);
+        $s = $this->deliveredOrder('online'); // fee 50 -> rider share 35, already above 30
+
+        $row = MarketplaceSettlement::where('marketplace_order_id', $s['order']->id)->firstOrFail();
+        $this->assertEquals(35, $row->rider_share);
+        $this->assertEquals(0, $row->rider_topup);
+        $this->assertNull($row->rider_topup_funded_by);
+    }
+
+    public function test_free_delivery_cash_order_lets_the_rider_keep_the_minimum(): void
+    {
+        Setting::create(['key' => 'marketplace.rider_min_payout', 'value' => '30']);
+        $s = $this->deliveredOrder('cash', 0);
+
+        $row = MarketplaceSettlement::where('marketplace_order_id', $s['order']->id)->firstOrFail();
+        $this->assertEquals(970, $row->cash_owed, 'Collected 1000, keeps the 30 minimum.');
+        $this->assertSame(0.0, $this->balance($s['rider']->user));
+    }
+
+    public function test_a_pickup_order_has_no_delivery_fee_no_rider_pay_and_no_delivery_commission(): void
+    {
+        Setting::create(['key' => 'marketplace.rider_min_payout', 'value' => '30']);
+        $w = $this->shop();
+        $w['store']->update(['delivery_fee_flat' => 40, 'free_delivery_above_amount' => null]);
+
+        $order = $this->checkout($w, 'cash');
+        $this->assertEquals(0, $order->delivery_fee, 'Pickup is never charged a delivery fee.');
+
+        // Even with a fee written on the order by mistake, no rider = no rider pay and no delivery split.
+        $scenario = $this->makeMarketplaceOrderScenario('ready', [
+            'order_type' => 'pickup', 'subtotal' => 1000, 'delivery_fee' => 40, 'total_amount' => 1040,
+        ]);
+        $scenario['franchise']->update(['platform_fee_percent' => 20, 'commission_model' => 'revenue_share', 'commission_value' => 10]);
+        app(CompleteMarketplaceOrderAction::class)->execute($scenario['order']->id);
+
+        $row = MarketplaceSettlement::where('marketplace_order_id', $scenario['order']->id)->firstOrFail();
+        $this->assertNull($row->field_worker_id);
+        $this->assertEquals(0, $row->delivery_amount);
+        $this->assertEquals(0, $row->rider_share);
+        $this->assertEquals(0, $row->rider_topup);
+        $this->assertEquals(0, $row->delivery_platform);
+        $this->assertEquals(0, $row->delivery_franchise);
+        $this->assertEquals(1040, $row->goods_amount, 'The whole amount is goods money.');
     }
 
     public function test_the_return_window_is_an_admin_setting(): void
