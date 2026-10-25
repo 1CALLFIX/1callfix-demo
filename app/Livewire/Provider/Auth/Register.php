@@ -112,7 +112,7 @@ class Register extends Component
     #[Locked]
     public bool $outOfCoverage = false;
 
-    /** REF 1CF-PARTNER-PAGE-001: the /partners lead this sign-up continues (id only; the phone is never trusted from it). */
+    /** REF 1CF-PARTNER-PAGE-001: the /partners lead this sign-up continues (id only; its name and phone only prefill the form — the phone is still OTP-verified). */
     #[Locked]
     public ?int $leadId = null;
 
@@ -121,6 +121,13 @@ class Register extends Component
         $lead = session('partner_lead');
         if (is_array($lead) && ($lead['role'] ?? null) === 'service' && is_int($lead['id'] ?? null)) {
             $this->leadId = $lead['id'];
+            // Prefill the name and mobile typed on /partners so the applicant does not type them twice. Read from the
+            // lead row by its server-held id, never from the browser; the number is still proven by OTP before submit.
+            $row = \App\Models\PartnerLead::query()->where('id', $lead['id'])->where('role', 'service')->first(['name', 'phone']);
+            if ($row !== null) {
+                $this->name = (string) $row->name;
+                $this->phone = (string) $row->phone;
+            }
             // A listed city's slug prefills the address (its stored name); a typed city sends no slug and prefills
             // nothing. The applicant confirms or replaces it, and the pin still decides the service area.
             $slug = (string) ($lead['city'] ?? '');

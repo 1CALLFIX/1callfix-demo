@@ -192,21 +192,26 @@ class PartnerLeadCaptureTest extends TestCase
             ->assertDontSee('partner_leads')->assertDontSee('SQLSTATE');
     }
 
-    public function test_the_provider_sign_up_receives_only_safe_values_and_never_trusts_the_phone(): void
+    public function test_the_provider_sign_up_prefills_from_the_lead_but_never_trusts_the_phone(): void
     {
-        $lead = PartnerLead::capture(['name' => 'Ramesh', 'phone' => $this->randomPhone(), 'city' => 'Nellore', 'role' => 'service', 'status' => 'handed_off', 'consent_text' => 'x', 'acquisition' => null, 'source' => 'partner_page']);
+        $phone = $this->randomPhone();
+        $lead = PartnerLead::capture(['name' => 'Ramesh', 'phone' => $phone, 'city' => 'Nellore', 'role' => 'service', 'status' => 'handed_off', 'consent_text' => 'x', 'acquisition' => null, 'source' => 'partner_page']);
 
-        Livewire::withQueryParams([])->test(Register::class)->assertSet('phone', '')->assertSet('address', '')->assertSet('leadId', null);
+        Livewire::withQueryParams([])->test(Register::class)->assertSet('phone', '')->assertSet('name', '')->assertSet('address', '')->assertSet('leadId', null);
 
+        // Name and mobile typed on /partners are prefilled (owner request 2026-10-25), but the number is not verified:
+        // the OTP step still has to prove it before the form can submit.
         $this->withSession(['partner_lead' => ['id' => $lead->id, 'role' => 'service', 'city' => 'nellore']]);
-        Livewire::test(Register::class)->assertSet('leadId', $lead->id)->assertSet('address', 'Nellore')->assertSet('phone', '');
+        Livewire::test(Register::class)->assertSet('leadId', $lead->id)->assertSet('address', 'Nellore')
+            ->assertSet('name', 'Ramesh')->assertSet('phone', $phone)
+            ->assertSet('step', 'phone')->assertSet('verifiedPhoneE164', '');
 
         $this->withSession(['partner_lead' => ['id' => $lead->id, 'role' => 'service', 'city' => '<script>alert(1)</script>']]);
         // An unsafe city value is never used for the prefill; the lead link itself (a server-set id) still holds.
         Livewire::test(Register::class)->assertSet('leadId', $lead->id)->assertSet('address', '');
 
         $this->withSession(['partner_lead' => ['id' => $lead->id, 'role' => 'taxi', 'city' => 'nellore']]);
-        Livewire::test(Register::class)->assertSet('leadId', null);
+        Livewire::test(Register::class)->assertSet('leadId', null)->assertSet('phone', '')->assertSet('name', '');
     }
 
     public function test_completing_provider_sign_up_marks_the_lead_converted_only_when_the_verified_phone_matches(): void

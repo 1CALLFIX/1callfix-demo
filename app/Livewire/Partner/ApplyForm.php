@@ -162,7 +162,8 @@ class ApplyForm extends Component
         }
 
         if ($card['hands_off']) {
-            // Safe values only — a lead id and slugs. The phone is never carried across; the sign-up verifies its own.
+            // Safe values only — a lead id and slugs. The sign-up reads the name and phone from the lead row to prefill
+            // its form, and still verifies the phone with its own OTP.
             session()->put('partner_lead', [
                 'id' => $lead->id,
                 'role' => $this->role,
