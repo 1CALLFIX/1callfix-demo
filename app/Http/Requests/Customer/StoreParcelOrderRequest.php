@@ -26,6 +26,11 @@ class StoreParcelOrderRequest extends CustomerApiRequest
             'pickup_contact_phone' => ['nullable', 'string', 'regex:/^\+?[0-9]{10,15}$/'],
             'recipient_name' => ['nullable', 'string', 'max:120'],
             'recipient_phone' => ['required', 'string', 'regex:/^\+?[0-9]{10,15}$/'],
+            // Stage 1 (2026-10-25): restricted-items confirmation (required), contents (optional), Now | Schedule.
+            'restricted_items_confirmed' => ['accepted'],
+            'package_contents' => ['nullable', 'string', 'in:'.implode(',', array_keys(\App\Services\Parcel\ParcelSettings::CONTENTS))],
+            'delivery_type' => ['nullable', 'string', 'in:now,scheduled'],
+            'scheduled_at' => ['nullable', 'required_if:delivery_type,scheduled', 'date'],
         ];
     }
 }

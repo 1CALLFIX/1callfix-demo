@@ -70,6 +70,7 @@ class ParcelOrderController extends Controller
                 'dropoff_address_id' => $dropoff->id,
                 'package_weight_kg' => $validated['package_weight_kg'] ?? null,
                 'package_size' => $validated['package_size'] ?? 'small',
+                'delivery_type' => $validated['delivery_type'] ?? 'now',
             ], $scope);
         } catch (ParcelQuoteException $e) {
             return ApiResponse::error($e->getMessage(), 422);
@@ -82,6 +83,10 @@ class ParcelOrderController extends Controller
             'currency_code' => $pickup->franchise?->country?->currency_code,
             'package_size' => $validated['package_size'] ?? 'small',
             'package_size_options' => ['small', 'medium', 'large'],
+            'delivery_type' => $validated['delivery_type'] ?? 'now',
+            'schedule_available' => \App\Services\Parcel\ParcelSettings::scheduleAvailable($scope),
+            'package_contents_options' => array_keys(\App\Services\Parcel\ParcelSettings::CONTENTS),
+            'restricted_items' => \App\Services\Parcel\ParcelSettings::RESTRICTED_ITEMS,
             'payment_methods' => $this->parcelPaymentMethods($pickup),
             'module_active' => $moduleActive,
             'pickup_address' => ['id' => $pickup->id, 'label' => $pickup->label, 'address_line' => $pickup->address_line],
@@ -128,6 +133,10 @@ class ParcelOrderController extends Controller
                 'payment_method' => $paymentMethod,
                 'cash_collect_at' => $validated['cash_collect_at'] ?? 'pickup',
                 'customer_note' => $validated['customer_note'] ?? null,
+                'restricted_items_confirmed' => (bool) ($validated['restricted_items_confirmed'] ?? false),
+                'package_contents' => $validated['package_contents'] ?? null,
+                'delivery_type' => $validated['delivery_type'] ?? 'now',
+                'scheduled_at' => $validated['scheduled_at'] ?? null,
                 'coupon_code' => $request->input('coupon_code'),
             ]);
         } catch (ModuleNotActiveException|ParcelQuoteException $e) {

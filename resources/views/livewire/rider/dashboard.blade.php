@@ -75,8 +75,12 @@
                     <p class="text-sm text-slate-600">
                         {{ ucfirst($job->package_size) }}
                         @if ($job->package_weight_kg) · {{ rtrim(rtrim(number_format((float) $job->package_weight_kg, 2), '0'), '.') }} kg @endif
+                        @if ($job->package_contents) · {{ $contents[$job->package_contents] ?? '' }} @endif
                         @if ($job->package_description) · {{ $job->package_description }} @endif
                     </p>
+                    @if ($job->isScheduled())
+                        <p class="mt-0.5 text-sm font-semibold text-blue-700">Pickup at {{ $job->scheduled_at->timezone($tz)->format('D j M, g:i A') }}</p>
+                    @endif
                 </div>
                 <span class="text-lg font-semibold tabular-nums">{{ $fmt($job->price_quoted) }}</span>
             </div>
@@ -118,6 +122,18 @@
             @if ($beforePickup)
                 @if ($job->status === 'assigned')
                     <button type="button" wire:click="onTheWay({{ $job->id }})" class="mt-4 inline-flex min-h-11 w-full items-center justify-center rounded-xl border border-blue-300 bg-white text-sm font-semibold text-blue-700 hover:bg-blue-50">I'm on my way to pickup</button>
+                @endif
+
+                @if (! $job->arrived_at_pickup_at)
+                    <button type="button" x-on:click="locate((lat, lng) => $wire.arrived({{ $job->id }}, lat, lng))"
+                            class="mt-3 inline-flex min-h-11 w-full items-center justify-center rounded-xl border border-slate-300 bg-white text-sm font-semibold text-slate-800 hover:bg-slate-50">I've arrived at pickup</button>
+                @else
+                    <p class="mt-4 rounded-xl bg-slate-50 p-3 text-sm text-slate-700">
+                        Arrived {{ $job->arrived_at_pickup_at->timezone($tz)->format('g:i A') }} · waiting {{ $waiting['minutes'] }} min.
+                        @if ($waiting['charge'] > 0)
+                            <span class="block font-semibold text-amber-900">Collect {{ $fmt($waiting['charge']) }} waiting charge from the sender. It is yours.</span>
+                        @endif
+                    </p>
                 @endif
 
                 @if ($job->payment_method === 'cash' && ! $job->collectsCashAtDelivery() && $job->payment_status !== 'paid')
@@ -183,6 +199,13 @@
                     </div>
                     <p class="mt-2 truncate text-sm text-slate-700"><span class="font-medium">From:</span> {{ $offer->pickupAddress?->address_line }}</p>
                     <p class="truncate text-sm text-slate-700"><span class="font-medium">To:</span> {{ $offer->dropoffAddress?->address_line }}</p>
+                    @if ($offer->isScheduled() || $offer->package_contents)
+                        <p class="mt-1 text-xs text-slate-600">
+                            @if ($offer->isScheduled())<span class="font-semibold text-blue-700">Pickup at {{ $offer->scheduled_at->timezone($tz)->format('g:i A') }}</span>@endif
+                            @if ($offer->isScheduled() && $offer->package_contents) · @endif
+                            @if ($offer->package_contents){{ $contents[$offer->package_contents] ?? '' }}@endif
+                        </p>
+                    @endif
                     @if ($offer->collectsCashAtDelivery())
                         <p class="mt-1 text-xs font-semibold text-amber-800">Cash order — recipient pays {{ $fmt($offer->price_quoted) }} at delivery</p>
                     @elseif ($offer->payment_method === 'cash')

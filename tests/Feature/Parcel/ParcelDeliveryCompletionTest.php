@@ -68,7 +68,7 @@ class ParcelDeliveryCompletionTest extends TestCase
 
     private function create(array $w, array $extra = []): ParcelOrder
     {
-        return app(CreateParcelOrderAction::class)->execute(array_merge([
+        return app(CreateParcelOrderAction::class)->execute(array_merge(['restricted_items_confirmed' => true, 
             'franchise_id' => $w['franchise']->id, 'zone_id' => $w['zone']->id, 'customer_id' => $w['customer']->id,
             'pickup_address_id' => $w['pickup']->id, 'dropoff_address_id' => $w['dropoff']->id,
             'recipient_name' => 'Ravi', 'recipient_phone' => '9876543210',

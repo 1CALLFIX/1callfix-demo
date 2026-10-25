@@ -38,6 +38,9 @@
         <div>
             <h1 class="text-2xl font-bold tracking-tight">{{ $headline }}</h1>
             <p class="text-sm text-slate-500">Parcel {{ $order->code }} · {{ $tz->format($order->created_at, $order->franchise, 'j M Y, g:i A') }}</p>
+            @if ($order->isScheduled())
+                <p class="mt-1 text-sm font-semibold text-blue-700">Scheduled pickup: {{ $tz->format($order->scheduled_at, $order->franchise, 'D j M, g:i A') }}</p>
+            @endif
         </div>
         <span class="shrink-0 text-lg font-semibold tabular-nums">{{ $fmt($order->price_final ?? $order->price_quoted) }}</span>
     </div>
@@ -123,6 +126,7 @@
             {{ \App\Services\Parcel\ParcelSettings::SIZES[$order->package_size] ?? ucfirst($order->package_size) }} package
             @if ($order->package_weight_kg) · {{ rtrim(rtrim(number_format((float) $order->package_weight_kg, 2), '0'), '.') }} kg @endif
             @if ($order->distance_km) · {{ rtrim(rtrim(number_format((float) $order->distance_km, 1), '0'), '.') }} km @endif
+            @if ($order->package_contents) · {{ \App\Services\Parcel\ParcelSettings::CONTENTS[$order->package_contents] ?? '' }} @endif
             @if ($order->package_description) · {{ $order->package_description }} @endif
         </p>
     </div>
@@ -134,6 +138,9 @@
                 <div class="flex justify-between gap-3"><dt class="text-slate-600">{{ $line['label'] }}</dt><dd class="tabular-nums">{{ $fmt($line['amount']) }}</dd></div>
             @endforeach
             <div class="flex justify-between gap-3 border-t border-slate-200 pt-2 font-semibold"><dt>Total</dt><dd class="tabular-nums">{{ $fmt($order->price_final ?? $order->price_quoted) }}</dd></div>
+            @if ($order->waiting_charge)
+                <div class="flex justify-between gap-3 text-slate-600"><dt>Waiting at pickup ({{ $order->waiting_minutes }} min), paid to the rider</dt><dd class="tabular-nums">{{ $fmt($order->waiting_charge) }}</dd></div>
+            @endif
         </dl>
         <p class="mt-2 text-slate-600">
             @php $atDrop = $order->collectsCashAtDelivery(); @endphp

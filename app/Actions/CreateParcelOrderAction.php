@@ -14,8 +14,11 @@ use App\Notifications\ParcelOrderStatusNotification;
 use App\Notifications\Support\ChannelResolver;
 use App\Services\ModuleActivationService;
 use App\Services\Parcel\ParcelPricing;
+use App\Services\Parcel\ParcelSettings;
+use App\Services\TimezoneResolver;
 use App\Services\WalletService;
 use App\Support\Modules;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -40,6 +43,13 @@ use Illuminate\Support\Facades\DB;
  *    coupon, discount or credit of any kind, so a cash parcel can never
  *    carry a benefit. A coupon code is refused outright rather than
  *    silently ignored.
+ *
+ * Stage 1 (2026-10-25):
+ *  - Now | Schedule. A scheduled order carries its pickup time and its own base fare; it is paid at booking
+ *    like any other order but only offered to riders shortly before the pickup time
+ *    (parcel:release-scheduled). Its price is a separate tier, not a discount, so cash is allowed.
+ *  - The sender must confirm the parcel holds nothing on ParcelSettings::RESTRICTED_ITEMS (every channel);
+ *    what is inside (ParcelSettings::CONTENTS) is optional.
  */
 class CreateParcelOrderAction
 {
@@ -81,9 +91,21 @@ class CreateParcelOrderAction
             throw new \RuntimeException("Enter the recipient's phone number. They pay the rider at the drop.");
         }
 
+        if (empty($data['restricted_items_confirmed'])) {
+            throw new \RuntimeException('Confirm the parcel has none of the restricted items.');
+        }
+        $contents = $data['package_contents'] ?? null;
+        if ($contents !== null && $contents !== '' && ! array_key_exists($contents, ParcelSettings::CONTENTS)) {
+            throw new \RuntimeException('Choose what is inside the parcel from the list.');
+        }
+
+        $deliveryType = ($data['delivery_type'] ?? 'now') === 'scheduled' ? 'scheduled' : 'now';
+        $scheduledAt = $deliveryType === 'scheduled' ? self::scheduledPickupTime($data['scheduled_at'] ?? null, $scope) : null;
+        $data['delivery_type'] = $deliveryType;
+
         $quote = $this->quote($data, $scope);
 
-        $order = DB::transaction(function () use ($data, $paymentMethod, $cashCollectAt, $quote) {
+        $order = DB::transaction(function () use ($data, $paymentMethod, $cashCollectAt, $quote, $deliveryType, $scheduledAt, $contents) {
             $order = ParcelOrder::create([
                 'franchise_id' => $data['franchise_id'],
                 'zone_id' => $data['zone_id'] ?? null,
@@ -97,6 +119,11 @@ class CreateParcelOrderAction
                 'package_description' => $data['package_description'] ?? null,
                 'package_weight_kg' => $data['package_weight_kg'] ?? null,
                 'package_size' => $data['package_size'] ?? 'small',
+                'package_contents' => $contents ?: null,
+                'restricted_items_confirmed_at' => now(),
+                'delivery_type' => $deliveryType,
+                'scheduled_at' => $scheduledAt,
+                'vehicle_type' => 'two_wheeler',
                 'distance_km' => $quote['distance_km'],
                 'status' => 'pending',
                 'price_quoted' => $quote['total'],
@@ -124,15 +151,79 @@ class CreateParcelOrderAction
         return $order;
     }
 
-    /** Start the rider search and tell the customer. Called at creation (wallet/cash) or on capture (online). */
+    /**
+     * The pickup time a customer chose, checked against the admin window. Accepts a Carbon instance or the naive
+     * wall clock the web page sends (platform timezone, Asia/Kolkata today); returned in UTC like every stored time.
+     */
+    public static function scheduledPickupTime(mixed $raw, array $scope): Carbon
+    {
+        if (blank($raw)) {
+            throw new \RuntimeException('Choose the pickup date and time.');
+        }
+
+        try {
+            $when = $raw instanceof \DateTimeInterface
+                ? Carbon::instance($raw)
+                : Carbon::parse((string) $raw, app(TimezoneResolver::class)->platformTimezone());
+        } catch (\Throwable) {
+            throw new \RuntimeException('That does not look like a valid date and time.');
+        }
+
+        $lead = (int) ParcelSettings::get('parcel.schedule_min_lead_minutes', $scope);
+        if ($when->lt(now()->addMinutes($lead))) {
+            throw new \RuntimeException("Pick a pickup time at least {$lead} minutes from now.");
+        }
+        $days = (int) ParcelSettings::get('parcel.schedule_max_days_ahead', $scope);
+        if ($when->gt(now()->addDays($days))) {
+            throw new \RuntimeException("You can schedule up to {$days} days ahead.");
+        }
+
+        return $when->utc();
+    }
+
+    /** True while a scheduled order is still too far from its pickup time to be offered to riders. */
+    public static function heldForSchedule(ParcelOrder $order): bool
+    {
+        if ($order->delivery_type !== 'scheduled' || ! $order->scheduled_at || $order->dispatch_released_at) {
+            return false;
+        }
+        $order->loadMissing('franchise');
+        $scope = array_filter([
+            'zone_id' => $order->zone_id, 'franchise_id' => $order->franchise_id,
+            'city_id' => $order->franchise?->city_id, 'country_id' => $order->franchise?->country_id,
+        ]);
+
+        return $order->scheduled_at->gt(now()->addMinutes((int) ParcelSettings::get('parcel.schedule_dispatch_lead_minutes', $scope)));
+    }
+
+    /**
+     * Start the rider search and tell the customer. Called at creation (wallet/cash) or on capture (online).
+     * A scheduled order far from its pickup time is not searched yet: parcel:release-scheduled starts it later.
+     */
     public static function dispatchAndNotify(ParcelOrder $order): void
     {
-        ParcelDispatchJob::dispatch($order->id);
+        if (! self::heldForSchedule($order) && self::claimRelease($order)) {
+            ParcelDispatchJob::dispatch($order->id);
+        }
 
         if ($order->customer) {
             $channels = ChannelResolver::resolve(['zone_id' => $order->zone_id, 'franchise_id' => $order->franchise_id]);
             $order->customer->notify(new ParcelOrderStatusNotification('created', $order, $channels));
         }
+    }
+
+    /**
+     * Marks the one moment an order is handed to riders. Conditional update, so the booking path and the
+     * scheduled-release sweep can never both start a search for the same order.
+     */
+    public static function claimRelease(ParcelOrder $order): bool
+    {
+        $claimed = ParcelOrder::whereKey($order->id)->whereNull('dispatch_released_at')->update(['dispatch_released_at' => now()]) === 1;
+        if ($claimed) {
+            $order->dispatch_released_at = now();
+        }
+
+        return $claimed;
     }
 
     /**
@@ -158,6 +249,7 @@ class CreateParcelOrderAction
             isset($data['package_weight_kg']) ? (float) $data['package_weight_kg'] : null,
             $data['package_size'] ?? 'small',
             $scope,
+            ($data['delivery_type'] ?? 'now') === 'scheduled',
         );
     }
 

@@ -86,7 +86,7 @@ class CustomerParcelApiTest extends TestCase
         [$pickup, $dropoff] = $this->makeParcelAddresses($franchise, $zone, $customer);
 
         $this->actingAs($customer, 'sanctum')
-            ->postJson('/api/parcel-orders', ['pickup_address_id' => $pickup->id, 'dropoff_address_id' => $dropoff->id, 'recipient_name' => 'Ravi', 'recipient_phone' => '9876543210'])
+            ->postJson('/api/parcel-orders', ['restricted_items_confirmed' => true, 'pickup_address_id' => $pickup->id, 'dropoff_address_id' => $dropoff->id, 'recipient_name' => 'Ravi', 'recipient_phone' => '9876543210'])
             ->assertStatus(422)
             ->assertJson(['success' => false]);
 
@@ -101,7 +101,7 @@ class CustomerParcelApiTest extends TestCase
         [$pickup, $dropoff] = $this->makeParcelAddresses($franchise, $zone, $customer);
 
         $response = $this->actingAs($customer, 'sanctum')
-            ->postJson('/api/parcel-orders', [
+            ->postJson('/api/parcel-orders', ['restricted_items_confirmed' => true,
                 'pickup_address_id' => $pickup->id, 'dropoff_address_id' => $dropoff->id,
                 'package_size' => 'medium', 'package_weight_kg' => 2, 'payment_method' => 'cash', 'recipient_name' => 'Ravi', 'recipient_phone' => '9876543210',
             ])
@@ -125,7 +125,7 @@ class CustomerParcelApiTest extends TestCase
         [$pickup, $dropoff] = $this->makeParcelAddresses($franchise, $zone, $customer);
 
         $this->actingAs($customer, 'sanctum')
-            ->postJson('/api/parcel-orders', [
+            ->postJson('/api/parcel-orders', ['restricted_items_confirmed' => true,
                 'pickup_address_id' => $pickup->id, 'dropoff_address_id' => $dropoff->id,
                 'price_quoted' => 1, 'franchise_id' => $otherFranchise->id, 'zone_id' => $otherZone->id,
                 'customer_id' => $otherCustomer->id, 'recipient_name' => 'Ravi', 'recipient_phone' => '9876543210',
@@ -147,7 +147,7 @@ class CustomerParcelApiTest extends TestCase
         [$othersPickup, $othersDropoff] = $this->makeParcelAddresses($franchise, $zone, $other);
 
         $this->actingAs($customer, 'sanctum')
-            ->postJson('/api/parcel-orders', ['pickup_address_id' => $othersPickup->id, 'dropoff_address_id' => $othersDropoff->id, 'recipient_name' => 'Ravi', 'recipient_phone' => '9876543210'])
+            ->postJson('/api/parcel-orders', ['restricted_items_confirmed' => true, 'pickup_address_id' => $othersPickup->id, 'dropoff_address_id' => $othersDropoff->id, 'recipient_name' => 'Ravi', 'recipient_phone' => '9876543210'])
             ->assertStatus(404);
 
         $this->assertSame(0, ParcelOrder::count());
@@ -173,7 +173,7 @@ class CustomerParcelApiTest extends TestCase
         Setting::set('parcel.base_fare', '30', 'franchise', $franchise->id);
 
         $this->actingAs($customer, 'sanctum')
-            ->postJson('/api/parcel-orders', ['pickup_address_id' => $pickup->id, 'dropoff_address_id' => $dropoff->id, 'payment_method' => 'wallet', 'recipient_name' => 'Ravi', 'recipient_phone' => '9876543210'])
+            ->postJson('/api/parcel-orders', ['restricted_items_confirmed' => true, 'pickup_address_id' => $pickup->id, 'dropoff_address_id' => $dropoff->id, 'payment_method' => 'wallet', 'recipient_name' => 'Ravi', 'recipient_phone' => '9876543210'])
             ->assertStatus(201);
 
         $this->assertSame('paid', ParcelOrder::first()->payment_status);

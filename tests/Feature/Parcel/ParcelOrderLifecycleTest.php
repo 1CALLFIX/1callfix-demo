@@ -48,7 +48,7 @@ class ParcelOrderLifecycleTest extends TestCase
 
         $this->expectException(ModuleNotActiveException::class);
 
-        app(CreateParcelOrderAction::class)->execute([
+        app(CreateParcelOrderAction::class)->execute(['restricted_items_confirmed' => true, 
             'franchise_id' => $franchise->id, 'zone_id' => $zone->id, 'customer_id' => $customer->id,
             'pickup_address_id' => $pickup->id, 'dropoff_address_id' => $dropoff->id,
         ]);
@@ -61,7 +61,7 @@ class ParcelOrderLifecycleTest extends TestCase
         $customer = $this->makeCustomer();
         [$pickup, $dropoff] = $this->makeParcelAddresses($franchise, $zone, $customer);
 
-        $order = app(CreateParcelOrderAction::class)->execute([
+        $order = app(CreateParcelOrderAction::class)->execute(['restricted_items_confirmed' => true, 
             'franchise_id' => $franchise->id, 'zone_id' => $zone->id, 'customer_id' => $customer->id,
             'pickup_address_id' => $pickup->id, 'dropoff_address_id' => $dropoff->id,
         ]);
@@ -82,7 +82,7 @@ class ParcelOrderLifecycleTest extends TestCase
 
         $this->expectException(ModuleNotActiveException::class);
 
-        app(CreateParcelOrderAction::class)->execute([
+        app(CreateParcelOrderAction::class)->execute(['restricted_items_confirmed' => true, 
             'franchise_id' => $franchise->id, 'zone_id' => $zone->id, 'customer_id' => $customer->id,
             'pickup_address_id' => $pickup->id, 'dropoff_address_id' => $dropoff->id,
         ]);
@@ -97,7 +97,7 @@ class ParcelOrderLifecycleTest extends TestCase
         $customer = $this->makeCustomer();
         [$pickup, $dropoff] = $this->makeParcelAddresses($franchise, $zone, $customer);
 
-        $order = app(CreateParcelOrderAction::class)->execute([
+        $order = app(CreateParcelOrderAction::class)->execute(['restricted_items_confirmed' => true, 
             'franchise_id' => $franchise->id, 'zone_id' => $zone->id, 'customer_id' => $customer->id,
             'pickup_address_id' => $pickup->id, 'dropoff_address_id' => $dropoff->id,
         ]);
@@ -120,7 +120,7 @@ class ParcelOrderLifecycleTest extends TestCase
             'service_id' => $service->id, 'address_id' => $address->id, 'status' => 'pending', 'price_quoted' => 500,
         ]);
 
-        $order = app(CreateParcelOrderAction::class)->execute([
+        $order = app(CreateParcelOrderAction::class)->execute(['restricted_items_confirmed' => true, 
             'franchise_id' => $franchise->id, 'zone_id' => $zone->id, 'customer_id' => $customer->id,
             'pickup_address_id' => $pickup->id, 'dropoff_address_id' => $dropoff->id,
         ]);
@@ -142,7 +142,7 @@ class ParcelOrderLifecycleTest extends TestCase
         // Parcel completion (2026-10-23): an unset required price is never treated as 0 — nothing can be booked.
         $this->expectException(\App\Exceptions\ParcelQuoteException::class);
 
-        app(CreateParcelOrderAction::class)->execute([
+        app(CreateParcelOrderAction::class)->execute(['restricted_items_confirmed' => true, 
             'franchise_id' => $franchise->id, 'zone_id' => $zone->id, 'customer_id' => $customer->id,
             'pickup_address_id' => $pickup->id, 'dropoff_address_id' => $dropoff->id, 'package_weight_kg' => 5,
         ]);
@@ -158,7 +158,7 @@ class ParcelOrderLifecycleTest extends TestCase
         \App\Models\Setting::set('parcel.base_fare', '30', 'franchise', $franchise->id);
         \App\Models\Setting::set('parcel.per_kg_rate', '10', 'franchise', $franchise->id);
 
-        $order = app(CreateParcelOrderAction::class)->execute([
+        $order = app(CreateParcelOrderAction::class)->execute(['restricted_items_confirmed' => true, 
             'franchise_id' => $franchise->id, 'zone_id' => $zone->id, 'customer_id' => $customer->id,
             'pickup_address_id' => $pickup->id, 'dropoff_address_id' => $dropoff->id, 'package_weight_kg' => 5,
         ]);
@@ -404,7 +404,7 @@ class ParcelOrderLifecycleTest extends TestCase
         [$pickup, $dropoff] = $this->makeParcelAddresses($franchise, $zone, $customer);
         app(WalletService::class)->credit($customer, 500, 'test top-up');
 
-        $order = app(CreateParcelOrderAction::class)->execute([
+        $order = app(CreateParcelOrderAction::class)->execute(['restricted_items_confirmed' => true, 
             'franchise_id' => $franchise->id, 'zone_id' => $zone->id, 'customer_id' => $customer->id,
             'pickup_address_id' => $pickup->id, 'dropoff_address_id' => $dropoff->id,
             'payment_method' => 'wallet', 'price_quoted' => 100,
@@ -428,7 +428,7 @@ class ParcelOrderLifecycleTest extends TestCase
 
         $this->expectException(\RuntimeException::class);
 
-        app(CreateParcelOrderAction::class)->execute([
+        app(CreateParcelOrderAction::class)->execute(['restricted_items_confirmed' => true, 
             'franchise_id' => $franchise->id, 'zone_id' => $zone->id, 'customer_id' => $customer->id,
             'pickup_address_id' => $pickup->id, 'dropoff_address_id' => $dropoff->id,
             'payment_method' => 'wallet', 'price_quoted' => 100,

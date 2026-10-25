@@ -23,10 +23,14 @@ class ParcelPricing
      *
      * @throws ParcelQuoteException when pricing is not configured or the parcel is outside the limits
      */
-    public function quote(float $pickupLat, float $pickupLng, float $dropLat, float $dropLng, ?float $weightKg, string $size, array $scope): array
+    public function quote(float $pickupLat, float $pickupLng, float $dropLat, float $dropLng, ?float $weightKg, string $size, array $scope, bool $scheduled = false): array
     {
         if (ParcelSettings::missingRequired($scope) !== []) {
             throw new ParcelQuoteException('Parcel delivery is not available here yet.');
+        }
+        // Stage 1: a scheduled parcel has its own base fare (parcel.schedule_base_fare); unset = no scheduling here.
+        if ($scheduled && ! ParcelSettings::scheduleAvailable($scope)) {
+            throw new ParcelQuoteException('Scheduled delivery is not available here. Choose "Now".');
         }
         if (! array_key_exists($size, ParcelSettings::SIZES)) {
             throw new ParcelQuoteException('Choose a package size.');
@@ -50,8 +54,9 @@ class ParcelPricing
         $extraKm = max(0.0, $distance - $baseKm);
         $extraKg = max(0.0, $weight - (float) ParcelSettings::get('parcel.free_weight_kg', $scope));
 
+        $baseLabel = $scheduled ? 'Base fare, scheduled' : 'Base fare';
         $lines = [
-            ['label' => $baseKm > 0 ? "Base fare (first {$this->num($baseKm)} km)" : 'Base fare', 'amount' => (float) ParcelSettings::get('parcel.base_fare', $scope)],
+            ['label' => $baseKm > 0 ? "{$baseLabel} (first {$this->num($baseKm)} km)" : $baseLabel, 'amount' => (float) ParcelSettings::get($scheduled ? 'parcel.schedule_base_fare' : 'parcel.base_fare', $scope)],
             ['label' => "Distance ({$this->num(round($extraKm, 2))} km)", 'amount' => round($extraKm * (float) ParcelSettings::get('parcel.per_km_rate', $scope), 2)],
             ['label' => "Weight ({$this->num(round($extraKg, 2))} kg over free limit)", 'amount' => round($extraKg * (float) ParcelSettings::get('parcel.per_kg_rate', $scope), 2)],
             ['label' => ParcelSettings::SIZES[$size].' package', 'amount' => (float) ParcelSettings::get("parcel.size_surcharge_{$size}", $scope)],

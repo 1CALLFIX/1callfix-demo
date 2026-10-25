@@ -205,6 +205,7 @@
             'other_verticals' => [
                 'label' => 'Other Verticals', 'collapsible' => true, 'icon' => 'building', 'preLaunch' => true,
                 'items' => [
+                    ['label' => 'Parcel Dashboard', 'route' => 'admin.parcel-orders.dashboard', 'icon' => 'chart', 'permission' => 'parcel_orders.view'],
                     ['label' => 'Parcel Orders', 'route' => 'admin.parcel-orders.index', 'icon' => 'clipboard', 'permission' => 'parcel_orders.view'],
                     // super_admin only (permission never seeded to a role) — see the Earnings Control entry.
                     ['label' => 'Parcel Settings', 'route' => 'admin.parcel-orders.settings', 'icon' => 'gear', 'permission' => 'parcel_settings.manage'],

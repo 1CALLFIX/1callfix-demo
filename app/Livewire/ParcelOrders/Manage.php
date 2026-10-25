@@ -49,6 +49,8 @@ class Manage extends Component
     public ?float $packageWeightKg = null;
     public string $packageSize = 'small';
     public string $paymentMethod = 'online';
+    /** Stage 1: the call-centre agent asks the caller and ticks this (required on every channel). */
+    public bool $restrictedConfirmed = false;
 
     // --- Manual rider assignment (detail view) ---
     public ?int $assignWorkerId = null;
@@ -114,7 +116,8 @@ class Manage extends Component
             'dropoffLng' => 'required|numeric',
             'packageWeightKg' => 'nullable|numeric|min:0',
             'paymentMethod' => 'required|in:online,wallet,cash',
-        ]);
+            'restrictedConfirmed' => 'accepted',
+        ], ['restrictedConfirmed.accepted' => 'Ask the customer and confirm the parcel has none of the restricted items.']);
 
         $zone = Zone::with('franchise')->findOrFail($this->selectedZoneId);
 
@@ -154,10 +157,11 @@ class Manage extends Component
                 'package_weight_kg' => $this->packageWeightKg,
                 'package_size' => $this->packageSize,
                 'payment_method' => $this->paymentMethod,
+                'restricted_items_confirmed' => $this->restrictedConfirmed,
             ]);
 
             session()->flash('message', "Parcel order {$order->code} created.");
-            $this->reset(['customerSearch', 'selectedCustomerId', 'selectedZoneId', 'pickupAddressLine', 'pickupLat', 'pickupLng', 'dropoffAddressLine', 'dropoffLat', 'dropoffLng', 'packageDescription', 'packageWeightKg']);
+            $this->reset(['customerSearch', 'selectedCustomerId', 'selectedZoneId', 'pickupAddressLine', 'pickupLat', 'pickupLng', 'dropoffAddressLine', 'dropoffLat', 'dropoffLng', 'packageDescription', 'packageWeightKg', 'restrictedConfirmed']);
         } catch (\App\Exceptions\ModuleNotActiveException $e) {
             $this->addError('creation', $e->getMessage());
         } catch (\RuntimeException $e) {

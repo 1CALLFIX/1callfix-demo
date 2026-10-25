@@ -501,10 +501,15 @@ class DispatchService
                 ->pluck('field_worker_id');
         }
 
+        // Parcel Stage 1: only riders whose vehicle matches the order's (two-wheeler only today).
+        $wrongVehicleIds = FieldWorker::where('zone_id', $order->zone_id)
+            ->where('vehicle_type', '!=', $order->vehicle_type ?: 'two_wheeler')
+            ->pluck('id');
+
         return $this->rankedFieldWorkerCandidates(
             capabilityType: 'parcel_rider',
             zoneId: $order->zone_id,
-            excludeWorkerIds: $alreadyOfferedWorkerIds->merge($busyWorkerIds)->merge($overCashLimitIds),
+            excludeWorkerIds: $alreadyOfferedWorkerIds->merge($busyWorkerIds)->merge($overCashLimitIds)->merge($wrongVehicleIds),
             pickupLat: (float) $order->pickupAddress->lat,
             pickupLng: (float) $order->pickupAddress->lng,
             radiusKm: $order->zone->default_dispatch_radius_km ?? 8,

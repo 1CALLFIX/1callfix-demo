@@ -74,6 +74,11 @@ class ParcelDispatchJob implements ShouldQueue
                 return null;
             }
 
+            // A scheduled order is only searched for shortly before its pickup time (parcel:release-scheduled).
+            if (\App\Actions\CreateParcelOrderAction::heldForSchedule($order)) {
+                return null;
+            }
+
             $justStartedSearching = false;
 
             if ($order->status === 'pending') {

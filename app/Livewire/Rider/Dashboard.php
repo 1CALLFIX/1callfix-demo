@@ -4,6 +4,7 @@ namespace App\Livewire\Rider;
 
 use App\Actions\AcceptParcelOfferAction;
 use App\Actions\DeclineParcelOfferAction;
+use App\Actions\MarkParcelArrivedAtPickupAction;
 use App\Actions\MarkParcelDeliveredAction;
 use App\Actions\MarkParcelEnRouteAction;
 use App\Actions\MarkParcelPickedUpAction;
@@ -11,7 +12,10 @@ use App\Actions\ParcelSenderPaidAtDoorAction;
 use App\Livewire\Rider\Concerns\InteractsWithRider;
 use App\Models\Setting;
 use App\Services\Parcel\FieldWorkerCashDueService;
+use App\Services\Parcel\ParcelSettings;
+use App\Services\Parcel\ParcelWaitingCharge;
 use App\Services\Parcel\RiderOfferService;
+use App\Services\TimezoneResolver;
 use Livewire\Component;
 
 /**
@@ -95,6 +99,23 @@ class Dashboard extends Component
         }
     }
 
+    /** Stage 1: "I've arrived" at pickup, from the page's live GPS fix — starts the waiting-charge clock. */
+    public function arrived(int $orderId, ?float $lat = null, ?float $lng = null): void
+    {
+        $this->reset('notice', 'error');
+        $rider = $this->rider();
+        $this->ownOrder($orderId, $rider);
+        if ($lat !== null && ($lat < -90 || $lat > 90 || $lng === null || $lng < -180 || $lng > 180)) {
+            $lat = $lng = null;
+        }
+        try {
+            app(MarkParcelArrivedAtPickupAction::class)->execute($orderId, $rider, $lat, $lng);
+            $this->notice = 'Arrival recorded. We told the sender you are here.';
+        } catch (\RuntimeException $e) {
+            $this->error = $e->getMessage();
+        }
+    }
+
     public function confirmPickup(int $orderId, MarkParcelPickedUpAction $action): void
     {
         $this->reset('notice', 'error');
@@ -157,6 +178,9 @@ class Dashboard extends Component
             'overCashLimit' => $dues->overCashLimit($rider, $this->riderScope($rider)),
             'locationFresh' => $rider->location_updated_at && $rider->location_updated_at->gt(now()->subMinutes(max(1, (int) Setting::get('provider.location_stale_after_minutes', '30')))),
             'currencySymbol' => Setting::get('locale.currency_symbol', '₹'),
+            'waiting' => $job ? ParcelWaitingCharge::compute($job) : null,
+            'contents' => ParcelSettings::CONTENTS,
+            'tz' => app(TimezoneResolver::class)->platformTimezone(),
         ])->layout('components.layouts.rider', ['title' => 'Home']);
     }
 }

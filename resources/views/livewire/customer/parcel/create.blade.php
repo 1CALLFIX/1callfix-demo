@@ -199,6 +199,22 @@
                 </div>
             </fieldset>
 
+            {{-- Stage 1: what is inside — optional, one tap; shown to the rider. --}}
+            <fieldset class="mt-3">
+                <legend class="{{ $labelClass }}">What's inside <span class="font-normal text-slate-400">(optional)</span></legend>
+                <div class="mt-1 flex flex-wrap gap-2">
+                    @foreach ($contentsOptions as $value => $label)
+                        <label @class([
+                            'inline-flex min-h-9 cursor-pointer items-center rounded-full border px-3 text-sm transition',
+                            'border-blue-600 bg-blue-50 font-semibold text-blue-800' => $packageContents === $value,
+                            'border-slate-200 text-slate-700 hover:border-slate-300' => $packageContents !== $value,
+                        ])>
+                            <input type="radio" wire:model.live="packageContents" value="{{ $value }}" class="sr-only">{{ $label }}
+                        </label>
+                    @endforeach
+                </div>
+            </fieldset>
+
             <details class="mt-3 rounded-lg border border-slate-200 px-3 py-2" @if ($packageWeightKg !== '' || $packageDescription !== '' || $customerNote !== '') open @endif>
             <summary class="cursor-pointer text-sm font-medium text-slate-700">More details <span class="font-normal text-slate-400">(optional: weight, contents, note)</span></summary>
             <div class="mt-3 grid gap-3 sm:grid-cols-2">
@@ -209,7 +225,7 @@
                     @error('packageWeightKg') <p class="mt-1 text-xs text-rose-700">{{ $message }}</p> @enderror
                 </div>
                 <div>
-                    <label for="description" class="{{ $labelClass }}">What's inside</label>
+                    <label for="description" class="{{ $labelClass }}">Describe it</label>
                     <input id="description" type="text" wire:model.blur="packageDescription" maxlength="255" placeholder="e.g. documents, keys, lunch box" class="{{ $inputClass }}">
                 </div>
             </div>
@@ -218,7 +234,19 @@
                 <textarea id="note" rows="2" wire:model.blur="customerNote" maxlength="500" class="{{ $inputClass }}"></textarea>
             </div>
             </details>
-            <p class="mt-2 text-xs text-slate-500">No cash, valuables, liquids that can spill, or anything illegal.</p>
+            {{-- Stage 1: the sender confirms none of the restricted items (required on every channel). --}}
+            <div class="mt-3 rounded-lg border border-slate-200 p-3">
+                <label class="flex cursor-pointer items-start gap-3 text-sm">
+                    <input type="checkbox" wire:model="restrictedConfirmed" class="mt-0.5 h-5 w-5 rounded border-slate-300 text-blue-600 focus:ring-blue-500">
+                    <span class="font-medium text-slate-800">My parcel has none of these items</span>
+                </label>
+                <ul class="mt-2 list-disc space-y-0.5 pl-11 text-xs text-slate-600">
+                    @foreach ($restrictedItems as $item)
+                        <li>{{ $item }}</li>
+                    @endforeach
+                </ul>
+                @error('restrictedConfirmed') <p class="mt-1 pl-8 text-xs text-rose-700">{{ $message }}</p> @enderror
+            </div>
         </section>
 
         {{-- ═══════════ 4. Price & pay ═══════════ --}}
@@ -227,6 +255,32 @@
                 <span class="inline-flex h-6 w-6 items-center justify-center rounded-full bg-blue-600 text-xs font-bold text-white">4</span>
                 Price & payment
             </h2>
+
+            {{-- Stage 1: Now | Schedule. Schedule shows only where its own base fare is set. --}}
+            @if ($scheduleAvailable)
+                <div class="mt-3 flex items-center justify-between gap-3">
+                    <span class="text-sm font-semibold text-slate-800">Pickup</span>
+                    <div class="inline-flex rounded-full border border-slate-200 p-1" role="radiogroup" aria-label="Pickup time">
+                        @foreach (['now' => 'Now', 'scheduled' => 'Schedule'] as $value => $label)
+                            <label @class([
+                                'inline-flex min-h-10 cursor-pointer items-center rounded-full px-5 text-sm font-semibold transition',
+                                'bg-blue-600 text-white' => $deliveryType === $value,
+                                'text-slate-700 hover:bg-slate-100' => $deliveryType !== $value,
+                            ])>
+                                <input type="radio" wire:model.live="deliveryType" value="{{ $value }}" class="sr-only">{{ $label }}
+                            </label>
+                        @endforeach
+                    </div>
+                </div>
+                @if ($deliveryType === 'scheduled')
+                    <div class="mt-2">
+                        <label for="scheduled-at" class="{{ $labelClass }}">Pickup date and time</label>
+                        <input id="scheduled-at" type="datetime-local" wire:model.live.debounce.500ms="scheduledAt" min="{{ $scheduleMin }}" max="{{ $scheduleMax }}" class="{{ $inputClass }}">
+                        @error('scheduledAt') <p class="mt-1 text-xs text-rose-700">{{ $message }}</p> @enderror
+                        <p class="mt-1 text-xs text-slate-500">We send a rider shortly before this time.</p>
+                    </div>
+                @endif
+            @endif
 
             @if ($quote)
                 <dl class="mt-3 space-y-1.5 text-sm">

@@ -46,7 +46,7 @@ class ParcelPayAtDropTest extends TestCase
 
     private function create(array $w, array $extra = []): ParcelOrder
     {
-        return app(CreateParcelOrderAction::class)->execute(array_merge([
+        return app(CreateParcelOrderAction::class)->execute(array_merge(['restricted_items_confirmed' => true, 
             'franchise_id' => $w['franchise']->id, 'zone_id' => $w['zone']->id, 'customer_id' => $w['customer']->id,
             'pickup_address_id' => $w['pickup']->id, 'dropoff_address_id' => $w['dropoff']->id,
             'recipient_name' => 'Ravi', 'recipient_phone' => '9876543210',
@@ -230,7 +230,7 @@ class ParcelPayAtDropTest extends TestCase
         Queue::fake();
         $w = $this->world();
 
-        Livewire::actingAs($w['customer'])->test(Create::class)
+        Livewire::actingAs($w['customer'])->test(Create::class)->set('restrictedConfirmed', true)
             ->set('pickupAddressId', $w['pickup']->id)
             ->call('setDropPin', 1.01, 1.01, 'Lake View Road')
             ->set('recipientPhone', '9876543210')
@@ -252,7 +252,7 @@ class ParcelPayAtDropTest extends TestCase
     {
         $w = $this->world();
 
-        Livewire::actingAs($w['customer'])->test(Create::class)
+        Livewire::actingAs($w['customer'])->test(Create::class)->set('restrictedConfirmed', true)
             ->set('pickupAddressId', $w['pickup']->id)
             ->call('setDropPin', 1.01, 1.01, 'Lake View Road')
             ->set('paymentMethod', 'online')
@@ -260,7 +260,7 @@ class ParcelPayAtDropTest extends TestCase
 
         $this->create($w);
 
-        Livewire::actingAs($w['customer'])->test(Create::class)
+        Livewire::actingAs($w['customer'])->test(Create::class)->set('restrictedConfirmed', true)
             ->assertSet('paymentMethod', 'cash')
             ->assertSet('cashCollectAt', 'drop');
     }
@@ -306,7 +306,7 @@ class ParcelPayAtDropTest extends TestCase
         $w = $this->world();
 
         $this->actingAs($w['customer'], 'sanctum')
-            ->postJson('/api/parcel-orders', [
+            ->postJson('/api/parcel-orders', ['restricted_items_confirmed' => true,
                 'pickup_address_id' => $w['pickup']->id, 'dropoff_address_id' => $w['dropoff']->id,
                 'recipient_phone' => '9876543210', 'payment_method' => 'cash', 'cash_collect_at' => 'drop',
             ])
@@ -324,7 +324,7 @@ class ParcelPayAtDropTest extends TestCase
         $w = $this->world();
 
         $this->actingAs($w['customer'], 'sanctum')
-            ->postJson('/api/parcel-orders', [
+            ->postJson('/api/parcel-orders', ['restricted_items_confirmed' => true,
                 'pickup_address_id' => $w['pickup']->id, 'dropoff_address_id' => $w['dropoff']->id,
                 'recipient_phone' => '9876543210', 'payment_method' => 'cash', 'cash_collect_at' => 'door',
             ])

@@ -83,7 +83,7 @@ class ParcelWebPagesTest extends TestCase
         Queue::fake();
         $w = $this->world();
 
-        Livewire::actingAs($w['customer'])->test(Create::class)
+        Livewire::actingAs($w['customer'])->test(Create::class)->set('restrictedConfirmed', true)
             ->set('pickupMode', 'saved')
             ->set('pickupAddressId', $w['pickup']->id)
             ->call('setDropPin', 1.01, 1.01, 'Lake View Road')
@@ -121,7 +121,7 @@ class ParcelWebPagesTest extends TestCase
             'status' => 'delivered', 'price_quoted' => 60, 'payment_method' => 'cash', 'payment_status' => 'paid',
         ]);
 
-        $page = Livewire::actingAs($w['customer'])->test(Create::class)
+        $page = Livewire::actingAs($w['customer'])->test(Create::class)->set('restrictedConfirmed', true)
             ->assertSee('Send again')
             ->assertSee('Amma')
             ->assertSet('packageSize', 'medium')      // last size remembered
@@ -154,7 +154,7 @@ class ParcelWebPagesTest extends TestCase
             'status' => 'delivered', 'price_quoted' => 60, 'payment_method' => 'cash', 'payment_status' => 'paid',
         ]);
 
-        Livewire::actingAs($w['customer'])->test(Create::class)
+        Livewire::actingAs($w['customer'])->test(Create::class)->set('restrictedConfirmed', true)
             ->assertDontSee('Secret')
             ->call('useRecent', $theirs->id)
             ->assertSet('recipientPhone', '')
@@ -165,7 +165,7 @@ class ParcelWebPagesTest extends TestCase
     {
         $w = $this->world();
 
-        Livewire::actingAs($w['customer'])->test(Create::class)
+        Livewire::actingAs($w['customer'])->test(Create::class)->set('restrictedConfirmed', true)
             ->call('setRecipient', 'Ravi Kumar', '+91 98765-43210')
             ->assertSet('recipientName', 'Ravi Kumar')
             ->assertSet('recipientPhone', '9876543210');
@@ -176,7 +176,7 @@ class ParcelWebPagesTest extends TestCase
         Queue::fake();
         $w = $this->world();
 
-        Livewire::actingAs($w['customer'])->test(Create::class)
+        Livewire::actingAs($w['customer'])->test(Create::class)->set('restrictedConfirmed', true)
             ->call('setDropPin', 1.01, 1.01, 'Lake View Road')
             ->set('recipientPhone', '9876543210')
             ->set('paymentMethod', 'cash')
@@ -195,7 +195,7 @@ class ParcelWebPagesTest extends TestCase
         $gateway->shouldReceive('createRawOrder')->once()->andReturn(['razorpay_order_id' => 'order_W1', 'amount' => 4000, 'currency' => 'INR', 'key_id' => 'rzp_test']);
         $w = $this->world();
 
-        Livewire::actingAs($w['customer'])->test(Create::class)
+        Livewire::actingAs($w['customer'])->test(Create::class)->set('restrictedConfirmed', true)
             ->set('pickupAddressId', $w['pickup']->id)
             ->call('setDropPin', 1.01, 1.01, 'Lake View Road')
             ->set('recipientName', 'Ravi')
@@ -213,7 +213,7 @@ class ParcelWebPagesTest extends TestCase
         [, , $otherFranchise, $otherZone] = $this->makeFranchiseTree(); // parcel not active here
         $elsewhere = $this->makeAddress($w['customer'], $otherFranchise, $otherZone);
 
-        Livewire::actingAs($w['customer'])->test(Create::class)
+        Livewire::actingAs($w['customer'])->test(Create::class)->set('restrictedConfirmed', true)
             ->set('pickupAddressId', $elsewhere->id)
             ->call('setDropPin', 1.01, 1.01, 'Lake View Road')
             ->set('recipientName', 'Ravi')
