@@ -102,10 +102,34 @@
         @else
             <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
                 @foreach ($fieldWorker->currentDocuments as $doc)
-                    <a href="{{ route('admin.kyc.documents.field-worker', $doc->id) }}" target="_blank" class="border rounded p-3 text-center hover:bg-gray-50">
-                        <div class="text-xs font-medium mb-1">{{ str_replace('_', ' ', $doc->type) }}</div>
-                        <div class="text-xs text-gray-400">{{ $doc->status }}</div>
-                    </a>
+                    <div class="border rounded overflow-hidden text-center" wire:key="doc-{{ $doc->id }}">
+                        <a href="{{ route('admin.kyc.documents.field-worker', $doc->id) }}" target="_blank" class="block p-3 hover:bg-gray-50">
+                            <div class="text-xs font-medium mb-1">{{ str_replace('_', ' ', $doc->type) }}</div>
+                            <x-ui.status-badge type="document" :status="$doc->status" />
+                        </a>
+                        @if ($doc->status === 'rejected' && $doc->rejection_reason)
+                            <p class="px-2 pb-2 text-[11px] text-red-600 break-words">{{ $doc->rejection_reason }}</p>
+                        @endif
+                        @if ($fieldWorker->kyc_status === 'pending')
+                            <div class="px-2 pb-2 space-y-1">
+                                <input type="text" wire:model="documentRejectionReason.{{ $doc->id }}"
+                                       placeholder="Reason (needed to reject)"
+                                       class="w-full border rounded px-2 py-1 text-[11px]">
+                                <div class="flex gap-1">
+                                    <x-ui.button size="sm" variant="success" class="flex-1"
+                                                 wire:click="approveDocument({{ $doc->id }})"
+                                                 wire:loading.attr="disabled" wire:target="approveDocument, rejectDocument">
+                                        Approve
+                                    </x-ui.button>
+                                    <x-ui.button size="sm" variant="danger" class="flex-1"
+                                                 wire:click="rejectDocument({{ $doc->id }})"
+                                                 wire:loading.attr="disabled" wire:target="approveDocument, rejectDocument">
+                                        Reject
+                                    </x-ui.button>
+                                </div>
+                            </div>
+                        @endif
+                    </div>
                 @endforeach
             </div>
         @endif
@@ -115,7 +139,7 @@
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <x-ui.card>
                 <div class="font-semibold mb-2 text-green-700">Approve</div>
-                <p class="text-sm text-gray-500 mb-3">Worker will be able to go online and be assigned jobs immediately.</p>
+                <p class="text-sm text-gray-500 mb-3">Approve each required document above first. The worker can then go online and be assigned jobs immediately.</p>
                 <x-ui.button variant="success" size="lg" class="w-full" wire:click="approve">Approve Worker</x-ui.button>
             </x-ui.card>
 

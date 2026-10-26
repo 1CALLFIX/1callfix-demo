@@ -14,6 +14,9 @@ class Show extends Component
 {
     public FieldWorker $fieldWorker;
     public string $rejectionReason = '';
+
+    /** Per-document rejection reasons, keyed by document id (same as Providers\Show). */
+    public array $documentRejectionReason = [];
     public string $flashMessage = '';
     public string $flashType = 'success';
 
@@ -50,6 +53,60 @@ class Show extends Component
             'zone_id' => $this->fieldWorker->zone_id,
             'franchise_id' => $this->fieldWorker->franchise_id,
         ]));
+    }
+
+    /**
+     * Per-document review, copied from Providers\Show: approve() requires every required document to be approved
+     * first, and a rider who signed up on /partners arrives with all of them 'pending' — without this the worker
+     * could never be approved.
+     */
+    public function approveDocument(int $documentId): void
+    {
+        $this->reviewDocument($documentId, 'approved');
+    }
+
+    public function rejectDocument(int $documentId): void
+    {
+        $reason = trim($this->documentRejectionReason[$documentId] ?? '');
+
+        if ($reason === '') {
+            $this->flashType = 'error';
+            $this->flashMessage = 'Enter a reason before rejecting a document.';
+            return;
+        }
+
+        $this->reviewDocument($documentId, 'rejected', $reason);
+    }
+
+    private function reviewDocument(int $documentId, string $status, ?string $reason = null): void
+    {
+        if (! $this->canReview()) {
+            $this->flashType = 'error';
+            $this->flashMessage = 'You do not have permission to review this worker\'s documents.';
+            return;
+        }
+
+        // The id comes from client-editable Livewire state — only this worker's own current documents.
+        $document = $this->fieldWorker->documents()->where('is_current', true)->find($documentId);
+
+        if (! $document) {
+            $this->flashType = 'error';
+            $this->flashMessage = 'That document is no longer available for review.';
+            return;
+        }
+
+        $document->update([
+            'status' => $status,
+            'rejection_reason' => $status === 'rejected' ? $reason : null,
+            'reviewed_by' => auth()->id(),
+            'reviewed_at' => now(),
+        ]);
+
+        unset($this->documentRejectionReason[$documentId]);
+        $this->fieldWorker->load(['documents', 'currentDocuments']);
+
+        $this->flashType = 'success';
+        $this->flashMessage = 'Document marked as '.$status.'.';
     }
 
     public function approve(ReviewFieldWorkerKycAction $action)

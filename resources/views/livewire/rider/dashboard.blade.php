@@ -35,13 +35,26 @@
                     class="inline-flex min-h-11 items-center gap-2 rounded-full bg-emerald-600 px-5 text-sm font-semibold text-white hover:bg-emerald-700">
                 <span class="h-2 w-2 rounded-full bg-white"></span> Online
             </button>
-        @else
+        @elseif ($rider->kyc_status === 'approved')
             <button type="button" x-on:click="goOnline(); startHeartbeat()"
                     class="inline-flex min-h-11 items-center gap-2 rounded-full bg-slate-800 px-5 text-sm font-semibold text-white hover:bg-slate-900">
                 Go online
             </button>
         @endif
     </div>
+
+    {{-- A rider who signed up on /partners can sign in before approval; offers start only once the documents are approved. --}}
+    @if ($rider->kyc_status !== 'approved')
+        <div role="status" @class(['mt-4 rounded-xl px-4 py-3 text-sm',
+            'bg-red-50 text-red-800' => $rider->kyc_status === 'rejected',
+            'bg-amber-50 text-amber-900' => $rider->kyc_status !== 'rejected'])>
+            @if ($rider->kyc_status === 'rejected')
+                Your documents were not approved. Our team will contact you about what to send again.
+            @else
+                Your documents are under review. You can go online and get parcel offers once they are approved.
+            @endif
+        </div>
+    @endif
 
     @if ($notice)
         <div class="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800" role="status">{{ $notice }}</div>
@@ -220,7 +233,7 @@
                 <p class="mt-3 rounded-2xl border border-dashed border-slate-300 p-6 text-center text-sm text-slate-600">Waiting for parcel offers near you…</p>
             @endforelse
         </section>
-    @elseif (! $job && ! $rider->is_online)
+    @elseif (! $job && ! $rider->is_online && $rider->kyc_status === 'approved')
         <p class="mt-6 rounded-2xl border border-dashed border-slate-300 p-6 text-center text-sm text-slate-600">Go online to start getting parcel offers.</p>
     @endif
 </div>

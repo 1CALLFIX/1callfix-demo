@@ -125,6 +125,17 @@ model.
 - After payment the customer can raise a dispute from the order page (reason required). An admin queue
   resolves it by hand; any refund goes through the manual money approval model only (never automatic).
 
+### THUMB RULE — EVERY MODULE SHIPS WITH A TEST LOGIN FOR A REAL WALK-THROUGH
+Owner rule 2026-10-26. Every module or feature (parcel, taxi, hotel, rental, grocery, any future one) gets
+its test account while it is being built, not afterwards, so it can be walked through for real
+end to end before and after deploy.
+- Add it to `php artisan test-accounts` (`app/Console/Commands/TestAccountsCommand.php`): one account per new
+  app or role (rider, driver, vendor, ...), `@1callfix.test` email, ready to use (approved), with a test
+  proving it can sign in and that `test-accounts disable` switches it off.
+- The release note lists the test login(s) and the walk-through to do with them.
+- Passwords are never stored in git; the owner passes one on the command line on the server.
+- `test-accounts disable` before public launch.
+
 ### THUMB RULE — EVERY PUBLIC LINK IS ADMIN-CONTROLLED, CITY-AWARE AND NEVER BREAKS
 - Every public catalog page (city, category, subcategory, service, and every future
   module: parcel, hotel, food, marketplace, products, vendors) has a clean, readable

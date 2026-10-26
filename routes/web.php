@@ -267,6 +267,8 @@ Route::middleware(['auth', \App\Http\Middleware\EnsureIsParcelRider::class, \App
         Route::get('/', \App\Livewire\Rider\Dashboard::class)->name('rider.dashboard');
         Route::get('/history', \App\Livewire\Rider\History::class)->name('rider.history');
         Route::get('/earnings', \App\Livewire\Rider\Earnings::class)->name('rider.earnings');
+        Route::get('/payment-accounts', \App\Livewire\Rider\PaymentAccounts::class)->name('rider.payment-accounts');
+        Route::get('/request-payout', \App\Livewire\Rider\RequestPayout::class)->name('rider.request-payout');
     });
 
 // Public content. `page` renders real seeded `content_pages` rows — the

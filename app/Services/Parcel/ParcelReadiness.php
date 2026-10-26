@@ -3,6 +3,9 @@
 namespace App\Services\Parcel;
 
 use App\Models\FieldWorker;
+use App\Models\Franchise;
+use App\Models\Module;
+use App\Support\Modules;
 
 /**
  * Owner rule 2026-10-24: riders deliver parcels, so riders are onboarded BEFORE parcel is switched on. The
@@ -28,13 +31,34 @@ class ParcelReadiness
             ->count();
     }
 
+    /**
+     * Whether /partners takes delivery-rider sign-ups (owner rule 2026-10-25: every partner joins through /partners).
+     * Riders are signed up BEFORE parcel opens to customers, so this does not wait for the module to be switched on:
+     * it is true once parcel is a built module and its prices are complete for at least one franchise.
+     */
+    public function recruitingRiders(): bool
+    {
+        if (! Module::where('code', Modules::PARCEL)->where('is_implemented', true)->exists()) {
+            return false;
+        }
+
+        foreach (Franchise::query()->get(['id', 'city_id', 'country_id']) as $franchise) {
+            $scope = array_filter(['franchise_id' => $franchise->id, 'city_id' => $franchise->city_id, 'country_id' => $franchise->country_id]);
+            if (ParcelSettings::missingRequired($scope) === []) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     /** @return array<int, string> what still has to be done before parcel can be activated here (empty = ready) */
     public function problems(string $scopeLevel, int $scopeId, array $resolvedScope): array
     {
         $problems = [];
 
         if ($this->riderCount($scopeLevel, $scopeId) === 0) {
-            $problems[] = 'No parcel rider is onboarded here yet — add one in Workers → Add parcel rider.';
+            $problems[] = 'No parcel rider is approved here yet. Riders apply on the partner page (/partners); approve them in Workers → Review.';
         }
 
         $missing = ParcelSettings::missingRequired($resolvedScope);

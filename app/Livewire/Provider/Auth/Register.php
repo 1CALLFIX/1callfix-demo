@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Provider\Auth;
 
+use App\Actions\CreateParcelRiderAction;
 use App\Actions\RegisterProviderAction;
 use App\Contracts\FirebaseTokenVerifier;
 use App\Exceptions\AccountAlreadyExistsException;
@@ -116,14 +117,28 @@ class Register extends Component
     #[Locked]
     public ?int $leadId = null;
 
+    /**
+     * Which partner this sign-up makes (owner rule 2026-10-25: every partner joins through /partners, then this one
+     * page — OTP, documents, admin approval). 'service' = a provider (the default, and the only role reachable without
+     * a /partners hand-off); 'parcel' = a delivery rider (a field worker with the parcel_rider capability, documents
+     * from the `field_worker` requirement list, no services step). Set only in mount() from the server-side session.
+     */
+    #[Locked]
+    public string $partnerRole = 'service';
+
+    /** Partner roles this page can finish. */
+    private const SIGNUP_ROLES = ['service', 'parcel'];
+
     public function mount(): void
     {
         $lead = session('partner_lead');
-        if (is_array($lead) && ($lead['role'] ?? null) === 'service' && is_int($lead['id'] ?? null)) {
+        if (is_array($lead) && in_array($lead['role'] ?? null, self::SIGNUP_ROLES, true) && is_int($lead['id'] ?? null)
+            && $this->roleTakesSignUps($lead['role'])) {
             $this->leadId = $lead['id'];
+            $this->partnerRole = $lead['role'];
             // Prefill the name and mobile typed on /partners so the applicant does not type them twice. Read from the
             // lead row by its server-held id, never from the browser; the number is still proven by OTP before submit.
-            $row = \App\Models\PartnerLead::query()->where('id', $lead['id'])->where('role', 'service')->first(['name', 'phone']);
+            $row = \App\Models\PartnerLead::query()->where('id', $lead['id'])->where('role', $this->partnerRole)->first(['name', 'phone']);
             if ($row !== null) {
                 $this->name = (string) $row->name;
                 $this->phone = (string) $row->phone;
@@ -138,11 +153,30 @@ class Register extends Component
         }
 
         if (auth()->guard('web')->check()) {
+            $user = auth()->user();
             $this->redirectRoute(
-                auth()->user()->providerProfile()->exists() ? 'provider.dashboard' : 'customer.home',
+                $user->providerProfile()->exists() ? 'provider.dashboard'
+                    : ($user->fieldWorkerProfile?->hasCapability('parcel_rider') ? 'rider.dashboard' : 'customer.home'),
                 navigate: true,
             );
         }
+    }
+
+    public function isRider(): bool
+    {
+        return $this->partnerRole === 'parcel';
+    }
+
+    /** The /partners card for this role still hands off to sign-up (it can close again, e.g. parcel prices cleared). */
+    private function roleTakesSignUps(string $role): bool
+    {
+        return (bool) (collect(\App\Support\PartnerPage\PartnerPageData::roles())->firstWhere('code', $role)['hands_off'] ?? false);
+    }
+
+    /** kyc_document_requirements.applicable_type for this sign-up. */
+    private function documentsFor(): string
+    {
+        return $this->isRider() ? 'field_worker' : 'provider';
     }
 
     // ─────────────────────────── Phone step ──────────────────────────────
@@ -339,7 +373,7 @@ class Register extends Component
 
     // ─────────────────────────── Finish ──────────────────────────────────
 
-    public function submitApplication(RegisterProviderAction $register, KycDocumentService $kyc): void
+    public function submitApplication(RegisterProviderAction $register, KycDocumentService $kyc, CreateParcelRiderAction $riders): void
     {
         $this->reset('error', 'status');
 
@@ -357,7 +391,7 @@ class Register extends Component
             return;
         }
 
-        $requirements = $kyc->requirementsFor('provider', $this->resolvedCountryId());
+        $requirements = $kyc->requirementsFor($this->documentsFor(), $this->resolvedCountryId());
         $requiredTypes = $requirements->where('is_required', true)->pluck('document_type');
 
         $this->validate([
@@ -383,7 +417,8 @@ class Register extends Component
 
         // Only real, active, customer-visible categories count — the array is client-editable state.
         // "Required" never blocks when no category is published yet — there would be nothing to tick.
-        $offerable = SiteControls::servicesStep() === 'hidden' ? collect() : $this->offerableCategories();
+        // A delivery rider offers no service categories: the step does not apply.
+        $offerable = (SiteControls::servicesStep() === 'hidden' || $this->isRider()) ? collect() : $this->offerableCategories();
         $skillIds = $offerable->whereIn('id', array_map('intval', $this->skills))->pluck('id')->values()->all();
         if (SiteControls::servicesStep() === 'required' && $offerable->isNotEmpty() && $skillIds === []) {
             $this->addError('skills', 'Choose at least one service you offer.');
@@ -442,39 +477,59 @@ class Register extends Component
 
         $providerId = null;
         try {
-            DB::transaction(function () use ($register, $kyc, $zone, $requirements, $skillIds, &$providerId) {
-                $provider = $register->execute(
-                    name: $this->name,
-                    phone: PhoneNumber::national($this->verifiedPhoneE164),
-                    franchiseId: $zone->franchise_id,
-                    zoneId: $zone->id,
-                    plainPassword: $this->password,
-                    email: filled($this->email) ? $this->email : null,
-                    phoneVerified: true,
-                    registration: [
-                        'address' => $this->address,
-                        'lat' => $this->lat,
-                        'lng' => $this->lng,
-                    ],
-                    skills: $skillIds,
-                );
+            if ($this->isRider()) {
+                DB::transaction(function () use ($riders, $kyc, $zone, $requirements) {
+                    $rider = $riders->registerApplicant(
+                        zone: $zone,
+                        name: $this->name,
+                        nationalPhone: PhoneNumber::national($this->verifiedPhoneE164),
+                        email: filled($this->email) ? $this->email : null,
+                        plainPassword: $this->password,
+                        registration: ['address' => $this->address, 'lat' => $this->lat, 'lng' => $this->lng, 'out_of_coverage' => $this->outOfCoverage],
+                    );
 
-                $providerId = $provider->id;
-
-                foreach ($requirements as $req) {
-                    $file = $this->documents[$req->document_type] ?? null;
-                    if ($file) {
-                        $kyc->upload($provider, $req->document_type, $file, $provider->user, 'self');
+                    foreach ($requirements as $req) {
+                        $file = $this->documents[$req->document_type] ?? null;
+                        if ($file) {
+                            $kyc->upload($rider, $req->document_type, $file, $rider->user, 'self');
+                        }
                     }
-                }
-            });
+                });
+            } else {
+                DB::transaction(function () use ($register, $kyc, $zone, $requirements, $skillIds, &$providerId) {
+                    $provider = $register->execute(
+                        name: $this->name,
+                        phone: PhoneNumber::national($this->verifiedPhoneE164),
+                        franchiseId: $zone->franchise_id,
+                        zoneId: $zone->id,
+                        plainPassword: $this->password,
+                        email: filled($this->email) ? $this->email : null,
+                        phoneVerified: true,
+                        registration: [
+                            'address' => $this->address,
+                            'lat' => $this->lat,
+                            'lng' => $this->lng,
+                        ],
+                        skills: $skillIds,
+                    );
+
+                    $providerId = $provider->id;
+
+                    foreach ($requirements as $req) {
+                        $file = $this->documents[$req->document_type] ?? null;
+                        if ($file) {
+                            $kyc->upload($provider, $req->document_type, $file, $provider->user, 'self');
+                        }
+                    }
+                });
+            }
         } catch (AccountAlreadyExistsException $e) {
             $this->error = 'An account with this mobile number already exists. Please sign in instead.';
 
             return;
         }
 
-        \App\Models\PartnerLead::markConverted($this->leadId, PhoneNumber::national($this->verifiedPhoneE164), (int) $providerId);
+        \App\Models\PartnerLead::markConverted($this->leadId, PhoneNumber::national($this->verifiedPhoneE164), $providerId, $this->partnerRole);
 
         $this->clearThrottle('provider-reg-phone', $this->phone);
         $this->clearThrottle('provider-reg-submit', $this->verifiedPhoneE164);
@@ -502,16 +557,17 @@ class Register extends Component
 
     public function render()
     {
-        $requirements = app(KycDocumentService::class)->requirementsFor('provider', $this->resolvedCountryId());
+        $requirements = app(KycDocumentService::class)->requirementsFor($this->documentsFor(), $this->resolvedCountryId());
 
-        $servicesStep = SiteControls::servicesStep();
+        $servicesStep = $this->isRider() ? 'hidden' : SiteControls::servicesStep();
 
         return view('livewire.provider.auth.register', [
             'requirements' => $requirements,
+            'isRider' => $this->isRider(),
             'servicesStep' => $servicesStep,
             'servicesMax' => SiteControls::servicesMax(),
             'serviceCategories' => $servicesStep === 'hidden' ? collect() : $this->offerableCategories(),
         ])
-            ->layout('components.layouts.provider', ['title' => 'Become a partner']);
+            ->layout('components.layouts.provider', ['title' => $this->isRider() ? 'Become a delivery rider' : 'Become a partner']);
     }
 }

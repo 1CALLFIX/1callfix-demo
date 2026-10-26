@@ -71,14 +71,15 @@ class PartnerLead extends Model
     }
 
     /** Provider sign-up finished: link only when the VERIFIED phone matches the lead's phone and the role is service. */
-    public static function markConverted(?int $leadId, string $verifiedNationalPhone, int $providerId): void
+    /** $providerId is set for the service role only; a delivery rider becomes a field worker, not a provider. */
+    public static function markConverted(?int $leadId, string $verifiedNationalPhone, ?int $providerId, string $role = 'service'): void
     {
         if (! $leadId) {
             return;
         }
 
-        static::where('id', $leadId)->where('phone', $verifiedNationalPhone)->where('role', 'service')
+        static::where('id', $leadId)->where('phone', $verifiedNationalPhone)->where('role', $role)
             ->whereNotIn('status', [self::STATUS_REJECTED])
-            ->update(['status' => self::STATUS_CONVERTED, 'provider_id' => $providerId, 'updated_at' => now()]);
+            ->update(['status' => self::STATUS_CONVERTED, 'provider_id' => $role === 'service' ? $providerId : null, 'updated_at' => now()]);
     }
 }

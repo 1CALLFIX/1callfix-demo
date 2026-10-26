@@ -49,6 +49,14 @@ class Dashboard extends Component
             $lat = $lng = null;
         }
 
+        // Signed up on /partners but not yet approved: dispatch would skip them anyway, so do not let them sit
+        // "online" waiting for offers that cannot come.
+        if ($rider->kyc_status !== 'approved') {
+            $this->error = 'Your documents are under review. You can go online once they are approved.';
+
+            return;
+        }
+
         $wasOnline = $rider->is_online;
         $offers->setOnline($rider, true, $lat, $lng);
 
