@@ -9,8 +9,16 @@
 @endphp
 
 <div class="mx-auto max-w-2xl px-4 py-6 sm:px-6 lg:px-8">
-    <h1 class="text-2xl font-bold tracking-tight">Send a parcel</h1>
-    <p class="mt-1 text-sm text-slate-600">A rider picks it up and delivers it the same trip. Pay online, from your wallet, or cash at pickup or drop.</p>
+    {{-- Picture header (owner 2026-10-26): same picture and subtitle as the homepage parcel card (Admin → Homepage & sign-up). --}}
+    <div class="relative overflow-hidden rounded-3xl bg-gradient-to-b from-blue-100 to-blue-50 px-5 pb-5 pt-5 sm:px-8">
+        <img src="{{ \App\Support\SiteControls::parcelImageUrl() }}" alt="" aria-hidden="true" decoding="async"
+             class="pointer-events-none absolute -right-3 bottom-2 h-24 w-36 object-contain sm:right-6 sm:h-32 sm:w-48">
+        <div class="relative max-w-[62%]">
+            <p class="text-xs font-semibold uppercase tracking-widest text-blue-700">{{ \App\Support\SiteControls::parcelSubtitle() }}</p>
+            <h1 class="mt-1 text-2xl font-black tracking-tight text-slate-900 sm:text-3xl">{{ \App\Support\SiteControls::parcelPageHeading() }}</h1>
+            <p class="mt-1 text-sm text-slate-600">{{ \App\Support\SiteControls::parcelPageIntro() }}</p>
+        </div>
+    </div>
 
     @if ($browsingZoneKnown && ! $activeHere)
         <div class="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
