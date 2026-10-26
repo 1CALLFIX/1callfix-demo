@@ -2,6 +2,8 @@
 
 namespace App\Console\Commands;
 
+use App\Models\FieldWorker;
+use App\Models\FieldWorkerCapability;
 use App\Models\Franchise;
 use App\Models\Provider;
 use App\Models\Role;
@@ -17,6 +19,10 @@ use Illuminate\Support\Str;
 /**
  * Owner request 2026-10-21: one test login per account type, all sharing one password, so every panel can be
  * tried out. The password is passed on the command line and never stored in git.
+ *
+ * Owner thumb rule 2026-10-26: every module or partner app gets its test login while it is being built, so it can
+ * be walked through for real. The parcel rider (test.rider, approved, /rider/login) is the first; add each new
+ * module's account (taxi driver, hotel, rental, grocery, ...) to ACCOUNTS the same way.
  *
  *   php artisan test-accounts create --password=... [--franchise=ID]
  *   php artisan test-accounts list
@@ -44,6 +50,8 @@ class TestAccountsCommand extends Command
         'support' => ['Test Support', 'support', 'support', 'franchise', '6000000106'],
         'customer' => ['Test Customer', 'customer', null, null, '6000000107'],
         'provider' => ['Test Provider', 'provider', null, null, '6000000108'],
+        // users.role stays 'provider' for riders (CreateParcelRiderAction); the rider is a field worker + parcel_rider.
+        'rider' => ['Test Rider', 'provider', null, null, '6000000109'],
     ];
 
     public function handle(): int
@@ -124,7 +132,17 @@ class TestAccountsCommand extends Command
                     RoleAssignment::create(['user_id' => $user->id, 'role_id' => $role->id, 'scope_type' => $scopeType, 'scope_id' => $scopeIds[$scopeType]]);
                 }
 
-                if ($userRole === 'provider') {
+                if ($key === 'rider') {
+                    // Approved, so it counts as a ready rider and Admin → Modules can switch Parcel on.
+                    $worker = FieldWorker::updateOrCreate(['user_id' => $user->id], [
+                        'franchise_id' => $franchise->id,
+                        'zone_id' => $zone->id,
+                        'kyc_status' => 'approved',
+                        'is_active' => true,
+                        'is_online' => false,
+                    ]);
+                    FieldWorkerCapability::firstOrCreate(['field_worker_id' => $worker->id, 'capability_type' => 'parcel_rider']);
+                } elseif ($userRole === 'provider') {
                     Provider::updateOrCreate(['user_id' => $user->id], [
                         'franchise_id' => $franchise->id,
                         'zone_id' => $zone->id,
@@ -136,13 +154,13 @@ class TestAccountsCommand extends Command
                     ]);
                 }
 
-                return [$key, $email, $roleSlug ? "{$roleSlug} @ {$scopeType} #{$scopeIds[$scopeType]}" : $userRole];
+                return [$key, $email, $roleSlug ? "{$roleSlug} @ {$scopeType} #{$scopeIds[$scopeType]}" : ($key === 'rider' ? 'parcel rider (approved)' : $userRole)];
             });
         }
 
         $this->info("Test accounts for franchise #{$franchise->id} {$franchise->name}, zone #{$zone->id} {$zone->name}:");
         $this->table(['Account', 'Login email', 'Access'], $rows);
-        $this->line('Staff log in at /admin/login, the provider at /provider/login, the customer at /login.');
+        $this->line('Staff log in at /admin/login, the provider at /provider/login, the rider at /rider/login, the customer at /login.');
 
         return self::SUCCESS;
     }
@@ -165,6 +183,7 @@ class TestAccountsCommand extends Command
             DB::transaction(function () use ($user) {
                 RoleAssignment::where('user_id', $user->id)->delete();
                 Provider::where('user_id', $user->id)->update(['is_active' => false, 'is_online' => false]);
+                FieldWorker::where('user_id', $user->id)->update(['is_active' => false, 'is_online' => false]);
                 $user->forceFill(['status' => 'suspended'])->save();
                 $user->tokens()->delete();
             });

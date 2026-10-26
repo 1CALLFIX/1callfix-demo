@@ -10,8 +10,9 @@ use Livewire\Component;
 
 /**
  * Rider sign-in (`/rider/login`). Same password login, throttle and suspension check as the partner sign-in
- * (Provider\Auth\Login), but the account must be an active parcel rider. Riders are created by admin
- * (Admin → Workers, capability "parcel_rider"); there is no rider self-registration.
+ * (Provider\Auth\Login), but the account must be an active parcel rider. Riders sign up on /partners (the partner
+ * sign-up, documents pending admin review) or are added by an admin (Admin → Workers → Add parcel rider, walk-ins).
+ * A pending rider can sign in; the dashboard shows the review state and offers start once approved.
  */
 class Login extends Component
 {

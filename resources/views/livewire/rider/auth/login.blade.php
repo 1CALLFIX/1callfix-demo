@@ -32,8 +32,11 @@
             </x-ui.button>
         </form>
 
-        <p class="mt-6 text-center text-sm text-slate-600">
-            Want to ride with {{ $platformName }}? Ask your local {{ $platformName }} office to register you.
+        <p class="mt-4 text-center text-sm">
+            <a href="{{ route('customer.password.forgot') }}" wire:navigate class="font-medium text-blue-600 hover:underline">Forgot password?</a>
+        </p>
+        <p class="mt-4 text-center text-sm text-slate-600">
+            Want to ride with {{ $platformName }}? <a href="{{ route('customer.partners') }}#join" class="font-medium text-slate-900 underline underline-offset-2">Apply on the partner page</a>
         </p>
         <p class="mt-2 text-center text-sm text-slate-600">
             Not a rider? <a href="{{ route('customer.login') }}" wire:navigate class="font-medium text-slate-900 underline underline-offset-2">Customer sign in</a>

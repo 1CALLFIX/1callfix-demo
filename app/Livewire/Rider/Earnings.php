@@ -11,8 +11,8 @@ use Livewire\Component;
 
 /**
  * Rider earnings: wallet balance (online/wallet parcels credit it on delivery), cash dues (what they owe after
- * collecting cash), and "Settle from wallet". Payouts themselves are made by admin (Finance → Payouts,
- * payee type field worker), which refuses while dues remain.
+ * collecting cash), and "Settle from wallet". The rider requests a payout on Rider\RequestPayout (the partner
+ * screen, reused); admin pays it from Finance → Payouts. Both refuse while dues remain.
  */
 class Earnings extends Component
 {

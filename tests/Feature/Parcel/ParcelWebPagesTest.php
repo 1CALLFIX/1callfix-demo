@@ -430,7 +430,7 @@ class ParcelWebPagesTest extends TestCase
             ->set('scopeId', $franchise->id)
             ->assertSee('0 riders onboarded')
             ->call('toggle', Modules::PARCEL)
-            ->assertSet('activationError', fn ($e) => str_contains($e, 'No parcel rider is onboarded'));
+            ->assertSet('activationError', fn ($e) => str_contains($e, 'No parcel rider is approved'));
 
         $this->assertFalse(app(ModuleActivationService::class)->isActiveAnywhere(Modules::PARCEL));
     }
