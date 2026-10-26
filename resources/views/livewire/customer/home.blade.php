@@ -40,6 +40,8 @@
     @php
         $controls = \App\Support\SiteControls::class;
         $categoriesFirst = $controls::categoriesFirst();
+        // Parcel card position (Admin → Homepage & sign-up): top | after_categories | after_banner (default).
+        $parcelAt = $parcelActive ? $controls::parcelPosition() : null;
     @endphp
 
     {{-- ======================= Banner slot #1 (hero) =======================
@@ -61,6 +63,10 @@
          tiles are OFF by default because they made the first screen read as
          clutter. Search and location stay in the topbar.
     --}}
+    @if ($parcelAt === 'top')
+        @include('livewire.customer.partials.home-parcel-card')
+    @endif
+
     <section class="relative border-b border-slate-200 bg-gradient-to-b from-blue-50 via-white to-white">
         <div class="relative mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-10 lg:px-8">
             @php
@@ -88,6 +94,23 @@
                         <ul aria-labelledby="shortcuts-heading"
                             class="cf-cat-grid grid gap-x-2 gap-y-4 rounded-3xl border border-slate-200 bg-white p-3 shadow-lg shadow-blue-900/5 sm:gap-x-4 sm:gap-y-6 sm:p-6"
                             style="--cf-cols-m: {{ $colsMobile }}; --cf-cols-d: {{ $colsDesktop }};">
+                            {{-- Parcel as the first icon, where parcel is on (Admin switch, picture uploadable). --}}
+                            @if ($parcelActive && $controls::parcelGridTile())
+                                <li>
+                                    <a href="{{ route('customer.parcels.create') }}" wire:navigate
+                                       class="group flex h-full flex-col items-center gap-2 rounded-2xl p-1 text-center transition duration-200 hover:bg-blue-50/60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600">
+                                        <span aria-hidden="true"
+                                              class="{{ $controls::frameClasses() }} relative grid {{ $controls::iconBoxClasses() }} shrink-0 place-items-center overflow-hidden rounded-2xl bg-blue-100 transition duration-200 group-hover:shadow-md">
+                                            <img src="{{ $controls::parcelIconUrl() }}" alt="" loading="lazy" decoding="async" width="160" height="160"
+                                                 class="absolute inset-0 h-full w-full p-1 {{ $controls::imageClasses() }}">
+                                            @if ($controls::parcelNewBadge())
+                                                <span class="absolute right-0.5 top-0.5 rounded-full bg-amber-400 px-1.5 text-[10px] font-bold leading-4 text-slate-900">{{ $controls::parcelBadgeText() }}</span>
+                                            @endif
+                                        </span>
+                                        <span class="line-clamp-2 text-xs font-medium leading-tight text-slate-900 sm:text-sm">{{ $controls::parcelTitle() }}</span>
+                                    </a>
+                                </li>
+                            @endif
                             @foreach ($categories as $category)
                                 <li>
                                     <x-customer.category-tile :category="$category" variant="compact" class="h-full" />
@@ -126,28 +149,19 @@
         </div>
     </section>
 
+    @if ($parcelAt === 'after_categories')
+        @include('livewire.customer.partials.home-parcel-card')
+    @endif
+
     @if ($categoriesFirst)
         @include('livewire.customer.partials.home-hero-banner')
     @endif
 
-    {{-- ========================= Send a parcel ========================= --}}
-    {{-- Only where parcel is switched on (Admin → Modules) for the zone being browsed. --}}
-    @if ($parcelActive)
-        <section aria-labelledby="parcel-heading" class="mx-auto max-w-7xl px-4 pt-10 sm:px-6 lg:px-8">
-            <a href="{{ route('customer.parcels.create') }}" wire:navigate
-               class="flex items-center justify-between gap-4 rounded-2xl border border-blue-200 bg-gradient-to-r from-blue-50 to-white p-5 transition hover:border-blue-300 hover:shadow-sm">
-                <div class="flex items-center gap-4">
-                    <span class="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-blue-600 text-white" aria-hidden="true">
-                        <x-icon name="shopping-bag" class="h-6 w-6" />
-                    </span>
-                    <div>
-                        <h2 id="parcel-heading" class="text-lg font-bold tracking-tight text-slate-900">Send a parcel</h2>
-                        <p class="text-sm text-slate-600">Keys, documents, lunch boxes — picked up and delivered across town.</p>
-                    </div>
-                </div>
-                <x-icon name="arrow-right" class="h-5 w-5 shrink-0 text-blue-700" />
-            </a>
-        </section>
+    {{-- ========================= Send a parcel =========================
+         Only where parcel is switched on (Admin → Modules) for the zone being browsed. Default spot; the card can
+         also sit at the top or between the icons and the banner (Admin → Homepage & sign-up). --}}
+    @if ($parcelAt === 'after_banner')
+        @include('livewire.customer.partials.home-parcel-card')
     @endif
 
     {{-- ========================= New & noteworthy ========================= --}}

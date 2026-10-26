@@ -258,10 +258,10 @@ class ParcelWebPagesTest extends TestCase
         $w = $this->world(active: false);
         app(\App\Services\Customer\CustomerLocationContext::class)->setZone($w['zone']->id);
 
-        $this->get('/')->assertOk()->assertDontSee('Send a parcel');
+        $this->get('/')->assertOk()->assertDontSee('id="parcel-heading"', false);
 
         app(ModuleActivationService::class)->setActive(Modules::PARCEL, 'franchise', $w['franchise']->id, true);
-        $this->get('/')->assertOk()->assertSee('Send a parcel');
+        $this->get('/')->assertOk()->assertSee('id="parcel-heading"', false);
     }
 
     // ═══════════════════════ rider ═══════════════════════

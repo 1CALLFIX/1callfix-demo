@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 220 150" role="img" aria-label="Rider on a scooter with parcels">
+  <!-- 1CallFix's own drawing (2026-10-26): default parcel picture until the Super Admin uploads one. -->
+  <ellipse cx="110" cy="140" rx="100" ry="8" fill="#1e3a8a" opacity=".12"/>
+  <rect x="6" y="64" width="34" height="5" rx="2.5" fill="#fff" opacity=".8"/>
+  <rect x="0" y="78" width="22" height="5" rx="2.5" fill="#fff" opacity=".6"/>
+  <path d="M60 112 Q62 86 92 86 L132 86 Q150 86 156 104 L162 112 Z" fill="#FACC15"/>
+  <path d="M150 70 L160 108" stroke="#0f172a" stroke-width="6" stroke-linecap="round"/>
+  <path d="M144 66 L164 62" stroke="#0f172a" stroke-width="6" stroke-linecap="round"/>
+  <circle cx="78" cy="118" r="17" fill="#0f172a"/><circle cx="78" cy="118" r="7" fill="#e2e8f0"/>
+  <circle cx="160" cy="118" r="17" fill="#0f172a"/><circle cx="160" cy="118" r="7" fill="#e2e8f0"/>
+  <rect x="44" y="52" width="44" height="36" rx="5" fill="#2563EB"/>
+  <rect x="44" y="52" width="44" height="9" rx="3" fill="#1d4ed8"/>
+  <path d="M58 70 l6 6 l10 -12" stroke="#fff" stroke-width="4" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M100 86 L112 56 Q118 44 130 50 L142 66 L130 70 L122 62 L114 86 Z" fill="#1d4ed8"/>
+  <path d="M112 86 L132 86 L140 104" stroke="#0f172a" stroke-width="8" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="122" cy="36" r="13" fill="#FACC15" stroke="#0f172a" stroke-width="3"/>
+  <rect x="117" y="33" width="14" height="6" rx="3" fill="#0f172a"/>
+  <rect x="178" y="96" width="30" height="26" rx="3" fill="#D6A15C"/>
+  <path d="M178 104 h30 M193 96 v26" stroke="#b07d3c" stroke-width="2.5"/>
+  <rect x="186" y="74" width="20" height="22" rx="3" fill="#E8B873"/>
+  <path d="M186 82 h20" stroke="#b07d3c" stroke-width="2"/>
+  <path d="M196 8 c-10 0 -16 8 -16 16 c0 12 16 26 16 26 s16 -14 16 -26 c0 -8 -6 -16 -16 -16 z" fill="#ef4444"/>
+  <circle cx="196" cy="24" r="6" fill="#fff"/>
+</svg>

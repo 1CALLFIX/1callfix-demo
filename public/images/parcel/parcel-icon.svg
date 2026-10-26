@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" role="img" aria-label="Parcel">
+  <!-- 1CallFix's own drawing (2026-10-26): default Parcel icon in the homepage category grid. -->
+  <rect x="6" y="6" width="108" height="108" rx="26" fill="#DBEAFE"/>
+  <rect x="10" y="44" width="22" height="5" rx="2.5" fill="#2563EB" opacity=".55"/>
+  <rect x="16" y="56" width="16" height="5" rx="2.5" fill="#2563EB" opacity=".35"/>
+  <path d="M38 44 L66 30 L96 44 L68 58 Z" fill="#E8B873"/>
+  <path d="M38 44 L68 58 L68 92 L38 78 Z" fill="#D6A15C"/>
+  <path d="M68 58 L96 44 L96 78 L68 92 Z" fill="#C48A45"/>
+  <path d="M52 37 L82 51 L82 62 L74 58 L74 48 L45 34 Z" fill="#FACC15"/>
+  <circle cx="92" cy="86" r="16" fill="#2563EB"/>
+  <path d="M85 86 h12 M92 80 l6 6 l-6 6" stroke="#fff" stroke-width="3.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
