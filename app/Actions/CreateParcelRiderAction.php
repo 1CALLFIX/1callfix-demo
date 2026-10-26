@@ -14,7 +14,7 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 
 /**
- * Admin → Workers → "Add parcel rider". Until now nothing in the app could create a FieldWorker (only the QA
+ * Admin → Partners → People → "Add parcel rider". Until now nothing in the app could create a FieldWorker (only the QA
  * seeder did), so no real rider could exist. Creates the login account (or links an existing account with
  * that phone that is not yet a worker), the FieldWorker in the chosen zone, and the `parcel_rider`
  * capability.
@@ -74,7 +74,7 @@ class CreateParcelRiderAction
     /**
      * Self sign-up from /partners → the partner sign-up page (owner rule 2026-10-25: every partner joins through
      * /partners with OTP and documents). Same rider as execute() but KYC stays 'pending': the rider gets no offers
-     * until an admin approves the uploaded documents in Workers → Review. A number that already has an account is
+     * until an admin approves the uploaded documents in Partners → People → Review. A number that already has an account is
      * refused, exactly like the provider sign-up (sign in instead).
      *
      * @param  array{address?:?string, lat?:?float, lng?:?float, out_of_coverage?:bool}  $registration

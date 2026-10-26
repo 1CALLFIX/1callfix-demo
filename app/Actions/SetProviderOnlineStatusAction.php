@@ -2,6 +2,7 @@
 
 namespace App\Actions;
 
+use App\Exceptions\CannotGoOnlineException;
 use App\Exceptions\ShiftRequiredException;
 use App\Models\Provider;
 use App\Services\Providers\ShiftSchedule;
@@ -48,6 +49,14 @@ class SetProviderOnlineStatusAction
 {
     public function execute(Provider $provider, bool $online, ?float $lat = null, ?float $lng = null): Provider
     {
+        // Owner decision 2026-10-26: a partner whose documents are not approved cannot go online (dispatch already
+        // skipped them; now the switch says so too, same as the rider app). Going offline is always allowed.
+        if ($online && $provider->kyc_status !== 'approved') {
+            throw new CannotGoOnlineException($provider->kyc_status === 'rejected'
+                ? 'Your documents were not approved. Our team will contact you about what to send again.'
+                : 'Your documents are under review. You can go online once they are approved.');
+        }
+
         $this->assertShiftAllowsOnline($provider, $online);
 
         $hasFix = $online && $this->isUsableFix($lat, $lng);

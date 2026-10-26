@@ -58,7 +58,7 @@ class ParcelReadiness
         $problems = [];
 
         if ($this->riderCount($scopeLevel, $scopeId) === 0) {
-            $problems[] = 'No parcel rider is approved here yet. Riders apply on the partner page (/partners); approve them in Workers → Review.';
+            $problems[] = 'No parcel rider is approved here yet. Riders apply on the partner page (/partners); approve them in Partners → People → Review.';
         }
 
         $missing = ParcelSettings::missingRequired($resolvedScope);

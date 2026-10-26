@@ -5,6 +5,7 @@ namespace App\Livewire\Providers;
 use App\Imports\HeadingRowImport;
 use App\Models\CatalogImportRun;
 use App\Livewire\Concerns\HasRowArchive;
+use App\Livewire\Partners\Concerns\FiltersPartners;
 use App\Models\Provider;
 use Illuminate\Database\Eloquent\Model;
 use App\Services\AuthorizationService;
@@ -15,6 +16,7 @@ use Livewire\WithFileUploads;
 use Livewire\WithPagination;
 use Maatwebsite\Excel\Facades\Excel;
 
+/** Admin provider list. Since 2026-10-26 it is also the Businesses tab of Admin → Partners. */
 class Index extends Component
 {
     use WithPagination;
@@ -22,13 +24,14 @@ class Index extends Component
     use HasCsvExport;
 
     use HasRowArchive;
+    use FiltersPartners;
 
     public string $statusFilter = '';
     public string $search = '';
     /** Narrow to providers who are online right now — the dashboard's "Providers Online" card links here with this set. */
     public bool $onlineOnly = false;
 
-    protected $queryString = ['statusFilter', 'search', 'onlineOnly'];
+    protected $queryString = ['statusFilter', 'search', 'onlineOnly', 'typeFilter', 'franchiseFilter', 'zoneFilter', 'cityFilter'];
 
     // --- Bulk Pre-Register (Export Everywhere + Import Where It's Safe
     // session, Part 3) — see ProviderPreRegisterImporter's own docblock. ---
@@ -40,9 +43,42 @@ class Index extends Component
     public ?CatalogImportRun $providersPreregRun = null;
 
     /** providers.view was seeded (2026_08_11_016000) but never checked -- see Commissions\Index's identical fix for the full reasoning. Not granted to the Operator role by design (its grant list stops at bookings.*), so Operator now correctly loses access here rather than before, when nothing enforced it. */
-    public function mount(): void
+    public function mount(bool $embedded = false): void
     {
         abort_unless(auth()->user()->hasPermissionAnywhere('providers.view'), 403, 'You do not have permission to view providers.');
+
+        $this->embedded = $embedded;
+        $this->startOnNeedsReview();
+    }
+
+    /** Businesses tab type dropdown: what the provider runs. A new module adds one entry here and in ofBusinessType(). */
+    public const BUSINESS_TYPES = [
+        'service' => 'Service professionals',
+        'food' => 'Restaurants',
+        'grocery' => 'Grocery shops',
+        'commerce' => 'Online shops',
+        'pharmacy' => 'Pharmacies',
+        'hotel' => 'Hotels & stays',
+        'rental' => 'Rentals',
+    ];
+
+    /** Providers that run this kind of business. A service professional runs no store, stay or rental listing. */
+    private function ofBusinessType($query)
+    {
+        $listings = fn (string $model) => $model::query()->select('provider_id');
+        $rentals = fn ($q) => $q->whereIn('id', $listings(\App\Models\Property::class))
+            ->orWhereIn('id', $listings(\App\Models\Vehicle::class))
+            ->orWhereIn('id', $listings(\App\Models\EquipmentItem::class));
+
+        return match ($this->typeFilter) {
+            'food', 'grocery', 'commerce', 'pharmacy' => $query->whereHas('stores', fn ($s) => $s->where('module', $this->typeFilter)),
+            'hotel' => $query->whereIn('id', $listings(\App\Models\Accommodation::class)),
+            'rental' => $query->where($rentals),
+            'service' => $query->whereDoesntHave('stores')
+                ->whereNotIn('id', $listings(\App\Models\Accommodation::class))
+                ->whereNot($rentals),
+            default => $query,
+        };
     }
 
 
@@ -159,9 +195,7 @@ class Index extends Component
     {
         $scoped = fn ($query) => app(AuthorizationService::class)->scopeQuery($query, auth()->user(), 'providers.view', $this->scopeColumns());
 
-        return $scoped(Provider::with(['user', 'zone', 'documents']))
-            ->when($this->statusFilter === 'archived', fn ($q) => $q->onlyTrashed())
-            ->when($this->statusFilter !== '' && $this->statusFilter !== 'archived', fn ($q) => $q->where('kyc_status', $this->statusFilter))
+        return $this->applyStatus($this->applyGeography($this->ofBusinessType($scoped(Provider::with(['user', 'zone', 'franchise.city', 'documents'])))))
             ->when($this->onlineOnly, fn ($q) => $q->where('is_online', true))
             ->when($this->search, fn ($q) => $q->whereHas('user', fn ($u) => $u->where('name', 'like', "%{$this->search}%")->orWhere('phone', 'like', "%{$this->search}%")));
     }
@@ -208,22 +242,19 @@ class Index extends Component
             // now processed oldest-first (a real FIFO queue an operator
             // clears from the top down); Approved/Rejected stay newest-first
             // (browsing recent decisions is the natural order there).
-            ->when($this->statusFilter === 'pending', fn ($q) => $q->oldest(), fn ($q) => $q->latest())
+            ->when($this->statusFilter === 'pending', fn ($q) => $q->oldest(), fn ($q) => $this->applyOrder($q))
             ->paginate(20);
 
-        $counts = $scoped(Provider::query())
-            ->selectRaw('kyc_status, count(*) as total')
-            ->groupBy('kyc_status')
-            ->pluck('total', 'kyc_status');
-
-        $counts = $counts->all();
-        $counts[''] = array_sum($counts);
+        $counts = $this->statusCounts($this->ofBusinessType($scoped(Provider::query())));
 
         $canManage = auth()->user()->hasPermissionAnywhere('providers.manage');
         $canForce = $this->isSuperAdminUser();
         $archiveBars = $this->archiveBars();
 
-        return view('livewire.providers.index', compact('providers', 'counts', 'canManage', 'canForce', 'archiveBars'))
+        return view('livewire.providers.index', compact('providers', 'counts', 'canManage', 'canForce', 'archiveBars') + [
+            'statusTabs' => $this->statusTabs(),
+            'typeOptions' => self::BUSINESS_TYPES,
+        ] + $this->geographyOptions('providers.view'))
             ->layout('layouts.admin', ['title' => 'Providers']);
     }
 }

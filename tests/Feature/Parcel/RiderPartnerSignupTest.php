@@ -29,7 +29,7 @@ use Tests\TestCase;
  * Owner rule 2026-10-25: every partner joins through /partners, then the same sign-up — OTP, documents, admin
  * approval. Delivery riders now go that way: the rider card hands off once parcel prices are set (before parcel
  * opens to customers), the one sign-up page makes a pending rider with the field-worker document list, and the
- * admin approves the documents and the rider on Workers → Review.
+ * admin approves the documents and the rider on Partners → People → Review.
  */
 class RiderPartnerSignupTest extends TestCase
 {

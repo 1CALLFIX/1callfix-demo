@@ -42,7 +42,7 @@ class OnlineToggle extends Component
 
         try {
             app(SetProviderOnlineStatusAction::class)->execute($this->provider(), true, $lat, $lng);
-        } catch (\App\Exceptions\ShiftRequiredException $e) {
+        } catch (\App\Exceptions\CannotGoOnlineException $e) {
             $this->error = $e->getMessage();
 
             return;

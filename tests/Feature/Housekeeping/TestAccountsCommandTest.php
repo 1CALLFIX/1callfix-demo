@@ -85,6 +85,24 @@ class TestAccountsCommandTest extends TestCase
         $this->assertSame(0, app(\App\Services\Parcel\ParcelReadiness::class)->riderCount('franchise', $franchise->id));
     }
 
+    /** Thumb rule walk-through for Admin → Partners: the franchise login reviews its own city's partners. */
+    public function test_the_franchise_test_login_can_review_its_own_partners_and_the_operator_cannot(): void
+    {
+        [, , $franchise] = $this->makeFranchiseTree();
+        $this->artisan('test-accounts', ['action' => 'create', '--password' => self::PASSWORD, '--franchise' => $franchise->id])->assertSuccessful();
+        $rider = FieldWorker::whereHas('user', fn ($q) => $q->where('email', 'test.rider@1callfix.test'))->sole();
+
+        $owner = User::where('email', 'test.franchise@1callfix.test')->sole();
+        $this->assertTrue($owner->hasPermission('workers.review_kyc', ['franchise_id' => $franchise->id]));
+        $this->assertTrue($owner->hasPermission('providers.review_kyc', ['franchise_id' => $franchise->id]));
+        $this->actingAs($owner)->get(route('admin.partners.index', ['tab' => 'people', 'statusFilter' => 'approved']))
+            ->assertOk()->assertSee('Test Rider');
+        $this->get(route('admin.workers.show', $rider->id))->assertOk();
+
+        $operator = User::where('email', 'test.operator@1callfix.test')->sole();
+        $this->assertFalse($operator->hasPermission('workers.review_kyc', ['franchise_id' => $franchise->id]), 'franchise owner only');
+    }
+
     public function test_create_refuses_a_missing_or_short_password(): void
     {
         [, , $franchise] = $this->makeFranchiseTree();
