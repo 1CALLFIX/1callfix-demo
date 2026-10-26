@@ -12,10 +12,9 @@ use App\Livewire\Providers\Index as ProvidersIndex;
 use App\Livewire\Providers\Show as ProvidersShow;
 use App\Livewire\Customers\Index as CustomersIndex;
 use App\Livewire\Customers\Show as CustomersShow;
-use App\Livewire\Workers\Index as WorkersIndex;
 use App\Livewire\Workers\Show as WorkersShow;
 use App\Livewire\AllUsers\Index as AllUsersIndex;
-use App\Livewire\Drivers\Index as DriversIndex;
+use App\Livewire\Partners\Index as PartnersIndex;
 use App\Livewire\Franchises\Manage as FranchisesManage;
 use App\Livewire\FranchisePricing\Manage as FranchisePricingManage;
 use App\Livewire\Geography\Manage as GeographyManage;
@@ -88,13 +87,13 @@ Route::middleware(['auth', \Illuminate\Session\Middleware\AuthenticateSession::c
         Route::get('/providers/{providerId}', ProvidersShow::class)->name('admin.providers.show');
         Route::get('/customers', CustomersIndex::class)->name('admin.customers.index');
         Route::get('/customers/{customerId}', CustomersShow::class)->name('admin.customers.show');
-        Route::get('/workers', WorkersIndex::class)->name('admin.workers.index');
+        // Admin → Partners (2026-10-26): People (field workers) and Businesses (providers) on one page. The old
+        // Workers and Drivers lists redirect to the People tab, query string kept, so bookmarks keep working.
+        Route::get('/partners', PartnersIndex::class)->name('admin.partners.index');
+        Route::get('/workers', fn (\Illuminate\Http\Request $request) => redirect()->route('admin.partners.index', ['tab' => 'people'] + $request->query(), 301))->name('admin.workers.index');
         Route::get('/workers/{workerId}', WorkersShow::class)->name('admin.workers.show');
         Route::get('/all-users', AllUsersIndex::class)->name('admin.all-users.index');
-        // Users Sidebar Reorganization session — reserves the nav slot for
-        // the Parcel vertical's future riders. No driver functionality
-        // exists yet; see App\Livewire\Drivers\Index's own docblock.
-        Route::get('/drivers', DriversIndex::class)->name('admin.drivers.index');
+        Route::get('/drivers', fn (\Illuminate\Http\Request $request) => redirect()->route('admin.partners.index', ['tab' => 'people', 'typeFilter' => 'taxi_driver'] + $request->query(), 301))->name('admin.drivers.index');
         Route::get('/geography', GeographyManage::class)->name('admin.geography.index');
         Route::get('/seo/city-content', SeoCityContent::class)->name('admin.seo.city-content');
         // Global SEO (site name template, home, modules, business details, verification): Super Admin only, checked in the component.

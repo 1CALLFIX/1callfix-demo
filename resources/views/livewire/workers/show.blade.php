@@ -1,5 +1,5 @@
 <div>
-    <a href="{{ route('admin.workers.index') }}" class="text-sm text-blue-600 hover:underline">&larr; Back to Workers</a>
+    <a href="{{ route('admin.partners.index', ['tab' => 'people']) }}" class="text-sm text-blue-600 hover:underline">&larr; Back to Partners</a>
 
     <div class="flex items-center justify-between mt-2 mb-4">
         <h1 class="text-2xl font-bold">{{ $fieldWorker->user->name ?? 'Worker #'.$fieldWorker->id }}</h1>

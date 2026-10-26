@@ -6,7 +6,7 @@ use App\Livewire\Concerns\HasRowArchive;
 use Illuminate\Database\Eloquent\Model;
 use App\Models\EquipmentCategory;
 use App\Models\EquipmentItem;
-use App\Models\Provider;
+use App\Livewire\Concerns\ScopesOwnerProviders;
 use App\Models\Zone;
 use App\Services\AuthorizationService;
 use Livewire\Component;
@@ -19,6 +19,7 @@ use Livewire\WithPagination;
  */
 class Manage extends Component
 {
+    use ScopesOwnerProviders;
     use WithPagination;
     use HasRowArchive;
 
@@ -103,6 +104,10 @@ class Manage extends Component
             return;
         }
 
+        if (! $this->ownerProviderAllowed('equipment.manage')) {
+            return;
+        }
+
         EquipmentItem::create([
             'provider_id' => $this->providerId, 'equipment_category_id' => $this->equipmentCategoryId,
             'franchise_id' => $zone->franchise_id, 'zone_id' => $zone->id,
@@ -158,7 +163,7 @@ class Manage extends Component
             'canForce' => $this->isSuperAdminUser(),
             'archiveBars' => $this->archiveBars(),
             'items' => $items,
-            'providers' => Provider::with('user')->get(),
+            'providers' => $this->ownerProviderOptions('equipment.manage'),
             'equipmentCategories' => EquipmentCategory::where('is_active', true)->orderBy('name')->get(),
             'zones' => Zone::where('is_active', true)->orderBy('name')->get(),
         ])->layout('layouts.admin', ['title' => 'Equipment']);

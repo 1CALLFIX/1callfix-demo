@@ -4,7 +4,7 @@ namespace App\Livewire\Vehicles;
 
 use App\Livewire\Concerns\HasRowArchive;
 use Illuminate\Database\Eloquent\Model;
-use App\Models\Provider;
+use App\Livewire\Concerns\ScopesOwnerProviders;
 use App\Models\Vehicle;
 use App\Models\VehicleCategory;
 use App\Models\Zone;
@@ -18,6 +18,7 @@ use Livewire\WithPagination;
  */
 class Manage extends Component
 {
+    use ScopesOwnerProviders;
     use WithPagination;
     use HasRowArchive;
 
@@ -108,6 +109,10 @@ class Manage extends Component
             return;
         }
 
+        if (! $this->ownerProviderAllowed('vehicles.manage')) {
+            return;
+        }
+
         Vehicle::create([
             'provider_id' => $this->providerId, 'vehicle_category_id' => $this->vehicleCategoryId,
             'franchise_id' => $zone->franchise_id, 'zone_id' => $zone->id,
@@ -166,7 +171,7 @@ class Manage extends Component
             'canForce' => $this->isSuperAdminUser(),
             'archiveBars' => $this->archiveBars(),
             'vehicles' => $vehicles,
-            'providers' => Provider::with('user')->get(),
+            'providers' => $this->ownerProviderOptions('vehicles.manage'),
             'vehicleCategories' => VehicleCategory::where('is_active', true)->orderBy('name')->get(),
             'zones' => Zone::where('is_active', true)->orderBy('name')->get(),
         ])->layout('layouts.admin', ['title' => 'Vehicles']);
