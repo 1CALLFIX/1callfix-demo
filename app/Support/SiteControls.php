@@ -59,6 +59,10 @@ final class SiteControls
     public const LIMIT_SUBMIT = 'signup_limits.submit_per_mobile';
     public const LIMIT_WINDOW = 'signup_limits.window_minutes';
 
+    // Admin → Partners, Needs review (owner 2026-10-27): a wait turns amber, then red ("Overdue"), after these hours.
+    public const REVIEW_AMBER_HOURS = 'partners.review_amber_hours';
+    public const REVIEW_RED_HOURS = 'partners.review_red_hours';
+
     public const SERVICES_MODES = ['required', 'optional', 'hidden'];
     public const FITS = ['contain', 'cover'];
     public const ICON_SIZES = ['small', 'medium', 'large'];
@@ -331,6 +335,18 @@ final class SiteControls
     public static function windowSeconds(): int
     {
         return 60 * self::int(self::LIMIT_WINDOW, 1, 1, 1440);
+    }
+
+    /** Hours a partner's documents may wait before the wait shows amber. */
+    public static function reviewAmberHours(): int
+    {
+        return self::int(self::REVIEW_AMBER_HOURS, 24, 1, 720);
+    }
+
+    /** Hours before a waiting partner is Overdue (red row, badge, menu dot). Never below the amber hours. */
+    public static function reviewRedHours(): int
+    {
+        return max(self::reviewAmberHours(), self::int(self::REVIEW_RED_HOURS, 48, 1, 720));
     }
 
     /**

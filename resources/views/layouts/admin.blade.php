@@ -248,6 +248,12 @@
 
         foreach ($navGroups as $key => $group) {
             $items = array_values(array_filter($group['items'], $canSeeNavItem));
+            // Red dot on Partners while anyone in the user's area waits past the Overdue hours (2026-10-27).
+            foreach ($items as $i => $item) {
+                if ($item['route'] === 'admin.partners.index') {
+                    $items[$i]['alert'] = \App\Support\PartnerReview::overdueFor(auth()->user());
+                }
+            }
             if (empty($items)) {
                 unset($navGroups[$key]);
                 continue;
@@ -356,15 +362,19 @@
                             @foreach ($group['items'] as $item)
                                 @php $isCurrent = request()->routeIs($item['route'].'*'); @endphp
                                 <a href="{{ route($item['route']) }}"
-                                   title="{{ $item['label'] }}"
+                                   title="{{ $item['label'] }}{{ ($item['alert'] ?? 0) > 0 ? ' — '.$item['alert'].' overdue' : '' }}"
                                    @if ($isCurrent) aria-current="page" @endif
                                    @class([
                                        'nav-item h-11 rounded-lg flex items-center gap-3 transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white',
                                        'bg-slate-600 text-white' => $isCurrent,
                                        'text-gray-400 hover:bg-slate-700 hover:text-white' => !$isCurrent,
                                    ])>
-                                    <span class="shrink-0"><x-icon :name="$item['icon']" /></span>
-                                    <span class="nav-label text-sm">{{ $item['label'] }}</span>
+                                    <span class="relative shrink-0"><x-icon :name="$item['icon']" />
+                                        @if (($item['alert'] ?? 0) > 0)
+                                            <span class="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full bg-red-500 ring-2 ring-slate-800" aria-hidden="true"></span>
+                                        @endif
+                                    </span>
+                                    <span class="nav-label text-sm">{{ $item['label'] }}@if (($item['alert'] ?? 0) > 0)<span class="sr-only"> ({{ $item['alert'] }} overdue)</span>@endif</span>
                                 </a>
                             @endforeach
                         </div>

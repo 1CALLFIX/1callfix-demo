@@ -61,6 +61,9 @@ class Manage extends Component
     public string $submitPerMobile = '5';
     public string $windowMinutes = '1';
 
+    public string $reviewAmberHours = '24';
+    public string $reviewRedHours = '48';
+
     public string $flashMessage = '';
 
     public function mount(): void
@@ -99,6 +102,8 @@ class Manage extends Component
         $this->otpPerMobile = (string) S::otpPerMobile();
         $this->submitPerMobile = (string) S::submitPerMobile();
         $this->windowMinutes = (string) intdiv(S::windowSeconds(), 60);
+        $this->reviewAmberHours = (string) S::reviewAmberHours();
+        $this->reviewRedHours = (string) S::reviewRedHours();
     }
 
     public function save(): void
@@ -131,6 +136,8 @@ class Manage extends Component
             'otpPerMobile' => ['required', 'integer', 'between:1,50'],
             'submitPerMobile' => ['required', 'integer', 'between:1,100'],
             'windowMinutes' => ['required', 'integer', 'between:1,1440'],
+            'reviewAmberHours' => ['required', 'integer', 'between:1,720'],
+            'reviewRedHours' => ['required', 'integer', 'between:1,720', 'gte:reviewAmberHours'],
         ], [], [
             'categoryLimit' => 'number of categories', 'columnsMobile' => 'phone columns', 'columnsDesktop' => 'desktop columns',
             'parcelTitle' => 'parcel title', 'parcelSubtitle' => 'parcel subtitle', 'parcelImageFile' => 'parcel picture', 'parcelIconFile' => 'parcel icon',
@@ -138,6 +145,7 @@ class Manage extends Component
             'parcelPageHeading' => 'parcel page heading', 'parcelPageIntro' => 'parcel page line',
             'servicesMax' => 'most services', 'partnerFormPerMobile' => 'partner form tries', 'partnerFormWindowMinutes' => 'partner form window',
             'otpPerMobile' => 'code requests', 'submitPerMobile' => 'submit tries', 'windowMinutes' => 'sign-up window',
+            'reviewAmberHours' => 'amber hours', 'reviewRedHours' => 'overdue hours',
         ]);
 
         $bool = fn (bool $v) => $v ? '1' : '0';
@@ -176,6 +184,8 @@ class Manage extends Component
             S::LIMIT_OTP => (string) (int) $this->otpPerMobile,
             S::LIMIT_SUBMIT => (string) (int) $this->submitPerMobile,
             S::LIMIT_WINDOW => (string) (int) $this->windowMinutes,
+            S::REVIEW_AMBER_HOURS => (string) (int) $this->reviewAmberHours,
+            S::REVIEW_RED_HOURS => (string) (int) $this->reviewRedHours,
         ] as $key => $value) {
             $changed = SettingsAuditor::put($admin, $key, $value) || $changed;
         }

@@ -12,8 +12,11 @@
                        'border-blue-600 text-blue-700' => $tab === $key,
                        'border-transparent text-gray-600 hover:text-gray-900' => $tab !== $key])>
                 {{ $label }}
-                @if ($waiting[$key] > 0)
-                    <span class="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-800" title="Needs review">{{ $waiting[$key] }}</span>
+                @if ($waiting[$key]['waiting'] > 0)
+                    <span class="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-800" title="Needs review">{{ $waiting[$key]['waiting'] }}</span>
+                @endif
+                @if ($waiting[$key]['overdue'] > 0)
+                    <span class="rounded-full bg-red-600 px-2 py-0.5 text-xs font-semibold text-white" title="Overdue">{{ $waiting[$key]['overdue'] }} overdue</span>
                 @endif
             </a>
         @endforeach

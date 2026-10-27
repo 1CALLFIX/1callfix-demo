@@ -51,7 +51,7 @@
 
     <x-ui.archive-bars :bars="$archiveBars" />
 
-    <x-ui.filter-tabs class="mb-4" :tabs="$statusTabs" :active="$statusFilter" model="statusFilter" :counts="$counts" />
+    <x-ui.filter-tabs class="mb-4" :tabs="$statusTabs" :active="$statusFilter" model="statusFilter" :counts="$counts" :alerts="['review' => $counts['overdue'] ?? 0]" />
 
     @include('livewire.partners.partials.filters', ['typeLabel' => 'All types'])
 
@@ -72,7 +72,8 @@
         </thead>
         <tbody>
             @forelse ($workers as $worker)
-                <tr class="border-t hover:bg-gray-50">
+                @php $overdue = $statusFilter === 'review' && \App\Support\PartnerReview::level(\App\Support\PartnerReview::hours($worker->waiting_since)) === 'red'; @endphp
+                <tr @class(['border-t', 'border-l-4 border-l-red-600 bg-red-50 hover:bg-red-100' => $overdue, 'hover:bg-gray-50' => ! $overdue])>
                     <x-ui.sno :rows="$workers" :loop="$loop" />
                     <td class="px-4 py-2">{{ $worker->user->name ?? '—' }}</td>
                     <td class="px-4 py-2">{{ $worker->user->phone ?? '—' }}</td>
