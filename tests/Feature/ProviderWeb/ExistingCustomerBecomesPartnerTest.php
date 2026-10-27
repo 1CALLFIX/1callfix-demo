@@ -157,4 +157,42 @@ class ExistingCustomerBecomesPartnerTest extends TestCase
         Livewire::withQueryParams(['for' => 'rider'])->test(ForgotPassword::class)->assertSet('signInRoute', 'rider.login');
         Livewire::withQueryParams(['for' => 'elsewhere'])->test(ForgotPassword::class)->assertSet('signInRoute', 'customer.login');
     }
+
+    public function test_admin_sign_in_links_to_forgot_password_and_staff_reset_returns_there(): void
+    {
+        $this->get(route('admin.login'))->assertOk()
+            ->assertSee('Forgot password?')->assertSee(route('customer.password.forgot', ['for' => 'admin']), false);
+
+        $staff = $this->customer();
+        $staff->forceFill(['role' => 'franchise_owner'])->save();
+
+        Livewire::withQueryParams(['for' => 'admin'])->test(ForgotPassword::class)
+            ->assertSee(route('admin.login'), false)
+            ->set('identifier', $staff->phone)->call('submitIdentifier')
+            ->call('phoneTokenReceived', $this->firebase->issuePhoneToken($this->e164($staff->phone)))
+            ->assertSet('step', 'new_password')
+            ->set('password', 'brand-new-pass-2')->set('password_confirmation', 'brand-new-pass-2')
+            ->call('setNewPassword')->assertRedirect(route('admin.login'));
+
+        $this->assertTrue(Hash::check('brand-new-pass-2', $staff->fresh()->password));
+    }
+
+    public function test_a_super_admin_password_is_never_reset_by_otp_on_web_or_api(): void
+    {
+        $admin = $this->customer();
+        $admin->forceFill(['role' => 'super_admin'])->save();
+        $token = fn () => $this->firebase->issuePhoneToken($this->e164($admin->phone));
+
+        Livewire::withQueryParams(['for' => 'admin'])->test(ForgotPassword::class)
+            ->set('identifier', $admin->phone)->call('submitIdentifier')
+            ->call('phoneTokenReceived', $token())
+            ->assertSet('step', 'verify_phone')
+            ->assertSet('error', ForgotPassword::SUPER_ADMIN_BLOCKED);
+
+        $this->postJson('/api/auth/password/reset', [
+            'identifier' => $admin->phone, 'id_token' => $token(), 'new_password' => 'hijacked-pass-9',
+        ])->assertStatus(403);
+
+        $this->assertTrue(Hash::check('my-old-pass-1', $admin->fresh()->password), 'password unchanged');
+    }
 }

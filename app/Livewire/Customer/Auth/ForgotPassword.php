@@ -54,7 +54,9 @@ class ForgotPassword extends Component
     #[Locked]
     public string $signInRoute = 'customer.login';
 
-    private const SIGN_IN_ROUTES = ['partner' => 'provider.login', 'rider' => 'rider.login'];
+    private const SIGN_IN_ROUTES = ['partner' => 'provider.login', 'rider' => 'rider.login', 'admin' => 'admin.login'];
+
+    public const SUPER_ADMIN_BLOCKED = 'This account’s password can’t be reset here. Ask the platform owner to reset it.';
 
     public function mount(): void
     {
@@ -119,6 +121,11 @@ class ForgotPassword extends Component
         }
 
         $user = $accounts->findByEmail($this->identifier);
+        if ($user && ! $user->canSelfResetPassword()) {
+            $this->error = self::SUPER_ADMIN_BLOCKED;
+
+            return;
+        }
         $this->resolvedUserId = $user?->id;
         $this->step = 'new_password';
         $this->status = 'Choose a new password.';
@@ -152,6 +159,11 @@ class ForgotPassword extends Component
         }
 
         $user = $accounts->findByPhone($this->identifier);
+        if ($user && ! $user->canSelfResetPassword()) {
+            $this->error = self::SUPER_ADMIN_BLOCKED;
+
+            return;
+        }
         $this->resolvedUserId = $user?->id;
         $this->step = 'new_password';
         $this->status = 'Choose a new password.';
@@ -179,6 +191,11 @@ class ForgotPassword extends Component
         if (! $user) {
             // Verified identity, but nothing to reset — do not disclose which.
             $this->error = 'Password reset could not be completed. Try signing up instead.';
+
+            return;
+        }
+        if (! $user->canSelfResetPassword()) {
+            $this->error = self::SUPER_ADMIN_BLOCKED;
 
             return;
         }

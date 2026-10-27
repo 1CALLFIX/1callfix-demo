@@ -282,6 +282,9 @@ class AuthController extends Controller
             // Same wording either branch — do not confirm/deny existence.
             return response()->json(['message' => 'Password reset could not be completed.'], 422);
         }
+        if (! $user->canSelfResetPassword()) {
+            return response()->json(['message' => \App\Livewire\Customer\Auth\ForgotPassword::SUPER_ADMIN_BLOCKED], 403);
+        }
 
         $this->accounts->setPassword($user, $data['new_password']);
         $user->tokens()->delete();

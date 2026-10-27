@@ -53,6 +53,11 @@ class User extends Authenticatable
     public function providerProfile() { return $this->hasOne(Provider::class); }
     /** The universal field-execution profile — distinct from providerProfile(). A User may hold either, both, or neither depending on their real role. */
     public function fieldWorkerProfile() { return $this->hasOne(FieldWorker::class); }
+    /** Super Admin passwords are never reset by OTP (owner 2026-10-27): a stolen phone or inbox must not open the top account. On the server: php artisan admin:create. */
+    public function canSelfResetPassword(): bool
+    {
+        return $this->role !== 'super_admin';
+    }
     /** An active customer with no partner profile yet may apply on the partner sign-up with this same account (owner 2026-10-27). */
     public function canApplyAsPartner(): bool
     {

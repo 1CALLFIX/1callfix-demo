@@ -63,7 +63,7 @@
         @endif
 
         <p class="mt-6 text-center text-sm text-slate-600">
-            <a href="{{ route('customer.login') }}" wire:navigate class="font-medium text-slate-900 underline underline-offset-2">Back to sign in</a>
+            <a href="{{ route($signInRoute) }}" wire:navigate class="font-medium text-slate-900 underline underline-offset-2">Back to sign in</a>
         </p>
     </x-ui.card>
 </div>

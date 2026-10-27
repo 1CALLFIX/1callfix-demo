@@ -17,7 +17,10 @@
             </div>
 
             <div>
-                <label class="block text-sm font-medium mb-1">Password</label>
+                <div class="mb-1 flex items-center justify-between">
+                    <label class="block text-sm font-medium">Password</label>
+                    <a href="{{ route('customer.password.forgot', ['for' => 'admin']) }}" class="text-sm font-medium text-blue-600 hover:underline">Forgot password?</a>
+                </div>
                 <input type="password" wire:model="password"
                        class="w-full border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-500">
                 @error('password') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror

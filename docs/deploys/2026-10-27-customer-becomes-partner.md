@@ -1,4 +1,4 @@
-# Release 2026-10-27 — An existing customer can become a partner; Forgot password on partner sign-in
+# Release 2026-10-27 — An existing customer can become a partner; Forgot password on every sign-in
 
 Use with `docs/DEPLOY_RUNBOOK.md`. This release also carries the not-yet-deployed **Overdue partners** release
 (`docs/deploys/2026-10-27-overdue-partners.md`): do its browser checks too.
@@ -21,8 +21,11 @@ do not match an account". The partner sign-in page also had no "Forgot password?
   rider) profile with the documents is added to that account. Password, name, role and bookings stay the same. After
   approval the partner signs in on partner sign-in with the password they already use.
 - Still refused with "sign in instead": a number that is already a partner or rider, a suspended account, or staff.
-- **Forgot password?** on partner sign-in and rider sign-in (and in the new notice). After the reset it returns to
-  the page it came from and shows "Password updated".
+- **Forgot password?** on every sign-in: customer (already there), partner, rider and admin (new), and in the new
+  notice. After the reset it returns to the sign-in it came from ("Back to sign in" too) and shows "Password updated".
+- **Super Admin passwords are never reset by OTP** (web and app API): the page says "This account's password can't be
+  reset here." Super Admin recovery stays on the server: `php artisan admin:create <email> <new password>`.
+  Franchise owners and staff reset their own.
 - Partner broadcasts (Admin → notifications to providers) now reach such a partner (counted by provider profile, not
   by account role).
 - Unchanged: OTP, documents, admin review and approval, dispatch, payments.
@@ -36,7 +39,10 @@ Rollback count for `migrate:rollback --step=`: `0`
 - none new
 
 ## Browser checks after deploy
-- https://www.1callfix.com/provider/login shows "Forgot password?" above the password box; it opens the reset page.
+- Partner, rider and admin sign-in each show "Forgot password?" next to Password; each opens the reset page, whose
+  "Back to sign in" returns to that same sign-in.
+- `test.franchise@1callfix.test` can use "Forgot password?" from admin sign-in (email code) and lands back on admin
+  sign-in. A Super Admin email gets "can't be reset here".
 - Ask the applicant with 9397391944 to open "Become a partner" again: after the OTP they see "Applying with your
   1CallFix account …" and no password boxes; they finish with documents. Then Admin → Partners → Businesses →
   Needs review lists them. After approval they sign in on partner sign-in with their usual password.
