@@ -7,7 +7,7 @@ Use with `docs/DEPLOY_RUNBOOK.md`. This release also carries the not-yet-deploye
 |---|---|
 | Deploys | `main` at the commit that adds this file (`git log -1` in runbook step 1) |
 | Live before | `e4da33e` |
-| Full test suite | see the merge commit message |
+| Full test suite | 4122 of 4123 pass; known failure only: `NotificationCenterAuditTest::test_provider_status_shows_log_fallback_by_default` (local .env) |
 | Composer | no |
 | Front-end build (steps 6–7) | yes (overdue-partners classes + the new notice) |
 | Version | `VERSION` file bumped to `2026.10.27.2` |
