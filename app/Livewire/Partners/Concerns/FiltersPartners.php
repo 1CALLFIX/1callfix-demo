@@ -93,9 +93,11 @@ trait FiltersPartners
             ->when($this->cityFilter !== '', fn ($q) => $q->whereHas('franchise', fn ($f) => $f->where('city_id', (int) $this->cityFilter)));
     }
 
-    /** Status counts for the tab badges, with Needs review summed from its statuses. */
+    /** Status counts for the tab badges, with Needs review summed from its statuses and its Overdue partners as 'overdue'. */
     protected function statusCounts($scopedQuery): array
     {
+        $overdue = PartnerReview::overdue($this->applyGeography(clone $scopedQuery))->count();
+
         $counts = $this->applyGeography($scopedQuery)
             ->selectRaw('kyc_status, count(*) as total')
             ->groupBy('kyc_status')
@@ -105,6 +107,7 @@ trait FiltersPartners
         $all = array_sum($counts);
         $counts['review'] = array_sum(array_intersect_key($counts, array_flip(PartnerReview::STATUSES)));
         $counts[''] = $all;
+        $counts['overdue'] = $overdue;
 
         return $counts;
     }

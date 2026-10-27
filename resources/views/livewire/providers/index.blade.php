@@ -28,7 +28,7 @@
     <x-ui.archive-bars :bars="$archiveBars" />
 
     <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
-        <x-ui.filter-tabs :tabs="$statusTabs" :active="$statusFilter" model="statusFilter" :counts="$counts" />
+        <x-ui.filter-tabs :tabs="$statusTabs" :active="$statusFilter" model="statusFilter" :counts="$counts" :alerts="['review' => $counts['overdue'] ?? 0]" />
 
         <div class="flex items-center gap-3">
             <label class="flex items-center gap-1.5 text-sm text-gray-600 whitespace-nowrap">
@@ -69,7 +69,8 @@
         </thead>
         <tbody>
             @forelse ($providers as $provider)
-                <tr class="border-t hover:bg-gray-50">
+                @php $overdue = $statusFilter === 'review' && \App\Support\PartnerReview::level(\App\Support\PartnerReview::hours($provider->waiting_since)) === 'red'; @endphp
+                <tr @class(['border-t', 'border-l-4 border-l-red-600 bg-red-50 hover:bg-red-100' => $overdue, 'hover:bg-gray-50' => ! $overdue])>
                     <x-ui.sno :rows="$providers" :loop="$loop" />
                     <td class="px-4 py-2">{{ $provider->user->name ?? '—' }}</td>
                     <td class="px-4 py-2">{{ $provider->user->phone ?? '—' }}</td>

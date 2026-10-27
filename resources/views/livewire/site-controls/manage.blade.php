@@ -220,6 +220,26 @@
             </p>
         </x-ui.card>
 
+        <x-ui.card>
+            <h2 class="text-sm font-semibold mb-3">Partner review</h2>
+            <div class="grid gap-4 md:grid-cols-3">
+                <div>
+                    <label class="block text-sm font-medium mb-1" for="sc-ramber">Wait turns amber after (hours)</label>
+                    <input id="sc-ramber" type="number" min="1" max="720" wire:model="reviewAmberHours" class="{{ $input }}">
+                    @error('reviewAmberHours') <p class="text-xs text-red-600 mt-1">{{ $message }}</p> @enderror
+                </div>
+                <div>
+                    <label class="block text-sm font-medium mb-1" for="sc-rred">Overdue (red) after (hours)</label>
+                    <input id="sc-rred" type="number" min="1" max="720" wire:model="reviewRedHours" class="{{ $input }}">
+                    @error('reviewRedHours') <p class="text-xs text-red-600 mt-1">{{ $message }}</p> @enderror
+                </div>
+            </div>
+            <p class="text-xs text-gray-500 mt-3">
+                Counted from the partner's oldest document still waiting. Overdue partners get a red row and a pulsing "Overdue" badge on Admin → Partners and Providers,
+                a red count on the Needs review tab, and a red dot on Partners in the menu. Each franchise sees only its own partners.
+            </p>
+        </x-ui.card>
+
         <x-ui.button type="submit">Save</x-ui.button>
     </form>
 </div>

@@ -2,9 +2,6 @@
 
 namespace App\Livewire\Partners;
 
-use App\Models\FieldWorker;
-use App\Models\Provider;
-use App\Services\AuthorizationService;
 use App\Support\PartnerReview;
 use Livewire\Attributes\Url;
 use Livewire\Component;
@@ -42,27 +39,11 @@ class Index extends Component
         return array_filter($all, fn ($t) => auth()->user()->hasPermissionAnywhere($t[1]));
     }
 
-    /** Needs review count per tab, inside the user's own area. */
-    private function waiting(): array
-    {
-        $auth = app(AuthorizationService::class);
-        $columns = ['zone_id' => 'zone_id', 'franchise_id' => 'franchise_id', 'city_id' => 'franchise.city_id', 'country_id' => 'franchise.country_id'];
-        $models = ['people' => FieldWorker::class, 'businesses' => Provider::class];
-
-        $counts = [];
-        foreach ($this->tabs() as $key => [, $permission]) {
-            $counts[$key] = $auth->scopeQuery($models[$key]::query(), auth()->user(), $permission, $columns)
-                ->whereIn('kyc_status', PartnerReview::STATUSES)->count();
-        }
-
-        return $counts;
-    }
-
     public function render()
     {
         return view('livewire.partners.index', [
             'tabs' => $this->tabs(),
-            'waiting' => $this->waiting(),
+            'waiting' => PartnerReview::countsFor(auth()->user()),
         ])->layout('layouts.admin', ['title' => 'Partners']);
     }
 }
