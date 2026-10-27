@@ -50,8 +50,16 @@ class ForgotPassword extends Component
     #[Locked]
     public ?int $resolvedUserId = null;
 
+    /** Sign-in page to return to after the reset: ?for=partner / ?for=rider come from those sign-in pages. */
+    #[Locked]
+    public string $signInRoute = 'customer.login';
+
+    private const SIGN_IN_ROUTES = ['partner' => 'provider.login', 'rider' => 'rider.login'];
+
     public function mount(): void
     {
+        $this->signInRoute = self::SIGN_IN_ROUTES[(string) request()->query('for')] ?? 'customer.login';
+
         if (Auth::guard('web')->check()) {
             $this->redirectRoute('customer.home', navigate: true);
         }
@@ -181,7 +189,7 @@ class ForgotPassword extends Component
         $this->clearThrottle('forgot', $this->identifier);
 
         session()->flash('status', 'Password updated. Sign in with your new password.');
-        $this->redirectRoute('customer.login', navigate: true);
+        $this->redirectRoute($this->signInRoute, navigate: true);
     }
 
     public function render()

@@ -7,6 +7,9 @@
     </div>
 
     <x-ui.card class="mt-8 !p-6 sm:!p-8">
+        @if (session('status'))
+            <div role="status" class="mb-5 rounded-lg bg-emerald-50 px-3 py-2.5 text-sm text-emerald-800">{{ session('status') }}</div>
+        @endif
         @if ($error)
             <div role="alert" class="mb-5 rounded-lg bg-red-50 px-3 py-2.5 text-sm text-red-800">{{ $error }}</div>
         @endif
@@ -33,7 +36,7 @@
         </form>
 
         <p class="mt-4 text-center text-sm">
-            <a href="{{ route('customer.password.forgot') }}" wire:navigate class="font-medium text-blue-600 hover:underline">Forgot password?</a>
+            <a href="{{ route('customer.password.forgot', ['for' => 'rider']) }}" wire:navigate class="font-medium text-blue-600 hover:underline">Forgot password?</a>
         </p>
         <p class="mt-4 text-center text-sm text-slate-600">
             Want to ride with {{ $platformName }}? <a href="{{ route('customer.partners') }}#join" class="font-medium text-slate-900 underline underline-offset-2">Apply on the partner page</a>

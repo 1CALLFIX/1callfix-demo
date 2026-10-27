@@ -48,8 +48,10 @@ use Livewire\WithFileUploads;
  * optional email is stored unverified (D4); the applicant picks the
  * service categories they offer (D2 reversed by the owner 2026-10-15 —
  * required / optional / hidden is a Super Admin setting, SiteControls);
- * no applicant notification (D8); no existing-customer -> provider
- * attach (D10) — a taken phone is refused with "sign in instead".
+ * no applicant notification (D8); an existing customer applies with the
+ * same account (D10, owner 2026-10-27): once the OTP proves the number, the
+ * partner profile is added to that account and its password stays; any
+ * other taken phone is refused with "sign in instead".
  */
 class Register extends Component
 {
@@ -112,6 +114,13 @@ class Register extends Component
 
     #[Locked]
     public bool $outOfCoverage = false;
+
+    /** The customer account the OTP-proven number already belongs to (D10): the application joins it, no new password. */
+    #[Locked]
+    public ?int $existingUserId = null;
+
+    #[Locked]
+    public string $existingUserName = '';
 
     /** REF 1CF-PARTNER-PAGE-001: the /partners lead this sign-up continues (id only; its name and phone only prefill the form — the phone is still OTP-verified). */
     #[Locked]
@@ -202,7 +211,7 @@ class Register extends Component
         // here, before any SMS goes out, so an already-registered applicant
         // is told to sign in immediately. Same national-digit shape those
         // later checks use.
-        if (User::where('phone', PhoneNumber::national($this->phone))->exists()) {
+        if ($this->takenByAnotherPartner(PhoneNumber::national($this->phone))) {
             $this->addError('phone', 'An account with this mobile number already exists. Please sign in instead.');
 
             return;
@@ -271,23 +280,38 @@ class Register extends Component
         // the number is proven, so the applicant never fills in a detail or
         // uploads a document against a number they can't use. Same
         // `phone` shape the Action checks — national digits.
-        if (User::where('phone', PhoneNumber::national($identity->phoneNumber))->exists()) {
+        $national = PhoneNumber::national($identity->phoneNumber);
+        if ($this->takenByAnotherPartner($national)) {
             $this->error = 'An account with this mobile number already exists. Please sign in instead.';
             $this->step = 'phone';
 
             return;
         }
 
+        $existing = User::where('phone', $national)->first();
+        $this->existingUserId = $existing?->id;
+        $this->existingUserName = (string) $existing?->name;
+
         $this->verifiedPhoneE164 = $identity->phoneNumber;
         $this->phoneFirebaseUid = $identity->uid;
         $this->step = 'details';
-        $this->status = 'Mobile number verified. Fill in your details to finish.';
+        $this->status = $existing
+            ? 'Mobile number verified. It already has a customer account, so your application joins that account. Fill in the rest to finish.'
+            : 'Mobile number verified. Fill in your details to finish.';
     }
 
     public function changePhone(): void
     {
-        $this->reset('error', 'status', 'verifiedPhoneE164', 'phoneFirebaseUid');
+        $this->reset('error', 'status', 'verifiedPhoneE164', 'phoneFirebaseUid', 'existingUserId', 'existingUserName');
         $this->step = 'phone';
+    }
+
+    /** The number has an account that cannot apply here: already a partner, suspended, or staff. A plain customer can (D10). */
+    private function takenByAnotherPartner(string $national): bool
+    {
+        $user = User::where('phone', $national)->first();
+
+        return $user !== null && ! $user->canApplyAsPartner();
     }
 
     // ─────────────────────── Address / coverage ──────────────────────────
@@ -394,10 +418,14 @@ class Register extends Component
         $requirements = $kyc->requirementsFor($this->documentsFor(), $this->resolvedCountryId());
         $requiredTypes = $requirements->where('is_required', true)->pluck('document_type');
 
+        // An existing customer keeps their account's name, email and password; only a new account needs them.
+        $existing = $this->existingUserId ? User::find($this->existingUserId) : null;
         $this->validate([
-            'name' => ['required', 'string', 'min:2', 'max:255'],
-            'password' => ['required', 'string', 'min:8', 'max:255', 'confirmed'],
-            'email' => ['nullable', 'email', 'max:255'],
+            ...($existing ? [] : [
+                'name' => ['required', 'string', 'min:2', 'max:255'],
+                'password' => ['required', 'string', 'min:8', 'max:255', 'confirmed'],
+                'email' => ['nullable', 'email', 'max:255'],
+            ]),
             'address' => ['required', 'string', 'min:6', 'max:500'],
             'terms' => ['accepted'],
             'documents' => ['array'],
@@ -477,15 +505,19 @@ class Register extends Component
 
         $providerId = null;
         try {
+            if ($existing === null && $this->existingUserId !== null) {
+                throw new AccountAlreadyExistsException('mobile number');
+            }
             if ($this->isRider()) {
-                DB::transaction(function () use ($riders, $kyc, $zone, $requirements) {
-                    $rider = $riders->registerApplicant(
+                DB::transaction(function () use ($riders, $kyc, $zone, $requirements, $existing) {
+                    $registration = ['address' => $this->address, 'lat' => $this->lat, 'lng' => $this->lng, 'out_of_coverage' => $this->outOfCoverage];
+                    $rider = $existing ? $riders->registerExistingCustomer($zone, $existing, $registration) : $riders->registerApplicant(
                         zone: $zone,
                         name: $this->name,
                         nationalPhone: PhoneNumber::national($this->verifiedPhoneE164),
                         email: filled($this->email) ? $this->email : null,
                         plainPassword: $this->password,
-                        registration: ['address' => $this->address, 'lat' => $this->lat, 'lng' => $this->lng, 'out_of_coverage' => $this->outOfCoverage],
+                        registration: $registration,
                     );
 
                     foreach ($requirements as $req) {
@@ -496,8 +528,9 @@ class Register extends Component
                     }
                 });
             } else {
-                DB::transaction(function () use ($register, $kyc, $zone, $requirements, $skillIds, &$providerId) {
-                    $provider = $register->execute(
+                DB::transaction(function () use ($register, $kyc, $zone, $requirements, $skillIds, $existing, &$providerId) {
+                    $registration = ['address' => $this->address, 'lat' => $this->lat, 'lng' => $this->lng];
+                    $provider = $existing ? $register->forExistingCustomer($existing, $zone->franchise_id, $zone->id, $registration, $skillIds) : $register->execute(
                         name: $this->name,
                         phone: PhoneNumber::national($this->verifiedPhoneE164),
                         franchiseId: $zone->franchise_id,
@@ -505,11 +538,7 @@ class Register extends Component
                         plainPassword: $this->password,
                         email: filled($this->email) ? $this->email : null,
                         phoneVerified: true,
-                        registration: [
-                            'address' => $this->address,
-                            'lat' => $this->lat,
-                            'lng' => $this->lng,
-                        ],
+                        registration: $registration,
                         skills: $skillIds,
                     );
 

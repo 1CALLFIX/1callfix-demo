@@ -175,15 +175,34 @@ class RiderPartnerSignupTest extends TestCase
         $this->assertSame(0, FieldWorker::count());
     }
 
-    public function test_a_number_that_already_has_an_account_is_told_to_sign_in(): void
+    public function test_a_number_that_already_belongs_to_a_partner_is_told_to_sign_in(): void
     {
         $this->recruiting();
-        $existing = $this->makeCustomer();
+        $existing = $this->makeProviderIn($this->zone->franchise, $this->zone)->user;
 
         $this->applyAsRider($existing->phone);
         Livewire::test(Register::class)->call('requestPhoneCode')
             ->assertHasErrors(['phone']);
         $this->assertSame(0, FieldWorker::count());
+    }
+
+    public function test_an_existing_customer_applies_as_a_rider_on_the_same_account(): void
+    {
+        $this->recruiting();
+        $customer = $this->makeCustomer();
+        $customer->forceFill(['password' => \Illuminate\Support\Facades\Hash::make('my-old-pass-1')])->save();
+
+        $this->signUpRider($customer->phone)->assertSet('existingUserId', $customer->id)
+            ->set('password', '')->set('password_confirmation', '')
+            ->call('submitApplication')->assertHasNoErrors()->assertSet('submitted', true);
+
+        $this->assertSame(1, User::where('phone', $customer->phone)->count(), 'no second account');
+        $rider = FieldWorker::where('user_id', $customer->id)->sole();
+        $this->assertSame('pending', $rider->kyc_status);
+        $this->assertTrue($rider->hasCapability('parcel_rider'));
+        $fresh = $customer->fresh();
+        $this->assertSame('customer', $fresh->role);
+        $this->assertTrue(\Illuminate\Support\Facades\Hash::check('my-old-pass-1', $fresh->password), 'password unchanged');
     }
 
     public function test_without_a_rider_hand_off_the_page_is_the_provider_sign_up(): void

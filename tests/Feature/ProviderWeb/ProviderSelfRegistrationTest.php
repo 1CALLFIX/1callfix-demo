@@ -247,12 +247,9 @@ class ProviderSelfRegistrationTest extends TestCase
 
     public function test_an_already_registered_phone_is_rejected_right_after_otp_never_reaching_the_details_form(): void
     {
-        $phone = $this->randomPhone();
-
-        User::create([
-            'uuid' => (string) Str::uuid(), 'name' => 'Existing', 'phone' => $phone,
-            'role' => 'customer', 'status' => 'active', 'password' => Hash::make('whatever12'),
-        ]);
+        $zone = $this->coveredZone();
+        $provider = $this->makeProviderIn($zone->franchise, $zone);
+        $phone = $provider->user->phone;
 
         $c = Livewire::test(Register::class)->set('phone', $phone);
         $token = $this->firebase->issuePhoneToken($this->e164($phone));
@@ -267,7 +264,7 @@ class ProviderSelfRegistrationTest extends TestCase
             ->assertSet('step', 'phone')
             ->assertSet('verifiedPhoneE164', '');
 
-        $this->assertSame(0, Provider::count());
+        $this->assertSame(1, Provider::count());
         $this->assertSame(1, User::where('phone', $phone)->count());
     }
 
@@ -366,12 +363,8 @@ class ProviderSelfRegistrationTest extends TestCase
 
     public function test_a_taken_number_is_rejected_before_any_otp_is_sent(): void
     {
-        $phone = $this->randomPhone();
-
-        User::create([
-            'uuid' => (string) Str::uuid(), 'name' => 'Already Here', 'phone' => $phone,
-            'role' => 'customer', 'status' => 'active', 'password' => Hash::make('whatever12'),
-        ]);
+        $zone = $this->coveredZone();
+        $phone = $this->makeProviderIn($zone->franchise, $zone)->user->phone;
 
         // requestPhoneCode() refuses the number itself: no 'firebase-send-
         // phone-otp' dispatch, no advance off the phone step, no lingering

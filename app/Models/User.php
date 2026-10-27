@@ -53,6 +53,12 @@ class User extends Authenticatable
     public function providerProfile() { return $this->hasOne(Provider::class); }
     /** The universal field-execution profile — distinct from providerProfile(). A User may hold either, both, or neither depending on their real role. */
     public function fieldWorkerProfile() { return $this->hasOne(FieldWorker::class); }
+    /** An active customer with no partner profile yet may apply on the partner sign-up with this same account (owner 2026-10-27). */
+    public function canApplyAsPartner(): bool
+    {
+        return $this->role === 'customer' && $this->status === 'active'
+            && ! $this->providerProfile()->exists() && ! $this->fieldWorkerProfile()->exists();
+    }
     public function addresses() { return $this->hasMany(Address::class); }
     public function bookings() { return $this->hasMany(Booking::class, 'customer_id'); }
     public function wallet() { return $this->hasOne(Wallet::class); }

@@ -98,6 +98,15 @@
                  refuses only until verifiedPhoneE164 is set, so an applicant can
                  fill all of this before, during or after the OTP round-trip. --}}
             <form wire:submit="submitApplication" class="mt-5 space-y-5">
+                @if ($existingUserId)
+                    {{-- D10: the number already has a customer account — the application joins it, so no new name,
+                         email or password; the partner signs in with the account's existing password. --}}
+                    <div class="rounded-lg bg-blue-50 px-3 py-2.5 text-sm text-blue-900">
+                        <p>Applying with your {{ $platformName }} account <span class="font-medium">{{ $existingUserName }}</span>.
+                            You’ll sign in with the same password you already use. Your bookings stay as they are.</p>
+                        <a href="{{ route('customer.password.forgot', ['for' => $rider ? 'rider' : 'partner']) }}" wire:navigate class="mt-1 inline-block font-medium underline underline-offset-2">Forgot your password?</a>
+                    </div>
+                @else
                 <div>
                     <label for="pr-name" class="block text-sm font-medium text-slate-900">Full name</label>
                     <input id="pr-name" type="text" autocomplete="name" wire:model="name"
@@ -125,6 +134,7 @@
                                    'border-red-400' => $errors->has('email'), 'border-slate-300' => ! $errors->has('email')])>
                     @error('email') <p class="mt-1.5 text-sm text-red-700">{{ $message }}</p> @enderror
                 </div>
+                @endif
 
                 {{-- Services you offer (REF 1CF-PROVIDER-SIGNUP-SERVICES-001). Saved to providers.skills,
                      the category list dispatch matches jobs against. Required / optional / hidden is a
