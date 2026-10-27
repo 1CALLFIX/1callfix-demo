@@ -7,6 +7,9 @@
     </div>
 
     <x-ui.card class="mt-8 !p-6 sm:!p-8">
+        @if (session('status'))
+            <div role="status" class="mb-5 rounded-lg bg-emerald-50 px-3 py-2.5 text-sm text-emerald-800">{{ session('status') }}</div>
+        @endif
         @if ($error)
             <div role="alert" class="mb-5 rounded-lg bg-red-50 px-3 py-2.5 text-sm text-red-800">{{ $error }}</div>
         @endif
@@ -21,7 +24,10 @@
             </div>
 
             <div>
-                <label for="password" class="block text-sm font-medium text-slate-900">Password</label>
+                <div class="flex items-center justify-between">
+                    <label for="password" class="block text-sm font-medium text-slate-900">Password</label>
+                    <a href="{{ route('customer.password.forgot', ['for' => 'partner']) }}" wire:navigate class="text-sm font-medium text-blue-600 hover:underline">Forgot password?</a>
+                </div>
                 <x-ui.password-input id="password" name="password" autocomplete="current-password" wire:model="password" />
                 @error('password') <p class="mt-1.5 text-sm text-red-700">{{ $message }}</p> @enderror
             </div>

@@ -102,7 +102,8 @@ class AudienceResolver
 
     private function providers(?array $franchiseIds, ?int $zoneId, ?string $module, array $filters): Builder
     {
-        $query = User::query()->where('role', 'provider')
+        // By profile, not users.role: a customer who became a partner keeps role 'customer' (D10).
+        $query = User::query()
             ->whereHas('providerProfile', function ($q) use ($franchiseIds, $zoneId, $module, $filters) {
                 if ($zoneId !== null) {
                     $q->where('zone_id', $zoneId);
