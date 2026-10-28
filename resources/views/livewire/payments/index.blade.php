@@ -49,7 +49,7 @@
                         <th class="px-4 py-2">Service</th>
                         <th class="px-4 py-2">Amount</th>
                         <th class="px-4 py-2">Booking status</th>
-                        <th class="px-4 py-2">Date</th>
+                        <x-ui.tat-heads />
                     </tr>
                 </thead>
                 <tbody>
@@ -61,10 +61,10 @@
                             <td class="px-4 py-2">{{ $b->service?->name ?? '—' }}</td>
                             <td class="px-4 py-2">{{ $currencySymbol }}{{ number_format($b->orderTotalPrice(), 2) }}</td>
                             <td class="px-4 py-2">{{ ucwords(str_replace('_', ' ', $b->status)) }}</td>
-                            <td class="px-4 py-2">{{ $b->created_at?->format('d M Y, h:i A') }}</td>
+                            <x-ui.tat-cells :record="$b" done="completed_at" />
                         </tr>
                     @empty
-                        <tr><td colspan="7" class="px-4 py-6 text-center text-gray-400">No cash bookings match your filters.</td></tr>
+                        <tr><td colspan="9" class="px-4 py-6 text-center text-gray-400">No cash bookings match your filters.</td></tr>
                     @endforelse
                 </tbody>
             </x-ui.table>
@@ -83,7 +83,7 @@
                 <th class="px-4 py-2">Order / Payment ID</th>
                 <th class="px-4 py-2">Status</th>
                 <th class="px-4 py-2">Refunded</th>
-                <th class="px-4 py-2">Date</th>
+                <x-ui.tat-heads completed="Settled" />
                 <th class="px-4 py-2">Document</th>
                 <th class="px-4 py-2 text-right">Actions</th>
             </tr>
@@ -142,14 +142,17 @@
                         <x-ui.badge :color="match($p->status) { 'pending' => 'amber', 'captured' => 'green', 'failed' => 'red', 'refunded' => 'blue', default => 'gray' }">{{ ucfirst($p->status) }}</x-ui.badge>
                     </td>
                     <td class="px-4 py-2 font-mono text-gray-500">{{ $p->refunded_amount ? $currencySymbol.number_format($p->refunded_amount, 2) : '—' }}</td>
-                    <td class="px-4 py-2 text-gray-500 whitespace-nowrap">{{ app(\App\Services\TimezoneResolver::class)->format($p->created_at, $payerFranchise, 'd M Y, h:i A') }}</td>
+                    @php($settledAt = $p->captured_at ?? (in_array($p->status, ['failed', 'refunded'], true) ? $p->updated_at : null))
+                    <td class="px-4 py-2"><x-ui.datetime :at="$p->created_at" :franchise="$payerFranchise" /></td>
+                    <td class="px-4 py-2"><x-ui.closed-at :at="$settledAt" :outcome="$p->captured_at ? 'captured' : $p->status" :open="$p->status === 'pending'" open-label="Awaiting payment" :franchise="$payerFranchise" /></td>
+                    <td class="px-4 py-2"><x-ui.tat :from="$p->created_at" :to="$settledAt" :open="$p->status === 'pending'" :outcome="$p->status" /></td>
                     <td class="px-4 py-2"><x-ui.button variant="ghost" size="sm" :href="route('admin.documents.payments.show', $p->id)" target="_blank">View</x-ui.button></td>
                     <td class="px-4 py-2">
                         <x-ui.row-actions :id="$p->id" :archived="$p->trashed()" :can-manage="$canForce && ($p->trashed() || $p->isArchivable())" :can-force="$canForce" />
                     </td>
                 </tr>
             @empty
-                <tr><td colspan="11" class="px-4 py-6 text-center text-gray-400">No payments match your filters.</td></tr>
+                <tr><td colspan="13" class="px-4 py-6 text-center text-gray-400">No payments match your filters.</td></tr>
             @endforelse
         </tbody>
     </x-ui.table>

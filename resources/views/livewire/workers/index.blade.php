@@ -67,6 +67,7 @@
                 <th class="px-4 py-2">Capabilities</th>
                 <th class="px-4 py-2">Documents</th>
                 <th class="px-4 py-2">{{ $statusFilter === 'review' ? 'Waiting' : 'Applied' }}</th>
+                <th class="px-4 py-2">Online</th>
                 <th class="px-4 py-2"></th>
             </tr>
         </thead>
@@ -87,6 +88,7 @@
                     </td>
                     <td class="px-4 py-2">{{ $worker->documents->count() }} uploaded</td>
                     <td class="px-4 py-2 text-gray-500">@include('livewire.partners.partials.waiting', ['row' => $worker])</td>
+                    <td class="px-4 py-2"><x-ui.presence :user="$worker->user" :on-duty="(bool) $worker->is_online" /></td>
                     <td class="px-4 py-2">
                         <x-ui.row-actions :id="$worker->id" :archived="$worker->trashed()" :can-manage="$canManage" :can-force="$canForce"
                                           :view-href="route('admin.workers.show', $worker->id)" view-label="Review"
@@ -94,7 +96,7 @@
                     </td>
                 </tr>
             @empty
-                <tr><td colspan="8" class="px-4 py-6 text-center text-gray-400">No partners match these filters.</td></tr>
+                <tr><td colspan="9" class="px-4 py-6 text-center text-gray-400">No partners match these filters.</td></tr>
             @endforelse
         </tbody>
     </x-ui.table>

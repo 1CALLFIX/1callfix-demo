@@ -27,7 +27,7 @@
 
         <thead class="bg-gray-50 text-left text-gray-500">
             <tr>
-                <th class="px-4 py-2">Age</th>
+                <x-ui.tat-heads created="Requested" completed="Closed" tat="Age / TAT" />
                 <th class="px-4 py-2">Amount captured</th>
                 <th class="px-4 py-2">Franchise</th>
                 <th class="px-4 py-2">Razorpay payment</th>
@@ -38,7 +38,11 @@
         <tbody>
             @forelse ($rows as $row)
                 <tr class="border-t hover:bg-gray-50">
-                    <td class="px-4 py-2 whitespace-nowrap text-gray-500" title="{{ $row->created_at->format('d M Y, h:i A') }}">{{ $row->created_at->diffForHumans(null, true) }}</td>
+                    @php($open = in_array($row->status, \App\Models\MismatchRefund::OPEN, true))
+                    @php($closedAt = $open ? null : ($row->refunded_at ?? $row->rejected_at ?? $row->updated_at))
+                    <td class="px-4 py-2"><x-ui.datetime :at="$row->created_at" /></td>
+                    <td class="px-4 py-2"><x-ui.closed-at :at="$closedAt" :outcome="$row->status" :open="$open" open-label="Open" /></td>
+                    <td class="px-4 py-2"><x-ui.tat :from="$row->created_at" :to="$closedAt" :open="$open" :outcome="$row->status" /></td>
                     <td class="px-4 py-2 whitespace-nowrap">₹{{ number_format($row->amountRupees(), 2) }}</td>
                     <td class="px-4 py-2">{{ $row->franchise?->name ?? 'HQ only' }}</td>
                     <td class="px-4 py-2 font-mono text-xs text-gray-500">{{ $row->gateway_payment_id }}</td>
@@ -80,7 +84,7 @@
                 </tr>
                 @if ($actingId === $row->id)
                     <tr class="border-t bg-amber-50">
-                        <td colspan="6" class="px-4 py-3">
+                        <td colspan="8" class="px-4 py-3">
                             <form wire:submit="submitAction" class="space-y-2">
                                 <p class="text-sm text-amber-800">
                                     @if ($actingType === 'reject')
@@ -104,7 +108,7 @@
                     </tr>
                 @endif
             @empty
-                <tr><td colspan="6" class="px-4 py-6 text-center text-gray-400">Nothing in this queue.</td></tr>
+                <tr><td colspan="8" class="px-4 py-6 text-center text-gray-400">Nothing in this queue.</td></tr>
             @endforelse
         </tbody>
     </x-ui.table>

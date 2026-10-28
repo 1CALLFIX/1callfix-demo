@@ -24,7 +24,7 @@
 
         <thead class="bg-gray-50 text-left text-gray-500">
             <tr>
-                <th class="px-4 py-2">Age</th>
+                <x-ui.tat-heads created="Requested" completed="Closed" tat="Age / TAT" />
                 <th class="px-4 py-2">Booking</th>
                 <th class="px-4 py-2">What</th>
                 <th class="px-4 py-2">Amount</th>
@@ -36,7 +36,11 @@
         <tbody>
             @forelse ($rows as $row)
                 <tr class="border-t align-top hover:bg-gray-50">
-                    <td class="px-4 py-2 whitespace-nowrap text-gray-500" title="{{ $row->requested_at->format('d M Y, h:i A') }}">{{ $row->requested_at->diffForHumans(null, true) }}</td>
+                    @php($open = in_array($row->status, [\App\Models\ChargeWaiver::AWAITING, \App\Models\ChargeWaiver::FAILED], true))
+                    @php($closedAt = $open ? null : ($row->approved_at ?? $row->rejected_at ?? $row->updated_at))
+                    <td class="px-4 py-2"><x-ui.datetime :at="$row->requested_at" /></td>
+                    <td class="px-4 py-2"><x-ui.closed-at :at="$closedAt" :outcome="$row->status" :open="$open" open-label="Open" /></td>
+                    <td class="px-4 py-2"><x-ui.tat :from="$row->requested_at" :to="$closedAt" :open="$open" :outcome="$row->status" /></td>
                     <td class="px-4 py-2 font-mono text-xs">
                         @if ($row->booking)<a href="{{ route('admin.bookings.show', $row->booking_id) }}" class="text-blue-700 hover:underline">{{ $row->booking->code }}</a>@endif
                         <div class="font-sans text-gray-500">{{ $row->booking?->customer?->name }}</div>
@@ -71,7 +75,7 @@
                 </tr>
                 @if ($actingId === $row->id)
                     <tr class="border-t bg-amber-50">
-                        <td colspan="7" class="px-4 py-3">
+                        <td colspan="9" class="px-4 py-3">
                             <form wire:submit="submitAction" class="space-y-2">
                                 <p class="text-sm text-amber-800">
                                     {{ $actingType === 'approve' ? 'Approving waives exactly ₹'.number_format((float) $row->amount, 2).' for the customer.' : 'Rejecting keeps the charge. Nothing changes for the customer.' }}
@@ -87,7 +91,7 @@
                     </tr>
                 @endif
             @empty
-                <tr><td colspan="7" class="px-4 py-6 text-center text-gray-400">Nothing in this queue.</td></tr>
+                <tr><td colspan="9" class="px-4 py-6 text-center text-gray-400">Nothing in this queue.</td></tr>
             @endforelse
         </tbody>
     </x-ui.table>

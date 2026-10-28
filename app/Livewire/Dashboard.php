@@ -15,6 +15,8 @@ use App\Models\TaxiRide;
 use App\Services\Ai\DailyInsightsService;
 use App\Services\AuthorizationService;
 use App\Services\ProviderCommercialRateResolver;
+use App\Services\TimezoneResolver;
+use App\Support\Turnaround;
 use Livewire\Component;
 
 class Dashboard extends Component
@@ -73,6 +75,41 @@ class Dashboard extends Component
     }
 
     /**
+     * Parcel is the live vertical, so it gets its own "Parcel — Today" panel (owner 2026-10-28) instead of one
+     * card among the pre-launch verticals. Same permission and row scope as the Parcel screens; "today" is the
+     * platform's day, as on the Parcel Dashboard. Null when the viewer cannot open Parcel.
+     *
+     * @return array{orders: int, live: int, delivered: int, cancelled: int, revenue: float, avg_tat: ?int, route: string, dashboard: string}|null
+     */
+    private function parcelToday(): ?array
+    {
+        $user = auth()->user();
+        if (! $user->hasPermissionAnywhere('parcel_orders.view')) {
+            return null;
+        }
+
+        $columns = ['zone_id' => 'zone_id', 'franchise_id' => 'franchise_id', 'city_id' => 'franchise.city_id', 'country_id' => 'franchise.country_id'];
+        $todayStart = now(app(TimezoneResolver::class)->platformTimezone())->startOfDay()->utc();
+        $today = app(AuthorizationService::class)->scopeQuery(ParcelOrder::query(), $user, 'parcel_orders.view', $columns)
+            ->where('created_at', '>=', $todayStart)
+            ->get(['id', 'status', 'created_at', 'delivered_at', 'price_quoted', 'price_final']);
+
+        $delivered = $today->where('status', 'delivered');
+        $tats = $delivered->filter(fn ($o) => $o->delivered_at)->map(fn ($o) => Turnaround::seconds($o->created_at, $o->delivered_at));
+
+        return [
+            'orders' => $today->count(),
+            'live' => $today->whereIn('status', array_merge(['pending', 'searching_worker'], ParcelOrder::ACTIVE_RIDER_STATUSES))->count(),
+            'delivered' => $delivered->count(),
+            'cancelled' => $today->where('status', 'cancelled')->count(),
+            'revenue' => (float) $delivered->sum(fn ($o) => $o->price_final ?? $o->price_quoted),
+            'avg_tat' => $tats->isEmpty() ? null : (int) round($tats->avg()),
+            'route' => route('admin.parcel-orders.index'),
+            'dashboard' => route('admin.parcel-orders.dashboard'),
+        ];
+    }
+
+    /**
      * Admin Command Center mission (Phase 4 audit finding) — this screen was
      * entirely Booking/Service-only; an admin had no way to see today's
      * Parcel/Taxi/Rental/Hotel/Marketplace volume anywhere on the dashboard,
@@ -95,7 +132,6 @@ class Dashboard extends Component
         $today = now()->startOfDay();
 
         $verticals = [
-            ['permission' => 'parcel_orders.view', 'model' => ParcelOrder::class, 'label' => 'Parcel Orders Today', 'route' => 'admin.parcel-orders.index'],
             ['permission' => 'taxi_rides.view', 'model' => TaxiRide::class, 'label' => 'Taxi Rides Today', 'route' => 'admin.taxi-rides.index'],
             ['permission' => 'property_reservations.view', 'model' => PropertyReservation::class, 'label' => 'Property Reservations Today', 'route' => 'admin.property-reservations.index'],
             ['permission' => 'rental_reservations.view', 'model' => RentalReservation::class, 'label' => 'Rental Reservations Today', 'route' => 'admin.rental-reservations.index'],
@@ -216,13 +252,14 @@ class Dashboard extends Component
         $trend = $this->sevenDayTrend();
 
         $recentBookings = $this->scopedBookings()
-            ->with(['customer', 'service', 'provider'])
+            ->with(['customer', 'service', 'provider.user', 'statusHistory' => Turnaround::historyScope()])
             ->latest()
             ->take(10)
             ->get();
 
         $currencySymbol = Setting::get('locale.currency_symbol', '₹');
         $otherVerticals = $this->otherVerticalStats();
+        $parcelToday = $this->parcelToday();
 
         // Drill-down targets (mission's own explicit "allow dashboard cards
         // to drill directly into the underlying records" requirement) --
@@ -304,7 +341,7 @@ class Dashboard extends Component
             ? app(DailyInsightsService::class)->digest(auth()->user())
             : null;
 
-        return view('livewire.dashboard', compact('stats', 'funnel', 'trend', 'recentBookings', 'currencySymbol', 'otherVerticals', 'links', 'insights', 'commissionRatesConfigured'))
+        return view('livewire.dashboard', compact('stats', 'funnel', 'trend', 'recentBookings', 'currencySymbol', 'otherVerticals', 'parcelToday', 'links', 'insights', 'commissionRatesConfigured'))
             ->layout('layouts.admin', ['title' => 'Dashboard']);
     }
 }

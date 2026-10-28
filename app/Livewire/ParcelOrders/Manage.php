@@ -79,7 +79,7 @@ class Manage extends Component
     {
         return app(AuthorizationService::class)
             ->scopeQuery(ParcelOrder::query(), auth()->user(), 'parcel_orders.view', $this->scopeColumns())
-            ->with(['customer', 'assignedWorker.user', 'franchise', 'pickupAddress', 'dropoffAddress']);
+            ->with(['customer', 'assignedWorker.user', 'franchise', 'pickupAddress', 'dropoffAddress', 'statusHistory' => \App\Support\Turnaround::historyScope()]);
     }
 
     /** @return \Illuminate\Support\Collection<int, User> */

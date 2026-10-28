@@ -139,6 +139,7 @@
                     <th class="px-4 py-2">Driver</th>
                     <th class="px-4 py-2">Status</th>
                     <th class="px-4 py-2">Fare</th>
+                    <x-ui.tat-heads />
                     <th class="px-4 py-2"></th>
                 </tr>
             </thead>
@@ -151,6 +152,7 @@
                         <td class="px-4 py-2">{{ $r->assignedWorker?->user?->name ?? '—' }}</td>
                         <td class="px-4 py-2"><x-ui.badge>{{ str_replace('_', ' ', $r->status) }}</x-ui.badge></td>
                         <td class="px-4 py-2">{{ number_format($r->price_final ?? $r->price_quoted, 2) }}</td>
+                        <x-ui.tat-cells :record="$r" done="trip_completed_at" />
                         <td class="px-4 py-2 text-right"><x-ui.button variant="ghost" wire:click="viewRide({{ $r->id }})">View</x-ui.button></td>
                     </tr>
                 @endforeach

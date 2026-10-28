@@ -276,7 +276,7 @@
                 <th class="px-4 py-2">Provider</th>
                 <th class="px-4 py-2">Status</th>
                 <th class="px-4 py-2">Price</th>
-                <th class="px-4 py-2">Created</th>
+                <x-ui.tat-heads />
                 <th class="px-4 py-2"></th>
             </tr>
         </thead>
@@ -292,13 +292,13 @@
                         <x-ui.status-badge type="booking" :status="$booking->status" />
                     </td>
                     <td class="px-4 py-2">{{ $currencySymbol }}{{ number_format($booking->price_final ?? $booking->price_quoted, 2) }}</td>
-                    <td class="px-4 py-2 text-gray-500">{{ $booking->created_at->diffForHumans() }}</td>
+                    <x-ui.tat-cells :record="$booking" done="completed_at" />
                     <td class="px-4 py-2">
                         <x-ui.button variant="ghost" :href="route('admin.bookings.show', $booking->id)">View</x-ui.button>
                     </td>
                 </tr>
             @empty
-                <tr><td colspan="9"><x-ui.empty-state icon="magnifying-glass" title="No bookings match this filter" description="Try a different status, or clear the search." /></td></tr>
+                <tr><td colspan="11"><x-ui.empty-state icon="magnifying-glass" title="No bookings match this filter" description="Try a different status, or clear the search." /></td></tr>
             @endforelse
         </tbody>
     </x-ui.table>

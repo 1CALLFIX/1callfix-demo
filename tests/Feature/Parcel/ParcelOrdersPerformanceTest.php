@@ -52,6 +52,8 @@ class ParcelOrdersPerformanceTest extends TestCase
     /** A single, non-accumulating query-count measurement -- DB::listen() itself has no "un-listen", so each call uses Illuminate's own query log instead, flushed before and after. */
     private function countQueriesFor(\Closure $callback): int
     {
+        // The platform timezone is looked up once and memoised; warm it so it is not counted in only the first render.
+        app(\App\Services\TimezoneResolver::class)->platformTimezone();
         DB::enableQueryLog();
         DB::flushQueryLog();
 

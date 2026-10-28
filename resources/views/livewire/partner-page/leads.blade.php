@@ -51,7 +51,7 @@
                                 </select>
                             </td>
                             <td class="py-2 pr-4">{{ $lead->acquisition['utm_source'] ?? $lead->source }}</td>
-                            <td class="py-2 pr-4 whitespace-nowrap">{{ $lead->created_at?->format('j M Y, g:i A') }}</td>
+                            <td class="py-2 pr-4"><x-ui.datetime :at="$lead->created_at" /></td>
                         </tr>
                     @empty
                         <tr><td colspan="7" class="py-6 text-center text-gray-500">No leads match.</td></tr>

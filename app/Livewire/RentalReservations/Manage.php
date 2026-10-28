@@ -48,7 +48,7 @@ class Manage extends Component
     {
         return app(AuthorizationService::class)
             ->scopeQuery(RentalReservation::query(), auth()->user(), 'rental_reservations.view', $this->scopeColumns())
-            ->with(['customer', 'rentable.provider.user', 'franchise', 'driver.user']);
+            ->with(['customer', 'rentable.provider.user', 'franchise', 'driver.user', 'statusHistory' => \App\Support\Turnaround::historyScope()]);
     }
 
     public function viewReservation(int $reservationId): void

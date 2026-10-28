@@ -208,6 +208,7 @@
                     <th class="px-4 py-2">Rider</th>
                     <th class="px-4 py-2">Status</th>
                     <th class="px-4 py-2">Price</th>
+                    <x-ui.tat-heads />
                     <th class="px-4 py-2"></th>
                 </tr>
             </thead>
@@ -220,6 +221,7 @@
                         <td class="px-4 py-2">{{ $o->assignedWorker?->user?->name ?? '—' }}</td>
                         <td class="px-4 py-2"><x-ui.badge>{{ str_replace('_', ' ', $o->status) }}</x-ui.badge></td>
                         <td class="px-4 py-2">{{ number_format($o->price_final ?? $o->price_quoted, 2) }}</td>
+                        <x-ui.tat-cells :record="$o" done="delivered_at" />
                         <td class="px-4 py-2 text-right"><x-ui.button variant="ghost" wire:click="viewOrder({{ $o->id }})">View</x-ui.button></td>
                     </tr>
                 @endforeach

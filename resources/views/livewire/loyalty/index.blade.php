@@ -61,7 +61,7 @@
                         <td class="px-4 py-2 text-gray-500">{{ str_replace('_', ' ', $p->reason) }}</td>
                         <td class="px-4 py-2 text-gray-400">{{ $p->booking->code ?? '—' }}</td>
                         <td class="px-4 py-2 text-gray-400">{{ $p->expires_at ? app(\App\Services\TimezoneResolver::class)->format($p->expires_at, $p->user?->franchise, 'd M Y') : 'Never' }}</td>
-                        <td class="px-4 py-2 text-gray-500">{{ app(\App\Services\TimezoneResolver::class)->format($p->created_at, $p->user?->franchise, 'd M Y, h:i A') }}</td>
+                        <td class="px-4 py-2"><x-ui.datetime :at="$p->created_at" :franchise="$p->user?->franchise" /></td>
                     </tr>
                 @empty
                     <tr><td colspan="7" class="px-4 py-6 text-center text-gray-400">No loyalty point entries match your search.</td></tr>
@@ -113,7 +113,7 @@
                         </td>
                         <td class="px-4 py-2 font-mono text-gray-500">{{ $r->reward_amount ? $currencySymbol.number_format($r->reward_amount, 2) : '—' }}</td>
                         <td class="px-4 py-2 text-gray-400">{{ $r->qualifyingBooking->code ?? '—' }}</td>
-                        <td class="px-4 py-2 text-gray-500">{{ app(\App\Services\TimezoneResolver::class)->format($r->created_at, $r->referrer?->franchise, 'd M Y, h:i A') }}</td>
+                        <td class="px-4 py-2"><x-ui.datetime :at="$r->created_at" :franchise="$r->referrer?->franchise" /></td>
                         @if ($canManageAnywhere ?? false)
                             <td class="px-4 py-2">
                                 @if ($r->status !== 'fraud_flagged')
