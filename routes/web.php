@@ -274,6 +274,8 @@ Route::middleware(['auth', \App\Http\Middleware\EnsureIsParcelRider::class, \App
     ->group(function () {
         Route::get('/', \App\Livewire\Rider\Dashboard::class)->name('rider.dashboard');
         Route::get('/history', \App\Livewire\Rider\History::class)->name('rider.history');
+        // E-commerce Phase 3: shop deliveries on the same rider web.
+        Route::get('/shop', \App\Livewire\Rider\ShopDeliveries::class)->name('rider.shop');
         Route::get('/earnings', \App\Livewire\Rider\Earnings::class)->name('rider.earnings');
         Route::get('/payment-accounts', \App\Livewire\Rider\PaymentAccounts::class)->name('rider.payment-accounts');
         Route::get('/request-payout', \App\Livewire\Rider\RequestPayout::class)->name('rider.request-payout');

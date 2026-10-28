@@ -173,15 +173,21 @@ class Dashboard extends Component
         $rider = $this->rider();
         $active = $this->parcelActiveFor($rider);
         $job = $offers->activeJob($rider);
-        $live = ($rider->is_online && $active && ! $job) ? $offers->liveOffers($rider) : collect();
+        $shopJob = $offers->activeShopJob($rider);
+        $live = ($rider->is_online && $active && ! $job && ! $shopJob) ? $offers->liveOffers($rider) : collect();
+        // E-commerce Phase 3: shop delivery offers ring here too; they are accepted on Shop deliveries.
+        $shopLive = ($rider->is_online && ! $job && ! $shopJob) ? $offers->liveShopOffers($rider) : collect();
 
-        $this->dispatch('provider-alert-offers', count: $live->count(), offers: $offers->alertSummaries($live));
+        $this->dispatch('provider-alert-offers', count: $live->count() + $shopLive->count(),
+            offers: array_merge($offers->alertSummaries($live), $offers->shopAlertSummaries($shopLive)));
 
         return view('livewire.rider.dashboard', [
             'rider' => $rider,
             'parcelActive' => $active,
             'job' => $job,
             'offers' => $live,
+            'shopJob' => $shopJob,
+            'shopOffers' => $shopLive->count(),
             'duesOwed' => $dues->outstanding($rider),
             'overCashLimit' => $dues->overCashLimit($rider, $this->riderScope($rider)),
             'locationFresh' => $rider->location_updated_at && $rider->location_updated_at->gt(now()->subMinutes(max(1, (int) Setting::get('provider.location_stale_after_minutes', '30')))),

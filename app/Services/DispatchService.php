@@ -481,7 +481,9 @@ class DispatchService
 
         $busyWorkerIds = ParcelOrder::whereIn('status', ParcelOrder::ACTIVE_RIDER_STATUSES)
             ->whereNotNull('assigned_worker_id')
-            ->pluck('assigned_worker_id');
+            ->pluck('assigned_worker_id')
+            // E-commerce Phase 3: a rider carrying a shop delivery is busy too.
+            ->merge(MarketplaceOrder::where('status', 'ready')->where('order_type', 'delivery')->whereNotNull('assigned_worker_id')->pluck('assigned_worker_id'));
 
         // A cash order is never offered to a rider whose unpaid cash dues have reached the admin's limit
         // (parcel.rider_cash_due_limit; unset = no limit).
@@ -595,7 +597,8 @@ class DispatchService
             \App\Support\Modules::FOOD => 'food_delivery_rider',
             \App\Support\Modules::GROCERY => 'grocery_delivery_rider',
             \App\Support\Modules::PHARMACY => 'pharmacy_delivery_rider',
-            default => 'commerce_delivery_rider',
+            // E-commerce Phase 3 (plan D4): parcel riders take shop deliveries too — same bike, same rider web.
+            default => ['commerce_delivery_rider', 'parcel_rider'],
         };
 
         $alreadyOfferedWorkerIds = DispatchAttempt::where('dispatchable_type', MarketplaceOrder::class)
@@ -606,7 +609,9 @@ class DispatchService
         $busyWorkerIds = MarketplaceOrder::where('status', 'ready')
             ->where('order_type', 'delivery')
             ->whereNotNull('assigned_worker_id')
-            ->pluck('assigned_worker_id');
+            ->pluck('assigned_worker_id')
+            // ...and a rider in the middle of a parcel is not offered a shop delivery.
+            ->merge(\App\Models\ParcelOrder::whereIn('status', \App\Models\ParcelOrder::ACTIVE_RIDER_STATUSES)->whereNotNull('assigned_worker_id')->pluck('assigned_worker_id'));
 
         // E-commerce Phase 0: a cash-on-delivery shop order is never offered to a rider whose unpaid cash (parcel
         // dues + shop cash) has reached the admin's rider limit (parcel.rider_cash_due_limit; unset = no limit).
@@ -644,6 +649,8 @@ class DispatchService
                 'city_id' => $order->franchise?->city_id, 'country_id' => $order->franchise?->country_id,
             ]),
             limit: $limit,
+            // Same rule as parcel: a rider who closed the rider web (stale location) is not offered work.
+            requireFreshLocation: true,
         );
     }
 
@@ -657,7 +664,7 @@ class DispatchService
      * "same engine" reasoning.
      */
     private function rankedFieldWorkerCandidates(
-        string $capabilityType,
+        string|array $capabilityType,
         int $zoneId,
         Collection $excludeWorkerIds,
         float $pickupLat,
@@ -681,7 +688,7 @@ class DispatchService
                 ->whereNotNull('location_updated_at')
                 ->where('location_updated_at', '>', now()->subMinutes($this->locationStaleAfterMinutes()))
                 ->whereHas('user', fn ($u) => $u->where('status', '!=', 'suspended')))
-            ->whereHas('capabilities', fn ($q) => $q->where('capability_type', $capabilityType))
+            ->whereHas('capabilities', fn ($q) => $q->whereIn('capability_type', (array) $capabilityType))
             ->whereNotIn('id', $excludeWorkerIds)
             ->get()
             ->map(fn (FieldWorker $worker) => [

@@ -22,7 +22,9 @@ class Earnings extends Component
 
     public function settle(FieldWorkerCashDueService $dues): void
     {
-        $recovered = $dues->settle($this->rider());
+        $recovered = $dues->settle($this->rider())
+            // E-commerce Phase 3: cash from shop deliveries is owed back the same way.
+            + app(\App\Services\Marketplace\MarketplaceSettlementService::class)->settleCash('field_worker', $this->rider()->id);
         $symbol = Setting::get('locale.currency_symbol', '₹');
         $this->notice = $recovered > 0
             ? 'Settled '.$symbol.number_format($recovered, 2).' from your wallet.'
@@ -36,8 +38,9 @@ class Earnings extends Component
 
         return view('livewire.rider.earnings', [
             'balance' => $rider->user ? app(WalletService::class)->balance($rider->user) : 0.0,
-            'owed' => $dues->outstanding($rider),
+            'owed' => $dues->outstanding($rider) + app(\App\Services\Marketplace\MarketplaceSettlementService::class)->outstanding('field_worker', $rider->id),
             'openDues' => FieldWorkerCashDue::outstanding()->where('field_worker_id', $rider->id)->with('parcelOrder:id,code')->orderBy('id')->get(),
+            'openShopDues' => \App\Models\MarketplaceSettlement::cashOutstandingFor('field_worker', $rider->id)->with('marketplaceOrder:id,code')->orderBy('id')->get(),
             'currencySymbol' => Setting::get('locale.currency_symbol', '₹'),
         ])->layout('components.layouts.rider', ['title' => 'Earnings']);
     }

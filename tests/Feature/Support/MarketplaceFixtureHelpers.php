@@ -95,7 +95,7 @@ trait MarketplaceFixtureHelpers
         $worker = FieldWorker::create([
             'user_id' => $user->id, 'franchise_id' => $franchise->id, 'zone_id' => $zone->id,
             'kyc_status' => 'approved', 'is_active' => true, 'is_online' => true,
-            'current_lat' => 1.0, 'current_lng' => 1.0,
+            'current_lat' => 1.0, 'current_lng' => 1.0, 'location_updated_at' => now(),
         ]);
 
         FieldWorkerCapability::create(['field_worker_id' => $worker->id, 'capability_type' => $capabilityType]);

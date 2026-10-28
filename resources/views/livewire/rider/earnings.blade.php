@@ -34,4 +34,16 @@
             @endforeach
         </ul>
     @endif
+
+    @if ($openShopDues->isNotEmpty())
+        <h2 class="mt-6 text-base font-semibold">Shop cash to hand back</h2>
+        <ul class="mt-2 divide-y divide-slate-100 rounded-2xl border border-slate-200 bg-white text-sm">
+            @foreach ($openShopDues as $due)
+                <li class="flex justify-between gap-3 px-4 py-3">
+                    <span>Shop order {{ $due->marketplaceOrder?->code }}</span>
+                    <span class="tabular-nums">{{ $fmt($due->cashOutstanding()) }}</span>
+                </li>
+            @endforeach
+        </ul>
+    @endif
 </div>

@@ -6,6 +6,9 @@
     $platformName = \App\Models\Setting::get('branding.platform_name', '1CallFix');
     $navItems = [
         ['label' => 'Home', 'route' => 'rider.dashboard', 'icon' => 'home'],
+        // E-commerce Phase 3: shop deliveries, once Commerce is on somewhere.
+        ...(app(\App\Services\ModuleActivationService::class)->isActiveAnywhere(\App\Support\Modules::COMMERCE)
+            ? [['label' => 'Shop', 'route' => 'rider.shop', 'icon' => 'building']] : []),
         ['label' => 'History', 'route' => 'rider.history', 'icon' => 'clock'],
         ['label' => 'Earnings', 'route' => 'rider.earnings', 'icon' => 'banknotes', 'also' => ['rider.payment-accounts', 'rider.request-payout']],
     ];
@@ -65,7 +68,7 @@
     <main id="rider-main" tabindex="-1" class="mx-auto w-full max-w-3xl flex-1 px-4 py-6 focus:outline-none sm:px-6">
         @auth
             {{-- Offer source on pages that don't poll offers themselves (the dashboard does). --}}
-            @unless (request()->routeIs('rider.dashboard', 'rider.login'))
+            @unless (request()->routeIs('rider.dashboard', 'rider.login', 'rider.shop'))
                 <livewire:rider.offer-watcher />
             @endunless
 
