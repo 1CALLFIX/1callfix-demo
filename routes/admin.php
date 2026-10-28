@@ -174,6 +174,7 @@ Route::middleware(['auth', \Illuminate\Session\Middleware\AuthenticateSession::c
         Route::get('/marketplace-orders', MarketplaceOrdersManage::class)->name('admin.marketplace-orders.index');
         Route::get('/shop-settings', \App\Livewire\MarketplaceOrders\Settings::class)->name('admin.marketplace-orders.settings');
         Route::get('/shop-commission', \App\Livewire\MarketplaceCommission\Manage::class)->name('admin.shop-commission.index');
+        Route::get('/shop-tax-report', \App\Livewire\MarketplaceOrders\TaxReport::class)->name('admin.shop-tax-report');
         Route::get('/chat', ChatManage::class)->name('admin.chat.index');
         Route::get('/chat/attachments/{messageId}', [\App\Http\Controllers\Admin\ChatAttachmentController::class, 'show'])->whereNumber('messageId')->name('admin.chat.attachments.show');
         Route::get('/kyc/support-requests', KycSupportRequestsManage::class)->name('admin.kyc.support-requests.index');

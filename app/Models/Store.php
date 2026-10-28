@@ -25,7 +25,7 @@ class Store extends Model
     protected $fillable = [
         'provider_id', 'franchise_id', 'zone_id', 'module',
         'name', 'slug', 'description', 'logo', 'cover_image',
-        'address_line', 'lat', 'lng', 'phone',
+        'address_line', 'lat', 'lng', 'phone', 'gstin', 'pan',
         'is_open', 'is_active', 'prescription_required',
         'approval_status', 'approval_note', 'approved_at', 'approved_by',
         'tax_percent', 'minimum_order_amount', 'delivery_fee_flat', 'free_delivery_above_amount',

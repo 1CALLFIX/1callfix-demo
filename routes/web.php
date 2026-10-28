@@ -199,6 +199,8 @@ Route::middleware(['auth', \App\Http\Middleware\EnsureAccountNotSuspended::class
     Route::get('/shop/checkout/{store}', \App\Livewire\Customer\Shop\Checkout::class)->name('customer.shop.checkout');
     Route::get('/shop/orders', \App\Livewire\Customer\Shop\Orders::class)->name('customer.shop.orders');
     Route::get('/shop/orders/{order}', \App\Livewire\Customer\Shop\OrderShow::class)->name('customer.shop.orders.show');
+    // E-commerce Phase 5: the seller's tax invoice (customer, the shop's seller, or an admin with marketplace_orders.view).
+    Route::get('/shop/orders/{order}/invoice', [\App\Http\Controllers\Customer\ShopInvoiceController::class, 'show'])->name('customer.shop.orders.invoice');
 });
 
 /*

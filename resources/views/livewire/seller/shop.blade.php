@@ -74,6 +74,19 @@
             <p class="mt-2 text-xs text-slate-500">The delivery fee goes to the rider. Free delivery applies to online payments only; cash orders always pay the fee.</p>
         </x-ui.card>
 
+        <x-ui.card>
+            <h2 class="text-sm font-semibold">Tax details</h2>
+            <p class="mt-1 text-xs text-slate-500">Printed on the tax invoice your customers get. Leave blank if you are not GST-registered.</p>
+            <div class="mt-3 grid gap-4 sm:grid-cols-2">
+                <label class="block text-sm"><span class="font-medium">GSTIN</span>
+                    <input type="text" wire:model="gstin" maxlength="15" class="mt-1 block min-h-11 w-full rounded-lg border border-slate-300 px-3 text-base uppercase">
+                    @error('gstin') <span class="text-sm text-red-700">{{ $message }}</span> @enderror</label>
+                <label class="block text-sm"><span class="font-medium">PAN</span>
+                    <input type="text" wire:model="pan" maxlength="10" class="mt-1 block min-h-11 w-full rounded-lg border border-slate-300 px-3 text-base uppercase">
+                    @error('pan') <span class="text-sm text-red-700">{{ $message }}</span> @enderror</label>
+            </div>
+        </x-ui.card>
+
         <x-ui.button type="submit" wire:loading.attr="disabled">Save shop details</x-ui.button>
     </form>
 </div>

@@ -88,6 +88,14 @@ class MarketplaceSettlementService
         }
         $platformTopup = $topupFundedBy === 'platform' ? $riderTopup : 0.0;
 
+        // E-commerce Phase 5: GST TCS and income-tax TDS (194-O) the platform withholds from the seller on the goods'
+        // taxable value (before GST), for the platform to deposit. Rates are Shop Settings values; unset = nothing.
+        $taxable = round((float) $order->subtotal, 2);
+        $tcs = round($taxable * (float) (\App\Support\MarketplaceSettings::get('marketplace.tcs_gst_percent') ?? 0) / 100, 2);
+        $tds = round($taxable * (float) (\App\Support\MarketplaceSettings::get('marketplace.tds_194o_percent') ?? 0) / 100, 2);
+        $withheld = min($sellerShare, round($tcs + $tds, 2));
+        $sellerShare = round($sellerShare - $withheld, 2);
+
         $mode = match (true) {
             $order->payment_method !== 'cash' => 'online',
             $order->order_type === 'delivery' => 'cash_delivery',
@@ -97,7 +105,8 @@ class MarketplaceSettlementService
         // What the cash holder owes back: the rider keeps only their own share; the seller (pickup) keeps theirs.
         [$debtorType, $cashOwed, $cashFranchise] = match ($mode) {
             'cash_delivery' => ['field_worker', max(round($total - $riderShare, 2), 0.0), round($goodsFranchise + $deliveryFranchise, 2)],
-            'cash_pickup' => ['provider', round($goodsPlatform + $goodsFranchise, 2), $goodsFranchise],
+            // ...plus any TCS / TDS withheld (Phase 5): the seller holds the cash, so they owe that back too.
+            'cash_pickup' => ['provider', round($goodsPlatform + $goodsFranchise + $withheld, 2), $goodsFranchise],
             default => [null, 0.0, 0.0],
         };
 
@@ -106,7 +115,7 @@ class MarketplaceSettlementService
         $settlement = DB::transaction(function () use (
             $order, $seller, $rider, $mode, $goodsAmount, $sellerShare, $goodsPlatform, $goodsFranchise,
             $deliveryAmount, $riderShare, $deliveryPlatform, $deliveryFranchise, $debtorType, $cashOwed, $cashFranchise, $windowDays,
-            $riderTopup, $topupFundedBy, $platformTopup
+            $riderTopup, $topupFundedBy, $platformTopup, $tcs, $tds, $withheld
         ) {
             $locked = MarketplaceSettlement::where('marketplace_order_id', $order->id)->lockForUpdate()->first();
             if ($locked) {
@@ -131,6 +140,9 @@ class MarketplaceSettlementService
                 'seller_share' => $sellerShare,
                 'goods_platform' => $goodsPlatform,
                 'goods_franchise' => $goodsFranchise,
+                // Withheld for the government; capped at the seller's share (TCS first).
+                'tcs_gst_amount' => min($tcs, $withheld),
+                'tds_income_tax_amount' => round($withheld - min($tcs, $withheld), 2),
                 'delivery_amount' => $deliveryAmount,
                 'rider_share' => $riderShare,
                 'delivery_platform' => $deliveryPlatform,

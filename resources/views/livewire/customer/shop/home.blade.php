@@ -76,6 +76,15 @@
                 <div class="mt-4">{{ $products->links() }}</div>
             @endif
         </section>
+
+        {{-- E-commerce Phase 5: the grievance officer (E-Commerce Rules 2020), from Shop Settings. --}}
+        @php $grievance = array_values(array_filter(preg_split('/\R/', (string) \App\Support\MarketplaceSettings::get('marketplace.grievance_officer')))); @endphp
+        @if ($grievance)
+            <aside class="mt-10 rounded-2xl bg-slate-50 p-4 text-xs text-slate-600">
+                <p class="font-semibold text-slate-800">Grievance officer</p>
+                @foreach ($grievance as $line)<p>{{ $line }}</p>@endforeach
+            </aside>
+        @endif
     </div>
 
     <livewire:customer.shop.cart-bar />

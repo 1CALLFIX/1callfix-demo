@@ -38,6 +38,19 @@ final class MarketplaceSettings
             'group' => 'Commission', 'label' => 'Highest fee a franchise may set', 'type' => 'decimal', 'unit' => '%', 'min' => 0, 'max' => 100,
             'default' => null, 'global' => true, 'help' => 'Blank = franchise admins cannot set rules.',
         ],
+        // ── tax compliance (E-commerce Phase 5; rates from the CA) ──
+        'marketplace.tcs_gst_percent' => [
+            'group' => 'Tax compliance', 'label' => 'GST TCS withheld from sellers', 'type' => 'decimal', 'unit' => '%', 'min' => 0, 'max' => 5,
+            'default' => null, 'global' => true, 'help' => 'Tax collected at source under GST on each seller\'s taxable goods (CA to confirm the rate). Blank = nothing withheld.',
+        ],
+        'marketplace.tds_194o_percent' => [
+            'group' => 'Tax compliance', 'label' => 'Income-tax TDS (194-O) withheld from sellers', 'type' => 'decimal', 'unit' => '%', 'min' => 0, 'max' => 5,
+            'default' => null, 'global' => true, 'help' => 'CA to confirm the rate and the threshold rules. Blank = nothing withheld.',
+        ],
+        'marketplace.grievance_officer' => [
+            'group' => 'Tax compliance', 'label' => 'Grievance officer (shown on shop pages)', 'type' => 'text', 'default' => null, 'global' => true,
+            'help' => 'Name, designation, phone / email and office address, one per line (E-Commerce Rules 2020). Blank = not shown.',
+        ],
         // ── orders ──
         'marketplace.unpaid_expiry_minutes' => [
             'group' => 'Orders', 'label' => 'Cancel unpaid online orders after', 'type' => 'int', 'unit' => 'minutes', 'min' => 5, 'max' => 1440,

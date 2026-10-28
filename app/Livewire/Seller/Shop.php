@@ -29,6 +29,9 @@ class Shop extends Component
     public string $deliveryFee = '';
     public string $freeDeliveryAbove = '';
     public $logo = null;
+    /** E-commerce Phase 5: printed on the seller's tax invoices. */
+    public string $gstin = '';
+    public string $pan = '';
 
     public string $flashMessage = '';
     public string $flashType = 'success';
@@ -44,6 +47,8 @@ class Shop extends Component
         $this->minimumOrder = (string) (float) $store->minimum_order_amount;
         $this->deliveryFee = (string) (float) $store->delivery_fee_flat;
         $this->freeDeliveryAbove = $store->free_delivery_above_amount !== null ? (string) (float) $store->free_delivery_above_amount : '';
+        $this->gstin = (string) $store->gstin;
+        $this->pan = (string) $store->pan;
     }
 
     /** The shared [data-locate-address] button (resources/js/geolocation.js) posts the pin here. */
@@ -66,7 +71,9 @@ class Shop extends Component
             'deliveryFee' => ['nullable', 'numeric', 'min:0', 'max:10000'],
             'freeDeliveryAbove' => ['nullable', 'numeric', 'min:0', 'max:1000000'],
             'logo' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
-        ], [], ['addressLine' => 'address', 'minimumOrder' => 'minimum order', 'deliveryFee' => 'delivery fee', 'freeDeliveryAbove' => 'free delivery above']);
+            'gstin' => ['nullable', 'string', 'regex:/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/'],
+            'pan' => ['nullable', 'string', 'regex:/^[A-Z]{5}[0-9]{4}[A-Z]$/'],
+        ], ['gstin.regex' => 'Enter the 15-character GSTIN in capitals.', 'pan.regex' => 'Enter the 10-character PAN in capitals.'], ['addressLine' => 'address', 'minimumOrder' => 'minimum order', 'deliveryFee' => 'delivery fee', 'freeDeliveryAbove' => 'free delivery above']);
 
         // A pin moved outside every zone would send riders to the wrong place; keep the shop where it was.
         if ($this->lat !== null && $this->lng !== null
@@ -86,6 +93,8 @@ class Shop extends Component
             'minimum_order_amount' => round((float) ($this->minimumOrder ?: 0), 2),
             'delivery_fee_flat' => round((float) ($this->deliveryFee ?: 0), 2),
             'free_delivery_above_amount' => $this->freeDeliveryAbove === '' ? null : round((float) $this->freeDeliveryAbove, 2),
+            'gstin' => strtoupper(trim($this->gstin)) ?: null,
+            'pan' => strtoupper(trim($this->pan)) ?: null,
         ];
         if ($this->logo) {
             if ($store->logo && ! str_contains($store->logo, '://')) {

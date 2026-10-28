@@ -81,6 +81,9 @@
                     {{ $order->assignedWorker ? 'Rider '.$order->assignedWorker->user?->name.' is coming to collect it.' : 'Finding a rider…' }}
                 </p>
             @endif
+            @if ($order->status === 'completed')
+                <a href="{{ route('customer.shop.orders.invoice', $order) }}" target="_blank" rel="noopener" class="mt-2 inline-block text-sm font-medium text-blue-700">Tax invoice →</a>
+            @endif
             @if ($order->status === 'cancelled' && $order->cancellation_note)
                 <p class="mt-2 text-sm text-slate-600">Cancelled: {{ $order->cancellation_note }}</p>
             @endif

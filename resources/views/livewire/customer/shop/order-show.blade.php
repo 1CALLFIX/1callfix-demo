@@ -78,6 +78,9 @@
             @if ($order->order_type === 'delivery' && $order->deliveryAddress)
                 <p class="mt-3 text-slate-600">To: {{ $order->deliveryAddress->address_line }}</p>
             @endif
+            @if ($order->status === 'completed')
+                <a href="{{ route('customer.shop.orders.invoice', $order) }}" target="_blank" rel="noopener" class="mt-3 inline-block text-sm font-semibold text-blue-700">Tax invoice →</a>
+            @endif
         </section>
 
         @if ($canCancel)
