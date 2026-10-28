@@ -175,15 +175,25 @@ class RiderPartnerSignupTest extends TestCase
         $this->assertSame(0, FieldWorker::count());
     }
 
-    public function test_a_number_that_already_belongs_to_a_partner_is_told_to_sign_in(): void
+    public function test_a_number_that_is_already_a_rider_is_told_to_sign_in(): void
+    {
+        $this->recruiting();
+        $existing = $this->makeParcelRiderIn($this->zone->franchise, $this->zone)->user;
+
+        $this->applyAsRider($existing->phone);
+        Livewire::test(Register::class)->call('requestPhoneCode')
+            ->assertHasErrors(['phone']);
+        $this->assertSame(1, FieldWorker::count());
+    }
+
+    public function test_a_service_partners_number_may_also_apply_as_a_rider(): void
     {
         $this->recruiting();
         $existing = $this->makeProviderIn($this->zone->franchise, $this->zone)->user;
 
         $this->applyAsRider($existing->phone);
         Livewire::test(Register::class)->call('requestPhoneCode')
-            ->assertHasErrors(['phone']);
-        $this->assertSame(0, FieldWorker::count());
+            ->assertHasNoErrors()->assertDispatched('firebase-send-phone-otp');
     }
 
     public function test_an_existing_customer_applies_as_a_rider_on_the_same_account(): void

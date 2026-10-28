@@ -177,6 +177,41 @@ class ExistingCustomerBecomesPartnerTest extends TestCase
         $this->assertTrue(Hash::check('brand-new-pass-2', $staff->fresh()->password));
     }
 
+    public function test_a_customer_with_the_right_password_on_partner_sign_in_is_sent_to_finish_the_application(): void
+    {
+        $customer = $this->customer();
+
+        Livewire::test(ProviderLogin::class)
+            ->set('identifier', $customer->phone)->set('password', 'my-old-pass-1')->call('login')
+            ->assertSet('notAppliedYet', true)
+            ->assertSee('no partner application yet')
+            ->assertSee(route('provider.register'), false)
+            ->assertNoRedirect();
+        $this->assertGuest();
+
+        // Then the application itself, on the same account, and sign-in works.
+        $this->fillAndSubmit($this->verified($customer->phone))->assertSet('submitted', true);
+        Livewire::test(ProviderLogin::class)
+            ->set('identifier', $customer->phone)->set('password', 'my-old-pass-1')->call('login')
+            ->assertRedirect(route('provider.dashboard'));
+    }
+
+    public function test_the_reset_page_says_code_sent_only_after_firebase_confirms_and_never_beside_an_error(): void
+    {
+        $customer = $this->customer();
+
+        $c = Livewire::test(ForgotPassword::class)->set('identifier', $customer->phone)->call('submitIdentifier')
+            ->assertSet('step', 'verify_phone')
+            ->assertDontSee('Enter the code sent to')
+            ->assertSee('Sending a code to');
+
+        $c->dispatch('firebase-phone-otp-sent')->assertSee('Enter the code sent to');
+
+        $c->dispatch('firebase-error', message: 'Too many attempts from this device. Try again later.')
+            ->assertSet('status', '')
+            ->assertSee('Too many attempts');
+    }
+
     public function test_a_super_admin_password_is_never_reset_by_otp_on_web_or_api(): void
     {
         $admin = $this->customer();

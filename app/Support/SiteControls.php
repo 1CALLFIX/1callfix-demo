@@ -63,6 +63,11 @@ final class SiteControls
     public const REVIEW_AMBER_HOURS = 'partners.review_amber_hours';
     public const REVIEW_RED_HOURS = 'partners.review_red_hours';
 
+    // Header "Become a partner" button (owner 2026-10-27): anyone, a signed-in customer too, joins as a partner from the top bar.
+    public const HEADER_PARTNER_BUTTON = 'header.partner_button';
+    public const HEADER_PARTNER_LABEL = 'header.partner_label';
+    public const DEFAULT_HEADER_PARTNER_LABEL = 'Become a partner';
+
     public const SERVICES_MODES = ['required', 'optional', 'hidden'];
     public const FITS = ['contain', 'cover'];
     public const ICON_SIZES = ['small', 'medium', 'large'];
@@ -234,6 +239,16 @@ final class SiteControls
     }
 
     /** The label text on the Parcel icon (drawn when the label switch is on). */
+    public static function headerPartnerButton(): bool
+    {
+        return self::flag(self::HEADER_PARTNER_BUTTON, true);
+    }
+
+    public static function headerPartnerLabel(): string
+    {
+        return self::text(self::HEADER_PARTNER_LABEL, self::DEFAULT_HEADER_PARTNER_LABEL);
+    }
+
     public static function parcelBadgeText(): string
     {
         return self::text(self::PARCEL_BADGE_TEXT, self::DEFAULT_PARCEL_BADGE_TEXT);

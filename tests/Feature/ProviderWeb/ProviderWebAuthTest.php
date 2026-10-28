@@ -66,9 +66,19 @@ class ProviderWebAuthTest extends TestCase
             ->set('identifier', $customer->phone)
             ->set('password', 'right-password-9')
             ->call('login')
-            ->assertSet('error', 'That account is not a registered service partner.');
+            ->assertSet('notAppliedYet', true)
+            ->assertSee('Finish your partner application');
 
         $this->assertFalse(Auth::guard('web')->check());
+
+        // Staff are not customers: still the plain refusal, no application link.
+        $customer->forceFill(['role' => 'support'])->save();
+        Livewire::test(Login::class)
+            ->set('identifier', $customer->phone)
+            ->set('password', 'right-password-9')
+            ->call('login')
+            ->assertSet('notAppliedYet', false)
+            ->assertSet('error', 'That account is not a registered service partner.');
     }
 
     public function test_provider_login_authenticates_a_partner_and_redirects_to_the_dashboard(): void

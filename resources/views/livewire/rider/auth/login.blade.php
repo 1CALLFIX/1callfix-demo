@@ -11,7 +11,12 @@
             <div role="status" class="mb-5 rounded-lg bg-emerald-50 px-3 py-2.5 text-sm text-emerald-800">{{ session('status') }}</div>
         @endif
         @if ($error)
-            <div role="alert" class="mb-5 rounded-lg bg-red-50 px-3 py-2.5 text-sm text-red-800">{{ $error }}</div>
+            <div role="alert" @class(['mb-5 rounded-lg px-3 py-2.5 text-sm', 'bg-amber-50 text-amber-900' => $notAppliedYet, 'bg-red-50 text-red-800' => ! $notAppliedYet])>
+                {{ $error }}
+                @if ($notAppliedYet)
+                    <a href="{{ route('customer.partners') }}" class="mt-2 block rounded-lg bg-slate-900 px-3 py-2 text-center font-medium text-white">Apply as a rider</a>
+                @endif
+            </div>
         @endif
 
         <form wire:submit="login" class="space-y-5">

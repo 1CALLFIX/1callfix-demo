@@ -299,7 +299,10 @@ class ParcelWebPagesTest extends TestCase
             ->set('identifier', $w['customer']->phone)
             ->set('password', 'secret-pass-1')
             ->call('login')
-            ->assertSet('error', 'That account is not an active parcel rider.');
+            ->assertSet('notAppliedYet', true)
+            ->assertSee('Apply as a rider');
+
+        $this->assertGuest();
     }
 
     public function test_rider_goes_online_accepts_picks_up_and_delivers_from_the_dashboard(): void

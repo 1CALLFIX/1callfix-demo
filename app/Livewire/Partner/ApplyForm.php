@@ -63,7 +63,15 @@ class ApplyForm extends Component
         }
 
         $codes = array_column(PartnerPageData::roles(), 'code');
-        $this->role = in_array('service', $codes, true) ? 'service' : ($codes[0] ?? '');
+        // ?role= (the "Deliver parcels too" button on a partner dashboard) picks a listed card; otherwise the default.
+        $asked = (string) request()->query('role', '');
+        $this->role = in_array($asked, $codes, true) ? $asked : (in_array('service', $codes, true) ? 'service' : ($codes[0] ?? ''));
+
+        // Signed in (header "Become a partner"): one account, so start from the account's own name and mobile.
+        if ($user = auth()->user()) {
+            $this->name = (string) $user->name;
+            $this->phone = (string) $user->phone;
+        }
     }
 
     /** "Add another application": back to a clean form (the role stays as the person left it). */

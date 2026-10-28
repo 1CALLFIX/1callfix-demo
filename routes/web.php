@@ -219,9 +219,10 @@ Route::middleware(['auth', \App\Http\Middleware\EnsureAccountNotSuspended::class
  */
 Route::middleware('guest')->group(function () {
     Route::get('/provider/login', ProviderLogin::class)->name('provider.login');
-    // PHASE PSR — public, unauthenticated provider self-registration.
-    Route::get('/provider/register', ProviderRegister::class)->name('provider.register');
 });
+// PHASE PSR — public provider self-registration. Not guest-only since 2026-10-27: a signed-in customer or partner adds
+// a partner role with the same account (the component sends anyone who cannot apply to their own home).
+Route::get('/provider/register', ProviderRegister::class)->name('provider.register');
 
 Route::post('/provider/logout', function () {
     Auth::guard('web')->logout();

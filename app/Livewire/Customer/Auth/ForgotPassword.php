@@ -97,7 +97,18 @@ class ForgotPassword extends Component
         $this->channel = 'phone';
         $this->dispatch('firebase-send-phone-otp', phone: PhoneNumber::e164($this->identifier));
         $this->step = 'verify_phone';
-        $this->status = 'Enter the code sent to '.PhoneNumber::e164($this->identifier).'.';
+        // "Sent" only once Firebase confirms it (phoneOtpSent); a refusal arrives as firebase-error instead.
+        $this->status = 'Sending a code to '.PhoneNumber::e164($this->identifier).'…';
+    }
+
+    /** customer-auth.js confirms signInWithPhoneNumber actually sent the SMS. */
+    #[On('firebase-phone-otp-sent')]
+    public function phoneOtpSent(): void
+    {
+        if ($this->step === 'verify_phone') {
+            $this->error = '';
+            $this->status = 'Enter the code sent to '.PhoneNumber::e164($this->identifier).'.';
+        }
     }
 
     public function verifyEmailCode(OtpService $otp, CustomerAccountResolver $accounts): void
@@ -135,6 +146,8 @@ class ForgotPassword extends Component
     public function firebaseError(string $message): void
     {
         $this->error = $message;
+        // One honest error, never a green "code sent" beside it.
+        $this->status = '';
     }
 
     #[On('firebase-phone-token')]

@@ -110,7 +110,7 @@ class CreateParcelRiderAction
     {
         return DB::transaction(function () use ($zone, $user, $registration) {
             $user = User::whereKey($user->id)->lockForUpdate()->first();
-            if (! $user?->canApplyAsPartner()) {
+            if (! $user?->canApplyAsPartner('parcel')) {
                 throw new AccountAlreadyExistsException('mobile number');
             }
             if ($user->phone_verified_at === null) {
