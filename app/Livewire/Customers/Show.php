@@ -47,7 +47,7 @@ class Show extends Component
 
     public function getRecentBookingsProperty()
     {
-        return $this->customer->bookings()->with(['service', 'provider.user', 'franchise.country'])->latest()->limit(20)->get();
+        return $this->customer->bookings()->with(['service', 'provider.user', 'franchise.country', 'statusHistory' => \App\Support\Turnaround::historyScope()])->latest()->limit(20)->get();
     }
 
     public function toggleSuspended(): void

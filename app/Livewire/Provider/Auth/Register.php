@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Provider\Auth;
 
+use App\Actions\CreateParcelRiderAction;
 use App\Actions\RegisterProviderAction;
 use App\Contracts\FirebaseTokenVerifier;
 use App\Exceptions\AccountAlreadyExistsException;
@@ -47,8 +48,10 @@ use Livewire\WithFileUploads;
  * optional email is stored unverified (D4); the applicant picks the
  * service categories they offer (D2 reversed by the owner 2026-10-15 —
  * required / optional / hidden is a Super Admin setting, SiteControls);
- * no applicant notification (D8); no existing-customer -> provider
- * attach (D10) — a taken phone is refused with "sign in instead".
+ * no applicant notification (D8); an existing customer applies with the
+ * same account (D10, owner 2026-10-27): once the OTP proves the number, the
+ * partner profile is added to that account and its password stays; any
+ * other taken phone is refused with "sign in instead".
  */
 class Register extends Component
 {
@@ -112,15 +115,43 @@ class Register extends Component
     #[Locked]
     public bool $outOfCoverage = false;
 
-    /** REF 1CF-PARTNER-PAGE-001: the /partners lead this sign-up continues (id only; the phone is never trusted from it). */
+    /** The customer account the OTP-proven number already belongs to (D10): the application joins it, no new password. */
+    #[Locked]
+    public ?int $existingUserId = null;
+
+    #[Locked]
+    public string $existingUserName = '';
+
+    /** REF 1CF-PARTNER-PAGE-001: the /partners lead this sign-up continues (id only; its name and phone only prefill the form — the phone is still OTP-verified). */
     #[Locked]
     public ?int $leadId = null;
+
+    /**
+     * Which partner this sign-up makes (owner rule 2026-10-25: every partner joins through /partners, then this one
+     * page — OTP, documents, admin approval). 'service' = a provider (the default, and the only role reachable without
+     * a /partners hand-off); 'parcel' = a delivery rider (a field worker with the parcel_rider capability, documents
+     * from the `field_worker` requirement list, no services step). Set only in mount() from the server-side session.
+     */
+    #[Locked]
+    public string $partnerRole = 'service';
+
+    /** Partner roles this page can finish. */
+    private const SIGNUP_ROLES = ['service', 'parcel'];
 
     public function mount(): void
     {
         $lead = session('partner_lead');
-        if (is_array($lead) && ($lead['role'] ?? null) === 'service' && is_int($lead['id'] ?? null)) {
+        if (is_array($lead) && in_array($lead['role'] ?? null, self::SIGNUP_ROLES, true) && is_int($lead['id'] ?? null)
+            && $this->roleTakesSignUps($lead['role'])) {
             $this->leadId = $lead['id'];
+            $this->partnerRole = $lead['role'];
+            // Prefill the name and mobile typed on /partners so the applicant does not type them twice. Read from the
+            // lead row by its server-held id, never from the browser; the number is still proven by OTP before submit.
+            $row = \App\Models\PartnerLead::query()->where('id', $lead['id'])->where('role', $this->partnerRole)->first(['name', 'phone']);
+            if ($row !== null) {
+                $this->name = (string) $row->name;
+                $this->phone = (string) $row->phone;
+            }
             // A listed city's slug prefills the address (its stored name); a typed city sends no slug and prefills
             // nothing. The applicant confirms or replaces it, and the pin still decides the service area.
             $slug = (string) ($lead['city'] ?? '');
@@ -131,11 +162,53 @@ class Register extends Component
         }
 
         if (auth()->guard('web')->check()) {
+            $this->mountSignedIn(auth()->user());
+        }
+    }
+
+    /**
+     * Header "Become a partner" (owner 2026-10-27): a signed-in customer or partner applies with their own account
+     * for a role they do not hold yet — same mobile, same password. A fresh code to the account's own number is
+     * always required (owner: verification is a must for a partner — a phone left signed in is not proof enough).
+     * Already holding this role, or staff: sent away as before.
+     */
+    private function mountSignedIn(User $user): void
+    {
+        if (! $user->canApplyAsPartner($this->partnerRole)) {
             $this->redirectRoute(
-                auth()->user()->providerProfile()->exists() ? 'provider.dashboard' : 'customer.home',
+                $user->providerProfile()->exists() ? 'provider.dashboard'
+                    : ($user->fieldWorkerProfile?->hasCapability('parcel_rider') ? 'rider.dashboard' : 'customer.home'),
                 navigate: true,
             );
+
+            return;
         }
+
+        $this->existingUserName = (string) $user->name;
+        $this->phone = (string) $user->phone;
+    }
+
+    /** Signed in: the application is for this account, so the number is always the account's own. */
+    private function signedInPhone(): ?string
+    {
+        return auth()->guard('web')->check() ? (string) auth()->user()->phone : null;
+    }
+
+    public function isRider(): bool
+    {
+        return $this->partnerRole === 'parcel';
+    }
+
+    /** The /partners card for this role still hands off to sign-up (it can close again, e.g. parcel prices cleared). */
+    private function roleTakesSignUps(string $role): bool
+    {
+        return (bool) (collect(\App\Support\PartnerPage\PartnerPageData::roles())->firstWhere('code', $role)['hands_off'] ?? false);
+    }
+
+    /** kyc_document_requirements.applicable_type for this sign-up. */
+    private function documentsFor(): string
+    {
+        return $this->isRider() ? 'field_worker' : 'provider';
     }
 
     // ─────────────────────────── Phone step ──────────────────────────────
@@ -144,6 +217,7 @@ class Register extends Component
     {
         $this->reset('error', 'status');
 
+        $this->phone = $this->signedInPhone() ?? $this->phone;
         $this->validate([
             'phone' => ['required', 'string', 'min:6', 'max:20', 'regex:/^[0-9+][0-9 \-]*$/'],
         ], ['phone.regex' => 'Enter a valid mobile number.']);
@@ -161,7 +235,7 @@ class Register extends Component
         // here, before any SMS goes out, so an already-registered applicant
         // is told to sign in immediately. Same national-digit shape those
         // later checks use.
-        if (User::where('phone', PhoneNumber::national($this->phone))->exists()) {
+        if ($this->takenByAnotherPartner(PhoneNumber::national($this->phone))) {
             $this->addError('phone', 'An account with this mobile number already exists. Please sign in instead.');
 
             return;
@@ -230,23 +304,48 @@ class Register extends Component
         // the number is proven, so the applicant never fills in a detail or
         // uploads a document against a number they can't use. Same
         // `phone` shape the Action checks — national digits.
-        if (User::where('phone', PhoneNumber::national($identity->phoneNumber))->exists()) {
+        $national = PhoneNumber::national($identity->phoneNumber);
+        if (($own = $this->signedInPhone()) !== null && PhoneNumber::national($own) !== $national) {
+            $this->error = 'Verify the mobile number of the account you are signed in with.';
+            $this->step = 'phone';
+
+            return;
+        }
+        if ($this->takenByAnotherPartner($national)) {
             $this->error = 'An account with this mobile number already exists. Please sign in instead.';
             $this->step = 'phone';
 
             return;
         }
 
+        $existing = User::where('phone', $national)->first();
+        $this->existingUserId = $existing?->id;
+        $this->existingUserName = (string) $existing?->name;
+
         $this->verifiedPhoneE164 = $identity->phoneNumber;
         $this->phoneFirebaseUid = $identity->uid;
         $this->step = 'details';
-        $this->status = 'Mobile number verified. Fill in your details to finish.';
+        $this->status = $existing
+            ? 'Mobile number verified. It already has a customer account, so your application joins that account. Fill in the rest to finish.'
+            : 'Mobile number verified. Fill in your details to finish.';
     }
 
     public function changePhone(): void
     {
-        $this->reset('error', 'status', 'verifiedPhoneE164', 'phoneFirebaseUid');
+        if ($this->signedInPhone() !== null) {
+            return;
+        }
+
+        $this->reset('error', 'status', 'verifiedPhoneE164', 'phoneFirebaseUid', 'existingUserId', 'existingUserName');
         $this->step = 'phone';
+    }
+
+    /** The number has an account that cannot apply here: already a partner, suspended, or staff. A plain customer can (D10). */
+    private function takenByAnotherPartner(string $national): bool
+    {
+        $user = User::where('phone', $national)->first();
+
+        return $user !== null && ! $user->canApplyAsPartner($this->partnerRole);
     }
 
     // ─────────────────────── Address / coverage ──────────────────────────
@@ -332,7 +431,7 @@ class Register extends Component
 
     // ─────────────────────────── Finish ──────────────────────────────────
 
-    public function submitApplication(RegisterProviderAction $register, KycDocumentService $kyc): void
+    public function submitApplication(RegisterProviderAction $register, KycDocumentService $kyc, CreateParcelRiderAction $riders): void
     {
         $this->reset('error', 'status');
 
@@ -350,13 +449,17 @@ class Register extends Component
             return;
         }
 
-        $requirements = $kyc->requirementsFor('provider', $this->resolvedCountryId());
+        $requirements = $kyc->requirementsFor($this->documentsFor(), $this->resolvedCountryId());
         $requiredTypes = $requirements->where('is_required', true)->pluck('document_type');
 
+        // An existing customer keeps their account's name, email and password; only a new account needs them.
+        $existing = $this->existingUserId ? User::find($this->existingUserId) : null;
         $this->validate([
-            'name' => ['required', 'string', 'min:2', 'max:255'],
-            'password' => ['required', 'string', 'min:8', 'max:255', 'confirmed'],
-            'email' => ['nullable', 'email', 'max:255'],
+            ...($existing ? [] : [
+                'name' => ['required', 'string', 'min:2', 'max:255'],
+                'password' => ['required', 'string', 'min:8', 'max:255', 'confirmed'],
+                'email' => ['nullable', 'email', 'max:255'],
+            ]),
             'address' => ['required', 'string', 'min:6', 'max:500'],
             'terms' => ['accepted'],
             'documents' => ['array'],
@@ -376,7 +479,8 @@ class Register extends Component
 
         // Only real, active, customer-visible categories count — the array is client-editable state.
         // "Required" never blocks when no category is published yet — there would be nothing to tick.
-        $offerable = SiteControls::servicesStep() === 'hidden' ? collect() : $this->offerableCategories();
+        // A delivery rider offers no service categories: the step does not apply.
+        $offerable = (SiteControls::servicesStep() === 'hidden' || $this->isRider()) ? collect() : $this->offerableCategories();
         $skillIds = $offerable->whereIn('id', array_map('intval', $this->skills))->pluck('id')->values()->all();
         if (SiteControls::servicesStep() === 'required' && $offerable->isNotEmpty() && $skillIds === []) {
             $this->addError('skills', 'Choose at least one service you offer.');
@@ -435,39 +539,60 @@ class Register extends Component
 
         $providerId = null;
         try {
-            DB::transaction(function () use ($register, $kyc, $zone, $requirements, $skillIds, &$providerId) {
-                $provider = $register->execute(
-                    name: $this->name,
-                    phone: PhoneNumber::national($this->verifiedPhoneE164),
-                    franchiseId: $zone->franchise_id,
-                    zoneId: $zone->id,
-                    plainPassword: $this->password,
-                    email: filled($this->email) ? $this->email : null,
-                    phoneVerified: true,
-                    registration: [
-                        'address' => $this->address,
-                        'lat' => $this->lat,
-                        'lng' => $this->lng,
-                    ],
-                    skills: $skillIds,
-                );
+            if ($existing === null && $this->existingUserId !== null) {
+                throw new AccountAlreadyExistsException('mobile number');
+            }
+            if ($this->isRider()) {
+                DB::transaction(function () use ($riders, $kyc, $zone, $requirements, $existing) {
+                    $registration = ['address' => $this->address, 'lat' => $this->lat, 'lng' => $this->lng, 'out_of_coverage' => $this->outOfCoverage];
+                    $rider = $existing ? $riders->registerExistingCustomer($zone, $existing, $registration) : $riders->registerApplicant(
+                        zone: $zone,
+                        name: $this->name,
+                        nationalPhone: PhoneNumber::national($this->verifiedPhoneE164),
+                        email: filled($this->email) ? $this->email : null,
+                        plainPassword: $this->password,
+                        registration: $registration,
+                    );
 
-                $providerId = $provider->id;
-
-                foreach ($requirements as $req) {
-                    $file = $this->documents[$req->document_type] ?? null;
-                    if ($file) {
-                        $kyc->upload($provider, $req->document_type, $file, $provider->user, 'self');
+                    foreach ($requirements as $req) {
+                        $file = $this->documents[$req->document_type] ?? null;
+                        if ($file) {
+                            $kyc->upload($rider, $req->document_type, $file, $rider->user, 'self');
+                        }
                     }
-                }
-            });
+                });
+            } else {
+                DB::transaction(function () use ($register, $kyc, $zone, $requirements, $skillIds, $existing, &$providerId) {
+                    $registration = ['address' => $this->address, 'lat' => $this->lat, 'lng' => $this->lng];
+                    $provider = $existing ? $register->forExistingCustomer($existing, $zone->franchise_id, $zone->id, $registration, $skillIds) : $register->execute(
+                        name: $this->name,
+                        phone: PhoneNumber::national($this->verifiedPhoneE164),
+                        franchiseId: $zone->franchise_id,
+                        zoneId: $zone->id,
+                        plainPassword: $this->password,
+                        email: filled($this->email) ? $this->email : null,
+                        phoneVerified: true,
+                        registration: $registration,
+                        skills: $skillIds,
+                    );
+
+                    $providerId = $provider->id;
+
+                    foreach ($requirements as $req) {
+                        $file = $this->documents[$req->document_type] ?? null;
+                        if ($file) {
+                            $kyc->upload($provider, $req->document_type, $file, $provider->user, 'self');
+                        }
+                    }
+                });
+            }
         } catch (AccountAlreadyExistsException $e) {
             $this->error = 'An account with this mobile number already exists. Please sign in instead.';
 
             return;
         }
 
-        \App\Models\PartnerLead::markConverted($this->leadId, PhoneNumber::national($this->verifiedPhoneE164), (int) $providerId);
+        \App\Models\PartnerLead::markConverted($this->leadId, PhoneNumber::national($this->verifiedPhoneE164), $providerId, $this->partnerRole);
 
         $this->clearThrottle('provider-reg-phone', $this->phone);
         $this->clearThrottle('provider-reg-submit', $this->verifiedPhoneE164);
@@ -495,16 +620,17 @@ class Register extends Component
 
     public function render()
     {
-        $requirements = app(KycDocumentService::class)->requirementsFor('provider', $this->resolvedCountryId());
+        $requirements = app(KycDocumentService::class)->requirementsFor($this->documentsFor(), $this->resolvedCountryId());
 
-        $servicesStep = SiteControls::servicesStep();
+        $servicesStep = $this->isRider() ? 'hidden' : SiteControls::servicesStep();
 
         return view('livewire.provider.auth.register', [
             'requirements' => $requirements,
+            'isRider' => $this->isRider(),
             'servicesStep' => $servicesStep,
             'servicesMax' => SiteControls::servicesMax(),
             'serviceCategories' => $servicesStep === 'hidden' ? collect() : $this->offerableCategories(),
         ])
-            ->layout('components.layouts.provider', ['title' => 'Become a partner']);
+            ->layout('components.layouts.provider', ['title' => $this->isRider() ? 'Become a delivery rider' : 'Become a partner']);
     }
 }

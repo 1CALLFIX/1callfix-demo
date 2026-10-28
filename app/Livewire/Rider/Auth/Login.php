@@ -10,8 +10,9 @@ use Livewire\Component;
 
 /**
  * Rider sign-in (`/rider/login`). Same password login, throttle and suspension check as the partner sign-in
- * (Provider\Auth\Login), but the account must be an active parcel rider. Riders are created by admin
- * (Admin → Workers, capability "parcel_rider"); there is no rider self-registration.
+ * (Provider\Auth\Login), but the account must be an active parcel rider. Riders sign up on /partners (the partner
+ * sign-up, documents pending admin review) or are added by an admin (Admin → Partners → People → Add parcel rider, walk-ins).
+ * A pending rider can sign in; the dashboard shows the review state and offers start once approved.
  */
 class Login extends Component
 {
@@ -23,6 +24,9 @@ class Login extends Component
 
     public string $error = '';
 
+    /** Right password, but the account (a customer) has not applied as a rider yet: point to the partner page. */
+    public bool $notAppliedYet = false;
+
     public function mount(): void
     {
         if (Auth::guard('web')->check() && $this->isRider(auth()->user())) {
@@ -32,7 +36,7 @@ class Login extends Component
 
     public function login(CustomerAccountResolver $accounts): void
     {
-        $this->reset('error');
+        $this->reset('error', 'notAppliedYet');
 
         $this->validate([
             'identifier' => ['required', 'string', 'max:255'],
@@ -66,6 +70,15 @@ class Login extends Component
         if ($user->status === 'suspended') {
             $this->hitThrottle('rider-login', $this->identifier);
             $this->error = 'This account has been suspended. Contact support for help.';
+            $this->password = '';
+
+            return;
+        }
+
+        if (! $this->isRider($user) && $user->canApplyAsPartner('parcel')) {
+            $this->clearThrottle('rider-login', $this->identifier);
+            $this->notAppliedYet = true;
+            $this->error = 'Your 1CallFix account has not applied as a rider yet. Apply on the partner page with the same mobile number; you keep this password.';
             $this->password = '';
 
             return;

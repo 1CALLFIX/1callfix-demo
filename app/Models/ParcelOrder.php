@@ -37,6 +37,12 @@ class ParcelOrder extends Model implements Orderable
         'package_description',
         'package_weight_kg',
         'package_size',
+        'package_contents',
+        'restricted_items_confirmed_at',
+        'delivery_type',
+        'scheduled_at',
+        'dispatch_released_at',
+        'vehicle_type',
         'distance_km',
         'status',
         'price_quoted',
@@ -52,12 +58,20 @@ class ParcelOrder extends Model implements Orderable
         'cancellation_fee',
         'customer_note',
         'picked_up_at',
+        'arrived_at_pickup_at',
+        'waiting_minutes',
+        'waiting_charge',
         'cash_collected_at',
         'delivered_at',
     ];
 
     protected $casts = [
         'picked_up_at' => 'datetime',
+        'scheduled_at' => 'datetime',
+        'dispatch_released_at' => 'datetime',
+        'restricted_items_confirmed_at' => 'datetime',
+        'arrived_at_pickup_at' => 'datetime',
+        'waiting_charge' => 'decimal:2',
         'cash_collected_at' => 'datetime',
         'recipient_refused_at' => 'datetime',
         'delivered_at' => 'datetime',
@@ -92,6 +106,12 @@ class ParcelOrder extends Model implements Orderable
     public function collectsCashAtDelivery(): bool
     {
         return $this->payment_method === 'cash' && $this->cash_collect_at === 'drop';
+    }
+
+    /** Stage 1: the customer picked a pickup time instead of "Now". */
+    public function isScheduled(): bool
+    {
+        return $this->delivery_type === 'scheduled' && $this->scheduled_at !== null;
     }
 
     public function canBeCancelledByCustomer(): bool

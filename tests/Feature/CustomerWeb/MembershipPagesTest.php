@@ -212,6 +212,9 @@ class MembershipPagesTest extends TestCase
 
     public function test_my_membership_shows_status_dates_and_full_balances(): void
     {
+        // Frozen at 20:00 UTC = 01:30 IST, when the UTC and IST dates differ. The page shows dates in the
+        // customer's time zone, so the check must too (comparing UTC dates failed every night 00:00-05:30 IST).
+        $this->travelTo(\Illuminate\Support\Carbon::parse('2026-10-24 20:00:00', 'UTC'));
         $m = $this->primeMember();
 
         $html = Livewire::actingAs($m['customer'])->test(Account::class)
@@ -229,8 +232,10 @@ class MembershipPagesTest extends TestCase
             ->assertSee('Cancel membership')
             ->html();
 
-        $this->assertStringContainsString($m['subscription']->starts_at->format('j M Y'), $html);
-        $this->assertStringContainsString($m['subscription']->current_period_end->format('j M Y'), $html);
+        $tz = app(\App\Services\TimezoneResolver::class);
+        $this->assertStringContainsString($tz->format($m['subscription']->starts_at, null, 'j M Y'), $html);
+        $this->assertStringContainsString($tz->format($m['subscription']->current_period_end, null, 'j M Y'), $html);
+        $this->assertStringContainsString('25 Oct 2026', $html, 'Activated today in India, not yesterday in UTC.');
     }
 
     public function test_my_membership_reflects_usage_and_the_chosen_home_credit_category(): void

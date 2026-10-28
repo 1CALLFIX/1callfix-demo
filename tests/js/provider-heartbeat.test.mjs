@@ -73,9 +73,12 @@ function boot({ geolocation = true } = {}) {
     const clock = makeClock();
     const registry = {};
     const listeners = { add: 0, remove: 0 };
+    const docHandlers = {};
     const doc = {
         hidden: false,
-        addEventListener() { listeners.add += 1; },
+        addEventListener(type, fn) { listeners.add += 1; (docHandlers[type] ||= []).push(fn); },
+        /** Flip visibility the way a phone does, and fire the page's listeners. */
+        setHidden(hidden) { this.hidden = hidden; (docHandlers.visibilitychange || []).forEach((fn) => fn()); },
         removeEventListener() { listeners.remove += 1; },
     };
 
@@ -117,7 +120,7 @@ function boot({ geolocation = true } = {}) {
 function mount(h) {
     const calls = [];
     const data = h.registry.providerHeartbeat();
-    data.$wire = { goOnline: (lat, lng) => calls.push([lat, lng]) };
+    data.$wire = { refreshLocation: (lat, lng) => calls.push([lat, lng]) };
     data.init();
 
     return { data, calls, destroy: () => data.destroy() };
@@ -320,4 +323,28 @@ test('M. after the set empties, a later online session starts a fresh single int
     h.clock.advance(HEARTBEAT_MS);
     resolveFix(h);
     assert.equal(again.calls.length, 1);
+});
+
+test('N. opening a locked phone again sends one fix at once, not after the next 120 s tick', () => {
+    const h = boot();
+    const m = mount(h);
+
+    h.doc.setHidden(true);
+    h.clock.advance(HEARTBEAT_MS * 5);
+    assert.equal(h.fixes.length, 0, 'nothing while hidden');
+
+    h.doc.setHidden(false);
+    assert.equal(h.fixes.length, 1, 'catch-up request the moment it is visible');
+    resolveFix(h, 12.1, 77.1);
+    assert.deepEqual(m.calls, [[12.1, 77.1]]);
+    assert.equal(h.clock.active, 1, 'still exactly one interval');
+});
+
+test('O. the visibility catch-up does nothing while offline (no marker mounted)', () => {
+    const h = boot();
+    mount(h).destroy();
+
+    h.doc.setHidden(true);
+    h.doc.setHidden(false);
+    assert.equal(h.fixes.length, 0);
 });

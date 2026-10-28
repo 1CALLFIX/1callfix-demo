@@ -1,6 +1,6 @@
 <div>
     <div class="flex items-center justify-between mb-4">
-        <h1 class="text-2xl font-bold">Providers</h1>
+        @unless ($embedded)<h1 class="text-2xl font-bold">Providers</h1>@else<span></span>@endunless
         <div class="flex gap-2 text-sm">
             <x-ui.button variant="secondary" size="sm" wire:click="exportProvidersCsv" title="Export the current filtered view as CSV">Export CSV</x-ui.button>
             <x-ui.button variant="secondary" size="sm" wire:click="toggleProvidersPrereg">
@@ -28,8 +28,7 @@
     <x-ui.archive-bars :bars="$archiveBars" />
 
     <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
-        <x-ui.filter-tabs :tabs="['' => 'All', 'pending' => 'Pending Review', 'approved' => 'Approved', 'rejected' => 'Rejected', 'archived' => 'Archived']"
-                          :active="$statusFilter" model="statusFilter" :counts="$counts" />
+        <x-ui.filter-tabs :tabs="$statusTabs" :active="$statusFilter" model="statusFilter" :counts="$counts" :alerts="['review' => $counts['overdue'] ?? 0]" />
 
         <div class="flex items-center gap-3">
             <label class="flex items-center gap-1.5 text-sm text-gray-600 whitespace-nowrap">
@@ -41,7 +40,9 @@
         </div>
     </div>
 
-    @if ($statusFilter === 'pending' && $providers->total() > 0)
+    @include('livewire.partners.partials.filters', ['typeLabel' => 'All businesses'])
+
+    @if (in_array($statusFilter, ['pending', 'review'], true) && $providers->total() > 0)
         {{-- Admin Polish + AI session, Part 1 item 3 — makes the queue
              framing explicit rather than implicit in the sort order alone. --}}
         <p class="text-xs text-gray-500 mb-3">
@@ -58,25 +59,28 @@
                 <x-ui.sno-th />
                 <th class="px-4 py-2">Name</th>
                 <th class="px-4 py-2">Phone</th>
-                <th class="px-4 py-2">Zone</th>
+                <th class="px-4 py-2">City / zone</th>
                 <th class="px-4 py-2">Type</th>
                 <th class="px-4 py-2">Status</th>
                 <th class="px-4 py-2">Documents</th>
-                <th class="px-4 py-2">{{ $statusFilter === 'pending' ? 'Waiting' : 'Applied' }}</th>
+                <th class="px-4 py-2">{{ in_array($statusFilter, ['pending', 'review'], true) ? 'Waiting' : 'Applied' }}</th>
+                <th class="px-4 py-2">Online</th>
                 <th class="px-4 py-2"></th>
             </tr>
         </thead>
         <tbody>
             @forelse ($providers as $provider)
-                <tr class="border-t hover:bg-gray-50">
+                @php $overdue = $statusFilter === 'review' && \App\Support\PartnerReview::level(\App\Support\PartnerReview::hours($provider->waiting_since)) === 'red'; @endphp
+                <tr @class(['border-t', 'border-l-4 border-l-red-600 bg-red-50 hover:bg-red-100' => $overdue, 'hover:bg-gray-50' => ! $overdue])>
                     <x-ui.sno :rows="$providers" :loop="$loop" />
                     <td class="px-4 py-2">{{ $provider->user->name ?? '—' }}</td>
                     <td class="px-4 py-2">{{ $provider->user->phone ?? '—' }}</td>
-                    <td class="px-4 py-2">{{ $provider->zone->name ?? '—' }}</td>
+                    <td class="px-4 py-2">{{ $provider->franchise?->city?->name ?? '—' }}<span class="block text-xs text-gray-500">{{ $provider->zone->name ?? '' }}</span></td>
                     <td class="px-4 py-2">{{ ucfirst($provider->provider_type) }}</td>
                     <td class="px-4 py-2"><x-ui.status-badge type="provider_kyc" :status="$provider->kyc_status" /></td>
                     <td class="px-4 py-2">{{ $provider->documents->count() }} uploaded</td>
-                    <td class="px-4 py-2 text-gray-500">{{ $provider->created_at->diffForHumans() }}</td>
+                    <td class="px-4 py-2 text-gray-500">@include('livewire.partners.partials.waiting', ['row' => $provider])</td>
+                    <td class="px-4 py-2"><x-ui.presence :user="$provider->user" :on-duty="(bool) $provider->is_online" /></td>
                     <td class="px-4 py-2">
                         <x-ui.row-actions :id="$provider->id" :archived="$provider->trashed()" :can-manage="$canManage" :can-force="$canForce"
                                           :view-href="route('admin.providers.show', $provider->id)" view-label="Review"
@@ -84,8 +88,8 @@
                     </td>
                 </tr>
             @empty
-                <tr><td colspan="9">
-                    <x-ui.empty-state icon="check-circle" :title="$statusFilter === 'pending' ? 'Queue is clear' : 'No providers in this status'" :description="$statusFilter === 'pending' ? 'No pending applications need review right now.' : null" />
+                <tr><td colspan="10">
+                    <x-ui.empty-state icon="check-circle" :title="in_array($statusFilter, ['pending', 'review'], true) ? 'Queue is clear' : 'No providers match these filters'" :description="in_array($statusFilter, ['pending', 'review'], true) ? 'No pending applications need review right now.' : null" />
                 </td></tr>
             @endforelse
         </tbody>

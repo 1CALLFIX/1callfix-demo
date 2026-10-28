@@ -14,8 +14,10 @@ final class PartnerPageData
 {
     /**
      * Role cards from the module registry. `live` is the registry's own answer (ModuleActivationService), read live;
-     * a module that is not live is "Opening soon" and its leads go to the waiting list. Only the service role can
-     * continue into the existing provider sign-up.
+     * a module that is not live is "Opening soon" and its leads go to the waiting list. A role that `hands_off`
+     * continues into the one partner sign-up (/provider/register: OTP, documents, admin approval) — the service role
+     * once services are live, and the delivery rider role as soon as parcel prices are set somewhere, so riders are
+     * signed up BEFORE parcel opens to customers (owner rule 2026-10-25: every partner joins through /partners).
      *
      * @return list<array{code:string, label:string, blurb:string, module:string, live:bool, hands_off:bool}>
      */
@@ -38,7 +40,7 @@ final class PartnerPageData
                 'blurb' => $wording[$code]['blurb'],
                 'module' => P::ROLE_MODULE_NAMES[$code] ?? '',
                 'live' => $live,
-                'hands_off' => $code === 'service' && $live,
+                'hands_off' => ($code === 'service' && $live) || ($code === 'parcel' && app(\App\Services\Parcel\ParcelReadiness::class)->recruitingRiders()),
             ];
         }
 

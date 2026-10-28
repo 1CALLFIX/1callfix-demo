@@ -222,19 +222,44 @@
         </x-ui.card>
     @endif
 
-    @if (!empty($otherVerticals))
-        {{-- Admin Command Center mission (Phase 4) -- Parcel/Taxi/Rental/Hotel/
-             Marketplace volume, invisible on this screen before this session
-             even after each vertical shipped a real admin screen. Only shows
-             verticals the viewer actually holds permission to open. --}}
-        <div class="text-sm font-semibold text-gray-500 mb-3">Other Verticals — Today</div>
-        <div class="grid grid-cols-2 md:grid-cols-3 gap-4 mb-8">
-            @foreach ($otherVerticals as $v)
-                <a href="{{ $v['route'] }}" class="block">
-                    <x-ui.card class="hover:shadow-md transition">
-                        <div class="text-sm text-gray-500">{{ $v['label'] }}</div>
-                        <div class="text-2xl font-bold">{{ $v['count'] }}</div>
+    @if ($parcelToday)
+        {{-- Parcel is the live vertical (owner 2026-10-28): its own panel instead of one card among the pre-launch
+             verticals. Same permission and scope as the Parcel screens. --}}
+        <div class="mb-3 flex items-center justify-between">
+            <div class="flex items-center gap-2 text-sm font-semibold text-gray-700">
+                <span class="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-orange-100 text-orange-600"><x-icon name="shopping-bag" class="h-4 w-4" /></span>
+                Parcel — Today
+            </div>
+            <a href="{{ $parcelToday['dashboard'] }}" class="text-xs font-medium text-blue-600 hover:underline">Open Parcel Dashboard →</a>
+        </div>
+        <div class="mb-6 grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-6">
+            @foreach ([
+                ['label' => 'Orders', 'value' => $parcelToday['orders'], 'hint' => 'placed today', 'tone' => 'text-gray-900'],
+                ['label' => 'Live now', 'value' => $parcelToday['live'], 'hint' => 'searching or on the way', 'tone' => 'text-amber-600'],
+                ['label' => 'Delivered', 'value' => $parcelToday['delivered'], 'hint' => 'completed today', 'tone' => 'text-green-600'],
+                ['label' => 'Cancelled', 'value' => $parcelToday['cancelled'], 'hint' => 'today', 'tone' => 'text-red-600'],
+                ['label' => 'Revenue', 'value' => $currencySymbol.number_format($parcelToday['revenue'], 2), 'hint' => 'delivered orders', 'tone' => 'text-gray-900'],
+                ['label' => 'Avg delivery TAT', 'value' => \App\Support\Turnaround::format($parcelToday['avg_tat']), 'hint' => 'order to drop-off', 'tone' => 'text-blue-600'],
+            ] as $card)
+                <a href="{{ $parcelToday['route'] }}" class="block">
+                    <x-ui.card class="h-full border-t-4 border-t-orange-400 transition hover:shadow-md">
+                        <div class="text-xs font-medium uppercase tracking-wide text-gray-500">{{ $card['label'] }}</div>
+                        <div class="mt-1 text-2xl font-bold tabular-nums {{ $card['tone'] }}">{{ $card['value'] }}</div>
+                        <div class="text-xs text-gray-400">{{ $card['hint'] }}</div>
                     </x-ui.card>
+                </a>
+            @endforeach
+        </div>
+    @endif
+
+    @if (!empty($otherVerticals))
+        {{-- The pre-launch verticals stay visible as one slim strip (each still gated by its own screen's permission). --}}
+        <div class="mb-8 flex flex-wrap items-center gap-2 text-xs">
+            <span class="font-medium uppercase tracking-wide text-gray-400">Pre-launch today</span>
+            @foreach ($otherVerticals as $v)
+                <a href="{{ $v['route'] }}" class="inline-flex items-center gap-1.5 rounded-full border border-gray-200 bg-white px-3 py-1 text-gray-600 hover:border-gray-300 hover:bg-gray-50">
+                    {{ \Illuminate\Support\Str::before($v['label'], ' Today') }}
+                    <span class="font-semibold tabular-nums text-gray-900">{{ $v['count'] }}</span>
                 </a>
             @endforeach
         </div>
@@ -252,6 +277,7 @@
                 <th class="px-4 py-2">Provider</th>
                 <th class="px-4 py-2">Status</th>
                 <th class="px-4 py-2">Price</th>
+                <x-ui.tat-heads />
             </tr>
         </thead>
         <tbody>
@@ -266,9 +292,10 @@
                         <x-ui.status-badge type="booking" :status="$booking->status" />
                     </td>
                     <td class="px-4 py-2">{{ $currencySymbol }}{{ number_format($booking->price_final ?? $booking->price_quoted, 2) }}</td>
+                    <x-ui.tat-cells :record="$booking" done="completed_at"/>
                 </tr>
             @empty
-                <tr><td colspan="7"><x-ui.empty-state icon="clipboard" title="No bookings yet" /></td></tr>
+                <tr><td colspan="10"><x-ui.empty-state icon="clipboard" title="No bookings yet" /></td></tr>
             @endforelse
         </tbody>
     </x-ui.table>

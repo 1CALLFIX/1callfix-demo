@@ -361,7 +361,7 @@ function setup() {
     /* ------------------------ location heartbeat ---------------------------- */
 
     // While a provider is online, the browser re-sends its location every two
-    // minutes through the component's own `goOnline(lat, lng)` (the dispatch
+    // minutes through the component's own `refreshLocation(lat, lng)` (the dispatch
     // freshness gate reads the resulting location_updated_at). The cadence, the
     // visibility/geolocation guards and the call itself are unchanged from the
     // inline x-init this replaced; what changed is ownership.
@@ -396,6 +396,16 @@ function setup() {
         );
     }
 
+    // A phone that was locked or switched to another app sent nothing while
+    // hidden (the tick above skips hidden pages). The moment it is opened
+    // again, send one fix straight away instead of waiting up to two minutes,
+    // so the provider is back in dispatch at once. One listener for the whole
+    // page, added once; it does nothing while no marker is mounted (offline),
+    // and refreshLocation never puts an offline provider back online.
+    document.addEventListener('visibilitychange', () => {
+        if (!document.hidden) heartbeatTick();
+    });
+
     function heartbeatJoin(member) {
         heartbeatMembers.add(member);
         if (heartbeatTimer === null) {
@@ -428,7 +438,7 @@ function setup() {
             const member = { send: null };
             return {
                 init() {
-                    member.send = (lat, lng) => this.$wire.goOnline(lat, lng);
+                    member.send = (lat, lng) => this.$wire.refreshLocation(lat, lng);
                     heartbeatJoin(member);
                 },
                 destroy() {

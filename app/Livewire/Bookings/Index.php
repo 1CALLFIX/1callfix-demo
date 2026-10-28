@@ -229,7 +229,7 @@ class Index extends Component
     {
         $scoped = fn ($query) => app(AuthorizationService::class)->scopeQuery($query, auth()->user(), 'bookings.view', $this->bookingScopeColumns());
 
-        return $scoped(Booking::with(['customer', 'service', 'provider.user']))
+        return $scoped(Booking::with(['customer', 'service', 'provider.user', 'statusHistory' => \App\Support\Turnaround::historyScope()]))
             ->when($this->statusFilter, fn ($q) => $q->where('status', $this->statusFilter))
             ->when($this->search, fn ($q) => $q->where('code', 'like', "%{$this->search}%"))
             // Natural-language search results (Part 2 item 2) -- zone_id and
@@ -247,12 +247,17 @@ class Index extends Component
         return $this->streamCsvExport(
             'bookings-filtered-'.now()->format('Y-m-d-His').'.csv',
             $this->filteredBookingsQuery(),
-            ['id', 'code', 'status', 'customer', 'customer_phone', 'service', 'provider', 'price_quoted', 'price_final', 'payment_status', 'created_at', 'completed_at'],
-            fn (Booking $b) => [
-                $b->id, $b->code, $b->status, $b->customer?->name, $b->customer?->phone,
-                $b->service?->name, $b->provider?->user?->name, $b->price_quoted, $b->price_final,
-                $b->payment_status, $b->created_at, $b->completed_at,
-            ],
+            ['id', 'code', 'status', 'customer', 'customer_phone', 'service', 'provider', 'price_quoted', 'price_final', 'payment_status', 'created_at', 'completed_at', 'closed_at', 'tat_minutes'],
+            function (Booking $b) {
+                $close = \App\Support\Turnaround::close($b, 'completed_at');
+
+                return [
+                    $b->id, $b->code, $b->status, $b->customer?->name, $b->customer?->phone,
+                    $b->service?->name, $b->provider?->user?->name, $b->price_quoted, $b->price_final,
+                    $b->payment_status, $b->created_at, $b->completed_at, $close['at'],
+                    $close['at'] ? round(\App\Support\Turnaround::seconds($b->created_at, $close['at']) / 60, 1) : null,
+                ];
+            },
         );
     }
 

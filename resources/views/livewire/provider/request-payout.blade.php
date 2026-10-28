@@ -1,19 +1,7 @@
 <div>
     <h1 class="text-xl font-bold tracking-tight">Payments</h1>
 
-    {{-- Earnings / Payment Accounts / Request Payout live under this one nav
-         branch — see the matching strip in earnings.blade.php and
-         payment-accounts.blade.php. --}}
-    <div class="mt-3 flex flex-wrap gap-2 text-sm">
-        <a href="{{ route('provider.earnings') }}" wire:navigate
-           class="rounded-lg px-3 py-1.5 font-medium bg-white text-slate-700 border border-slate-300">Earnings</a>
-        <a href="{{ route('provider.payment-accounts') }}" wire:navigate
-           class="rounded-lg px-3 py-1.5 font-medium bg-white text-slate-700 border border-slate-300">Payment Accounts</a>
-        <a href="{{ route('provider.request-payout') }}" wire:navigate
-           class="rounded-lg px-3 py-1.5 font-medium bg-slate-900 text-white">Request Payout</a>
-        <a href="{{ route('provider.wallet') }}" wire:navigate
-           class="rounded-lg px-3 py-1.5 font-medium bg-white text-slate-700 border border-slate-300">Wallet &amp; dues</a>
-    </div>
+    @include('livewire.provider.partials.payments-tabs', ['area' => $area ?? 'provider', 'current' => 'request-payout'])
 
     @if ($flashMessage)
         <div @class(['mt-4 rounded-lg p-3 text-sm', 'bg-emerald-50 text-emerald-700' => $flashType === 'success', 'bg-red-50 text-red-700' => $flashType === 'error'])>
@@ -27,7 +15,7 @@
             <p class="mt-1 text-2xl font-bold">₹{{ number_format((float) $walletBalance, 2) }}</p>
             @if ($outstandingCashCommission > 0)
                 <p class="mt-1 text-xs text-amber-700">
-                    Less ₹{{ number_format((float) $outstandingCashCommission, 2) }} cash commission owed to the platform
+                    Less ₹{{ number_format((float) $outstandingCashCommission, 2) }} {{ ($area ?? 'provider') === 'rider' ? 'cash dues' : 'cash commission' }} owed to the platform
                 </p>
             @endif
             @if ($outstandingDisputeDebt > 0)
@@ -41,7 +29,7 @@
             <p class="mt-1 text-2xl font-bold">₹{{ number_format((float) $withdrawableBalance, 2) }}</p>
             @if ($outstandingCashCommission > 0)
                 <p class="mt-1 text-xs text-gray-500">
-                    Cash-commission debt is recovered from your wallet before any payout.
+                    {{ ($area ?? 'provider') === 'rider' ? 'Cash dues are' : 'Cash-commission debt is' }} recovered from your wallet before any payout.
                 </p>
             @endif
         </x-ui.card>
@@ -57,7 +45,7 @@
         @if ($verifiedAccounts->isEmpty())
             <x-ui.card class="!p-6 text-center text-sm text-slate-500">
                 You don't have a verified payment account yet. Add one from the
-                <a href="{{ route('provider.payment-accounts') }}" wire:navigate class="text-blue-600 hover:underline">Payment Accounts</a>
+                <a href="{{ route(($area ?? 'provider').'.payment-accounts') }}" wire:navigate class="text-blue-600 hover:underline">Payment Accounts</a>
                 tab and wait for admin verification before requesting a payout.
             </x-ui.card>
         @else

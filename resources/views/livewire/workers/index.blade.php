@@ -1,6 +1,6 @@
 <div>
     <div class="mb-4 flex flex-wrap items-center justify-between gap-2">
-        <h1 class="text-2xl font-bold">Workers</h1>
+        @unless ($embedded)<h1 class="text-2xl font-bold">Workers</h1>@else<span></span>@endunless
         @if ($canManage)
             <x-ui.button wire:click="$toggle('showAddRider')">{{ $showAddRider ? 'Close' : 'Add parcel rider' }}</x-ui.button>
         @endif
@@ -51,9 +51,9 @@
 
     <x-ui.archive-bars :bars="$archiveBars" />
 
-    <x-ui.filter-tabs class="mb-4"
-                      :tabs="['' => 'All', 'pending' => 'Pending Review', 'approved' => 'Approved', 'rejected' => 'Rejected', 'archived' => 'Archived']"
-                      :active="$statusFilter" model="statusFilter" :counts="$counts" />
+    <x-ui.filter-tabs class="mb-4" :tabs="$statusTabs" :active="$statusFilter" model="statusFilter" :counts="$counts" :alerts="['review' => $counts['overdue'] ?? 0]" />
+
+    @include('livewire.partners.partials.filters', ['typeLabel' => 'All types'])
 
     <x-ui.table>
         <x-slot:footer>{{ $workers->links() }}</x-slot:footer>
@@ -63,20 +63,22 @@
                 <x-ui.sno-th />
                 <th class="px-4 py-2">Name</th>
                 <th class="px-4 py-2">Phone</th>
-                <th class="px-4 py-2">Zone</th>
+                <th class="px-4 py-2">City / zone</th>
                 <th class="px-4 py-2">Capabilities</th>
                 <th class="px-4 py-2">Documents</th>
-                <th class="px-4 py-2">Applied</th>
+                <th class="px-4 py-2">{{ $statusFilter === 'review' ? 'Waiting' : 'Applied' }}</th>
+                <th class="px-4 py-2">Online</th>
                 <th class="px-4 py-2"></th>
             </tr>
         </thead>
         <tbody>
             @forelse ($workers as $worker)
-                <tr class="border-t hover:bg-gray-50">
+                @php $overdue = $statusFilter === 'review' && \App\Support\PartnerReview::level(\App\Support\PartnerReview::hours($worker->waiting_since)) === 'red'; @endphp
+                <tr @class(['border-t', 'border-l-4 border-l-red-600 bg-red-50 hover:bg-red-100' => $overdue, 'hover:bg-gray-50' => ! $overdue])>
                     <x-ui.sno :rows="$workers" :loop="$loop" />
                     <td class="px-4 py-2">{{ $worker->user->name ?? '—' }}</td>
                     <td class="px-4 py-2">{{ $worker->user->phone ?? '—' }}</td>
-                    <td class="px-4 py-2">{{ $worker->zone->name ?? '—' }}</td>
+                    <td class="px-4 py-2">{{ $worker->franchise?->city?->name ?? '—' }}<span class="block text-xs text-gray-500">{{ $worker->zone->name ?? '' }}</span></td>
                     <td class="px-4 py-2 text-gray-500">
                         @forelse ($worker->capabilities as $cap)
                             <span class="inline-block bg-gray-100 rounded px-1.5 py-0.5 text-xs mr-1">{{ str_replace('_', ' ', $cap->capability_type) }}</span>
@@ -85,7 +87,8 @@
                         @endforelse
                     </td>
                     <td class="px-4 py-2">{{ $worker->documents->count() }} uploaded</td>
-                    <td class="px-4 py-2 text-gray-500">{{ $worker->created_at->diffForHumans() }}</td>
+                    <td class="px-4 py-2 text-gray-500">@include('livewire.partners.partials.waiting', ['row' => $worker])</td>
+                    <td class="px-4 py-2"><x-ui.presence :user="$worker->user" :on-duty="(bool) $worker->is_online" /></td>
                     <td class="px-4 py-2">
                         <x-ui.row-actions :id="$worker->id" :archived="$worker->trashed()" :can-manage="$canManage" :can-force="$canForce"
                                           :view-href="route('admin.workers.show', $worker->id)" view-label="Review"
@@ -93,7 +96,7 @@
                     </td>
                 </tr>
             @empty
-                <tr><td colspan="8" class="px-4 py-6 text-center text-gray-400">No workers in this status.</td></tr>
+                <tr><td colspan="9" class="px-4 py-6 text-center text-gray-400">No partners match these filters.</td></tr>
             @endforelse
         </tbody>
     </x-ui.table>

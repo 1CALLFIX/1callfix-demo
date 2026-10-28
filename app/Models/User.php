@@ -45,7 +45,15 @@ class User extends Authenticatable
 
     protected $hidden = ['password', 'remember_token'];
     protected $casts = ['phone_verified_at' => 'datetime', 'email_verified_at' => 'datetime', 'push_ops_alerts' => 'boolean',
-        'referral_blocked_at' => 'datetime', 'last_login_at' => 'datetime'];
+        'referral_blocked_at' => 'datetime', 'last_login_at' => 'datetime', 'last_seen_at' => 'datetime'];
+    /** Minutes of inactivity after which a user is no longer shown as online (admin people lists). */
+    public const ONLINE_WINDOW_MINUTES = 5;
+
+    /** Active in the last few minutes on web, app or API (App\Http\Middleware\TouchLastSeen). */
+    public function isOnline(): bool
+    {
+        return $this->last_seen_at !== null && $this->last_seen_at->gt(now()->subMinutes(self::ONLINE_WINDOW_MINUTES));
+    }
     public function referrer() { return $this->belongsTo(User::class, 'referred_by'); }
     public function referralBlockedBy() { return $this->belongsTo(User::class, 'referral_blocked_by'); }
     public function franchise() { return $this->belongsTo(Franchise::class); }
@@ -53,6 +61,34 @@ class User extends Authenticatable
     public function providerProfile() { return $this->hasOne(Provider::class); }
     /** The universal field-execution profile — distinct from providerProfile(). A User may hold either, both, or neither depending on their real role. */
     public function fieldWorkerProfile() { return $this->hasOne(FieldWorker::class); }
+    /** Super Admin passwords are never reset by OTP (owner 2026-10-27): a stolen phone or inbox must not open the top account. On the server: php artisan admin:create. */
+    public function canSelfResetPassword(): bool
+    {
+        return $this->role !== 'super_admin';
+    }
+    /**
+     * One account, several partner roles (owner 2026-10-27): an active customer or partner may apply for a partner
+     * role it does not hold yet, on this same account — 'service' (a provider profile) or 'parcel' (a rider profile).
+     * Staff and suspended accounts never apply here.
+     */
+    public function canApplyAsPartner(string $role = 'service'): bool
+    {
+        if (! in_array($this->role, ['customer', 'provider'], true) || $this->status !== 'active') {
+            return false;
+        }
+
+        return match ($role) {
+            'service' => ! $this->providerProfile()->exists(),
+            'parcel' => ! $this->fieldWorkerProfile()->exists(),
+            default => false,
+        };
+    }
+
+    /** The header "Become a partner" button: a role this account could still add. */
+    public function canAddAPartnerRole(): bool
+    {
+        return $this->canApplyAsPartner('service') || $this->canApplyAsPartner('parcel');
+    }
     public function addresses() { return $this->hasMany(Address::class); }
     public function bookings() { return $this->hasMany(Booking::class, 'customer_id'); }
     public function wallet() { return $this->hasOne(Wallet::class); }

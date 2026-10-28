@@ -7,8 +7,16 @@
     </div>
 
     <x-ui.card class="mt-8 !p-6 sm:!p-8">
+        @if (session('status'))
+            <div role="status" class="mb-5 rounded-lg bg-emerald-50 px-3 py-2.5 text-sm text-emerald-800">{{ session('status') }}</div>
+        @endif
         @if ($error)
-            <div role="alert" class="mb-5 rounded-lg bg-red-50 px-3 py-2.5 text-sm text-red-800">{{ $error }}</div>
+            <div role="alert" @class(['mb-5 rounded-lg px-3 py-2.5 text-sm', 'bg-amber-50 text-amber-900' => $notAppliedYet, 'bg-red-50 text-red-800' => ! $notAppliedYet])>
+                {{ $error }}
+                @if ($notAppliedYet)
+                    <a href="{{ route('customer.partners') }}" class="mt-2 block rounded-lg bg-slate-900 px-3 py-2 text-center font-medium text-white">Apply as a rider</a>
+                @endif
+            </div>
         @endif
 
         <form wire:submit="login" class="space-y-5">
@@ -32,8 +40,11 @@
             </x-ui.button>
         </form>
 
-        <p class="mt-6 text-center text-sm text-slate-600">
-            Want to ride with {{ $platformName }}? Ask your local {{ $platformName }} office to register you.
+        <p class="mt-4 text-center text-sm">
+            <a href="{{ route('customer.password.forgot', ['for' => 'rider']) }}" wire:navigate class="font-medium text-blue-600 hover:underline">Forgot password?</a>
+        </p>
+        <p class="mt-4 text-center text-sm text-slate-600">
+            Want to ride with {{ $platformName }}? <a href="{{ route('customer.partners') }}#join" class="font-medium text-slate-900 underline underline-offset-2">Apply on the partner page</a>
         </p>
         <p class="mt-2 text-center text-sm text-slate-600">
             Not a rider? <a href="{{ route('customer.login') }}" wire:navigate class="font-medium text-slate-900 underline underline-offset-2">Customer sign in</a>

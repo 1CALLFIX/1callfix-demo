@@ -42,7 +42,7 @@ class OnlineToggle extends Component
 
         try {
             app(SetProviderOnlineStatusAction::class)->execute($this->provider(), true, $lat, $lng);
-        } catch (\App\Exceptions\ShiftRequiredException $e) {
+        } catch (\App\Exceptions\CannotGoOnlineException $e) {
             $this->error = $e->getMessage();
 
             return;
@@ -51,6 +51,12 @@ class OnlineToggle extends Component
         if (! $wasOnline) {
             $this->announceAvailabilityChange();
         }
+    }
+
+    /** The location heartbeat: refreshes the fix while online, never flips a provider back online. */
+    public function refreshLocation(?float $lat = null, ?float $lng = null): void
+    {
+        app(SetProviderOnlineStatusAction::class)->refreshLocation($this->provider(), $lat, $lng);
     }
 
     public function goOffline(): void

@@ -13,19 +13,15 @@ use Tests\TestCase;
 
 /**
  * Users Sidebar Reorganization session — Customers/Providers/Workers/All
- * Users moved out of "Operations" into their own "Users" group, plus a new
- * reserved "Drivers" slot for the Parcel vertical's future riders (see
- * App\Livewire\Drivers\Index's own docblock — no real functionality
- * exists behind it). This is a pure relocation: every permission slug is
- * unchanged from before the move, so customers.view/workers.view/the new
- * drivers.view stay locked to super_admin exactly as seeded.
+ * Users moved out of "Operations" into their own "Users" group. Since 2026-10-26 Workers and the empty Drivers
+ * slot are one "Partners" item (People + Businesses tabs), shown to anyone holding workers.view or providers.view.
  */
 class AdminUsersGroupTest extends TestCase
 {
     use RefreshDatabase;
     use RbacTestHelpers;
 
-    public function test_super_admin_sees_the_users_group_with_all_five_sub_branches(): void
+    public function test_super_admin_sees_the_users_group_with_partners_instead_of_workers_and_drivers(): void
     {
         $admin = $this->makeSuperAdmin();
 
@@ -37,26 +33,26 @@ class AdminUsersGroupTest extends TestCase
         $response->assertSee('All Users');
         $response->assertSee('Customers');
         $response->assertSee('Providers');
-        $response->assertSee('Drivers');
-        $response->assertSee('Workers');
+        $response->assertSee('Partners');
         $response->assertSee(route('admin.customers.index'), false);
         $response->assertSee(route('admin.providers.index'), false);
-        $response->assertSee(route('admin.drivers.index'), false);
-        $response->assertSee(route('admin.workers.index'), false);
+        $response->assertSee(route('admin.partners.index'), false);
         $response->assertSee(route('admin.all-users.index'), false);
+        $response->assertDontSee('href="'.route('admin.drivers.index').'"', false);
+        $response->assertDontSee('href="'.route('admin.workers.index').'"', false);
     }
 
-    public function test_landing_on_drivers_marks_users_as_the_active_group(): void
+    public function test_landing_on_partners_marks_users_as_the_active_group(): void
     {
         $admin = $this->makeSuperAdmin();
 
-        $response = $this->actingAs($admin)->get(route('admin.drivers.index'));
+        $response = $this->actingAs($admin)->get(route('admin.partners.index'));
 
         $response->assertOk();
         $response->assertSee('data-active-nav-group="users"', false);
     }
 
-    public function test_a_viewer_with_only_providers_view_sees_providers_but_no_other_users_sub_branch(): void
+    public function test_a_viewer_with_only_providers_view_sees_providers_and_partners_but_no_other_users_sub_branch(): void
     {
         $actor = $this->makeUserWithPermission('providers.view', 'global');
         $this->grantPermission($actor, 'dashboard.view');
@@ -65,9 +61,8 @@ class AdminUsersGroupTest extends TestCase
 
         $response->assertOk();
         $response->assertSee('Providers');
+        $response->assertSee(route('admin.partners.index'), false);
         $response->assertDontSee('Customers');
-        $response->assertDontSee('Drivers');
-        $response->assertDontSee('Workers');
         $response->assertDontSee('All Users');
     }
 
@@ -102,19 +97,16 @@ class AdminUsersGroupTest extends TestCase
         $response->assertOk();
         $response->assertSee('Providers');
         $response->assertDontSee('Customers');
-        $response->assertDontSee('Drivers');
-        $response->assertDontSee('Workers');
+        // Support sees Partners (it holds providers.view) but only the Businesses tab: workers.view stays HQ-only.
+        $this->actingAs($actor)->get(route('admin.partners.index'))->assertOk()
+            ->assertSee(route('admin.partners.index', ['tab' => 'businesses']), false)
+            ->assertDontSee(route('admin.partners.index', ['tab' => 'people']), false);
     }
 
-    public function test_drivers_placeholder_is_open_to_super_admin_and_forbidden_otherwise(): void
+    public function test_partners_is_forbidden_without_either_partner_permission(): void
     {
-        $superAdmin = $this->makeSuperAdmin();
         $nonAdmin = $this->makeUserWithPermission('dashboard.view', 'global');
 
-        Livewire::actingAs($superAdmin)->test(\App\Livewire\Drivers\Index::class)
-            ->assertOk()
-            ->assertSee('Drivers');
-
-        Livewire::actingAs($nonAdmin)->test(\App\Livewire\Drivers\Index::class)->assertForbidden();
+        Livewire::actingAs($nonAdmin)->test(\App\Livewire\Partners\Index::class)->assertForbidden();
     }
 }

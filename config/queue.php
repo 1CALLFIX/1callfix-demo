@@ -16,6 +16,13 @@ return [
     'default' => env('QUEUE_CONNECTION', 'database'),
 
     /*
+    | Queue name for job offers (dispatch rounds + offer push). Unset = the
+    | connection's own queue, exactly as before. See App\Support\DispatchQueue
+    | for the safe switch order.
+    */
+    'dispatch_queue' => env('DISPATCH_QUEUE'),
+
+    /*
     |--------------------------------------------------------------------------
     | Queue Connections
     |--------------------------------------------------------------------------

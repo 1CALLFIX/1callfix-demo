@@ -45,7 +45,7 @@ class Dashboard extends Component
 
         try {
             app(SetProviderOnlineStatusAction::class)->execute($this->provider(), true, $lat, $lng);
-        } catch (\App\Exceptions\ShiftRequiredException $e) {
+        } catch (\App\Exceptions\CannotGoOnlineException $e) {
             $this->error = $e->getMessage();
 
             return;
@@ -57,6 +57,23 @@ class Dashboard extends Component
 
         if (! $wasOnline) {
             $this->announceAvailabilityChange();
+        }
+    }
+
+    /** The location heartbeat and the "Refresh location" button: refreshes the fix while online, never flips a provider back online. */
+    public function refreshLocation(?float $lat = null, ?float $lng = null): void
+    {
+        $this->reset('notice', 'error');
+
+        if ($lat === null || $lng === null) {
+            $this->error = "We couldn't read your location. Allow location access for this site and try again.";
+
+            return;
+        }
+
+        // False only when the provider is no longer online; this re-render then shows the offline card.
+        if (app(SetProviderOnlineStatusAction::class)->refreshLocation($this->provider(), $lat, $lng)) {
+            $this->notice = 'Location updated.';
         }
     }
 

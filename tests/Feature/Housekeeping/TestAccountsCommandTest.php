@@ -3,6 +3,8 @@
 namespace Tests\Feature\Housekeeping;
 
 use App\Livewire\Auth\Login as AdminLogin;
+use App\Livewire\Rider\Auth\Login as RiderLogin;
+use App\Models\FieldWorker;
 use App\Models\Provider;
 use App\Models\RoleAssignment;
 use App\Models\User;
@@ -26,7 +28,7 @@ class TestAccountsCommandTest extends TestCase
         $this->artisan('test-accounts', ['action' => 'create', '--password' => self::PASSWORD, '--franchise' => $franchise->id])->assertSuccessful();
         $this->artisan('test-accounts', ['action' => 'create', '--password' => self::PASSWORD, '--franchise' => $franchise->id])->assertSuccessful();
 
-        $this->assertSame(8, User::where('email', 'like', '%@1callfix.test')->count());
+        $this->assertSame(9, User::where('email', 'like', '%@1callfix.test')->count());
         $operator = User::where('email', 'test.operator@1callfix.test')->first();
         $this->assertSame(1, RoleAssignment::where('user_id', $operator->id)->count());
         $this->assertTrue($operator->hasPermission('bookings.reassign', ['franchise_id' => $franchise->id]));
@@ -57,6 +59,48 @@ class TestAccountsCommandTest extends TestCase
             ->set('password', self::PASSWORD)
             ->call('submit')
             ->assertNoRedirect();
+    }
+
+    /** Owner thumb rule 2026-10-26: every module gets a test login for a real walk-through; parcel's is the rider. */
+    public function test_create_makes_an_approved_test_rider_who_can_sign_in_and_disable_turns_it_off(): void
+    {
+        [, , $franchise] = $this->makeFranchiseTree();
+        $this->artisan('test-accounts', ['action' => 'create', '--password' => self::PASSWORD, '--franchise' => $franchise->id])->assertSuccessful();
+        $this->artisan('test-accounts', ['action' => 'create', '--password' => self::PASSWORD, '--franchise' => $franchise->id])->assertSuccessful();
+
+        $rider = FieldWorker::whereHas('user', fn ($q) => $q->where('email', 'test.rider@1callfix.test'))->sole();
+        $this->assertSame('approved', $rider->kyc_status);
+        $this->assertTrue($rider->is_active);
+        $this->assertSame($franchise->id, $rider->franchise_id);
+        $this->assertSame(1, $rider->capabilities()->where('capability_type', 'parcel_rider')->count());
+        $this->assertFalse(Provider::where('user_id', $rider->user_id)->exists(), 'a rider is never a provider');
+        $this->assertSame(1, app(\App\Services\Parcel\ParcelReadiness::class)->riderCount('franchise', $franchise->id));
+
+        Livewire::test(RiderLogin::class)->set('identifier', 'test.rider@1callfix.test')->set('password', self::PASSWORD)
+            ->call('login')->assertRedirect(route('rider.dashboard'));
+
+        auth()->logout();
+        $this->artisan('test-accounts', ['action' => 'disable'])->assertSuccessful();
+        $this->assertFalse($rider->fresh()->is_active);
+        $this->assertSame(0, app(\App\Services\Parcel\ParcelReadiness::class)->riderCount('franchise', $franchise->id));
+    }
+
+    /** Thumb rule walk-through for Admin → Partners: the franchise login reviews its own city's partners. */
+    public function test_the_franchise_test_login_can_review_its_own_partners_and_the_operator_cannot(): void
+    {
+        [, , $franchise] = $this->makeFranchiseTree();
+        $this->artisan('test-accounts', ['action' => 'create', '--password' => self::PASSWORD, '--franchise' => $franchise->id])->assertSuccessful();
+        $rider = FieldWorker::whereHas('user', fn ($q) => $q->where('email', 'test.rider@1callfix.test'))->sole();
+
+        $owner = User::where('email', 'test.franchise@1callfix.test')->sole();
+        $this->assertTrue($owner->hasPermission('workers.review_kyc', ['franchise_id' => $franchise->id]));
+        $this->assertTrue($owner->hasPermission('providers.review_kyc', ['franchise_id' => $franchise->id]));
+        $this->actingAs($owner)->get(route('admin.partners.index', ['tab' => 'people', 'statusFilter' => 'approved']))
+            ->assertOk()->assertSee('Test Rider');
+        $this->get(route('admin.workers.show', $rider->id))->assertOk();
+
+        $operator = User::where('email', 'test.operator@1callfix.test')->sole();
+        $this->assertFalse($operator->hasPermission('workers.review_kyc', ['franchise_id' => $franchise->id]), 'franchise owner only');
     }
 
     public function test_create_refuses_a_missing_or_short_password(): void

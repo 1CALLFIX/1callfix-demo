@@ -7,7 +7,7 @@
     $navItems = [
         ['label' => 'Home', 'route' => 'rider.dashboard', 'icon' => 'home'],
         ['label' => 'History', 'route' => 'rider.history', 'icon' => 'clock'],
-        ['label' => 'Earnings', 'route' => 'rider.earnings', 'icon' => 'banknotes'],
+        ['label' => 'Earnings', 'route' => 'rider.earnings', 'icon' => 'banknotes', 'also' => ['rider.payment-accounts', 'rider.request-payout']],
     ];
 @endphp
 <!DOCTYPE html>
@@ -38,14 +38,17 @@
                 <a href="{{ route('rider.dashboard') }}" wire:navigate class="truncate text-base font-bold tracking-tight">
                     {{ $platformName }} <span class="font-medium text-blue-600">Rider</span>
                 </a>
-                <form method="POST" action="{{ route('rider.logout') }}">
-                    @csrf
-                    <button type="submit" class="text-sm text-slate-500 hover:text-slate-900">Sign out</button>
-                </form>
+                <div class="flex shrink-0 items-center gap-4">
+                    <x-partner.mode-switch current="parcel" class="text-sm" />
+                    <form method="POST" action="{{ route('rider.logout') }}">
+                        @csrf
+                        <button type="submit" class="text-sm text-slate-500 hover:text-slate-900">Sign out</button>
+                    </form>
+                </div>
             </div>
             <nav aria-label="Rider sections" class="mx-auto flex max-w-3xl gap-1 px-2 pb-2 sm:px-4">
                 @foreach ($navItems as $item)
-                    @php $isCurrent = request()->routeIs($item['route']); @endphp
+                    @php $isCurrent = request()->routeIs($item['route'], ...($item['also'] ?? [])); @endphp
                     <a href="{{ route($item['route']) }}" wire:navigate @if ($isCurrent) aria-current="page" @endif
                        @class([
                            'inline-flex min-h-10 flex-1 items-center justify-center gap-1.5 rounded-lg px-3 text-sm font-medium transition',

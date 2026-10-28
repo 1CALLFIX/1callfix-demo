@@ -14,6 +14,7 @@ use App\Services\ModuleActivationService;
 use App\Services\Parcel\ParcelPaymentService;
 use App\Services\Parcel\ParcelPricing;
 use App\Services\Parcel\ParcelSettings;
+use App\Services\TimezoneResolver;
 use App\Support\Modules;
 use Illuminate\Support\Facades\DB;
 use Livewire\Component;
@@ -53,7 +54,13 @@ class Create extends Component
     public string $packageSize = 'small';
     public string $packageWeightKg = '';
     public string $packageDescription = '';
+    /** Stage 1: what is inside (a ParcelSettings::CONTENTS key, optional) and the restricted-items tick (required). */
+    public string $packageContents = '';
+    public bool $restrictedConfirmed = false;
     public string $customerNote = '';
+    /** Stage 1: now|scheduled; scheduledAt is the naive wall clock from the datetime-local input (platform timezone). */
+    public string $deliveryType = 'now';
+    public string $scheduledAt = '';
     public string $paymentMethod = '';
     /** Pay at: pickup|drop (owner decision 2026-10-24) — cash only; drop = the recipient pays the rider at the door. */
     public string $cashCollectAt = 'pickup';
@@ -79,6 +86,7 @@ class Create extends Component
         $last = ParcelOrder::where('customer_id', auth()->id())->latest('id')->first();
         if ($last) {
             $this->packageSize = $last->package_size ?: 'small';
+            $this->packageContents = (string) $last->package_contents;
             $this->paymentMethod = (string) $last->payment_method; // dropped in render() if not offered here
             $this->cashCollectAt = $last->cash_collect_at === 'drop' ? 'drop' : 'pickup';
         }
@@ -160,6 +168,8 @@ class Create extends Component
         $this->validate($this->rules(), [
             'recipientPhone.regex' => 'Enter a 10-digit mobile number.',
             'pickupContactPhone.regex' => 'Enter a 10-digit mobile number.',
+            'restrictedConfirmed.accepted' => 'Confirm the parcel has none of the restricted items.',
+            'scheduledAt.required_if' => 'Choose the pickup date and time.',
         ]);
 
         $pickup = $this->pickupPoint();
@@ -210,6 +220,10 @@ class Create extends Component
                     'package_description' => $this->packageDescription ?: null,
                     'package_weight_kg' => $this->packageWeightKg !== '' ? (float) $this->packageWeightKg : null,
                     'package_size' => $this->packageSize,
+                    'package_contents' => $this->packageContents ?: null,
+                    'restricted_items_confirmed' => $this->restrictedConfirmed,
+                    'delivery_type' => $this->deliveryType,
+                    'scheduled_at' => $this->deliveryType === 'scheduled' ? $this->scheduledAt : null,
                     'payment_method' => $this->paymentMethod,
                     'cash_collect_at' => $this->paymentMethod === 'cash' ? $this->cashCollectAt : 'pickup',
                     'customer_note' => $this->customerNote ?: null,
@@ -258,6 +272,10 @@ class Create extends Component
             'packageSize' => ['required', 'in:'.implode(',', array_keys(ParcelSettings::SIZES))],
             'packageWeightKg' => ['nullable', 'numeric', 'min:0', 'max:9999'],
             'packageDescription' => ['nullable', 'string', 'max:255'],
+            'packageContents' => ['nullable', 'in:'.implode(',', array_keys(ParcelSettings::CONTENTS))],
+            'restrictedConfirmed' => ['accepted'],
+            'deliveryType' => ['required', 'in:now,scheduled'],
+            'scheduledAt' => ['nullable', 'required_if:deliveryType,scheduled', 'string', 'max:20'],
             'customerNote' => ['nullable', 'string', 'max:500'],
             'paymentMethod' => ['required', 'string'],
             'cashCollectAt' => ['required', 'in:pickup,drop'],
@@ -334,10 +352,15 @@ class Create extends Component
         $quoteError = null;
         $methods = [];
         $pickupZoneActive = null;
+        $scheduleAvailable = false;
 
         if ($pickup && $pickup['zone']) {
             $scope = $this->scopeFor($pickup['zone']);
             $pickupZoneActive = app(ModuleActivationService::class)->isActive(Modules::PARCEL, $scope);
+            $scheduleAvailable = ParcelSettings::scheduleAvailable($scope);
+            if (! $scheduleAvailable) {
+                $this->deliveryType = 'now';
+            }
             $methods = $this->paymentMethods($pickup['zone']);
             if ($this->paymentMethod === '' || ! array_key_exists($this->paymentMethod, $methods)) {
                 $this->paymentMethod = (string) array_key_first($methods);
@@ -349,6 +372,7 @@ class Create extends Component
                         $pickup['lat'], $pickup['lng'], $drop['lat'], $drop['lng'],
                         is_numeric($this->packageWeightKg) ? (float) $this->packageWeightKg : null,
                         $this->packageSize, $scope,
+                        $this->deliveryType === 'scheduled',
                     );
                 } catch (ParcelQuoteException $e) {
                     $quoteError = $e->getMessage();
@@ -364,6 +388,11 @@ class Create extends Component
             'recentRecipients' => $this->recentRecipients(),
             'savedAddresses' => $this->savedAddresses(),
             'sizes' => ParcelSettings::SIZES,
+            'contentsOptions' => ParcelSettings::CONTENTS,
+            'restrictedItems' => ParcelSettings::RESTRICTED_ITEMS,
+            'scheduleAvailable' => $scheduleAvailable,
+            'scheduleMin' => $pickup && $pickup['zone'] ? now(app(TimezoneResolver::class)->platformTimezone())->addMinutes((int) ParcelSettings::get('parcel.schedule_min_lead_minutes', $this->scopeFor($pickup['zone'])))->format('Y-m-d\TH:i') : null,
+            'scheduleMax' => $pickup && $pickup['zone'] ? now(app(TimezoneResolver::class)->platformTimezone())->addDays((int) ParcelSettings::get('parcel.schedule_max_days_ahead', $this->scopeFor($pickup['zone'])))->format('Y-m-d\TH:i') : null,
             'quote' => $quote,
             'quoteError' => $quoteError,
             'methods' => $methods,

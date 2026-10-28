@@ -105,7 +105,7 @@ class ParcelOrdersAuthorizationTest extends TestCase
 
         $actor = $this->makeUserWithPermission('parcel_orders.view', 'franchise', $franchise->id);
 
-        Livewire::actingAs($actor)->test(ParcelOrdersManage::class)
+        Livewire::actingAs($actor)->test(ParcelOrdersManage::class)->set('restrictedConfirmed', true)
             ->set('selectedCustomerId', $customer->id)
             ->set('selectedZoneId', $other['zone']->id)
             ->set('pickupAddressLine', 'Pickup')
@@ -131,7 +131,7 @@ class ParcelOrdersAuthorizationTest extends TestCase
 
         $actor = $this->makeUserWithPermission('parcel_orders.view', 'franchise', $franchise->id);
 
-        Livewire::actingAs($actor)->test(ParcelOrdersManage::class)
+        Livewire::actingAs($actor)->test(ParcelOrdersManage::class)->set('restrictedConfirmed', true)
             ->set('selectedCustomerId', $customer->id)
             ->set('selectedZoneId', $zone->id)
             ->set('pickupAddressLine', 'Pickup')

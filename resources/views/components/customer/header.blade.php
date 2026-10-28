@@ -1,5 +1,9 @@
 @php
     $platformName = \App\Models\Setting::get('branding.platform_name', '1CallFix');
+    // "Become a partner" (Super Admin: Admin → Homepage & sign-up): for anyone signed out, and for a signed-in
+    // account that can still add a partner role — one account, several roles.
+    $partnerCta = \App\Support\SiteControls::headerPartnerButton() && (! auth()->check() || auth()->user()->canAddAPartnerRole())
+        ? \App\Support\SiteControls::headerPartnerLabel() : null;
 
 @endphp
 
@@ -56,6 +60,13 @@
                     </a>
                 @endguest
 
+                @if ($partnerCta)
+                    <a href="{{ route('customer.partners') }}"
+                       class="hidden md:inline-flex min-h-10 items-center whitespace-nowrap rounded-lg border border-blue-600 px-3 text-sm font-semibold text-blue-700 transition hover:bg-blue-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600">
+                        {{ $partnerCta }}
+                    </a>
+                @endif
+
                 {{-- Primary CTA, visible from `sm` up (it had been hidden below `xl`, and was
                      dropped when the header was decluttered). Mobile keeps the bottom bar. --}}
                 <a href="{{ route('customer.services.index') }}"
@@ -105,6 +116,9 @@
                                     $menu[] = ['Partner dashboard', route('provider.dashboard')];
                                 }
                                 $menu[] = ['My account', route('customer.account')];
+                            }
+                            if ($partnerCta) {
+                                $menu[] = [$partnerCta, route('customer.partners')];
                             }
                             $menu[] = ['Help Center', route('customer.help')];
                             if (! auth()->check()) {

@@ -32,7 +32,7 @@ class DashboardOtherVerticalsTest extends TestCase
 
         Livewire::actingAs($actor)->test(Dashboard::class)
             ->assertOk()
-            ->assertDontSee('Parcel Orders Today');
+            ->assertDontSee('Parcel — Today');
     }
 
     public function test_other_vertical_card_visible_and_scoped_with_permission(): void
@@ -47,7 +47,7 @@ class DashboardOtherVerticalsTest extends TestCase
         // (not a computed property) -- assert on the rendered output.
         Livewire::actingAs($actor)->test(Dashboard::class)
             ->assertOk()
-            ->assertSee('Parcel Orders Today');
+            ->assertSee('Parcel — Today');
     }
 
     public function test_unassigned_bookings_counts_searching_provider_status(): void

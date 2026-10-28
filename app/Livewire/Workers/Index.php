@@ -3,21 +3,27 @@
 namespace App\Livewire\Workers;
 
 use App\Livewire\Concerns\HasRowArchive;
+use App\Livewire\Partners\Concerns\FiltersPartners;
 use App\Models\FieldWorker;
 use Illuminate\Database\Eloquent\Model;
 use App\Services\AuthorizationService;
+use App\Support\WorkerTypes;
 use Livewire\Component;
 use Livewire\WithPagination;
 
-/** The Worker Foundation's (Phase B0.1/B0.2) missing admin surface — mirrors Providers\Index exactly. */
+/**
+ * The Worker Foundation's (Phase B0.1/B0.2) missing admin surface — mirrors Providers\Index exactly. Since 2026-10-26
+ * it is the People tab of Admin → Partners (riders, drivers, helpers); /admin/workers redirects there.
+ */
 class Index extends Component
 {
     use WithPagination;
     use HasRowArchive;
+    use FiltersPartners;
 
     public string $statusFilter = '';
 
-    protected $queryString = ['statusFilter'];
+    protected $queryString = ['statusFilter', 'typeFilter', 'franchiseFilter', 'zoneFilter', 'cityFilter'];
 
     // --- Add parcel rider (CreateParcelRiderAction) ---
     public bool $showAddRider = false;
@@ -30,9 +36,12 @@ class Index extends Component
     public string $riderMessage = '';
 
     /** workers.view was seeded (2026_08_11_047000) but never checked -- see Commissions\Index's identical fix for the full reasoning. */
-    public function mount(): void
+    public function mount(bool $embedded = false): void
     {
         abort_unless(auth()->user()->hasPermissionAnywhere('workers.view'), 403, 'You do not have permission to view workers.');
+
+        $this->embedded = $embedded;
+        $this->startOnNeedsReview();
     }
 
 
@@ -106,19 +115,12 @@ class Index extends Component
     {
         $scoped = fn ($query) => app(AuthorizationService::class)->scopeQuery($query, auth()->user(), 'workers.view', $this->scopeColumns());
 
-        $workers = $scoped(FieldWorker::with(['user', 'zone', 'documents', 'capabilities']))
-            ->when($this->statusFilter === 'archived', fn ($q) => $q->onlyTrashed())
-            ->when($this->statusFilter !== '' && $this->statusFilter !== 'archived', fn ($q) => $q->where('kyc_status', $this->statusFilter))
-            ->latest()
+        $ofType = fn ($query) => $query->when($this->typeFilter !== '', fn ($q) => $q->whereHas('capabilities', fn ($c) => $c->where('capability_type', $this->typeFilter)));
+
+        $workers = $this->applyOrder($this->applyStatus($this->applyGeography($ofType($scoped(FieldWorker::with(['user', 'zone', 'franchise.city', 'documents', 'capabilities']))))))
             ->paginate(20);
 
-        $counts = $scoped(FieldWorker::query())
-            ->selectRaw('kyc_status, count(*) as total')
-            ->groupBy('kyc_status')
-            ->pluck('total', 'kyc_status');
-
-        $counts = $counts->all();
-        $counts[''] = array_sum($counts);
+        $counts = $this->statusCounts($ofType($scoped(FieldWorker::query())));
 
         $canManage = auth()->user()->hasPermissionAnywhere('workers.review_kyc');
         $canForce = $this->isSuperAdminUser();
@@ -129,7 +131,10 @@ class Index extends Component
                 ->orderBy('name')->get(['id', 'name', 'franchise_id'])
             : collect();
 
-        return view('livewire.workers.index', compact('workers', 'counts', 'canManage', 'canForce', 'archiveBars', 'riderZones'))
+        return view('livewire.workers.index', compact('workers', 'counts', 'canManage', 'canForce', 'archiveBars', 'riderZones') + [
+            'statusTabs' => $this->statusTabs(),
+            'typeOptions' => WorkerTypes::ALL,
+        ] + $this->geographyOptions('workers.view'))
             ->layout('layouts.admin', ['title' => 'Workers']);
     }
 }

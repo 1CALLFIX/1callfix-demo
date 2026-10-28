@@ -111,6 +111,11 @@ ScheduleRunTracker::track(Schedule::command('parcel:expire-unpaid'), 'parcel:exp
     ->everyFiveMinutes()
     ->withoutOverlapping(10);
 
+// Parcel Stage 1 — offers scheduled parcels to riders parcel.schedule_dispatch_lead_minutes before pickup.
+ScheduleRunTracker::track(Schedule::command('parcel:release-scheduled'), 'parcel:release-scheduled')
+    ->everyMinute()
+    ->withoutOverlapping(10);
+
 // MANUAL MONEY ACTIONS — mismatch-refund queue escalation (refund.mismatch.
 // escalate_after_hours; no-op while unset). Every 15 minutes is plenty for an
 // hours-scale threshold; each row escalates once per level. Same

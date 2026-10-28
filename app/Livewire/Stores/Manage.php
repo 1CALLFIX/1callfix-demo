@@ -4,7 +4,7 @@ namespace App\Livewire\Stores;
 
 use App\Livewire\Concerns\HasRowArchive;
 use Illuminate\Database\Eloquent\Model;
-use App\Models\Provider;
+use App\Livewire\Concerns\ScopesOwnerProviders;
 use App\Models\Store;
 use App\Models\Zone;
 use App\Services\AuthorizationService;
@@ -15,6 +15,7 @@ use Livewire\WithPagination;
 /** Phase 24 (Marketplace Foundation) admin screen — the catalog-management counterpart to Properties\Manage. Row-scoped the same way. */
 class Manage extends Component
 {
+    use ScopesOwnerProviders;
     use WithPagination;
     use HasRowArchive;
 
@@ -103,6 +104,10 @@ class Manage extends Component
             return;
         }
 
+        if (! $this->ownerProviderAllowed('stores.manage')) {
+            return;
+        }
+
         Store::create([
             'provider_id' => $this->providerId, 'franchise_id' => $zone->franchise_id, 'zone_id' => $zone->id,
             'module' => $this->module, 'name' => $this->name, 'address_line' => $this->addressLine,
@@ -161,7 +166,7 @@ class Manage extends Component
             'canForce' => $this->isSuperAdminUser(),
             'archiveBars' => $this->archiveBars(),
             'stores' => $stores,
-            'providers' => Provider::with('user')->get(),
+            'providers' => $this->ownerProviderOptions('stores.manage'),
             'zones' => Zone::where('is_active', true)->orderBy('name')->get(),
             'modules' => Modules::ALL,
         ])->layout('layouts.admin', ['title' => 'Stores']);

@@ -22,6 +22,8 @@ class PropertyRentalPerformanceTest extends TestCase
 
     private function countQueriesFor(\Closure $callback): int
     {
+        // The platform timezone is looked up once and memoised; warm it so it is not counted in only the first render.
+        app(\App\Services\TimezoneResolver::class)->platformTimezone();
         DB::enableQueryLog();
         DB::flushQueryLog();
 

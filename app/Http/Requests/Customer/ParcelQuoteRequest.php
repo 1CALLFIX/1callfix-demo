@@ -19,6 +19,7 @@ class ParcelQuoteRequest extends CustomerApiRequest
             'dropoff_address_id' => ['required', 'integer', 'exists:addresses,id'],
             'package_weight_kg' => ['nullable', 'numeric', 'min:0', 'max:9999.99'],
             'package_size' => ['nullable', 'string', 'in:small,medium,large'],
+            'delivery_type' => ['nullable', 'string', 'in:now,scheduled'],
         ];
     }
 }

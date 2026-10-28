@@ -210,7 +210,7 @@
                 @forelse ($ledger as $row)
                     <tr class="border-t">
                         <x-ui.sno :rows="$ledger" :loop="$loop" />
-                        <td class="px-4 py-2 whitespace-nowrap text-gray-500">{{ $row->created_at?->format('j M Y H:i') }}</td>
+                        <td class="px-4 py-2"><x-ui.datetime :at="$row->created_at" /></td>
                         @if ($ledgerKind === 'wallet')
                             <td class="px-4 py-2">{{ \App\Support\WalletSourceLabel::labelFor($row->ref) }}</td>
                             <td class="px-4 py-2 font-mono {{ $row->is_credit ? 'text-green-700' : 'text-red-700' }}">{{ $row->is_credit ? '+' : '−' }}{{ $currencySymbol }}{{ number_format((float) $row->amount, 2) }}</td>

@@ -6,7 +6,7 @@ use App\Livewire\Concerns\HasRowArchive;
 use Illuminate\Database\Eloquent\Model;
 use App\Models\Property;
 use App\Models\PropertyType;
-use App\Models\Provider;
+use App\Livewire\Concerns\ScopesOwnerProviders;
 use App\Models\Zone;
 use App\Services\AuthorizationService;
 use Livewire\Component;
@@ -19,6 +19,7 @@ use Livewire\WithPagination;
  */
 class Manage extends Component
 {
+    use ScopesOwnerProviders;
     use WithPagination;
     use HasRowArchive;
 
@@ -110,6 +111,10 @@ class Manage extends Component
             return;
         }
 
+        if (! $this->ownerProviderAllowed('properties.manage')) {
+            return;
+        }
+
         Property::create([
             'provider_id' => $this->providerId, 'property_type_id' => $this->propertyTypeId,
             'franchise_id' => $zone->franchise_id, 'zone_id' => $zone->id,
@@ -164,7 +169,7 @@ class Manage extends Component
             'canForce' => $this->isSuperAdminUser(),
             'archiveBars' => $this->archiveBars(),
             'properties' => $properties,
-            'providers' => Provider::with('user')->get(),
+            'providers' => $this->ownerProviderOptions('properties.manage'),
             'propertyTypes' => PropertyType::where('is_active', true)->orderBy('name')->get(),
             'zones' => Zone::where('is_active', true)->orderBy('name')->get(),
         ])->layout('layouts.admin', ['title' => 'Properties']);

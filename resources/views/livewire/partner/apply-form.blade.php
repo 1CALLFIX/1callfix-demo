@@ -32,7 +32,7 @@
                 @error('role') <p class="msg">{{ $message }}</p> @enderror
             </fieldset>
 
-            @if ($current && ! $current['live'])
+            @if ($current && ! $current['live'] && ! $current['hands_off'])
                 <div class="waitnote" id="waitNote">{{ $waitlistNote }}</div>
             @endif
 

@@ -40,6 +40,13 @@
         <x-ui.card class="mb-4">
             <h3 class="font-semibold mb-2">Package</h3>
             <p class="text-sm text-gray-600">{{ $order->package_description ?: '—' }} &middot; {{ ucfirst($order->package_size) }}{{ $order->package_weight_kg ? ' · '.$order->package_weight_kg.' kg' : '' }}{{ $order->distance_km ? ' · '.$order->distance_km.' km' : '' }}</p>
+            @if ($order->isScheduled() || $order->package_contents || $order->waiting_charge)
+                <p class="text-sm text-gray-600">
+                    @if ($order->isScheduled())<span class="font-semibold text-blue-700">Scheduled pickup {{ app(\App\Services\TimezoneResolver::class)->format($order->scheduled_at, $order->franchise, 'D j M, g:i A') }}</span>@endif
+                    @if ($order->package_contents) · {{ \App\Services\Parcel\ParcelSettings::CONTENTS[$order->package_contents] ?? '' }} @endif
+                    @if ($order->waiting_charge) · waited {{ $order->waiting_minutes }} min, {{ $order->waiting_charge }} paid to the rider @endif
+                </p>
+            @endif
             @if ($order->customer_note) <p class="text-sm text-gray-500 mt-1">Note: {{ $order->customer_note }}</p> @endif
         </x-ui.card>
 
@@ -166,6 +173,12 @@
                 </select>
             </div>
 
+            <label class="mb-3 flex items-start gap-2 text-sm">
+                <input type="checkbox" wire:model="restrictedConfirmed" class="mt-0.5 rounded border-gray-300">
+                <span>Customer confirmed the parcel has none of: {{ implode('; ', \App\Services\Parcel\ParcelSettings::RESTRICTED_ITEMS) }}.</span>
+            </label>
+            @error('restrictedConfirmed') <p class="mb-3 text-xs text-red-600">{{ $message }}</p> @enderror
+
             <div class="flex items-center gap-3">
                 <select wire:model="paymentMethod" class="border rounded px-3 py-2 text-sm">
                     <option value="online">Online</option>
@@ -195,6 +208,7 @@
                     <th class="px-4 py-2">Rider</th>
                     <th class="px-4 py-2">Status</th>
                     <th class="px-4 py-2">Price</th>
+                    <x-ui.tat-heads />
                     <th class="px-4 py-2"></th>
                 </tr>
             </thead>
@@ -207,6 +221,7 @@
                         <td class="px-4 py-2">{{ $o->assignedWorker?->user?->name ?? '—' }}</td>
                         <td class="px-4 py-2"><x-ui.badge>{{ str_replace('_', ' ', $o->status) }}</x-ui.badge></td>
                         <td class="px-4 py-2">{{ number_format($o->price_final ?? $o->price_quoted, 2) }}</td>
+                        <x-ui.tat-cells :record="$o" done="delivered_at" />
                         <td class="px-4 py-2 text-right"><x-ui.button variant="ghost" wire:click="viewOrder({{ $o->id }})">View</x-ui.button></td>
                     </tr>
                 @endforeach

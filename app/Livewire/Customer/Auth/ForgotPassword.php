@@ -50,8 +50,18 @@ class ForgotPassword extends Component
     #[Locked]
     public ?int $resolvedUserId = null;
 
+    /** Sign-in page to return to after the reset: ?for=partner / ?for=rider come from those sign-in pages. */
+    #[Locked]
+    public string $signInRoute = 'customer.login';
+
+    private const SIGN_IN_ROUTES = ['partner' => 'provider.login', 'rider' => 'rider.login', 'admin' => 'admin.login'];
+
+    public const SUPER_ADMIN_BLOCKED = 'This account’s password can’t be reset here. Ask the platform owner to reset it.';
+
     public function mount(): void
     {
+        $this->signInRoute = self::SIGN_IN_ROUTES[(string) request()->query('for')] ?? 'customer.login';
+
         if (Auth::guard('web')->check()) {
             $this->redirectRoute('customer.home', navigate: true);
         }
@@ -87,7 +97,18 @@ class ForgotPassword extends Component
         $this->channel = 'phone';
         $this->dispatch('firebase-send-phone-otp', phone: PhoneNumber::e164($this->identifier));
         $this->step = 'verify_phone';
-        $this->status = 'Enter the code sent to '.PhoneNumber::e164($this->identifier).'.';
+        // "Sent" only once Firebase confirms it (phoneOtpSent); a refusal arrives as firebase-error instead.
+        $this->status = 'Sending a code to '.PhoneNumber::e164($this->identifier).'…';
+    }
+
+    /** customer-auth.js confirms signInWithPhoneNumber actually sent the SMS. */
+    #[On('firebase-phone-otp-sent')]
+    public function phoneOtpSent(): void
+    {
+        if ($this->step === 'verify_phone') {
+            $this->error = '';
+            $this->status = 'Enter the code sent to '.PhoneNumber::e164($this->identifier).'.';
+        }
     }
 
     public function verifyEmailCode(OtpService $otp, CustomerAccountResolver $accounts): void
@@ -111,6 +132,11 @@ class ForgotPassword extends Component
         }
 
         $user = $accounts->findByEmail($this->identifier);
+        if ($user && ! $user->canSelfResetPassword()) {
+            $this->error = self::SUPER_ADMIN_BLOCKED;
+
+            return;
+        }
         $this->resolvedUserId = $user?->id;
         $this->step = 'new_password';
         $this->status = 'Choose a new password.';
@@ -120,6 +146,8 @@ class ForgotPassword extends Component
     public function firebaseError(string $message): void
     {
         $this->error = $message;
+        // One honest error, never a green "code sent" beside it.
+        $this->status = '';
     }
 
     #[On('firebase-phone-token')]
@@ -144,6 +172,11 @@ class ForgotPassword extends Component
         }
 
         $user = $accounts->findByPhone($this->identifier);
+        if ($user && ! $user->canSelfResetPassword()) {
+            $this->error = self::SUPER_ADMIN_BLOCKED;
+
+            return;
+        }
         $this->resolvedUserId = $user?->id;
         $this->step = 'new_password';
         $this->status = 'Choose a new password.';
@@ -174,6 +207,11 @@ class ForgotPassword extends Component
 
             return;
         }
+        if (! $user->canSelfResetPassword()) {
+            $this->error = self::SUPER_ADMIN_BLOCKED;
+
+            return;
+        }
 
         $accounts->setPassword($user, $this->password);
         $user->tokens()->delete();
@@ -181,7 +219,7 @@ class ForgotPassword extends Component
         $this->clearThrottle('forgot', $this->identifier);
 
         session()->flash('status', 'Password updated. Sign in with your new password.');
-        $this->redirectRoute('customer.login', navigate: true);
+        $this->redirectRoute($this->signInRoute, navigate: true);
     }
 
     public function render()

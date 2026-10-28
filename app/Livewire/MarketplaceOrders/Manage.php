@@ -49,7 +49,7 @@ class Manage extends Component
     {
         return app(AuthorizationService::class)
             ->scopeQuery(MarketplaceOrder::query(), auth()->user(), 'marketplace_orders.view', $this->scopeColumns())
-            ->with(['customer', 'store', 'franchise']);
+            ->with(['customer', 'store', 'franchise', 'statusHistory' => \App\Support\Turnaround::historyScope()]);
     }
 
     public function viewOrder(int $orderId): void

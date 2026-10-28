@@ -8,7 +8,7 @@ use App\Models\Accommodation;
 use App\Models\AccommodationType;
 use App\Models\HotelRatePlan;
 use App\Models\HotelRoomType;
-use App\Models\Provider;
+use App\Livewire\Concerns\ScopesOwnerProviders;
 use App\Models\Zone;
 use App\Services\AuthorizationService;
 use Livewire\Component;
@@ -26,6 +26,7 @@ use Livewire\WithPagination;
  */
 class Manage extends Component
 {
+    use ScopesOwnerProviders;
     use WithPagination;
     use HasRowArchive;
 
@@ -130,6 +131,10 @@ class Manage extends Component
             'city_id' => $zone->franchise?->city_id, 'country_id' => $zone->franchise?->country_id,
         ])) {
             $this->addError('zoneId', 'You do not have permission to create an accommodation in this zone.');
+            return;
+        }
+
+        if (! $this->ownerProviderAllowed('accommodations.manage')) {
             return;
         }
 
@@ -289,7 +294,7 @@ class Manage extends Component
             'canForce' => $this->isSuperAdminUser(),
             'archiveBars' => $this->archiveBars(),
             'accommodation' => null, 'accommodations' => $accommodations, 'roomTypes' => null,
-            'providers' => Provider::with('user')->get(),
+            'providers' => $this->ownerProviderOptions('accommodations.manage'),
             'accommodationTypes' => AccommodationType::where('is_active', true)->orderBy('name')->get(),
             'zones' => Zone::where('is_active', true)->orderBy('name')->get(),
         ])->layout('layouts.admin', ['title' => 'Accommodations']);

@@ -2,6 +2,7 @@
 
 namespace App\Actions;
 
+use App\Exceptions\CannotGoOnlineException;
 use App\Exceptions\ShiftRequiredException;
 use App\Models\Provider;
 use App\Services\Providers\ShiftSchedule;
@@ -48,6 +49,14 @@ class SetProviderOnlineStatusAction
 {
     public function execute(Provider $provider, bool $online, ?float $lat = null, ?float $lng = null): Provider
     {
+        // Owner decision 2026-10-26: a partner whose documents are not approved cannot go online (dispatch already
+        // skipped them; now the switch says so too, same as the rider app). Going offline is always allowed.
+        if ($online && $provider->kyc_status !== 'approved') {
+            throw new CannotGoOnlineException($provider->kyc_status === 'rejected'
+                ? 'Your documents were not approved. Our team will contact you about what to send again.'
+                : 'Your documents are under review. You can go online once they are approved.');
+        }
+
         $this->assertShiftAllowsOnline($provider, $online);
 
         $hasFix = $online && $this->isUsableFix($lat, $lng);
@@ -77,6 +86,38 @@ class SetProviderOnlineStatusAction
         );
 
         return $fresh->refresh();
+    }
+
+    /**
+     * The location heartbeat. Re-stamps the fix ONLY while the row is still
+     * online, under the same row lock, so a heartbeat (or the catch-up sent
+     * when a locked phone is opened again) can never put back online a
+     * provider who went offline or whom providers:expire-stale-online set
+     * offline. Not a status change, so nothing is written to the activity log.
+     *
+     * @return bool true when a fix was recorded
+     */
+    public function refreshLocation(Provider $provider, ?float $lat, ?float $lng): bool
+    {
+        if (! $this->isUsableFix($lat, $lng)) {
+            return false;
+        }
+
+        return DB::transaction(function () use ($provider, $lat, $lng) {
+            /** @var Provider $locked */
+            $locked = Provider::whereKey($provider->getKey())->lockForUpdate()->firstOrFail();
+
+            if (! $locked->is_online) {
+                return false;
+            }
+
+            $locked->current_lat = $lat;
+            $locked->current_lng = $lng;
+            $locked->location_updated_at = now();
+            $locked->save();
+
+            return true;
+        });
     }
 
     /**

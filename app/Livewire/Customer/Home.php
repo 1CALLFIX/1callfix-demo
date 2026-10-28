@@ -56,13 +56,15 @@ class Home extends Component
     {
         $location = $this->location();
         $catalog = $this->catalog();
+        $zone = $location->zone();
+        $parcelScope = $zone ? array_filter(['zone_id' => $zone->id, 'franchise_id' => $zone->franchise_id, 'city_id' => $zone->franchise?->city_id, 'country_id' => $zone->franchise?->country_id]) : [];
+        $parcelActive = $zone !== null && app(\App\Services\ModuleActivationService::class)->isActive(\App\Support\Modules::PARCEL, $parcelScope);
 
         return view('livewire.customer.home', [
-            'activeZone' => $location->zone(),
-            'parcelActive' => $location->zone() !== null && app(\App\Services\ModuleActivationService::class)->isActive(
-                \App\Support\Modules::PARCEL,
-                array_filter(['zone_id' => $location->zone()->id, 'franchise_id' => $location->zone()->franchise_id, 'city_id' => $location->zone()->franchise?->city_id, 'country_id' => $location->zone()->franchise?->country_id])
-            ),
+            'activeZone' => $zone,
+            'parcelActive' => $parcelActive,
+            // "from ₹…" on the parcel card: the browsed area's Parcel Settings base fare; null (unset) hides it.
+            'parcelFrom' => $parcelActive ? \App\Services\Parcel\ParcelSettings::get('parcel.base_fare', $parcelScope) : null,
             'heroBanners' => $this->bannersFor('top'),
             'midBanners' => $this->bannersFor('mid'),
             'categories' => $catalog->categories()->limit(\App\Support\SiteControls::categoryLimit())->get(),

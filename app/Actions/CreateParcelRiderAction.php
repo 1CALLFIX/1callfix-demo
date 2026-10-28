@@ -2,6 +2,7 @@
 
 namespace App\Actions;
 
+use App\Exceptions\AccountAlreadyExistsException;
 use App\Models\FieldWorker;
 use App\Models\FieldWorkerCapability;
 use App\Models\User;
@@ -13,7 +14,7 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 
 /**
- * Admin → Workers → "Add parcel rider". Until now nothing in the app could create a FieldWorker (only the QA
+ * Admin → Partners → People → "Add parcel rider". Until now nothing in the app could create a FieldWorker (only the QA
  * seeder did), so no real rider could exist. Creates the login account (or links an existing account with
  * that phone that is not yet a worker), the FieldWorker in the chosen zone, and the `parcel_rider`
  * capability.
@@ -68,5 +69,74 @@ class CreateParcelRiderAction
 
             return $worker;
         });
+    }
+
+    /**
+     * Self sign-up from /partners → the partner sign-up page (owner rule 2026-10-25: every partner joins through
+     * /partners with OTP and documents). Same rider as execute() but KYC stays 'pending': the rider gets no offers
+     * until an admin approves the uploaded documents in Partners → People → Review. A number that already has an account is
+     * refused, exactly like the provider sign-up (sign in instead); an existing customer uses registerExistingCustomer().
+     *
+     * @param  array{address?:?string, lat?:?float, lng?:?float, out_of_coverage?:bool}  $registration
+     *
+     * @throws AccountAlreadyExistsException
+     */
+    public function registerApplicant(Zone $zone, string $name, string $nationalPhone, ?string $email, string $plainPassword, array $registration = []): FieldWorker
+    {
+        return DB::transaction(function () use ($zone, $name, $nationalPhone, $email, $plainPassword, $registration) {
+            if (User::where('phone', $nationalPhone)->lockForUpdate()->exists()) {
+                throw new AccountAlreadyExistsException('mobile number');
+            }
+
+            $user = User::create([
+                'uuid' => (string) Str::uuid(), 'name' => $name, 'phone' => $nationalPhone,
+                'email' => filled($email) ? Str::lower(trim($email)) : null,
+                'password' => Hash::make($plainPassword), 'role' => 'provider', 'status' => 'active',
+                'franchise_id' => $zone->franchise_id, 'zone_id' => $zone->id,
+                'preferred_language' => 'en', 'phone_verified_at' => now(),
+            ]);
+
+            return $this->createApplicantProfile($user, $zone, $registration);
+        });
+    }
+
+    /**
+     * The same rider application by a number that already has a customer account (owner 2026-10-27): the phone was
+     * just proven by OTP, so the pending rider profile goes on that account, which keeps its password and bookings.
+     *
+     * @throws AccountAlreadyExistsException when the account can no longer apply (already a partner, suspended, staff)
+     */
+    public function registerExistingCustomer(Zone $zone, User $user, array $registration = []): FieldWorker
+    {
+        return DB::transaction(function () use ($zone, $user, $registration) {
+            $user = User::whereKey($user->id)->lockForUpdate()->first();
+            if (! $user?->canApplyAsPartner('parcel')) {
+                throw new AccountAlreadyExistsException('mobile number');
+            }
+            if ($user->phone_verified_at === null) {
+                $user->forceFill(['phone_verified_at' => now()])->save();
+            }
+
+            return $this->createApplicantProfile($user, $zone, $registration);
+        });
+    }
+
+    private function createApplicantProfile(User $user, Zone $zone, array $registration): FieldWorker
+    {
+        $worker = FieldWorker::create([
+            'user_id' => $user->id, 'franchise_id' => $zone->franchise_id, 'zone_id' => $zone->id,
+            'kyc_status' => 'pending', 'is_active' => true, 'is_online' => false,
+        ]);
+        FieldWorkerCapability::create(['field_worker_id' => $worker->id, 'capability_type' => 'parcel_rider']);
+
+        // field_workers has no registration-address columns; the typed address and pin go in the log so the
+        // reviewing admin can see where the rider works (and move an out-of-coverage rider to the right zone).
+        ActivityLogger::logModel($user, $worker, 'Parcel rider applied (partner sign-up); awaiting document review', array_filter([
+            'zone_id' => $zone->id, 'address' => $registration['address'] ?? null,
+            'lat' => $registration['lat'] ?? null, 'lng' => $registration['lng'] ?? null,
+            'out_of_coverage' => ($registration['out_of_coverage'] ?? false) ?: null,
+        ], fn ($v) => $v !== null));
+
+        return $worker;
     }
 }

@@ -8,6 +8,7 @@ use App\Models\ParcelOrder;
 use App\Models\Payment;
 use App\Notifications\ParcelOrderStatusNotification;
 use App\Notifications\Support\ChannelResolver;
+use App\Services\Parcel\ParcelWaitingCharge;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
@@ -48,6 +49,14 @@ class MarkParcelPickedUpAction
             $order->status = 'picked_up';
             $order->picked_up_at = now();
 
+            // Stage 1: waiting at pickup, from "I've arrived" to now. The sender pays it to the rider on the spot;
+            // it is not part of the delivery price (ParcelWaitingCharge).
+            if ($order->arrived_at_pickup_at) {
+                $waiting = ParcelWaitingCharge::compute($order, $order->picked_up_at);
+                $order->waiting_minutes = $waiting['minutes'];
+                $order->waiting_charge = $waiting['charge'] > 0 ? $waiting['charge'] : null;
+            }
+
             // Cash is collected from the sender at pickup (the rider's screen says so before they enter the
             // OTP). Recorded as a captured 'cash' payment so the order reconciles like any other paid order.
             if ($order->payment_method === 'cash' && ! $order->collectsCashAtDelivery() && $order->payment_status !== 'paid') {
@@ -68,7 +77,7 @@ class MarkParcelPickedUpAction
             $order->statusHistory()->create([
                 'status' => 'picked_up',
                 'changed_by' => $worker->user_id,
-                'note' => 'Picked up with verified OTP',
+                'note' => 'Picked up with verified OTP'.($order->waiting_charge ? " (waited {$order->waiting_minutes} min, waiting charge {$order->waiting_charge} paid to the rider)" : ''),
                 'changed_at' => now(),
             ]);
 

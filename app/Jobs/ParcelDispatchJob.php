@@ -56,6 +56,8 @@ class ParcelDispatchJob implements ShouldQueue
         public int $parcelOrderId,
         public int $round = 1,
     ) {
+        // Every queueing of this job, including its own re-dispatch each round, lands on the offer queue.
+        $this->onQueue(\App\Support\DispatchQueue::name()); // null = unchanged
     }
 
     public function handle(DispatchService $dispatchService): void
@@ -69,6 +71,11 @@ class ParcelDispatchJob implements ShouldQueue
 
             // An online order is only searched for once its payment is captured (ParcelPaymentService).
             if ($order->isAwaitingOnlinePayment()) {
+                return null;
+            }
+
+            // A scheduled order is only searched for shortly before its pickup time (parcel:release-scheduled).
+            if (\App\Actions\CreateParcelOrderAction::heldForSchedule($order)) {
                 return null;
             }
 

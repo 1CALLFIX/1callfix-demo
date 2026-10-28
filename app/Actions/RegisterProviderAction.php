@@ -31,10 +31,10 @@ use Illuminate\Support\Str;
  * 'approved' provider, the same invariant the importer has always guarded.
  *
  * A phone that already belongs to a user → AccountAlreadyExistsException
- * (the caller surfaces "sign in instead"). Attaching a provider profile to
- * an EXISTING user with that phone — an existing customer becoming a
- * partner, discovery doc D10 — is deliberately NOT done here yet; it is a
- * scoped follow-up.
+ * (the caller surfaces "sign in instead"). An existing customer becoming a
+ * partner (D10, owner 2026-10-27) — or a rider adding services — goes
+ * through forExistingCustomer(): the same providers row on their own
+ * account, which keeps its password, role and bookings.
  */
 class RegisterProviderAction
 {
@@ -75,22 +75,48 @@ class RegisterProviderAction
                 'phone_verified_at' => $phoneVerified ? now() : null,
             ]);
 
-            // kyc_status deliberately not set — the providers table's own
-            // column default ('pending') applies, same as every other
-            // column this Action doesn't touch.
-            return Provider::create([
-                'user_id' => $user->id,
-                'franchise_id' => $franchiseId,
-                'zone_id' => $zoneId,
-                'provider_type' => 'independent',
-                'kyc_deadline_at' => now()->addDays(30),
-                'registration_address' => $registration['address'] ?? null,
-                'registration_lat' => $registration['lat'] ?? null,
-                'registration_lng' => $registration['lng'] ?? null,
-                // Category ids the applicant offers (self sign-up "Services you offer"); the same
-                // `skills` column DispatchService::hasSkill() matches and admins edit on the provider screen.
-                'skills' => $skills !== [] ? array_values(array_unique(array_map('intval', $skills))) : null,
-            ]);
+            return $this->createProfile($user, $franchiseId, $zoneId, $registration, $skills);
         });
+    }
+
+    /**
+     * Self sign-up by a number that already has a customer account: the phone was just proven by OTP, so the
+     * pending provider profile is added to that account instead of a second one. Re-checked under a lock.
+     *
+     * @throws AccountAlreadyExistsException when the account can no longer apply (already a partner, suspended, staff)
+     */
+    public function forExistingCustomer(User $user, int $franchiseId, ?int $zoneId = null, array $registration = [], array $skills = []): Provider
+    {
+        return DB::transaction(function () use ($user, $franchiseId, $zoneId, $registration, $skills) {
+            $user = User::whereKey($user->id)->lockForUpdate()->first();
+            if (! $user?->canApplyAsPartner('service')) {
+                throw new AccountAlreadyExistsException('mobile number');
+            }
+            if ($user->phone_verified_at === null) {
+                $user->forceFill(['phone_verified_at' => now()])->save();
+            }
+
+            return $this->createProfile($user, $franchiseId, $zoneId, $registration, $skills);
+        });
+    }
+
+    private function createProfile(User $user, int $franchiseId, ?int $zoneId, array $registration, array $skills): Provider
+    {
+        // kyc_status deliberately not set — the providers table's own
+        // column default ('pending') applies, same as every other
+        // column this Action doesn't touch.
+        return Provider::create([
+            'user_id' => $user->id,
+            'franchise_id' => $franchiseId,
+            'zone_id' => $zoneId,
+            'provider_type' => 'independent',
+            'kyc_deadline_at' => now()->addDays(30),
+            'registration_address' => $registration['address'] ?? null,
+            'registration_lat' => $registration['lat'] ?? null,
+            'registration_lng' => $registration['lng'] ?? null,
+            // Category ids the applicant offers (self sign-up "Services you offer"); the same
+            // `skills` column DispatchService::hasSkill() matches and admins edit on the provider screen.
+            'skills' => $skills !== [] ? array_values(array_unique(array_map('intval', $skills))) : null,
+        ]);
     }
 }
