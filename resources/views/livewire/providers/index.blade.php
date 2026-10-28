@@ -64,6 +64,7 @@
                 <th class="px-4 py-2">Status</th>
                 <th class="px-4 py-2">Documents</th>
                 <th class="px-4 py-2">{{ in_array($statusFilter, ['pending', 'review'], true) ? 'Waiting' : 'Applied' }}</th>
+                <th class="px-4 py-2">Online</th>
                 <th class="px-4 py-2"></th>
             </tr>
         </thead>
@@ -79,6 +80,7 @@
                     <td class="px-4 py-2"><x-ui.status-badge type="provider_kyc" :status="$provider->kyc_status" /></td>
                     <td class="px-4 py-2">{{ $provider->documents->count() }} uploaded</td>
                     <td class="px-4 py-2 text-gray-500">@include('livewire.partners.partials.waiting', ['row' => $provider])</td>
+                    <td class="px-4 py-2"><x-ui.presence :user="$provider->user" :on-duty="(bool) $provider->is_online" /></td>
                     <td class="px-4 py-2">
                         <x-ui.row-actions :id="$provider->id" :archived="$provider->trashed()" :can-manage="$canManage" :can-force="$canForce"
                                           :view-href="route('admin.providers.show', $provider->id)" view-label="Review"
@@ -86,7 +88,7 @@
                     </td>
                 </tr>
             @empty
-                <tr><td colspan="9">
+                <tr><td colspan="10">
                     <x-ui.empty-state icon="check-circle" :title="in_array($statusFilter, ['pending', 'review'], true) ? 'Queue is clear' : 'No providers match these filters'" :description="in_array($statusFilter, ['pending', 'review'], true) ? 'No pending applications need review right now.' : null" />
                 </td></tr>
             @endforelse

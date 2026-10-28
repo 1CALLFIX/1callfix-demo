@@ -73,7 +73,7 @@
                     <td class="px-4 py-2 font-mono">{{ $currencySymbol }}{{ number_format($c->provider_commission, 2) }}</td>
                     <td class="px-4 py-2 font-mono">{{ $currencySymbol }}{{ number_format($c->franchise_commission, 2) }}</td>
                     <td class="px-4 py-2 font-mono">{{ $currencySymbol }}{{ number_format($c->platform_commission, 2) }}</td>
-                    <td class="px-4 py-2 text-gray-500">{{ app(\App\Services\TimezoneResolver::class)->format($c->created_at, $order?->franchise, 'd M Y, h:i A') }}</td>
+                    <td class="px-4 py-2"><x-ui.datetime :at="$c->created_at" :franchise="$order?->franchise" /></td>
                 </tr>
             @empty
                 <tr><td colspan="8" class="px-4 py-6 text-center text-gray-400">No commission records match your filters.</td></tr>

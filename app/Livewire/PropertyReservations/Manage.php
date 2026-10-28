@@ -52,7 +52,7 @@ class Manage extends Component
     {
         return app(AuthorizationService::class)
             ->scopeQuery(PropertyReservation::query(), auth()->user(), 'property_reservations.view', $this->scopeColumns())
-            ->with(['customer', 'property.provider.user', 'franchise']);
+            ->with(['customer', 'property.provider.user', 'franchise', 'statusHistory' => \App\Support\Turnaround::historyScope()]);
     }
 
     public function viewReservation(int $reservationId): void

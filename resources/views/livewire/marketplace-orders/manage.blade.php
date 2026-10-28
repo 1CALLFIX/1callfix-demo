@@ -100,6 +100,7 @@
                     <th class="px-4 py-2">Store</th>
                     <th class="px-4 py-2">Total</th>
                     <th class="px-4 py-2">Status</th>
+                    <x-ui.tat-heads />
                     <th class="px-4 py-2"></th>
                 </tr>
             </thead>
@@ -112,6 +113,7 @@
                         <td class="px-4 py-2">{{ $o->store->name ?? '—' }}</td>
                         <td class="px-4 py-2">{{ number_format($o->total_amount, 2) }}</td>
                         <td class="px-4 py-2"><x-ui.badge>{{ str_replace('_', ' ', $o->status) }}</x-ui.badge></td>
+                        <x-ui.tat-cells :record="$o" done="completed_at" />
                         <td class="px-4 py-2 text-right"><x-ui.button variant="ghost" wire:click="viewOrder({{ $o->id }})">View</x-ui.button></td>
                     </tr>
                 @endforeach

@@ -73,6 +73,7 @@
                 <th class="px-4 py-2">Wallet</th>
                 <th class="px-4 py-2">Status</th>
                 <th class="px-4 py-2">Joined</th>
+                <th class="px-4 py-2">Online</th>
             </tr>
         </thead>
         <tbody>
@@ -95,10 +96,11 @@
                         @endif
                     </td>
                     <td class="px-4 py-2"><x-ui.status-badge type="customer" :status="$user->status" /></td>
-                    <td class="px-4 py-2 text-gray-500">{{ $user->created_at->diffForHumans() }}</td>
+                    <td class="px-4 py-2"><x-ui.datetime :at="$user->created_at" /></td>
+                    <td class="px-4 py-2"><x-ui.presence :user="$user" /></td>
                 </tr>
             @empty
-                <tr><td colspan="10"><x-ui.empty-state icon="users" title="No users match this filter" /></td></tr>
+                <tr><td colspan="11"><x-ui.empty-state icon="users" title="No users match this filter" /></td></tr>
             @endforelse
         </tbody>
     </x-ui.table>

@@ -86,7 +86,7 @@
                 <tr class="border-t">
                     <td class="px-4 py-2 font-mono text-xs">{{ $c->booking?->code }}</td>
                     <td class="px-4 py-2 text-xs">{{ $c->booking?->payment_method }}</td>
-                    <td class="px-4 py-2 text-xs text-gray-500">{{ $c->created_at->format('d M Y') }}</td>
+                    <td class="px-4 py-2"><x-ui.datetime :at="$c->created_at" /></td>
                     <td class="px-4 py-2 text-right font-mono">₹{{ number_format((float) $c->provider_commission + (float) $c->franchise_commission + (float) $c->platform_commission, 2) }}</td>
                     <td class="px-4 py-2 text-right font-mono">₹{{ number_format((float) $c->franchise_commission, 2) }}</td>
                 </tr>

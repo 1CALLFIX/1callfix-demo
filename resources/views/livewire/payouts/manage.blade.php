@@ -150,7 +150,7 @@
                 <th class="px-4 py-2">Amount</th>
                 <th class="px-4 py-2">Status</th>
                 <th class="px-4 py-2">Reference</th>
-                <th class="px-4 py-2">Requested</th>
+                <x-ui.tat-heads created="Requested" completed="Processed" />
                 <th class="px-4 py-2 text-right">Actions</th>
             </tr>
         </thead>
@@ -164,7 +164,10 @@
                         <x-ui.badge :color="match($p->status) { 'pending' => 'gray', 'processing' => 'amber', 'paid' => 'green', 'failed' => 'red', default => 'gray' }">{{ $p->status }}</x-ui.badge>
                     </td>
                     <td class="px-4 py-2 text-gray-500 font-mono text-xs">{{ $p->gateway_ref ?? '—' }}</td>
-                    <td class="px-4 py-2 text-gray-500">{{ $p->created_at->diffForHumans() }}</td>
+                    @php($payoutOpen = in_array($p->status, ['pending', 'processing'], true))
+                    <td class="px-4 py-2"><x-ui.datetime :at="$p->created_at" /></td>
+                    <td class="px-4 py-2"><x-ui.closed-at :at="$payoutOpen ? null : ($p->processed_at ?? $p->updated_at)" :outcome="$p->status" :open="$payoutOpen" /></td>
+                    <td class="px-4 py-2"><x-ui.tat :from="$p->created_at" :to="$payoutOpen ? null : ($p->processed_at ?? $p->updated_at)" :open="$payoutOpen" :outcome="$p->status" /></td>
                     <td class="px-4 py-2 text-right whitespace-nowrap">
                         @if ($p->status === 'pending')
                             <x-ui.button variant="ghost" class="mr-3" wire:click="markProcessing({{ $p->id }})">Mark Processing</x-ui.button>
@@ -177,7 +180,7 @@
                     </td>
                 </tr>
             @empty
-                <tr><td colspan="7" class="px-4 py-6 text-center text-gray-400">No payouts requested yet.</td></tr>
+                <tr><td colspan="9" class="px-4 py-6 text-center text-gray-400">No payouts requested yet.</td></tr>
             @endforelse
         </tbody>
     </x-ui.table>

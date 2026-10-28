@@ -158,7 +158,7 @@
                         <td class="px-4 py-2 font-mono">{{ $currencySymbol }}{{ number_format($r->original_price, 2) }}</td>
                         <td class="px-4 py-2 font-mono">{{ $currencySymbol }}{{ number_format($r->final_price, 2) }}</td>
                         <td class="px-4 py-2 font-mono text-green-700">{{ $currencySymbol }}{{ number_format($r->discount_applied, 2) }}</td>
-                        <td class="px-4 py-2 text-gray-500 whitespace-nowrap">{{ app(\App\Services\TimezoneResolver::class)->format($r->created_at, $r->user?->franchise, 'd M Y, h:i A') }}</td>
+                        <td class="px-4 py-2"><x-ui.datetime :at="$r->created_at" :franchise="$r->user?->franchise" /></td>
                     </tr>
                 @empty
                     <tr><td colspan="8" class="px-4 py-6 text-center text-gray-400">No redemptions yet.</td></tr>

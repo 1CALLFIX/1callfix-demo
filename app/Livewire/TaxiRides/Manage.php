@@ -56,7 +56,7 @@ class Manage extends Component
     {
         return app(AuthorizationService::class)
             ->scopeQuery(TaxiRide::query(), auth()->user(), 'taxi_rides.view', $this->scopeColumns())
-            ->with(['customer', 'assignedWorker.user', 'franchise', 'pickupAddress', 'dropoffAddress']);
+            ->with(['customer', 'assignedWorker.user', 'franchise', 'pickupAddress', 'dropoffAddress', 'statusHistory' => \App\Support\Turnaround::historyScope()]);
     }
 
     public function getCustomerResultsProperty()

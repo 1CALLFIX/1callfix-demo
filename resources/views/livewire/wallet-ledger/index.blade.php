@@ -43,7 +43,7 @@
                 <th class="px-4 py-2">Reason</th>
                 <th class="px-4 py-2">Ref</th>
                 <th class="px-4 py-2">Status</th>
-                <th class="px-4 py-2">Date</th>
+                <x-ui.tat-heads />
             </tr>
         </thead>
         <tbody>
@@ -62,10 +62,13 @@
                     <td class="px-4 py-2">
                         <x-ui.badge :color="match($t->status) { 'successful' => 'green', 'pending' => 'amber', 'failed' => 'red', default => 'gray' }">{{ ucfirst($t->status) }}</x-ui.badge>
                     </td>
-                    <td class="px-4 py-2 text-gray-500">{{ app(\App\Services\TimezoneResolver::class)->format($t->created_at, $t->wallet?->user?->franchise, 'd M Y, h:i A') }}</td>
+                    @php($walletOpen = $t->status === 'pending')
+                    <td class="px-4 py-2"><x-ui.datetime :at="$t->created_at" :franchise="$t->wallet?->user?->franchise" /></td>
+                    <td class="px-4 py-2"><x-ui.closed-at :at="$walletOpen ? null : $t->updated_at" :outcome="$t->status" :open="$walletOpen" :franchise="$t->wallet?->user?->franchise" /></td>
+                    <td class="px-4 py-2"><x-ui.tat :from="$t->created_at" :to="$walletOpen ? null : $t->updated_at" :open="$walletOpen" :outcome="$t->status" /></td>
                 </tr>
             @empty
-                <tr><td colspan="8" class="px-4 py-6 text-center text-gray-400">No wallet transactions match your filters.</td></tr>
+                <tr><td colspan="10" class="px-4 py-6 text-center text-gray-400">No wallet transactions match your filters.</td></tr>
             @endforelse
         </tbody>
     </x-ui.table>

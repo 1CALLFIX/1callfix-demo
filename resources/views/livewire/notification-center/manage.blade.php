@@ -252,7 +252,7 @@
                                 <x-ui.badge :color="$campaignBadgeColor">{{ $c->status }}</x-ui.badge>
                             </td>
                             <td class="px-4 py-2">{{ $c->recipient_count }}</td>
-                            <td class="px-4 py-2 text-gray-500">{{ $c->sent_at?->diffForHumans() ?? $c->scheduled_at?->diffForHumans() ?? $c->created_at->diffForHumans() }}</td>
+                            <td class="px-4 py-2"><x-ui.datetime :at="$c->sent_at ?? $c->scheduled_at ?? $c->created_at" /></td>
                             <td class="px-4 py-2 text-right">
                                 @if (in_array($c->status, ['draft', 'scheduled']))
                                     <x-ui.button variant="ghost" color="red" wire:click="cancelCampaign({{ $c->id }})">Cancel</x-ui.button>
@@ -440,7 +440,7 @@
                                     <x-ui.badge :color="$l->status === 'sent' ? 'green' : 'red'">{{ $l->status }}</x-ui.badge>
                                 </td>
                                 <td class="px-4 py-2 text-red-500 text-xs">{{ \Illuminate\Support\Str::limit($l->error, 60) }}</td>
-                                <td class="px-4 py-2 text-gray-500 whitespace-nowrap">{{ $l->sent_at?->diffForHumans() ?? $l->created_at->diffForHumans() }}</td>
+                                <td class="px-4 py-2"><x-ui.datetime :at="$l->sent_at ?? $l->created_at" /></td>
                             </tr>
                         @empty
                             <tr><td colspan="7" class="px-4 py-6 text-center text-gray-400">No delivery logs match your filters.</td></tr>

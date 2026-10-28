@@ -43,7 +43,14 @@
                         <span class="text-gray-400 text-xs ml-2">{{ $r->franchise->name ?? '—' }}</span>
                         <x-ui.badge class="ml-2" :color="match($r->status) { 'approved' => 'green', 'rejected' => 'red', 'more_info_requested' => 'amber', 'closed' => 'slate', default => 'gray' }">{{ ucfirst(str_replace('_', ' ', $r->status)) }}</x-ui.badge>
                     </div>
-                    <span class="text-xs text-gray-400">{{ ucfirst($r->urgency) }} urgency &middot; {{ app(\App\Services\TimezoneResolver::class)->format($r->created_at, $r->franchise, 'd M Y') }}</span>
+                    <span class="text-xs text-gray-400">{{ ucfirst($r->urgency) }} urgency</span>
+                </div>
+                @php($kycOpen = in_array($r->status, ['open', 'more_info_requested'], true))
+                @php($kycClosedAt = $kycOpen ? null : ($r->decided_at ?? $r->updated_at))
+                <div class="mt-2 flex flex-wrap items-center gap-x-6 gap-y-2 rounded-lg bg-gray-50 px-3 py-2 text-xs">
+                    <div><span class="block text-[11px] uppercase tracking-wide text-gray-400">Raised</span><x-ui.datetime :at="$r->created_at" :franchise="$r->franchise" /></div>
+                    <div><span class="block text-[11px] uppercase tracking-wide text-gray-400">Decided</span><x-ui.closed-at :at="$kycClosedAt" :outcome="$r->status" :open="$kycOpen" open-label="Waiting" :franchise="$r->franchise" /></div>
+                    <div><span class="block text-[11px] uppercase tracking-wide text-gray-400">TAT</span><x-ui.tat :from="$r->created_at" :to="$kycClosedAt" :open="$kycOpen" :outcome="$r->status" /></div>
                 </div>
                 <p class="text-sm text-gray-600 mt-2">{{ $r->reason }}</p>
                 @if ($r->assistance_provided)<p class="text-xs text-gray-400 mt-1">Assistance: {{ $r->assistance_provided }}</p>@endif

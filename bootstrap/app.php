@@ -46,6 +46,10 @@ return Application::configure(basePath: dirname(__DIR__))
         // F1 — first-touch UTM / click-id capture on web pages.
         $middleware->web(append: [\App\Http\Middleware\CaptureAcquisition::class]);
 
+        // Last-active time for the admin Online column (writes after the response, at most once a minute).
+        $middleware->web(append: [\App\Http\Middleware\TouchLastSeen::class]);
+        $middleware->api(append: [\App\Http\Middleware\TouchLastSeen::class]);
+
         // Admin-controlled security headers (Admin → System → Security headers). Global so /api/* gets nosniff too.
         $middleware->append(\App\Http\Middleware\SecurityHeaders::class);
 

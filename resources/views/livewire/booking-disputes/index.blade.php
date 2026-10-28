@@ -24,7 +24,7 @@
 
         <thead class="bg-gray-50 text-left text-gray-500">
             <tr>
-                <th class="px-4 py-2">Age</th>
+                <x-ui.tat-heads created="Requested" completed="Closed" tat="Age / TAT" />
                 <th class="px-4 py-2">Booking</th>
                 <th class="px-4 py-2">Customer's reason</th>
                 <th class="px-4 py-2">Paid</th>
@@ -36,7 +36,11 @@
         <tbody>
             @forelse ($rows as $row)
                 <tr class="border-t align-top hover:bg-gray-50">
-                    <td class="px-4 py-2 whitespace-nowrap text-gray-500" title="{{ $row->created_at->format('d M Y, h:i A') }}">{{ $row->created_at->diffForHumans(null, true) }}</td>
+                    @php($open = $row->status === 'open' || in_array($row->refund_status, \App\Models\BookingDispute::REFUND_OPEN, true))
+                    @php($closedAt = $open ? null : ($row->refunded_at ?? $row->refund_rejected_at ?? $row->resolved_at ?? $row->updated_at))
+                    <td class="px-4 py-2"><x-ui.datetime :at="$row->created_at" /></td>
+                    <td class="px-4 py-2"><x-ui.closed-at :at="$closedAt" outcome="resolved" :open="$open" open-label="Open" /></td>
+                    <td class="px-4 py-2"><x-ui.tat :from="$row->created_at" :to="$closedAt" :open="$open" /></td>
                     <td class="px-4 py-2 font-mono text-xs">{{ $row->booking?->code }}<div class="font-sans text-gray-500">{{ $row->customer?->name }}</div></td>
                     <td class="px-4 py-2 text-xs text-gray-700 max-w-xs">{{ $row->reason }}</td>
                     <td class="px-4 py-2 whitespace-nowrap">₹{{ number_format((float) $row->amount_paid, 2) }}</td>
@@ -75,7 +79,7 @@
                 </tr>
                 @if ($actingId === $row->id)
                     <tr class="border-t bg-amber-50">
-                        <td colspan="7" class="px-4 py-3">
+                        <td colspan="9" class="px-4 py-3">
                             <form wire:submit="submitAction" class="space-y-2">
                                 @if ($actingType === 'resolve')
                                     <div class="grid gap-2 sm:grid-cols-2">
@@ -134,7 +138,7 @@
                     </tr>
                 @endif
             @empty
-                <tr><td colspan="7" class="px-4 py-6 text-center text-gray-400">Nothing in this queue.</td></tr>
+                <tr><td colspan="9" class="px-4 py-6 text-center text-gray-400">Nothing in this queue.</td></tr>
             @endforelse
         </tbody>
     </x-ui.table>

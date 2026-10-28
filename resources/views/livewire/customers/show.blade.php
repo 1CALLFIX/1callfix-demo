@@ -48,7 +48,7 @@
 
         <thead class="bg-gray-50 text-left text-gray-500">
             <tr>
-                <x-ui.sno-th /><th class="px-4 py-2">Code</th><th class="px-4 py-2">Service</th><th class="px-4 py-2">Provider</th><th class="px-4 py-2">Status</th><th class="px-4 py-2">Date</th><th class="px-4 py-2"></th></tr>
+                <x-ui.sno-th /><th class="px-4 py-2">Code</th><th class="px-4 py-2">Service</th><th class="px-4 py-2">Provider</th><th class="px-4 py-2">Status</th><x-ui.tat-heads /><th class="px-4 py-2"></th></tr>
         </thead>
         <tbody>
             @forelse ($this->recentBookings as $booking)
@@ -58,13 +58,13 @@
                     <td class="px-4 py-2">{{ $booking->service->name ?? '—' }}</td>
                     <td class="px-4 py-2 text-gray-500">{{ $booking->provider->user->name ?? '— unassigned —' }}</td>
                     <td class="px-4 py-2"><x-ui.status-badge type="booking" :status="$booking->status" /></td>
-                    <td class="px-4 py-2 text-gray-500">{{ app(\App\Services\TimezoneResolver::class)->format($booking->created_at, $booking->franchise, 'd M Y') }}</td>
+                    <x-ui.tat-cells :record="$booking" done="completed_at" :franchise="$booking->franchise" />
                     <td class="px-4 py-2">
                         <x-ui.button variant="ghost" :href="route('admin.bookings.show', $booking->id)">View</x-ui.button>
                     </td>
                 </tr>
             @empty
-                <tr><td colspan="7"><x-ui.empty-state icon="clipboard" title="No bookings yet" /></td></tr>
+                <tr><td colspan="9"><x-ui.empty-state icon="clipboard" title="No bookings yet" /></td></tr>
             @endforelse
         </tbody>
     </x-ui.table>

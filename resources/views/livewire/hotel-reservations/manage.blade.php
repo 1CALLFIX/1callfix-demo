@@ -135,6 +135,7 @@
                     <th class="px-4 py-2">Accommodation</th>
                     <th class="px-4 py-2">Dates</th>
                     <th class="px-4 py-2">Status</th>
+                    <x-ui.tat-heads />
                     <th class="px-4 py-2"></th>
                 </tr>
             </thead>
@@ -147,6 +148,7 @@
                         <td class="px-4 py-2">{{ $r->accommodation->name ?? '—' }}</td>
                         <td class="px-4 py-2 text-xs">{{ $r->check_in_date->format('d M') }} &rarr; {{ $r->check_out_date->format('d M') }}</td>
                         <td class="px-4 py-2"><x-ui.badge>{{ str_replace('_', ' ', $r->status) }}</x-ui.badge></td>
+                        <x-ui.tat-cells :record="$r" done="completed_at" />
                         <td class="px-4 py-2 text-right"><x-ui.button variant="ghost" wire:click="viewReservation({{ $r->id }})">View</x-ui.button></td>
                     </tr>
                 @endforeach

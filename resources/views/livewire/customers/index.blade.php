@@ -47,6 +47,7 @@
                 <th class="px-4 py-2">Wallet</th>
                 <th class="px-4 py-2">Status</th>
                 <th class="px-4 py-2">Joined</th>
+                <th class="px-4 py-2">Online</th>
                 <th class="px-4 py-2"></th>
             </tr>
         </thead>
@@ -62,14 +63,15 @@
                     <td class="px-4 py-2">
                         <x-ui.status-badge type="customer" :status="$customer->status" />
                     </td>
-                    <td class="px-4 py-2 text-gray-500">{{ $customer->created_at->diffForHumans() }}</td>
+                    <td class="px-4 py-2"><x-ui.datetime :at="$customer->created_at" /></td>
+                    <td class="px-4 py-2"><x-ui.presence :user="$customer" /></td>
                     <td class="px-4 py-2">
                         <x-ui.row-actions :id="$customer->id" :archived="$customer->trashed()" :can-manage="$canManage" :can-force="$canForce"
                                           :view-href="route('admin.customers.show', $customer->id)" :edit-click="'editCustomer('.$customer->id.')'" />
                     </td>
                 </tr>
             @empty
-                <tr><td colspan="9"><x-ui.empty-state icon="users" title="No customers yet" /></td></tr>
+                <tr><td colspan="10"><x-ui.empty-state icon="users" title="No customers yet" /></td></tr>
             @endforelse
         </tbody>
     </x-ui.table>
