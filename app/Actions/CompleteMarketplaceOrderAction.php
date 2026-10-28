@@ -5,6 +5,8 @@ namespace App\Actions;
 use App\Events\MarketplaceOrderStatusUpdated;
 use App\Models\FieldWorker;
 use App\Models\MarketplaceOrder;
+use App\Models\Store;
+use App\Models\User;
 use App\Notifications\MarketplaceOrderStatusNotification;
 use App\Notifications\Support\ChannelResolver;
 use App\Services\CommissionService;
@@ -25,9 +27,13 @@ class CompleteMarketplaceOrderAction
     {
     }
 
-    public function execute(int $orderId, ?FieldWorker $worker = null, ?string $enteredOtp = null): MarketplaceOrder
+    /**
+     * E-commerce Phase 1: `$seller` is the seller handing a pickup order over at the shop — they must enter the
+     * customer's collection code (made at `ready`). The admin screen completes a pickup without one, as before.
+     */
+    public function execute(int $orderId, ?FieldWorker $worker = null, ?string $enteredOtp = null, ?User $seller = null): MarketplaceOrder
     {
-        $order = DB::transaction(function () use ($orderId, $worker, $enteredOtp) {
+        $order = DB::transaction(function () use ($orderId, $worker, $enteredOtp, $seller) {
             $order = MarketplaceOrder::lockForUpdate()->findOrFail($orderId);
 
             if ($order->status !== 'ready') {
@@ -41,6 +47,13 @@ class CompleteMarketplaceOrderAction
                 if (empty($order->delivery_otp) || $order->delivery_otp !== $enteredOtp) {
                     throw new \RuntimeException('Incorrect delivery OTP.');
                 }
+            } elseif ($seller !== null) {
+                if (! Store::whereKey($order->store_id)->whereHas('provider', fn ($q) => $q->where('user_id', $seller->id))->exists()) {
+                    throw new \RuntimeException('This order is not from your shop.');
+                }
+                if (empty($order->delivery_otp) || $order->delivery_otp !== trim((string) $enteredOtp)) {
+                    throw new \RuntimeException('Incorrect collection code.');
+                }
             }
 
             $order->status = 'completed';
@@ -50,7 +63,7 @@ class CompleteMarketplaceOrderAction
 
             $order->statusHistory()->create([
                 'status' => 'completed',
-                'changed_by' => $worker?->user_id,
+                'changed_by' => $worker?->user_id ?? $seller?->id,
                 'note' => $order->order_type === 'delivery' ? 'Delivered with verified OTP' : 'Collected by customer',
                 'changed_at' => now(),
             ]);

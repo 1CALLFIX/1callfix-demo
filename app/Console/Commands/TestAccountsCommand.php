@@ -5,13 +5,16 @@ namespace App\Console\Commands;
 use App\Models\FieldWorker;
 use App\Models\FieldWorkerCapability;
 use App\Models\Franchise;
+use App\Models\Product;
 use App\Models\Provider;
 use App\Models\Role;
 use App\Models\RoleAssignment;
 use App\Models\ServiceCategory;
+use App\Models\Store;
 use App\Models\User;
 use App\Models\Zone;
 use App\Services\AuthorizationService;
+use App\Support\Modules;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -21,7 +24,8 @@ use Illuminate\Support\Str;
  * tried out. The password is passed on the command line and never stored in git.
  *
  * Owner thumb rule 2026-10-26: every module or partner app gets its test login while it is being built, so it can
- * be walked through for real. The parcel rider (test.rider, approved, /rider/login) is the first; add each new
+ * be walked through for real. The parcel rider (test.rider, approved, /rider/login, also takes shop deliveries) and
+ * the seller (test.seller, /seller/login, an approved open "Test Shop" with one product) are here; add each new
  * module's account (taxi driver, hotel, rental, grocery, ...) to ACCOUNTS the same way.
  *
  *   php artisan test-accounts create --password=... [--franchise=ID]
@@ -52,6 +56,8 @@ class TestAccountsCommand extends Command
         'provider' => ['Test Provider', 'provider', null, null, '6000000108'],
         // users.role stays 'provider' for riders (CreateParcelRiderAction); the rider is a field worker + parcel_rider.
         'rider' => ['Test Rider', 'provider', null, null, '6000000109'],
+        // E-commerce Phase 1: a seller is a provider account that owns an approved, open shop (/seller/login).
+        'seller' => ['Test Seller', 'provider', null, null, '6000000110'],
     ];
 
     public function handle(): int
@@ -142,6 +148,10 @@ class TestAccountsCommand extends Command
                         'is_online' => false,
                     ]);
                     FieldWorkerCapability::firstOrCreate(['field_worker_id' => $worker->id, 'capability_type' => 'parcel_rider']);
+                    // ...and shop deliveries, so the e-commerce walk-through has a rider.
+                    FieldWorkerCapability::firstOrCreate(['field_worker_id' => $worker->id, 'capability_type' => 'commerce_delivery_rider']);
+                } elseif ($key === 'seller') {
+                    $this->makeTestShop($user, $franchise, $zone);
                 } elseif ($userRole === 'provider') {
                     Provider::updateOrCreate(['user_id' => $user->id], [
                         'franchise_id' => $franchise->id,
@@ -154,15 +164,43 @@ class TestAccountsCommand extends Command
                     ]);
                 }
 
-                return [$key, $email, $roleSlug ? "{$roleSlug} @ {$scopeType} #{$scopeIds[$scopeType]}" : ($key === 'rider' ? 'parcel rider (approved)' : $userRole)];
+                return [$key, $email, $roleSlug ? "{$roleSlug} @ {$scopeType} #{$scopeIds[$scopeType]}" : ($key === 'rider' ? 'parcel + shop rider (approved)' : ($key === 'seller' ? 'seller, shop approved' : $userRole))];
             });
         }
 
         $this->info("Test accounts for franchise #{$franchise->id} {$franchise->name}, zone #{$zone->id} {$zone->name}:");
         $this->table(['Account', 'Login email', 'Access'], $rows);
-        $this->line('Staff log in at /admin/login, the provider at /provider/login, the rider at /rider/login, the customer at /login.');
+        $this->line('Staff log in at /admin/login, the provider at /provider/login, the rider at /rider/login, the seller at /seller/login, the customer at /login.');
 
         return self::SUCCESS;
+    }
+
+    /** The test seller's shop: approved, active and open, with one approved product, so a real order can be placed. */
+    private function makeTestShop(User $user, Franchise $franchise, Zone $zone): void
+    {
+        $provider = Provider::updateOrCreate(['user_id' => $user->id], [
+            'franchise_id' => $franchise->id,
+            'zone_id' => $zone->id,
+            'provider_type' => 'independent',
+            'kyc_status' => 'approved',
+            'is_active' => true,
+            'is_online' => false,
+            'skills' => null,
+        ]);
+        $store = Store::withTrashed()->firstOrNew(['provider_id' => $provider->id]);
+        $store->fill([
+            'franchise_id' => $franchise->id, 'zone_id' => $zone->id, 'module' => Modules::COMMERCE,
+            'name' => $store->name ?: 'Test Shop', 'address_line' => $store->address_line ?: 'Test address, '.$zone->name,
+            'lat' => $store->lat ?? $zone->center_lat ?? 0, 'lng' => $store->lng ?? $zone->center_lng ?? 0,
+            'phone' => $user->phone, 'is_active' => true, 'is_open' => true,
+            'approval_status' => 'approved', 'approved_at' => $store->approved_at ?? now(),
+        ])->save();
+        if ($store->trashed()) {
+            $store->restore();
+        }
+        if (! Product::where('store_id', $store->id)->exists()) {
+            Product::create(['store_id' => $store->id, 'name' => 'Test Product', 'price' => 100, 'stock' => 50, 'is_active' => true, 'is_approved' => true]);
+        }
     }
 
     private function list(): int
@@ -184,6 +222,7 @@ class TestAccountsCommand extends Command
                 RoleAssignment::where('user_id', $user->id)->delete();
                 Provider::where('user_id', $user->id)->update(['is_active' => false, 'is_online' => false]);
                 FieldWorker::where('user_id', $user->id)->update(['is_active' => false, 'is_online' => false]);
+                Store::whereIn('provider_id', Provider::where('user_id', $user->id)->select('id'))->update(['is_active' => false, 'is_open' => false]);
                 $user->forceFill(['status' => 'suspended'])->save();
                 $user->tokens()->delete();
             });

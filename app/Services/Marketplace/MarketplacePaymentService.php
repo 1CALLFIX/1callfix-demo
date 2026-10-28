@@ -105,6 +105,7 @@ class MarketplacePaymentService
                 $channels = ChannelResolver::resolve(['zone_id' => $order->zone_id, 'franchise_id' => $order->franchise_id]);
                 $order->customer->notify(new MarketplaceOrderStatusNotification('created', $order, $channels));
             }
+            MarketplaceOrderStatusNotification::toSeller($order);
 
             return;
         }

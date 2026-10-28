@@ -2,9 +2,12 @@
      Request Payout screens; see App\Livewire\Rider\PaymentAccounts / RequestPayout). `current` is passed in, not
      read from the URL: a Livewire action re-renders on /livewire/update, where routeIs() would match nothing. --}}
 @php
-    $tabs = ($area ?? 'provider') === 'rider'
-        ? ['rider.earnings' => 'Earnings', 'rider.payment-accounts' => 'Payment Accounts', 'rider.request-payout' => 'Request Payout']
-        : ['provider.earnings' => 'Earnings', 'provider.payment-accounts' => 'Payment Accounts', 'provider.request-payout' => 'Request Payout', 'provider.wallet' => 'Wallet & dues'];
+    $tabs = match ($area ?? 'provider') {
+        'rider' => ['rider.earnings' => 'Earnings', 'rider.payment-accounts' => 'Payment Accounts', 'rider.request-payout' => 'Request Payout'],
+        // E-commerce Phase 1: sellers reuse the same two screens.
+        'seller' => ['seller.earnings' => 'Earnings', 'seller.payment-accounts' => 'Payment Accounts', 'seller.request-payout' => 'Request Payout'],
+        default => ['provider.earnings' => 'Earnings', 'provider.payment-accounts' => 'Payment Accounts', 'provider.request-payout' => 'Request Payout', 'provider.wallet' => 'Wallet & dues'],
+    };
     $currentRoute = ($area ?? 'provider').'.'.$current;
 @endphp
 <div class="mt-3 flex flex-wrap gap-2 text-sm">

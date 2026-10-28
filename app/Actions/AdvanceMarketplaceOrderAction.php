@@ -5,6 +5,7 @@ namespace App\Actions;
 use App\Events\MarketplaceOrderStatusUpdated;
 use App\Jobs\MarketplaceDispatchJob;
 use App\Models\MarketplaceOrder;
+use App\Models\Setting;
 use App\Notifications\MarketplaceOrderStatusNotification;
 use App\Notifications\Support\ChannelResolver;
 use Illuminate\Support\Facades\DB;
@@ -55,6 +56,12 @@ class AdvanceMarketplaceOrderAction
             }
             if ($toStatus === 'ready') {
                 $order->ready_at = now();
+                // E-commerce Phase 1: a pickup order gets a collection code the customer shows at the shop; the
+                // seller enters it to hand over (a delivery order's code is made when a rider accepts).
+                if ($order->order_type === 'pickup' && empty($order->delivery_otp)) {
+                    $otpLength = (int) Setting::get('booking.otp_length', 4);
+                    $order->delivery_otp = (string) random_int((int) (10 ** ($otpLength - 1)), (int) (10 ** $otpLength) - 1);
+                }
             }
             $order->save();
 

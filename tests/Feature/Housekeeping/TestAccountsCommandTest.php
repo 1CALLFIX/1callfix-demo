@@ -4,9 +4,12 @@ namespace Tests\Feature\Housekeeping;
 
 use App\Livewire\Auth\Login as AdminLogin;
 use App\Livewire\Rider\Auth\Login as RiderLogin;
+use App\Livewire\Seller\Auth\Login as SellerLogin;
 use App\Models\FieldWorker;
+use App\Models\Product;
 use App\Models\Provider;
 use App\Models\RoleAssignment;
+use App\Models\Store;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
@@ -28,7 +31,7 @@ class TestAccountsCommandTest extends TestCase
         $this->artisan('test-accounts', ['action' => 'create', '--password' => self::PASSWORD, '--franchise' => $franchise->id])->assertSuccessful();
         $this->artisan('test-accounts', ['action' => 'create', '--password' => self::PASSWORD, '--franchise' => $franchise->id])->assertSuccessful();
 
-        $this->assertSame(9, User::where('email', 'like', '%@1callfix.test')->count());
+        $this->assertSame(10, User::where('email', 'like', '%@1callfix.test')->count());
         $operator = User::where('email', 'test.operator@1callfix.test')->first();
         $this->assertSame(1, RoleAssignment::where('user_id', $operator->id)->count());
         $this->assertTrue($operator->hasPermission('bookings.reassign', ['franchise_id' => $franchise->id]));
@@ -83,6 +86,36 @@ class TestAccountsCommandTest extends TestCase
         $this->artisan('test-accounts', ['action' => 'disable'])->assertSuccessful();
         $this->assertFalse($rider->fresh()->is_active);
         $this->assertSame(0, app(\App\Services\Parcel\ParcelReadiness::class)->riderCount('franchise', $franchise->id));
+    }
+
+    /** Thumb rule for E-commerce Phase 1: the seller login owns an approved, open shop with a product; disable shuts it. */
+    public function test_create_makes_a_test_seller_with_an_open_shop_who_can_sign_in_and_disable_turns_it_off(): void
+    {
+        [, , $franchise] = $this->makeFranchiseTree();
+        $this->artisan('test-accounts', ['action' => 'create', '--password' => self::PASSWORD, '--franchise' => $franchise->id])->assertSuccessful();
+        $this->artisan('test-accounts', ['action' => 'create', '--password' => self::PASSWORD, '--franchise' => $franchise->id])->assertSuccessful();
+
+        $seller = User::where('email', 'test.seller@1callfix.test')->sole();
+        $store = Store::whereHas('provider', fn ($q) => $q->where('user_id', $seller->id))->sole();
+        $this->assertTrue($store->isSellable());
+        $this->assertTrue($store->is_open);
+        $this->assertSame('test-shop', $store->slug, 'clean slug, no random suffix');
+        $this->assertSame(1, Product::where('store_id', $store->id)->where('is_approved', true)->count(), 'safe to re-run');
+        $this->assertTrue($seller->holdsPartnerRole('commerce'));
+        $this->assertFalse($seller->holdsPartnerRole('service'), 'a shop-only seller is not offered service jobs');
+
+        $rider = FieldWorker::whereHas('user', fn ($q) => $q->where('email', 'test.rider@1callfix.test'))->sole();
+        $this->assertTrue($rider->hasCapability('commerce_delivery_rider'), 'the test rider takes shop deliveries too');
+
+        Livewire::test(SellerLogin::class)->set('identifier', 'test.seller@1callfix.test')->set('password', self::PASSWORD)
+            ->call('login')->assertRedirect(route('seller.dashboard'));
+        $this->actingAs($seller)->get(route('seller.dashboard'))->assertOk()->assertSee('Test Shop');
+
+        auth()->logout();
+        $this->artisan('test-accounts', ['action' => 'disable'])->assertSuccessful();
+        $this->assertFalse($store->fresh()->is_active);
+        Livewire::test(SellerLogin::class)->set('identifier', 'test.seller@1callfix.test')->set('password', self::PASSWORD)
+            ->call('login')->assertNoRedirect()->assertSet('error', 'This account has been suspended. Contact support for help.');
     }
 
     /** Thumb rule walk-through for Admin → Partners: the franchise login reviews its own city's partners. */

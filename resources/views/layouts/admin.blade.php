@@ -222,6 +222,8 @@
                     ['label' => 'Products', 'route' => 'admin.products.index', 'icon' => 'wrench', 'permission' => 'products.manage'],
                     ['label' => 'Add-Ons', 'route' => 'admin.add-ons.index', 'icon' => 'wrench', 'permission' => 'products.manage'],
                     ['label' => 'Marketplace Orders', 'route' => 'admin.marketplace-orders.index', 'icon' => 'clipboard', 'permission' => 'marketplace_orders.view'],
+                    // super_admin only (permission never seeded to a role) — see the Earnings Control entry.
+                    ['label' => 'Shop Settings', 'route' => 'admin.marketplace-orders.settings', 'icon' => 'gear', 'permission' => 'marketplace_settings.manage'],
                 ],
             ],
             'system' => [

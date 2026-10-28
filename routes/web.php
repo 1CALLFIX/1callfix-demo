@@ -272,6 +272,33 @@ Route::middleware(['auth', \App\Http\Middleware\EnsureIsParcelRider::class, \App
         Route::get('/request-payout', \App\Livewire\Rider\RequestPayout::class)->name('rider.request-payout');
     });
 
+/*
+ | Seller portal (E-commerce Phase 1). A seller is a provider account that owns a shop (Store::provider_id); they
+ | join on /partners ("Seller or shop") → the one partner sign-up, and the shop waits for approval in Admin → Stores.
+ | Products, orders (accept → packing → ready, pickup hand-over by collection code), shop details and earnings.
+ */
+Route::middleware('guest')->get('/seller/login', \App\Livewire\Seller\Auth\Login::class)->name('seller.login');
+
+Route::post('/seller/logout', function () {
+    Auth::guard('web')->logout();
+    request()->session()->invalidate();
+    request()->session()->regenerateToken();
+
+    return redirect()->route('seller.login');
+})->middleware('auth')->name('seller.logout');
+
+Route::middleware(['auth', \App\Http\Middleware\EnsureIsSeller::class, \App\Http\Middleware\EnsureAccountNotSuspended::class])
+    ->prefix('seller')
+    ->group(function () {
+        Route::get('/', \App\Livewire\Seller\Dashboard::class)->name('seller.dashboard');
+        Route::get('/orders', \App\Livewire\Seller\Orders::class)->name('seller.orders');
+        Route::get('/products', \App\Livewire\Seller\Products::class)->name('seller.products');
+        Route::get('/shop', \App\Livewire\Seller\Shop::class)->name('seller.shop');
+        Route::get('/earnings', \App\Livewire\Seller\Earnings::class)->name('seller.earnings');
+        Route::get('/payment-accounts', \App\Livewire\Seller\PaymentAccounts::class)->name('seller.payment-accounts');
+        Route::get('/request-payout', \App\Livewire\Seller\RequestPayout::class)->name('seller.request-payout');
+    });
+
 // Public content. `page` renders real seeded `content_pages` rows — the
 // legal text itself is never authored or altered here (see
 // database/seeders/LegalContentSeeder.php's own docblock).

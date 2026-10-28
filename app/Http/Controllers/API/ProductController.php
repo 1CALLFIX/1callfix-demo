@@ -14,7 +14,7 @@ class ProductController extends Controller
     /** GET /api/stores/{storeId}/products?category_id=&search= */
     public function index(Request $request, int $storeId)
     {
-        $store = Store::where('is_active', true)->find($storeId);
+        $store = Store::sellable()->find($storeId);
         if (! $store) {
             return response()->json(['message' => 'Store not found.'], 404);
         }
@@ -38,6 +38,7 @@ class ProductController extends Controller
     public function show(int $productId)
     {
         $product = Product::where('is_active', true)->where('is_approved', true)
+            ->whereHas('store', fn ($q) => $q->sellable())
             ->with(['category', 'store', 'variants' => fn ($q) => $q->where('is_active', true)])
             ->find($productId);
 

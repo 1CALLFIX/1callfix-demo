@@ -54,7 +54,7 @@ class ForgotPassword extends Component
     #[Locked]
     public string $signInRoute = 'customer.login';
 
-    private const SIGN_IN_ROUTES = ['partner' => 'provider.login', 'rider' => 'rider.login', 'admin' => 'admin.login'];
+    private const SIGN_IN_ROUTES = ['partner' => 'provider.login', 'rider' => 'rider.login', 'seller' => 'seller.login', 'admin' => 'admin.login'];
 
     public const SUPER_ADMIN_BLOCKED = 'This account’s password can’t be reset here. Ask the platform owner to reset it.';
 

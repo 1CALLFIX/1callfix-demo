@@ -4,6 +4,7 @@ namespace App\Notifications;
 
 use App\Models\MarketplaceOrder;
 use App\Models\Setting;
+use App\Notifications\Support\ChannelResolver;
 use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
@@ -21,6 +22,16 @@ class MarketplaceOrderStatusNotification extends Notification
     ) {
     }
 
+    /** E-commerce Phase 1: tell the shop owner a new order is waiting (cash / wallet at once; online once paid). */
+    public static function toSeller(MarketplaceOrder $order): void
+    {
+        $owner = $order->store?->provider?->user;
+        if ($owner) {
+            $channels = ChannelResolver::resolve(['zone_id' => $order->zone_id, 'franchise_id' => $order->franchise_id]);
+            $owner->notify(new self('seller_new', $order, $channels));
+        }
+    }
+
     public function via($notifiable): array
     {
         return $this->channels;
@@ -36,6 +47,8 @@ class MarketplaceOrderStatusNotification extends Notification
         $symbol = Setting::get('locale.currency_symbol', '₹');
 
         return match ($this->event) {
+            // E-commerce Phase 1: to the seller (store owner), once the order is theirs to accept.
+            'seller_new' => ['subject' => 'New order', 'body' => "New order {$this->order->code}: {$symbol}".number_format((float) $this->order->total_amount, 2).'. Open the seller portal to accept it.'],
             'created' => ['subject' => 'Order placed', 'body' => "Your order {$this->order->code} has been placed."],
             'accepted' => ['subject' => 'Order accepted', 'body' => "Your order {$this->order->code} has been accepted by the store."],
             'preparing' => ['subject' => 'Order being prepared', 'body' => "Your order {$this->order->code} is being prepared."],

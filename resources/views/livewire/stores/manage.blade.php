@@ -2,6 +2,14 @@
     @if (session('message'))
         <div class="mb-4 bg-green-50 text-green-700 text-sm px-4 py-2 rounded">{{ session('message') }}</div>
     @endif
+    @if (session('error'))
+        <div class="mb-4 bg-red-50 text-red-700 text-sm px-4 py-2 rounded">{{ session('error') }}</div>
+    @endif
+    @if ($pendingApprovals > 0)
+        <button type="button" wire:click="$set('approvalFilter', 'pending')" class="mb-4 block w-full rounded border border-amber-300 bg-amber-50 px-4 py-2 text-left text-sm text-amber-900">
+            {{ $pendingApprovals }} {{ $pendingApprovals === 1 ? 'shop' : 'shops' }} waiting for approval — show them
+        </button>
+    @endif
 
     <x-ui.card class="mb-6">
         <h2 class="text-lg font-bold mb-3">New Store</h2>
@@ -60,6 +68,12 @@
                 <option value="{{ $slug }}">{{ $label }}</option>
             @endforeach
         </select>
+        <select wire:model.live="approvalFilter" class="border rounded px-3 py-2 text-sm">
+            <option value="">Any approval</option>
+            <option value="pending">Waiting for approval</option>
+            <option value="approved">Approved</option>
+            <option value="rejected">Not approved</option>
+        </select>
     </div>
 
     <x-ui.archive-bars :bars="$archiveBars" />
@@ -78,6 +92,7 @@
                 <th class="px-4 py-2">Owner</th>
                 <th class="px-4 py-2">Open</th>
                 <th class="px-4 py-2">Status</th>
+                <th class="px-4 py-2">Approval</th>
                 <th class="px-4 py-2"></th>
             </tr>
         </thead>
@@ -94,11 +109,38 @@
                     <td class="px-4 py-2">
                         @if ($s->is_active) <x-ui.badge color="green">Active</x-ui.badge> @else <x-ui.badge color="gray">Inactive</x-ui.badge> @endif
                     </td>
+                    <td class="px-4 py-2">
+                        @if ($s->approval_status === 'pending')
+                            <x-ui.badge color="amber">Waiting</x-ui.badge>
+                            <span class="block text-xs text-gray-500">Documents: {{ ucfirst($s->provider?->kyc_status ?? 'pending') }}</span>
+                            @unless ($s->trashed())
+                                <span class="mt-1 flex gap-2">
+                                    <x-ui.button variant="ghost" wire:click="approveStore({{ $s->id }})">Approve</x-ui.button>
+                                    <x-ui.button variant="ghost" wire:click="startRejectStore({{ $s->id }})">Not approve</x-ui.button>
+                                </span>
+                            @endunless
+                        @elseif ($s->approval_status === 'rejected')
+                            <x-ui.badge color="red">Not approved</x-ui.badge>
+                            @unless ($s->trashed())<x-ui.button variant="ghost" wire:click="approveStore({{ $s->id }})">Approve</x-ui.button>@endunless
+                        @else
+                            <x-ui.badge color="green">Approved</x-ui.badge>
+                        @endif
+                    </td>
                     <td class="px-4 py-2 text-right whitespace-nowrap"><div class="flex items-center justify-end gap-1">@unless ($s->trashed())<x-ui.button variant="ghost" wire:click="editStore({{ $s->id }})">Edit</x-ui.button>@endunless<x-ui.row-actions :id="$s->id" :archived="$s->trashed()" :can-manage="$canManage" :can-force="$canForce" /></div></td>
                 </tr>
             @endforeach
         </tbody>
     </x-ui.table>
+
+    <x-ui.modal :show="$rejectStoreId !== null" title="Not approve this shop">
+        <label class="block text-sm mb-1">What should the seller fix? They see this on their portal.</label>
+        <textarea rows="3" wire:model="rejectNote" class="border rounded px-3 py-2 text-sm w-full"></textarea>
+        @error('rejectNote') <span class="text-xs text-red-600">{{ $message }}</span> @enderror
+        <x-slot:footer>
+            <x-ui.button variant="secondary" wire:click="$set('rejectStoreId', null)">Cancel</x-ui.button>
+            <x-ui.button variant="danger" wire:click="rejectStore">Not approve</x-ui.button>
+        </x-slot:footer>
+    </x-ui.modal>
 
     <x-ui.modal :show="$showEditModal" title="Edit Store">
         <input type="text" wire:model="editName" class="border rounded px-3 py-2 text-sm w-full mb-3">

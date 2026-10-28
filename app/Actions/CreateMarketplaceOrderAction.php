@@ -48,6 +48,12 @@ class CreateMarketplaceOrderAction
     public function execute(array $data): MarketplaceOrder
     {
         $store = Store::findOrFail($data['store_id']);
+        if (! $store->isSellable()) {
+            throw new \RuntimeException('This store is not taking orders.');
+        }
+        if (! $store->is_open) {
+            throw new \RuntimeException('This store is closed right now.');
+        }
 
         $scope = [
             'zone_id' => $store->zone_id, 'franchise_id' => $store->franchise_id,
@@ -162,6 +168,9 @@ class CreateMarketplaceOrderAction
         if ($order->customer && ! $order->isAwaitingOnlinePayment()) {
             $channels = ChannelResolver::resolve(['zone_id' => $order->zone_id, 'franchise_id' => $order->franchise_id]);
             $order->customer->notify(new MarketplaceOrderStatusNotification('created', $order, $channels));
+        }
+        if (! $order->isAwaitingOnlinePayment()) {
+            MarketplaceOrderStatusNotification::toSeller($order);
         }
 
         return $order;

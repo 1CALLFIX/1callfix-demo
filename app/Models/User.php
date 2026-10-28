@@ -80,14 +80,31 @@ class User extends Authenticatable
         return match ($role) {
             'service' => ! $this->providerProfile()->exists(),
             'parcel' => ! $this->fieldWorkerProfile()->exists(),
+            // E-commerce Phase 1: one shop per account through sign-up (a service partner may add one too).
+            'commerce' => ! \App\Models\Store::query()->whereHas('provider', fn ($q) => $q->where('user_id', $this->id))->exists(),
             default => false,
         };
     }
 
-    /** The header "Become a partner" button: a role this account could still add. */
+    /**
+     * The partner roles this account already works in (mode switch). A shop-only seller is a Provider row too
+     * (Store::provider_id), so "service" means a provider that offers services or has no shop.
+     */
+    public function holdsPartnerRole(string $role): bool
+    {
+        return match ($role) {
+            'service' => ($p = $this->providerProfile) !== null && (! empty($p->skills) || ! $p->stores()->exists()),
+            'parcel' => (bool) $this->fieldWorkerProfile?->hasCapability('parcel_rider'),
+            'commerce' => (bool) $this->providerProfile?->stores()->exists(),
+            default => false,
+        };
+    }
+
+    /** The header "Become a partner" button: a role this account could still add (a shop only while seller sign-ups are open). */
     public function canAddAPartnerRole(): bool
     {
-        return $this->canApplyAsPartner('service') || $this->canApplyAsPartner('parcel');
+        return $this->canApplyAsPartner('service') || $this->canApplyAsPartner('parcel')
+            || (\App\Support\MarketplaceSettings::recruitingSellers() && $this->canApplyAsPartner('commerce'));
     }
     public function addresses() { return $this->hasMany(Address::class); }
     public function bookings() { return $this->hasMany(Booking::class, 'customer_id'); }
