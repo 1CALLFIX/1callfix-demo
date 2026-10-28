@@ -44,6 +44,11 @@ class AdvanceMarketplaceOrderAction
                 throw new \RuntimeException("Order [{$orderId}] cannot move to '{$toStatus}' from status '{$order->status}'.");
             }
 
+            // E-commerce Phase 0: the seller never starts on an online order whose money has not arrived.
+            if ($toStatus === 'accepted' && $order->payment_method !== 'cash' && $order->payment_status !== 'paid') {
+                throw new \RuntimeException("Order [{$orderId}] is not paid yet and cannot be accepted.");
+            }
+
             $order->status = $toStatus;
             if ($toStatus === 'accepted') {
                 $order->confirmed_at = now();

@@ -237,6 +237,7 @@ Route::middleware(['auth:sanctum', \App\Http\Middleware\EnsureNotInMaintenanceMo
     Route::post('/marketplace-orders', [\App\Http\Controllers\API\MarketplaceOrderController::class, 'store']);
     Route::get('/marketplace-orders/mine', [\App\Http\Controllers\API\MarketplaceOrderController::class, 'mine']);
     Route::get('/marketplace-orders/{orderId}', [\App\Http\Controllers\API\MarketplaceOrderController::class, 'show']);
+    Route::post('/marketplace-orders/{orderId}/pay', [\App\Http\Controllers\API\MarketplaceOrderController::class, 'pay']);
     Route::get('/loyalty', [\App\Http\Controllers\API\LoyaltyController::class, 'show']);
     Route::post('/loyalty/redeem', [\App\Http\Controllers\API\LoyaltyController::class, 'redeem']);
 

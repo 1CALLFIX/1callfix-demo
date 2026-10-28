@@ -117,7 +117,7 @@ trait MarketplaceFixtureHelpers
             'franchise_id' => $franchise->id, 'zone_id' => $zone->id,
             'customer_id' => $customer->id, 'store_id' => $store->id, 'module' => $store->module,
             'order_type' => 'delivery', 'subtotal' => 100, 'total_amount' => 100,
-            'status' => $status, 'payment_status' => 'pending', 'payment_method' => 'online',
+            'status' => $status, 'payment_status' => 'paid', 'payment_method' => 'online',
         ], $overrides));
 
         return compact('country', 'city', 'franchise', 'zone', 'customer', 'owner', 'store', 'product', 'order');

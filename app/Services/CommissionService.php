@@ -316,17 +316,18 @@ class CommissionService
      * is exactly the same `Provider` type Property Rental's own earner
      * already widened this helper's type hint for, so no further widening
      * is needed.
+     *
+     * E-commerce Phase 0 (2026-10-25): the split now lives in
+     * MarketplaceSettlementService (goods → seller after the return window,
+     * delivery fee → rider, cash recovered from whoever holds it). The old
+     * shared-helper split credited the seller the full net at delivery, even
+     * on cash orders, and paid the rider nothing.
      */
     public function applyForMarketplaceOrder(MarketplaceOrder $order): Commission
     {
-        $order->loadMissing(['franchise.owner', 'store.provider.user']);
-
-        return $this->applyForFieldWorkerOrder(
-            identifyingColumn: 'marketplace_order_id', identifyingId: $order->id,
-            franchise: $order->franchise, worker: $order->store?->provider,
-            total: (float) ($order->price_final ?? $order->total_amount),
-            orderCode: $order->code, orderLabel: 'marketplace order',
-        );
+        return app(\App\Services\Marketplace\MarketplaceSettlementService::class)
+            ->recordOnCompletion($order)
+            ->commission;
     }
 
     /**

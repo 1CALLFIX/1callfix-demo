@@ -608,10 +608,34 @@ class DispatchService
             ->whereNotNull('assigned_worker_id')
             ->pluck('assigned_worker_id');
 
+        // E-commerce Phase 0: a cash-on-delivery shop order is never offered to a rider whose unpaid cash (parcel
+        // dues + shop cash) has reached the admin's rider limit (parcel.rider_cash_due_limit; unset = no limit).
+        $overCashLimitIds = collect();
+        $cashScope = array_filter([
+            'zone_id' => $order->zone_id, 'franchise_id' => $order->franchise_id,
+            'city_id' => $order->franchise?->city_id, 'country_id' => $order->franchise?->country_id,
+        ]);
+        $cashLimit = \App\Services\Parcel\ParcelSettings::get('parcel.rider_cash_due_limit', $cashScope);
+        if ($order->payment_method === 'cash' && $cashLimit !== null) {
+            // Compared in PHP, not HAVING: a bound number compares as text on SQLite.
+            $owedByRider = [];
+            \App\Models\FieldWorkerCashDue::outstanding()
+                ->selectRaw('field_worker_id, SUM(amount_owed - amount_settled) as owed')
+                ->groupBy('field_worker_id')->get()
+                ->each(function ($row) use (&$owedByRider) { $owedByRider[$row->field_worker_id] = (float) $row->owed; });
+            \App\Models\MarketplaceSettlement::where('cash_status', 'outstanding')->where('cash_debtor_type', 'field_worker')
+                ->selectRaw('field_worker_id, SUM(cash_owed - cash_settled) as owed')
+                ->groupBy('field_worker_id')->get()
+                ->each(function ($row) use (&$owedByRider) {
+                    $owedByRider[$row->field_worker_id] = ($owedByRider[$row->field_worker_id] ?? 0) + (float) $row->owed;
+                });
+            $overCashLimitIds = collect($owedByRider)->filter(fn ($owed) => round($owed, 2) >= (float) $cashLimit)->keys();
+        }
+
         return $this->rankedFieldWorkerCandidates(
             capabilityType: $capabilityType,
             zoneId: $order->zone_id,
-            excludeWorkerIds: $alreadyOfferedWorkerIds->merge($busyWorkerIds),
+            excludeWorkerIds: $alreadyOfferedWorkerIds->merge($busyWorkerIds)->merge($overCashLimitIds),
             pickupLat: (float) $order->store->lat,
             pickupLng: (float) $order->store->lng,
             radiusKm: $order->zone->default_dispatch_radius_km ?? 8,

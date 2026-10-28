@@ -254,6 +254,10 @@ class MarketplaceOrderLifecycleTest extends TestCase
         $this->assertNotNull($commission);
         $this->assertSame(1400.0, (float) $commission->provider_commission); // 2000 - 400(platform) - 200(franchise)
 
+        // E-commerce Phase 0: the seller's share is held for the 3-day return window, then released.
+        $this->assertSame(0.0, app(WalletService::class)->balance($scenario['owner']->user));
+        $this->travel(3)->days();
+        $this->artisan('marketplace:release-earnings')->assertSuccessful();
         $this->assertSame(1400.0, app(WalletService::class)->balance($scenario['owner']->user));
     }
 
@@ -286,6 +290,10 @@ class MarketplaceOrderLifecycleTest extends TestCase
         app(\App\Services\CommissionService::class)->applyForMarketplaceOrder($scenario['order']->fresh());
 
         $this->assertSame(1, Commission::where('marketplace_order_id', $scenario['order']->id)->count());
+
+        $this->travel(3)->days();
+        $this->artisan('marketplace:release-earnings')->assertSuccessful();
+        $this->artisan('marketplace:release-earnings')->assertSuccessful();
         $this->assertSame(1000.0, app(WalletService::class)->balance($scenario['owner']->user));
     }
 
