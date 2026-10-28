@@ -497,6 +497,30 @@ class MarketplacePhase0MoneyTest extends TestCase
         $this->assertSame(0.0, $this->balance($s['rider']->user));
     }
 
+    public function test_free_delivery_is_a_benefit_so_a_cash_order_above_the_threshold_pays_the_delivery_fee(): void
+    {
+        $w = $this->shop();
+        $w['store']->update(['delivery_fee_flat' => 40, 'free_delivery_above_amount' => 150]);
+        $address = $this->makeAddress($w['customer'], $w['franchise'], $w['zone']);
+
+        $order = $this->checkout($w, 'cash', ['order_type' => 'delivery', 'delivery_address_id' => $address->id]);
+
+        $this->assertEquals(40, $order->delivery_fee, 'Cash gets no benefit: subtotal 200 is above 150, fee still charged.');
+        $this->assertEquals(240, $order->total_amount);
+    }
+
+    public function test_an_online_order_above_the_threshold_gets_free_delivery(): void
+    {
+        $w = $this->shop();
+        $w['store']->update(['delivery_fee_flat' => 40, 'free_delivery_above_amount' => 150]);
+        $address = $this->makeAddress($w['customer'], $w['franchise'], $w['zone']);
+
+        $order = $this->checkout($w, 'online', ['order_type' => 'delivery', 'delivery_address_id' => $address->id]);
+
+        $this->assertEquals(0, $order->delivery_fee);
+        $this->assertEquals(200, $order->total_amount);
+    }
+
     public function test_a_pickup_order_has_no_delivery_fee_no_rider_pay_and_no_delivery_commission(): void
     {
         Setting::create(['key' => 'marketplace.rider_min_payout', 'value' => '30']);

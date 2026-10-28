@@ -75,10 +75,15 @@ class CreateMarketplaceOrderAction
             throw new \RuntimeException("This store requires a minimum order of {$store->minimum_order_amount}.");
         }
 
+        $paymentMethod = $data['payment_method'] ?? 'online';
+
+        // THUMB RULE (owner 2026-10-28): free delivery above the store's threshold is a benefit, so a cash order
+        // always pays the store's delivery fee. Online and wallet orders get the free delivery.
         $deliveryFee = 0.0;
         if ($orderType === 'delivery') {
             $freeAbove = $store->free_delivery_above_amount;
-            $deliveryFee = ($freeAbove !== null && $subtotal >= (float) $freeAbove) ? 0.0 : (float) $store->delivery_fee_flat;
+            $freeDelivery = $paymentMethod !== 'cash' && $freeAbove !== null && $subtotal >= (float) $freeAbove;
+            $deliveryFee = $freeDelivery ? 0.0 : (float) $store->delivery_fee_flat;
         }
 
         // E-commerce Phase 0: the cart price already has the product's discount % taken off
@@ -92,7 +97,6 @@ class CreateMarketplaceOrderAction
         // two rates interact; that's a deferred refinement, not an omission.
         $taxAmount = round($subtotal * (float) $store->tax_percent / 100, 2);
         $totalAmount = round($subtotal + $deliveryFee + $taxAmount, 2);
-        $paymentMethod = $data['payment_method'] ?? 'online';
 
         if (! in_array($paymentMethod, ['online', 'wallet', 'cash'], true)) {
             throw new \RuntimeException("Payment method '{$paymentMethod}' is not available.");
