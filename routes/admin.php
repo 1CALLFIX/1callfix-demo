@@ -141,6 +141,8 @@ Route::middleware(['auth', \Illuminate\Session\Middleware\AuthenticateSession::c
         Route::get('/mismatch-refunds', \App\Livewire\MismatchRefunds\Index::class)->name('admin.mismatch-refunds.index');
         // A2 — post-payment pricing disputes (permission bookings.refund_dispute, scoped in the component).
         Route::get('/booking-disputes', \App\Livewire\BookingDisputes\Index::class)->name('admin.booking-disputes.index');
+        // E-commerce Phase 3b: shop returns and their refunds (approval model).
+        Route::get('/shop-returns', \App\Livewire\MarketplaceReturns\Index::class)->name('admin.shop-returns.index');
         Route::get('/refund-controls', \App\Livewire\RefundControls\Manage::class)->name('admin.refund-controls.index');
         Route::get('/charge-waivers', \App\Livewire\ChargeWaivers\Index::class)->name('admin.charge-waivers.index');
         // 0d — Super Admin on/off for the critical-alert emails.

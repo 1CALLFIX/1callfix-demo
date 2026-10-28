@@ -79,6 +79,15 @@ class Orders extends Component
         $this->run(fn () => $action->execute($orderId, null, (string) ($this->codes[$orderId] ?? ''), auth()->user()), 'Handed over. Order complete.');
     }
 
+    /** E-commerce Phase 3b: the seller confirms a returned item is back at the shop (own shop's returns only). */
+    public function receiveReturn(int $returnId, \App\Services\Marketplace\MarketplaceReturnService $returns): void
+    {
+        $row = \App\Models\MarketplaceReturn::where('store_id', $this->shop()->id)->find($returnId);
+        abort_unless($row, 404);
+        $result = $returns->markReceived($row, auth()->user());
+        $this->flash($result['message'], $result['ok'] ? 'success' : 'error');
+    }
+
     private function run(callable $step, string $success): void
     {
         try {
@@ -102,6 +111,7 @@ class Orders extends Component
             'active' => ['accepted', 'preparing', 'ready'],
             'done' => ['completed'],
             'cancelled' => ['cancelled'],
+            'returns' => ['__none__'],
             default => ['pending'],
         };
 
@@ -115,7 +125,11 @@ class Orders extends Component
             'counts' => [
                 'new' => (clone $base)->where('status', 'pending')->count(),
                 'active' => (clone $base)->whereIn('status', ['accepted', 'preparing', 'ready'])->count(),
+                'returns' => \App\Models\MarketplaceReturn::where('store_id', $store->id)->whereIn('status', ['requested', 'accepted'])->count(),
             ],
+            'returns' => $this->tab === 'returns'
+                ? \App\Models\MarketplaceReturn::where('store_id', $store->id)->with('order:id,code')->latest('id')->limit(50)->get()
+                : collect(),
             'currencySymbol' => Setting::get('locale.currency_symbol', '₹'),
         ])->layout('components.layouts.seller', ['title' => 'Orders']);
     }

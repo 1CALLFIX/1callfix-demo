@@ -50,6 +50,25 @@
             </div>
         </x-ui.card>
 
+        <x-ui.card class="mb-6">
+            <h2 class="text-sm font-semibold mb-3">Shop return refunds (₹)</h2>
+            <p class="text-xs text-gray-500 mb-3">Same model for refunds of shop returns (damaged / wrong item). Blank limit = that level cannot approve; blank threshold / escalation = off.</p>
+            <div class="grid gap-4 sm:grid-cols-2">
+                <label class="block text-sm"><span class="block text-xs font-medium mb-1">Franchise limit</span>
+                    <input type="text" inputmode="decimal" wire:model="retFranchiseLimit" class="w-full rounded border-gray-300 text-sm">
+                    @error('retFranchiseLimit') <p class="text-xs text-red-600 mt-1">{{ $message }}</p> @enderror</label>
+                <label class="block text-sm"><span class="block text-xs font-medium mb-1">HQ limit</span>
+                    <input type="text" inputmode="decimal" wire:model="retHqLimit" class="w-full rounded border-gray-300 text-sm">
+                    @error('retHqLimit') <p class="text-xs text-red-600 mt-1">{{ $message }}</p> @enderror</label>
+                <label class="block text-sm"><span class="block text-xs font-medium mb-1">Second approval above</span>
+                    <input type="text" inputmode="decimal" wire:model="retDualApprovalAbove" class="w-full rounded border-gray-300 text-sm">
+                    @error('retDualApprovalAbove') <p class="text-xs text-red-600 mt-1">{{ $message }}</p> @enderror</label>
+                <label class="block text-sm"><span class="block text-xs font-medium mb-1">Escalate after (hours)</span>
+                    <input type="text" inputmode="numeric" wire:model="retEscalateAfterHours" class="w-full rounded border-gray-300 text-sm">
+                    @error('retEscalateAfterHours') <p class="text-xs text-red-600 mt-1">{{ $message }}</p> @enderror</label>
+            </div>
+        </x-ui.card>
+
         <x-ui.card>
             <h2 class="text-sm font-semibold mb-3">Pricing-dispute refunds (₹)</h2>
             <p class="text-xs text-gray-500 mb-3">

@@ -16,6 +16,8 @@ use Livewire\Component;
  */
 class OrderShow extends Component
 {
+    use \Livewire\WithFileUploads;
+
     public MarketplaceOrder $order;
 
     public bool $confirmingCancel = false;
@@ -70,6 +72,57 @@ class OrderShow extends Component
         $this->confirmingCancel = false;
     }
 
+    // ── E-commerce Phase 3b: returns (damaged / wrong item, within the return window) ──
+
+    public bool $returning = false;
+
+    public string $returnReason = 'damaged';
+
+    public string $returnDescription = '';
+
+    /** order item id => quantity to return */
+    public array $returnQty = [];
+
+    public array $returnPhotos = [];
+
+    public function requestReturn(\App\Services\Marketplace\MarketplaceReturnService $returns): void
+    {
+        $this->validate([
+            'returnReason' => ['required', 'in:'.implode(',', array_keys(\App\Models\MarketplaceReturn::REASONS))],
+            'returnDescription' => ['required', 'string', 'min:10', 'max:1000'],
+            'returnQty' => ['array'],
+            'returnQty.*' => ['nullable', 'integer', 'min:0', 'max:1000'],
+            'returnPhotos' => ['required', 'array', 'min:1', 'max:3'],
+            'returnPhotos.*' => ['image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
+        ], [
+            'returnDescription.required' => 'Tell us what is wrong.',
+            'returnPhotos.required' => 'Add at least one photo of the item.',
+        ]);
+
+        $this->order->refresh()->load('items');
+        if (($why = $returns->cannotRequest($this->order, auth()->id())) !== null) {
+            $this->flash = $why;
+            $this->flashType = 'error';
+
+            return;
+        }
+        $paths = array_map(fn ($file) => $file->store('returns/'.$this->order->id, 'public'), $this->returnPhotos);
+        try {
+            $returns->request($this->order, auth()->user(), $this->returnReason, $this->returnDescription, array_map('intval', $this->returnQty), $paths);
+        } catch (\RuntimeException $e) {
+            foreach ($paths as $path) {
+                \Illuminate\Support\Facades\Storage::disk('public')->delete($path);
+            }
+            $this->flash = $e->getMessage();
+            $this->flashType = 'error';
+
+            return;
+        }
+        $this->reset('returning', 'returnDescription', 'returnQty', 'returnPhotos');
+        $this->flash = 'Return requested. We will look at it and tell you what happens next.';
+        $this->flashType = 'success';
+    }
+
     public function rate(): void
     {
         $this->order->refresh();
@@ -102,6 +155,8 @@ class OrderShow extends Component
             'canCancel' => in_array($this->order->status, ['pending', 'accepted'], true),
             'review' => Review::where('marketplace_order_id', $this->order->id)->first(),
             'returnDays' => (int) \App\Support\MarketplaceSettings::get('marketplace.return_window_days'),
+            'returnRow' => \App\Models\MarketplaceReturn::where('marketplace_order_id', $this->order->id)->latest('id')->first(),
+            'canReturn' => app(\App\Services\Marketplace\MarketplaceReturnService::class)->cannotRequest($this->order, auth()->id()) === null,
             'currencySymbol' => Setting::get('locale.currency_symbol', '₹'),
         ])->layout('components.layouts.customer', ['title' => 'Order '.$this->order->code]);
     }

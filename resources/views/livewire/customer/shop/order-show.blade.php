@@ -117,7 +117,61 @@
                         <button type="submit" class="mt-2 min-h-11 rounded-xl bg-blue-600 px-5 text-sm font-bold text-white">Send rating</button>
                     </form>
                 @endif
-                <p class="mt-3 text-xs text-slate-500">Damaged or wrong item? You can ask for a return within {{ $returnDays }} days.</p>
+            </section>
+
+            {{-- E-commerce Phase 3b: returns — damaged or wrong item, within the return window. --}}
+            <section class="mt-4 rounded-3xl border border-slate-200 bg-white p-4 text-sm sm:p-5">
+                @if ($returnRow)
+                    @php
+                        $returnLabel = [
+                            'requested' => 'Return requested — we are looking at it.',
+                            'accepted' => 'Return accepted. Hand the item back to the shop (or our rider) as we told you.',
+                            'declined' => 'Return not accepted.',
+                            'received' => 'The shop has the item back. Your refund is being processed.',
+                            'refunded' => 'Refunded '.$currencySymbol.number_format((float) $returnRow->refund_amount, 2).($returnRow->refund_destination === 'original' ? ' to your original payment method.' : ' to your wallet.'),
+                        ][$returnRow->status] ?? $returnRow->status;
+                    @endphp
+                    <p class="font-semibold">{{ $returnLabel }}</p>
+                    @if ($returnRow->decision_note)<p class="mt-1 text-slate-600">{{ $returnRow->decision_note }}</p>@endif
+                @endif
+
+                @if ($canReturn)
+                    @if (! $returning)
+                        <p class="text-slate-600">Damaged or wrong item? Ask for a return within {{ $returnDays }} days.</p>
+                        <button type="button" wire:click="$set('returning', true)" class="mt-2 text-sm font-semibold text-blue-700 hover:underline">Return an item</button>
+                    @else
+                        <form wire:submit="requestReturn" class="space-y-3">
+                            <h2 class="font-semibold">Return an item</h2>
+                            <div class="flex gap-2">
+                                @foreach (\App\Models\MarketplaceReturn::REASONS as $value => $label)
+                                    <label @class(['cursor-pointer rounded-xl border px-3 py-2', 'border-blue-600 bg-blue-50' => $returnReason === $value, 'border-slate-300' => $returnReason !== $value])>
+                                        <input type="radio" wire:model.live="returnReason" value="{{ $value }}" class="sr-only"> {{ $label }}
+                                    </label>
+                                @endforeach
+                            </div>
+                            <ul class="space-y-1">
+                                @foreach ($order->items as $item)
+                                    <li class="flex items-center justify-between gap-3">
+                                        <span>{{ $item->product_name_snapshot }} <span class="text-slate-500">(ordered {{ $item->quantity }})</span></span>
+                                        <input type="number" min="0" max="{{ $item->quantity }}" wire:model="returnQty.{{ $item->id }}" placeholder="0" aria-label="Quantity to return" class="w-20 rounded-lg border border-slate-300 px-2 py-1 text-right">
+                                    </li>
+                                @endforeach
+                            </ul>
+                            <textarea wire:model="returnDescription" rows="2" placeholder="What is wrong with it?" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-base"></textarea>
+                            @error('returnDescription') <p class="text-red-700">{{ $message }}</p> @enderror
+                            <label class="block"><span class="font-medium">Photos (1 to 3)</span>
+                                <input type="file" wire:model="returnPhotos" multiple accept="image/jpeg,image/png,image/webp" class="mt-1 block text-sm"></label>
+                            @error('returnPhotos') <p class="text-red-700">{{ $message }}</p> @enderror
+                            @error('returnPhotos.*') <p class="text-red-700">{{ $message }}</p> @enderror
+                            <div class="flex gap-2">
+                                <button type="submit" wire:loading.attr="disabled" class="min-h-11 rounded-xl bg-blue-600 px-5 font-bold text-white">Ask for a return</button>
+                                <button type="button" wire:click="$set('returning', false)" class="min-h-11 rounded-xl border border-slate-300 px-4">Cancel</button>
+                            </div>
+                        </form>
+                    @endif
+                @elseif (! $returnRow)
+                    <p class="text-xs text-slate-500">Returns are for damaged or wrong items, within {{ $returnDays }} days of delivery.</p>
+                @endif
             </section>
         @endif
     </div>

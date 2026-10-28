@@ -212,6 +212,10 @@ class MarketplaceSettlementService
             if ($row->payment_mode === 'cash_delivery' && $row->cash_status === 'outstanding') {
                 return false; // the rider has not yet paid the cash back
             }
+            // E-commerce Phase 3b: an open return keeps the seller's money held until its refund is settled.
+            if (\App\Models\MarketplaceReturn::where('marketplace_order_id', $row->marketplace_order_id)->whereIn('status', \App\Models\MarketplaceReturn::OPEN)->exists()) {
+                return false;
+            }
 
             $order = $row->marketplaceOrder;
             if ($row->provider?->user && (float) $row->seller_share > 0) {
