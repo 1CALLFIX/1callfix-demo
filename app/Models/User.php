@@ -58,11 +58,28 @@ class User extends Authenticatable
     {
         return $this->role !== 'super_admin';
     }
-    /** An active customer with no partner profile yet may apply on the partner sign-up with this same account (owner 2026-10-27). */
-    public function canApplyAsPartner(): bool
+    /**
+     * One account, several partner roles (owner 2026-10-27): an active customer or partner may apply for a partner
+     * role it does not hold yet, on this same account — 'service' (a provider profile) or 'parcel' (a rider profile).
+     * Staff and suspended accounts never apply here.
+     */
+    public function canApplyAsPartner(string $role = 'service'): bool
     {
-        return $this->role === 'customer' && $this->status === 'active'
-            && ! $this->providerProfile()->exists() && ! $this->fieldWorkerProfile()->exists();
+        if (! in_array($this->role, ['customer', 'provider'], true) || $this->status !== 'active') {
+            return false;
+        }
+
+        return match ($role) {
+            'service' => ! $this->providerProfile()->exists(),
+            'parcel' => ! $this->fieldWorkerProfile()->exists(),
+            default => false,
+        };
+    }
+
+    /** The header "Become a partner" button: a role this account could still add. */
+    public function canAddAPartnerRole(): bool
+    {
+        return $this->canApplyAsPartner('service') || $this->canApplyAsPartner('parcel');
     }
     public function addresses() { return $this->hasMany(Address::class); }
     public function bookings() { return $this->hasMany(Booking::class, 'customer_id'); }

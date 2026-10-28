@@ -64,6 +64,9 @@ class Manage extends Component
     public string $reviewAmberHours = '24';
     public string $reviewRedHours = '48';
 
+    public bool $headerPartnerButton = true;
+    public string $headerPartnerLabel = '';
+
     public string $flashMessage = '';
 
     public function mount(): void
@@ -104,6 +107,8 @@ class Manage extends Component
         $this->windowMinutes = (string) intdiv(S::windowSeconds(), 60);
         $this->reviewAmberHours = (string) S::reviewAmberHours();
         $this->reviewRedHours = (string) S::reviewRedHours();
+        $this->headerPartnerButton = S::headerPartnerButton();
+        $this->headerPartnerLabel = S::headerPartnerLabel();
     }
 
     public function save(): void
@@ -138,6 +143,7 @@ class Manage extends Component
             'windowMinutes' => ['required', 'integer', 'between:1,1440'],
             'reviewAmberHours' => ['required', 'integer', 'between:1,720'],
             'reviewRedHours' => ['required', 'integer', 'between:1,720', 'gte:reviewAmberHours'],
+            'headerPartnerLabel' => ['required', 'string', 'max:30'],
         ], [], [
             'categoryLimit' => 'number of categories', 'columnsMobile' => 'phone columns', 'columnsDesktop' => 'desktop columns',
             'parcelTitle' => 'parcel title', 'parcelSubtitle' => 'parcel subtitle', 'parcelImageFile' => 'parcel picture', 'parcelIconFile' => 'parcel icon',
@@ -146,6 +152,7 @@ class Manage extends Component
             'servicesMax' => 'most services', 'partnerFormPerMobile' => 'partner form tries', 'partnerFormWindowMinutes' => 'partner form window',
             'otpPerMobile' => 'code requests', 'submitPerMobile' => 'submit tries', 'windowMinutes' => 'sign-up window',
             'reviewAmberHours' => 'amber hours', 'reviewRedHours' => 'overdue hours',
+            'headerPartnerLabel' => 'partner button text',
         ]);
 
         $bool = fn (bool $v) => $v ? '1' : '0';
@@ -186,6 +193,8 @@ class Manage extends Component
             S::LIMIT_WINDOW => (string) (int) $this->windowMinutes,
             S::REVIEW_AMBER_HOURS => (string) (int) $this->reviewAmberHours,
             S::REVIEW_RED_HOURS => (string) (int) $this->reviewRedHours,
+            S::HEADER_PARTNER_BUTTON => $bool($this->headerPartnerButton),
+            S::HEADER_PARTNER_LABEL => trim($this->headerPartnerLabel),
         ] as $key => $value) {
             $changed = SettingsAuditor::put($admin, $key, $value) || $changed;
         }

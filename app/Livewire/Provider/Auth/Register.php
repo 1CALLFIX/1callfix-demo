@@ -162,13 +162,36 @@ class Register extends Component
         }
 
         if (auth()->guard('web')->check()) {
-            $user = auth()->user();
+            $this->mountSignedIn(auth()->user());
+        }
+    }
+
+    /**
+     * Header "Become a partner" (owner 2026-10-27): a signed-in customer or partner applies with their own account
+     * for a role they do not hold yet — same mobile, same password. A fresh code to the account's own number is
+     * always required (owner: verification is a must for a partner — a phone left signed in is not proof enough).
+     * Already holding this role, or staff: sent away as before.
+     */
+    private function mountSignedIn(User $user): void
+    {
+        if (! $user->canApplyAsPartner($this->partnerRole)) {
             $this->redirectRoute(
                 $user->providerProfile()->exists() ? 'provider.dashboard'
                     : ($user->fieldWorkerProfile?->hasCapability('parcel_rider') ? 'rider.dashboard' : 'customer.home'),
                 navigate: true,
             );
+
+            return;
         }
+
+        $this->existingUserName = (string) $user->name;
+        $this->phone = (string) $user->phone;
+    }
+
+    /** Signed in: the application is for this account, so the number is always the account's own. */
+    private function signedInPhone(): ?string
+    {
+        return auth()->guard('web')->check() ? (string) auth()->user()->phone : null;
     }
 
     public function isRider(): bool
@@ -194,6 +217,7 @@ class Register extends Component
     {
         $this->reset('error', 'status');
 
+        $this->phone = $this->signedInPhone() ?? $this->phone;
         $this->validate([
             'phone' => ['required', 'string', 'min:6', 'max:20', 'regex:/^[0-9+][0-9 \-]*$/'],
         ], ['phone.regex' => 'Enter a valid mobile number.']);
@@ -281,6 +305,12 @@ class Register extends Component
         // uploads a document against a number they can't use. Same
         // `phone` shape the Action checks — national digits.
         $national = PhoneNumber::national($identity->phoneNumber);
+        if (($own = $this->signedInPhone()) !== null && PhoneNumber::national($own) !== $national) {
+            $this->error = 'Verify the mobile number of the account you are signed in with.';
+            $this->step = 'phone';
+
+            return;
+        }
         if ($this->takenByAnotherPartner($national)) {
             $this->error = 'An account with this mobile number already exists. Please sign in instead.';
             $this->step = 'phone';
@@ -302,6 +332,10 @@ class Register extends Component
 
     public function changePhone(): void
     {
+        if ($this->signedInPhone() !== null) {
+            return;
+        }
+
         $this->reset('error', 'status', 'verifiedPhoneE164', 'phoneFirebaseUid', 'existingUserId', 'existingUserName');
         $this->step = 'phone';
     }
@@ -311,7 +345,7 @@ class Register extends Component
     {
         $user = User::where('phone', $national)->first();
 
-        return $user !== null && ! $user->canApplyAsPartner();
+        return $user !== null && ! $user->canApplyAsPartner($this->partnerRole);
     }
 
     // ─────────────────────── Address / coverage ──────────────────────────

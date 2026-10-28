@@ -35,6 +35,9 @@ class Login extends Component
 
     public string $error = '';
 
+    /** Right password, but the account (a customer) has not sent a partner application yet: point to it, not a dead end. */
+    public bool $notAppliedYet = false;
+
     public function mount(): void
     {
         if (Auth::guard('web')->check()) {
@@ -47,7 +50,7 @@ class Login extends Component
 
     public function login(CustomerAccountResolver $accounts): void
     {
-        $this->reset('error');
+        $this->reset('error', 'notAppliedYet');
 
         $this->validate([
             'identifier' => ['required', 'string', 'max:255'],
@@ -92,6 +95,15 @@ class Login extends Component
         if ($user->status === 'suspended') {
             $this->hitThrottle('provider-login', $this->identifier);
             $this->error = 'This account has been suspended. Contact support for help.';
+            $this->password = '';
+
+            return;
+        }
+
+        if (! $user->providerProfile()->exists() && $user->canApplyAsPartner('service')) {
+            $this->clearThrottle('provider-login', $this->identifier);
+            $this->notAppliedYet = true;
+            $this->error = 'Your 1CallFix account has no partner application yet. Finish it below with the same mobile number; you keep this password.';
             $this->password = '';
 
             return;

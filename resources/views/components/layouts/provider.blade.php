@@ -19,6 +19,9 @@
      | admin-only Finance screen). Earnings already covers wallet balance +
      | a per-job ledger, the closest real equivalent.
      */
+    // Partner menu, online switch and offer polling only for a signed-in partner: a signed-in customer opening the
+    // partner sign-up (header "Become a partner") gets the plain page.
+    $partnerChrome = auth()->user()?->providerProfile !== null;
     $navItems = [
         ['label' => 'Dashboard', 'route' => 'provider.dashboard', 'icon' => 'home'],
         ['label' => 'Job Offers', 'route' => 'provider.jobs.index', 'icon' => 'clipboard'],
@@ -58,7 +61,7 @@
 <body class="min-h-full bg-slate-50 text-slate-900 antialiased flex flex-col">
     <a href="#provider-main" class="skip-link">Skip to main content</a>
 
-    @auth
+    @if ($partnerChrome)
         {{-- x-data scoped to the whole header: the hamburger button and the
              drawer it opens both need to share `open`, and Alpine is already
              a dependency of this exact layout (see the online-toggle chip's
@@ -101,6 +104,8 @@
 
                     <div class="flex shrink-0 items-center gap-3">
                         <livewire:provider.online-toggle />
+
+                        <x-partner.mode-switch current="service" class="hidden text-sm lg:inline" />
 
                         <form method="POST" action="{{ route('provider.logout') }}" class="hidden lg:block">
                             @csrf
@@ -159,6 +164,8 @@
                         @endforeach
                     </nav>
 
+                    <x-partner.mode-switch current="service" class="block border-t border-slate-200 px-7 py-3 text-sm" />
+
                     <form method="POST" action="{{ route('provider.logout') }}" class="border-t border-slate-200 px-4 py-3">
                         @csrf
                         <button type="submit" class="flex min-h-11 w-full items-center gap-3 rounded-lg px-3 text-sm font-medium text-slate-500 hover:bg-slate-50 hover:text-slate-900">
@@ -170,10 +177,10 @@
                 </div>
             </div>
         </div>
-    @endauth
+    @endif
 
     <main id="provider-main" tabindex="-1" class="mx-auto w-full max-w-4xl flex-1 px-4 py-6 focus:outline-none sm:px-6">
-        @auth
+        @if ($partnerChrome)
             {{-- Offer source for every page that doesn't already poll offers.
                  Jobs\Index and Dashboard dispatch `provider-alert-offers`
                  themselves; mounting the watcher there too would double the
@@ -237,7 +244,7 @@
                     </div>
                 </div>
             </section>
-        @endauth
+        @endif
 
         {{ $slot }}
 

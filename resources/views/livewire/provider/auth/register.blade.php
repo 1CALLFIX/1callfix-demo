@@ -65,11 +65,13 @@
                 @if ($step === 'details' && $verifiedPhoneE164)
                     <div class="mt-1.5 flex items-center justify-between gap-3 rounded-lg bg-emerald-50 px-3 py-2.5 text-sm text-emerald-800">
                         <span><span aria-hidden="true" class="font-bold">&check;</span> Verified — {{ $verifiedPhoneE164 }}</span>
-                        <button type="button" wire:click="changePhone"
-                                class="shrink-0 font-medium underline underline-offset-2 hover:text-emerald-900">Change</button>
+                        @guest
+                            <button type="button" wire:click="changePhone"
+                                    class="shrink-0 font-medium underline underline-offset-2 hover:text-emerald-900">Change</button>
+                        @endguest
                     </div>
                 @else
-                    <input id="pr-phone" type="tel" inputmode="tel" autocomplete="tel" autofocus wire:model="phone"
+                    <input id="pr-phone" type="tel" inputmode="tel" autocomplete="tel" autofocus wire:model="phone" @auth readonly @endauth
                            placeholder="e.g. 9876543210"
                            @class(['mt-1.5 block min-h-11 w-full rounded-lg border px-3 py-2.5 text-base shadow-sm focus:outline focus:outline-2 focus:outline-blue-600',
                                    'border-red-400' => $errors->has('phone'), 'border-slate-300' => ! $errors->has('phone')])>
@@ -80,10 +82,12 @@
                         <div class="mt-4">
                             @include('livewire.customer.auth._firebase-phone', ['resend' => 'requestPhoneCode'])
                         </div>
-                        <button type="button" wire:click="changePhone"
-                                class="mt-3 text-sm font-medium text-slate-600 underline underline-offset-4 hover:text-slate-900">
-                            Change number
-                        </button>
+                        @guest
+                            <button type="button" wire:click="changePhone"
+                                    class="mt-3 text-sm font-medium text-slate-600 underline underline-offset-4 hover:text-slate-900">
+                                Change number
+                            </button>
+                        @endguest
                     @else
                         <x-ui.button type="submit" size="lg" class="mt-3 w-full !min-h-11" wire:loading.attr="disabled" wire:target="requestPhoneCode">
                             <span wire:loading.remove wire:target="requestPhoneCode">Send verification code</span>

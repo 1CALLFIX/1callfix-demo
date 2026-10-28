@@ -32,9 +32,9 @@ use Illuminate\Support\Str;
  *
  * A phone that already belongs to a user → AccountAlreadyExistsException
  * (the caller surfaces "sign in instead"). An existing customer becoming a
- * partner (D10, owner 2026-10-27) goes through forExistingCustomer(): the
- * same providers row on their own account, which keeps its password, role
- * and bookings.
+ * partner (D10, owner 2026-10-27) — or a rider adding services — goes
+ * through forExistingCustomer(): the same providers row on their own
+ * account, which keeps its password, role and bookings.
  */
 class RegisterProviderAction
 {
@@ -89,7 +89,7 @@ class RegisterProviderAction
     {
         return DB::transaction(function () use ($user, $franchiseId, $zoneId, $registration, $skills) {
             $user = User::whereKey($user->id)->lockForUpdate()->first();
-            if (! $user?->canApplyAsPartner()) {
+            if (! $user?->canApplyAsPartner('service')) {
                 throw new AccountAlreadyExistsException('mobile number');
             }
             if ($user->phone_verified_at === null) {

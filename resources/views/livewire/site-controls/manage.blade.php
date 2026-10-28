@@ -240,6 +240,24 @@
             </p>
         </x-ui.card>
 
+        <x-ui.card>
+            <h2 class="text-sm font-semibold mb-3">Become a partner button</h2>
+            <div class="grid gap-4 md:grid-cols-3">
+                <label class="flex items-center gap-2 text-sm">
+                    <input type="checkbox" wire:model="headerPartnerButton"> Show it in the website header
+                </label>
+                <div>
+                    <label class="block text-sm font-medium mb-1" for="sc-hplabel">Button text</label>
+                    <input id="sc-hplabel" type="text" maxlength="30" wire:model="headerPartnerLabel" class="{{ $input }}">
+                    @error('headerPartnerLabel') <p class="text-xs text-red-600 mt-1">{{ $message }}</p> @enderror
+                </div>
+            </div>
+            <p class="text-xs text-gray-500 mt-3">
+                Opens the partner page. Anyone can join from it — a customer who is already signed in too, with the same mobile and account.
+                One account can hold several partner roles (for example a service partner who also delivers parcels). Shown in the menu on phones.
+            </p>
+        </x-ui.card>
+
         <x-ui.button type="submit">Save</x-ui.button>
     </form>
 </div>
