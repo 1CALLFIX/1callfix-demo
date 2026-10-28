@@ -84,6 +84,11 @@
                     <div>
                         <label class="block text-xs font-medium mb-1" for="cf-code">Code</label>
                         <input id="cf-code" type="text" wire:model="code" class="w-full border rounded px-3 py-2 text-sm uppercase">
+                        <label for="cf-module" class="mt-2 block text-xs font-medium text-gray-600">For</label>
+                        <select id="cf-module" wire:model.live="couponModule" class="w-full border rounded px-3 py-2 text-sm">
+                            <option value="service">Service bookings</option>
+                            <option value="commerce">Shop orders</option>
+                        </select>
                         @error('code') <p class="text-xs text-red-600 mt-1">{{ $message }}</p> @enderror
                     </div>
                     <div class="md:col-span-2">

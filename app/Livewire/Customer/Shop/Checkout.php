@@ -33,6 +33,54 @@ class Checkout extends Component
 
     public string $error = '';
 
+    /** Coupon (online / wallet only — a coupon is a benefit). */
+    public string $couponInput = '';
+
+    public string $appliedCoupon = '';
+
+    public float $couponDiscount = 0.0;
+
+    public string $couponMessage = '';
+
+    public function applyCoupon(CreateMarketplaceOrderAction $create): void
+    {
+        $this->couponMessage = '';
+        $code = strtoupper(trim($this->couponInput));
+        if ($code === '') {
+            return;
+        }
+        if ($this->paymentMethod === 'cash') {
+            $this->couponMessage = \App\Exceptions\CouponException::ONLINE_ONLY_MESSAGE;
+
+            return;
+        }
+        $ctx = $create->couponContext($this->store, auth()->user(), $this->lines(), $this->paymentMethod, $code);
+        $result = app(\App\Services\Coupons\CouponService::class)->validate($ctx);
+        if (! $result->eligible) {
+            $this->reset('appliedCoupon', 'couponDiscount');
+            $this->couponMessage = $result->message ?: \App\Services\Coupons\PromotionResult::GENERIC_MESSAGE;
+
+            return;
+        }
+        $this->appliedCoupon = $code;
+        $this->couponDiscount = round($result->discountTotal, 2);
+        $this->couponMessage = 'Coupon applied.';
+    }
+
+    public function removeCoupon(): void
+    {
+        $this->reset('appliedCoupon', 'couponDiscount', 'couponInput', 'couponMessage');
+    }
+
+    /** Switching to cash drops the coupon (benefits are online-only). */
+    public function updatedPaymentMethod(string $value): void
+    {
+        if ($value === 'cash' && $this->appliedCoupon !== '') {
+            $this->removeCoupon();
+            $this->couponMessage = 'Coupons are for online or wallet payment, so it was removed.';
+        }
+    }
+
     public function mount(Store $store): void
     {
         abort_unless($store->isSellable(), 404);
@@ -86,6 +134,7 @@ class Checkout extends Component
                 'delivery_address_id' => $this->orderType === 'delivery' ? $this->addressId : null,
                 'payment_method' => $this->paymentMethod,
                 'special_instructions' => trim($this->note) ?: null,
+                'coupon_code' => $this->appliedCoupon ?: null,
             ]);
         } catch (\RuntimeException $e) {
             $this->error = $e->getMessage();
@@ -120,7 +169,8 @@ class Checkout extends Component
         $freeDeliveryEarned = $freeAbove !== null && $subtotal >= (float) $freeAbove;
         $deliveryFee = $this->orderType === 'pickup' ? 0.0
             : (($this->paymentMethod !== 'cash' && $freeDeliveryEarned) ? 0.0 : (float) $this->store->delivery_fee_flat);
-        $tax = round($subtotal * (float) $this->store->tax_percent / 100, 2);
+        $coupon = min($this->couponDiscount, $subtotal);
+        $tax = round(($subtotal - $coupon) * (float) $this->store->tax_percent / 100, 2);
         $scope = array_filter(['zone_id' => $this->store->zone_id, 'franchise_id' => $this->store->franchise_id]);
 
         return view('livewire.customer.shop.checkout', [
@@ -129,9 +179,10 @@ class Checkout extends Component
             'subtotal' => $subtotal,
             'deliveryFee' => $deliveryFee,
             'tax' => $tax,
-            'total' => round($subtotal + $deliveryFee + $tax, 2),
+            'total' => round($subtotal - $coupon + $deliveryFee + $tax, 2),
+            'coupon' => $coupon,
             'freeDeliveryEarned' => $freeDeliveryEarned,
-            'cashBlocked' => $this->hasDiscount(),
+            'cashBlocked' => $this->hasDiscount() || $this->appliedCoupon !== '',
             'walletEnabled' => Setting::get('payment.wallet_enabled', null, $scope) === '1',
             'walletBalance' => app(WalletService::class)->balance(auth()->user()),
             'onlineEnabled' => Setting::get('payment.online_enabled', '1', $scope) === '1',

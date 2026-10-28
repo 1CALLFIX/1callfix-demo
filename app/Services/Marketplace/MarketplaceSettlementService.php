@@ -62,11 +62,15 @@ class MarketplaceSettlementService
 
         $total = (float) ($order->price_final ?? $order->total_amount);
         $deliveryAmount = $rider ? round((float) $order->delivery_fee, 2) : 0.0;
-        $goodsAmount = round($total - $deliveryAmount, 2);
+        // Coupons are HQ-funded: the seller and franchise earn on the full goods value; the platform carries the
+        // discount out of its own share (which can go below zero on a big coupon).
+        $couponDiscount = round((float) $order->coupon_discount_amount, 2);
+        $goodsAmount = round($total - $deliveryAmount + $couponDiscount, 2);
 
         // E-commerce Phase 4: the goods fee comes from Admin → Shop Commission (shop / category / franchise / city).
         $goodsRate = $order->store ? app(MarketplaceCommissionResolver::class)->rateForOrder($order) : null;
         [$goodsPlatform, $goodsFranchise, $sellerShare] = $this->split($franchise, $seller, $goodsAmount, $goodsRate);
+        $goodsPlatform = round($goodsPlatform - $couponDiscount, 2);
         [$deliveryPlatform, $deliveryFranchise, $riderShare] = $this->split($franchise, null, $deliveryAmount);
 
         $scope = array_filter([

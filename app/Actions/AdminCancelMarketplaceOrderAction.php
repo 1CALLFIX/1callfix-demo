@@ -74,6 +74,11 @@ class AdminCancelMarketplaceOrderAction
 
         $this->cancellationService->refundIfPaidForMarketplaceOrder($order, (float) $order->cancellation_fee);
 
+        // A cancelled order gives its coupon back (the usage no longer counts toward limits or budget).
+        if ($usage = \App\Models\CouponUsage::where('marketplace_order_id', $order->id)->where('status', 'reserved')->first()) {
+            app(\App\Services\Coupons\CouponService::class)->release($usage);
+        }
+
         if ($order->customer) {
             $channels = ChannelResolver::resolve(['zone_id' => $order->zone_id, 'franchise_id' => $order->franchise_id]);
             $order->customer->notify(new MarketplaceOrderStatusNotification('cancelled', $order, $channels));

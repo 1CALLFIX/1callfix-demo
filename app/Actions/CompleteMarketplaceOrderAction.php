@@ -77,6 +77,11 @@ class CompleteMarketplaceOrderAction
 
         $this->commissionService->applyForMarketplaceOrder($order);
 
+        // The coupon's benefit is realised on completion.
+        if ($usage = \App\Models\CouponUsage::where('marketplace_order_id', $order->id)->where('status', 'reserved')->first()) {
+            app(\App\Services\Coupons\CouponService::class)->confirm($usage);
+        }
+
         if ($order->customer) {
             $channels = ChannelResolver::resolve(['zone_id' => $order->zone_id, 'franchise_id' => $order->franchise_id]);
             $order->customer->notify(new MarketplaceOrderStatusNotification('completed', $order, $channels));

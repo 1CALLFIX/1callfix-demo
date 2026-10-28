@@ -37,6 +37,9 @@ class Manage extends Component
 
     public string $code = '';
 
+    /** E-commerce: which order flow the coupon is for — 'service' (bookings) or 'commerce' (shop orders). */
+    public string $couponModule = 'service';
+
     public string $name = '';
 
     public string $description = '';
@@ -150,6 +153,7 @@ class Manage extends Component
         $this->resetForm();
         $this->editingId = $coupon->id;
         $this->code = $coupon->code;
+        $this->couponModule = in_array($coupon->module, ['service', 'commerce'], true) ? $coupon->module : 'service';
         $this->name = $coupon->name;
         $this->description = (string) $coupon->description;
         $this->discountType = $coupon->discount_type;
@@ -238,7 +242,7 @@ class Manage extends Component
             'stackable_with_flash' => $this->stackableWithFlash,
             'valid_from' => $this->validFrom !== '' ? $this->validFrom : null,
             'valid_until' => $this->validUntil !== '' ? $this->validUntil : null,
-            'module' => 'service',
+            'module' => in_array($this->couponModule, ['service', 'commerce'], true) ? $this->couponModule : 'service',
             'franchise_id' => null, // HQ coupons only on these screens
         ];
         if (! $coupon) {
@@ -265,7 +269,9 @@ class Manage extends Component
     private function buildTargets(): array
     {
         $rows = [];
-        foreach (['city' => $this->cityIds, 'service_category' => $this->categoryIds, 'service_subcategory' => $this->subcategoryIds, 'service' => $this->serviceIds] as $type => $ids) {
+        // A shop coupon has no service targets (they would never match a shop line); city targets still apply.
+        $serviceTargets = $this->couponModule === 'commerce' ? [] : ['service_category' => $this->categoryIds, 'service_subcategory' => $this->subcategoryIds, 'service' => $this->serviceIds];
+        foreach (['city' => $this->cityIds] + $serviceTargets as $type => $ids) {
             foreach (array_unique(array_map('intval', $ids)) as $id) {
                 $rows[] = ['target_type' => $type, 'target_id' => $id, 'operator' => 'include'];
             }
@@ -362,7 +368,7 @@ class Manage extends Component
 
     private function resetForm(): void
     {
-        $this->reset(['editingId', 'showForm', 'code', 'name', 'description', 'value', 'maxDiscount', 'usageLimit', 'perUserLimit', 'totalBudget', 'dailyBudget', 'campaignTag', 'stackableWithFlash', 'validFrom', 'validUntil', 'cityIds', 'categoryIds', 'subcategoryIds', 'serviceIds', 'customerType', 'globalScope']);
+        $this->reset(['editingId', 'showForm', 'code', 'couponModule', 'name', 'description', 'value', 'maxDiscount', 'usageLimit', 'perUserLimit', 'totalBudget', 'dailyBudget', 'campaignTag', 'stackableWithFlash', 'validFrom', 'validUntil', 'cityIds', 'categoryIds', 'subcategoryIds', 'serviceIds', 'customerType', 'globalScope']);
         $this->discountType = 'percent';
         $this->minOrderValue = '0';
         $this->resetErrorBag();

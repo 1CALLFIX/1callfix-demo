@@ -52,7 +52,7 @@
                         <input type="radio" wire:model.live="paymentMethod" value="cash" @disabled($cashBlocked)>
                         <span><span class="font-semibold">Cash {{ $orderType === 'pickup' ? 'at the shop' : 'on delivery' }}</span>
                             <span class="block text-xs text-slate-600">
-                                @if ($cashBlocked) Not available: this bag has discounted items, which are paid online.
+                                @if ($cashBlocked) Not available: discounted items and coupons are for online payment.
                                 @elseif ($freeDeliveryEarned && $orderType === 'delivery') Free delivery is for online payment; cash pays the delivery fee.
                                 @else Pay when you get it. @endif
                             </span></span>
@@ -68,6 +68,24 @@
             </section>
 
             <section class="rounded-3xl border border-slate-200 bg-white p-4 text-sm sm:p-5">
+                <h2 class="font-semibold">Coupon</h2>
+                @if ($appliedCoupon)
+                    <p class="mt-2 flex items-center justify-between rounded-xl bg-emerald-50 px-3 py-2 text-emerald-800">
+                        <span><span class="font-bold">{{ $appliedCoupon }}</span> · you save {{ $currencySymbol }}{{ number_format($coupon, 2) }}</span>
+                        <button type="button" wire:click="removeCoupon" class="text-xs font-semibold underline">Remove</button>
+                    </p>
+                @else
+                    <div class="mt-2 flex gap-2">
+                        <label for="shop-coupon" class="sr-only">Coupon code</label>
+                        <input id="shop-coupon" type="text" wire:model="couponInput" placeholder="Enter a coupon code" class="min-h-11 flex-1 rounded-xl border border-slate-300 px-3 text-base uppercase">
+                        <button type="button" wire:click="applyCoupon" class="min-h-11 rounded-xl border-2 border-blue-600 px-4 text-sm font-bold text-blue-700">Apply</button>
+                    </div>
+                    <p class="mt-1 text-xs text-slate-500">Coupons work with online and wallet payment.</p>
+                @endif
+                @if ($couponMessage && ! $appliedCoupon)<p class="mt-1 text-sm text-red-700">{{ $couponMessage }}</p>@endif
+            </section>
+
+            <section class="rounded-3xl border border-slate-200 bg-white p-4 text-sm sm:p-5">
                 <h2 class="font-semibold">Summary</h2>
                 <ul class="mt-2 divide-y divide-slate-100">
                     @foreach ($lines as $l)
@@ -77,6 +95,9 @@
                 </ul>
                 <dl class="mt-2 space-y-1 border-t border-slate-100 pt-2">
                     <div class="flex justify-between"><dt>Items</dt><dd class="tabular-nums">{{ $currencySymbol }}{{ number_format($subtotal, 2) }}</dd></div>
+                    @if ($coupon > 0)
+                        <div class="flex justify-between text-emerald-700"><dt>Coupon {{ $appliedCoupon }}</dt><dd class="tabular-nums">−{{ $currencySymbol }}{{ number_format($coupon, 2) }}</dd></div>
+                    @endif
                     @if ($orderType === 'delivery')
                         <div class="flex justify-between"><dt>Delivery</dt><dd class="tabular-nums">{{ $deliveryFee > 0 ? $currencySymbol.number_format($deliveryFee, 2) : 'Free' }}</dd></div>
                     @endif
