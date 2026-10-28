@@ -64,7 +64,9 @@ class MarketplaceSettlementService
         $deliveryAmount = $rider ? round((float) $order->delivery_fee, 2) : 0.0;
         $goodsAmount = round($total - $deliveryAmount, 2);
 
-        [$goodsPlatform, $goodsFranchise, $sellerShare] = $this->split($franchise, $seller, $goodsAmount);
+        // E-commerce Phase 4: the goods fee comes from Admin → Shop Commission (shop / category / franchise / city).
+        $goodsRate = $order->store ? app(MarketplaceCommissionResolver::class)->rateForOrder($order) : null;
+        [$goodsPlatform, $goodsFranchise, $sellerShare] = $this->split($franchise, $seller, $goodsAmount, $goodsRate);
         [$deliveryPlatform, $deliveryFranchise, $riderShare] = $this->split($franchise, null, $deliveryAmount);
 
         $scope = array_filter([
@@ -321,13 +323,13 @@ class MarketplaceSettlementService
     }
 
     /** @return array{0: float, 1: float, 2: float} platform, franchise, earner */
-    private function split(?Franchise $franchise, ?Provider $provider, float $amount): array
+    private function split(?Franchise $franchise, ?Provider $provider, float $amount, ?float $rate = null): array
     {
         if ($amount <= 0 || ! $franchise) {
             return [0.0, 0.0, max(round($amount, 2), 0.0)];
         }
 
-        $platform = round($amount * ($this->rateResolver->resolve($franchise, $provider) / 100), 2);
+        $platform = round($amount * (($rate ?? $this->rateResolver->resolve($franchise, $provider)) / 100), 2);
         $franchiseShare = $franchise->commission_model === 'revenue_share'
             ? round($amount * (($franchise->commission_value ?? 0) / 100), 2)
             : 0.0;

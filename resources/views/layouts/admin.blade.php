@@ -225,6 +225,7 @@
                     ['label' => 'Marketplace Orders', 'route' => 'admin.marketplace-orders.index', 'icon' => 'clipboard', 'permission' => 'marketplace_orders.view'],
                     // super_admin only (permission never seeded to a role) — see the Earnings Control entry.
                     ['label' => 'Shop Settings', 'route' => 'admin.marketplace-orders.settings', 'icon' => 'gear', 'permission' => 'marketplace_settings.manage'],
+                    ['label' => 'Shop Commission', 'route' => 'admin.shop-commission.index', 'icon' => 'banknotes', 'permission' => 'marketplace_commission.manage'],
                 ],
             ],
             'system' => [

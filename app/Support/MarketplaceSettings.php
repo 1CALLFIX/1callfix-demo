@@ -29,6 +29,15 @@ final class MarketplaceSettings
             'group' => 'Sellers', 'label' => 'Blocked words in product names', 'type' => 'text', 'default' => null, 'global' => true,
             'help' => 'One word or phrase per line (for example medicine, alcohol, tobacco). A seller cannot list a product whose name or description contains one. Phase 1 sells no food, medicine or regulated items.',
         ],
+        // ── commission (E-commerce Phase 4) ──
+        'marketplace.commission.franchise_min' => [
+            'group' => 'Commission', 'label' => 'Lowest fee a franchise may set', 'type' => 'decimal', 'unit' => '%', 'min' => 0, 'max' => 100,
+            'default' => null, 'global' => true, 'help' => 'Franchise admins set shop commission rules for their own city only between these two. Blank = franchise admins cannot set rules.',
+        ],
+        'marketplace.commission.franchise_max' => [
+            'group' => 'Commission', 'label' => 'Highest fee a franchise may set', 'type' => 'decimal', 'unit' => '%', 'min' => 0, 'max' => 100,
+            'default' => null, 'global' => true, 'help' => 'Blank = franchise admins cannot set rules.',
+        ],
         // ── orders ──
         'marketplace.unpaid_expiry_minutes' => [
             'group' => 'Orders', 'label' => 'Cancel unpaid online orders after', 'type' => 'int', 'unit' => 'minutes', 'min' => 5, 'max' => 1440,
