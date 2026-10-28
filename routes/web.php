@@ -192,6 +192,13 @@ Route::middleware(['auth', \App\Http\Middleware\EnsureAccountNotSuspended::class
     Route::get('/parcel', \App\Livewire\Customer\Parcel\Create::class)->name('customer.parcels.create');
     Route::get('/parcels', \App\Livewire\Customer\Parcel\Index::class)->name('customer.parcels.index');
     Route::get('/parcels/{parcelOrder}', \App\Livewire\Customer\Parcel\Show::class)->name('customer.parcels.show');
+
+    // E-commerce Phase 2: the shop bag, checkout (one shop per order) and the customer's shop orders. Browsing is
+    // public under /{city}/shop; a customer's own orders stay reachable even if Commerce is switched off later.
+    Route::get('/shop/bag', \App\Livewire\Customer\Shop\Bag::class)->name('customer.shop.cart');
+    Route::get('/shop/checkout/{store}', \App\Livewire\Customer\Shop\Checkout::class)->name('customer.shop.checkout');
+    Route::get('/shop/orders', \App\Livewire\Customer\Shop\Orders::class)->name('customer.shop.orders');
+    Route::get('/shop/orders/{order}', \App\Livewire\Customer\Shop\OrderShow::class)->name('customer.shop.orders.show');
 });
 
 /*
@@ -336,7 +343,15 @@ require __DIR__.'/admin.php';
 // fallback: anything that is not a city/catalog slug is handed on to the CMS fallback by the controller itself.
 // First segments that are never a city (JSON API, admin/provider areas, framework + asset paths) are excluded
 // up front, so those requests never even touch the cities table.
-$cityPattern = '(?!(?:api|admin|provider|rider|livewire|storage|build|vendor|push)(?![A-Za-z0-9_-]))[A-Za-z0-9_-]+';
+$cityPattern = '(?!(?:api|admin|provider|rider|seller|shop|livewire|storage|build|vendor|push)(?![A-Za-z0-9_-]))[A-Za-z0-9_-]+';
+
+// E-commerce Phase 2: the shop, city-prefixed like every public catalog page (/{city}/shop, /{city}/shop/{shop},
+// /{city}/shop/{shop}/{product}). Declared before /{city}/{slug} so "shop" is never read as a catalog slug — and it
+// is reserved anyway by the /shop/... routes below. 404 while Commerce is off for that city.
+Route::get('/{city}/shop', \App\Livewire\Customer\Shop\Home::class)->where('city', $cityPattern)->name('customer.shop.home');
+Route::get('/{city}/shop/{storeSlug}', \App\Livewire\Customer\Shop\StoreShow::class)->where(['city' => $cityPattern, 'storeSlug' => '[A-Za-z0-9_-]+'])->name('customer.shop.store');
+Route::get('/{city}/shop/{storeSlug}/{productSlug}', \App\Livewire\Customer\Shop\ProductShow::class)->where(['city' => $cityPattern, 'storeSlug' => '[A-Za-z0-9_-]+', 'productSlug' => '[A-Za-z0-9_-]+'])->name('customer.shop.product');
+
 Route::get('/{city}', [CityRouteController::class, 'city'])->where('city', $cityPattern)->name('customer.city.show');
 Route::get('/{city}/{slug}', [CityRouteController::class, 'item'])->where(['city' => $cityPattern, 'slug' => '[A-Za-z0-9_-]+'])->name('customer.city.item');
 

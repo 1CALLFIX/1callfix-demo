@@ -42,7 +42,17 @@ class AdminCancelMarketplaceOrderAction
                 throw new \RuntimeException('This order is ready and can no longer be cancelled by the shop. Contact support.');
             }
 
-            $fee = $by === 'seller' ? 0.0 : $this->cancellationService->calculateFeeForMarketplaceOrder($order);
+            // E-commerce Phase 2: the customer can cancel until the shop starts packing — free before the shop
+            // accepts, the admin-set cancellation policy after.
+            if ($by === 'customer' && ! in_array($order->status, ['pending', 'accepted'], true)) {
+                throw new \RuntimeException('The shop has started packing this order, so it can no longer be cancelled here. Contact support.');
+            }
+
+            $fee = match (true) {
+                $by === 'seller' => 0.0,
+                $by === 'customer' && $order->status === 'pending' => 0.0,
+                default => $this->cancellationService->calculateFeeForMarketplaceOrder($order),
+            };
 
             $this->releaseStock($order);
 

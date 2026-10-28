@@ -99,12 +99,23 @@
                                 ['Services', route('customer.services.index')],
                                 ['Categories', route('customer.categories.index')],
                             ];
+                            // E-commerce Phase 2: the shop of the customer's current city, only where Commerce is on there.
+                            $shopCity = app(\App\Services\Seo\CityContext::class)->current();
+                            if ($shopCity && \App\Livewire\Customer\Shop\Home::shopLiveIn($shopCity)) {
+                                $menu[] = ['Shop', route('customer.shop.home', $shopCity->slug)];
+                            }
                             if (auth()->check()) {
                                 $menu[] = ['My bookings', route('customer.orders.index')];
                                 // Parcel: shown while parcel is on somewhere, or for anyone who already has parcels.
                                 if (app(\App\Services\ModuleActivationService::class)->isActiveAnywhere(\App\Support\Modules::PARCEL)
                                     || \App\Models\ParcelOrder::where('customer_id', auth()->id())->exists()) {
                                     $menu[] = ['My parcels', route('customer.parcels.index')];
+                                }
+                                if (\App\Models\MarketplaceOrder::where('customer_id', auth()->id())->exists()) {
+                                    $menu[] = ['Shop orders', route('customer.shop.orders')];
+                                }
+                                if (auth()->user()->holdsPartnerRole('commerce')) {
+                                    $menu[] = ['My shop', route('seller.dashboard')];
                                 }
                                 if (auth()->user()->fieldWorkerProfile?->hasCapability('parcel_rider')) {
                                     $menu[] = ['Rider dashboard', route('rider.dashboard')];

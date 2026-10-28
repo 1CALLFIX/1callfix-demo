@@ -69,10 +69,30 @@ class CreateMarketplaceOrderAction
         }
 
         $customer = \App\Models\User::findOrFail($data['customer_id']);
+
+        // E-commerce Phase 2: the address must be the customer's own, and a shop delivers only within its own city.
+        if ($orderType === 'delivery') {
+            $address = \App\Models\Address::where('user_id', $customer->id)->find($data['delivery_address_id']);
+            if (! $address) {
+                throw new \RuntimeException('Choose one of your saved addresses.');
+            }
+            if ($address->franchise_id !== null && (int) $address->franchise_id !== (int) $store->franchise_id) {
+                throw new \RuntimeException('This shop does not deliver to that address. Choose another address or pick it up.');
+            }
+        }
         $lines = $this->cart->listForStore($customer, $store->id);
 
         if ($lines->isEmpty()) {
             throw new \RuntimeException('Your cart is empty for this store.');
+        }
+
+        // E-commerce Phase 2: the customer pays today's price. A line added before the seller changed the price (or
+        // a discount ended) is re-priced here, never charged at the old snapshot.
+        foreach ($lines as $line) {
+            $current = $line->variant ? (float) $line->variant->effectivePrice() : (float) ($line->product?->effective_price ?? $line->unit_price_snapshot);
+            if (round($current, 2) !== round((float) $line->unit_price_snapshot, 2)) {
+                $line->forceFill(['unit_price_snapshot' => $current])->save();
+            }
         }
 
         $subtotal = $lines->sum(fn (CartItem $l) => ((float) $l->unit_price_snapshot + $this->cart->addOnsTotalFor($l)) * $l->quantity);
