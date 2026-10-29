@@ -147,8 +147,11 @@
             Payment: {{ ['online' => 'Online', 'wallet' => 'Wallet', 'cash' => $atDrop ? 'Cash at drop' : 'Cash at pickup'][$order->payment_method] ?? $order->payment_method }}
             · {{ ['pending' => $order->payment_method === 'cash' ? ($atDrop ? 'The recipient pays the rider at drop' : 'Pay the rider at pickup') : 'Not paid', 'paid' => $atDrop && $order->recipient_refused_at ? 'You paid the rider at the door' : 'Paid', 'refunded' => 'Refunded', 'partially_refunded' => 'Partly refunded'][$order->payment_status] ?? $order->payment_status }}
         </p>
+        @if ($order->refused_at)
+            <p class="mt-2 rounded-lg bg-rose-50 p-2 text-rose-900">The rider could not take this parcel: {{ \App\Services\Parcel\ParcelSettings::REFUSAL_REASONS[$order->refusal_reason]['customer'] ?? 'the rider could not safely accept it' }}.</p>
+        @endif
         @if ($order->status === 'cancelled' && (float) $order->cancellation_fee > 0)
-            <p class="mt-1 text-slate-600">Cancellation charge: {{ $fmt($order->cancellation_fee) }}</p>
+            <p class="mt-1 text-slate-600">{{ $order->refused_at ? 'Refusal fee' : 'Cancellation charge' }}: {{ $fmt($order->cancellation_fee) }}</p>
         @endif
     </div>
 

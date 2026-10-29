@@ -180,6 +180,7 @@ Route::middleware(['auth', \Illuminate\Session\Middleware\AuthenticateSession::c
         Route::get('/kyc/support-requests', KycSupportRequestsManage::class)->name('admin.kyc.support-requests.index');
         Route::get('/kyc/documents/provider/{documentId}', [\App\Http\Controllers\Admin\KycDocumentController::class, 'providerDocument'])->whereNumber('documentId')->name('admin.kyc.documents.provider');
         Route::get('/kyc/documents/field-worker/{documentId}', [\App\Http\Controllers\Admin\KycDocumentController::class, 'fieldWorkerDocument'])->whereNumber('documentId')->name('admin.kyc.documents.field-worker');
+        Route::get('/parcel-orders/safety-photos/{photoId}', [\App\Http\Controllers\Admin\ParcelSafetyPhotoController::class, 'show'])->whereNumber('photoId')->name('admin.parcel-orders.safety-photos.show');
         Route::get('/kyc/videos/{videoId}', [\App\Http\Controllers\Admin\KycDocumentController::class, 'verificationVideo'])->whereNumber('videoId')->name('admin.kyc.videos.show');
         Route::get('/documents/payments/{paymentId}', [\App\Http\Controllers\Admin\DocumentController::class, 'paymentDocument'])->name('admin.documents.payments.show');
         Route::get('/documents/bookings/{bookingId}/{kind}', [\App\Http\Controllers\Admin\DocumentController::class, 'cancellationDocument'])->name('admin.documents.bookings.cancellation');

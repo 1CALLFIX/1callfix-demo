@@ -68,6 +68,44 @@
             @endif
         </x-ui.card>
 
+        {{-- Pickup safety (2026-10-29): the rider's refusal and any safety photos. Photos stream from the private disk. --}}
+        @if ($order->refused_at || $order->safetyPhotos->isNotEmpty())
+            @php($safetyTz = app(\App\Services\TimezoneResolver::class))
+            <x-ui.card class="mb-4 border-l-4 border-l-red-500">
+                <h3 class="font-semibold mb-2">Pickup safety</h3>
+                @if ($order->refused_at)
+                    <p class="text-sm text-red-700 font-medium">
+                        Refused at pickup by the rider {{ $safetyTz->format($order->refused_at, $order->franchise, 'd M, h:i A') }}:
+                        {{ \App\Services\Parcel\ParcelSettings::REFUSAL_REASONS[$order->refusal_reason]['label'] ?? $order->refusal_reason }}
+                    </p>
+                    @if ($order->refusal_note) <p class="text-sm text-gray-700 mt-1">Rider's note: {{ $order->refusal_note }}</p> @endif
+                    <p class="text-xs text-gray-500 mt-1">
+                        @if ($order->refused_lat !== null)<a href="https://www.google.com/maps?q={{ $order->refused_lat }},{{ $order->refused_lng }}" target="_blank" rel="noopener" class="underline">Where the rider was</a> · @endif
+                        Refusal fee kept: {{ number_format((float) $order->cancellation_fee, 2) }}
+                        · Trip pay to the rider: {{ $order->refusal_rider_pay !== null ? number_format((float) $order->refusal_rider_pay, 2) : 'none' }}
+                    </p>
+                @endif
+                @if ($order->safetyPhotos->isNotEmpty())
+                    <div class="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-3">
+                        @foreach ($order->safetyPhotos as $photo)
+                            <figure class="text-xs text-gray-600">
+                                <a href="{{ route('admin.parcel-orders.safety-photos.show', $photo->id) }}" target="_blank" rel="noopener">
+                                    <img src="{{ route('admin.parcel-orders.safety-photos.show', $photo->id) }}" alt="Safety photo: {{ \App\Services\Parcel\ParcelSettings::SAFETY_PHOTO_STAGES[$photo->stage] ?? $photo->stage }}" class="h-28 w-full rounded object-cover border">
+                                </a>
+                                <figcaption class="mt-1">
+                                    <span class="font-medium">{{ \App\Services\Parcel\ParcelSettings::SAFETY_PHOTO_STAGES[$photo->stage] ?? $photo->stage }}</span>
+                                    · {{ $safetyTz->format($photo->taken_at, $order->franchise, 'd M, h:i A') }}
+                                    <span class="block">Unusual: {{ collect($photo->concerns)->map(fn ($c) => \App\Services\Parcel\ParcelSettings::SAFETY_CONCERNS[$c] ?? $c)->implode(', ') }}</span>
+                                    @if ($photo->note) <span class="block">“{{ $photo->note }}”</span> @endif
+                                    @if ($photo->lat !== null) <a href="https://www.google.com/maps?q={{ $photo->lat }},{{ $photo->lng }}" target="_blank" rel="noopener" class="underline">Map</a> @endif
+                                </figcaption>
+                            </figure>
+                        @endforeach
+                    </div>
+                @endif
+            </x-ui.card>
+        @endif
+
         {{-- Manual assignment: where dispatch hands over when its rounds run out with no acceptance. --}}
         @if ($canAssign)
             <x-ui.card class="mb-4">
@@ -175,7 +213,7 @@
 
             <label class="mb-3 flex items-start gap-2 text-sm">
                 <input type="checkbox" wire:model="restrictedConfirmed" class="mt-0.5 rounded border-gray-300">
-                <span>Customer confirmed the parcel has none of: {{ implode('; ', \App\Services\Parcel\ParcelSettings::RESTRICTED_ITEMS) }}.</span>
+                <span>Customer confirmed the parcel has none of: {{ implode('; ', $restrictedItems) }}.</span>
             </label>
             @error('restrictedConfirmed') <p class="mb-3 text-xs text-red-600">{{ $message }}</p> @enderror
 
@@ -194,7 +232,7 @@
 
         <div class="flex gap-3 mb-4">
             <input type="text" wire:model.live.debounce.400ms="search" placeholder="Search order code or customer..." class="border rounded px-3 py-2 text-sm w-96">
-            <x-ui.filter-tabs class="w-full" :tabs="['' => 'All'] + collect(['pending','searching_worker','assigned','worker_en_route_pickup','picked_up','en_route_dropoff','delivered','cancelled','disputed'])->mapWithKeys(fn ($s) => [$s => ucfirst(str_replace('_', ' ', $s))])->all()" :active="$statusFilter" model="statusFilter" />
+            <x-ui.filter-tabs class="w-full" :tabs="['' => 'All', 'flagged' => 'Flagged'] + collect(['pending','searching_worker','assigned','worker_en_route_pickup','picked_up','en_route_dropoff','delivered','cancelled','disputed'])->mapWithKeys(fn ($s) => [$s => ucfirst(str_replace('_', ' ', $s))])->all()" :active="$statusFilter" model="statusFilter" />
         </div>
 
         <x-ui.table>
@@ -219,7 +257,11 @@
                         <td class="px-4 py-2 font-mono text-xs">{{ $o->code }}</td>
                         <td class="px-4 py-2">{{ $o->customer->name ?? '—' }}</td>
                         <td class="px-4 py-2">{{ $o->assignedWorker?->user?->name ?? '—' }}</td>
-                        <td class="px-4 py-2"><x-ui.badge>{{ str_replace('_', ' ', $o->status) }}</x-ui.badge></td>
+                        <td class="px-4 py-2">
+                            <x-ui.badge>{{ str_replace('_', ' ', $o->status) }}</x-ui.badge>
+                            @if ($o->refused_at) <span class="ml-1 text-xs font-semibold text-red-700">Refused by rider</span>
+                            @elseif ($o->safety_flagged_at) <span class="ml-1 text-xs font-semibold text-red-700">Safety photo</span> @endif
+                        </td>
                         <td class="px-4 py-2">{{ number_format($o->price_final ?? $o->price_quoted, 2) }}</td>
                         <x-ui.tat-cells :record="$o" done="delivered_at" />
                         <td class="px-4 py-2 text-right"><x-ui.button variant="ghost" wire:click="viewOrder({{ $o->id }})">View</x-ui.button></td>

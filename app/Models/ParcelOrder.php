@@ -33,6 +33,13 @@ class ParcelOrder extends Model implements Orderable
         'recipient_name',
         'recipient_phone',
         'recipient_refused_at',
+        'refused_at',
+        'refusal_reason',
+        'refusal_note',
+        'refused_lat',
+        'refused_lng',
+        'refusal_rider_pay',
+        'safety_flagged_at',
         'assigned_worker_id',
         'package_description',
         'package_weight_kg',
@@ -74,6 +81,9 @@ class ParcelOrder extends Model implements Orderable
         'waiting_charge' => 'decimal:2',
         'cash_collected_at' => 'datetime',
         'recipient_refused_at' => 'datetime',
+        'refused_at' => 'datetime',
+        'refusal_rider_pay' => 'decimal:2',
+        'safety_flagged_at' => 'datetime',
         'delivered_at' => 'datetime',
         'price_breakdown' => 'array',
     ];
@@ -95,6 +105,7 @@ class ParcelOrder extends Model implements Orderable
     public function commission() { return $this->hasOne(Commission::class); }
     public function payments() { return $this->hasMany(Payment::class); }
     public function cashDue() { return $this->hasOne(FieldWorkerCashDue::class); }
+    public function safetyPhotos() { return $this->hasMany(ParcelSafetyPhoto::class)->orderBy('taken_at'); }
 
     /** An online order waits here, undispatched, until its Razorpay payment is captured. */
     public function isAwaitingOnlinePayment(): bool

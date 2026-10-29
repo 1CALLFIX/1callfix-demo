@@ -253,6 +253,8 @@
                         <li>{{ $item }}</li>
                     @endforeach
                 </ul>
+                {{-- Pickup safety (2026-10-29): the sender is asked to cooperate with the rider's check. --}}
+                <p class="mt-2 pl-8 text-xs text-slate-600">If anything looks unusual, the rider may ask to see the item and take a photo before and after packing. Please allow it: if you don't, or the parcel holds a banned item, the rider can refuse it{{ $refusalFee > 0 ? ' and '.$currencySymbol.number_format((float) $refusalFee, 2).' is kept from your online refund' : '' }}.</p>
                 @error('restrictedConfirmed') <p class="mt-1 pl-8 text-xs text-rose-700">{{ $message }}</p> @enderror
             </div>
         </section>

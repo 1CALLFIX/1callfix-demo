@@ -53,6 +53,11 @@ class ParcelOrderResource extends JsonResource
             'delivery_otp' => in_array($this->status, \App\Models\ParcelOrder::ACTIVE_RIDER_STATUSES, true) ? $this->delivery_otp : null,
             'cancellation_note' => $this->cancellation_note,
             'cancellation_fee' => $this->cancellation_fee !== null ? (float) $this->cancellation_fee : null,
+            // Pickup safety (2026-10-29): the rider refused the parcel at pickup. The rider's own note stays admin-only.
+            'refused' => $this->refused_at ? [
+                'at' => $this->refused_at,
+                'reason' => \App\Services\Parcel\ParcelSettings::REFUSAL_REASONS[$this->refusal_reason]['customer'] ?? null,
+            ] : null,
             'created_at' => $this->created_at,
             'picked_up_at' => $this->picked_up_at,
             'delivered_at' => $this->delivered_at,

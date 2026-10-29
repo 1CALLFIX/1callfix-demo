@@ -25,6 +25,9 @@ class Settings extends Component
     /** Keyed by ParcelSettings::field($key) — Livewire treats dots in a property path as nesting. */
     public array $inputs = [];
 
+    /** Pickup safety: the banned items list, one per line, stored at EXACTLY this scope ('' = inherits). */
+    public string $restrictedItemsText = '';
+
     public string $previewKm = '5';
     public string $previewKg = '2';
     public string $previewSize = 'small';
@@ -86,6 +89,8 @@ class Settings extends Component
             $row = Setting::where('scope_type', $type)->where('scope_id', $id)->where('key', $key)->value('value');
             $this->inputs[ParcelSettings::field($key)] = $row === null ? '' : (string) $row;
         }
+
+        $this->restrictedItemsText = (string) (Setting::where('scope_type', $type)->where('scope_id', $id)->where('key', ParcelSettings::RESTRICTED_ITEMS_KEY)->value('value') ?? '');
     }
 
     public function save(): void
@@ -110,6 +115,11 @@ class Settings extends Component
             }
         }
 
+        if ($error = ParcelSettings::validateRestrictedItems($this->restrictedItemsText)) {
+            $this->addError('restrictedItemsText', $error);
+            $errors++;
+        }
+
         if ($errors > 0) {
             $this->flash("Nothing was saved — fix the {$errors} highlighted value(s).", 'error');
 
@@ -120,6 +130,8 @@ class Settings extends Component
         foreach (ParcelSettings::REGISTRY as $key => $meta) {
             $changed += SettingsAuditor::put(auth()->user(), $key, $this->inputs[ParcelSettings::field($key)] ?? null, $target[0], $target[1]) ? 1 : 0;
         }
+        $items = ParcelSettings::parseRestrictedItems($this->restrictedItemsText);
+        $changed += SettingsAuditor::put(auth()->user(), ParcelSettings::RESTRICTED_ITEMS_KEY, $items === [] ? null : implode("\n", $items), $target[0], $target[1]) ? 1 : 0;
 
         $this->loadInputs();
         $this->flash($changed ? "Saved — {$changed} change(s) audit-logged." : 'No changes to save.', 'success');
@@ -160,6 +172,7 @@ class Settings extends Component
             'zones' => $this->scopeFranchiseId ? Zone::where('franchise_id', $this->scopeFranchiseId)->orderBy('name')->get(['id', 'name']) : collect(),
             'preview' => $this->preview(),
             'sizes' => ParcelSettings::SIZES,
+            'restrictedItemsInForce' => ParcelSettings::restrictedItems($this->scopeContext()),
             'currencySymbol' => Setting::get('locale.currency_symbol', '₹'),
         ];
 

@@ -86,7 +86,9 @@ class ParcelOrderController extends Controller
             'delivery_type' => $validated['delivery_type'] ?? 'now',
             'schedule_available' => \App\Services\Parcel\ParcelSettings::scheduleAvailable($scope),
             'package_contents_options' => array_keys(\App\Services\Parcel\ParcelSettings::CONTENTS),
-            'restricted_items' => \App\Services\Parcel\ParcelSettings::RESTRICTED_ITEMS,
+            'restricted_items' => \App\Services\Parcel\ParcelSettings::restrictedItems($scope),
+            // Pickup safety (2026-10-29): the rider may check and photograph the item; refusing it lets the rider decline.
+            'refusal_fee' => \App\Services\Parcel\ParcelSettings::get('parcel.refusal_fee', $scope),
             'payment_methods' => $this->parcelPaymentMethods($pickup),
             'module_active' => $moduleActive,
             'pickup_address' => ['id' => $pickup->id, 'label' => $pickup->label, 'address_line' => $pickup->address_line],

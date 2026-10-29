@@ -59,6 +59,10 @@ class ParcelOrderStatusNotification extends Notification
             'picked_up' => ['subject' => 'Parcel picked up', 'body' => "Your parcel {$this->order->code} has been picked up and is on its way."],
             'delivered' => ['subject' => 'Parcel delivered', 'body' => "Your parcel {$this->order->code} has been delivered. Thank you for using 1CallFix."],
             'cancelled' => ['subject' => 'Parcel order cancelled', 'body' => "Your parcel order {$this->order->code} has been cancelled."],
+            // Pickup safety (2026-10-29): the rider refused the parcel at the pickup point.
+            'refused' => ['subject' => 'Parcel not picked up', 'body' => "The rider could not take your parcel {$this->order->code}: "
+                .(ParcelSettings::REFUSAL_REASONS[$this->order->refusal_reason]['customer'] ?? 'the rider could not safely accept it').'. The order is cancelled.'
+                .((float) $this->order->cancellation_fee > 0 ? " A {$symbol}".number_format((float) $this->order->cancellation_fee, 2).' refusal fee is kept from your refund.' : '')],
             'refunded' => ['subject' => 'Refund processed', 'body' => "A refund of {$symbol}".number_format($this->amount ?? 0, 2)." for parcel order {$this->order->code} has been processed."],
             default => ['subject' => 'Parcel order update', 'body' => "Your parcel order {$this->order->code} was updated."],
         };

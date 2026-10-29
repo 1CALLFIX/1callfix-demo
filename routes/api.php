@@ -266,6 +266,9 @@ Route::middleware(['auth:sanctum', \App\Http\Middleware\EnsureNotInMaintenanceMo
     Route::post('/worker/parcel-orders/{parcelOrderId}/accept', [\App\Http\Controllers\API\ParcelWorkerJobController::class, 'accept']);
     Route::post('/worker/parcel-orders/{parcelOrderId}/pickup', [\App\Http\Controllers\API\ParcelWorkerJobController::class, 'pickup']);
     Route::post('/worker/parcel-orders/{parcelOrderId}/deliver', [\App\Http\Controllers\API\ParcelWorkerJobController::class, 'deliver']);
+    // Pickup safety (2026-10-29): optional safety photo when something looks unusual; refuse at the pickup point.
+    Route::post('/worker/parcel-orders/{parcelOrderId}/safety-photos', [\App\Http\Controllers\API\ParcelWorkerJobController::class, 'safetyPhoto']);
+    Route::post('/worker/parcel-orders/{parcelOrderId}/refuse', [\App\Http\Controllers\API\ParcelWorkerJobController::class, 'refuse']);
 
     // Phase 22.6 — Taxi driver (FieldWorker, capability_type='taxi_driver')
     // trip flow. Same shape as ParcelWorkerJobController above.

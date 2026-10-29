@@ -24,6 +24,7 @@
      }"
      x-init="@if ($rider->is_online) startHeartbeat() @endif"
      x-on:livewire:navigating.window="stopHeartbeat()">
+    <style>[x-cloak]{display:none!important}</style>
 
     {{-- E-commerce Phase 3: shop deliveries are taken on their own screen. --}}
     @if ($shopJob)
@@ -197,6 +198,88 @@
                     </div>
                 @endif
             @endif
+
+            {{-- Pickup safety (owner decision 2026-10-29): no photo on every parcel — only when something looks
+                 unusual. The sender is asked to let the rider photograph the item before packing and the parcel
+                 after packing; if they refuse, or the parcel holds a banned item, the rider refuses it here. --}}
+            <div x-data="{ open: {{ $errors->hasAny(['safetyPhoto', 'safetyConcerns', 'safetyStage', 'safetyNote', 'refuseReason', 'refuseNote']) ? 'true' : 'false' }} }" class="mt-5 border-t border-slate-200 pt-4">
+                <button type="button" x-on:click="open = ! open" x-bind:aria-expanded="open" aria-controls="safety-panel"
+                        class="flex w-full items-center justify-between gap-3 text-left text-sm font-semibold text-slate-800">
+                    <span>Something not right?</span>
+                    <span class="text-xs font-medium text-slate-500">
+                        @if ($safetyPhotoCount > 0){{ $safetyPhotoCount }} {{ $safetyPhotoCount === 1 ? 'photo' : 'photos' }} saved · @endif
+                        <span x-text="open ? 'Close' : 'Open'">Open</span>
+                    </span>
+                </button>
+
+                <div id="safety-panel" x-show="open" x-cloak class="mt-3 space-y-4 text-sm">
+                    <p class="text-slate-600">If the sender, the place, the item, the packing or the pickup time looks unusual, take a photo. Ask the sender to show you the item before packing, then photograph the parcel after packing. Only the 1CallFix team sees the photos.</p>
+
+                    <div class="rounded-xl border border-slate-200 p-3">
+                        <p class="font-medium text-slate-800">Take a safety photo</p>
+                        <fieldset class="mt-2">
+                            <legend class="text-xs font-semibold uppercase tracking-wide text-slate-500">What looks unusual?</legend>
+                            <div class="mt-1 grid grid-cols-2 gap-x-3 gap-y-1">
+                                @foreach ($safetyConcernOptions as $value => $label)
+                                    <label class="flex min-h-9 items-center gap-2">
+                                        <input type="checkbox" value="{{ $value }}" wire:model="safetyConcerns" class="h-4 w-4 rounded border-slate-300 text-blue-600">
+                                        <span>{{ $label }}</span>
+                                    </label>
+                                @endforeach
+                            </div>
+                            @error('safetyConcerns') <p class="mt-1 text-xs text-rose-700">{{ $message }}</p> @enderror
+                        </fieldset>
+                        <fieldset class="mt-3">
+                            <legend class="text-xs font-semibold uppercase tracking-wide text-slate-500">Photo of</legend>
+                            <div class="mt-1 flex flex-wrap gap-x-4 gap-y-1">
+                                @foreach ($safetyStageOptions as $value => $label)
+                                    <label class="flex min-h-9 items-center gap-2">
+                                        <input type="radio" value="{{ $value }}" wire:model="safetyStage" class="h-4 w-4 border-slate-300 text-blue-600">
+                                        <span>{{ $label }}</span>
+                                    </label>
+                                @endforeach
+                            </div>
+                        </fieldset>
+                        <label for="safety-photo" class="mt-3 block text-xs font-semibold uppercase tracking-wide text-slate-500">Photo</label>
+                        <input id="safety-photo" type="file" accept="image/*" capture="environment" wire:model="safetyPhoto"
+                               class="mt-1 block w-full text-sm file:mr-3 file:min-h-10 file:rounded-lg file:border-0 file:bg-slate-800 file:px-3 file:text-sm file:font-semibold file:text-white">
+                        <p wire:loading wire:target="safetyPhoto" class="mt-1 text-xs text-slate-500">Uploading…</p>
+                        @error('safetyPhoto') <p class="mt-1 text-xs text-rose-700">{{ $message }}</p> @enderror
+                        <label for="safety-note" class="mt-3 block text-xs font-semibold uppercase tracking-wide text-slate-500">Note (optional)</label>
+                        <input id="safety-note" type="text" maxlength="300" wire:model="safetyNote"
+                               class="mt-1 block min-h-10 w-full rounded-lg border border-slate-300 px-3 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/30">
+                        <button type="button" wire:loading.attr="disabled" wire:target="safetyPhoto,saveSafetyPhoto"
+                                x-on:click="locate((lat, lng) => $wire.saveSafetyPhoto({{ $job->id }}, lat, lng))"
+                                class="mt-3 inline-flex min-h-11 w-full items-center justify-center rounded-xl bg-slate-800 text-sm font-semibold text-white hover:bg-slate-900 disabled:opacity-60">Save photo</button>
+                    </div>
+
+                    @if ($beforePickup)
+                        <div class="rounded-xl border border-rose-200 bg-rose-50 p-3">
+                            <p class="font-medium text-rose-900">Refuse this parcel</p>
+                            <p class="mt-0.5 text-rose-900/80">Don't argue with the sender. Refuse here, leave safely, and our team follows up.@if ($refusalPay > 0) You get {{ $fmt($refusalPay) }} for the trip.@endif</p>
+                            <fieldset class="mt-2 space-y-1">
+                                <legend class="sr-only">Why are you refusing it?</legend>
+                                @foreach ($refusalReasons as $value => $reason)
+                                    <label class="flex min-h-9 items-start gap-2">
+                                        <input type="radio" value="{{ $value }}" wire:model="refuseReason" class="mt-1 h-4 w-4 border-rose-300 text-rose-600">
+                                        <span class="text-rose-950">{{ $reason['label'] }}</span>
+                                    </label>
+                                @endforeach
+                            </fieldset>
+                            @error('refuseReason') <p class="mt-1 text-xs text-rose-700">{{ $message }}</p> @enderror
+                            <label for="refuse-note" class="mt-2 block text-xs font-semibold uppercase tracking-wide text-rose-900/70">What happened (needed for "something else")</label>
+                            <input id="refuse-note" type="text" maxlength="300" wire:model="refuseNote"
+                                   class="mt-1 block min-h-10 w-full rounded-lg border border-rose-300 bg-white px-3 text-sm focus:border-rose-500 focus:outline-none focus:ring-2 focus:ring-rose-500/30">
+                            @error('refuseNote') <p class="mt-1 text-xs text-rose-700">{{ $message }}</p> @enderror
+                            <button type="button" wire:loading.attr="disabled" wire:target="refuseParcel"
+                                    x-on:click="if (confirm(@js('Refuse parcel '.$job->code.'? The order will be cancelled and the sender told.'))) locate((lat, lng) => $wire.refuseParcel({{ $job->id }}, lat, lng))"
+                                    class="mt-3 inline-flex min-h-11 w-full items-center justify-center rounded-xl bg-rose-600 text-sm font-semibold text-white hover:bg-rose-700 disabled:opacity-60">Refuse parcel</button>
+                        </div>
+                    @else
+                        <p class="rounded-xl border border-rose-200 bg-rose-50 p-3 text-rose-900">Already picked up and something is wrong? Stop, don't open the parcel any further, and call support.</p>
+                    @endif
+                </div>
+            </div>
         </section>
     @endif
 

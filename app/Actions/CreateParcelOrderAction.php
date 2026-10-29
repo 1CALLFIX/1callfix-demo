@@ -48,7 +48,7 @@ use Illuminate\Support\Facades\DB;
  *  - Now | Schedule. A scheduled order carries its pickup time and its own base fare; it is paid at booking
  *    like any other order but only offered to riders shortly before the pickup time
  *    (parcel:release-scheduled). Its price is a separate tier, not a discount, so cash is allowed.
- *  - The sender must confirm the parcel holds nothing on ParcelSettings::RESTRICTED_ITEMS (every channel);
+ *  - The sender must confirm the parcel holds nothing on ParcelSettings::restrictedItems() (every channel);
  *    what is inside (ParcelSettings::CONTENTS) is optional.
  */
 class CreateParcelOrderAction
