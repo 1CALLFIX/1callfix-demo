@@ -59,7 +59,10 @@
                     <td class="r">{{ $currencySymbol }}{{ number_format((float) $item->line_total, 2) }}</td>
                 </tr>
             @endforeach
-            <tr><td colspan="3" class="r">Taxable value</td><td class="r">{{ $currencySymbol }}{{ number_format((float) $order->subtotal, 2) }}</td></tr>
+            @if ((float) $order->coupon_discount_amount > 0)
+                <tr><td colspan="3" class="r">Coupon {{ $order->coupon_code }}</td><td class="r">−{{ $currencySymbol }}{{ number_format((float) $order->coupon_discount_amount, 2) }}</td></tr>
+            @endif
+            <tr><td colspan="3" class="r">Taxable value</td><td class="r">{{ $currencySymbol }}{{ number_format((float) $order->subtotal - (float) $order->coupon_discount_amount, 2) }}</td></tr>
             @if ((float) $order->tax_amount > 0)
                 <tr><td colspan="3" class="r">GST @ {{ rtrim(rtrim(number_format((float) $store->tax_percent, 2), '0'), '.') }}%</td><td class="r">{{ $currencySymbol }}{{ number_format((float) $order->tax_amount, 2) }}</td></tr>
             @endif

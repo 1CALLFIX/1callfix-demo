@@ -11,7 +11,7 @@
                     @endif
                     <span class="min-w-0 flex-1">
                         <span class="block truncate font-semibold">{{ $o->store?->name }}</span>
-                        <span class="block text-xs text-slate-500">{{ $o->code }} · {{ $o->items->sum('quantity') }} items · {{ $o->created_at->format('d M, h:i A') }}</span>
+                        <span class="block text-xs text-slate-500">{{ $o->code }} · {{ $n = $o->items->sum('quantity') }} {{ $n === 1 ? 'item' : 'items' }} · {{ app(\App\Services\TimezoneResolver::class)->format($o->created_at, $o->franchise, 'd M, h:i A') }}</span>
                     </span>
                     <span class="text-right">
                         <span class="block font-bold">{{ $currencySymbol }}{{ number_format((float) $o->total_amount, 2) }}</span>

@@ -56,7 +56,7 @@
                                 </span>
                                 @if ($meta['type'] === 'switch')
                                     <select wire:model.live="inputs.{{ $meta['field'] }}" class="w-full border rounded px-2 py-2">
-                                        <option value="">{{ $scopeType === 'global' ? 'Off (default)' : 'Inherit' }}</option>
+                                        <option value="">{{ $scopeType === 'global' ? (($meta['default'] ?? '0') === '1' ? 'On (default)' : 'Off (default)') : 'Inherit' }}</option>
                                         <option value="1">On</option>
                                         <option value="0">Off</option>
                                     </select>

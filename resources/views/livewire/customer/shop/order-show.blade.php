@@ -66,6 +66,9 @@
             </ul>
             <dl class="mt-2 space-y-1 border-t border-slate-100 pt-2">
                 <div class="flex justify-between"><dt>Items</dt><dd class="tabular-nums">{{ $currencySymbol }}{{ number_format((float) $order->subtotal, 2) }}</dd></div>
+                @if ((float) $order->coupon_discount_amount > 0)
+                    <div class="flex justify-between text-emerald-700"><dt>Coupon {{ $order->coupon_code }}</dt><dd class="tabular-nums">−{{ $currencySymbol }}{{ number_format((float) $order->coupon_discount_amount, 2) }}</dd></div>
+                @endif
                 @if ($order->order_type === 'delivery')
                     <div class="flex justify-between"><dt>Delivery</dt><dd class="tabular-nums">{{ (float) $order->delivery_fee > 0 ? $currencySymbol.number_format((float) $order->delivery_fee, 2) : 'Free' }}</dd></div>
                 @endif

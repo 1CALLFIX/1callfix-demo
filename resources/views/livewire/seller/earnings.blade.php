@@ -38,7 +38,7 @@
                 @forelse ($settlements as $row)
                     <tr>
                         <td class="px-4 py-2 font-medium">{{ $row->marketplaceOrder?->code }}</td>
-                        <td class="px-4 py-2">{{ ucfirst($row->payment_mode ?? $row->marketplaceOrder?->payment_method ?? '') }}</td>
+                        <td class="px-4 py-2">{{ ['online' => 'Online / wallet', 'cash_delivery' => 'Cash on delivery', 'cash_pickup' => 'Cash at pickup'][$row->payment_mode] ?? ucfirst((string) $row->payment_mode) }}</td>
                         <td class="px-4 py-2 text-right tabular-nums">{{ $fmt($row->goods_amount) }}</td>
                         <td class="px-4 py-2 text-right tabular-nums">{{ $fmt($row->seller_share) }}</td>
                         <td class="px-4 py-2">

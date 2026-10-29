@@ -14,7 +14,7 @@
             <label class="mt-4 block max-w-xl">
                 <span class="sr-only">Search the shops of {{ $city->name }}</span>
                 <input type="search" wire:model.live.debounce.300ms="search" placeholder="Search a product or a shop"
-                       class="block min-h-12 w-full rounded-xl border-0 px-4 text-base text-slate-900 shadow-sm focus:outline focus:outline-2 focus:outline-white">
+                       class="block min-h-12 w-full rounded-xl border-0 bg-white px-4 text-base text-slate-900 shadow-sm placeholder:text-slate-400 focus:outline focus:outline-2 focus:outline-white">
             </label>
         </header>
 
