@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use App\Models\FieldWorker;
 use App\Models\FieldWorkerCapability;
 use App\Models\Franchise;
+use App\Models\MarketplaceCategory;
 use App\Models\Product;
 use App\Models\Provider;
 use App\Models\Role;
@@ -25,7 +26,7 @@ use Illuminate\Support\Str;
  *
  * Owner thumb rule 2026-10-26: every module or partner app gets its test login while it is being built, so it can
  * be walked through for real. The parcel rider (test.rider, approved, /rider/login, also takes shop deliveries) and
- * the seller (test.seller, /seller/login, an approved open "Test Shop" with one product) are here; add each new
+ * the seller (test.seller, /seller/login, an approved open "Test Shop" with one product per shop option, TEST_SHOP_PRODUCTS) are here; add each new
  * module's account (taxi driver, hotel, rental, grocery, ...) to ACCOUNTS the same way.
  *
  *   php artisan test-accounts create --password=... [--franchise=ID]
@@ -58,6 +59,21 @@ class TestAccountsCommand extends Command
         'rider' => ['Test Rider', 'provider', null, null, '6000000109'],
         // E-commerce Phase 1: a seller is a provider account that owns an approved, open shop (/seller/login).
         'seller' => ['Test Seller', 'provider', null, null, '6000000110'],
+    ];
+
+    /**
+     * The test shop's products, one per option to try (name => [what it tests, column values]). The shop itself has a
+     * ₹99 minimum order, ₹30 delivery fee and free delivery above ₹499 (online payment only).
+     */
+    private const TEST_SHOP_PRODUCTS = [
+        'Test Product' => ['Plain item, ₹100.', []],
+        'Test Discount Item' => ['20% off. A discount is a benefit, so a bag with this item can be paid online or from the wallet only, never cash.', ['price' => 500, 'discount_percent' => 20]],
+        'Test Low Stock Item' => ['Only 3 in stock: the page says "Only 3 left" and the bag stops at 3.', ['price' => 150, 'stock' => 3]],
+        'Test Out of Stock Item' => ['Stock 0: shows "Out of stock" and cannot be added to the bag.', ['price' => 200, 'stock' => 0]],
+        'Test Limit 2 Item' => ['At most 2 per order. ₹80, so one alone is below the ₹99 minimum order.', ['price' => 80, 'maximum_cart_quantity' => 2]],
+        'Test 18% GST Item' => ['18% GST on the invoice. ₹1000, above the free-delivery amount.', ['price' => 1000, 'tax_percent' => 18, 'stock' => 20]],
+        'Test Hidden Item' => ['Switched off by the seller: seen in the seller portal, never in the shop.', ['price' => 120, 'is_active' => false]],
+        'Test Awaiting Approval Item' => ['Not approved yet: waits in Admin → Products and is not in the shop.', ['price' => 130, 'is_approved' => false]],
     ];
 
     public function handle(): int
@@ -175,7 +191,7 @@ class TestAccountsCommand extends Command
         return self::SUCCESS;
     }
 
-    /** The test seller's shop: approved, active and open, with one approved product, so a real order can be placed. */
+    /** The test seller's shop: approved, active and open, with the TEST_SHOP_PRODUCTS, so real orders can be placed. */
     private function makeTestShop(User $user, Franchise $franchise, Zone $zone): void
     {
         $provider = Provider::updateOrCreate(['user_id' => $user->id], [
@@ -198,8 +214,16 @@ class TestAccountsCommand extends Command
         if ($store->trashed()) {
             $store->restore();
         }
-        if (! Product::where('store_id', $store->id)->exists()) {
-            Product::create(['store_id' => $store->id, 'name' => 'Test Product', 'price' => 100, 'stock' => 50, 'is_active' => true, 'is_approved' => true]);
+        // Owner request 2026-10-30: one shop that shows every option, for field testing. Re-running create resets the
+        // shop's delivery rules and these products (stock refilled after test orders); other products are left alone.
+        $store->forceFill(['minimum_order_amount' => 99, 'delivery_fee_flat' => 30, 'free_delivery_above_amount' => 499])->save();
+        $categoryId = MarketplaceCategory::where('module', Modules::COMMERCE)->where('is_active', true)->orderBy('position')->value('id');
+        foreach (self::TEST_SHOP_PRODUCTS as $name => [$description, $attributes]) {
+            Product::updateOrCreate(['store_id' => $store->id, 'name' => $name], $attributes + [
+                'description' => $description, 'marketplace_category_id' => $categoryId,
+                'price' => 100, 'tax_percent' => 0, 'discount_percent' => null, 'stock' => 50,
+                'maximum_cart_quantity' => null, 'is_active' => true, 'is_approved' => true,
+            ]);
         }
     }
 

@@ -100,7 +100,23 @@ class TestAccountsCommandTest extends TestCase
         $this->assertTrue($store->isSellable());
         $this->assertTrue($store->is_open);
         $this->assertSame('test-shop', $store->slug, 'clean slug, no random suffix');
-        $this->assertSame(1, Product::where('store_id', $store->id)->where('is_approved', true)->count(), 'safe to re-run');
+        $this->assertSame(8, Product::where('store_id', $store->id)->count(), 'one product per shop option; safe to re-run');
+        $this->assertSame(6, Product::where('store_id', $store->id)->where('is_active', true)->where('is_approved', true)->count());
+        $this->assertEquals([99, 30, 499], [(float) $store->minimum_order_amount, (float) $store->delivery_fee_flat, (float) $store->free_delivery_above_amount]);
+        $byName = Product::where('store_id', $store->id)->get()->keyBy('name');
+        $this->assertEquals(20, (float) $byName['Test Discount Item']->discount_percent);
+        $this->assertSame(0, (int) $byName['Test Out of Stock Item']->stock);
+        $this->assertSame(2, (int) $byName['Test Limit 2 Item']->maximum_cart_quantity);
+        $this->assertEquals(18, (float) $byName['Test 18% GST Item']->tax_percent);
+        $this->assertFalse($byName['Test Awaiting Approval Item']->is_approved);
+        $this->assertSame('test-discount-item', $byName['Test Discount Item']->slug, 'clean product slug');
+
+        // After field test orders, re-running create refills the stock; a product the seller added is left alone.
+        $byName['Test Low Stock Item']->update(['stock' => 0]);
+        Product::create(['store_id' => $store->id, 'name' => 'Seller Own Item', 'price' => 10, 'stock' => 1, 'is_active' => true, 'is_approved' => true]);
+        $this->artisan('test-accounts', ['action' => 'create', '--password' => self::PASSWORD, '--franchise' => $franchise->id])->assertSuccessful();
+        $this->assertSame(3, (int) $byName['Test Low Stock Item']->fresh()->stock);
+        $this->assertSame(9, Product::where('store_id', $store->id)->count());
         $this->assertTrue($seller->holdsPartnerRole('commerce'));
         $this->assertFalse($seller->holdsPartnerRole('service'), 'a shop-only seller is not offered service jobs');
 
