@@ -36,6 +36,7 @@ class AdminOpsAlertService
         'charge_waiver_escalation' => 'Charge waiver approval escalation',
         'cancel_payout_failed' => 'Cancellation payout failed',
         'dispatch_job_failure' => 'Dispatch job failure',
+        'parcel_refused' => 'Parcel refused at pickup by the rider',
     ];
 
     public static function emailSettingKey(string $type): string
@@ -151,6 +152,23 @@ class AdminOpsAlertService
         $scope = $queue->scopeFor($payment->exists ? $queue->franchiseIdFor($payment) : null);
 
         $this->emailTo('refund_failed', 'refund_failed', $payment, fn (User $admin) => $authz->can($admin, 'operations.view', $scope));
+    }
+
+    /**
+     * Parcel pickup safety (2026-10-29): a rider refused a parcel at the pickup point (banned item, sender would not
+     * let them check it, or something else not right). Email-only: parcel_orders.view over the order's area (Super
+     * Admin always), so the franchise team can follow up — and call the police if it is serious.
+     */
+    public function parcelRefused(\App\Models\ParcelOrder $order): void
+    {
+        $order->loadMissing('franchise');
+        $scope = array_filter([
+            'zone_id' => $order->zone_id, 'franchise_id' => $order->franchise_id,
+            'city_id' => $order->franchise?->city_id, 'country_id' => $order->franchise?->country_id,
+        ]);
+        $authz = app(\App\Services\AuthorizationService::class);
+
+        $this->emailTo('parcel_refused', 'parcel_refused', $order, fn (User $admin) => $authz->can($admin, 'parcel_orders.view', $scope));
     }
 
     /**

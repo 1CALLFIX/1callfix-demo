@@ -117,6 +117,15 @@ class ParcelSettings
             'group' => 'Rider dispatch', 'label' => 'Search rounds before handing to admin', 'type' => 'int', 'unit' => 'rounds', 'required' => false, 'min' => 1, 'max' => 120,
             'default' => 6, 'help' => 'After this many rounds with no acceptance the order waits for an admin to assign a rider. Blank = 6.',
         ],
+        // ── pickup safety (2026-10-29: drugs and banned items) ──
+        'parcel.refusal_fee' => [
+            'group' => 'Pickup safety', 'label' => 'Refusal fee kept from the sender', 'type' => 'decimal', 'unit' => '₹', 'required' => false, 'min' => 0,
+            'default' => null, 'help' => 'The rider refused the parcel because it holds a banned item, or the sender would not let the rider check it: this much is kept from the sender\'s online or wallet refund. Not charged when the rider refuses for another reason, and not collected on a cash order. Blank = no fee.',
+        ],
+        'parcel.refusal_rider_pay' => [
+            'group' => 'Pickup safety', 'label' => 'Paid to the rider for a refused parcel', 'type' => 'decimal', 'unit' => '₹', 'required' => false, 'min' => 0,
+            'default' => null, 'help' => 'Credited to the rider\'s wallet for the wasted trip whenever they refuse a parcel at the pickup point (the app checks they are there). Blank = nothing.',
+        ],
     ];
 
     public const SIZES = ['small' => 'Small', 'medium' => 'Medium', 'large' => 'Large'];
@@ -127,8 +136,14 @@ class ParcelSettings
         'medicines' => 'Medicines', 'groceries' => 'Groceries', 'gift' => 'Gift', 'other' => 'Other',
     ];
 
-    /** The sender confirms the parcel holds none of these before booking (every channel). */
-    public const RESTRICTED_ITEMS = [
+    /**
+     * The sender confirms the parcel holds none of the banned items before booking (every channel). The list is
+     * edited on Parcel Settings (`parcel.restricted_items`, one item per line, per scope); this is what applies
+     * while it has never been saved, so the declaration can never be empty.
+     */
+    public const RESTRICTED_ITEMS_KEY = 'parcel.restricted_items';
+
+    public const DEFAULT_RESTRICTED_ITEMS = [
         'Cash, gold, jewellery or other valuables',
         'Alcohol, tobacco or drugs',
         'Weapons, explosives, fireworks or ammunition',
@@ -136,6 +151,67 @@ class ParcelSettings
         'Live animals',
         'Anything illegal or stolen',
     ];
+
+    public const RESTRICTED_ITEMS_MAX = 20;
+
+    /** Pickup safety: what looked unusual when the rider took a photo (owner, 2026-10-29). */
+    public const SAFETY_CONCERNS = [
+        'sender' => 'The sender', 'location' => 'The pickup place', 'item' => 'The item',
+        'packing' => 'The packing', 'time' => 'The pickup time', 'other' => 'Something else',
+    ];
+
+    /** The sender lets the rider photograph the item before packing and the parcel after packing. */
+    public const SAFETY_PHOTO_STAGES = [
+        'before_packing' => 'Item, before packing', 'after_packing' => 'Parcel, after packing', 'other' => 'Something else',
+    ];
+
+    /** Photos per order, so a stuck camera button cannot fill the disk. */
+    public const SAFETY_PHOTOS_MAX = 10;
+
+    /**
+     * Why the rider refused the parcel at pickup. `fee` = parcel.refusal_fee may be kept from the sender's refund
+     * (the sender broke the rules); `customer` is what the sender is told.
+     */
+    public const REFUSAL_REASONS = [
+        'restricted_item' => ['label' => 'It holds a banned item', 'fee' => true,
+            'customer' => 'it looks like it holds an item we cannot carry'],
+        'refused_check' => ['label' => 'The sender would not let me check or photograph it', 'fee' => true,
+            'customer' => 'the rider was not allowed to check the item'],
+        'suspicious' => ['label' => 'Something else is not right (sender, place, time or packing)', 'fee' => false,
+            'customer' => 'the rider could not safely accept it'],
+    ];
+
+    /** @return list<string> the banned items list in force in this scope */
+    public static function restrictedItems(array $scope = []): array
+    {
+        $items = self::parseRestrictedItems(Setting::get(self::RESTRICTED_ITEMS_KEY, null, $scope));
+
+        return $items === [] ? self::DEFAULT_RESTRICTED_ITEMS : $items;
+    }
+
+    /** @return list<string> one trimmed, non-empty item per line, duplicates dropped */
+    public static function parseRestrictedItems(?string $text): array
+    {
+        $lines = preg_split('/\R/', (string) $text) ?: [];
+
+        return array_values(array_unique(array_filter(array_map(fn ($line) => trim(preg_replace('/^[-*•\s]+/u', '', $line)), $lines), fn ($line) => $line !== '')));
+    }
+
+    /** @return string|null an error message, or null when valid. Blank = the standard list. */
+    public static function validateRestrictedItems(?string $text): ?string
+    {
+        $items = self::parseRestrictedItems($text);
+        if (count($items) > self::RESTRICTED_ITEMS_MAX) {
+            return 'At most '.self::RESTRICTED_ITEMS_MAX.' items.';
+        }
+        foreach ($items as $item) {
+            if (mb_strlen($item) > 150) {
+                return 'Keep each item under 150 characters.';
+            }
+        }
+
+        return null;
+    }
 
     /** Two-wheeler only for now (Stage 1); 3- and 4-wheelers come with their own rider pool later. */
     public const VEHICLES = ['two_wheeler' => 'Two-wheeler'];

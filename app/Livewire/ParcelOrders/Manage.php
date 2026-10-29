@@ -58,6 +58,11 @@ class Manage extends Component
     public function mount(): void
     {
         abort_unless(auth()->user()->hasPermissionAnywhere('parcel_orders.view'), 403, 'You do not have permission to view Parcel orders.');
+
+        // Pickup safety: the "parcel refused" alert email links here with ?flagged=1.
+        if (request()->boolean('flagged')) {
+            $this->statusFilter = 'flagged';
+        }
     }
 
     public function updatingSearch(): void
@@ -236,7 +241,7 @@ class Manage extends Component
             return null;
         }
 
-        return $this->scopedOrdersQuery()->with('statusHistory')->find($this->selectedOrderId);
+        return $this->scopedOrdersQuery()->with(['statusHistory', 'safetyPhotos.fieldWorker.user'])->find($this->selectedOrderId);
     }
 
     public function render()
@@ -262,16 +267,20 @@ class Manage extends Component
         }
 
         $zones = Zone::where('is_active', true)->orderBy('name')->get(['id', 'name', 'franchise_id']);
+        $restrictedZone = $this->selectedZoneId ? $zones->firstWhere('id', $this->selectedZoneId) : null;
+        $restrictedItems = \App\Services\Parcel\ParcelSettings::restrictedItems($restrictedZone ? ['zone_id' => $restrictedZone->id, 'franchise_id' => $restrictedZone->franchise_id] : []);
 
         $orders = $this->scopedOrdersQuery()
-            ->when($this->statusFilter !== '', fn ($q) => $q->where('status', $this->statusFilter))
+            // Pickup safety: "Flagged" = a rider took a safety photo or refused the parcel.
+            ->when($this->statusFilter === 'flagged', fn ($q) => $q->whereNotNull('safety_flagged_at'))
+            ->when(! in_array($this->statusFilter, ['', 'flagged'], true), fn ($q) => $q->where('status', $this->statusFilter))
             ->when($this->search !== '', fn ($q) => $q->where(fn ($qq) => $qq
                 ->where('code', 'like', "%{$this->search}%")
                 ->orWhereHas('customer', fn ($c) => $c->where('name', 'like', "%{$this->search}%"))))
             ->latest('id')
             ->paginate(20);
 
-        return view('livewire.parcel-orders.manage', ['order' => null, 'orders' => $orders, 'zones' => $zones])
+        return view('livewire.parcel-orders.manage', ['order' => null, 'orders' => $orders, 'zones' => $zones, 'restrictedItems' => $restrictedItems])
             ->layout('layouts.admin', ['title' => 'Parcel Orders']);
     }
 }

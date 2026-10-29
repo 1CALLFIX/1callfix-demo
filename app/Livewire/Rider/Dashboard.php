@@ -9,6 +9,8 @@ use App\Actions\MarkParcelDeliveredAction;
 use App\Actions\MarkParcelEnRouteAction;
 use App\Actions\MarkParcelPickedUpAction;
 use App\Actions\ParcelSenderPaidAtDoorAction;
+use App\Actions\RecordParcelSafetyPhotoAction;
+use App\Actions\RefuseParcelAtPickupAction;
 use App\Livewire\Rider\Concerns\InteractsWithRider;
 use App\Models\Setting;
 use App\Services\Parcel\FieldWorkerCashDueService;
@@ -17,6 +19,7 @@ use App\Services\Parcel\ParcelWaitingCharge;
 use App\Services\Parcel\RiderOfferService;
 use App\Services\TimezoneResolver;
 use Livewire\Component;
+use Livewire\WithFileUploads;
 
 /**
  * Rider home (owner decision 2026-10-23: riders on a web area). One screen for the whole job, because a rider
@@ -27,10 +30,24 @@ use Livewire\Component;
 class Dashboard extends Component
 {
     use InteractsWithRider;
+    use WithFileUploads;
 
     public string $pickupOtp = '';
 
     public string $deliveryOtp = '';
+
+    // Pickup safety (2026-10-29): an optional photo when something looks unusual, and refusing the parcel.
+    public $safetyPhoto = null;
+
+    public array $safetyConcerns = [];
+
+    public string $safetyStage = 'before_packing';
+
+    public string $safetyNote = '';
+
+    public string $refuseReason = '';
+
+    public string $refuseNote = '';
 
     public string $notice = '';
 
@@ -166,6 +183,56 @@ class Dashboard extends Component
         }
     }
 
+    /** Pickup safety: the rider photographs the item / parcel because something looks unusual (location optional). */
+    public function saveSafetyPhoto(int $orderId, ?float $lat = null, ?float $lng = null): void
+    {
+        $this->reset('notice', 'error');
+        $rider = $this->rider();
+        $this->ownOrder($orderId, $rider);
+
+        $this->validate([
+            'safetyPhoto' => ['required', 'image', 'mimes:jpg,jpeg,png,webp', 'max:8192'],
+            'safetyConcerns' => ['required', 'array', 'min:1'],
+            'safetyConcerns.*' => ['in:'.implode(',', array_keys(ParcelSettings::SAFETY_CONCERNS))],
+            'safetyStage' => ['required', 'in:'.implode(',', array_keys(ParcelSettings::SAFETY_PHOTO_STAGES))],
+            'safetyNote' => ['nullable', 'string', 'max:300'],
+        ], [
+            'safetyPhoto.required' => 'Take or choose a photo.',
+            'safetyPhoto.image' => 'That file is not a photo.',
+            'safetyPhoto.max' => 'The photo is too large (8 MB at most).',
+            'safetyConcerns.required' => 'Tick what looks unusual.',
+        ]);
+
+        try {
+            app(RecordParcelSafetyPhotoAction::class)->execute($orderId, $rider, $this->safetyPhoto, $this->safetyStage, $this->safetyConcerns, $this->safetyNote, $lat, $lng);
+            $this->reset('safetyPhoto', 'safetyNote');
+            $this->notice = 'Photo saved. Only the 1CallFix team can see it.';
+        } catch (\RuntimeException $e) {
+            $this->error = $e->getMessage();
+        }
+    }
+
+    /** Pickup safety: refuse the parcel at the pickup point (live location required). */
+    public function refuseParcel(int $orderId, ?float $lat = null, ?float $lng = null): void
+    {
+        $this->reset('notice', 'error');
+        $rider = $this->rider();
+        $this->ownOrder($orderId, $rider);
+
+        $this->validate([
+            'refuseReason' => ['required', 'in:'.implode(',', array_keys(ParcelSettings::REFUSAL_REASONS))],
+            'refuseNote' => ['nullable', 'string', 'max:300'],
+        ], ['refuseReason.required' => 'Choose why you are refusing the parcel.']);
+
+        try {
+            app(RefuseParcelAtPickupAction::class)->execute($orderId, $rider, $this->refuseReason, $this->refuseNote, $lat, $lng);
+            $this->reset('refuseReason', 'refuseNote', 'safetyPhoto', 'safetyConcerns', 'safetyNote', 'pickupOtp');
+            $this->notice = 'Parcel refused. The order is cancelled and the sender has been told. Leave safely; our team will follow up.';
+        } catch (\RuntimeException $e) {
+            $this->error = $e->getMessage();
+        }
+    }
+
     public function render()
     {
         $offers = app(RiderOfferService::class);
@@ -194,6 +261,11 @@ class Dashboard extends Component
             'currencySymbol' => Setting::get('locale.currency_symbol', '₹'),
             'waiting' => $job ? ParcelWaitingCharge::compute($job) : null,
             'contents' => ParcelSettings::CONTENTS,
+            'safetyConcernOptions' => ParcelSettings::SAFETY_CONCERNS,
+            'safetyStageOptions' => ParcelSettings::SAFETY_PHOTO_STAGES,
+            'refusalReasons' => ParcelSettings::REFUSAL_REASONS,
+            'safetyPhotoCount' => $job ? $job->safetyPhotos()->count() : 0,
+            'refusalPay' => $job ? ParcelSettings::get('parcel.refusal_rider_pay', ParcelWaitingCharge::scope($job)) : null,
             'tz' => app(TimezoneResolver::class)->platformTimezone(),
         ])->layout('components.layouts.rider', ['title' => 'Home']);
     }

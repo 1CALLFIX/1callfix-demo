@@ -51,6 +51,12 @@ final class WalletSourceLabel
             'regex' => '/^[a-z_]+:\d+:(provider|worker)-earning$/',
             'like' => ['%:provider-earning', '%:worker-earning'],
         ],
+        // Parcel pickup safety (2026-10-29): trip pay to a rider who refused a parcel at the pickup point.
+        'refused_trip_pay' => [
+            'label' => 'Trip pay (refused parcel)',
+            'regex' => '/^parcel_order:\d+:refusal-pay$/',
+            'like' => ['%:refusal-pay'],
+        ],
         // REF 1CF-CANCEL-POLICY-001 — interim-work payout on a customer-cancelled job, and the customer's cancellation charge
         'interim_earning' => [
             'label' => 'Interim-work earnings',
@@ -161,6 +167,7 @@ final class WalletSourceLabel
         'app/Actions/CreateHotelReservationAction.php' => ['hotel_reservation:1:wallet-payment'],
         'app/Actions/CreateMarketplaceOrderAction.php' => ['marketplace_order:1:wallet-payment'],
         'app/Actions/CreateParcelOrderAction.php' => ['parcel_order:1:wallet-payment'],
+        'app/Actions/RefuseParcelAtPickupAction.php' => ['parcel_order:1:refusal-pay'],
         'app/Actions/CreatePropertyReservationAction.php' => ['property_reservation:1:wallet-payment'],
         'app/Actions/CreateRentalReservationAction.php' => ['rental_reservation:1:wallet-payment'],
         'app/Actions/CreateTaxiRideAction.php' => ['taxi_ride:1:wallet-payment'],

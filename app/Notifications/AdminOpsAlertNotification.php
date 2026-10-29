@@ -56,6 +56,10 @@ class AdminOpsAlertNotification extends Notification implements ShouldQueue
             return route('admin.charge-waivers.index');
         }
 
+        if ($this->subject instanceof \App\Models\ParcelOrder) {
+            return route('admin.parcel-orders.index', ['flagged' => 1]);
+        }
+
         if ($this->subject instanceof Booking) {
             return route('admin.bookings.show', $this->subject->id);
         }
@@ -93,6 +97,7 @@ class AdminOpsAlertNotification extends Notification implements ShouldQueue
             'mismatch_refund_escalation' => $this->mismatchRefundEscalationCopy(),
             'dispute_refund_escalation' => $this->disputeRefundEscalationCopy(),
             'charge_waiver_escalation' => ['title' => 'Charge waiver needs approval', 'body' => '₹'.number_format((float) $this->subject->amount, 2)." charge waiver has been waiting since {$this->subject->requested_at->format('d M, h:i A')}. Open Charge Waivers to act."],
+            'parcel_refused' => ['title' => 'Parcel refused at pickup', 'body' => "The rider refused parcel {$this->subject->code} at the pickup point: ".(\App\Services\Parcel\ParcelSettings::REFUSAL_REASONS[$this->subject->refusal_reason]['label'] ?? 'not given').'. The order is cancelled. Open Parcel Orders → Flagged to see the rider note and photos, and follow up with the sender.'],
             'refund_failed' => ['title' => 'Refund failed', 'body' => "A gateway refund for payment {$this->subject->gateway_payment_id} failed. Money may be stuck: check Payments and the Razorpay dashboard."],
             // REF 1CF-CANCEL-POLICY-001
             'cancel_charge_unpaid' => ['title' => 'Cancellation charge unpaid', 'body' => "Booking {$this->subject->code} has a cancellation charge unpaid for over 7 days. Review it: collect, or waive with a reason."],

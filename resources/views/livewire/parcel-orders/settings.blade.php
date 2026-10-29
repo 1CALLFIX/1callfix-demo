@@ -68,6 +68,26 @@
                     </x-ui.card>
                 @endforeach
 
+                {{-- Pickup safety (2026-10-29): the list the sender confirms before booking, on every channel. --}}
+                <x-ui.card>
+                    <h2 class="mb-1 text-sm font-semibold">Banned items</h2>
+                    <p class="mb-3 text-xs text-gray-500">The sender ticks that the parcel holds none of these before booking (website, app and call centre). One item per line. Blank = inherits; with nothing saved anywhere, the standard list below applies.</p>
+                    <label class="block text-sm">
+                        <span class="sr-only">Banned items, one per line</span>
+                        <textarea wire:model.live.debounce.400ms="restrictedItemsText" rows="7"
+                                  placeholder="{{ implode("\n", \App\Services\Parcel\ParcelSettings::DEFAULT_RESTRICTED_ITEMS) }}"
+                                  class="w-full border rounded px-2 py-2 text-sm"></textarea>
+                        <span class="block font-mono text-[11px] text-gray-400">{{ \App\Services\Parcel\ParcelSettings::RESTRICTED_ITEMS_KEY }}</span>
+                        @error('restrictedItemsText') <span class="text-xs text-red-600">{{ $message }}</span> @enderror
+                    </label>
+                    <p class="mt-3 text-xs font-medium text-gray-600">In force here now:</p>
+                    <ul class="mt-1 list-disc pl-5 text-xs text-gray-600" data-testid="restricted-items-in-force">
+                        @foreach ($restrictedItemsInForce as $item)
+                            <li>{{ $item }}</li>
+                        @endforeach
+                    </ul>
+                </x-ui.card>
+
                 <div class="sticky bottom-0 bg-white/90 py-3"><x-ui.button type="submit">Save parcel settings</x-ui.button></div>
             </form>
         </div>
