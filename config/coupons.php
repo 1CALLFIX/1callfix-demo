@@ -8,5 +8,6 @@
  * order flow actually calls CouponService (builder, reserve, confirm/release) and has tests.
  */
 return [
-    'connected_modules' => ['service'],
+    // E-commerce (2026-10-29): shop orders reserve on checkout, confirm on completion, release on cancel.
+    'connected_modules' => ['service', 'commerce'],
 ];

@@ -32,10 +32,24 @@ class Product extends Model
         parent::boot();
 
         static::creating(function (Product $product) {
+            // Link rule: a clean, readable slug; -2, -3 only on collision (never a random suffix).
             if (empty($product->slug)) {
-                $product->slug = Str::slug($product->name).'-'.Str::random(6);
+                $base = Str::slug($product->name) ?: 'product';
+                $slug = $base;
+                for ($n = 2; static::withTrashed()->where('slug', $slug)->exists(); $n++) {
+                    $slug = $base.'-'.$n;
+                }
+                $product->slug = $slug;
             }
         });
+    }
+
+    /** Public URLs of the product photos (stored paths on the public disk, or full URLs from a CSV import). */
+    public function getImageUrlsAttribute(): array
+    {
+        return collect($this->images ?? [])->filter()->map(fn ($path) => Str::startsWith($path, ['http://', 'https://', '//', 'data:'])
+            ? $path
+            : \Illuminate\Support\Facades\Storage::disk('public')->url($path))->values()->all();
     }
 
     public function store() { return $this->belongsTo(Store::class); }

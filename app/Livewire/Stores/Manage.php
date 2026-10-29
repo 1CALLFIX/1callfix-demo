@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 use App\Livewire\Concerns\ScopesOwnerProviders;
 use App\Models\Store;
 use App\Models\Zone;
+use App\Services\ActivityLogger;
 use App\Services\AuthorizationService;
 use App\Support\Modules;
 use Livewire\Component;
@@ -21,6 +22,12 @@ class Manage extends Component
 
     public string $search = '';
     public string $moduleFilter = '';
+
+    /** E-commerce Phase 1: '' | pending | approved | rejected (shops sellers opened through /partners). */
+    public string $approvalFilter = '';
+
+    public ?int $rejectStoreId = null;
+    public string $rejectNote = '';
 
     public ?int $providerId = null;
     public ?int $zoneId = null;
@@ -153,11 +160,51 @@ class Manage extends Component
         session()->flash('message', 'Store updated.');
     }
 
+    /**
+     * E-commerce Phase 1: approve a shop a seller opened through /partners. Only once the seller's documents are
+     * approved (the provider KYC queue); approving switches the shop on, and the seller opens it from their portal.
+     */
+    public function approveStore(int $storeId): void
+    {
+        $store = $this->scopedStoresQuery()->find($storeId);
+        abort_if(! $store, 404);
+
+        if ($store->provider?->kyc_status !== 'approved') {
+            session()->flash('error', "Approve {$store->provider?->user?->name}'s documents first (Providers → KYC), then the shop.");
+
+            return;
+        }
+
+        $store->update(['approval_status' => 'approved', 'approval_note' => null, 'approved_at' => now(), 'approved_by' => auth()->id(), 'is_active' => true]);
+        ActivityLogger::logModel(auth()->user(), $store, 'Shop approved');
+        session()->flash('message', "{$store->name} approved. The seller can open it now.");
+    }
+
+    public function startRejectStore(int $storeId): void
+    {
+        abort_if(! $this->scopedStoresQuery()->find($storeId), 404);
+        $this->rejectStoreId = $storeId;
+        $this->rejectNote = '';
+    }
+
+    public function rejectStore(): void
+    {
+        $store = $this->scopedStoresQuery()->find($this->rejectStoreId);
+        abort_if(! $store, 404);
+        $this->validate(['rejectNote' => 'required|string|min:5|max:500'], ['rejectNote.required' => 'Tell the seller what to fix.']);
+
+        $store->update(['approval_status' => 'rejected', 'approval_note' => trim($this->rejectNote), 'is_active' => false, 'is_open' => false]);
+        ActivityLogger::logModel(auth()->user(), $store, 'Shop not approved', ['note' => trim($this->rejectNote)]);
+        $this->rejectStoreId = null;
+        session()->flash('message', "{$store->name} not approved. The seller sees your note.");
+    }
+
     public function render()
     {
         $stores = $this->applyActiveFilter($this->scopedStoresQuery())
             ->when($this->search !== '', fn ($q) => $q->where('name', 'like', "%{$this->search}%"))
             ->when($this->moduleFilter !== '', fn ($q) => $q->where('module', $this->moduleFilter))
+            ->when($this->approvalFilter !== '', fn ($q) => $q->where('approval_status', $this->approvalFilter))
             ->latest('id')
             ->paginate(20);
 
@@ -169,6 +216,7 @@ class Manage extends Component
             'providers' => $this->ownerProviderOptions('stores.manage'),
             'zones' => Zone::where('is_active', true)->orderBy('name')->get(),
             'modules' => Modules::ALL,
+            'pendingApprovals' => $this->scopedStoresQuery()->where('approval_status', 'pending')->count(),
         ])->layout('layouts.admin', ['title' => 'Stores']);
     }
 }

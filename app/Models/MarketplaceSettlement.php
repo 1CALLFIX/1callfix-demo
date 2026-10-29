@@ -13,7 +13,7 @@ class MarketplaceSettlement extends Model
 {
     protected $fillable = [
         'marketplace_order_id', 'commission_id', 'provider_id', 'field_worker_id', 'payment_mode',
-        'goods_amount', 'seller_share', 'goods_platform', 'goods_franchise',
+        'goods_amount', 'seller_share', 'goods_platform', 'goods_franchise', 'tcs_gst_amount', 'tds_income_tax_amount',
         'delivery_amount', 'rider_share', 'delivery_platform', 'delivery_franchise', 'rider_topup', 'rider_topup_funded_by',
         'release_at', 'released_at', 'status',
         'cash_debtor_type', 'cash_owed', 'cash_franchise_portion', 'cash_settled', 'cash_franchise_settled',

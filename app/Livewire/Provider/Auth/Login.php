@@ -122,7 +122,8 @@ class Login extends Component
         Auth::guard('web')->login($user);
         session()->regenerate();
 
-        $this->redirectRoute('provider.dashboard', navigate: true);
+        // E-commerce Phase 1: a shop-only seller is a provider account too; their home is the seller portal.
+        $this->redirectRoute($user->holdsPartnerRole('service') ? 'provider.dashboard' : 'seller.dashboard', navigate: true);
     }
 
     public function render()

@@ -6,6 +6,9 @@
     $platformName = \App\Models\Setting::get('branding.platform_name', '1CallFix');
     $navItems = [
         ['label' => 'Home', 'route' => 'rider.dashboard', 'icon' => 'home'],
+        // E-commerce Phase 3: shop deliveries, once Commerce is on somewhere.
+        ...(app(\App\Services\ModuleActivationService::class)->isActiveAnywhere(\App\Support\Modules::COMMERCE)
+            ? [['label' => 'Shop', 'route' => 'rider.shop', 'icon' => 'building']] : []),
         ['label' => 'History', 'route' => 'rider.history', 'icon' => 'clock'],
         ['label' => 'Earnings', 'route' => 'rider.earnings', 'icon' => 'banknotes', 'also' => ['rider.payment-accounts', 'rider.request-payout']],
     ];
@@ -65,19 +68,19 @@
     <main id="rider-main" tabindex="-1" class="mx-auto w-full max-w-3xl flex-1 px-4 py-6 focus:outline-none sm:px-6">
         @auth
             {{-- Offer source on pages that don't poll offers themselves (the dashboard does). --}}
-            @unless (request()->routeIs('rider.dashboard', 'rider.login'))
+            @unless (request()->routeIs('rider.dashboard', 'rider.login', 'rider.shop'))
                 <livewire:rider.offer-watcher />
             @endunless
 
             <section x-data="providerOfferAlert" x-show="active" style="display: none;"
                      data-respond-url="{{ route('rider.dashboard') }}"
-                     data-on-offers-page="{{ request()->routeIs('rider.dashboard') ? '1' : '0' }}"
-                     aria-label="Incoming parcel offer"
+                     data-on-offers-page="{{ request()->routeIs('rider.dashboard', 'rider.shop') ? '1' : '0' }}"
+                     aria-label="Incoming delivery offer"
                      class="mb-4 rounded-2xl border-2 border-amber-400 bg-amber-50 p-4 shadow-lg ring-4 ring-amber-200/70">
                 <div class="min-w-0">
                     <div class="flex flex-wrap items-center justify-between gap-2">
                         <p class="text-xs font-extrabold uppercase tracking-widest text-amber-800">
-                            <span role="alert">New parcel offer</span>
+                            <span role="alert">New delivery offer</span>
                             <span x-show="extra > 0" x-text="'+' + extra + ' more'" class="ml-1 font-semibold normal-case tracking-normal text-amber-700"></span>
                         </p>
                         <span role="timer" x-show="primary" x-text="remaining + 's left'"

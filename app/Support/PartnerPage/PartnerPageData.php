@@ -18,6 +18,8 @@ final class PartnerPageData
      * continues into the one partner sign-up (/provider/register: OTP, documents, admin approval) — the service role
      * once services are live, and the delivery rider role as soon as parcel prices are set somewhere, so riders are
      * signed up BEFORE parcel opens to customers (owner rule 2026-10-25: every partner joins through /partners).
+     * Sellers ("Seller or shop") hand off when Super Admin turns on Shop Settings → "Take seller sign-ups", so shops
+     * are approved and stocked before Commerce opens to customers.
      *
      * @return list<array{code:string, label:string, blurb:string, module:string, live:bool, hands_off:bool}>
      */
@@ -40,7 +42,8 @@ final class PartnerPageData
                 'blurb' => $wording[$code]['blurb'],
                 'module' => P::ROLE_MODULE_NAMES[$code] ?? '',
                 'live' => $live,
-                'hands_off' => ($code === 'service' && $live) || ($code === 'parcel' && app(\App\Services\Parcel\ParcelReadiness::class)->recruitingRiders()),
+                'hands_off' => ($code === 'service' && $live) || ($code === 'parcel' && app(\App\Services\Parcel\ParcelReadiness::class)->recruitingRiders())
+                    || ($code === 'commerce' && \App\Support\MarketplaceSettings::recruitingSellers()),
             ];
         }
 

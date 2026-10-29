@@ -141,6 +141,8 @@ Route::middleware(['auth', \Illuminate\Session\Middleware\AuthenticateSession::c
         Route::get('/mismatch-refunds', \App\Livewire\MismatchRefunds\Index::class)->name('admin.mismatch-refunds.index');
         // A2 — post-payment pricing disputes (permission bookings.refund_dispute, scoped in the component).
         Route::get('/booking-disputes', \App\Livewire\BookingDisputes\Index::class)->name('admin.booking-disputes.index');
+        // E-commerce Phase 3b: shop returns and their refunds (approval model).
+        Route::get('/shop-returns', \App\Livewire\MarketplaceReturns\Index::class)->name('admin.shop-returns.index');
         Route::get('/refund-controls', \App\Livewire\RefundControls\Manage::class)->name('admin.refund-controls.index');
         Route::get('/charge-waivers', \App\Livewire\ChargeWaivers\Index::class)->name('admin.charge-waivers.index');
         // 0d — Super Admin on/off for the critical-alert emails.
@@ -170,6 +172,9 @@ Route::middleware(['auth', \Illuminate\Session\Middleware\AuthenticateSession::c
         Route::get('/products', ProductsManage::class)->name('admin.products.index');
         Route::get('/add-ons', AddOnsManage::class)->name('admin.add-ons.index');
         Route::get('/marketplace-orders', MarketplaceOrdersManage::class)->name('admin.marketplace-orders.index');
+        Route::get('/shop-settings', \App\Livewire\MarketplaceOrders\Settings::class)->name('admin.marketplace-orders.settings');
+        Route::get('/shop-commission', \App\Livewire\MarketplaceCommission\Manage::class)->name('admin.shop-commission.index');
+        Route::get('/shop-tax-report', \App\Livewire\MarketplaceOrders\TaxReport::class)->name('admin.shop-tax-report');
         Route::get('/chat', ChatManage::class)->name('admin.chat.index');
         Route::get('/chat/attachments/{messageId}', [\App\Http\Controllers\Admin\ChatAttachmentController::class, 'show'])->whereNumber('messageId')->name('admin.chat.attachments.show');
         Route::get('/kyc/support-requests', KycSupportRequestsManage::class)->name('admin.kyc.support-requests.index');

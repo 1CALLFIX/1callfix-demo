@@ -25,24 +25,46 @@ class Store extends Model
     protected $fillable = [
         'provider_id', 'franchise_id', 'zone_id', 'module',
         'name', 'slug', 'description', 'logo', 'cover_image',
-        'address_line', 'lat', 'lng', 'phone',
+        'address_line', 'lat', 'lng', 'phone', 'gstin', 'pan',
         'is_open', 'is_active', 'prescription_required',
+        'approval_status', 'approval_note', 'approved_at', 'approved_by',
         'tax_percent', 'minimum_order_amount', 'delivery_fee_flat', 'free_delivery_above_amount',
     ];
+
+    /** Same as the column default: an admin-created store is approved; RegisterSellerAction sets 'pending'. */
+    protected $attributes = ['approval_status' => 'approved'];
 
     protected $casts = [
         'is_open' => 'boolean',
         'is_active' => 'boolean',
         'prescription_required' => 'boolean',
+        'approved_at' => 'datetime',
     ];
+
+    /** E-commerce Phase 1: customers see and buy only from a store that is approved and switched on. */
+    public function scopeSellable($query)
+    {
+        return $query->where('is_active', true)->where('approval_status', 'approved');
+    }
+
+    public function isSellable(): bool
+    {
+        return $this->is_active && $this->approval_status === 'approved';
+    }
 
     protected static function boot()
     {
         parent::boot();
 
         static::creating(function (Store $store) {
+            // Link rule: a clean, readable slug; -2, -3 only on collision (never a random suffix).
             if (empty($store->slug)) {
-                $store->slug = Str::slug($store->name).'-'.Str::random(6);
+                $base = Str::slug($store->name) ?: 'shop';
+                $slug = $base;
+                for ($n = 2; static::withTrashed()->where('slug', $slug)->exists(); $n++) {
+                    $slug = $base.'-'.$n;
+                }
+                $store->slug = $slug;
             }
         });
     }

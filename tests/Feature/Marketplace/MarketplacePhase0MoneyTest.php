@@ -369,16 +369,18 @@ class MarketplacePhase0MoneyTest extends TestCase
             ->assertJsonFragment(['message' => 'Discounted items must be paid online. Please choose online payment or wallet.']);
     }
 
-    public function test_a_coupon_code_is_refused_for_every_payment_method(): void
+    /** Coupons were connected to shop orders on 2026-10-29 (ShopCouponTest); an unusable code is still refused, cash always. */
+    public function test_an_unusable_coupon_code_is_refused_and_cash_never_takes_one(): void
     {
         foreach (['online', 'wallet', 'cash'] as $method) {
             $w = $this->shop();
             try {
                 $this->checkout($w, $method, ['coupon_code' => 'SAVE10']);
-                $this->fail("A coupon must be refused for {$method}.");
+                $this->fail("An unknown coupon must be refused for {$method}.");
             } catch (\RuntimeException $e) {
-                $this->assertStringContainsString('Coupons are not available', $e->getMessage());
+                $this->assertNotSame('', $e->getMessage());
             }
+            $this->assertSame(0, \App\Models\MarketplaceOrder::where('customer_id', $w['customer']->id)->count(), 'no order is made');
         }
     }
 

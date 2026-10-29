@@ -34,6 +34,10 @@ return Application::configure(basePath: dirname(__DIR__))
                 return route('provider.login');
             }
 
+            if ($request->is('seller', 'seller/*')) {
+                return route('seller.login');
+            }
+
             return route('customer.login');
         });
 

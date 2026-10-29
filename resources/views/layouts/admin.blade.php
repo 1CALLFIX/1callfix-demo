@@ -183,6 +183,7 @@
                     ['label' => 'Franchise Earnings', 'route' => 'admin.franchise-earnings.index', 'icon' => 'banknotes', 'permission' => 'commissions.view'],
                     ['label' => 'Payments', 'route' => 'admin.payments.index', 'icon' => 'banknotes', 'permission' => 'payments.view'],
                     ['label' => 'Pricing Disputes', 'route' => 'admin.booking-disputes.index', 'icon' => 'banknotes', 'permission' => 'bookings.refund_dispute'],
+                    ['label' => 'Shop Returns', 'route' => 'admin.shop-returns.index', 'icon' => 'banknotes', 'permission' => 'marketplace_returns.manage'],
                     ['label' => 'Charge Waivers', 'route' => 'admin.charge-waivers.index', 'icon' => 'banknotes', 'permission' => 'bookings.waive_charge'],
                     ['label' => 'Mismatch Refunds', 'route' => 'admin.mismatch-refunds.index', 'icon' => 'banknotes', 'permission' => 'payments.refund_mismatch'],
                     // super_admin only (permission never seeded to a role) — see the Earnings Control entry.
@@ -222,6 +223,11 @@
                     ['label' => 'Products', 'route' => 'admin.products.index', 'icon' => 'wrench', 'permission' => 'products.manage'],
                     ['label' => 'Add-Ons', 'route' => 'admin.add-ons.index', 'icon' => 'wrench', 'permission' => 'products.manage'],
                     ['label' => 'Marketplace Orders', 'route' => 'admin.marketplace-orders.index', 'icon' => 'clipboard', 'permission' => 'marketplace_orders.view'],
+                    // super_admin only (permission never seeded to a role) — see the Earnings Control entry.
+                    ['label' => 'Shop Settings', 'route' => 'admin.marketplace-orders.settings', 'icon' => 'gear', 'permission' => 'marketplace_settings.manage'],
+                    ['label' => 'Shop Commission', 'route' => 'admin.shop-commission.index', 'icon' => 'banknotes', 'permission' => 'marketplace_commission.manage'],
+                    // super_admin only (permission never seeded to a role) — see the Earnings Control entry.
+                    ['label' => 'Shop Tax Report', 'route' => 'admin.shop-tax-report', 'icon' => 'chart', 'permission' => 'marketplace_tax_report.view'],
                 ],
             ],
             'system' => [

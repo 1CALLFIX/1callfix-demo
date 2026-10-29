@@ -192,6 +192,15 @@ Route::middleware(['auth', \App\Http\Middleware\EnsureAccountNotSuspended::class
     Route::get('/parcel', \App\Livewire\Customer\Parcel\Create::class)->name('customer.parcels.create');
     Route::get('/parcels', \App\Livewire\Customer\Parcel\Index::class)->name('customer.parcels.index');
     Route::get('/parcels/{parcelOrder}', \App\Livewire\Customer\Parcel\Show::class)->name('customer.parcels.show');
+
+    // E-commerce Phase 2: the shop bag, checkout (one shop per order) and the customer's shop orders. Browsing is
+    // public under /{city}/shop; a customer's own orders stay reachable even if Commerce is switched off later.
+    Route::get('/shop/bag', \App\Livewire\Customer\Shop\Bag::class)->name('customer.shop.cart');
+    Route::get('/shop/checkout/{store}', \App\Livewire\Customer\Shop\Checkout::class)->name('customer.shop.checkout');
+    Route::get('/shop/orders', \App\Livewire\Customer\Shop\Orders::class)->name('customer.shop.orders');
+    Route::get('/shop/orders/{order}', \App\Livewire\Customer\Shop\OrderShow::class)->name('customer.shop.orders.show');
+    // E-commerce Phase 5: the seller's tax invoice (customer, the shop's seller, or an admin with marketplace_orders.view).
+    Route::get('/shop/orders/{order}/invoice', [\App\Http\Controllers\Customer\ShopInvoiceController::class, 'show'])->name('customer.shop.orders.invoice');
 });
 
 /*
@@ -267,9 +276,38 @@ Route::middleware(['auth', \App\Http\Middleware\EnsureIsParcelRider::class, \App
     ->group(function () {
         Route::get('/', \App\Livewire\Rider\Dashboard::class)->name('rider.dashboard');
         Route::get('/history', \App\Livewire\Rider\History::class)->name('rider.history');
+        // E-commerce Phase 3: shop deliveries on the same rider web.
+        Route::get('/shop', \App\Livewire\Rider\ShopDeliveries::class)->name('rider.shop');
         Route::get('/earnings', \App\Livewire\Rider\Earnings::class)->name('rider.earnings');
         Route::get('/payment-accounts', \App\Livewire\Rider\PaymentAccounts::class)->name('rider.payment-accounts');
         Route::get('/request-payout', \App\Livewire\Rider\RequestPayout::class)->name('rider.request-payout');
+    });
+
+/*
+ | Seller portal (E-commerce Phase 1). A seller is a provider account that owns a shop (Store::provider_id); they
+ | join on /partners ("Seller or shop") → the one partner sign-up, and the shop waits for approval in Admin → Stores.
+ | Products, orders (accept → packing → ready, pickup hand-over by collection code), shop details and earnings.
+ */
+Route::middleware('guest')->get('/seller/login', \App\Livewire\Seller\Auth\Login::class)->name('seller.login');
+
+Route::post('/seller/logout', function () {
+    Auth::guard('web')->logout();
+    request()->session()->invalidate();
+    request()->session()->regenerateToken();
+
+    return redirect()->route('seller.login');
+})->middleware('auth')->name('seller.logout');
+
+Route::middleware(['auth', \App\Http\Middleware\EnsureIsSeller::class, \App\Http\Middleware\EnsureAccountNotSuspended::class])
+    ->prefix('seller')
+    ->group(function () {
+        Route::get('/', \App\Livewire\Seller\Dashboard::class)->name('seller.dashboard');
+        Route::get('/orders', \App\Livewire\Seller\Orders::class)->name('seller.orders');
+        Route::get('/products', \App\Livewire\Seller\Products::class)->name('seller.products');
+        Route::get('/shop', \App\Livewire\Seller\Shop::class)->name('seller.shop');
+        Route::get('/earnings', \App\Livewire\Seller\Earnings::class)->name('seller.earnings');
+        Route::get('/payment-accounts', \App\Livewire\Seller\PaymentAccounts::class)->name('seller.payment-accounts');
+        Route::get('/request-payout', \App\Livewire\Seller\RequestPayout::class)->name('seller.request-payout');
     });
 
 // Public content. `page` renders real seeded `content_pages` rows — the
@@ -309,7 +347,15 @@ require __DIR__.'/admin.php';
 // fallback: anything that is not a city/catalog slug is handed on to the CMS fallback by the controller itself.
 // First segments that are never a city (JSON API, admin/provider areas, framework + asset paths) are excluded
 // up front, so those requests never even touch the cities table.
-$cityPattern = '(?!(?:api|admin|provider|rider|livewire|storage|build|vendor|push)(?![A-Za-z0-9_-]))[A-Za-z0-9_-]+';
+$cityPattern = '(?!(?:api|admin|provider|rider|seller|shop|livewire|storage|build|vendor|push)(?![A-Za-z0-9_-]))[A-Za-z0-9_-]+';
+
+// E-commerce Phase 2: the shop, city-prefixed like every public catalog page (/{city}/shop, /{city}/shop/{shop},
+// /{city}/shop/{shop}/{product}). Declared before /{city}/{slug} so "shop" is never read as a catalog slug — and it
+// is reserved anyway by the /shop/... routes below. 404 while Commerce is off for that city.
+Route::get('/{city}/shop', \App\Livewire\Customer\Shop\Home::class)->where('city', $cityPattern)->name('customer.shop.home');
+Route::get('/{city}/shop/{storeSlug}', \App\Livewire\Customer\Shop\StoreShow::class)->where(['city' => $cityPattern, 'storeSlug' => '[A-Za-z0-9_-]+'])->name('customer.shop.store');
+Route::get('/{city}/shop/{storeSlug}/{productSlug}', \App\Livewire\Customer\Shop\ProductShow::class)->where(['city' => $cityPattern, 'storeSlug' => '[A-Za-z0-9_-]+', 'productSlug' => '[A-Za-z0-9_-]+'])->name('customer.shop.product');
+
 Route::get('/{city}', [CityRouteController::class, 'city'])->where('city', $cityPattern)->name('customer.city.show');
 Route::get('/{city}/{slug}', [CityRouteController::class, 'item'])->where(['city' => $cityPattern, 'slug' => '[A-Za-z0-9_-]+'])->name('customer.city.item');
 

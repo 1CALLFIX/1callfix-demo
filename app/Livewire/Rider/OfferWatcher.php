@@ -21,10 +21,13 @@ class OfferWatcher extends Component
     {
         $rider = $this->rider();
         $service = app(RiderOfferService::class);
-        $this->online = $rider->is_online && $this->parcelActiveFor($rider) && ! $service->activeJob($rider);
-        $offers = $this->online ? $service->liveOffers($rider) : collect();
+        // E-commerce Phase 3: shop delivery offers ring too, on every rider page (one job at a time across both).
+        $this->online = $rider->is_online && ! $service->activeJob($rider) && ! $service->activeShopJob($rider);
+        $offers = ($this->online && $this->parcelActiveFor($rider)) ? $service->liveOffers($rider) : collect();
+        $shopOffers = $this->online ? $service->liveShopOffers($rider) : collect();
 
-        $this->dispatch('provider-alert-offers', count: $offers->count(), offers: $service->alertSummaries($offers));
+        $this->dispatch('provider-alert-offers', count: $offers->count() + $shopOffers->count(),
+            offers: array_merge($service->alertSummaries($offers), $service->shopAlertSummaries($shopOffers)));
 
         return <<<'BLADE'
             <div @if ($online) wire:poll.5s @endif aria-hidden="true"></div>

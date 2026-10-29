@@ -4,6 +4,7 @@ namespace App\Services\Parcel;
 
 use App\Models\DispatchAttempt;
 use App\Models\FieldWorker;
+use App\Models\MarketplaceOrder;
 use App\Models\ParcelOrder;
 use App\Models\Setting;
 use Illuminate\Support\Collection;
@@ -57,6 +58,49 @@ class RiderOfferService
             ->with(['pickupAddress', 'dropoffAddress', 'customer'])
             ->latest('id')
             ->first();
+    }
+
+    // ── E-commerce Phase 3: shop deliveries on the same rider web ──────────────────────────────────────────
+
+    /** @return Collection<int, DispatchAttempt> open shop-delivery offers for this rider (MarketplaceDispatchJob's predicate) */
+    public function liveShopOffers(FieldWorker $rider): Collection
+    {
+        $timeout = (int) \App\Support\MarketplaceSettings::get('marketplace.dispatch.offer_timeout_seconds');
+
+        return DispatchAttempt::where('dispatchable_type', MarketplaceOrder::class)
+            ->where('notifiable_type', FieldWorker::class)
+            ->where('notifiable_id', $rider->id)
+            ->where('status', 'notified')
+            ->where('notified_at', '>', now()->subSeconds($timeout))
+            ->with('dispatchable.store', 'dispatchable.deliveryAddress')
+            ->latest('notified_at')
+            ->get()
+            ->filter(fn (DispatchAttempt $a) => $a->dispatchable && $a->dispatchable->status === 'ready' && $a->dispatchable->assigned_worker_id === null)
+            ->values();
+    }
+
+    public function shopAlertSummaries(Collection $offers): array
+    {
+        $symbol = Setting::get('locale.currency_symbol', '₹');
+        $timeout = (int) \App\Support\MarketplaceSettings::get('marketplace.dispatch.offer_timeout_seconds');
+
+        return $offers->map(fn (DispatchAttempt $a) => [
+            'id' => 'shop-'.$a->dispatchable->id,
+            'service' => 'Shop delivery · '.$a->dispatchable->store?->name,
+            'code' => $a->dispatchable->code,
+            'price' => $a->dispatchable->payment_method === 'cash' ? 'Collect '.$symbol.number_format((float) $a->dispatchable->total_amount, 2) : 'Prepaid',
+            'distance' => $a->distance_km !== null ? rtrim(rtrim(number_format((float) $a->distance_km, 1), '0'), '.').' km to the shop' : null,
+            'when' => 'Now',
+            'area' => $a->dispatchable->store?->address_line,
+            'expires_in' => max(0, $timeout - (int) $a->notified_at->diffInSeconds(now())),
+        ])->values()->all();
+    }
+
+    /** The shop delivery this rider is carrying, if any (one job at a time across parcel and shop). */
+    public function activeShopJob(FieldWorker $rider): ?MarketplaceOrder
+    {
+        return MarketplaceOrder::where('assigned_worker_id', $rider->id)->where('status', 'ready')->where('order_type', 'delivery')
+            ->with(['store', 'deliveryAddress', 'customer:id,name,phone', 'items'])->latest('id')->first();
     }
 
     /** Online with a server-stamped location fix, or offline. A missing fix keeps them online but unofferable. */

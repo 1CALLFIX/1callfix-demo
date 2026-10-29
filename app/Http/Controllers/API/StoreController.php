@@ -18,7 +18,7 @@ class StoreController extends Controller
     /** GET /api/stores?module=&zone_id=&search= */
     public function index(Request $request)
     {
-        $query = Store::query()->where('is_active', true)->with(['provider.user']);
+        $query = Store::query()->sellable()->with(['provider.user']);
 
         if ($request->filled('module')) {
             $query->where('module', $request->string('module'));
@@ -41,7 +41,7 @@ class StoreController extends Controller
     /** GET /api/stores/{id} */
     public function show(int $storeId)
     {
-        $store = Store::where('is_active', true)->with(['provider.user'])->find($storeId);
+        $store = Store::sellable()->with(['provider.user'])->find($storeId);
 
         if (! $store) {
             return response()->json(['message' => 'Store not found.'], 404);

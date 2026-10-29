@@ -24,16 +24,35 @@ class AdminCancelMarketplaceOrderAction
     {
     }
 
-    public function execute(int $orderId, string $reason): MarketplaceOrder
+    /**
+     * E-commerce Phase 1: `$by` = 'seller' when the shop rejects or cannot fill the order (Seller → Orders). That is
+     * never the customer's doing, so no cancellation fee is charged and the customer is refunded in full, and a
+     * seller cannot cancel once the order is ready (with a rider or waiting for collection).
+     */
+    public function execute(int $orderId, string $reason, string $by = 'admin'): MarketplaceOrder
     {
-        $order = DB::transaction(function () use ($orderId, $reason) {
+        $order = DB::transaction(function () use ($orderId, $reason, $by) {
             $order = MarketplaceOrder::lockForUpdate()->with('items')->findOrFail($orderId);
 
             if (in_array($order->status, ['completed', 'cancelled'], true)) {
                 throw new \RuntimeException("Order is already {$order->status}, cannot cancel.");
             }
 
-            $fee = $this->cancellationService->calculateFeeForMarketplaceOrder($order);
+            if ($by === 'seller' && ! in_array($order->status, ['pending', 'accepted', 'preparing'], true)) {
+                throw new \RuntimeException('This order is ready and can no longer be cancelled by the shop. Contact support.');
+            }
+
+            // E-commerce Phase 2: the customer can cancel until the shop starts packing — free before the shop
+            // accepts, the admin-set cancellation policy after.
+            if ($by === 'customer' && ! in_array($order->status, ['pending', 'accepted'], true)) {
+                throw new \RuntimeException('The shop has started packing this order, so it can no longer be cancelled here. Contact support.');
+            }
+
+            $fee = match (true) {
+                $by === 'seller' => 0.0,
+                $by === 'customer' && $order->status === 'pending' => 0.0,
+                default => $this->cancellationService->calculateFeeForMarketplaceOrder($order),
+            };
 
             $this->releaseStock($order);
 
@@ -44,7 +63,7 @@ class AdminCancelMarketplaceOrderAction
 
             $order->statusHistory()->create([
                 'status' => 'cancelled',
-                'note' => "Cancelled by admin: {$reason}".($fee > 0 ? " (cancellation fee: {$fee})" : ''),
+                'note' => "Cancelled by {$by}: {$reason}".($fee > 0 ? " (cancellation fee: {$fee})" : ''),
                 'changed_at' => now(),
             ]);
 
@@ -54,6 +73,11 @@ class AdminCancelMarketplaceOrderAction
         });
 
         $this->cancellationService->refundIfPaidForMarketplaceOrder($order, (float) $order->cancellation_fee);
+
+        // A cancelled order gives its coupon back (the usage no longer counts toward limits or budget).
+        if ($usage = \App\Models\CouponUsage::where('marketplace_order_id', $order->id)->where('status', 'reserved')->first()) {
+            app(\App\Services\Coupons\CouponService::class)->release($usage);
+        }
 
         if ($order->customer) {
             $channels = ChannelResolver::resolve(['zone_id' => $order->zone_id, 'franchise_id' => $order->franchise_id]);

@@ -4,6 +4,7 @@ namespace App\Livewire\Provider\Auth;
 
 use App\Actions\CreateParcelRiderAction;
 use App\Actions\RegisterProviderAction;
+use App\Actions\RegisterSellerAction;
 use App\Contracts\FirebaseTokenVerifier;
 use App\Exceptions\AccountAlreadyExistsException;
 use App\Exceptions\FirebaseAuthException;
@@ -80,6 +81,9 @@ class Register extends Component
 
     public string $address = '';
 
+    /** Seller sign-up only: the shop's name as customers will see it. */
+    public string $storeName = '';
+
     public bool $terms = false;
 
     /** Service category ids the applicant offers — saved to providers.skills (what dispatch matches on). */
@@ -130,13 +134,15 @@ class Register extends Component
      * Which partner this sign-up makes (owner rule 2026-10-25: every partner joins through /partners, then this one
      * page — OTP, documents, admin approval). 'service' = a provider (the default, and the only role reachable without
      * a /partners hand-off); 'parcel' = a delivery rider (a field worker with the parcel_rider capability, documents
-     * from the `field_worker` requirement list, no services step). Set only in mount() from the server-side session.
+     * from the `field_worker` requirement list, no services step); 'commerce' = a seller (E-commerce Phase 1: a
+     * provider account plus a shop that waits for admin approval; provider documents, no services step). Set only in
+     * mount() from the server-side session.
      */
     #[Locked]
     public string $partnerRole = 'service';
 
     /** Partner roles this page can finish. */
-    private const SIGNUP_ROLES = ['service', 'parcel'];
+    private const SIGNUP_ROLES = ['service', 'parcel', 'commerce'];
 
     public function mount(): void
     {
@@ -176,8 +182,9 @@ class Register extends Component
     {
         if (! $user->canApplyAsPartner($this->partnerRole)) {
             $this->redirectRoute(
-                $user->providerProfile()->exists() ? 'provider.dashboard'
-                    : ($user->fieldWorkerProfile?->hasCapability('parcel_rider') ? 'rider.dashboard' : 'customer.home'),
+                $this->isSeller() && ! $user->canApplyAsPartner('commerce') ? 'seller.dashboard'
+                    : ($user->providerProfile()->exists() ? 'provider.dashboard'
+                    : ($user->fieldWorkerProfile?->hasCapability('parcel_rider') ? 'rider.dashboard' : 'customer.home')),
                 navigate: true,
             );
 
@@ -197,6 +204,11 @@ class Register extends Component
     public function isRider(): bool
     {
         return $this->partnerRole === 'parcel';
+    }
+
+    public function isSeller(): bool
+    {
+        return $this->partnerRole === 'commerce';
     }
 
     /** The /partners card for this role still hands off to sign-up (it can close again, e.g. parcel prices cleared). */
@@ -431,7 +443,7 @@ class Register extends Component
 
     // ─────────────────────────── Finish ──────────────────────────────────
 
-    public function submitApplication(RegisterProviderAction $register, KycDocumentService $kyc, CreateParcelRiderAction $riders): void
+    public function submitApplication(RegisterProviderAction $register, KycDocumentService $kyc, CreateParcelRiderAction $riders, RegisterSellerAction $sellers): void
     {
         $this->reset('error', 'status');
 
@@ -461,6 +473,7 @@ class Register extends Component
                 'email' => ['nullable', 'email', 'max:255'],
             ]),
             'address' => ['required', 'string', 'min:6', 'max:500'],
+            ...($this->isSeller() ? ['storeName' => ['required', 'string', 'min:2', 'max:120']] : []),
             'terms' => ['accepted'],
             'documents' => ['array'],
             'documents.*' => ['file', 'mimes:jpg,jpeg,png,pdf', 'max:10240'],
@@ -474,13 +487,14 @@ class Register extends Component
             'skills.max' => 'Choose up to '.SiteControls::servicesMax().' services.',
             'terms.accepted' => 'Please accept the partner terms to continue.',
             'password.confirmed' => 'The two passwords do not match.',
-            'address.required' => 'Enter your work address.',
+            'address.required' => $this->isSeller() ? 'Enter your shop address.' : 'Enter your work address.',
+            'storeName.required' => 'Enter your shop name.',
         ]);
 
         // Only real, active, customer-visible categories count — the array is client-editable state.
         // "Required" never blocks when no category is published yet — there would be nothing to tick.
         // A delivery rider offers no service categories: the step does not apply.
-        $offerable = (SiteControls::servicesStep() === 'hidden' || $this->isRider()) ? collect() : $this->offerableCategories();
+        $offerable = (SiteControls::servicesStep() === 'hidden' || $this->isRider() || $this->isSeller()) ? collect() : $this->offerableCategories();
         $skillIds = $offerable->whereIn('id', array_map('intval', $this->skills))->pluck('id')->values()->all();
         if (SiteControls::servicesStep() === 'required' && $offerable->isNotEmpty() && $skillIds === []) {
             $this->addError('skills', 'Choose at least one service you offer.');
@@ -542,7 +556,29 @@ class Register extends Component
             if ($existing === null && $this->existingUserId !== null) {
                 throw new AccountAlreadyExistsException('mobile number');
             }
-            if ($this->isRider()) {
+            if ($this->isSeller()) {
+                DB::transaction(function () use ($sellers, $kyc, $zone, $requirements, $existing, &$providerId) {
+                    $store = $sellers->execute(
+                        zone: $zone,
+                        storeName: trim($this->storeName),
+                        existing: $existing,
+                        registration: ['address' => $this->address, 'lat' => $this->lat, 'lng' => $this->lng, 'out_of_coverage' => $this->outOfCoverage],
+                        name: $this->name,
+                        nationalPhone: PhoneNumber::national($this->verifiedPhoneE164),
+                        email: filled($this->email) ? $this->email : null,
+                        plainPassword: $this->password,
+                    );
+                    $provider = $store->provider;
+                    $providerId = $provider->id;
+
+                    foreach ($requirements as $req) {
+                        $file = $this->documents[$req->document_type] ?? null;
+                        if ($file) {
+                            $kyc->upload($provider, $req->document_type, $file, $provider->user, 'self');
+                        }
+                    }
+                });
+            } elseif ($this->isRider()) {
                 DB::transaction(function () use ($riders, $kyc, $zone, $requirements, $existing) {
                     $registration = ['address' => $this->address, 'lat' => $this->lat, 'lng' => $this->lng, 'out_of_coverage' => $this->outOfCoverage];
                     $rider = $existing ? $riders->registerExistingCustomer($zone, $existing, $registration) : $riders->registerApplicant(
@@ -622,15 +658,16 @@ class Register extends Component
     {
         $requirements = app(KycDocumentService::class)->requirementsFor($this->documentsFor(), $this->resolvedCountryId());
 
-        $servicesStep = $this->isRider() ? 'hidden' : SiteControls::servicesStep();
+        $servicesStep = ($this->isRider() || $this->isSeller()) ? 'hidden' : SiteControls::servicesStep();
 
         return view('livewire.provider.auth.register', [
             'requirements' => $requirements,
             'isRider' => $this->isRider(),
+            'isSeller' => $this->isSeller(),
             'servicesStep' => $servicesStep,
             'servicesMax' => SiteControls::servicesMax(),
             'serviceCategories' => $servicesStep === 'hidden' ? collect() : $this->offerableCategories(),
         ])
-            ->layout('components.layouts.provider', ['title' => $this->isRider() ? 'Become a delivery rider' : 'Become a partner']);
+            ->layout('components.layouts.provider', ['title' => $this->isRider() ? 'Become a delivery rider' : ($this->isSeller() ? 'Open your shop' : 'Become a partner')]);
     }
 }

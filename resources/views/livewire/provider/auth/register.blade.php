@@ -2,12 +2,14 @@
     $platformName = \App\Models\Setting::get('branding.platform_name', '1CallFix');
     // A delivery rider comes through the same page (from /partners); they sign in at the rider web, not the partner one.
     $rider = $isRider;
-    $signInRoute = $rider ? 'rider.login' : 'provider.login';
+    // A seller (E-commerce Phase 1) signs in at the seller portal.
+    $seller = $isSeller;
+    $signInRoute = $rider ? 'rider.login' : ($seller ? 'seller.login' : 'provider.login');
 @endphp
 
 <div class="mx-auto flex max-w-lg flex-col justify-center px-4 py-12 sm:py-16">
     <div class="text-center">
-        <h1 class="text-2xl font-bold tracking-tight sm:text-3xl">{{ $rider ? 'Become a '.$platformName.' delivery rider' : 'Become a '.$platformName.' partner' }}</h1>
+        <h1 class="text-2xl font-bold tracking-tight sm:text-3xl">{{ $rider ? 'Become a '.$platformName.' delivery rider' : ($seller ? 'Open your shop on '.$platformName : 'Become a '.$platformName.' partner') }}</h1>
         <p class="mt-2 text-sm text-slate-600">
             @if ($submitted)
                 Thanks — your application is in.
@@ -25,7 +27,14 @@
                     <span aria-hidden="true" class="mt-px font-bold">&check;</span>
                     <span>Application received.</span>
                 </div>
-                @if ($rider)
+                @if ($seller)
+                    <p>
+                        Our team will review your shop and documents and contact you on
+                        <span class="font-medium">{{ $verifiedPhoneE164 }}</span>. You can sign in to the seller
+                        portal now with this number and your password to add your products; customers see your shop
+                        once it is approved.
+                    </p>
+                @elseif ($rider)
                     <p>
                         Our team will review your documents and contact you on
                         <span class="font-medium">{{ $verifiedPhoneE164 }}</span>. You can sign in to the rider
@@ -45,7 +54,7 @@
                     </p>
                 @endif
                 <a href="{{ route($signInRoute) }}" wire:navigate
-                   class="inline-block font-medium text-blue-600 underline underline-offset-2">{{ $rider ? 'Go to rider sign in' : 'Back to partner sign in' }}</a>
+                   class="inline-block font-medium text-blue-600 underline underline-offset-2">{{ $rider ? 'Go to rider sign in' : ($seller ? 'Go to seller sign in' : 'Back to partner sign in') }}</a>
             </div>
         @else
             @include('livewire.customer.auth._alerts')
@@ -76,7 +85,7 @@
                            @class(['mt-1.5 block min-h-11 w-full rounded-lg border px-3 py-2.5 text-base shadow-sm focus:outline focus:outline-2 focus:outline-blue-600',
                                    'border-red-400' => $errors->has('phone'), 'border-slate-300' => ! $errors->has('phone')])>
                     @error('phone') <p class="mt-1.5 text-sm text-red-700">{{ $message }}</p> @enderror
-                    <p class="mt-1 text-xs text-slate-500">This becomes your {{ $rider ? 'rider' : 'partner' }} sign-in number.</p>
+                    <p class="mt-1 text-xs text-slate-500">This becomes your {{ $rider ? 'rider' : ($seller ? 'seller' : 'partner') }} sign-in number.</p>
 
                     @if ($step === 'verify_phone')
                         <div class="mt-4">
@@ -108,7 +117,7 @@
                     <div class="rounded-lg bg-blue-50 px-3 py-2.5 text-sm text-blue-900">
                         <p>Applying with your {{ $platformName }} account <span class="font-medium">{{ $existingUserName }}</span>.
                             You’ll sign in with the same password you already use. Your bookings stay as they are.</p>
-                        <a href="{{ route('customer.password.forgot', ['for' => $rider ? 'rider' : 'partner']) }}" wire:navigate class="mt-1 inline-block font-medium underline underline-offset-2">Forgot your password?</a>
+                        <a href="{{ route('customer.password.forgot', ['for' => $rider ? 'rider' : ($seller ? 'seller' : 'partner')]) }}" wire:navigate class="mt-1 inline-block font-medium underline underline-offset-2">Forgot your password?</a>
                     </div>
                 @else
                 <div>
@@ -190,9 +199,19 @@
                     </fieldset>
                 @endif
 
+                @if ($seller)
+                    <div>
+                        <label for="pr-store" class="block text-sm font-medium text-slate-900">Shop name</label>
+                        <input id="pr-store" type="text" wire:model="storeName" placeholder="As customers will see it"
+                               @class(['mt-1.5 block min-h-11 w-full rounded-lg border px-3 py-2.5 text-base shadow-sm focus:outline focus:outline-2 focus:outline-blue-600',
+                                       'border-red-400' => $errors->has('storeName'), 'border-slate-300' => ! $errors->has('storeName')])>
+                        @error('storeName') <p class="mt-1.5 text-sm text-red-700">{{ $message }}</p> @enderror
+                    </div>
+                @endif
+
                 <div>
-                    <label for="pr-address" class="block text-sm font-medium text-slate-900">{{ $rider ? 'Where you live / start your day' : 'Work address' }}</label>
-                    <textarea id="pr-address" rows="2" wire:model="address" placeholder="{{ $rider ? 'Area / street' : 'Area / street you work from' }}"
+                    <label for="pr-address" class="block text-sm font-medium text-slate-900">{{ $rider ? 'Where you live / start your day' : ($seller ? 'Shop address' : 'Work address') }}</label>
+                    <textarea id="pr-address" rows="2" wire:model="address" placeholder="{{ $rider ? 'Area / street' : ($seller ? 'Shop number, street, area' : 'Area / street you work from') }}"
                               @class(['mt-1.5 block w-full rounded-lg border px-3 py-2.5 text-base shadow-sm focus:outline focus:outline-2 focus:outline-blue-600',
                                       'border-red-400' => $errors->has('address'), 'border-slate-300' => ! $errors->has('address')])></textarea>
                     @error('address') <p class="mt-1.5 text-sm text-red-700">{{ $message }}</p> @enderror
@@ -267,7 +286,7 @@
 
     @unless ($submitted)
         <p class="mt-6 text-center text-sm text-slate-600">
-            {{ $rider ? 'Already a rider?' : 'Already a partner?' }}
+            {{ $rider ? 'Already a rider?' : ($seller ? 'Already a seller?' : 'Already a partner?') }}
             <a href="{{ route($signInRoute) }}" wire:navigate class="font-medium text-slate-900 underline underline-offset-2">Sign in</a>
         </p>
     @endunless

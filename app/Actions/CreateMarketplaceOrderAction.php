@@ -48,6 +48,12 @@ class CreateMarketplaceOrderAction
     public function execute(array $data): MarketplaceOrder
     {
         $store = Store::findOrFail($data['store_id']);
+        if (! $store->isSellable()) {
+            throw new \RuntimeException('This store is not taking orders.');
+        }
+        if (! $store->is_open) {
+            throw new \RuntimeException('This store is closed right now.');
+        }
 
         $scope = [
             'zone_id' => $store->zone_id, 'franchise_id' => $store->franchise_id,
@@ -63,10 +69,30 @@ class CreateMarketplaceOrderAction
         }
 
         $customer = \App\Models\User::findOrFail($data['customer_id']);
+
+        // E-commerce Phase 2: the address must be the customer's own, and a shop delivers only within its own city.
+        if ($orderType === 'delivery') {
+            $address = \App\Models\Address::where('user_id', $customer->id)->find($data['delivery_address_id']);
+            if (! $address) {
+                throw new \RuntimeException('Choose one of your saved addresses.');
+            }
+            if ($address->franchise_id !== null && (int) $address->franchise_id !== (int) $store->franchise_id) {
+                throw new \RuntimeException('This shop does not deliver to that address. Choose another address or pick it up.');
+            }
+        }
         $lines = $this->cart->listForStore($customer, $store->id);
 
         if ($lines->isEmpty()) {
             throw new \RuntimeException('Your cart is empty for this store.');
+        }
+
+        // E-commerce Phase 2: the customer pays today's price. A line added before the seller changed the price (or
+        // a discount ended) is re-priced here, never charged at the old snapshot.
+        foreach ($lines as $line) {
+            $current = $line->variant ? (float) $line->variant->effectivePrice() : (float) ($line->product?->effective_price ?? $line->unit_price_snapshot);
+            if (round($current, 2) !== round((float) $line->unit_price_snapshot, 2)) {
+                $line->forceFill(['unit_price_snapshot' => $current])->save();
+            }
         }
 
         $subtotal = $lines->sum(fn (CartItem $l) => ((float) $l->unit_price_snapshot + $this->cart->addOnsTotalFor($l)) * $l->quantity);
@@ -95,23 +121,37 @@ class CreateMarketplaceOrderAction
         // column (real 6amMart evidence) but it is deliberately NOT combined
         // into this calculation without a real evidenced rule for how the
         // two rates interact; that's a deferred refinement, not an omission.
-        $taxAmount = round($subtotal * (float) $store->tax_percent / 100, 2);
-        $totalAmount = round($subtotal + $deliveryFee + $taxAmount, 2);
-
         if (! in_array($paymentMethod, ['online', 'wallet', 'cash'], true)) {
             throw new \RuntimeException("Payment method '{$paymentMethod}' is not available.");
         }
 
         // THUMB RULE — ONLINE PAYMENT ONLY FOR ALL BENEFITS. A discounted order is a benefit: never cash.
-        // Coupons are not connected to the marketplace yet (config coupons.connected_modules), so a code is refused.
-        if (! empty($data['coupon_code'])) {
-            throw new \RuntimeException('Coupons are not available for shop orders yet.');
-        }
         if ($paymentMethod === 'cash' && $discountAmount > 0) {
             throw new \RuntimeException('Discounted items must be paid online. Please choose online payment or wallet.');
         }
 
-        $order = DB::transaction(function () use ($lines, $store, $customer, $orderType, $data, $subtotal, $discountAmount, $deliveryFee, $taxAmount, $totalAmount, $paymentMethod) {
+        // Coupons (engine connected for 'commerce' 2026-10-29): validated here, re-validated and reserved under the
+        // coupon lock inside the order transaction. A coupon is a benefit, so the engine refuses cash itself.
+        $couponCode = trim((string) ($data['coupon_code'] ?? ''));
+        $couponCtx = null;
+        $couponDiscount = 0.0;
+        if ($couponCode !== '') {
+            if ($paymentMethod === 'cash') {
+                throw new \RuntimeException(\App\Exceptions\CouponException::ONLINE_ONLY_MESSAGE);
+            }
+            $couponCtx = $this->couponContext($store, $customer, $lines, $paymentMethod, $couponCode);
+            $pre = app(\App\Services\Coupons\CouponService::class)->validate($couponCtx);
+            if (! $pre->eligible) {
+                throw new \RuntimeException($pre->message ?: \App\Services\Coupons\PromotionResult::GENERIC_MESSAGE);
+            }
+            $couponDiscount = round(min($pre->discountTotal, $subtotal), 2);
+        }
+
+        // Store-level GST on the value after the coupon (the coupon reduces the price of the supply).
+        $taxAmount = round(($subtotal - $couponDiscount) * (float) $store->tax_percent / 100, 2);
+        $totalAmount = round($subtotal - $couponDiscount + $deliveryFee + $taxAmount, 2);
+
+        $order = DB::transaction(function () use ($lines, $store, $customer, $orderType, $data, $subtotal, $discountAmount, $deliveryFee, $taxAmount, $totalAmount, $paymentMethod, $couponCtx, $couponCode, $couponDiscount) {
             $this->lockAndDecrementStock($lines);
 
             $order = MarketplaceOrder::create([
@@ -132,7 +172,17 @@ class CreateMarketplaceOrderAction
                 'payment_status' => 'pending',
                 'payment_method' => $paymentMethod,
                 'special_instructions' => $data['special_instructions'] ?? null,
+                'coupon_code' => $couponCtx ? strtoupper($couponCode) : null,
+                'coupon_discount_amount' => $couponDiscount,
             ]);
+
+            if ($couponCtx) {
+                [$result, $usage] = app(\App\Services\Coupons\CouponService::class)->reserve($couponCtx);
+                if (round(min($result->discountTotal, $subtotal), 2) !== $couponDiscount) {
+                    throw new \RuntimeException('This coupon changed while you were checking out. Please try again.');
+                }
+                $usage->forceFill(['marketplace_order_id' => $order->id])->save();
+            }
 
             foreach ($lines as $line) {
                 $addOnsTotal = $this->cart->addOnsTotalFor($line);
@@ -162,6 +212,9 @@ class CreateMarketplaceOrderAction
         if ($order->customer && ! $order->isAwaitingOnlinePayment()) {
             $channels = ChannelResolver::resolve(['zone_id' => $order->zone_id, 'franchise_id' => $order->franchise_id]);
             $order->customer->notify(new MarketplaceOrderStatusNotification('created', $order, $channels));
+        }
+        if (! $order->isAwaitingOnlinePayment()) {
+            MarketplaceOrderStatusNotification::toSeller($order);
         }
 
         return $order;
@@ -218,6 +271,34 @@ class CreateMarketplaceOrderAction
      * price; a variant with its own price_override carries no discount (ProductVariant::effectivePrice()).
      * Worked back from the cart's fixed price, so a later product price change does not invent a discount.
      */
+    /** The coupon engine's view of this shop order: one line per bag line (no service targets ever match). */
+    public function couponContext(Store $store, \App\Models\User $customer, $lines, string $paymentMethod, string $code): \App\Services\Coupons\PromotionContext
+    {
+        $built = [];
+        foreach ($lines->values() as $i => $line) {
+            $built[] = [
+                'line_ref' => 'm'.$i,
+                'product_id' => $line->product_id,
+                'marketplace_category_id' => $line->product?->marketplace_category_id,
+                'line_total' => round(((float) $line->unit_price_snapshot + $this->cart->addOnsTotalFor($line)) * $line->quantity, 2),
+                'flash_applied' => false,
+                'entitlement_covered' => false,
+            ];
+        }
+
+        return new \App\Services\Coupons\PromotionContext(
+            module: $store->module,
+            franchiseId: $store->franchise_id,
+            cityId: $store->franchise?->city_id,
+            zoneId: $store->zone_id,
+            customer: $customer,
+            paymentMethod: $paymentMethod,
+            lines: $built,
+            code: $code,
+            countryId: $store->franchise?->country_id,
+        );
+    }
+
     private function lineDiscount(CartItem $line): float
     {
         $percent = min(max((float) $line->product->discount_percent, 0), 100);
