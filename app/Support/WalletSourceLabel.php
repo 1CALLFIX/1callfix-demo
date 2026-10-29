@@ -178,6 +178,8 @@ final class WalletSourceLabel
             'booking:1:interim-payout', 'booking:1:interim-franchise',
         ],
         'app/Services/CompensationService.php' => ['compensation:1:overtime:00000000-0000-0000-0000-000000000000'],
+        // E-commerce Phase 3b: a shop return refunded to the wallet (wallet / cash orders) — labelled "Refund".
+        'app/Services/Marketplace/MarketplaceReturnService.php' => ['marketplace_order:1:wallet-refund:return-2'],
         'app/Services/Marketplace/MarketplaceSettlementService.php' => [
             'marketplace_order:1:worker-earning', 'marketplace_order:1:delivery-franchise-earning',
             'marketplace_order:1:provider-earning', 'marketplace_order:1:franchise-earning',
