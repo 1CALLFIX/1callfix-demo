@@ -246,7 +246,7 @@ final class SiteControls
 
     public static function headerPartnerLabel(): string
     {
-        return self::text(self::HEADER_PARTNER_LABEL, self::DEFAULT_HEADER_PARTNER_LABEL);
+        return SiteText::legacy(self::HEADER_PARTNER_LABEL, self::text(self::HEADER_PARTNER_LABEL, self::DEFAULT_HEADER_PARTNER_LABEL));
     }
 
     public static function parcelBadgeText(): string

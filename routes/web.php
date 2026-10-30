@@ -73,6 +73,9 @@ use Illuminate\Support\Facades\Route;
 
 Route::get('/', CustomerHome::class)->name('customer.home');
 
+// The top-bar English / Telugu switch (shown only when the Super Admin has switched Telugu on).
+Route::post('/language/{locale}', \App\Http\Controllers\Customer\LanguageController::class)->name('customer.language');
+
 /*
  | Discovery & catalog (Phase C). All public and unauthenticated, matching
  | every other browse-first surface in this application: `GET /api/categories`,

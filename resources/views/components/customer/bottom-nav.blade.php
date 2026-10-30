@@ -8,12 +8,18 @@
      | compared against the resolved URL, and so a Phase C/D swap is a
      | one-line change here.
      */
+    $t = fn (string $key) => \App\Support\SiteText::get($key);
+    // The third slot is the Shop where the shop is on in the customer's city, otherwise Search (search stays in the top bar).
+    $shopCity = app(\App\Services\Seo\CityContext::class)->current();
+    $third = $shopCity && \App\Livewire\Customer\Shop\Home::shopLiveIn($shopCity)
+        ? ['label' => $t('nav.shop'), 'route' => 'customer.shop.home', 'param' => $shopCity->slug, 'icon' => 'shopping-bag']
+        : ['label' => $t('nav.search'), 'route' => 'customer.search', 'param' => null, 'icon' => 'magnifying-glass'];
     $items = [
-        ['label' => 'Home', 'route' => 'customer.home', 'param' => null, 'icon' => 'home'],
-        ['label' => 'Services', 'route' => 'customer.categories.index', 'param' => null, 'icon' => 'wrench'],
-        ['label' => 'Search', 'route' => 'customer.search', 'param' => null, 'icon' => 'magnifying-glass'],
-        ['label' => 'Bookings', 'route' => auth()->check() ? 'customer.orders.index' : 'customer.login', 'param' => null, 'icon' => 'clipboard'],
-        ['label' => 'Account', 'route' => auth()->check() ? 'customer.account' : 'customer.login', 'param' => null, 'icon' => 'users'],
+        ['label' => $t('nav.home'), 'route' => 'customer.home', 'param' => null, 'icon' => 'home'],
+        ['label' => $t('nav.services'), 'route' => 'customer.categories.index', 'param' => null, 'icon' => 'wrench'],
+        $third,
+        ['label' => $t('nav.orders'), 'route' => auth()->check() ? 'customer.orders.index' : 'customer.login', 'param' => null, 'icon' => 'clipboard'],
+        ['label' => $t('nav.account'), 'route' => auth()->check() ? 'customer.account' : 'customer.login', 'param' => null, 'icon' => 'users'],
     ];
 
     // Earnings deliberately NOT here (1CF-HEADER-HAMBURGER-001): the bar stays at

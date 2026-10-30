@@ -1,4 +1,5 @@
 @php
+    $t = fn (string $key) => \App\Support\SiteText::get($key);
     $platformName = \App\Models\Setting::get('branding.platform_name', '1CallFix');
     // "Become a partner" (Super Admin: Admin → Homepage & sign-up): for anyone signed out, and for a signed-in
     // account that can still add a partner role — one account, several roles.
@@ -49,6 +50,17 @@
                  stays uncluttered like the reference marketplaces. --}}
             <div class="ml-auto flex min-w-0 items-center gap-1 sm:ml-0 sm:gap-2">
 
+                @if (\App\Support\SiteText::teluguEnabled())
+                    @php $other = \App\Support\SiteText::isTelugu() ? 'en' : 'te'; @endphp
+                    <form method="POST" action="{{ route('customer.language', $other) }}">
+                        @csrf
+                        <button type="submit" lang="{{ $other }}" data-testid="language-switch"
+                                class="inline-flex min-h-10 items-center whitespace-nowrap rounded-full border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600">
+                            {{ $t($other === 'te' ? 'language.to_te' : 'language.to_en') }}
+                        </button>
+                    </form>
+                @endif
+
                 @auth
                     <livewire:customer.cart-count />
                 @endauth
@@ -56,7 +68,7 @@
                 @guest
                     <a href="{{ route('customer.login') }}"
                        class="hidden sm:inline-flex min-h-11 items-center whitespace-nowrap rounded-md px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 hover:text-slate-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900">
-                        Sign in
+                        {{ $t('header.sign_in') }}
                     </a>
                 @endguest
 
@@ -71,7 +83,7 @@
                      dropped when the header was decluttered). Mobile keeps the bottom bar. --}}
                 <a href="{{ route('customer.services.index') }}"
                    class="hidden sm:inline-flex min-h-10 items-center whitespace-nowrap rounded-lg bg-blue-600 px-4 text-sm font-semibold text-white shadow-sm shadow-blue-600/25 transition hover:bg-blue-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600">
-                    Book Now
+                    {{ $t('header.book_now') }}
                 </a>
 
                 {{-- Menu: hamburger-style button opening a dropdown. Alpine ships
@@ -96,42 +108,42 @@
 
                         @php
                             $menu = [
-                                ['Services', route('customer.services.index')],
-                                ['Categories', route('customer.categories.index')],
+                                [$t('header.menu.services'), route('customer.services.index')],
+                                [$t('header.menu.categories'), route('customer.categories.index')],
                             ];
                             // E-commerce Phase 2: the shop of the customer's current city, only where Commerce is on there.
                             $shopCity = app(\App\Services\Seo\CityContext::class)->current();
                             if ($shopCity && \App\Livewire\Customer\Shop\Home::shopLiveIn($shopCity)) {
-                                $menu[] = ['Shop', route('customer.shop.home', $shopCity->slug)];
+                                $menu[] = [$t('header.menu.shop'), route('customer.shop.home', $shopCity->slug)];
                             }
                             if (auth()->check()) {
-                                $menu[] = ['My bookings', route('customer.orders.index')];
+                                $menu[] = [$t('header.menu.bookings'), route('customer.orders.index')];
                                 // Parcel: shown while parcel is on somewhere, or for anyone who already has parcels.
                                 if (app(\App\Services\ModuleActivationService::class)->isActiveAnywhere(\App\Support\Modules::PARCEL)
                                     || \App\Models\ParcelOrder::where('customer_id', auth()->id())->exists()) {
-                                    $menu[] = ['My parcels', route('customer.parcels.index')];
+                                    $menu[] = [$t('header.menu.parcels'), route('customer.parcels.index')];
                                 }
                                 if (\App\Models\MarketplaceOrder::where('customer_id', auth()->id())->exists()) {
-                                    $menu[] = ['Shop orders', route('customer.shop.orders')];
+                                    $menu[] = [$t('header.menu.shop_orders'), route('customer.shop.orders')];
                                 }
                                 if (auth()->user()->holdsPartnerRole('commerce')) {
-                                    $menu[] = ['My shop', route('seller.dashboard')];
+                                    $menu[] = [$t('header.menu.my_shop'), route('seller.dashboard')];
                                 }
                                 if (auth()->user()->fieldWorkerProfile?->hasCapability('parcel_rider')) {
-                                    $menu[] = ['Rider dashboard', route('rider.dashboard')];
+                                    $menu[] = [$t('header.menu.rider'), route('rider.dashboard')];
                                 }
                                 if ($earningsRoute = \App\Support\CustomerEarningsNav::firstRoute(auth()->user())) {
-                                    $menu[] = ['Earnings', route($earningsRoute)];
+                                    $menu[] = [$t('header.menu.earnings'), route($earningsRoute)];
                                 }
                                 if (auth()->user()->providerProfile) {
-                                    $menu[] = ['Partner dashboard', route('provider.dashboard')];
+                                    $menu[] = [$t('header.menu.partner_dashboard'), route('provider.dashboard')];
                                 }
-                                $menu[] = ['My account', route('customer.account')];
+                                $menu[] = [$t('header.menu.account'), route('customer.account')];
                             }
                             if ($partnerCta) {
                                 $menu[] = [$partnerCta, route('customer.partners')];
                             }
-                            $menu[] = ['Help Center', route('customer.help')];
+                            $menu[] = [$t('header.menu.help'), route('customer.help')];
                             if (! auth()->check()) {
                                 // Signed out: same tab switches, global scope only. The
                                 // target is auth-gated, so this routes via sign-in.
@@ -141,9 +153,9 @@
                                     'earnings.referral_tab' => 'customer.earnings.referrals',
                                 ])->first(fn ($route, $switch) => \App\Support\EarningsSettings::customerTabOn($switch, []));
                                 if ($guestEarningsRoute) {
-                                    array_splice($menu, 2, 0, [['Earnings', route($guestEarningsRoute)]]);
+                                    array_splice($menu, 2, 0, [[$t('header.menu.earnings'), route($guestEarningsRoute)]]);
                                 }
-                                $menu[] = ['Sign in', route('customer.login')];
+                                $menu[] = [$t('header.sign_in'), route('customer.login')];
                             }
                         @endphp
                         @foreach ($menu as [$label, $href])
@@ -155,7 +167,7 @@
                             <form method="POST" action="{{ route('customer.logout') }}" class="mt-1 border-t border-slate-100 pt-1">
                                 @csrf
                                 <button type="submit" role="menuitem"
-                                        class="block w-full px-4 py-2.5 text-left text-sm font-medium text-slate-700 transition hover:bg-slate-50 hover:text-slate-900">Log out</button>
+                                        class="block w-full px-4 py-2.5 text-left text-sm font-medium text-slate-700 transition hover:bg-slate-50 hover:text-slate-900">{{ $t('header.menu.logout') }}</button>
                             </form>
                         @endauth
                     </div>
