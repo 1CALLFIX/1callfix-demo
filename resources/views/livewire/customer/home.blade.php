@@ -63,6 +63,11 @@
          tiles are OFF by default because they made the first screen read as
          clutter. Search and location stay in the topbar.
     --}}
+    {{-- "Explore 1CallFix" doors (Admin → Growth → Homepage sections): top (default) or under the category icons. --}}
+    @if ($doors && \App\Support\HomeDoors::position() === 'top')
+        @include('livewire.customer.partials.home-doors')
+    @endif
+
     @if ($parcelAt === 'top')
         @include('livewire.customer.partials.home-parcel-card')
     @endif
@@ -148,6 +153,10 @@
             </div>
         </div>
     </section>
+
+    @if ($doors && \App\Support\HomeDoors::position() === 'after_categories')
+        @include('livewire.customer.partials.home-doors')
+    @endif
 
     @if ($parcelAt === 'after_categories')
         @include('livewire.customer.partials.home-parcel-card')

@@ -64,7 +64,8 @@ class Home extends Component
             'activeZone' => $zone,
             'parcelActive' => $parcelActive,
             // "from ₹…" on the parcel card: the browsed area's Parcel Settings base fare; null (unset) hides it.
-            'parcelFrom' => $parcelActive ? \App\Services\Parcel\ParcelSettings::get('parcel.base_fare', $parcelScope) : null,
+            'parcelFrom' => $parcelFrom = $parcelActive ? \App\Services\Parcel\ParcelSettings::get('parcel.base_fare', $parcelScope) : null,
+            'doors' => $this->doors($parcelActive, $parcelFrom),
             'heroBanners' => $this->bannersFor('top'),
             'midBanners' => $this->bannersFor('mid'),
             'categories' => $catalog->categories()->limit(\App\Support\SiteControls::categoryLimit())->get(),
@@ -84,6 +85,34 @@ class Home extends Component
             'indexable' => true,
             'schema' => \App\Services\Seo\SeoSettings::homeSchema(app(\App\Services\BrandingAssetService::class)->url('logo_display_path')),
         ]);
+    }
+
+    /**
+     * "Explore 1CallFix" doors (owner 2026-10-30): one per business live for this visitor, with real live numbers
+     * (services listed, shops open now, the parcel base fare). Layout and words are the Super Admin's (HomeDoors).
+     *
+     * @return list<array>
+     */
+    private function doors(bool $parcelActive, $parcelFrom): array
+    {
+        if (! \App\Support\HomeDoors::show()) {
+            return [];
+        }
+        $live = ['services' => ['url' => route('customer.categories.index'), 'count' => $this->catalog()->services()->count()]];
+        if ($parcelActive) {
+            $live['parcel'] = ['url' => route('customer.parcels.create'),
+                'price' => is_numeric($parcelFrom) && (float) $parcelFrom > 0 ? $this->presenter()->currencySymbol().rtrim(rtrim(number_format((float) $parcelFrom, 2), '0'), '.') : null];
+        }
+        $city = app(\App\Services\Seo\CityContext::class)->current();
+        if ($city && \App\Livewire\Customer\Shop\Home::shopLiveIn($city)) {
+            $live['shop'] = ['url' => route('customer.shop.home', $city->slug), 'count' => \App\Models\Store::query()->sellable()
+                ->where('module', \App\Support\Modules::COMMERCE)->where('is_open', true)
+                ->whereHas('franchise', fn ($q) => $q->where('city_id', $city->id))
+                ->when(\App\Support\Seo\QaRows::hiding(), fn ($q) => $q->where('name', 'not like', \App\Support\Seo\QaRows::PREFIX.'%'))
+                ->count()];
+        }
+
+        return \App\Support\HomeDoors::doors($live);
     }
 
     /**
