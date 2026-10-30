@@ -9,12 +9,16 @@ use App\Services\CartService;
 use Livewire\Component;
 
 /**
- * E-commerce Phase 2 — /shop/bag: everything in the customer's shop bag, one block per shop (each shop is its own
+ * E-commerce Phase 2 — the shop bag: everything in the customer's shop bag, one block per shop (each shop is its own
  * order: its own rider, its own minimum and delivery fee). Lines whose product went off sale are flagged, never
  * silently ordered.
+ *
+ * One cart (owner 2026-10-30): drawn inside /cart under the services ($embedded); /shop/bag now redirects there.
  */
 class Bag extends Component
 {
+    public bool $embedded = false;
+
     public string $message = '';
 
     private function ownLine(int $lineId): CartItem
@@ -34,7 +38,7 @@ class Bag extends Component
         if ($wanted <= 0) {
             $cart->remove($line);
         } elseif ($step > 0 && $wanted > $limit) {
-            $this->message = 'Only '.max(0, $limit).' of '.$line->product?->name.' can be ordered.';
+            $this->message = \App\Support\SiteText::get('cart.only_left', ['count' => max(0, $limit), 'item' => (string) $line->product?->name]);
 
             return;
         } else {
@@ -65,6 +69,9 @@ class Bag extends Component
                 'lines' => $storeLines,
                 'subtotal' => $subtotal,
                 'short' => $store ? max(0, (float) $store->minimum_order_amount - $subtotal) : 0,
+                // Free delivery is a benefit (online payment only): shown here as progress, decided at checkout.
+                'freeAbove' => $store && $store->free_delivery_above_amount !== null && (float) $store->free_delivery_above_amount > 0 && (float) $store->delivery_fee_flat > 0
+                    ? (float) $store->free_delivery_above_amount : null,
                 'canCheckout' => $store?->isSellable() && $store->is_open && $available->isNotEmpty(),
             ];
         })->filter(fn ($g) => $g['store'] !== null);
@@ -72,6 +79,6 @@ class Bag extends Component
         return view('livewire.customer.shop.bag', [
             'groups' => $groups,
             'currencySymbol' => Setting::get('locale.currency_symbol', '₹'),
-        ])->layout('components.layouts.customer', ['title' => 'Your bag']);
+        ])->layout('components.layouts.customer', ['title' => \App\Support\SiteText::get('cart.title')]);
     }
 }

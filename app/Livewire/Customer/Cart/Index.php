@@ -106,6 +106,13 @@ class Index extends Component
         return $this->redirectRoute('customer.checkout', navigate: true);
     }
 
+    /** The embedded shop bag changed (last item removed): redraw so the empty state shows. */
+    #[\Livewire\Attributes\On('shop-cart-changed')]
+    public function shopCartChanged(): void
+    {
+        // re-render
+    }
+
     public function render()
     {
         $cart = app(ServiceCartService::class);
@@ -116,7 +123,17 @@ class Index extends Component
             'cashNote' => $this->cashNote($cart),
             'coupon' => $this->couponView(),
             'currencySymbol' => \App\Models\Setting::get('locale.currency_symbol', '₹'),
-        ])->layout('components.layouts.customer', ['title' => 'Your cart']);
+            // One cart (owner 2026-10-30): the shop bag sits under the services; the empty state offers the shop where it is on.
+            'shopLines' => \App\Models\CartItem::where('user_id', auth()->id())->count(),
+            'shopUrl' => $this->shopUrl(),
+        ])->layout('components.layouts.customer', ['title' => \App\Support\SiteText::get('cart.title')]);
+    }
+
+    private function shopUrl(): ?string
+    {
+        $city = app(\App\Services\Seo\CityContext::class)->current();
+
+        return $city && \App\Livewire\Customer\Shop\Home::shopLiveIn($city) ? route('customer.shop.home', $city->slug) : null;
     }
 
     /** The full-price wording when any line is on an online-only offer; null otherwise. */
