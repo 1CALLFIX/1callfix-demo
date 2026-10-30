@@ -89,7 +89,12 @@ class Search extends Component
             ? $this->cardsFrom($this->catalog()->searchServices($term), self::SERVICE_LIMIT)
             : collect();
 
+        $shop = app(\App\Services\Customer\ShopSearch::class)->search($hasQuery ? $term : '', 12, 6);
+
         return view('livewire.customer.search', [
+            'shopCity' => $shop['city'],
+            'products' => $shop['products'],
+            'shops' => $shop['shops'],
             'term' => $term,
             'hasQuery' => $hasQuery,
             'minLength' => self::MIN_LENGTH,

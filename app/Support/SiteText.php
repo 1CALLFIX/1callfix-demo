@@ -60,6 +60,10 @@ final class SiteText
         'header.menu.logout' => ['header', 'Menu: log out', 'Log out', 'లాగ్ అవుట్'],
         'header.cart' => ['header', 'Cart icon (screen readers)', 'Cart', 'కార్ట్'],
 
+        'search.products' => ['header', 'Search box: shop items group', 'Shop items', 'షాప్ వస్తువులు'],
+        'search.shops' => ['header', 'Search box: shops group', 'Shops', 'షాపులు'],
+        'search.open_now' => ['header', 'Search box: shop open badge', 'Open now', 'ఇప్పుడు తెరిచి ఉంది'],
+
         'nav.home' => ['nav', 'Home', 'Home', 'హోమ్'],
         'nav.services' => ['nav', 'Services', 'Services', 'సేవలు'],
         'nav.shop' => ['nav', 'Shop (only where the shop is on)', 'Shop', 'షాప్'],

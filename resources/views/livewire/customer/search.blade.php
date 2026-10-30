@@ -127,7 +127,48 @@
                         @endforeach
                     </ul>
                 </section>
-            @elseif ($categories->isEmpty() && $subcategories->isEmpty())
+            @endif
+
+            {{-- One search (owner 2026-10-30): shop items and shops, where the shop is on in this city. --}}
+            @if ($products->isNotEmpty())
+                <section aria-labelledby="matched-products-heading" class="mt-8" data-testid="search-page-products">
+                    <h2 id="matched-products-heading" class="text-sm font-semibold text-slate-900">{{ \App\Support\SiteText::get('search.products') }}</h2>
+                    <ul class="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
+                        @foreach ($products as $product)
+                            <li>
+                                <a href="{{ route('customer.shop.product', [$shopCity, $product->store->slug, $product->slug]) }}" wire:navigate
+                                   class="block h-full overflow-hidden rounded-2xl border border-slate-200 bg-white transition hover:border-blue-300 hover:shadow-md">
+                                    <span class="block aspect-square bg-slate-50">
+                                        @if ($img = $product->image_urls[0] ?? null)<img src="{{ $img }}" alt="" loading="lazy" class="h-full w-full object-cover">@endif
+                                    </span>
+                                    <span class="block p-2.5">
+                                        <span class="line-clamp-2 text-sm font-semibold text-slate-900">{{ $product->name }}</span>
+                                        <span class="mt-0.5 block text-sm font-bold text-slate-900">{{ $currencySymbol }}{{ number_format((float) $product->effective_price, 2) }}</span>
+                                        <span class="block truncate text-xs text-slate-500">{{ $product->store->name }}</span>
+                                    </span>
+                                </a>
+                            </li>
+                        @endforeach
+                    </ul>
+                </section>
+            @endif
+
+            @if ($shops->isNotEmpty())
+                <section aria-labelledby="matched-shops-heading" class="mt-8" data-testid="search-page-shops">
+                    <h2 id="matched-shops-heading" class="text-sm font-semibold text-slate-900">{{ \App\Support\SiteText::get('search.shops') }}</h2>
+                    <ul class="mt-3 flex flex-wrap gap-2">
+                        @foreach ($shops as $shop)
+                            <li><a href="{{ route('customer.shop.store', [$shopCity, $shop->slug]) }}" wire:navigate
+                                   class="inline-flex min-h-11 items-center gap-2 rounded-full border border-slate-300 px-4 text-sm font-medium text-slate-800 hover:bg-slate-50">
+                                    {{ $shop->name }}
+                                    <span class="text-xs text-slate-500">· {{ $shop->is_open ? \App\Support\SiteText::get('search.open_now') : \App\Support\SiteText::get('cart.closed_now') }}</span>
+                                </a></li>
+                        @endforeach
+                    </ul>
+                </section>
+            @endif
+
+            @if ($services->isEmpty() && $categories->isEmpty() && $subcategories->isEmpty() && $products->isEmpty() && $shops->isEmpty())
                 {{-- Genuine no-results: nothing matched in any group. --}}
                 <div class="mt-8 rounded-xl border border-slate-200">
                     <x-ui.empty-state icon="magnifying-glass"

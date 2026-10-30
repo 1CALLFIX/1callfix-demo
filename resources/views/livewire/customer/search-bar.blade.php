@@ -192,6 +192,43 @@
                             @endforeach
                         </div>
                     @endforeach
+
+                    {{-- One search (owner 2026-10-30): shop items and shops, where the shop is on in this city. --}}
+                    @if ($matchedProducts->isNotEmpty())
+                        <div role="group" aria-labelledby="{{ $listId }}-h-products" data-testid="search-products">
+                            <p id="{{ $listId }}-h-products" class="px-4 pt-3 pb-1 text-xs font-semibold uppercase tracking-wide text-slate-400">
+                                {{ \App\Support\SiteText::get('search.products') }}
+                            </p>
+                            @foreach ($matchedProducts as $product)
+                                @php $optId = $listId.'-opt-'.$optSeq++; @endphp
+                                <a href="{{ route('customer.shop.product', [$shopCitySlug, $product->store->slug, $product->slug]) }}"
+                                   role="option" id="{{ $optId }}" data-search-option aria-selected="false" tabindex="-1"
+                                   class="flex min-h-12 items-center gap-3 px-4 py-2 text-left transition hover:bg-slate-50 data-[active=true]:bg-slate-100 focus-visible:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-blue-600">
+                                    <x-customer.result-icon :name="$product->name" :image-url="$product->image_urls[0] ?? null" />
+                                    <span class="min-w-0 flex-1 truncate text-sm font-medium text-slate-900">{{ $product->name }}
+                                        <span class="block truncate text-xs font-normal text-slate-500">{{ $product->store->name }}</span></span>
+                                </a>
+                            @endforeach
+                        </div>
+                    @endif
+
+                    @if ($matchedShops->isNotEmpty())
+                        <div role="group" aria-labelledby="{{ $listId }}-h-shops" data-testid="search-shops">
+                            <p id="{{ $listId }}-h-shops" class="px-4 pt-3 pb-1 text-xs font-semibold uppercase tracking-wide text-slate-400">
+                                {{ \App\Support\SiteText::get('search.shops') }}
+                            </p>
+                            @foreach ($matchedShops as $shop)
+                                @php $optId = $listId.'-opt-'.$optSeq++; @endphp
+                                <a href="{{ route('customer.shop.store', [$shopCitySlug, $shop->slug]) }}"
+                                   role="option" id="{{ $optId }}" data-search-option aria-selected="false" tabindex="-1"
+                                   class="flex min-h-12 items-center gap-3 px-4 py-2 text-left transition hover:bg-slate-50 data-[active=true]:bg-slate-100 focus-visible:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-blue-600">
+                                    <x-customer.result-icon :name="$shop->name" />
+                                    <span class="min-w-0 flex-1 truncate text-sm font-medium text-slate-900">{{ $shop->name }}</span>
+                                    <span class="shrink-0 rounded bg-slate-100 px-1.5 py-0.5 text-[11px] font-medium text-slate-500">{{ $shop->is_open ? \App\Support\SiteText::get('search.open_now') : \App\Support\SiteText::get('cart.closed_now') }}</span>
+                                </a>
+                            @endforeach
+                        </div>
+                    @endif
                 </div>
 
                 <a href="{{ route('customer.search', ['q' => trim($term)]) }}"

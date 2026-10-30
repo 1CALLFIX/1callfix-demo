@@ -67,6 +67,8 @@ class SearchBar extends Component
     private const SERVICE_LIMIT = 6;
     private const CATEGORY_LIMIT = 4;
     private const DEFAULT_LIMIT = 6;
+    private const PRODUCT_LIMIT = 4;
+    private const SHOP_LIMIT = 3;
 
     public function mount(bool $compact = false, string $term = '', bool $pill = false): void
     {
@@ -169,6 +171,11 @@ class SearchBar extends Component
      */
     private function placeholderExamples(): array
     {
+        // Telugu: the Super Admin's one Telugu hint (Website text & language); the rotating examples are English.
+        if (\App\Support\SiteText::isTelugu()) {
+            return [\App\Support\SiteText::get('header.search_placeholder')];
+        }
+
         $prefix = \App\Support\SearchBoxSettings::prefix();
 
         // Admin-picked services win (in the admin's order); only active, live-catalogue ones count.
@@ -231,6 +238,9 @@ class SearchBar extends Component
             'defaultServices' => collect(),
             'matchedCategories' => collect(),
             'serviceGroups' => collect(),
+            'matchedProducts' => collect(),
+            'matchedShops' => collect(),
+            'shopCitySlug' => null,
             'resultCount' => 0,
         ];
 
@@ -262,11 +272,24 @@ class SearchBar extends Component
             ->limit(self::SERVICE_LIMIT)
             ->get(['id', 'name', 'category_id', 'slug']);
 
+        [$citySlug, $products, $shops] = $this->shopMatches($term);
+
         return array_merge($empty, [
             'matchedCategories' => $matchedCategories,
             'serviceGroups' => $this->groupByCategory($services),
-            'resultCount' => $matchedCategories->count() + $services->count(),
+            'matchedProducts' => $products,
+            'matchedShops' => $shops,
+            'shopCitySlug' => $citySlug,
+            'resultCount' => $matchedCategories->count() + $services->count() + $products->count() + $shops->count(),
         ]);
+    }
+
+    /** @return array{0: ?string, 1: Collection, 2: Collection} shop items and shops, from the shared ShopSearch */
+    private function shopMatches(string $term): array
+    {
+        $found = app(\App\Services\Customer\ShopSearch::class)->search($term, self::PRODUCT_LIMIT, self::SHOP_LIMIT);
+
+        return [$found['city'], $found['products'], $found['shops']];
     }
 
     /**
