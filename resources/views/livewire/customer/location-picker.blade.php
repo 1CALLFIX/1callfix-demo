@@ -21,7 +21,7 @@
                  being removed from the page. --}}
             class="inline-flex h-10 w-full min-w-0 max-w-[8.5rem] items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-2.5 text-sm font-medium text-slate-700 shadow-sm transition hover:border-blue-400 hover:bg-blue-50/50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 sm:max-w-none sm:rounded-full sm:border-transparent sm:bg-transparent sm:shadow-none sm:hover:border-transparent sm:hover:bg-slate-100">
         <x-icon name="map-pin" class="h-4 w-4 shrink-0 text-blue-600" />
-        <span class="truncate">{{ $activeZone?->name ?? 'Set location' }}</span>
+        <span class="truncate">{{ $activeZone?->name ?? \App\Support\SiteText::get('location.set') }}</span>
         <x-icon name="chevron-down" class="ml-auto h-4 w-4 shrink-0 text-slate-400" />
     </button>
 
@@ -54,17 +54,17 @@
                 <div class="flex items-start justify-between gap-4 border-b border-slate-200 px-5 py-4">
                     <div>
                         <h2 id="location-dialog-title" class="text-base font-semibold text-slate-900">
-                            Where do you need service?
+                            {{ \App\Support\SiteText::get('location.title') }}
                         </h2>
                         <p class="mt-0.5 text-sm text-slate-600">
-                            Choose your area so we can show what's available near you.
+                            {{ \App\Support\SiteText::get('location.intro') }}
                         </p>
                     </div>
                     <button type="button"
                             wire:click="closePicker"
                             class="-m-1 grid h-11 w-11 shrink-0 place-items-center rounded-md text-slate-400 transition hover:bg-slate-50 hover:text-slate-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900">
                         <span aria-hidden="true" class="text-xl leading-none">&times;</span>
-                        <span class="sr-only">Close</span>
+                        <span class="sr-only">{{ \App\Support\SiteText::get('location.close') }}</span>
                     </button>
                 </div>
 
@@ -77,7 +77,7 @@
                             hidden
                             class="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-medium text-slate-800 transition hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900">
                         <x-icon name="map" class="h-4 w-4 text-slate-500" />
-                        <span data-use-my-location-label>Use my current location</span>
+                        <span data-use-my-location-label>{{ \App\Support\SiteText::get('location.use_mine') }}</span>
                     </button>
 
                     <p data-location-error role="alert" hidden
@@ -102,7 +102,7 @@
                          morphs this div back to its server-rendered `hidden`
                          state and the box silently stops working. --}}
                     <div data-places-search hidden wire:ignore>
-                        <label for="place-search" class="sr-only">Search for your location, society or apartment</label>
+                        <label for="place-search" class="sr-only">{{ \App\Support\SiteText::get('location.place_label') }}</label>
                         <div class="relative">
                             <span aria-hidden="true" class="pointer-events-none absolute inset-y-0 left-3 grid place-items-center">
                                 <x-icon name="magnifying-glass" class="h-4 w-4 text-slate-400" />
@@ -115,7 +115,7 @@
                                    aria-expanded="false"
                                    aria-controls="place-search-results"
                                    aria-autocomplete="list"
-                                   placeholder="Search for your location / society / apartment"
+                                   placeholder="{{ \App\Support\SiteText::get('location.place_placeholder') }}"
                                    class="block min-h-11 w-full rounded-lg border border-slate-300 py-2.5 pl-9 pr-3 text-base shadow-sm transition focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-blue-600">
                         </div>
                         <ul id="place-search-results" role="listbox" data-places-results hidden
@@ -125,7 +125,7 @@
 
                     @if ($recentAddresses->isNotEmpty())
                         <div>
-                            <h3 class="mb-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">Recent locations</h3>
+                            <h3 class="mb-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">{{ \App\Support\SiteText::get('location.recent') }}</h3>
                             <ul class="space-y-1">
                                 @foreach ($recentAddresses as $address)
                                     <li>
@@ -153,17 +153,17 @@
                          customer already has the list above. --}}
                     @guest
                         <div data-guest-recents-wrap hidden>
-                            <h3 class="mb-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">Recent locations</h3>
+                            <h3 class="mb-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">{{ \App\Support\SiteText::get('location.recent') }}</h3>
                             <ul data-guest-recents class="space-y-1"></ul>
                         </div>
                     @endguest
 
                     <div>
-                        <label for="zone-search" class="sr-only">Search areas</label>
+                        <label for="zone-search" class="sr-only">{{ \App\Support\SiteText::get('location.zone_label') }}</label>
                         <input id="zone-search"
                                type="search"
                                wire:model.live.debounce.300ms="search"
-                               placeholder="Search by area or city"
+                               placeholder="{{ \App\Support\SiteText::get('location.zone_placeholder') }}"
                                class="block min-h-11 w-full rounded-lg border border-slate-300 px-3 py-2.5 text-base shadow-sm transition focus:outline focus:outline-2 focus:outline-offset-0 focus:outline-blue-600">
                     </div>
                 </div>
@@ -188,15 +188,15 @@
                             {{-- The selected row is marked with a word, not
                                  just a background tint (WCAG 2.1 AA 1.4.1). --}}
                             @if ($isActive)
-                                <span class="shrink-0 text-xs font-semibold text-slate-700">Selected</span>
+                                <span class="shrink-0 text-xs font-semibold text-slate-700">{{ \App\Support\SiteText::get('location.selected') }}</span>
                             @endif
                         </button>
                     @empty
                         <p class="px-3 py-8 text-center text-sm text-slate-500">
                             @if (trim($search) !== '')
-                                No areas match "{{ $search }}".
+                                {{ \App\Support\SiteText::get('location.no_match', ['search' => $search]) }}
                             @else
-                                No service areas are available yet.
+                                {{ \App\Support\SiteText::get('location.none') }}
                             @endif
                         </p>
                     @endforelse
@@ -256,15 +256,15 @@
 
                 button.addEventListener('click', () => {
                     button.disabled = true;
-                    label.textContent = 'Finding your location…';
+                    label.textContent = @js(\App\Support\SiteText::get('location.finding'));
                     error.hidden = true;
 
                     window.cfLocate(
                         (lat, lng, accuracyM) => $wire.useCurrentLocation(lat, lng, accuracyM),
                         () => {
                             button.disabled = false;
-                            label.textContent = 'Use my current location';
-                            error.textContent = "We couldn't get your location. Please choose an area below instead.";
+                            label.textContent = @js(\App\Support\SiteText::get('location.use_mine'));
+                            error.textContent = @js(\App\Support\SiteText::get('location.failed'));
                             error.hidden = false;
                         },
                     );

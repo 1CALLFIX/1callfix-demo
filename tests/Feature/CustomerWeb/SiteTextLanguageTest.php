@@ -83,6 +83,19 @@ class SiteTextLanguageTest extends TestCase
         $this->assertSame('en', app()->getLocale());
     }
 
+    public function test_every_text_has_a_group_an_admin_label_english_and_telugu(): void
+    {
+        foreach (SiteText::TEXTS as $key => [$group, $label, $en, $te]) {
+            $this->assertArrayHasKey($group, SiteText::GROUPS, $key);
+            $this->assertNotSame('', trim($label), $key);
+            $this->assertNotSame('', trim($en), $key);
+            $this->assertNotSame('', trim($te), $key);
+            preg_match_all('/:([a-z]+)/', $en, $enVars);
+            preg_match_all('/:([a-z]+)/', $te, $teVars);
+            $this->assertEqualsCanonicalizing($enVars[1], $teVars[1], "{$key}: the Telugu text keeps the same :placeholders");
+        }
+    }
+
     public function test_only_a_super_admin_edits_the_texts_and_every_change_is_audited(): void
     {
         $customer = $this->makeUserWithNoPermissions();
