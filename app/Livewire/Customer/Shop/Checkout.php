@@ -90,7 +90,7 @@ class Checkout extends Component
         ])), 404);
         $this->store = $store;
         if (app(CartService::class)->listForStore(auth()->user(), $store->id)->isEmpty()) {
-            $this->redirectRoute('customer.shop.cart', navigate: true);
+            $this->redirectRoute('customer.cart', navigate: true);
 
             return;
         }

@@ -59,6 +59,7 @@ class Create extends Component
     public bool $restrictedConfirmed = false;
     public string $customerNote = '';
     /** Stage 1: now|scheduled; scheduledAt is the naive wall clock from the datetime-local input (platform timezone). */
+    #[\Livewire\Attributes\Url(as: 'when', except: 'now')]
     public string $deliveryType = 'now';
     public string $scheduledAt = '';
     public string $paymentMethod = '';
@@ -353,6 +354,10 @@ class Create extends Component
         $methods = [];
         $pickupZoneActive = null;
         $scheduleAvailable = false;
+        // ?when=scheduled (homepage Parcel card) opens on "Schedule"; anything else falls back to "now".
+        if (! in_array($this->deliveryType, ['now', 'scheduled'], true)) {
+            $this->deliveryType = 'now';
+        }
 
         if ($pickup && $pickup['zone']) {
             $scope = $this->scopeFor($pickup['zone']);

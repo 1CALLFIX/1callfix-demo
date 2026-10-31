@@ -1,6 +1,6 @@
 <div class="mb-bottom-nav">
     <div class="mx-auto max-w-3xl px-4 py-6 sm:px-6">
-        <a href="{{ route('customer.shop.cart') }}" wire:navigate class="text-sm text-blue-700">← Back to bag</a>
+        <a href="{{ route('customer.cart') }}" wire:navigate class="text-sm text-blue-700">{{ \App\Support\SiteText::get('cart.back') }}</a>
         <h1 class="mt-2 text-2xl font-bold tracking-tight">Checkout</h1>
         <p class="text-sm text-slate-500">From {{ $store->name }}</p>
 

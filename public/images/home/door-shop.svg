@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" role="img" aria-label="Shop">
+  <!-- 1CallFix's own drawing (2026-10-31): default Shop door on the homepage. -->
+  <rect x="6" y="6" width="108" height="108" rx="26" fill="#D1FAE5"/>
+  <path d="M30 46h60l-5 46a6 6 0 0 1-6 5H41a6 6 0 0 1-6-5z" fill="#10B981"/>
+  <path d="M44 50V40a16 16 0 0 1 32 0v10" fill="none" stroke="#065F46" stroke-width="5" stroke-linecap="round"/>
+  <circle cx="44" cy="52" r="4" fill="#065F46"/>
+  <circle cx="76" cy="52" r="4" fill="#065F46"/>
+  <path d="M46 72l9 9 18-18" fill="none" stroke="#FFFFFF" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

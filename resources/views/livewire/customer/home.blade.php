@@ -39,21 +39,42 @@
 
     @php
         $controls = \App\Support\SiteControls::class;
-        $categoriesFirst = $controls::categoriesFirst();
-        // Parcel card position (Admin → Homepage & sign-up): top | after_categories | after_banner (default).
-        $parcelAt = $parcelActive ? $controls::parcelPosition() : null;
+        $t = fn (string $key, array $replace = []) => \App\Support\SiteText::get($key, $replace);
     @endphp
 
-    {{-- ======================= Banner slot #1 (hero) =======================
-         Paid `top`-slot ad inventory. By default it now sits UNDER the
-         category opener (Admin → Homepage & sign-up → "Category icons
-         first"), so the first screen says what we do; switched off, it goes
-         back to the very top. Renders nothing when no banner is live.
-    --}}
-    @if (! $categoriesFirst)
+    {{-- Sections in the Super Admin's order, each on/off (Admin → Growth → Homepage sections, App\Support\HomeLayout).
+         Each section still renders nothing without real data. --}}
+    @unless (in_array('categories', $sections, true))
+        {{-- The page keeps its one <h1> when the category icons are switched off. --}}
+        <h1 class="sr-only">{{ $controls::headline() }}</h1>
+    @endunless
+    @foreach ($sections as $section)
+    @switch($section)
+    @case('hero_banner')
+        {{-- Paid `top`-slot banner. Renders nothing when no banner is live. --}}
         @include('livewire.customer.partials.home-hero-banner')
-    @endif
+        @break
 
+    @case('module_cards')
+        @if ($cards)
+            @include('livewire.customer.partials.home-cards')
+        @endif
+        @break
+
+    @case('doors')
+        @if ($doors)
+            @include('livewire.customer.partials.home-doors')
+        @endif
+        @break
+
+    @case('parcel_card')
+        {{-- Only where parcel is switched on (Admin → Modules) for the zone being browsed. --}}
+        @if ($parcelActive)
+            @include('livewire.customer.partials.home-parcel-card')
+        @endif
+        @break
+
+    @case('categories')
     {{-- ===================== Discovery opener =====================
          REF 1CF-HOME-CATEGORY-HERO-001 (owner brief 2026-10-15): a clear
          headline over the category icons in even rows — the opener every
@@ -63,10 +84,6 @@
          tiles are OFF by default because they made the first screen read as
          clutter. Search and location stay in the topbar.
     --}}
-    @if ($parcelAt === 'top')
-        @include('livewire.customer.partials.home-parcel-card')
-    @endif
-
     <section class="relative border-b border-slate-200 bg-gradient-to-b from-blue-50 via-white to-white">
         <div class="relative mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-10 lg:px-8">
             @php
@@ -90,7 +107,7 @@
                 {{-- Category icons, in rows. Columns per Admin setting. --}}
                 <div>
                     @if ($categories->isNotEmpty())
-                        <h2 id="shortcuts-heading" class="sr-only">Browse by category</h2>
+                        <h2 id="shortcuts-heading" class="sr-only">{{ $t('home.categories.sr') }}</h2>
                         <ul aria-labelledby="shortcuts-heading"
                             class="cf-cat-grid grid gap-x-2 gap-y-4 rounded-3xl border border-slate-200 bg-white p-3 shadow-lg shadow-blue-900/5 sm:gap-x-4 sm:gap-y-6 sm:p-6"
                             style="--cf-cols-m: {{ $colsMobile }}; --cf-cols-d: {{ $colsDesktop }};">
@@ -118,8 +135,8 @@
                             @endforeach
                         </ul>
                     @else
-                        <x-ui.empty-state title="No categories published yet"
-                                          description="Service categories will appear here once they are published from the admin panel." />
+                        <x-ui.empty-state :title="$t('home.categories.empty_title')"
+                                          :description="$t('home.categories.empty_line')" />
                     @endif
                 </div>
 
@@ -148,58 +165,47 @@
             </div>
         </div>
     </section>
-
-    @if ($parcelAt === 'after_categories')
-        @include('livewire.customer.partials.home-parcel-card')
-    @endif
-
-    @if ($categoriesFirst)
-        @include('livewire.customer.partials.home-hero-banner')
-    @endif
-
-    {{-- ========================= Send a parcel =========================
-         Only where parcel is switched on (Admin → Modules) for the zone being browsed. Default spot; the card can
-         also sit at the top or between the icons and the banner (Admin → Homepage & sign-up). --}}
-    @if ($parcelAt === 'after_banner')
-        @include('livewire.customer.partials.home-parcel-card')
-    @endif
+        @break
 
     {{-- ========================= New & noteworthy ========================= --}}
+    @case('new')
     @if ($newServices->isNotEmpty())
         <section aria-labelledby="new-heading" class="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
             <x-customer.section-heading id="new-heading"
-                                        {{-- Plain text, not an HTML entity: the
-                                             component escapes it on output, so
-                                             "&amp;" here would render literally. --}}
-                                        title="New & noteworthy"
-                                        description="The latest additions to the catalogue."
+                                        :title="$t('home.new.title')"
+                                        :description="$t('home.new.line')"
+                                        :link-label="$t('home.see_all')"
                                         :link="route('customer.services.index', ['sort' => 'newest'])" />
 
             <x-customer.service-rail :cards="$newServices" :currency-symbol="$currencySymbol" labelled-by="new-heading" class="mt-6" />
         </section>
     @endif
+        @break
 
     {{-- =========================== Most booked ===========================
          Hidden entirely when the catalogue has no booking history — the
          ranking is a real count over `bookings`, so with nothing booked
          there is nothing honest to rank. See ServiceCatalogQuery::mostBooked().
     --}}
+    @case('most_booked')
     @if ($mostBooked->isNotEmpty())
         <section aria-labelledby="booked-heading" class="border-y border-slate-200 bg-slate-50">
             <div class="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
                 <x-customer.section-heading id="booked-heading"
-                                            title="Most booked services"
+                                            :title="$t('home.booked.title')"
                                             :description="$activeZone
-                                                ? 'What customers around '.$activeZone->name.' book most often.'
-                                                : 'What customers book most often.'"
+                                                ? $t('home.booked.line_area', ['area' => $activeZone->name])
+                                                : $t('home.booked.line')"
+                                            :link-label="$t('home.see_all')"
                                             :link="route('customer.services.index')" />
 
                 <x-customer.service-rail :cards="$mostBooked" :currency-symbol="$currencySymbol" labelled-by="booked-heading" class="mt-6" />
             </div>
         </section>
     @endif
+        @break
 
-    {{-- ==================== Mid-page banner #1 ====================
+    {{-- ==================== Mid-page banners ====================
          The `mid` slot is "between modules" (Banner::PLACEMENTS) — plural.
          Rather than pool every mid banner into one carousel at a single
          point, the homepage now DISTRIBUTES them one-per-gap down the page,
@@ -210,19 +216,25 @@
          Each gap takes the next distinct mid banner in order (no repeats).
          With a single mid banner sold, only this first gap renders — exactly
          the previous behaviour and position. Extra banners fill the gaps
-         below.
+         below. Each gap is its own section, placed by the Super Admin.
     --}}
-    @if ($midBanners->get(0))
+    @case('mid_banner_1')
+    @case('mid_banner_2')
+    @case('mid_banner_3')
+    @php $midIndex = (int) substr($section, -1) - 1; @endphp
+    @if ($midBanners->get($midIndex))
         <section class="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
-            <x-customer.banner-carousel :banners="collect([$midBanners->get(0)])"
-                                        id="mid-banner-0"
-                                        label="Offers and announcements"
+            <x-customer.banner-carousel :banners="collect([$midBanners->get($midIndex)])"
+                                        :id="'mid-banner-'.$midIndex"
+                                        :label="$t('home.banner.mid')"
                                         variant="strip"
                                         :interval="config('banners.mid_rotation_ms')" />
         </section>
     @endif
+        @break
 
     {{-- ======================= Category collections ======================= --}}
+    @case('collections')
     @foreach ($collections as $collection)
         @php $collectionCategory = $collection['category']; @endphp
         @if ($collection['cards']->isNotEmpty())
@@ -231,6 +243,7 @@
                 <x-customer.section-heading :id="'collection-'.$collectionCategory->id"
                                             :title="$collectionCategory->name"
                                             :description="$collectionCategory->description"
+                                            :link-label="$t('home.see_all')"
                                             :link="\App\Support\Seo\PublicUrl::category($collectionCategory)" />
 
                 <x-customer.service-rail :cards="$collection['cards']"
@@ -241,28 +254,20 @@
         @endif
     @endforeach
 
-    {{-- Mid-page banner #2 — the next mid banner after the collections
-         block. Renders only when a second mid banner has been sold. --}}
-    @if ($midBanners->get(1))
-        <section class="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
-            <x-customer.banner-carousel :banners="collect([$midBanners->get(1)])"
-                                        id="mid-banner-1"
-                                        label="More offers and announcements"
-                                        variant="strip"
-                                        :interval="config('banners.mid_rotation_ms')" />
-        </section>
-    @endif
+        @break
 
     {{-- ============================== Offers ==============================
          Real, currently-active, scope-covering flash sales only. No sales,
          no section — never full-price services under an "Offers" heading.
     --}}
+    @case('offers')
     @if ($offers->isNotEmpty())
         <section aria-labelledby="offers-heading" class="border-y border-slate-200 bg-slate-50">
             <div class="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
                 <x-customer.section-heading id="offers-heading"
-                                            title="Offers on now"
-                                            description="Limited-time pricing, while it lasts."
+                                            :title="$t('home.offers.title')"
+                                            :description="$t('home.offers.line')"
+                                            :link-label="$t('home.see_all')"
                                             :link="route('customer.offers')" />
 
                 <x-customer.service-rail :cards="$offers" :currency-symbol="$currencySymbol" labelled-by="offers-heading" class="mt-6" />
@@ -270,24 +275,13 @@
         </section>
     @endif
 
-    {{-- Mid-page banner #3 — the last of the distributed mid banners, after
-         the offers rail. Renders only when a third mid banner has been sold;
-         any further mid banners beyond this are not shown (three interruptions
-         down one page is already the ceiling before it reads as clutter). --}}
-    @if ($midBanners->get(2))
-        <section class="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
-            <x-customer.banner-carousel :banners="collect([$midBanners->get(2)])"
-                                        id="mid-banner-2"
-                                        label="Announcements"
-                                        variant="strip"
-                                        :interval="config('banners.mid_rotation_ms')" />
-        </section>
-    @endif
+        @break
 
     {{-- =========================== Membership ============================
          Real, active `customer_membership` plans, read from the Plan Engine.
          "About membership" opens the plan's real details + purchase page.
     --}}
+    @case('membership')
     @if ($membershipPlans->isNotEmpty())
         <section aria-labelledby="membership-heading" class="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
             <div class="relative overflow-hidden rounded-3xl bg-gradient-to-br from-blue-700 via-blue-600 to-blue-800 p-6 shadow-xl shadow-blue-900/20 sm:p-10">
@@ -296,10 +290,10 @@
 
                 <div class="relative">
                     <h2 id="membership-heading" class="text-xl font-bold tracking-tight text-white sm:text-2xl">
-                        {{ $platformName }} membership
+                        {{ $t('home.membership.title', ['brand' => $platformName]) }}
                     </h2>
                     <p class="mt-2 max-w-2xl text-sm text-blue-100">
-                        Membership plans available on your account.
+                        {{ $t('home.membership.line') }}
                     </p>
 
                     <ul class="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -316,15 +310,18 @@
 
                     <a href="{{ route('customer.membership.show', $membershipPlans->first()) }}"
                        class="mt-6 inline-flex min-h-11 items-center rounded-lg bg-white px-5 text-sm font-semibold text-blue-700 shadow-sm transition hover:bg-blue-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">
-                        About membership
+                        {{ $t('home.membership.button') }}
                     </a>
                 </div>
             </div>
         </section>
     @endif
+        @break
 
     {{-- Real Google Business reviews (admin-controlled; renders nothing without fresh data). --}}
+    @case('reviews')
     <x-customer.google-reviews />
+        @break
 
     {{-- ===================== Trust / service quality =====================
          Deliberately qualitative. No counts, ratings or "10,000+ happy
@@ -333,18 +330,15 @@
          fabricated marketing data. Every claim below describes a mechanism
          this system actually implements.
     --}}
+    @case('trust')
     <section aria-labelledby="trust-heading" class="border-y border-slate-200 bg-white">
         <div class="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
             <h2 id="trust-heading" class="text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">
-                Why choose {{ $platformName }}
+                {{ $t('home.trust.title', ['brand' => $platformName]) }}
             </h2>
             <ul class="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-                @foreach ([
-                    ['shield', 'Verified professionals', 'Every professional is onboarded through document verification before taking work.'],
-                    ['banknotes', 'Transparent pricing', 'Prices are set by us, shown before you book, and calculated on our servers — never guessed.'],
-                    ['clock', 'One-time code security', 'Jobs start and finish only when you share your one-time code with the professional.'],
-                    ['chat', 'Support when you need it', 'Reach a real person through the help centre if something is not right.'],
-                ] as [$icon, $trustTitle, $trustBody])
+                @foreach (['shield', 'banknotes', 'clock', 'chat'] as $n => $icon)
+                    @php [$trustTitle, $trustBody] = [$t('home.trust.'.($n + 1).'.title'), $t('home.trust.'.($n + 1).'.body')]; @endphp
                     <li class="rounded-2xl border border-slate-200 p-5 transition hover:border-blue-200 hover:shadow-md hover:shadow-blue-900/5">
                         <span class="grid h-10 w-10 place-items-center rounded-xl bg-blue-50 text-blue-600">
                             <x-icon :name="$icon" class="h-5 w-5" />
@@ -356,12 +350,14 @@
             </ul>
         </div>
     </section>
+        @break
 
     {{-- ============================== FAQ ============================== --}}
+    @case('faq')
     @if ($faqs->isNotEmpty())
         <section aria-labelledby="faq-heading" class="mx-auto max-w-3xl px-4 py-12 sm:px-6 lg:px-8">
             <h2 id="faq-heading" class="text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">
-                Frequently asked questions
+                {{ $t('home.faq.title') }}
             </h2>
             <div class="mt-8 divide-y divide-slate-200 border-y border-slate-200">
                 @foreach ($faqs as $faq)
@@ -379,12 +375,15 @@
                 @endforeach
             </div>
             <p class="mt-6 text-sm text-slate-600">
-                Still stuck?
+                {{ $t('home.faq.still') }}
                 <a href="{{ route('customer.help') }}"
                    class="rounded font-semibold text-blue-700 underline underline-offset-4 transition hover:text-blue-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600">
-                    Visit the help centre
+                    {{ $t('home.faq.help') }}
                 </a>.
             </p>
         </section>
     @endif
+        @break
+    @endswitch
+    @endforeach
 </div>

@@ -73,6 +73,9 @@ use Illuminate\Support\Facades\Route;
 
 Route::get('/', CustomerHome::class)->name('customer.home');
 
+// The top-bar English / Telugu switch (shown only when the Super Admin has switched Telugu on).
+Route::post('/language/{locale}', \App\Http\Controllers\Customer\LanguageController::class)->name('customer.language');
+
 /*
  | Discovery & catalog (Phase C). All public and unauthenticated, matching
  | every other browse-first surface in this application: `GET /api/categories`,
@@ -195,7 +198,10 @@ Route::middleware(['auth', \App\Http\Middleware\EnsureAccountNotSuspended::class
 
     // E-commerce Phase 2: the shop bag, checkout (one shop per order) and the customer's shop orders. Browsing is
     // public under /{city}/shop; a customer's own orders stay reachable even if Commerce is switched off later.
-    Route::get('/shop/bag', \App\Livewire\Customer\Shop\Bag::class)->name('customer.shop.cart');
+    // One cart (owner 2026-10-30): the shop bag lives in /cart now; the old link moves there for good, query kept.
+    Route::get('/shop/bag', fn (\Illuminate\Http\Request $request) => redirect()->to(
+        route('customer.cart').($request->getQueryString() ? '?'.$request->getQueryString() : ''), 301
+    ))->name('customer.shop.cart');
     Route::get('/shop/checkout/{store}', \App\Livewire\Customer\Shop\Checkout::class)->name('customer.shop.checkout');
     Route::get('/shop/orders', \App\Livewire\Customer\Shop\Orders::class)->name('customer.shop.orders');
     Route::get('/shop/orders/{order}', \App\Livewire\Customer\Shop\OrderShow::class)->name('customer.shop.orders.show');

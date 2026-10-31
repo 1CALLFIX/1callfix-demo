@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" role="img" aria-label="Services">
+  <!-- 1CallFix's own drawing (2026-10-31): default Services door on the homepage. -->
+  <rect x="6" y="6" width="108" height="108" rx="26" fill="#DBEAFE"/>
+  <circle cx="60" cy="60" r="34" fill="#FFFFFF" opacity=".7"/>
+  <path d="M77 33a15 15 0 0 0-19 19L36 74a7 7 0 1 0 10 10l22-22a15 15 0 0 0 19-19l-9 9-8-2-2-8z" fill="#2563EB"/>
+  <circle cx="41" cy="79" r="3" fill="#DBEAFE"/>
+  <path d="M30 40l8-8 10 10-3 5-5 3z" fill="#F59E0B"/>
+  <rect x="44" y="44" width="6" height="22" rx="3" transform="rotate(-45 47 55)" fill="#F59E0B"/>
+</svg>

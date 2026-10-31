@@ -157,6 +157,8 @@
                     ['label' => 'Banners', 'route' => 'admin.banners.index', 'icon' => 'megaphone', 'permission' => 'banners.manage'],
                     ['label' => 'Home Spotlight', 'route' => 'admin.home-spotlight.index', 'icon' => 'sparkles', 'permission' => 'banners.manage'],
                     ['label' => 'Homepage & sign-up', 'route' => 'admin.site-controls', 'icon' => 'home', 'permission' => 'site_controls.manage'],
+                    ['label' => 'Homepage sections', 'route' => 'admin.home-sections', 'icon' => 'home', 'permission' => 'site_controls.manage'],
+                    ['label' => 'Website text & language', 'route' => 'admin.site-text', 'icon' => 'document-text', 'permission' => 'site_controls.manage'],
                     ['label' => 'Search Box', 'route' => 'admin.search-box.index', 'icon' => 'magnifying-glass', 'permission' => 'banners.manage'],
                     ['label' => 'Partner page', 'route' => 'admin.partner-page.settings', 'icon' => 'users', 'permission' => 'partner_page.manage'],
                     ['label' => 'Partner leads', 'route' => 'admin.partner-leads.index', 'icon' => 'users', 'permission' => 'partner_page.manage'],
