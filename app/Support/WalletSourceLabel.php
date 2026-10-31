@@ -51,6 +51,12 @@ final class WalletSourceLabel
             'regex' => '/^[a-z_]+:\d+:(provider|worker)-earning$/',
             'like' => ['%:provider-earning', '%:worker-earning'],
         ],
+        // Shop go-live (2026-10-31): a rider's fee for bringing a shop return back to the shop (paid by the seller).
+        'return_pickup_pay' => [
+            'label' => 'Return pickup pay',
+            'regex' => '/^marketplace_return:\d+:pickup-earning$/',
+            'like' => ['marketplace_return:%:pickup-earning'],
+        ],
         // Parcel pickup safety (2026-10-29): trip pay to a rider who refused a parcel at the pickup point.
         'refused_trip_pay' => [
             'label' => 'Trip pay (refused parcel)',
@@ -187,6 +193,7 @@ final class WalletSourceLabel
         'app/Services/CompensationService.php' => ['compensation:1:overtime:00000000-0000-0000-0000-000000000000'],
         // E-commerce Phase 3b: a shop return refunded to the wallet (wallet / cash orders) — labelled "Refund".
         'app/Services/Marketplace/MarketplaceReturnService.php' => ['marketplace_order:1:wallet-refund:return-2'],
+        'app/Services/Marketplace/MarketplaceReturnPickupService.php' => ['marketplace_return:1:pickup-earning'],
         'app/Services/Marketplace/MarketplaceSettlementService.php' => [
             'marketplace_order:1:worker-earning', 'marketplace_order:1:delivery-franchise-earning',
             'marketplace_order:1:provider-earning', 'marketplace_order:1:franchise-earning',
