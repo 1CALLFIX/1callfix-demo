@@ -182,7 +182,8 @@ class Home extends Component
         }
 
         if ($parcelActive && \App\Support\HomeCards::cardShown('parcel')) {
-            $price = is_numeric($parcelFrom) && (float) $parcelFrom > 0
+            // The "show the price" switch (Admin → Homepage & sign-up → Parcel card) covers this card too.
+            $price = \App\Support\SiteControls::parcelShowPrice() && is_numeric($parcelFrom) && (float) $parcelFrom > 0
                 ? $this->presenter()->currencySymbol().rtrim(rtrim(number_format((float) $parcelFrom, 2), '0'), '.') : null;
             $tiles = [['name' => $text('home.card.parcel.send'), 'url' => route('customer.parcels.create'), 'icon' => 'bolt']];
             if (\App\Services\Parcel\ParcelSettings::scheduleAvailable($parcelScope)) {
