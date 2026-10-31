@@ -138,6 +138,11 @@ class ParcelSettings
             'group' => 'Parcel protection', 'label' => 'Claim within', 'type' => 'int', 'unit' => 'days', 'required' => false, 'min' => 1, 'max' => 30,
             'default' => 3, 'help' => 'Days after the parcel was delivered (or the order closed) during which the sender can report it lost or damaged. Blank = 3.',
         ],
+        // ── cash on delivery for shops (Stage 2) ──
+        'parcel.cod_max_amount' => [
+            'group' => 'Cash on delivery (shops)', 'label' => 'Highest amount a rider collects for the sender', 'type' => 'decimal', 'unit' => '₹', 'required' => false, 'min' => 1,
+            'default' => null, 'help' => 'The sender (e.g. a shop) asks the rider to collect the item price from the recipient at the drop. The rider owes it to HQ (cash dues); once they have paid it back, it is credited to the sender\'s wallet. One drop only. Blank = no cash on delivery.',
+        ],
         // ── dispatch ──
         'parcel.dispatch.offer_batch_size' => [
             'group' => 'Rider dispatch', 'label' => 'Riders offered per round', 'type' => 'int', 'unit' => 'riders', 'required' => false, 'min' => 1, 'max' => 20,

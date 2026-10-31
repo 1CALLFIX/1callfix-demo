@@ -123,6 +123,10 @@ class MarkParcelDeliveredAction
         }
 
         $order->drop_delivered_at = now();
+        // Cash on delivery: the rider has collected the item price for the sender (the screen asks first).
+        if ($order->isCod() && ! $order->cod_collected_at) {
+            $order->cod_collected_at = now();
+        }
         $order->save();
 
         if ($order->stops()->exists() || $order->return_trip) {

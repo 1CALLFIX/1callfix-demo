@@ -210,6 +210,10 @@
                 @if ($job->collectsCashAtDelivery() && $job->payment_status !== 'paid')
                     <p class="mt-4 rounded-xl bg-amber-50 p-3 text-sm font-semibold text-amber-900">Collect {{ $fmt($job->price_quoted) }} cash from the recipient before you enter the delivery code.</p>
                 @endif
+                {{-- Stage 2: cash on delivery for the sender (a shop). The rider owes it to HQ; the sender is paid from it. --}}
+                @if ($job->isCod() && ! $job->cod_collected_at)
+                    <p class="mt-4 rounded-xl bg-amber-50 p-3 text-sm font-semibold text-amber-900">Collect {{ $fmt($job->cod_amount) }} item price (cash on delivery) from the recipient before you hand it over. It is added to your cash dues.</p>
+                @endif
                 @unless ($job->drop_delivered_at)
                     <form wire:submit="confirmDelivery({{ $job->id }})" class="mt-4">
                         <label for="delivery-otp" class="block text-sm font-medium">{{ $multi ? 'Drop 1: code from '.($job->recipient_name ?: 'the recipient') : 'Delivery code from the recipient' }}</label>
@@ -360,6 +364,9 @@
                             @if ($offer->isScheduled() && $offer->package_contents) · @endif
                             @if ($offer->package_contents){{ $contents[$offer->package_contents] ?? '' }}@endif
                         </p>
+                    @endif
+                    @if ($offer->isCod())
+                        <p class="mt-1 text-xs font-semibold text-amber-800">Cash on delivery — collect {{ $fmt($offer->cod_amount) }} item price at the drop</p>
                     @endif
                     @if ($offer->collectsCashAtDelivery())
                         <p class="mt-1 text-xs font-semibold text-amber-800">Cash order — recipient pays {{ $fmt($offer->price_quoted) }} at delivery</p>

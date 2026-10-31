@@ -14,8 +14,8 @@ class FieldWorkerCashDue extends Model
 {
     protected $fillable = [
         'field_worker_id', 'parcel_order_id', 'commission_id',
-        'platform_portion', 'franchise_portion',
-        'amount_owed', 'amount_settled', 'franchise_settled', 'status', 'settled_at',
+        'platform_portion', 'franchise_portion', 'cod_portion',
+        'amount_owed', 'amount_settled', 'franchise_settled', 'status', 'settled_at', 'cod_remitted_at',
     ];
 
     protected $casts = [
@@ -24,7 +24,9 @@ class FieldWorkerCashDue extends Model
         'amount_owed' => 'decimal:2',
         'amount_settled' => 'decimal:2',
         'franchise_settled' => 'decimal:2',
+        'cod_portion' => 'decimal:2',
         'settled_at' => 'datetime',
+        'cod_remitted_at' => 'datetime',
     ];
 
     public function fieldWorker() { return $this->belongsTo(FieldWorker::class); }

@@ -72,6 +72,10 @@ class ParcelOrderResource extends JsonResource
             // Stage 2: what a parcel pack credit paid, and what is left to pay in money.
             'pack_covered' => $this->pack_covered !== null ? (float) $this->pack_covered : null,
             'amount_due' => $this->resource->amountDue(),
+            // Stage 2: cash on delivery for the sender — collected at the drop, paid to the wallet once the rider settles.
+            'cod_amount' => $this->cod_amount !== null ? (float) $this->cod_amount : null,
+            'cod_collected_at' => $this->cod_collected_at,
+            'cod_paid_to_wallet' => $this->cod_amount !== null ? (bool) $this->resource->cashDue?->cod_remitted_at : null,
             'cancellation_note' => $this->cancellation_note,
             'cancellation_fee' => $this->cancellation_fee !== null ? (float) $this->cancellation_fee : null,
             // Pickup safety (2026-10-29): the rider refused the parcel at pickup. The rider's own note stays admin-only.

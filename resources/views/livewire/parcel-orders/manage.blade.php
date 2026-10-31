@@ -71,6 +71,9 @@
                 @if ($order->isAwaitingOnlinePayment()) &middot; <span class="text-amber-700">waiting for the customer's online payment — not sent to riders yet</span> @endif
                 @if ($order->cash_collected_at) &middot; cash collected {{ $order->cash_collected_at->format('d M, h:i A') }} @endif
             </p>
+            @if ($order->isCod())
+                <p class="text-sm text-gray-600 mt-1">Cash on delivery for the sender: {{ number_format((float) $order->cod_amount, 2) }} &middot; {{ $order->cashDue?->cod_remitted_at ? 'paid to the sender\'s wallet' : ($order->cod_collected_at ? 'collected by the rider, in their cash dues' : 'not collected yet') }}</p>
+            @endif
             @if ($order->isProtected())
                 <p class="text-sm text-gray-600 mt-1">Protected up to {{ number_format((float) $order->declared_value, 2) }} (fee {{ number_format((float) $order->protection_fee, 2) }}, kept by HQ) &middot; <a href="{{ route('admin.parcel-claims.index') }}" class="text-blue-700 underline">Parcel Claims</a></p>
             @endif

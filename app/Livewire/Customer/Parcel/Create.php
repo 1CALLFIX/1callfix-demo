@@ -61,6 +61,9 @@ class Create extends Component
     public string $declaredValue = '';
     /** Stage 2: use one credit of the customer's prepaid parcel pack (a benefit: online / wallet only). */
     public bool $usePack = true;
+    /** Stage 2: cash on delivery — the rider collects this item price from the recipient for the sender. */
+    public bool $cod = false;
+    public string $codAmount = '';
 
     // ── package ──
     public string $packageSize = 'small';
@@ -233,6 +236,7 @@ class Create extends Component
             'extraDrops.*.phone.required' => "Enter this recipient's phone number.",
             'extraDrops.*.phone.regex' => 'Enter a 10-digit mobile number.',
             'declaredValue.required_if' => 'Enter what the parcel is worth.',
+            'codAmount.required_if' => 'Enter the amount the rider collects.',
             'pickupContactPhone.regex' => 'Enter a 10-digit mobile number.',
             'restrictedConfirmed.accepted' => 'Confirm the parcel has none of the restricted items.',
             'scheduledAt.required_if' => 'Choose the pickup date and time.',
@@ -322,6 +326,7 @@ class Create extends Component
                     'extra_stops' => $stops,
                     'return_trip' => $this->returnTrip,
                     'declared_value' => $this->protect && is_numeric($this->declaredValue) ? (float) $this->declaredValue : null,
+                    'cod_amount' => $this->cod && is_numeric($this->codAmount) ? (float) $this->codAmount : null,
                     'parcel_pack_purchase_id' => $this->usePack ? app(\App\Services\Parcel\ParcelPackService::class)->usablePack(auth()->user(), $zone->franchise_id)?->id : null,
                 ]);
             });
@@ -381,6 +386,8 @@ class Create extends Component
             'extraDrops.*.detail' => ['nullable', 'string', 'max:150'],
             'returnTrip' => ['boolean'],
             'protect' => ['boolean'],
+            'cod' => ['boolean'],
+            'codAmount' => ['nullable', 'required_if:cod,true', 'numeric', 'min:1', 'max:10000000'],
             'declaredValue' => ['nullable', 'required_if:protect,true', 'numeric', 'min:1', 'max:10000000'],
         ];
     }
@@ -536,6 +543,7 @@ class Create extends Component
             'returnTripAvailable' => $returnTripAvailable,
             'protectionAvailable' => $protectionAvailable,
             'pack' => $pack,
+            'codMax' => $pickup && $pickup['zone'] && $this->extraDrops === [] ? ParcelSettings::get('parcel.cod_max_amount', $this->scopeFor($pickup['zone'])) : null,
             'packCover' => $packCover,
             'toPay' => $quote ? round(max(0, $quote['total'] - (float) $packCover), 2) : null,
             'packsOnSale' => app(\App\Services\Parcel\ParcelPackService::class)->onSale($pickup && $pickup['zone'] ? $pickup['zone']->franchise_id : null)->isNotEmpty(),

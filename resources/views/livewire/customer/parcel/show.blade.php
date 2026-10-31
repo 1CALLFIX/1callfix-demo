@@ -195,6 +195,25 @@
         @endif
     </div>
 
+    {{-- Stage 2: cash on delivery for the sender. --}}
+    @if ($order->isCod())
+        @php $codDue = $order->cashDue; @endphp
+        <div class="mt-5 rounded-2xl border border-slate-200 bg-white p-4 text-sm">
+            <p class="font-semibold">Cash on delivery: {{ $fmt($order->cod_amount) }}</p>
+            <p class="mt-1 text-slate-600">
+                @if ($codDue?->cod_remitted_at)
+                    Paid into your wallet on {{ $tz->format($codDue->cod_remitted_at, $order->franchise, 'j M, g:i A') }}.
+                @elseif ($order->cod_collected_at)
+                    The rider collected it. It is paid into your wallet once they hand it in.
+                @elseif ($order->status === 'cancelled')
+                    Not collected (the order was cancelled).
+                @else
+                    The rider collects it from {{ $order->recipient_name ?: 'the recipient' }} at the drop.
+                @endif
+            </p>
+        </div>
+    @endif
+
     {{-- Stage 2: protection — the declared value, claims and their status. --}}
     @if ($order->isProtected())
         <div class="mt-5 rounded-2xl border border-slate-200 bg-white p-4 text-sm">

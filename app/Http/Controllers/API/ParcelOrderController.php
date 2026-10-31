@@ -93,6 +93,7 @@ class ParcelOrderController extends Controller
             'protection_available' => \App\Services\Parcel\ParcelSettings::protectionAvailable($scope),
             'protection_fee_percent' => \App\Services\Parcel\ParcelSettings::get('parcel.protection_fee_percent', $scope),
             'protection_max_cover' => \App\Services\Parcel\ParcelSettings::get('parcel.protection_max_cover', $scope),
+            'cod_max_amount' => \App\Services\Parcel\ParcelSettings::get('parcel.cod_max_amount', $scope),
             'protection_fee' => $quote['protection_fee'] ?? 0,
             'parcel_pack' => ($pack = app(\App\Services\Parcel\ParcelPackService::class)->usablePack($customer, $pickup->franchise_id)) ? [
                 'id' => $pack->id, 'name' => $pack->name, 'parcels_left' => $pack->remaining(),
@@ -156,6 +157,7 @@ class ParcelOrderController extends Controller
                 'extra_stops' => $validated['extra_stops'] ?? [],
                 'return_trip' => (bool) ($validated['return_trip'] ?? false),
                 'declared_value' => $validated['declared_value'] ?? null,
+                'cod_amount' => $validated['cod_amount'] ?? null,
                 'parcel_pack_purchase_id' => ! empty($validated['use_parcel_pack'])
                     ? (app(\App\Services\Parcel\ParcelPackService::class)->usablePack($customer, $pickup->franchise_id)?->id
                         ?? throw new \RuntimeException('You have no parcel pack credits here.'))

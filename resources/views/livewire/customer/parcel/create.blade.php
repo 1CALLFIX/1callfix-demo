@@ -324,6 +324,24 @@
                 @error('restrictedConfirmed') <p class="mt-1 pl-8 text-xs text-rose-700">{{ $message }}</p> @enderror
             </div>
 
+            {{-- Stage 2: cash on delivery for shops — the rider collects the item price; paid to the sender's wallet. --}}
+            @if ($codMax)
+                <div class="mt-3 rounded-lg border border-slate-200 p-3">
+                    <label class="flex cursor-pointer items-start gap-3 text-sm">
+                        <input type="checkbox" wire:model.live="cod" class="mt-0.5 h-5 w-5 rounded border-slate-300 text-blue-600 focus:ring-blue-500">
+                        <span>
+                            <span class="font-medium text-slate-800">Collect the item price from the recipient (cash on delivery)</span>
+                            <span class="block text-xs text-slate-500">The rider collects it at the drop. It is paid into your 1CallFix wallet once the rider has handed it in. Up to {{ $currencySymbol }}{{ number_format((float) $codMax) }}.</span>
+                        </span>
+                    </label>
+                    @if ($cod)
+                        <label for="cod-amount" class="mt-2 {{ $labelClass }}">Amount the rider collects ({{ $currencySymbol }})</label>
+                        <input id="cod-amount" type="number" min="1" step="1" inputmode="numeric" wire:model.blur="codAmount" class="{{ $inputClass }}">
+                        @error('codAmount') <p class="mt-1 text-xs text-rose-700">{{ $message }}</p> @enderror
+                    @endif
+                </div>
+            @endif
+
             {{-- Stage 2 (owner decision 2026-10-31): optional protection against loss or damage. --}}
             @if ($protectionAvailable)
                 <div class="mt-3 rounded-lg border border-slate-200 p-3">

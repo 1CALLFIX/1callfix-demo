@@ -259,6 +259,10 @@ class CommissionService
             if ($isCash) {
                 $dues->recordForParcel($order, $commission);
             } else {
+                // Stage 2: cash on delivery on an online/wallet/pack order — the rider still holds the item price.
+                if ($order->cod_collected_at) {
+                    $dues->recordForParcel($order, $commission, riderHoldsPrice: false);
+                }
                 // Online earnings just landed in the wallet: clear any older cash dues from them first.
                 $dues->settle($order->assignedWorker);
             }

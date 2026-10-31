@@ -51,6 +51,12 @@ final class WalletSourceLabel
             'regex' => '/^[a-z_]+:\d+:(provider|worker)-earning$/',
             'like' => ['%:provider-earning', '%:worker-earning'],
         ],
+        // Parcel Stage 2 (2026-10-31): the item price a rider collected for the sender, paid once the rider settled it.
+        'cod_remittance' => [
+            'label' => 'Cash on delivery collected for you',
+            'regex' => '/^parcel_order:\d+:cod-remit$/',
+            'like' => ['%:cod-remit'],
+        ],
         // Parcel Stage 2 (2026-10-31): a protection claim paid into the customer's wallet (approval model).
         'protection_payout' => [
             'label' => 'Parcel protection payout',
@@ -204,6 +210,7 @@ final class WalletSourceLabel
         'app/Services/Parcel/FieldWorkerCashDueService.php' => [
             'rider-cash-due:1:settle:00000000-0000-0000-0000-000000000000',
             'rider-cash-due:1:franchise-earning:00000000-0000-0000-0000-000000000000',
+            'parcel_order:1:cod-remit',
         ],
         'app/Services/LoyaltyService.php' => ['loyalty-redeem:00000000-0000-0000-0000-000000000000'],
         'app/Services/PayoutService.php' => [

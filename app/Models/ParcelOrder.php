@@ -83,6 +83,9 @@ class ParcelOrder extends Model implements Orderable
         'parcel_pack_purchase_id',
         'pack_covered',
         'pack_credit_returned_at',
+        // Stage 2: cash on delivery for shops
+        'cod_amount',
+        'cod_collected_at',
     ];
 
     protected $casts = [
@@ -107,6 +110,8 @@ class ParcelOrder extends Model implements Orderable
         'protection_fee' => 'decimal:2',
         'pack_covered' => 'decimal:2',
         'pack_credit_returned_at' => 'datetime',
+        'cod_amount' => 'decimal:2',
+        'cod_collected_at' => 'datetime',
     ];
 
     /** Rider has committed and the parcel is not yet handed over or closed. */
@@ -143,6 +148,12 @@ class ParcelOrder extends Model implements Orderable
     public function isProtected(): bool
     {
         return $this->declared_value !== null && (float) $this->declared_value > 0;
+    }
+
+    /** Stage 2: the rider collects the item price from the recipient for the sender (cash on delivery). */
+    public function isCod(): bool
+    {
+        return $this->cod_amount !== null && (float) $this->cod_amount > 0;
     }
 
     /** Stage 2: more than one drop point. */

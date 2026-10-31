@@ -109,6 +109,21 @@ class CreateParcelOrderAction
             throw new \RuntimeException('With more than one drop point, cash is paid at pickup.');
         }
 
+        // Stage 2: cash on delivery for shops — the rider collects the item price from the recipient for the sender.
+        $cod = isset($data['cod_amount']) && $data['cod_amount'] !== '' && $data['cod_amount'] !== null ? round((float) $data['cod_amount'], 2) : null;
+        if ($cod !== null) {
+            $codMax = ParcelSettings::get('parcel.cod_max_amount', $scope);
+            if ($codMax === null) {
+                throw new \RuntimeException('Cash on delivery is not available here.');
+            }
+            if ($cod <= 0 || $cod > (float) $codMax) {
+                throw new \RuntimeException('The amount to collect must be between 1 and '.number_format((float) $codMax, 0, '.', '').'.');
+            }
+            if ($data['extra_stops'] !== []) {
+                throw new \RuntimeException('Cash on delivery works with one drop point only.');
+            }
+        }
+
         // Stage 2: a prepaid parcel pack credit is a BENEFIT (THUMB RULE): the rest is paid online or from the wallet,
         // never in cash.
         $packId = ! empty($data['parcel_pack_purchase_id']) ? (int) $data['parcel_pack_purchase_id'] : null;
@@ -122,7 +137,7 @@ class CreateParcelOrderAction
 
         $quote = $this->quote($data, $scope);
 
-        $order = DB::transaction(function () use ($data, &$paymentMethod, $cashCollectAt, $quote, $deliveryType, $scheduledAt, $contents, $packId, $scope) {
+        $order = DB::transaction(function () use ($data, &$paymentMethod, $cashCollectAt, $quote, $deliveryType, $scheduledAt, $contents, $packId, $scope, $cod) {
             $covered = null;
             if ($packId) {
                 $purchase = app(\App\Services\Parcel\ParcelPackService::class)->takeCredit($packId, (int) $data['customer_id'], (int) $data['franchise_id']);
@@ -166,6 +181,7 @@ class CreateParcelOrderAction
                 'protection_fee' => ($quote['protection_fee'] ?? 0) > 0 || $data['declared_value'] !== null ? ($quote['protection_fee'] ?? 0) : null,
                 'parcel_pack_purchase_id' => $packId,
                 'pack_covered' => $covered,
+                'cod_amount' => $cod,
             ]);
 
             if ($paymentMethod === 'pack') {

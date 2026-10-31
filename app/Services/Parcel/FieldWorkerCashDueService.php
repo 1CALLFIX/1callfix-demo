@@ -26,10 +26,18 @@ class FieldWorkerCashDueService
     {
     }
 
-    /** Idempotent: one due per parcel order. A zero split (0% platform, no franchise share) records nothing. */
-    public function recordForParcel(ParcelOrder $order, Commission $commission): ?FieldWorkerCashDue
+    /**
+     * Idempotent: one due per parcel order. A zero split (0% platform, no franchise share) records nothing.
+     * $riderHoldsPrice = a cash order (the rider holds the delivery price and owes the platform + franchise share).
+     * Stage 2: cash on delivery — the item price the rider collected for the sender is owed too (cod_portion); it is
+     * credited to the sender once this due is fully settled (settle()).
+     */
+    public function recordForParcel(ParcelOrder $order, Commission $commission, bool $riderHoldsPrice = true): ?FieldWorkerCashDue
     {
-        $owed = round((float) $commission->platform_commission + (float) $commission->franchise_commission, 2);
+        $platform = $riderHoldsPrice ? (float) $commission->platform_commission : 0.0;
+        $franchise = $riderHoldsPrice ? (float) $commission->franchise_commission : 0.0;
+        $cod = $order->cod_collected_at ? round((float) $order->cod_amount, 2) : 0.0;
+        $owed = round($platform + $franchise + $cod, 2);
         if (! $order->assigned_worker_id || $owed <= 0) {
             return null;
         }
@@ -39,8 +47,9 @@ class FieldWorkerCashDueService
             [
                 'field_worker_id' => $order->assigned_worker_id,
                 'commission_id' => $commission->id,
-                'platform_portion' => $commission->platform_commission,
-                'franchise_portion' => $commission->franchise_commission,
+                'platform_portion' => $platform,
+                'franchise_portion' => $franchise,
+                'cod_portion' => $cod,
                 'amount_owed' => $owed,
                 'amount_settled' => 0,
                 'status' => 'outstanding',
@@ -75,7 +84,7 @@ class FieldWorkerCashDueService
             $recovered = 0.0;
             $dues = FieldWorkerCashDue::outstanding()
                 ->where('field_worker_id', $worker->id)
-                ->with('parcelOrder.franchise.owner')
+                ->with('parcelOrder.franchise.owner', 'parcelOrder.customer')
                 ->orderBy('id')
                 ->lockForUpdate()
                 ->get();
@@ -120,6 +129,17 @@ class FieldWorkerCashDueService
                         );
                         $due->franchise_settled = round((float) $due->franchise_settled + $payNow, 2);
                     }
+                }
+
+                // Stage 2: cash on delivery — paid in full, so the sender gets the item price (once).
+                if ($due->status === 'settled' && (float) $due->cod_portion > 0 && ! $due->cod_remitted_at && $due->parcelOrder?->customer) {
+                    $this->walletService->credit(
+                        $due->parcelOrder->customer,
+                        (float) $due->cod_portion,
+                        reason: 'Cash on delivery collected for you'.($code ? " — parcel {$code}" : ''),
+                        ref: "parcel_order:{$due->parcel_order_id}:cod-remit"
+                    );
+                    $due->cod_remitted_at = now();
                 }
 
                 $due->save();

@@ -39,6 +39,8 @@ class StoreParcelOrderRequest extends CustomerApiRequest
             'declared_value' => ['nullable', 'numeric', 'min:1', 'max:10000000'],
             // Stage 2: use one credit of the customer's prepaid parcel pack (a benefit: online / wallet only).
             'use_parcel_pack' => ['nullable', 'boolean'],
+            // Stage 2: cash on delivery — the rider collects this item price from the recipient for the sender.
+            'cod_amount' => ['nullable', 'numeric', 'min:1', 'max:10000000'],
             'scheduled_at' => ['nullable', 'required_if:delivery_type,scheduled', 'date'],
         ];
     }
