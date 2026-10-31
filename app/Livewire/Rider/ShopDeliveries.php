@@ -10,6 +10,7 @@ use App\Models\FieldWorker;
 use App\Models\MarketplaceOrder;
 use App\Models\Setting;
 use App\Services\Parcel\RiderOfferService;
+use App\Services\Marketplace\MarketplaceReturnPickupService as PICKUP;
 use Livewire\Component;
 
 /**
@@ -32,7 +33,7 @@ class ShopDeliveries extends Component
     {
         $this->reset('notice', 'error');
         $rider = $this->rider();
-        if (app(RiderOfferService::class)->activeJob($rider) || app(RiderOfferService::class)->activeShopJob($rider)) {
+        if (app(RiderOfferService::class)->activeJob($rider) || app(RiderOfferService::class)->activeShopJob($rider) || app(PICKUP::class)->isBusy($rider)) {
             $this->error = 'Finish your current job first.';
 
             return;
@@ -77,13 +78,52 @@ class ShopDeliveries extends Component
         }
     }
 
+    // ── Shop go-live: return pickups (customer → shop). The seller pays the rider's fee. ──
+
+    public function acceptPickup(int $returnId): void
+    {
+        $this->reset('notice', 'error');
+        try {
+            app(PICKUP::class)->accept($returnId, $this->rider());
+            $this->notice = 'Accepted. Go to the customer and ask for the pickup code.';
+        } catch (\RuntimeException $e) {
+            $this->error = $e->getMessage();
+        }
+    }
+
+    public function collectReturn(): void
+    {
+        $this->reset('notice', 'error');
+        try {
+            app(PICKUP::class)->confirmPickup($this->rider(), $this->otp);
+            $this->otp = '';
+            $this->notice = 'Collected. Take it to the shop and ask for the drop code.';
+        } catch (\RuntimeException $e) {
+            $this->error = $e->getMessage();
+        }
+    }
+
+    public function dropReturn(): void
+    {
+        $this->reset('notice', 'error');
+        try {
+            app(PICKUP::class)->confirmDrop($this->rider(), $this->otp);
+            $this->otp = '';
+            $this->notice = 'Handed back to the shop. Your fee is in your wallet. Thank you!';
+        } catch (\RuntimeException $e) {
+            $this->error = $e->getMessage();
+        }
+    }
+
     public function render()
     {
         $rider = $this->rider();
         $service = app(RiderOfferService::class);
         $job = $service->activeShopJob($rider);
         $busyWithParcel = $service->activeJob($rider) !== null;
-        $offers = ($rider->is_online && ! $job && ! $busyWithParcel) ? $service->liveShopOffers($rider) : collect();
+        $returnJob = app(PICKUP::class)->activeFor($rider);
+        $offers = ($rider->is_online && ! $job && ! $busyWithParcel && ! $returnJob) ? $service->liveShopOffers($rider) : collect();
+        $pickups = ($job || $busyWithParcel || $returnJob) ? collect() : app(PICKUP::class)->openPickupsFor($rider);
         $this->dispatch('provider-alert-offers', count: $offers->count(), offers: $service->shopAlertSummaries($offers));
 
         return view('livewire.rider.shop-deliveries', [
@@ -91,6 +131,8 @@ class ShopDeliveries extends Component
             'job' => $job,
             'busyWithParcel' => $busyWithParcel,
             'offers' => $offers,
+            'returnJob' => $returnJob,
+            'pickups' => $pickups,
             'currencySymbol' => Setting::get('locale.currency_symbol', '₹'),
         ])->layout('components.layouts.rider', ['title' => 'Shop deliveries']);
     }

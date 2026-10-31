@@ -27,10 +27,14 @@
     <style>[x-cloak]{display:none!important}</style>
 
     {{-- E-commerce Phase 3: shop deliveries are taken on their own screen. --}}
-    @if ($shopJob)
+    @if ($returnJob)
+        <a href="{{ route('rider.shop') }}" wire:navigate class="mb-4 block rounded-2xl border-2 border-blue-600 bg-blue-50 p-4 text-sm font-semibold text-blue-900">You are bringing back a return for {{ $returnJob->store?->name }} → open it</a>
+    @elseif ($shopJob)
         <a href="{{ route('rider.shop') }}" wire:navigate class="mb-4 block rounded-2xl border-2 border-blue-600 bg-blue-50 p-4 text-sm font-semibold text-blue-900">You are delivering shop order {{ $shopJob->code }} → open it</a>
     @elseif ($shopOffers > 0)
         <a href="{{ route('rider.shop') }}" wire:navigate class="mb-4 block rounded-2xl border-2 border-amber-400 bg-amber-50 p-4 text-sm font-semibold text-amber-900">{{ $shopOffers }} shop {{ $shopOffers === 1 ? 'delivery' : 'deliveries' }} waiting → see and accept</a>
+    @elseif ($returnPickups > 0)
+        <a href="{{ route('rider.shop') }}" wire:navigate class="mb-4 block rounded-2xl border-2 border-amber-400 bg-amber-50 p-4 text-sm font-semibold text-amber-900">{{ $returnPickups }} return {{ $returnPickups === 1 ? 'pickup' : 'pickups' }} waiting → see and accept</a>
     @endif
 
     <div class="flex items-start justify-between gap-3">

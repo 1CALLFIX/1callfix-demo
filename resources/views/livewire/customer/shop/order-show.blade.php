@@ -139,6 +139,16 @@
                     @endphp
                     <p class="font-semibold">{{ $returnLabel }}</p>
                     @if ($returnRow->decision_note)<p class="mt-1 text-slate-600">{{ $returnRow->decision_note }}</p>@endif
+                    @if ($returnRow->status === 'accepted' && $returnRow->pickup_status === 'open')
+                        <p class="mt-2 text-slate-700">A rider will come to collect it. You pay nothing.</p>
+                    @elseif ($returnRow->status === 'accepted' && $returnRow->pickup_status === 'assigned')
+                        <div class="mt-2 rounded-xl bg-blue-50 p-3 text-blue-900">
+                            <p>{{ $returnRow->pickupWorker?->user?->name ?? 'Our rider' }} is coming to collect it. Give the rider this pickup code:</p>
+                            <p class="mt-1 text-2xl font-bold tracking-widest">{{ $returnRow->pickup_otp }}</p>
+                        </div>
+                    @elseif ($returnRow->status === 'accepted' && $returnRow->pickup_status === 'picked')
+                        <p class="mt-2 text-slate-700">The rider has the item and is taking it to the shop.</p>
+                    @endif
                 @endif
 
                 @if ($canReturn)

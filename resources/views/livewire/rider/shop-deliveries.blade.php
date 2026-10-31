@@ -7,7 +7,47 @@
     @if ($notice)<div role="status" class="rounded-xl bg-emerald-50 p-3 text-sm text-emerald-800">{{ $notice }}</div>@endif
     @if ($error)<div role="alert" class="rounded-xl bg-red-50 p-3 text-sm text-red-800">{{ $error }}</div>@endif
 
-    @if ($job)
+    @if ($returnJob)
+        @php $picked = $returnJob->pickup_status === 'picked'; $addr = $returnJob->order?->deliveryAddress; @endphp
+        <section class="rounded-2xl border-2 border-blue-600 bg-white p-4">
+            <p class="text-xs font-bold uppercase tracking-widest text-blue-700">Return pickup · {{ $returnJob->order?->code }}</p>
+            <p class="mt-1 text-sm text-slate-600">You earn {{ $currencySymbol }}{{ number_format((float) $returnJob->pickup_fee, 2) }}. Collect nothing from the customer.</p>
+
+            <div @class(['mt-3', 'opacity-50' => $picked])>
+                <p class="text-xs font-semibold uppercase text-slate-500">1. Collect from the customer</p>
+                <p class="font-semibold">{{ $returnJob->customer?->name }}</p>
+                <p class="text-sm text-slate-600">{{ $addr?->address_line }}@if ($addr?->landmark), {{ $addr->landmark }}@endif</p>
+                <div class="mt-1 flex gap-4 text-sm">
+                    @if ($addr && $addr->lat !== null)<a href="https://www.google.com/maps/dir/?api=1&destination={{ $addr->lat }},{{ $addr->lng }}" target="_blank" rel="noopener" class="font-medium text-blue-700">Directions</a>@endif
+                    @if ($returnJob->customer?->phone)<a href="tel:{{ $returnJob->customer->phone }}" class="font-medium text-blue-700">Call the customer</a>@endif
+                </div>
+                <ul class="mt-2 list-disc pl-5 text-sm text-slate-700">
+                    @foreach ($returnJob->items ?? [] as $line)
+                        @php $item = $returnJob->order?->items->firstWhere('id', $line['order_item_id']); @endphp
+                        <li>{{ $line['quantity'] }} × {{ $item?->product_name_snapshot ?? 'Item' }}</li>
+                    @endforeach
+                </ul>
+            </div>
+
+            <div @class(['mt-4 border-t border-slate-100 pt-3', 'opacity-50' => ! $picked])>
+                <p class="text-xs font-semibold uppercase text-slate-500">2. Take it back to the shop</p>
+                <p class="font-semibold">{{ $returnJob->store?->name }}</p>
+                <p class="text-sm text-slate-600">{{ $returnJob->store?->address_line }}</p>
+                <div class="mt-1 flex gap-4 text-sm">
+                    <a href="https://www.google.com/maps/dir/?api=1&destination={{ $returnJob->store?->lat }},{{ $returnJob->store?->lng }}" target="_blank" rel="noopener" class="font-medium text-blue-700">Directions</a>
+                    @if ($returnJob->store?->phone)<a href="tel:{{ $returnJob->store->phone }}" class="font-medium text-blue-700">Call the shop</a>@endif
+                </div>
+            </div>
+
+            <form wire:submit="{{ $picked ? 'dropReturn' : 'collectReturn' }}" class="mt-4">
+                <label for="return-otp" class="block text-sm font-medium">{{ $picked ? 'The shop’s drop code' : 'The customer’s pickup code' }}</label>
+                <div class="mt-1 flex gap-2">
+                    <input id="return-otp" type="text" inputmode="numeric" maxlength="8" wire:model="otp" class="min-h-12 w-40 rounded-xl border border-slate-300 px-3 text-lg tracking-widest">
+                    <button type="submit" class="min-h-12 flex-1 rounded-xl bg-blue-600 font-bold text-white">{{ $picked ? 'Handed to the shop' : 'Collected' }}</button>
+                </div>
+            </form>
+        </section>
+    @elseif ($job)
         @php $cash = $job->payment_method === 'cash'; @endphp
         <section class="rounded-2xl border-2 border-blue-600 bg-white p-4">
             <p class="text-xs font-bold uppercase tracking-widest text-blue-700">Your delivery · {{ $job->code }}</p>
@@ -54,9 +94,17 @@
         <p class="rounded-2xl border border-slate-200 bg-white p-4 text-sm text-slate-700">You are on a parcel right now. Shop offers come once it is delivered. <a href="{{ route('rider.dashboard') }}" wire:navigate class="font-medium text-blue-700">Go to the parcel</a></p>
     @elseif (! $rider->is_online)
         <p class="rounded-2xl border border-slate-200 bg-white p-4 text-sm text-slate-700">You are offline. <a href="{{ route('rider.dashboard') }}" wire:navigate class="font-medium text-blue-700">Go online on Home</a> to get shop deliveries.</p>
-    @elseif ($offers->isEmpty())
+    @elseif ($offers->isEmpty() && $pickups->isEmpty())
         <p class="rounded-2xl border border-dashed border-slate-300 bg-white p-6 text-center text-sm text-slate-600">No shop deliveries right now. New ones ring here.</p>
     @else
+        @foreach ($pickups as $p)
+            <section class="rounded-2xl border-2 border-violet-300 bg-violet-50 p-4" wire:key="return-pickup-{{ $p->id }}">
+                <p class="text-sm font-bold">Return pickup: customer → {{ $p->store?->name }}</p>
+                <p class="text-xs text-slate-600">{{ $p->order?->code }}@if ($p->distance_km !== null) · {{ rtrim(rtrim(number_format((float) $p->distance_km, 1), '0'), '.') }} km to the customer @endif</p>
+                <p class="mt-1 text-sm">You earn {{ $currencySymbol }}{{ number_format((float) $p->pickup_fee, 2) }}. Collect nothing.</p>
+                <button type="button" wire:click="acceptPickup({{ $p->id }})" class="mt-3 min-h-11 w-full rounded-xl bg-emerald-600 font-bold text-white">Accept pickup</button>
+            </section>
+        @endforeach
         @foreach ($offers as $offer)
             @php $o = $offer->dispatchable; @endphp
             <section class="rounded-2xl border-2 border-amber-400 bg-amber-50 p-4" wire:key="shop-offer-{{ $o->id }}">

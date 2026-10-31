@@ -483,7 +483,9 @@ class DispatchService
             ->whereNotNull('assigned_worker_id')
             ->pluck('assigned_worker_id')
             // E-commerce Phase 3: a rider carrying a shop delivery is busy too.
-            ->merge(MarketplaceOrder::where('status', 'ready')->where('order_type', 'delivery')->whereNotNull('assigned_worker_id')->pluck('assigned_worker_id'));
+            ->merge(MarketplaceOrder::where('status', 'ready')->where('order_type', 'delivery')->whereNotNull('assigned_worker_id')->pluck('assigned_worker_id'))
+            // Shop go-live: ...and so is a rider collecting a shop return.
+            ->merge(\App\Models\MarketplaceReturn::whereIn('pickup_status', \App\Models\MarketplaceReturn::PICKUP_WITH_RIDER)->pluck('pickup_worker_id'));
 
         // A cash order is never offered to a rider whose unpaid cash dues have reached the admin's limit
         // (parcel.rider_cash_due_limit; unset = no limit).
@@ -611,7 +613,8 @@ class DispatchService
             ->whereNotNull('assigned_worker_id')
             ->pluck('assigned_worker_id')
             // ...and a rider in the middle of a parcel is not offered a shop delivery.
-            ->merge(\App\Models\ParcelOrder::whereIn('status', \App\Models\ParcelOrder::ACTIVE_RIDER_STATUSES)->whereNotNull('assigned_worker_id')->pluck('assigned_worker_id'));
+            ->merge(\App\Models\ParcelOrder::whereIn('status', \App\Models\ParcelOrder::ACTIVE_RIDER_STATUSES)->whereNotNull('assigned_worker_id')->pluck('assigned_worker_id'))
+            ->merge(\App\Models\MarketplaceReturn::whereIn('pickup_status', \App\Models\MarketplaceReturn::PICKUP_WITH_RIDER)->pluck('pickup_worker_id'));
 
         // E-commerce Phase 0: a cash-on-delivery shop order is never offered to a rider whose unpaid cash (parcel
         // dues + shop cash) has reached the admin's rider limit (parcel.rider_cash_due_limit; unset = no limit).

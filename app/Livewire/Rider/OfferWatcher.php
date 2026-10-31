@@ -22,7 +22,8 @@ class OfferWatcher extends Component
         $rider = $this->rider();
         $service = app(RiderOfferService::class);
         // E-commerce Phase 3: shop delivery offers ring too, on every rider page (one job at a time across both).
-        $this->online = $rider->is_online && ! $service->activeJob($rider) && ! $service->activeShopJob($rider);
+        $this->online = $rider->is_online && ! $service->activeJob($rider) && ! $service->activeShopJob($rider)
+            && ! app(\App\Services\Marketplace\MarketplaceReturnPickupService::class)->activeFor($rider);
         $offers = ($this->online && $this->parcelActiveFor($rider)) ? $service->liveOffers($rider) : collect();
         $shopOffers = $this->online ? $service->liveShopOffers($rider) : collect();
 
