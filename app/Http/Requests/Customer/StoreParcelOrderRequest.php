@@ -30,6 +30,12 @@ class StoreParcelOrderRequest extends CustomerApiRequest
             'restricted_items_confirmed' => ['accepted'],
             'package_contents' => ['nullable', 'string', 'in:'.implode(',', array_keys(\App\Services\Parcel\ParcelSettings::CONTENTS))],
             'delivery_type' => ['nullable', 'string', 'in:now,scheduled'],
+            // Stage 2 (2026-10-31): extra drop points (the customer's own saved addresses) and a return trip.
+            'extra_stops' => ['nullable', 'array', 'max:9'],
+            'extra_stops.*.address_id' => ['required', 'integer'],
+            'extra_stops.*.recipient_name' => ['nullable', 'string', 'max:120'],
+            'extra_stops.*.recipient_phone' => ['required', 'string', 'regex:/^\+?[0-9]{10,15}$/'],
+            'return_trip' => ['nullable', 'boolean'],
             'scheduled_at' => ['nullable', 'required_if:delivery_type,scheduled', 'date'],
         ];
     }

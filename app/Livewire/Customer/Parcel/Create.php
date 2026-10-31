@@ -50,6 +50,13 @@ class Create extends Component
     public string $recipientName = '';
     public string $recipientPhone = '';
 
+    /**
+     * Stage 2 (owner decisions 2026-10-31): drop 2, 3, ... — each {key, addressId, lat, lng, line, detail, name, phone}
+     * (a saved address OR a map pin) — and the return trip back to the sender.
+     */
+    public array $extraDrops = [];
+    public bool $returnTrip = false;
+
     // ── package ──
     public string $packageSize = 'small';
     public string $packageWeightKg = '';
@@ -160,6 +167,56 @@ class Create extends Component
         $this->error = '';
     }
 
+    // ═════════════════ Stage 2: more drop points ═════════════════
+
+    public function addDrop(): void
+    {
+        $pickup = $this->pickupPoint();
+        $max = $pickup && $pickup['zone'] ? ParcelSettings::maxDrops($this->scopeFor($pickup['zone'])) : 1;
+        if (count($this->extraDrops) + 1 >= $max) {
+            return;
+        }
+        $this->extraDrops[] = ['key' => \Illuminate\Support\Str::random(8), 'addressId' => null, 'lat' => null, 'lng' => null, 'line' => '', 'detail' => '', 'name' => '', 'phone' => ''];
+        // Cash on a multi-drop order is paid at pickup (owner decision 2026-10-31).
+        $this->cashCollectAt = 'pickup';
+    }
+
+    public function removeDrop(string $key): void
+    {
+        $this->extraDrops = array_values(array_filter($this->extraDrops, fn ($d) => $d['key'] !== $key));
+    }
+
+    public function setExtraDropPin(string $key, float $lat, float $lng, string $line): void
+    {
+        $this->assertCoordinates($lat, $lng);
+        foreach ($this->extraDrops as $i => $drop) {
+            if ($drop['key'] === $key) {
+                $this->extraDrops[$i] = array_merge($drop, ['addressId' => null, 'lat' => $lat, 'lng' => $lng, 'line' => mb_substr($line, 0, 255)]);
+            }
+        }
+        $this->error = '';
+    }
+
+    /** @return list<array{lat: float, lng: float, address: ?Address, drop: array}> the extra drops that have a place chosen */
+    private function extraDropPoints(): array
+    {
+        $saved = null;
+        $points = [];
+        foreach ($this->extraDrops as $drop) {
+            if (! empty($drop['addressId'])) {
+                $saved ??= $this->savedAddresses();
+                $address = $saved->firstWhere('id', (int) $drop['addressId']);
+                if ($address) {
+                    $points[] = ['lat' => (float) $address->lat, 'lng' => (float) $address->lng, 'address' => $address, 'drop' => $drop];
+                }
+            } elseif ($drop['lat'] !== null && $drop['lng'] !== null) {
+                $points[] = ['lat' => (float) $drop['lat'], 'lng' => (float) $drop['lng'], 'address' => null, 'drop' => $drop];
+            }
+        }
+
+        return $points;
+    }
+
     // ═════════════════ submit ═════════════════
 
     public function submit(CreateParcelOrderAction $action, ParcelPaymentService $payments): void
@@ -168,6 +225,8 @@ class Create extends Component
         $this->error = '';
         $this->validate($this->rules(), [
             'recipientPhone.regex' => 'Enter a 10-digit mobile number.',
+            'extraDrops.*.phone.required' => "Enter this recipient's phone number.",
+            'extraDrops.*.phone.regex' => 'Enter a 10-digit mobile number.',
             'pickupContactPhone.regex' => 'Enter a 10-digit mobile number.',
             'restrictedConfirmed.accepted' => 'Confirm the parcel has none of the restricted items.',
             'scheduledAt.required_if' => 'Choose the pickup date and time.',
@@ -193,8 +252,29 @@ class Create extends Component
             return;
         }
 
+        $extraPoints = $this->extraDropPoints();
+        if (count($extraPoints) !== count($this->extraDrops)) {
+            $this->error = 'Choose a place for every drop point, or remove the empty one.';
+
+            return;
+        }
+
         try {
-            $order = DB::transaction(function () use ($action, $pickup, $drop, $zone) {
+            $order = DB::transaction(function () use ($action, $pickup, $drop, $zone, $extraPoints) {
+                $stops = [];
+                foreach ($extraPoints as $point) {
+                    $stopZone = $point['address']?->zone ?? app(CustomerLocationContext::class)->nearestCoveringZone($point['lat'], $point['lng']);
+                    $stops[] = [
+                        'address_id' => $point['address']?->id ?? Address::create([
+                            'user_id' => auth()->id(), 'franchise_id' => $stopZone?->franchise_id, 'zone_id' => $stopZone?->id,
+                            'label' => 'Parcel drop — '.($point['drop']['name'] ?: $point['drop']['phone']), 'lat' => $point['lat'], 'lng' => $point['lng'],
+                            'address_line' => trim($point['drop']['detail'].', '.$point['drop']['line'], ', '), 'is_parcel_only' => true,
+                        ])->id,
+                        'recipient_name' => $point['drop']['name'] ?: null,
+                        'recipient_phone' => $point['drop']['phone'],
+                    ];
+                }
+
                 $pickupId = $pickup['address']?->id ?? Address::create([
                     'user_id' => auth()->id(), 'franchise_id' => $zone->franchise_id, 'zone_id' => $zone->id,
                     'label' => 'Parcel pickup', 'lat' => $pickup['lat'], 'lng' => $pickup['lng'],
@@ -228,6 +308,8 @@ class Create extends Component
                     'payment_method' => $this->paymentMethod,
                     'cash_collect_at' => $this->paymentMethod === 'cash' ? $this->cashCollectAt : 'pickup',
                     'customer_note' => $this->customerNote ?: null,
+                    'extra_stops' => $stops,
+                    'return_trip' => $this->returnTrip,
                 ]);
             });
         } catch (ModuleNotActiveException) {
@@ -280,6 +362,11 @@ class Create extends Component
             'customerNote' => ['nullable', 'string', 'max:500'],
             'paymentMethod' => ['required', 'string'],
             'cashCollectAt' => ['required', 'in:pickup,drop'],
+            'extraDrops' => ['array', 'max:9'],
+            'extraDrops.*.name' => ['nullable', 'string', 'max:120'],
+            'extraDrops.*.phone' => ['required', 'regex:/^\+?[0-9]{10,15}$/'],
+            'extraDrops.*.detail' => ['nullable', 'string', 'max:150'],
+            'returnTrip' => ['boolean'],
         ];
     }
 
@@ -354,6 +441,8 @@ class Create extends Component
         $methods = [];
         $pickupZoneActive = null;
         $scheduleAvailable = false;
+        $maxDrops = 1;
+        $returnTripAvailable = false;
         // ?when=scheduled (homepage Parcel card) opens on "Schedule"; anything else falls back to "now".
         if (! in_array($this->deliveryType, ['now', 'scheduled'], true)) {
             $this->deliveryType = 'now';
@@ -371,6 +460,19 @@ class Create extends Component
                 $this->paymentMethod = (string) array_key_first($methods);
             }
 
+            // Stage 2: drop points / return trip offered only where their settings are on.
+            $maxDrops = ParcelSettings::maxDrops($scope);
+            $returnTripAvailable = ParcelSettings::returnTripAvailable($scope);
+            if ($maxDrops <= 1) {
+                $this->extraDrops = [];
+            }
+            if (! $returnTripAvailable) {
+                $this->returnTrip = false;
+            }
+            if ($this->extraDrops !== []) {
+                $this->cashCollectAt = 'pickup';
+            }
+
             if ($pickupZoneActive && $drop) {
                 try {
                     $quote = app(ParcelPricing::class)->quote(
@@ -378,6 +480,8 @@ class Create extends Component
                         is_numeric($this->packageWeightKg) ? (float) $this->packageWeightKg : null,
                         $this->packageSize, $scope,
                         $this->deliveryType === 'scheduled',
+                        array_map(fn ($p) => [$p['lat'], $p['lng']], $this->extraDropPoints()),
+                        $this->returnTrip,
                     );
                 } catch (ParcelQuoteException $e) {
                     $quoteError = $e->getMessage();
@@ -397,6 +501,9 @@ class Create extends Component
             'restrictedItems' => ParcelSettings::restrictedItems($pickup && $pickup['zone'] ? $this->scopeFor($pickup['zone']) : []),
             'refusalFee' => ParcelSettings::get('parcel.refusal_fee', $pickup && $pickup['zone'] ? $this->scopeFor($pickup['zone']) : []),
             'scheduleAvailable' => $scheduleAvailable,
+            'maxDrops' => $maxDrops,
+            'returnTripAvailable' => $returnTripAvailable,
+            'returnPercent' => $pickup && $pickup['zone'] ? ParcelSettings::get('parcel.return_trip_percent', $this->scopeFor($pickup['zone'])) : null,
             'scheduleMin' => $pickup && $pickup['zone'] ? now(app(TimezoneResolver::class)->platformTimezone())->addMinutes((int) ParcelSettings::get('parcel.schedule_min_lead_minutes', $this->scopeFor($pickup['zone'])))->format('Y-m-d\TH:i') : null,
             'scheduleMax' => $pickup && $pickup['zone'] ? now(app(TimezoneResolver::class)->platformTimezone())->addDays((int) ParcelSettings::get('parcel.schedule_max_days_ahead', $this->scopeFor($pickup['zone'])))->format('Y-m-d\TH:i') : null,
             'quote' => $quote,

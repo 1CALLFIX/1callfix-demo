@@ -122,19 +122,36 @@
                         </div>
                     @endif
                 </div>
-                <div @class(['rounded-xl p-3', 'bg-emerald-50' => ! $beforePickup, 'bg-slate-50' => $beforePickup])>
-                    <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Drop</p>
-                    <p class="font-medium">{{ $job->dropoffAddress?->address_line }}</p>
-                    <p class="text-slate-600">{{ $job->recipient_name }} · {{ $job->recipient_phone }}</p>
-                    @unless ($beforePickup)
-                        <div class="mt-2 flex flex-wrap gap-2">
-                            <a href="{{ $mapsLink($job->dropoffAddress) }}" target="_blank" rel="noopener" class="inline-flex min-h-9 items-center rounded-lg border border-slate-300 bg-white px-3 font-medium">Directions</a>
-                            @if ($job->recipient_phone)
-                                <a href="tel:{{ $job->recipient_phone }}" class="inline-flex min-h-9 items-center rounded-lg border border-slate-300 bg-white px-3 font-medium">Call recipient</a>
-                            @endif
-                        </div>
-                    @endunless
-                </div>
+                @php
+                    // Stage 2: drop 1 is the order's own recipient; extra drop points follow in order.
+                    $drops = collect([['key' => 'main', 'n' => 1, 'address' => $job->dropoffAddress, 'name' => $job->recipient_name, 'phone' => $job->recipient_phone, 'done' => $job->drop_delivered_at !== null]])
+                        ->concat($job->stops->map(fn ($st) => ['key' => $st->id, 'n' => $st->sequence, 'address' => $st->address, 'name' => $st->recipient_name, 'phone' => $st->recipient_phone, 'done' => $st->delivered_at !== null]));
+                    $multi = $drops->count() > 1;
+                    $returning = $job->isReturning();
+                @endphp
+                @foreach ($drops as $drop)
+                    @php $current = ! $beforePickup && ! $returning && ! $drop['done']; @endphp
+                    <div wire:key="drop-{{ $drop['key'] }}" @class(['rounded-xl p-3', 'bg-emerald-50' => $current, 'bg-slate-50' => ! $current, 'opacity-70' => $drop['done']])>
+                        <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">{{ $multi ? 'Drop '.$drop['n'] : 'Drop' }}{{ $drop['done'] ? ' · done' : '' }}</p>
+                        <p class="font-medium">{{ $drop['address']?->address_line }}</p>
+                        <p class="text-slate-600">{{ $drop['name'] }} · {{ $drop['phone'] }}</p>
+                        @if ($current)
+                            <div class="mt-2 flex flex-wrap gap-2">
+                                <a href="{{ $mapsLink($drop['address']) }}" target="_blank" rel="noopener" class="inline-flex min-h-9 items-center rounded-lg border border-slate-300 bg-white px-3 font-medium">Directions</a>
+                                @if ($drop['phone'])
+                                    <a href="tel:{{ $drop['phone'] }}" class="inline-flex min-h-9 items-center rounded-lg border border-slate-300 bg-white px-3 font-medium">Call recipient</a>
+                                @endif
+                            </div>
+                        @endif
+                    </div>
+                @endforeach
+                @if ($job->return_trip)
+                    <div @class(['rounded-xl p-3', 'bg-amber-50' => $returning, 'bg-slate-50' => ! $returning])>
+                        <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Return to sender</p>
+                        <p class="font-medium">{{ $job->pickupAddress?->address_line }}</p>
+                        <p class="text-slate-600">After the last drop, bring the return back here. The sender gives you a return code.</p>
+                    </div>
+                @endif
                 @if ($job->customer_note)
                     <p class="rounded-xl bg-slate-50 p-3 text-slate-700"><span class="font-medium">Note:</span> {{ $job->customer_note }}</p>
                 @endif
@@ -171,18 +188,48 @@
                         <button type="submit" class="inline-flex min-h-11 shrink-0 items-center rounded-lg bg-blue-600 px-4 text-sm font-semibold text-white hover:bg-blue-700">Picked up</button>
                     </div>
                 </form>
+            @elseif ($returning)
+                <div class="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+                    <p class="font-semibold">Every drop is done. Take the return back to the sender.</p>
+                    <div class="mt-2 flex flex-wrap gap-2">
+                        <a href="{{ $mapsLink($job->pickupAddress) }}" target="_blank" rel="noopener" class="inline-flex min-h-9 items-center rounded-lg border border-amber-300 bg-white px-3 font-medium">Directions</a>
+                        @if ($job->pickup_contact_phone ?: $job->customer?->phone)
+                            <a href="tel:{{ $job->pickup_contact_phone ?: $job->customer?->phone }}" class="inline-flex min-h-9 items-center rounded-lg border border-amber-300 bg-white px-3 font-medium">Call sender</a>
+                        @endif
+                    </div>
+                </div>
+                <form wire:submit="confirmReturn({{ $job->id }})" class="mt-4">
+                    <label for="return-otp" class="block text-sm font-medium">Return code from the sender</label>
+                    <div class="mt-1 flex gap-2">
+                        <input id="return-otp" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="8" wire:model="returnOtp" required
+                               class="block min-h-11 w-full rounded-lg border border-slate-300 px-3 text-lg tracking-widest focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/30">
+                        <button type="submit" class="inline-flex min-h-11 shrink-0 items-center rounded-lg bg-emerald-600 px-4 text-sm font-semibold text-white hover:bg-emerald-700">Returned</button>
+                    </div>
+                </form>
             @else
                 @if ($job->collectsCashAtDelivery() && $job->payment_status !== 'paid')
                     <p class="mt-4 rounded-xl bg-amber-50 p-3 text-sm font-semibold text-amber-900">Collect {{ $fmt($job->price_quoted) }} cash from the recipient before you enter the delivery code.</p>
                 @endif
-                <form wire:submit="confirmDelivery({{ $job->id }})" class="mt-4">
-                    <label for="delivery-otp" class="block text-sm font-medium">Delivery code from the recipient</label>
-                    <div class="mt-1 flex gap-2">
-                        <input id="delivery-otp" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="8" wire:model="deliveryOtp" required
-                               class="block min-h-11 w-full rounded-lg border border-slate-300 px-3 text-lg tracking-widest focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/30">
-                        <button type="submit" class="inline-flex min-h-11 shrink-0 items-center rounded-lg bg-emerald-600 px-4 text-sm font-semibold text-white hover:bg-emerald-700">Delivered</button>
-                    </div>
-                </form>
+                @unless ($job->drop_delivered_at)
+                    <form wire:submit="confirmDelivery({{ $job->id }})" class="mt-4">
+                        <label for="delivery-otp" class="block text-sm font-medium">{{ $multi ? 'Drop 1: code from '.($job->recipient_name ?: 'the recipient') : 'Delivery code from the recipient' }}</label>
+                        <div class="mt-1 flex gap-2">
+                            <input id="delivery-otp" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="8" wire:model="deliveryOtp" required
+                                   class="block min-h-11 w-full rounded-lg border border-slate-300 px-3 text-lg tracking-widest focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/30">
+                            <button type="submit" class="inline-flex min-h-11 shrink-0 items-center rounded-lg bg-emerald-600 px-4 text-sm font-semibold text-white hover:bg-emerald-700">Delivered</button>
+                        </div>
+                    </form>
+                @endunless
+                @foreach ($job->stops->whereNull('delivered_at') as $stop)
+                    <form wire:submit="confirmStop({{ $job->id }}, {{ $stop->id }})" class="mt-4" wire:key="stop-form-{{ $stop->id }}">
+                        <label for="stop-otp-{{ $stop->id }}" class="block text-sm font-medium">Drop {{ $stop->sequence }}: code from {{ $stop->recipient_name ?: 'the recipient' }}</label>
+                        <div class="mt-1 flex gap-2">
+                            <input id="stop-otp-{{ $stop->id }}" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="8" wire:model="stopOtps.{{ $stop->id }}" required
+                                   class="block min-h-11 w-full rounded-lg border border-slate-300 px-3 text-lg tracking-widest focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/30">
+                            <button type="submit" class="inline-flex min-h-11 shrink-0 items-center rounded-lg bg-emerald-600 px-4 text-sm font-semibold text-white hover:bg-emerald-700">Delivered</button>
+                        </div>
+                    </form>
+                @endforeach
                 @if ($job->collectsCashAtDelivery() && $job->payment_status !== 'paid')
                     {{-- Recipient won't pay: the sender pays the rider on the spot (UPI or cash), then deliver as normal. --}}
                     <div class="mt-4 rounded-xl border border-slate-200 p-3 text-sm">
@@ -302,6 +349,11 @@
                     </div>
                     <p class="mt-2 truncate text-sm text-slate-700"><span class="font-medium">From:</span> {{ $offer->pickupAddress?->address_line }}</p>
                     <p class="truncate text-sm text-slate-700"><span class="font-medium">To:</span> {{ $offer->dropoffAddress?->address_line }}</p>
+                    @if ($offer->stops->isNotEmpty() || $offer->return_trip)
+                        <p class="mt-1 text-xs font-semibold text-blue-800">
+                            {{ collect([$offer->stops->isNotEmpty() ? ($offer->stops->count() + 1).' drop points' : null, $offer->return_trip ? 'Return to sender after the drop' : null])->filter()->implode(' · ') }}
+                        </p>
+                    @endif
                     @if ($offer->isScheduled() || $offer->package_contents)
                         <p class="mt-1 text-xs text-slate-600">
                             @if ($offer->isScheduled())<span class="font-semibold text-blue-700">Pickup at {{ $offer->scheduled_at->timezone($tz)->format('g:i A') }}</span>@endif

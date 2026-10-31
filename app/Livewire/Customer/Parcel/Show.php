@@ -34,7 +34,7 @@ class Show extends Component
 
     private function order(): ParcelOrder
     {
-        $order = ParcelOrder::with(['pickupAddress', 'dropoffAddress', 'assignedWorker.user', 'statusHistory', 'franchise'])->findOrFail($this->orderId);
+        $order = ParcelOrder::with(['pickupAddress', 'dropoffAddress', 'assignedWorker.user', 'statusHistory', 'franchise', 'stops.address'])->findOrFail($this->orderId);
         abort_unless($order->customer_id === auth()->id(), 404);
 
         return $order;

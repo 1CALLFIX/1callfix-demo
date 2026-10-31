@@ -181,6 +181,72 @@
                 <x-icon name="users" class="h-4 w-4" /> Choose from contacts
             </button>
             <p class="mt-2 text-xs text-slate-500">The recipient gives the rider a delivery code. You'll see it on your order, and we text it to them when SMS is on.</p>
+
+            {{-- Stage 2 (owner decisions 2026-10-31): more drop points, each with its own recipient and code. --}}
+            @foreach ($extraDrops as $i => $extra)
+                <div wire:key="extra-drop-{{ $extra['key'] }}" class="mt-4 rounded-xl border border-slate-200 p-3">
+                    <div class="flex items-center justify-between gap-3">
+                        <p class="text-sm font-semibold">Drop {{ $i + 2 }}</p>
+                        <button type="button" wire:click="removeDrop('{{ $extra['key'] }}')" class="text-sm font-medium text-rose-700 underline underline-offset-2">Remove</button>
+                    </div>
+                    @if ($savedAddresses->isNotEmpty())
+                        <label for="extra-saved-{{ $extra['key'] }}" class="sr-only">Saved address for drop {{ $i + 2 }}</label>
+                        <select id="extra-saved-{{ $extra['key'] }}" wire:model.live="extraDrops.{{ $i }}.addressId" class="{{ $inputClass }}">
+                            <option value="">Search a place below, or choose one of my addresses</option>
+                            @foreach ($savedAddresses as $address)
+                                <option value="{{ $address->id }}">{{ $address->label }} — {{ \Illuminate\Support\Str::limit($address->address_line, 60) }}</option>
+                            @endforeach
+                        </select>
+                    @endif
+                    @if (empty($extra['addressId']))
+                        <div wire:ignore class="mt-2" @if (! $hasPlaces) hidden @endif
+                             x-data x-init="window.cfPlacesAutocomplete && window.cfPlacesAutocomplete.mount({
+                                input: $el.querySelector('[data-places-input]'),
+                                list: $el.querySelector('[data-places-results]'),
+                                onSelect: (place) => $wire.setExtraDropPin(@js($extra['key']), place.lat, place.lng, place.formattedAddress || place.label || ''),
+                             })">
+                            <label for="extra-search-{{ $extra['key'] }}" class="{{ $labelClass }}">Search for drop {{ $i + 2 }}</label>
+                            <div class="relative">
+                                <input id="extra-search-{{ $extra['key'] }}" type="text" autocomplete="off" data-places-input placeholder="Building, street or area" class="{{ $inputClass }}" role="combobox" aria-expanded="false" aria-autocomplete="list">
+                                <ul data-places-results hidden role="listbox" class="absolute z-20 mt-1 max-h-64 w-full overflow-auto rounded-lg border border-slate-200 bg-white shadow-lg"></ul>
+                            </div>
+                        </div>
+                        @if ($extra['lat'] !== null)
+                            <p class="mt-2 rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-700"><span class="font-medium">Pin:</span> {{ $extra['line'] }}</p>
+                        @endif
+                        <label for="extra-detail-{{ $extra['key'] }}" class="mt-2 {{ $labelClass }}">House / flat / floor</label>
+                        <input id="extra-detail-{{ $extra['key'] }}" type="text" wire:model.blur="extraDrops.{{ $i }}.detail" maxlength="150" class="{{ $inputClass }}">
+                    @endif
+                    <div class="mt-2 grid gap-3 sm:grid-cols-2">
+                        <div>
+                            <label for="extra-name-{{ $extra['key'] }}" class="{{ $labelClass }}">Recipient's name <span class="font-normal text-slate-400">(optional)</span></label>
+                            <input id="extra-name-{{ $extra['key'] }}" type="text" wire:model.blur="extraDrops.{{ $i }}.name" maxlength="120" class="{{ $inputClass }}">
+                        </div>
+                        <div>
+                            <label for="extra-phone-{{ $extra['key'] }}" class="{{ $labelClass }}">Recipient's phone <span class="text-rose-600">*</span></label>
+                            <input id="extra-phone-{{ $extra['key'] }}" type="tel" inputmode="tel" wire:model.blur="extraDrops.{{ $i }}.phone" required class="{{ $inputClass }}">
+                            @error('extraDrops.'.$i.'.phone') <p class="mt-1 text-xs text-rose-700">{{ $message }}</p> @enderror
+                        </div>
+                    </div>
+                </div>
+            @endforeach
+            @if ($maxDrops > 1 && count($extraDrops) + 1 < $maxDrops)
+                <button type="button" wire:click="addDrop"
+                        class="mt-3 inline-flex min-h-10 items-center gap-2 rounded-lg border border-dashed border-blue-400 px-3 text-sm font-semibold text-blue-700 hover:bg-blue-50">
+                    + Add another drop point
+                </button>
+            @endif
+
+            {{-- Stage 2: the rider brings something back (e.g. signed papers). --}}
+            @if ($returnTripAvailable)
+                <label class="mt-4 flex cursor-pointer items-start gap-3 rounded-lg border border-slate-200 p-3 text-sm">
+                    <input type="checkbox" wire:model.live="returnTrip" class="mt-0.5 h-5 w-5 rounded border-slate-300 text-blue-600 focus:ring-blue-500">
+                    <span>
+                        <span class="font-medium text-slate-800">Bring something back to me</span>
+                        <span class="block text-xs text-slate-500">After the drop, the rider brings the return (e.g. signed papers) back to the pickup. You give them a return code.@if ($returnPercent) Adds {{ rtrim(rtrim(number_format((float) $returnPercent, 2), '0'), '.') }}% of the delivery price.@endif</span>
+                    </span>
+                </label>
+            @endif
         </section>
 
         {{-- ═══════════ 3. Package ═══════════ --}}
@@ -319,7 +385,7 @@
                 </fieldset>
 
                 {{-- Pay at: Pickup | Drop (owner decision 2026-10-24), cash only. Drop = the recipient pays the rider. --}}
-                @if ($paymentMethod === 'cash')
+                @if ($paymentMethod === 'cash' && $extraDrops === [])
                     <div class="mt-3 flex items-center justify-between gap-3">
                         <span class="text-sm font-semibold text-slate-800">Pay at</span>
                         <div class="inline-flex rounded-full border border-slate-200 p-1" role="radiogroup" aria-label="Pay at">

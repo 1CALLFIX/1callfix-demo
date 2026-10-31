@@ -21,7 +21,8 @@
         $order->status === 'pending', $order->status === 'searching_worker' => 'Finding a rider near the pickup',
         $order->status === 'assigned' => 'Rider assigned',
         $order->status === 'worker_en_route_pickup' => 'Rider on the way to pickup',
-        in_array($order->status, ['picked_up', 'en_route_dropoff'], true) => 'On the way to the recipient',
+        $order->isReturning() => 'Coming back to you',
+        in_array($order->status, ['picked_up', 'en_route_dropoff'], true) => $order->stops->isNotEmpty() ? 'Out for delivery ('.(($order->drop_delivered_at ? 1 : 0) + $order->stops->whereNotNull('delivered_at')->count()).' of '.($order->stops->count() + 1).' drops done)' : 'On the way to the recipient',
         $order->status === 'delivered' => 'Delivered',
         default => ucfirst(str_replace('_', ' ', $order->status)),
     };
@@ -83,11 +84,28 @@
                     <p class="mt-1 text-xs text-slate-600">Give this to the rider when they collect the parcel.</p>
                 </div>
             @endif
-            <div class="rounded-2xl border border-slate-200 bg-white p-4">
-                <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Delivery code</p>
-                <p class="mt-1 text-3xl font-bold tracking-[0.3em] tabular-nums">{{ $order->delivery_otp }}</p>
-                <p class="mt-1 text-xs text-slate-600">Share it with {{ $order->recipient_name ?: 'the recipient' }}. They give it to the rider on delivery.</p>
-            </div>
+            @unless ($order->drop_delivered_at)
+                <div class="rounded-2xl border border-slate-200 bg-white p-4">
+                    <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">{{ $order->stops->isNotEmpty() ? 'Drop 1 code' : 'Delivery code' }}</p>
+                    <p class="mt-1 text-3xl font-bold tracking-[0.3em] tabular-nums">{{ $order->delivery_otp }}</p>
+                    <p class="mt-1 text-xs text-slate-600">Share it with {{ $order->recipient_name ?: 'the recipient' }}. They give it to the rider on delivery.</p>
+                </div>
+            @endunless
+            {{-- Stage 2: one code per extra drop point, and the sender's own code for the return. --}}
+            @foreach ($order->stops->whereNull('delivered_at') as $stop)
+                <div class="rounded-2xl border border-slate-200 bg-white p-4" wire:key="stop-code-{{ $stop->id }}">
+                    <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Drop {{ $stop->sequence }} code</p>
+                    <p class="mt-1 text-3xl font-bold tracking-[0.3em] tabular-nums">{{ $stop->delivery_otp }}</p>
+                    <p class="mt-1 text-xs text-slate-600">Share it with {{ $stop->recipient_name ?: 'the recipient' }} ({{ $stop->recipient_phone }}).</p>
+                </div>
+            @endforeach
+            @if ($order->return_trip && $order->return_otp)
+                <div class="rounded-2xl border border-amber-200 bg-amber-50 p-4">
+                    <p class="text-xs font-semibold uppercase tracking-wide text-amber-800">Your return code</p>
+                    <p class="mt-1 text-3xl font-bold tracking-[0.3em] tabular-nums">{{ $order->return_otp }}</p>
+                    <p class="mt-1 text-xs text-amber-900">Give it to the rider only when they bring the return back to you.</p>
+                </div>
+            @endif
         </div>
     @endif
 
@@ -122,6 +140,25 @@
                 @if ($order->recipient_name)<p class="text-slate-500">{{ $order->recipient_name }} · {{ $order->recipient_phone }}</p>@endif
             </div>
         </div>
+        @foreach ($order->stops as $stop)
+            <div class="mt-3 flex gap-3">
+                <span class="mt-1 h-2.5 w-2.5 shrink-0 rounded-full bg-emerald-600" aria-hidden="true"></span>
+                <div>
+                    <p class="font-semibold">Drop {{ $stop->sequence }}@if ($stop->delivered_at) <span class="font-normal text-emerald-700">· delivered</span>@endif</p>
+                    <p class="text-slate-600">{{ $stop->address?->address_line }}</p>
+                    <p class="text-slate-500">{{ $stop->recipient_name ? $stop->recipient_name.' · ' : '' }}{{ $stop->recipient_phone }}</p>
+                </div>
+            </div>
+        @endforeach
+        @if ($order->return_trip)
+            <div class="mt-3 flex gap-3">
+                <span class="mt-1 h-2.5 w-2.5 shrink-0 rounded-full bg-amber-500" aria-hidden="true"></span>
+                <div>
+                    <p class="font-semibold">Back to you {!! $order->returned_at ? '<span class="font-normal text-emerald-700">· returned</span>' : '' !!}</p>
+                    <p class="text-slate-600">The rider brings the return back to the pickup point.</p>
+                </div>
+            </div>
+        @endif
         <p class="mt-3 border-t border-slate-100 pt-3 text-slate-600">
             {{ \App\Services\Parcel\ParcelSettings::SIZES[$order->package_size] ?? ucfirst($order->package_size) }} package
             @if ($order->package_weight_kg) · {{ rtrim(rtrim(number_format((float) $order->package_weight_kg, 2), '0'), '.') }} kg @endif

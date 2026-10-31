@@ -5,6 +5,7 @@ namespace App\Http\Controllers\API;
 use App\Actions\AcceptParcelOfferAction;
 use App\Actions\MarkParcelDeliveredAction;
 use App\Actions\MarkParcelPickedUpAction;
+use App\Actions\MarkParcelReturnedAction;
 use App\Actions\RecordParcelSafetyPhotoAction;
 use App\Actions\RefuseParcelAtPickupAction;
 use App\Http\Controllers\Controller;
@@ -31,7 +32,7 @@ class ParcelWorkerJobController extends Controller
         }
 
         $orders = ParcelOrder::where('assigned_worker_id', $worker->id)
-            ->with(['pickupAddress', 'dropoffAddress'])
+            ->with(['pickupAddress', 'dropoffAddress', 'stops.address'])
             ->latest()
             ->get();
 
@@ -92,7 +93,39 @@ class ParcelWorkerJobController extends Controller
             return response()->json(['message' => 'This parcel order is not assigned to you.'], 403);
         }
 
-        $validated = $request->validate(['otp' => 'required|string|size:4']);
+        // Stage 2: stop_id = an extra drop point of a multi-drop order; omitted = drop 1.
+        $validated = $request->validate(['otp' => 'required|string|size:4', 'stop_id' => 'nullable|integer']);
+
+        try {
+            $order = $action->execute($parcelOrderId, $worker, $validated['otp'], isset($validated['stop_id']) ? (int) $validated['stop_id'] : null);
+        } catch (\RuntimeException $e) {
+            return response()->json(['message' => $e->getMessage()], 409);
+        }
+
+        return response()->json([
+            'message' => match (true) {
+                $order->status === 'delivered' => 'Parcel delivered.',
+                $order->isReturning() => 'Every drop done. Take the return back to the sender.',
+                default => 'Drop done.',
+            },
+            'parcel_order' => ['id' => $order->id, 'status' => $order->status, 'price_final' => $order->price_final, 'returning' => $order->isReturning()],
+        ]);
+    }
+
+    /** POST /api/worker/parcel-orders/{parcelOrder}/return — Stage 2: the return is back with the sender (their code). */
+    public function returned(Request $request, int $parcelOrderId, MarkParcelReturnedAction $action)
+    {
+        $worker = $request->user()->fieldWorkerProfile;
+        if (! $worker) {
+            return response()->json(['message' => 'Only field worker accounts can complete parcel returns.'], 403);
+        }
+
+        $order = ParcelOrder::find($parcelOrderId);
+        if (! $order || $order->assigned_worker_id !== $worker->id) {
+            return response()->json(['message' => 'This parcel order is not assigned to you.'], 403);
+        }
+
+        $validated = $request->validate(['otp' => 'required|string|max:8']);
 
         try {
             $order = $action->execute($parcelOrderId, $worker, $validated['otp']);
@@ -100,10 +133,7 @@ class ParcelWorkerJobController extends Controller
             return response()->json(['message' => $e->getMessage()], 409);
         }
 
-        return response()->json([
-            'message' => 'Parcel delivered.',
-            'parcel_order' => ['id' => $order->id, 'status' => $order->status, 'price_final' => $order->price_final],
-        ]);
+        return response()->json(['message' => 'Returned to the sender.', 'parcel_order' => ['id' => $order->id, 'status' => $order->status, 'price_final' => $order->price_final]]);
     }
 
     /**

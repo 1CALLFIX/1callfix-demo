@@ -104,6 +104,19 @@ class ParcelSettings
             'group' => 'Waiting charge', 'label' => 'Rider must be this close to tap "I\'ve arrived"', 'type' => 'decimal', 'unit' => 'km', 'required' => false, 'min' => 0.05, 'max' => 5,
             'default' => 0.3, 'help' => 'Checked against the rider\'s live location, so waiting time cannot start early. Blank = 0.3.',
         ],
+        // ── multi-drop + return trip (Stage 2, owner decisions 2026-10-31) ──
+        'parcel.multi_drop_max_stops' => [
+            'group' => 'Multi-drop and return trip', 'label' => 'Most drop points on one order', 'type' => 'int', 'unit' => 'drops', 'required' => false, 'min' => 2, 'max' => 10,
+            'default' => null, 'help' => 'One pickup, several drop points; each drop has its own recipient and delivery code. Counts every drop, including the first. Needs the extra-drop fee below too. Blank = one drop only.',
+        ],
+        'parcel.extra_stop_fee' => [
+            'group' => 'Multi-drop and return trip', 'label' => 'Fee for each extra drop point', 'type' => 'decimal', 'unit' => '₹', 'required' => false, 'min' => 0,
+            'default' => null, 'help' => 'Added for every drop after the first, on top of the route distance (pickup → drop 1 → drop 2 …). Blank = one drop only.',
+        ],
+        'parcel.return_trip_percent' => [
+            'group' => 'Multi-drop and return trip', 'label' => 'Return to sender, as % of the delivery price', 'type' => 'decimal', 'unit' => '%', 'required' => false, 'min' => 1, 'max' => 200,
+            'default' => null, 'help' => 'The rider delivers, then brings something back to the sender (e.g. signed papers). The sender gives the rider a return code when it comes back. Blank = no return trip.',
+        ],
         // ── dispatch ──
         'parcel.dispatch.offer_batch_size' => [
             'group' => 'Rider dispatch', 'label' => 'Riders offered per round', 'type' => 'int', 'unit' => 'riders', 'required' => false, 'min' => 1, 'max' => 20,
@@ -222,6 +235,20 @@ class ParcelSettings
     public static function scheduleAvailable(array $scope = []): bool
     {
         return self::missingRequired($scope) === [] && self::get('parcel.schedule_base_fare', $scope) !== null;
+    }
+
+    /** Stage 2: most drop points one order may have here (1 = multi-drop off: needs both its settings). */
+    public static function maxDrops(array $scope = []): int
+    {
+        $max = self::get('parcel.multi_drop_max_stops', $scope);
+
+        return ($max !== null && self::get('parcel.extra_stop_fee', $scope) !== null) ? max(1, (int) $max) : 1;
+    }
+
+    /** Stage 2: a return trip can be booked only where its percentage is set. */
+    public static function returnTripAvailable(array $scope = []): bool
+    {
+        return self::get('parcel.return_trip_percent', $scope) !== null;
     }
 
     /** The waiting charge applies only when both the free time and the rate are set. */

@@ -57,6 +57,7 @@ class ParcelOrderStatusNotification extends Notification
             'sender_paid' => ['subject' => 'You paid the rider', 'body' => "The recipient did not pay for parcel {$this->order->code}, so you paid the rider the delivery charge on the spot. The parcel is being delivered."],
             'arrived' => ['subject' => 'Rider has arrived', 'body' => "Your rider has reached the pickup point for parcel {$this->order->code}. Please hand the parcel over.".$this->waitingNote()],
             'picked_up' => ['subject' => 'Parcel picked up', 'body' => "Your parcel {$this->order->code} has been picked up and is on its way."],
+            'returning' => ['subject' => 'Coming back to you', 'body' => "Every drop of parcel {$this->order->code} is done. The rider is bringing the return back to you. Give them your return code {$this->order->return_otp} when you receive it."],
             'delivered' => ['subject' => 'Parcel delivered', 'body' => "Your parcel {$this->order->code} has been delivered. Thank you for using 1CallFix."],
             'cancelled' => ['subject' => 'Parcel order cancelled', 'body' => "Your parcel order {$this->order->code} has been cancelled."],
             // Pickup safety (2026-10-29): the rider refused the parcel at the pickup point.

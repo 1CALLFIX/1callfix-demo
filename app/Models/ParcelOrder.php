@@ -70,6 +70,12 @@ class ParcelOrder extends Model implements Orderable
         'waiting_charge',
         'cash_collected_at',
         'delivered_at',
+        // Stage 2 (2026-10-31): return trip + multi-drop progress
+        'return_trip',
+        'return_otp',
+        'drop_delivered_at',
+        'drops_completed_at',
+        'returned_at',
     ];
 
     protected $casts = [
@@ -86,6 +92,10 @@ class ParcelOrder extends Model implements Orderable
         'safety_flagged_at' => 'datetime',
         'delivered_at' => 'datetime',
         'price_breakdown' => 'array',
+        'return_trip' => 'boolean',
+        'drop_delivered_at' => 'datetime',
+        'drops_completed_at' => 'datetime',
+        'returned_at' => 'datetime',
     ];
 
     /** Rider has committed and the parcel is not yet handed over or closed. */
@@ -106,6 +116,34 @@ class ParcelOrder extends Model implements Orderable
     public function payments() { return $this->hasMany(Payment::class); }
     public function cashDue() { return $this->hasOne(FieldWorkerCashDue::class); }
     public function safetyPhotos() { return $this->hasMany(ParcelSafetyPhoto::class)->orderBy('taken_at'); }
+    /** Stage 2: drop 2, 3, ... (drop 1 is this order's own dropoff). */
+    public function stops() { return $this->hasMany(ParcelOrderStop::class)->orderBy('sequence'); }
+
+    /** Stage 2: more than one drop point. */
+    public function isMultiDrop(): bool
+    {
+        return $this->stops->isNotEmpty();
+    }
+
+    /** Stage 2: every drop is done and the rider is bringing something back to the sender. */
+    public function isReturning(): bool
+    {
+        return $this->return_trip && $this->drops_completed_at !== null && $this->returned_at === null
+            && $this->status === 'en_route_dropoff';
+    }
+
+    /** Stage 2: drop points not yet handed over: 'main' for drop 1, else the stop id. @return list<int|string> */
+    public function pendingDropKeys(): array
+    {
+        $keys = $this->drop_delivered_at ? [] : ['main'];
+        foreach ($this->stops as $stop) {
+            if (! $stop->delivered_at) {
+                $keys[] = $stop->id;
+            }
+        }
+
+        return $keys;
+    }
 
     /** An online order waits here, undispatched, until its Razorpay payment is captured. */
     public function isAwaitingOnlinePayment(): bool

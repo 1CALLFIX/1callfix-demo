@@ -34,6 +34,18 @@
                 @if ($order->recipient_name || $order->recipient_phone)
                     <p class="text-sm text-gray-500 mt-1">Recipient: {{ $order->recipient_name }} {{ $order->recipient_phone }}</p>
                 @endif
+                @if ($order->drop_delivered_at && ($order->stops->isNotEmpty() || $order->return_trip))<p class="text-xs text-green-700 mt-1">Drop 1 delivered</p>@endif
+                {{-- Stage 2: extra drop points and the return trip. --}}
+                @foreach ($order->stops as $stop)
+                    <div class="mt-3 border-t pt-2">
+                        <p class="text-sm font-medium">Drop {{ $stop->sequence }}@if ($stop->delivered_at) <span class="text-xs text-green-700">· delivered</span>@endif</p>
+                        <p class="text-sm text-gray-600">{{ $stop->address?->address_line ?? '—' }}</p>
+                        <p class="text-sm text-gray-500">Recipient: {{ $stop->recipient_name }} {{ $stop->recipient_phone }}</p>
+                    </div>
+                @endforeach
+                @if ($order->return_trip)
+                    <p class="mt-3 border-t pt-2 text-sm"><span class="font-medium">Return to sender</span> — {{ $order->returned_at ? 'returned' : ($order->drops_completed_at ? 'on the way back' : 'after the last drop') }}</p>
+                @endif
             </x-ui.card>
         </div>
 

@@ -241,7 +241,7 @@ class Manage extends Component
             return null;
         }
 
-        return $this->scopedOrdersQuery()->with(['statusHistory', 'safetyPhotos.fieldWorker.user'])->find($this->selectedOrderId);
+        return $this->scopedOrdersQuery()->with(['statusHistory', 'safetyPhotos.fieldWorker.user', 'stops.address'])->find($this->selectedOrderId);
     }
 
     public function render()

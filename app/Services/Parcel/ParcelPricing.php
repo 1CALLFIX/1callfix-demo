@@ -19,11 +19,15 @@ class ParcelPricing
     }
 
     /**
+     * Stage 2 (2026-10-31): $extraDrops = drop 2, 3, ... as [[lat, lng], ...] in delivery order; distance is the
+     * route pickup → drop 1 → drop 2 …, each extra drop adds parcel.extra_stop_fee, and $returnTrip adds
+     * parcel.return_trip_percent of the delivery price. Each unavailable option refuses the quote.
+     *
      * @return array{total: float, distance_km: float, lines: array<int, array{label: string, amount: float}>}
      *
      * @throws ParcelQuoteException when pricing is not configured or the parcel is outside the limits
      */
-    public function quote(float $pickupLat, float $pickupLng, float $dropLat, float $dropLng, ?float $weightKg, string $size, array $scope, bool $scheduled = false): array
+    public function quote(float $pickupLat, float $pickupLng, float $dropLat, float $dropLng, ?float $weightKg, string $size, array $scope, bool $scheduled = false, array $extraDrops = [], bool $returnTrip = false): array
     {
         if (ParcelSettings::missingRequired($scope) !== []) {
             throw new ParcelQuoteException('Parcel delivery is not available here yet.');
@@ -36,13 +40,33 @@ class ParcelPricing
             throw new ParcelQuoteException('Choose a package size.');
         }
 
-        $straight = $this->dispatch->haversineKm($pickupLat, $pickupLng, $dropLat, $dropLng);
-        $distance = round($straight * (float) ParcelSettings::get('parcel.road_distance_factor', $scope), 2);
-
-        $maxDistance = (float) ParcelSettings::get('parcel.max_distance_km', $scope);
-        if ($distance > $maxDistance) {
-            throw new ParcelQuoteException("That drop point is {$distance} km away. We deliver parcels up to {$maxDistance} km.");
+        $extraDrops = array_values($extraDrops);
+        if ($extraDrops !== [] && count($extraDrops) + 1 > ParcelSettings::maxDrops($scope)) {
+            $max = ParcelSettings::maxDrops($scope);
+            throw new ParcelQuoteException($max > 1 ? "You can add up to {$max} drop points." : 'Only one drop point is available here.');
         }
+        if ($returnTrip && ! ParcelSettings::returnTripAvailable($scope)) {
+            throw new ParcelQuoteException('Return to sender is not available here.');
+        }
+
+        $factor = (float) ParcelSettings::get('parcel.road_distance_factor', $scope);
+        $maxDistance = (float) ParcelSettings::get('parcel.max_distance_km', $scope);
+        // The longest delivery accepted is how far any drop point may be from the pickup (the service radius).
+        foreach (array_merge([[$dropLat, $dropLng]], $extraDrops) as $i => [$lat, $lng]) {
+            $away = round($this->dispatch->haversineKm($pickupLat, $pickupLng, (float) $lat, (float) $lng) * $factor, 2);
+            if ($away > $maxDistance) {
+                $which = $extraDrops === [] ? 'That drop point' : 'Drop '.($i + 1);
+                throw new ParcelQuoteException("{$which} is {$away} km away. We deliver parcels up to {$maxDistance} km.");
+            }
+        }
+
+        // Route distance: pickup → drop 1 → drop 2 → …
+        $straight = 0.0;
+        $points = array_merge([[$pickupLat, $pickupLng], [$dropLat, $dropLng]], $extraDrops);
+        for ($i = 1; $i < count($points); $i++) {
+            $straight += $this->dispatch->haversineKm((float) $points[$i - 1][0], (float) $points[$i - 1][1], (float) $points[$i][0], (float) $points[$i][1]);
+        }
+        $distance = round($straight * $factor, 2);
 
         $weight = max(0.0, (float) ($weightKg ?? 0));
         $maxWeight = (float) ParcelSettings::get('parcel.max_weight_kg', $scope);
@@ -61,8 +85,17 @@ class ParcelPricing
             ['label' => "Weight ({$this->num(round($extraKg, 2))} kg over free limit)", 'amount' => round($extraKg * (float) ParcelSettings::get('parcel.per_kg_rate', $scope), 2)],
             ['label' => ParcelSettings::SIZES[$size].' package', 'amount' => (float) ParcelSettings::get("parcel.size_surcharge_{$size}", $scope)],
         ];
+        if ($extraDrops !== []) {
+            $count = count($extraDrops);
+            $lines[] = ['label' => $count === 1 ? '1 extra drop point' : "{$count} extra drop points", 'amount' => round($count * (float) ParcelSettings::get('parcel.extra_stop_fee', $scope), 2)];
+        }
         // The base fare always shows; a zero distance/weight/size line is noise.
         $lines = array_values(array_filter($lines, fn ($line, $i) => $i === 0 || $line['amount'] > 0, ARRAY_FILTER_USE_BOTH));
+
+        if ($returnTrip) {
+            $percent = (float) ParcelSettings::get('parcel.return_trip_percent', $scope);
+            $lines[] = ['label' => 'Return to sender ('.$this->num($percent).'%)', 'amount' => round(array_sum(array_column($lines, 'amount')) * $percent / 100, 2)];
+        }
 
         return [
             'total' => round(array_sum(array_column($lines, 'amount')), 2),

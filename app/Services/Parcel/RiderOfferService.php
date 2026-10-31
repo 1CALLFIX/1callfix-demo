@@ -25,7 +25,7 @@ class RiderOfferService
             ->where('notifiable_id', $rider->id)
             ->where('status', 'notified')
             ->where('notified_at', '>', now()->subSeconds($timeout))
-            ->with('dispatchable.pickupAddress', 'dispatchable.dropoffAddress')
+            ->with('dispatchable.pickupAddress', 'dispatchable.dropoffAddress', 'dispatchable.stops')
             ->latest('notified_at')
             ->get()
             ->filter(fn (DispatchAttempt $a) => $a->dispatchable && in_array($a->dispatchable->status, ['pending', 'searching_worker'], true) && $a->dispatchable->assigned_worker_id === null)
@@ -55,7 +55,7 @@ class RiderOfferService
     {
         return ParcelOrder::where('assigned_worker_id', $rider->id)
             ->whereIn('status', ParcelOrder::ACTIVE_RIDER_STATUSES)
-            ->with(['pickupAddress', 'dropoffAddress', 'customer'])
+            ->with(['pickupAddress', 'dropoffAddress', 'customer', 'stops.address'])
             ->latest('id')
             ->first();
     }

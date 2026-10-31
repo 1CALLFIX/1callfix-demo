@@ -51,6 +51,21 @@ class ParcelOrderResource extends JsonResource
             // the pickup OTP to the rider and passes the delivery OTP to the recipient.
             'pickup_otp' => in_array($this->status, ['assigned', 'worker_en_route_pickup'], true) ? $this->pickup_otp : null,
             'delivery_otp' => in_array($this->status, \App\Models\ParcelOrder::ACTIVE_RIDER_STATUSES, true) ? $this->delivery_otp : null,
+            // Stage 2 (2026-10-31): multi-drop and return trip. Each stop's code is shown while that stop is open;
+            // the return code is the sender's own, given to the rider when the return comes back.
+            'return_trip' => (bool) $this->return_trip,
+            'returning' => $this->resource->isReturning(),
+            'return_otp' => $this->return_trip && in_array($this->status, \App\Models\ParcelOrder::ACTIVE_RIDER_STATUSES, true) ? $this->return_otp : null,
+            'stops' => $this->whenLoaded('stops', fn () => $this->stops->map(fn ($stop) => [
+                'id' => $stop->id,
+                'sequence' => $stop->sequence,
+                'address_id' => $stop->address_id,
+                'address_line' => $stop->address?->address_line,
+                'recipient_name' => $stop->recipient_name,
+                'recipient_phone' => $stop->recipient_phone,
+                'delivery_otp' => ! $stop->delivered_at && in_array($this->status, \App\Models\ParcelOrder::ACTIVE_RIDER_STATUSES, true) ? $stop->delivery_otp : null,
+                'delivered_at' => $stop->delivered_at,
+            ])->values()),
             'cancellation_note' => $this->cancellation_note,
             'cancellation_fee' => $this->cancellation_fee !== null ? (float) $this->cancellation_fee : null,
             // Pickup safety (2026-10-29): the rider refused the parcel at pickup. The rider's own note stays admin-only.

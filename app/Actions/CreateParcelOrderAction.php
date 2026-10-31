@@ -99,6 +99,14 @@ class CreateParcelOrderAction
             throw new \RuntimeException('Choose what is inside the parcel from the list.');
         }
 
+        // Stage 2 (owner decisions 2026-10-31): extra drop points and a return trip. Each extra stop is one of the
+        // customer's own addresses with its own recipient; cash on a multi-drop order is paid at pickup only.
+        $data['extra_stops'] = self::normaliseStops($data['extra_stops'] ?? [], (int) $data['customer_id']);
+        $data['return_trip'] = ! empty($data['return_trip']);
+        if ($data['extra_stops'] !== [] && $cashCollectAt === 'drop') {
+            throw new \RuntimeException('With more than one drop point, cash is paid at pickup.');
+        }
+
         $deliveryType = ($data['delivery_type'] ?? 'now') === 'scheduled' ? 'scheduled' : 'now';
         $scheduledAt = $deliveryType === 'scheduled' ? self::scheduledPickupTime($data['scheduled_at'] ?? null, $scope) : null;
         $data['delivery_type'] = $deliveryType;
@@ -134,7 +142,17 @@ class CreateParcelOrderAction
                 'payment_method' => $paymentMethod,
                 'cash_collect_at' => $cashCollectAt,
                 'customer_note' => $data['customer_note'] ?? null,
+                'return_trip' => $data['return_trip'],
             ]);
+
+            foreach ($data['extra_stops'] as $i => $stop) {
+                $order->stops()->create([
+                    'sequence' => $i + 2,
+                    'address_id' => $stop['address_id'],
+                    'recipient_name' => $stop['recipient_name'],
+                    'recipient_phone' => $stop['recipient_phone'],
+                ]);
+            }
 
             if ($paymentMethod === 'wallet') {
                 $this->payWithWallet($order);
@@ -243,6 +261,11 @@ class CreateParcelOrderAction
 
         $pickup = Address::findOrFail($data['pickup_address_id']);
         $dropoff = Address::findOrFail($data['dropoff_address_id']);
+        $extra = [];
+        foreach ($data['extra_stops'] ?? [] as $stop) {
+            $address = Address::findOrFail($stop['address_id']);
+            $extra[] = [(float) $address->lat, (float) $address->lng];
+        }
 
         return $this->pricing->quote(
             (float) $pickup->lat, (float) $pickup->lng, (float) $dropoff->lat, (float) $dropoff->lng,
@@ -250,7 +273,37 @@ class CreateParcelOrderAction
             $data['package_size'] ?? 'small',
             $scope,
             ($data['delivery_type'] ?? 'now') === 'scheduled',
+            $extra,
+            ! empty($data['return_trip']),
         );
+    }
+
+    /**
+     * Stage 2: the extra drop points as given by any channel, checked: each is one of this customer's own
+     * addresses and names a recipient phone. Limits (how many, how far) are ParcelPricing's job.
+     *
+     * @return list<array{address_id: int, recipient_name: ?string, recipient_phone: string}>
+     */
+    public static function normaliseStops(mixed $stops, int $customerId): array
+    {
+        if (! is_array($stops)) {
+            return [];
+        }
+        $out = [];
+        foreach (array_values($stops) as $i => $stop) {
+            $addressId = (int) ($stop['address_id'] ?? 0);
+            if (! $addressId || ! Address::whereKey($addressId)->where('user_id', $customerId)->exists()) {
+                throw new \RuntimeException('Drop '.($i + 2).': choose where we deliver it.');
+            }
+            $phone = preg_replace('/[^0-9+]/', '', (string) ($stop['recipient_phone'] ?? ''));
+            if (! preg_match('/^\+?[0-9]{10,15}$/', $phone)) {
+                throw new \RuntimeException('Drop '.($i + 2).": enter the recipient's 10-digit mobile number.");
+            }
+            $name = trim((string) ($stop['recipient_name'] ?? ''));
+            $out[] = ['address_id' => $addressId, 'recipient_name' => $name !== '' ? mb_substr($name, 0, 120) : null, 'recipient_phone' => $phone];
+        }
+
+        return $out;
     }
 
     private function payWithWallet(ParcelOrder $order): void

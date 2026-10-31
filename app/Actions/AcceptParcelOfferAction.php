@@ -51,7 +51,12 @@ class AcceptParcelOfferAction
             $order->status = 'assigned';
             $order->pickup_otp = (string) random_int($otpMin, $otpMax);
             $order->delivery_otp = (string) random_int($otpMin, $otpMax);
+            // Stage 2: the sender's code for the hand-back, and one delivery code per extra drop point.
+            $order->return_otp = $order->return_trip ? (string) random_int($otpMin, $otpMax) : null;
             $order->save();
+            foreach ($order->stops as $stop) {
+                $stop->update(['delivery_otp' => (string) random_int($otpMin, $otpMax)]);
+            }
 
             $attempt->status = 'accepted';
             $attempt->responded_at = now();
@@ -89,6 +94,9 @@ class AcceptParcelOfferAction
         // this location's channels) so they can hand it to the rider. The sender also sees it on their order.
         try {
             ParcelRecipientNotification::sendFor($order);
+            foreach ($order->stops as $stop) {
+                ParcelRecipientNotification::sendFor($order, $stop);
+            }
         } catch (\Throwable $e) {
             Log::error("Failed to send parcel recipient SMS for parcel order [{$order->id}]: ".$e->getMessage());
         }

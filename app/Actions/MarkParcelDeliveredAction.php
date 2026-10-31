@@ -5,6 +5,7 @@ namespace App\Actions;
 use App\Events\ParcelOrderStatusUpdated;
 use App\Models\FieldWorker;
 use App\Models\ParcelOrder;
+use App\Models\ParcelOrderStop;
 use App\Models\Payment;
 use App\Notifications\ParcelOrderStatusNotification;
 use App\Notifications\Support\ChannelResolver;
@@ -19,9 +20,12 @@ use Illuminate\Support\Facades\DB;
  * give (don't hold the row lock through wallet-crediting or an external
  * call). Loyalty/referral are deliberately NOT wired here — Parcel has no
  * evidence-backed loyalty-points-per-parcel or referral-qualifying-event
- * decision (KNOWN_RISKS_AND_DECISIONS.md items 1/2 are Service/Customer-
- * referral-specific; extending them to Parcel would be inventing a new
- * business rule, not implementing an existing one).
+ * decision.
+ *
+ * Stage 2 (owner decisions 2026-10-31): one call hands over ONE drop point with that drop's code — drop 1 (the
+ * order's own recipient, $stopId null) or an extra stop of a multi-drop order, in any order. Once every drop is
+ * done the order is finished, unless it is a return trip: then the rider brings something back to the sender and
+ * MarkParcelReturnedAction finishes it with the sender's return code. Status stays en_route_dropoff meanwhile.
  */
 class MarkParcelDeliveredAction
 {
@@ -29,67 +33,159 @@ class MarkParcelDeliveredAction
     {
     }
 
-    public function execute(int $parcelOrderId, FieldWorker $worker, string $enteredOtp): ParcelOrder
+    public function execute(int $parcelOrderId, FieldWorker $worker, string $enteredOtp, ?int $stopId = null): ParcelOrder
     {
-        $order = DB::transaction(function () use ($parcelOrderId, $worker, $enteredOtp) {
+        $finished = false;
+        $order = DB::transaction(function () use ($parcelOrderId, $worker, $enteredOtp, $stopId, &$finished) {
             $order = ParcelOrder::lockForUpdate()->findOrFail($parcelOrderId);
 
             if ($order->assigned_worker_id !== $worker->id) {
                 throw new \RuntimeException('This parcel order is not assigned to you.');
             }
 
-            if (!in_array($order->status, ['picked_up', 'en_route_dropoff'], true)) {
+            if (! in_array($order->status, ['picked_up', 'en_route_dropoff'], true)) {
                 throw new \RuntimeException("Parcel order [{$parcelOrderId}] cannot be marked delivered from status '{$order->status}'.");
             }
 
-            if (empty($order->delivery_otp) || $order->delivery_otp !== $enteredOtp) {
-                throw new \RuntimeException('Incorrect delivery OTP.');
+            if ($order->drops_completed_at) {
+                throw new \RuntimeException('Every drop is done. Take the return back to the sender.');
             }
 
-            // Recipient pays cash: collected at the door (the rider's screen says so before the code is entered),
-            // recorded exactly like a sender's cash at pickup.
-            if ($order->collectsCashAtDelivery() && $order->payment_status !== 'paid') {
-                Payment::create([
-                    'parcel_order_id' => $order->id,
-                    'purpose' => 'parcel_order',
-                    'amount' => $order->price_quoted,
-                    'gateway' => 'cash',
-                    'status' => 'captured',
-                    'captured_at' => now(),
+            if ($stopId === null) {
+                $this->deliverFirstDrop($order, $worker, $enteredOtp);
+            } else {
+                $this->deliverStop($order, $worker, $enteredOtp, $stopId);
+            }
+
+            $order->load('stops');
+            if ($order->pendingDropKeys() !== []) {
+                // More drops to go: the parcel is out for delivery.
+                if ($order->status !== 'en_route_dropoff') {
+                    $order->status = 'en_route_dropoff';
+                    $order->save();
+                }
+                event(new ParcelOrderStatusUpdated($order));
+
+                return $order->fresh();
+            }
+
+            if ($order->return_trip) {
+                $order->drops_completed_at = now();
+                $order->status = 'en_route_dropoff';
+                $order->save();
+                $order->statusHistory()->create([
+                    'status' => 'returning', 'changed_by' => $worker->user_id,
+                    'note' => 'Every drop done; bringing the return back to the sender', 'changed_at' => now(),
                 ]);
-                $order->payment_status = 'paid';
-                $order->cash_collected_at = now();
+                event(new ParcelOrderStatusUpdated($order));
+
+                return $order->fresh();
             }
 
-            $order->status = 'delivered';
-            $order->price_final = $order->price_quoted;
-            $order->delivered_at = now();
-            $order->save();
-
-            $order->statusHistory()->create([
-                'status' => 'delivered',
-                'changed_by' => $worker->user_id,
-                'note' => 'Delivered with verified OTP',
-                'changed_at' => now(),
-            ]);
-
-            $worker->increment('jobs_completed');
-
-            event(new ParcelOrderStatusUpdated($order));
+            self::finish($order, $worker, 'Delivered with verified OTP');
+            $finished = true;
 
             return $order->fresh();
         });
 
-        // Commission split runs after the delivery transaction commits --
-        // same placement as CompleteBookingAction's own applyForBooking()
-        // call, deliberately outside the row lock.
-        $this->commissionService->applyForParcelOrder($order);
+        if ($finished) {
+            self::afterFinish($order, $this->commissionService);
+        } elseif ($order->drops_completed_at && $order->customer) {
+            $channels = ChannelResolver::resolve(['zone_id' => $order->zone_id, 'franchise_id' => $order->franchise_id]);
+            $order->customer->notify(new ParcelOrderStatusNotification('returning', $order, $channels));
+        }
+
+        return $order;
+    }
+
+    private function deliverFirstDrop(ParcelOrder $order, FieldWorker $worker, string $enteredOtp): void
+    {
+        if ($order->drop_delivered_at) {
+            throw new \RuntimeException('This drop is already done.');
+        }
+        if (empty($order->delivery_otp) || ! hash_equals((string) $order->delivery_otp, $enteredOtp)) {
+            throw new \RuntimeException('Incorrect delivery OTP.');
+        }
+
+        // Recipient pays cash: collected at the door (the rider's screen says so before the code is entered),
+        // recorded exactly like a sender's cash at pickup. (Never on a multi-drop order: cash is paid at pickup.)
+        if ($order->collectsCashAtDelivery() && $order->payment_status !== 'paid') {
+            Payment::create([
+                'parcel_order_id' => $order->id,
+                'purpose' => 'parcel_order',
+                'amount' => $order->price_quoted,
+                'gateway' => 'cash',
+                'status' => 'captured',
+                'captured_at' => now(),
+            ]);
+            $order->payment_status = 'paid';
+            $order->cash_collected_at = now();
+        }
+
+        $order->drop_delivered_at = now();
+        $order->save();
+
+        if ($order->stops()->exists() || $order->return_trip) {
+            $order->statusHistory()->create([
+                'status' => 'drop_delivered', 'changed_by' => $worker->user_id,
+                'note' => 'Drop 1 handed over with verified OTP', 'changed_at' => now(),
+            ]);
+        }
+    }
+
+    private function deliverStop(ParcelOrder $order, FieldWorker $worker, string $enteredOtp, int $stopId): void
+    {
+        $stop = ParcelOrderStop::whereKey($stopId)->where('parcel_order_id', $order->id)->lockForUpdate()->first();
+        if (! $stop) {
+            throw new \RuntimeException('That drop point is not on this parcel.');
+        }
+        if ($stop->delivered_at) {
+            throw new \RuntimeException('This drop is already done.');
+        }
+        if (empty($stop->delivery_otp) || ! hash_equals((string) $stop->delivery_otp, $enteredOtp)) {
+            throw new \RuntimeException('Incorrect delivery OTP.');
+        }
+
+        $stop->delivered_at = now();
+        $stop->save();
+
+        $order->statusHistory()->create([
+            'status' => 'drop_delivered', 'changed_by' => $worker->user_id,
+            'note' => "Drop {$stop->sequence} handed over with verified OTP", 'changed_at' => now(),
+        ]);
+    }
+
+    /** Inside the caller's transaction with $order locked: the order is done. */
+    public static function finish(ParcelOrder $order, FieldWorker $worker, string $note): void
+    {
+        $order->status = 'delivered';
+        $order->price_final = $order->price_quoted;
+        $order->delivered_at = now();
+        $order->save();
+
+        $order->statusHistory()->create([
+            'status' => 'delivered',
+            'changed_by' => $worker->user_id,
+            'note' => $note,
+            'changed_at' => now(),
+        ]);
+
+        $worker->increment('jobs_completed');
+
+        event(new ParcelOrderStatusUpdated($order));
+    }
+
+    /**
+     * After the transaction commits: the commission split (same placement as CompleteBookingAction's own
+     * applyForBooking() call, deliberately outside the row lock) and the customer's "delivered" message.
+     */
+    public static function afterFinish(ParcelOrder $order, CommissionService $commissionService): void
+    {
+        $commissionService->applyForParcelOrder($order);
 
         if ($order->customer) {
             $channels = ChannelResolver::resolve(['zone_id' => $order->zone_id, 'franchise_id' => $order->franchise_id]);
             $order->customer->notify(new ParcelOrderStatusNotification('delivered', $order, $channels));
         }
-
-        return $order;
     }
 }

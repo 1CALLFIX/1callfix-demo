@@ -3,6 +3,7 @@
 namespace App\Notifications;
 
 use App\Models\ParcelOrder;
+use App\Models\ParcelOrderStop;
 use App\Models\Setting;
 use App\Notifications\Channels\SmsChannel;
 use App\Notifications\Support\ChannelResolver;
@@ -21,13 +22,16 @@ class ParcelRecipientNotification extends Notification
 {
     use Queueable;
 
-    public function __construct(private ParcelOrder $order)
+    /** Stage 2: $stop = an extra drop point of a multi-drop order (its own recipient and code). */
+    public function __construct(private ParcelOrder $order, private ?ParcelOrderStop $stop = null)
     {
     }
 
-    public static function sendFor(ParcelOrder $order): void
+    public static function sendFor(ParcelOrder $order, ?ParcelOrderStop $stop = null): void
     {
-        if (blank($order->recipient_phone) || blank($order->delivery_otp)) {
+        $phone = $stop ? $stop->recipient_phone : $order->recipient_phone;
+        $code = $stop ? $stop->delivery_otp : $order->delivery_otp;
+        if (blank($phone) || blank($code)) {
             return;
         }
 
@@ -36,7 +40,7 @@ class ParcelRecipientNotification extends Notification
             return;
         }
 
-        NotificationFacade::route('sms', $order->recipient_phone)->notify(new self($order));
+        NotificationFacade::route('sms', $phone)->notify(new self($order, $stop));
     }
 
     public function via($notifiable): array
@@ -59,6 +63,6 @@ class ParcelRecipientNotification extends Notification
         $riderLine = $rider && filled($rider->phone) ? " Rider: {$rider->name}, {$rider->phone}." : '';
 
         return "{$platform}: a parcel from {$sender} ({$this->order->code}) is on its way to you.{$riderLine} "
-            ."Give OTP {$this->order->delivery_otp} to the rider only when you receive it.";
+            .'Give OTP '.($this->stop ? $this->stop->delivery_otp : $this->order->delivery_otp).' to the rider only when you receive it.';
     }
 }

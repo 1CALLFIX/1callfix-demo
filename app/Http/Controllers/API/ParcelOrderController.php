@@ -71,8 +71,10 @@ class ParcelOrderController extends Controller
                 'package_weight_kg' => $validated['package_weight_kg'] ?? null,
                 'package_size' => $validated['package_size'] ?? 'small',
                 'delivery_type' => $validated['delivery_type'] ?? 'now',
+                'extra_stops' => CreateParcelOrderAction::normaliseStops($validated['extra_stops'] ?? [], $customer->id),
+                'return_trip' => (bool) ($validated['return_trip'] ?? false),
             ], $scope);
-        } catch (ParcelQuoteException $e) {
+        } catch (ParcelQuoteException|\RuntimeException $e) {
             return ApiResponse::error($e->getMessage(), 422);
         }
 
@@ -85,6 +87,8 @@ class ParcelOrderController extends Controller
             'package_size_options' => ['small', 'medium', 'large'],
             'delivery_type' => $validated['delivery_type'] ?? 'now',
             'schedule_available' => \App\Services\Parcel\ParcelSettings::scheduleAvailable($scope),
+            'max_drop_points' => \App\Services\Parcel\ParcelSettings::maxDrops($scope),
+            'return_trip_available' => \App\Services\Parcel\ParcelSettings::returnTripAvailable($scope),
             'package_contents_options' => array_keys(\App\Services\Parcel\ParcelSettings::CONTENTS),
             'restricted_items' => \App\Services\Parcel\ParcelSettings::restrictedItems($scope),
             // Pickup safety (2026-10-29): the rider may check and photograph the item; refusing it lets the rider decline.
@@ -140,6 +144,8 @@ class ParcelOrderController extends Controller
                 'delivery_type' => $validated['delivery_type'] ?? 'now',
                 'scheduled_at' => $validated['scheduled_at'] ?? null,
                 'coupon_code' => $request->input('coupon_code'),
+                'extra_stops' => $validated['extra_stops'] ?? [],
+                'return_trip' => (bool) ($validated['return_trip'] ?? false),
             ]);
         } catch (ModuleNotActiveException|ParcelQuoteException $e) {
             return ApiResponse::error($e->getMessage(), 422);
@@ -148,7 +154,7 @@ class ParcelOrderController extends Controller
         }
 
         return ApiResponse::success(
-            new ParcelOrderResource($order->load(['pickupAddress', 'dropoffAddress'])),
+            new ParcelOrderResource($order->load(['pickupAddress', 'dropoffAddress', 'stops.address'])),
             $order->isAwaitingOnlinePayment() ? 'Parcel order created. Complete the payment to send it to a rider.' : 'Parcel order created.',
             201
         );
@@ -185,7 +191,7 @@ class ParcelOrderController extends Controller
 
     public function show(Request $request, int $parcelOrderId)
     {
-        $order = ParcelOrder::with(['pickupAddress', 'dropoffAddress', 'assignedWorker.user', 'statusHistory'])
+        $order = ParcelOrder::with(['pickupAddress', 'dropoffAddress', 'assignedWorker.user', 'statusHistory', 'stops.address'])
             ->find($parcelOrderId);
 
         if (! $order || $order->customer_id !== $request->user()->id) {

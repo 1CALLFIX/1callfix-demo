@@ -8,6 +8,7 @@ use App\Actions\MarkParcelArrivedAtPickupAction;
 use App\Actions\MarkParcelDeliveredAction;
 use App\Actions\MarkParcelEnRouteAction;
 use App\Actions\MarkParcelPickedUpAction;
+use App\Actions\MarkParcelReturnedAction;
 use App\Actions\ParcelSenderPaidAtDoorAction;
 use App\Actions\RecordParcelSafetyPhotoAction;
 use App\Actions\RefuseParcelAtPickupAction;
@@ -35,6 +36,11 @@ class Dashboard extends Component
     public string $pickupOtp = '';
 
     public string $deliveryOtp = '';
+
+    /** Stage 2: delivery codes for extra drop points, keyed by stop id, and the sender's return code. */
+    public array $stopOtps = [];
+
+    public string $returnOtp = '';
 
     // Pickup safety (2026-10-29): an optional photo when something looks unusual, and refusing the parcel.
     public $safetyPhoto = null;
@@ -161,12 +167,51 @@ class Dashboard extends Component
         $rider = $this->rider();
         $this->ownOrder($orderId, $rider);
         try {
-            $action->execute($orderId, $rider, trim($this->deliveryOtp));
+            $order = $action->execute($orderId, $rider, trim($this->deliveryOtp));
             $this->deliveryOtp = '';
-            $this->notice = 'Delivered. Well done!';
+            $this->notice = $this->afterDropNotice($order);
         } catch (\RuntimeException $e) {
             $this->error = $e->getMessage();
         }
+    }
+
+    /** Stage 2: hand over an extra drop point of a multi-drop order with that drop's code. */
+    public function confirmStop(int $orderId, int $stopId, MarkParcelDeliveredAction $action): void
+    {
+        $this->reset('notice', 'error');
+        $rider = $this->rider();
+        $this->ownOrder($orderId, $rider);
+        try {
+            $order = $action->execute($orderId, $rider, trim((string) ($this->stopOtps[$stopId] ?? '')), $stopId);
+            unset($this->stopOtps[$stopId]);
+            $this->notice = $this->afterDropNotice($order);
+        } catch (\RuntimeException $e) {
+            $this->error = $e->getMessage();
+        }
+    }
+
+    /** Stage 2: return trip — the return is back with the sender, who gives the return code. */
+    public function confirmReturn(int $orderId, MarkParcelReturnedAction $action): void
+    {
+        $this->reset('notice', 'error');
+        $rider = $this->rider();
+        $this->ownOrder($orderId, $rider);
+        try {
+            $action->execute($orderId, $rider, trim($this->returnOtp));
+            $this->returnOtp = '';
+            $this->notice = 'Returned to the sender. Well done!';
+        } catch (\RuntimeException $e) {
+            $this->error = $e->getMessage();
+        }
+    }
+
+    private function afterDropNotice(\App\Models\ParcelOrder $order): string
+    {
+        return match (true) {
+            $order->status === 'delivered' => 'Delivered. Well done!',
+            $order->isReturning() => 'Every drop done. Take the return back to the sender.',
+            default => 'Drop done. Head to the next one.',
+        };
     }
 
     /** Pay at drop, recipient refuses: the rider calls the sender, who pays the rider on the spot (UPI or cash). */
