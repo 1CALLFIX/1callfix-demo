@@ -382,11 +382,26 @@
                         <div class="flex justify-between gap-3"><dt class="text-slate-600">{{ $line['label'] }}</dt><dd class="tabular-nums">{{ $fmt($line['amount']) }}</dd></div>
                     @endforeach
                     <div class="flex justify-between gap-3 border-t border-slate-200 pt-2 text-base font-semibold"><dt>Total ({{ rtrim(rtrim(number_format($quote['distance_km'], 1), '0'), '.') }} km)</dt><dd class="tabular-nums">{{ $fmt($quote['total']) }}</dd></div>
+                    @if ($packCover !== null)
+                        <div class="flex justify-between gap-3 text-emerald-700"><dt>Parcel pack ({{ $pack->name }}, 1 credit)</dt><dd class="tabular-nums">−{{ $fmt($packCover) }}</dd></div>
+                        <div class="flex justify-between gap-3 font-semibold"><dt>To pay now</dt><dd class="tabular-nums">{{ $fmt($toPay) }}</dd></div>
+                    @endif
                 </dl>
             @elseif ($quoteError)
                 <p class="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">{{ $quoteError }}</p>
             @else
                 <p class="mt-3 text-sm text-slate-600">Choose the pickup and drop points to see the price.</p>
+            @endif
+
+            {{-- Stage 2: prepaid parcel pack. Using it is a benefit, so cash is not offered meanwhile. --}}
+            @if ($pack)
+                <label class="mt-4 flex cursor-pointer items-start gap-3 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm">
+                    <input type="checkbox" wire:model.live="usePack" class="mt-0.5 h-5 w-5 rounded border-emerald-300 text-emerald-600 focus:ring-emerald-500">
+                    <span><span class="font-medium text-emerald-900">Use my parcel pack</span>
+                        <span class="block text-xs text-emerald-800">{{ $pack->remaining() }} of {{ $pack->parcels_total }} left · covers up to {{ rtrim(rtrim(number_format((float) $pack->max_km, 2), '0'), '.') }} km. The rest is paid online or from your wallet.</span></span>
+                </label>
+            @elseif ($packsOnSale)
+                <a href="{{ route('customer.parcels.packs') }}" wire:navigate class="mt-4 block text-sm font-medium text-blue-700 underline underline-offset-2">Send parcels often? Save with a parcel pack →</a>
             @endif
 
             @if ($methods)
@@ -428,7 +443,7 @@
             <div class="flex items-center gap-3">
                 <div class="min-w-0 flex-1">
                     @if ($quote)
-                        <p class="text-lg font-bold tabular-nums leading-tight">{{ $fmt($quote['total']) }}</p>
+                        <p class="text-lg font-bold tabular-nums leading-tight">{{ $fmt($toPay ?? $quote['total']) }}</p>
                         <p class="truncate text-xs text-slate-500">{{ rtrim(rtrim(number_format($quote['distance_km'], 1), '0'), '.') }} km · {{ $paymentMethod === 'cash' ? ($cashCollectAt === 'drop' ? 'Cash at drop' : 'Cash at pickup') : ($methods[$paymentMethod] ?? '') }}</p>
                     @else
                         <p class="text-sm text-slate-500">{{ $quoteError ?: 'Choose where it goes' }}</p>

@@ -37,6 +37,8 @@ class StoreParcelOrderRequest extends CustomerApiRequest
             'extra_stops.*.recipient_phone' => ['required', 'string', 'regex:/^\+?[0-9]{10,15}$/'],
             'return_trip' => ['nullable', 'boolean'],
             'declared_value' => ['nullable', 'numeric', 'min:1', 'max:10000000'],
+            // Stage 2: use one credit of the customer's prepaid parcel pack (a benefit: online / wallet only).
+            'use_parcel_pack' => ['nullable', 'boolean'],
             'scheduled_at' => ['nullable', 'required_if:delivery_type,scheduled', 'date'],
         ];
     }

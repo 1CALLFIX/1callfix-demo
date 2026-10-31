@@ -40,7 +40,7 @@ class ParcelPaymentService
         }
 
         $gatewayOrder = $this->gateway->createRawOrder(
-            (float) $order->price_quoted,
+            $order->amountDue(),
             'parcel-'.$order->id.'-'.now()->format('His'),
             ['parcel_order_id' => $order->id, 'purpose' => 'parcel_order'],
         );
@@ -48,7 +48,7 @@ class ParcelPaymentService
         $payment = Payment::create([
             'parcel_order_id' => $order->id,
             'purpose' => 'parcel_order',
-            'amount' => $order->price_quoted,
+            'amount' => $order->amountDue(),
             'gateway' => $this->gateway->identifier(),
             'gateway_order_id' => $gatewayOrder['razorpay_order_id'],
             'status' => 'pending',

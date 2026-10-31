@@ -35,7 +35,7 @@ final class WalletSourceLabel
         ],
         'wallet_payment' => [
             'label' => 'Paid from wallet',
-            'regex' => '/^(booking|booking_bundle|hotel_reservation|marketplace_order|parcel_order|property_reservation|rental_reservation|taxi_ride):\d+:wallet-payment$/',
+            'regex' => '/^(booking|booking_bundle|hotel_reservation|marketplace_order|parcel_order|parcel_pack_purchase|property_reservation|rental_reservation|taxi_ride):\d+:wallet-payment$/',
             'like' => ['%:wallet-payment'],
         ],
         'refund' => [
@@ -200,6 +200,7 @@ final class WalletSourceLabel
             'mkt-cash-due:1:franchise-earning:00000000-0000-0000-0000-000000000000',
         ],
         'app/Services/Parcel/ParcelProtectionClaimService.php' => ['parcel_order:1:protection-claim-2'],
+        'app/Services/Parcel/ParcelPackService.php' => ['parcel_pack_purchase:1:wallet-payment'],
         'app/Services/Parcel/FieldWorkerCashDueService.php' => [
             'rider-cash-due:1:settle:00000000-0000-0000-0000-000000000000',
             'rider-cash-due:1:franchise-earning:00000000-0000-0000-0000-000000000000',

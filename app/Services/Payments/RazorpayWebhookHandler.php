@@ -178,6 +178,13 @@ class RazorpayWebhookHandler
             return ['outcome' => 'captured', 'payment' => $payment];
         }
 
+        // Parcel Stage 2: a prepaid parcel pack starts only on this capture.
+        if ($payment->purpose === 'parcel_pack') {
+            \Illuminate\Support\Facades\DB::transaction(fn () => app(\App\Services\Parcel\ParcelPackService::class)->markPaid($payment));
+
+            return ['outcome' => 'captured', 'payment' => $payment];
+        }
+
         // E-commerce Phase 0 (2026-10-25): an online shop order is held from the seller until this capture.
         if ($payment->purpose === 'marketplace_order') {
             app(\App\Services\Marketplace\MarketplacePaymentService::class)->markPaid($payment);
@@ -326,7 +333,7 @@ class RazorpayWebhookHandler
 
         // A failed parcel attempt changes nothing: the order stays pending and the customer can pay again
         // (a new gateway order is opened each time) or cancel; unpaid orders expire on their own.
-        if ($payment->purpose === 'parcel_order' || $payment->purpose === 'marketplace_order') {
+        if (in_array($payment->purpose, ['parcel_order', 'marketplace_order', 'parcel_pack'], true)) {
             return ['outcome' => 'failed', 'payment' => $payment];
         }
 

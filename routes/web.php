@@ -194,6 +194,7 @@ Route::middleware(['auth', \App\Http\Middleware\EnsureAccountNotSuspended::class
     // a customer's own parcels stay reachable regardless.
     Route::get('/parcel', \App\Livewire\Customer\Parcel\Create::class)->name('customer.parcels.create');
     Route::get('/parcels', \App\Livewire\Customer\Parcel\Index::class)->name('customer.parcels.index');
+    Route::get('/parcel/packs', \App\Livewire\Customer\Parcel\Packs::class)->name('customer.parcels.packs');
     Route::get('/parcels/{parcelOrder}', \App\Livewire\Customer\Parcel\Show::class)->name('customer.parcels.show');
 
     // E-commerce Phase 2: the shop bag, checkout (one shop per order) and the customer's shop orders. Browsing is

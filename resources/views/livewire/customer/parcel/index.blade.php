@@ -17,7 +17,10 @@
     <div class="flex items-center justify-between gap-3">
         <h1 class="text-2xl font-bold tracking-tight">My parcels</h1>
         @if ($canSend)
+            <span class="flex items-center gap-3">
+            <a href="{{ route('customer.parcels.packs') }}" wire:navigate class="text-sm font-medium text-blue-700 underline underline-offset-2">Parcel packs</a>
             <a href="{{ route('customer.parcels.create') }}" wire:navigate class="inline-flex min-h-10 items-center rounded-lg bg-blue-600 px-4 text-sm font-semibold text-white hover:bg-blue-700">Send a parcel</a>
+            </span>
         @endif
     </div>
 

@@ -74,7 +74,6 @@ class ParcelOrderController extends Controller
                 'extra_stops' => CreateParcelOrderAction::normaliseStops($validated['extra_stops'] ?? [], $customer->id),
                 'return_trip' => (bool) ($validated['return_trip'] ?? false),
                 'declared_value' => $validated['declared_value'] ?? null,
-                'declared_value' => $validated['declared_value'] ?? null,
             ], $scope);
         } catch (ParcelQuoteException|\RuntimeException $e) {
             return ApiResponse::error($e->getMessage(), 422);
@@ -95,6 +94,10 @@ class ParcelOrderController extends Controller
             'protection_fee_percent' => \App\Services\Parcel\ParcelSettings::get('parcel.protection_fee_percent', $scope),
             'protection_max_cover' => \App\Services\Parcel\ParcelSettings::get('parcel.protection_max_cover', $scope),
             'protection_fee' => $quote['protection_fee'] ?? 0,
+            'parcel_pack' => ($pack = app(\App\Services\Parcel\ParcelPackService::class)->usablePack($customer, $pickup->franchise_id)) ? [
+                'id' => $pack->id, 'name' => $pack->name, 'parcels_left' => $pack->remaining(),
+                'covers' => \App\Services\Parcel\ParcelPackService::coverFor($pack, $quote, $scope),
+            ] : null,
             'package_contents_options' => array_keys(\App\Services\Parcel\ParcelSettings::CONTENTS),
             'restricted_items' => \App\Services\Parcel\ParcelSettings::restrictedItems($scope),
             // Pickup safety (2026-10-29): the rider may check and photograph the item; refusing it lets the rider decline.
@@ -152,6 +155,11 @@ class ParcelOrderController extends Controller
                 'coupon_code' => $request->input('coupon_code'),
                 'extra_stops' => $validated['extra_stops'] ?? [],
                 'return_trip' => (bool) ($validated['return_trip'] ?? false),
+                'declared_value' => $validated['declared_value'] ?? null,
+                'parcel_pack_purchase_id' => ! empty($validated['use_parcel_pack'])
+                    ? (app(\App\Services\Parcel\ParcelPackService::class)->usablePack($customer, $pickup->franchise_id)?->id
+                        ?? throw new \RuntimeException('You have no parcel pack credits here.'))
+                    : null,
             ]);
         } catch (ModuleNotActiveException|ParcelQuoteException $e) {
             return ApiResponse::error($e->getMessage(), 422);

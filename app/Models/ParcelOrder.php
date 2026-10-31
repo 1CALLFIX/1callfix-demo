@@ -79,6 +79,10 @@ class ParcelOrder extends Model implements Orderable
         // Stage 2: protection
         'declared_value',
         'protection_fee',
+        // Stage 2: prepaid parcel pack
+        'parcel_pack_purchase_id',
+        'pack_covered',
+        'pack_credit_returned_at',
     ];
 
     protected $casts = [
@@ -101,6 +105,8 @@ class ParcelOrder extends Model implements Orderable
         'returned_at' => 'datetime',
         'declared_value' => 'decimal:2',
         'protection_fee' => 'decimal:2',
+        'pack_covered' => 'decimal:2',
+        'pack_credit_returned_at' => 'datetime',
     ];
 
     /** Rider has committed and the parcel is not yet handed over or closed. */
@@ -125,6 +131,13 @@ class ParcelOrder extends Model implements Orderable
     public function stops() { return $this->hasMany(ParcelOrderStop::class)->orderBy('sequence'); }
 
     public function protectionClaims() { return $this->hasMany(ParcelProtectionClaim::class); }
+    public function packPurchase() { return $this->belongsTo(ParcelPackPurchase::class, 'parcel_pack_purchase_id'); }
+
+    /** Stage 2: what the customer still pays in money — the price less what a parcel pack credit covered. */
+    public function amountDue(): float
+    {
+        return round(max(0.0, (float) $this->price_quoted - (float) $this->pack_covered), 2);
+    }
 
     /** Stage 2: the sender paid for protection (claims up to declared_value). */
     public function isProtected(): bool

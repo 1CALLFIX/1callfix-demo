@@ -22,4 +22,12 @@ class ParcelOrderObserver
             $order->code = $this->orderCodeService->generateForParcel($franchise);
         }
     }
+
+    /** Stage 2: every cancel path (customer, admin, rider refusal, unpaid expiry) gives a parcel pack credit back. */
+    public function updated(ParcelOrder $order): void
+    {
+        if ($order->wasChanged('status') && $order->status === 'cancelled' && $order->parcel_pack_purchase_id) {
+            app(\App\Services\Parcel\ParcelPackService::class)->returnCredit($order);
+        }
+    }
 }

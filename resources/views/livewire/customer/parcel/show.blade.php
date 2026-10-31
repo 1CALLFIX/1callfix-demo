@@ -56,7 +56,7 @@
     {{-- Unpaid online order: nothing is sent to riders until this is paid. --}}
     @if ($order->isAwaitingOnlinePayment())
         <div class="mt-4 rounded-2xl border border-blue-200 bg-blue-50 p-4">
-            <p class="text-sm text-blue-900">Pay {{ $fmt($order->price_quoted) }} to send this parcel to a rider. Unpaid orders are cancelled automatically after a short while.</p>
+            <p class="text-sm text-blue-900">Pay {{ $fmt($order->amountDue()) }} to send this parcel to a rider. Unpaid orders are cancelled automatically after a short while.</p>
             <button type="button" wire:click="pay" wire:loading.attr="disabled"
                     class="mt-3 inline-flex min-h-11 items-center rounded-xl bg-blue-600 px-5 text-sm font-semibold text-white hover:bg-blue-700">Pay now</button>
         </div>
@@ -175,13 +175,16 @@
                 <div class="flex justify-between gap-3"><dt class="text-slate-600">{{ $line['label'] }}</dt><dd class="tabular-nums">{{ $fmt($line['amount']) }}</dd></div>
             @endforeach
             <div class="flex justify-between gap-3 border-t border-slate-200 pt-2 font-semibold"><dt>Total</dt><dd class="tabular-nums">{{ $fmt($order->price_final ?? $order->price_quoted) }}</dd></div>
+            @if ((float) $order->pack_covered > 0)
+                <div class="flex justify-between gap-3 text-emerald-700"><dt>Paid by your parcel pack{{ $order->pack_credit_returned_at ? ' (credit given back)' : '' }}</dt><dd class="tabular-nums">−{{ $fmt($order->pack_covered) }}</dd></div>
+            @endif
             @if ($order->waiting_charge)
                 <div class="flex justify-between gap-3 text-slate-600"><dt>Waiting at pickup ({{ $order->waiting_minutes }} min), paid to the rider</dt><dd class="tabular-nums">{{ $fmt($order->waiting_charge) }}</dd></div>
             @endif
         </dl>
         <p class="mt-2 text-slate-600">
             @php $atDrop = $order->collectsCashAtDelivery(); @endphp
-            Payment: {{ ['online' => 'Online', 'wallet' => 'Wallet', 'cash' => $atDrop ? 'Cash at drop' : 'Cash at pickup'][$order->payment_method] ?? $order->payment_method }}
+            Payment: {{ ['online' => 'Online', 'wallet' => 'Wallet', 'pack' => 'Parcel pack', 'cash' => $atDrop ? 'Cash at drop' : 'Cash at pickup'][$order->payment_method] ?? $order->payment_method }}
             · {{ ['pending' => $order->payment_method === 'cash' ? ($atDrop ? 'The recipient pays the rider at drop' : 'Pay the rider at pickup') : 'Not paid', 'paid' => $atDrop && $order->recipient_refused_at ? 'You paid the rider at the door' : 'Paid', 'refunded' => 'Refunded', 'partially_refunded' => 'Partly refunded'][$order->payment_status] ?? $order->payment_status }}
         </p>
         @if ($order->refused_at)

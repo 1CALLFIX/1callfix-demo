@@ -24,6 +24,7 @@ class Payment extends Model
         'rental_reservation_id',
         'hotel_reservation_id',
         'booking_bundle_id',
+        'parcel_pack_purchase_id',
         'purpose',
         'user_id',
         'plan_subscription_id',
@@ -43,6 +44,8 @@ class Payment extends Model
     public function method() { return $this->belongsTo(PaymentMethod::class, 'payment_method_id'); }
     /** Only set for purpose = 'wallet_topup' -- booking-purpose payments derive the customer via booking->customer instead. */
     public function user() { return $this->belongsTo(User::class); }
+    /** Parcel Stage 2 — only set for purpose = 'parcel_pack'. */
+    public function parcelPackPurchase() { return $this->belongsTo(ParcelPackPurchase::class); }
     /** Only set for purpose = 'plan_subscription'. */
     public function planSubscription() { return $this->belongsTo(Subscription::class, 'plan_subscription_id'); }
     /** Phase 22.4 -- only set for purpose = 'parcel_order', following the exact same one-column-per-purpose pattern as planSubscription() above. */

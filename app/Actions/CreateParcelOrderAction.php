@@ -109,13 +109,30 @@ class CreateParcelOrderAction
             throw new \RuntimeException('With more than one drop point, cash is paid at pickup.');
         }
 
+        // Stage 2: a prepaid parcel pack credit is a BENEFIT (THUMB RULE): the rest is paid online or from the wallet,
+        // never in cash.
+        $packId = ! empty($data['parcel_pack_purchase_id']) ? (int) $data['parcel_pack_purchase_id'] : null;
+        if ($packId && $paymentMethod === 'cash') {
+            throw new \RuntimeException('A parcel pack is a benefit: pay the rest online or from your wallet, not in cash.');
+        }
+
         $deliveryType = ($data['delivery_type'] ?? 'now') === 'scheduled' ? 'scheduled' : 'now';
         $scheduledAt = $deliveryType === 'scheduled' ? self::scheduledPickupTime($data['scheduled_at'] ?? null, $scope) : null;
         $data['delivery_type'] = $deliveryType;
 
         $quote = $this->quote($data, $scope);
 
-        $order = DB::transaction(function () use ($data, $paymentMethod, $cashCollectAt, $quote, $deliveryType, $scheduledAt, $contents) {
+        $order = DB::transaction(function () use ($data, &$paymentMethod, $cashCollectAt, $quote, $deliveryType, $scheduledAt, $contents, $packId, $scope) {
+            $covered = null;
+            if ($packId) {
+                $purchase = app(\App\Services\Parcel\ParcelPackService::class)->takeCredit($packId, (int) $data['customer_id'], (int) $data['franchise_id']);
+                $covered = \App\Services\Parcel\ParcelPackService::coverFor($purchase, $quote, $scope);
+                // Fully covered by the credit: nothing left to pay.
+                if ($covered >= (float) $quote['total']) {
+                    $paymentMethod = 'pack';
+                }
+            }
+
             $order = ParcelOrder::create([
                 'franchise_id' => $data['franchise_id'],
                 'zone_id' => $data['zone_id'] ?? null,
@@ -147,7 +164,14 @@ class CreateParcelOrderAction
                 'return_trip' => $data['return_trip'],
                 'declared_value' => $data['declared_value'],
                 'protection_fee' => ($quote['protection_fee'] ?? 0) > 0 || $data['declared_value'] !== null ? ($quote['protection_fee'] ?? 0) : null,
+                'parcel_pack_purchase_id' => $packId,
+                'pack_covered' => $covered,
             ]);
+
+            if ($paymentMethod === 'pack') {
+                $order->payment_status = 'paid';
+                $order->save();
+            }
 
             foreach ($data['extra_stops'] as $i => $stop) {
                 $order->stops()->create([
@@ -321,7 +345,7 @@ class CreateParcelOrderAction
 
         app(WalletService::class)->debit(
             $order->customer,
-            (float) $order->price_quoted,
+            $order->amountDue(),
             reason: "Payment for parcel order {$order->code}",
             ref: "parcel_order:{$order->id}:wallet-payment"
         );
@@ -329,7 +353,7 @@ class CreateParcelOrderAction
         Payment::create([
             'parcel_order_id' => $order->id,
             'purpose' => 'parcel_order',
-            'amount' => $order->price_quoted,
+            'amount' => $order->amountDue(),
             'gateway' => 'wallet',
             'status' => 'captured',
             'captured_at' => now(),

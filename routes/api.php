@@ -155,6 +155,8 @@ Route::middleware(['auth:sanctum', \App\Http\Middleware\EnsureNotInMaintenanceMo
     Route::post('/parcel-orders/{parcelOrderId}/cancel', [\App\Http\Controllers\API\ParcelOrderController::class, 'cancel']);
     Route::post('/parcel-orders/{parcelOrderId}/pay', [\App\Http\Controllers\API\ParcelOrderController::class, 'pay']);
     Route::post('/parcel-orders/{parcelOrderId}/protection-claims', [\App\Http\Controllers\API\ParcelOrderController::class, 'claim']);
+    Route::get('/parcel-packs', [\App\Http\Controllers\API\ParcelPackController::class, 'index']);
+    Route::post('/parcel-packs/{packId}/buy', [\App\Http\Controllers\API\ParcelPackController::class, 'buy']);
 
     // P1 CUSTOMER TAXI API -- same static-before-dynamic ordering.
     Route::post('/taxi-rides/quote', [\App\Http\Controllers\API\TaxiRideController::class, 'quote']);

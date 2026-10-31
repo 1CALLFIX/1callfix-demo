@@ -59,6 +59,8 @@ class Create extends Component
     /** Stage 2: optional protection — the sender declares the parcel's value and pays a % of it. */
     public bool $protect = false;
     public string $declaredValue = '';
+    /** Stage 2: use one credit of the customer's prepaid parcel pack (a benefit: online / wallet only). */
+    public bool $usePack = true;
 
     // ── package ──
     public string $packageSize = 'small';
@@ -255,6 +257,11 @@ class Create extends Component
 
             return;
         }
+        if ($this->usePack && $this->paymentMethod === 'cash' && app(\App\Services\Parcel\ParcelPackService::class)->usablePack(auth()->user(), $zone->franchise_id)) {
+            $this->error = 'A parcel pack is a benefit: pay the rest online or from your wallet, not in cash.';
+
+            return;
+        }
 
         $extraPoints = $this->extraDropPoints();
         if (count($extraPoints) !== count($this->extraDrops)) {
@@ -315,6 +322,7 @@ class Create extends Component
                     'extra_stops' => $stops,
                     'return_trip' => $this->returnTrip,
                     'declared_value' => $this->protect && is_numeric($this->declaredValue) ? (float) $this->declaredValue : null,
+                    'parcel_pack_purchase_id' => $this->usePack ? app(\App\Services\Parcel\ParcelPackService::class)->usablePack(auth()->user(), $zone->franchise_id)?->id : null,
                 ]);
             });
         } catch (ModuleNotActiveException) {
@@ -451,6 +459,8 @@ class Create extends Component
         $maxDrops = 1;
         $returnTripAvailable = false;
         $protectionAvailable = false;
+        $pack = null;
+        $packCover = null;
         // ?when=scheduled (homepage Parcel card) opens on "Schedule"; anything else falls back to "now".
         if (! in_array($this->deliveryType, ['now', 'scheduled'], true)) {
             $this->deliveryType = 'now';
@@ -464,6 +474,11 @@ class Create extends Component
                 $this->deliveryType = 'now';
             }
             $methods = $this->paymentMethods($pickup['zone']);
+            // Stage 2: a parcel pack credit is a benefit — online / wallet only while it is used.
+            $pack = app(\App\Services\Parcel\ParcelPackService::class)->usablePack(auth()->user(), $pickup['zone']->franchise_id);
+            if ($pack && $this->usePack) {
+                unset($methods['cash']);
+            }
             if ($this->paymentMethod === '' || ! array_key_exists($this->paymentMethod, $methods)) {
                 $this->paymentMethod = (string) array_key_first($methods);
             }
@@ -496,6 +511,9 @@ class Create extends Component
                         $this->returnTrip,
                         $this->protect && is_numeric($this->declaredValue) && (float) $this->declaredValue > 0 ? (float) $this->declaredValue : null,
                     );
+                    if ($pack && $this->usePack) {
+                        $packCover = \App\Services\Parcel\ParcelPackService::coverFor($pack, $quote, $scope);
+                    }
                 } catch (ParcelQuoteException $e) {
                     $quoteError = $e->getMessage();
                 }
@@ -517,6 +535,10 @@ class Create extends Component
             'maxDrops' => $maxDrops,
             'returnTripAvailable' => $returnTripAvailable,
             'protectionAvailable' => $protectionAvailable,
+            'pack' => $pack,
+            'packCover' => $packCover,
+            'toPay' => $quote ? round(max(0, $quote['total'] - (float) $packCover), 2) : null,
+            'packsOnSale' => app(\App\Services\Parcel\ParcelPackService::class)->onSale($pickup && $pickup['zone'] ? $pickup['zone']->franchise_id : null)->isNotEmpty(),
             'protectionPercent' => $pickup && $pickup['zone'] ? ParcelSettings::get('parcel.protection_fee_percent', $this->scopeFor($pickup['zone'])) : null,
             'protectionMaxCover' => $pickup && $pickup['zone'] ? ParcelSettings::get('parcel.protection_max_cover', $this->scopeFor($pickup['zone'])) : null,
             'returnPercent' => $pickup && $pickup['zone'] ? ParcelSettings::get('parcel.return_trip_percent', $this->scopeFor($pickup['zone'])) : null,

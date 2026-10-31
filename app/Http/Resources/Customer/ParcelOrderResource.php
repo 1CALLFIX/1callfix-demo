@@ -69,6 +69,9 @@ class ParcelOrderResource extends JsonResource
             // Stage 2: protection — the declared value (claims up to it) and the fee paid for it.
             'declared_value' => $this->declared_value !== null ? (float) $this->declared_value : null,
             'protection_fee' => $this->protection_fee !== null ? (float) $this->protection_fee : null,
+            // Stage 2: what a parcel pack credit paid, and what is left to pay in money.
+            'pack_covered' => $this->pack_covered !== null ? (float) $this->pack_covered : null,
+            'amount_due' => $this->resource->amountDue(),
             'cancellation_note' => $this->cancellation_note,
             'cancellation_fee' => $this->cancellation_fee !== null ? (float) $this->cancellation_fee : null,
             // Pickup safety (2026-10-29): the rider refused the parcel at pickup. The rider's own note stays admin-only.
