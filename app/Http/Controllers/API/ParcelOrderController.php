@@ -73,6 +73,8 @@ class ParcelOrderController extends Controller
                 'delivery_type' => $validated['delivery_type'] ?? 'now',
                 'extra_stops' => CreateParcelOrderAction::normaliseStops($validated['extra_stops'] ?? [], $customer->id),
                 'return_trip' => (bool) ($validated['return_trip'] ?? false),
+                'declared_value' => $validated['declared_value'] ?? null,
+                'declared_value' => $validated['declared_value'] ?? null,
             ], $scope);
         } catch (ParcelQuoteException|\RuntimeException $e) {
             return ApiResponse::error($e->getMessage(), 422);
@@ -89,6 +91,10 @@ class ParcelOrderController extends Controller
             'schedule_available' => \App\Services\Parcel\ParcelSettings::scheduleAvailable($scope),
             'max_drop_points' => \App\Services\Parcel\ParcelSettings::maxDrops($scope),
             'return_trip_available' => \App\Services\Parcel\ParcelSettings::returnTripAvailable($scope),
+            'protection_available' => \App\Services\Parcel\ParcelSettings::protectionAvailable($scope),
+            'protection_fee_percent' => \App\Services\Parcel\ParcelSettings::get('parcel.protection_fee_percent', $scope),
+            'protection_max_cover' => \App\Services\Parcel\ParcelSettings::get('parcel.protection_max_cover', $scope),
+            'protection_fee' => $quote['protection_fee'] ?? 0,
             'package_contents_options' => array_keys(\App\Services\Parcel\ParcelSettings::CONTENTS),
             'restricted_items' => \App\Services\Parcel\ParcelSettings::restrictedItems($scope),
             // Pickup safety (2026-10-29): the rider may check and photograph the item; refusing it lets the rider decline.
@@ -215,6 +221,34 @@ class ParcelOrderController extends Controller
         }
 
         return ApiResponse::success(new ParcelOrderResource($order->load(['pickupAddress', 'dropoffAddress'])), 'Parcel order cancelled.');
+    }
+
+    /**
+     * POST /api/parcel-orders/{id}/protection-claims (multipart) — Stage 2: report a protected parcel lost or damaged.
+     * Same rules as the web page (ParcelProtectionClaimService::file); the payout is decided under the approval model.
+     */
+    public function claim(Request $request, int $parcelOrderId, \App\Services\Parcel\ParcelProtectionClaimService $claims)
+    {
+        $order = ParcelOrder::find($parcelOrderId);
+        if (! $order || $order->customer_id !== $request->user()->id) {
+            return ApiResponse::error('Parcel order not found.', 404);
+        }
+
+        $validated = $request->validate([
+            'reason' => ['required', 'in:'.implode(',', array_keys(\App\Models\ParcelProtectionClaim::REASONS))],
+            'description' => ['required', 'string', 'min:5', 'max:1000'],
+            'amount' => ['required', 'numeric', 'min:1'],
+            'photos' => ['nullable', 'array', 'max:'.\App\Services\Parcel\ParcelProtectionClaimService::PHOTOS_MAX],
+            'photos.*' => ['image', 'mimes:jpg,jpeg,png,webp', 'max:8192'],
+        ]);
+
+        try {
+            $claim = $claims->file($order, $request->user(), $validated['reason'], $validated['description'], (float) $validated['amount'], $validated['photos'] ?? []);
+        } catch (\RuntimeException $e) {
+            return ApiResponse::error($e->getMessage(), 409);
+        }
+
+        return ApiResponse::success(['id' => $claim->id, 'status' => $claim->status, 'amount_claimed' => (float) $claim->amount_claimed], 'Claim sent. Our team will check it.', 201);
     }
 
     /** Payment methods a parcel can use at this pickup: the location's enabled methods, limited to online / wallet / cash. */

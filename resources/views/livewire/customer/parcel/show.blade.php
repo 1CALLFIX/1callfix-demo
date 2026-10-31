@@ -192,6 +192,54 @@
         @endif
     </div>
 
+    {{-- Stage 2: protection — the declared value, claims and their status. --}}
+    @if ($order->isProtected())
+        <div class="mt-5 rounded-2xl border border-slate-200 bg-white p-4 text-sm">
+            <p class="font-semibold">Protected up to {{ $fmt($order->declared_value) }}</p>
+            @foreach ($claims as $claim)
+                <div class="mt-2 rounded-lg bg-slate-50 p-2 text-slate-700" wire:key="claim-{{ $claim->id }}">
+                    Claim #{{ $claim->id }} ({{ strtolower(\App\Models\ParcelProtectionClaim::REASONS[$claim->reason] ?? $claim->reason) }}, {{ $fmt($claim->amount_claimed) }}):
+                    <span class="font-medium">{{ ['requested' => 'being checked', 'accepted' => 'accepted, payout being approved', 'declined' => 'declined', 'paid' => $fmt($claim->payout_amount).' paid to your wallet'][$claim->status] ?? $claim->status }}</span>
+                    @if ($claim->decision_note && $claim->status !== 'requested')<span class="block text-xs text-slate-500">{{ $claim->decision_note }}</span>@endif
+                </div>
+            @endforeach
+            @if ($canClaim)
+                @if (! $claiming)
+                    <button type="button" wire:click="$set('claiming', true)" class="mt-2 text-sm font-medium text-blue-700 underline underline-offset-2">Report it lost or damaged</button>
+                @else
+                    <div class="mt-3 space-y-3">
+                        <fieldset class="flex gap-4">
+                            <legend class="sr-only">What happened?</legend>
+                            @foreach (\App\Models\ParcelProtectionClaim::REASONS as $value => $label)
+                                <label class="flex min-h-9 items-center gap-2"><input type="radio" value="{{ $value }}" wire:model.live="claimReason" class="h-4 w-4 text-blue-600"> {{ $label }}</label>
+                            @endforeach
+                        </fieldset>
+                        <div>
+                            <label for="claim-description" class="block text-sm font-medium">What happened?</label>
+                            <textarea id="claim-description" rows="2" wire:model="claimDescription" maxlength="1000" class="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"></textarea>
+                            @error('claimDescription') <p class="mt-1 text-xs text-rose-700">{{ $message }}</p> @enderror
+                        </div>
+                        <div>
+                            <label for="claim-amount" class="block text-sm font-medium">Amount you are claiming (up to {{ $fmt($order->declared_value) }})</label>
+                            <input id="claim-amount" type="number" min="1" step="1" inputmode="numeric" wire:model="claimAmount" class="mt-1 block min-h-10 w-full rounded-lg border border-slate-300 px-3 text-sm">
+                            @error('claimAmount') <p class="mt-1 text-xs text-rose-700">{{ $message }}</p> @enderror
+                        </div>
+                        <div>
+                            <label for="claim-photos" class="block text-sm font-medium">Photos {{ $claimReason === 'damaged' ? '(needed)' : '(optional)' }}</label>
+                            <input id="claim-photos" type="file" accept="image/*" multiple wire:model="claimPhotos" class="mt-1 block w-full text-sm">
+                            <p wire:loading wire:target="claimPhotos" class="mt-1 text-xs text-slate-500">Uploading…</p>
+                            @error('claimPhotos.*') <p class="mt-1 text-xs text-rose-700">{{ $message }}</p> @enderror
+                        </div>
+                        <div class="flex gap-2">
+                            <button type="button" wire:click="fileClaim" wire:loading.attr="disabled" class="inline-flex min-h-10 items-center rounded-lg bg-blue-600 px-4 text-sm font-semibold text-white hover:bg-blue-700">Send claim</button>
+                            <button type="button" wire:click="$set('claiming', false)" class="inline-flex min-h-10 items-center rounded-lg border border-slate-300 bg-white px-4 text-sm font-medium">Cancel</button>
+                        </div>
+                    </div>
+                @endif
+            @endif
+        </div>
+    @endif
+
     {{-- Cancel --}}
     @if ($order->canBeCancelledByCustomer())
         <div class="mt-5">

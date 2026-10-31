@@ -26,6 +26,7 @@ class ParcelQuoteRequest extends CustomerApiRequest
             'extra_stops.*.recipient_name' => ['nullable', 'string', 'max:120'],
             'extra_stops.*.recipient_phone' => ['required', 'string', 'regex:/^\+?[0-9]{10,15}$/'],
             'return_trip' => ['nullable', 'boolean'],
+            'declared_value' => ['nullable', 'numeric', 'min:1', 'max:10000000'],
         ];
     }
 }

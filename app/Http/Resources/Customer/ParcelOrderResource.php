@@ -66,6 +66,9 @@ class ParcelOrderResource extends JsonResource
                 'delivery_otp' => ! $stop->delivered_at && in_array($this->status, \App\Models\ParcelOrder::ACTIVE_RIDER_STATUSES, true) ? $stop->delivery_otp : null,
                 'delivered_at' => $stop->delivered_at,
             ])->values()),
+            // Stage 2: protection — the declared value (claims up to it) and the fee paid for it.
+            'declared_value' => $this->declared_value !== null ? (float) $this->declared_value : null,
+            'protection_fee' => $this->protection_fee !== null ? (float) $this->protection_fee : null,
             'cancellation_note' => $this->cancellation_note,
             'cancellation_fee' => $this->cancellation_fee !== null ? (float) $this->cancellation_fee : null,
             // Pickup safety (2026-10-29): the rider refused the parcel at pickup. The rider's own note stays admin-only.

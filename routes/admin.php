@@ -146,6 +146,9 @@ Route::middleware(['auth', \Illuminate\Session\Middleware\AuthenticateSession::c
         Route::get('/booking-disputes', \App\Livewire\BookingDisputes\Index::class)->name('admin.booking-disputes.index');
         // E-commerce Phase 3b: shop returns and their refunds (approval model).
         Route::get('/shop-returns', \App\Livewire\MarketplaceReturns\Index::class)->name('admin.shop-returns.index');
+        // Parcel Stage 2: protection claims and their payouts (approval model).
+        Route::get('/parcel-claims', \App\Livewire\ParcelClaims\Index::class)->name('admin.parcel-claims.index');
+        Route::get('/parcel-claims/{claimId}/photos/{index}', [\App\Http\Controllers\Admin\ParcelClaimPhotoController::class, 'show'])->whereNumber(['claimId', 'index'])->name('admin.parcel-claims.photo');
         Route::get('/refund-controls', \App\Livewire\RefundControls\Manage::class)->name('admin.refund-controls.index');
         Route::get('/charge-waivers', \App\Livewire\ChargeWaivers\Index::class)->name('admin.charge-waivers.index');
         // 0d — Super Admin on/off for the critical-alert emails.

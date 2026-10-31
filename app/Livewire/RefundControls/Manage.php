@@ -6,6 +6,7 @@ use App\Models\Setting;
 use App\Services\BookingDisputeService;
 use App\Services\ChargeWaiverService;
 use App\Services\Marketplace\MarketplaceReturnService;
+use App\Services\Parcel\ParcelProtectionClaimService;
 use App\Services\Payments\AmountMismatchService;
 use App\Services\Payments\MismatchRefundService;
 use App\Services\SettingsAuditor;
@@ -55,6 +56,15 @@ class Manage extends Component
 
     public string $retEscalateAfterHours = '';
 
+    /** Parcel Stage 2: parcel protection payouts (refund.parcel_claim.*). */
+    public string $claimFranchiseLimit = '';
+
+    public string $claimHqLimit = '';
+
+    public string $claimDualApprovalAbove = '';
+
+    public string $claimEscalateAfterHours = '';
+
     public string $noticeUnderReview = '';
 
     public string $noticeRefunded = '';
@@ -87,6 +97,11 @@ class Manage extends Component
         $this->retDualApprovalAbove = (string) Setting::get(MarketplaceReturnService::DUAL_APPROVAL_KEY, '');
         $this->retEscalateAfterHours = (string) Setting::get(MarketplaceReturnService::ESCALATE_HOURS_KEY, '');
 
+        $this->claimFranchiseLimit = (string) Setting::get(ParcelProtectionClaimService::FRANCHISE_LIMIT_KEY, '');
+        $this->claimHqLimit = (string) Setting::get(ParcelProtectionClaimService::HQ_LIMIT_KEY, '');
+        $this->claimDualApprovalAbove = (string) Setting::get(ParcelProtectionClaimService::DUAL_APPROVAL_KEY, '');
+        $this->claimEscalateAfterHours = (string) Setting::get(ParcelProtectionClaimService::ESCALATE_HOURS_KEY, '');
+
         $notices = app(AmountMismatchService::class);
         $this->noticeUnderReview = $notices->customerMessage();
         $this->noticeRefunded = trim((string) Setting::get(AmountMismatchService::COPY_REFUNDED_KEY, '')) ?: AmountMismatchService::DEFAULT_REFUNDED;
@@ -113,6 +128,10 @@ class Manage extends Component
             'retHqLimit' => ['nullable', 'numeric', 'min:0', 'max:100000000'],
             'retDualApprovalAbove' => ['nullable', 'numeric', 'min:0', 'max:100000000'],
             'retEscalateAfterHours' => ['nullable', 'integer', 'min:1', 'max:720'],
+            'claimFranchiseLimit' => ['nullable', 'numeric', 'min:0', 'max:100000000'],
+            'claimHqLimit' => ['nullable', 'numeric', 'min:0', 'max:100000000'],
+            'claimDualApprovalAbove' => ['nullable', 'numeric', 'min:0', 'max:100000000'],
+            'claimEscalateAfterHours' => ['nullable', 'integer', 'min:1', 'max:720'],
             'noticeUnderReview' => ['required', 'string', 'min:10', 'max:300'],
             'noticeRefunded' => ['required', 'string', 'min:10', 'max:300'],
         ], [], [
@@ -148,6 +167,12 @@ class Manage extends Component
             return;
         }
 
+        if ($this->claimFranchiseLimit !== '' && $this->claimHqLimit !== '' && (float) $this->claimFranchiseLimit > (float) $this->claimHqLimit) {
+            $this->addError('claimFranchiseLimit', 'The franchise limit cannot be higher than the HQ limit.');
+
+            return;
+        }
+
         if (! str_contains($this->noticeRefunded, '[amount]')) {
             $this->addError('noticeRefunded', 'The refund message must contain [amount] so the customer sees the refunded amount.');
 
@@ -174,6 +199,10 @@ class Manage extends Component
             MarketplaceReturnService::HQ_LIMIT_KEY => $this->retHqLimit,
             MarketplaceReturnService::DUAL_APPROVAL_KEY => $this->retDualApprovalAbove,
             MarketplaceReturnService::ESCALATE_HOURS_KEY => $this->retEscalateAfterHours,
+            ParcelProtectionClaimService::FRANCHISE_LIMIT_KEY => $this->claimFranchiseLimit,
+            ParcelProtectionClaimService::HQ_LIMIT_KEY => $this->claimHqLimit,
+            ParcelProtectionClaimService::DUAL_APPROVAL_KEY => $this->claimDualApprovalAbove,
+            ParcelProtectionClaimService::ESCALATE_HOURS_KEY => $this->claimEscalateAfterHours,
             AmountMismatchService::COPY_UNDER_REVIEW_KEY => trim($this->noticeUnderReview),
             AmountMismatchService::COPY_REFUNDED_KEY => trim($this->noticeRefunded),
         ] as $key => $value) {

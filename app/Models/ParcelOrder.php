@@ -76,6 +76,9 @@ class ParcelOrder extends Model implements Orderable
         'drop_delivered_at',
         'drops_completed_at',
         'returned_at',
+        // Stage 2: protection
+        'declared_value',
+        'protection_fee',
     ];
 
     protected $casts = [
@@ -96,6 +99,8 @@ class ParcelOrder extends Model implements Orderable
         'drop_delivered_at' => 'datetime',
         'drops_completed_at' => 'datetime',
         'returned_at' => 'datetime',
+        'declared_value' => 'decimal:2',
+        'protection_fee' => 'decimal:2',
     ];
 
     /** Rider has committed and the parcel is not yet handed over or closed. */
@@ -118,6 +123,14 @@ class ParcelOrder extends Model implements Orderable
     public function safetyPhotos() { return $this->hasMany(ParcelSafetyPhoto::class)->orderBy('taken_at'); }
     /** Stage 2: drop 2, 3, ... (drop 1 is this order's own dropoff). */
     public function stops() { return $this->hasMany(ParcelOrderStop::class)->orderBy('sequence'); }
+
+    public function protectionClaims() { return $this->hasMany(ParcelProtectionClaim::class); }
+
+    /** Stage 2: the sender paid for protection (claims up to declared_value). */
+    public function isProtected(): bool
+    {
+        return $this->declared_value !== null && (float) $this->declared_value > 0;
+    }
 
     /** Stage 2: more than one drop point. */
     public function isMultiDrop(): bool

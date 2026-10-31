@@ -56,6 +56,9 @@ class Create extends Component
      */
     public array $extraDrops = [];
     public bool $returnTrip = false;
+    /** Stage 2: optional protection — the sender declares the parcel's value and pays a % of it. */
+    public bool $protect = false;
+    public string $declaredValue = '';
 
     // ── package ──
     public string $packageSize = 'small';
@@ -227,6 +230,7 @@ class Create extends Component
             'recipientPhone.regex' => 'Enter a 10-digit mobile number.',
             'extraDrops.*.phone.required' => "Enter this recipient's phone number.",
             'extraDrops.*.phone.regex' => 'Enter a 10-digit mobile number.',
+            'declaredValue.required_if' => 'Enter what the parcel is worth.',
             'pickupContactPhone.regex' => 'Enter a 10-digit mobile number.',
             'restrictedConfirmed.accepted' => 'Confirm the parcel has none of the restricted items.',
             'scheduledAt.required_if' => 'Choose the pickup date and time.',
@@ -310,6 +314,7 @@ class Create extends Component
                     'customer_note' => $this->customerNote ?: null,
                     'extra_stops' => $stops,
                     'return_trip' => $this->returnTrip,
+                    'declared_value' => $this->protect && is_numeric($this->declaredValue) ? (float) $this->declaredValue : null,
                 ]);
             });
         } catch (ModuleNotActiveException) {
@@ -367,6 +372,8 @@ class Create extends Component
             'extraDrops.*.phone' => ['required', 'regex:/^\+?[0-9]{10,15}$/'],
             'extraDrops.*.detail' => ['nullable', 'string', 'max:150'],
             'returnTrip' => ['boolean'],
+            'protect' => ['boolean'],
+            'declaredValue' => ['nullable', 'required_if:protect,true', 'numeric', 'min:1', 'max:10000000'],
         ];
     }
 
@@ -443,6 +450,7 @@ class Create extends Component
         $scheduleAvailable = false;
         $maxDrops = 1;
         $returnTripAvailable = false;
+        $protectionAvailable = false;
         // ?when=scheduled (homepage Parcel card) opens on "Schedule"; anything else falls back to "now".
         if (! in_array($this->deliveryType, ['now', 'scheduled'], true)) {
             $this->deliveryType = 'now';
@@ -469,6 +477,10 @@ class Create extends Component
             if (! $returnTripAvailable) {
                 $this->returnTrip = false;
             }
+            $protectionAvailable = ParcelSettings::protectionAvailable($scope);
+            if (! $protectionAvailable) {
+                $this->protect = false;
+            }
             if ($this->extraDrops !== []) {
                 $this->cashCollectAt = 'pickup';
             }
@@ -482,6 +494,7 @@ class Create extends Component
                         $this->deliveryType === 'scheduled',
                         array_map(fn ($p) => [$p['lat'], $p['lng']], $this->extraDropPoints()),
                         $this->returnTrip,
+                        $this->protect && is_numeric($this->declaredValue) && (float) $this->declaredValue > 0 ? (float) $this->declaredValue : null,
                     );
                 } catch (ParcelQuoteException $e) {
                     $quoteError = $e->getMessage();
@@ -503,6 +516,9 @@ class Create extends Component
             'scheduleAvailable' => $scheduleAvailable,
             'maxDrops' => $maxDrops,
             'returnTripAvailable' => $returnTripAvailable,
+            'protectionAvailable' => $protectionAvailable,
+            'protectionPercent' => $pickup && $pickup['zone'] ? ParcelSettings::get('parcel.protection_fee_percent', $this->scopeFor($pickup['zone'])) : null,
+            'protectionMaxCover' => $pickup && $pickup['zone'] ? ParcelSettings::get('parcel.protection_max_cover', $this->scopeFor($pickup['zone'])) : null,
             'returnPercent' => $pickup && $pickup['zone'] ? ParcelSettings::get('parcel.return_trip_percent', $this->scopeFor($pickup['zone'])) : null,
             'scheduleMin' => $pickup && $pickup['zone'] ? now(app(TimezoneResolver::class)->platformTimezone())->addMinutes((int) ParcelSettings::get('parcel.schedule_min_lead_minutes', $this->scopeFor($pickup['zone'])))->format('Y-m-d\TH:i') : null,
             'scheduleMax' => $pickup && $pickup['zone'] ? now(app(TimezoneResolver::class)->platformTimezone())->addDays((int) ParcelSettings::get('parcel.schedule_max_days_ahead', $this->scopeFor($pickup['zone'])))->format('Y-m-d\TH:i') : null,

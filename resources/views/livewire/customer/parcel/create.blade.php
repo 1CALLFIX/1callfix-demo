@@ -323,6 +323,24 @@
                 <p class="mt-2 pl-8 text-xs text-slate-600">If anything looks unusual, the rider may ask to see the item and take a photo before and after packing. Please allow it: if you don't, or the parcel holds a banned item, the rider can refuse it{{ $refusalFee > 0 ? ' and '.$currencySymbol.number_format((float) $refusalFee, 2).' is kept from your online refund' : '' }}.</p>
                 @error('restrictedConfirmed') <p class="mt-1 pl-8 text-xs text-rose-700">{{ $message }}</p> @enderror
             </div>
+
+            {{-- Stage 2 (owner decision 2026-10-31): optional protection against loss or damage. --}}
+            @if ($protectionAvailable)
+                <div class="mt-3 rounded-lg border border-slate-200 p-3">
+                    <label class="flex cursor-pointer items-start gap-3 text-sm">
+                        <input type="checkbox" wire:model.live="protect" class="mt-0.5 h-5 w-5 rounded border-slate-300 text-blue-600 focus:ring-blue-500">
+                        <span>
+                            <span class="font-medium text-slate-800">Protect this parcel</span>
+                            <span class="block text-xs text-slate-500">If it is lost or damaged, claim up to its value. Costs {{ rtrim(rtrim(number_format((float) $protectionPercent, 2), '0'), '.') }}% of the value you declare (up to {{ $currencySymbol }}{{ number_format((float) $protectionMaxCover) }}). Every claim is checked by our team.</span>
+                        </span>
+                    </label>
+                    @if ($protect)
+                        <label for="declared-value" class="mt-2 {{ $labelClass }}">What is it worth? ({{ $currencySymbol }})</label>
+                        <input id="declared-value" type="number" min="1" step="1" inputmode="numeric" wire:model.live.debounce.500ms="declaredValue" class="{{ $inputClass }}">
+                        @error('declaredValue') <p class="mt-1 text-xs text-rose-700">{{ $message }}</p> @enderror
+                    @endif
+                </div>
+            @endif
         </section>
 
         {{-- ═══════════ 4. Price & pay ═══════════ --}}

@@ -23,11 +23,14 @@ class ParcelPricing
      * route pickup → drop 1 → drop 2 …, each extra drop adds parcel.extra_stop_fee, and $returnTrip adds
      * parcel.return_trip_percent of the delivery price. Each unavailable option refuses the quote.
      *
-     * @return array{total: float, distance_km: float, lines: array<int, array{label: string, amount: float}>}
+     * $declaredValue = protection (Stage 2): the sender declares the parcel's value and pays parcel.protection_fee_percent
+     * of it (min/max fee), up to parcel.protection_max_cover; refused where protection is off.
+     *
+     * @return array{total: float, distance_km: float, lines: array<int, array{label: string, amount: float}>, protection_fee: float}
      *
      * @throws ParcelQuoteException when pricing is not configured or the parcel is outside the limits
      */
-    public function quote(float $pickupLat, float $pickupLng, float $dropLat, float $dropLng, ?float $weightKg, string $size, array $scope, bool $scheduled = false, array $extraDrops = [], bool $returnTrip = false): array
+    public function quote(float $pickupLat, float $pickupLng, float $dropLat, float $dropLng, ?float $weightKg, string $size, array $scope, bool $scheduled = false, array $extraDrops = [], bool $returnTrip = false, ?float $declaredValue = null): array
     {
         if (ParcelSettings::missingRequired($scope) !== []) {
             throw new ParcelQuoteException('Parcel delivery is not available here yet.');
@@ -44,6 +47,15 @@ class ParcelPricing
         if ($extraDrops !== [] && count($extraDrops) + 1 > ParcelSettings::maxDrops($scope)) {
             $max = ParcelSettings::maxDrops($scope);
             throw new ParcelQuoteException($max > 1 ? "You can add up to {$max} drop points." : 'Only one drop point is available here.');
+        }
+        if ($declaredValue !== null) {
+            if (! ParcelSettings::protectionAvailable($scope)) {
+                throw new ParcelQuoteException('Parcel protection is not available here.');
+            }
+            $cover = (float) ParcelSettings::get('parcel.protection_max_cover', $scope);
+            if ($declaredValue <= 0 || $declaredValue > $cover) {
+                throw new ParcelQuoteException('Declare a value between 1 and '.$this->num($cover).'.');
+            }
         }
         if ($returnTrip && ! ParcelSettings::returnTripAvailable($scope)) {
             throw new ParcelQuoteException('Return to sender is not available here.');
@@ -97,10 +109,17 @@ class ParcelPricing
             $lines[] = ['label' => 'Return to sender ('.$this->num($percent).'%)', 'amount' => round(array_sum(array_column($lines, 'amount')) * $percent / 100, 2)];
         }
 
+        // Protection is not part of the delivery price: it is added last and never shared with the rider.
+        $protectionFee = $declaredValue !== null ? ParcelSettings::protectionFee($declaredValue, $scope) : 0.0;
+        if ($declaredValue !== null) {
+            $lines[] = ['label' => 'Parcel protection (value '.$this->num($declaredValue).')', 'amount' => $protectionFee];
+        }
+
         return [
             'total' => round(array_sum(array_column($lines, 'amount')), 2),
             'distance_km' => $distance,
             'lines' => $lines,
+            'protection_fee' => $protectionFee,
         ];
     }
 

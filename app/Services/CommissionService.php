@@ -236,13 +236,20 @@ class CommissionService
         $order->loadMissing(['franchise.owner', 'assignedWorker.user']);
         $isCash = $order->payment_method === 'cash';
 
+        // Stage 2: the protection fee is HQ's (it pays the claims), never split with the rider or franchise. It is
+        // left out of the split and added to the platform share; on a cash order the rider owes it back with the rest.
+        $protectionFee = round((float) $order->protection_fee, 2);
         $commission = $this->applyForFieldWorkerOrder(
             identifyingColumn: 'parcel_order_id', identifyingId: $order->id,
             franchise: $order->franchise, worker: $order->assignedWorker,
-            total: (float) ($order->price_final ?? $order->price_quoted),
+            total: round((float) ($order->price_final ?? $order->price_quoted) - $protectionFee, 2),
             orderCode: $order->code, orderLabel: 'parcel order',
             earnerHoldsCash: $isCash,
         );
+        if ($protectionFee > 0 && $commission->wasRecentlyCreated) {
+            $commission->platform_commission = round((float) $commission->platform_commission + $protectionFee, 2);
+            $commission->save();
+        }
 
         // Parcel completion (2026-10-23) — same fix as cash commission collection for Service: the rider
         // physically holds a cash price, so they get no wallet credit (that would pay them twice) and owe

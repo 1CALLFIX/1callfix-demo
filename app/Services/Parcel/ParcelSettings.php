@@ -117,6 +117,27 @@ class ParcelSettings
             'group' => 'Multi-drop and return trip', 'label' => 'Return to sender, as % of the delivery price', 'type' => 'decimal', 'unit' => '%', 'required' => false, 'min' => 1, 'max' => 200,
             'default' => null, 'help' => 'The rider delivers, then brings something back to the sender (e.g. signed papers). The sender gives the rider a return code when it comes back. Blank = no return trip.',
         ],
+        // ── protection (Stage 2, owner decision 2026-10-31) ──
+        'parcel.protection_fee_percent' => [
+            'group' => 'Parcel protection', 'label' => 'Protection fee, as % of the declared value', 'type' => 'decimal', 'unit' => '%', 'required' => false, 'min' => 0.1, 'max' => 50,
+            'default' => null, 'help' => 'Optional for the sender: they declare what the parcel is worth and pay this % of it. If it is lost or damaged they can claim up to that value; every payout needs approval (Refund Controls → Parcel protection claims). Needs the highest value below too. Blank = no protection.',
+        ],
+        'parcel.protection_max_cover' => [
+            'group' => 'Parcel protection', 'label' => 'Highest value a sender can declare', 'type' => 'decimal', 'unit' => '₹', 'required' => false, 'min' => 1,
+            'default' => null, 'help' => 'The most a protected parcel can be covered for. Blank = no protection.',
+        ],
+        'parcel.protection_min_fee' => [
+            'group' => 'Parcel protection', 'label' => 'Lowest protection fee', 'type' => 'decimal', 'unit' => '₹', 'required' => false, 'min' => 0,
+            'default' => 0, 'help' => 'Blank = 0.',
+        ],
+        'parcel.protection_max_fee' => [
+            'group' => 'Parcel protection', 'label' => 'Highest protection fee', 'type' => 'decimal', 'unit' => '₹', 'required' => false, 'min' => 0,
+            'default' => null, 'help' => 'Blank = no upper limit.',
+        ],
+        'parcel.protection_claim_days' => [
+            'group' => 'Parcel protection', 'label' => 'Claim within', 'type' => 'int', 'unit' => 'days', 'required' => false, 'min' => 1, 'max' => 30,
+            'default' => 3, 'help' => 'Days after the parcel was delivered (or the order closed) during which the sender can report it lost or damaged. Blank = 3.',
+        ],
         // ── dispatch ──
         'parcel.dispatch.offer_batch_size' => [
             'group' => 'Rider dispatch', 'label' => 'Riders offered per round', 'type' => 'int', 'unit' => 'riders', 'required' => false, 'min' => 1, 'max' => 20,
@@ -249,6 +270,22 @@ class ParcelSettings
     public static function returnTripAvailable(array $scope = []): bool
     {
         return self::get('parcel.return_trip_percent', $scope) !== null;
+    }
+
+    /** Stage 2: protection is offered only where both its fee % and the highest declared value are set. */
+    public static function protectionAvailable(array $scope = []): bool
+    {
+        return self::get('parcel.protection_fee_percent', $scope) !== null && self::get('parcel.protection_max_cover', $scope) !== null;
+    }
+
+    /** Stage 2: the protection fee for a declared value: % of it, kept between the min and max fee. */
+    public static function protectionFee(float $declaredValue, array $scope = []): float
+    {
+        $fee = $declaredValue * (float) self::get('parcel.protection_fee_percent', $scope) / 100;
+        $fee = max($fee, (float) self::get('parcel.protection_min_fee', $scope));
+        $max = self::get('parcel.protection_max_fee', $scope);
+
+        return round($max !== null ? min($fee, (float) $max) : $fee, 2);
     }
 
     /** The waiting charge applies only when both the free time and the rate are set. */

@@ -124,6 +124,11 @@ ScheduleRunTracker::track(Schedule::command('refunds:escalate-mismatch'), 'refun
     ->everyFifteenMinutes()
     ->withoutOverlapping(10);
 
+// Parcel Stage 2 — protection payout escalation (refund.parcel_claim.escalate_after_hours; no-op while unset).
+ScheduleRunTracker::track(Schedule::command('refunds:escalate-parcel-claims'), 'refunds:escalate-parcel-claims')
+    ->everyFifteenMinutes()
+    ->withoutOverlapping(10);
+
 // E-commerce Phase 3b — shop return refund escalation (refund.shop_return.escalate_after_hours; no-op while unset).
 ScheduleRunTracker::track(Schedule::command('refunds:escalate-shop-returns'), 'refunds:escalate-shop-returns')
     ->everyFifteenMinutes()

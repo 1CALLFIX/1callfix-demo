@@ -51,6 +51,12 @@ final class WalletSourceLabel
             'regex' => '/^[a-z_]+:\d+:(provider|worker)-earning$/',
             'like' => ['%:provider-earning', '%:worker-earning'],
         ],
+        // Parcel Stage 2 (2026-10-31): a protection claim paid into the customer's wallet (approval model).
+        'protection_payout' => [
+            'label' => 'Parcel protection payout',
+            'regex' => '/^parcel_order:\d+:protection-claim-\d+$/',
+            'like' => ['%:protection-claim-%'],
+        ],
         // Parcel pickup safety (2026-10-29): trip pay to a rider who refused a parcel at the pickup point.
         'refused_trip_pay' => [
             'label' => 'Trip pay (refused parcel)',
@@ -193,6 +199,7 @@ final class WalletSourceLabel
             'mkt-cash-due:1:settle:00000000-0000-0000-0000-000000000000',
             'mkt-cash-due:1:franchise-earning:00000000-0000-0000-0000-000000000000',
         ],
+        'app/Services/Parcel/ParcelProtectionClaimService.php' => ['parcel_order:1:protection-claim-2'],
         'app/Services/Parcel/FieldWorkerCashDueService.php' => [
             'rider-cash-due:1:settle:00000000-0000-0000-0000-000000000000',
             'rider-cash-due:1:franchise-earning:00000000-0000-0000-0000-000000000000',

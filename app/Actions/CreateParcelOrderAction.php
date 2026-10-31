@@ -103,6 +103,8 @@ class CreateParcelOrderAction
         // customer's own addresses with its own recipient; cash on a multi-drop order is paid at pickup only.
         $data['extra_stops'] = self::normaliseStops($data['extra_stops'] ?? [], (int) $data['customer_id']);
         $data['return_trip'] = ! empty($data['return_trip']);
+        // Protection (Stage 2): optional; the sender declares the parcel's value.
+        $data['declared_value'] = isset($data['declared_value']) && $data['declared_value'] !== '' ? round((float) $data['declared_value'], 2) : null;
         if ($data['extra_stops'] !== [] && $cashCollectAt === 'drop') {
             throw new \RuntimeException('With more than one drop point, cash is paid at pickup.');
         }
@@ -143,6 +145,8 @@ class CreateParcelOrderAction
                 'cash_collect_at' => $cashCollectAt,
                 'customer_note' => $data['customer_note'] ?? null,
                 'return_trip' => $data['return_trip'],
+                'declared_value' => $data['declared_value'],
+                'protection_fee' => ($quote['protection_fee'] ?? 0) > 0 || $data['declared_value'] !== null ? ($quote['protection_fee'] ?? 0) : null,
             ]);
 
             foreach ($data['extra_stops'] as $i => $stop) {
@@ -275,6 +279,7 @@ class CreateParcelOrderAction
             ($data['delivery_type'] ?? 'now') === 'scheduled',
             $extra,
             ! empty($data['return_trip']),
+            isset($data['declared_value']) && $data['declared_value'] !== '' && $data['declared_value'] !== null ? (float) $data['declared_value'] : null,
         );
     }
 
