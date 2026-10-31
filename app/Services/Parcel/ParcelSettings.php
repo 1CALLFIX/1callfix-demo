@@ -138,6 +138,10 @@ class ParcelSettings
             'group' => 'Parcel protection', 'label' => 'Claim within', 'type' => 'int', 'unit' => 'days', 'required' => false, 'min' => 1, 'max' => 30,
             'default' => 3, 'help' => 'Days after the parcel was delivered (or the order closed) during which the sender can report it lost or damaged. Blank = 3.',
         ],
+        'parcel.safety_photo_keep_days' => [
+            'group' => 'Parcel protection', 'label' => 'Keep rider safety photos for', 'type' => 'int', 'unit' => 'days', 'required' => false, 'min' => 7, 'max' => 3650,
+            'default' => null, 'help' => 'Photos riders take at pickup are deleted this many days after the parcel is finished (never while a claim is open). Blank = keep them.',
+        ],
         // ── cash on delivery for shops (Stage 2) ──
         'parcel.cod_max_amount' => [
             'group' => 'Cash on delivery (shops)', 'label' => 'Highest amount a rider collects for the sender', 'type' => 'decimal', 'unit' => '₹', 'required' => false, 'min' => 1,

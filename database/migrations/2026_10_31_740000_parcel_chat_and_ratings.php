@@ -35,10 +35,18 @@ return new class extends Migration
 
             $table->index('field_worker_id');
         });
+
+        // Block one sender from sending parcels (admin button on the customer page). Null = allowed.
+        Schema::table('users', function (Blueprint $table) {
+            $table->timestamp('parcel_blocked_at')->nullable();
+        });
     }
 
     public function down(): void
     {
+        Schema::table('users', function (Blueprint $table) {
+            $table->dropColumn('parcel_blocked_at');
+        });
         Schema::dropIfExists('parcel_ratings');
         Schema::dropIfExists('parcel_order_messages');
     }

@@ -74,6 +74,10 @@ class CreateParcelOrderAction
             throw new ModuleNotActiveException(Modules::PARCEL);
         }
 
+        if (\App\Models\User::whereKey($data['customer_id'] ?? 0)->whereNotNull('parcel_blocked_at')->exists()) {
+            throw new \RuntimeException('Sending parcels is not available on your account. Please contact support.');
+        }
+
         if (! empty($data['coupon_code'])) {
             throw new \RuntimeException('Coupons and offers are not available on parcel delivery.');
         }

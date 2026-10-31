@@ -79,6 +79,27 @@ class Show extends Component
         $this->flashMessage = $this->customer->status === 'suspended' ? 'Customer suspended.' : 'Customer reactivated.';
     }
 
+    /** Parcel Stage 2: stop (or allow again) this customer sending parcels. Their account otherwise keeps working. */
+    public function toggleParcelBlock(): void
+    {
+        if (! auth()->user()->hasPermission('customers.manage', array_filter([
+            'zone_id' => $this->customer->zone_id,
+            'franchise_id' => $this->customer->franchise_id,
+        ]))) {
+            $this->flashType = 'error';
+            $this->flashMessage = 'You do not have permission to manage this customer.';
+
+            return;
+        }
+
+        $blocked = $this->customer->parcel_blocked_at === null;
+        $this->customer->forceFill(['parcel_blocked_at' => $blocked ? now() : null])->save();
+        \App\Services\ActivityLogger::logModel(auth()->user(), $this->customer, $blocked ? 'Blocked from sending parcels' : 'Allowed to send parcels again');
+
+        $this->flashType = 'success';
+        $this->flashMessage = $blocked ? 'Customer can no longer send parcels.' : 'Customer can send parcels again.';
+    }
+
     public function render()
     {
         return view('livewire.customers.show')

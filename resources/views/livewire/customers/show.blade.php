@@ -24,6 +24,10 @@
                     <dt class="text-gray-500">Account</dt>
                     <dd><x-ui.button size="sm" wire:click="toggleSuspended">{{ $customer->status === 'suspended' ? 'Reactivate' : 'Suspend' }}</x-ui.button></dd>
                 </div>
+                <div class="flex justify-between items-center pt-2">
+                    <dt class="text-gray-500">Send parcels</dt>
+                    <dd>{{ $customer->parcel_blocked_at ? 'Blocked' : 'Allowed' }} <x-ui.button size="sm" wire:click="toggleParcelBlock">{{ $customer->parcel_blocked_at ? 'Allow' : 'Block' }}</x-ui.button></dd>
+                </div>
             </dl>
         </x-ui.card>
 

@@ -129,6 +129,11 @@ ScheduleRunTracker::track(Schedule::command('refunds:escalate-parcel-claims'), '
     ->everyFifteenMinutes()
     ->withoutOverlapping(10);
 
+// Parcel Stage 2 — delete old rider safety photos (parcel.safety_photo_keep_days; no-op while unset).
+ScheduleRunTracker::track(Schedule::command('parcel:purge-safety-photos'), 'parcel:purge-safety-photos')
+    ->dailyAt('03:30')
+    ->withoutOverlapping(30);
+
 // E-commerce Phase 3b — shop return refund escalation (refund.shop_return.escalate_after_hours; no-op while unset).
 ScheduleRunTracker::track(Schedule::command('refunds:escalate-shop-returns'), 'refunds:escalate-shop-returns')
     ->everyFifteenMinutes()
