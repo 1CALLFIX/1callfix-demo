@@ -66,6 +66,8 @@ class Home extends Component
             // "from ₹…" on the parcel card: the browsed area's Parcel Settings base fare; null (unset) hides it.
             'parcelFrom' => $parcelFrom = $parcelActive ? \App\Services\Parcel\ParcelSettings::get('parcel.base_fare', $parcelScope) : null,
             'doors' => $this->doors($parcelActive, $parcelFrom),
+            'cards' => \App\Support\HomeLayout::shown('module_cards') ? $this->moduleCards($parcelActive, $parcelFrom, $parcelScope) : [],
+            'sections' => \App\Support\HomeLayout::visible(),
             'heroBanners' => $this->bannersFor('top'),
             'midBanners' => $this->bannersFor('mid'),
             'categories' => $catalog->categories()->limit(\App\Support\SiteControls::categoryLimit())->get(),
@@ -103,16 +105,122 @@ class Home extends Component
             $live['parcel'] = ['url' => route('customer.parcels.create'),
                 'price' => is_numeric($parcelFrom) && (float) $parcelFrom > 0 ? $this->presenter()->currencySymbol().rtrim(rtrim(number_format((float) $parcelFrom, 2), '0'), '.') : null];
         }
-        $city = app(\App\Services\Seo\CityContext::class)->current();
-        if ($city && \App\Livewire\Customer\Shop\Home::shopLiveIn($city)) {
-            $live['shop'] = ['url' => route('customer.shop.home', $city->slug), 'count' => \App\Models\Store::query()->sellable()
-                ->where('module', \App\Support\Modules::COMMERCE)->where('is_open', true)
-                ->whereHas('franchise', fn ($q) => $q->where('city_id', $city->id))
-                ->when(\App\Support\Seo\QaRows::hiding(), fn ($q) => $q->where('name', 'not like', \App\Support\Seo\QaRows::PREFIX.'%'))
-                ->count()];
+        if ($city = $this->shopCity()) {
+            $live['shop'] = ['url' => route('customer.shop.home', $city->slug), 'count' => $this->shopsOpen($city)];
         }
 
         return \App\Support\HomeDoors::doors($live);
+    }
+
+    /** The visitor's city when the shop is on there, else null. */
+    private function shopCity(): ?\App\Models\City
+    {
+        $city = app(\App\Services\Seo\CityContext::class)->current();
+
+        return $city && \App\Livewire\Customer\Shop\Home::shopLiveIn($city) ? $city : null;
+    }
+
+    private function shopStores(\App\Models\City $city)
+    {
+        return \App\Models\Store::query()->sellable()->where('module', \App\Support\Modules::COMMERCE)
+            ->whereHas('franchise', fn ($q) => $q->where('city_id', $city->id))
+            ->when(\App\Support\Seo\QaRows::hiding(), fn ($q) => $q->where('name', 'not like', \App\Support\Seo\QaRows::PREFIX.'%'));
+    }
+
+    private function shopsOpen(\App\Models\City $city): int
+    {
+        return once(fn () => $this->shopStores($city)->where('is_open', true)->count());
+    }
+
+    /**
+     * Business cards (owner samples 2026-10-31): a card per service category (its subcategories as icons, or its
+     * services when it has fewer than two subcategories), a Parcel card and a Shop card, each only where that
+     * business is live and has something real to show. Order, on/off, icons per card and the offer lines are the
+     * Super Admin's (HomeCards); the offer line falls back to a real fact (a live offer, shops open now, the base
+     * fare) or nothing — never an invented claim.
+     *
+     * @return list<array{key: string, title: string, url: string, line: ?string, tiles: list<array>}>
+     */
+    private function moduleCards(bool $parcelActive, $parcelFrom, array $parcelScope): array
+    {
+        $cards = [];
+        $n = \App\Support\HomeCards::icons();
+        $text = fn (string $key, array $r = []) => \App\Support\SiteText::get($key, $r);
+        $newSince = \App\Support\HomeCards::newDays() > 0 ? now()->subDays(\App\Support\HomeCards::newDays()) : null;
+        $isNew = fn ($row) => $newSince && $row->created_at && $row->created_at->gte($newSince);
+
+        $limit = \App\Support\HomeCards::categoryLimit();
+        $categories = $limit > 0 ? $this->catalog()->categories()
+            ->whereHas('services', fn ($q) => $q->where('is_active', true))->limit($limit)->get() : collect();
+        $offerIds = $categories->isNotEmpty()
+            ? app(\App\Services\FlashSaleService::class)->activeServiceIdsFor($this->location()->viewerScope()) : collect();
+
+        foreach ($categories->values() as $i => $category) {
+            $key = 'category_'.$category->id;
+            if (! \App\Support\HomeCards::cardShown($key)) {
+                continue;
+            }
+            $subIds = $this->catalog()->services(['category_id' => $category->id])->pluck('subcategory_id')->filter()->unique();
+            $subs = \App\Models\ServiceSubcategory::query()->whereIn('id', $subIds)->where('is_active', true)
+                ->orderBy('sort_order')->orderBy('id')->limit($n)->get();
+            $tint = preg_match('/^#[0-9a-fA-F]{6}$/', (string) $category->color) ? $category->color.'26' : null;
+
+            $tiles = $subs->count() >= 2
+                ? $subs->map(fn ($sub) => ['name' => $sub->name, 'url' => \App\Support\Seo\PublicUrl::category($category, null, ['sub' => $sub->id]),
+                    'image' => $sub->image_url, 'tint' => $tint, 'new' => $isNew($sub)])->all()
+                : $this->cardsFrom($this->catalog()->services(['category_id' => $category->id]), $n)
+                    ->map(fn ($c) => ['name' => $c['name'], 'url' => $c['url'], 'image' => $c['image_url'], 'tint' => $tint, 'new' => $isNew($c['service'])])->all();
+            if ($tiles === []) {
+                continue;
+            }
+            $hasOffer = $offerIds->isNotEmpty() && $this->catalog()->services(['category_id' => $category->id])->whereIn('id', $offerIds)->exists();
+
+            $cards[] = ['key' => $key, 'order' => \App\Support\HomeCards::cardOrder($key, $i), 'title' => $category->name,
+                'url' => \App\Support\Seo\PublicUrl::category($category), 'tiles' => $tiles,
+                'line' => \App\Support\HomeCards::line($key) ?? ($hasOffer ? $text('home.card.offer_line', ['name' => $category->name]) : null),
+                'line_url' => $hasOffer && \App\Support\HomeCards::line($key) === null ? route('customer.offers') : \App\Support\Seo\PublicUrl::category($category)];
+        }
+
+        if ($parcelActive && \App\Support\HomeCards::cardShown('parcel')) {
+            $price = is_numeric($parcelFrom) && (float) $parcelFrom > 0
+                ? $this->presenter()->currencySymbol().rtrim(rtrim(number_format((float) $parcelFrom, 2), '0'), '.') : null;
+            $tiles = [['name' => $text('home.card.parcel.send'), 'url' => route('customer.parcels.create'), 'icon' => 'bolt']];
+            if (\App\Services\Parcel\ParcelSettings::scheduleAvailable($parcelScope)) {
+                $tiles[] = ['name' => $text('home.card.parcel.schedule'), 'url' => route('customer.parcels.create', ['when' => 'scheduled']), 'icon' => 'clock'];
+            }
+            $tiles[] = ['name' => $text('home.card.parcel.track'), 'url' => route('customer.parcels.index'), 'icon' => 'map-pin'];
+            $cards[] = ['key' => 'parcel', 'order' => \App\Support\HomeCards::cardOrder('parcel'), 'title' => $text('home.card.parcel.title'),
+                'url' => route('customer.parcels.create'), 'tiles' => $tiles, 'line_url' => route('customer.parcels.create'),
+                'line' => \App\Support\HomeCards::line('parcel') ?? ($price ? $text('home.card.parcel.line_price', ['price' => $price]) : $text('home.card.parcel.line'))];
+        }
+
+        if (($city = $this->shopCity()) && \App\Support\HomeCards::cardShown('shop')) {
+            // Top-level shop categories that have something sellable in this city (or under a child category).
+            $sellable = \App\Models\Product::query()->where('is_active', true)->where('is_approved', true)
+                ->whereHas('store', fn ($q) => $q->whereIn('stores.id', $this->shopStores($city)->select('stores.id')))
+                ->whereNotNull('marketplace_category_id')->distinct()->pluck('marketplace_category_id');
+            $parents = \App\Models\MarketplaceCategory::query()->whereIn('id', $sellable)->pluck('parent_id', 'id');
+            $topIds = $parents->map(fn ($parent, $id) => $parent ?: $id)->unique()->values();
+            $shopCats = \App\Models\MarketplaceCategory::query()->whereIn('id', $topIds)->where('is_active', true)
+                ->orderBy('position')->orderBy('name')->limit($n)->get();
+            $tiles = $shopCats->map(fn ($c) => ['name' => $c->name, 'url' => route('customer.shop.home', [$city->slug, 'category' => $c->slug]),
+                'image' => $c->image ? (\Illuminate\Support\Str::startsWith($c->image, ['http://', 'https://', '//']) ? $c->image : \Illuminate\Support\Facades\Storage::disk('public')->url($c->image)) : null,
+                'tint' => null, 'new' => $isNew($c)])->all();
+            if ($tiles !== []) {
+                $open = $this->shopsOpen($city);
+                $cards[] = ['key' => 'shop', 'order' => \App\Support\HomeCards::cardOrder('shop'), 'title' => $text('home.card.shop.title'),
+                    'url' => route('customer.shop.home', $city->slug), 'tiles' => $tiles, 'line_url' => route('customer.shop.home', $city->slug),
+                    'line' => \App\Support\HomeCards::line('shop') ?? match (true) {
+                        $open === 1 => $text('home.card.shop.live_one'),
+                        $open > 1 => $text('home.card.shop.live', ['count' => $open]),
+                        default => $text('home.card.shop.line'),
+                    }];
+            }
+        }
+
+        usort($cards, fn ($a, $b) => [$a['order'], $a['key']] <=> [$b['order'], $b['key']]);
+
+        return $cards;
     }
 
     /**

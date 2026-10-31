@@ -24,7 +24,7 @@
                     @error('headline') <p class="text-xs text-red-600 mt-1">{{ $message }}</p> @enderror
                 </div>
                 <label class="{{ $check }}"><input type="checkbox" wire:model="showHeadline" class="mt-0.5"> <span>Show the headline above the category icons</span></label>
-                <label class="{{ $check }}"><input type="checkbox" wire:model="categoriesFirst" class="mt-0.5"> <span>Category icons first (above the top banner)</span></label>
+                <label class="{{ $check }}"><input type="checkbox" wire:model="categoriesFirst" class="mt-0.5"> <span>Category icons first (above the top banner)@if (\App\Support\HomeLayout::hasSavedOrder()) <em class="text-gray-500">— not used: the order is set on <a href="{{ route('admin.home-sections') }}" class="text-blue-700 underline">Homepage sections</a></em>@endif</span></label>
                 <label class="{{ $check }} md:col-span-2"><input type="checkbox" wire:model="showPhotoTiles" class="mt-0.5">
                     <span>Show photo tiles beside the icons (from Home Spotlight). Off keeps the first screen to the icons only.</span></label>
                 <div>
@@ -87,6 +87,9 @@
                         <option value="after_categories">After the category icons</option>
                         <option value="after_banner">After the top banner</option>
                     </select>
+                    @if (\App\Support\HomeLayout::hasSavedOrder())
+                        <p class="text-xs text-gray-500 mt-1">Not used: the order is set on <a href="{{ route('admin.home-sections') }}" class="text-blue-700 underline">Homepage sections</a>.</p>
+                    @endif
                 </div>
                 <div>
                     <label class="block text-sm font-medium mb-1" for="sc-pcol">Card colour</label>

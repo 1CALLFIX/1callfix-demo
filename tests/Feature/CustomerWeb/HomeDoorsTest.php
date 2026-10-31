@@ -82,7 +82,6 @@ class HomeDoorsTest extends TestCase
         Livewire::test(Manage::class)
             ->set('doorOrder.parcel', '1')->set('doorOrder.services', '2')
             ->set('showPromise', false)
-            ->set('position', 'after_categories')
             ->set('doorImage.parcel', UploadedFile::fake()->image('door.png', 200, 200))
             ->call('save')->assertSee('Saved. The homepage shows it now.');
 
