@@ -120,6 +120,46 @@
                 <a href="tel:{{ $rider->phone }}" class="inline-flex min-h-10 items-center rounded-lg border border-slate-300 px-4 text-sm font-medium hover:bg-slate-50">Call</a>
             @endif
         </div>
+        @if ($riderAway)
+            <div class="mt-2 flex items-center justify-between gap-3 rounded-2xl bg-blue-50 px-4 py-3 text-sm text-blue-900">
+                <p>
+                    @if ($riderAway['km'] !== null)
+                        Rider is <span class="font-semibold">{{ number_format($riderAway['km'], 1) }} km</span> from {{ $riderAway['to'] }}
+                    @else
+                        Rider is on the way
+                    @endif
+                    <span class="block text-xs text-blue-700">Updated {{ $riderAway['ago'] }} ago</span>
+                </p>
+                <a href="{{ $riderAway['map'] }}" target="_blank" rel="noopener" class="inline-flex min-h-10 shrink-0 items-center rounded-lg bg-white px-4 font-medium text-blue-700 ring-1 ring-blue-200">Open map</a>
+            </div>
+        @endif
+    @endif
+
+    {{-- Stage 2: chat with the rider while they are on the job (history stays readable afterwards). --}}
+    @if ($showChat)
+        <div class="mt-3">
+            <livewire:parcel.chat-box :order-id="$order->id" :key="'chat-'.$order->id" />
+        </div>
+    @endif
+
+    {{-- Stage 2: rate the rider after delivery. --}}
+    @if ($myRating)
+        <p class="mt-5 rounded-2xl border border-slate-200 bg-white p-4 text-sm">You rated your rider <span class="font-semibold text-amber-600">{{ str_repeat('★', $myRating->rating) }}</span><span class="text-slate-300">{{ str_repeat('★', 5 - $myRating->rating) }}</span></p>
+    @elseif ($canRate)
+        <div class="mt-5 rounded-2xl border border-slate-200 bg-white p-4 text-sm">
+            <p class="font-semibold">How was your rider?</p>
+            <div class="mt-2 flex gap-1" role="radiogroup" aria-label="Rating">
+                @for ($i = 1; $i <= 5; $i++)
+                    <button type="button" wire:click="$set('stars', {{ $i }})" role="radio" aria-checked="{{ $stars === $i ? 'true' : 'false' }}" aria-label="{{ $i }} {{ $i === 1 ? 'star' : 'stars' }}"
+                            @class(['text-3xl leading-none', 'text-amber-500' => $stars >= $i, 'text-slate-300' => $stars < $i])>★</button>
+                @endfor
+            </div>
+            @if ($stars > 0)
+                <label for="rating-comment" class="sr-only">Comment (optional)</label>
+                <input id="rating-comment" type="text" wire:model="ratingComment" maxlength="500" placeholder="Anything to add? (optional)" class="mt-3 block min-h-10 w-full rounded-lg border border-slate-300 px-3 text-sm">
+                <button type="button" wire:click="rate" class="mt-2 inline-flex min-h-10 items-center rounded-lg bg-blue-600 px-4 text-sm font-semibold text-white hover:bg-blue-700">Send rating</button>
+            @endif
+        </div>
     @endif
 
     {{-- Route --}}

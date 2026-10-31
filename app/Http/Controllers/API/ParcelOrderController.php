@@ -261,6 +261,62 @@ class ParcelOrderController extends Controller
         return ApiResponse::success(['id' => $claim->id, 'status' => $claim->status, 'amount_claimed' => (float) $claim->amount_claimed], 'Claim sent. Our team will check it.', 201);
     }
 
+    /**
+     * Stage 2 chat - GET /api/parcel-orders/{id}/messages. Works for both sides: the sender and the assigned rider
+     * (participants come from the order, never from the request). Marks the other side's messages read.
+     */
+    public function messages(Request $request, int $parcelOrderId, \App\Services\Parcel\ParcelChatService $chat)
+    {
+        $order = ParcelOrder::find($parcelOrderId);
+        if (! $order || ! $chat->isParticipant($order, $request->user()->id)) {
+            return ApiResponse::error('Parcel order not found.', 404);
+        }
+
+        return ApiResponse::success([
+            'open' => $chat->isOpen($order),
+            'messages' => $chat->thread($order, $request->user())->map(fn ($m) => [
+                'id' => $m->id, 'body' => $m->body, 'mine' => $m->sender_id === $request->user()->id,
+                'from' => $m->sender_id === $order->customer_id ? 'sender' : 'rider', 'sent_at' => $m->created_at?->toIso8601String(),
+            ])->values(),
+        ]);
+    }
+
+    /** Stage 2 chat - POST /api/parcel-orders/{id}/messages {body}. Only while a rider is on the parcel. */
+    public function sendMessage(Request $request, int $parcelOrderId, \App\Services\Parcel\ParcelChatService $chat)
+    {
+        $order = ParcelOrder::find($parcelOrderId);
+        if (! $order || ! $chat->isParticipant($order, $request->user()->id)) {
+            return ApiResponse::error('Parcel order not found.', 404);
+        }
+        $validated = $request->validate(['body' => ['required', 'string', 'max:'.\App\Services\Parcel\ParcelChatService::MAX_LENGTH]]);
+
+        try {
+            $m = $chat->send($order, $request->user(), $validated['body']);
+        } catch (\RuntimeException $e) {
+            return ApiResponse::error($e->getMessage(), 409);
+        }
+
+        return ApiResponse::success(['id' => $m->id, 'body' => $m->body], 'Sent.', 201);
+    }
+
+    /** Stage 2 - POST /api/parcel-orders/{id}/rating {rating 1-5, comment?}. The sender, once, after delivery. */
+    public function rate(Request $request, int $parcelOrderId, \App\Services\Parcel\ParcelRatingService $ratings)
+    {
+        $order = ParcelOrder::find($parcelOrderId);
+        if (! $order || $order->customer_id !== $request->user()->id) {
+            return ApiResponse::error('Parcel order not found.', 404);
+        }
+        $validated = $request->validate(['rating' => ['required', 'integer', 'min:1', 'max:5'], 'comment' => ['nullable', 'string', 'max:500']]);
+
+        try {
+            $row = $ratings->rate($order, $request->user(), (int) $validated['rating'], $validated['comment'] ?? null);
+        } catch (\RuntimeException $e) {
+            return ApiResponse::error($e->getMessage(), 409);
+        }
+
+        return ApiResponse::success(['rating' => $row->rating], 'Thank you for rating your rider.', 201);
+    }
+
     /** Payment methods a parcel can use at this pickup: the location's enabled methods, limited to online / wallet / cash. */
     private function parcelPaymentMethods(Address $pickup): array
     {

@@ -135,6 +135,10 @@ class ParcelOrder extends Model implements Orderable
     /** Stage 2: drop 2, 3, ... (drop 1 is this order's own dropoff). */
     public function stops() { return $this->hasMany(ParcelOrderStop::class)->orderBy('sequence'); }
 
+    public function rating() { return $this->hasOne(ParcelRating::class); }
+
+    public function messages() { return $this->hasMany(ParcelOrderMessage::class); }
+
     public function protectionClaims() { return $this->hasMany(ParcelProtectionClaim::class); }
     public function packPurchase() { return $this->belongsTo(ParcelPackPurchase::class, 'parcel_pack_purchase_id'); }
 

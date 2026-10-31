@@ -155,6 +155,10 @@ Route::middleware(['auth:sanctum', \App\Http\Middleware\EnsureNotInMaintenanceMo
     Route::post('/parcel-orders/{parcelOrderId}/cancel', [\App\Http\Controllers\API\ParcelOrderController::class, 'cancel']);
     Route::post('/parcel-orders/{parcelOrderId}/pay', [\App\Http\Controllers\API\ParcelOrderController::class, 'pay']);
     Route::post('/parcel-orders/{parcelOrderId}/protection-claims', [\App\Http\Controllers\API\ParcelOrderController::class, 'claim']);
+    // Stage 2: chat (sender and assigned rider both use these) and the sender's rating of the rider.
+    Route::get('/parcel-orders/{parcelOrderId}/messages', [\App\Http\Controllers\API\ParcelOrderController::class, 'messages']);
+    Route::post('/parcel-orders/{parcelOrderId}/messages', [\App\Http\Controllers\API\ParcelOrderController::class, 'sendMessage'])->middleware('throttle:30,1');
+    Route::post('/parcel-orders/{parcelOrderId}/rating', [\App\Http\Controllers\API\ParcelOrderController::class, 'rate']);
     Route::get('/parcel-packs', [\App\Http\Controllers\API\ParcelPackController::class, 'index']);
     Route::post('/parcel-packs/{packId}/buy', [\App\Http\Controllers\API\ParcelPackController::class, 'buy']);
 

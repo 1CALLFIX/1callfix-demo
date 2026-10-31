@@ -4,7 +4,7 @@
 @endphp
 
 {{-- Poll for offers / job changes while online; the heartbeat below keeps the location fresh. --}}
-<div @if ($rider->is_online) wire:poll.5s @endif
+<div @if ($rider->is_online) wire:poll.5s @endif data-on-job="{{ $job ? '1' : '0' }}"
      x-data="{
         heartbeat: null,
         locate(done) {
@@ -18,7 +18,13 @@
         goOnline() { this.locate((lat, lng) => $wire.goOnline(lat, lng)); },
         startHeartbeat() {
             if (this.heartbeat) return;
-            this.heartbeat = setInterval(() => this.locate((lat, lng) => { if (lat !== null) $wire.goOnline(lat, lng); }), 120000);
+            // Stage 2: every 30 s while carrying a parcel (the sender sees how far away the rider is), else every 2 min.
+            let last = Date.now();
+            this.heartbeat = setInterval(() => {
+                if (Date.now() - last < (this.$root.dataset.onJob === '1' ? 25000 : 115000)) return;
+                last = Date.now();
+                this.locate((lat, lng) => { if (lat !== null) $wire.goOnline(lat, lng); });
+            }, 30000);
         },
         stopHeartbeat() { clearInterval(this.heartbeat); this.heartbeat = null; },
      }"
@@ -330,6 +336,11 @@
                         <p class="rounded-xl border border-rose-200 bg-rose-50 p-3 text-rose-900">Already picked up and something is wrong? Stop, don't open the parcel any further, and call support.</p>
                     @endif
                 </div>
+            </div>
+
+            {{-- Stage 2: chat with the sender. --}}
+            <div class="mt-4">
+                <livewire:parcel.chat-box :order-id="$job->id" :key="'chat-'.$job->id" />
             </div>
         </section>
     @endif

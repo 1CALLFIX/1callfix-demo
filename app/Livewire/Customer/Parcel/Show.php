@@ -32,6 +32,11 @@ class Show extends Component
 
     public array $claimPhotos = [];
 
+    /** Stage 2: star rating of the rider after delivery. */
+    public int $stars = 0;
+
+    public string $ratingComment = '';
+
     public bool $confirmingCancel = false;
 
     public string $cancelReason = '';
@@ -115,6 +120,54 @@ class Show extends Component
         $this->notice = 'Claim sent. Our team will check it and update you here.';
     }
 
+    /** Stage 2: the sender rates the rider once, after delivery. */
+    public function rate(\App\Services\Parcel\ParcelRatingService $ratings): void
+    {
+        $this->reset('error', 'notice');
+        try {
+            $ratings->rate($this->order(), auth()->user(), $this->stars, $this->ratingComment);
+        } catch (\RuntimeException $e) {
+            $this->error = $e->getMessage();
+
+            return;
+        }
+        $this->notice = 'Thank you for rating your rider.';
+    }
+
+    /**
+     * Stage 2: "Rider is 2.4 km away" - from the rider's last location to where they are heading next. Only while
+     * the rider is on the job and their location is fresh (10 min); null otherwise (the page then shows nothing).
+     */
+    private function riderAway(ParcelOrder $order): ?array
+    {
+        $w = $order->assignedWorker;
+        if (! $w || ! in_array($order->status, ParcelOrder::ACTIVE_RIDER_STATUSES, true) || $w->current_lat === null || ! $w->location_updated_at) {
+            return null;
+        }
+        if ($w->location_updated_at->lt(now()->subMinutes(10))) {
+            return null;
+        }
+        $before = in_array($order->status, ['assigned', 'worker_en_route_pickup'], true);
+        $returning = $order->isReturning();
+        if ($before || $returning) {
+            $target = $order->pickupAddress;
+        } elseif ($order->drop_delivered_at) {
+            $target = $order->stops->firstWhere('delivered_at', null)?->address;
+        } else {
+            $target = $order->dropoffAddress;
+        }
+        $km = $target && $target->lat !== null
+            ? app(\App\Services\DispatchService::class)->haversineKm((float) $w->current_lat, (float) $w->current_lng, (float) $target->lat, (float) $target->lng)
+            : null;
+
+        return [
+            'km' => $km,
+            'to' => $before ? 'pickup' : ($returning ? 'you' : 'the drop'),
+            'ago' => $w->location_updated_at->diffForHumans(short: true),
+            'map' => 'https://www.google.com/maps/search/?api=1&query='.$w->current_lat.','.$w->current_lng,
+        ];
+    }
+
     public function render()
     {
         $order = $this->order();
@@ -125,6 +178,10 @@ class Show extends Component
             'live' => ! in_array($order->status, ['delivered', 'cancelled'], true),
             'canClaim' => app(\App\Services\Parcel\ParcelProtectionClaimService::class)->cannotClaim($order, auth()->id()) === null,
             'claims' => $order->protectionClaims()->latest('id')->get(),
+            'riderAway' => $this->riderAway($order),
+            'showChat' => $order->assigned_worker_id && (app(\App\Services\Parcel\ParcelChatService::class)->isOpen($order) || $order->messages()->exists()),
+            'myRating' => $order->rating,
+            'canRate' => app(\App\Services\Parcel\ParcelRatingService::class)->cannotRate($order, auth()->id()) === null,
             'currencySymbol' => Setting::get('locale.currency_symbol', '₹'),
         ])->layout('components.layouts.customer', ['title' => 'Parcel '.$order->code]);
     }
