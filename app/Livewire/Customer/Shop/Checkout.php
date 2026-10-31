@@ -64,7 +64,7 @@ class Checkout extends Component
         }
         $this->appliedCoupon = $code;
         $this->couponDiscount = round($result->discountTotal, 2);
-        $this->couponMessage = 'Coupon applied.';
+        $this->couponMessage = \App\Support\SiteText::get('shop_checkout.coupon_applied');
     }
 
     public function removeCoupon(): void
@@ -77,7 +77,7 @@ class Checkout extends Component
     {
         if ($value === 'cash' && $this->appliedCoupon !== '') {
             $this->removeCoupon();
-            $this->couponMessage = 'Coupons are for online or wallet payment, so it was removed.';
+            $this->couponMessage = \App\Support\SiteText::get('shop_checkout.coupon_removed_cash');
         }
     }
 
@@ -120,7 +120,7 @@ class Checkout extends Component
         ]);
         if ($this->orderType === 'delivery') {
             if (! $this->addressId || ! Address::where('user_id', auth()->id())->whereKey($this->addressId)->exists()) {
-                $this->error = 'Choose where to deliver, or pick it up at the shop.';
+                $this->error = \App\Support\SiteText::get('shop_checkout.choose_address');
 
                 return;
             }

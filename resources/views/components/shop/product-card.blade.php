@@ -1,5 +1,6 @@
 @props(['product', 'city', 'qty' => 0, 'currencySymbol' => '₹', 'showStore' => true])
 @php
+    $t = fn (string $key, array $r = []) => \App\Support\SiteText::get($key, $r);
     $image = $product->image_urls[0] ?? null;
     $url = route('customer.shop.product', [$city->slug, $product->store->slug, $product->slug]);
     $outOfStock = (int) $product->stock <= 0;
@@ -15,7 +16,7 @@
             <span class="flex h-full w-full items-center justify-center text-3xl font-bold text-slate-300">{{ mb_substr($product->name, 0, 1) }}</span>
         @endif
         @if ($product->discount_percent)
-            <span class="absolute left-2 top-2 rounded-full bg-blue-600 px-2 py-0.5 text-[11px] font-bold text-white">{{ rtrim(rtrim(number_format((float) $product->discount_percent, 1), '0'), '.') }}% off · online</span>
+            <span class="absolute left-2 top-2 rounded-full bg-blue-600 px-2 py-0.5 text-[11px] font-bold text-white">{{ $t('shop.card.off_online', ['percent' => rtrim(rtrim(number_format((float) $product->discount_percent, 1), '0'), '.')]) }}</span>
         @endif
     </a>
     <div class="flex flex-1 flex-col p-3">
@@ -29,17 +30,17 @@
         </p>
         <div class="mt-auto pt-2">
             @if ($outOfStock)
-                <p class="rounded-lg bg-slate-100 py-2 text-center text-xs font-semibold text-slate-500">Out of stock</p>
+                <p class="rounded-lg bg-slate-100 py-2 text-center text-xs font-semibold text-slate-500">{{ $t('shop.out_of_stock') }}</p>
             @elseif ($closed)
-                <p class="rounded-lg bg-slate-100 py-2 text-center text-xs font-semibold text-slate-500">Shop closed now</p>
+                <p class="rounded-lg bg-slate-100 py-2 text-center text-xs font-semibold text-slate-500">{{ $t('shop.card.shop_closed') }}</p>
             @elseif ($qty > 0)
                 <div class="flex items-center justify-between rounded-lg bg-blue-600 text-white">
-                    <button type="button" wire:click="removeOne({{ $product->id }})" class="min-h-10 px-3 text-lg font-bold" aria-label="One less {{ $product->name }}">−</button>
+                    <button type="button" wire:click="removeOne({{ $product->id }})" class="min-h-10 px-3 text-lg font-bold" aria-label="{{ $t('shop.card.one_less', ['item' => $product->name]) }}">−</button>
                     <span class="text-sm font-bold tabular-nums" aria-live="polite">{{ $qty }}</span>
-                    <button type="button" wire:click="addToCart({{ $product->id }})" class="min-h-10 px-3 text-lg font-bold" aria-label="One more {{ $product->name }}">+</button>
+                    <button type="button" wire:click="addToCart({{ $product->id }})" class="min-h-10 px-3 text-lg font-bold" aria-label="{{ $t('shop.card.one_more', ['item' => $product->name]) }}">+</button>
                 </div>
             @else
-                <button type="button" wire:click="addToCart({{ $product->id }})" class="min-h-10 w-full rounded-lg border-2 border-blue-600 text-sm font-bold text-blue-700 hover:bg-blue-50">Add</button>
+                <button type="button" wire:click="addToCart({{ $product->id }})" class="min-h-10 w-full rounded-lg border-2 border-blue-600 text-sm font-bold text-blue-700 hover:bg-blue-50">{{ $t('shop.card.add') }}</button>
             @endif
         </div>
     </div>

@@ -58,12 +58,12 @@ class OrderShow extends Component
 
     public function cancel(AdminCancelMarketplaceOrderAction $action): void
     {
-        $this->validate(['cancelReason' => ['required', 'string', 'min:3', 'max:300']], ['cancelReason.required' => 'Tell us why, so the shop knows.']);
+        $this->validate(['cancelReason' => ['required', 'string', 'min:3', 'max:300']], ['cancelReason.required' => \App\Support\SiteText::get('shop_order.msg.cancel_why')]);
         try {
             $this->order = $action->execute($this->order->id, trim($this->cancelReason), 'customer');
             $this->flash = (float) $this->order->cancellation_fee > 0
-                ? 'Order cancelled. A cancellation fee applies; the rest is refunded.'
-                : 'Order cancelled.'.($this->order->payment_status !== 'pending' ? ' Your money is refunded in full.' : '');
+                ? \App\Support\SiteText::get('shop_order.msg.cancelled_fee')
+                : \App\Support\SiteText::get('shop_order.msg.cancelled').($this->order->payment_status !== 'pending' ? \App\Support\SiteText::get('shop_order.msg.refunded_full') : '');
             $this->flashType = 'success';
         } catch (\RuntimeException $e) {
             $this->flash = $e->getMessage();
@@ -95,8 +95,8 @@ class OrderShow extends Component
             'returnPhotos' => ['required', 'array', 'min:1', 'max:3'],
             'returnPhotos.*' => ['image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
         ], [
-            'returnDescription.required' => 'Tell us what is wrong.',
-            'returnPhotos.required' => 'Add at least one photo of the item.',
+            'returnDescription.required' => \App\Support\SiteText::get('shop_order.msg.return_what'),
+            'returnPhotos.required' => \App\Support\SiteText::get('shop_order.msg.return_photo'),
         ]);
 
         $this->order->refresh()->load('items');
@@ -119,7 +119,7 @@ class OrderShow extends Component
             return;
         }
         $this->reset('returning', 'returnDescription', 'returnQty', 'returnPhotos');
-        $this->flash = 'Return requested. We will look at it and tell you what happens next.';
+        $this->flash = \App\Support\SiteText::get('shop_order.msg.return_sent');
         $this->flashType = 'success';
     }
 
@@ -127,7 +127,7 @@ class OrderShow extends Component
     {
         $this->order->refresh();
         abort_unless($this->order->status === 'completed', 403);
-        $this->validate(['rating' => ['required', 'integer', 'between:1,5'], 'comment' => ['nullable', 'string', 'max:1000']], ['rating.between' => 'Tap a star.']);
+        $this->validate(['rating' => ['required', 'integer', 'between:1,5'], 'comment' => ['nullable', 'string', 'max:1000']], ['rating.between' => \App\Support\SiteText::get('shop_order.msg.tap_star')]);
         if (Review::where('marketplace_order_id', $this->order->id)->exists()) {
             return;
         }
@@ -138,7 +138,7 @@ class OrderShow extends Component
             'rating' => $this->rating,
             'comment' => trim($this->comment) ?: null,
         ]);
-        $this->flash = 'Thanks for rating '.$this->order->store->name.'.';
+        $this->flash = \App\Support\SiteText::get('shop_order.msg.thanks_rating', ['shop' => $this->order->store->name]);
         $this->flashType = 'success';
     }
 

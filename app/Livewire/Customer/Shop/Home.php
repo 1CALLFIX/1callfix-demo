@@ -71,8 +71,8 @@ class Home extends Component
             'city' => $this->shopCity,
             'currencySymbol' => Setting::get('locale.currency_symbol', '₹'),
         ])->layout('components.layouts.customer', [
-            'title' => 'Shop local in '.$this->shopCity->name,
-            'metaDescription' => 'Order from local shops in '.$this->shopCity->name.' on '.Setting::get('branding.platform_name', '1CallFix').' — delivered by our riders or ready for pickup.',
+            'title' => \App\Support\SiteText::get('shop.meta.title', ['city' => $this->shopCity->name]),
+            'metaDescription' => \App\Support\SiteText::get('shop.meta.description', ['city' => $this->shopCity->name, 'brand' => Setting::get('branding.platform_name', '1CallFix')]),
             'indexable' => $this->search === '' && $this->categorySlug === '',
         ]);
     }

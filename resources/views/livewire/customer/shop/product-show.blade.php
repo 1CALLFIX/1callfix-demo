@@ -1,7 +1,8 @@
+@php $t = fn (string $key, array $r = []) => \App\Support\SiteText::get($key, $r); @endphp
 <div class="mb-bottom-nav">
     <div class="mx-auto max-w-6xl px-4 py-6 sm:px-6 lg:px-8">
         <x-customer.breadcrumbs :items="[
-            ['label' => 'Shop', 'url' => route('customer.shop.home', $city->slug)],
+            ['label' => $t('shop.crumb_shop'), 'url' => route('customer.shop.home', $city->slug)],
             ['label' => $store->name, 'url' => route('customer.shop.store', [$city->slug, $store->slug])],
             ['label' => $product->name, 'url' => null],
         ]" />
@@ -20,7 +21,7 @@
                     <div class="mt-2 flex gap-2">
                         @foreach ($images as $i => $src)
                             <button type="button" x-on:click="shown = {{ $i }}" class="h-16 w-16 overflow-hidden rounded-xl border-2"
-                                    x-bind:class="shown === {{ $i }} ? 'border-blue-600' : 'border-slate-200'" aria-label="Photo {{ $i + 1 }}">
+                                    x-bind:class="shown === {{ $i }} ? 'border-blue-600' : 'border-slate-200'" aria-label="{{ $t('shop.product.photo', ['number' => $i + 1]) }}">
                                 <img src="{{ $src }}" alt="" class="h-full w-full object-cover">
                             </button>
                         @endforeach
@@ -38,10 +39,10 @@
                     @endif
                 </p>
                 @if ($product->discount_percent)
-                    <p class="mt-1 text-sm text-blue-700">{{ rtrim(rtrim(number_format((float) $product->discount_percent, 1), '0'), '.') }}% off when you pay online or from your wallet.</p>
+                    <p class="mt-1 text-sm text-blue-700">{{ $t('shop.product.off_note', ['percent' => rtrim(rtrim(number_format((float) $product->discount_percent, 1), '0'), '.')]) }}</p>
                 @endif
                 <p @class(['mt-2 text-sm font-medium', 'text-emerald-700' => $product->stock > 5, 'text-amber-700' => $product->stock > 0 && $product->stock <= 5, 'text-red-700' => $product->stock <= 0])>
-                    {{ $product->stock <= 0 ? 'Out of stock' : ($product->stock <= 5 ? 'Only '.$product->stock.' left' : 'In stock') }}
+                    {{ $product->stock <= 0 ? $t('shop.out_of_stock') : ($product->stock <= 5 ? $t('shop.product.only_left', ['count' => $product->stock]) : $t('shop.product.in_stock')) }}
                 </p>
 
                 @if ($cartMessage)
@@ -50,38 +51,38 @@
 
                 <div class="mt-5 max-w-xs">
                     @if ($product->stock <= 0)
-                        <p class="rounded-xl bg-slate-100 py-3 text-center font-semibold text-slate-500">Out of stock</p>
+                        <p class="rounded-xl bg-slate-100 py-3 text-center font-semibold text-slate-500">{{ $t('shop.out_of_stock') }}</p>
                     @elseif (! $store->is_open)
-                        <p class="rounded-xl bg-slate-100 py-3 text-center font-semibold text-slate-500">The shop is closed right now</p>
+                        <p class="rounded-xl bg-slate-100 py-3 text-center font-semibold text-slate-500">{{ $t('shop.product.shop_closed') }}</p>
                     @elseif ($qty > 0)
                         <div class="flex items-center justify-between rounded-xl bg-blue-600 text-white">
-                            <button type="button" wire:click="removeOne({{ $product->id }})" class="min-h-12 px-5 text-xl font-bold" aria-label="One less">−</button>
-                            <span class="font-bold tabular-nums" aria-live="polite">{{ $qty }} in bag</span>
-                            <button type="button" wire:click="addToCart({{ $product->id }})" class="min-h-12 px-5 text-xl font-bold" aria-label="One more">+</button>
+                            <button type="button" wire:click="removeOne({{ $product->id }})" class="min-h-12 px-5 text-xl font-bold" aria-label="{{ $t('shop.product.one_less') }}">−</button>
+                            <span class="font-bold tabular-nums" aria-live="polite">{{ $t('shop.product.in_bag', ['count' => $qty]) }}</span>
+                            <button type="button" wire:click="addToCart({{ $product->id }})" class="min-h-12 px-5 text-xl font-bold" aria-label="{{ $t('shop.product.one_more') }}">+</button>
                         </div>
                     @else
-                        <button type="button" wire:click="addToCart({{ $product->id }})" class="min-h-12 w-full rounded-xl bg-blue-600 font-bold text-white hover:bg-blue-700">Add to bag</button>
+                        <button type="button" wire:click="addToCart({{ $product->id }})" class="min-h-12 w-full rounded-xl bg-blue-600 font-bold text-white hover:bg-blue-700">{{ $t('shop.product.add_to_bag') }}</button>
                     @endif
                 </div>
 
                 @if ($product->description)
                     <div class="mt-6">
-                        <h2 class="text-sm font-semibold text-slate-900">About this item</h2>
+                        <h2 class="text-sm font-semibold text-slate-900">{{ $t('shop.product.about') }}</h2>
                         <p class="mt-1 whitespace-pre-line text-sm leading-relaxed text-slate-700">{{ $product->description }}</p>
                     </div>
                 @endif
 
                 <ul class="mt-6 space-y-1.5 rounded-2xl bg-slate-50 p-4 text-sm text-slate-700">
-                    <li>Sold and packed by <span class="font-semibold">{{ $store->name }}</span>, {{ $city->name }}.</li>
-                    <li>Delivered by a 1CallFix rider with a code you give at the door, or pick it up at the shop.</li>
-                    <li>Damaged or wrong item? Return it within {{ \App\Support\MarketplaceSettings::get('marketplace.return_window_days') }} days of delivery.</li>
+                    <li>{{ $t('shop.product.sold_by', ['shop' => $store->name, 'city' => $city->name]) }}</li>
+                    <li>{{ $t('shop.product.delivered_by') }}</li>
+                    <li>{{ $t('shop.product.returns', ['days' => \App\Support\MarketplaceSettings::get('marketplace.return_window_days')]) }}</li>
                 </ul>
             </div>
         </div>
 
         @if ($more->isNotEmpty())
             <section class="mt-10">
-                <h2 class="text-lg font-bold">More from {{ $store->name }}</h2>
+                <h2 class="text-lg font-bold">{{ $t('shop.product.more_from', ['shop' => $store->name]) }}</h2>
                 <div class="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
                     @foreach ($more as $p)
                         <x-shop.product-card :product="$p" :city="$city" :qty="$inCart[$p->id] ?? 0" :currency-symbol="$currencySymbol" :show-store="false" />

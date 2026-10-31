@@ -37,7 +37,7 @@ trait AddsToShopCart
         $product = Product::where('is_active', true)->where('is_approved', true)
             ->whereHas('store', fn ($q) => $q->sellable())->find($productId);
         if (! $product) {
-            $this->cartMessage = 'This item is no longer available.';
+            $this->cartMessage = \App\Support\SiteText::get('shop.item_gone');
 
             return;
         }

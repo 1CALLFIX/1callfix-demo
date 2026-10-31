@@ -59,7 +59,7 @@ class StoreShow extends Component
             'currencySymbol' => Setting::get('locale.currency_symbol', '₹'),
         ])->layout('components.layouts.customer', [
             'title' => $this->store->name.' — shop in '.$this->shopCity->name,
-            'metaDescription' => \Illuminate\Support\Str::limit($this->store->description ?: 'Order from '.$this->store->name.' in '.$this->shopCity->name.' on '.Setting::get('branding.platform_name', '1CallFix').'.', 155),
+            'metaDescription' => \Illuminate\Support\Str::limit($this->store->description ?: \App\Support\SiteText::get('shop.meta.store_description', ['shop' => $this->store->name, 'city' => $this->shopCity->name, 'brand' => Setting::get('branding.platform_name', '1CallFix')]), 155),
             'ogImage' => $this->store->logo_url,
             'indexable' => true,
         ]);
