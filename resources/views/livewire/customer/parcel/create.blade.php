@@ -30,6 +30,10 @@
         <div class="mt-4 rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800" role="alert">{{ $error }}</div>
     @endif
 
+    @if ($blockedFromParcel)
+        {{-- Admin blocked this customer from sending parcels (Admin → Customers → Send parcels: Block). --}}
+        <div class="mt-4 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800" role="alert">Sending parcels is not available on your account. Please contact support.</div>
+    @else
     {{-- One tap: drop point + recipient of a recent parcel. With the default pickup, Book is the next tap. --}}
     @if ($recentRecipients->isNotEmpty())
         <div class="mt-4">
@@ -475,6 +479,7 @@
             </div>
         </div>
     </form>
+    @endif
 
     @assets
     <script src="https://checkout.razorpay.com/v1/checkout.js"></script>

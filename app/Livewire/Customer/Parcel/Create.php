@@ -530,6 +530,7 @@ class Create extends Component
         }
 
         return view('livewire.customer.parcel.create', [
+            'blockedFromParcel' => auth()->user()?->parcel_blocked_at !== null,
             'activeHere' => $activeHere,
             'browsingZoneKnown' => $browsingZone !== null,
             'recentRecipients' => $this->recentRecipients(),

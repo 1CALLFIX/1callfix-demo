@@ -89,6 +89,17 @@ class ParcelBlockAndPhotoPurgeTest extends TestCase
         $this->assertSame(0, ParcelOrder::count());
     }
 
+    public function test_a_blocked_sender_sees_the_message_straight_away_instead_of_the_form(): void
+    {
+        $w = $this->world();
+        \Livewire\Livewire::actingAs($w['customer'])->test(\App\Livewire\Customer\Parcel\Create::class)
+            ->assertSee('Pickup from')->assertDontSee('not available on your account');
+
+        $w['customer']->forceFill(['parcel_blocked_at' => now()])->save();
+        \Livewire\Livewire::actingAs($w['customer']->fresh())->test(\App\Livewire\Customer\Parcel\Create::class)
+            ->assertSee('Sending parcels is not available on your account.')->assertDontSee('Pickup from');
+    }
+
     private function photo(ParcelOrder $order, $rider): ParcelSafetyPhoto
     {
         $path = "parcel-safety/{$order->id}/p.jpg";

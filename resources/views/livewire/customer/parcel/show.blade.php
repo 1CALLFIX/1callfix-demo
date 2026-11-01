@@ -128,7 +128,7 @@
                     @else
                         Rider is on the way
                     @endif
-                    <span class="block text-xs text-blue-700">Updated {{ $riderAway['ago'] }} ago</span>
+                    <span class="block text-xs text-blue-700">Updated {{ $riderAway['ago'] }}</span>
                 </p>
                 <a href="{{ $riderAway['map'] }}" target="_blank" rel="noopener" class="inline-flex min-h-10 shrink-0 items-center rounded-lg bg-white px-4 font-medium text-blue-700 ring-1 ring-blue-200">Open map</a>
             </div>
