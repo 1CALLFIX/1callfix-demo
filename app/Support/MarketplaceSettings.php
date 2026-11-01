@@ -69,6 +69,10 @@ final class MarketplaceSettings
             'group' => 'Delivery', 'label' => 'Minimum payout top-up paid by', 'type' => 'choice', 'options' => ['platform' => 'Platform commission', 'seller' => 'Seller share'],
             'default' => 'platform', 'help' => 'Who pays the gap when the rider\'s share of the delivery fee is below the minimum.',
         ],
+        'marketplace.return_pickup_fee' => [
+            'group' => 'Delivery', 'label' => 'Return pickup: rider fee', 'type' => 'decimal', 'unit' => '₹', 'min' => 0,
+            'default' => null, 'help' => 'What a rider earns for collecting an accepted return from the customer and taking it back to the shop. The seller pays it from their held earnings; the customer pays nothing (owner decision 2026-10-31). Blank = no rider pickup: the seller or an admin marks the return received by hand.',
+        ],
         'marketplace.dispatch.offer_batch_size' => [
             'group' => 'Delivery', 'label' => 'Riders offered per round', 'type' => 'int', 'unit' => 'riders', 'min' => 1, 'max' => 50,
             'default' => '5', 'help' => 'How many nearby riders see a ready order at once.',

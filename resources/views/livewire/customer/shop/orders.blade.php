@@ -1,6 +1,7 @@
+@php $t = fn (string $key, array $r = []) => \App\Support\SiteText::get($key, $r); @endphp
 <div class="mb-bottom-nav">
     <div class="mx-auto max-w-3xl px-4 py-6 sm:px-6">
-        <h1 class="text-2xl font-bold tracking-tight">Shop orders</h1>
+        <h1 class="text-2xl font-bold tracking-tight">{{ $t('shop_order.list_title') }}</h1>
         <div class="mt-4 space-y-3">
             @forelse ($orders as $o)
                 <a href="{{ route('customer.shop.orders.show', $o) }}" wire:navigate class="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white p-4 hover:border-blue-300">
@@ -11,7 +12,7 @@
                     @endif
                     <span class="min-w-0 flex-1">
                         <span class="block truncate font-semibold">{{ $o->store?->name }}</span>
-                        <span class="block text-xs text-slate-500">{{ $o->code }} · {{ $n = $o->items->sum('quantity') }} {{ $n === 1 ? 'item' : 'items' }} · {{ app(\App\Services\TimezoneResolver::class)->format($o->created_at, $o->franchise, 'd M, h:i A') }}</span>
+                        <span class="block text-xs text-slate-500">{{ $o->code }} · {{ ($n = $o->items->sum('quantity')) === 1 ? $t('shop.item_one') : $t('shop.item_many', ['count' => $n]) }} · {{ app(\App\Services\TimezoneResolver::class)->format($o->created_at, $o->franchise, 'd M, h:i A') }}</span>
                     </span>
                     <span class="text-right">
                         <span class="block font-bold">{{ $currencySymbol }}{{ number_format((float) $o->total_amount, 2) }}</span>
@@ -19,7 +20,7 @@
                     </span>
                 </a>
             @empty
-                <p class="rounded-2xl border border-dashed border-slate-300 bg-white p-8 text-center text-sm text-slate-600">No shop orders yet.</p>
+                <p class="rounded-2xl border border-dashed border-slate-300 bg-white p-8 text-center text-sm text-slate-600">{{ $t('shop_order.list_empty') }}</p>
             @endforelse
         </div>
         <div class="mt-4">{{ $orders->links() }}</div>

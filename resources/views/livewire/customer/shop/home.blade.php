@@ -1,19 +1,20 @@
+@php $t = fn (string $key, array $r = []) => \App\Support\SiteText::get($key, $r); @endphp
 <div class="mb-bottom-nav">
     <div class="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
         <x-customer.breadcrumbs :items="[
-            ['label' => 'Home', 'url' => route('customer.home')],
+            ['label' => $t('shop.crumb_home'), 'url' => route('customer.home')],
             ['label' => $city->name, 'url' => route('customer.city.show', $city->slug)],
-            ['label' => 'Shop', 'url' => null],
+            ['label' => $t('shop.crumb_shop'), 'url' => null],
         ]" />
 
         {{-- Our own opening: the city's shops, not a faceless catalogue. --}}
         <header class="mt-4 rounded-3xl bg-gradient-to-br from-blue-600 to-blue-800 px-5 py-6 text-white sm:px-8 sm:py-8">
-            <p class="text-xs font-semibold uppercase tracking-widest text-blue-100">Shops of {{ $city->name }}</p>
-            <h1 class="mt-1 text-2xl font-bold tracking-tight sm:text-3xl">Buy from the shops you know, delivered today</h1>
-            <p class="mt-1 max-w-xl text-sm text-blue-100">Every order comes from a verified local shop and a 1CallFix rider you can track. Or pick it up yourself.</p>
+            <p class="text-xs font-semibold uppercase tracking-widest text-blue-100">{{ $t('shop.home.kicker', ['city' => $city->name]) }}</p>
+            <h1 class="mt-1 text-2xl font-bold tracking-tight sm:text-3xl">{{ $t('shop.home.title') }}</h1>
+            <p class="mt-1 max-w-xl text-sm text-blue-100">{{ $t('shop.home.intro') }}</p>
             <label class="mt-4 block max-w-xl">
-                <span class="sr-only">Search the shops of {{ $city->name }}</span>
-                <input type="search" wire:model.live.debounce.300ms="search" placeholder="Search a product or a shop"
+                <span class="sr-only">{{ $t('shop.home.search_label', ['city' => $city->name]) }}</span>
+                <input type="search" wire:model.live.debounce.300ms="search" placeholder="{{ $t('shop.home.search_placeholder') }}"
                        class="block min-h-12 w-full rounded-xl border-0 bg-white px-4 text-base text-slate-900 shadow-sm placeholder:text-slate-400 focus:outline focus:outline-2 focus:outline-white">
             </label>
         </header>
@@ -23,7 +24,7 @@
         @endif
 
         @if ($categories->isNotEmpty())
-            <nav aria-label="Categories" class="mt-5 flex gap-2 overflow-x-auto pb-1">
+            <nav aria-label="{{ $t('shop.home.categories') }}" class="mt-5 flex gap-2 overflow-x-auto pb-1">
                 @foreach ($categories as $c)
                     <button type="button" wire:click="pickCategory('{{ $c->slug }}')"
                             @class(['shrink-0 rounded-full border px-4 py-2 text-sm font-medium',
@@ -37,7 +38,7 @@
 
         @if ($search === '' && ! $activeCategory && $stores->isNotEmpty())
             <section class="mt-6" aria-labelledby="shops-heading">
-                <h2 id="shops-heading" class="text-lg font-bold">Shops near you</h2>
+                <h2 id="shops-heading" class="text-lg font-bold">{{ $t('shop.home.near_you') }}</h2>
                 <div class="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                     @foreach ($stores as $s)
                         <a href="{{ route('customer.shop.store', [$city->slug, $s->slug]) }}" wire:navigate
@@ -49,9 +50,9 @@
                             @endif
                             <span class="min-w-0">
                                 <span class="block truncate font-semibold text-slate-900">{{ $s->name }}</span>
-                                <span class="block text-xs text-slate-500">{{ $s->products_count }} {{ $s->products_count === 1 ? 'item' : 'items' }}
-                                    · @if ((float) $s->delivery_fee_flat > 0) Delivery {{ $currencySymbol }}{{ number_format((float) $s->delivery_fee_flat, 0) }}@else Free delivery @endif</span>
-                                <span @class(['mt-1 inline-block rounded-full px-2 py-0.5 text-[11px] font-semibold', 'bg-emerald-50 text-emerald-700' => $s->is_open, 'bg-slate-100 text-slate-500' => ! $s->is_open])>{{ $s->is_open ? 'Open now' : 'Closed' }}</span>
+                                <span class="block text-xs text-slate-500">{{ $s->products_count === 1 ? $t('shop.item_one') : $t('shop.item_many', ['count' => $s->products_count]) }}
+                                    · @if ((float) $s->delivery_fee_flat > 0) {{ $t('shop.delivery_fee', ['amount' => $currencySymbol.number_format((float) $s->delivery_fee_flat, 0)]) }}@else {{ $t('shop.free_delivery') }} @endif</span>
+                                <span @class(['mt-1 inline-block rounded-full px-2 py-0.5 text-[11px] font-semibold', 'bg-emerald-50 text-emerald-700' => $s->is_open, 'bg-slate-100 text-slate-500' => ! $s->is_open])>{{ $s->is_open ? $t('shop.open_now') : $t('shop.closed') }}</span>
                             </span>
                         </a>
                     @endforeach
@@ -61,11 +62,11 @@
 
         <section class="mt-6" aria-labelledby="items-heading">
             <h2 id="items-heading" class="text-lg font-bold">
-                @if ($search !== '') Results for “{{ $search }}” @elseif ($activeCategory) {{ $activeCategory->name }} @else Everything in {{ $city->name }} @endif
+                @if ($search !== '') {{ $t('shop.home.results_for', ['term' => $search]) }} @elseif ($activeCategory) {{ $activeCategory->name }} @else {{ $t('shop.home.everything_in', ['city' => $city->name]) }} @endif
             </h2>
             @if ($products->isEmpty())
                 <p class="mt-3 rounded-2xl border border-dashed border-slate-300 bg-white p-6 text-center text-sm text-slate-600">
-                    {{ $search !== '' ? 'Nothing matches that yet. Try a shorter word.' : 'Shops in '.$city->name.' are adding their products. Check back soon.' }}
+                    {{ $search !== '' ? $t('shop.home.no_match') : $t('shop.home.coming_soon', ['city' => $city->name]) }}
                 </p>
             @else
                 <div class="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
@@ -81,7 +82,7 @@
         @php $grievance = array_values(array_filter(preg_split('/\R/', (string) \App\Support\MarketplaceSettings::get('marketplace.grievance_officer')))); @endphp
         @if ($grievance)
             <aside class="mt-10 rounded-2xl bg-slate-50 p-4 text-xs text-slate-600">
-                <p class="font-semibold text-slate-800">Grievance officer</p>
+                <p class="font-semibold text-slate-800">{{ $t('shop.grievance_officer') }}</p>
                 @foreach ($grievance as $line)<p>{{ $line }}</p>@endforeach
             </aside>
         @endif
