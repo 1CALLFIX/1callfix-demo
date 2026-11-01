@@ -8,7 +8,7 @@ All three go live together: read both notes too (their browser checks and settin
 |---|---|
 | Deploys | `main` at the merge commit that adds this file (`git log -1` in runbook step 1) |
 | Live before | `5c23234` (Test shop) — stop if the server shows anything else |
-| Full test suite | 4329 passed of 4330 (branch run 2026-11-01); known failure only: `NotificationCenterAuditTest::test_provider_status_shows_log_fallback_by_default` (local .env) |
+| Full test suite | 4336 passed of 4337 (merged with shop go-live, 2026-11-01); known failure only: `NotificationCenterAuditTest::test_provider_status_shows_log_fallback_by_default` (local .env) |
 | Composer | no |
 | Front-end build (steps 6–7) | **yes** (new customer, rider and admin markup) |
 | Version | `VERSION` file bumped to `2026.10.31.3` |
