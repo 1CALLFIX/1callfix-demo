@@ -266,13 +266,18 @@ class MarketplaceReturnService
             }
 
             $r->status = $accept ? MarketplaceReturn::ACCEPTED : MarketplaceReturn::DECLINED;
+            if ($accept) {
+                app(MarketplaceReturnPickupService::class)->openFor($r); // a rider collects it (seller pays the fee)
+            }
             $r->decided_by_id = $admin->id;
             $r->decision_note = $note;
             $r->decided_at = now();
             $r->save();
             ActivityLogger::logModel($admin, $r, 'Shop return '.($accept ? 'accepted' : 'declined')." (#{$r->id})", ['note' => $note, 'amount' => $r->refund_amount]);
 
-            return ['ok' => true, 'message' => $accept ? 'Return accepted. Once the item is back at the shop, the refund can be requested.' : 'Return declined. The customer sees your note.'];
+            return ['ok' => true, 'message' => $accept
+                ? ($r->pickup_status === MarketplaceReturn::PICKUP_OPEN ? 'Return accepted. A rider will collect it from the customer and take it to the shop.' : 'Return accepted. Once the item is back at the shop, the refund can be requested.')
+                : 'Return declined. The customer sees your note.'];
         });
     }
 
@@ -288,15 +293,22 @@ class MarketplaceReturnService
                 return $this->no('Only an accepted return can be marked received.');
             }
             $isSeller = $r->store()->whereHas('provider', fn ($q) => $q->where('user_id', $actor->id))->exists();
-            if (! $isSeller && $this->levelOf($actor, $r->franchise_id, self::MANAGE) === null) {
+            $isAdmin = $this->levelOf($actor, $r->franchise_id, self::MANAGE) !== null;
+            if (! $isSeller && ! $isAdmin) {
                 return $this->no('You are not permitted to mark this return received.');
             }
+            // A rider has taken the pickup: only the drop code closes it (an admin may still override).
+            if (in_array($r->pickup_status, MarketplaceReturn::PICKUP_WITH_RIDER, true) && ! $isAdmin) {
+                return $this->no('A rider is bringing this item back. Give the rider the drop code when it arrives.');
+            }
+            $withdrawn = $r->pickup_status;
+            app(MarketplaceReturnPickupService::class)->withdraw($r);
 
             $r->status = MarketplaceReturn::RECEIVED;
             $r->received_at = now();
             $r->refund_status = MarketplaceReturn::REFUND_AWAITING_REQUEST;
             $r->save();
-            ActivityLogger::logModel($actor, $r, "Shop return item received back (#{$r->id})", ['by' => $isSeller ? 'seller' : 'admin']);
+            ActivityLogger::logModel($actor, $r, "Shop return item received back (#{$r->id})", ['by' => $isSeller ? 'seller' : 'admin', 'rider_pickup_withdrawn' => $withdrawn]);
 
             return ['ok' => true, 'message' => 'Marked received. The refund is now waiting in the approval queue.'];
         });

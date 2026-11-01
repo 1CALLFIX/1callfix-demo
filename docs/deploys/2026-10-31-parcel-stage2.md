@@ -1,15 +1,17 @@
 # Release 2026-10-31 — Parcel Stage 2
 
-Use with `docs/DEPLOY_RUNBOOK.md`.
+Use with `docs/DEPLOY_RUNBOOK.md`. This release sits on `main` on top of two releases that were pushed but never
+deployed: **super-app shell** (`2026-10-31-super-app-shell.md`) and **shop go-live** (`2026-10-31-shop-go-live.md`).
+All three go live together: read both notes too (their browser checks and settings).
 
 | | |
 |---|---|
 | Deploys | `main` at the merge commit that adds this file (`git log -1` in runbook step 1) |
-| Live before | `<hash currently on the server — check with git log -1 on the server>` |
+| Live before | `5c23234` (Test shop) — stop if the server shows anything else |
 | Full test suite | 4329 passed of 4330 (branch run 2026-11-01); known failure only: `NotificationCenterAuditTest::test_provider_status_shows_log_fallback_by_default` (local .env) |
 | Composer | no |
 | Front-end build (steps 6–7) | **yes** (new customer, rider and admin markup) |
-| Version | `VERSION` file bumped to `2026.10.31.2` |
+| Version | `VERSION` file bumped to `2026.10.31.3` |
 
 ## What's in it (plain words)
 Owner request 2026-10-31: "finish parcel 100%", kept **simple to use and easy to operate**. Every new extra is
@@ -46,7 +48,8 @@ booking stays the same few taps.
   `POST /api/parcel-orders/{id}/protection-claims`, `GET /api/parcel-packs`, `POST /api/parcel-packs/{id}/buy`,
   `POST /api/worker/parcel-orders/{id}/return`; worker deliver accepts `stop_id`.
 
-## Step 5 — migrations that must be pending (exactly these)
+## Step 5 — migrations that must be pending (exactly these, 6 in all)
+- `2026_10_31_200000_add_rider_pickup_to_marketplace_returns` (from shop go-live)
 - `2026_10_31_700000_parcel_stage2_routes`
 - `2026_10_31_710000_parcel_protection`
 - `2026_10_31_720000_parcel_packs` (**widens the `payments.purpose` enum**)
@@ -59,7 +62,7 @@ the full list is exactly:
 rental_reservation, hotel_reservation, booking_bundle, cancellation_fee`.
 The migration adds `parcel_pack`. If production has any other value, or one is missing, STOP.
 
-Rollback count for `migrate:rollback --step=`: `5` (the packs migration refuses to roll back once a
+Rollback count for `migrate:rollback --step=`: `6` (the packs migration refuses to roll back once a
 `parcel_pack` payment exists).
 
 ## Step 10 — scheduled commands that must be listed

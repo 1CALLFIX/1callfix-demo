@@ -32,6 +32,7 @@
                     <td class="px-4 py-2">
                         <x-ui.badge :color="$r->status === 'refunded' ? 'green' : ($r->status === 'declined' ? 'gray' : 'amber')">{{ ucfirst($r->status) }}</x-ui.badge>
                         @if ($r->refund_status)<span class="block text-xs text-gray-500">Refund: {{ str_replace('_', ' ', $r->refund_status) }}</span>@endif
+                        @if ($r->pickup_status)<span class="block text-xs text-gray-500">Rider pickup: {{ ['open' => 'waiting for a rider', 'assigned' => 'rider going to the customer', 'picked' => 'rider bringing it to the shop', 'dropped' => 'done', 'cancelled' => 'withdrawn'][$r->pickup_status] ?? $r->pickup_status }}</span>@endif
                         @if ($r->escalation_level > 0)<span class="block text-xs font-semibold text-red-700">Escalated to level {{ $r->escalation_level }}</span>@endif
                     </td>
                     <td class="px-4 py-2 text-xs text-gray-600">{{ $r->created_at->diffForHumans(short: true) }}</td>

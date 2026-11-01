@@ -26,7 +26,20 @@
                     <span class="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-semibold">{{ ucfirst($r->status) }}</span>
                 </div>
                 <div class="mt-2 flex gap-2">@foreach ($r->photoUrls() as $src)<a href="{{ $src }}" target="_blank" rel="noopener"><img src="{{ $src }}" alt="Return photo" class="h-16 w-16 rounded-lg object-cover"></a>@endforeach</div>
-                @if ($r->status === 'accepted')
+                @if ($r->status === 'accepted' && $r->pickup_status === 'picked')
+                    {{-- Shop go-live: a rider is bringing it back. The drop code closes it and pays the rider. --}}
+                    <div class="mt-2 rounded-xl bg-blue-50 p-3 text-sm text-blue-900">
+                        <p class="font-semibold">A rider is bringing this item back. Check it, then give the rider this drop code:</p>
+                        <p class="mt-1 text-2xl font-bold tracking-widest">{{ $r->drop_otp }}</p>
+                        <p class="mt-1 text-xs">The rider's fee ({{ $currencySymbol }}{{ number_format((float) $r->pickup_fee, 2) }}) comes out of this order's held earnings.</p>
+                    </div>
+                @elseif ($r->status === 'accepted' && in_array($r->pickup_status, ['open', 'assigned'], true))
+                    <p class="mt-2 text-sm text-slate-700">Accepted. {{ $r->pickup_status === 'open' ? 'A rider will collect it from the customer' : 'A rider is on the way to the customer' }} and bring it to you. The rider's fee ({{ $currencySymbol }}{{ number_format((float) $r->pickup_fee, 2) }}) comes out of this order's held earnings.</p>
+                    @if ($r->pickup_status === 'open')
+                        <p class="mt-1 text-xs text-slate-500">Did the customer bring it to you instead? Then confirm it here.</p>
+                        <x-ui.button class="mt-2" wire:click="receiveReturn({{ $r->id }})">Item received back</x-ui.button>
+                    @endif
+                @elseif ($r->status === 'accepted')
                     <p class="mt-2 text-sm text-slate-700">Accepted by the {{ \App\Models\Setting::get('branding.platform_name', '1CallFix') }} team. When the item is back with you, confirm it.</p>
                     <x-ui.button class="mt-2" wire:click="receiveReturn({{ $r->id }})">Item received back</x-ui.button>
                 @elseif ($r->status === 'refunded')
