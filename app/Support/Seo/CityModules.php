@@ -19,10 +19,10 @@ use App\Support\Modules;
 final class CityModules
 {
     /** Second segments with a page today. */
-    public const LIVE_SEGMENTS = ['services', 'shop', 'parcel'];
+    public const LIVE_SEGMENTS = ['services', 'shop', 'parcel', 'food'];
 
     /** Reserved for businesses that do not have a public city page yet (owner list 2026-11-01). */
-    public const FUTURE_SEGMENTS = ['food', 'grocery', 'pharmacy', 'taxi', 'hotels', 'rentals'];
+    public const FUTURE_SEGMENTS = ['grocery', 'pharmacy', 'taxi', 'hotels', 'rentals'];
 
     /** @return list<string> */
     public static function segments(): array
@@ -50,5 +50,11 @@ final class CityModules
     public static function parcelLiveIn(City $city): bool
     {
         return self::liveIn($city, Modules::PARCEL);
+    }
+
+    /** Food F3: /{city}/food. */
+    public static function foodLiveIn(City $city): bool
+    {
+        return self::liveIn($city, Modules::FOOD);
     }
 }

@@ -3,7 +3,7 @@
 @props(['type' => 'veg'])
 @php
     $color = ['veg' => '#15803d', 'egg' => '#b45309', 'non_veg' => '#b91c1c'][$type] ?? '#64748b';
-    $label = \App\Support\FoodSettings::FOOD_TYPES[$type] ?? '';
+    $label = isset(\App\Support\FoodSettings::FOOD_TYPES[$type]) ? \App\Support\SiteText::get('food.type.'.$type) : ''; // Food F3: English + Telugu
 @endphp
 <svg {{ $attributes->merge(['class' => 'inline-block h-4 w-4 shrink-0 align-[-2px]']) }} viewBox="0 0 16 16" role="img" aria-label="{{ $label }}">
     <title>{{ $label }}</title>

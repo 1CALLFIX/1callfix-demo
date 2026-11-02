@@ -8,6 +8,7 @@ use App\Models\CartItem;
 use App\Models\Store;
 use App\Services\DispatchService;
 use App\Support\FoodSettings;
+use App\Support\SiteText;
 use Illuminate\Support\Collection;
 
 /**
@@ -25,10 +26,10 @@ class FoodCheckout
     public function assertRestaurantTakingOrders(Store $store): void
     {
         if ($store->missingFssai()) {
-            throw new \RuntimeException('This restaurant is not taking orders right now.');
+            throw new \RuntimeException(SiteText::get('food.checkout.not_taking'));
         }
         if (! $store->isOpenNow()) {
-            throw new \RuntimeException('This restaurant is closed right now.');
+            throw new \RuntimeException(SiteText::get('food.cart.closed', ['restaurant' => $store->name]));
         }
     }
 
@@ -39,7 +40,7 @@ class FoodCheckout
             /** @var CartItem $line */
             $product = $line->product;
             if ($product->isSoldOutNow()) {
-                throw new \RuntimeException("\"{$product->name}\" is sold out for today. Remove it to continue.");
+                throw new \RuntimeException(SiteText::get('food.checkout.sold_out', ['dish' => $product->name]));
             }
 
             $groups = $product->addOnGroups()->where('add_on_groups.is_active', true)->with('addOns')->get();
@@ -48,13 +49,13 @@ class FoodCheckout
             if ($chosen->isNotEmpty()) {
                 $allowed = AddOn::whereIn('add_on_group_id', $groups->pluck('id'))->where('is_active', true)->pluck('id')->map(fn ($id) => (int) $id);
                 if ($chosen->diff($allowed)->isNotEmpty()) {
-                    throw new \RuntimeException("A choice on \"{$product->name}\" is no longer available. Remove the dish and add it again.");
+                    throw new \RuntimeException(SiteText::get('food.checkout.choice_gone', ['dish' => $product->name]));
                 }
             }
 
             foreach ($groups as $group) {
-                if ($problem = $group->problemWith($chosen->all())) {
-                    throw new \RuntimeException("\"{$product->name}\" — {$problem}");
+                if ($group->problemWith($chosen->all()) !== null) {
+                    throw new \RuntimeException(SiteText::get('food.checkout.group_rule', ['dish' => $product->name, 'group' => $group->name, 'rule' => FoodCart::ruleText($group)]));
                 }
             }
         }
@@ -88,13 +89,13 @@ class FoodCheckout
         }
 
         if ($address->lat === null || $address->lng === null || $store->lat === null || $store->lng === null) {
-            throw new \RuntimeException('We could not find this address on the map. Pick the location on the map and try again.');
+            throw new \RuntimeException(SiteText::get('food.checkout.no_map'));
         }
 
         $km = $this->dispatch->haversineKm((float) $store->lat, (float) $store->lng, (float) $address->lat, (float) $address->lng);
 
         if ($radius !== null && $km > $radius) {
-            throw new \RuntimeException("This restaurant delivers up to {$this->km($radius)} km. Your address is {$this->km($km)} km away.");
+            throw new \RuntimeException(SiteText::get('food.checkout.too_far', ['km' => $this->km($radius), 'distance' => $this->km($km)]));
         }
 
         if ($base === null) {

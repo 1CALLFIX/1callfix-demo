@@ -41,7 +41,7 @@ Rollback count for `migrate:rollback --step=`: 1
 - none new
 
 ## Browser checks after deploy
-- `/admin/food-settings` opens for Super Admin, shows 3 groups (Restaurants, Kitchen timing, Orders).
+- `/admin/food-settings` opens for Super Admin, shows 5 groups (Restaurants, Kitchen timing, Delivery, Tax, Orders; Delivery and Tax come with F2).
 - `/admin/shop-settings` still opens and saves.
 - Sign in as `test.restaurant@1callfix.test` at `/seller/login`: menu shows Menu / Add-ons / Restaurant; dishes show
   veg/non-veg marks; "Test Sold Out Dish" shows Sold out today.

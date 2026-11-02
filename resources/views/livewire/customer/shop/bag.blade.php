@@ -18,16 +18,20 @@
         @endif
 
         @forelse ($groups as $g)
-            @php $store = $g['store']; $citySlug = $store->franchise?->city?->slug; @endphp
+            @php
+                $store = $g['store']; $citySlug = $store->franchise?->city?->slug;
+                // Food F3: a restaurant's block links to its menu.
+                $storeUrl = $citySlug ? ($g['food'] ? route('customer.food.restaurant', [$citySlug, $store->slug]) : route('customer.shop.store', [$citySlug, $store->slug])) : null;
+            @endphp
             <section class="mt-5 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm" wire:key="bag-{{ $store->id }}">
                 <header class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 bg-slate-50/70 px-4 py-3 sm:px-5">
                     <div class="min-w-0">
                         <h3 class="truncate font-bold text-slate-900">
-                            @if ($citySlug)<a href="{{ route('customer.shop.store', [$citySlug, $store->slug]) }}" wire:navigate class="hover:underline">{{ $store->name }}</a>@else{{ $store->name }}@endif
+                            @if ($storeUrl)<a href="{{ $storeUrl }}" wire:navigate class="hover:underline">{{ $store->name }}</a>@else{{ $store->name }}@endif
                         </h3>
                         @if ($g['promise'])<p class="flex items-center gap-1 text-xs font-medium text-slate-600"><x-icon name="clock" class="h-3.5 w-3.5 text-blue-600" /> {{ $g['promise'] }}</p>@endif
                     </div>
-                    @unless ($store->is_open)<span class="rounded-full bg-slate-200 px-2.5 py-0.5 text-xs font-semibold text-slate-600">{{ $t('cart.closed_now') }}</span>@endunless
+                    @unless ($store->isOpenNow())<span class="rounded-full bg-slate-200 px-2.5 py-0.5 text-xs font-semibold text-slate-600">{{ $t('cart.closed_now') }}</span>@endunless
                 </header>
 
                 <ul class="divide-y divide-slate-100 px-4 sm:px-5">
@@ -35,8 +39,9 @@
                         @php
                             $p = $line->product;
                             $gone = ! $p || ! $p->is_active || ! $p->is_approved;
+                            $soldOut = ! $gone && $g['food'] && $p->isSoldOutNow();
                             $img = $line->variant?->imageUrl() ?? ($p?->image_urls[0] ?? null);
-                            $productUrl = $p && $citySlug ? route('customer.shop.product', [$citySlug, $store->slug, $p->slug]) : null;
+                            $productUrl = $p && $citySlug ? ($g['food'] ? $storeUrl : route('customer.shop.product', [$citySlug, $store->slug, $p->slug])) : null;
                         @endphp
                         <li class="flex gap-3 py-4" wire:key="line-{{ $line->id }}">
                             <a @if ($productUrl) href="{{ $productUrl }}" wire:navigate @endif class="block h-20 w-20 shrink-0 overflow-hidden rounded-2xl border border-slate-100 bg-slate-50">
@@ -46,11 +51,14 @@
                             <div class="min-w-0 flex-1">
                                 <p class="line-clamp-2 text-sm font-semibold text-slate-900">{{ $p?->name ?? $t('cart.item_removed') }}</p>
                                 @if ($line->variant)<p class="mt-0.5 text-xs text-slate-500">{{ $line->variant->name }}</p>@endif
+                                @if ($line->addOnModels()->isNotEmpty())<p class="mt-0.5 text-xs text-slate-500" data-testid="cart-addons">+ {{ $line->addOnModels()->pluck('name')->implode(', ') }}</p>@endif
                                 @if ($gone)
                                     <p class="mt-1 text-xs font-semibold text-red-700">{{ $t('cart.item_gone') }}</p>
+                                @elseif ($soldOut)
+                                    <p class="mt-1 text-xs font-semibold text-red-700">{{ $t('food.cart.sold_out_line') }}</p>
                                 @else
                                     <p class="mt-1 flex flex-wrap items-baseline gap-x-1.5 text-sm">
-                                        <span class="font-bold text-slate-900">{{ $currencySymbol }}{{ number_format($line->unitPrice(), 2) }}</span>
+                                        <span class="font-bold text-slate-900">{{ $currencySymbol }}{{ number_format($line->unitPriceWithAddOns(), 2) }}</span>
                                         @if ($line->isDiscounted())
                                             <span class="text-xs text-slate-400 line-through">{{ $currencySymbol }}{{ number_format($line->listUnitPrice(), 2) }}</span>
                                             <span class="text-xs font-bold text-emerald-600">{{ $t('shop.card.off_online', ['percent' => rtrim(rtrim(number_format((float) $p->discount_percent, 1), '0'), '.')]) }}</span>
@@ -58,7 +66,7 @@
                                     </p>
                                 @endif
                                 <div class="mt-2 flex items-center gap-4">
-                                    @unless ($gone)
+                                    @unless ($gone || $soldOut)
                                         <div class="inline-flex items-center rounded-full border border-slate-300 bg-white">
                                             <button type="button" wire:click="change({{ $line->id }}, -1)" class="flex h-9 w-9 items-center justify-center text-lg font-bold text-slate-700" aria-label="{{ $t('cart.one_less') }}">−</button>
                                             <span class="min-w-6 text-center text-sm font-bold tabular-nums">{{ $line->quantity }}</span>
@@ -68,8 +76,8 @@
                                     <button type="button" wire:click="removeLine({{ $line->id }})" class="text-xs font-semibold text-slate-500 hover:text-red-700">{{ $t('cart.remove') }}</button>
                                 </div>
                             </div>
-                            @unless ($gone)
-                                <p class="shrink-0 text-right text-sm font-bold tabular-nums text-slate-900">{{ $currencySymbol }}{{ number_format($line->unitPrice() * $line->quantity, 2) }}</p>
+                            @unless ($gone || $soldOut)
+                                <p class="shrink-0 text-right text-sm font-bold tabular-nums text-slate-900">{{ $currencySymbol }}{{ number_format($line->unitPriceWithAddOns() * $line->quantity, 2) }}</p>
                             @endunless
                         </li>
                     @endforeach

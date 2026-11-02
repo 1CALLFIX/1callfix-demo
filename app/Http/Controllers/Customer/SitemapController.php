@@ -165,6 +165,14 @@ class SitemapController extends Controller
             $add($this->abs('/'.$city->slug.'/parcel'), null, '0.7');
         }
 
+        // Food F3: /{city}/food and each real restaurant's menu.
+        if ($pages->foodIndexable($city)) {
+            $add($this->abs('/'.$city->slug.'/food'), null, '0.8');
+            foreach ($pages->realRestaurants($city) as $restaurant) {
+                $add($this->abs('/'.$city->slug.'/food/'.$restaurant->slug), $restaurant->updated_at, '0.7');
+            }
+        }
+
         return $this->urlset($urls);
     }
 

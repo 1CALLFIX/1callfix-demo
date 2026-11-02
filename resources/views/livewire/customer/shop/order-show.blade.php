@@ -17,9 +17,10 @@
 
         {{-- Progress: one line per step, the current one highlighted. --}}
         @php
+            $packing = $order->isFood() ? $t('food.order.step_cooking') : $t('shop_order.step.packing');
             $steps = $order->order_type === 'pickup'
-                ? ['pending' => $t('shop_order.step.placed'), 'accepted' => $t('shop_order.step.accepted'), 'preparing' => $t('shop_order.step.packing'), 'ready' => $t('shop_order.step.ready_collect'), 'completed' => $t('shop_order.step.collected')]
-                : ['pending' => $t('shop_order.step.placed'), 'accepted' => $t('shop_order.step.accepted'), 'preparing' => $t('shop_order.step.packing'), 'ready' => $t('shop_order.step.with_rider'), 'completed' => $t('shop_order.step.delivered')];
+                ? ['pending' => $t('shop_order.step.placed'), 'accepted' => $t('shop_order.step.accepted'), 'preparing' => $packing, 'ready' => $t('shop_order.step.ready_collect'), 'completed' => $t('shop_order.step.collected')]
+                : ['pending' => $t('shop_order.step.placed'), 'accepted' => $t('shop_order.step.accepted'), 'preparing' => $packing, 'ready' => $t('shop_order.step.with_rider'), 'completed' => $t('shop_order.step.delivered')];
             $keys = array_keys($steps);
             $at = array_search($order->status, $keys, true);
         @endphp
@@ -36,6 +37,10 @@
         @else
             <p class="mt-5 rounded-2xl bg-red-50 p-4 text-sm text-red-800">{{ $t('shop_order.cancelled') }}@if ($order->cancellation_note) {{ $t('shop_order.cancel_reason', ['reason' => $order->cancellation_note]) }}@endif
                 @if (in_array($order->payment_status, ['refunded', 'partially_refunded'], true)) {{ $t('shop_order.refund_issued') }} @endif</p>
+        @endif
+
+        @if ($foodStatus)
+            <p role="status" class="mt-4 rounded-2xl bg-blue-50 px-4 py-3 text-sm font-medium text-blue-900" data-testid="food-status">{{ $foodStatus }}</p>
         @endif
 
         @if ($order->isAwaitingOnlinePayment())
@@ -60,7 +65,8 @@
             <ul class="divide-y divide-slate-100">
                 @foreach ($order->items as $item)
                     <li class="flex justify-between gap-3 py-1.5">
-                        <span>{{ $item->quantity }} × {{ $item->product_name_snapshot }}@if ($item->variant_name_snapshot) <span class="text-slate-500">({{ $item->variant_name_snapshot }})</span>@endif</span>
+                        <span>{{ $item->quantity }} × {{ $item->product_name_snapshot }}@if ($item->variant_name_snapshot) <span class="text-slate-500">({{ $item->variant_name_snapshot }})</span>@endif
+                            @if (! empty($item->add_ons_snapshot))<span class="block text-xs text-slate-500">+ {{ collect($item->add_ons_snapshot)->pluck('name')->implode(', ') }}</span>@endif</span>
                         <span class="tabular-nums">{{ $currencySymbol }}{{ number_format((float) $item->line_total, 2) }}</span>
                     </li>
                 @endforeach
@@ -73,8 +79,11 @@
                 @if ($order->order_type === 'delivery')
                     <div class="flex justify-between"><dt>{{ $t('shop_order.delivery') }}</dt><dd class="tabular-nums">{{ (float) $order->delivery_fee > 0 ? $currencySymbol.number_format((float) $order->delivery_fee, 2) : $t('shop_order.free') }}</dd></div>
                 @endif
+                @if ((float) $order->packaging_charge > 0)
+                    <div class="flex justify-between"><dt>{{ $t('food.checkout.packaging') }}</dt><dd class="tabular-nums">{{ $currencySymbol }}{{ number_format((float) $order->packaging_charge, 2) }}</dd></div>
+                @endif
                 @if ((float) $order->tax_amount > 0)
-                    <div class="flex justify-between"><dt>{{ $t('shop_order.tax') }}</dt><dd class="tabular-nums">{{ $currencySymbol }}{{ number_format((float) $order->tax_amount, 2) }}</dd></div>
+                    <div class="flex justify-between"><dt>{{ $order->tax_by_platform ? $t('food.checkout.gst') : $t('shop_order.tax') }}</dt><dd class="tabular-nums">{{ $currencySymbol }}{{ number_format((float) $order->tax_amount, 2) }}</dd></div>
                 @endif
                 <div class="flex justify-between border-t border-slate-100 pt-2 text-base font-bold"><dt>{{ $t('shop_order.total') }}</dt><dd class="tabular-nums">{{ $currencySymbol }}{{ number_format((float) $order->total_amount, 2) }}</dd></div>
                 <div class="flex justify-between text-slate-500"><dt>{{ $t('shop_order.paid_by') }}</dt><dd>{{ in_array($order->payment_method, ['online', 'wallet', 'cash'], true) ? $t('shop_order.paid.'.$order->payment_method) : $order->payment_method }}</dd></div>

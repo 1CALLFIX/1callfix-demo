@@ -373,6 +373,11 @@ Route::get('/{city}/shop', \App\Livewire\Customer\Shop\Home::class)->where('city
 Route::get('/{city}/shop/{storeSlug}', \App\Livewire\Customer\Shop\StoreShow::class)->where(['city' => $cityPattern, 'storeSlug' => '[A-Za-z0-9_-]+'])->name('customer.shop.store');
 Route::get('/{city}/shop/{storeSlug}/{productSlug}', \App\Livewire\Customer\Shop\ProductShow::class)->where(['city' => $cityPattern, 'storeSlug' => '[A-Za-z0-9_-]+', 'productSlug' => '[A-Za-z0-9_-]+'])->name('customer.shop.product');
 
+// Food F3: restaurants, city-prefixed like the shop (/{city}/food, /{city}/food/{restaurant}). 404 while Food is off for
+// that city (Admin → Modules). The cart, checkout and orders are the shop's (/cart, /shop/checkout, /shop/orders).
+Route::get('/{city}/food', \App\Livewire\Customer\Food\Home::class)->where('city', $cityPattern)->name('customer.food.home');
+Route::get('/{city}/food/{restaurantSlug}', \App\Livewire\Customer\Food\RestaurantShow::class)->where(['city' => $cityPattern, 'restaurantSlug' => '[A-Za-z0-9_-]+'])->name('customer.food.restaurant');
+
 // City URL architecture (2026-11-01): /{city} is the hub, each business has its own word after the city. The older
 // /{city}/{slug} catalog URL permanently 301s to /{city}/services/{slug}. Future words (food, grocery, pharmacy,
 // taxi, hotels, rentals) are reserved in App\Support\Seo\CityModules and 404 until they get a page.

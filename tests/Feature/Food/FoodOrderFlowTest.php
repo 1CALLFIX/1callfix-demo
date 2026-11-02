@@ -127,9 +127,9 @@ class FoodOrderFlowTest extends TestCase
         $dosa = $this->makeProduct($this->restaurant, ['name' => 'Dosa', 'price' => 80, 'stock' => 9999, 'food_type' => 'veg']);
         $dosa->addOnGroups()->sync([$group->id => ['position' => 0]]);
 
-        $this->assertRefused('Chutney: pick 1', fn () => $this->order('cash', 'pickup', [], $dosa, [], 1));
+        $this->assertRefused('Chutney: Pick 1', fn () => $this->order('cash', 'pickup', [], $dosa, [], 1));
         app(CartService::class)->clearForStore($this->customer, $this->restaurant->id);
-        $this->assertRefused('Chutney: at most 1', fn () => $this->order('cash', 'pickup', [], $dosa, [$coconut->id, $tomato->id], 1));
+        $this->assertRefused('Chutney: Pick 1', fn () => $this->order('cash', 'pickup', [], $dosa, [$coconut->id, $tomato->id], 1));
         app(CartService::class)->clearForStore($this->customer, $this->restaurant->id);
 
         // An add-on from another dish's group (not on this dish) is refused too.

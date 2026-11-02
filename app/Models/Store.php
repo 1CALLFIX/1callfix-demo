@@ -193,6 +193,31 @@ class Store extends Model
         return $this->is_open && (! $this->isRestaurant() || $this->withinHours($at));
     }
 
+    /**
+     * Food F3: when a closed restaurant next opens (local time), for "Opens at 7:00 PM" / "Opens Mon 11:00 AM".
+     * Null when it has no hours (the switch alone decides) or no slot in the coming week.
+     */
+    public function nextOpeningLocal(?\Carbon\CarbonInterface $at = null): ?\Carbon\Carbon
+    {
+        $hours = $this->relationLoaded('hours') ? $this->hours : $this->hours()->get();
+        if ($hours->isEmpty()) {
+            return null;
+        }
+        $local = $this->localNow($at);
+        for ($d = 0; $d <= 7; $d++) {
+            $day = $local->copy()->startOfDay()->addDays($d);
+            $starts = $hours->where('day', $day->dayOfWeek)
+                ->map(fn ($slot) => $day->copy()->setTimeFromTimeString($slot->opens_at))
+                ->filter(fn ($start) => $start->gt($local))
+                ->sort();
+            if ($starts->isNotEmpty()) {
+                return $starts->first();
+            }
+        }
+
+        return null;
+    }
+
     public function isBusy(?\Carbon\CarbonInterface $at = null): bool
     {
         return $this->busy_until !== null && $this->busy_until->gt($at ?? now()) && (int) $this->busy_extra_minutes > 0;

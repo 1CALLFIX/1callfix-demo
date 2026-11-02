@@ -142,6 +142,26 @@ class OrderShow extends Component
         $this->flashType = 'success';
     }
 
+    /** Food F3: one plain line on where a food order is (accept clock, promised ready time, rider). */
+    private function foodStatus(): ?string
+    {
+        $o = $this->order;
+        if (! $o->isFood() || $o->isAwaitingOnlinePayment()) {
+            return null;
+        }
+        $t = fn (string $key, array $r = []) => \App\Support\SiteText::get($key, $r);
+        $time = fn ($at) => app(\App\Services\TimezoneResolver::class)->format($at, $o->franchise, 'g:i A');
+
+        return match (true) {
+            $o->status === 'pending' && $o->accept_by !== null => $t('food.order.waiting', ['time' => $time($o->accept_by)]),
+            $o->status === 'accepted' && $o->ready_by !== null => $t('food.order.accepted', ['time' => $o->readyByLocal()]),
+            $o->status === 'preparing' && $o->ready_by !== null => $t('food.order.cooking', ['time' => $o->readyByLocal()])
+                .($o->order_type === 'delivery' && $o->assigned_worker_id ? ' '.$t('food.order.rider_on_way') : ''),
+            $o->status === 'ready' => $t('food.order.ready'),
+            default => null,
+        };
+    }
+
     public function render()
     {
         $this->order->load(['items', 'store', 'deliveryAddress', 'assignedWorker.user:id,name,phone', 'statusHistory']);
@@ -152,11 +172,14 @@ class OrderShow extends Component
         return view('livewire.customer.shop.order-show', [
             'open' => $open,
             'showCode' => $showCode,
-            'canCancel' => in_array($this->order->status, ['pending', 'accepted'], true),
+            // Food F2: a food order can be cancelled only until the restaurant accepts (the action enforces it too).
+            'canCancel' => $this->order->isFood() ? $this->order->status === 'pending' : in_array($this->order->status, ['pending', 'accepted'], true),
             'review' => Review::where('marketplace_order_id', $this->order->id)->first(),
             'returnDays' => (int) \App\Support\MarketplaceSettings::get('marketplace.return_window_days'),
             'returnRow' => \App\Models\MarketplaceReturn::where('marketplace_order_id', $this->order->id)->latest('id')->first(),
-            'canReturn' => app(\App\Services\Marketplace\MarketplaceReturnService::class)->cannotRequest($this->order, auth()->id()) === null,
+            // Food: no returns (a problem with a food order is reported instead, Food F4).
+            'canReturn' => ! $this->order->isFood() && app(\App\Services\Marketplace\MarketplaceReturnService::class)->cannotRequest($this->order, auth()->id()) === null,
+            'foodStatus' => $this->foodStatus(),
             'currencySymbol' => Setting::get('locale.currency_symbol', '₹'),
         ])->layout('components.layouts.customer', ['title' => 'Order '.$this->order->code]);
     }

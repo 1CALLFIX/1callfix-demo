@@ -271,16 +271,33 @@ class Checkout extends Component
      * online and wallet pay the offer price, get free delivery above the shop's amount and may use a coupon; cash pays
      * the full price and the delivery fee. The action decides; this only previews it with the same rules.
      */
-    private function priceFor(string $method, $lines): array
+    private function priceFor(string $method, $lines, ?Address $address = null): array
     {
         $cash = $method === 'cash';
-        $listTotal = (float) $lines->sum(fn ($l) => ($l->listUnitPrice() ?? $l->unitPrice()) * $l->quantity);
-        $subtotal = (float) $lines->sum(fn ($l) => ($cash ? $l->cashUnitPrice() : $l->unitPrice()) * $l->quantity);
+        $food = $this->store->isRestaurant();
+        // Food F3: add-ons are part of the item price (live prices, as the order action charges them).
+        $listTotal = (float) $lines->sum(fn ($l) => (($l->listUnitPrice() ?? $l->unitPrice()) + $l->addOnsTotal()) * $l->quantity);
+        $subtotal = (float) $lines->sum(fn ($l) => $l->unitPriceWithAddOns($cash) * $l->quantity);
         $freeAbove = $this->store->free_delivery_above_amount;
         $freeDelivery = ! $cash && $freeAbove !== null && $subtotal >= (float) $freeAbove;
-        $deliveryFee = $this->orderType === 'pickup' ? 0.0 : ($freeDelivery ? 0.0 : (float) $this->store->delivery_fee_flat);
+        $fullFee = (float) $this->store->delivery_fee_flat;
+        if ($food && $this->orderType === 'delivery' && $address) {
+            try {
+                [$fullFee] = app(\App\Services\Food\FoodCheckout::class)->deliveryFee($this->store, $address);
+            } catch (\RuntimeException $e) {
+                $this->deliveryProblem = $e->getMessage(); // e.g. outside the delivery radius; the order action refuses it too
+            }
+        }
+        $deliveryFee = $this->orderType === 'pickup' ? 0.0 : ($freeDelivery ? 0.0 : $fullFee);
         $coupon = $cash ? 0.0 : min($this->couponDiscount, $subtotal);
-        $tax = round(($subtotal - $coupon) * (float) $this->store->tax_percent / 100, 2);
+        $packaging = $food ? app(\App\Services\Food\FoodCheckout::class)->packagingCharge($this->store) : 0.0;
+        if ($food) {
+            // Food F2: GST under section 9(5) on food + packaging, collected by the platform (Food Settings rate).
+            $gst = app(\App\Services\Food\FoodCheckout::class)->gstPercent($this->store);
+            $tax = $gst === null ? 0.0 : round(($subtotal - $coupon + $packaging) * $gst / 100, 2);
+        } else {
+            $tax = round(($subtotal - $coupon) * (float) $this->store->tax_percent / 100, 2);
+        }
 
         return [
             'list' => round($listTotal, 2),
@@ -288,20 +305,25 @@ class Checkout extends Component
             'discount' => round($listTotal - $subtotal, 2),
             'coupon' => round($coupon, 2),
             'delivery' => $deliveryFee,
-            'deliveryWaived' => $this->orderType === 'delivery' && $freeDelivery ? (float) $this->store->delivery_fee_flat : 0.0,
+            'deliveryWaived' => $this->orderType === 'delivery' && $freeDelivery ? $fullFee : 0.0,
+            'packaging' => $packaging,
             'tax' => $tax,
-            'total' => round($subtotal - $coupon + $deliveryFee + $tax, 2),
+            'total' => round($subtotal - $coupon + $packaging + $deliveryFee + $tax, 2),
         ];
     }
+
+    /** Food F3: why this address cannot get a delivery from this restaurant (too far, not on the map), or ''. */
+    public string $deliveryProblem = '';
 
     public function render()
     {
         $lines = $this->lines();
-        $online = $this->priceFor('online', $lines);
-        $cashPrice = $this->priceFor('cash', $lines);
+        $address = $this->addressId ? $this->ownAddresses()->whereKey($this->addressId)->first() : null;
+        $this->deliveryProblem = '';
+        $online = $this->priceFor('online', $lines, $address);
+        $cashPrice = $this->priceFor('cash', $lines, $address);
         $price = $this->paymentMethod === 'cash' ? $cashPrice : $online;
         $scope = array_filter(['zone_id' => $this->store->zone_id, 'franchise_id' => $this->store->franchise_id]);
-        $address = $this->addressId ? $this->ownAddresses()->whereKey($this->addressId)->first() : null;
 
         return view('livewire.customer.shop.checkout', [
             'lines' => $lines,
@@ -314,6 +336,8 @@ class Checkout extends Component
             'subtotal' => $price['subtotal'],
             'deliveryFee' => $price['delivery'],
             'tax' => $price['tax'],
+            'packaging' => $price['packaging'],
+            'isFood' => $this->store->isRestaurant(),
             'total' => $price['total'],
             'coupon' => $price['coupon'],
             'freeDeliveryEarned' => $online['deliveryWaived'] > 0,

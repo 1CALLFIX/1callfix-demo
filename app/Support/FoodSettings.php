@@ -68,6 +68,10 @@ class FoodSettings extends MarketplaceSettings
             'group' => 'Orders', 'label' => 'Time a restaurant has to accept an order', 'type' => 'int', 'unit' => 'minutes', 'min' => 1, 'max' => 30,
             'default' => '10', 'help' => 'Owner decision 2026-11-02: 10 minutes. Not accepted in time = cancelled and refunded in full.',
         ],
+        'food.max_per_dish' => [
+            'group' => 'Orders', 'label' => 'Most of one dish in a cart', 'type' => 'int', 'unit' => 'items', 'min' => 1, 'max' => 100,
+            'default' => '20', 'help' => 'Dishes have no stock count. A restaurant can set a lower limit on a dish ("Limit per order").',
+        ],
     ];
 
     public const FOOD_TYPES = ['veg' => 'Veg', 'egg' => 'Egg', 'non_veg' => 'Non-veg'];
