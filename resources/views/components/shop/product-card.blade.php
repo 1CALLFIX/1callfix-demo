@@ -39,8 +39,9 @@
             @elseif ($closed)
                 <p class="rounded-lg bg-slate-100 py-2 text-center text-xs font-semibold text-slate-500">{{ $t('shop.card.shop_closed') }}</p>
             @elseif ($hasChoices)
-                {{-- Choice pop-up 2026-11-02: opens the size/colour panel on this page; the product page when the page has no panel. --}}
-                <a href="{{ $url }}" wire:navigate data-choose-product="{{ $product->id }}"
+                {{-- Choice pop-up 2026-11-02: opens the size/colour panel on this page; the product page when the page has no panel.
+                     No wire:navigate here: it takes the click before Alpine can open the panel (seen live). --}}
+                <a href="{{ $url }}" data-choose-product="{{ $product->id }}"
                    x-data x-on:click="if (document.querySelector('[data-choice-sheet]')) { $event.preventDefault(); $event.stopImmediatePropagation(); $dispatch('open-choice-sheet', { productId: {{ $product->id }} }) }"
                    class="flex min-h-10 w-full items-center justify-center rounded-lg border-2 border-blue-600 text-sm font-bold text-blue-700 hover:bg-blue-50">{{ $t('shop.card.choose') }}</a>
             @elseif ($qty > 0)

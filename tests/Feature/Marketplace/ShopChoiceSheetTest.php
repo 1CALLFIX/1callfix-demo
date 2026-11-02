@@ -79,7 +79,9 @@ class ShopChoiceSheetTest extends TestCase
         $this->get(route('customer.shop.store', ['nellore', $this->w['store']->slug]))->assertOk()
             ->assertSee('data-choice-sheet', false)
             ->assertSee('data-choose-product="'.$this->w['shirt']->id.'"', false)
-            ->assertSee('open-choice-sheet', false);
+            ->assertSee('open-choice-sheet', false)
+            // wire:navigate on this link takes the click before the panel can open (found in the live check).
+            ->assertDontSee('wire:navigate data-choose-product', false);
     }
 
     private function checkout()
