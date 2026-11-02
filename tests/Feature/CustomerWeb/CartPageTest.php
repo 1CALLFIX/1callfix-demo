@@ -25,9 +25,11 @@ class CartPageTest extends TestCase
         return app(ServiceCartService::class);
     }
 
-    public function test_the_page_requires_a_login(): void
+    /** Shop Phase A 2026-11-02: the cart opens for a visitor (their shop items); booking services still needs sign-in. */
+    public function test_a_visitor_sees_the_cart_and_services_checkout_needs_a_login(): void
     {
-        $this->get(route('customer.cart'))->assertRedirect(route('customer.login'));
+        $this->get(route('customer.cart'))->assertOk()->assertSee('Your cart is empty.');
+        $this->get(route('customer.checkout'))->assertRedirect(route('customer.login'));
     }
 
     public function test_empty_cart_shows_the_empty_state(): void

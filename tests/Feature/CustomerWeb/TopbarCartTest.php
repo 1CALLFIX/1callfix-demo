@@ -50,11 +50,15 @@ class TopbarCartTest extends TestCase
         $component->dispatch('cart-updated')->assertSet('count', 1);
     }
 
-    public function test_the_guest_header_has_no_cart_link(): void
+    /** Shop Phase A 2026-11-02: visitors have a cart too (shop items in the session), so the header links it. */
+    public function test_the_guest_header_has_the_cart_link_with_the_visitor_count(): void
     {
         $this->get(route('customer.home'))
             ->assertOk()
-            ->assertDontSee(route('customer.cart'));
+            ->assertSee(route('customer.cart'));
+
+        session(['guest_shop_cart' => [1 => ['product_id' => 999999, 'variant_id' => null, 'quantity' => 2]]]);
+        Livewire::test(CartCount::class)->assertSet('count', 2);
     }
 
     public function test_the_header_carries_a_persistent_mobile_search_row(): void
