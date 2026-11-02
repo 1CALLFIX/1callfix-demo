@@ -74,8 +74,8 @@ class TestAccountsCommand extends Command
         'Test 18% GST Item' => ['18% GST on the invoice. ₹1000, above the free-delivery amount.', ['price' => 1000, 'tax_percent' => 18, 'stock' => 20]],
         'Test Hidden Item' => ['Switched off by the seller: seen in the seller portal, never in the shop.', ['price' => 120, 'is_active' => false]],
         'Test Awaiting Approval Item' => ['Not approved yet: waits in Admin → Products and is not in the shop.', ['price' => 130, 'is_approved' => false]],
-        'Test T-Shirt' => ['Pick a size and a colour (TEST_SHOP_CHOICES). XL costs more; M / Blue is sold out. 1 piece.', ['price' => 300, 'unit_value' => 1, 'unit' => 'piece', 'option_names' => ['Size', 'Colour']]],
-        'Test Rice' => ['Sold by weight: 1 kg, or a 5 kg bag at its own price. 10% off (online only) on both.', ['price' => 70, 'discount_percent' => 10, 'unit' => 'pack', 'option_names' => ['Weight']]],
+        'Test T-Shirt' => ['Pick a size and a colour. XL costs more; M / Blue is sold out.', ['price' => 300, 'unit_value' => 1, 'unit' => 'piece', 'option_names' => ['Size', 'Colour']]],
+        'Test Rice' => ['Sold by weight: 1 kg, or a 5 kg bag at its own price. 10% off (online only) on both.', ['price' => 70, 'discount_percent' => 10, 'option_names' => ['Weight']]],
     ];
 
     /** Product choices 2026-11-02: product name => [[options, price or null, stock], ...] for the Test Shop. */
