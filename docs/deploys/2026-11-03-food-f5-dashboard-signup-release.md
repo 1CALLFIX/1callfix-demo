@@ -10,7 +10,7 @@ Food stays **OFF** for customers until the owner switches it on in Admin → Mod
 | Deploys | `main` at the commit that adds this file |
 | Branch | `feature/food-f1-restaurants` (F1–F5, on top of `feature/shop-phase-a` 47a71a7) |
 | Live before | `<hash currently on the server>` |
-| Full test suite | run folder by folder before push (see the result in the merge commit / report) |
+| Full test suite | 2026-11-03 at 89ca414, folder by folder: 4434 tests, all pass except the known `NotificationCenterAuditTest::test_provider_status_shows_log_fallback_by_default` (local .env, unrelated) |
 | Composer | no |
 | Front-end build (steps 6–7) | yes |
 | Version | bump `VERSION` at merge time |
