@@ -157,6 +157,10 @@ Route::post('/logout', function () {
  | ReviewService, DocumentService, the PaymentGateway contract). The server
  | stays authoritative for every number and every state transition.
  */
+// Shop Phase A 2026-11-02 (Amazon / Flipkart / Meesho): the cart page is open to visitors. Their shop items live in the
+// session (GuestShopCart) and join their own cart at sign-in; services and every checkout still need sign-in.
+Route::get('/cart', CustomerCart::class)->middleware(\App\Http\Middleware\EnsureAccountNotSuspended::class)->name('customer.cart');
+
 Route::middleware(['auth', \App\Http\Middleware\EnsureAccountNotSuspended::class])->group(function () {
     Route::view('/account', 'customer.account')->name('customer.account');
 
@@ -167,7 +171,7 @@ Route::middleware(['auth', \App\Http\Middleware\EnsureAccountNotSuspended::class
     // Services cart -> checkout -> one BookingBundle. The cart groups its
     // lines into "visits" by subcategory; checkout hands the whole set to
     // CreateBookingBundleAction (no price ever from the client).
-    Route::get('/cart', CustomerCart::class)->name('customer.cart');
+    // Shop Phase A 2026-11-02: /cart is open to visitors (their shop cart lives in the session); declared below.
     Route::get('/checkout', CustomerCheckout::class)->name('customer.checkout');
     Route::get('/bundles/{bundle}', CustomerBundleShow::class)->name('customer.bundles.show');
 

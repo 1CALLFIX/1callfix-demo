@@ -49,26 +49,35 @@ class ShopCheckoutPolishTest extends TestCase
         return Livewire::actingAs($this->w['customer'])->test(Checkout::class, ['store' => $this->w['store']]);
     }
 
-    public function test_cash_off_names_the_discounted_item_and_the_discount_shows(): void
+    /** Owner 2026-11-02 ("Meesho way"): each way to pay shows its own amount; cash pays the full price. */
+    public function test_each_way_to_pay_shows_its_amount_and_cash_pays_the_full_price(): void
     {
         $cart = app(CartService::class);
         $cart->add($this->w['customer'], $this->w['plain'], 1);
         $cart->add($this->w['customer'], $this->w['deal'], 1);
 
-        $this->checkout()
-            ->assertViewHas('cashBlocked', true)
-            ->assertSee('Not available: Lunch Box has an online-only price. Remove it or pay online.')
+        $c = $this->checkout()
+            ->assertViewHas('onlineSaves', fn ($v) => $v > 0)
             ->assertSee('20% off · online')
-            ->assertSee('₹500.00'); // the crossed-out price before the discount
+            ->assertSee('₹500.00') // the crossed-out price before the discount
+            ->assertSee('Full price: offers and free delivery are for online payment')
+            ->assertSee('You save ₹100.00 on this order');
 
-        Livewire::actingAs($this->w['customer'])->test(Bag::class)->assertSee('20% off · online')->assertSee('₹500.00');
+        Livewire::actingAs($this->w['customer'])->test(Bag::class)->assertSee('20% off · online')->assertSee('₹500.00')
+            ->assertSee('You save ₹100.00 with online payment');
+
+        $c->set('orderType', 'pickup')->set('paymentMethod', 'cash')->call('placeOrder')->assertHasNoErrors();
+        $order = MarketplaceOrder::sole();
+        $this->assertSame('cash', $order->payment_method);
+        $this->assertEquals(600.0, (float) $order->subtotal, 'cash pays ₹100 + the full ₹500');
+        $this->assertEquals(0.0, (float) $order->discount_amount);
     }
 
-    public function test_without_a_discounted_item_cash_is_on(): void
+    public function test_without_a_discounted_item_cash_costs_the_same(): void
     {
         app(CartService::class)->add($this->w['customer'], $this->w['plain'], 1);
 
-        $this->checkout()->assertViewHas('cashBlocked', false)->assertDontSee('online-only price')
+        $this->checkout()->set('orderType', 'pickup')->assertViewHas('onlineSaves', 0.0)->assertDontSee('Full price:')
             ->set('paymentMethod', 'cash')->call('placeOrder')->assertHasNoErrors();
         $this->assertSame('cash', MarketplaceOrder::sole()->payment_method);
     }

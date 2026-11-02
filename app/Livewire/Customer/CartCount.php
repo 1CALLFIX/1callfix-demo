@@ -27,7 +27,7 @@ class CartCount extends Component
     {
         $this->count = auth()->check()
             ? app(ServiceCartService::class)->lineCount(auth()->user()) + (int) \App\Models\CartItem::where('user_id', auth()->id())->sum('quantity')
-            : 0;
+            : app(\App\Services\GuestShopCart::class)->count();
     }
 
     public function render()

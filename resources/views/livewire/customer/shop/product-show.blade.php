@@ -41,71 +41,86 @@
 
             <div>
                 <a href="{{ route('customer.shop.store', [$city->slug, $store->slug]) }}" wire:navigate class="text-sm font-semibold uppercase tracking-wide text-blue-700">{{ $store->name }}</a>
-                <h1 class="mt-1 text-2xl font-bold tracking-tight sm:text-3xl">{{ $product->name }}</h1>
-                <p class="mt-3 text-3xl font-bold">
+                <h1 class="mt-1 text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">{{ $product->name }}</h1>
+
+                {{-- Shop Phase A 2026-11-02: price block like the big marketplaces: offer price, % off, the price before,
+                     "Inclusive of all taxes", the unit, and the online-only offer note. --}}
+                @php $pct = $product->discount_percent ? rtrim(rtrim(number_format((float) $product->discount_percent, 1), '0'), '.') : null; @endphp
+                <div class="mt-3 flex flex-wrap items-baseline gap-x-2 gap-y-1">
                     @if (! $selected && $product->choicePricesDiffer())<span class="text-base font-medium text-slate-500">{{ $t('shop.card.from') }}</span>@endif
-                    {{ $currencySymbol }}{{ number_format($priceNow, 2) }}
+                    <span class="text-3xl font-extrabold tracking-tight text-slate-900">{{ $currencySymbol }}{{ number_format($priceNow, 2) }}</span>
                     @if ($priceWas !== null)
-                        <span class="ml-2 text-base font-normal text-slate-400 line-through">{{ $currencySymbol }}{{ number_format($priceWas, 2) }}</span>
+                        <span class="text-base text-slate-400 line-through">{{ $currencySymbol }}{{ number_format($priceWas, 2) }}</span>
                     @endif
-                </p>
-                @if ($product->unitLabel())
-                    <p class="text-sm text-slate-500" data-testid="product-unit">{{ $t('shop.product.per_unit', ['unit' => $product->unitLabel()]) }}</p>
+                    @if ($pct)<span class="text-base font-bold text-emerald-600">{{ $t('shop.product.percent_off', ['percent' => $pct]) }}</span>@endif
+                </div>
+                <p class="mt-0.5 text-xs text-slate-500">{{ $t('shop.product.incl_taxes') }}@if ($product->unitLabel()) · <span data-testid="product-unit">{{ $t('shop.product.per_unit', ['unit' => $product->unitLabel()]) }}</span>@endif</p>
+                @if ($pct)
+                    <p class="mt-2 inline-flex items-center gap-1.5 rounded-lg bg-emerald-50 px-2.5 py-1 text-sm font-medium text-emerald-800"><x-icon name="tag" class="h-4 w-4" /> {{ $t('shop.product.off_note', ['percent' => $pct]) }}</p>
                 @endif
-                @if ($product->discount_percent)
-                    <p class="mt-1 text-sm text-blue-700">{{ $t('shop.product.off_note', ['percent' => rtrim(rtrim(number_format((float) $product->discount_percent, 1), '0'), '.')]) }}</p>
-                @endif
-                <p @class(['mt-2 text-sm font-medium', 'text-emerald-700' => $stockNow > 5, 'text-amber-700' => $stockNow > 0 && $stockNow <= 5, 'text-red-700' => $stockNow <= 0])>
-                    {{ $stockNow <= 0 ? $t('shop.out_of_stock') : ($stockNow <= 5 ? $t('shop.product.only_left', ['count' => $stockNow]) : $t('shop.product.in_stock')) }}
-                </p>
+
+                <div class="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
+                    <span @class(['font-semibold', 'text-emerald-700' => $stockNow > 5, 'text-amber-700' => $stockNow > 0 && $stockNow <= 5, 'text-red-700' => $stockNow <= 0])>
+                        {{ $stockNow <= 0 ? $t('shop.out_of_stock') : ($stockNow <= 5 ? $t('shop.product.only_left', ['count' => $stockNow]) : $t('shop.product.in_stock')) }}
+                    </span>
+                    @if ($deliveryPromise)
+                        <span class="inline-flex items-center gap-1 font-medium text-slate-700" data-testid="delivery-promise"><x-icon name="clock" class="h-4 w-4 text-blue-600" /> {{ $deliveryPromise }}</span>
+                    @endif
+                </div>
 
                 @foreach ($choices as $name => $values)
-                    <div class="mt-4" wire:key="choice-{{ md5($name) }}">
+                    @php $missing = $missingChoice === $name; @endphp
+                    <div wire:key="choice-{{ md5($name) }}" @class(['mt-4 rounded-2xl border p-3 transition', 'border-red-300 bg-red-50' => $missing, 'border-slate-200 bg-white' => ! $missing])
+                         @if ($missing) data-testid="choice-missing" @endif>
                         <p class="text-sm font-semibold text-slate-900">{{ $name }}@if (isset($picked[$name]))<span class="font-normal text-slate-600">: {{ $picked[$name] }}</span>@endif</p>
                         <div class="mt-2 flex flex-wrap gap-2" role="radiogroup" aria-label="{{ $name }}">
                             @foreach ($values as $value => $inStock)
-                                @php $on = ($picked[$name] ?? null) === (string) $value; @endphp
-                                <button type="button" role="radio" aria-checked="{{ $on ? 'true' : 'false' }}" wire:click="pick({{ \Illuminate\Support\Js::from($name) }}, {{ \Illuminate\Support\Js::from((string) $value) }})"
-                                        @class(['min-h-10 min-w-12 rounded-xl border-2 px-3 text-sm font-semibold',
-                                            'border-blue-600 bg-blue-50 text-blue-800' => $on,
-                                            'border-slate-300 bg-white text-slate-800 hover:border-blue-400' => ! $on && $inStock,
-                                            'border-dashed border-slate-200 bg-white text-slate-400 line-through' => ! $on && ! $inStock])>{{ $value }}</button>
+                                @php $on = ($picked[$name] ?? null) === (string) $value; $left = $lowStock[$name][$value] ?? null; @endphp
+                                <div class="flex flex-col items-center">
+                                    <button type="button" role="radio" aria-checked="{{ $on ? 'true' : 'false' }}" wire:click="pick({{ \Illuminate\Support\Js::from($name) }}, {{ \Illuminate\Support\Js::from((string) $value) }})"
+                                            @class(['min-h-11 min-w-12 rounded-full border-2 px-4 text-sm font-semibold transition',
+                                                'border-blue-600 bg-blue-600 text-white shadow-sm' => $on,
+                                                'border-slate-300 bg-white text-slate-800 hover:border-blue-500' => ! $on && $inStock,
+                                                'border-dashed border-slate-200 bg-slate-50 text-slate-400 line-through' => ! $on && ! $inStock])>{{ $value }}</button>
+                                    @if ($left)<span class="mt-0.5 text-[11px] font-semibold text-amber-700">{{ $t('shop.product.left', ['count' => $left]) }}</span>@endif
+                                </div>
                             @endforeach
                         </div>
+                        @if ($missing)<p class="mt-2 text-sm font-semibold text-red-700" role="alert">{{ $t('shop.product.select_choice', ['choice' => mb_strtolower($name)]) }}</p>@endif
                     </div>
                 @endforeach
 
                 @if ($cartMessage)
-                    <p role="status" class="mt-3 rounded-lg bg-amber-50 px-4 py-2.5 text-sm text-amber-900">{{ $cartMessage }}</p>
+                    <p role="status" class="mt-3 rounded-xl bg-amber-50 px-4 py-2.5 text-sm text-amber-900">{{ $cartMessage }}</p>
                 @endif
 
-                <div class="mt-5 max-w-xs">
-                    @if ($hasChoices)
-                        @if (! $store->is_open)
-                            <p class="rounded-xl bg-slate-100 py-3 text-center font-semibold text-slate-500">{{ $t('shop.product.shop_closed') }}</p>
-                        @elseif ($selected && $selected->stock <= 0)
-                            <p class="rounded-xl bg-slate-100 py-3 text-center font-semibold text-slate-500">{{ $t('shop.product.choice_sold_out', ['choice' => $selected->name]) }}</p>
-                        @elseif ($choiceQty > 0)
-                            <div class="flex items-center justify-between rounded-xl bg-blue-600 text-white">
-                                <button type="button" wire:click="removeChoiceOne" class="min-h-12 px-5 text-xl font-bold" aria-label="{{ $t('shop.product.one_less') }}">−</button>
-                                <span class="font-bold tabular-nums" aria-live="polite">{{ $t('shop.product.in_bag', ['count' => $choiceQty]) }}</span>
-                                <button type="button" wire:click="addChoice" class="min-h-12 px-5 text-xl font-bold" aria-label="{{ $t('shop.product.one_more') }}">+</button>
+                {{-- Add to Cart + Buy now (Amazon / Flipkart / Meesho). Once in the cart: the stepper and Buy now. --}}
+                @php
+                    $soldOut = $hasChoices ? ($selected && $selected->stock <= 0) : $product->stock <= 0;
+                    $inCartQty = $hasChoices ? $choiceQty : $qty;
+                    $addAction = $hasChoices ? 'addChoice' : 'addToCart('.$product->id.')';
+                    $lessAction = $hasChoices ? 'removeChoiceOne' : 'removeOne('.$product->id.')';
+                @endphp
+                <div class="mt-5 grid max-w-md grid-cols-2 gap-3">
+                    @if (! $store->is_open)
+                        <p class="col-span-2 rounded-2xl bg-slate-100 py-3.5 text-center font-semibold text-slate-500">{{ $t('shop.product.shop_closed') }}</p>
+                    @elseif ($soldOut)
+                        <p class="col-span-2 rounded-2xl bg-slate-100 py-3.5 text-center font-semibold text-slate-500">{{ $hasChoices ? $t('shop.product.choice_sold_out', ['choice' => $selected->name]) : $t('shop.out_of_stock') }}</p>
+                    @else
+                        @if ($inCartQty > 0)
+                            <div class="flex items-center justify-between rounded-2xl border-2 border-blue-600 text-blue-700">
+                                <button type="button" wire:click="{{ $lessAction }}" class="min-h-12 px-4 text-xl font-bold" aria-label="{{ $t('shop.product.one_less') }}">−</button>
+                                <span class="text-sm font-bold tabular-nums" aria-live="polite">{{ $t('shop.product.in_bag', ['count' => $inCartQty]) }}</span>
+                                <button type="button" wire:click="{{ $addAction }}" class="min-h-12 px-4 text-xl font-bold" aria-label="{{ $t('shop.product.one_more') }}">+</button>
                             </div>
                         @else
-                            <button type="button" wire:click="addChoice" class="min-h-12 w-full rounded-xl bg-blue-600 font-bold text-white hover:bg-blue-700">{{ $t('shop.product.add_to_bag') }}</button>
+                            <button type="button" wire:click="{{ $addAction }}" class="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl border-2 border-blue-600 bg-white font-bold text-blue-700 hover:bg-blue-50" data-testid="add-to-cart">
+                                <x-icon name="shopping-cart" class="h-5 w-5" /> {{ $t('shop.product.add_to_bag') }}
+                            </button>
                         @endif
-                    @elseif ($product->stock <= 0)
-                        <p class="rounded-xl bg-slate-100 py-3 text-center font-semibold text-slate-500">{{ $t('shop.out_of_stock') }}</p>
-                    @elseif (! $store->is_open)
-                        <p class="rounded-xl bg-slate-100 py-3 text-center font-semibold text-slate-500">{{ $t('shop.product.shop_closed') }}</p>
-                    @elseif ($qty > 0)
-                        <div class="flex items-center justify-between rounded-xl bg-blue-600 text-white">
-                            <button type="button" wire:click="removeOne({{ $product->id }})" class="min-h-12 px-5 text-xl font-bold" aria-label="{{ $t('shop.product.one_less') }}">−</button>
-                            <span class="font-bold tabular-nums" aria-live="polite">{{ $t('shop.product.in_bag', ['count' => $qty]) }}</span>
-                            <button type="button" wire:click="addToCart({{ $product->id }})" class="min-h-12 px-5 text-xl font-bold" aria-label="{{ $t('shop.product.one_more') }}">+</button>
-                        </div>
-                    @else
-                        <button type="button" wire:click="addToCart({{ $product->id }})" class="min-h-12 w-full rounded-xl bg-blue-600 font-bold text-white hover:bg-blue-700">{{ $t('shop.product.add_to_bag') }}</button>
+                        <button type="button" wire:click="buyNow" class="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-amber-400 font-bold text-slate-900 shadow-sm hover:bg-amber-300" data-testid="buy-now">
+                            <x-icon name="bolt" class="h-5 w-5" /> {{ $t('shop.product.buy_now') }}
+                        </button>
                     @endif
                 </div>
 
@@ -116,10 +131,10 @@
                     </div>
                 @endif
 
-                <ul class="mt-6 space-y-1.5 rounded-2xl bg-slate-50 p-4 text-sm text-slate-700">
-                    <li>{{ $t('shop.product.sold_by', ['shop' => $store->name, 'city' => $city->name]) }}</li>
-                    <li>{{ $t('shop.product.delivered_by') }}</li>
-                    <li>{{ $t('shop.product.returns', ['days' => \App\Support\MarketplaceSettings::get('marketplace.return_window_days')]) }}</li>
+                <ul class="mt-6 grid gap-2 text-sm text-slate-700 sm:grid-cols-3">
+                    <li class="flex items-start gap-2 rounded-2xl bg-slate-50 p-3"><x-icon name="building" class="mt-0.5 h-4 w-4 shrink-0 text-blue-600" /> {{ $t('shop.product.sold_by', ['shop' => $store->name, 'city' => $city->name]) }}</li>
+                    <li class="flex items-start gap-2 rounded-2xl bg-slate-50 p-3"><x-icon name="shield" class="mt-0.5 h-4 w-4 shrink-0 text-blue-600" /> {{ $t('shop.product.delivered_by') }}</li>
+                    <li class="flex items-start gap-2 rounded-2xl bg-slate-50 p-3"><x-icon name="arrow-path" class="mt-0.5 h-4 w-4 shrink-0 text-blue-600" /> {{ $t('shop.product.returns', ['days' => \App\Support\MarketplaceSettings::get('marketplace.return_window_days')]) }}</li>
                 </ul>
             </div>
         </div>

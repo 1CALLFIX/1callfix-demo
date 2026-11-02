@@ -66,7 +66,7 @@ class StorefrontTest extends TestCase
     {
         $this->get('/nellore/shop')->assertOk()->assertSee('Lakshmi Stores')->assertSee('Steel Bottle');
         $this->get('/nellore/shop/'.$this->w['store']->slug)->assertOk()->assertSee('free above')->assertSee('when paid online')->assertSee('Steel Bottle');
-        $this->get('/nellore/shop/'.$this->w['store']->slug.'/steel-bottle')->assertOk()->assertSee('Add to bag')->assertSee('"@type":"Product"', false);
+        $this->get('/nellore/shop/'.$this->w['store']->slug.'/steel-bottle')->assertOk()->assertSee('Add to Cart')->assertSee('Buy now')->assertSee('"@type":"Product"', false);
 
         $this->w['store']->update(['approval_status' => 'pending']);
         $this->get('/nellore/shop')->assertOk()->assertDontSee('Lakshmi Stores');
@@ -80,9 +80,12 @@ class StorefrontTest extends TestCase
         $this->get('/nellore/shop/'.$this->w['store']->slug)->assertNotFound();
     }
 
-    public function test_a_guest_is_sent_to_sign_in_to_add_and_the_stepper_never_passes_the_stock(): void
+    public function test_a_guest_can_add_and_the_stepper_never_passes_the_stock(): void
     {
-        Livewire::test(Home::class, ['city' => 'nellore'])->call('addToCart', $this->w['product']->id)->assertRedirect(route('customer.login'));
+        // Shop Phase A 2026-11-02: a visitor fills a cart without signing in (session); sign-in comes at checkout.
+        Livewire::test(Home::class, ['city' => 'nellore'])->call('addToCart', $this->w['product']->id)->assertNoRedirect();
+        $this->assertSame(1, app(\App\Services\GuestShopCart::class)->count());
+        $this->assertSame(0, CartItem::count());
 
         $c = Livewire::actingAs($this->w['customer'])->test(ProductShow::class, ['city' => 'nellore', 'storeSlug' => $this->w['store']->slug, 'productSlug' => 'steel-bottle']);
         $c->call('addToCart', $this->w['product']->id)->call('addToCart', $this->w['product']->id)->call('addToCart', $this->w['product']->id)
@@ -124,15 +127,17 @@ class StorefrontTest extends TestCase
         $this->assertTrue($order->isAwaitingOnlinePayment());
     }
 
-    public function test_a_discounted_item_makes_cash_unavailable(): void
+    /** Owner 2026-11-02 ("Meesho way"): a discounted item can be paid in cash, at the full price. */
+    public function test_a_discounted_item_paid_in_cash_costs_the_full_price(): void
     {
         $this->w['product']->update(['discount_percent' => 10]);
-        $this->bag(1);
-        $c = $this->checkout()->assertSet('paymentMethod', 'online')->assertViewHas('cashBlocked', true)
-            ->set('orderType', 'pickup')->set('paymentMethod', 'cash')->call('placeOrder');
+        $this->bag(2);
+        $c = $this->checkout()->set('orderType', 'pickup')->assertViewHas('cashPrice', fn ($p) => $p['total'] === 200.0)
+            ->assertViewHas('online', fn ($p) => $p['total'] === 180.0)
+            ->set('paymentMethod', 'cash')->assertViewHas('total', 200.0)->call('placeOrder');
 
-        $c->assertSet('error', 'Discounted items must be paid online. Please choose online payment or wallet.');
-        $this->assertSame(0, MarketplaceOrder::count());
+        $c->assertSet('error', '');
+        $this->assertEquals(200.0, (float) MarketplaceOrder::sole()->total_amount);
     }
 
     public function test_the_customer_pays_todays_price_not_the_price_when_they_added_it(): void

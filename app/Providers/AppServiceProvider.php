@@ -242,6 +242,17 @@ class AppServiceProvider extends ServiceProvider
             }
         });
 
+        // Shop Phase A 2026-11-02: a visitor's shop cart (session) joins their own cart the moment they sign in.
+        \Illuminate\Support\Facades\Event::listen(\Illuminate\Auth\Events\Login::class, function (\Illuminate\Auth\Events\Login $event) {
+            if ($event->user instanceof User && app()->bound('session') && session()->has('guest_shop_cart')) {
+                try {
+                    app(\App\Services\GuestShopCart::class)->mergeInto($event->user);
+                } catch (\Throwable $e) {
+                    \Illuminate\Support\Facades\Log::warning('Guest shop cart merge failed: '.$e->getMessage());
+                }
+            }
+        });
+
         // One listener records every notification attempt (any channel: the
         // built-in 'mail', or our custom SmsChannel/PushChannel) into
         // notification_logs -- the real audit trail behind the Notifications

@@ -22,6 +22,9 @@ class ProductShow extends Component
     /** Product choices 2026-11-02: what the customer picked, choice name => value (e.g. Size => M). */
     public array $picked = [];
 
+    /** Shop Phase A: the choice the customer still has to pick (shown in red, Meesho-style). */
+    public string $missingChoice = '';
+
     public function mount(string $city, string $storeSlug, string $productSlug): void
     {
         if (! $this->enterShopCity($city)) {
@@ -46,6 +49,45 @@ class ProductShow extends Component
         }
         $this->picked[$name] = $value;
         $this->cartMessage = '';
+        if ($this->missingChoice === $name) {
+            $this->missingChoice = '';
+        }
+    }
+
+    /**
+     * Buy now (Amazon / Flipkart / Meesho): makes sure one of this product (or the picked choice) is in the cart, then
+     * goes straight to this shop's checkout. A visitor signs in first and comes back to the checkout.
+     */
+    public function buyNow(): void
+    {
+        $this->cartMessage = '';
+        if ($this->product->hasChoices()) {
+            $variant = $this->selectedVariant();
+            if (! $variant || $this->choiceQuantity($variant) === 0) {
+                $this->changeChoice(+1);
+            }
+        } elseif ((auth()->check() ? ($this->cartQuantities()[$this->product->id] ?? 0) : app(\App\Services\GuestShopCart::class)->quantityFor($this->product->id)) === 0) {
+            $this->addToCart($this->product->id);
+        }
+        if ($this->cartMessage !== '' || $this->missingChoice !== '') {
+            return;
+        }
+
+        $checkout = route('customer.shop.checkout', $this->store->id);
+        if (! auth()->check()) {
+            session()->put('url.intended', $checkout);
+            $this->redirectRoute('customer.login', navigate: true);
+
+            return;
+        }
+        $this->redirect($checkout, navigate: true);
+    }
+
+    private function choiceQuantity(\App\Models\ProductVariant $variant): int
+    {
+        return auth()->check()
+            ? (int) \App\Models\CartItem::where('user_id', auth()->id())->where('product_variant_id', $variant->id)->value('quantity')
+            : app(\App\Services\GuestShopCart::class)->quantityFor($this->product->id, $variant->id);
     }
 
     /** Adds one of the picked choice (size, colour…) to the bag, within its stock and the product's limit. */
@@ -61,19 +103,16 @@ class ProductShow extends Component
 
     private function changeChoice(int $step): void
     {
-        if (! auth()->check()) {
-            session()->put('url.intended', url()->previous());
-            $this->redirectRoute('customer.login', navigate: true);
-
-            return;
-        }
         $t = fn (string $key, array $r = []) => \App\Support\SiteText::get($key, $r);
         $variant = $this->selectedVariant();
         if (! $variant) {
             $missing = collect($this->product->option_names ?? [])->first(fn ($n) => ! isset($this->picked[$n]));
-            $this->cartMessage = $missing !== null
-                ? $t('shop.product.pick_first', ['choice' => mb_strtolower((string) $missing)])
-                : $t('shop.product.choice_sold_out', ['choice' => implode(' / ', $this->picked)]);
+            if ($missing !== null) {
+                // Shown in red on the choice itself (Meesho-style), not as a separate message.
+                $this->missingChoice = (string) $missing;
+            } else {
+                $this->cartMessage = $t('shop.product.choice_sold_out', ['choice' => implode(' / ', $this->picked)]);
+            }
 
             return;
         }
@@ -85,13 +124,22 @@ class ProductShow extends Component
             return;
         }
 
-        $line = \App\Models\CartItem::where('user_id', auth()->id())->where('product_id', $this->product->id)
+        $guest = ! auth()->check();
+        $line = $guest ? null : \App\Models\CartItem::where('user_id', auth()->id())->where('product_id', $this->product->id)
             ->where('product_variant_id', $variant->id)->first();
-        $wanted = (int) ($line?->quantity ?? 0) + $step;
+        $wanted = $this->choiceQuantity($variant) + $step;
         $limit = min((int) $variant->stock, (int) ($this->product->maximum_cart_quantity ?: PHP_INT_MAX));
         if ($step > 0 && $wanted > $limit) {
             $this->cartMessage = $limit <= 0 ? $t('shop.product.choice_sold_out', ['choice' => $variant->name])
                 : "Only {$limit} of {$this->product->name} ({$variant->name}) can be ordered.";
+
+            return;
+        }
+
+        if ($guest) {
+            app(\App\Services\GuestShopCart::class)->set($this->product->id, $variant->id, max(0, $wanted));
+            $this->cartMessage = '';
+            $this->dispatch('shop-cart-changed');
 
             return;
         }
@@ -148,6 +196,27 @@ class ProductShow extends Component
         });
     }
 
+    /** Stock of the one choice this value makes with the other picks, or null when it is not one choice yet. */
+    private function stockFor(string $name, string $value): ?int
+    {
+        $names = $this->product->option_names ?? [];
+        $others = array_diff($names, [$name]);
+        if (count(array_intersect_key($this->picked, array_flip($others))) < count($others)) {
+            return null;
+        }
+        $match = $this->variants()->first(function ($v) use ($names, $name, $value) {
+            foreach ($names as $n) {
+                if (($v->options[$n] ?? null) !== ($n === $name ? $value : $this->picked[$n])) {
+                    return false;
+                }
+            }
+
+            return true;
+        });
+
+        return $match ? (int) $match->stock : null;
+    }
+
     /** Can this value still be bought with the other picks? (in stock, on sale) */
     private function valueInStock(string $name, string $value): bool
     {
@@ -175,15 +244,25 @@ class ProductShow extends Component
             $choices[$name] = collect($values)->mapWithKeys(fn ($v) => [$v => $this->valueInStock($name, $v)])->all();
         }
         $selected = $this->selectedVariant();
-        $choiceQty = $selected && auth()->check()
-            ? (int) \App\Models\CartItem::where('user_id', auth()->id())->where('product_variant_id', $selected->id)->value('quantity')
-            : 0;
+        $choiceQty = $selected ? $this->choiceQuantity($selected) : 0;
+        // Low stock under each value, when one pick decides it (Flipkart: "Only 2 left").
+        $lowStock = [];
+        foreach ($this->choiceValues() as $name => $values) {
+            foreach ($values as $value) {
+                $stock = $this->stockFor($name, $value);
+                if ($stock !== null && $stock > 0 && $stock <= 5) {
+                    $lowStock[$name][$value] = $stock;
+                }
+            }
+        }
 
         return view('livewire.customer.shop.product-show', [
             'qty' => $this->cartQuantities()[$this->product->id] ?? 0,
             'choices' => $choices,
             'selected' => $selected,
             'choiceQty' => $choiceQty,
+            'lowStock' => $lowStock,
+            'deliveryPromise' => \App\Support\MarketplaceSettings::deliveryPromise($this->store),
             'more' => Product::where('store_id', $this->store->id)->whereKeyNot($this->product->id)
                 ->where('is_active', true)->where('is_approved', true)->where('stock', '>', 0)->inRandomOrder()->limit(5)->get()
                 ->each->setRelation('store', $this->store),

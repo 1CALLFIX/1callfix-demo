@@ -41,6 +41,19 @@ class CartItem extends Model
         return $this->variant ? $this->variant->listPrice() : (float) $this->product->price;
     }
 
+    /**
+     * The price per unit when paying cash (owner 2026-11-02, "Meesho way"): the full price, no discount — a
+     * discount is a benefit and benefits are online-only.
+     */
+    public function cashUnitPrice(): float
+    {
+        if (! $this->isDiscounted()) {
+            return $this->unitPrice();
+        }
+
+        return (float) $this->listUnitPrice();
+    }
+
     /** Today's price per unit (discount taken off), as the cart and checkout show it. */
     public function unitPrice(): float
     {

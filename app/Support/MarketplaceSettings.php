@@ -103,6 +103,14 @@ Portion",
             'group' => 'Delivery', 'label' => 'Return pickup: rider fee', 'type' => 'decimal', 'unit' => '₹', 'min' => 0,
             'default' => null, 'help' => 'What a rider earns for collecting an accepted return from the customer and taking it back to the shop. The seller pays it from their held earnings; the customer pays nothing (owner decision 2026-10-31). Blank = no rider pickup: the seller or an admin marks the return received by hand.',
         ],
+        'marketplace.delivery_promise_minutes' => [
+            'group' => 'Delivery', 'label' => 'Delivery promise shown to customers', 'type' => 'int', 'unit' => 'minutes', 'min' => 10, 'max' => 1440,
+            'default' => null, 'help' => 'Product page, cart and checkout say "Delivered by about 6:30 PM" (now + these minutes) while the shop is open. Blank = no promise shown.',
+        ],
+        'marketplace.pickup_promise_minutes' => [
+            'group' => 'Delivery', 'label' => 'Pickup promise shown to customers', 'type' => 'int', 'unit' => 'minutes', 'min' => 5, 'max' => 1440,
+            'default' => null, 'help' => 'Checkout says "Ready to collect by about 6:00 PM" for pickup orders. Blank = no promise shown.',
+        ],
         'marketplace.dispatch.offer_batch_size' => [
             'group' => 'Delivery', 'label' => 'Riders offered per round', 'type' => 'int', 'unit' => 'riders', 'min' => 1, 'max' => 50,
             'default' => '5', 'help' => 'How many nearby riders see a ready order at once.',
@@ -138,6 +146,26 @@ Portion",
     public static function recruitingSellers(): bool
     {
         return self::on('marketplace.recruiting_sellers');
+    }
+
+    /**
+     * Shop Phase A 2026-11-02: "Delivered by about 6:30 PM" / "Ready to collect by about 6:00 PM", from the Shop
+     * Settings minutes, in the shop's own time zone. Null when the shop is closed or the minutes are not set.
+     */
+    public static function deliveryPromise(\App\Models\Store $store, string $orderType = 'delivery'): ?string
+    {
+        if (! $store->is_open) {
+            return null;
+        }
+        $scope = array_filter(['zone_id' => $store->zone_id, 'franchise_id' => $store->franchise_id]);
+        $key = $orderType === 'pickup' ? 'marketplace.pickup_promise_minutes' : 'marketplace.delivery_promise_minutes';
+        $minutes = (int) self::get($key, $scope);
+        if ($minutes <= 0) {
+            return null;
+        }
+        $time = app(\App\Services\TimezoneResolver::class)->format(now()->addMinutes($minutes), $store->franchise, 'g:i A');
+
+        return \App\Support\SiteText::get($orderType === 'pickup' ? 'shop.promise.pickup' : 'shop.promise.delivery', ['time' => $time]);
     }
 
     /** A one-per-line list setting (units, choice names) as a clean array. */

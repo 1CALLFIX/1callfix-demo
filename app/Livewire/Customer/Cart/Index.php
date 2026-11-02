@@ -35,6 +35,9 @@ class Index extends Component
 
     public function mount(ServiceCartService $cart): void
     {
+        if (! auth()->check()) {
+            return; // Shop Phase A: a visitor sees only their shop cart (services need sign-in).
+        }
         $tz = app(TimezoneResolver::class);
         foreach ($cart->itemsFor(auth()->user()) as $item) {
             // Stored UTC -> the customer's own wall clock for the
@@ -95,7 +98,7 @@ class Index extends Component
 
     public function proceed()
     {
-        if (app(ServiceCartService::class)->lineCount(auth()->user()) < 1) {
+        if (! auth()->check() || app(ServiceCartService::class)->lineCount(auth()->user()) < 1) {
             return null;
         }
 
@@ -116,15 +119,16 @@ class Index extends Component
     public function render()
     {
         $cart = app(ServiceCartService::class);
+        $user = auth()->user();
 
         return view('livewire.customer.cart.index', [
-            'groups' => $cart->groupedForUser(auth()->user()),
-            'estimateTotal' => $cart->estimateTotal(auth()->user()),
-            'cashNote' => $this->cashNote($cart),
-            'coupon' => $this->couponView(),
+            'groups' => $user ? $cart->groupedForUser($user) : collect(),
+            'estimateTotal' => $user ? $cart->estimateTotal($user) : 0.0,
+            'cashNote' => $user ? $this->cashNote($cart) : null,
+            'coupon' => $user ? $this->couponView() : ['enabled' => false, 'quote' => null, 'message' => null, 'applied' => false],
             'currencySymbol' => \App\Models\Setting::get('locale.currency_symbol', '₹'),
             // One cart (owner 2026-10-30): the shop bag sits under the services; the empty state offers the shop where it is on.
-            'shopLines' => \App\Models\CartItem::where('user_id', auth()->id())->count(),
+            'shopLines' => $user ? \App\Models\CartItem::where('user_id', $user->id)->count() : count(app(\App\Services\GuestShopCart::class)->raw()),
             'shopUrl' => $this->shopUrl(),
         ])->layout('components.layouts.customer', ['title' => \App\Support\SiteText::get('cart.title')]);
     }
@@ -194,6 +198,6 @@ class Index extends Component
     /** The row, only if it belongs to the current customer. */
     private function itemForUser(int $id): ?ServiceCartItem
     {
-        return ServiceCartItem::where('user_id', auth()->id())->find($id);
+        return auth()->check() ? ServiceCartItem::where('user_id', auth()->id())->find($id) : null;
     }
 }

@@ -112,7 +112,7 @@ class ShopCouponTest extends TestCase
         app(CartService::class)->add($this->w['customer'], $this->w['product'], 1);
         Livewire::actingAs($this->w['customer'])->test(Checkout::class, ['store' => $this->w['store']])
             ->set('orderType', 'pickup')->set('couponInput', 'shop50')->call('applyCoupon')
-            ->assertSet('appliedCoupon', 'SHOP50')->assertViewHas('total', 450.0)->assertViewHas('cashBlocked', true)
+            ->assertSet('appliedCoupon', 'SHOP50')->assertViewHas('total', 450.0)->assertViewHas('cashPrice', fn ($p) => $p['total'] === 500.0)
             ->set('paymentMethod', 'cash')->assertSet('appliedCoupon', '')->assertViewHas('total', 500.0);
     }
 }

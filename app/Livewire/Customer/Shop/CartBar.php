@@ -18,7 +18,8 @@ class CartBar extends Component
 
     public function render()
     {
-        $lines = auth()->check() ? CartItem::where('user_id', auth()->id())->get(['quantity', 'unit_price_snapshot']) : collect();
+        $lines = auth()->check() ? CartItem::where('user_id', auth()->id())->get(['quantity', 'unit_price_snapshot'])
+            : app(\App\Services\GuestShopCart::class)->lines();
 
         return view('livewire.customer.shop.cart-bar', [
             'count' => (int) $lines->sum('quantity'),

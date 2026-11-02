@@ -343,30 +343,44 @@ class MarketplacePhase0MoneyTest extends TestCase
         $this->assertSame(189.0, (float) $order->total_amount);
     }
 
-    public function test_cash_is_refused_for_a_discounted_order(): void
+    /**
+     * THUMB RULE, owner decision 2026-11-02 ("Meesho way"): cash is allowed for a discounted product, but it pays the
+     * full price: the discount (a benefit) never reaches a cash order. Online and wallet pay the offer price.
+     */
+    public function test_cash_pays_the_full_price_of_a_discounted_order(): void
     {
         $w = $this->shop(['discount_percent' => 10]);
 
-        try {
-            $this->checkout($w, 'cash');
-            $this->fail('A discounted order must never be paid in cash.');
-        } catch (\RuntimeException $e) {
-            $this->assertStringContainsString('must be paid online', $e->getMessage());
-        }
+        $order = $this->checkout($w, 'cash');
 
-        $this->assertSame(0, MarketplaceOrder::count());
-        $this->assertSame(10, $w['product']->fresh()->stock, 'Nothing reserved for a refused order.');
+        $this->assertSame('cash', $order->payment_method);
+        $this->assertEquals(200.0, (float) $order->subtotal, 'two at the full ₹100, not the ₹90 offer price');
+        $this->assertEquals(0.0, (float) $order->discount_amount, 'no benefit on cash');
+        $this->assertEquals(100.0, (float) $order->items->first()->unit_price);
+        $this->assertSame(8, $w['product']->fresh()->stock);
     }
 
-    public function test_cash_is_refused_for_a_discounted_order_through_the_api(): void
+    public function test_the_same_discounted_order_paid_online_gets_the_offer_price(): void
+    {
+        $w = $this->shop(['discount_percent' => 10]);
+
+        $order = $this->checkout($w, 'online');
+
+        $this->assertEquals(180.0, (float) $order->subtotal);
+        $this->assertEquals(20.0, (float) $order->discount_amount);
+    }
+
+    public function test_cash_for_a_discounted_order_through_the_api_pays_the_full_price(): void
     {
         $w = $this->shop(['discount_percent' => 10]);
         app(CartService::class)->add($w['customer'], $w['product'], 1);
 
         $this->actingAs($w['customer'], 'sanctum')
             ->postJson('/api/marketplace-orders', ['store_id' => $w['store']->id, 'order_type' => 'pickup', 'payment_method' => 'cash'])
-            ->assertStatus(409)
-            ->assertJsonFragment(['message' => 'Discounted items must be paid online. Please choose online payment or wallet.']);
+            ->assertStatus(201);
+        $order = MarketplaceOrder::sole();
+        $this->assertEquals(100.0, (float) $order->subtotal);
+        $this->assertEquals(0.0, (float) $order->discount_amount);
     }
 
     /** Coupons were connected to shop orders on 2026-10-29 (ShopCouponTest); an unusable code is still refused, cash always. */

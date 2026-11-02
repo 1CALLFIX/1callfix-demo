@@ -107,13 +107,22 @@ class CreateMarketplaceOrderAction
             }
         }
 
+        $paymentMethod = $data['payment_method'] ?? 'online';
+
+        // THUMB RULE — ONLINE PAYMENT ONLY FOR ALL BENEFITS (owner 2026-11-02, "Meesho way"): cash is always
+        // allowed, but a cash order pays the full price of every item: no product discount ever reaches cash.
+        // Online and wallet pay the offer price. The cart keeps the offer price; cash is priced here, per line.
+        if ($paymentMethod === 'cash') {
+            foreach ($lines as $line) {
+                $line->unit_price_snapshot = $line->cashUnitPrice();
+            }
+        }
+
         $subtotal = $lines->sum(fn (CartItem $l) => ((float) $l->unit_price_snapshot + $this->cart->addOnsTotalFor($l)) * $l->quantity);
 
         if ($subtotal < (float) $store->minimum_order_amount) {
             throw new \RuntimeException("This store requires a minimum order of {$store->minimum_order_amount}.");
         }
-
-        $paymentMethod = $data['payment_method'] ?? 'online';
 
         // THUMB RULE (owner 2026-10-28): free delivery above the store's threshold is a benefit, so a cash order
         // always pays the store's delivery fee. Online and wallet orders get the free delivery.
@@ -127,7 +136,7 @@ class CreateMarketplaceOrderAction
         // E-commerce Phase 0: the cart price already has the product's discount % taken off
         // (Product::effective_price). Record how much that discount was, because a discount is a benefit and
         // decides whether cash is allowed (thumb rule below). The subtotal is not reduced again.
-        $discountAmount = round($lines->sum(fn (CartItem $l) => $this->lineDiscount($l)), 2);
+        $discountAmount = $paymentMethod === 'cash' ? 0.0 : round($lines->sum(fn (CartItem $l) => $this->lineDiscount($l)), 2);
 
         // Store-level tax rate only -- products carry their own `tax_percent`
         // column (real 6amMart evidence) but it is deliberately NOT combined
@@ -137,9 +146,9 @@ class CreateMarketplaceOrderAction
             throw new \RuntimeException("Payment method '{$paymentMethod}' is not available.");
         }
 
-        // THUMB RULE — ONLINE PAYMENT ONLY FOR ALL BENEFITS. A discounted order is a benefit: never cash.
+        // Belt and braces: a cash order can never carry a discount (priced at full price above).
         if ($paymentMethod === 'cash' && $discountAmount > 0) {
-            throw new \RuntimeException('Discounted items must be paid online. Please choose online payment or wallet.');
+            throw new \RuntimeException('Discounted prices are for online payment only.');
         }
 
         // Coupons (engine connected for 'commerce' 2026-10-29): validated here, re-validated and reserved under the

@@ -146,11 +146,11 @@ class ProductChoicesTest extends TestCase
 
         $page = $this->page()->assertSee('Size')->assertSee('Colour')->assertSee('Price for 1 piece')
             ->assertSee('From')->assertSee('₹300.00')
-            ->call('addChoice')->assertSee('Choose a size first.');
+            ->call('addChoice')->assertSet('missingChoice', 'Size')->assertSee('Please select a size');
         $this->assertSame(0, CartItem::count());
 
         $page->call('pick', 'Size', 'L')->call('pick', 'Colour', 'Blue')->assertSee('₹350.00')->assertSee('Only 2 left')
-            ->call('addChoice')->call('addChoice')->assertSee('2 in bag')
+            ->call('addChoice')->call('addChoice')->assertSee('2 in cart')
             ->call('addChoice')->assertSee('Only 2 of Cotton Shirt (L / Blue) can be ordered.');
 
         $line = CartItem::sole();
@@ -173,7 +173,7 @@ class ProductChoicesTest extends TestCase
         $this->assertSame(0, CartItem::count());
     }
 
-    public function test_the_discount_applies_to_every_choice_so_cash_stays_off(): void
+    public function test_the_discount_applies_to_every_choice_and_cash_pays_full_price(): void
     {
         $this->shirtWithChoices();
         $this->w['shirt']->update(['discount_percent' => 10]);
@@ -186,10 +186,13 @@ class ProductChoicesTest extends TestCase
         $this->assertSame(315.0, $line->unitPrice());
         $this->assertSame(350.0, $line->listUnitPrice());
 
-        $this->expectException(\RuntimeException::class);
-        app(CreateMarketplaceOrderAction::class)->execute([
+        // Cash pays the choice's full price (owner 2026-11-02, "Meesho way"): no discount ever reaches cash.
+        $this->assertSame(350.0, $line->cashUnitPrice());
+        $order = app(CreateMarketplaceOrderAction::class)->execute([
             'store_id' => $this->w['store']->id, 'customer_id' => $this->w['customer']->id, 'order_type' => 'pickup', 'payment_method' => 'cash',
         ]);
+        $this->assertEquals(350.0, (float) $order->subtotal);
+        $this->assertEquals(0.0, (float) $order->discount_amount);
     }
 
     public function test_an_order_takes_stock_from_the_choice_and_a_cancel_puts_it_back(): void

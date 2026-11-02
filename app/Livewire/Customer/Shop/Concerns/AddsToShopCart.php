@@ -7,8 +7,8 @@ use App\Models\Product;
 use App\Services\CartService;
 
 /**
- * E-commerce Phase 2 — "Add" and the +/- stepper on every shop page. Browsing is public; adding needs a signed-in
- * customer (a guest goes to sign in and comes back). Quantity never goes past the stock or the product's limit per
+ * E-commerce Phase 2 — "Add" and the +/- stepper on every shop page. Browsing and adding are public (Shop Phase A
+ * 2026-11-02: a visitor's cart lives in the session and joins their own cart at sign-in). Quantity never goes past the stock or the product's limit per
  * order; checkout re-checks stock under a lock (CreateMarketplaceOrderAction).
  */
 trait AddsToShopCart
@@ -27,13 +27,6 @@ trait AddsToShopCart
 
     private function changeQuantity(int $productId, int $step): void
     {
-        if (! auth()->check()) {
-            session()->put('url.intended', url()->previous());
-            $this->redirectRoute('customer.login', navigate: true);
-
-            return;
-        }
-
         $product = Product::where('is_active', true)->where('is_approved', true)
             ->whereHas('store', fn ($q) => $q->publiclyVisible())->find($productId);
         if (! $product) {
@@ -49,13 +42,23 @@ trait AddsToShopCart
             return;
         }
 
-        $line = CartItem::where('user_id', auth()->id())->where('product_id', $product->id)->whereNull('product_variant_id')->first();
-        $current = (int) ($line?->quantity ?? 0);
+        // Shop Phase A 2026-11-02: a visitor fills a cart without signing in (GuestShopCart); sign-in is at checkout.
+        $guest = ! auth()->check();
+        $line = $guest ? null : CartItem::where('user_id', auth()->id())->where('product_id', $product->id)->whereNull('product_variant_id')->first();
+        $current = $guest ? app(\App\Services\GuestShopCart::class)->quantityFor($product->id) : (int) ($line?->quantity ?? 0);
         $wanted = $current + $step;
         $limit = min((int) $product->stock, (int) ($product->maximum_cart_quantity ?: PHP_INT_MAX));
 
         if ($step > 0 && $wanted > $limit) {
             $this->cartMessage = $limit <= 0 ? "{$product->name} is out of stock." : "Only {$limit} of {$product->name} can be ordered.";
+
+            return;
+        }
+
+        if ($guest) {
+            app(\App\Services\GuestShopCart::class)->set($product->id, null, max(0, $wanted));
+            $this->cartMessage = '';
+            $this->dispatch('shop-cart-changed');
 
             return;
         }
@@ -77,6 +80,6 @@ trait AddsToShopCart
     {
         return auth()->check()
             ? CartItem::where('user_id', auth()->id())->whereNull('product_variant_id')->pluck('quantity', 'product_id')->map(fn ($q) => (int) $q)->all()
-            : [];
+            : app(\App\Services\GuestShopCart::class)->plainQuantities();
     }
 }

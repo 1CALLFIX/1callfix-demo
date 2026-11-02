@@ -61,9 +61,8 @@
                     </form>
                 @endif
 
-                @auth
-                    <livewire:customer.cart-count />
-                @endauth
+                {{-- Shop Phase A: visitors have a cart too (their shop items, kept in the session). --}}
+                <livewire:customer.cart-count />
 
                 @guest
                     <a href="{{ route('customer.login') }}"

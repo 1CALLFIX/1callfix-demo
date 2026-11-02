@@ -122,9 +122,6 @@ class Checkout extends Component
         // The customer's own saved addresses only (never the send-to addresses kept from parcel orders),
         // their default first, else the newest.
         $this->addressId = $this->ownAddresses()->value('id');
-        if ($this->hasDiscount()) {
-            $this->paymentMethod = 'online';
-        }
     }
 
     private function ownAddresses()
@@ -269,30 +266,61 @@ class Checkout extends Component
         $this->redirectRoute('customer.shop.orders.show', $order, navigate: true);
     }
 
+    /**
+     * The money for one way of paying, as CreateMarketplaceOrderAction will charge it (owner 2026-11-02, "Meesho way"):
+     * online and wallet pay the offer price, get free delivery above the shop's amount and may use a coupon; cash pays
+     * the full price and the delivery fee. The action decides; this only previews it with the same rules.
+     */
+    private function priceFor(string $method, $lines): array
+    {
+        $cash = $method === 'cash';
+        $listTotal = (float) $lines->sum(fn ($l) => ($l->listUnitPrice() ?? $l->unitPrice()) * $l->quantity);
+        $subtotal = (float) $lines->sum(fn ($l) => ($cash ? $l->cashUnitPrice() : $l->unitPrice()) * $l->quantity);
+        $freeAbove = $this->store->free_delivery_above_amount;
+        $freeDelivery = ! $cash && $freeAbove !== null && $subtotal >= (float) $freeAbove;
+        $deliveryFee = $this->orderType === 'pickup' ? 0.0 : ($freeDelivery ? 0.0 : (float) $this->store->delivery_fee_flat);
+        $coupon = $cash ? 0.0 : min($this->couponDiscount, $subtotal);
+        $tax = round(($subtotal - $coupon) * (float) $this->store->tax_percent / 100, 2);
+
+        return [
+            'list' => round($listTotal, 2),
+            'subtotal' => round($subtotal, 2),
+            'discount' => round($listTotal - $subtotal, 2),
+            'coupon' => round($coupon, 2),
+            'delivery' => $deliveryFee,
+            'deliveryWaived' => $this->orderType === 'delivery' && $freeDelivery ? (float) $this->store->delivery_fee_flat : 0.0,
+            'tax' => $tax,
+            'total' => round($subtotal - $coupon + $deliveryFee + $tax, 2),
+        ];
+    }
+
     public function render()
     {
         $lines = $this->lines();
-        $subtotal = (float) $lines->sum(fn ($l) => $l->unitPrice() * $l->quantity);
-        $freeAbove = $this->store->free_delivery_above_amount;
-        $freeDeliveryEarned = $freeAbove !== null && $subtotal >= (float) $freeAbove;
-        $deliveryFee = $this->orderType === 'pickup' ? 0.0
-            : (($this->paymentMethod !== 'cash' && $freeDeliveryEarned) ? 0.0 : (float) $this->store->delivery_fee_flat);
-        $coupon = min($this->couponDiscount, $subtotal);
-        $tax = round(($subtotal - $coupon) * (float) $this->store->tax_percent / 100, 2);
+        $online = $this->priceFor('online', $lines);
+        $cashPrice = $this->priceFor('cash', $lines);
+        $price = $this->paymentMethod === 'cash' ? $cashPrice : $online;
         $scope = array_filter(['zone_id' => $this->store->zone_id, 'franchise_id' => $this->store->franchise_id]);
+        $address = $this->addressId ? $this->ownAddresses()->whereKey($this->addressId)->first() : null;
 
         return view('livewire.customer.shop.checkout', [
             'lines' => $lines,
             'addresses' => $this->ownAddresses()->get(),
-            'subtotal' => $subtotal,
-            'deliveryFee' => $deliveryFee,
-            'tax' => $tax,
-            'total' => round($subtotal - $coupon + $deliveryFee + $tax, 2),
-            'coupon' => $coupon,
-            'freeDeliveryEarned' => $freeDeliveryEarned,
-            'cashBlocked' => $this->hasDiscount() || $this->appliedCoupon !== '',
-            // Name the discounted items, so the customer sees why cash is off.
+            'price' => $price,
+            'online' => $online,
+            'cashPrice' => $cashPrice,
+            // What paying online saves against cash (offer + free delivery + coupon), shown on each option.
+            'onlineSaves' => max(0, round($cashPrice['total'] - $online['total'], 2)),
+            'subtotal' => $price['subtotal'],
+            'deliveryFee' => $price['delivery'],
+            'tax' => $price['tax'],
+            'total' => $price['total'],
+            'coupon' => $price['coupon'],
+            'freeDeliveryEarned' => $online['deliveryWaived'] > 0,
+            'cashBlocked' => false,
             'discountedNames' => $lines->filter(fn ($l) => $l->isDiscounted())->map(fn ($l) => $l->product->name)->unique()->values(),
+            'deliveryPromise' => \App\Support\MarketplaceSettings::deliveryPromise($this->store, $this->orderType),
+            'selectedAddress' => $address,
             'walletEnabled' => Setting::get('payment.wallet_enabled', null, $scope) === '1',
             'walletBalance' => app(WalletService::class)->balance(auth()->user()),
             'onlineEnabled' => Setting::get('payment.online_enabled', '1', $scope) === '1',
