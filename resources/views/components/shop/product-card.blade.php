@@ -39,7 +39,10 @@
             @elseif ($closed)
                 <p class="rounded-lg bg-slate-100 py-2 text-center text-xs font-semibold text-slate-500">{{ $t('shop.card.shop_closed') }}</p>
             @elseif ($hasChoices)
-                <a href="{{ $url }}" wire:navigate class="flex min-h-10 w-full items-center justify-center rounded-lg border-2 border-blue-600 text-sm font-bold text-blue-700 hover:bg-blue-50">{{ $t('shop.card.choose') }}</a>
+                {{-- Choice pop-up 2026-11-02: opens the size/colour panel on this page; the product page when the page has no panel. --}}
+                <a href="{{ $url }}" wire:navigate data-choose-product="{{ $product->id }}"
+                   x-data x-on:click="if (document.querySelector('[data-choice-sheet]')) { $event.preventDefault(); $event.stopImmediatePropagation(); $dispatch('open-choice-sheet', { productId: {{ $product->id }} }) }"
+                   class="flex min-h-10 w-full items-center justify-center rounded-lg border-2 border-blue-600 text-sm font-bold text-blue-700 hover:bg-blue-50">{{ $t('shop.card.choose') }}</a>
             @elseif ($qty > 0)
                 <div class="flex items-center justify-between rounded-lg bg-blue-600 text-white">
                     <button type="button" wire:click="removeOne({{ $product->id }})" class="min-h-10 px-3 text-lg font-bold" aria-label="{{ $t('shop.card.one_less', ['item' => $product->name]) }}">−</button>

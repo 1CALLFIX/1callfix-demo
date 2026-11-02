@@ -34,10 +34,6 @@
                             </label>
                         @endforeach
                     </div>
-                    @if ($deliveryPromise)
-                        <p class="mt-3 flex items-center gap-1.5 text-sm font-semibold text-slate-800" data-testid="checkout-promise"><x-icon name="clock" class="h-4 w-4 text-blue-600" /> {{ $deliveryPromise }}</p>
-                    @endif
-
                     @if ($orderType === 'delivery')
                         <p class="mt-3 flex items-start gap-2 text-xs text-slate-500" data-testid="checkout-from-shop"><x-icon name="building" class="mt-0.5 h-4 w-4 shrink-0" /> {{ $t('shop_checkout.from_shop', ['shop' => $store->name, 'address' => $store->address_line]) }}</p>
                         <div class="mt-3 space-y-2" data-testid="checkout-addresses">
@@ -45,9 +41,12 @@
                                 @php $on = (int) $addressId === $a->id; @endphp
                                 <label wire:key="addr-{{ $a->id }}" @class(['flex cursor-pointer items-start gap-3 rounded-2xl border-2 p-3 text-sm transition', 'border-blue-600 bg-blue-50/60' => $on, 'border-slate-200 hover:border-slate-300' => ! $on])>
                                     <input type="radio" wire:model.live="addressId" value="{{ $a->id }}" class="mt-1 accent-blue-600">
+                                    {{-- 2026-11-02 (Amazon / Flipkart / Meesho all show who receives it): name, address with
+                                         pincode, mobile number. --}}
                                     <span class="min-w-0">
-                                        <span class="block font-bold text-slate-900">{{ $a->label }}</span>
-                                        <span class="block text-slate-600">{{ $a->address_line }}@if ($a->landmark), {{ $a->landmark }}@endif</span>
+                                        <span class="flex flex-wrap items-center gap-2"><span class="font-bold text-slate-900" data-testid="checkout-receiver">{{ $customer->name }}</span><span class="rounded bg-slate-100 px-1.5 py-0.5 text-[11px] font-bold uppercase text-slate-600">{{ $a->label }}</span></span>
+                                        <span class="block text-slate-600">{{ $a->address_line }}@if ($a->landmark), {{ $a->landmark }}@endif @if ($a->city), {{ $a->city }}@endif @if ($a->pincode) - {{ $a->pincode }}@endif</span>
+                                        @if ($customer->phone)<span class="block text-slate-600">{{ $customer->phone }}</span>@endif
                                     </span>
                                 </label>
                             @empty
@@ -111,10 +110,14 @@
                 {{-- 2. Your items --}}
                 <section class="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
                     <h2 class="flex items-center gap-2 font-bold text-slate-900"><span class="grid h-6 w-6 place-items-center rounded-full bg-blue-600 text-xs text-white">2</span> {{ $t('shop_checkout.step_items', ['count' => $itemCount]) }}</h2>
+                    @if ($deliveryPromise)
+                        {{-- "Arriving by" next to the items, as on Amazon, Flipkart and Meesho. --}}
+                        <p class="mt-3 flex items-center gap-1.5 rounded-xl bg-blue-50 px-3 py-2 text-sm font-semibold text-blue-900" data-testid="checkout-promise"><x-icon name="clock" class="h-4 w-4 text-blue-600" /> {{ $deliveryPromise }}</p>
+                    @endif
                     <ul class="mt-2 divide-y divide-slate-100">
                         @foreach ($lines as $l)
                             @php $img = $l->variant?->imageUrl() ?? ($l->product?->image_urls[0] ?? null); @endphp
-                            <li class="flex items-center gap-3 py-3">
+                            <li class="flex items-start gap-3 py-3" wire:key="co-line-{{ $l->id }}">
                                 <div class="h-14 w-14 shrink-0 overflow-hidden rounded-xl border border-slate-100 bg-slate-50">
                                     @if ($img)<img src="{{ $img }}" alt="" loading="lazy" class="h-full w-full object-cover">
                                     @else<span class="flex h-full w-full items-center justify-center font-bold text-slate-300">{{ mb_substr((string) $l->product?->name, 0, 1) }}</span>@endif
@@ -124,6 +127,15 @@
                                     <p class="text-xs text-slate-500">{{ $l->quantity }} × {{ $money($paymentMethod === 'cash' ? $l->cashUnitPrice() : $l->unitPrice()) }}
                                         @if ($l->isDiscounted() && $paymentMethod !== 'cash')<span class="ml-1 rounded-full bg-emerald-50 px-1.5 py-0.5 text-[11px] font-bold text-emerald-700">{{ $t('shop.card.off_online', ['percent' => rtrim(rtrim(number_format((float) $l->product->discount_percent, 1), '0'), '.')]) }}</span>@endif
                                     </p>
+                                    {{-- Change the quantity or remove without going back to the cart (Flipkart / Amazon / Meesho). --}}
+                                    <div class="mt-1.5 flex items-center gap-3">
+                                        <div class="inline-flex items-center rounded-full border border-slate-300 bg-white">
+                                            <button type="button" wire:click="changeLine({{ $l->id }}, -1)" class="flex h-8 w-8 items-center justify-center text-base font-bold text-slate-700" aria-label="{{ $t('cart.one_less') }}">−</button>
+                                            <span class="min-w-5 text-center text-sm font-bold tabular-nums" data-testid="co-qty-{{ $l->id }}">{{ $l->quantity }}</span>
+                                            <button type="button" wire:click="changeLine({{ $l->id }}, 1)" class="flex h-8 w-8 items-center justify-center text-base font-bold text-slate-700" aria-label="{{ $t('cart.one_more') }}">+</button>
+                                        </div>
+                                        <button type="button" wire:click="removeLine({{ $l->id }})" class="text-xs font-semibold text-slate-500 hover:text-red-700">{{ $t('cart.remove') }}</button>
+                                    </div>
                                 </div>
                                 <p class="text-right text-sm font-bold tabular-nums">
                                     @if ($l->isDiscounted() && $paymentMethod !== 'cash')<span class="block text-xs font-normal text-slate-400 line-through">{{ $money($l->listUnitPrice() * $l->quantity) }}</span>@endif
@@ -229,6 +241,16 @@
                         <span wire:loading wire:target="placeOrder">{{ $t('shop_checkout.placing') }}</span>
                     </button>
                     <p class="mt-2 flex items-center justify-center gap-1 text-center text-[11px] text-slate-500"><x-icon name="shield" class="h-3.5 w-3.5" /> {{ $t('shop_checkout.no_charge_yet') }}</p>
+                    {{-- As on Amazon: placing the order means agreeing to the Terms of Use and the Privacy Policy. --}}
+                    @php
+                        $agree = e($t('shop_checkout.agree', ['terms' => '%%TERMS%%', 'privacy' => '%%PRIVACY%%']));
+                        $agree = str_replace(
+                            ['%%TERMS%%', '%%PRIVACY%%'],
+                            ['<a href="'.e(route('customer.terms')).'" target="_blank" class="underline">'.e($t('shop_checkout.terms')).'</a>',
+                             '<a href="'.e(route('customer.privacy')).'" target="_blank" class="underline">'.e($t('shop_checkout.privacy')).'</a>'],
+                            $agree);
+                    @endphp
+                    <p class="mt-1 text-center text-[11px] text-slate-500" data-testid="checkout-agree">{!! $agree !!}</p>
                 </section>
             </aside>
         </form>

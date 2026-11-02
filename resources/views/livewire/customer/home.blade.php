@@ -392,4 +392,6 @@
         @break
     @endswitch
     @endforeach
+    {{-- Choice pop-up for shop cards with sizes / colours (2026-11-02). --}}
+    <livewire:customer.shop.choice-sheet />
 </div>

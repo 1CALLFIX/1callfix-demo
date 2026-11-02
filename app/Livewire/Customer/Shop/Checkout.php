@@ -196,6 +196,53 @@ class Checkout extends Component
         $this->addingAddress = false;
     }
 
+    /**
+     * Change a quantity or remove an item right on the checkout (Flipkart "Qty", Amazon's stepper, Meesho "Edit"),
+     * within the stock and the product's limit. The last item removed sends the customer back to the cart.
+     */
+    public function changeLine(int $lineId, int $step, CartService $cart): void
+    {
+        $this->error = '';
+        $line = \App\Models\CartItem::where('user_id', auth()->id())->where('store_id', $this->store->id)->with(['product', 'variant'])->find($lineId);
+        if (! $line) {
+            return;
+        }
+        $wanted = $line->quantity + ($step > 0 ? 1 : -1);
+        $limit = min((int) ($line->variant?->stock ?? $line->product?->stock ?? 0), (int) ($line->product?->maximum_cart_quantity ?: PHP_INT_MAX));
+        if ($step > 0 && $wanted > $limit) {
+            $this->error = SiteText::get('cart.only_left', ['count' => max(0, $limit), 'item' => (string) $line->product?->name]);
+
+            return;
+        }
+        $wanted <= 0 ? $cart->remove($line) : $cart->updateQuantity($line, $wanted);
+        $this->afterCartChange();
+    }
+
+    public function removeLine(int $lineId, CartService $cart): void
+    {
+        $this->error = '';
+        $line = \App\Models\CartItem::where('user_id', auth()->id())->where('store_id', $this->store->id)->find($lineId);
+        if ($line) {
+            $cart->remove($line);
+        }
+        $this->afterCartChange();
+    }
+
+    /** A coupon is checked again for the new cart; an empty cart goes back to the cart page. */
+    private function afterCartChange(): void
+    {
+        $this->dispatch('shop-cart-changed');
+        if ($this->lines()->isEmpty()) {
+            $this->redirectRoute('customer.cart', navigate: true);
+
+            return;
+        }
+        if ($this->appliedCoupon !== '') {
+            $this->couponInput = $this->appliedCoupon;
+            $this->applyCoupon(app(CreateMarketplaceOrderAction::class));
+        }
+    }
+
     private function lines()
     {
         return app(CartService::class)->listForStore(auth()->user(), $this->store->id);
@@ -321,6 +368,7 @@ class Checkout extends Component
             'discountedNames' => $lines->filter(fn ($l) => $l->isDiscounted())->map(fn ($l) => $l->product->name)->unique()->values(),
             'deliveryPromise' => \App\Support\MarketplaceSettings::deliveryPromise($this->store, $this->orderType),
             'selectedAddress' => $address,
+            'customer' => auth()->user(),
             'walletEnabled' => Setting::get('payment.wallet_enabled', null, $scope) === '1',
             'walletBalance' => app(WalletService::class)->balance(auth()->user()),
             'onlineEnabled' => Setting::get('payment.online_enabled', '1', $scope) === '1',

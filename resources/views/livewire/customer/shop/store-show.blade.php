@@ -64,4 +64,5 @@
     </div>
 
     <livewire:customer.shop.cart-bar />
+    <livewire:customer.shop.choice-sheet />
 </div>
