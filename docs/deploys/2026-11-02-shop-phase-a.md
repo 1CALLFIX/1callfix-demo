@@ -30,6 +30,9 @@ From the owner's walk-through of Amazon, Flipkart and Meesho (2026-11-02), item 
   (Price · Offer discount · Coupon · Delivery · Total · "You save ₹X on this order"), coupon folded under payment.
 - **Delivery promise** (new Shop Settings → Delivery): *Delivery promise shown to customers* and *Pickup promise*
   in minutes. Blank (default) = nothing shown. Shows "Delivered by about 6:30 PM today" while the shop is open.
+- **Test shops show to everyone while the shop is being built** (owner 2026-11-02: "allow all, restrictions once
+  everything is tested"). New Shop Settings → Sellers switch **Hide test shops from customers**, default OFF.
+  Turn it ON at go-live. Search engines never get test shops either way (noindex, not in the sitemap).
 - Test Shop wording fix (no internal name in the T-Shirt text; rice has no unit).
 - Every new word in Website text & language (English + Telugu). Note: "bag" → "cart" changed the default English;
   if someone had already edited those two texts in Website text, their edit stays.
@@ -43,13 +46,13 @@ Rollback count for `migrate:rollback --step=`: `0`
 - none new
 
 ## After deploy (owner)
+- At go-live: Admin → Shop Settings → Sellers → **Hide test shops from customers** ON, and `test-accounts disable`.
 - Optional: Admin → Shop Settings → Delivery → set the delivery promise minutes (e.g. 60) and pickup minutes (e.g. 30).
 - Optional: re-run `php artisan test-accounts create --password=...` for the Test Shop wording fix.
 
 ## Walk-through
-- Signed out: `/nellore/shop` shows only real shops, so to test as a visitor sign in once as `test.customer`, sign out,
-  then the Test Shop is hidden again (test shops are never public). Visitor cart is proven by tests; on the live site
-  check it with any real shop once one is approved.
+- Signed out: `/nellore/shop` shows the Test Shop (switch OFF) → add items as a visitor → cart → "Sign in to checkout"
+  → sign in as `test.customer` → lands on checkout with the items.
 - `test.customer@1callfix.test`: Test T-Shirt → Buy now without a size → Size box turns red → pick L + Red → Buy now →
   checkout. Payment shows Online ₹… "Save ₹…" and Cash at the full price. Test Rice 5 kg: online ₹297, cash ₹330.
 - Cart: photos, sizes, "You save", free-delivery bar.

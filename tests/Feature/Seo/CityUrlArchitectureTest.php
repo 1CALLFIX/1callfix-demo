@@ -222,8 +222,27 @@ class CityUrlArchitectureTest extends TestCase
 
     // ---------------------------------------------------------------- test shops + indexing
 
+    private function hideTestShops(): void
+    {
+        \App\Models\Setting::updateOrCreate(['key' => 'marketplace.hide_test_shops', 'scope_type' => 'global', 'scope_id' => null], ['value' => '1']);
+    }
+
+    /** Owner 2026-11-02: while the shop is being built, test shops show to everyone; search engines still never get them. */
+    public function test_while_building_a_test_shop_shows_to_everyone_but_is_never_indexed(): void
+    {
+        $city = $this->liveCity('Nellore');
+        $this->shopOn($city);
+        $this->testShop($city);
+
+        $this->get('/nellore/shop')->assertOk()->assertSee('Test Discount Item');
+        $this->get('/nellore/shop/test-shop')->assertOk()->assertSee('noindex', false);
+        $this->get('/nellore/shop/test-shop/test-discount-item')->assertOk()->assertSee('noindex', false);
+        $this->get('/sitemap-nellore.xml')->assertOk()->assertDontSee('test-shop');
+    }
+
     public function test_a_test_shop_is_never_public_but_a_signed_in_test_account_still_sees_it(): void
     {
+        $this->hideTestShops(); // go-live behaviour (Shop Settings switch, owner 2026-11-02)
         $city = $this->liveCity('Nellore');
         $this->shopOn($city);
         $test = $this->testShop($city);
@@ -246,6 +265,7 @@ class CityUrlArchitectureTest extends TestCase
 
     public function test_a_public_customer_cannot_add_a_test_shop_item_to_the_cart(): void
     {
+        $this->hideTestShops(); // go-live behaviour (Shop Settings switch, owner 2026-11-02)
         $city = $this->liveCity('Nellore');
         $this->shopOn($city);
         $test = $this->testShop($city);
@@ -323,6 +343,7 @@ class CityUrlArchitectureTest extends TestCase
 
     public function test_the_homepage_shows_shop_categories_shops_and_products_where_the_shop_is_on(): void
     {
+        $this->hideTestShops(); // go-live behaviour (Shop Settings switch, owner 2026-11-02)
         $city = $this->liveCity('Nellore');
         $this->shopOn($city);
         $store = $this->realShop($city);

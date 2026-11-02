@@ -56,6 +56,12 @@ class Store extends Model
     {
         $query->sellable()->when(\App\Support\Seo\QaRows::hiding(), fn ($q) => $q->where('name', 'not like', \App\Support\Seo\QaRows::LIKE));
 
+        // Owner 2026-11-02: while the shop is being built and tested, test shops show to everyone. Super Admin turns
+        // "Hide test shops from customers" ON (Shop Settings) at go-live. Search engines never get them either way.
+        if (! \App\Support\MarketplaceSettings::on('marketplace.hide_test_shops')) {
+            return $query;
+        }
+
         return self::isTestViewer($viewer ?? auth()->user()) ? $query : $query->notTestShop();
     }
 

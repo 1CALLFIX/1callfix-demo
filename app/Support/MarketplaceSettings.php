@@ -21,6 +21,10 @@ final class MarketplaceSettings
             'group' => 'Sellers', 'label' => 'Take seller sign-ups on /partners', 'type' => 'switch', 'default' => '0', 'global' => true,
             'help' => 'On: "Seller or shop" on the partner page continues to the sign-up (OTP, documents, admin approval). Off: the waiting list. Turn on before Commerce opens so shops are approved and stocked first.',
         ],
+        'marketplace.hide_test_shops' => [
+            'group' => 'Sellers', 'label' => 'Hide test shops from customers', 'type' => 'switch', 'default' => '0', 'global' => true,
+            'help' => 'Off (while the shop is being built): the Test Shop from test-accounts shows to everyone, so the whole shop can be tried. Turn ON at go-live: only real shops show; test logins still see test shops. Search engines never list test shops either way.',
+        ],
         'marketplace.seller_products_need_approval' => [
             'group' => 'Sellers', 'label' => 'New seller products wait for admin approval', 'type' => 'switch', 'default' => '1',
             'help' => 'On (default): a product a seller adds is hidden from customers until an admin approves it in Admin → Products. Off: it goes live at once (the blocked words below still apply).',
