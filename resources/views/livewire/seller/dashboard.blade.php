@@ -18,6 +18,41 @@
         <div role="status" class="rounded-lg bg-blue-50 px-4 py-2.5 text-sm text-blue-900">{{ $notice }}</div>
     @endif
 
+    @if ($store->isRestaurant())
+        {{-- Food F1: the kitchen at a glance — FSSAI, opening hours, busy mode. --}}
+        @if ($store->missingFssai())
+            <div class="rounded-2xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">
+                <p class="font-semibold">Add your FSSAI licence number.</p>
+                <p class="mt-1">The law needs it for every food business. Your restaurant cannot be approved or open without it. <a href="{{ route('seller.shop') }}" wire:navigate class="font-medium underline">Add it now</a></p>
+            </div>
+        @endif
+        @if ($store->is_open && ! $store->withinHours())
+            <div class="rounded-2xl border border-slate-300 bg-white p-4 text-sm text-slate-700">You are outside your opening hours, so customers cannot order now. <a href="{{ route('seller.shop') }}" wire:navigate class="font-medium underline">Change hours</a></div>
+        @endif
+        @if ($busyChoices)
+            <x-ui.card>
+                <div class="flex flex-wrap items-center justify-between gap-2">
+                    <div>
+                        <p class="font-semibold">Kitchen time: {{ $store->currentPrepMinutes() }} min</p>
+                        <p class="text-sm text-slate-600">
+                            @if ($store->isBusy()) Busy until {{ $store->localNow($store->busy_until)->format('h:i A') }} (+{{ $store->busy_extra_minutes }} min).
+                            @else Too many orders? Tell customers it will take longer. @endif
+                        </p>
+                    </div>
+                    <div class="flex flex-wrap gap-2">
+                        @foreach ($busyChoices as $m)
+                            <button type="button" wire:click="setBusy({{ $m }})" @class(['min-h-10 rounded-full border px-4 text-sm font-medium',
+                                'border-amber-500 bg-amber-50 text-amber-900' => $store->isBusy() && $store->busy_extra_minutes === $m, 'border-slate-300 bg-white' => ! ($store->isBusy() && $store->busy_extra_minutes === $m)])>+{{ $m }} min</button>
+                        @endforeach
+                        @if ($store->isBusy())
+                            <button type="button" wire:click="clearBusy" class="min-h-10 rounded-full bg-slate-800 px-4 text-sm font-medium text-white">Not busy</button>
+                        @endif
+                    </div>
+                </div>
+            </x-ui.card>
+        @endif
+    @endif
+
     {{-- Where the shop stands, in the order the seller has to clear it. --}}
     @if ($store->approval_status === 'pending')
         <div class="rounded-2xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">

@@ -320,6 +320,7 @@ Route::middleware(['auth', \App\Http\Middleware\EnsureIsSeller::class, \App\Http
         Route::get('/orders', \App\Livewire\Seller\Orders::class)->name('seller.orders');
         Route::get('/products', \App\Livewire\Seller\Products::class)->name('seller.products');
         Route::get('/products/{product}/choices', \App\Livewire\Seller\ProductChoices::class)->whereNumber('product')->name('seller.products.choices');
+        Route::get('/add-ons', \App\Livewire\Seller\AddOns::class)->name('seller.add-ons'); // Food F1: restaurants only
         Route::get('/shop', \App\Livewire\Seller\Shop::class)->name('seller.shop');
         Route::get('/earnings', \App\Livewire\Seller\Earnings::class)->name('seller.earnings');
         Route::get('/payment-accounts', \App\Livewire\Seller\PaymentAccounts::class)->name('seller.payment-accounts');

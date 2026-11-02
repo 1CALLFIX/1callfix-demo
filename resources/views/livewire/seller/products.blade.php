@@ -1,8 +1,8 @@
 <div class="space-y-4">
     <div class="flex flex-wrap items-center justify-between gap-3">
-        <h1 class="text-2xl font-bold tracking-tight">Products</h1>
+        <h1 class="text-2xl font-bold tracking-tight">{{ $isRestaurant ? 'Menu' : 'Products' }}</h1>
         @unless ($creating)
-            <x-ui.button wire:click="startCreate">Add a product</x-ui.button>
+            <x-ui.button wire:click="startCreate">{{ $isRestaurant ? 'Add a dish' : 'Add a product' }}</x-ui.button>
         @endunless
     </div>
 
@@ -12,7 +12,7 @@
 
     @if ($creating)
         <x-ui.card>
-            <h2 class="text-lg font-semibold">{{ $editingId ? 'Edit product' : 'New product' }}</h2>
+            <h2 class="text-lg font-semibold">{{ $isRestaurant ? ($editingId ? 'Edit dish' : 'New dish') : ($editingId ? 'Edit product' : 'New product') }}</h2>
             <form wire:submit="save" class="mt-4 grid gap-4 sm:grid-cols-2">
                 <label class="block text-sm sm:col-span-2">
                     <span class="font-medium">Name</span>
@@ -21,7 +21,7 @@
                 </label>
                 <label class="block text-sm sm:col-span-2">
                     <span class="font-medium">Description <span class="font-normal text-slate-500">(optional)</span></span>
-                    <textarea rows="3" wire:model="description" class="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-base" placeholder="Size, material, what's in the box"></textarea>
+                    <textarea rows="3" wire:model="description" class="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-base" placeholder="{{ $isRestaurant ? 'Ingredients, spice level, serves how many' : 'Size, material, what'.chr(39).'s in the box' }}"></textarea>
                     @error('description') <span class="text-sm text-red-700">{{ $message }}</span> @enderror
                 </label>
                 <label class="block text-sm">
@@ -43,13 +43,35 @@
                     <span class="text-xs text-slate-500">Discounted items are paid online only.</span>
                     @error('discountPercent') <span class="block text-sm text-red-700">{{ $message }}</span> @enderror
                 </label>
-                @if ($editingHasChoices)
+                @if ($isRestaurant)
+                    <fieldset class="block text-sm">
+                        <legend class="font-medium">Veg or non-veg</legend>
+                        <div class="mt-1 flex flex-wrap gap-2">
+                            @foreach ($foodTypes as $value => $label)
+                                <label class="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-lg border border-slate-300 px-3 has-[:checked]:border-blue-600 has-[:checked]:bg-blue-50">
+                                    <input type="radio" wire:model="foodType" value="{{ $value }}"> <x-food-mark :type="$value" /> {{ $label }}
+                                </label>
+                            @endforeach
+                        </div>
+                        @error('foodType') <span class="text-sm text-red-700">{{ $message }}</span> @enderror
+                    </fieldset>
+                    <fieldset class="block text-sm">
+                        <legend class="font-medium">Add-on choices</legend>
+                        @forelse ($addOnGroups as $g)
+                            <label class="mt-1 flex items-center gap-2"><input type="checkbox" wire:model="groupIds" value="{{ $g->id }}" class="rounded"> {{ $g->name }} <span class="text-xs text-slate-500">({{ $g->ruleText() }})</span></label>
+                        @empty
+                            <p class="mt-1 text-xs text-slate-500">None yet. Make them on the <a href="{{ route('seller.add-ons') }}" wire:navigate class="underline">Add-ons</a> page (for example "Choose your base", "Extra toppings").</p>
+                        @endforelse
+                        @error('groupIds.*') <span class="text-sm text-red-700">{{ $message }}</span> @enderror
+                    </fieldset>
+                @endif
+                @if ($editingHasChoices && ! $isRestaurant)
                     <div class="text-sm">
                         <span class="font-medium">In stock</span>
                         <p class="mt-1 text-slate-600">{{ $stock }} in all · set per choice on <a href="{{ route('seller.products.choices', $editingId) }}" wire:navigate class="font-medium text-blue-700">Units &amp; choices</a>.</p>
                     </div>
                 @else
-                <label class="block text-sm">
+                <label @class(['block text-sm', 'hidden' => $isRestaurant])>
                     <span class="font-medium">In stock</span>
                     <input type="text" inputmode="numeric" wire:model="stock" class="mt-1 block min-h-11 w-full rounded-lg border border-slate-300 px-3 text-base">
                     @error('stock') <span class="text-sm text-red-700">{{ $message }}</span> @enderror
@@ -105,7 +127,7 @@
                         <div class="flex h-14 w-14 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-xs text-slate-400">No photo</div>
                     @endif
                     <div class="min-w-0 flex-1">
-                        <p class="truncate font-semibold">{{ $p->name }}</p>
+                        <p class="truncate font-semibold">@if ($isRestaurant && $p->food_type)<x-food-mark :type="$p->food_type" class="mr-1" />@endif{{ $p->name }}</p>
                         <p class="text-sm text-slate-600">
                             {{ $currencySymbol }}{{ number_format($p->effective_price, 2) }}
                             @if ($p->discount_percent)<span class="text-xs text-slate-400 line-through">{{ $currencySymbol }}{{ number_format((float) $p->price, 2) }}</span>@endif
@@ -118,10 +140,14 @@
                         <p class="text-xs">
                             @unless ($p->is_approved)<span class="font-semibold text-amber-700">Awaiting approval</span> @endunless
                             @unless ($p->is_active)<span class="font-semibold text-slate-500">Hidden</span>@endunless
+                            @if ($isRestaurant && $p->isSoldOutNow())<span class="font-semibold text-red-700">Sold out today</span>@endif
                         </p>
                     </div>
                     <div class="flex shrink-0 flex-col items-end gap-1">
-                        @if ($p->option_names)
+                        @if ($isRestaurant)
+                            <button type="button" wire:click="toggleSoldOut({{ $p->id }})" @class(['min-h-9 rounded-full border px-3 text-xs font-semibold',
+                                'border-red-300 bg-red-50 text-red-800' => $p->isSoldOutNow(), 'border-slate-300 text-slate-700' => ! $p->isSoldOutNow()])>{{ $p->isSoldOutNow() ? 'Sold out — make available' : 'Sold out today' }}</button>
+                        @elseif ($p->option_names)
                             <a href="{{ route('seller.products.choices', $p->id) }}" wire:navigate @class(['text-xs', 'text-red-700' => $p->stock <= 0, 'text-slate-500' => $p->stock > 0])>Stock {{ $p->stock }} (by choice)</a>
                         @else
                             <label class="flex items-center gap-1 text-xs text-slate-500">Stock

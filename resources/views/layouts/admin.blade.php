@@ -229,6 +229,8 @@
                     ['label' => 'Marketplace Orders', 'route' => 'admin.marketplace-orders.index', 'icon' => 'clipboard', 'permission' => 'marketplace_orders.view'],
                     // super_admin only (permission never seeded to a role) — see the Earnings Control entry.
                     ['label' => 'Shop Settings', 'route' => 'admin.marketplace-orders.settings', 'icon' => 'gear', 'permission' => 'marketplace_settings.manage'],
+                    // Food delivery: same Super-Admin-only permission as Shop Settings (one engine).
+                    ['label' => 'Food Settings', 'route' => 'admin.food.settings', 'icon' => 'gear', 'permission' => 'marketplace_settings.manage'],
                     ['label' => 'Shop Commission', 'route' => 'admin.shop-commission.index', 'icon' => 'banknotes', 'permission' => 'marketplace_commission.manage'],
                     // super_admin only (permission never seeded to a role) — see the Earnings Control entry.
                     ['label' => 'Shop Tax Report', 'route' => 'admin.shop-tax-report', 'icon' => 'chart', 'permission' => 'marketplace_tax_report.view'],
