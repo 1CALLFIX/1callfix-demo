@@ -65,10 +65,16 @@
 
             <div class="mt-4 border-t border-slate-100 pt-3">
                 <p class="text-xs font-semibold uppercase text-slate-500">2. Deliver to</p>
-                <p class="font-semibold">{{ $job->customer?->name }}</p>
+                {{-- Shop checkout polish 2026-11-02: an order sent to someone else names the receiver; the rider calls them. --}}
+                @if ($job->recipient_name)
+                    <p class="font-semibold">{{ $job->recipient_name }} <span class="text-xs font-normal text-slate-500">(ordered by {{ $job->customer?->name }})</span></p>
+                @else
+                    <p class="font-semibold">{{ $job->customer?->name }}</p>
+                @endif
                 <p class="text-sm text-slate-600">{{ $job->deliveryAddress?->address_line }}@if ($job->deliveryAddress?->landmark), {{ $job->deliveryAddress->landmark }}@endif</p>
-                <div class="mt-1 flex gap-4 text-sm">
+                <div class="mt-1 flex flex-wrap gap-4 text-sm">
                     @if ($job->deliveryAddress)<a href="https://www.google.com/maps/dir/?api=1&destination={{ $job->deliveryAddress->lat }},{{ $job->deliveryAddress->lng }}" target="_blank" rel="noopener" class="font-medium text-blue-700">Directions</a>@endif
+                    @if ($job->recipient_phone)<a href="tel:{{ $job->recipient_phone }}" class="font-medium text-blue-700">Call {{ $job->recipient_name }}</a>@endif
                     @if ($job->customer?->phone)<a href="tel:{{ $job->customer->phone }}" class="font-medium text-blue-700">Call the customer</a>@endif
                 </div>
                 @if ($job->special_instructions)<p class="mt-1 text-sm text-slate-700">Note: {{ $job->special_instructions }}</p>@endif

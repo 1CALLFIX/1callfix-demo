@@ -81,6 +81,7 @@
             </dl>
             @if ($order->order_type === 'delivery' && $order->deliveryAddress)
                 <p class="mt-3 text-slate-600">{{ $t('shop_order.to', ['address' => $order->deliveryAddress->address_line]) }}</p>
+                @if ($order->recipient_name)<p class="text-slate-600" data-testid="order-receiver">{{ $t('shop_order.receiver', ['name' => $order->recipient_name, 'phone' => $order->recipient_phone]) }}</p>@endif
             @endif
             @if ($order->status === 'completed')
                 <a href="{{ route('customer.shop.orders.invoice', $order) }}" target="_blank" rel="noopener" class="mt-3 inline-block text-sm font-semibold text-blue-700">{{ $t('shop_order.invoice') }}</a>

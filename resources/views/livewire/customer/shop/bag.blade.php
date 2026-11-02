@@ -35,7 +35,10 @@
                                 @if ($gone)
                                     <p class="text-xs font-semibold text-red-700">{{ $t('cart.item_gone') }}</p>
                                 @else
-                                    <p class="text-sm text-slate-600">{{ $currencySymbol }}{{ number_format((float) ($line->variant ? $line->variant->effectivePrice() : $p->effective_price), 2) }}</p>
+                                    <p class="text-sm text-slate-600">{{ $currencySymbol }}{{ number_format($line->unitPrice(), 2) }}
+                                        {{-- Shop checkout polish 2026-11-02: show the discount, so "cash not available" makes sense. --}}
+                                        @if ($line->isDiscounted())<span class="ml-1 text-xs text-slate-400 line-through">{{ $currencySymbol }}{{ number_format($line->listUnitPrice(), 2) }}</span>
+                                            <span class="ml-1 whitespace-nowrap rounded-full bg-blue-50 px-2 py-0.5 text-[11px] font-bold text-blue-700">{{ $t('shop.card.off_online', ['percent' => rtrim(rtrim(number_format((float) $p->discount_percent, 1), '0'), '.')]) }}</span>@endif</p>
                                 @endif
                             </div>
                             @unless ($gone)

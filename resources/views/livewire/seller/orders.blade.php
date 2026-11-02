@@ -87,7 +87,7 @@
                 <p class="mt-2 text-sm text-slate-700"><span class="font-medium">Note:</span> {{ $order->special_instructions }}</p>
             @endif
             @if (! $isPickup && $order->deliveryAddress)
-                <p class="mt-2 text-xs text-slate-500">Deliver to: {{ $order->deliveryAddress->city ?: $order->deliveryAddress->address_line }}</p>
+                <p class="mt-2 text-xs text-slate-500">Deliver to: {{ $order->deliveryAddress->city ?: $order->deliveryAddress->address_line }}@if ($order->recipient_name) · for {{ $order->recipient_name }}@endif</p>
             @endif
             @if ($order->status === 'ready' && ! $isPickup)
                 <p class="mt-2 text-sm text-slate-700">

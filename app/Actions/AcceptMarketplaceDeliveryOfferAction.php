@@ -86,6 +86,13 @@ class AcceptMarketplaceDeliveryOfferAction
             }
         }
 
+        // Shop checkout polish 2026-11-02: an order sent to someone else — they get the code (and the rider) by SMS.
+        try {
+            \App\Notifications\MarketplaceRecipientNotification::sendFor($order);
+        } catch (\Throwable $e) {
+            Log::error("Failed to send the receiver SMS for marketplace order [{$order->id}]: ".$e->getMessage());
+        }
+
         return $order;
     }
 }

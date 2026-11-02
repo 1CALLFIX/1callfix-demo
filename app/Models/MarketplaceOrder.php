@@ -28,7 +28,7 @@ class MarketplaceOrder extends Model implements Orderable
 
     protected $fillable = [
         'code', 'franchise_id', 'zone_id', 'customer_id', 'store_id', 'module',
-        'order_type', 'delivery_address_id', 'assigned_worker_id', 'delivery_otp',
+        'order_type', 'delivery_address_id', 'recipient_name', 'recipient_phone', 'assigned_worker_id', 'delivery_otp',
         'subtotal', 'delivery_fee', 'tax_amount', 'discount_amount', 'total_amount',
         'status', 'price_final', 'payment_status', 'payment_method',
         'cancellation_reason_id', 'cancellation_note', 'cancellation_fee',

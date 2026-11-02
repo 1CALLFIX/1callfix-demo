@@ -19,16 +19,67 @@
                 </div>
 
                 @if ($orderType === 'delivery')
-                    <div class="mt-4 space-y-2">
+                    {{-- Shop checkout polish 2026-11-02: the shop's address is fixed (never chosen); the customer picks only
+                         where it goes: their own saved addresses, default first, or a new one added right here. --}}
+                    <p class="mt-3 rounded-xl bg-slate-50 p-3 text-sm text-slate-700" data-testid="checkout-from-shop">{{ $t('shop_checkout.from_shop', ['shop' => $store->name, 'address' => $store->address_line]) }}</p>
+                    <div class="mt-3 space-y-2" data-testid="checkout-addresses">
                         @forelse ($addresses as $a)
-                            <label @class(['flex cursor-pointer items-start gap-3 rounded-xl border p-3 text-sm', 'border-blue-600 bg-blue-50' => $addressId === $a->id, 'border-slate-200' => $addressId !== $a->id])>
+                            <label wire:key="addr-{{ $a->id }}" @class(['flex cursor-pointer items-start gap-3 rounded-xl border p-3 text-sm', 'border-blue-600 bg-blue-50' => (int) $addressId === $a->id, 'border-slate-200' => (int) $addressId !== $a->id])>
                                 <input type="radio" wire:model.live="addressId" value="{{ $a->id }}" class="mt-1">
                                 <span><span class="font-semibold">{{ $a->label }}</span><span class="block text-slate-600">{{ $a->address_line }}@if ($a->landmark), {{ $a->landmark }}@endif</span></span>
                             </label>
                         @empty
-                            <p class="text-sm text-slate-600">{{ $t('shop_checkout.no_address') }}</p>
+                            @unless ($addingAddress)<p class="text-sm text-slate-600">{{ $t('shop_checkout.no_address') }}</p>@endunless
                         @endforelse
-                        <a href="{{ route('customer.addresses') }}" wire:navigate class="inline-block text-sm font-medium text-blue-700">{{ $t('shop_checkout.add_address') }}</a>
+
+                        @if ($addingAddress)
+                            <div class="rounded-xl border border-slate-200 p-3" data-testid="checkout-new-address">
+                                <p class="text-sm font-semibold">{{ $t('shop_checkout.new_address') }}</p>
+                                <button type="button" data-locate-address class="mt-2 inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 text-sm font-medium text-slate-800 hover:bg-slate-50">
+                                    <x-icon name="map" class="h-4 w-4 text-slate-500" />
+                                    <span data-locate-address-label>{{ $t('shop_checkout.use_location') }}</span>
+                                </button>
+                                @if ($locatedZoneName !== '')<p class="mt-1 text-xs text-emerald-700">{{ $t('shop_checkout.located', ['area' => $locatedZoneName]) }}</p>@endif
+                                @if ($addressError)<p class="mt-1 text-xs text-red-700">{{ $addressError }}</p>@endif
+                                <div class="mt-2 grid gap-2 sm:grid-cols-2">
+                                    <div>
+                                        <input type="text" wire:model="newAddress.label" maxlength="40" placeholder="{{ $t('shop_checkout.address_label') }}" aria-label="{{ $t('shop_checkout.address_label') }}" class="block min-h-11 w-full rounded-xl border border-slate-300 px-3 text-base">
+                                        @error('newAddress.label')<p class="mt-1 text-xs text-red-700">{{ $message }}</p>@enderror
+                                    </div>
+                                    <input type="text" wire:model="newAddress.pincode" maxlength="12" inputmode="numeric" placeholder="{{ $t('shop_checkout.address_pincode') }}" aria-label="{{ $t('shop_checkout.address_pincode') }}" class="block min-h-11 w-full rounded-xl border border-slate-300 px-3 text-base">
+                                    <div class="sm:col-span-2">
+                                        <input type="text" wire:model="newAddress.address_line" maxlength="255" placeholder="{{ $t('shop_checkout.address_line') }}" aria-label="{{ $t('shop_checkout.address_line') }}" class="block min-h-11 w-full rounded-xl border border-slate-300 px-3 text-base">
+                                        @error('newAddress.address_line')<p class="mt-1 text-xs text-red-700">{{ $message }}</p>@enderror
+                                    </div>
+                                    <input type="text" wire:model="newAddress.landmark" maxlength="120" placeholder="{{ $t('shop_checkout.address_landmark') }}" aria-label="{{ $t('shop_checkout.address_landmark') }}" class="block min-h-11 w-full rounded-xl border border-slate-300 px-3 text-base sm:col-span-2">
+                                </div>
+                                <div class="mt-2 flex gap-2">
+                                    <button type="button" wire:click="saveAddress" class="min-h-11 rounded-xl bg-blue-600 px-4 text-sm font-bold text-white hover:bg-blue-700">{{ $t('shop_checkout.save_address') }}</button>
+                                    <button type="button" wire:click="cancelAddAddress" class="min-h-11 rounded-xl px-4 text-sm text-slate-600 hover:bg-slate-100">{{ $t('shop_checkout.cancel') }}</button>
+                                </div>
+                            </div>
+                        @else
+                            <button type="button" wire:click="startAddAddress" class="inline-block text-sm font-medium text-blue-700">{{ $t('shop_checkout.add_address') }}</button>
+                        @endif
+                    </div>
+
+                    <div class="mt-3 border-t border-slate-100 pt-3">
+                        <label class="flex cursor-pointer items-start gap-3 text-sm">
+                            <input type="checkbox" wire:model.live="sendToOther" class="mt-1 h-4 w-4 accent-blue-600" data-testid="checkout-send-to-other">
+                            <span><span class="font-semibold">{{ $t('shop_checkout.someone_else') }}</span><span class="block text-xs text-slate-600">{{ $t('shop_checkout.someone_else_hint') }}</span></span>
+                        </label>
+                        @if ($sendToOther)
+                            <div class="mt-2 grid gap-2 sm:grid-cols-2">
+                                <div>
+                                    <input type="text" wire:model="recipientName" maxlength="100" autocomplete="off" placeholder="{{ $t('shop_checkout.recipient_name') }}" aria-label="{{ $t('shop_checkout.recipient_name') }}" class="block min-h-11 w-full rounded-xl border border-slate-300 px-3 text-base">
+                                    @error('recipientName')<p class="mt-1 text-xs text-red-700">{{ $message }}</p>@enderror
+                                </div>
+                                <div>
+                                    <input type="tel" wire:model="recipientPhone" maxlength="16" inputmode="tel" autocomplete="off" placeholder="{{ $t('shop_checkout.recipient_phone') }}" aria-label="{{ $t('shop_checkout.recipient_phone') }}" class="block min-h-11 w-full rounded-xl border border-slate-300 px-3 text-base">
+                                    @error('recipientPhone')<p class="mt-1 text-xs text-red-700">{{ $message }}</p>@enderror
+                                </div>
+                            </div>
+                        @endif
                     </div>
                 @else
                     <p class="mt-3 rounded-xl bg-slate-50 p-3 text-sm text-slate-700">{{ $t('shop_checkout.collect_from', ['shop' => $store->name, 'address' => $store->address_line]) }}</p>
@@ -53,7 +104,8 @@
                         <input type="radio" wire:model.live="paymentMethod" value="cash" @disabled($cashBlocked)>
                         <span><span class="font-semibold">{{ $orderType === 'pickup' ? $t('shop_checkout.cash_shop') : $t('shop_checkout.cash_delivery') }}</span>
                             <span class="block text-xs text-slate-600">
-                                @if ($cashBlocked) {{ $t('shop_checkout.cash_blocked') }}
+                                @if ($cashBlocked && $discountedNames->isNotEmpty()) {{ $t('shop_checkout.cash_blocked_items', ['items' => $discountedNames->join(', ')]) }}
+                                @elseif ($cashBlocked) {{ $t('shop_checkout.cash_blocked_coupon') }}
                                 @elseif ($freeDeliveryEarned && $orderType === 'delivery') {{ $t('shop_checkout.cash_pays_fee') }}
                                 @else {{ $t('shop_checkout.cash_hint') }} @endif
                             </span></span>
@@ -90,8 +142,9 @@
                 <h2 class="font-semibold">{{ $t('shop_checkout.summary') }}</h2>
                 <ul class="mt-2 divide-y divide-slate-100">
                     @foreach ($lines as $l)
-                        <li class="flex justify-between gap-3 py-1.5"><span>{{ $l->quantity }} × {{ $l->product?->name }}</span>
-                            <span class="tabular-nums">{{ $currencySymbol }}{{ number_format((float) ($l->variant ? $l->variant->effectivePrice() : ($l->product?->effective_price ?? 0)) * $l->quantity, 2) }}</span></li>
+                        <li class="flex justify-between gap-3 py-1.5"><span>{{ $l->quantity }} × {{ $l->product?->name }}
+                                @if ($l->isDiscounted())<span class="ml-1 whitespace-nowrap rounded-full bg-blue-50 px-2 py-0.5 text-[11px] font-bold text-blue-700">{{ $t('shop.card.off_online', ['percent' => rtrim(rtrim(number_format((float) $l->product->discount_percent, 1), '0'), '.')]) }}</span>@endif</span>
+                            <span class="whitespace-nowrap tabular-nums">@if ($l->isDiscounted())<span class="mr-1 text-xs text-slate-400 line-through">{{ $currencySymbol }}{{ number_format($l->listUnitPrice() * $l->quantity, 2) }}</span>@endif{{ $currencySymbol }}{{ number_format($l->unitPrice() * $l->quantity, 2) }}</span></li>
                     @endforeach
                 </ul>
                 <dl class="mt-2 space-y-1 border-t border-slate-100 pt-2">
@@ -125,6 +178,7 @@
     @endassets
     @script
     <script>
+        window.cfWireLocateButton && window.cfWireLocateButton($wire);
         $wire.on('razorpay-open', (e) => {
             const o = e.order ?? e[0]?.order;
             const redirect = e.redirect ?? e[0]?.redirect;

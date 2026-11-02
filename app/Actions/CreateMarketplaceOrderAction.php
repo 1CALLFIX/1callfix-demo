@@ -80,6 +80,18 @@ class CreateMarketplaceOrderAction
                 throw new \RuntimeException('This shop does not deliver to that address. Choose another address or pick it up.');
             }
         }
+
+        // Shop checkout polish 2026-11-02: "Send to someone else" (delivery only). Both fields or neither.
+        $recipientName = $orderType === 'delivery' ? trim((string) ($data['recipient_name'] ?? '')) : '';
+        $recipientPhone = $orderType === 'delivery' ? preg_replace('/[\s-]+/', '', (string) ($data['recipient_phone'] ?? '')) : '';
+        if ($recipientName !== '' || $recipientPhone !== '') {
+            if ($recipientName === '' || mb_strlen($recipientName) > 100) {
+                throw new \RuntimeException('Enter the name of the person receiving it.');
+            }
+            if (! preg_match('/^\+?[0-9]{10,15}$/', $recipientPhone)) {
+                throw new \RuntimeException('Enter a 10-digit mobile number for the person receiving it.');
+            }
+        }
         $lines = $this->cart->listForStore($customer, $store->id);
 
         if ($lines->isEmpty()) {
@@ -151,7 +163,7 @@ class CreateMarketplaceOrderAction
         $taxAmount = round(($subtotal - $couponDiscount) * (float) $store->tax_percent / 100, 2);
         $totalAmount = round($subtotal - $couponDiscount + $deliveryFee + $taxAmount, 2);
 
-        $order = DB::transaction(function () use ($lines, $store, $customer, $orderType, $data, $subtotal, $discountAmount, $deliveryFee, $taxAmount, $totalAmount, $paymentMethod, $couponCtx, $couponCode, $couponDiscount) {
+        $order = DB::transaction(function () use ($lines, $store, $customer, $orderType, $data, $subtotal, $discountAmount, $deliveryFee, $taxAmount, $totalAmount, $paymentMethod, $couponCtx, $couponCode, $couponDiscount, $recipientName, $recipientPhone) {
             $this->lockAndDecrementStock($lines);
 
             $order = MarketplaceOrder::create([
@@ -163,6 +175,8 @@ class CreateMarketplaceOrderAction
                 'module' => $store->module,
                 'order_type' => $orderType,
                 'delivery_address_id' => $data['delivery_address_id'] ?? null,
+                'recipient_name' => $recipientName !== '' ? $recipientName : null,
+                'recipient_phone' => $recipientPhone !== '' ? $recipientPhone : null,
                 'subtotal' => $subtotal,
                 'delivery_fee' => $deliveryFee,
                 'discount_amount' => $discountAmount,
