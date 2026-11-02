@@ -40,11 +40,16 @@ class RegisterSellerAction
         string $nationalPhone = '',
         ?string $email = null,
         string $plainPassword = '',
+        string $module = Modules::COMMERCE,
+        ?string $fssaiNumber = null,
     ): Store {
-        return DB::transaction(function () use ($zone, $storeName, $existing, $registration, $name, $nationalPhone, $email, $plainPassword) {
+        // Food F5: a restaurant joins the same way; it is a Store with module 'food' and its FSSAI licence number.
+        $module = $module === Modules::FOOD ? Modules::FOOD : Modules::COMMERCE;
+
+        return DB::transaction(function () use ($zone, $storeName, $existing, $registration, $name, $nationalPhone, $email, $plainPassword, $module, $fssaiNumber) {
             if ($existing !== null) {
                 $existing = User::whereKey($existing->id)->lockForUpdate()->first();
-                if (! $existing?->canApplyAsPartner('commerce')) {
+                if (! $existing?->canApplyAsPartner($module)) {
                     throw new AccountAlreadyExistsException('mobile number');
                 }
                 $provider = Provider::where('user_id', $existing->id)->first()
@@ -66,7 +71,8 @@ class RegisterSellerAction
                 'provider_id' => $provider->id,
                 'franchise_id' => $zone->franchise_id,
                 'zone_id' => $zone->id,
-                'module' => Modules::COMMERCE,
+                'module' => $module,
+                'fssai_number' => $module === Modules::FOOD && filled($fssaiNumber) ? $fssaiNumber : null,
                 'name' => $storeName,
                 'address_line' => (string) ($registration['address'] ?? ''),
                 // No pin: the zone centre holds the place until the seller pins the shop in the seller portal
@@ -79,7 +85,7 @@ class RegisterSellerAction
                 'approval_status' => 'pending',
             ]);
 
-            ActivityLogger::logModel($provider->user, $store, 'Seller applied (partner sign-up); shop awaiting approval', array_filter([
+            ActivityLogger::logModel($provider->user, $store, ($module === Modules::FOOD ? 'Restaurant' : 'Seller').' applied (partner sign-up); awaiting approval', array_filter([
                 'store' => $storeName,
                 'address' => $registration['address'] ?? null,
                 'out_of_coverage' => ($registration['out_of_coverage'] ?? false) ?: null,

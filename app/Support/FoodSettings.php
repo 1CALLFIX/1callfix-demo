@@ -12,6 +12,10 @@ class FoodSettings extends MarketplaceSettings
 {
     public const REGISTRY = [
         // ── restaurants ──
+        'food.recruiting_restaurants' => [
+            'group' => 'Restaurants', 'label' => 'Take restaurant sign-ups on /partners', 'type' => 'switch', 'default' => '0', 'global' => true,
+            'help' => 'On: the "Restaurant" card on /partners opens the partner sign-up (mobile code, documents, FSSAI number). Each restaurant waits for approval in Admin → Stores. Turn on before Food opens to customers, so menus are ready.',
+        ],
         'food.fssai_required' => [
             'group' => 'Restaurants', 'label' => 'FSSAI licence needed before a restaurant is approved', 'type' => 'switch', 'default' => '1',
             'help' => 'On (default): a restaurant cannot be approved, or take orders, without an FSSAI licence number on its page. The law in India needs it for every food business; keep it on.',
@@ -98,6 +102,12 @@ class FoodSettings extends MarketplaceSettings
             'default' => '30', 'help' => 'A strike = a food problem found to be damaged on the way. Shown next to the rider\'s name in the problems queue.',
         ],
     ];
+
+    /** Food F5: restaurants can join through /partners. */
+    public static function recruitingRestaurants(): bool
+    {
+        return static::on('food.recruiting_restaurants');
+    }
 
     /** Food F4: the restaurant's part of a refund for this fault, 0–100 (the platform pays the rest). */
     public static function faultRestaurantPercent(string $fault, array $scope = []): int

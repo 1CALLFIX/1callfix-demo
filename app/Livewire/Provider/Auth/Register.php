@@ -84,6 +84,9 @@ class Register extends Component
     /** Seller sign-up only: the shop's name as customers will see it. */
     public string $storeName = '';
 
+    /** Food F5, restaurant sign-up only: the 14-digit FSSAI licence number (required while Food Settings asks for it). */
+    public string $fssaiNumber = '';
+
     public bool $terms = false;
 
     /** Service category ids the applicant offers — saved to providers.skills (what dispatch matches on). */
@@ -142,7 +145,7 @@ class Register extends Component
     public string $partnerRole = 'service';
 
     /** Partner roles this page can finish. */
-    private const SIGNUP_ROLES = ['service', 'parcel', 'commerce'];
+    private const SIGNUP_ROLES = ['service', 'parcel', 'commerce', 'food'];
 
     public function mount(): void
     {
@@ -182,7 +185,7 @@ class Register extends Component
     {
         if (! $user->canApplyAsPartner($this->partnerRole)) {
             $this->redirectRoute(
-                $this->isSeller() && ! $user->canApplyAsPartner('commerce') ? 'seller.dashboard'
+                $this->isSeller() && ! $user->canApplyAsPartner($this->partnerRole) ? 'seller.dashboard'
                     : ($user->providerProfile()->exists() ? 'provider.dashboard'
                     : ($user->fieldWorkerProfile?->hasCapability('parcel_rider') ? 'rider.dashboard' : 'customer.home')),
                 navigate: true,
@@ -206,9 +209,15 @@ class Register extends Component
         return $this->partnerRole === 'parcel';
     }
 
+    /** A shop or a restaurant: both are a Store on the seller portal (Food F5). */
     public function isSeller(): bool
     {
-        return $this->partnerRole === 'commerce';
+        return in_array($this->partnerRole, ['commerce', 'food'], true);
+    }
+
+    public function isRestaurant(): bool
+    {
+        return $this->partnerRole === 'food';
     }
 
     /** The /partners card for this role still hands off to sign-up (it can close again, e.g. parcel prices cleared). */
@@ -474,6 +483,7 @@ class Register extends Component
             ]),
             'address' => ['required', 'string', 'min:6', 'max:500'],
             ...($this->isSeller() ? ['storeName' => ['required', 'string', 'min:2', 'max:120']] : []),
+            ...($this->isRestaurant() ? ['fssaiNumber' => [\App\Support\FoodSettings::on('food.fssai_required') ? 'required' : 'nullable', 'regex:/^\d{14}$/']] : []),
             'terms' => ['accepted'],
             'documents' => ['array'],
             'documents.*' => ['file', 'mimes:jpg,jpeg,png,pdf', 'max:10240'],
@@ -487,8 +497,10 @@ class Register extends Component
             'skills.max' => 'Choose up to '.SiteControls::servicesMax().' services.',
             'terms.accepted' => 'Please accept the partner terms to continue.',
             'password.confirmed' => 'The two passwords do not match.',
-            'address.required' => $this->isSeller() ? 'Enter your shop address.' : 'Enter your work address.',
-            'storeName.required' => 'Enter your shop name.',
+            'address.required' => $this->isRestaurant() ? 'Enter your restaurant address.' : ($this->isSeller() ? 'Enter your shop address.' : 'Enter your work address.'),
+            'storeName.required' => $this->isRestaurant() ? 'Enter your restaurant name.' : 'Enter your shop name.',
+            'fssaiNumber.required' => 'Enter your FSSAI licence number. Food businesses need one by law.',
+            'fssaiNumber.regex' => 'The FSSAI licence number is 14 digits.',
         ]);
 
         // Only real, active, customer-visible categories count — the array is client-editable state.
@@ -567,6 +579,8 @@ class Register extends Component
                         nationalPhone: PhoneNumber::national($this->verifiedPhoneE164),
                         email: filled($this->email) ? $this->email : null,
                         plainPassword: $this->password,
+                        module: $this->isRestaurant() ? \App\Support\Modules::FOOD : \App\Support\Modules::COMMERCE,
+                        fssaiNumber: $this->isRestaurant() ? trim($this->fssaiNumber) : null,
                     );
                     $provider = $store->provider;
                     $providerId = $provider->id;
@@ -664,10 +678,12 @@ class Register extends Component
             'requirements' => $requirements,
             'isRider' => $this->isRider(),
             'isSeller' => $this->isSeller(),
+            'isRestaurant' => $this->isRestaurant(),
+            'fssaiRequired' => $this->isRestaurant() && \App\Support\FoodSettings::on('food.fssai_required'),
             'servicesStep' => $servicesStep,
             'servicesMax' => SiteControls::servicesMax(),
             'serviceCategories' => $servicesStep === 'hidden' ? collect() : $this->offerableCategories(),
         ])
-            ->layout('components.layouts.provider', ['title' => $this->isRider() ? 'Become a delivery rider' : ($this->isSeller() ? 'Open your shop' : 'Become a partner')]);
+            ->layout('components.layouts.provider', ['title' => $this->isRider() ? 'Become a delivery rider' : ($this->isRestaurant() ? 'Add your restaurant' : ($this->isSeller() ? 'Open your shop' : 'Become a partner'))]);
     }
 }

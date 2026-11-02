@@ -4,12 +4,13 @@
     $rider = $isRider;
     // A seller (E-commerce Phase 1) signs in at the seller portal.
     $seller = $isSeller;
+    $place = $isRestaurant ? 'restaurant' : 'shop'; // Food F5: a restaurant joins the same way as a shop
     $signInRoute = $rider ? 'rider.login' : ($seller ? 'seller.login' : 'provider.login');
 @endphp
 
 <div class="mx-auto flex max-w-lg flex-col justify-center px-4 py-12 sm:py-16">
     <div class="text-center">
-        <h1 class="text-2xl font-bold tracking-tight sm:text-3xl">{{ $rider ? 'Become a '.$platformName.' delivery rider' : ($seller ? 'Open your shop on '.$platformName : 'Become a '.$platformName.' partner') }}</h1>
+        <h1 class="text-2xl font-bold tracking-tight sm:text-3xl">{{ $rider ? 'Become a '.$platformName.' delivery rider' : ($seller ? ($isRestaurant ? 'Add your restaurant to ' : 'Open your shop on ').$platformName : 'Become a '.$platformName.' partner') }}</h1>
         <p class="mt-2 text-sm text-slate-600">
             @if ($submitted)
                 Thanks — your application is in.
@@ -29,9 +30,9 @@
                 </div>
                 @if ($seller)
                     <p>
-                        Our team will review your shop and documents and contact you on
+                        Our team will review your {{ $place }} and documents and contact you on
                         <span class="font-medium">{{ $verifiedPhoneE164 }}</span>. You can sign in to the seller
-                        portal now with this number and your password to add your products; customers see your shop
+                        portal now with this number and your password to add your {{ $isRestaurant ? 'menu and opening hours' : 'products' }}; customers see your {{ $place }}
                         once it is approved.
                     </p>
                 @elseif ($rider)
@@ -201,16 +202,26 @@
 
                 @if ($seller)
                     <div>
-                        <label for="pr-store" class="block text-sm font-medium text-slate-900">Shop name</label>
+                        <label for="pr-store" class="block text-sm font-medium text-slate-900">{{ $isRestaurant ? 'Restaurant name' : 'Shop name' }}</label>
                         <input id="pr-store" type="text" wire:model="storeName" placeholder="As customers will see it"
                                @class(['mt-1.5 block min-h-11 w-full rounded-lg border px-3 py-2.5 text-base shadow-sm focus:outline focus:outline-2 focus:outline-blue-600',
                                        'border-red-400' => $errors->has('storeName'), 'border-slate-300' => ! $errors->has('storeName')])>
                         @error('storeName') <p class="mt-1.5 text-sm text-red-700">{{ $message }}</p> @enderror
                     </div>
+                    @if ($isRestaurant)
+                        <div>
+                            <label for="pr-fssai" class="block text-sm font-medium text-slate-900">FSSAI licence number{{ $fssaiRequired ? '' : ' (optional for now)' }}</label>
+                            <input id="pr-fssai" type="text" inputmode="numeric" maxlength="14" wire:model="fssaiNumber" placeholder="14 digits"
+                                   @class(['mt-1.5 block min-h-11 w-full rounded-lg border px-3 py-2.5 text-base shadow-sm focus:outline focus:outline-2 focus:outline-blue-600',
+                                           'border-red-400' => $errors->has('fssaiNumber'), 'border-slate-300' => ! $errors->has('fssaiNumber')])>
+                            <p class="mt-1 text-xs text-slate-500">Food businesses need one by law. Customers see it on your menu.</p>
+                            @error('fssaiNumber') <p class="mt-1.5 text-sm text-red-700">{{ $message }}</p> @enderror
+                        </div>
+                    @endif
                 @endif
 
                 <div>
-                    <label for="pr-address" class="block text-sm font-medium text-slate-900">{{ $rider ? 'Where you live / start your day' : ($seller ? 'Shop address' : 'Work address') }}</label>
+                    <label for="pr-address" class="block text-sm font-medium text-slate-900">{{ $rider ? 'Where you live / start your day' : ($seller ? ucfirst($place).' address' : 'Work address') }}</label>
                     <textarea id="pr-address" rows="2" wire:model="address" placeholder="{{ $rider ? 'Area / street' : ($seller ? 'Shop number, street, area' : 'Area / street you work from') }}"
                               @class(['mt-1.5 block w-full rounded-lg border px-3 py-2.5 text-base shadow-sm focus:outline focus:outline-2 focus:outline-blue-600',
                                       'border-red-400' => $errors->has('address'), 'border-slate-300' => ! $errors->has('address')])></textarea>
@@ -286,7 +297,7 @@
 
     @unless ($submitted)
         <p class="mt-6 text-center text-sm text-slate-600">
-            {{ $rider ? 'Already a rider?' : ($seller ? 'Already a seller?' : 'Already a partner?') }}
+            {{ $rider ? 'Already a rider?' : ($seller ? ($isRestaurant ? 'Already on '.$platformName.'?' : 'Already a seller?') : 'Already a partner?') }}
             <a href="{{ route($signInRoute) }}" wire:navigate class="font-medium text-slate-900 underline underline-offset-2">Sign in</a>
         </p>
     @endunless

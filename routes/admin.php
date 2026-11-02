@@ -181,6 +181,7 @@ Route::middleware(['auth', \Illuminate\Session\Middleware\AuthenticateSession::c
         Route::get('/marketplace-orders', MarketplaceOrdersManage::class)->name('admin.marketplace-orders.index');
         Route::get('/shop-settings', \App\Livewire\MarketplaceOrders\Settings::class)->name('admin.marketplace-orders.settings');
         Route::get('/food-settings', \App\Livewire\FoodOrders\Settings::class)->name('admin.food.settings');
+        Route::get('/food-dashboard', \App\Livewire\FoodOrders\Dashboard::class)->name('admin.food.dashboard');
         Route::get('/shop-commission', \App\Livewire\MarketplaceCommission\Manage::class)->name('admin.shop-commission.index');
         Route::get('/shop-tax-report', \App\Livewire\MarketplaceOrders\TaxReport::class)->name('admin.shop-tax-report');
         Route::get('/chat', ChatManage::class)->name('admin.chat.index');

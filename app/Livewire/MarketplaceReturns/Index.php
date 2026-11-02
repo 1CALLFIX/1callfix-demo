@@ -19,6 +19,9 @@ class Index extends Component
 
     public string $statusFilter = 'open';
 
+    /** Food F5: the Food Dashboard links straight to ?statusFilter=food. */
+    protected $queryString = ['statusFilter' => ['except' => 'open']];
+
     public ?int $actingId = null;
 
     public string $note = '';
