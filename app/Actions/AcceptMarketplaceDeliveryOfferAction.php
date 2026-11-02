@@ -27,7 +27,8 @@ class AcceptMarketplaceDeliveryOfferAction
         $order = DB::transaction(function () use ($orderId, $worker) {
             $order = MarketplaceOrder::lockForUpdate()->findOrFail($orderId);
 
-            if ($order->status !== 'ready' || $order->order_type !== 'delivery') {
+            // Food F2: a food order can be taken while it is still cooking once a rider was called for it.
+            if (! $order->isOpenForRider()) {
                 throw new \RuntimeException("Order [{$orderId}] is not open for delivery-rider acceptance.");
             }
 
@@ -65,7 +66,7 @@ class AcceptMarketplaceDeliveryOfferAction
                 ->update(['status' => 'timeout', 'responded_at' => now()]);
 
             $order->statusHistory()->create([
-                'status' => 'ready',
+                'status' => $order->status,
                 'changed_by' => $worker->user_id,
                 'note' => "Delivery accepted by rider #{$worker->id}",
                 'changed_at' => now(),

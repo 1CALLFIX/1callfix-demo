@@ -75,7 +75,7 @@ class RiderOfferService
             ->with('dispatchable.store', 'dispatchable.deliveryAddress')
             ->latest('notified_at')
             ->get()
-            ->filter(fn (DispatchAttempt $a) => $a->dispatchable && $a->dispatchable->status === 'ready' && $a->dispatchable->assigned_worker_id === null)
+            ->filter(fn (DispatchAttempt $a) => $a->dispatchable && $a->dispatchable->isOpenForRider() && $a->dispatchable->assigned_worker_id === null)
             ->values();
     }
 
@@ -86,11 +86,12 @@ class RiderOfferService
 
         return $offers->map(fn (DispatchAttempt $a) => [
             'id' => 'shop-'.$a->dispatchable->id,
-            'service' => 'Shop delivery · '.$a->dispatchable->store?->name,
+            'service' => ($a->dispatchable->isFood() ? 'Food delivery · ' : 'Shop delivery · ').$a->dispatchable->store?->name,
             'code' => $a->dispatchable->code,
             'price' => $a->dispatchable->payment_method === 'cash' ? 'Collect '.$symbol.number_format((float) $a->dispatchable->total_amount, 2) : 'Prepaid',
             'distance' => $a->distance_km !== null ? rtrim(rtrim(number_format((float) $a->distance_km, 1), '0'), '.').' km to the shop' : null,
-            'when' => 'Now',
+            // Food F2: a rider called while the food cooks sees when it will be ready.
+            'when' => $a->dispatchable->status === 'preparing' && $a->dispatchable->ready_by ? 'Ready at '.$a->dispatchable->readyByLocal() : 'Now',
             'area' => $a->dispatchable->store?->address_line,
             'expires_in' => max(0, $timeout - (int) $a->notified_at->diffInSeconds(now())),
         ])->values()->all();
@@ -99,7 +100,7 @@ class RiderOfferService
     /** The shop delivery this rider is carrying, if any (one job at a time across parcel and shop). */
     public function activeShopJob(FieldWorker $rider): ?MarketplaceOrder
     {
-        return MarketplaceOrder::where('assigned_worker_id', $rider->id)->where('status', 'ready')->where('order_type', 'delivery')
+        return MarketplaceOrder::where('assigned_worker_id', $rider->id)->riderActive()
             ->with(['store', 'deliveryAddress', 'customer:id,name,phone', 'items'])->latest('id')->first();
     }
 

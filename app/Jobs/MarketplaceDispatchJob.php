@@ -58,7 +58,7 @@ class MarketplaceDispatchJob implements ShouldQueue
     {
         $order = MarketplaceOrder::find($this->marketplaceOrderId);
 
-        if (! $order || $order->status !== 'ready' || $order->order_type !== 'delivery' || $order->assigned_worker_id !== null) {
+        if (! $order || ! $order->isOpenForRider() || $order->assigned_worker_id !== null) {
             return;
         }
 

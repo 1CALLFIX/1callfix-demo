@@ -38,6 +38,32 @@ class FoodSettings extends MarketplaceSettings
             'group' => 'Kitchen timing', 'label' => 'Busy mode switches itself off after', 'type' => 'int', 'unit' => 'hours', 'min' => 1, 'max' => 12,
             'default' => '2', 'help' => 'So a restaurant that forgets to switch it off goes back to normal times.',
         ],
+        'food.rider_call_before_ready_minutes' => [
+            'group' => 'Kitchen timing', 'label' => 'Call a rider this long before the food is ready', 'type' => 'int', 'unit' => 'minutes', 'min' => 0, 'max' => 60,
+            'default' => null, 'help' => 'The rider reaches the restaurant as the food is packed, so it arrives hot. The rider can only take it once the restaurant marks it ready. Blank = call the rider only when the food is ready (like shops).',
+        ],
+        // ── delivery ──
+        'food.delivery_radius_km' => [
+            'group' => 'Delivery', 'label' => 'Restaurants deliver up to', 'type' => 'decimal', 'unit' => 'km', 'min' => 1, 'max' => 50,
+            'default' => null, 'help' => 'Straight-line distance from the restaurant to the address. Blank = anywhere in the restaurant\'s city.',
+        ],
+        'food.delivery_fee_base' => [
+            'group' => 'Delivery', 'label' => 'Delivery fee: first kilometres', 'type' => 'decimal', 'unit' => '₹', 'min' => 0, 'max' => 500,
+            'default' => null, 'help' => 'Fee for the first kilometres below. Blank = no distance fee: each restaurant\'s own flat delivery fee is used.',
+        ],
+        'food.delivery_fee_base_km' => [
+            'group' => 'Delivery', 'label' => 'Delivery fee: kilometres included', 'type' => 'decimal', 'unit' => 'km', 'min' => 0, 'max' => 20,
+            'default' => '2', 'help' => 'Kilometres covered by the first fee.',
+        ],
+        'food.delivery_fee_per_km' => [
+            'group' => 'Delivery', 'label' => 'Delivery fee: each kilometre after that', 'type' => 'decimal', 'unit' => '₹', 'min' => 0, 'max' => 100,
+            'default' => '0', 'help' => 'Added for each started kilometre past the included ones. Free delivery above a restaurant\'s amount still applies to online orders only.',
+        ],
+        // ── tax ──
+        'food.gst_percent' => [
+            'group' => 'Tax', 'label' => 'GST on food (collected by the platform, section 9(5))', 'type' => 'decimal', 'unit' => '%', 'min' => 0, 'max' => 28,
+            'default' => null, 'global' => true, 'help' => 'Restaurant food ordered through an app: the app collects and pays the GST, not the restaurant. CA to confirm the rate (usually 5%). Charged on food + packaging. Blank = no GST charged on food orders.',
+        ],
         'food.accept_minutes' => [
             'group' => 'Orders', 'label' => 'Time a restaurant has to accept an order', 'type' => 'int', 'unit' => 'minutes', 'min' => 1, 'max' => 30,
             'default' => '10', 'help' => 'Owner decision 2026-11-02: 10 minutes. Not accepted in time = cancelled and refunded in full.',
@@ -51,6 +77,14 @@ class FoodSettings extends MarketplaceSettings
     {
         return collect(preg_split('/\R/', (string) static::get('food.cuisines')))
             ->map(fn ($c) => trim($c))->filter()->unique()->values()->all();
+    }
+
+    /** Food F2: null = not set (rider called at ready / no radius / restaurant flat fee / no GST). */
+    public static function decimalOrNull(string $key, array $scope = []): ?float
+    {
+        $value = static::get($key, $scope);
+
+        return $value === null || $value === '' ? null : (float) $value;
     }
 
     /** Blank (unset) = packaging charges are off. */
