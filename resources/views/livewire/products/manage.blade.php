@@ -128,7 +128,7 @@
             <table class="w-full text-sm mb-3">
                 <thead class="text-left text-gray-500">
                     <tr>
-                        <x-ui.sno-th class="py-1" /><th class="py-1">Name</th><th class="py-1">Price override</th><th class="py-1">Stock</th></tr>
+                        <x-ui.sno-th class="py-1" /><th class="py-1">Name</th><th class="py-1">Price override</th><th class="py-1">Stock</th><th class="py-1">On sale</th></tr>
                 </thead>
                 <tbody>
                     @foreach ($this->editingProduct->variants as $v)
@@ -137,6 +137,7 @@
                             <td class="py-1">{{ $v->name }}</td>
                             <td class="py-1">{{ $v->price_override !== null ? number_format($v->price_override, 2) : '—' }}</td>
                             <td class="py-1">{{ $v->stock }}</td>
+                            <td class="py-1">{{ $v->is_active ? 'Yes' : 'No' }}</td>
                         </tr>
                     @endforeach
                 </tbody>
@@ -148,6 +149,7 @@
             <input type="number" step="0.01" wire:model="newVariantPriceOverride" placeholder="Price override (optional)" class="border rounded px-3 py-2 text-sm">
             <input type="number" wire:model="newVariantStock" placeholder="Stock" class="border rounded px-3 py-2 text-sm">
         </div>
+        @error('newVariantName') <p class="mb-2 text-sm text-red-700">{{ $message }}</p> @enderror
         <x-ui.button variant="secondary" wire:click="addVariant">Add Variant</x-ui.button>
 
         <x-slot:footer>

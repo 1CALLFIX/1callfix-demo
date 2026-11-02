@@ -74,6 +74,20 @@ class TestAccountsCommand extends Command
         'Test 18% GST Item' => ['18% GST on the invoice. ₹1000, above the free-delivery amount.', ['price' => 1000, 'tax_percent' => 18, 'stock' => 20]],
         'Test Hidden Item' => ['Switched off by the seller: seen in the seller portal, never in the shop.', ['price' => 120, 'is_active' => false]],
         'Test Awaiting Approval Item' => ['Not approved yet: waits in Admin → Products and is not in the shop.', ['price' => 130, 'is_approved' => false]],
+        'Test T-Shirt' => ['Pick a size and a colour (TEST_SHOP_CHOICES). XL costs more; M / Blue is sold out. 1 piece.', ['price' => 300, 'unit_value' => 1, 'unit' => 'piece', 'option_names' => ['Size', 'Colour']]],
+        'Test Rice' => ['Sold by weight: 1 kg, or a 5 kg bag at its own price. 10% off (online only) on both.', ['price' => 70, 'discount_percent' => 10, 'unit' => 'pack', 'option_names' => ['Weight']]],
+    ];
+
+    /** Product choices 2026-11-02: product name => [[options, price or null, stock], ...] for the Test Shop. */
+    private const TEST_SHOP_CHOICES = [
+        'Test T-Shirt' => [
+            [['Size' => 'M', 'Colour' => 'Red'], null, 10], [['Size' => 'M', 'Colour' => 'Blue'], null, 0],
+            [['Size' => 'L', 'Colour' => 'Red'], null, 10], [['Size' => 'L', 'Colour' => 'Blue'], null, 10],
+            [['Size' => 'XL', 'Colour' => 'Red'], 350, 5], [['Size' => 'XL', 'Colour' => 'Blue'], 350, 5],
+        ],
+        'Test Rice' => [
+            [['Weight' => '1 kg'], null, 40], [['Weight' => '5 kg'], 330, 10],
+        ],
     ];
 
     public function handle(): int
@@ -223,7 +237,17 @@ class TestAccountsCommand extends Command
                 'description' => $description, 'marketplace_category_id' => $categoryId,
                 'price' => 100, 'tax_percent' => 0, 'discount_percent' => null, 'stock' => 50,
                 'maximum_cart_quantity' => null, 'is_active' => true, 'is_approved' => true,
+                'option_names' => null, 'unit_value' => null, 'unit' => null,
             ]);
+        }
+        foreach (self::TEST_SHOP_CHOICES as $name => $rows) {
+            $product = Product::where('store_id', $store->id)->where('name', $name)->first();
+            foreach ($rows as [$options, $price, $stock]) {
+                $product?->variants()->updateOrCreate(['name' => implode(' / ', $options)], [
+                    'options' => $options, 'price_override' => $price, 'stock' => $stock, 'is_active' => true,
+                ]);
+            }
+            $product?->syncStockFromChoices();
         }
     }
 

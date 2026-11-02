@@ -166,7 +166,7 @@
                             <ul class="space-y-1">
                                 @foreach ($order->items as $item)
                                     <li class="flex items-center justify-between gap-3">
-                                        <span>{{ $item->product_name_snapshot }} <span class="text-slate-500">{{ $t('shop_order.return.ordered', ['count' => $item->quantity]) }}</span></span>
+                                        <span>{{ $item->product_name_snapshot }}@if ($item->variant_name_snapshot) ({{ $item->variant_name_snapshot }})@endif <span class="text-slate-500">{{ $t('shop_order.return.ordered', ['count' => $item->quantity]) }}</span></span>
                                         <input type="number" min="0" max="{{ $item->quantity }}" wire:model="returnQty.{{ $item->id }}" placeholder="0" aria-label="{{ $t('shop_order.return.qty_label') }}" class="w-20 rounded-lg border border-slate-300 px-2 py-1 text-right">
                                     </li>
                                 @endforeach

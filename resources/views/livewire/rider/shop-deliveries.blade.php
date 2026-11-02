@@ -24,7 +24,7 @@
                 <ul class="mt-2 list-disc pl-5 text-sm text-slate-700">
                     @foreach ($returnJob->items ?? [] as $line)
                         @php $item = $returnJob->order?->items->firstWhere('id', $line['order_item_id']); @endphp
-                        <li>{{ $line['quantity'] }} × {{ $item?->product_name_snapshot ?? 'Item' }}</li>
+                        <li>{{ $line['quantity'] }} × {{ $item?->product_name_snapshot ?? 'Item' }}@if ($item?->variant_name_snapshot) ({{ $item->variant_name_snapshot }})@endif</li>
                     @endforeach
                 </ul>
             </div>

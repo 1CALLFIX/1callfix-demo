@@ -43,11 +43,18 @@
                     <span class="text-xs text-slate-500">Discounted items are paid online only.</span>
                     @error('discountPercent') <span class="block text-sm text-red-700">{{ $message }}</span> @enderror
                 </label>
+                @if ($editingHasChoices)
+                    <div class="text-sm">
+                        <span class="font-medium">In stock</span>
+                        <p class="mt-1 text-slate-600">{{ $stock }} in all · set per choice on <a href="{{ route('seller.products.choices', $editingId) }}" wire:navigate class="font-medium text-blue-700">Units &amp; choices</a>.</p>
+                    </div>
+                @else
                 <label class="block text-sm">
                     <span class="font-medium">In stock</span>
                     <input type="text" inputmode="numeric" wire:model="stock" class="mt-1 block min-h-11 w-full rounded-lg border border-slate-300 px-3 text-base">
                     @error('stock') <span class="text-sm text-red-700">{{ $message }}</span> @enderror
                 </label>
+                @endif
                 <label class="block text-sm">
                     <span class="font-medium">Limit per order <span class="font-normal text-slate-500">(optional)</span></span>
                     <input type="text" inputmode="numeric" wire:model="maxCartQuantity" class="mt-1 block min-h-11 w-full rounded-lg border border-slate-300 px-3 text-base">
@@ -103,19 +110,28 @@
                             {{ $currencySymbol }}{{ number_format($p->effective_price, 2) }}
                             @if ($p->discount_percent)<span class="text-xs text-slate-400 line-through">{{ $currencySymbol }}{{ number_format((float) $p->price, 2) }}</span>@endif
                             @if ($p->category) · {{ $p->category->name }}@endif
+                            @if ($p->unitLabel()) · {{ $p->unitLabel() }}@endif
                         </p>
+                        @if ($p->option_names)
+                            <p class="text-xs text-slate-500">Choices: {{ implode(', ', $p->option_names) }} · {{ $p->active_variants_count }} on sale</p>
+                        @endif
                         <p class="text-xs">
                             @unless ($p->is_approved)<span class="font-semibold text-amber-700">Awaiting approval</span> @endunless
                             @unless ($p->is_active)<span class="font-semibold text-slate-500">Hidden</span>@endunless
                         </p>
                     </div>
                     <div class="flex shrink-0 flex-col items-end gap-1">
-                        <label class="flex items-center gap-1 text-xs text-slate-500">Stock
-                            <input type="text" inputmode="numeric" value="{{ $p->stock }}" wire:change="setStock({{ $p->id }}, $event.target.value)"
-                                   @class(['w-16 rounded border px-2 py-1 text-right text-sm', 'border-red-400 text-red-700' => $p->stock <= 0, 'border-slate-300' => $p->stock > 0])>
-                        </label>
+                        @if ($p->option_names)
+                            <a href="{{ route('seller.products.choices', $p->id) }}" wire:navigate @class(['text-xs', 'text-red-700' => $p->stock <= 0, 'text-slate-500' => $p->stock > 0])>Stock {{ $p->stock }} (by choice)</a>
+                        @else
+                            <label class="flex items-center gap-1 text-xs text-slate-500">Stock
+                                <input type="text" inputmode="numeric" value="{{ $p->stock }}" wire:change="setStock({{ $p->id }}, $event.target.value)"
+                                       @class(['w-16 rounded border px-2 py-1 text-right text-sm', 'border-red-400 text-red-700' => $p->stock <= 0, 'border-slate-300' => $p->stock > 0])>
+                            </label>
+                        @endif
                         <div class="flex gap-3 text-xs">
                             <button type="button" wire:click="edit({{ $p->id }})" class="font-medium text-blue-700">Edit</button>
+                            <a href="{{ route('seller.products.choices', $p->id) }}" wire:navigate class="font-medium text-blue-700">Units &amp; choices</a>
                             <button type="button" wire:click="toggleActive({{ $p->id }})" class="font-medium text-slate-600">{{ $p->is_active ? 'Hide' : 'Show' }}</button>
                             <button type="button" wire:click="delete({{ $p->id }})" wire:confirm="Remove {{ $p->name }}?" class="font-medium text-red-700">Remove</button>
                         </div>

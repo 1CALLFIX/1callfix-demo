@@ -100,8 +100,14 @@ class TestAccountsCommandTest extends TestCase
         $this->assertTrue($store->isSellable());
         $this->assertTrue($store->is_open);
         $this->assertSame('test-shop', $store->slug, 'clean slug, no random suffix');
-        $this->assertSame(8, Product::where('store_id', $store->id)->count(), 'one product per shop option; safe to re-run');
-        $this->assertSame(6, Product::where('store_id', $store->id)->where('is_active', true)->where('is_approved', true)->count());
+        $this->assertSame(10, Product::where('store_id', $store->id)->count(), 'one product per shop option; safe to re-run');
+        // Product choices 2026-11-02: a size x colour shirt and rice by weight, re-run safe, stock = total of choices.
+        $shirt = Product::where('store_id', $store->id)->where('name', 'Test T-Shirt')->sole();
+        $this->assertSame(6, $shirt->variants()->count());
+        $this->assertSame(40, $shirt->stock);
+        $this->assertSame('1 piece', $shirt->unitLabel());
+        $this->assertTrue($shirt->choicePricesDiffer());
+        $this->assertSame(8, Product::where('store_id', $store->id)->where('is_active', true)->where('is_approved', true)->count());
         $this->assertEquals([99, 30, 499], [(float) $store->minimum_order_amount, (float) $store->delivery_fee_flat, (float) $store->free_delivery_above_amount]);
         $byName = Product::where('store_id', $store->id)->get()->keyBy('name');
         $this->assertEquals(20, (float) $byName['Test Discount Item']->discount_percent);
@@ -116,7 +122,7 @@ class TestAccountsCommandTest extends TestCase
         Product::create(['store_id' => $store->id, 'name' => 'Seller Own Item', 'price' => 10, 'stock' => 1, 'is_active' => true, 'is_approved' => true]);
         $this->artisan('test-accounts', ['action' => 'create', '--password' => self::PASSWORD, '--franchise' => $franchise->id])->assertSuccessful();
         $this->assertSame(3, (int) $byName['Test Low Stock Item']->fresh()->stock);
-        $this->assertSame(9, Product::where('store_id', $store->id)->count());
+        $this->assertSame(11, Product::where('store_id', $store->id)->count());
         $this->assertTrue($seller->holdsPartnerRole('commerce'));
         $this->assertFalse($seller->holdsPartnerRole('service'), 'a shop-only seller is not offered service jobs');
 

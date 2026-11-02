@@ -42,6 +42,13 @@ trait AddsToShopCart
             return;
         }
 
+        if ($product->hasChoices()) {
+            // Product choices 2026-11-02: a size/colour/portion is picked on the product page.
+            $this->cartMessage = \App\Support\SiteText::get('shop.product.pick_first', ['choice' => mb_strtolower((string) ($product->option_names[0] ?? ''))]);
+
+            return;
+        }
+
         $line = CartItem::where('user_id', auth()->id())->where('product_id', $product->id)->whereNull('product_variant_id')->first();
         $current = (int) ($line?->quantity ?? 0);
         $wanted = $current + $step;

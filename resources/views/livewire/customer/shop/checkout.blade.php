@@ -142,7 +142,7 @@
                 <h2 class="font-semibold">{{ $t('shop_checkout.summary') }}</h2>
                 <ul class="mt-2 divide-y divide-slate-100">
                     @foreach ($lines as $l)
-                        <li class="flex justify-between gap-3 py-1.5"><span>{{ $l->quantity }} × {{ $l->product?->name }}
+                        <li class="flex justify-between gap-3 py-1.5"><span>{{ $l->quantity }} × {{ $l->product?->name }}@if ($l->variant) <span class="text-slate-500">({{ $l->variant->name }})</span>@endif
                                 @if ($l->isDiscounted())<span class="ml-1 whitespace-nowrap rounded-full bg-blue-50 px-2 py-0.5 text-[11px] font-bold text-blue-700">{{ $t('shop.card.off_online', ['percent' => rtrim(rtrim(number_format((float) $l->product->discount_percent, 1), '0'), '.')]) }}</span>@endif</span>
                             <span class="whitespace-nowrap tabular-nums">@if ($l->isDiscounted())<span class="mr-1 text-xs text-slate-400 line-through">{{ $currencySymbol }}{{ number_format($l->listUnitPrice() * $l->quantity, 2) }}</span>@endif{{ $currencySymbol }}{{ number_format($l->unitPrice() * $l->quantity, 2) }}</span></li>
                     @endforeach

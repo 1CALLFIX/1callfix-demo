@@ -8,7 +8,17 @@
         ]" />
 
         <div class="mt-4 grid gap-6 md:grid-cols-2">
-            @php $images = $product->image_urls; @endphp
+            @php
+                // Product choices 2026-11-02: the picked choice's photo comes first.
+                $images = $product->image_urls;
+                if ($selected && $selected->imageUrl()) {
+                    $images = array_values(array_unique(array_merge([$selected->imageUrl()], $images)));
+                }
+                $hasChoices = $choices !== [];
+                $priceNow = $selected ? $selected->effectivePrice() : ($hasChoices ? $product->fromPrice() : $product->effective_price);
+                $priceWas = $product->discount_percent ? ($selected ? $selected->listPrice() : ($hasChoices ? null : (float) $product->price)) : null;
+                $stockNow = $selected ? (int) $selected->stock : (int) $product->stock;
+            @endphp
             <div x-data="{ shown: 0 }">
                 <div class="aspect-square overflow-hidden rounded-3xl border border-slate-200 bg-white">
                     @forelse ($images as $i => $src)
@@ -33,24 +43,58 @@
                 <a href="{{ route('customer.shop.store', [$city->slug, $store->slug]) }}" wire:navigate class="text-sm font-semibold uppercase tracking-wide text-blue-700">{{ $store->name }}</a>
                 <h1 class="mt-1 text-2xl font-bold tracking-tight sm:text-3xl">{{ $product->name }}</h1>
                 <p class="mt-3 text-3xl font-bold">
-                    {{ $currencySymbol }}{{ number_format($product->effective_price, 2) }}
-                    @if ($product->discount_percent)
-                        <span class="ml-2 text-base font-normal text-slate-400 line-through">{{ $currencySymbol }}{{ number_format((float) $product->price, 2) }}</span>
+                    @if (! $selected && $product->choicePricesDiffer())<span class="text-base font-medium text-slate-500">{{ $t('shop.card.from') }}</span>@endif
+                    {{ $currencySymbol }}{{ number_format($priceNow, 2) }}
+                    @if ($priceWas !== null)
+                        <span class="ml-2 text-base font-normal text-slate-400 line-through">{{ $currencySymbol }}{{ number_format($priceWas, 2) }}</span>
                     @endif
                 </p>
+                @if ($product->unitLabel())
+                    <p class="text-sm text-slate-500" data-testid="product-unit">{{ $t('shop.product.per_unit', ['unit' => $product->unitLabel()]) }}</p>
+                @endif
                 @if ($product->discount_percent)
                     <p class="mt-1 text-sm text-blue-700">{{ $t('shop.product.off_note', ['percent' => rtrim(rtrim(number_format((float) $product->discount_percent, 1), '0'), '.')]) }}</p>
                 @endif
-                <p @class(['mt-2 text-sm font-medium', 'text-emerald-700' => $product->stock > 5, 'text-amber-700' => $product->stock > 0 && $product->stock <= 5, 'text-red-700' => $product->stock <= 0])>
-                    {{ $product->stock <= 0 ? $t('shop.out_of_stock') : ($product->stock <= 5 ? $t('shop.product.only_left', ['count' => $product->stock]) : $t('shop.product.in_stock')) }}
+                <p @class(['mt-2 text-sm font-medium', 'text-emerald-700' => $stockNow > 5, 'text-amber-700' => $stockNow > 0 && $stockNow <= 5, 'text-red-700' => $stockNow <= 0])>
+                    {{ $stockNow <= 0 ? $t('shop.out_of_stock') : ($stockNow <= 5 ? $t('shop.product.only_left', ['count' => $stockNow]) : $t('shop.product.in_stock')) }}
                 </p>
+
+                @foreach ($choices as $name => $values)
+                    <div class="mt-4" wire:key="choice-{{ md5($name) }}">
+                        <p class="text-sm font-semibold text-slate-900">{{ $name }}@if (isset($picked[$name]))<span class="font-normal text-slate-600">: {{ $picked[$name] }}</span>@endif</p>
+                        <div class="mt-2 flex flex-wrap gap-2" role="radiogroup" aria-label="{{ $name }}">
+                            @foreach ($values as $value => $inStock)
+                                @php $on = ($picked[$name] ?? null) === (string) $value; @endphp
+                                <button type="button" role="radio" aria-checked="{{ $on ? 'true' : 'false' }}" wire:click="pick({{ \Illuminate\Support\Js::from($name) }}, {{ \Illuminate\Support\Js::from((string) $value) }})"
+                                        @class(['min-h-10 min-w-12 rounded-xl border-2 px-3 text-sm font-semibold',
+                                            'border-blue-600 bg-blue-50 text-blue-800' => $on,
+                                            'border-slate-300 bg-white text-slate-800 hover:border-blue-400' => ! $on && $inStock,
+                                            'border-dashed border-slate-200 bg-white text-slate-400 line-through' => ! $on && ! $inStock])>{{ $value }}</button>
+                            @endforeach
+                        </div>
+                    </div>
+                @endforeach
 
                 @if ($cartMessage)
                     <p role="status" class="mt-3 rounded-lg bg-amber-50 px-4 py-2.5 text-sm text-amber-900">{{ $cartMessage }}</p>
                 @endif
 
                 <div class="mt-5 max-w-xs">
-                    @if ($product->stock <= 0)
+                    @if ($hasChoices)
+                        @if (! $store->is_open)
+                            <p class="rounded-xl bg-slate-100 py-3 text-center font-semibold text-slate-500">{{ $t('shop.product.shop_closed') }}</p>
+                        @elseif ($selected && $selected->stock <= 0)
+                            <p class="rounded-xl bg-slate-100 py-3 text-center font-semibold text-slate-500">{{ $t('shop.product.choice_sold_out', ['choice' => $selected->name]) }}</p>
+                        @elseif ($choiceQty > 0)
+                            <div class="flex items-center justify-between rounded-xl bg-blue-600 text-white">
+                                <button type="button" wire:click="removeChoiceOne" class="min-h-12 px-5 text-xl font-bold" aria-label="{{ $t('shop.product.one_less') }}">−</button>
+                                <span class="font-bold tabular-nums" aria-live="polite">{{ $t('shop.product.in_bag', ['count' => $choiceQty]) }}</span>
+                                <button type="button" wire:click="addChoice" class="min-h-12 px-5 text-xl font-bold" aria-label="{{ $t('shop.product.one_more') }}">+</button>
+                            </div>
+                        @else
+                            <button type="button" wire:click="addChoice" class="min-h-12 w-full rounded-xl bg-blue-600 font-bold text-white hover:bg-blue-700">{{ $t('shop.product.add_to_bag') }}</button>
+                        @endif
+                    @elseif ($product->stock <= 0)
                         <p class="rounded-xl bg-slate-100 py-3 text-center font-semibold text-slate-500">{{ $t('shop.out_of_stock') }}</p>
                     @elseif (! $store->is_open)
                         <p class="rounded-xl bg-slate-100 py-3 text-center font-semibold text-slate-500">{{ $t('shop.product.shop_closed') }}</p>

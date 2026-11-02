@@ -5,6 +5,9 @@
     $url = route('customer.shop.product', [$city->slug, $product->store->slug, $product->slug]);
     $outOfStock = (int) $product->stock <= 0;
     $closed = ! $product->store->is_open;
+    // Product choices 2026-11-02: a product with sizes/colours/portions is picked on its page ("Choose").
+    $hasChoices = $product->hasChoices();
+    $price = $hasChoices ? $product->fromPrice() : $product->effective_price;
 @endphp
 {{-- E-commerce Phase 2 product card. The shop name sits on every card: on 1CallFix you always know which local shop
      you are buying from. --}}
@@ -25,14 +28,18 @@
         @endif
         <a href="{{ $url }}" wire:navigate class="mt-0.5 line-clamp-2 text-sm font-semibold text-slate-900">{{ $product->name }}</a>
         <p class="mt-1 text-base font-bold text-slate-900">
-            {{ $currencySymbol }}{{ number_format($product->effective_price, 2) }}
-            @if ($product->discount_percent)<span class="ml-1 text-xs font-normal text-slate-400 line-through">{{ $currencySymbol }}{{ number_format((float) $product->price, 2) }}</span>@endif
+            @if ($hasChoices && $product->choicePricesDiffer())<span class="text-xs font-medium text-slate-500">{{ $t('shop.card.from') }}</span>@endif
+            {{ $currencySymbol }}{{ number_format($price, 2) }}
+            @if ($product->discount_percent && ! $hasChoices)<span class="ml-1 text-xs font-normal text-slate-400 line-through">{{ $currencySymbol }}{{ number_format((float) $product->price, 2) }}</span>@endif
         </p>
+        @if ($product->unitLabel())<p class="text-xs text-slate-500">{{ $product->unitLabel() }}</p>@endif
         <div class="mt-auto pt-2">
             @if ($outOfStock)
                 <p class="rounded-lg bg-slate-100 py-2 text-center text-xs font-semibold text-slate-500">{{ $t('shop.out_of_stock') }}</p>
             @elseif ($closed)
                 <p class="rounded-lg bg-slate-100 py-2 text-center text-xs font-semibold text-slate-500">{{ $t('shop.card.shop_closed') }}</p>
+            @elseif ($hasChoices)
+                <a href="{{ $url }}" wire:navigate class="flex min-h-10 w-full items-center justify-center rounded-lg border-2 border-blue-600 text-sm font-bold text-blue-700 hover:bg-blue-50">{{ $t('shop.card.choose') }}</a>
             @elseif ($qty > 0)
                 <div class="flex items-center justify-between rounded-lg bg-blue-600 text-white">
                     <button type="button" wire:click="removeOne({{ $product->id }})" class="min-h-10 px-3 text-lg font-bold" aria-label="{{ $t('shop.card.one_less', ['item' => $product->name]) }}">−</button>

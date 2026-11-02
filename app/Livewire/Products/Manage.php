@@ -190,8 +190,20 @@ class Manage extends Component
             'newVariantStock' => 'required|integer|min:0',
         ]);
 
+        // Product choices 2026-11-02: an admin-added variant is a one-type choice ("Option") the customer picks.
+        // Sizes x colours are built by the seller (Seller → Products → Units & choices); don't mix the two here.
+        $names = $product->option_names ?? [];
+        if ($names !== [] && $names !== ['Option']) {
+            $this->addError('newVariantName', 'The choices of this product ('.implode(', ', $names).') are set on the seller Units & choices page.');
+
+            return;
+        }
+        if ($names === []) {
+            $product->update(['option_names' => ['Option']]);
+        }
+        $name = trim($this->newVariantName);
         ProductVariant::create([
-            'product_id' => $product->id, 'name' => $this->newVariantName,
+            'product_id' => $product->id, 'name' => $name, 'options' => ['Option' => $name],
             'price_override' => $this->newVariantPriceOverride !== '' ? $this->newVariantPriceOverride : null,
             'stock' => $this->newVariantStock, 'is_active' => true,
         ]);

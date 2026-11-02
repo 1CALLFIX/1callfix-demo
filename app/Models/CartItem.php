@@ -23,19 +23,22 @@ class CartItem extends Model
 
     /**
      * Shop checkout polish 2026-11-02: does this line carry the product's discount? The same rule
-     * CreateMarketplaceOrderAction uses to decide cash (a variant with its own price has no discount).
+     * CreateMarketplaceOrderAction uses to decide cash. Product choices 2026-11-02: a choice with its own price
+     * gets the product's discount too, so any discount on the product counts.
      */
     public function isDiscounted(): bool
     {
-        $percent = (float) ($this->product?->discount_percent ?? 0);
-
-        return $percent > 0 && ! ($this->variant && $this->variant->price_override !== null);
+        return (float) ($this->product?->discount_percent ?? 0) > 0;
     }
 
     /** The price before the discount, per unit (null when the line is not discounted). */
     public function listUnitPrice(): ?float
     {
-        return $this->isDiscounted() ? (float) $this->product->price : null;
+        if (! $this->isDiscounted()) {
+            return null;
+        }
+
+        return $this->variant ? $this->variant->listPrice() : (float) $this->product->price;
     }
 
     /** Today's price per unit (discount taken off), as the cart and checkout show it. */

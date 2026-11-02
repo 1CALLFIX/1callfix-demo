@@ -29,6 +29,36 @@ final class MarketplaceSettings
             'group' => 'Sellers', 'label' => 'Blocked words in product names', 'type' => 'text', 'default' => null, 'global' => true,
             'help' => 'One word or phrase per line (for example medicine, alcohol, tobacco). A seller cannot list a product whose name or description contains one. Phase 1 sells no food, medicine or regulated items.',
         ],
+        // ── product choices and units (2026-11-02) ──
+        'marketplace.product_units' => [
+            'group' => 'Products', 'label' => 'Units sellers can pick', 'type' => 'text', 'global' => true,
+            'default' => "piece
+g
+kg
+ml
+L
+m
+pair
+set
+pack
+dozen
+box
+plate",
+            'help' => 'One per line. A seller says what one item is, e.g. 500 g, 1 kg, 6 piece; customers see it under the price. Blank = this list.',
+        ],
+        'marketplace.choice_names' => [
+            'group' => 'Products', 'label' => 'Choice types offered to sellers', 'type' => 'text', 'global' => true,
+            'default' => "Size
+Colour
+Weight
+Volume
+Storage
+Pack
+Material
+Flavour
+Portion",
+            'help' => 'One per line. Suggested when a seller adds choices to a product (size, colour, portion…). A seller may also type their own. Blank = this list.',
+        ],
         // ── commission (E-commerce Phase 4) ──
         'marketplace.commission.franchise_min' => [
             'group' => 'Commission', 'label' => 'Lowest fee a franchise may set', 'type' => 'decimal', 'unit' => '%', 'min' => 0, 'max' => 100,
@@ -108,6 +138,12 @@ final class MarketplaceSettings
     public static function recruitingSellers(): bool
     {
         return self::on('marketplace.recruiting_sellers');
+    }
+
+    /** A one-per-line list setting (units, choice names) as a clean array. */
+    public static function lines(string $key): array
+    {
+        return array_values(array_unique(array_filter(array_map('trim', preg_split('/\R/', (string) self::get($key))), fn ($v) => $v !== '')));
     }
 
     /** The first blocked word (Shop Settings) found in this text, or null. Case-insensitive. */

@@ -99,12 +99,18 @@ class AdminCancelMarketplaceOrderAction
             Product::whereIn('id', $productIdsWithoutVariant)->lockForUpdate()->get();
         }
 
+        $withChoices = [];
         foreach ($order->items as $item) {
             if ($item->product_variant_id) {
                 ProductVariant::where('id', $item->product_variant_id)->increment('stock', $item->quantity);
+                $withChoices[] = $item->product_id;
             } elseif ($item->product_id) {
                 Product::where('id', $item->product_id)->increment('stock', $item->quantity);
             }
+        }
+        // Product choices 2026-11-02: a product's stock is the total of its choices.
+        foreach (Product::whereIn('id', array_unique(array_filter($withChoices)))->get() as $product) {
+            $product->syncStockFromChoices();
         }
     }
 }

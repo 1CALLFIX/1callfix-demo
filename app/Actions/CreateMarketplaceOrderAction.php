@@ -282,7 +282,7 @@ class CreateMarketplaceOrderAction
 
     /**
      * The discount inside a cart line's price. Product::effective_price takes discount_percent off the product
-     * price; a variant with its own price_override carries no discount (ProductVariant::effectivePrice()).
+     * price, and off a variant's own price too (product choices 2026-11-02, ProductVariant::effectivePrice()).
      * Worked back from the cart's fixed price, so a later product price change does not invent a discount.
      */
     /** The coupon engine's view of this shop order: one line per bag line (no service targets ever match). */
@@ -316,12 +316,13 @@ class CreateMarketplaceOrderAction
     private function lineDiscount(CartItem $line): float
     {
         $percent = min(max((float) $line->product->discount_percent, 0), 100);
-        if ($percent <= 0 || ($line->variant && $line->variant->price_override !== null)) {
+        if ($percent <= 0) {
             return 0.0;
         }
 
         $paid = (float) $line->unit_price_snapshot * $line->quantity;
-        $listPrice = $percent >= 100 ? (float) $line->product->price * $line->quantity : $paid / (1 - $percent / 100);
+        $base = $line->variant ? $line->variant->listPrice() : (float) $line->product->price;
+        $listPrice = $percent >= 100 ? $base * $line->quantity : $paid / (1 - $percent / 100);
 
         return max(round($listPrice - $paid, 2), 0.0);
     }

@@ -47,6 +47,9 @@ class Products extends Component
     public string $maxCartQuantity = '';
     public bool $isActive = true;
 
+    /** Product choices 2026-11-02: stock of a product with choices is set per choice. */
+    public bool $editingHasChoices = false;
+
     /** Paths already saved on the product being edited. */
     public array $photos = [];
 
@@ -80,6 +83,7 @@ class Products extends Component
         $this->stock = (string) $product->stock;
         $this->maxCartQuantity = $product->maximum_cart_quantity !== null ? (string) $product->maximum_cart_quantity : '';
         $this->isActive = (bool) $product->is_active;
+        $this->editingHasChoices = ! empty($product->option_names);
         $this->photos = $product->images ?? [];
         $this->creating = true;
     }
@@ -156,6 +160,9 @@ class Products extends Component
                     Storage::disk('public')->delete($removed);
                 }
             }
+            if ($product->option_names) {
+                unset($fields['stock']); // product choices: stock is the total of the choices
+            }
             $product->update($fields);
             ActivityLogger::logModel(auth()->user(), $product, 'Seller updated product', ['fields' => array_keys($product->getChanges())]);
             $this->flash(($fields['is_approved'] ?? true) === false ? 'Saved. The changes show to customers once approved.' : 'Saved.', 'success');
@@ -172,6 +179,11 @@ class Products extends Component
     public function setStock(int $productId, string $value): void
     {
         $product = $this->ownProduct($productId);
+        if ($product->option_names) {
+            $this->flash('This product has choices: set stock per choice in Units & choices.', 'error');
+
+            return;
+        }
         if (! preg_match('/^\d{1,7}$/', trim($value))) {
             $this->flash('Stock must be a whole number.', 'error');
 
@@ -205,7 +217,7 @@ class Products extends Component
 
     private function resetForm(): void
     {
-        $this->reset(['editingId', 'name', 'description', 'categoryId', 'price', 'discountPercent', 'maxCartQuantity', 'photos', 'uploads']);
+        $this->reset(['editingHasChoices', 'editingId', 'name', 'description', 'categoryId', 'price', 'discountPercent', 'maxCartQuantity', 'photos', 'uploads']);
         $this->stock = '0';
         $this->isActive = true;
         $this->creating = false;
@@ -225,7 +237,7 @@ class Products extends Component
         return view('livewire.seller.products', [
             'products' => Product::where('store_id', $store->id)
                 ->when($this->search !== '', fn ($q) => $q->where('name', 'like', '%'.$this->search.'%'))
-                ->with('category:id,name')->orderBy('name')->paginate(25),
+                ->with('category:id,name')->withCount('activeVariants')->orderBy('name')->paginate(25),
             'categories' => MarketplaceCategory::where('module', $store->module)->where('is_active', true)->orderBy('position')->orderBy('name')->get(['id', 'name', 'parent_id']),
             'currencySymbol' => Setting::get('locale.currency_symbol', '₹'),
             'maxPhotos' => self::MAX_PHOTOS,
