@@ -136,13 +136,15 @@
                 @endif
             </section>
 
-            {{-- E-commerce Phase 3b: returns — damaged or wrong item, within the return window. --}}
-            <section class="mt-4 rounded-3xl border border-slate-200 bg-white p-4 text-sm sm:p-5">
+            {{-- E-commerce Phase 3b: returns — damaged or wrong item, within the return window.
+                 Food F4: the same section reports a problem with a food order (nothing comes back). --}}
+            @php $rk = $order->isFood() ? 'food.issue.' : 'shop_order.return.'; @endphp
+            <section class="mt-4 rounded-3xl border border-slate-200 bg-white p-4 text-sm sm:p-5" data-testid="problem-section">
                 @if ($returnRow)
                     @php
                         $returnLabel = $returnRow->status === 'refunded'
-                            ? $t($returnRow->refund_destination === 'original' ? 'shop_order.return.refunded_original' : 'shop_order.return.refunded_wallet', ['amount' => $currencySymbol.number_format((float) $returnRow->refund_amount, 2)])
-                            : (in_array($returnRow->status, ['requested', 'accepted', 'declined', 'received'], true) ? $t('shop_order.return.'.$returnRow->status) : $returnRow->status);
+                            ? $t($returnRow->refund_destination === 'original' ? $rk.'refunded_original' : $rk.'refunded_wallet', ['amount' => $currencySymbol.number_format((float) $returnRow->refund_amount, 2)])
+                            : (in_array($returnRow->status, ['requested', 'accepted', 'declined', 'received'], true) ? $t($rk.$returnRow->status) : $returnRow->status);
                     @endphp
                     <p class="font-semibold">{{ $returnLabel }}</p>
                     @if ($returnRow->decision_note)<p class="mt-1 text-slate-600">{{ $returnRow->decision_note }}</p>@endif
@@ -160,15 +162,15 @@
 
                 @if ($canReturn)
                     @if (! $returning)
-                        <p class="text-slate-600">{{ $t('shop_order.return.ask_line', ['days' => $returnDays]) }}</p>
-                        <button type="button" wire:click="$set('returning', true)" class="mt-2 text-sm font-semibold text-blue-700 hover:underline">{{ $t('shop_order.return.link') }}</button>
+                        <p class="text-slate-600">{{ $t($rk.'ask_line', ['days' => $returnDays, 'minutes' => $foodIssueMinutes]) }}</p>
+                        <button type="button" wire:click="$set('returning', true)" class="mt-2 text-sm font-semibold text-blue-700 hover:underline" data-testid="problem-open">{{ $t($rk.'link') }}</button>
                     @else
                         <form wire:submit="requestReturn" class="space-y-3">
-                            <h2 class="font-semibold">{{ $t('shop_order.return.link') }}</h2>
-                            <div class="flex gap-2">
-                                @foreach (\App\Models\MarketplaceReturn::REASONS as $value => $label)
+                            <h2 class="font-semibold">{{ $t($rk.'link') }}</h2>
+                            <div class="flex flex-wrap gap-2">
+                                @foreach ($order->isFood() ? \App\Models\MarketplaceReturn::FOOD_REASONS : \App\Models\MarketplaceReturn::REASONS as $value => $label)
                                     <label @class(['cursor-pointer rounded-xl border px-3 py-2', 'border-blue-600 bg-blue-50' => $returnReason === $value, 'border-slate-300' => $returnReason !== $value])>
-                                        <input type="radio" wire:model.live="returnReason" value="{{ $value }}" class="sr-only"> {{ $t('shop_order.return.reason.'.$value) }}
+                                        <input type="radio" wire:model.live="returnReason" value="{{ $value }}" class="sr-only"> {{ $t($rk.'reason.'.$value) }}
                                     </label>
                                 @endforeach
                             </div>
@@ -176,24 +178,24 @@
                                 @foreach ($order->items as $item)
                                     <li class="flex items-center justify-between gap-3">
                                         <span>{{ $item->product_name_snapshot }}@if ($item->variant_name_snapshot) ({{ $item->variant_name_snapshot }})@endif <span class="text-slate-500">{{ $t('shop_order.return.ordered', ['count' => $item->quantity]) }}</span></span>
-                                        <input type="number" min="0" max="{{ $item->quantity }}" wire:model="returnQty.{{ $item->id }}" placeholder="0" aria-label="{{ $t('shop_order.return.qty_label') }}" class="w-20 rounded-lg border border-slate-300 px-2 py-1 text-right">
+                                        <input type="number" min="0" max="{{ $item->quantity }}" wire:model="returnQty.{{ $item->id }}" placeholder="0" aria-label="{{ $t($rk.'qty_label') }}" class="w-20 rounded-lg border border-slate-300 px-2 py-1 text-right">
                                     </li>
                                 @endforeach
                             </ul>
-                            <textarea wire:model="returnDescription" rows="2" placeholder="{{ $t('shop_order.return.what_wrong') }}" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-base"></textarea>
+                            <textarea wire:model="returnDescription" rows="2" placeholder="{{ $t($rk.'what_wrong') }}" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-base"></textarea>
                             @error('returnDescription') <p class="text-red-700">{{ $message }}</p> @enderror
-                            <label class="block"><span class="font-medium">{{ $t('shop_order.return.photos') }}</span>
+                            <label class="block"><span class="font-medium">{{ $order->isFood() && ! $foodPhotoNeeded ? $t('food.issue.photos_optional') : $t($rk.'photos') }}</span>
                                 <input type="file" wire:model="returnPhotos" multiple accept="image/jpeg,image/png,image/webp" class="mt-1 block text-sm"></label>
                             @error('returnPhotos') <p class="text-red-700">{{ $message }}</p> @enderror
                             @error('returnPhotos.*') <p class="text-red-700">{{ $message }}</p> @enderror
                             <div class="flex gap-2">
-                                <button type="submit" wire:loading.attr="disabled" class="min-h-11 rounded-xl bg-blue-600 px-5 font-bold text-white">{{ $t('shop_order.return.submit') }}</button>
+                                <button type="submit" wire:loading.attr="disabled" class="min-h-11 rounded-xl bg-blue-600 px-5 font-bold text-white" data-testid="problem-submit">{{ $t($rk.'submit') }}</button>
                                 <button type="button" wire:click="$set('returning', false)" class="min-h-11 rounded-xl border border-slate-300 px-4">{{ $t('shop_order.return.cancel') }}</button>
                             </div>
                         </form>
                     @endif
                 @elseif (! $returnRow)
-                    <p class="text-xs text-slate-500">{{ $t('shop_order.return.rule', ['days' => $returnDays]) }}</p>
+                    <p class="text-xs text-slate-500">{{ $t($rk.'rule', ['days' => $returnDays, 'minutes' => $foodIssueMinutes]) }}</p>
                 @endif
             </section>
         @endif

@@ -13,7 +13,10 @@ use App\Models\User;
 use App\Services\ActivityLogger;
 use App\Services\AuthorizationService;
 use App\Services\WalletService;
+use App\Support\FoodOrderClock;
+use App\Support\FoodSettings;
 use App\Support\MarketplaceSettings;
+use App\Support\SiteText;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
 
@@ -32,6 +35,12 @@ use Illuminate\Support\Facades\DB;
  * Money: online orders are refunded to the original payment; wallet and cash orders to the wallet (the HQ ledger).
  * The refund comes out of the order's held settlement — seller, platform and franchise goods shares cut in the same
  * proportion — and the seller is never paid while a return is open (releaseDue skips it).
+ *
+ * Food F4: a food order has no return, it has a problem report (missing / wrong / spilled / poor quality) within
+ * food.issue_window_minutes of delivery. Nothing comes back, so accepting it opens the refund straight away. The
+ * admin picks whose fault it was; the refund is split by Food Settings (restaurant's part out of its held earnings,
+ * capped at those; the platform pays the rest; the franchise is never cut). "Damaged on the way" is a strike for the
+ * rider who delivered it, never a deduction.
  */
 class MarketplaceReturnService
 {
@@ -65,6 +74,9 @@ class MarketplaceReturnService
         if ($order->customer_id !== $customerId) {
             return 'This is not your order.';
         }
+        if ($order->isFood()) {
+            return $this->cannotReportFood($order);
+        }
         if ($order->status !== 'completed' || ! $order->completed_at) {
             return 'A return can be asked for once the order is delivered or collected.';
         }
@@ -79,6 +91,33 @@ class MarketplaceReturnService
         return null;
     }
 
+    /** Food F4: why a problem cannot be reported on this food order now, or null. */
+    private function cannotReportFood(MarketplaceOrder $order): ?string
+    {
+        if ($order->status !== 'completed' || ! $order->completed_at) {
+            return SiteText::get('food.issue.not_yet');
+        }
+        $minutes = $this->foodWindowMinutes($order);
+        if ($order->completed_at->copy()->addMinutes($minutes)->isPast()) {
+            return SiteText::get('food.issue.closed');
+        }
+        if (MarketplaceReturn::where('marketplace_order_id', $order->id)->where('status', '!=', MarketplaceReturn::DECLINED)->exists()) {
+            return SiteText::get('food.issue.already');
+        }
+
+        return null;
+    }
+
+    public function foodWindowMinutes(MarketplaceOrder $order): int
+    {
+        return max(1, (int) FoodSettings::get('food.issue_window_minutes', FoodOrderClock::scopeFor($order)));
+    }
+
+    public function foodPhotoRequired(MarketplaceOrder $order): bool
+    {
+        return FoodSettings::get('food.issue_photo_required', FoodOrderClock::scopeFor($order)) === '1';
+    }
+
     /**
      * @param  array<int, int>  $quantities  order item id => quantity to return
      * @param  list<string>  $photoPaths  stored on the public disk
@@ -88,11 +127,12 @@ class MarketplaceReturnService
         if (($why = $this->cannotRequest($order, $customer->id)) !== null) {
             throw new \RuntimeException($why);
         }
-        if (! array_key_exists($reason, MarketplaceReturn::REASONS)) {
-            throw new \RuntimeException('Returns are for damaged or wrong items only.');
+        $food = $order->isFood();
+        if (! array_key_exists($reason, $food ? MarketplaceReturn::FOOD_REASONS : MarketplaceReturn::REASONS)) {
+            throw new \RuntimeException($food ? SiteText::get('food.issue.pick_reason') : 'Returns are for damaged or wrong items only.');
         }
-        if ($photoPaths === []) {
-            throw new \RuntimeException('Add at least one photo of the item.');
+        if ($photoPaths === [] && (! $food || $this->foodPhotoRequired($order))) {
+            throw new \RuntimeException($food ? SiteText::get('food.issue.photo_needed') : 'Add at least one photo of the item.');
         }
 
         $items = [];
@@ -105,7 +145,7 @@ class MarketplaceReturnService
             }
         }
         if ($items === []) {
-            throw new \RuntimeException('Choose the item(s) you are returning.');
+            throw new \RuntimeException($food ? SiteText::get('food.issue.pick_items') : 'Choose the item(s) you are returning.');
         }
 
         $return = MarketplaceReturn::create([
@@ -113,8 +153,9 @@ class MarketplaceReturnService
             'customer_id' => $customer->id, 'reason' => $reason, 'description' => trim($description), 'photos' => $photoPaths,
             'items' => $items, 'status' => MarketplaceReturn::REQUESTED, 'refund_amount' => round($amount, 2),
             'refund_destination' => $order->payment_method === 'online' ? 'original' : 'wallet',
+            'field_worker_id' => $food && $order->order_type === 'delivery' ? $order->assigned_worker_id : null,
         ]);
-        ActivityLogger::logModel($customer, $return, "Shop return requested (#{$return->id})", ['order' => $order->code, 'reason' => $reason, 'amount' => $return->refund_amount]);
+        ActivityLogger::logModel($customer, $return, ($food ? 'Food problem reported' : 'Shop return requested')." (#{$return->id})", ['order' => $order->code, 'reason' => $reason, 'amount' => $return->refund_amount]);
 
         return $return;
     }
@@ -242,11 +283,11 @@ class MarketplaceReturnService
     // ============================== decide / receive (no money moves) ==============================
 
     /** @return array{ok: bool, message: string} */
-    public function decide(MarketplaceReturn $return, User $admin, bool $accept, string $note, ?float $amount = null): array
+    public function decide(MarketplaceReturn $return, User $admin, bool $accept, string $note, ?float $amount = null, ?string $fault = null): array
     {
         $note = trim($note);
 
-        return DB::transaction(function () use ($return, $admin, $accept, $note, $amount) {
+        return DB::transaction(function () use ($return, $admin, $accept, $note, $amount, $fault) {
             $r = MarketplaceReturn::whereKey($return->id)->lockForUpdate()->firstOrFail();
             if ($r->status !== MarketplaceReturn::REQUESTED) {
                 return $this->no('This return has already been decided.');
@@ -265,6 +306,11 @@ class MarketplaceReturnService
                 $r->refund_amount = round($amount, 2);
             }
 
+            $order = MarketplaceOrder::find($r->marketplace_order_id);
+            if ($order?->isFood()) {
+                return $this->decideFood($r, $order, $admin, $accept, $note, $fault);
+            }
+
             $r->status = $accept ? MarketplaceReturn::ACCEPTED : MarketplaceReturn::DECLINED;
             if ($accept) {
                 app(MarketplaceReturnPickupService::class)->openFor($r); // a rider collects it (seller pays the fee)
@@ -279,6 +325,38 @@ class MarketplaceReturnService
                 ? ($r->pickup_status === MarketplaceReturn::PICKUP_OPEN ? 'Return accepted. A rider will collect it from the customer and take it to the shop.' : 'Return accepted. Once the item is back at the shop, the refund can be requested.')
                 : 'Return declined. The customer sees your note.'];
         });
+    }
+
+    /** Food F4, inside decide()'s transaction: nothing comes back, so accepting opens the refund straight away. */
+    private function decideFood(MarketplaceReturn $r, MarketplaceOrder $order, User $admin, bool $accept, string $note, ?string $fault): array
+    {
+        if ($accept) {
+            if (! array_key_exists((string) $fault, MarketplaceReturn::FAULTS)) {
+                return $this->no('Pick whose fault it was.');
+            }
+            if ($fault === MarketplaceReturn::FAULT_TRANSIT && ! $r->field_worker_id) {
+                return $this->no('No rider delivered this order, so it cannot have been damaged on the way.');
+            }
+            $r->fault = $fault;
+            $r->status = MarketplaceReturn::RECEIVED; // nothing to send back: straight to the refund
+            $r->received_at = now();
+            $r->refund_status = MarketplaceReturn::REFUND_AWAITING_REQUEST;
+        } else {
+            $r->status = MarketplaceReturn::DECLINED;
+        }
+        $r->decided_by_id = $admin->id;
+        $r->decision_note = $note;
+        $r->decided_at = now();
+        $r->save();
+        ActivityLogger::logModel($admin, $r, 'Food problem '.($accept ? 'accepted' : 'declined')." (#{$r->id})", ['note' => $note, 'amount' => $r->refund_amount, 'fault' => $r->fault, 'rider_id' => $r->field_worker_id]);
+
+        if (! $accept) {
+            return ['ok' => true, 'message' => 'Problem declined. The customer sees your note.'];
+        }
+        $pct = FoodSettings::faultRestaurantPercent($fault, FoodOrderClock::scopeFor($order));
+
+        return ['ok' => true, 'message' => 'Problem accepted ('.MarketplaceReturn::FAULTS[$fault]."). The restaurant pays {$pct}% of the refund, the platform the rest"
+            .($fault === MarketplaceReturn::FAULT_TRANSIT ? '; the rider gets a strike' : '').'. The refund is now waiting in the approval queue.'];
     }
 
     /**
@@ -445,7 +523,7 @@ class MarketplaceReturnService
                 $this->wallet->credit(
                     $order->customer,
                     $amount,
-                    reason: "Refund for returned items — order {$order->code}",
+                    reason: ($order->isFood() ? 'Refund for a problem with food order ' : 'Refund for returned items — order ').$order->code,
                     ref: "marketplace_order:{$order->id}:wallet-refund:return-{$r->id}",
                     actorId: $actor->id,
                 );
@@ -506,10 +584,20 @@ class MarketplaceReturnService
         if (! $row || (float) $row->goods_amount <= 0) {
             return;
         }
-        $f = min(1.0, $amount / (float) $row->goods_amount);
-        $sellerCut = round((float) $row->seller_share * $f, 2);
-        $platformCut = round((float) $row->goods_platform * $f, 2);
-        $franchiseCut = round((float) $row->goods_franchise * $f, 2);
+        if ($r->fault && $order->isFood()) {
+            // Food F4: the restaurant pays its Food Settings share (never more than its held earnings), the platform
+            // the rest; the franchise is never cut.
+            $pct = FoodSettings::faultRestaurantPercent($r->fault, FoodOrderClock::scopeFor($order));
+            $sellerCut = min(round((float) $row->seller_share, 2), round($amount * $pct / 100, 2));
+            $platformCut = round($amount - $sellerCut, 2);
+            $franchiseCut = 0.0;
+            $r->forceFill(['restaurant_paid' => $sellerCut, 'platform_paid' => $platformCut])->save();
+        } else {
+            $f = min(1.0, $amount / (float) $row->goods_amount);
+            $sellerCut = round((float) $row->seller_share * $f, 2);
+            $platformCut = round((float) $row->goods_platform * $f, 2);
+            $franchiseCut = round((float) $row->goods_franchise * $f, 2);
+        }
 
         if ($row->payment_mode === 'cash_pickup') {
             $row->cash_owed = round((float) $row->cash_owed - $platformCut - $franchiseCut + $amount, 2);

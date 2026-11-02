@@ -117,11 +117,15 @@ class MarketplaceSettlementService
         };
 
         $windowDays = max(0, (int) Setting::get('marketplace.return_window_days', '3', $scope));
+        // Food F4: a restaurant is paid once the problem-report window (minutes) has passed, not the shop return days.
+        $releaseAt = $order->isFood()
+            ? ($order->completed_at ?? now())->copy()->addMinutes(max(1, (int) \App\Support\FoodSettings::get('food.issue_window_minutes', $scope)))
+            : ($order->completed_at ?? now())->copy()->addDays($windowDays);
 
         $settlement = DB::transaction(function () use (
             $order, $seller, $rider, $mode, $goodsAmount, $sellerShare, $goodsPlatform, $goodsFranchise,
             $deliveryAmount, $riderShare, $deliveryPlatform, $deliveryFranchise, $debtorType, $cashOwed, $cashFranchise, $windowDays,
-            $riderTopup, $topupFundedBy, $platformTopup, $tcs, $tds, $withheld, $platformGst
+            $riderTopup, $topupFundedBy, $platformTopup, $tcs, $tds, $withheld, $platformGst, $releaseAt
         ) {
             $locked = MarketplaceSettlement::where('marketplace_order_id', $order->id)->lockForUpdate()->first();
             if ($locked) {
@@ -157,7 +161,7 @@ class MarketplaceSettlementService
                 'rider_topup' => $riderTopup,
                 'rider_topup_funded_by' => $riderTopup > 0 ? $topupFundedBy : null,
                 // A cash-pickup seller already holds their share, so there is nothing to hold back.
-                'release_at' => ($order->completed_at ?? now())->copy()->addDays($windowDays),
+                'release_at' => $releaseAt,
                 'status' => $mode === 'cash_pickup' ? 'released' : 'held',
                 'released_at' => $mode === 'cash_pickup' ? now() : null,
                 'cash_debtor_type' => $cashOwed > 0 ? $debtorType : null,

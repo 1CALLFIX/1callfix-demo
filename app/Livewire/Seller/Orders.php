@@ -147,6 +147,7 @@ class Orders extends Component
             'currencySymbol' => Setting::get('locale.currency_symbol', '₹'),
             // Food F2: the cooking time pre-filled on Accept (its usual time plus busy minutes).
             'usualPrep' => $store->isRestaurant() ? $store->currentPrepMinutes() : null,
+            'isRestaurant' => $store->isRestaurant(),
         ])->layout('components.layouts.seller', ['title' => 'Orders']);
     }
 }

@@ -185,7 +185,7 @@
                     ['label' => 'Franchise Earnings', 'route' => 'admin.franchise-earnings.index', 'icon' => 'banknotes', 'permission' => 'commissions.view'],
                     ['label' => 'Payments', 'route' => 'admin.payments.index', 'icon' => 'banknotes', 'permission' => 'payments.view'],
                     ['label' => 'Pricing Disputes', 'route' => 'admin.booking-disputes.index', 'icon' => 'banknotes', 'permission' => 'bookings.refund_dispute'],
-                    ['label' => 'Shop Returns', 'route' => 'admin.shop-returns.index', 'icon' => 'banknotes', 'permission' => 'marketplace_returns.manage'],
+                    ['label' => 'Returns & food problems', 'route' => 'admin.shop-returns.index', 'icon' => 'banknotes', 'permission' => 'marketplace_returns.manage'],
                     ['label' => 'Parcel Claims', 'route' => 'admin.parcel-claims.index', 'icon' => 'banknotes', 'permission' => 'parcel_claims.manage'],
                     ['label' => 'Charge Waivers', 'route' => 'admin.charge-waivers.index', 'icon' => 'banknotes', 'permission' => 'bookings.waive_charge'],
                     ['label' => 'Mismatch Refunds', 'route' => 'admin.mismatch-refunds.index', 'icon' => 'banknotes', 'permission' => 'payments.refund_mismatch'],

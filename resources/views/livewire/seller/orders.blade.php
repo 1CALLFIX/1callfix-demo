@@ -2,7 +2,7 @@
     <h1 class="text-2xl font-bold tracking-tight">Orders</h1>
 
     <div class="flex flex-wrap gap-2 text-sm" role="tablist">
-        @foreach (['new' => 'New', 'active' => 'In progress', 'done' => 'Completed', 'cancelled' => 'Cancelled', 'returns' => 'Returns'] as $key => $label)
+        @foreach (['new' => 'New', 'active' => 'In progress', 'done' => 'Completed', 'cancelled' => 'Cancelled', 'returns' => $isRestaurant ? 'Problems' : 'Returns'] as $key => $label)
             <button type="button" role="tab" wire:click="$set('tab', '{{ $key }}')" aria-selected="{{ $tab === $key ? 'true' : 'false' }}"
                     @class(['rounded-lg px-3 py-1.5 font-medium', 'bg-slate-900 text-white' => $tab === $key, 'border border-slate-300 bg-white text-slate-700' => $tab !== $key])>
                 {{ $label }}@if (isset($counts[$key]) && $counts[$key] > 0) <span class="ml-1 rounded-full bg-amber-500 px-1.5 text-xs text-white">{{ $counts[$key] }}</span>@endif
@@ -20,10 +20,10 @@
             <x-ui.card class="!p-4" wire:key="return-{{ $r->id }}">
                 <div class="flex flex-wrap items-start justify-between gap-2">
                     <div>
-                        <p class="font-semibold">Return #{{ $r->id }} · order {{ $r->order?->code }}</p>
-                        <p class="text-sm text-slate-600">{{ \App\Models\MarketplaceReturn::REASONS[$r->reason] ?? $r->reason }}: {{ $r->description }}</p>
+                        <p class="font-semibold">{{ $isRestaurant ? 'Problem' : 'Return' }} #{{ $r->id }} · order {{ $r->order?->code }}</p>
+                        <p class="text-sm text-slate-600">{{ ($isRestaurant ? \App\Models\MarketplaceReturn::FOOD_REASONS : \App\Models\MarketplaceReturn::REASONS)[$r->reason] ?? $r->reason }}: {{ $r->description }}</p>
                     </div>
-                    <span class="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-semibold">{{ ucfirst($r->status) }}</span>
+                    <span class="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-semibold">{{ $isRestaurant && $r->status === 'received' ? 'Accepted' : ucfirst($r->status) }}</span>
                 </div>
                 <div class="mt-2 flex gap-2">@foreach ($r->photoUrls() as $src)<a href="{{ $src }}" target="_blank" rel="noopener"><img src="{{ $src }}" alt="Return photo" class="h-16 w-16 rounded-lg object-cover"></a>@endforeach</div>
                 @if ($r->status === 'accepted' && $r->pickup_status === 'picked')
@@ -42,12 +42,17 @@
                 @elseif ($r->status === 'accepted')
                     <p class="mt-2 text-sm text-slate-700">Accepted by the {{ \App\Models\Setting::get('branding.platform_name', '1CallFix') }} team. When the item is back with you, confirm it.</p>
                     <x-ui.button class="mt-2" wire:click="receiveReturn({{ $r->id }})">Item received back</x-ui.button>
+                @elseif ($isRestaurant && $r->status === 'received')
+                    {{-- Food F4: nothing comes back; the refund is being approved. --}}
+                    <p class="mt-2 text-sm text-slate-700">Accepted by the {{ \App\Models\Setting::get('branding.platform_name', '1CallFix') }} team: {{ \App\Models\MarketplaceReturn::FAULTS[$r->fault] ?? '' }}. The refund is being approved.</p>
+                @elseif ($isRestaurant && $r->status === 'refunded')
+                    <p class="mt-2 text-sm text-slate-600">Refunded {{ $currencySymbol }}{{ number_format((float) $r->refund_amount, 2) }} ({{ \App\Models\MarketplaceReturn::FAULTS[$r->fault] ?? '' }}). Taken from this order's earnings: {{ $currencySymbol }}{{ number_format((float) $r->restaurant_paid, 2) }}.</p>
                 @elseif ($r->status === 'refunded')
                     <p class="mt-2 text-sm text-slate-600">Refunded {{ $currencySymbol }}{{ number_format((float) $r->refund_amount, 2) }}; your share of it was taken from this order's held earnings.</p>
                 @endif
             </x-ui.card>
         @empty
-            <x-ui.card><p class="text-sm text-slate-600">No returns.</p></x-ui.card>
+            <x-ui.card><p class="text-sm text-slate-600">{{ $isRestaurant ? 'No problems reported.' : 'No returns.' }}</p></x-ui.card>
         @endforelse
     @else
     @forelse ($orders as $order)

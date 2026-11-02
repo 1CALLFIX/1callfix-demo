@@ -72,7 +72,44 @@ class FoodSettings extends MarketplaceSettings
             'group' => 'Orders', 'label' => 'Most of one dish in a cart', 'type' => 'int', 'unit' => 'items', 'min' => 1, 'max' => 100,
             'default' => '20', 'help' => 'Dishes have no stock count. A restaurant can set a lower limit on a dish ("Limit per order").',
         ],
+        // ── problems & refunds (F4) ──
+        'food.issue_window_minutes' => [
+            'group' => 'Problems & refunds', 'label' => 'A customer can report a problem for', 'type' => 'int', 'unit' => 'minutes after delivery', 'min' => 15, 'max' => 1440,
+            'default' => '120', 'help' => 'Missing, wrong, spilled or poor-quality food. The restaurant is paid only after this time (and never while a problem is open), so its part of a refund can come out of its earnings.',
+        ],
+        'food.issue_photo_required' => [
+            'group' => 'Problems & refunds', 'label' => 'A photo is needed to report a problem', 'type' => 'switch',
+            'default' => '1', 'help' => 'On: the customer adds 1 to 3 photos of what arrived.',
+        ],
+        'food.fault_restaurant_percent' => [
+            'group' => 'Problems & refunds', 'label' => "Restaurant's fault: part of the refund the restaurant pays", 'type' => 'int', 'unit' => '%', 'min' => 0, 'max' => 100,
+            'default' => '100', 'help' => 'Missing or wrong item, poor quality, bad packing. Taken from the restaurant\'s held earnings for that order (never more than those); the platform pays the rest.',
+        ],
+        'food.fault_transit_percent' => [
+            'group' => 'Problems & refunds', 'label' => 'Damaged on the way: part of the refund the restaurant pays', 'type' => 'int', 'unit' => '%', 'min' => 0, 'max' => 100,
+            'default' => '0', 'help' => 'The platform pays the rest. The rider is never charged; the rider gets a strike instead.',
+        ],
+        'food.fault_unclear_percent' => [
+            'group' => 'Problems & refunds', 'label' => 'Cause not clear: part of the refund the restaurant pays', 'type' => 'int', 'unit' => '%', 'min' => 0, 'max' => 100,
+            'default' => '0', 'help' => 'The platform pays the rest.',
+        ],
+        'food.rider_strike_days' => [
+            'group' => 'Problems & refunds', 'label' => 'Count a rider\'s strikes over the last', 'type' => 'int', 'unit' => 'days', 'min' => 1, 'max' => 365,
+            'default' => '30', 'help' => 'A strike = a food problem found to be damaged on the way. Shown next to the rider\'s name in the problems queue.',
+        ],
     ];
+
+    /** Food F4: the restaurant's part of a refund for this fault, 0–100 (the platform pays the rest). */
+    public static function faultRestaurantPercent(string $fault, array $scope = []): int
+    {
+        $key = match ($fault) {
+            'restaurant' => 'food.fault_restaurant_percent',
+            'transit' => 'food.fault_transit_percent',
+            default => 'food.fault_unclear_percent',
+        };
+
+        return max(0, min(100, (int) static::get($key, $scope)));
+    }
 
     public const FOOD_TYPES = ['veg' => 'Veg', 'egg' => 'Egg', 'non_veg' => 'Non-veg'];
 
