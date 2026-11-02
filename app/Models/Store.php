@@ -47,6 +47,34 @@ class Store extends Model
         return $query->where('is_active', true)->where('approval_status', 'approved');
     }
 
+    /**
+     * City URL architecture (2026-11-01): what a public visitor may see. Sellable, and never a test shop (its seller
+     * signs in with an @1callfix.test email, see TestAccountsCommand) or a "[QA] ..." row on production. A signed-in
+     * test account still sees test shops, so the walk-through with the test logins keeps working on the live site.
+     */
+    public function scopePubliclyVisible($query, ?\App\Models\User $viewer = null)
+    {
+        $query->sellable()->when(\App\Support\Seo\QaRows::hiding(), fn ($q) => $q->where('name', 'not like', \App\Support\Seo\QaRows::LIKE));
+
+        return self::isTestViewer($viewer ?? auth()->user()) ? $query : $query->notTestShop();
+    }
+
+    /** Never a test shop, whoever is looking (search engines, sitemap). */
+    public function scopeNotTestShop($query)
+    {
+        return $query->whereDoesntHave('provider.user', fn ($q) => $q->where('email', 'like', '%'.\App\Console\Commands\TestAccountsCommand::DOMAIN));
+    }
+
+    public function isTestShop(): bool
+    {
+        return str_ends_with(strtolower((string) $this->provider?->user?->email), \App\Console\Commands\TestAccountsCommand::DOMAIN);
+    }
+
+    public static function isTestViewer(?\App\Models\User $viewer): bool
+    {
+        return $viewer !== null && str_ends_with(strtolower((string) $viewer->email), \App\Console\Commands\TestAccountsCommand::DOMAIN);
+    }
+
     public function isSellable(): bool
     {
         return $this->is_active && $this->approval_status === 'approved';

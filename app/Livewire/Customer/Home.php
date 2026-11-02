@@ -46,8 +46,12 @@ use Livewire\Component;
 class Home extends Component
 {
     use ResolvesCatalogContext;
+    use \App\Livewire\Customer\Shop\Concerns\AddsToShopCart;
 
     private const RAIL_LIMIT = 8;
+
+    /** Items in each homepage shop row (categories, shops, products). */
+    private const SHOP_ROW_LIMIT = 10;
     private const COLLECTION_CATEGORY_LIMIT = 4;
     private const COLLECTION_SERVICE_LIMIT = 4;
     private const FAQ_LIMIT = 6;
@@ -67,7 +71,9 @@ class Home extends Component
             'parcelFrom' => $parcelFrom = $parcelActive ? \App\Services\Parcel\ParcelSettings::get('parcel.base_fare', $parcelScope) : null,
             'doors' => $this->doors($parcelActive, $parcelFrom),
             'cards' => \App\Support\HomeLayout::shown('module_cards') ? $this->moduleCards($parcelActive, $parcelFrom, $parcelScope) : [],
-            'sections' => \App\Support\HomeLayout::visible(),
+            'sections' => $sections = \App\Support\HomeLayout::visible(),
+            'shop' => $shop = $this->shopRows($sections),
+            'inCart' => $shop['products']->isNotEmpty() ? $this->cartQuantities() : [],
             'heroBanners' => $this->bannersFor('top'),
             'midBanners' => $this->bannersFor('mid'),
             'categories' => $catalog->categories()->limit(\App\Support\SiteControls::categoryLimit())->get(),
@@ -100,7 +106,7 @@ class Home extends Component
         if (! \App\Support\HomeDoors::show()) {
             return [];
         }
-        $live = ['services' => ['url' => route('customer.categories.index'), 'count' => $this->catalog()->services()->count()]];
+        $live = ['services' => ['url' => \App\Support\Seo\PublicUrl::services(), 'count' => $this->catalog()->services()->count()]];
         if ($parcelActive) {
             $live['parcel'] = ['url' => route('customer.parcels.create'),
                 'price' => is_numeric($parcelFrom) && (float) $parcelFrom > 0 ? $this->presenter()->currencySymbol().rtrim(rtrim(number_format((float) $parcelFrom, 2), '0'), '.') : null];
@@ -122,9 +128,7 @@ class Home extends Component
 
     private function shopStores(\App\Models\City $city)
     {
-        return \App\Models\Store::query()->sellable()->where('module', \App\Support\Modules::COMMERCE)
-            ->whereHas('franchise', fn ($q) => $q->where('city_id', $city->id))
-            ->when(\App\Support\Seo\QaRows::hiding(), fn ($q) => $q->where('name', 'not like', \App\Support\Seo\QaRows::PREFIX.'%'));
+        return \App\Livewire\Customer\Shop\Home::publicStoresIn($city);
     }
 
     private function shopsOpen(\App\Models\City $city): int
@@ -196,17 +200,8 @@ class Home extends Component
         }
 
         if (($city = $this->shopCity()) && \App\Support\HomeCards::cardShown('shop')) {
-            // Top-level shop categories that have something sellable in this city (or under a child category).
-            $sellable = \App\Models\Product::query()->where('is_active', true)->where('is_approved', true)
-                ->whereHas('store', fn ($q) => $q->whereIn('stores.id', $this->shopStores($city)->select('stores.id')))
-                ->whereNotNull('marketplace_category_id')->distinct()->pluck('marketplace_category_id');
-            $parents = \App\Models\MarketplaceCategory::query()->whereIn('id', $sellable)->pluck('parent_id', 'id');
-            $topIds = $parents->map(fn ($parent, $id) => $parent ?: $id)->unique()->values();
-            $shopCats = \App\Models\MarketplaceCategory::query()->whereIn('id', $topIds)->where('is_active', true)
-                ->orderBy('position')->orderBy('name')->limit($n)->get();
-            $tiles = $shopCats->map(fn ($c) => ['name' => $c->name, 'url' => route('customer.shop.home', [$city->slug, 'category' => $c->slug]),
-                'image' => $c->image ? (\Illuminate\Support\Str::startsWith($c->image, ['http://', 'https://', '//']) ? $c->image : \Illuminate\Support\Facades\Storage::disk('public')->url($c->image)) : null,
-                'tint' => null, 'new' => $isNew($c)])->all();
+            $tiles = $this->shopCategories($city, $n)->map(fn ($c) => ['name' => $c->name, 'url' => route('customer.shop.home', [$city->slug, 'category' => $c->slug]),
+                'image' => self::shopCategoryImage($c), 'tint' => null, 'new' => $isNew($c)])->all();
             if ($tiles !== []) {
                 $open = $this->shopsOpen($city);
                 $cards[] = ['key' => 'shop', 'order' => \App\Support\HomeCards::cardOrder('shop'), 'title' => $text('home.card.shop.title'),
@@ -222,6 +217,63 @@ class Home extends Component
         usort($cards, fn ($a, $b) => [$a['order'], $a['key']] <=> [$b['order'], $b['key']]);
 
         return $cards;
+    }
+
+    /** Top-level shop categories that have something a visitor may buy in this city (or under a child category). */
+    private function shopCategories(\App\Models\City $city, int $limit): Collection
+    {
+        $sellable = \App\Models\Product::query()->where('is_active', true)->where('is_approved', true)
+            ->whereHas('store', fn ($q) => $q->whereIn('stores.id', $this->shopStores($city)->select('stores.id')))
+            ->whereNotNull('marketplace_category_id')->distinct()->pluck('marketplace_category_id');
+        $parents = \App\Models\MarketplaceCategory::query()->whereIn('id', $sellable)->pluck('parent_id', 'id');
+        $topIds = $parents->map(fn ($parent, $id) => $parent ?: $id)->unique()->values();
+
+        return \App\Models\MarketplaceCategory::query()->whereIn('id', $topIds)->where('is_active', true)
+            ->orderBy('position')->orderBy('name')->limit($limit)->get();
+    }
+
+    private static function shopCategoryImage(\App\Models\MarketplaceCategory $category): ?string
+    {
+        if (! $category->image) {
+            return null;
+        }
+
+        return \Illuminate\Support\Str::startsWith($category->image, ['http://', 'https://', '//'])
+            ? $category->image : \Illuminate\Support\Facades\Storage::disk('public')->url($category->image);
+    }
+
+    /**
+     * City URL architecture (2026-11-01): the homepage shop rows, like the service rows. Only where the shop is on in
+     * the visitor's city, only real shops (never a test or QA shop for a public visitor), and each row hides when it
+     * has nothing to show. On/off and order: Admin → Homepage sections; words: Website text & language.
+     *
+     * @return array{city: ?\App\Models\City, categories: Collection, stores: Collection, products: Collection}
+     */
+    private function shopRows(array $sections): array
+    {
+        $empty = ['city' => null, 'categories' => collect(), 'stores' => collect(), 'products' => collect()];
+        $wanted = array_intersect(['shop_categories', 'shops', 'shop_products'], $sections);
+        $city = $wanted ? $this->shopCity() : null;
+        if (! $city) {
+            return $empty;
+        }
+
+        return [
+            'city' => $city,
+            'categories' => in_array('shop_categories', $wanted, true)
+                ? $this->shopCategories($city, self::SHOP_ROW_LIMIT)->map(fn ($c) => ['name' => $c->name, 'image' => self::shopCategoryImage($c),
+                    'url' => route('customer.shop.home', [$city->slug, 'category' => $c->slug])])
+                : collect(),
+            'stores' => in_array('shops', $wanted, true)
+                ? $this->shopStores($city)->withCount(['products' => fn ($q) => $q->where('is_active', true)->where('is_approved', true)])
+                    ->whereHas('products', fn ($q) => $q->where('is_active', true)->where('is_approved', true))->orderByDesc('is_open')->orderBy('name')->limit(self::SHOP_ROW_LIMIT)->get()
+                : collect(),
+            'products' => in_array('shop_products', $wanted, true)
+                ? \App\Models\Product::query()->where('is_active', true)->where('is_approved', true)
+                    ->whereIn('store_id', $this->shopStores($city)->select('stores.id'))
+                    ->with('store:id,name,slug,is_open')->orderByRaw('stock > 0 desc')->latest('id')->limit(self::SHOP_ROW_LIMIT)->get()
+                : collect(),
+        ];
     }
 
     /**

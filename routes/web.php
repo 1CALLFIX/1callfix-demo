@@ -95,7 +95,11 @@ Route::post('/language/{locale}', \App\Http\Controllers\Customer\LanguageControl
  | with a "first match wins" lookup.
  */
 Route::get('/search', CustomerSearch::class)->name('customer.search');
-Route::get('/categories', CustomerCategoryIndex::class)->name('customer.categories.index');
+// City URL architecture: the city-less category list is the city's services page now (/{city}/services), so this
+// address sends the visitor there (or to the city chooser) instead of being a second copy of the same page.
+Route::get('/categories', fn (\Illuminate\Http\Request $request) => redirect()->to(
+    \App\Support\Seo\PublicUrl::keepingQueryOf(\App\Support\Seo\PublicUrl::services(), $request), 302,
+))->name('customer.categories.index');
 // F3: the city-less catalog URLs are permanent 301s to /{city}/{slug} (query string kept). The public pages
 // themselves live at the city-prefixed wildcards at the bottom of this file. Names kept for the shims.
 Route::get('/categories/{slug}', [LegacyCatalogRedirectController::class, 'category'])->name('customer.categories.show');
@@ -363,8 +367,14 @@ Route::get('/{city}/shop', \App\Livewire\Customer\Shop\Home::class)->where('city
 Route::get('/{city}/shop/{storeSlug}', \App\Livewire\Customer\Shop\StoreShow::class)->where(['city' => $cityPattern, 'storeSlug' => '[A-Za-z0-9_-]+'])->name('customer.shop.store');
 Route::get('/{city}/shop/{storeSlug}/{productSlug}', \App\Livewire\Customer\Shop\ProductShow::class)->where(['city' => $cityPattern, 'storeSlug' => '[A-Za-z0-9_-]+', 'productSlug' => '[A-Za-z0-9_-]+'])->name('customer.shop.product');
 
+// City URL architecture (2026-11-01): /{city} is the hub, each business has its own word after the city. The older
+// /{city}/{slug} catalog URL permanently 301s to /{city}/services/{slug}. Future words (food, grocery, pharmacy,
+// taxi, hotels, rentals) are reserved in App\Support\Seo\CityModules and 404 until they get a page.
+Route::get('/{city}/services', [CityRouteController::class, 'services'])->where('city', $cityPattern)->name('customer.city.services');
+Route::get('/{city}/services/{slug}', [CityRouteController::class, 'item'])->where(['city' => $cityPattern, 'slug' => '[A-Za-z0-9_-]+'])->name('customer.city.item');
+Route::get('/{city}/parcel', [CityRouteController::class, 'parcel'])->where('city', $cityPattern)->name('customer.city.parcel');
 Route::get('/{city}', [CityRouteController::class, 'city'])->where('city', $cityPattern)->name('customer.city.show');
-Route::get('/{city}/{slug}', [CityRouteController::class, 'item'])->where(['city' => $cityPattern, 'slug' => '[A-Za-z0-9_-]+'])->name('customer.city.item');
+Route::get('/{city}/{slug}', [CityRouteController::class, 'legacyItem'])->where(['city' => $cityPattern, 'slug' => '[A-Za-z0-9_-]+'])->name('customer.city.legacy');
 
 // REF 1CF-CMS-ROOT-PAGES-001 - CMS pages at the site root (1callfix.com/franchise). Fallback = only
 // when no other route matches, so it can never shadow a real page.

@@ -55,7 +55,7 @@ class OpenGraphCanonicalTest extends TestCase
     {
         Setting::set('seo.canonical_base_url', 'https://example.org');
         $service = $this->makeService($this->makeCategory(), ['name' => 'AC Repair']);
-        $path = '/nellore/'.$service->slug;
+        $path = '/nellore/services/'.$service->slug;
 
         foreach (['http://www.1callfix.com', 'https://api.1callfix.com', 'http://127.0.0.1:8000'] as $host) {
             $html = $this->get($host.$path.'?utm=1')->assertOk()->getContent();
@@ -89,7 +89,7 @@ class OpenGraphCanonicalTest extends TestCase
         $service = $this->makeService($category);
 
         foreach ([
-            '/', '/categories', '/nellore', '/nellore/'.$category->slug, '/services', '/nellore/'.$service->slug,
+            '/', '/nellore', '/nellore/services', '/nellore/services/'.$category->slug, '/services', '/nellore/services/'.$service->slug,
             '/help', '/how-it-works', '/partners',
         ] as $path) {
             $html = $this->get($path)->assertOk()->getContent();

@@ -73,9 +73,9 @@ class F3CleanSlugsCommandTest extends TestCase
         $this->assertSame('split-ac', $sub->fresh()->slug);
         $this->assertSame(1, SlugRedirect::where(['scope' => 'catalog', 'old_slug' => 'appliance-ac-repair-Bs7r'])->count());
 
-        $this->get('/nellore/appliance-ac-repair-Bs7r?utm_source=meta')
-            ->assertStatus(301)->assertRedirect(url('/nellore/appliance-ac-repair').'?utm_source=meta');
-        $this->get('/categories/appliance-ac-repair-Bs7r')->assertStatus(301)->assertRedirect(url('/nellore/appliance-ac-repair'));
+        $this->get('/nellore/services/appliance-ac-repair-Bs7r?utm_source=meta')
+            ->assertStatus(301)->assertRedirect(url('/nellore/services/appliance-ac-repair').'?utm_source=meta');
+        $this->get('/categories/appliance-ac-repair-Bs7r')->assertStatus(301)->assertRedirect(url('/nellore/services/appliance-ac-repair'));
     }
 
     public function test_apply_is_idempotent(): void
@@ -143,10 +143,10 @@ class F3CleanSlugsCommandTest extends TestCase
 
         // The owner deactivates the duplicate from the admin panel: its URL now 301s to the kept service.
         $second->update(['is_active' => false]);
-        $this->get('/nellore/refrigerator-fridge-service-2?utm_source=g')
-            ->assertStatus(301)->assertRedirect(url('/nellore/refrigerator-fridge-service').'?utm_source=g');
-        $this->get('/services/'.$second->id)->assertStatus(301)->assertRedirect(url('/nellore/refrigerator-fridge-service'));
-        $this->get('/nellore/refrigerator-fridge-service')->assertOk();
+        $this->get('/nellore/services/refrigerator-fridge-service-2?utm_source=g')
+            ->assertStatus(301)->assertRedirect(url('/nellore/services/refrigerator-fridge-service').'?utm_source=g');
+        $this->get('/services/'.$second->id)->assertStatus(301)->assertRedirect(url('/nellore/services/refrigerator-fridge-service'));
+        $this->get('/nellore/services/refrigerator-fridge-service')->assertOk();
     }
 
     public function test_keep_option_chooses_which_duplicate_keeps_the_slug(): void
@@ -162,7 +162,7 @@ class F3CleanSlugsCommandTest extends TestCase
         $this->assertSame('fridge-2', $first->fresh()->slug);
 
         $first->update(['is_active' => false]);
-        $this->get('/nellore/fridge-2')->assertStatus(301)->assertRedirect(url('/nellore/fridge'));
+        $this->get('/nellore/services/fridge-2')->assertStatus(301)->assertRedirect(url('/nellore/services/fridge'));
     }
 
     public function test_a_service_sharing_a_category_slug_is_reported_only(): void

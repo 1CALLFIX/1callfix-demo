@@ -20,7 +20,8 @@
             <div>
                 <label class="block text-sm font-medium mb-1">Page</label>
                 <select wire:model.live="subjectType" class="w-full border rounded px-3 py-2 text-sm">
-                    <option value="city">City page</option>
+                    {{-- City URL architecture 2026-11-01: this text shows on /{city}/services (the services list). --}}
+                    <option value="city">The city's services page (/city/services)</option>
                     <option value="category">A category page</option>
                     <option value="service">A service page</option>
                 </select>

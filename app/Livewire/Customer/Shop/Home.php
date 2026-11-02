@@ -73,7 +73,8 @@ class Home extends Component
         ])->layout('components.layouts.customer', [
             'title' => \App\Support\SiteText::get('shop.meta.title', ['city' => $this->shopCity->name]),
             'metaDescription' => \App\Support\SiteText::get('shop.meta.description', ['city' => $this->shopCity->name, 'brand' => Setting::get('branding.platform_name', '1CallFix')]),
-            'indexable' => $this->search === '' && $this->categorySlug === '',
+            // City URL architecture: indexed only unfiltered, and only with a real (non-test) product in the city.
+            'indexable' => $this->search === '' && $this->categorySlug === '' && app(\App\Services\Seo\CityPages::class)->shopIndexable($this->shopCity),
         ]);
     }
 }

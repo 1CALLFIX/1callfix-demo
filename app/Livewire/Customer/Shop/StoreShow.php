@@ -61,7 +61,8 @@ class StoreShow extends Component
             'title' => $this->store->name.' — shop in '.$this->shopCity->name,
             'metaDescription' => \Illuminate\Support\Str::limit($this->store->description ?: \App\Support\SiteText::get('shop.meta.store_description', ['shop' => $this->store->name, 'city' => $this->shopCity->name, 'brand' => Setting::get('branding.platform_name', '1CallFix')]), 155),
             'ogImage' => $this->store->logo_url,
-            'indexable' => true,
+            // City URL architecture: never a test shop or an empty one.
+            'indexable' => app(\App\Services\Seo\CityPages::class)->storeIndexable($this->store),
         ]);
     }
 }

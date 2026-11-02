@@ -8,6 +8,7 @@ use App\Models\ContentPage;
 use App\Models\Service;
 use App\Models\ServiceCategory;
 use App\Services\Seo\CityContext;
+use App\Services\Seo\CityPages;
 use App\Services\Seo\ProviderCoverage;
 use App\Support\Modules;
 use App\Support\Seo;
@@ -20,7 +21,7 @@ use Illuminate\Support\Facades\Cache;
  *
  *  /sitemap.xml            index: the static sitemap + one sitemap per LIVE city
  *  /sitemap-static.xml     storefront pages + published CMS pages (city-independent)
- *  /sitemap-{city}.xml     that city's page, and its categories and services that are real
+ *  /sitemap-{city}.xml     that city's hub, services, categories, services, shop and parcel pages that are real
  *
  * Every address is built on seo.canonical_base_url (never the request host). Only REAL pages are listed:
  * the city must be live (active + an active franchise), and a category/service needs at least
@@ -89,7 +90,6 @@ class SitemapController extends Controller
 
         $add($this->abs('/'), null, '1.0');
         $add($this->abs(route('customer.services.index', [], false)), null, '0.9');
-        $add($this->abs(route('customer.categories.index', [], false)), null, '0.9');
         $add($this->abs(route('customer.offers', [], false)), null, '0.6');
         $add($this->abs(route('customer.how-it-works', [], false)), null, '0.5');
         $add($this->abs(route('customer.help', [], false)), null, '0.5');
@@ -110,8 +110,14 @@ class SitemapController extends Controller
         return $this->urlset($urls);
     }
 
+    /**
+     * City URL architecture (2026-11-01): the hub, /services and its categories + services, /shop with its real
+     * shops and products, /parcel. Each only when CityPages says the page is real (the page says index on the
+     * same rule). Test shops, QA rows, unapproved sellers and inactive products are never listed.
+     */
     private function buildCity(City $city): string
     {
+        $pages = app(CityPages::class);
         $coverage = app(ProviderCoverage::class);
         $min = ProviderCoverage::minToIndex();
         $counts = $coverage->forCity($city);
@@ -121,15 +127,19 @@ class SitemapController extends Controller
             $urls[$loc] = ['lastmod' => $lastmod?->toAtomString(), 'priority' => $priority];
         };
 
-        if ($counts['total'] >= $min) {
+        if ($pages->hubIndexable($city)) {
             $add($this->abs('/'.$city->slug), $city->updated_at, '0.9');
+        }
+
+        if ($counts['total'] >= $min) {
+            $add($this->abs('/'.$city->slug.'/services'), $city->updated_at, '0.9');
         }
 
         ServiceCategory::query()->where('is_active', true)->where('module', Modules::SERVICE)
             ->where('name', 'not like', QaRows::LIKE)
             ->get(['id', 'slug', 'updated_at'])
             ->filter(fn ($c) => ($counts['byCategory'][$c->id] ?? 0) >= $min)
-            ->each(fn ($c) => $add($this->abs('/'.$city->slug.'/'.$c->slug), $c->updated_at, '0.8'));
+            ->each(fn ($c) => $add($this->abs('/'.$city->slug.'/services/'.$c->slug), $c->updated_at, '0.8'));
 
         Service::query()->where('is_active', true)
             ->where('name', 'not like', QaRows::LIKE)
@@ -137,7 +147,23 @@ class SitemapController extends Controller
                 ->where('name', 'not like', QaRows::LIKE))
             ->get()
             ->filter(fn ($s) => ($counts['byCategory'][$s->category_id] ?? 0) >= $min)
-            ->each(fn ($s) => $add($this->abs('/'.$city->slug.'/'.$s->slug), $s->updated_at, '0.7'));
+            ->each(fn ($s) => $add($this->abs('/'.$city->slug.'/services/'.$s->slug), $s->updated_at, '0.7'));
+
+        if ($pages->shopIndexable($city)) {
+            $add($this->abs('/'.$city->slug.'/shop'), null, '0.8');
+            $products = $pages->realProducts($city)->whereNotNull('slug')->get(['id', 'store_id', 'slug', 'updated_at'])->groupBy('store_id');
+            $pages->realStores($city)->whereIn('id', $products->keys())->get(['id', 'slug', 'updated_at'])
+                ->each(function ($store) use ($add, $city, $products) {
+                    $add($this->abs('/'.$city->slug.'/shop/'.$store->slug), $store->updated_at, '0.7');
+                    foreach ($products[$store->id] as $product) {
+                        $add($this->abs('/'.$city->slug.'/shop/'.$store->slug.'/'.$product->slug), $product->updated_at, '0.6');
+                    }
+                });
+        }
+
+        if ($pages->parcelIndexable($city)) {
+            $add($this->abs('/'.$city->slug.'/parcel'), null, '0.7');
+        }
 
         return $this->urlset($urls);
     }

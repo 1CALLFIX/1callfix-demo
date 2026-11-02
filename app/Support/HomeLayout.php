@@ -26,6 +26,10 @@ final class HomeLayout
         'module_cards' => 'Business cards (each business with its icons and offer line)',
         'new' => 'New & noteworthy',
         'most_booked' => 'Most booked services',
+        // City URL architecture (2026-11-01): the shop rows, only where the shop is on in the visitor's city.
+        'shop_categories' => 'Shop categories (icons)',
+        'shops' => 'Shops near you',
+        'shop_products' => 'Products from local shops',
         'mid_banner_1' => 'Middle banner 1',
         'collections' => 'Category rows of services',
         'mid_banner_2' => 'Middle banner 2',

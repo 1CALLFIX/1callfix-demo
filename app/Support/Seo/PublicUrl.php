@@ -11,7 +11,9 @@ use App\Services\Seo\CityContext;
  * F3: the ONE builder of public catalog URLs. Views, components, emails and the sitemap call this;
  * nothing hand-builds "/categories/..." or "/{city}/..." strings (see CLAUDE.md thumb rule on public links).
  *
- * Shape: /{city} and /{city}/{slug}. Absolute URLs, like route().
+ * Shape (city URL architecture, 2026-11-01): /{city} (hub), /{city}/services, /{city}/services/{slug},
+ * /{city}/shop, /{city}/parcel. The older /{city}/{slug} permanently 301s to /{city}/services/{slug}.
+ * Absolute URLs, like route().
  * When no city can be inferred (several live cities, visitor has not picked one) a link goes through the
  * chooser, which forwards to the same item once a city is picked.
  */
@@ -28,9 +30,23 @@ final class PublicUrl
         return $query === '' ? $url : $url.(str_contains($url, '?') ? '&' : '?').$query;
     }
 
+    /** The city hub: /{city}, the businesses live there. */
     public static function city(City $city): string
     {
         return url('/'.$city->slug);
+    }
+
+    /** /{city}/services, /{city}/shop, /{city}/parcel for an explicit city, else the inferred one, else the chooser. */
+    public static function section(string $segment, ?City $city = null): string
+    {
+        $city ??= app(CityContext::class)->current();
+
+        return $city ? url('/'.$city->slug.'/'.$segment) : route('customer.city.choose', ['to' => $segment]);
+    }
+
+    public static function services(?City $city = null): string
+    {
+        return self::section('services', $city);
     }
 
     /** @param array<string, scalar> $query extra query parameters (e.g. ['sub' => 3]) */
@@ -55,10 +71,10 @@ final class PublicUrl
         $city ??= app(CityContext::class)->current();
 
         if (! $city) {
-            return route('customer.city.choose', ['to' => $slug] + $query);
+            return route('customer.city.choose', ['to' => 'services/'.$slug] + $query);
         }
 
-        $url = url('/'.$city->slug.'/'.$slug);
+        $url = url('/'.$city->slug.'/services/'.$slug);
 
         return $query === [] ? $url : $url.'?'.http_build_query($query);
     }

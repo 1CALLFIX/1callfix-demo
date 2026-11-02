@@ -51,9 +51,9 @@ class F3CityContentTest extends TestCase
         }
 
         foreach ([
-            '/nellore' => ['Nellore Hub', 'Meta for the city', 'Welcome to Nellore.'],
-            '/nellore/ac-repair' => ['AC Repair in Nellore', 'Meta for AC', 'Cool homes since 2020.'],
-            '/nellore/gas-refill' => ['Gas Refill Nellore', 'Meta for gas', 'We refill all brands.'],
+            '/nellore/services' => ['Nellore Hub', 'Meta for the city', 'Welcome to Nellore.'],
+            '/nellore/services/ac-repair' => ['AC Repair in Nellore', 'Meta for AC', 'Cool homes since 2020.'],
+            '/nellore/services/gas-refill' => ['Gas Refill Nellore', 'Meta for gas', 'We refill all brands.'],
         ] as $path => [$title, $meta, $intro]) {
             $html = $this->get($path)->assertOk()->getContent();
             $this->assertStringContainsString('<title>'.$title.' ', $html, $path);
@@ -74,8 +74,8 @@ class F3CityContentTest extends TestCase
             ->set('cityId', $nellore->id)->set('subjectType', 'category')->set('subjectId', \App\Models\ServiceCategory::first()->id)
             ->set('intro', 'Nellore only.')->call('save');
 
-        $this->get('/nellore/ac-repair')->assertSee('Nellore only.');
-        $this->get('/guntur/ac-repair')->assertDontSee('Nellore only.');
+        $this->get('/nellore/services/ac-repair')->assertSee('Nellore only.');
+        $this->get('/guntur/services/ac-repair')->assertDontSee('Nellore only.');
     }
 
     public function test_a_franchise_scoped_holder_edits_only_their_own_city(): void
@@ -142,6 +142,6 @@ class F3CityContentTest extends TestCase
         Livewire::actingAs($admin)->test(CityContent::class)
             ->set('cityId', $city->id)->set('title', '')->set('intro', '')->call('save')->assertHasNoErrors();
 
-        $this->get('/nellore')->assertSeeText('Home services in Nellore');
+        $this->get('/nellore/services')->assertSeeText('Home services in Nellore');
     }
 }

@@ -109,7 +109,7 @@
                         @php
                             $menu = [
                                 [$t('header.menu.services'), route('customer.services.index')],
-                                [$t('header.menu.categories'), route('customer.categories.index')],
+                                [$t('header.menu.categories'), \App\Support\Seo\PublicUrl::services()],
                             ];
                             // E-commerce Phase 2: the shop of the customer's current city, only where Commerce is on there.
                             $shopCity = app(\App\Services\Seo\CityContext::class)->current();

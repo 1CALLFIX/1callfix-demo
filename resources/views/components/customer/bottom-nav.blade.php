@@ -16,7 +16,9 @@
         : ['label' => $t('nav.search'), 'route' => 'customer.search', 'param' => null, 'icon' => 'magnifying-glass'];
     $items = [
         ['label' => $t('nav.home'), 'route' => 'customer.home', 'param' => null, 'icon' => 'home'],
-        ['label' => $t('nav.services'), 'route' => 'customer.categories.index', 'param' => null, 'icon' => 'wrench'],
+        $shopCity
+            ? ['label' => $t('nav.services'), 'route' => 'customer.city.services', 'param' => $shopCity->slug, 'icon' => 'wrench']
+            : ['label' => $t('nav.services'), 'route' => 'customer.categories.index', 'param' => null, 'icon' => 'wrench'],
         $third,
         ['label' => $t('nav.orders'), 'route' => auth()->check() ? 'customer.orders.index' : 'customer.login', 'param' => null, 'icon' => 'clipboard'],
         ['label' => $t('nav.account'), 'route' => auth()->check() ? 'customer.account' : 'customer.login', 'param' => null, 'icon' => 'users'],

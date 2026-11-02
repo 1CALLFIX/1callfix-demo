@@ -46,7 +46,8 @@ class ProductShow extends Component
             'title' => $this->product->name.' — '.$this->store->name,
             'metaDescription' => \Illuminate\Support\Str::limit($this->product->description ?: $this->product->name.' from '.$this->store->name.', '.$this->shopCity->name.'.', 155),
             'ogImage' => $this->product->image_urls[0] ?? null,
-            'indexable' => true,
+            // City URL architecture: never a product of a test or QA shop.
+            'indexable' => ! $this->store->isTestShop() && ! \App\Support\Seo\QaRows::isQaName($this->store->name),
             'schema' => [[
                 '@context' => 'https://schema.org', '@type' => 'Product', 'name' => $this->product->name,
                 'image' => $this->product->image_urls, 'description' => (string) $this->product->description,

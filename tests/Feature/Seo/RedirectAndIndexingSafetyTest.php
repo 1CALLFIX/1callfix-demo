@@ -146,13 +146,14 @@ class RedirectAndIndexingSafetyTest extends TestCase
     {
         $category = $this->makeCategory();
         $service = $this->makeService($category);
-        $slug = '/nellore/'.$category->slug;
-        $item = '/nellore/'.$service->slug;
+        $slug = '/nellore/services/'.$category->slug;
+        $item = '/nellore/services/'.$service->slug;
 
         $matrix = [
             // uri => [robots, canonical]. A noindex variant deliberately emits NO canonical (noindex + canonical send mixed signals).
             '/' => ['index, follow', self::BASE.'/'],
             '/nellore' => ['index, follow', self::BASE.'/nellore'],
+            '/nellore/services' => ['index, follow', self::BASE.'/nellore/services'],
             $slug => ['index, follow', self::BASE.$slug],
             $item => ['index, follow', self::BASE.$item],
             '/services' => ['index, follow', self::BASE.'/services'],
@@ -184,9 +185,9 @@ class RedirectAndIndexingSafetyTest extends TestCase
         $this->makeService($category);
 
         // Clean slug page exists and is indexable.
-        $this->get('/nellore/'.$category->slug)->assertOk();
+        $this->get('/nellore/services/'.$category->slug)->assertOk();
         // The filter URL is the same list narrowed, never the only address of the category.
         $this->get('/services?category='.$category->id)->assertOk();
-        $this->assertStringContainsString('/nellore/'.$category->slug, $this->get('/categories')->getContent());
+        $this->assertStringContainsString('/nellore/services/'.$category->slug, $this->get('/nellore/services')->getContent());
     }
 }

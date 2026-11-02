@@ -45,10 +45,12 @@ class SitemapTest extends TestCase
 
         $xml = $this->get('/sitemap-static.xml')->assertOk()->getContent();
 
-        foreach (['/', '/services', '/categories', '/franchise', '/privacy'] as $path) {
+        foreach (['/', '/services', '/franchise', '/privacy'] as $path) {
             $this->assertStringContainsString('<loc>'.rtrim(self::BASE.$path, '/').($path === '/' ? '/' : '').'</loc>', $xml, $path);
         }
 
+        // City URL architecture: /categories redirects to the city's /services page, so it is not listed.
+        $this->assertStringNotContainsString(self::BASE.'/categories', $xml);
         $this->assertStringNotContainsString('draft-page', $xml);
         $this->assertStringNotContainsString('/admin', $xml);
         $this->assertSame(1, substr_count($xml, '<loc>'.self::BASE.'/privacy</loc>'), 'privacy listed once');

@@ -37,6 +37,7 @@ final class SiteText
         'shop' => 'Shop',
         'shop_checkout' => 'Shop checkout',
         'shop_order' => 'Shop orders & returns',
+        'city' => 'City pages',
     ];
 
     /** @var array<string, array{0: string, 1: string, 2: string, 3: string}> */
@@ -366,6 +367,28 @@ final class SiteText
         'shop.meta.title' => ['shop', 'Shop front: browser title (:city)', 'Shop local in :city', ':city లో స్థానికంగా కొనండి'],
         'shop.meta.description' => ['shop', 'Shop front: search-engine description (:city, :brand)', 'Order from local shops in :city on :brand — delivered by our riders or ready for pickup.', ':brand లో :city స్థానిక షాపుల నుండి ఆర్డర్ చేయండి — మా రైడర్లు డెలివరీ చేస్తారు లేదా మీరే తీసుకోండి.'],
         'shop.meta.store_description' => ['shop', 'Shop page: search-engine description when the shop has none (:shop, :city, :brand)', 'Order from :shop in :city on :brand.', ':brand లో :city లోని :shop నుండి ఆర్డర్ చేయండి.'],
+
+        // City URL architecture (2026-11-01): the homepage shop rows.
+        'home.shop_categories.title' => ['home', 'Shop categories row: heading', 'Shop by category', 'విభాగాల వారీగా కొనండి'],
+        'home.shops.title' => ['home', 'Shops row: heading', 'Shops near you', 'మీ దగ్గరి షాపులు'],
+        'home.shops.line' => ['home', 'Shops row: line (:city)', 'Local shops in :city, delivered by our riders.', ':city లోని స్థానిక షాపులు, మా రైడర్లు డెలివరీ చేస్తారు.'],
+        'home.shop_products.title' => ['home', 'Shop products row: heading', 'From local shops', 'స్థానిక షాపుల నుండి'],
+        'home.shop_products.line' => ['home', 'Shop products row: line (:city)', 'Order today from shops in :city.', ':city లోని షాపుల నుండి ఈరోజే ఆర్డర్ చేయండి.'],
+
+        // City URL architecture (2026-11-01): /{city}, /{city}/services and /{city}/parcel.
+        'city.crumb_home' => ['city', 'Breadcrumb: home', 'Home', 'హోమ్'],
+        'city.crumb_services' => ['city', 'Breadcrumb: services', 'Services', 'సేవలు'],
+        'city.crumb_parcel' => ['city', 'Breadcrumb: parcel', 'Parcel', 'పార్సిల్'],
+        'city.hub.title' => ['city', 'City hub: heading (:brand, :city)', ':brand in :city', ':city లో :brand'],
+        'city.hub.intro' => ['city', 'City hub: line under the heading (:city)', 'Everything we do in :city, in one place.', ':city లో మేము చేసేవన్నీ, ఒకే చోట.'],
+        'city.hub.meta' => ['city', 'City hub: search-engine description (:brand, :city)', 'Home services, local shops and parcel delivery in :city with :brand.', ':brand తో :city లో ఇంటి సేవలు, స్థానిక షాపులు మరియు పార్సిల్ డెలివరీ.'],
+        'city.hub.empty' => ['city', 'City hub: nothing live yet (:city)', 'We are getting ready in :city. Please check back soon.', ':city లో మేము సిద్ధమవుతున్నాం. త్వరలో మళ్ళీ చూడండి.'],
+        'city.parcel.title' => ['city', 'Parcel page: heading (:city)', 'Parcel delivery in :city', ':city లో పార్సిల్ డెలివరీ'],
+        'city.parcel.intro' => ['city', 'Parcel page: line under the heading (:brand, :city)', 'A :brand rider picks it up and drops it anywhere in :city. Track it live.', ':brand రైడర్ తీసుకుని :city లో ఎక్కడికైనా అందిస్తారు. లైవ్‌గా ట్రాక్ చేయండి.'],
+        'city.parcel.from' => ['city', 'Parcel page: starting price (:price)', 'From :price', ':price నుండి'],
+        'city.parcel.send' => ['city', 'Parcel page: send button', 'Send a parcel', 'పార్సిల్ పంపండి'],
+        'city.parcel.mine' => ['city', 'Parcel page: my parcels link', 'My parcels', 'నా పార్సిల్స్'],
+        'city.parcel.meta' => ['city', 'Parcel page: search-engine description (:city, :brand)', 'Send keys, documents, lunch boxes and more across :city with :brand. Live tracking, OTP at drop.', ':brand తో :city లో తాళాలు, పత్రాలు, లంచ్ బాక్స్‌లు మరియు మరెన్నో పంపండి. లైవ్ ట్రాకింగ్, డ్రాప్ వద్ద OTP.'],
     ];
 
     /** Old Homepage & sign-up setting key => entry here (that field stays the English value). */

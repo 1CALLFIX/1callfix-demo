@@ -55,6 +55,12 @@
         @include('livewire.customer.partials.home-hero-banner')
         @break
 
+    @case('shop_categories')
+    @case('shops')
+    @case('shop_products')
+        @include('livewire.customer.partials.home-shop-rows', ['row' => $section])
+        @break
+
     @case('module_cards')
         @if ($cards)
             @include('livewire.customer.partials.home-cards')

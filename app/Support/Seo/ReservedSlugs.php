@@ -23,7 +23,8 @@ final class ReservedSlugs
     /** @return list<string> */
     public static function all(): array
     {
-        $words = self::FIXED;
+        // City URL architecture: /{city}/services, /shop, /parcel and the future business words are never a slug.
+        $words = array_merge(self::FIXED, CityModules::segments());
 
         foreach (Route::getRoutes() as $route) {
             $first = explode('/', trim($route->uri(), '/'))[0] ?? '';

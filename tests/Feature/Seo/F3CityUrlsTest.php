@@ -26,7 +26,8 @@ use Tests\Feature\Support\WithLegacyWalletPayments;
 use Tests\TestCase;
 
 /**
- * F3 - the public catalog lives at /{city} and /{city}/{slug}; every old shape 301s to it with the query kept.
+ * F3 - the public catalog lives at /{city}/services and /{city}/services/{slug} (city URL architecture 2026-11-01);
+ * every old shape 301s to it with the query kept.
  */
 class F3CityUrlsTest extends TestCase
 {
@@ -61,9 +62,9 @@ class F3CityUrlsTest extends TestCase
         $this->assertSame('ac-repair', $category->slug);
         $this->assertSame('gas-refill', $service->slug);
 
-        $this->get('/nellore')->assertOk()->assertSeeText('Home services in Nellore')->assertSeeText('AC Repair');
-        $this->get('/nellore/ac-repair')->assertOk()->assertSeeText('AC Repair');
-        $this->get('/nellore/gas-refill')->assertOk()->assertSeeText('Gas Refill');
+        $this->get('/nellore/services')->assertOk()->assertSeeText('Home services in Nellore')->assertSeeText('AC Repair');
+        $this->get('/nellore/services/ac-repair')->assertOk()->assertSeeText('AC Repair');
+        $this->get('/nellore/services/gas-refill')->assertOk()->assertSeeText('Gas Refill');
     }
 
     public function test_generated_links_use_the_city_prefix(): void
@@ -72,12 +73,12 @@ class F3CityUrlsTest extends TestCase
         $category = $this->category('AC Repair');
         $service = $this->makeService($category, ['slug' => null, 'name' => 'Gas Refill']);
 
-        $this->assertSame(url('/nellore/ac-repair'), PublicUrl::category($category));
-        $this->assertSame(url('/nellore/gas-refill'), PublicUrl::service($service));
+        $this->assertSame(url('/nellore/services/ac-repair'), PublicUrl::category($category));
+        $this->assertSame(url('/nellore/services/gas-refill'), PublicUrl::service($service));
         $this->assertSame(url('/nellore'), PublicUrl::city($city));
-        $this->assertSame(url('/nellore/ac-repair?sub=3'), PublicUrl::category($category, null, ['sub' => 3]));
+        $this->assertSame(url('/nellore/services/ac-repair?sub=3'), PublicUrl::category($category, null, ['sub' => 3]));
 
-        $this->get('/')->assertOk()->assertSee(url('/nellore/ac-repair'), false);
+        $this->get('/')->assertOk()->assertSee(url('/nellore/services/ac-repair'), false);
     }
 
     public function test_a_bare_catalog_slug_is_not_a_public_page(): void
@@ -96,7 +97,7 @@ class F3CityUrlsTest extends TestCase
         $this->get('/franchise')->assertOk()->assertSeeText('Franchise');
         $this->get('/no-such-thing')->assertNotFound();
         $this->get('/no-such/thing')->assertNotFound();
-        $this->get('/nellore/no-such-item')->assertNotFound();
+        $this->get('/nellore/services/no-such-item')->assertNotFound();
         $this->get('/up')->assertOk();
         $this->get('/login')->assertOk();
     }
@@ -117,7 +118,9 @@ class F3CityUrlsTest extends TestCase
         $city->update(['is_active' => false]);
 
         $this->get('/guntur')->assertNotFound();
+        $this->get('/guntur/services')->assertNotFound();
         $this->get('/guntur/ac-repair')->assertNotFound();
+        $this->get('/guntur/services/ac-repair')->assertNotFound();
     }
 
     public function test_city_without_an_active_franchise_has_no_public_pages(): void
@@ -128,6 +131,7 @@ class F3CityUrlsTest extends TestCase
 
         $this->get('/kurnool')->assertNotFound();
         $this->get('/kurnool/ac-repair')->assertNotFound();
+        $this->get('/kurnool/services/ac-repair')->assertNotFound();
     }
 
     public function test_an_inactive_item_is_a_404_even_in_a_live_city(): void
@@ -136,6 +140,7 @@ class F3CityUrlsTest extends TestCase
         $category = $this->category('AC Repair');
         $this->makeService($category, ['slug' => 'old-service', 'is_active' => false]);
 
+        $this->get('/nellore/services/old-service')->assertNotFound();
         $this->get('/nellore/old-service')->assertNotFound();
     }
 
@@ -148,7 +153,7 @@ class F3CityUrlsTest extends TestCase
 
         $this->get('/categories/'.$category->slug.'?utm_source=meta&utm_medium=paid&utm_campaign=ac_oct26&z=%20a')
             ->assertStatus(301)
-            ->assertRedirect(url('/nellore/ac-repair').'?utm_source=meta&utm_medium=paid&utm_campaign=ac_oct26&z=%20a');
+            ->assertRedirect(url('/nellore/services/ac-repair').'?utm_source=meta&utm_medium=paid&utm_campaign=ac_oct26&z=%20a');
     }
 
     public function test_legacy_service_urls_by_id_and_slug_301(): void
@@ -156,8 +161,8 @@ class F3CityUrlsTest extends TestCase
         $this->liveCity('Nellore');
         $service = $this->makeService($this->category('AC Repair'), ['slug' => null, 'name' => 'Gas Refill']);
 
-        $this->get('/services/'.$service->id.'?utm_source=g')->assertStatus(301)->assertRedirect(url('/nellore/gas-refill').'?utm_source=g');
-        $this->get('/services/gas-refill')->assertStatus(301)->assertRedirect(url('/nellore/gas-refill'));
+        $this->get('/services/'.$service->id.'?utm_source=g')->assertStatus(301)->assertRedirect(url('/nellore/services/gas-refill').'?utm_source=g');
+        $this->get('/services/gas-refill')->assertStatus(301)->assertRedirect(url('/nellore/services/gas-refill'));
         $this->get('/services/999999')->assertNotFound();
         $this->get('/categories/nope')->assertNotFound();
     }
@@ -170,18 +175,18 @@ class F3CityUrlsTest extends TestCase
 
         $this->get('/categories/'.$category->slug.'?utm_source=meta')
             ->assertStatus(301)
-            ->assertRedirect(route('customer.city.choose', ['to' => 'ac-repair']).'&utm_source=meta');
+            ->assertRedirect(route('customer.city.choose', ['to' => 'services/ac-repair']).'&utm_source=meta');
 
         $html = $this->get('/choose-city?to=ac-repair&utm_source=meta')->assertOk()->getContent();
-        $this->assertStringContainsString('/nellore/ac-repair?utm_source=meta', $html);
-        $this->assertStringContainsString('/guntur/ac-repair?utm_source=meta', $html);
+        $this->assertStringContainsString('/nellore/services/ac-repair?utm_source=meta', $html);
+        $this->assertStringContainsString('/guntur/services/ac-repair?utm_source=meta', $html);
     }
 
     public function test_the_chooser_skips_itself_when_only_one_city_is_live(): void
     {
         $this->liveCity('Nellore');
 
-        $this->get('/choose-city?to=ac-repair&utm_source=meta')->assertRedirect(url('/nellore/ac-repair').'?utm_source=meta');
+        $this->get('/choose-city?to=ac-repair&utm_source=meta')->assertRedirect(url('/nellore/services/ac-repair').'?utm_source=meta');
     }
 
     public function test_the_visitors_own_city_wins_over_the_chooser(): void
@@ -194,7 +199,7 @@ class F3CityUrlsTest extends TestCase
         $this->withSession([\App\Services\Customer\CustomerLocationContext::SESSION_KEY => $zone->id])
             ->get('/categories/'.$category->slug)
             ->assertStatus(301)
-            ->assertRedirect(url('/guntur/ac-repair'));
+            ->assertRedirect(url('/guntur/services/ac-repair'));
     }
 
     public function test_visiting_a_city_url_points_the_session_zone_at_that_city(): void
@@ -203,7 +208,7 @@ class F3CityUrlsTest extends TestCase
         $guntur = $this->liveCity('Guntur');
         $this->category('AC Repair');
 
-        $this->get('/guntur/ac-repair')->assertOk();
+        $this->get('/guntur/services/ac-repair')->assertOk();
 
         $zone = app(\App\Services\Customer\CustomerLocationContext::class)->zone();
         $this->assertSame($guntur->id, $zone->franchise->city_id);
@@ -221,10 +226,10 @@ class F3CityUrlsTest extends TestCase
         SlugManager::change($category, 'ac-service', $admin);
         SlugManager::change($category->refresh(), 'cooling', $admin);
 
-        $this->get('/nellore/ac-repair?utm_source=x')->assertStatus(301)->assertRedirect(url('/nellore/cooling').'?utm_source=x');
-        $this->get('/nellore/ac-service')->assertStatus(301)->assertRedirect(url('/nellore/cooling'));
-        $this->get('/nellore/cooling')->assertOk();
-        $this->get('/categories/ac-repair')->assertStatus(301)->assertRedirect(url('/nellore/cooling'));
+        $this->get('/nellore/services/ac-repair?utm_source=x')->assertStatus(301)->assertRedirect(url('/nellore/services/cooling').'?utm_source=x');
+        $this->get('/nellore/services/ac-service')->assertStatus(301)->assertRedirect(url('/nellore/services/cooling'));
+        $this->get('/nellore/services/cooling')->assertOk();
+        $this->get('/categories/ac-repair')->assertStatus(301)->assertRedirect(url('/nellore/services/cooling'));
     }
 
     public function test_old_city_slug_301s_to_the_new_city_url_keeping_the_rest_of_the_path(): void
@@ -236,8 +241,8 @@ class F3CityUrlsTest extends TestCase
         SlugManager::change($city, 'nellore-city', $admin);
 
         $this->get('/nellore?utm_source=x')->assertStatus(301)->assertRedirect(url('/nellore-city').'?utm_source=x');
-        $this->get('/nellore/ac-repair?utm_source=x')->assertStatus(301)->assertRedirect(url('/nellore-city/ac-repair').'?utm_source=x');
-        $this->get('/nellore-city/ac-repair')->assertOk();
+        $this->get('/nellore/services/ac-repair?utm_source=x')->assertStatus(301)->assertRedirect(url('/nellore-city/services/ac-repair').'?utm_source=x');
+        $this->get('/nellore-city/services/ac-repair')->assertOk();
     }
 
     public function test_deactivated_duplicate_service_url_301s_to_the_kept_service(): void
@@ -252,14 +257,14 @@ class F3CityUrlsTest extends TestCase
         SlugManager::redirectTo($dupe, $kept);
 
         // While the duplicate is still active its own URL serves it.
-        $this->get('/nellore/refrigerator-fridge-service-2')->assertOk();
+        $this->get('/nellore/services/refrigerator-fridge-service-2')->assertOk();
 
         $dupe->update(['is_active' => false]);
 
-        $this->get('/nellore/refrigerator-fridge-service-2?utm_source=g')
-            ->assertStatus(301)->assertRedirect(url('/nellore/refrigerator-fridge-service').'?utm_source=g');
-        $this->get('/services/'.$dupe->id)->assertStatus(301)->assertRedirect(url('/nellore/refrigerator-fridge-service'));
-        $this->get('/nellore/refrigerator-fridge-service')->assertOk();
+        $this->get('/nellore/services/refrigerator-fridge-service-2?utm_source=g')
+            ->assertStatus(301)->assertRedirect(url('/nellore/services/refrigerator-fridge-service').'?utm_source=g');
+        $this->get('/services/'.$dupe->id)->assertStatus(301)->assertRedirect(url('/nellore/services/refrigerator-fridge-service'));
+        $this->get('/nellore/services/refrigerator-fridge-service')->assertOk();
     }
 
     // ---------------------------------------------------------------- QA rows
@@ -274,20 +279,20 @@ class F3CityUrlsTest extends TestCase
 
         // Hiding on (production default): 404 everywhere, including a normal-named service inside a QA category.
         config(['seo.hide_qa_rows' => true]);
-        $this->get('/nellore/qa-plumbing')->assertNotFound();
-        $this->get('/nellore/qa-tap-fix')->assertNotFound();
-        $this->get('/nellore/fine-name')->assertNotFound();
-        $this->get('/nellore')->assertOk()->assertDontSeeText('[QA] Plumbing')->assertSeeText('Real Cat');
+        $this->get('/nellore/services/qa-plumbing')->assertNotFound();
+        $this->get('/nellore/services/qa-tap-fix')->assertNotFound();
+        $this->get('/nellore/services/fine-name')->assertNotFound();
+        $this->get('/nellore/services')->assertOk()->assertDontSeeText('[QA] Plumbing')->assertSeeText('Real Cat');
 
         // Hiding off (QA / staging): reachable, but NEVER indexable and never in a sitemap.
         config(['seo.hide_qa_rows' => false]);
-        $this->get('/nellore/qa-plumbing')->assertOk()->assertSee('noindex', false);
-        $this->get('/nellore/qa-tap-fix')->assertOk()->assertSee('noindex', false);
+        $this->get('/nellore/services/qa-plumbing')->assertOk()->assertSee('noindex', false);
+        $this->get('/nellore/services/qa-tap-fix')->assertOk()->assertSee('noindex', false);
 
         $xml = $this->get('/sitemap-nellore.xml')->assertOk()->getContent();
         $this->assertStringNotContainsString('qa-', $xml);
         $this->assertStringNotContainsString('fine-name', $xml);
-        $this->assertStringContainsString('/nellore/real-cat', $xml);
+        $this->assertStringContainsString('/nellore/services/real-cat', $xml);
         $this->assertNotNull($real);
         $this->assertNotNull($qaService);
         $this->assertNotNull($realInQa);
@@ -331,7 +336,7 @@ class F3CityUrlsTest extends TestCase
 
         // Before the clean-up the ad link already lands on the city URL of the (still suffixed) slug.
         $this->get('/categories/appliance-ac-repair-Bs7r'.$query)
-            ->assertStatus(301)->assertRedirect(url('/nellore/appliance-ac-repair-Bs7r').$query);
+            ->assertStatus(301)->assertRedirect(url('/nellore/services/appliance-ac-repair-Bs7r').$query);
 
         // Owner runs the clean-up, then sets the AC category slug from the admin screen.
         Artisan::call('catalog:clean-slugs', ['--apply' => true]);
@@ -342,10 +347,10 @@ class F3CityUrlsTest extends TestCase
         Cache::flush();
         $this->flushSession();
         $this->get('/categories/appliance-ac-repair-Bs7r'.$query)
-            ->assertStatus(301)->assertRedirect(url('/nellore/ac-repair').$query);
+            ->assertStatus(301)->assertRedirect(url('/nellore/services/ac-repair').$query);
 
         // Follow it like a browser would; the page renders and the first touch is on the session.
-        $this->get('/nellore/ac-repair'.$query)->assertOk();
+        $this->get('/nellore/services/ac-repair'.$query)->assertOk();
         $acq = session(CaptureAcquisition::SESSION_KEY);
         $this->assertSame('meta', $acq['utm_source']);
         $this->assertSame('paid', $acq['utm_medium']);
@@ -380,7 +385,7 @@ class F3CityUrlsTest extends TestCase
         $this->liveCity('Nellore');
         $this->category('AC Repair');
 
-        $this->get('/nellore/ac-repair')->assertOk();
+        $this->get('/nellore/services/ac-repair')->assertOk();
 
         $this->assertNull(session(CaptureAcquisition::SESSION_KEY));
     }

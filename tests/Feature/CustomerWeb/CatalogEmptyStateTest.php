@@ -38,13 +38,18 @@ class CatalogEmptyStateTest extends TestCase
     {
         foreach ([
             'customer.home',
-            'customer.categories.index',
             'customer.services.index',
             'customer.offers',
             'customer.search',
         ] as $route) {
             $this->get(route($route))->assertOk();
         }
+
+        // City URL architecture: /categories now sends the visitor to the city's services page; the hub and that page
+        // render against an empty catalog too.
+        $this->get(route('customer.categories.index'))->assertRedirect(\App\Support\Seo\PublicUrl::services());
+        $this->get(\App\Support\Seo\PublicUrl::services())->assertOk();
+        $this->get(\App\Support\Seo\PublicUrl::city(\App\Models\City::query()->firstOrFail()))->assertOk();
     }
 
     public function test_the_homepage_says_so_when_no_category_is_published(): void

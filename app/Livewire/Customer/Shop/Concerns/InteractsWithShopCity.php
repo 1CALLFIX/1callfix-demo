@@ -4,11 +4,9 @@ namespace App\Livewire\Customer\Shop\Concerns;
 
 use App\Models\City;
 use App\Models\Store;
-use App\Services\ModuleActivationService;
 use App\Services\Seo\CityContext;
 use App\Services\Slug\SlugManager;
 use App\Support\Modules;
-use App\Support\Seo\QaRows;
 
 /**
  * E-commerce Phase 2 — the public shop pages live under the city (link rule: /{city}/shop, /{city}/shop/{shop},
@@ -43,21 +41,22 @@ trait InteractsWithShopCity
     public static function shopLiveIn(City $city): bool
     {
         // Commerce can be switched on per city or per franchise (Admin → Modules): live if any franchise here has it.
-        $activation = app(ModuleActivationService::class);
-        foreach (\App\Models\Franchise::where('city_id', $city->id)->where('status', 'active')->pluck('id') as $franchiseId) {
-            if ($activation->isActive(Modules::COMMERCE, array_filter(['franchise_id' => $franchiseId, 'city_id' => $city->id, 'country_id' => $city->country_id]))) {
-                return true;
-            }
-        }
-
-        return false;
+        return \App\Support\Seo\CityModules::shopLiveIn($city);
     }
 
-    /** Approved, active Commerce shops in this city (QA shops hidden on production). */
+    /** Approved, active Commerce shops in this city that a visitor may see. */
     protected function cityStores()
     {
-        return Store::query()->sellable()->where('module', Modules::COMMERCE)
-            ->whereHas('franchise', fn ($q) => $q->where('city_id', $this->shopCity->id))
-            ->when(QaRows::hiding(), fn ($q) => $q->where('name', 'not like', QaRows::PREFIX.'%'));
+        return self::publicStoresIn($this->shopCity);
+    }
+
+    /**
+     * City URL architecture: sellable, never a test shop or a QA shop on production. A signed-in test account still
+     * sees test shops so the walk-through with the test logins works on the live site.
+     */
+    public static function publicStoresIn(City $city)
+    {
+        return Store::query()->publiclyVisible()->where('module', Modules::COMMERCE)
+            ->whereHas('franchise', fn ($q) => $q->where('city_id', $city->id));
     }
 }

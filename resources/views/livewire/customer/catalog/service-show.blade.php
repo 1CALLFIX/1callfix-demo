@@ -15,7 +15,7 @@
     <div class="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
         <x-customer.breadcrumbs :items="array_values(array_filter([
             ['label' => 'Home', 'url' => route('customer.home')],
-            ['label' => 'Categories', 'url' => route('customer.categories.index')],
+            ['label' => \App\Support\SiteText::get('city.crumb_services'), 'url' => \App\Support\Seo\PublicUrl::services()],
             $service->category ? ['label' => $service->category->name, 'url' => \App\Support\Seo\PublicUrl::category($service->category)] : null,
             ['label' => $service->name, 'url' => null],
         ]))" />

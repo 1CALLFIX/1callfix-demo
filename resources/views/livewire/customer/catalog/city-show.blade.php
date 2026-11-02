@@ -1,9 +1,11 @@
-{{-- F3: a city's landing page. Copy comes from the franchise-edited city_page_contents row, if any. --}}
+{{-- F3: a city's services page, /{city}/services (was /{city} before the city hub, 2026-11-01). Copy comes from the
+     franchise-edited city_page_contents row, if any. --}}
 <div class="mb-bottom-nav">
     <div class="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
         <x-customer.breadcrumbs :items="[
-            ['label' => 'Home', 'url' => route('customer.home')],
-            ['label' => $city->name, 'url' => null],
+            ['label' => \App\Support\SiteText::get('city.crumb_home'), 'url' => route('customer.home')],
+            ['label' => $city->name, 'url' => route('customer.city.show', $city->slug)],
+            ['label' => \App\Support\SiteText::get('city.crumb_services'), 'url' => null],
         ]" />
 
         <header class="mt-4">

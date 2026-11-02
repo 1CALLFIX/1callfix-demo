@@ -37,14 +37,15 @@ class F3SitemapIndexingTest extends TestCase
         $category = $this->makeCategory(['name' => 'AC Repair', 'slug' => null]);
         $service = $this->makeService($category, ['name' => 'Gas Refill', 'slug' => null]);
 
-        foreach (['/nellore', '/nellore/ac-repair', '/nellore/gas-refill'] as $path) {
+        foreach (['/nellore', '/nellore/services', '/nellore/services/ac-repair', '/nellore/services/gas-refill'] as $path) {
             $this->get($path)->assertOk()->assertSee('<meta name="robots" content="noindex, nofollow">', false);
         }
 
         $xml = $this->get('/sitemap-nellore.xml')->assertOk()->getContent();
-        $this->assertStringNotContainsString('/nellore/ac-repair', $xml);
-        $this->assertStringNotContainsString('/nellore/gas-refill', $xml);
+        $this->assertStringNotContainsString('/nellore/services/ac-repair', $xml);
+        $this->assertStringNotContainsString('/nellore/services/gas-refill', $xml);
         $this->assertStringNotContainsString('<loc>https://1callfix.com/nellore</loc>', $xml);
+        $this->assertStringNotContainsString('<loc>https://1callfix.com/nellore/services</loc>', $xml);
         $this->assertNotNull($service);
     }
 
@@ -55,14 +56,14 @@ class F3SitemapIndexingTest extends TestCase
         $this->makeService($category, ['name' => 'Gas Refill', 'slug' => null]);
         $this->providerFor($city, [$category->id]);
 
-        foreach (['/nellore', '/nellore/ac-repair', '/nellore/gas-refill'] as $path) {
+        foreach (['/nellore', '/nellore/services', '/nellore/services/ac-repair', '/nellore/services/gas-refill'] as $path) {
             $html = $this->get($path)->assertOk()->getContent();
             $this->assertStringContainsString('<meta name="robots" content="index, follow">', $html, $path);
             $this->assertStringContainsString('<link rel="canonical" href="https://1callfix.com'.$path.'">', $html, $path);
         }
 
         $xml = $this->get('/sitemap-nellore.xml')->assertOk()->getContent();
-        foreach (['/nellore', '/nellore/ac-repair', '/nellore/gas-refill'] as $path) {
+        foreach (['/nellore', '/nellore/services', '/nellore/services/ac-repair', '/nellore/services/gas-refill'] as $path) {
             $this->assertStringContainsString('<loc>https://1callfix.com'.$path.'</loc>', $xml, $path);
         }
     }
@@ -74,12 +75,12 @@ class F3SitemapIndexingTest extends TestCase
         $bare = $this->makeCategory(['name' => 'Plumbing', 'slug' => null]);
         $this->providerFor($city, [$covered->id]);
 
-        $this->get('/nellore/ac-repair')->assertSee('index, follow', false);
-        $this->get('/nellore/plumbing')->assertSee('noindex', false);
+        $this->get('/nellore/services/ac-repair')->assertSee('index, follow', false);
+        $this->get('/nellore/services/plumbing')->assertSee('noindex', false);
 
         $xml = $this->get('/sitemap-nellore.xml')->getContent();
-        $this->assertStringContainsString('/nellore/ac-repair', $xml);
-        $this->assertStringNotContainsString('/nellore/plumbing', $xml);
+        $this->assertStringContainsString('/nellore/services/ac-repair', $xml);
+        $this->assertStringNotContainsString('/nellore/services/plumbing', $xml);
         $this->assertNotNull($bare);
     }
 
@@ -90,16 +91,16 @@ class F3SitemapIndexingTest extends TestCase
         $provider = $this->providerFor($city, [$category->id]);
 
         Setting::set('seo.min_providers_to_index', '2');
-        $this->get('/nellore/ac-repair')->assertSee('noindex', false);
+        $this->get('/nellore/services/ac-repair')->assertSee('noindex', false);
 
         $this->providerFor($city, [$category->id])->update(['kyc_status' => 'pending']);
-        $this->get('/nellore/ac-repair')->assertSee('noindex', false);
+        $this->get('/nellore/services/ac-repair')->assertSee('noindex', false);
 
         $this->providerFor($city, [$category->id])->update(['is_active' => false]);
-        $this->get('/nellore/ac-repair')->assertSee('noindex', false);
+        $this->get('/nellore/services/ac-repair')->assertSee('noindex', false);
 
         $this->providerFor($city, [$category->id]);
-        $this->get('/nellore/ac-repair')->assertSee('index, follow', false);
+        $this->get('/nellore/services/ac-repair')->assertSee('index, follow', false);
 
         Setting::set('seo.min_providers_to_index', '0');
         $this->assertNotNull($provider);
@@ -122,7 +123,7 @@ class F3SitemapIndexingTest extends TestCase
 
         $this->get('/sitemap-guntur.xml')->assertNotFound();
         $this->get('/sitemap-nobody.xml')->assertNotFound();
-        $this->assertStringNotContainsString('/nellore/off', $this->get('/sitemap-nellore.xml')->getContent());
+        $this->assertStringNotContainsString('/nellore/services/off', $this->get('/sitemap-nellore.xml')->getContent());
         $this->assertNotNull($off);
     }
 
@@ -142,7 +143,7 @@ class F3SitemapIndexingTest extends TestCase
         $this->providerFor($city, [$category->id]);
         Setting::set('seo.canonical_base_url', 'https://example.org');
 
-        $this->assertStringContainsString('<loc>https://example.org/nellore/ac-repair</loc>', $this->get('/sitemap-nellore.xml')->getContent());
+        $this->assertStringContainsString('<loc>https://example.org/nellore/services/ac-repair</loc>', $this->get('/sitemap-nellore.xml')->getContent());
         $this->assertStringContainsString('<loc>https://example.org/sitemap-nellore.xml</loc>', $this->get('/sitemap.xml')->getContent());
     }
 }
