@@ -16,6 +16,7 @@ use App\Services\CartService;
 use App\Services\ModuleActivationService;
 use App\Services\OrderCodeService;
 use App\Services\WalletService;
+use App\Support\FoodOrderClock;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -42,6 +43,7 @@ class CreateMarketplaceOrderAction
         private ModuleActivationService $moduleActivation,
         private CartService $cart,
         private OrderCodeService $orderCode,
+        private \App\Services\Food\FoodCheckout $food,
     ) {
     }
 
@@ -53,6 +55,11 @@ class CreateMarketplaceOrderAction
         }
         if (! $store->is_open) {
             throw new \RuntimeException('This store is closed right now.');
+        }
+        // Food F2: a restaurant also needs its FSSAI number and must be inside its opening hours.
+        $isFood = $store->isRestaurant();
+        if ($isFood) {
+            $this->food->assertRestaurantTakingOrders($store);
         }
 
         $scope = [
@@ -69,6 +76,7 @@ class CreateMarketplaceOrderAction
         }
 
         $customer = \App\Models\User::findOrFail($data['customer_id']);
+        $address = null;
 
         // E-commerce Phase 2: the address must be the customer's own, and a shop delivers only within its own city.
         if ($orderType === 'delivery') {
@@ -107,6 +115,11 @@ class CreateMarketplaceOrderAction
             }
         }
 
+        // Food F2: sold out today, and each dish's add-on choices against its group rules.
+        if ($isFood) {
+            $this->food->assertLines($lines);
+        }
+
         $paymentMethod = $data['payment_method'] ?? 'online';
 
         // THUMB RULE — ONLINE PAYMENT ONLY FOR ALL BENEFITS (owner 2026-11-02, "Meesho way"): cash is always
@@ -127,11 +140,15 @@ class CreateMarketplaceOrderAction
         // THUMB RULE (owner 2026-10-28): free delivery above the store's threshold is a benefit, so a cash order
         // always pays the store's delivery fee. Online and wallet orders get the free delivery.
         $deliveryFee = 0.0;
+        $distanceKm = null;
         if ($orderType === 'delivery') {
+            // Food F2: the distance fee and delivery radius from Food Settings (unset = the restaurant's flat fee).
+            [$fullFee, $distanceKm] = $isFood ? $this->food->deliveryFee($store, $address) : [(float) $store->delivery_fee_flat, null];
             $freeAbove = $store->free_delivery_above_amount;
             $freeDelivery = $paymentMethod !== 'cash' && $freeAbove !== null && $subtotal >= (float) $freeAbove;
-            $deliveryFee = $freeDelivery ? 0.0 : (float) $store->delivery_fee_flat;
+            $deliveryFee = $freeDelivery ? 0.0 : $fullFee;
         }
+        $packagingCharge = $isFood ? $this->food->packagingCharge($store) : 0.0;
 
         // E-commerce Phase 0: the cart price already has the product's discount % taken off
         // (Product::effective_price). Record how much that discount was, because a discount is a benefit and
@@ -169,11 +186,20 @@ class CreateMarketplaceOrderAction
         }
 
         // Store-level GST on the value after the coupon (the coupon reduces the price of the supply).
-        $taxAmount = round(($subtotal - $couponDiscount) * (float) $store->tax_percent / 100, 2);
-        $totalAmount = round($subtotal - $couponDiscount + $deliveryFee + $taxAmount, 2);
+        // Food F2: restaurant food is taxed under section 9(5): the platform charges the Food Settings rate on food +
+        // packaging and pays it itself; the restaurant's own tax rate is not used. Unset rate = no GST.
+        $taxByPlatform = false;
+        if ($isFood) {
+            $gst = $this->food->gstPercent($store);
+            $taxByPlatform = $gst !== null;
+            $taxAmount = $gst === null ? 0.0 : round(($subtotal - $couponDiscount + $packagingCharge) * $gst / 100, 2);
+        } else {
+            $taxAmount = round(($subtotal - $couponDiscount) * (float) $store->tax_percent / 100, 2);
+        }
+        $totalAmount = round($subtotal - $couponDiscount + $packagingCharge + $deliveryFee + $taxAmount, 2);
 
-        $order = DB::transaction(function () use ($lines, $store, $customer, $orderType, $data, $subtotal, $discountAmount, $deliveryFee, $taxAmount, $totalAmount, $paymentMethod, $couponCtx, $couponCode, $couponDiscount, $recipientName, $recipientPhone) {
-            $this->lockAndDecrementStock($lines);
+        $order = DB::transaction(function () use ($lines, $store, $customer, $orderType, $data, $subtotal, $discountAmount, $deliveryFee, $taxAmount, $totalAmount, $paymentMethod, $couponCtx, $couponCode, $couponDiscount, $recipientName, $recipientPhone, $isFood, $packagingCharge, $distanceKm, $taxByPlatform) {
+            $this->lockAndDecrementStock($lines, $isFood);
 
             $order = MarketplaceOrder::create([
                 'code' => $this->orderCode->generateForMarketplaceOrder($store->franchise),
@@ -188,8 +214,11 @@ class CreateMarketplaceOrderAction
                 'recipient_phone' => $recipientPhone !== '' ? $recipientPhone : null,
                 'subtotal' => $subtotal,
                 'delivery_fee' => $deliveryFee,
+                'packaging_charge' => $packagingCharge,
+                'distance_km' => $distanceKm,
                 'discount_amount' => $discountAmount,
                 'tax_amount' => $taxAmount,
+                'tax_by_platform' => $taxByPlatform,
                 'total_amount' => $totalAmount,
                 'status' => 'pending',
                 'payment_status' => 'pending',
@@ -228,6 +257,12 @@ class CreateMarketplaceOrderAction
                 $this->payWithWallet($order);
             }
 
+            // Food F2: the restaurant's accept clock starts now for cash and wallet; for online it starts when the
+            // payment lands (MarketplacePaymentService::markPaid()).
+            if ($isFood && ! $order->isAwaitingOnlinePayment()) {
+                FoodOrderClock::startAcceptClock($order);
+            }
+
             return $order;
         });
 
@@ -249,8 +284,22 @@ class CreateMarketplaceOrderAction
      * own stock is authoritative when present; a plain product's own
      * `stock` column is authoritative when it has no variant selected.
      */
-    private function lockAndDecrementStock(\Illuminate\Support\Collection $lines): void
+    private function lockAndDecrementStock(\Illuminate\Support\Collection $lines, bool $isFood = false): void
     {
+        // Food F2: dishes are cooked to order, never counted (Seller\Products::RESTAURANT_STOCK). Availability is the
+        // dish's on/off switch and "Sold out today" (FoodCheckout::assertLines()).
+        if ($isFood) {
+            foreach ($lines as $line) {
+                $product = $line->product;
+                $variantGone = $line->product_variant_id && (! $line->variant || ! $line->variant->is_active);
+                if (! $product || ! $product->is_active || ! $product->is_approved || $variantGone) {
+                    throw new \RuntimeException("\"{$line->product?->name}\" is no longer available.");
+                }
+            }
+
+            return;
+        }
+
         $productIds = $lines->whereNull('product_variant_id')->pluck('product_id')->unique()->sort()->values();
         $variantIds = $lines->whereNotNull('product_variant_id')->pluck('product_variant_id')->unique()->sort()->values();
 

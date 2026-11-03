@@ -18,7 +18,7 @@ class PendingChange extends Model
     /** Shown in plain words to the seller and the admin. */
     public const LABELS = [
         'name' => 'Name', 'description' => 'Description', 'images' => 'Photos', 'marketplace_category_id' => 'Category',
-        'address_line' => 'Address', 'lat' => 'Map pin', 'lng' => 'Map pin', 'gstin' => 'GSTIN', 'pan' => 'PAN',
+        'address_line' => 'Address', 'lat' => 'Map pin', 'lng' => 'Map pin', 'gstin' => 'GSTIN', 'pan' => 'PAN', 'fssai_number' => 'FSSAI number',
     ];
 
     protected $fillable = [

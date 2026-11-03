@@ -175,6 +175,13 @@ class Manage extends Component
             return;
         }
 
+        // Food F1: no restaurant is approved without its FSSAI licence while Food Settings needs it.
+        if ($store->missingFssai()) {
+            session()->flash('error', "{$store->name} has no FSSAI licence number yet. The restaurant adds it on its Restaurant page, then approve.");
+
+            return;
+        }
+
         $store->update(['approval_status' => 'approved', 'approval_note' => null, 'approved_at' => now(), 'approved_by' => auth()->id(), 'is_active' => true]);
         ActivityLogger::logModel(auth()->user(), $store, 'Shop approved');
         session()->flash('message', "{$store->name} approved. The seller can open it now.");

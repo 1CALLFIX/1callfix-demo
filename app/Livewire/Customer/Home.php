@@ -114,6 +114,11 @@ class Home extends Component
         if ($city = $this->shopCity()) {
             $live['shop'] = ['url' => route('customer.shop.home', $city->slug), 'count' => $this->shopsOpen($city)];
         }
+        // Food F3: the visitor's city when Food is on there; the live line counts restaurants open right now.
+        $city = app(\App\Services\Seo\CityContext::class)->current();
+        if ($city && \App\Support\Seo\CityModules::foodLiveIn($city)) {
+            $live['food'] = ['url' => route('customer.food.home', $city->slug), 'count' => \App\Livewire\Customer\Food\Home::openCountIn($city)];
+        }
 
         return \App\Support\HomeDoors::doors($live);
     }

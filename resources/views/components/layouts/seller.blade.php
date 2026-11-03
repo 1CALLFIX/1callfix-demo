@@ -4,11 +4,16 @@
 
 @php
     $platformName = \App\Models\Setting::get('branding.platform_name', '1CallFix');
+    // Food F1: a restaurant owner sees Menu / Add-ons / Restaurant instead of Products / Shop.
+    $isRestaurant = auth()->check() && \App\Models\Store::whereHas('provider', fn ($q) => $q->where('user_id', auth()->id()))
+        ->when((int) request()->query('store'), fn ($q, $id) => $q->whereKey($id))
+        ->orderBy('id')->value('module') === \App\Support\Modules::FOOD; // same shop InteractsWithSeller::shop() picks
     $navItems = [
         ['label' => 'Home', 'route' => 'seller.dashboard', 'icon' => 'home'],
         ['label' => 'Orders', 'route' => 'seller.orders', 'icon' => 'clipboard'],
-        ['label' => 'Products', 'route' => 'seller.products', 'icon' => 'wrench'],
-        ['label' => 'Shop', 'route' => 'seller.shop', 'icon' => 'building'],
+        ['label' => $isRestaurant ? 'Menu' : 'Products', 'route' => 'seller.products', 'icon' => 'wrench'],
+        ...($isRestaurant ? [['label' => 'Add-ons', 'route' => 'seller.add-ons', 'icon' => 'wrench']] : []),
+        ['label' => $isRestaurant ? 'Restaurant' : 'Shop', 'route' => 'seller.shop', 'icon' => 'building'],
         ['label' => 'Earnings', 'route' => 'seller.earnings', 'icon' => 'banknotes', 'also' => ['seller.payment-accounts', 'seller.request-payout']],
     ];
 @endphp

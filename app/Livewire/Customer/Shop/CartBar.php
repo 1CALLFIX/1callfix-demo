@@ -18,12 +18,12 @@ class CartBar extends Component
 
     public function render()
     {
-        $lines = auth()->check() ? CartItem::where('user_id', auth()->id())->get(['quantity', 'unit_price_snapshot'])
+        $lines = auth()->check() ? CartItem::where('user_id', auth()->id())->get(['quantity', 'unit_price_snapshot', 'add_on_ids'])
             : app(\App\Services\GuestShopCart::class)->lines();
 
         return view('livewire.customer.shop.cart-bar', [
             'count' => (int) $lines->sum('quantity'),
-            'total' => (float) $lines->sum(fn ($l) => (float) $l->unit_price_snapshot * $l->quantity),
+            'total' => (float) $lines->sum(fn ($l) => ((float) $l->unit_price_snapshot + $l->addOnsTotal()) * $l->quantity), // Food F3: with add-ons
             'currencySymbol' => Setting::get('locale.currency_symbol', '₹'),
         ]);
     }

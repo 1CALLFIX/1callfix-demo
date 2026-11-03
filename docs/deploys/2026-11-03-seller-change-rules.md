@@ -5,11 +5,11 @@ Use with `docs/DEPLOY_RUNBOOK.md`.
 | | |
 |---|---|
 | Deploys | `main` at the commit that adds this file (`git log -1` in runbook step 1) |
-| Live before | `b812e85` (phone pay bar) — stop if the server shows anything else |
+| Live before | `1712695` (Food F1-F5, deployed 2026-11-03 by the Food session) — stop if the server shows anything else |
 | Full test suite | 4405 passed of 4406 (12 chunks, all 429 files, 2026-11-03); known failure only: `NotificationCenterAuditTest::test_provider_status_shows_log_fallback_by_default` (local .env) |
 | Composer | no |
 | Front-end build (steps 6–7) | **yes** (new classes: photo box, change screens, Add many) |
-| Version | `VERSION` file bumped to `2026.11.03.1` |
+| Version | `VERSION` file bumped to `2026.11.03.3` (main had `2026.11.03.2` from Food) |
 
 ## What's in it
 **Owner rule set 2026-11-03**, for every item (shop product, food, any item) and every shop:
@@ -22,7 +22,7 @@ Use with `docs/DEPLOY_RUNBOOK.md`.
 | Shop logo, description, delivery fee, minimum order | live at once |
 | Shop name | admin only (as before) |
 | Shop mobile number | changes only after an OTP to the new number (Firebase, as at sign-up) |
-| Shop address / map pin, GSTIN, PAN | admin approval; riders and invoices keep the old ones until then |
+| Shop address / map pin, GSTIN, PAN, restaurant FSSAI number | admin approval; riders, invoices and the food licence keep the old ones until then |
 
 - **Admin → Changes to approve** (Marketplace menu, `products.manage` for items, `stores.manage` for shops, scoped to
   the admin's franchise / zone / city): old and new side by side (photos, map link), **Approve** or **Reject** with a
@@ -50,6 +50,11 @@ Use with `docs/DEPLOY_RUNBOOK.md`.
   import added a random code, against the link rule. The same fix for new shop categories, hotels and properties.
 - New command `php artisan catalog:load-master [--dry-run]` loads `database/data/master_catalog.csv`. Safe to run again;
   never changes an existing category; creates missing ones ON for Launch, OFF for Later.
+
+## Merged with Food (main)
+Food F1-F5 reached main and the server first. This release is merged on top: the seller Products / Menu page and the
+Shop page keep every Food field (dish type, add-on groups, FSSAI, cuisines, hours) and follow the change rules above;
+add-on groups, cuisines, charges and hours change at once.
 
 ## Step 5 — migrations that must be pending (exactly these)
 - `2026_11_03_100000_create_pending_changes_table`

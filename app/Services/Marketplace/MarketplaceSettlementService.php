@@ -65,7 +65,9 @@ class MarketplaceSettlementService
         // Coupons are HQ-funded: the seller and franchise earn on the full goods value; the platform carries the
         // discount out of its own share (which can go below zero on a big coupon).
         $couponDiscount = round((float) $order->coupon_discount_amount, 2);
-        $goodsAmount = round($total - $deliveryAmount + $couponDiscount, 2);
+        // Food F2: GST under section 9(5) is the platform's to pay, so it never enters the restaurant's goods value.
+        $platformGst = $order->tax_by_platform ? round((float) $order->tax_amount, 2) : 0.0;
+        $goodsAmount = round($total - $deliveryAmount + $couponDiscount - $platformGst, 2);
 
         // E-commerce Phase 4: the goods fee comes from Admin → Shop Commission (shop / category / franchise / city).
         $goodsRate = $order->store ? app(MarketplaceCommissionResolver::class)->rateForOrder($order) : null;
@@ -110,16 +112,20 @@ class MarketplaceSettlementService
         [$debtorType, $cashOwed, $cashFranchise] = match ($mode) {
             'cash_delivery' => ['field_worker', max(round($total - $riderShare, 2), 0.0), round($goodsFranchise + $deliveryFranchise, 2)],
             // ...plus any TCS / TDS withheld (Phase 5): the seller holds the cash, so they owe that back too.
-            'cash_pickup' => ['provider', round($goodsPlatform + $goodsFranchise + $withheld, 2), $goodsFranchise],
+            'cash_pickup' => ['provider', round($goodsPlatform + $goodsFranchise + $withheld + $platformGst, 2), $goodsFranchise],
             default => [null, 0.0, 0.0],
         };
 
         $windowDays = max(0, (int) Setting::get('marketplace.return_window_days', '3', $scope));
+        // Food F4: a restaurant is paid once the problem-report window (minutes) has passed, not the shop return days.
+        $releaseAt = $order->isFood()
+            ? ($order->completed_at ?? now())->copy()->addMinutes(max(1, (int) \App\Support\FoodSettings::get('food.issue_window_minutes', $scope)))
+            : ($order->completed_at ?? now())->copy()->addDays($windowDays);
 
         $settlement = DB::transaction(function () use (
             $order, $seller, $rider, $mode, $goodsAmount, $sellerShare, $goodsPlatform, $goodsFranchise,
             $deliveryAmount, $riderShare, $deliveryPlatform, $deliveryFranchise, $debtorType, $cashOwed, $cashFranchise, $windowDays,
-            $riderTopup, $topupFundedBy, $platformTopup, $tcs, $tds, $withheld
+            $riderTopup, $topupFundedBy, $platformTopup, $tcs, $tds, $withheld, $platformGst, $releaseAt
         ) {
             $locked = MarketplaceSettlement::where('marketplace_order_id', $order->id)->lockForUpdate()->first();
             if ($locked) {
@@ -144,6 +150,7 @@ class MarketplaceSettlementService
                 'seller_share' => $sellerShare,
                 'goods_platform' => $goodsPlatform,
                 'goods_franchise' => $goodsFranchise,
+                'platform_gst_amount' => $platformGst,
                 // Withheld for the government; capped at the seller's share (TCS first).
                 'tcs_gst_amount' => min($tcs, $withheld),
                 'tds_income_tax_amount' => round($withheld - min($tcs, $withheld), 2),
@@ -154,7 +161,7 @@ class MarketplaceSettlementService
                 'rider_topup' => $riderTopup,
                 'rider_topup_funded_by' => $riderTopup > 0 ? $topupFundedBy : null,
                 // A cash-pickup seller already holds their share, so there is nothing to hold back.
-                'release_at' => ($order->completed_at ?? now())->copy()->addDays($windowDays),
+                'release_at' => $releaseAt,
                 'status' => $mode === 'cash_pickup' ? 'released' : 'held',
                 'released_at' => $mode === 'cash_pickup' ? now() : null,
                 'cash_debtor_type' => $cashOwed > 0 ? $debtorType : null,

@@ -94,8 +94,15 @@ class Bag extends Component
         $this->dispatch('shop-cart-changed');
     }
 
+    /** How many more this line may hold: stock for a shop item; the per-dish limit (all its lines together) for food. */
     private function limitFor(CartItem $line): int
     {
+        if ($line->product?->store?->isRestaurant()) {
+            $food = app(\App\Services\Food\FoodCart::class);
+
+            return $food->limitFor($line->product) - $food->quantityOf(auth()->user(), (int) $line->product_id) + (int) $line->quantity;
+        }
+
         return min((int) ($line->variant?->stock ?? $line->product?->stock ?? 0), (int) ($line->product?->maximum_cart_quantity ?: PHP_INT_MAX));
     }
 
@@ -103,13 +110,16 @@ class Bag extends Component
     {
         $guest = ! auth()->check();
         $lines = $guest ? app(GuestShopCart::class)->lines() : CartItem::where('user_id', auth()->id())->with(['product', 'variant'])->get();
-        $stores = Store::with('franchise.city')->whereIn('id', $lines->pluck('store_id')->unique())->get()->keyBy('id');
+        $stores = Store::with(['franchise.city', 'hours'])->whereIn('id', $lines->pluck('store_id')->unique())->get()->keyBy('id');
 
         $groups = $lines->groupBy('store_id')->map(function ($storeLines, $storeId) use ($stores) {
             $store = $stores->get($storeId);
-            $available = $storeLines->filter(fn ($l) => $store?->isSellable() && $l->product && $l->product->is_active && $l->product->is_approved);
-            $subtotal = (float) $available->sum(fn ($l) => $l->unitPrice() * $l->quantity);
-            $listTotal = (float) $available->sum(fn ($l) => ($l->listUnitPrice() ?? $l->unitPrice()) * $l->quantity);
+            // Food F3: a dish sold out today is not orderable; add-ons count in the price.
+            $food = (bool) $store?->isRestaurant();
+            $available = $storeLines->filter(fn ($l) => $store?->isSellable() && $l->product && $l->product->is_active && $l->product->is_approved
+                && ! ($food && $l->product->isSoldOutNow()));
+            $subtotal = (float) $available->sum(fn ($l) => $l->unitPriceWithAddOns() * $l->quantity);
+            $listTotal = (float) $available->sum(fn ($l) => (($l->listUnitPrice() ?? $l->unitPrice()) + $l->addOnsTotal()) * $l->quantity);
 
             return [
                 'store' => $store,
@@ -124,7 +134,8 @@ class Bag extends Component
                 'freeAbove' => $store && $store->free_delivery_above_amount !== null && (float) $store->free_delivery_above_amount > 0 && (float) $store->delivery_fee_flat > 0
                     ? (float) $store->free_delivery_above_amount : null,
                 'promise' => $store ? MarketplaceSettings::deliveryPromise($store) : null,
-                'canCheckout' => $store?->isSellable() && $store->is_open && $available->isNotEmpty(),
+                'canCheckout' => $store?->isSellable() && $store->isOpenNow() && ! $store->missingFssai() && $available->isNotEmpty(),
+                'food' => $food,
             ];
         })->filter(fn ($g) => $g['store'] !== null);
 

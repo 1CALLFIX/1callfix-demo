@@ -26,7 +26,7 @@ class PendingChangeService
     /** The fields of each kind of record that wait for approval. */
     public const REVIEWED = [
         Product::class => ['name', 'description', 'images', 'marketplace_category_id'],
-        Store::class => ['address_line', 'lat', 'lng', 'gstin', 'pan'],
+        Store::class => ['address_line', 'lat', 'lng', 'gstin', 'pan', 'fssai_number'],
     ];
 
     /**

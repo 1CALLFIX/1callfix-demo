@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" role="img" aria-label="Food">
+  <!-- 1CallFix's own drawing (2026-11-03): default Food door on the homepage — a covered plate with steam. -->
+  <rect x="6" y="6" width="108" height="108" rx="26" fill="#FFEDD5"/>
+  <path d="M47 30c-4 5 4 8 0 13M60 26c-4 5 4 8 0 13M73 30c-4 5 4 8 0 13" fill="none" stroke="#C2410C" stroke-width="4" stroke-linecap="round"/>
+  <path d="M28 76a32 30 0 0 1 64 0z" fill="#F97316"/>
+  <circle cx="60" cy="45" r="5" fill="#9A3412"/>
+  <rect x="22" y="76" width="76" height="8" rx="4" fill="#9A3412"/>
+  <path d="M40 92h40" stroke="#C2410C" stroke-width="5" stroke-linecap="round"/>
+</svg>

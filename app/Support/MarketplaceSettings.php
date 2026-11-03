@@ -12,8 +12,10 @@ use App\Models\Setting;
  *
  * Types: 'switch' is ON only when the stored value is exactly '1'; 'int' / 'decimal' read the registry default when
  * unset; 'choice' is one of `options`.
+ *
+ * Food F1: FoodSettings extends this class with its own REGISTRY (static:: everywhere a key is looked up).
  */
-final class MarketplaceSettings
+class MarketplaceSettings
 {
     public const REGISTRY = [
         // ── sellers ──
@@ -148,17 +150,17 @@ Portion",
     {
         $raw = Setting::get($key, null, $scope);
 
-        return ($raw === null || $raw === '') ? self::REGISTRY[$key]['default'] : (string) $raw;
+        return ($raw === null || $raw === '') ? static::REGISTRY[$key]['default'] : (string) $raw;
     }
 
     public static function on(string $key, array $scope = []): bool
     {
-        return self::get($key, $scope) === '1';
+        return static::get($key, $scope) === '1';
     }
 
     public static function recruitingSellers(): bool
     {
-        return self::on('marketplace.recruiting_sellers');
+        return MarketplaceSettings::on('marketplace.recruiting_sellers');
     }
 
     /**
@@ -191,7 +193,7 @@ Portion",
     public static function blockedWordIn(string $text): ?string
     {
         $haystack = mb_strtolower($text);
-        foreach (preg_split('/\R/', (string) self::get('marketplace.blocked_product_words')) as $word) {
+        foreach (preg_split('/\R/', (string) MarketplaceSettings::get('marketplace.blocked_product_words')) as $word) {
             $word = mb_strtolower(trim($word));
             if ($word !== '' && str_contains($haystack, $word)) {
                 return $word;
@@ -204,7 +206,7 @@ Portion",
     /** @return string|null an error message, or null when valid. null/'' clears the key. */
     public static function validate(string $key, mixed $value): ?string
     {
-        $meta = self::REGISTRY[$key] ?? null;
+        $meta = static::REGISTRY[$key] ?? null;
         if (! $meta) {
             return "Unknown setting {$key}.";
         }

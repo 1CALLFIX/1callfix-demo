@@ -20,6 +20,7 @@ class Product extends Model
         'price', 'tax_percent', 'discount_percent', 'stock', 'maximum_cart_quantity',
         'option_names', 'unit_value', 'unit',
         'is_approved', 'is_active',
+        'food_type', 'out_of_stock_until', // Food F1
     ];
 
     protected $casts = [
@@ -27,6 +28,7 @@ class Product extends Model
         'option_names' => 'array',
         'is_approved' => 'boolean',
         'is_active' => 'boolean',
+        'out_of_stock_until' => 'datetime',
     ];
 
     protected static function boot()
@@ -64,6 +66,13 @@ class Product extends Model
     public function category() { return $this->belongsTo(MarketplaceCategory::class, 'marketplace_category_id'); }
     public function variants() { return $this->hasMany(ProductVariant::class); }
     public function activeVariants() { return $this->hasMany(ProductVariant::class)->where('is_active', true)->orderBy('id'); }
+    public function addOnGroups() { return $this->belongsToMany(AddOnGroup::class, 'product_add_on_group')->withPivot('position')->orderByPivot('position'); }
+
+    /** Food F1: the seller marked it "sold out" until a time (end of today by default). */
+    public function isSoldOutNow(?\Carbon\CarbonInterface $at = null): bool
+    {
+        return $this->out_of_stock_until !== null && $this->out_of_stock_until->gt($at ?? now());
+    }
 
     /**
      * Product choices 2026-11-02: does the customer pick a choice (size, colour, portion…) before adding it?

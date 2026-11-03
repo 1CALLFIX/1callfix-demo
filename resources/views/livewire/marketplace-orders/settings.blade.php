@@ -1,8 +1,12 @@
 <div>
     <div class="mb-4 flex flex-wrap items-center justify-between gap-2">
         <div>
-            <h1 class="text-2xl font-bold">Shop Settings</h1>
-            <p class="text-sm text-gray-500">Seller sign-ups, order timings and rider pay for the shop (Commerce). Switch the shop on or off per location on the <a href="{{ route('admin.modules.index') }}" class="underline">Modules</a> screen.</p>
+            <h1 class="text-2xl font-bold">{{ $pageTitle }}</h1>
+            @if ($pageTitle === 'Food Settings')
+                <p class="text-sm text-gray-500">Restaurant rules, kitchen timing and order acceptance for Food delivery. Order timings, rider pay, commission and tax are shared with the shop: set them on <a href="{{ route('admin.marketplace-orders.settings') }}" class="underline">Shop Settings</a>. Switch Food on or off per location on the <a href="{{ route('admin.modules.index') }}" class="underline">Modules</a> screen.</p>
+            @else
+                <p class="text-sm text-gray-500">Seller sign-ups, order timings and rider pay for the shop (Commerce). Switch the shop on or off per location on the <a href="{{ route('admin.modules.index') }}" class="underline">Modules</a> screen.</p>
+            @endif
         </div>
         <a href="{{ route('admin.marketplace-orders.index') }}" class="text-sm underline">Marketplace Orders →</a>
     </div>
@@ -82,7 +86,7 @@
                 </x-ui.card>
             @endforeach
 
-            <div class="sticky bottom-0 bg-white/90 py-3"><x-ui.button type="submit">Save shop settings</x-ui.button></div>
+            <div class="sticky bottom-0 bg-white/90 py-3"><x-ui.button type="submit">Save {{ strtolower($pageTitle) }}</x-ui.button></div>
         </form>
     </div>
 </div>

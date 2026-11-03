@@ -47,6 +47,9 @@ class CityHub extends Component
             $live['shop'] = ['url' => route('customer.shop.home', $city->slug),
                 'count' => ShopHome::publicStoresIn($city)->where('is_open', true)->count()];
         }
+        if (CityModules::foodLiveIn($city)) {
+            $live['food'] = ['url' => route('customer.food.home', $city->slug), 'count' => \App\Livewire\Customer\Food\Home::openCountIn($city)];
+        }
         if (CityModules::parcelLiveIn($city)) {
             $from = $pages->parcelFrom($city);
             $live['parcel'] = ['url' => route('customer.city.parcel', $city->slug),

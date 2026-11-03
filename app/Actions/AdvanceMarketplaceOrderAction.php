@@ -8,6 +8,7 @@ use App\Models\MarketplaceOrder;
 use App\Models\Setting;
 use App\Notifications\MarketplaceOrderStatusNotification;
 use App\Notifications\Support\ChannelResolver;
+use App\Support\FoodOrderClock;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -31,13 +32,18 @@ class AdvanceMarketplaceOrderAction
         'ready' => 'preparing',
     ];
 
-    public function execute(int $orderId, string $toStatus): MarketplaceOrder
+    /** Food F2: `$prepMinutes` = the cooking time the restaurant confirms when it accepts (null = its usual time). */
+    public function execute(int $orderId, string $toStatus, ?int $prepMinutes = null): MarketplaceOrder
     {
+        if ($prepMinutes !== null && ($prepMinutes < 1 || $prepMinutes > 240)) {
+            throw new \RuntimeException('Enter a cooking time between 1 and 240 minutes.');
+        }
+
         if (! array_key_exists($toStatus, self::TRANSITIONS)) {
             throw new \RuntimeException("'{$toStatus}' is not a valid store-side advance target.");
         }
 
-        $order = DB::transaction(function () use ($orderId, $toStatus) {
+        $order = DB::transaction(function () use ($orderId, $toStatus, $prepMinutes) {
             $order = MarketplaceOrder::lockForUpdate()->findOrFail($orderId);
             $fromStatus = self::TRANSITIONS[$toStatus];
 
@@ -50,9 +56,18 @@ class AdvanceMarketplaceOrderAction
                 throw new \RuntimeException("Order [{$orderId}] is not paid yet and cannot be accepted.");
             }
 
+            // Food F2: past the accept time the order is being cancelled and refunded (food:expire-unaccepted).
+            if ($toStatus === 'accepted' && $order->isFood() && $order->accept_by !== null && $order->accept_by->isPast()) {
+                throw new \RuntimeException('This order waited too long and has been cancelled. The customer gets a full refund.');
+            }
+
             $order->status = $toStatus;
             if ($toStatus === 'accepted') {
                 $order->confirmed_at = now();
+                // Food F2: the restaurant promises the food in its cooking time (plus busy minutes) from now.
+                if ($order->isFood()) {
+                    $order->ready_by = now()->addMinutes($prepMinutes ?? FoodOrderClock::prepMinutes($order));
+                }
             }
             if ($toStatus === 'ready') {
                 $order->ready_at = now();
@@ -76,8 +91,13 @@ class AdvanceMarketplaceOrderAction
             return $order->fresh();
         });
 
-        if ($toStatus === 'ready' && $order->order_type === 'delivery') {
+        // Food F2: a rider already on the way (called while cooking) is not searched for again.
+        if ($toStatus === 'ready' && $order->order_type === 'delivery' && $order->assigned_worker_id === null) {
             MarketplaceDispatchJob::dispatch($order->id);
+        }
+        // Food F2: the rider call may already be due (short cooking time or a long lead).
+        if ($order->isFood() && $toStatus === 'preparing') {
+            app(\App\Services\Food\FoodRiderCaller::class)->callIfDue($order);
         }
 
         if ($order->customer) {

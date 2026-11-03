@@ -59,4 +59,28 @@ class CartItem extends Model
     {
         return (float) ($this->variant ? $this->variant->effectivePrice() : ($this->product?->effective_price ?? 0));
     }
+
+    /** Food F3: the add-ons chosen on this line (live prices, like CartService::addOnsTotalFor), in id order. */
+    public function addOnModels(): \Illuminate\Support\Collection
+    {
+        if (empty($this->add_on_ids)) {
+            return collect();
+        }
+        if (! $this->relationLoaded('addOnRows')) {
+            $this->setRelation('addOnRows', AddOn::whereIn('id', $this->add_on_ids)->orderBy('id')->get());
+        }
+
+        return $this->getRelation('addOnRows');
+    }
+
+    public function addOnsTotal(): float
+    {
+        return (float) $this->addOnModels()->sum('price');
+    }
+
+    /** One item with its add-ons, at today's price (cash: full price of the dish + add-ons). */
+    public function unitPriceWithAddOns(bool $cash = false): float
+    {
+        return ($cash ? $this->cashUnitPrice() : $this->unitPrice()) + $this->addOnsTotal();
+    }
 }

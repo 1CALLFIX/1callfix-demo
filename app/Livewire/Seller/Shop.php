@@ -10,7 +10,11 @@ use App\Services\ActivityLogger;
 use App\Services\PendingChangeService;
 use App\Support\PhoneNumber;
 use Livewire\Attributes\On;
+use App\Models\Store;
 use App\Services\Customer\CustomerLocationContext;
+use App\Support\FoodSettings;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Component;
 use Livewire\WithFileUploads;
@@ -42,6 +46,18 @@ class Shop extends Component
     public string $gstin = '';
     public string $pan = '';
 
+    /** Food F1 (restaurants only). */
+    public string $fssai = '';
+    public array $cuisines = [];
+    public string $costForTwo = '';
+    public string $packagingCharge = '';
+    public string $prepMinutes = '';
+    /** day (0 = Sunday) => list of ['opens' => 'HH:MM', 'closes' => 'HH:MM']; an empty day is closed. */
+    public array $hours = [];
+
+    private const MAX_CUISINES = 3;
+    private const MAX_SLOTS_PER_DAY = 3;
+
     public string $flashMessage = '';
     public string $flashType = 'success';
 
@@ -58,9 +74,21 @@ class Shop extends Component
         $this->freeDeliveryAbove = $store->free_delivery_above_amount !== null ? (string) (float) $store->free_delivery_above_amount : '';
         $this->gstin = (string) $store->gstin;
         $this->pan = (string) $store->pan;
+        if ($store->isRestaurant()) {
+            $this->fssai = (string) $store->fssai_number;
+            $this->cuisines = $store->cuisineList();
+            $this->costForTwo = $store->cost_for_two !== null ? (string) (float) $store->cost_for_two : '';
+            $this->packagingCharge = (float) $store->packaging_charge > 0 ? (string) (float) $store->packaging_charge : '';
+            $this->prepMinutes = $store->prep_minutes ? (string) $store->prep_minutes : '';
+            $this->hours = array_fill(0, 7, []);
+            foreach ($store->hours as $slot) {
+                $this->hours[$slot->day][] = ['opens' => substr($slot->opens_at, 0, 5), 'closes' => substr($slot->closes_at, 0, 5)];
+            }
+        }
+
         // A change waiting for approval shows in the form, so saving other details never drops it.
         if ($pending = app(PendingChangeService::class)->pendingFor($store)) {
-            foreach (['address_line' => 'addressLine', 'gstin' => 'gstin', 'pan' => 'pan'] as $field => $prop) {
+            foreach (['address_line' => 'addressLine', 'gstin' => 'gstin', 'pan' => 'pan', 'fssai_number' => 'fssai'] as $field => $prop) {
                 if (array_key_exists($field, $pending->new_values)) {
                     $this->{$prop} = (string) $pending->new_values[$field];
                 }
@@ -69,6 +97,27 @@ class Shop extends Component
                 $this->lat = $pending->new_values['lat'] !== null ? (float) $pending->new_values['lat'] : null;
                 $this->lng = $pending->new_values['lng'] !== null ? (float) $pending->new_values['lng'] : null;
             }
+        }
+    }
+
+    public function addSlot(int $day): void
+    {
+        if ($day >= 0 && $day <= 6 && count($this->hours[$day] ?? []) < self::MAX_SLOTS_PER_DAY) {
+            $this->hours[$day][] = ['opens' => '11:00', 'closes' => '22:00'];
+        }
+    }
+
+    public function removeSlot(int $day, int $index): void
+    {
+        unset($this->hours[$day][$index]);
+        $this->hours[$day] = array_values($this->hours[$day] ?? []);
+    }
+
+    /** "Same every day": Monday's slots copied to all seven days. */
+    public function copyMondayToAll(): void
+    {
+        foreach (range(0, 6) as $day) {
+            $this->hours[$day] = $this->hours[1] ?? [];
         }
     }
 
@@ -94,6 +143,10 @@ class Shop extends Component
             'gstin' => ['nullable', 'string', 'regex:/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/'],
             'pan' => ['nullable', 'string', 'regex:/^[A-Z]{5}[0-9]{4}[A-Z]$/'],
         ], ['gstin.regex' => 'Enter the 15-character GSTIN in capitals.', 'pan.regex' => 'Enter the 10-character PAN in capitals.'], ['addressLine' => 'address', 'minimumOrder' => 'minimum order', 'deliveryFee' => 'delivery fee', 'freeDeliveryAbove' => 'free delivery above']);
+
+        if ($store->isRestaurant()) {
+            $this->validateRestaurant($store);
+        }
 
         // A pin moved outside every zone would send riders to the wrong place; keep the shop where it was.
         if ($this->lat !== null && $this->lng !== null
@@ -123,14 +176,31 @@ class Shop extends Component
             $this->logo = null;
         }
 
-        // Owner rule 2026-11-03 (PendingChangeService): on an approved shop the address, map pin, GSTIN and PAN wait
-        // for admin approval (riders and tax invoices depend on them); the shop keeps its old ones until then. Logo,
-        // description and order terms change at once. The mobile number changes only after an OTP (below).
+        if ($store->isRestaurant()) {
+            $fields += [
+                'fssai_number' => preg_replace('/\D/', '', $this->fssai) ?: null,
+                'cuisines' => $this->cuisines ? implode(', ', $this->cuisines) : null,
+                'cost_for_two' => $this->costForTwo === '' ? null : round((float) $this->costForTwo, 2),
+                'packaging_charge' => $this->packagingCharge === '' ? 0 : round((float) $this->packagingCharge, 2),
+                'prep_minutes' => $this->prepMinutes === '' ? null : (int) $this->prepMinutes,
+            ];
+        }
+
+        // Owner rule 2026-11-03 (PendingChangeService): on an approved shop the address, map pin, GSTIN, PAN and FSSAI
+        // number wait for admin approval (riders, tax invoices and the food licence depend on them); the shop keeps its
+        // old ones until then. Logo, description, order terms, cuisines, charges and hours change at once. The mobile
+        // number changes only after an OTP (below).
         $changes = app(PendingChangeService::class);
         $review = $store->approval_status === 'approved';
         [$now, $wait] = $review ? $changes->split($store, $fields) : [$fields, []];
-        $store->update($now);
-        ActivityLogger::logModel(auth()->user(), $store, 'Seller updated shop details', ['fields' => array_keys($store->getChanges())]);
+        $hoursChanged = false;
+        DB::transaction(function () use ($store, $now, &$hoursChanged) {
+            $store->update($now);
+            if ($store->isRestaurant()) {
+                $hoursChanged = $this->saveHours($store);
+            }
+        });
+        ActivityLogger::logModel(auth()->user(), $store, 'Seller updated shop details', array_filter(['fields' => array_keys($store->getChanges()), 'hours_changed' => $hoursChanged ?: null]));
         if ($wait !== []) {
             $pending = $changes->request($store, $wait, auth()->user(), $store->id);
             $this->flash('Saved. Your new '.mb_strtolower($pending->summary()).' will be used once 1CallFix approves it; until then the old details stay.', 'success');
@@ -204,6 +274,54 @@ class Shop extends Component
         $this->reset('newPhone', 'phoneStep', 'phoneError');
     }
 
+    /** Restaurant fields (Food F1); a problem throws the usual validation errors onto the form. */
+    private function validateRestaurant(Store $store): void
+    {
+        $packagingMax = FoodSettings::packagingChargeMax($store->settingsScope());
+        $this->fssai = trim($this->fssai);
+        $this->hours = array_replace(array_fill(0, 7, []), array_map(fn ($slots) => array_values((array) $slots), $this->hours));
+        $this->validate([
+            'fssai' => ['nullable', 'regex:/^\d{14}$/'],
+            'cuisines' => ['array', 'max:'.self::MAX_CUISINES],
+            'cuisines.*' => ['string', Rule::in(FoodSettings::cuisines())],
+            'costForTwo' => ['nullable', 'numeric', 'min:0', 'max:100000'],
+            'packagingCharge' => ['nullable', 'numeric', 'min:0', 'max:'.($packagingMax ?? 0)],
+            'prepMinutes' => ['nullable', 'integer', 'min:5', 'max:120'],
+            'hours' => ['array', 'size:7'],
+            'hours.*' => ['array', 'max:'.self::MAX_SLOTS_PER_DAY],
+            'hours.*.*.opens' => ['required', 'date_format:H:i'],
+            'hours.*.*.closes' => ['required', 'date_format:H:i', 'different:hours.*.*.opens'],
+        ], [
+            'fssai.regex' => 'The FSSAI licence number is 14 digits.',
+            'cuisines.max' => 'Choose up to '.self::MAX_CUISINES.' cuisines.',
+            'packagingCharge.max' => $packagingMax === null ? 'Packaging charges are not allowed.' : 'At most '.$packagingMax.'.',
+            'hours.*.*.closes.different' => 'Opening and closing time cannot be the same.',
+        ], ['costForTwo' => 'cost for two', 'packagingCharge' => 'packaging charge', 'prepMinutes' => 'cooking time']);
+    }
+
+    /** Replace the restaurant's opening hours with the form's. Returns true when they changed. */
+    private function saveHours(Store $store): bool
+    {
+        $before = $store->hours()->get()->map(fn ($h) => $h->day.'|'.substr($h->opens_at, 0, 5).'|'.substr($h->closes_at, 0, 5))->sort()->values()->all();
+        $after = [];
+        foreach ($this->hours as $day => $slots) {
+            foreach ($slots as $slot) {
+                $after[] = ((int) $day).'|'.$slot['opens'].'|'.$slot['closes'];
+            }
+        }
+        sort($after);
+        if ($before === $after) {
+            return false;
+        }
+        $store->hours()->delete();
+        foreach ($after as $row) {
+            [$day, $opens, $closes] = explode('|', $row);
+            $store->hours()->create(['day' => (int) $day, 'opens_at' => $opens.':00', 'closes_at' => $closes.':00']);
+        }
+
+        return true;
+    }
+
     private function flash(string $message, string $type): void
     {
         $this->flashMessage = $message;
@@ -220,6 +338,10 @@ class Shop extends Component
             'store' => $store,
             'latestChange' => $changes,
             'currencySymbol' => Setting::get('locale.currency_symbol', '₹'),
-        ])->layout('components.layouts.seller', ['title' => 'Shop']);
+            'cuisineOptions' => FoodSettings::cuisines(),
+            'packagingMax' => FoodSettings::packagingChargeMax($this->shop()->settingsScope()),
+            'defaultPrep' => (int) FoodSettings::get('food.default_prep_minutes', $this->shop()->settingsScope()),
+            'dayNames' => ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'],
+        ])->layout('components.layouts.seller', ['title' => $this->shop()->isRestaurant() ? 'Restaurant' : 'Shop']);
     }
 }

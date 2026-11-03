@@ -29,17 +29,23 @@ class MarketplaceOrder extends Model implements Orderable
     protected $fillable = [
         'code', 'franchise_id', 'zone_id', 'customer_id', 'store_id', 'module',
         'order_type', 'delivery_address_id', 'recipient_name', 'recipient_phone', 'assigned_worker_id', 'delivery_otp',
-        'subtotal', 'delivery_fee', 'tax_amount', 'discount_amount', 'total_amount',
+        'subtotal', 'delivery_fee', 'packaging_charge', 'distance_km', 'tax_amount', 'tax_by_platform', 'discount_amount', 'total_amount',
         'status', 'price_final', 'payment_status', 'payment_method',
         'cancellation_reason_id', 'cancellation_note', 'cancellation_fee',
         'coupon_code', 'coupon_discount_amount', 'special_instructions',
         'confirmed_at', 'ready_at', 'completed_at',
+        // Food F2
+        'accept_by', 'ready_by', 'rider_called_at',
     ];
 
     protected $casts = [
         'confirmed_at' => 'datetime',
         'ready_at' => 'datetime',
         'completed_at' => 'datetime',
+        'accept_by' => 'datetime',
+        'ready_by' => 'datetime',
+        'rider_called_at' => 'datetime',
+        'tax_by_platform' => 'boolean',
     ];
 
     public function franchise() { return $this->belongsTo(Franchise::class); }
@@ -67,6 +73,41 @@ class MarketplaceOrder extends Model implements Orderable
     public function usesBenefit(): bool
     {
         return (float) $this->discount_amount > 0 || (float) $this->coupon_discount_amount > 0 || ! empty($this->coupon_code);
+    }
+
+    public function isFood(): bool
+    {
+        return $this->module === Modules::FOOD;
+    }
+
+    /**
+     * Food F2: a delivery order a rider can hold — the food is ready, or (food only) still cooking but a rider was
+     * already called for it (food.rider_call_before_ready_minutes). The rider can only deliver once it is ready.
+     */
+    public function scopeRiderActive($query)
+    {
+        return $query->where('order_type', 'delivery')->where(function ($q) {
+            $q->where('status', 'ready')
+                ->orWhere(fn ($q) => $q->where('status', 'preparing')->whereNotNull('rider_called_at'));
+        });
+    }
+
+    /** Food F2: the promised ready time in the order's own city time, e.g. "7:45 PM". */
+    public function readyByLocal(): ?string
+    {
+        if ($this->ready_by === null) {
+            return null;
+        }
+        $this->loadMissing('franchise');
+
+        return $this->ready_by->copy()->setTimezone(app(\App\Services\TimezoneResolver::class)->timezoneFor($this->franchise))->format('g:i A');
+    }
+
+    /** Food F2: can a rider be offered / take this order now? */
+    public function isOpenForRider(): bool
+    {
+        return $this->order_type === 'delivery'
+            && ($this->status === 'ready' || ($this->status === 'preparing' && $this->rider_called_at !== null));
     }
 
     // ============================== Orderable ==============================

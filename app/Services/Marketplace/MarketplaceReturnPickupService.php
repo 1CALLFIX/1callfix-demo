@@ -84,7 +84,7 @@ class MarketplaceReturnPickupService
     public function isBusy(FieldWorker $rider): bool
     {
         return ParcelOrder::where('assigned_worker_id', $rider->id)->whereIn('status', ParcelOrder::ACTIVE_RIDER_STATUSES)->exists()
-            || MarketplaceOrder::where('assigned_worker_id', $rider->id)->where('status', 'ready')->where('order_type', 'delivery')->exists()
+            || MarketplaceOrder::where('assigned_worker_id', $rider->id)->riderActive()->exists()
             || MarketplaceReturn::where('pickup_worker_id', $rider->id)->whereIn('pickup_status', MarketplaceReturn::PICKUP_WITH_RIDER)->exists();
     }
 
