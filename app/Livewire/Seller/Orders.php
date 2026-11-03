@@ -102,6 +102,17 @@ class Orders extends Component
         $this->flash($result['message'], $result['ok'] ? 'success' : 'error');
     }
 
+    /** Food problem rules 2026-11-03: dispute reasons typed on the Problems tab, by problem id. */
+    public array $disputeNotes = [];
+
+    public function answerProblem(int $returnId, string $answer, \App\Services\Marketplace\MarketplaceReturnService $returns): void
+    {
+        $row = \App\Models\MarketplaceReturn::where('store_id', $this->shop()->id)->find($returnId);
+        abort_unless($row, 404);
+        $result = $returns->respondAsRestaurant($row, auth()->user(), $answer === 'agree', (string) ($this->disputeNotes[$returnId] ?? ''));
+        $this->flash($result['message'], $result['ok'] ? 'success' : 'error');
+    }
+
     private function run(callable $step, string $success): void
     {
         try {

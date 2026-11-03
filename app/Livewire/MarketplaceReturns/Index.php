@@ -92,12 +92,18 @@ class Index extends Component
         $rows = $query->orderByDesc('escalation_level')->oldest('id')->paginate(25);
 
         $strikeDays = (int) \App\Support\FoodSettings::get('food.rider_strike_days');
+        // Food problem rules 2026-11-03: each food customer's problems in the period, for the "Repeat" badge.
+        $repeatDays = (int) \App\Support\FoodSettings::get('food.repeat_days');
+        $foodCustomers = $rows->getCollection()->filter(fn ($r) => $r->order?->module === \App\Support\Modules::FOOD)->pluck('customer_id')->unique();
 
         return view('livewire.marketplace-returns.index', [
             'rows' => $rows,
             'strikeDays' => $strikeDays,
             'strikes' => $rows->getCollection()->pluck('field_worker_id')->filter()->unique()
                 ->mapWithKeys(fn ($id) => [$id => MarketplaceReturn::riderStrikes((int) $id, $strikeDays)]),
+            'repeatDays' => $repeatDays,
+            'repeatFlag' => max(1, (int) \App\Support\FoodSettings::get('food.repeat_flag_count')),
+            'repeats' => $foodCustomers->mapWithKeys(fn ($id) => [$id => MarketplaceReturn::customerFoodProblems((int) $id, $repeatDays)]),
             'faultShares' => collect(MarketplaceReturn::FAULTS)->mapWithKeys(fn ($label, $key) => [$key => \App\Support\FoodSettings::faultRestaurantPercent($key)]),
             'actions' => $rows->getCollection()->mapWithKeys(fn ($r) => [$r->id => $service->availableAction($r, auth()->user())]),
         ])->layout('layouts.admin', ['title' => 'Returns & food problems']);

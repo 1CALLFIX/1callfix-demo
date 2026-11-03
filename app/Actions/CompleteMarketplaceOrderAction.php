@@ -59,6 +59,11 @@ class CompleteMarketplaceOrderAction
             $order->status = 'completed';
             $order->price_final = $order->total_amount;
             $order->completed_at = now();
+            // Live walk-through 2026-11-03: a cash order is paid once it is handed over (the cash itself is tracked
+            // as the rider's or shop's cash due); it stayed "pending" for ever before.
+            if ($order->payment_method === 'cash' && $order->payment_status === 'pending') {
+                $order->payment_status = 'paid';
+            }
             $order->save();
 
             $order->statusHistory()->create([

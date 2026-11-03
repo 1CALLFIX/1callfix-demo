@@ -99,6 +99,11 @@ class Dashboard extends Component
             ->whereNotNull('field_worker_id')->where('decided_at', '>=', now()->subDays(max(1, $strikeDays)))
             ->selectRaw('field_worker_id, COUNT(*) as n')->groupBy('field_worker_id')->orderByDesc('n')->limit(5)
             ->with('deliveryWorker.user:id,name')->get();
+        // Food problem rules 2026-11-03: restaurants with the most "restaurant's fault" problems in the same period.
+        $restaurantFaults = (clone $problems)->where('fault', MarketplaceReturn::FAULT_RESTAURANT)->where('status', '!=', MarketplaceReturn::DECLINED)
+            ->where('decided_at', '>=', now()->subDays(max(1, $strikeDays)))
+            ->selectRaw('store_id, COUNT(*) as n')->groupBy('store_id')->orderByDesc('n')->limit(5)
+            ->with('store:id,name')->get();
 
         return view('livewire.food-orders.dashboard', [
             'franchises' => $this->franchises(),
@@ -120,6 +125,7 @@ class Dashboard extends Component
                 'platform' => round((float) (clone $refunded)->sum('platform_paid'), 2),
             ],
             'strikes' => $strikes,
+            'restaurantFaults' => $restaurantFaults,
             'strikeDays' => $strikeDays,
             'currencySymbol' => Setting::get('locale.currency_symbol', '₹'),
             'tz' => $tz,

@@ -26,6 +26,23 @@
                     <span class="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-semibold">{{ $isRestaurant && $r->status === 'received' ? 'Accepted' : ucfirst($r->status) }}</span>
                 </div>
                 <div class="mt-2 flex gap-2">@foreach ($r->photoUrls() as $src)<a href="{{ $src }}" target="_blank" rel="noopener"><img src="{{ $src }}" alt="Return photo" class="h-16 w-16 rounded-lg object-cover"></a>@endforeach</div>
+                @if ($isRestaurant && $r->restaurant_respond_by)
+                    {{-- Food problem rules 2026-11-03: the restaurant agrees or disputes before the deadline. --}}
+                    @php $answer = $r->restaurantAnswer(); @endphp
+                    @if ($r->status === 'requested' && $answer === 'waiting')
+                        <div class="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm" data-testid="problem-answer-{{ $r->id }}">
+                            <p class="font-semibold text-amber-900">Do you agree? Answer by {{ $r->respondByLocal() }}. No answer counts as Agree.</p>
+                            <p class="mt-1 text-xs text-amber-900">If you agree and the team finds it was your mistake, your part of the refund comes out of this order's earnings.</p>
+                            <div class="mt-2 flex flex-wrap items-start gap-2">
+                                <x-ui.button wire:click="answerProblem({{ $r->id }}, 'agree')">Agree</x-ui.button>
+                                <input type="text" wire:model="disputeNotes.{{ $r->id }}" maxlength="500" placeholder="Why not? (e.g. packed and sealed, photo taken)" class="min-w-0 flex-1 rounded-lg border border-slate-300 px-3 py-2">
+                                <x-ui.button variant="secondary" wire:click="answerProblem({{ $r->id }}, 'dispute')">Dispute</x-ui.button>
+                            </div>
+                        </div>
+                    @elseif ($answer)
+                        <p class="mt-2 text-sm text-slate-700">Your answer: {{ ['agreed' => 'Agreed', 'disputed' => 'Disputed', 'no_reply' => 'No answer in time (counts as Agree)', 'waiting' => 'Waiting'][$answer] }}@if ($r->restaurant_note) — "{{ $r->restaurant_note }}"@endif</p>
+                    @endif
+                @endif
                 @if ($r->status === 'accepted' && $r->pickup_status === 'picked')
                     {{-- Shop go-live: a rider is bringing it back. The drop code closes it and pays the rider. --}}
                     <div class="mt-2 rounded-xl bg-blue-50 p-3 text-sm text-blue-900">

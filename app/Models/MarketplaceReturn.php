@@ -52,7 +52,13 @@ class MarketplaceReturn extends Model
         'pickup_status', 'pickup_worker_id', 'pickup_fee', 'pickup_fee_seller', 'pickup_fee_platform', 'pickup_otp', 'drop_otp',
         'pickup_assigned_at', 'picked_up_at', 'dropped_at',
         'fault', 'field_worker_id', 'restaurant_paid', 'platform_paid',
+        'restaurant_response', 'restaurant_note', 'restaurant_respond_by', 'restaurant_responded_at',
     ];
+
+    /** Food problem rules 2026-11-03: the restaurant's answer to a food problem. */
+    public const RESTAURANT_AGREED = 'agreed';
+
+    public const RESTAURANT_DISPUTED = 'disputed';
 
     protected $casts = [
         'photos' => 'array', 'items' => 'array', 'refund_amount' => 'decimal:2',
@@ -62,6 +68,7 @@ class MarketplaceReturn extends Model
         'pickup_fee' => 'decimal:2', 'pickup_fee_seller' => 'decimal:2', 'pickup_fee_platform' => 'decimal:2',
         'pickup_assigned_at' => 'datetime', 'picked_up_at' => 'datetime', 'dropped_at' => 'datetime',
         'restaurant_paid' => 'decimal:2', 'platform_paid' => 'decimal:2',
+        'restaurant_respond_by' => 'datetime', 'restaurant_responded_at' => 'datetime',
     ];
 
     public function order() { return $this->belongsTo(MarketplaceOrder::class, 'marketplace_order_id'); }
@@ -79,6 +86,54 @@ class MarketplaceReturn extends Model
     }
 
     /** Food F4: rider strikes = food problems the admin found were damaged on the way, in the last N days (Food Settings). */
+    /**
+     * The restaurant's answer to a food problem: 'agreed' | 'disputed' | 'no_reply' (deadline passed: counts as
+     * agreed) | 'waiting' (still has time) | null (not a food problem with a deadline).
+     */
+    public function restaurantAnswer(): ?string
+    {
+        if ($this->restaurant_response) {
+            return $this->restaurant_response;
+        }
+        if (! $this->restaurant_respond_by) {
+            return null;
+        }
+
+        return $this->restaurant_respond_by->isPast() ? 'no_reply' : 'waiting';
+    }
+
+    /**
+     * Food problem rules 2026-11-03: a customer's food problems over the last $days (any outcome but withdrawn), how
+     * many were accepted and how much was refunded. Used for the "Repeat" flag and the pause.
+     *
+     * @return array{count: int, accepted: int, refunded: float}
+     */
+    public static function customerFoodProblems(int $customerId, int $days, ?int $exceptId = null): array
+    {
+        $rows = static::where('customer_id', $customerId)
+            ->whereHas('order', fn ($q) => $q->where('module', \App\Support\Modules::FOOD))
+            ->where('created_at', '>=', now()->subDays(max(1, $days)))
+            ->when($exceptId, fn ($q) => $q->whereKeyNot($exceptId))
+            ->get(['id', 'status', 'refund_amount']);
+
+        return [
+            'count' => $rows->count(),
+            'accepted' => $rows->whereIn('status', [self::RECEIVED, self::REFUNDED])->count(),
+            'refunded' => round((float) $rows->where('status', self::REFUNDED)->sum('refund_amount'), 2),
+        ];
+    }
+
+    /** The answer deadline in the franchise's own time, e.g. "4:40 PM". */
+    public function respondByLocal(): ?string
+    {
+        if (! $this->restaurant_respond_by) {
+            return null;
+        }
+        $this->loadMissing('franchise');
+
+        return $this->restaurant_respond_by->copy()->setTimezone(app(\App\Services\TimezoneResolver::class)->timezoneFor($this->franchise))->format('g:i A');
+    }
+
     public static function riderStrikes(int $fieldWorkerId, ?int $days = null): int
     {
         $days ??= (int) \App\Support\FoodSettings::get('food.rider_strike_days');

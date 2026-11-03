@@ -105,6 +105,23 @@ class FoodSettings extends MarketplaceSettings
             'group' => 'Problems & refunds', 'label' => 'Count a rider\'s strikes over the last', 'type' => 'int', 'unit' => 'days', 'min' => 1, 'max' => 365,
             'default' => '30', 'help' => 'A strike = a food problem found to be damaged on the way. Shown next to the rider\'s name in the problems queue.',
         ],
+        // ── problem rules (owner 2026-11-03, after the live walk-through) ──
+        'food.restaurant_reply_minutes' => [
+            'group' => 'Problems & refunds', 'label' => 'Time a restaurant has to Agree or Dispute a problem', 'type' => 'int', 'unit' => 'minutes', 'min' => 5, 'max' => 1440,
+            'default' => '30', 'help' => 'The restaurant sees each problem under Orders → Problems. No answer in this time counts as Agree. A dispute comes to you to decide.',
+        ],
+        'food.repeat_days' => [
+            'group' => 'Problems & refunds', 'label' => 'Count a customer\'s problems over the last', 'type' => 'int', 'unit' => 'days', 'min' => 7, 'max' => 365,
+            'default' => '90', 'help' => 'Used for the two limits below.',
+        ],
+        'food.repeat_flag_count' => [
+            'group' => 'Problems & refunds', 'label' => 'Mark a customer "Repeat" from this many problems', 'type' => 'int', 'unit' => 'problems', 'min' => 1, 'max' => 50,
+            'default' => '2', 'help' => 'A red "Repeat" badge with their count and refunds shows in the problems queue, so you check it before accepting.',
+        ],
+        'food.repeat_pause_count' => [
+            'group' => 'Problems & refunds', 'label' => 'Stop "Report a problem" for a customer from this many problems', 'type' => 'int', 'unit' => 'problems', 'min' => 2, 'max' => 50,
+            'default' => '4', 'help' => 'They see "Please call support" instead until the count drops. They can still order. Blank = never stop it.',
+        ],
     ];
 
     /** Food F5: restaurants can join through /partners. */

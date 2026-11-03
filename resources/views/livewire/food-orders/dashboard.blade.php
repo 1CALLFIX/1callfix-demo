@@ -42,7 +42,7 @@
         </x-ui.card>
     </div>
 
-    <div class="grid md:grid-cols-3 gap-4">
+    <div class="grid md:grid-cols-4 gap-4">
         <x-ui.card>
             <h2 class="font-semibold mb-2">Waiting for the restaurant to accept</h2>
             @forelse ($waitingAccept as $o)
@@ -71,6 +71,18 @@
             @forelse ($strikes as $row)
                 <div class="flex justify-between border-t py-1.5 text-sm">
                     <span>{{ $row->deliveryWorker?->user?->name ?? 'Rider #'.$row->field_worker_id }}</span>
+                    <span class="font-mono">{{ $row->n }}</span>
+                </div>
+            @empty
+                <p class="text-sm text-gray-500">None.</p>
+            @endforelse
+        </x-ui.card>
+        <x-ui.card>
+            <h2 class="font-semibold mb-2">Restaurants' mistakes (last {{ $strikeDays }} days)</h2>
+            <p class="text-xs text-gray-500 mb-1">Problems decided as the restaurant's fault. Talk to the ones at the top.</p>
+            @forelse ($restaurantFaults as $row)
+                <div class="flex justify-between border-t py-1.5 text-sm" data-testid="restaurant-faults">
+                    <span>{{ $row->store?->name ?? 'Restaurant #'.$row->store_id }}</span>
                     <span class="font-mono">{{ $row->n }}</span>
                 </div>
             @empty

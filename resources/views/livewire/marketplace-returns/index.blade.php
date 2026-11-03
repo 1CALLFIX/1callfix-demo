@@ -21,12 +21,21 @@
         <tbody>
             @forelse ($rows as $r)
                 <tr class="border-t align-top">
-                    <td class="px-4 py-2">#{{ $r->id }}<span class="block text-xs text-gray-500">{{ $r->customer?->name }}</span></td>
+                    <td class="px-4 py-2">#{{ $r->id }}<span class="block text-xs text-gray-500">{{ $r->customer?->name }}</span>
+                        @if (isset($repeats[$r->customer_id]))
+                            @php $rep = $repeats[$r->customer_id]; @endphp
+                            @if ($rep['count'] >= $repeatFlag)<x-ui.badge color="red" data-testid="repeat-badge">Repeat</x-ui.badge>@endif
+                            <span @class(['block text-xs', 'font-semibold text-red-700' => $rep['count'] >= $repeatFlag, 'text-gray-500' => $rep['count'] < $repeatFlag])>{{ $rep['count'] }} problem(s) in {{ $repeatDays }} days · {{ $rep['accepted'] }} accepted · ₹{{ number_format($rep['refunded'], 2) }} refunded</span>
+                        @endif
+                    </td>
                     <td class="px-4 py-2">{{ $r->order?->code }}<span class="block text-xs text-gray-500">{{ $r->store?->name }} · {{ ucfirst($r->order?->payment_method ?? '') }}</span></td>
                     <td class="px-4 py-2">{{ $r->franchise?->name ?? 'HQ' }}</td>
                     @php $isFood = $r->order?->module === \App\Support\Modules::FOOD; @endphp
                     <td class="px-4 py-2">@if ($isFood)<x-ui.badge color="amber">Food</x-ui.badge> @endif{{ ($isFood ? \App\Models\MarketplaceReturn::FOOD_REASONS : \App\Models\MarketplaceReturn::REASONS)[$r->reason] ?? $r->reason }}
                         @if ($r->fault)<span class="block text-xs font-medium text-gray-700">{{ \App\Models\MarketplaceReturn::FAULTS[$r->fault] ?? $r->fault }}@if ($r->restaurant_paid !== null) · restaurant ₹{{ number_format((float) $r->restaurant_paid, 2) }}, platform ₹{{ number_format((float) $r->platform_paid, 2) }}@endif</span>@endif
+                        @if ($isFood && ($answer = $r->restaurantAnswer()))
+                            <span @class(['block text-xs font-medium', 'text-red-700' => $answer === 'disputed', 'text-gray-700' => $answer !== 'disputed'])>Restaurant: {{ ['agreed' => 'agrees', 'disputed' => 'disputes', 'no_reply' => 'no answer in time (counts as agree)', 'waiting' => 'can answer until '.$r->respondByLocal()][$answer] }}@if ($r->restaurant_note) — "{{ $r->restaurant_note }}"@endif</span>
+                        @endif
                         @if ($isFood && $r->field_worker_id)<span class="block text-xs text-gray-500">Rider: {{ $r->deliveryWorker?->user?->name ?? '#'.$r->field_worker_id }} · {{ $strikes[$r->field_worker_id] ?? 0 }} strike(s) in {{ $strikeDays }} days</span>@endif
                         <span class="block max-w-xs text-xs text-gray-600">{{ \Illuminate\Support\Str::limit($r->description, 120) }}</span>
                         <span class="mt-1 flex gap-1">@foreach ($r->photoUrls() as $src)<a href="{{ $src }}" target="_blank" rel="noopener"><img src="{{ $src }}" alt="Return photo" class="h-10 w-10 rounded object-cover"></a>@endforeach</span>

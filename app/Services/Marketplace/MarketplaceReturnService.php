@@ -104,8 +104,24 @@ class MarketplaceReturnService
         if (MarketplaceReturn::where('marketplace_order_id', $order->id)->where('status', '!=', MarketplaceReturn::DECLINED)->exists()) {
             return SiteText::get('food.issue.already');
         }
+        if ($this->foodReportingPaused($order)) {
+            return SiteText::get('food.issue.paused');
+        }
 
         return null;
+    }
+
+    /** Food problem rules 2026-11-03: this customer reported the Food Settings pause count or more in the period. */
+    public function foodReportingPaused(MarketplaceOrder $order): bool
+    {
+        $scope = FoodOrderClock::scopeFor($order);
+        $pause = FoodSettings::get('food.repeat_pause_count', $scope);
+        if ($pause === null || trim((string) $pause) === '' || (int) $pause < 1) {
+            return false;
+        }
+        $days = (int) FoodSettings::get('food.repeat_days', $scope);
+
+        return MarketplaceReturn::customerFoodProblems((int) $order->customer_id, $days)['count'] >= (int) $pause;
     }
 
     public function foodWindowMinutes(MarketplaceOrder $order): int
@@ -122,7 +138,7 @@ class MarketplaceReturnService
      * @param  array<int, int>  $quantities  order item id => quantity to return
      * @param  list<string>  $photoPaths  stored on the public disk
      */
-    public function request(MarketplaceOrder $order, User $customer, string $reason, string $description, array $quantities, array $photoPaths): MarketplaceReturn
+    public function request(MarketplaceOrder $order, User $customer, string $reason, string $description, array $quantities, array $photoPaths, bool $toBank = false): MarketplaceReturn
     {
         if (($why = $this->cannotRequest($order, $customer->id)) !== null) {
             throw new \RuntimeException($why);
@@ -152,8 +168,11 @@ class MarketplaceReturnService
             'marketplace_order_id' => $order->id, 'franchise_id' => $order->franchise_id, 'store_id' => $order->store_id,
             'customer_id' => $customer->id, 'reason' => $reason, 'description' => trim($description), 'photos' => $photoPaths,
             'items' => $items, 'status' => MarketplaceReturn::REQUESTED, 'refund_amount' => round($amount, 2),
-            'refund_destination' => $order->payment_method === 'online' ? 'original' : 'wallet',
+            // Food problem rules 2026-11-03: food refunds go to the wallet (instant, nothing leaves the platform); the
+            // bank or card only when the customer asks on an online order. Shop returns keep the original method.
+            'refund_destination' => $order->payment_method === 'online' && (! $food || $toBank) ? 'original' : 'wallet',
             'field_worker_id' => $food && $order->order_type === 'delivery' ? $order->assigned_worker_id : null,
+            'restaurant_respond_by' => $food ? now()->addMinutes(max(5, (int) FoodSettings::get('food.restaurant_reply_minutes', FoodOrderClock::scopeFor($order)))) : null,
         ]);
         ActivityLogger::logModel($customer, $return, ($food ? 'Food problem reported' : 'Shop return requested')." (#{$return->id})", ['order' => $order->code, 'reason' => $reason, 'amount' => $return->refund_amount]);
 
@@ -299,9 +318,13 @@ class MarketplaceReturnService
                 return $this->no('A note is required.');
             }
             if ($accept && $amount !== null) {
-                $cap = (float) MarketplaceOrder::whereKey($r->marketplace_order_id)->value('total_amount');
+                $capOrder = MarketplaceOrder::with('items')->find($r->marketplace_order_id);
+                // Food problem rules 2026-11-03: a food refund is the food only — never delivery or packaging.
+                $cap = $capOrder?->isFood() ? round((float) $capOrder->items->sum('line_total'), 2) : (float) $capOrder?->total_amount;
                 if ($amount <= 0 || $amount > $cap) {
-                    return $this->no('The refund must be more than 0 and at most the order total.');
+                    return $this->no($capOrder?->isFood()
+                        ? 'The refund must be more than 0 and at most the price of the food (₹'.number_format($cap, 2).'). Delivery and packaging are not refunded.'
+                        : 'The refund must be more than 0 and at most the order total.');
                 }
                 $r->refund_amount = round($amount, 2);
             }
@@ -356,7 +379,42 @@ class MarketplaceReturnService
         $pct = FoodSettings::faultRestaurantPercent($fault, FoodOrderClock::scopeFor($order));
 
         return ['ok' => true, 'message' => 'Problem accepted ('.MarketplaceReturn::FAULTS[$fault]."). The restaurant pays {$pct}% of the refund, the platform the rest"
-            .($fault === MarketplaceReturn::FAULT_TRANSIT ? '; the rider gets a strike' : '').'. The refund is now waiting in the approval queue.'];
+            .($fault === MarketplaceReturn::FAULT_TRANSIT ? '; the rider gets a strike' : '').'. Next: request the refund.'];
+    }
+
+    /**
+     * Food problem rules 2026-11-03: the restaurant agrees or disputes a problem on its own order, before the Food
+     * Settings deadline (after it, no answer counts as Agree). A dispute needs a reason. No money moves here.
+     *
+     * @return array{ok: bool, message: string}
+     */
+    public function respondAsRestaurant(MarketplaceReturn $return, User $seller, bool $agree, string $note = ''): array
+    {
+        $note = trim($note);
+
+        return DB::transaction(function () use ($return, $seller, $agree, $note) {
+            $r = MarketplaceReturn::whereKey($return->id)->lockForUpdate()->firstOrFail();
+            $ownerId = \App\Models\Store::whereKey($r->store_id)->with('provider:id,user_id')->first()?->provider?->user_id;
+            if ($ownerId === null || $ownerId !== $seller->id || ! $r->restaurant_respond_by) {
+                return $this->no('This is not a problem on your restaurant\'s order.');
+            }
+            if ($r->status !== MarketplaceReturn::REQUESTED || $r->restaurant_response) {
+                return $this->no('This problem has already been answered or decided.');
+            }
+            if ($r->restaurant_respond_by->isPast()) {
+                return $this->no('The time to answer is over; no answer counts as Agree.');
+            }
+            if (! $agree && mb_strlen($note) < 10) {
+                return $this->no('Tell us why you disagree (at least 10 letters).');
+            }
+            $r->restaurant_response = $agree ? MarketplaceReturn::RESTAURANT_AGREED : MarketplaceReturn::RESTAURANT_DISPUTED;
+            $r->restaurant_note = $note === '' ? null : mb_substr($note, 0, 500);
+            $r->restaurant_responded_at = now();
+            $r->save();
+            ActivityLogger::logModel($seller, $r, 'Restaurant '.($agree ? 'agreed with' : 'disputed')." food problem (#{$r->id})", ['note' => $r->restaurant_note]);
+
+            return ['ok' => true, 'message' => $agree ? 'Thank you. The team will finish it.' : 'Sent. The team will look at both sides and decide.'];
+        });
     }
 
     /**

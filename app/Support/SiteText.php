@@ -556,6 +556,11 @@ final class SiteText
         'food.issue.not_yet' => ['food', 'Problem refused: not delivered yet', 'You can report a problem once the order is delivered or collected.', 'ఆర్డర్ డెలివరీ అయిన తర్వాత లేదా తీసుకున్న తర్వాత సమస్యను తెలియజేయవచ్చు.'],
         'food.issue.closed' => ['food', 'Problem refused: time is over', 'The time to report a problem with this order is over.', 'ఈ ఆర్డర్‌పై సమస్యను తెలియజేసే సమయం ముగిసింది.'],
         'food.issue.already' => ['food', 'Problem refused: already reported', 'A problem is already reported for this order.', 'ఈ ఆర్డర్‌పై ఇప్పటికే సమస్య నమోదైంది.'],
+        // Food problem rules 2026-11-03.
+        'food.issue.paused' => ['food', 'Problem refused: too many recent problems', 'You have reported several problems recently. Please call our support team to report this one.', 'మీరు ఇటీవల చాలా సమస్యలు తెలియజేశారు. దీని కోసం దయచేసి మా సపోర్ట్ టీమ్‌కు కాల్ చేయండి.'],
+        'food.issue.to_wallet' => ['food', 'Problem form: where the refund goes', 'If accepted, the refund goes to your 1CallFix wallet straight away.', 'ఆమోదిస్తే, రిఫండ్ వెంటనే మీ 1CallFix వాలెట్‌కు వస్తుంది.'],
+        'food.issue.to_bank' => ['food', 'Problem form: refund to bank or card instead', 'Refund to my bank or card instead (takes 5 to 7 days)', 'బదులుగా నా బ్యాంక్ లేదా కార్డుకు రిఫండ్ చేయండి (5 నుండి 7 రోజులు)'],
+        'food.rating.comment_placeholder' => ['food', 'Rating comment hint', 'Anything to tell the restaurant? (optional)', 'రెస్టారెంట్‌కు ఏమైనా చెప్పాలా? (ఐచ్ఛికం)'],
         'food.issue.pick_reason' => ['food', 'Problem refused: no reason picked', 'Pick what went wrong.', 'ఏమి తప్పు జరిగిందో ఎంచుకోండి.'],
         'food.issue.pick_items' => ['food', 'Problem refused: no dish picked', 'Pick the dish(es) that had the problem.', 'సమస్య ఉన్న వంటకం(లు) ఎంచుకోండి.'],
         'food.issue.photo_needed' => ['food', 'Problem refused: no photo', 'Add at least one photo of what arrived.', 'వచ్చిన దాని కనీసం ఒక ఫోటో జోడించండి.'],

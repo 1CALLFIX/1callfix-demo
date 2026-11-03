@@ -81,6 +81,9 @@ class OrderShow extends Component
 
     public string $returnReason = 'damaged';
 
+    /** Food problem rules 2026-11-03: an online food order's refund goes to the wallet unless the customer ticks this. */
+    public bool $refundToBank = false;
+
     public string $returnDescription = '';
 
     /** order item id => quantity to return */
@@ -115,7 +118,7 @@ class OrderShow extends Component
         }
         $paths = array_map(fn ($file) => $file->store('returns/'.$this->order->id, 'public'), $this->returnPhotos);
         try {
-            $returns->request($this->order, auth()->user(), $this->returnReason, $this->returnDescription, array_map('intval', $this->returnQty), $paths);
+            $returns->request($this->order, auth()->user(), $this->returnReason, $this->returnDescription, array_map('intval', $this->returnQty), $paths, $food && $this->refundToBank);
         } catch (\RuntimeException $e) {
             foreach ($paths as $path) {
                 \Illuminate\Support\Facades\Storage::disk('public')->delete($path);
@@ -188,6 +191,8 @@ class OrderShow extends Component
             'canReturn' => app(\App\Services\Marketplace\MarketplaceReturnService::class)->cannotRequest($this->order, auth()->id()) === null,
             'foodIssueMinutes' => $this->order->isFood() ? app(\App\Services\Marketplace\MarketplaceReturnService::class)->foodWindowMinutes($this->order) : null,
             'foodPhotoNeeded' => $this->order->isFood() && app(\App\Services\Marketplace\MarketplaceReturnService::class)->foodPhotoRequired($this->order),
+            'foodPaused' => $this->order->isFood() && $this->order->customer_id === auth()->id()
+                && app(\App\Services\Marketplace\MarketplaceReturnService::class)->foodReportingPaused($this->order),
             'foodStatus' => $this->foodStatus(),
             'currencySymbol' => Setting::get('locale.currency_symbol', '₹'),
         ])->layout('components.layouts.customer', ['title' => 'Order '.$this->order->code]);

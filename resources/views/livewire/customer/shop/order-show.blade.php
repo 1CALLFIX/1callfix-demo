@@ -131,7 +131,7 @@
                             @endfor
                         </div>
                         @error('rating') <p class="text-sm text-red-700">{{ $message }}</p> @enderror
-                        <textarea wire:model="comment" rows="2" placeholder="{{ $t('shop_order.comment_placeholder') }}" class="mt-2 w-full rounded-xl border border-slate-300 px-3 py-2 text-base"></textarea>
+                        <textarea wire:model="comment" rows="2" placeholder="{{ $order->isFood() ? $t('food.rating.comment_placeholder') : $t('shop_order.comment_placeholder') }}" class="mt-2 w-full rounded-xl border border-slate-300 px-3 py-2 text-base"></textarea>
                         <button type="submit" class="mt-2 min-h-11 rounded-xl bg-blue-600 px-5 text-sm font-bold text-white">{{ $t('shop_order.send_rating') }}</button>
                     </form>
                 @endif
@@ -189,12 +189,20 @@
                                 <input type="file" wire:model="returnPhotos" multiple accept="image/jpeg,image/png,image/webp" class="mt-1 block text-sm"></label>
                             @error('returnPhotos') <p class="text-red-700">{{ $message }}</p> @enderror
                             @error('returnPhotos.*') <p class="text-red-700">{{ $message }}</p> @enderror
+                            @if ($order->isFood())
+                                <p class="text-slate-600">{{ $t('food.issue.to_wallet') }}</p>
+                                @if ($order->payment_method === 'online')
+                                    <label class="flex items-center gap-2"><input type="checkbox" wire:model="refundToBank" class="rounded" data-testid="refund-to-bank"> {{ $t('food.issue.to_bank') }}</label>
+                                @endif
+                            @endif
                             <div class="flex gap-2">
                                 <button type="submit" wire:loading.attr="disabled" class="min-h-11 rounded-xl bg-blue-600 px-5 font-bold text-white" data-testid="problem-submit">{{ $t($rk.'submit') }}</button>
                                 <button type="button" wire:click="$set('returning', false)" class="min-h-11 rounded-xl border border-slate-300 px-4">{{ $t('shop_order.return.cancel') }}</button>
                             </div>
                         </form>
                     @endif
+                @elseif (! $returnRow && $foodPaused)
+                    <p class="text-slate-700" data-testid="problem-paused">{{ $t('food.issue.paused') }}</p>
                 @elseif (! $returnRow)
                     <p class="text-xs text-slate-500">{{ $t($rk.'rule', ['days' => $returnDays, 'minutes' => $foodIssueMinutes]) }}</p>
                 @endif
