@@ -27,6 +27,10 @@ final class ProductPhotoLink
         if (in_array($host, ['postimg.cc', 'www.postimg.cc', 'postimages.org', 'www.postimages.org'], true)) {
             return "'{$link}' is the postimg page, not the photo: use its \"Direct link\" (starts with https://i.postimg.cc/)";
         }
+        // ImgBB (already used for the service photos): the page is ibb.co/..., the photo is i.ibb.co/....
+        if (in_array($host, ['ibb.co', 'www.ibb.co', 'imgbb.com', 'www.imgbb.com'], true)) {
+            return "'{$link}' is the ImgBB page, not the photo: use its \"Direct link\" (starts with https://i.ibb.co/)";
+        }
         if (! preg_match('/\.(jpe?g|png|webp|gif)$/i', (string) parse_url($link, PHP_URL_PATH))) {
             return "'{$link}' is not a direct photo link (it must end in .jpg, .png, .webp or .gif)";
         }

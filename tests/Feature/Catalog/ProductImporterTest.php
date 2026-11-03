@@ -281,8 +281,13 @@ class ProductImporterTest extends TestCase
         $store = $this->store();
         $row = fn (string $image) => ['name' => 'Rice', 'store_id' => $store->id, 'price' => 70, 'image' => $image];
 
-        $ok = (new ProductImporter)->validateRows($this->rows([$row('https://i.postimg.cc/Ab12Cd/basmati-rice.jpg')]));
+        $ok = (new ProductImporter)->validateRows($this->rows([
+            $row('https://i.postimg.cc/Ab12Cd/basmati-rice.jpg'),
+            $row('https://i.ibb.co/Fb2YjkD6/01-AC-Repair.png'), // ImgBB, as the live service photos
+        ]));
         $this->assertEmpty($ok['errors']);
+        $imgbbPage = (new ProductImporter)->validateRows($this->rows([$row('https://ibb.co/Fb2YjkD6')]));
+        $this->assertStringContainsString('https://i.ibb.co/', $imgbbPage['errors'][0]['message']);
 
         $bad = (new ProductImporter)->validateRows($this->rows([
             $row('https://postimg.cc/Ab12Cd'),
