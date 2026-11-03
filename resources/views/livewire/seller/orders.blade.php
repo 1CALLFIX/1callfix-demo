@@ -2,7 +2,7 @@
     <h1 class="text-2xl font-bold tracking-tight">Orders</h1>
 
     <div class="flex flex-wrap gap-2 text-sm" role="tablist">
-        @foreach (['new' => 'New', 'active' => 'In progress', 'done' => 'Completed', 'cancelled' => 'Cancelled', 'returns' => 'Returns'] as $key => $label)
+        @foreach (['new' => 'New', 'active' => 'In progress', 'done' => 'Completed', 'cancelled' => 'Cancelled', 'returns' => $isRestaurant ? 'Problems' : 'Returns'] as $key => $label)
             <button type="button" role="tab" wire:click="$set('tab', '{{ $key }}')" aria-selected="{{ $tab === $key ? 'true' : 'false' }}"
                     @class(['rounded-lg px-3 py-1.5 font-medium', 'bg-slate-900 text-white' => $tab === $key, 'border border-slate-300 bg-white text-slate-700' => $tab !== $key])>
                 {{ $label }}@if (isset($counts[$key]) && $counts[$key] > 0) <span class="ml-1 rounded-full bg-amber-500 px-1.5 text-xs text-white">{{ $counts[$key] }}</span>@endif
@@ -20,10 +20,10 @@
             <x-ui.card class="!p-4" wire:key="return-{{ $r->id }}">
                 <div class="flex flex-wrap items-start justify-between gap-2">
                     <div>
-                        <p class="font-semibold">Return #{{ $r->id }} · order {{ $r->order?->code }}</p>
-                        <p class="text-sm text-slate-600">{{ \App\Models\MarketplaceReturn::REASONS[$r->reason] ?? $r->reason }}: {{ $r->description }}</p>
+                        <p class="font-semibold">{{ $isRestaurant ? 'Problem' : 'Return' }} #{{ $r->id }} · order {{ $r->order?->code }}</p>
+                        <p class="text-sm text-slate-600">{{ ($isRestaurant ? \App\Models\MarketplaceReturn::FOOD_REASONS : \App\Models\MarketplaceReturn::REASONS)[$r->reason] ?? $r->reason }}: {{ $r->description }}</p>
                     </div>
-                    <span class="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-semibold">{{ ucfirst($r->status) }}</span>
+                    <span class="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-semibold">{{ $isRestaurant && $r->status === 'received' ? 'Accepted' : ucfirst($r->status) }}</span>
                 </div>
                 <div class="mt-2 flex gap-2">@foreach ($r->photoUrls() as $src)<a href="{{ $src }}" target="_blank" rel="noopener"><img src="{{ $src }}" alt="Return photo" class="h-16 w-16 rounded-lg object-cover"></a>@endforeach</div>
                 @if ($r->status === 'accepted' && $r->pickup_status === 'picked')
@@ -42,12 +42,17 @@
                 @elseif ($r->status === 'accepted')
                     <p class="mt-2 text-sm text-slate-700">Accepted by the {{ \App\Models\Setting::get('branding.platform_name', '1CallFix') }} team. When the item is back with you, confirm it.</p>
                     <x-ui.button class="mt-2" wire:click="receiveReturn({{ $r->id }})">Item received back</x-ui.button>
+                @elseif ($isRestaurant && $r->status === 'received')
+                    {{-- Food F4: nothing comes back; the refund is being approved. --}}
+                    <p class="mt-2 text-sm text-slate-700">Accepted by the {{ \App\Models\Setting::get('branding.platform_name', '1CallFix') }} team: {{ \App\Models\MarketplaceReturn::FAULTS[$r->fault] ?? '' }}. The refund is being approved.</p>
+                @elseif ($isRestaurant && $r->status === 'refunded')
+                    <p class="mt-2 text-sm text-slate-600">Refunded {{ $currencySymbol }}{{ number_format((float) $r->refund_amount, 2) }} ({{ \App\Models\MarketplaceReturn::FAULTS[$r->fault] ?? '' }}). Taken from this order's earnings: {{ $currencySymbol }}{{ number_format((float) $r->restaurant_paid, 2) }}.</p>
                 @elseif ($r->status === 'refunded')
                     <p class="mt-2 text-sm text-slate-600">Refunded {{ $currencySymbol }}{{ number_format((float) $r->refund_amount, 2) }}; your share of it was taken from this order's held earnings.</p>
                 @endif
             </x-ui.card>
         @empty
-            <x-ui.card><p class="text-sm text-slate-600">No returns.</p></x-ui.card>
+            <x-ui.card><p class="text-sm text-slate-600">{{ $isRestaurant ? 'No problems reported.' : 'No returns.' }}</p></x-ui.card>
         @endforelse
     @else
     @forelse ($orders as $order)
@@ -78,7 +83,8 @@
             <ul class="mt-3 divide-y divide-slate-100 rounded-lg bg-slate-50 px-3 text-sm">
                 @foreach ($order->items as $item)
                     <li class="flex justify-between gap-3 py-1.5">
-                        <span><span class="font-semibold">{{ $item->quantity }} ×</span> {{ $item->product_name_snapshot }}@if ($item->variant_name_snapshot) <span class="text-slate-500">({{ $item->variant_name_snapshot }})</span>@endif</span>
+                        <span><span class="font-semibold">{{ $item->quantity }} ×</span> {{ $item->product_name_snapshot }}@if ($item->variant_name_snapshot) <span class="text-slate-500">({{ $item->variant_name_snapshot }})</span>@endif
+                            @if (! empty($item->add_ons_snapshot))<span class="block text-xs text-slate-600">+ {{ collect($item->add_ons_snapshot)->pluck('name')->implode(', ') }}</span>@endif</span>
                         <span class="tabular-nums">{{ $currencySymbol }}{{ number_format((float) $item->line_total, 2) }}</span>
                     </li>
                 @endforeach
@@ -89,7 +95,14 @@
             @if (! $isPickup && $order->deliveryAddress)
                 <p class="mt-2 text-xs text-slate-500">Deliver to: {{ $order->deliveryAddress->city ?: $order->deliveryAddress->address_line }}@if ($order->recipient_name) · for {{ $order->recipient_name }}@endif</p>
             @endif
-            @if ($order->status === 'ready' && ! $isPickup)
+            {{-- Food F2: the accept clock, the promised time, and a rider called while cooking. --}}
+            @if ($order->isFood() && $order->status === 'pending' && $order->accept_by)
+                <p class="mt-2 text-sm font-semibold text-red-700">Accept by {{ app(\App\Services\TimezoneResolver::class)->format($order->accept_by, $order->franchise, 'h:i A') }} ({{ $order->accept_by->isPast() ? 'time is up' : $order->accept_by->diffForHumans(short: true) }}), or it is cancelled and refunded.</p>
+            @endif
+            @if ($order->isFood() && in_array($order->status, ['accepted', 'preparing'], true) && $order->ready_by)
+                <p class="mt-2 text-sm text-slate-700">You promised it by <span class="font-semibold">{{ $order->readyByLocal() }}</span>@if ($order->ready_by->isPast()) <span class="font-semibold text-red-700">(late)</span>@endif.</p>
+            @endif
+            @if (! $isPickup && ($order->status === 'ready' || ($order->status === 'preparing' && $order->rider_called_at)))
                 <p class="mt-2 text-sm text-slate-700">
                     {{ $order->assignedWorker ? 'Rider '.$order->assignedWorker->user?->name.' is coming to collect it.' : 'Finding a rider…' }}
                 </p>
@@ -106,13 +119,19 @@
                 @if ($order->status === 'pending')
                     @if ($awaitingPayment)
                         <p class="text-sm text-slate-500">You can accept this once the customer has paid.</p>
+                    @elseif ($order->isFood())
+                        <label for="prep-{{ $order->id }}" class="text-sm">Ready in</label>
+                        <input id="prep-{{ $order->id }}" type="number" min="1" max="240" wire:model="prepTimes.{{ $order->id }}" placeholder="{{ $usualPrep }}"
+                               class="min-h-10 w-20 rounded-lg border border-slate-300 px-2 text-base">
+                        <span class="text-sm">min</span>
+                        <x-ui.button wire:click="advance({{ $order->id }}, 'accepted')">Accept order</x-ui.button>
                     @else
                         <x-ui.button wire:click="advance({{ $order->id }}, 'accepted')">Accept order</x-ui.button>
                     @endif
                 @elseif ($order->status === 'accepted')
-                    <x-ui.button wire:click="advance({{ $order->id }}, 'preparing')">Start packing</x-ui.button>
+                    <x-ui.button wire:click="advance({{ $order->id }}, 'preparing')">{{ $order->isFood() ? 'Start cooking' : 'Start packing' }}</x-ui.button>
                 @elseif ($order->status === 'preparing')
-                    <x-ui.button wire:click="advance({{ $order->id }}, 'ready')">{{ $isPickup ? 'Ready for pickup' : 'Packed — call a rider' }}</x-ui.button>
+                    <x-ui.button wire:click="advance({{ $order->id }}, 'ready')">{{ $order->isFood() ? ($isPickup ? 'Food is ready for pickup' : 'Food is packed and ready') : ($isPickup ? 'Ready for pickup' : 'Packed — call a rider') }}</x-ui.button>
                 @elseif ($order->status === 'ready' && $isPickup)
                     <label class="sr-only" for="code-{{ $order->id }}">Collection code</label>
                     <input id="code-{{ $order->id }}" type="text" inputmode="numeric" maxlength="8" wire:model="codes.{{ $order->id }}" placeholder="Customer's code"

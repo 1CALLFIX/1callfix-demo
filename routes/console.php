@@ -105,6 +105,15 @@ ScheduleRunTracker::track(Schedule::command('marketplace:release-earnings'), 'ma
     ->hourly()
     ->withoutOverlapping(30);
 
+// Food F2 — cancels and refunds food orders a restaurant did not accept within food.accept_minutes, and calls a
+// rider food.rider_call_before_ready_minutes before the promised ready time (does nothing while that is unset).
+ScheduleRunTracker::track(Schedule::command('food:expire-unaccepted'), 'food:expire-unaccepted')
+    ->everyMinute()
+    ->withoutOverlapping(5);
+ScheduleRunTracker::track(Schedule::command('food:call-riders'), 'food:call-riders')
+    ->everyMinute()
+    ->withoutOverlapping(5);
+
 // Parcel delivery — cancels online parcel orders not paid within parcel.unpaid_expiry_minutes
 // (default 30). Such an order was never offered to a rider; a late capture is refunded.
 ScheduleRunTracker::track(Schedule::command('parcel:expire-unpaid'), 'parcel:expire-unpaid')

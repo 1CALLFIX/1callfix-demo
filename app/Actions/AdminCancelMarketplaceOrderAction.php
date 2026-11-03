@@ -44,6 +44,11 @@ class AdminCancelMarketplaceOrderAction
 
             // E-commerce Phase 2: the customer can cancel until the shop starts packing — free before the shop
             // accepts, the admin-set cancellation policy after.
+            // Food F2: a restaurant starts cooking as soon as it accepts, so a food order can be cancelled by the
+            // customer only before that.
+            if ($by === 'customer' && $order->isFood() && $order->status !== 'pending') {
+                throw new \RuntimeException('The restaurant has accepted this order and is cooking it, so it can no longer be cancelled. Contact support if something is wrong.');
+            }
             if ($by === 'customer' && ! in_array($order->status, ['pending', 'accepted'], true)) {
                 throw new \RuntimeException('The shop has started packing this order, so it can no longer be cancelled here. Contact support.');
             }
@@ -54,7 +59,10 @@ class AdminCancelMarketplaceOrderAction
                 default => $this->cancellationService->calculateFeeForMarketplaceOrder($order),
             };
 
-            $this->releaseStock($order);
+            // Food F2: dishes are not counted stock, so there is nothing to put back.
+            if (! $order->isFood()) {
+                $this->releaseStock($order);
+            }
 
             $order->status = 'cancelled';
             $order->cancellation_note = $reason;

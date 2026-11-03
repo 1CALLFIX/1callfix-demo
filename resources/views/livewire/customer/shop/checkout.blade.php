@@ -123,8 +123,9 @@
                                     @else<span class="flex h-full w-full items-center justify-center font-bold text-slate-300">{{ mb_substr((string) $l->product?->name, 0, 1) }}</span>@endif
                                 </div>
                                 <div class="min-w-0 flex-1 text-sm">
-                                    <p class="line-clamp-1 font-semibold text-slate-900">{{ $l->product?->name }}@if ($l->variant) <span class="font-normal text-slate-500">({{ $l->variant->name }})</span>@endif</p>
-                                    <p class="text-xs text-slate-500">{{ $l->quantity }} × {{ $money($paymentMethod === 'cash' ? $l->cashUnitPrice() : $l->unitPrice()) }}
+                                    <p class="line-clamp-1 font-semibold text-slate-900">@if ($isFood)<x-food-mark :type="$l->product?->food_type ?: 'veg'" class="mr-1" />@endif{{ $l->product?->name }}@if ($l->variant) <span class="font-normal text-slate-500">({{ $l->variant->name }})</span>@endif</p>
+                                    @if ($l->addOnModels()->isNotEmpty())<p class="line-clamp-2 text-xs text-slate-500">+ {{ $l->addOnModels()->pluck('name')->implode(', ') }}</p>@endif
+                                    <p class="text-xs text-slate-500">{{ $l->quantity }} × {{ $money($l->unitPriceWithAddOns($paymentMethod === 'cash')) }}
                                         @if ($l->isDiscounted() && $paymentMethod !== 'cash')<span class="ml-1 rounded-full bg-emerald-50 px-1.5 py-0.5 text-[11px] font-bold text-emerald-700">{{ $t('shop.card.off_online', ['percent' => rtrim(rtrim(number_format((float) $l->product->discount_percent, 1), '0'), '.')]) }}</span>@endif
                                     </p>
                                     {{-- Change the quantity or remove without going back to the cart (Flipkart / Amazon / Meesho). --}}
@@ -138,8 +139,8 @@
                                     </div>
                                 </div>
                                 <p class="text-right text-sm font-bold tabular-nums">
-                                    @if ($l->isDiscounted() && $paymentMethod !== 'cash')<span class="block text-xs font-normal text-slate-400 line-through">{{ $money($l->listUnitPrice() * $l->quantity) }}</span>@endif
-                                    {{ $money(($paymentMethod === 'cash' ? $l->cashUnitPrice() : $l->unitPrice()) * $l->quantity) }}
+                                    @if ($l->isDiscounted() && $paymentMethod !== 'cash')<span class="block text-xs font-normal text-slate-400 line-through">{{ $money(($l->listUnitPrice() + $l->addOnsTotal()) * $l->quantity) }}</span>@endif
+                                    {{ $money($l->unitPriceWithAddOns($paymentMethod === 'cash') * $l->quantity) }}
                                 </p>
                             </li>
                         @endforeach
@@ -222,8 +223,11 @@
                             <div class="flex justify-between"><dt>{{ $t('shop_checkout.delivery') }}</dt>
                                 <dd class="tabular-nums">@if ($deliveryFee > 0){{ $money($deliveryFee) }}@else<span class="mr-1 text-slate-400 line-through">{{ $price['deliveryWaived'] > 0 ? $money($price['deliveryWaived']) : '' }}</span><span class="font-semibold text-emerald-700">{{ $t('shop_checkout.free') }}</span>@endif</dd></div>
                         @endif
+                        @if ($packaging > 0)
+                            <div class="flex justify-between" data-testid="checkout-packaging"><dt>{{ $t('food.checkout.packaging') }}</dt><dd class="tabular-nums">{{ $money($packaging) }}</dd></div>
+                        @endif
                         @if ($tax > 0)
-                            <div class="flex justify-between"><dt>{{ $t('shop_checkout.tax') }}</dt><dd class="tabular-nums">{{ $money($tax) }}</dd></div>
+                            <div class="flex justify-between"><dt>{{ $isFood ? $t('food.checkout.gst') : $t('shop_checkout.tax') }}</dt><dd class="tabular-nums">{{ $money($tax) }}</dd></div>
                         @endif
                         <div class="flex items-baseline justify-between border-t border-dashed border-slate-200 pt-3 text-lg font-extrabold text-slate-900"><dt>{{ $t('shop_checkout.total') }}</dt><dd class="tabular-nums" data-testid="checkout-total">{{ $money($total) }}</dd></div>
                         <p class="text-right text-[11px] text-slate-500">{{ $t('shop_checkout.incl_taxes') }}</p>
@@ -232,6 +236,9 @@
                         <p class="mt-3 flex items-center gap-1.5 rounded-2xl bg-emerald-50 px-3 py-2 font-semibold text-emerald-800" data-testid="checkout-saving"><x-icon name="tag" class="h-4 w-4" /> {{ $t('shop_checkout.saving_banner', ['amount' => $money($saving)]) }}</p>
                     @endif
 
+                    @if ($deliveryProblem && $orderType === 'delivery')
+                        <p role="alert" class="mt-3 rounded-xl bg-amber-50 px-3 py-2.5 text-sm text-amber-900" data-testid="delivery-problem">{{ $deliveryProblem }}</p>
+                    @endif
                     @if ($error)
                         <p role="alert" class="mt-3 rounded-xl bg-red-50 px-3 py-2.5 text-sm text-red-800">{{ $error }}</p>
                     @endif

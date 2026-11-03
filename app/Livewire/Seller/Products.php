@@ -7,7 +7,9 @@ use App\Models\MarketplaceCategory;
 use App\Models\Product;
 use App\Models\Setting;
 use App\Services\ActivityLogger;
+use App\Support\FoodSettings;
 use App\Support\MarketplaceSettings;
+use Illuminate\Validation\Rule;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Attributes\Url;
 use Livewire\Component;
@@ -30,6 +32,9 @@ class Products extends Component
 
     private const MAX_PHOTOS = 5;
 
+    /** Food F1: a new dish gets this many portions; the order flow (F2) stops counting restaurant stock. */
+    public const RESTAURANT_STOCK = 9999;
+
     #[Url]
     public string $search = '';
 
@@ -49,6 +54,10 @@ class Products extends Component
 
     /** Product choices 2026-11-02: stock of a product with choices is set per choice. */
     public bool $editingHasChoices = false;
+
+    /** Food F1 (restaurant menus): veg | egg | non_veg, and the add-on groups this dish offers. */
+    public string $foodType = '';
+    public array $groupIds = [];
 
     /** Paths already saved on the product being edited. */
     public array $photos = [];
@@ -85,6 +94,8 @@ class Products extends Component
         $this->isActive = (bool) $product->is_active;
         $this->editingHasChoices = ! empty($product->option_names);
         $this->photos = $product->images ?? [];
+        $this->foodType = (string) $product->food_type;
+        $this->groupIds = $product->addOnGroups()->pluck('add_on_groups.id')->map(fn ($id) => (string) $id)->all();
         $this->creating = true;
     }
 
@@ -102,6 +113,10 @@ class Products extends Component
     public function save(): void
     {
         $store = $this->shop();
+        if ($store->isRestaurant()) {
+            // A dish is not counted stock: "Sold out today" is the restaurant's switch (Food F1).
+            $this->stock = $this->editingId ? (string) $this->ownProduct($this->editingId)->stock : (string) self::RESTAURANT_STOCK;
+        }
         $this->validate([
             'name' => ['required', 'string', 'min:2', 'max:150'],
             'description' => ['nullable', 'string', 'max:3000'],
@@ -114,7 +129,16 @@ class Products extends Component
             'uploads.*' => ['image', 'mimes:jpg,jpeg,png,webp', 'max:4096'],
         ], [], ['categoryId' => 'category', 'discountPercent' => 'discount', 'maxCartQuantity' => 'limit per order']);
 
-        if (($word = MarketplaceSettings::blockedWordIn($this->name.' '.$this->description)) !== null) {
+        if ($store->isRestaurant()) {
+            $this->validate([
+                'foodType' => ['required', Rule::in(array_keys(FoodSettings::FOOD_TYPES))],
+                'groupIds' => ['array'],
+                'groupIds.*' => [Rule::exists('add_on_groups', 'id')->where('store_id', $store->id)->whereNull('deleted_at')],
+            ], ['foodType.required' => 'Choose veg, egg or non-veg.'], ['foodType' => 'food type', 'groupIds.*' => 'add-on group']);
+        }
+
+        // A restaurant sells food: the shop's blocked words (food, medicine …) are for Commerce only.
+        if (! $store->isRestaurant() && ($word = MarketplaceSettings::blockedWordIn($this->name.' '.$this->description)) !== null) {
             $this->addError('name', "Products with “{$word}” cannot be sold on the shop.");
 
             return;
@@ -146,6 +170,10 @@ class Products extends Component
             'is_active' => $this->isActive,
             'images' => $paths ?: null,
         ];
+        if ($store->isRestaurant()) {
+            $fields['food_type'] = $this->foodType;
+        }
+        $groupSync = collect($this->groupIds)->values()->mapWithKeys(fn ($id, $i) => [(int) $id => ['position' => $i]])->all();
         $needsApproval = MarketplaceSettings::on('marketplace.seller_products_need_approval', $this->shopScope($store));
 
         if ($this->editingId) {
@@ -164,10 +192,16 @@ class Products extends Component
                 unset($fields['stock']); // product choices: stock is the total of the choices
             }
             $product->update($fields);
+            if ($store->isRestaurant()) {
+                $product->addOnGroups()->sync($groupSync);
+            }
             ActivityLogger::logModel(auth()->user(), $product, 'Seller updated product', ['fields' => array_keys($product->getChanges())]);
             $this->flash(($fields['is_approved'] ?? true) === false ? 'Saved. The changes show to customers once approved.' : 'Saved.', 'success');
         } else {
             $product = Product::create($fields + ['store_id' => $store->id, 'is_approved' => ! $needsApproval, 'tax_percent' => 0]);
+            if ($store->isRestaurant()) {
+                $product->addOnGroups()->sync($groupSync);
+            }
             ActivityLogger::logModel(auth()->user(), $product, 'Seller added product');
             $this->flash($needsApproval ? 'Product added. It shows to customers once approved.' : 'Product added.', 'success');
         }
@@ -191,6 +225,21 @@ class Products extends Component
         }
         $product->update(['stock' => (int) trim($value)]);
         $this->flash("Stock for {$product->name} is now {$product->stock}.", 'success');
+    }
+
+    /**
+     * Food F1: "Sold out today" — hidden from ordering until the restaurant's next midnight (local time), then back
+     * by itself. Tapping again brings it back now.
+     */
+    public function toggleSoldOut(int $productId): void
+    {
+        $product = $this->ownProduct($productId);
+        $store = $this->shop();
+        abort_unless($store->isRestaurant(), 404);
+        $until = $product->isSoldOutNow() ? null : $store->localNow()->endOfDay()->utc();
+        $product->update(['out_of_stock_until' => $until]);
+        ActivityLogger::logModel(auth()->user(), $product, $until ? 'Restaurant marked dish sold out for today' : 'Restaurant marked dish available');
+        $this->flash($until ? "{$product->name} is sold out for today. It comes back tomorrow by itself." : "{$product->name} is available again.", 'success');
     }
 
     public function toggleActive(int $productId): void
@@ -217,7 +266,7 @@ class Products extends Component
 
     private function resetForm(): void
     {
-        $this->reset(['editingHasChoices', 'editingId', 'name', 'description', 'categoryId', 'price', 'discountPercent', 'maxCartQuantity', 'photos', 'uploads']);
+        $this->reset(['editingHasChoices', 'editingId', 'name', 'description', 'categoryId', 'price', 'discountPercent', 'maxCartQuantity', 'photos', 'uploads', 'foodType', 'groupIds']);
         $this->stock = '0';
         $this->isActive = true;
         $this->creating = false;
@@ -241,6 +290,9 @@ class Products extends Component
             'categories' => MarketplaceCategory::where('module', $store->module)->where('is_active', true)->orderBy('position')->orderBy('name')->get(['id', 'name', 'parent_id']),
             'currencySymbol' => Setting::get('locale.currency_symbol', '₹'),
             'maxPhotos' => self::MAX_PHOTOS,
-        ])->layout('components.layouts.seller', ['title' => 'Products']);
+            'isRestaurant' => $store->isRestaurant(),
+            'foodTypes' => FoodSettings::FOOD_TYPES,
+            'addOnGroups' => $store->isRestaurant() ? $store->addOnGroups()->where('is_active', true)->get(['id', 'name', 'min_select', 'max_select']) : collect(),
+        ])->layout('components.layouts.seller', ['title' => $store->isRestaurant() ? 'Menu' : 'Products']);
     }
 }

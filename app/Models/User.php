@@ -82,6 +82,8 @@ class User extends Authenticatable
             'parcel' => ! $this->fieldWorkerProfile()->exists(),
             // E-commerce Phase 1: one shop per account through sign-up (a service partner may add one too).
             'commerce' => ! \App\Models\Store::query()->whereHas('provider', fn ($q) => $q->where('user_id', $this->id))->exists(),
+            // Food F5: a restaurant is a store too (same seller portal), so the same one-store rule.
+            'food' => ! \App\Models\Store::query()->whereHas('provider', fn ($q) => $q->where('user_id', $this->id))->exists(),
             default => false,
         };
     }
@@ -96,6 +98,7 @@ class User extends Authenticatable
             'service' => ($p = $this->providerProfile) !== null && (! empty($p->skills) || ! $p->stores()->exists()),
             'parcel' => (bool) $this->fieldWorkerProfile?->hasCapability('parcel_rider'),
             'commerce' => (bool) $this->providerProfile?->stores()->exists(),
+            'food' => (bool) $this->providerProfile?->stores()->where('module', \App\Support\Modules::FOOD)->exists(),
             default => false,
         };
     }
@@ -104,7 +107,8 @@ class User extends Authenticatable
     public function canAddAPartnerRole(): bool
     {
         return $this->canApplyAsPartner('service') || $this->canApplyAsPartner('parcel')
-            || (\App\Support\MarketplaceSettings::recruitingSellers() && $this->canApplyAsPartner('commerce'));
+            || (\App\Support\MarketplaceSettings::recruitingSellers() && $this->canApplyAsPartner('commerce'))
+            || (\App\Support\FoodSettings::recruitingRestaurants() && $this->canApplyAsPartner('food'));
     }
     public function addresses() { return $this->hasMany(Address::class); }
     public function bookings() { return $this->hasMany(Booking::class, 'customer_id'); }

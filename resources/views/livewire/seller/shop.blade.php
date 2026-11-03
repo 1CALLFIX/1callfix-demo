@@ -74,6 +74,80 @@
             <p class="mt-2 text-xs text-slate-500">The delivery fee goes to the rider. Free delivery applies to online payments only; cash orders always pay the fee.</p>
         </x-ui.card>
 
+        @if ($store->isRestaurant())
+            {{-- Food F1: restaurant details. The lists and limits come from Admin → Food Settings. --}}
+            <x-ui.card>
+                <h2 class="text-sm font-semibold">Restaurant</h2>
+                <div class="mt-3 grid gap-4 sm:grid-cols-2">
+                    <label class="block text-sm">
+                        <span class="font-medium">FSSAI licence number</span>
+                        <input type="text" inputmode="numeric" maxlength="14" wire:model="fssai" class="mt-1 block min-h-11 w-full rounded-lg border border-slate-300 px-3 text-base" placeholder="14 digits">
+                        <span class="text-xs text-slate-500">Shown on your menu. Needed before your restaurant opens.</span>
+                        @error('fssai') <span class="block text-sm text-red-700">{{ $message }}</span> @enderror
+                    </label>
+                    <label class="block text-sm">
+                        <span class="font-medium">Cost for two ({{ $currencySymbol }})</span>
+                        <input type="text" inputmode="decimal" wire:model="costForTwo" class="mt-1 block min-h-11 w-full rounded-lg border border-slate-300 px-3 text-base" placeholder="For example 300">
+                        @error('costForTwo') <span class="text-sm text-red-700">{{ $message }}</span> @enderror
+                    </label>
+                    <label class="block text-sm">
+                        <span class="font-medium">Usual cooking time (minutes)</span>
+                        <input type="text" inputmode="numeric" wire:model="prepMinutes" class="mt-1 block min-h-11 w-full rounded-lg border border-slate-300 px-3 text-base" placeholder="Blank = {{ $defaultPrep }}">
+                        @error('prepMinutes') <span class="text-sm text-red-700">{{ $message }}</span> @enderror
+                    </label>
+                    @if ($packagingMax !== null)
+                        <label class="block text-sm">
+                            <span class="font-medium">Packaging charge per order ({{ $currencySymbol }})</span>
+                            <input type="text" inputmode="decimal" wire:model="packagingCharge" class="mt-1 block min-h-11 w-full rounded-lg border border-slate-300 px-3 text-base" placeholder="Up to {{ $currencySymbol }}{{ rtrim(rtrim(number_format($packagingMax, 2), '0'), '.') }}">
+                            @error('packagingCharge') <span class="text-sm text-red-700">{{ $message }}</span> @enderror
+                        </label>
+                    @endif
+                </div>
+                <fieldset class="mt-4">
+                    <legend class="text-sm font-medium">Cuisines (up to 3)</legend>
+                    <div class="mt-2 flex flex-wrap gap-2">
+                        @foreach ($cuisineOptions as $cuisine)
+                            <label class="inline-flex min-h-10 cursor-pointer items-center gap-2 rounded-full border border-slate-300 bg-white px-3 text-sm has-[:checked]:border-blue-600 has-[:checked]:bg-blue-50">
+                                <input type="checkbox" value="{{ $cuisine }}" wire:model="cuisines" class="rounded"> {{ $cuisine }}
+                            </label>
+                        @endforeach
+                    </div>
+                    @error('cuisines') <span class="text-sm text-red-700">{{ $message }}</span> @enderror
+                    @error('cuisines.*') <span class="text-sm text-red-700">Choose from the list.</span> @enderror
+                </fieldset>
+            </x-ui.card>
+
+            <x-ui.card>
+                <div class="flex flex-wrap items-center justify-between gap-2">
+                    <h2 class="text-sm font-semibold">Opening hours</h2>
+                    <button type="button" wire:click="copyMondayToAll" class="text-sm font-medium text-blue-700 underline">Same as Monday every day</button>
+                </div>
+                <p class="mt-1 text-xs text-slate-500">Customers can order only inside these hours while you are open. No hours at all = whenever you are open. A closing time earlier than the opening time runs past midnight.</p>
+                <div class="mt-3 divide-y divide-slate-100">
+                    @foreach ($dayNames as $day => $dayName)
+                        <div class="flex flex-wrap items-center gap-2 py-2" wire:key="day-{{ $day }}">
+                            <span class="w-24 text-sm font-medium">{{ $dayName }}</span>
+                            @forelse ($hours[$day] ?? [] as $i => $slot)
+                                <span class="inline-flex items-center gap-1" wire:key="slot-{{ $day }}-{{ $i }}">
+                                    <input type="time" wire:model="hours.{{ $day }}.{{ $i }}.opens" aria-label="{{ $dayName }} opens" class="min-h-10 rounded-lg border border-slate-300 px-2 text-sm">
+                                    <span class="text-slate-400">–</span>
+                                    <input type="time" wire:model="hours.{{ $day }}.{{ $i }}.closes" aria-label="{{ $dayName }} closes" class="min-h-10 rounded-lg border border-slate-300 px-2 text-sm">
+                                    <button type="button" wire:click="removeSlot({{ $day }}, {{ $i }})" class="px-1 text-slate-500 hover:text-red-700" aria-label="Remove">&times;</button>
+                                </span>
+                                @error("hours.$day.$i.opens") <span class="w-full text-sm text-red-700">{{ $message }}</span> @enderror
+                                @error("hours.$day.$i.closes") <span class="w-full text-sm text-red-700">{{ $message }}</span> @enderror
+                            @empty
+                                <span class="text-sm text-slate-500">Closed</span>
+                            @endforelse
+                            @if (count($hours[$day] ?? []) < 3)
+                                <button type="button" wire:click="addSlot({{ $day }})" class="text-sm font-medium text-blue-700">+ Add time</button>
+                            @endif
+                        </div>
+                    @endforeach
+                </div>
+            </x-ui.card>
+        @endif
+
         <x-ui.card>
             <h2 class="text-sm font-semibold">Tax details</h2>
             <p class="mt-1 text-xs text-slate-500">Printed on the tax invoice your customers get. Leave blank if you are not GST-registered.</p>

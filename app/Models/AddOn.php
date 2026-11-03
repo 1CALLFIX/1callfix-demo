@@ -14,9 +14,10 @@ class AddOn extends Model
 
     protected $table = 'add_ons';
 
-    protected $fillable = ['store_id', 'name', 'price', 'is_active'];
+    protected $fillable = ['store_id', 'add_on_group_id', 'name', 'price', 'is_active'];
 
     protected $casts = ['is_active' => 'boolean'];
 
     public function store() { return $this->belongsTo(Store::class); }
+    public function group() { return $this->belongsTo(AddOnGroup::class, 'add_on_group_id'); }
 }

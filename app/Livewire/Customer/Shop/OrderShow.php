@@ -36,6 +36,9 @@ class OrderShow extends Component
     {
         abort_unless($order->customer_id === auth()->id(), 404);
         $this->order = $order;
+        if ($order->isFood()) {
+            $this->returnReason = 'missing'; // Food F4: problem reasons, not shop return reasons
+        }
         if (session('shop_error')) {
             $this->flash = (string) session('shop_error');
             $this->flashType = 'error';
@@ -87,16 +90,20 @@ class OrderShow extends Component
 
     public function requestReturn(\App\Services\Marketplace\MarketplaceReturnService $returns): void
     {
+        // Food F4: the same form reports a problem with a food order; the photo is a Food Settings switch.
+        $food = $this->order->isFood();
+        $photoNeeded = ! $food || $returns->foodPhotoRequired($this->order);
         $this->validate([
-            'returnReason' => ['required', 'in:'.implode(',', array_keys(\App\Models\MarketplaceReturn::REASONS))],
+            'returnReason' => ['required', 'in:'.implode(',', array_keys($food ? \App\Models\MarketplaceReturn::FOOD_REASONS : \App\Models\MarketplaceReturn::REASONS))],
             'returnDescription' => ['required', 'string', 'min:10', 'max:1000'],
             'returnQty' => ['array'],
             'returnQty.*' => ['nullable', 'integer', 'min:0', 'max:1000'],
-            'returnPhotos' => ['required', 'array', 'min:1', 'max:3'],
+            'returnPhotos' => $photoNeeded ? ['required', 'array', 'min:1', 'max:3'] : ['nullable', 'array', 'max:3'],
             'returnPhotos.*' => ['image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
         ], [
-            'returnDescription.required' => \App\Support\SiteText::get('shop_order.msg.return_what'),
-            'returnPhotos.required' => \App\Support\SiteText::get('shop_order.msg.return_photo'),
+            'returnDescription.required' => \App\Support\SiteText::get($food ? 'food.issue.what_wrong_needed' : 'shop_order.msg.return_what'),
+            'returnDescription.min' => \App\Support\SiteText::get($food ? 'food.issue.what_wrong_needed' : 'shop_order.msg.return_what'),
+            'returnPhotos.required' => \App\Support\SiteText::get($food ? 'food.issue.photo_needed' : 'shop_order.msg.return_photo'),
         ]);
 
         $this->order->refresh()->load('items');
@@ -119,7 +126,7 @@ class OrderShow extends Component
             return;
         }
         $this->reset('returning', 'returnDescription', 'returnQty', 'returnPhotos');
-        $this->flash = \App\Support\SiteText::get('shop_order.msg.return_sent');
+        $this->flash = \App\Support\SiteText::get($food ? 'food.issue.sent' : 'shop_order.msg.return_sent');
         $this->flashType = 'success';
     }
 
@@ -142,6 +149,26 @@ class OrderShow extends Component
         $this->flashType = 'success';
     }
 
+    /** Food F3: one plain line on where a food order is (accept clock, promised ready time, rider). */
+    private function foodStatus(): ?string
+    {
+        $o = $this->order;
+        if (! $o->isFood() || $o->isAwaitingOnlinePayment()) {
+            return null;
+        }
+        $t = fn (string $key, array $r = []) => \App\Support\SiteText::get($key, $r);
+        $time = fn ($at) => app(\App\Services\TimezoneResolver::class)->format($at, $o->franchise, 'g:i A');
+
+        return match (true) {
+            $o->status === 'pending' && $o->accept_by !== null => $t('food.order.waiting', ['time' => $time($o->accept_by)]),
+            $o->status === 'accepted' && $o->ready_by !== null => $t('food.order.accepted', ['time' => $o->readyByLocal()]),
+            $o->status === 'preparing' && $o->ready_by !== null => $t('food.order.cooking', ['time' => $o->readyByLocal()])
+                .($o->order_type === 'delivery' && $o->assigned_worker_id ? ' '.$t('food.order.rider_on_way') : ''),
+            $o->status === 'ready' => $t('food.order.ready'),
+            default => null,
+        };
+    }
+
     public function render()
     {
         $this->order->load(['items', 'store', 'deliveryAddress', 'assignedWorker.user:id,name,phone', 'statusHistory']);
@@ -152,11 +179,16 @@ class OrderShow extends Component
         return view('livewire.customer.shop.order-show', [
             'open' => $open,
             'showCode' => $showCode,
-            'canCancel' => in_array($this->order->status, ['pending', 'accepted'], true),
+            // Food F2: a food order can be cancelled only until the restaurant accepts (the action enforces it too).
+            'canCancel' => $this->order->isFood() ? $this->order->status === 'pending' : in_array($this->order->status, ['pending', 'accepted'], true),
             'review' => Review::where('marketplace_order_id', $this->order->id)->first(),
             'returnDays' => (int) \App\Support\MarketplaceSettings::get('marketplace.return_window_days'),
             'returnRow' => \App\Models\MarketplaceReturn::where('marketplace_order_id', $this->order->id)->latest('id')->first(),
+            // Food F4: a food order has no return; the same section reports a problem within the Food Settings window.
             'canReturn' => app(\App\Services\Marketplace\MarketplaceReturnService::class)->cannotRequest($this->order, auth()->id()) === null,
+            'foodIssueMinutes' => $this->order->isFood() ? app(\App\Services\Marketplace\MarketplaceReturnService::class)->foodWindowMinutes($this->order) : null,
+            'foodPhotoNeeded' => $this->order->isFood() && app(\App\Services\Marketplace\MarketplaceReturnService::class)->foodPhotoRequired($this->order),
+            'foodStatus' => $this->foodStatus(),
             'currencySymbol' => Setting::get('locale.currency_symbol', '₹'),
         ])->layout('components.layouts.customer', ['title' => 'Order '.$this->order->code]);
     }

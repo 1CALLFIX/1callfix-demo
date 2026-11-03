@@ -37,7 +37,7 @@ class MarketplaceMultiVerticalReuseTest extends TestCase
         [$country, $city, $franchise, $zone] = $this->makeFranchiseTree();
         $this->activateMarketplaceModuleFor($franchise, Modules::FOOD);
         $customer = $this->makeCustomer();
-        $store = $this->makeStore($franchise, $zone, null, ['module' => Modules::FOOD]);
+        $store = $this->makeStore($franchise, $zone, null, ['module' => Modules::FOOD, 'fssai_number' => '12345678901234']); // Food F2: a restaurant needs its FSSAI number
         $product = $this->makeProduct($store, ['price' => 150]);
         app(CartService::class)->add($customer, $product, 1);
 

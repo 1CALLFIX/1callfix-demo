@@ -29,6 +29,7 @@ final class HomeDoors
         'services' => [1, 'images/home/door-services.svg'],
         'parcel' => [2, 'images/home/door-parcel.svg'],
         'shop' => [3, 'images/home/door-shop.svg'],
+        'food' => [4, 'images/home/door-food.svg'], // Food F3
     ];
 
     public static function show(): bool

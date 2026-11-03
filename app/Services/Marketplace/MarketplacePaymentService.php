@@ -89,6 +89,9 @@ class MarketplacePaymentService
             $locked->payment_status = 'paid';
             $locked->save();
 
+            // Food F2: the restaurant's accept clock starts when the money arrives.
+            \App\Support\FoodOrderClock::startAcceptClock($locked);
+
             $locked->statusHistory()->create([
                 'status' => $locked->status,
                 'note' => 'Payment received online',

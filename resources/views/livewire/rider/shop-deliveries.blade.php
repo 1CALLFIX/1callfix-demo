@@ -61,6 +61,9 @@
                     @if ($job->store->phone)<a href="tel:{{ $job->store->phone }}" class="font-medium text-blue-700">Call the shop</a>@endif
                 </div>
                 <p class="mt-1 text-xs text-slate-500">{{ $job->items->sum('quantity') }} items. Check the count before you leave.</p>
+                @if ($job->status === 'preparing')
+                    <p class="mt-2 rounded-lg bg-amber-50 p-2 text-sm font-semibold text-amber-900">The food is cooking{{ $job->ready_by ? ', ready about '.$job->readyByLocal() : '' }}. Go to the restaurant; you can take it once they mark it ready.</p>
+                @endif
             </div>
 
             <div class="mt-4 border-t border-slate-100 pt-3">
@@ -88,6 +91,7 @@
                 @endif
             </div>
 
+            @if ($job->status === 'ready')
             <form wire:submit="deliver" class="mt-4">
                 <label for="shop-otp" class="block text-sm font-medium">3. Customer's code</label>
                 <div class="mt-1 flex gap-2">
@@ -95,6 +99,7 @@
                     <button type="submit" class="min-h-12 flex-1 rounded-xl bg-blue-600 font-bold text-white">Delivered</button>
                 </div>
             </form>
+            @endif
         </section>
     @elseif ($busyWithParcel)
         <p class="rounded-2xl border border-slate-200 bg-white p-4 text-sm text-slate-700">You are on a parcel right now. Shop offers come once it is delivered. <a href="{{ route('rider.dashboard') }}" wire:navigate class="font-medium text-blue-700">Go to the parcel</a></p>

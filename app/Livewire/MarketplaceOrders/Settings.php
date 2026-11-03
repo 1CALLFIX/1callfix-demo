@@ -27,6 +27,17 @@ class Settings extends Component
     public string $flashMessage = '';
     public string $flashType = 'success';
 
+    /** The settings class this page edits. Food Settings (FoodOrders\Settings) swaps in FoodSettings. */
+    protected function registry(): string
+    {
+        return MarketplaceSettings::class;
+    }
+
+    protected function pageTitle(): string
+    {
+        return 'Shop Settings';
+    }
+
     public function mount(): void
     {
         SuperAdminGate::authorize(auth()->user());
@@ -66,7 +77,7 @@ class Settings extends Component
     private function keysHere(): array
     {
         return array_keys(array_filter(
-            MarketplaceSettings::REGISTRY,
+            $this->registry()::REGISTRY,
             fn ($meta) => $this->scopeType === 'global' || ! ($meta['global'] ?? false)
         ));
     }
@@ -79,7 +90,7 @@ class Settings extends Component
 
         foreach ($this->keysHere() as $key) {
             $row = Setting::where('scope_type', $type)->where('scope_id', $id)->where('key', $key)->value('value');
-            $this->inputs[MarketplaceSettings::field($key)] = $row === null ? '' : (string) $row;
+            $this->inputs[$this->registry()::field($key)] = $row === null ? '' : (string) $row;
         }
     }
 
@@ -98,9 +109,9 @@ class Settings extends Component
 
         $errors = 0;
         foreach ($this->keysHere() as $key) {
-            $error = MarketplaceSettings::validate($key, $this->inputs[MarketplaceSettings::field($key)] ?? null);
+            $error = $this->registry()::validate($key, $this->inputs[$this->registry()::field($key)] ?? null);
             if ($error) {
-                $this->addError('inputs.'.MarketplaceSettings::field($key), $error);
+                $this->addError('inputs.'.$this->registry()::field($key), $error);
                 $errors++;
             }
         }
@@ -113,7 +124,7 @@ class Settings extends Component
 
         $changed = 0;
         foreach ($this->keysHere() as $key) {
-            $changed += SettingsAuditor::put(auth()->user(), $key, $this->inputs[MarketplaceSettings::field($key)] ?? null, $target[0], $target[1]) ? 1 : 0;
+            $changed += SettingsAuditor::put(auth()->user(), $key, $this->inputs[$this->registry()::field($key)] ?? null, $target[0], $target[1]) ? 1 : 0;
         }
 
         $this->loadInputs();
@@ -131,10 +142,11 @@ class Settings extends Component
         $keys = $this->keysHere();
 
         return view('livewire.marketplace-orders.settings', [
-            'groups' => collect(MarketplaceSettings::REGISTRY)->only($keys)
-                ->map(fn ($m, $k) => $m + ['key' => $k, 'field' => MarketplaceSettings::field($k)])->groupBy('group'),
+            'groups' => collect($this->registry()::REGISTRY)->only($keys)
+                ->map(fn ($m, $k) => $m + ['key' => $k, 'field' => $this->registry()::field($k)])->groupBy('group'),
+            'pageTitle' => $this->pageTitle(),
             'franchises' => Franchise::orderBy('name')->get(['id', 'name']),
             'zones' => $this->scopeFranchiseId ? Zone::where('franchise_id', $this->scopeFranchiseId)->orderBy('name')->get(['id', 'name']) : collect(),
-        ])->layout('layouts.admin', ['title' => 'Shop Settings']);
+        ])->layout('layouts.admin', ['title' => $this->pageTitle()]);
     }
 }

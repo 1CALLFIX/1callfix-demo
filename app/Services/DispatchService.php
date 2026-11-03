@@ -483,7 +483,7 @@ class DispatchService
             ->whereNotNull('assigned_worker_id')
             ->pluck('assigned_worker_id')
             // E-commerce Phase 3: a rider carrying a shop delivery is busy too.
-            ->merge(MarketplaceOrder::where('status', 'ready')->where('order_type', 'delivery')->whereNotNull('assigned_worker_id')->pluck('assigned_worker_id'))
+            ->merge(MarketplaceOrder::riderActive()->whereNotNull('assigned_worker_id')->pluck('assigned_worker_id'))
             // Shop go-live: ...and so is a rider collecting a shop return.
             ->merge(\App\Models\MarketplaceReturn::whereIn('pickup_status', \App\Models\MarketplaceReturn::PICKUP_WITH_RIDER)->pluck('pickup_worker_id'));
 
@@ -608,8 +608,7 @@ class DispatchService
             ->where('notifiable_type', FieldWorker::class)
             ->pluck('notifiable_id');
 
-        $busyWorkerIds = MarketplaceOrder::where('status', 'ready')
-            ->where('order_type', 'delivery')
+        $busyWorkerIds = MarketplaceOrder::riderActive() // Food F2: a rider waiting at a restaurant is busy too
             ->whereNotNull('assigned_worker_id')
             ->pluck('assigned_worker_id')
             // ...and a rider in the middle of a parcel is not offered a shop delivery.

@@ -30,6 +30,9 @@ class Orders extends Component
 
     public string $rejectReason = '';
 
+    /** Food F2: cooking time the restaurant confirms when accepting, keyed by order id (blank = its usual time). */
+    public array $prepTimes = [];
+
     /** Collection codes typed per pickup order, keyed by order id. */
     public array $codes = [];
 
@@ -44,10 +47,21 @@ class Orders extends Component
 
     public function advance(int $orderId, string $to, AdvanceMarketplaceOrderAction $action): void
     {
-        $this->ownOrder($orderId);
-        $this->run(fn () => $action->execute($orderId, $to), match ($to) {
-            'accepted' => 'Order accepted.',
-            'preparing' => 'Marked as preparing.',
+        $order = $this->ownOrder($orderId);
+        $food = $order->isFood();
+        // Food F2: the restaurant confirms its cooking time when it accepts.
+        $prep = null;
+        if ($food && $to === 'accepted' && trim((string) ($this->prepTimes[$orderId] ?? '')) !== '') {
+            $prep = filter_var($this->prepTimes[$orderId], FILTER_VALIDATE_INT);
+            if ($prep === false) {
+                $this->flash('Enter the cooking time in whole minutes.', 'error');
+
+                return;
+            }
+        }
+        $this->run(fn () => $action->execute($orderId, $to, $prep), match ($to) {
+            'accepted' => $food ? 'Order accepted. Start cooking.' : 'Order accepted.',
+            'preparing' => $food ? 'Cooking.' : 'Marked as preparing.',
             'ready' => 'Marked ready.',
             default => 'Updated.',
         });
@@ -131,6 +145,9 @@ class Orders extends Component
                 ? \App\Models\MarketplaceReturn::where('store_id', $store->id)->with('order:id,code')->latest('id')->limit(50)->get()
                 : collect(),
             'currencySymbol' => Setting::get('locale.currency_symbol', '₹'),
+            // Food F2: the cooking time pre-filled on Accept (its usual time plus busy minutes).
+            'usualPrep' => $store->isRestaurant() ? $store->currentPrepMinutes() : null,
+            'isRestaurant' => $store->isRestaurant(),
         ])->layout('components.layouts.seller', ['title' => 'Orders']);
     }
 }

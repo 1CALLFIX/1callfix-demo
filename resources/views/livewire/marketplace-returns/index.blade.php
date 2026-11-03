@@ -1,14 +1,14 @@
 <div>
     <div class="mb-4">
-        <h1 class="text-2xl font-bold">Shop Returns</h1>
-        <p class="text-sm text-gray-500">Damaged or wrong items, within the return window. Refunds follow the approval model (Refund Controls → Shop return refunds).</p>
+        <h1 class="text-2xl font-bold">Returns &amp; food problems</h1>
+        <p class="text-sm text-gray-500">Shop: damaged or wrong items, within the return window. Food: missing, wrong, spilled or poor-quality food (nothing comes back; pick whose fault it was when accepting). Refunds follow the approval model (Refund Controls → Shop return refunds).</p>
     </div>
 
     @if ($flashMessage)
         <div @class(['mb-4 rounded px-4 py-2 text-sm', 'bg-green-50 text-green-700' => $flashType === 'success', 'bg-red-50 text-red-700' => $flashType !== 'success'])>{{ $flashMessage }}</div>
     @endif
 
-    <x-ui.filter-tabs class="mb-3" :tabs="['open' => 'Open', 'refunded' => 'Refunded', 'declined' => 'Declined', 'all' => 'All']" :active="$statusFilter" model="statusFilter" />
+    <x-ui.filter-tabs class="mb-3" :tabs="['open' => 'Open', 'food' => 'Food problems (open)', 'refunded' => 'Refunded', 'declined' => 'Declined', 'all' => 'All']" :active="$statusFilter" model="statusFilter" />
 
     <x-ui.table>
         <x-slot:footer>{{ $rows->links() }}</x-slot:footer>
@@ -24,13 +24,16 @@
                     <td class="px-4 py-2">#{{ $r->id }}<span class="block text-xs text-gray-500">{{ $r->customer?->name }}</span></td>
                     <td class="px-4 py-2">{{ $r->order?->code }}<span class="block text-xs text-gray-500">{{ $r->store?->name }} · {{ ucfirst($r->order?->payment_method ?? '') }}</span></td>
                     <td class="px-4 py-2">{{ $r->franchise?->name ?? 'HQ' }}</td>
-                    <td class="px-4 py-2">{{ \App\Models\MarketplaceReturn::REASONS[$r->reason] ?? $r->reason }}
+                    @php $isFood = $r->order?->module === \App\Support\Modules::FOOD; @endphp
+                    <td class="px-4 py-2">@if ($isFood)<x-ui.badge color="amber">Food</x-ui.badge> @endif{{ ($isFood ? \App\Models\MarketplaceReturn::FOOD_REASONS : \App\Models\MarketplaceReturn::REASONS)[$r->reason] ?? $r->reason }}
+                        @if ($r->fault)<span class="block text-xs font-medium text-gray-700">{{ \App\Models\MarketplaceReturn::FAULTS[$r->fault] ?? $r->fault }}@if ($r->restaurant_paid !== null) · restaurant ₹{{ number_format((float) $r->restaurant_paid, 2) }}, platform ₹{{ number_format((float) $r->platform_paid, 2) }}@endif</span>@endif
+                        @if ($isFood && $r->field_worker_id)<span class="block text-xs text-gray-500">Rider: {{ $r->deliveryWorker?->user?->name ?? '#'.$r->field_worker_id }} · {{ $strikes[$r->field_worker_id] ?? 0 }} strike(s) in {{ $strikeDays }} days</span>@endif
                         <span class="block max-w-xs text-xs text-gray-600">{{ \Illuminate\Support\Str::limit($r->description, 120) }}</span>
                         <span class="mt-1 flex gap-1">@foreach ($r->photoUrls() as $src)<a href="{{ $src }}" target="_blank" rel="noopener"><img src="{{ $src }}" alt="Return photo" class="h-10 w-10 rounded object-cover"></a>@endforeach</span>
                     </td>
                     <td class="px-4 py-2 text-right tabular-nums">₹{{ number_format((float) $r->refund_amount, 2) }}<span class="block text-xs text-gray-500">to {{ $r->refund_destination === 'original' ? 'original method' : 'wallet' }}</span></td>
                     <td class="px-4 py-2">
-                        <x-ui.badge :color="$r->status === 'refunded' ? 'green' : ($r->status === 'declined' ? 'gray' : 'amber')">{{ ucfirst($r->status) }}</x-ui.badge>
+                        <x-ui.badge :color="$r->status === 'refunded' ? 'green' : ($r->status === 'declined' ? 'gray' : 'amber')">{{ $isFood && $r->status === 'received' ? 'Accepted' : ucfirst($r->status) }}</x-ui.badge>
                         @if ($r->refund_status)<span class="block text-xs text-gray-500">Refund: {{ str_replace('_', ' ', $r->refund_status) }}</span>@endif
                         @if ($r->pickup_status)<span class="block text-xs text-gray-500">Rider pickup: {{ ['open' => 'waiting for a rider', 'assigned' => 'rider going to the customer', 'picked' => 'rider bringing it to the shop', 'dropped' => 'done', 'cancelled' => 'withdrawn'][$r->pickup_status] ?? $r->pickup_status }}</span>@endif
                         @if ($r->escalation_level > 0)<span class="block text-xs font-semibold text-red-700">Escalated to level {{ $r->escalation_level }}</span>@endif
@@ -46,6 +49,18 @@
                     @php $a = $actions[$r->id] ?? null; @endphp
                     <tr class="bg-gray-50"><td colspan="8" class="px-4 py-3">
                         <div class="flex flex-wrap items-end gap-3">
+                            @if ($a === 'decide' && $r->order?->module === \App\Support\Modules::FOOD)
+                                <label class="text-sm">Whose fault (if accepting)
+                                    <select wire:model="fault" class="mt-1 block rounded border px-2 py-1" data-testid="fault-select">
+                                        <option value="">Pick…</option>
+                                        @foreach (\App\Models\MarketplaceReturn::FAULTS as $key => $label)
+                                            @if ($key !== 'transit' || $r->field_worker_id)
+                                                <option value="{{ $key }}">{{ $label }} — restaurant pays {{ $faultShares[$key] }}%{{ $key === 'transit' ? ', rider gets a strike' : '' }}</option>
+                                            @endif
+                                        @endforeach
+                                    </select>
+                                </label>
+                            @endif
                             @if ($a === 'decide')
                                 <label class="text-sm">Refund (₹)<input type="text" inputmode="decimal" wire:model="amount" class="mt-1 block w-28 rounded border px-2 py-1"></label>
                             @endif
@@ -54,7 +69,7 @@
                             @endif
                             @switch($a)
                                 @case('decide')
-                                    <x-ui.button wire:click="act('accept')">Accept return</x-ui.button>
+                                    <x-ui.button wire:click="act('accept')">{{ $r->order?->module === \App\Support\Modules::FOOD ? 'Accept problem' : 'Accept return' }}</x-ui.button>
                                     <x-ui.button variant="danger" wire:click="act('decline')">Decline</x-ui.button>
                                     @break
                                 @case('receive')
