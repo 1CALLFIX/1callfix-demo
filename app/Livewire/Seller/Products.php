@@ -152,11 +152,9 @@ class Products extends Component
 
         if ($this->editingId) {
             $product = $this->ownProduct($this->editingId);
-            $contentChanged = $product->name !== $fields['name'] || (string) $product->description !== (string) $fields['description']
-                || ($product->images ?? []) !== ($fields['images'] ?? []);
-            if ($needsApproval && $contentChanged) {
-                $fields['is_approved'] = false;
-            }
+            // Owner rule 2026-11-03: approval is for a NEW item only (product, food, any item on the platform). Editing
+            // an item - name, description, photos, price, stock - never sends it back for approval; it keeps its state
+            // (an item still waiting for its first approval keeps waiting).
             foreach (array_diff($product->images ?? [], $paths) as $removed) {
                 if (! str_contains($removed, '://')) {
                     Storage::disk('public')->delete($removed);
@@ -167,7 +165,7 @@ class Products extends Component
             }
             $product->update($fields);
             ActivityLogger::logModel(auth()->user(), $product, 'Seller updated product', ['fields' => array_keys($product->getChanges())]);
-            $this->flash(($fields['is_approved'] ?? true) === false ? 'Saved. The changes show to customers once approved.' : 'Saved.', 'success');
+            $this->flash($product->is_approved ? 'Saved.' : 'Saved. It shows to customers once approved.', 'success');
         } else {
             $product = Product::create($fields + ['store_id' => $store->id, 'is_approved' => ! $needsApproval, 'tax_percent' => 0]);
             ActivityLogger::logModel(auth()->user(), $product, 'Seller added product');

@@ -27,7 +27,7 @@ final class MarketplaceSettings
         ],
         'marketplace.seller_products_need_approval' => [
             'group' => 'Sellers', 'label' => 'New seller products wait for admin approval', 'type' => 'switch', 'default' => '1',
-            'help' => 'On (default): a product a seller adds is hidden from customers until an admin approves it in Admin → Products. Off: it goes live at once (the blocked words below still apply).',
+            'help' => 'On (default): a NEW product a seller adds is hidden from customers until an admin approves it in Admin → Products. Editing a product (name, photos, price, stock) never needs approval again. Off: new products go live at once. The blocked words below always apply.',
         ],
         'marketplace.blocked_product_words' => [
             'group' => 'Sellers', 'label' => 'Blocked words in product names', 'type' => 'text', 'default' => null, 'global' => true,
