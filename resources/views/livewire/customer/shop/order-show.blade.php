@@ -18,9 +18,10 @@
         {{-- Progress: one line per step, the current one highlighted. --}}
         @php
             $packing = $order->isFood() ? $t('food.order.step_cooking') : $t('shop_order.step.packing');
+            $acceptedStep = $order->isFood() ? $t('food.order.step_accepted') : $t('shop_order.step.accepted');
             $steps = $order->order_type === 'pickup'
-                ? ['pending' => $t('shop_order.step.placed'), 'accepted' => $t('shop_order.step.accepted'), 'preparing' => $packing, 'ready' => $t('shop_order.step.ready_collect'), 'completed' => $t('shop_order.step.collected')]
-                : ['pending' => $t('shop_order.step.placed'), 'accepted' => $t('shop_order.step.accepted'), 'preparing' => $packing, 'ready' => $t('shop_order.step.with_rider'), 'completed' => $t('shop_order.step.delivered')];
+                ? ['pending' => $t('shop_order.step.placed'), 'accepted' => $acceptedStep, 'preparing' => $packing, 'ready' => $t('shop_order.step.ready_collect'), 'completed' => $t('shop_order.step.collected')]
+                : ['pending' => $t('shop_order.step.placed'), 'accepted' => $acceptedStep, 'preparing' => $packing, 'ready' => $t('shop_order.step.with_rider'), 'completed' => $t('shop_order.step.delivered')];
             $keys = array_keys($steps);
             $at = array_search($order->status, $keys, true);
         @endphp

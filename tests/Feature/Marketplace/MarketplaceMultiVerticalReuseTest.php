@@ -141,6 +141,11 @@ class MarketplaceMultiVerticalReuseTest extends TestCase
         $this->assertTrue($candidates->pluck('provider.id')->contains($foodRider->id));
         $this->assertFalse($candidates->pluck('provider.id')->contains($groceryRider->id));
         $this->assertFalse($candidates->pluck('provider.id')->contains($pharmacyRider->id));
-        $this->assertFalse($candidates->pluck('provider.id')->contains($commerceRider->id));
+        // Live walk-through 2026-11-03: food goes to shop and parcel riders too (riders join as parcel riders; no
+        // screen ever gives the food type), the same "same bike" rule as shops.
+        $this->assertTrue($candidates->pluck('provider.id')->contains($commerceRider->id));
+        $parcelRider = $this->makeDeliveryRiderIn($franchise, $zone, 'parcel_rider');
+        $this->assertTrue(app(DispatchService::class)->findMarketplaceDeliveryRiderCandidates($foodOrder->fresh())
+            ->pluck('provider.id')->contains($parcelRider->id), 'a parcel rider (how riders join) is offered food');
     }
 }

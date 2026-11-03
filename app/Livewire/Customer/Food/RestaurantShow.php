@@ -100,9 +100,24 @@ class RestaurantShow extends Component
     {
         $this->reset('variantId', 'single', 'multi', 'sheetError');
         $this->customizing = $dish->id;
+        // Live walk-through 2026-11-03: a checkbox bound to a missing key is a true/false switch in Livewire 3, not a
+        // list, so every "pick several" group starts as an empty list (otherwise extras are lost or sent as id 1).
+        foreach ($this->groupsFor($dish) as $group) {
+            if ($group->max_select !== 1) {
+                $this->multi[$group->id] = [];
+            }
+        }
         if ($dish->hasChoices()) {
             $first = $dish->activeVariants->first();
             $this->variantId = $first?->id;
+        }
+    }
+
+    /** A new pick clears the last "Pick 1" / "up to 2" message. */
+    public function updated(string $property): void
+    {
+        if ($property === 'variantId' || str_starts_with($property, 'single') || str_starts_with($property, 'multi')) {
+            $this->sheetError = '';
         }
     }
 

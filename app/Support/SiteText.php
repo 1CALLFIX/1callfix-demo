@@ -527,6 +527,12 @@ final class SiteText
         'food.order.ready' => ['food', 'Order page: food ready', 'Your food is packed and ready.', 'మీ ఫుడ్ ప్యాక్ చేసి సిద్ధంగా ఉంది.'],
         'food.order.rider_on_way' => ['food', 'Order page: rider going to the restaurant', 'A rider is on the way to the restaurant.', 'రైడర్ రెస్టారెంట్‌కి వెళ్తున్నారు.'],
         'food.order.step_cooking' => ['food', 'Order page: cooking step', 'Cooking', 'వండుతున్నారు'],
+        // Live walk-through 2026-11-03: a food order said "shop" in these places.
+        'food.order.step_accepted' => ['food', 'Order page: accepted step', 'Restaurant accepted', 'రెస్టారెంట్ అంగీకరించింది'],
+        'food.order.status.sent' => ['food', 'Order status badge: sent to the restaurant', 'Sent to the restaurant', 'రెస్టారెంట్‌కు పంపబడింది'],
+        'food.order.status.packing' => ['food', 'Order status badge: being cooked', 'Being cooked', 'వండుతున్నారు'],
+        'food.checkout.note' => ['food', 'Checkout: note box label', 'Note for the restaurant', 'రెస్టారెంట్‌కు గమనిక'],
+        'food.checkout.pickup_hint' => ['food', 'Checkout: pickup choice, second line', 'Show your code at the restaurant', 'రెస్టారెంట్ వద్ద మీ కోడ్ చూపించండి'],
         'food.issue.ask_line' => ['food', 'Problem offer line (:minutes)', 'Something missing, wrong or spilled? Tell us within :minutes minutes of delivery.', 'ఏదైనా లేదా, తప్పుగా వచ్చిందా, ఒలికిపోయిందా? డెలివరీ అయిన :minutes నిమిషాల్లో మాకు చెప్పండి.'],
         'food.issue.link' => ['food', 'Problem link / form heading', 'Report a problem', 'సమస్యను తెలియజేయండి'],
         'food.issue.reason.missing' => ['food', 'Problem reason: item missing', 'Item missing', 'వస్తువు రాలేదు'],

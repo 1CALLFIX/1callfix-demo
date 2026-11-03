@@ -1,6 +1,7 @@
 @props(['order'])
 @php
-    $t = fn (string $key) => \App\Support\SiteText::get('shop_order.status.'.$key);
+    // A food order has its own words for "sent" and "packing" (Site text → Food).
+    $t = fn (string $key) => \App\Support\SiteText::get(($order->isFood() && in_array($key, ['sent', 'packing'], true) ? 'food.order.status.' : 'shop_order.status.').$key);
     $label = match (true) {
         $order->status === 'pending' && $order->isAwaitingOnlinePayment() => [$t('awaiting_payment'), 'bg-slate-100 text-slate-600'],
         $order->status === 'pending' => [$t('sent'), 'bg-amber-50 text-amber-800'],

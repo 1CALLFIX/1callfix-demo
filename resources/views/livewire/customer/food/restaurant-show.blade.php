@@ -161,13 +161,16 @@
                             <span @class(['ml-1 text-xs font-medium', 'text-red-700' => $g->isRequired(), 'text-slate-500' => ! $g->isRequired()])>{{ \App\Services\Food\FoodCart::ruleText($g) }}</span>
                         </legend>
                         <div class="mt-2 space-y-1">
+                            @php $picked = array_map('intval', (array) ($multi[$g->id] ?? [])); @endphp
                             @foreach ($g->addOns as $a)
-                                <label class="flex min-h-11 cursor-pointer items-center justify-between gap-3 rounded-xl border border-slate-200 px-3 has-[:checked]:border-blue-600 has-[:checked]:bg-blue-50">
+                                {{-- At a "pick several" group's limit the other choices are greyed out and cannot be ticked. --}}
+                                @php $full = $g->max_select !== 1 && $g->max_select && count($picked) >= $g->max_select && ! in_array($a->id, $picked, true); @endphp
+                                <label @class(['flex min-h-11 items-center justify-between gap-3 rounded-xl border border-slate-200 px-3 has-[:checked]:border-blue-600 has-[:checked]:bg-blue-50', 'cursor-pointer' => ! $full, 'cursor-not-allowed opacity-50' => $full])>
                                     <span class="flex items-center gap-2">
                                         @if ($g->max_select === 1)
                                             <input type="radio" wire:model.live="single.{{ $g->id }}" value="{{ $a->id }}">
                                         @else
-                                            <input type="checkbox" wire:model.live="multi.{{ $g->id }}" value="{{ $a->id }}" class="rounded">
+                                            <input type="checkbox" wire:model.live="multi.{{ $g->id }}" value="{{ $a->id }}" class="rounded" @disabled($full)>
                                         @endif
                                         {{ $a->name }}
                                     </span>

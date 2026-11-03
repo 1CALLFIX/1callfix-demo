@@ -596,7 +596,9 @@ class DispatchService
         }
 
         $capabilityType = match ($order->module) {
-            \App\Support\Modules::FOOD => 'food_delivery_rider',
+            // Live walk-through 2026-11-03: nothing ever gives a rider the food type (riders join as parcel riders), so
+            // food alone found no rider at all. Same rule as shops — same bike, same rider web.
+            \App\Support\Modules::FOOD => ['food_delivery_rider', 'commerce_delivery_rider', 'parcel_rider'],
             \App\Support\Modules::GROCERY => 'grocery_delivery_rider',
             \App\Support\Modules::PHARMACY => 'pharmacy_delivery_rider',
             // E-commerce Phase 3 (plan D4): parcel riders take shop deliveries too — same bike, same rider web.

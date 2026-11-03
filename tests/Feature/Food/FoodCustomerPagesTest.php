@@ -189,6 +189,28 @@ class FoodCustomerPagesTest extends TestCase
         Livewire::test(Bag::class)->assertSee('+ Tomato, Ghee')->assertSee('₹100.00')->assertSee('₹180.00');
     }
 
+    /**
+     * Live walk-through 2026-11-03: extras ticked in the browser were lost (the biryani went in plain, a third tick
+     * said "not available"). A checkbox only builds a list when the value it is bound to is a list already, so the
+     * sheet must open with an empty list for every "pick several" group; at the limit the other boxes are greyed out.
+     */
+    public function test_pick_several_groups_open_as_lists_and_grey_out_at_the_limit(): void
+    {
+        ['dosa' => $dosa, 'chutney' => $chutney, 'extras' => $extras, 'tomato' => $tomato, 'ghee' => $ghee] = $this->dosa();
+        $this->actingAs($this->customer);
+
+        $page = $this->menu()->call('add', $dosa->id)->assertSet("multi.{$extras->id}", [])->assertSet('single', []);
+        $page->call('addCustomized')->assertSet('sheetError', 'Chutney: Pick 1.')
+            ->set("single.{$chutney->id}", (string) $tomato->id)->assertSet('sheetError', ''); // a pick clears the message
+
+        $other = \App\Models\AddOn::create(['store_id' => $this->restaurant->id, 'add_on_group_id' => $extras->id, 'name' => 'Podi', 'price' => 10, 'is_active' => true]);
+        \App\Models\AddOn::create(['store_id' => $this->restaurant->id, 'add_on_group_id' => $extras->id, 'name' => 'Butter', 'price' => 20, 'is_active' => true]);
+        $page->set("multi.{$extras->id}", [(string) $ghee->id, (string) $other->id])
+            ->assertSeeHtml('disabled'); // the group is full: any other box is greyed out
+        $page->call('addCustomized')->assertSet('customizing', null);
+        $this->assertEqualsCanonicalizing([$tomato->id, $ghee->id, $other->id], CartItem::where('user_id', $this->customer->id)->sole()->add_on_ids);
+    }
+
     public function test_one_restaurant_per_food_cart_and_shop_items_stay(): void
     {
         $this->actingAs($this->customer);
@@ -240,7 +262,8 @@ class FoodCustomerPagesTest extends TestCase
         $this->assertSame([$tomato->id], CartItem::where('user_id', $this->customer->id)->firstOrFail()->add_on_ids);
 
         $checkout = Livewire::test(Checkout::class, ['store' => $this->restaurant])->set('orderType', 'pickup')->set('paymentMethod', 'cash')
-            ->assertSee('+ Tomato')->assertSee('Packaging')->assertSee('GST on food');
+            ->assertSee('+ Tomato')->assertSee('Packaging')->assertSee('GST on food')
+            ->assertSee('Note for the restaurant')->assertSee('Show your code at the restaurant')->assertDontSee('Note for the shop');
         // 85 food + 10 packaging + 5% GST on 95 (4.75) = 99.75
         $this->assertSame(99.75, $checkout->viewData('total'));
         $checkout->call('placeOrder');
@@ -248,10 +271,10 @@ class FoodCustomerPagesTest extends TestCase
         $order = MarketplaceOrder::firstOrFail();
         $this->assertSame('99.75', (string) $order->total_amount);
 
-        Livewire::test(OrderShow::class, ['order' => $order])->assertSee('Waiting for the restaurant to accept')
+        Livewire::test(OrderShow::class, ['order' => $order])->assertSee('Waiting for the restaurant to accept')->assertSee('Sent to the restaurant')->assertDontSee('Sent to the shop')
             ->assertSee('+ Tomato')->assertSee('GST on food')->assertSee('Packaging');
         app(\App\Actions\AdvanceMarketplaceOrderAction::class)->execute($order->id, 'accepted', 25);
-        Livewire::test(OrderShow::class, ['order' => $order->fresh()])->assertSee('The restaurant accepted your order. Ready about')
+        Livewire::test(OrderShow::class, ['order' => $order->fresh()])->assertSee('The restaurant accepted your order. Ready about')->assertSee('Restaurant accepted')->assertDontSee('Shop accepted')
             ->assertViewHas('canCancel', false)->assertViewHas('canReturn', false);
     }
 
