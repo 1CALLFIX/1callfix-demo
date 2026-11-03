@@ -33,8 +33,8 @@ class ProductsExport implements FromCollection, WithHeadings, WithMapping
     public function headings(): array
     {
         return [
-            'id', 'external_id', 'name', 'description', 'store_id', 'marketplace_category_id',
-            'price', 'tax_percent', 'discount_percent', 'stock', 'is_active', 'is_approved', 'image', 'slug',
+            'id', 'external_id', 'name', 'description', 'store_id', 'store', 'marketplace_category_id', 'category',
+            'price', 'tax_percent', 'discount_percent', 'stock', 'unit_value', 'unit', 'is_active', 'is_approved', 'image', 'slug',
         ];
     }
 
@@ -47,14 +47,18 @@ class ProductsExport implements FromCollection, WithHeadings, WithMapping
             $product->name,
             $product->description,
             $product->store_id,
+            $product->store?->name,
             $product->marketplace_category_id,
+            $product->category?->name,
             $product->price,
             $product->tax_percent,
             $product->discount_percent,
             $product->stock,
+            $product->unit_value !== null ? (float) $product->unit_value : null,
+            $product->unit,
             $product->is_active ? 1 : 0,
             $product->is_approved ? 1 : 0,
-            $product->images[0] ?? null,
+            implode(' | ', $product->images ?? []), // up to 5 photos, separated by |
             $product->slug,
         ];
     }

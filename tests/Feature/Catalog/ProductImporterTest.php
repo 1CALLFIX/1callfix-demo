@@ -261,4 +261,45 @@ class ProductImporterTest extends TestCase
 
         $this->assertSame('updated', $second['previewRows'][0]['outcome']);
     }
+
+    /** Owner link rule (2026-11-03): an imported product gets a clean link, -2 on a repeat, never a random code. */
+    public function test_imported_products_get_clean_links(): void
+    {
+        $store = $this->store();
+        $result = (new ProductImporter)->validateRows($this->rows([
+            ['name' => 'Steel Bottle', 'store_id' => $store->id, 'price' => 100],
+            ['name' => 'Steel Bottle', 'store_id' => $store->id, 'price' => 120],
+        ]));
+        (new ProductImporter)->commit($result['previewRows'], null, 'p.csv', false);
+
+        $this->assertSame(['steel-bottle', 'steel-bottle-2'], Product::orderBy('id')->pluck('slug')->all());
+    }
+
+    /** 2026-11-03: the shop and category by name, up to 5 photos, and the unit. */
+    public function test_shop_and_category_by_name_several_photos_and_the_unit(): void
+    {
+        $store = $this->store();
+        $parent = MarketplaceCategory::create(['module' => 'commerce', 'name' => 'Clothing', 'slug' => 'clothing', 'is_active' => true]);
+        $tees = MarketplaceCategory::create(['module' => 'commerce', 'name' => 'T-Shirts', 'slug' => 't-shirts', 'parent_id' => $parent->id, 'is_active' => true]);
+
+        $result = (new ProductImporter)->validateRows($this->rows([[
+            'name' => 'Round Neck Tee', 'store' => 'Test Store', 'category' => 'Clothing > T-Shirts', 'price' => 299,
+            'image' => 'https://example.com/a.jpg | https://example.com/b.jpg', 'unit_value' => '1', 'unit' => 'PIECE',
+        ]]));
+        $this->assertEmpty($result['errors']);
+        (new ProductImporter)->commit($result['previewRows'], null, 'p.csv', false);
+
+        $p = Product::sole();
+        $this->assertSame($store->id, $p->store_id);
+        $this->assertSame($tees->id, $p->marketplace_category_id);
+        $this->assertSame(['https://example.com/a.jpg', 'https://example.com/b.jpg'], $p->images);
+        $this->assertSame('1 piece', $p->unitLabel());
+
+        $bad = (new ProductImporter)->validateRows($this->rows([
+            ['name' => 'X', 'store' => 'No Such Shop', 'price' => 1],
+            ['name' => 'Y', 'store' => 'Test Store', 'category' => 'Shoes', 'price' => 1],
+            ['name' => 'Z', 'store' => 'Test Store', 'unit' => 'barrel', 'price' => 1],
+        ]));
+        $this->assertSame(['store', 'category', 'unit'], collect($bad['errors'])->pluck('field')->all());
+    }
 }
