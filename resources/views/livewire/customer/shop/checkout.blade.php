@@ -10,7 +10,7 @@
      amount (Meesho): online/wallet get the offer and free delivery; cash pays the full price (owner rule: benefits are
      online-only). CreateMarketplaceOrderAction decides every rupee; this page only previews it. --}}
 <div class="mb-bottom-nav bg-slate-50/60">
-    <div class="mx-auto max-w-5xl px-4 py-6 sm:px-6">
+    <div class="mx-auto max-w-5xl px-4 pb-28 pt-6 sm:px-6 lg:pb-6">
         <a href="{{ route('customer.cart') }}" wire:navigate class="inline-flex items-center gap-1 text-sm font-medium text-blue-700"><x-icon name="arrow-left" class="h-4 w-4" /> {{ $t('cart.back') }}</a>
         <div class="mt-2 flex flex-wrap items-end justify-between gap-2">
             <div>
@@ -208,7 +208,7 @@
 
             {{-- Price details + pay (sticks beside the steps on a big screen). --}}
             <aside class="lg:sticky lg:top-20">
-                <section class="rounded-3xl border border-slate-200 bg-white p-4 text-sm shadow-sm sm:p-5" data-testid="price-details">
+                <section id="price-details" class="scroll-mt-20 rounded-3xl border border-slate-200 bg-white p-4 text-sm shadow-sm sm:p-5" data-testid="price-details">
                     <h2 class="font-bold uppercase tracking-wide text-slate-500">{{ $t('shop_checkout.price_details') }}</h2>
                     <dl class="mt-3 space-y-2">
                         <div class="flex justify-between"><dt>{{ $t('shop_checkout.price_mrp', ['count' => $itemCount]) }}</dt><dd class="tabular-nums">{{ $money($price['list']) }}</dd></div>
@@ -253,6 +253,22 @@
                     <p class="mt-1 text-center text-[11px] text-slate-500" data-testid="checkout-agree">{!! $agree !!}</p>
                 </section>
             </aside>
+
+            {{-- Phone: the total and the pay button stay at the bottom of the screen (Flipkart / Meesho), above the
+                 bottom menu, so the customer never scrolls down to pay. Hidden on a big screen (the price box sticks). --}}
+            <div class="fixed inset-x-0 bottom-16 z-30 border-t border-slate-200 bg-white/95 px-4 py-2.5 shadow-[0_-8px_24px_-12px_rgba(15,23,42,0.25)] backdrop-blur lg:hidden" data-testid="mobile-pay-bar">
+                <div class="mx-auto flex max-w-5xl items-center justify-between gap-3">
+                    <a href="#price-details" class="min-w-0">
+                        @if ($saving > 0)<span class="block text-xs text-slate-400 line-through tabular-nums">{{ $money($total + $saving) }}</span>@endif
+                        <span class="block text-lg font-extrabold tabular-nums text-slate-900">{{ $money($total) }}</span>
+                        <span class="block text-[11px] font-semibold text-blue-700">{{ $t('shop_checkout.see_price_details') }}</span>
+                    </a>
+                    <button type="submit" wire:loading.attr="disabled" class="min-h-12 shrink-0 rounded-2xl bg-amber-400 px-6 text-base font-bold text-slate-900 shadow-sm hover:bg-amber-300 disabled:opacity-60">
+                        <span wire:loading.remove wire:target="placeOrder">{{ $paymentMethod === 'cash' ? $t('shop_checkout.place') : $t('shop_checkout.pay_amount', ['amount' => $money($total)]) }}</span>
+                        <span wire:loading wire:target="placeOrder">{{ $t('shop_checkout.placing') }}</span>
+                    </button>
+                </div>
+            </div>
         </form>
     </div>
 

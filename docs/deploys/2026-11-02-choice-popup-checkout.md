@@ -22,8 +22,12 @@ Use with `docs/DEPLOY_RUNBOOK.md`.
   - − qty + and Remove on every item (within stock and the limit); the last item removed goes back to the cart;
   - the delivery promise ("Delivered by about …") sits next to the items;
   - under the Pay button: "By placing your order, you agree to the Terms of Use and Privacy Policy" (links).
+- **Follow-ups the same night:** `a29eb53` — Choose had `wire:navigate`, which took the click before the pop-up could
+  open (seen in the live check; code + cache only). Then the **phone pay bar**: on a phone the total (with the price
+  before) and the Pay button stay at the bottom of the checkout, above the bottom menu, with "View price details".
+  Build **yes** for that one. Suite again 4386/4387 (known failure only). Platform fee: owner decided **no fee for now**.
 - New words in Website text & language (English + Telugu): `shop.sheet.close/done/details`,
-  `shop_checkout.agree/terms/privacy`.
+  `shop_checkout.agree/terms/privacy/see_price_details`.
 
 ## Step 5 — migrations that must be pending (exactly these)
 - none

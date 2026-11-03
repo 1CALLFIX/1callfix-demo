@@ -98,7 +98,9 @@ class ShopChoiceSheetTest extends TestCase
 
         $this->checkout()->assertSee('Ravi Kumar')->assertSee('9876543210')->assertSee('524003')
             ->assertSee('By placing your order, you agree to the')
-            ->assertSeeHtml(route('customer.terms'))->assertSeeHtml(route('customer.privacy'));
+            ->assertSeeHtml(route('customer.terms'))->assertSeeHtml(route('customer.privacy'))
+            // Phone: the total and the pay button stay at the bottom of the screen.
+            ->assertSeeHtml('data-testid="mobile-pay-bar"')->assertSee('View price details');
     }
 
     public function test_checkout_changes_a_quantity_within_the_stock_and_removes_an_item(): void

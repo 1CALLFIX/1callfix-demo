@@ -305,6 +305,7 @@ final class SiteText
         'shop_checkout.from_shop' => ['shop_checkout', 'Shop address on a delivery order (:shop, :address)', 'From :shop, :address', ':shop, :address నుండి'],
         'shop_checkout.cash_blocked_items' => ['shop_checkout', 'Cash off: discounted items (:items)', 'Not available: :items has an online-only price. Remove it or pay online.', 'అందుబాటులో లేదు: :items ధర ఆన్‌లైన్ చెల్లింపుకు మాత్రమే. దాన్ని తీసివేయండి లేదా ఆన్‌లైన్‌లో చెల్లించండి.'],
         'shop_checkout.cash_blocked_coupon' => ['shop_checkout', 'Cash off: coupon applied', 'Not available with a coupon. Remove the coupon or pay online.', 'కూపన్‌తో అందుబాటులో లేదు. కూపన్ తీసివేయండి లేదా ఆన్‌లైన్‌లో చెల్లించండి.'],
+        'shop_checkout.see_price_details' => ['shop_checkout', 'Phone pay bar: link up to the price box', 'View price details', 'ధర వివరాలు చూడండి'],
         'shop_checkout.agree' => ['shop_checkout', 'Under the pay button (:terms, :privacy are the two links)', 'By placing your order, you agree to the :terms and :privacy.', 'ఆర్డర్ చేయడం ద్వారా మీరు :terms మరియు :privacyకు అంగీకరిస్తున్నారు.'],
         'shop_checkout.terms' => ['shop_checkout', 'Terms link text under the pay button', 'Terms of Use', 'వినియోగ నిబంధనలు'],
         'shop_checkout.privacy' => ['shop_checkout', 'Privacy link text under the pay button', 'Privacy Policy', 'గోప్యతా విధానం'],
