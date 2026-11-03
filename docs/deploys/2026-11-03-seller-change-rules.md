@@ -6,7 +6,7 @@ Use with `docs/DEPLOY_RUNBOOK.md`.
 |---|---|
 | Deploys | `main` at the commit that adds this file (`git log -1` in runbook step 1) |
 | Live before | `b812e85` (phone pay bar) — stop if the server shows anything else |
-| Full test suite | see runbook step 1 report (12 chunks, all files); known failure only: `NotificationCenterAuditTest::test_provider_status_shows_log_fallback_by_default` (local .env) |
+| Full test suite | 4396 passed of 4397 (12 chunks, all 428 files, 2026-11-03); known failure only: `NotificationCenterAuditTest::test_provider_status_shows_log_fallback_by_default` (local .env) |
 | Composer | no |
 | Front-end build (steps 6–7) | **yes** (new classes: photo box, change screens) |
 | Version | `VERSION` file bumped to `2026.11.03.1` |

@@ -68,7 +68,11 @@ class ShopTaxComplianceTest extends TestCase
             ->set('gstin', 'bad')->call('save')->assertHasErrors('gstin')
             ->set('gstin', '37ABCDE1234F1Z5')->set('pan', 'ABCDE1234F')->call('save')->assertHasNoErrors();
 
+        // Owner rule 2026-11-03: a GSTIN / PAN change waits for admin approval; invoices keep the old details until then.
         $url = route('customer.shop.orders.invoice', $s['order']);
+        $this->actingAs($s['customer'])->get($url)->assertOk()->assertDontSee('37ABCDE1234F1Z5');
+        app(\App\Services\PendingChangeService::class)->approve(\App\Models\PendingChange::pending()->sole(), $this->makeSuperAdmin());
+
         $this->actingAs($s['customer'])->get($url)->assertOk()->assertSee('Tax invoice')->assertSee('37ABCDE1234F1Z5')->assertSee('INV-'.$s['order']->code);
         $this->actingAs($s['owner']->user)->get($url)->assertOk();
         $this->actingAs($this->makeCustomer())->get($url)->assertNotFound();
