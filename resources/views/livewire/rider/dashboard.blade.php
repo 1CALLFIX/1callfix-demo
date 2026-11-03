@@ -4,7 +4,7 @@
 @endphp
 
 {{-- Poll for offers / job changes while online; the heartbeat below keeps the location fresh. --}}
-<div @if ($rider->is_online) wire:poll.5s @endif data-on-job="{{ $job ? '1' : '0' }}"
+<div @if ($rider->is_online) wire:poll.5s @endif data-on-job="{{ ($job || $shopJob || $returnJob) ? '1' : '0' }}"
      x-data="{
         heartbeat: null,
         locate(done) {
@@ -32,17 +32,6 @@
      x-on:livewire:navigating.window="stopHeartbeat()">
     <style>[x-cloak]{display:none!important}</style>
 
-    {{-- E-commerce Phase 3: shop deliveries are taken on their own screen. --}}
-    @if ($returnJob)
-        <a href="{{ route('rider.shop') }}" wire:navigate class="mb-4 block rounded-2xl border-2 border-blue-600 bg-blue-50 p-4 text-sm font-semibold text-blue-900">You are bringing back a return for {{ $returnJob->store?->name }} → open it</a>
-    @elseif ($shopJob)
-        <a href="{{ route('rider.shop') }}" wire:navigate class="mb-4 block rounded-2xl border-2 border-blue-600 bg-blue-50 p-4 text-sm font-semibold text-blue-900">You are delivering shop order {{ $shopJob->code }} → open it</a>
-    @elseif ($shopOffers > 0)
-        <a href="{{ route('rider.shop') }}" wire:navigate class="mb-4 block rounded-2xl border-2 border-amber-400 bg-amber-50 p-4 text-sm font-semibold text-amber-900">{{ $shopOffers }} shop {{ $shopOffers === 1 ? 'delivery' : 'deliveries' }} waiting → see and accept</a>
-    @elseif ($returnPickups > 0)
-        <a href="{{ route('rider.shop') }}" wire:navigate class="mb-4 block rounded-2xl border-2 border-amber-400 bg-amber-50 p-4 text-sm font-semibold text-amber-900">{{ $returnPickups }} return {{ $returnPickups === 1 ? 'pickup' : 'pickups' }} waiting → see and accept</a>
-    @endif
-
     <div class="flex items-start justify-between gap-3">
         <div>
             <h1 class="text-xl font-bold tracking-tight">Hi {{ \Illuminate\Support\Str::before($rider->user?->name ?? 'Rider', ' ') }}</h1>
@@ -69,7 +58,7 @@
             @if ($rider->kyc_status === 'rejected')
                 Your documents were not approved. Our team will contact you about what to send again.
             @else
-                Your documents are under review. You can go online and get parcel offers once they are approved.
+                Your documents are under review. You can go online and get delivery offers once they are approved.
             @endif
         </div>
     @endif
@@ -81,8 +70,8 @@
         <div class="mt-4 rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800" role="alert">{{ $error }}</div>
     @endif
 
-    @unless ($parcelActive)
-        <div class="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">Parcel delivery is switched off in your area right now, so no new offers will come in.</div>
+    @unless ($anyDeliveryOn)
+        <div class="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">Deliveries are switched off in your area right now, so no new offers will come in.</div>
     @endunless
     @if ($rider->is_online && ! $locationFresh)
         <div class="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
@@ -99,10 +88,10 @@
 
     {{-- ═══════════ Current job ═══════════ --}}
     @if ($job)
-        <section class="mt-5 rounded-2xl border-2 border-blue-200 bg-white p-4" aria-labelledby="job-heading">
+        <section class="mt-5 rounded-2xl border-2 border-blue-400 bg-white p-4 shadow-sm" aria-labelledby="job-heading" data-testid="current-job">
             <div class="flex items-start justify-between gap-3">
                 <div>
-                    <h2 id="job-heading" class="text-lg font-bold">Parcel {{ $job->code }}</h2>
+                    <h2 id="job-heading" class="flex flex-wrap items-center gap-2 text-lg font-bold"><x-rider.kind kind="parcel" size="md" /> {{ $job->code }}</h2>
                     <p class="text-sm text-slate-600">
                         {{ ucfirst($job->package_size) }}
                         @if ($job->package_weight_kg) · {{ rtrim(rtrim(number_format((float) $job->package_weight_kg, 2), '0'), '.') }} kg @endif
@@ -349,16 +338,25 @@
         </section>
     @endif
 
-    {{-- ═══════════ Offers ═══════════ --}}
-    @if (! $job && $rider->is_online && $parcelActive)
-        <section class="mt-5" aria-labelledby="offers-heading">
+    {{-- Rider app 2026-11-04: a shop / food delivery or a return pickup runs right here too. --}}
+    @if (! $job && $shopJob)
+        <div class="mt-5">@include('livewire.rider.partials.shop-job', ['job' => $shopJob, 'otpModel' => 'shopOtp', 'deliverAction' => 'deliverShop'])</div>
+    @elseif (! $job && $returnJob)
+        <div class="mt-5">@include('livewire.rider.partials.return-job', ['otpModel' => 'shopOtp', 'collectAction' => 'collectShopReturn', 'dropAction' => 'dropShopReturn'])</div>
+    @endif
+
+    {{-- ═══════════ Offers: every kind together, each with its label ═══════════ --}}
+    @if (! $job && ! $shopJob && ! $returnJob && $rider->is_online)
+        <section class="mt-5 space-y-3" aria-labelledby="offers-heading">
             <h2 id="offers-heading" class="text-base font-semibold">Offers</h2>
-            @forelse ($offers as $attempt)
+            @include('livewire.rider.partials.shop-offers', ['acceptAction' => 'acceptShopOffer', 'declineAction' => 'declineShopOffer', 'acceptPickupAction' => 'acceptReturnPickup'])
+            @foreach ($offers as $attempt)
                 @php $offer = $attempt->dispatchable; @endphp
-                <div class="mt-3 rounded-2xl border border-slate-200 bg-white p-4" wire:key="offer-{{ $attempt->id }}">
+                <div class="rounded-2xl border border-slate-300 bg-white p-4 shadow-sm" wire:key="offer-{{ $attempt->id }}" data-testid="offer-card">
                     <div class="flex items-start justify-between gap-3">
                         <div class="min-w-0">
-                            <p class="font-semibold">{{ ucfirst($offer->package_size) }} parcel · {{ $offer->code }}</p>
+                            <x-rider.kind kind="parcel" />
+                            <p class="mt-2 font-semibold">{{ ucfirst($offer->package_size) }} parcel · {{ $offer->code }}</p>
                             <p class="text-sm text-slate-600">
                                 @if ($attempt->distance_km !== null){{ rtrim(rtrim(number_format((float) $attempt->distance_km, 1), '0'), '.') }} km to pickup · @endif
                                 @if ($offer->distance_km){{ rtrim(rtrim(number_format((float) $offer->distance_km, 1), '0'), '.') }} km trip @endif
@@ -393,11 +391,12 @@
                         <button type="button" wire:click="accept({{ $offer->id }})" class="inline-flex min-h-11 items-center justify-center rounded-xl bg-blue-600 text-sm font-semibold text-white hover:bg-blue-700">Accept</button>
                     </div>
                 </div>
-            @empty
-                <p class="mt-3 rounded-2xl border border-dashed border-slate-300 p-6 text-center text-sm text-slate-600">Waiting for parcel offers near you…</p>
-            @endforelse
+            @endforeach
+            @if ($offers->isEmpty() && $shopOffers->isEmpty() && $pickups->isEmpty())
+                <p class="rounded-2xl border border-dashed border-slate-300 p-6 text-center text-sm text-slate-600">Waiting for delivery offers near you… Parcel, shop and food jobs all come here.</p>
+            @endif
         </section>
-    @elseif (! $job && ! $rider->is_online && $rider->kyc_status === 'approved')
-        <p class="mt-6 rounded-2xl border border-dashed border-slate-300 p-6 text-center text-sm text-slate-600">Go online to start getting parcel offers.</p>
+    @elseif (! $job && ! $shopJob && ! $returnJob && ! $rider->is_online && $rider->kyc_status === 'approved')
+        <p class="mt-6 rounded-2xl border border-dashed border-slate-300 p-6 text-center text-sm text-slate-600">Go online to start getting delivery offers.</p>
     @endif
 </div>

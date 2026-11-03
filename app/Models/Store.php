@@ -121,6 +121,18 @@ class Store extends Model
         return Storage::disk('public')->url($this->logo);
     }
 
+    /** Restaurant portal 2026-11-04: the wide cover photo on the Food page card and the menu header. */
+    public function getCoverUrlAttribute(): ?string
+    {
+        if (! $this->cover_image) {
+            return null;
+        }
+
+        return Str::startsWith($this->cover_image, ['http://', 'https://', '//', 'data:'])
+            ? $this->cover_image
+            : Storage::disk('public')->url($this->cover_image);
+    }
+
     // ── Food F1: restaurants ─────────────────────────────────────────────
 
     public function isRestaurant(): bool

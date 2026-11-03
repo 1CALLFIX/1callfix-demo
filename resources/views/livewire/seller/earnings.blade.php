@@ -16,7 +16,7 @@
         <div class="rounded-2xl border border-slate-200 bg-white p-4">
             <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">On hold</p>
             <p class="mt-1 text-2xl font-bold tabular-nums">{{ $fmt($held) }}</p>
-            <p class="mt-1 text-xs text-slate-600">Paid into your wallet once each order's return window ends.</p>
+            <p class="mt-1 text-xs text-slate-600">{{ $isRestaurant ? 'Paid into your wallet once each order\'s problem-report time is over (a few hours after delivery).' : 'Paid into your wallet once each order\'s return window ends.' }}</p>
         </div>
         <div @class(['rounded-2xl border p-4', 'border-rose-200 bg-rose-50' => $owed > 0, 'border-slate-200 bg-white' => $owed <= 0])>
             <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Commission owed</p>
@@ -45,7 +45,7 @@
                             @if ($row->status === 'released')
                                 <span class="font-semibold text-emerald-700">In wallet</span>
                             @else
-                                <span class="text-amber-700">On hold until {{ optional($row->release_at)->format('d M') }}</span>
+                                <span class="text-amber-700">On hold until {{ $row->release_at ? $tz->format($row->release_at, $franchise, $row->release_at->isToday() ? 'g:i A' : 'd M, g:i A') : '' }}</span>
                             @endif
                         </td>
                     </tr>

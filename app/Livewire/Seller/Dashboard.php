@@ -87,6 +87,9 @@ class Dashboard extends Component
             'lowStock' => Product::where('store_id', $store->id)->where('is_active', true)->where('stock', '<=', 3)->orderBy('stock')->limit(5)->get(['id', 'name', 'stock']),
             'currencySymbol' => Setting::get('locale.currency_symbol', '₹'),
             'busyChoices' => $store->isRestaurant() ? $this->busyChoices($store) : [],
+            // Restaurant portal 2026-11-04: what needs the restaurant now, at a glance.
+            'openProblems' => \App\Models\MarketplaceReturn::where('store_id', $store->id)->where('status', \App\Models\MarketplaceReturn::REQUESTED)->count(),
+            'soldOutToday' => $store->isRestaurant() ? Product::where('store_id', $store->id)->where('is_active', true)->where('out_of_stock_until', '>', now())->count() : 0,
         ])->layout('components.layouts.seller', ['title' => 'Home']);
     }
 }

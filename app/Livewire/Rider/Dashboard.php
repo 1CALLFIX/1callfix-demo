@@ -12,6 +12,7 @@ use App\Actions\MarkParcelReturnedAction;
 use App\Actions\ParcelSenderPaidAtDoorAction;
 use App\Actions\RecordParcelSafetyPhotoAction;
 use App\Actions\RefuseParcelAtPickupAction;
+use App\Livewire\Rider\Concerns\HandlesShopJobs;
 use App\Livewire\Rider\Concerns\InteractsWithRider;
 use App\Models\Setting;
 use App\Services\Parcel\FieldWorkerCashDueService;
@@ -27,9 +28,14 @@ use Livewire\WithFileUploads;
  * carries one parcel at a time: the online switch (with a location heartbeat), live offers with Accept /
  * Decline (and the shared ring banner), and the current job — On my way, pickup OTP (collect cash first on a
  * cash order), delivery OTP. Every write goes through the existing parcel Actions.
+ *
+ * Rider app 2026-11-04 (owner: the same rider takes parcel, shop and food, so one screen must run them all): Home now
+ * also runs shop / food deliveries and return pickups (Concerns\HandlesShopJobs), lists every offer together with a
+ * coloured label (Parcel / Shop / Food / Return pickup), and shows one cash-dues figure for all of them.
  */
 class Dashboard extends Component
 {
+    use HandlesShopJobs;
     use InteractsWithRider;
     use WithFileUploads;
 
@@ -56,6 +62,9 @@ class Dashboard extends Component
     public string $refuseNote = '';
 
     public string $notice = '';
+
+    /** The customer's code on a shop / food delivery, or the return-pickup code. */
+    public string $shopOtp = '';
 
     public string $error = '';
 
@@ -85,7 +94,7 @@ class Dashboard extends Component
 
         if (! $wasOnline) {
             $this->notice = $lat !== null
-                ? "You're online. Keep this page open to receive parcel offers."
+                ? "You're online. Keep this page open to receive delivery offers."
                 : "You're online, but we couldn't read your location — you won't get offers until we can. Allow location access.";
         }
     }
@@ -205,6 +214,27 @@ class Dashboard extends Component
         }
     }
 
+    public function deliverShop(): void
+    {
+        if ($this->deliverShopWith($this->shopOtp)) {
+            $this->shopOtp = '';
+        }
+    }
+
+    public function collectShopReturn(): void
+    {
+        if ($this->collectReturnWith($this->shopOtp)) {
+            $this->shopOtp = '';
+        }
+    }
+
+    public function dropShopReturn(): void
+    {
+        if ($this->dropReturnWith($this->shopOtp)) {
+            $this->shopOtp = '';
+        }
+    }
+
     private function afterDropNotice(\App\Models\ParcelOrder $order): string
     {
         return match (true) {
@@ -289,8 +319,9 @@ class Dashboard extends Component
         $pickups = app(\App\Services\Marketplace\MarketplaceReturnPickupService::class);
         $returnJob = $pickups->activeFor($rider);
         $live = ($rider->is_online && $active && ! $job && ! $shopJob && ! $returnJob) ? $offers->liveOffers($rider) : collect();
-        // E-commerce Phase 3: shop delivery offers ring here too; they are accepted on Shop deliveries.
+        // Rider app 2026-11-04: shop and food offers and return pickups are taken right here, next to parcels.
         $shopLive = ($rider->is_online && ! $job && ! $shopJob && ! $returnJob) ? $offers->liveShopOffers($rider) : collect();
+        $openPickups = ($rider->is_online && ! $job && ! $shopJob && ! $returnJob) ? $pickups->openPickupsFor($rider) : collect();
 
         $this->dispatch('provider-alert-offers', count: $live->count() + $shopLive->count(),
             offers: array_merge($offers->alertSummaries($live), $offers->shopAlertSummaries($shopLive)));
@@ -301,10 +332,13 @@ class Dashboard extends Component
             'job' => $job,
             'offers' => $live,
             'shopJob' => $shopJob,
-            'shopOffers' => $shopLive->count(),
+            'shopOffers' => $shopLive,
             'returnJob' => $returnJob,
-            'returnPickups' => $pickups->openPickupsFor($rider)->count(),
-            'duesOwed' => $dues->outstanding($rider),
+            'pickups' => $openPickups,
+            // One figure for every kind of job: parcel cash dues + shop / food cash to hand back (as on Earnings).
+            'duesOwed' => round($dues->outstanding($rider) + app(\App\Services\Marketplace\MarketplaceSettlementService::class)->outstanding('field_worker', $rider->id), 2),
+            'anyDeliveryOn' => $active || app(\App\Services\ModuleActivationService::class)->isActive(\App\Support\Modules::COMMERCE, $this->riderScope($rider))
+                || app(\App\Services\ModuleActivationService::class)->isActive(\App\Support\Modules::FOOD, $this->riderScope($rider)),
             'overCashLimit' => $dues->overCashLimit($rider, $this->riderScope($rider)),
             'locationFresh' => $rider->location_updated_at && $rider->location_updated_at->gt(now()->subMinutes(max(1, (int) Setting::get('provider.location_stale_after_minutes', '30')))),
             'currencySymbol' => Setting::get('locale.currency_symbol', '₹'),

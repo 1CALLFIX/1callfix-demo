@@ -79,9 +79,15 @@
         <x-ui.card class="!p-4"><p class="text-xs text-slate-500">Orders today</p><p class="mt-1 text-2xl font-bold">{{ $ordersToday }}</p></x-ui.card>
         <x-ui.card class="!p-4"><p class="text-xs text-slate-500">Sales today</p><p class="mt-1 text-2xl font-bold">{{ $currencySymbol }}{{ number_format($salesToday, 0) }}</p></x-ui.card>
         <a href="{{ route('seller.orders') }}" wire:navigate><x-ui.card class="!p-4"><p class="text-xs text-slate-500">Open orders</p><p class="mt-1 text-2xl font-bold">{{ $activeOrders }}</p></x-ui.card></a>
-        <a href="{{ route('seller.products') }}" wire:navigate><x-ui.card class="!p-4"><p class="text-xs text-slate-500">Products</p><p class="mt-1 text-2xl font-bold">{{ $productCount }}</p>
+        <a href="{{ route('seller.products') }}" wire:navigate><x-ui.card class="!p-4"><p class="text-xs text-slate-500">{{ $store->isRestaurant() ? 'Dishes' : 'Products' }}</p><p class="mt-1 text-2xl font-bold">{{ $productCount }}</p>
+            @if ($store->isRestaurant() && $soldOutToday)<p class="text-xs text-red-700" data-testid="sold-out-count">{{ $soldOutToday }} sold out today</p>@endif
             @if ($awaitingApproval)<p class="text-xs text-amber-700">{{ $awaitingApproval }} awaiting approval</p>@endif</x-ui.card></a>
     </div>
+    @if ($openProblems)
+        <a href="{{ route('seller.orders', ['tab' => 'returns']) }}" wire:navigate class="mt-3 block rounded-2xl border-2 border-amber-300 bg-amber-50 p-4 text-sm font-semibold text-amber-900" data-testid="open-problems">
+            {{ $openProblems }} {{ $store->isRestaurant() ? ($openProblems === 1 ? 'problem' : 'problems') : ($openProblems === 1 ? 'return' : 'returns') }} waiting for you{{ $store->isRestaurant() ? ' — Agree or Dispute' : '' }} →
+        </a>
+    @endif
 
     @if ($productCount === 0)
         <x-ui.card>

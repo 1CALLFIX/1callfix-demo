@@ -47,7 +47,12 @@
                         @php $s = $c['store']; @endphp
                         <li wire:key="r-{{ $s->id }}">
                             <a href="{{ $c['url'] }}" wire:navigate data-testid="restaurant-card"
-                               @class(['flex gap-3 rounded-2xl border bg-white p-3 transition hover:border-blue-300 hover:shadow-sm', 'border-slate-200' => $c['open'], 'border-slate-200 opacity-70' => ! $c['open']])>
+                               @class(['block overflow-hidden rounded-2xl border bg-white transition hover:border-blue-300 hover:shadow-sm', 'border-slate-200' => $c['open'], 'border-slate-200 opacity-70' => ! $c['open']])>
+                                {{-- Restaurant portal 2026-11-04: the cover photo, wide, on top. --}}
+                                @if ($s->cover_url)
+                                    <img src="{{ $s->cover_url }}" alt="" loading="lazy" @class(['h-36 w-full object-cover', 'grayscale' => ! $c['open']]) data-testid="restaurant-cover">
+                                @endif
+                                <span class="flex gap-3 p-3">
                                 @if ($s->logo_url)
                                     <img src="{{ $s->logo_url }}" alt="" loading="lazy" @class(['h-20 w-20 shrink-0 rounded-xl object-cover', 'grayscale' => ! $c['open']])>
                                 @else
@@ -75,6 +80,7 @@
                                         @if ($c['pureVeg'])<span class="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-emerald-700"><x-food-mark type="veg" /> {{ $t('food.pure_veg') }}</span>@endif
                                         @if ($c['open'] && $c['busy'])<span class="rounded-full bg-amber-50 px-2 py-0.5 text-amber-800">{{ $t('food.busy') }}</span>@endif
                                     </span>
+                                </span>
                                 </span>
                             </a>
                         </li>

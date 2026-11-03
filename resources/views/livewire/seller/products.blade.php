@@ -164,7 +164,7 @@
         </details>
     @endunless
 
-    <input type="search" wire:model.live.debounce.300ms="search" placeholder="Search your products" class="block min-h-11 w-full rounded-lg border border-slate-300 px-3 text-base">
+    <input type="search" wire:model.live.debounce.300ms="search" placeholder="{{ ($isRestaurant ?? false) ? 'Search your menu' : 'Search your products' }}" class="block min-h-11 w-full rounded-lg border border-slate-300 px-3 text-base">
 
     <div class="space-y-2">
         @forelse ($products as $p)

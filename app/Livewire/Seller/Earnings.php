@@ -42,6 +42,9 @@ class Earnings extends Component
             'owed' => app(MarketplaceSettlementService::class)->outstanding('provider', $seller->id),
             'settlements' => (clone $rows)->with('marketplaceOrder:id,code,payment_method,completed_at')->latest('id')->paginate(20),
             'currencySymbol' => Setting::get('locale.currency_symbol', '₹'),
+            'isRestaurant' => $this->shop()->isRestaurant(),
+            'tz' => app(\App\Services\TimezoneResolver::class),
+            'franchise' => $this->shop()->franchise,
         ])->layout('components.layouts.seller', ['title' => 'Earnings']);
     }
 }

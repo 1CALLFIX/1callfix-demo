@@ -1,7 +1,12 @@
+@php
+    // Restaurant portal 2026-11-04: a restaurant's own page says "restaurant", never "shop".
+    $place = $store->isRestaurant() ? 'restaurant' : 'shop';
+    $noHoursAtAll = $store->isRestaurant() && collect($hours)->flatten(1)->isEmpty();
+@endphp
 <div class="space-y-4" x-data x-on:seller-scroll-top.window="$nextTick(() => window.scrollTo({ top: 0, behavior: 'smooth' }))">
     <div>
         <h1 class="text-2xl font-bold tracking-tight">{{ $store->name }}</h1>
-        <p class="text-sm text-slate-500">To change the shop name, contact support.</p>
+        <p class="text-sm text-slate-500">To change the {{ $place }} name, contact support.</p>
     </div>
 
     @if ($flashMessage)
@@ -17,7 +22,7 @@
 
     {{-- Shop mobile number: changes only after an OTP to the new number (owner rule 2026-11-03). --}}
     <x-ui.card>
-        <h2 class="text-sm font-semibold">Shop mobile number</h2>
+        <h2 class="text-sm font-semibold">{{ ucfirst($place) }} mobile number</h2>
         <p class="mt-1 text-sm text-slate-700">{{ $store->phone ?: 'Not set' }}</p>
         @if ($phoneStep === '')
             <button type="button" wire:click="$set('phoneStep', 'number')" class="mt-2 inline-flex min-h-11 items-center rounded-lg border border-slate-300 bg-white px-3 text-sm font-medium text-slate-800 hover:bg-slate-50">Change number</button>
@@ -49,11 +54,11 @@
 
     <form wire:submit="save" class="space-y-4">
         <x-ui.card>
-            <h2 class="text-sm font-semibold">About your shop</h2>
+            <h2 class="text-sm font-semibold">About your {{ $place }}</h2>
             <div class="mt-3 grid gap-4 sm:grid-cols-2">
                 <label class="block text-sm sm:col-span-2">
                     <span class="font-medium">Description</span>
-                    <textarea rows="3" wire:model="description" class="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-base" placeholder="What you sell, since when, what makes you different"></textarea>
+                    <textarea rows="3" wire:model="description" class="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-base" placeholder="{{ $store->isRestaurant() ? 'Your speciality, since when, what makes your food different' : 'What you sell, since when, what makes you different' }}"></textarea>
                     @error('description') <span class="text-sm text-red-700">{{ $message }}</span> @enderror
                 </label>
                 <div class="text-sm">
@@ -68,6 +73,19 @@
                     </div>
                     @error('logo') <span class="text-sm text-red-700">{{ $message }}</span> @enderror
                 </div>
+                <div class="text-sm sm:col-span-2">
+                    <span class="font-medium">Cover photo</span>
+                    <span class="block text-xs text-slate-500">A wide photo of your {{ $store->isRestaurant() ? 'best dish or your restaurant' : 'shop or products' }}. Customers see it first.</span>
+                    <div class="mt-1 flex flex-wrap items-center gap-3">
+                        @if ($cover && method_exists($cover, 'isPreviewable') && $cover->isPreviewable())
+                            <img src="{{ $cover->temporaryUrl() }}" alt="" class="h-20 w-40 rounded-lg object-cover">
+                        @elseif ($store->cover_url)
+                            <img src="{{ $store->cover_url }}" alt="" class="h-20 w-40 rounded-lg object-cover">
+                        @endif
+                        <input type="file" wire:model="cover" accept="image/jpeg,image/png,image/webp" class="text-sm" data-testid="cover-input">
+                    </div>
+                    @error('cover') <span class="text-sm text-red-700">{{ $message }}</span> @enderror
+                </div>
             </div>
         </x-ui.card>
 
@@ -75,7 +93,7 @@
             <h2 class="text-sm font-semibold">Where riders collect orders</h2>
             <p class="mt-1 text-xs text-slate-500">A new address or pin is checked by 1CallFix first; riders keep using the old one until then.</p>
             <label class="mt-3 block text-sm">
-                <span class="font-medium">Shop address</span>
+                <span class="font-medium">{{ ucfirst($place) }} address</span>
                 <textarea rows="2" wire:model="addressLine" class="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-base"></textarea>
                 @error('addressLine') <span class="text-sm text-red-700">{{ $message }}</span> @enderror
             </label>
@@ -83,8 +101,8 @@
                     class="mt-2 inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-800 hover:bg-slate-50">
                 <span data-locate-address-label>Set the pin to where I am now</span>
             </button>
-            <p data-locate-address-error role="alert" hidden class="mt-2 text-sm text-amber-800">We could not get your location. Stand inside your shop and try again.</p>
-            <p class="mt-2 text-xs text-slate-500">Pin: {{ $lat !== null ? number_format($lat, 5).', '.number_format($lng, 5) : 'not set' }}. Stand inside your shop when you set it.</p>
+            <p data-locate-address-error role="alert" hidden class="mt-2 text-sm text-amber-800">We could not get your location. Stand inside your {{ $place }} and try again.</p>
+            <p class="mt-2 text-xs text-slate-500">Pin: {{ $lat !== null ? number_format($lat, 5).', '.number_format($lng, 5) : 'not set' }}. Stand inside your {{ $place }} when you set it.</p>
         </x-ui.card>
 
         <x-ui.card>
@@ -158,6 +176,9 @@
                     <button type="button" wire:click="copyMondayToAll" class="text-sm font-medium text-blue-700 underline">Same as Monday every day</button>
                 </div>
                 <p class="mt-1 text-xs text-slate-500">Customers can order only inside these hours while you are open. No hours at all = whenever you are open. A closing time earlier than the opening time runs past midnight.</p>
+                @if ($noHoursAtAll)
+                    <p class="mt-2 rounded-lg bg-blue-50 px-3 py-2 text-sm text-blue-900" data-testid="no-hours-note">No set hours: customers can order whenever you switch your restaurant Open on Home. Add times below to open only at those times.</p>
+                @endif
                 <div class="mt-3 divide-y divide-slate-100">
                     @foreach ($dayNames as $day => $dayName)
                         <div class="flex flex-wrap items-center gap-2 py-2" wire:key="day-{{ $day }}">
@@ -172,7 +193,7 @@
                                 @error("hours.$day.$i.opens") <span class="w-full text-sm text-red-700">{{ $message }}</span> @enderror
                                 @error("hours.$day.$i.closes") <span class="w-full text-sm text-red-700">{{ $message }}</span> @enderror
                             @empty
-                                <span class="text-sm text-slate-500">Closed</span>
+                                <span class="text-sm text-slate-500">{{ $noHoursAtAll ? 'No set hours' : 'Closed' }}</span>
                             @endforelse
                             @if (count($hours[$day] ?? []) < 3)
                                 <button type="button" wire:click="addSlot({{ $day }})" class="text-sm font-medium text-blue-700">+ Add time</button>
@@ -196,7 +217,7 @@
             </div>
         </x-ui.card>
 
-        <x-ui.button type="submit" wire:loading.attr="disabled">Save shop details</x-ui.button>
+        <x-ui.button type="submit" wire:loading.attr="disabled">Save {{ $place }} details</x-ui.button>
     </form>
 
     {{-- Firebase phone OTP (same as sign-up), only for changing the shop mobile number. --}}

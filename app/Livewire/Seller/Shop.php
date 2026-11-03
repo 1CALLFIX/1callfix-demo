@@ -42,6 +42,9 @@ class Shop extends Component
     public string $deliveryFee = '';
     public string $freeDeliveryAbove = '';
     public $logo = null;
+
+    /** Restaurant portal 2026-11-04: a wide cover photo (shown on the Food page and the menu). */
+    public $cover = null;
     /** E-commerce Phase 5: printed on the seller's tax invoices. */
     public string $gstin = '';
     public string $pan = '';
@@ -140,6 +143,7 @@ class Shop extends Component
             'deliveryFee' => ['nullable', 'numeric', 'min:0', 'max:10000'],
             'freeDeliveryAbove' => ['nullable', 'numeric', 'min:0', 'max:1000000'],
             'logo' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
+            'cover' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:4096'],
             'gstin' => ['nullable', 'string', 'regex:/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/'],
             'pan' => ['nullable', 'string', 'regex:/^[A-Z]{5}[0-9]{4}[A-Z]$/'],
         ], ['gstin.regex' => 'Enter the 15-character GSTIN in capitals.', 'pan.regex' => 'Enter the 10-character PAN in capitals.'], ['addressLine' => 'address', 'minimumOrder' => 'minimum order', 'deliveryFee' => 'delivery fee', 'freeDeliveryAbove' => 'free delivery above']);
@@ -174,6 +178,13 @@ class Shop extends Component
             }
             $fields['logo'] = $this->logo->store('stores/'.$store->id, 'public');
             $this->logo = null;
+        }
+        if ($this->cover) {
+            if ($store->cover_image && ! str_contains($store->cover_image, '://')) {
+                Storage::disk('public')->delete($store->cover_image);
+            }
+            $fields['cover_image'] = $this->cover->store('stores/'.$store->id, 'public');
+            $this->cover = null;
         }
 
         if ($store->isRestaurant()) {

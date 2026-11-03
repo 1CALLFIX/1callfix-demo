@@ -12,7 +12,11 @@
             ['label' => $store->name, 'url' => null],
         ]" />
 
-        <header class="mt-4 rounded-3xl border border-slate-200 bg-white p-5">
+        <header class="mt-4 overflow-hidden rounded-3xl border border-slate-200 bg-white">
+            @if ($store->cover_url)
+                <img src="{{ $store->cover_url }}" alt="" class="h-44 w-full object-cover sm:h-56" data-testid="restaurant-cover">
+            @endif
+            <div class="p-5">
             <div class="flex items-start gap-4">
                 @if ($store->logo_url)
                     <img src="{{ $store->logo_url }}" alt="" class="h-20 w-20 shrink-0 rounded-2xl object-cover">
@@ -44,6 +48,7 @@
             @if ($open && $card['busy'])
                 <p class="mt-3 rounded-xl bg-amber-50 px-3 py-2 text-sm text-amber-900">{{ $t('food.busy_note') }}</p>
             @endif
+            </div>
         </header>
 
         @unless ($open)
