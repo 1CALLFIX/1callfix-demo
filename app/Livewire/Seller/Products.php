@@ -278,7 +278,7 @@ class Products extends Component
         $parts = array_filter([
             $r['updated'] ? $r['updated'].' changed' : null,
             $r['added'] ? $r['added'].' added' : null,
-            $r['waiting'] ? $r['waiting'].' new names waiting for approval' : null,
+            $r['waiting'] ? $r['waiting'].' changes waiting for approval (new name or photos)' : null,
             $r['unchanged'] ? $r['unchanged'].' unchanged' : null,
         ]);
         $this->sheetErrors = $r['errors'];

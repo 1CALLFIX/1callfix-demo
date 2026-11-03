@@ -107,11 +107,16 @@ class ProductImporter extends CatalogImporter
             return ['error' => ['field' => 'stock', 'message' => 'stock must be a whole number 0 or greater.']];
         }
 
-        // Up to 5 photos: "image" and/or "images", several links separated by | or ;
-        $images = collect(preg_split('/[|;\n]+/', trim((string) ($row['images'] ?? '').'|'.(string) ($row['image'] ?? ''))))
-            ->map(fn ($v) => trim($v))->filter()->unique()->values();
+        // Up to 5 photos: "image" and/or "images", several links separated by | or ;. Owner 2026-11-03: a link to a
+        // photo hosted elsewhere (e.g. postimg.cc) keeps the file small and pages fast; it must be the DIRECT link to
+        // the picture (https, ending in .jpg/.png/.webp/.gif), never the host's page (that shows as a broken photo).
+        $images = collect(\App\Support\ProductPhotoLink::split(($row['images'] ?? '').'|'.($row['image'] ?? '')));
         foreach ($images as $image) {
-            if (! $this->validateImageReference($image)) {
+            if (preg_match('#^(https?:)?//#i', $image)) {
+                if ($problem = \App\Support\ProductPhotoLink::problem($image)) {
+                    return ['error' => ['field' => 'image', 'message' => ucfirst($problem).'.']];
+                }
+            } elseif (! $this->validateImageReference($image)) {
                 return ['error' => ['field' => 'image', 'message' => "'{$image}' is not a valid image URL or path."]];
             }
         }

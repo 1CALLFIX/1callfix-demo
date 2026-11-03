@@ -18,7 +18,8 @@ use Illuminate\Support\Facades\DB;
  */
 class SellerProductSheet
 {
-    public const COLUMNS = ['id', 'name', 'price', 'discount_percent', 'stock', 'show'];
+    /** "photos": up to 5 direct photo links separated by | (owner 2026-11-03, e.g. https://i.postimg.cc/...jpg). */
+    public const COLUMNS = ['id', 'name', 'price', 'discount_percent', 'stock', 'show', 'photos'];
     private const MAX_ROWS = 1000;
 
     /** CSV text of the shop's products (opens in Excel). */
@@ -29,7 +30,7 @@ class SellerProductSheet
         fputcsv($out, self::COLUMNS);
         Product::where('store_id', $store->id)->orderBy('name')->get()->each(fn (Product $p) => fputcsv($out, [
             $p->id, $p->name, (float) $p->price, $p->discount_percent !== null ? (float) $p->discount_percent : '',
-            $p->option_names ? 'by choice' : (int) $p->stock, $p->is_active ? 'yes' : 'no',
+            $p->option_names ? 'by choice' : (int) $p->stock, $p->is_active ? 'yes' : 'no', implode(' | ', $p->image_urls),
         ]));
         rewind($out);
         $csv = (string) stream_get_contents($out);
@@ -82,13 +83,38 @@ class SellerProductSheet
                 }
 
                 $id = trim((string) ($r['id'] ?? ''));
-                if ($id !== '') {
-                    $product = ctype_digit($id) ? Product::where('store_id', $store->id)->find((int) $id) : null;
-                    if (! $product) {
-                        $result['errors'][] = "Row {$line}: product {$id} is not in your shop. Leave id empty to add a new product.";
+                $product = $id !== '' && ctype_digit($id) ? Product::where('store_id', $store->id)->find((int) $id) : null;
+                if ($id !== '' && ! $product) {
+                    $result['errors'][] = "Row {$line}: product {$id} is not in your shop. Leave id empty to add a new product.";
+
+                    continue;
+                }
+
+                // Photos: empty cell = leave them as they are. A link this file gave out for a photo already on
+                // 1CallFix maps back to that photo; any other link must be a direct https photo link.
+                $links = \App\Support\ProductPhotoLink::split((string) ($r['photos'] ?? ''));
+                if ($links !== []) {
+                    $own = collect($product?->images ?? [])->mapWithKeys(fn ($path) => [Product::photoUrl($path) => $path]);
+                    $photoProblem = count($links) > \App\Support\ProductPhotoLink::MAX ? 'up to '.\App\Support\ProductPhotoLink::MAX.' photos' : null;
+                    $images = [];
+                    foreach ($links as $link) {
+                        if ($own->has($link)) {
+                            $images[] = $own[$link];
+                        } elseif ($problem = \App\Support\ProductPhotoLink::problem($link)) {
+                            $photoProblem ??= $problem;
+                        } else {
+                            $images[] = $link;
+                        }
+                    }
+                    if ($photoProblem) {
+                        $result['errors'][] = "Row {$line}: {$photoProblem}.";
 
                         continue;
                     }
+                    $fields['images'] = $images;
+                }
+
+                if ($id !== '') {
                     if ($product->option_names) {
                         unset($fields['stock']); // stock is set per size / colour
                     }

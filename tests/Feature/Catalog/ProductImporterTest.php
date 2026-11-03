@@ -275,6 +275,27 @@ class ProductImporterTest extends TestCase
         $this->assertSame(['steel-bottle', 'steel-bottle-2'], Product::orderBy('id')->pluck('slug')->all());
     }
 
+    /** Owner 2026-11-03: photo links (e.g. postimg.cc) must be the direct picture link, never the host's page. */
+    public function test_photo_links_must_be_direct_https_picture_links(): void
+    {
+        $store = $this->store();
+        $row = fn (string $image) => ['name' => 'Rice', 'store_id' => $store->id, 'price' => 70, 'image' => $image];
+
+        $ok = (new ProductImporter)->validateRows($this->rows([$row('https://i.postimg.cc/Ab12Cd/basmati-rice.jpg')]));
+        $this->assertEmpty($ok['errors']);
+
+        $bad = (new ProductImporter)->validateRows($this->rows([
+            $row('https://postimg.cc/Ab12Cd'),
+            $row('http://example.com/rice.jpg'),
+            $row('https://example.com/gallery/rice'),
+        ]));
+        $messages = collect($bad['errors'])->pluck('message');
+        $this->assertCount(3, $messages);
+        $this->assertStringContainsString('Direct link', $messages[0]);
+        $this->assertStringContainsString('https://', $messages[1]);
+        $this->assertStringContainsString('.jpg, .png', $messages[2]);
+    }
+
     /** 2026-11-03: the shop and category by name, up to 5 photos, and the unit. */
     public function test_shop_and_category_by_name_several_photos_and_the_unit(): void
     {

@@ -244,7 +244,7 @@ class BulkAddProductsTest extends TestCase
             ."{$other->id},Other,5,,1,yes\n"
             .",Bad Row,abc,,1,yes\n");
         Livewire::actingAs($this->w['owner']->user)->test(Products::class)->set('sheet', $upload)->call('uploadSheet')
-            ->assertSee('2 changed, 1 added, 1 new names waiting for approval')->assertSee('2 rows were skipped')
+            ->assertSee('2 changed, 1 added, 1 changes waiting for approval')->assertSee('2 rows were skipped')
             ->assertSee('is not in your shop')->assertSee('the price must be a number');
 
         $this->assertEquals(220, $bottle->fresh()->price);
@@ -255,5 +255,28 @@ class BulkAddProductsTest extends TestCase
         $this->assertSame('Steel Dinner Plate', PendingChange::pending()->sole()->new_values['name']);
         $this->assertTrue(Product::where('store_id', $store->id)->where('name', 'Steel Glass')->exists());
         $this->assertEquals(1, $other->fresh()->price, "another shop's product is never touched");
+    }
+
+    /** Owner 2026-11-03: a "photos" column with direct links (e.g. postimg.cc) - light files, fast pages. */
+    public function test_the_excel_file_takes_direct_photo_links(): void
+    {
+        $store = $this->w['store'];
+        Storage::disk('public')->put('products/'.$store->id.'/own.jpg', 'x');
+        $bottle = Product::create(['store_id' => $store->id, 'name' => 'Steel Bottle', 'price' => 200, 'stock' => 5, 'tax_percent' => 0, 'is_approved' => true, 'images' => ['products/'.$store->id.'/own.jpg']]);
+        $own = Product::photoUrl('products/'.$store->id.'/own.jpg');
+        $this->assertStringContainsString($own, app(SellerProductSheet::class)->export($store), 'the file gives out the photo links');
+
+        $upload = UploadedFile::fake()->createWithContent('mine.csv', "id,name,price,discount_percent,stock,show,photos\n"
+            ."{$bottle->id},Steel Bottle,200,,5,yes,{$own} | https://i.postimg.cc/Ab12Cd/bottle-side.jpg\n"
+            .",Basmati Rice,70,,40,yes,https://i.postimg.cc/Xy9/basmati.png\n"
+            .",Steel Plate,50,,9,yes,https://postimg.cc/Ab12Cd\n");
+        Livewire::actingAs($this->w['owner']->user)->test(Products::class)->set('sheet', $upload)->call('uploadSheet')
+            ->assertSee('1 added')->assertSee('1 changes waiting for approval')->assertSee('Direct link');
+
+        // A live item's new photos wait for approval; the one already on 1CallFix stays as its stored file.
+        $this->assertSame(['products/'.$store->id.'/own.jpg'], $bottle->fresh()->images);
+        $this->assertSame(['products/'.$store->id.'/own.jpg', 'https://i.postimg.cc/Ab12Cd/bottle-side.jpg'], PendingChange::pending()->sole()->new_values['images']);
+        $this->assertSame(['https://i.postimg.cc/Xy9/basmati.png'], Product::where('name', 'Basmati Rice')->sole()->image_urls);
+        $this->assertFalse(Product::where('name', 'Steel Plate')->exists(), 'a page link is refused, not saved as a broken photo');
     }
 }

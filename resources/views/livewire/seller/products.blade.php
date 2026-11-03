@@ -145,7 +145,7 @@
         {{-- 2026-11-03: change many products in Excel: download, change, upload. --}}
         <details class="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm" @if ($sheetErrors) open @endif>
             <summary class="cursor-pointer font-semibold text-slate-800">Change many in Excel</summary>
-            <p class="mt-2 text-slate-600">Download your products, change the price, discount, stock or show (yes / no) in Excel, save as CSV and upload it here. Add a row with an empty id for a new product. A new name is checked by 1CallFix first.</p>
+            <p class="mt-2 text-slate-600">Download your products, change the price, discount, stock or show (yes / no) in Excel, save as CSV and upload it here. Add a row with an empty id for a new product. In "photos" put up to 5 direct photo links separated by | (for example from postimg.cc: use the "Direct link", which starts with https://i.postimg.cc/). A new name or photo is checked by 1CallFix first.</p>
             <div class="mt-3 flex flex-wrap items-center gap-2">
                 <x-ui.button type="button" variant="secondary" wire:click="downloadSheet">Download my products</x-ui.button>
                 <label class="inline-flex min-h-10 cursor-pointer items-center gap-1.5 rounded-lg border border-slate-300 px-3 font-medium text-slate-800 hover:bg-slate-50">
