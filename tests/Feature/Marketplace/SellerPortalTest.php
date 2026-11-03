@@ -208,24 +208,27 @@ class SellerPortalTest extends TestCase
         $this->assertFalse(Product::where('name', 'Cough Medicine')->exists());
     }
 
-    /** Owner rule 2026-11-03: approval is for a new item only; editing never sends it back (any item: product, food...). */
-    public function test_editing_a_product_never_sends_it_back_for_approval(): void
+    /**
+     * Owner rule 2026-11-03: a new item waits for approval; editing a live item never takes it off sale. Price and stock
+     * change at once; a new name waits (PendingChangesTest covers the rest).
+     */
+    public function test_editing_a_live_product_keeps_it_on_sale(): void
     {
         $p = $this->w['product'];
-        Livewire::actingAs($this->sellerUser())->test(Products::class)->call('edit', $p->id)->set('price', '120')->set('stock', '7')->call('save')->assertHasNoErrors();
+        Livewire::actingAs($this->sellerUser())->test(Products::class)->call('edit', $p->id)->set('price', '120')->set('stock', '7')->call('save')->assertHasNoErrors()
+            ->assertSee('Saved.');
         $this->assertTrue($p->fresh()->is_approved);
         $this->assertEquals(120, $p->fresh()->price);
 
-        Livewire::actingAs($this->sellerUser())->test(Products::class)->call('edit', $p->id)
-            ->set('name', 'Renamed thing')->set('description', 'A new description')->call('save')->assertHasNoErrors()
-            ->assertSee('Saved.')->assertDontSee('once approved');
-        $this->assertTrue($p->fresh()->is_approved, 'a new name or description stays live');
-        $this->assertSame('Renamed thing', $p->fresh()->name);
+        Livewire::actingAs($this->sellerUser())->test(Products::class)->call('edit', $p->id)->set('name', 'Renamed thing')->call('save');
+        $this->assertTrue($p->fresh()->is_approved, 'still on sale');
+        $this->assertNotSame('Renamed thing', $p->fresh()->name, 'the new name waits for approval');
 
-        // An item still waiting for its first approval keeps waiting when edited.
+        // An item still waiting for its first approval is edited freely and keeps waiting.
         $p->update(['is_approved' => false]);
-        Livewire::actingAs($this->sellerUser())->test(Products::class)->call('edit', $p->id)->set('price', '130')->call('save')
+        Livewire::actingAs($this->sellerUser())->test(Products::class)->call('edit', $p->id)->set('name', 'Steel Jug')->call('save')
             ->assertSee('Saved. It shows to customers once approved.');
+        $this->assertSame('Steel Jug', $p->fresh()->name);
         $this->assertFalse($p->fresh()->is_approved);
     }
 

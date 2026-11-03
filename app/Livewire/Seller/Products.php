@@ -7,6 +7,7 @@ use App\Models\MarketplaceCategory;
 use App\Models\Product;
 use App\Models\Setting;
 use App\Services\ActivityLogger;
+use App\Services\PendingChangeService;
 use App\Support\MarketplaceSettings;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Attributes\Url;
@@ -59,6 +60,9 @@ class Products extends Component
     /** 2026-11-03: each "Add photo" pick lands here and is added to $uploads (a second pick never replaces the first). */
     public array $newUploads = [];
 
+    /** What of the product being edited is waiting for approval ("Name, Photos"), shown above the form. */
+    public string $editingPending = '';
+
     public function updatedNewUploads(): void
     {
         $this->validate(['newUploads.*' => ['image', 'mimes:jpg,jpeg,png,webp', 'max:4096']], [], ['newUploads.*' => 'photo']);
@@ -106,6 +110,16 @@ class Products extends Component
         $this->isActive = (bool) $product->is_active;
         $this->editingHasChoices = ! empty($product->option_names);
         $this->photos = $product->images ?? [];
+        // A change already waiting for approval: the form shows it, so the seller edits what they asked for.
+        if ($pending = app(PendingChangeService::class)->pendingFor($product)) {
+            foreach (['name' => 'name', 'description' => 'description', 'marketplace_category_id' => 'categoryId', 'images' => 'photos'] as $field => $prop) {
+                if (array_key_exists($field, $pending->new_values)) {
+                    $value = $pending->new_values[$field];
+                    $this->{$prop} = match ($prop) { 'photos' => $value ?? [], 'categoryId' => $value, default => (string) $value };
+                }
+            }
+            $this->editingPending = $pending->summary();
+        }
         $this->creating = true;
         $this->dispatch('seller-scroll-top'); // the form opens at the top of the page
     }
@@ -172,20 +186,33 @@ class Products extends Component
 
         if ($this->editingId) {
             $product = $this->ownProduct($this->editingId);
-            // Owner rule 2026-11-03: approval is for a NEW item only (product, food, any item on the platform). Editing
-            // an item - name, description, photos, price, stock - never sends it back for approval; it keeps its state
-            // (an item still waiting for its first approval keeps waiting).
-            foreach (array_diff($product->images ?? [], $paths) as $removed) {
-                if (! str_contains($removed, '://')) {
-                    Storage::disk('public')->delete($removed);
-                }
-            }
             if ($product->option_names) {
                 unset($fields['stock']); // product choices: stock is the total of the choices
             }
-            $product->update($fields);
+            // Owner rule 2026-11-03 (PendingChangeService): price, discount, stock, on/off and the limit change at once.
+            // On a LIVE item the name, photos, description and category wait for approval while customers keep seeing
+            // the old ones; the item never goes off sale. An item still waiting for its first approval is edited freely.
+            $changes = app(PendingChangeService::class);
+            $review = $needsApproval && $product->is_approved;
+            [$now, $wait] = $review ? $changes->split($product, $fields) : [$fields, []];
+            if (! $review) {
+                foreach (array_diff($product->images ?? [], $paths) as $removed) {
+                    if (! str_contains($removed, '://')) {
+                        Storage::disk('public')->delete($removed);
+                    }
+                }
+            }
+            $product->update($now);
             ActivityLogger::logModel(auth()->user(), $product, 'Seller updated product', ['fields' => array_keys($product->getChanges())]);
-            $this->flash($product->is_approved ? 'Saved.' : 'Saved. It shows to customers once approved.', 'success');
+            if ($wait !== []) {
+                $pending = $changes->request($product, $wait, auth()->user(), $store->id);
+                $this->flash('Saved. Price and stock are live now. The new '.mb_strtolower($pending->summary()).' show to customers once approved; until then they see the old ones.', 'success');
+            } else {
+                if ($review) {
+                    $changes->withdraw($product, auth()->user()); // back to the live details: nothing left to approve
+                }
+                $this->flash($product->is_approved ? 'Saved.' : 'Saved. It shows to customers once approved.', 'success');
+            }
         } else {
             $product = Product::create($fields + ['store_id' => $store->id, 'is_approved' => ! $needsApproval, 'tax_percent' => 0]);
             ActivityLogger::logModel(auth()->user(), $product, 'Seller added product');
@@ -238,7 +265,7 @@ class Products extends Component
 
     private function resetForm(): void
     {
-        $this->reset(['editingHasChoices', 'editingId', 'name', 'description', 'categoryId', 'price', 'discountPercent', 'maxCartQuantity', 'photos', 'uploads', 'newUploads']);
+        $this->reset(['editingHasChoices', 'editingId', 'name', 'description', 'categoryId', 'price', 'discountPercent', 'maxCartQuantity', 'photos', 'uploads', 'newUploads', 'editingPending']);
         $this->stock = '0';
         $this->isActive = true;
         $this->creating = false;
@@ -255,10 +282,17 @@ class Products extends Component
     {
         $store = $this->shop();
 
+        $products = Product::where('store_id', $store->id)
+            ->when($this->search !== '', fn ($q) => $q->where('name', 'like', '%'.$this->search.'%'))
+            ->with('category:id,name')->withCount('activeVariants')->orderBy('name')->paginate(25);
+        // The newest decided-or-waiting change of each product on this page (a replaced one is never shown).
+        $latestChanges = \App\Models\PendingChange::where('changeable_type', (new Product)->getMorphClass())
+            ->whereIn('changeable_id', $products->pluck('id'))->where('status', '!=', \App\Models\PendingChange::REPLACED)
+            ->orderBy('id')->get()->keyBy('changeable_id');
+
         return view('livewire.seller.products', [
-            'products' => Product::where('store_id', $store->id)
-                ->when($this->search !== '', fn ($q) => $q->where('name', 'like', '%'.$this->search.'%'))
-                ->with('category:id,name')->withCount('activeVariants')->orderBy('name')->paginate(25),
+            'products' => $products,
+            'latestChanges' => $latestChanges,
             'categories' => MarketplaceCategory::where('module', $store->module)->where('is_active', true)->orderBy('position')->orderBy('name')->get(['id', 'name', 'parent_id']),
             'currencySymbol' => Setting::get('locale.currency_symbol', '₹'),
             'maxPhotos' => self::MAX_PHOTOS,

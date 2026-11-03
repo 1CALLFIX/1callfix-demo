@@ -177,6 +177,7 @@ Route::middleware(['auth', \Illuminate\Session\Middleware\AuthenticateSession::c
         Route::get('/stores', StoresManage::class)->name('admin.stores.index');
         Route::get('/marketplace-categories', MarketplaceCategoriesManage::class)->name('admin.marketplace-categories.index');
         Route::get('/products', ProductsManage::class)->name('admin.products.index');
+        Route::get('/change-approvals', \App\Livewire\MarketplaceOrders\ChangeApprovals::class)->name('admin.change-approvals.index');
         Route::get('/add-ons', AddOnsManage::class)->name('admin.add-ons.index');
         Route::get('/marketplace-orders', MarketplaceOrdersManage::class)->name('admin.marketplace-orders.index');
         Route::get('/shop-settings', \App\Livewire\MarketplaceOrders\Settings::class)->name('admin.marketplace-orders.settings');

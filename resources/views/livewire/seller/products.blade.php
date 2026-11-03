@@ -15,6 +15,11 @@
     @if ($creating)
         <x-ui.card>
             <h2 class="text-lg font-semibold">{{ $editingId ? 'Edit product' : 'New product' }}</h2>
+            @if ($editingPending !== '')
+                <p class="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">Your new {{ mb_strtolower($editingPending) }} {{ str_contains($editingPending, ',') ? 'are' : 'is' }} waiting for approval (shown below). Customers see the old ones until then. Saving again replaces the waiting change.</p>
+            @elseif ($editingId)
+                <p class="mt-1 text-xs text-slate-500">Price, discount, stock and "show to customers" change at once. A new name, photos, description or category is checked by 1CallFix first; customers see the old ones until then.</p>
+            @endif
             <form wire:submit="save" class="mt-4 grid gap-4 sm:grid-cols-2">
                 <label class="block text-sm sm:col-span-2">
                     <span class="font-medium">Name</span>
@@ -137,6 +142,14 @@
                             @unless ($p->is_approved)<span class="font-semibold text-amber-700">Awaiting approval</span> @endunless
                             @unless ($p->is_active)<span class="font-semibold text-slate-500">Hidden</span>@endunless
                         </p>
+                        {{-- Owner rule 2026-11-03: a change to a live item waits; customers see the old details meanwhile. --}}
+                        @if ($c = $latestChanges[$p->id] ?? null)
+                            @if ($c->status === \App\Models\PendingChange::PENDING)
+                                <p class="text-xs font-semibold text-amber-700" data-testid="change-waiting">New {{ mb_strtolower($c->summary()) }} waiting for approval · customers see the old ones</p>
+                            @elseif ($c->status === \App\Models\PendingChange::REJECTED)
+                                <p class="text-xs font-semibold text-red-700" data-testid="change-rejected">Change not approved: {{ $c->review_note }}</p>
+                            @endif
+                        @endif
                     </div>
                     <div class="flex shrink-0 flex-col items-end gap-1">
                         @if ($p->option_names)

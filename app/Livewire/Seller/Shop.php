@@ -4,7 +4,12 @@ namespace App\Livewire\Seller;
 
 use App\Livewire\Seller\Concerns\InteractsWithSeller;
 use App\Models\Setting;
+use App\Contracts\FirebaseTokenVerifier;
+use App\Exceptions\FirebaseAuthException;
 use App\Services\ActivityLogger;
+use App\Services\PendingChangeService;
+use App\Support\PhoneNumber;
+use Livewire\Attributes\On;
 use App\Services\Customer\CustomerLocationContext;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Component;
@@ -22,6 +27,10 @@ class Shop extends Component
 
     public string $description = '';
     public string $phone = '';
+    /** A new shop mobile number: '' → 'number' (typing) → 'code' (OTP sent). */
+    public string $phoneStep = '';
+    public string $newPhone = '';
+    public string $phoneError = '';
     public string $addressLine = '';
     public ?float $lat = null;
     public ?float $lng = null;
@@ -49,6 +58,18 @@ class Shop extends Component
         $this->freeDeliveryAbove = $store->free_delivery_above_amount !== null ? (string) (float) $store->free_delivery_above_amount : '';
         $this->gstin = (string) $store->gstin;
         $this->pan = (string) $store->pan;
+        // A change waiting for approval shows in the form, so saving other details never drops it.
+        if ($pending = app(PendingChangeService::class)->pendingFor($store)) {
+            foreach (['address_line' => 'addressLine', 'gstin' => 'gstin', 'pan' => 'pan'] as $field => $prop) {
+                if (array_key_exists($field, $pending->new_values)) {
+                    $this->{$prop} = (string) $pending->new_values[$field];
+                }
+            }
+            if (array_key_exists('lat', $pending->new_values)) {
+                $this->lat = $pending->new_values['lat'] !== null ? (float) $pending->new_values['lat'] : null;
+                $this->lng = $pending->new_values['lng'] !== null ? (float) $pending->new_values['lng'] : null;
+            }
+        }
     }
 
     /** The shared [data-locate-address] button (resources/js/geolocation.js) posts the pin here. */
@@ -65,7 +86,6 @@ class Shop extends Component
         $store = $this->shop();
         $this->validate([
             'description' => ['nullable', 'string', 'max:1000'],
-            'phone' => ['nullable', 'string', 'max:20', 'regex:/^[0-9+][0-9 \-]*$/'],
             'addressLine' => ['required', 'string', 'min:6', 'max:255'],
             'minimumOrder' => ['nullable', 'numeric', 'min:0', 'max:100000'],
             'deliveryFee' => ['nullable', 'numeric', 'min:0', 'max:10000'],
@@ -86,7 +106,6 @@ class Shop extends Component
 
         $fields = [
             'description' => trim($this->description) ?: null,
-            'phone' => trim($this->phone) ?: null,
             'address_line' => trim($this->addressLine),
             'lat' => $this->lat ?? $store->lat,
             'lng' => $this->lng ?? $store->lng,
@@ -104,9 +123,85 @@ class Shop extends Component
             $this->logo = null;
         }
 
-        $store->update($fields);
+        // Owner rule 2026-11-03 (PendingChangeService): on an approved shop the address, map pin, GSTIN and PAN wait
+        // for admin approval (riders and tax invoices depend on them); the shop keeps its old ones until then. Logo,
+        // description and order terms change at once. The mobile number changes only after an OTP (below).
+        $changes = app(PendingChangeService::class);
+        $review = $store->approval_status === 'approved';
+        [$now, $wait] = $review ? $changes->split($store, $fields) : [$fields, []];
+        $store->update($now);
         ActivityLogger::logModel(auth()->user(), $store, 'Seller updated shop details', ['fields' => array_keys($store->getChanges())]);
-        $this->flash('Shop details saved.', 'success');
+        if ($wait !== []) {
+            $pending = $changes->request($store, $wait, auth()->user(), $store->id);
+            $this->flash('Saved. Your new '.mb_strtolower($pending->summary()).' will be used once 1CallFix approves it; until then the old details stay.', 'success');
+        } else {
+            if ($review) {
+                $changes->withdraw($store, auth()->user());
+            }
+            $this->flash('Shop details saved.', 'success');
+        }
+        $this->dispatch('seller-scroll-top');
+    }
+
+    /** Step 1 of a new shop mobile number: an OTP goes to the NEW number (Firebase, as at sign-up). */
+    public function sendPhoneCode(): void
+    {
+        $this->phoneError = '';
+        $this->validate(['newPhone' => ['required', 'string', 'max:20']], [], ['newPhone' => 'mobile number']);
+        if (! PhoneNumber::looksValid($this->newPhone)) {
+            $this->addError('newPhone', 'Enter a 10-digit mobile number.');
+
+            return;
+        }
+        if (PhoneNumber::national($this->newPhone) === PhoneNumber::national((string) $this->shop()->phone)) {
+            $this->addError('newPhone', 'That is already the shop number.');
+
+            return;
+        }
+        $this->phoneStep = 'code';
+        $this->dispatch('firebase-send-phone-otp', phone: PhoneNumber::e164($this->newPhone));
+    }
+
+    #[On('firebase-error')]
+    public function firebaseError(string $message): void
+    {
+        $this->phoneError = $message;
+    }
+
+    /** Step 2: the code proved the seller holds the new number; only then does the shop number change. */
+    #[On('firebase-phone-token')]
+    public function phoneTokenReceived(string $idToken, FirebaseTokenVerifier $firebase): void
+    {
+        $this->phoneError = '';
+        if ($this->phoneStep !== 'code' || $this->newPhone === '') {
+            return;
+        }
+        try {
+            $identity = $firebase->verify($idToken);
+        } catch (FirebaseAuthException $e) {
+            report($e);
+            $this->phoneError = 'Could not verify that code. Request a new one.';
+
+            return;
+        }
+        if (! $identity->isPhoneProvider() || PhoneNumber::national($this->newPhone) !== PhoneNumber::national((string) $identity->phoneNumber)) {
+            $this->phoneError = 'That verification does not match the new number.';
+
+            return;
+        }
+        $store = $this->shop();
+        $old = $store->phone;
+        $store->update(['phone' => PhoneNumber::national($this->newPhone)]);
+        ActivityLogger::logModel(auth()->user(), $store, 'Seller changed the shop mobile number (OTP verified)', ['from' => $old, 'to' => $store->phone]);
+        $this->phone = (string) $store->phone;
+        $this->reset('newPhone', 'phoneStep', 'phoneError');
+        $this->flash('Shop mobile number changed to '.$store->phone.'.', 'success');
+        $this->dispatch('seller-scroll-top');
+    }
+
+    public function cancelPhoneChange(): void
+    {
+        $this->reset('newPhone', 'phoneStep', 'phoneError');
     }
 
     private function flash(string $message, string $type): void
@@ -117,8 +212,13 @@ class Shop extends Component
 
     public function render()
     {
+        $store = $this->shop();
+        $changes = \App\Models\PendingChange::where('changeable_type', $store->getMorphClass())->where('changeable_id', $store->id)
+            ->where('status', '!=', \App\Models\PendingChange::REPLACED)->latest('id')->first();
+
         return view('livewire.seller.shop', [
-            'store' => $this->shop(),
+            'store' => $store,
+            'latestChange' => $changes,
             'currencySymbol' => Setting::get('locale.currency_symbol', '₹'),
         ])->layout('components.layouts.seller', ['title' => 'Shop']);
     }
