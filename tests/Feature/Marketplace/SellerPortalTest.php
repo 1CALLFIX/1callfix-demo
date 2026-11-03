@@ -229,6 +229,23 @@ class SellerPortalTest extends TestCase
         $this->assertFalse($p->fresh()->is_approved);
     }
 
+    /** Owner 2026-11-03: an "Add photo" box instead of "Choose Files"; each pick adds to the photos, up to 5. */
+    public function test_photos_are_added_one_pick_at_a_time_and_can_be_taken_out_before_saving(): void
+    {
+        \Illuminate\Support\Facades\Storage::fake('public');
+        $img = fn (string $n) => \Illuminate\Http\UploadedFile::fake()->image($n, 400, 400);
+        $c = Livewire::actingAs($this->sellerUser())->test(Products::class)->call('startCreate')
+            ->assertSee('Add photo')->assertDontSee('Choose Files')
+            ->set('newUploads', [$img('a.jpg'), $img('b.jpg')])->assertCount('uploads', 2)
+            ->set('newUploads', [$img('c.jpg')])->assertCount('uploads', 3)->assertCount('newUploads', 0)
+            ->call('removeUpload', 1)->assertCount('uploads', 2)
+            ->set('newUploads', [$img('d.jpg'), $img('e.jpg'), $img('f.jpg'), $img('g.jpg')])
+            ->assertCount('uploads', 5)->assertHasErrors('uploads');
+
+        $c->set('name', 'Steel Plate')->set('price', '90')->set('stock', '4')->call('save');
+        $this->assertCount(5, Product::where('name', 'Steel Plate')->sole()->images);
+    }
+
     /** Owner 2026-11-03 (live): Edit far down the list opened the form at the top, out of sight; same for "Saved.". */
     public function test_the_page_moves_up_to_the_form_and_to_the_saved_message(): void
     {

@@ -68,21 +68,37 @@
 
                 <div class="sm:col-span-2">
                     <p class="text-sm font-medium">Photos <span class="font-normal text-slate-500">(up to {{ $maxPhotos }})</span></p>
-                    <div class="mt-2 flex flex-wrap gap-2">
+                    {{-- 2026-11-03 (owner): a clear "Add photo" box with a picture icon instead of the browser's "Choose Files". --}}
+                    <div class="mt-2 flex flex-wrap gap-3">
                         @foreach ($photos as $i => $path)
                             <div class="relative" wire:key="photo-{{ $i }}">
-                                <img src="{{ str_contains($path, '://') ? $path : \Illuminate\Support\Facades\Storage::disk('public')->url($path) }}" alt="" class="h-20 w-20 rounded-lg border object-cover">
-                                <button type="button" wire:click="removePhoto({{ $i }})" class="absolute -right-1 -top-1 rounded-full bg-red-600 px-1.5 text-xs text-white" aria-label="Remove photo">×</button>
+                                <img src="{{ str_contains($path, '://') ? $path : \Illuminate\Support\Facades\Storage::disk('public')->url($path) }}" alt="" class="h-24 w-24 rounded-xl border object-cover">
+                                @if ($i === 0)<span class="absolute bottom-1 left-1 rounded bg-slate-900/75 px-1.5 text-[10px] font-semibold text-white">Main</span>@endif
+                                <button type="button" wire:click="removePhoto({{ $i }})" class="absolute -right-2 -top-2 grid h-7 w-7 place-items-center rounded-full bg-red-600 text-sm font-bold text-white shadow" aria-label="Remove photo {{ $i + 1 }}">×</button>
                             </div>
                         @endforeach
                         @foreach ($uploads as $i => $file)
-                            @if (method_exists($file, 'isPreviewable') && $file->isPreviewable())
-                                <img src="{{ $file->temporaryUrl() }}" alt="" class="h-20 w-20 rounded-lg border object-cover" wire:key="upload-{{ $i }}">
-                            @endif
+                            <div class="relative" wire:key="upload-{{ $i }}">
+                                @if (method_exists($file, 'isPreviewable') && $file->isPreviewable())
+                                    <img src="{{ $file->temporaryUrl() }}" alt="" class="h-24 w-24 rounded-xl border object-cover">
+                                @else
+                                    <span class="grid h-24 w-24 place-items-center rounded-xl border bg-slate-50 text-xs text-slate-500">New photo</span>
+                                @endif
+                                @if (count($photos) === 0 && $i === 0)<span class="absolute bottom-1 left-1 rounded bg-slate-900/75 px-1.5 text-[10px] font-semibold text-white">Main</span>@endif
+                                <button type="button" wire:click="removeUpload({{ $i }})" class="absolute -right-2 -top-2 grid h-7 w-7 place-items-center rounded-full bg-red-600 text-sm font-bold text-white shadow" aria-label="Remove new photo {{ $i + 1 }}">×</button>
+                            </div>
                         @endforeach
+                        @if (count($photos) + count($uploads) < $maxPhotos)
+                            <label class="flex h-24 w-24 cursor-pointer flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed border-blue-300 bg-blue-50/50 text-blue-700 transition hover:border-blue-500 hover:bg-blue-50" data-testid="add-photo">
+                                <x-icon name="photo" class="h-7 w-7" />
+                                <span class="text-xs font-bold">Add photo</span>
+                                <input type="file" wire:model="newUploads" multiple accept="image/jpeg,image/png,image/webp" class="sr-only">
+                            </label>
+                        @endif
                     </div>
-                    <input type="file" wire:model="uploads" multiple accept="image/jpeg,image/png,image/webp" class="mt-2 block text-sm">
-                    <div wire:loading wire:target="uploads" class="text-xs text-slate-500">Uploading…</div>
+                    <p class="mt-1.5 text-xs text-slate-500">JPG, PNG or WEBP, up to 4 MB each. The first photo is the main one customers see.</p>
+                    <div wire:loading wire:target="newUploads" class="text-xs font-medium text-blue-700">Uploading…</div>
+                    @error('newUploads.*') <span class="block text-sm text-red-700">{{ $message }}</span> @enderror
                     @error('uploads') <span class="text-sm text-red-700">{{ $message }}</span> @enderror
                     @error('uploads.*') <span class="text-sm text-red-700">{{ $message }}</span> @enderror
                 </div>

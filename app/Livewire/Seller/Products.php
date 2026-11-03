@@ -56,6 +56,26 @@ class Products extends Component
     /** New uploads, saved on submit. */
     public array $uploads = [];
 
+    /** 2026-11-03: each "Add photo" pick lands here and is added to $uploads (a second pick never replaces the first). */
+    public array $newUploads = [];
+
+    public function updatedNewUploads(): void
+    {
+        $this->validate(['newUploads.*' => ['image', 'mimes:jpg,jpeg,png,webp', 'max:4096']], [], ['newUploads.*' => 'photo']);
+        $room = self::MAX_PHOTOS - count($this->photos) - count($this->uploads);
+        $this->uploads = array_merge($this->uploads, array_slice($this->newUploads, 0, max(0, $room)));
+        if (count($this->newUploads) > $room) {
+            $this->addError('uploads', 'Up to '.self::MAX_PHOTOS.' photos.');
+        }
+        $this->newUploads = [];
+    }
+
+    public function removeUpload(int $index): void
+    {
+        unset($this->uploads[$index]);
+        $this->uploads = array_values($this->uploads);
+    }
+
     public string $flashMessage = '';
     public string $flashType = 'success';
 
@@ -218,7 +238,7 @@ class Products extends Component
 
     private function resetForm(): void
     {
-        $this->reset(['editingHasChoices', 'editingId', 'name', 'description', 'categoryId', 'price', 'discountPercent', 'maxCartQuantity', 'photos', 'uploads']);
+        $this->reset(['editingHasChoices', 'editingId', 'name', 'description', 'categoryId', 'price', 'discountPercent', 'maxCartQuantity', 'photos', 'uploads', 'newUploads']);
         $this->stock = '0';
         $this->isActive = true;
         $this->creating = false;
