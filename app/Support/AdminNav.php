@@ -126,14 +126,26 @@ class AdminNav
                     ['label' => 'Home Spotlight', 'route' => 'admin.home-spotlight.index', 'icon' => 'sparkles', 'permission' => 'banners.manage'],
                     ['label' => 'Badges', 'route' => 'admin.badges.index', 'icon' => 'tag', 'permission' => 'badges.view'],
                     ['label' => 'Performance Campaigns', 'route' => 'admin.performance-campaigns.index', 'icon' => 'trophy', 'permission' => 'performance_campaigns.view'],
-                    ['label' => 'Loyalty & Referrals', 'route' => 'admin.loyalty.index', 'icon' => 'sparkles', 'permission' => 'loyalty.view'],
-                    ['label' => 'Plans & Memberships', 'route' => 'admin.plans.index', 'icon' => 'sparkles', 'permission' => 'plans.view'],
-                    ['label' => 'Subscriptions', 'route' => 'admin.subscriptions.index', 'icon' => 'ticket', 'permission' => 'subscriptions.view'],
                     ['label' => 'Google Reviews', 'route' => 'admin.reviews.google', 'icon' => 'star', 'permission' => 'google_reviews.manage'],
                 ],
             ],
+            // Owner 2026-11-03: wallet, loyalty, referrals and memberships in one place.
+            'rewards' => [
+                'label' => 'Wallet, Rewards & Memberships', 'collapsible' => true, 'icon' => 'wallet', 'colour' => 'yellow',
+                'items' => [
+                    ['label' => 'Wallet Ledger', 'route' => 'admin.wallet-ledger.index', 'icon' => 'wallet', 'permission' => 'wallets.view'],
+                    ['label' => 'Loyalty & Referrals', 'route' => 'admin.loyalty.index', 'icon' => 'sparkles', 'permission' => 'loyalty.view'],
+                    ['label' => 'Plans & Memberships', 'route' => 'admin.plans.index', 'icon' => 'star', 'permission' => 'plans.view'],
+                    ['label' => 'Subscriptions', 'route' => 'admin.subscriptions.index', 'icon' => 'ticket', 'permission' => 'subscriptions.view'],
+                    // super_admin only (permission never seeded to a role): the wallet / loyalty / referral switches,
+                    // freeze and adjustments.
+                    ['label' => 'Earnings Control', 'route' => 'admin.earnings-control.index', 'icon' => 'shield', 'permission' => 'earnings_control.manage'],
+                ],
+            ],
+            // Website pages and their upkeep: homepage, words, pages (CMS: new pages and their web addresses),
+            // search & social, city page content. Item slugs are edited on each item's own screen.
             'website' => [
-                'label' => 'Website & App', 'collapsible' => true, 'icon' => 'document-text', 'colour' => 'indigo',
+                'label' => 'Website & Pages', 'collapsible' => true, 'icon' => 'document-text', 'colour' => 'indigo',
                 'items' => [
                     ['label' => 'Homepage & sign-up', 'route' => 'admin.site-controls', 'icon' => 'home', 'permission' => 'site_controls.manage'],
                     ['label' => 'Homepage sections', 'route' => 'admin.home-sections', 'icon' => 'home', 'permission' => 'site_controls.manage'],
@@ -150,23 +162,20 @@ class AdminNav
                 'items' => [
                     ['label' => 'Payments', 'route' => 'admin.payments.index', 'icon' => 'banknotes', 'permission' => 'payments.view'],
                     ['label' => 'Payouts', 'route' => 'admin.payouts.index', 'icon' => 'banknotes', 'permission' => 'payouts.manage'],
-                    ['label' => 'Wallet Ledger', 'route' => 'admin.wallet-ledger.index', 'icon' => 'banknotes', 'permission' => 'wallets.view'],
                     ['label' => 'Commissions', 'route' => 'admin.commissions.index', 'icon' => 'banknotes', 'permission' => 'commissions.view'],
                     ['label' => 'Franchise Earnings', 'route' => 'admin.franchise-earnings.index', 'icon' => 'banknotes', 'permission' => 'commissions.view'],
                     ['label' => 'Mismatch Refunds', 'route' => 'admin.mismatch-refunds.index', 'icon' => 'banknotes', 'permission' => 'payments.refund_mismatch'],
                     // super_admin only (permission never seeded to a role).
                     ['label' => 'Refund Controls', 'route' => 'admin.refund-controls.index', 'icon' => 'shield', 'permission' => 'refund_controls.manage'],
-                    // super_admin only (permission never seeded to a role).
-                    ['label' => 'Earnings Control', 'route' => 'admin.earnings-control.index', 'icon' => 'shield', 'permission' => 'earnings_control.manage'],
                     ['label' => 'Payment Gateways', 'route' => 'admin.payment-gateways.index', 'icon' => 'shield', 'permission' => 'payment_gateways.manage'],
                 ],
             ],
             'geography' => [
-                'label' => 'Cities & Franchises', 'collapsible' => true, 'icon' => 'map', 'colour' => 'lime',
+                'label' => 'Countries, Cities & Franchises', 'collapsible' => true, 'icon' => 'map', 'colour' => 'lime',
                 'items' => [
+                    ['label' => 'Countries & Cities', 'route' => 'admin.geography.index', 'icon' => 'map', 'permission' => 'geography.manage'],
                     ['label' => 'Franchises', 'route' => 'admin.franchises.index', 'icon' => 'building', 'permission' => 'franchises.manage'],
-                    ['label' => 'Zones', 'route' => 'admin.zones.index', 'icon' => 'map', 'permission' => 'zones.manage'],
-                    ['label' => 'Geography', 'route' => 'admin.geography.index', 'icon' => 'map', 'permission' => 'geography.manage'],
+                    ['label' => 'Zones', 'route' => 'admin.zones.index', 'icon' => 'map-pin', 'permission' => 'zones.manage'],
                 ],
             ],
             'communication' => [
@@ -265,6 +274,7 @@ class AdminNav
             'pink' => ['dot' => 'text-pink-300', 'bar' => 'bg-pink-500', 'chip' => 'bg-pink-50 text-pink-700 border-pink-200', 'solid' => 'bg-pink-600 text-white'],
             'indigo' => ['dot' => 'text-indigo-300', 'bar' => 'bg-indigo-500', 'chip' => 'bg-indigo-50 text-indigo-700 border-indigo-200', 'solid' => 'bg-indigo-600 text-white'],
             'emerald' => ['dot' => 'text-emerald-300', 'bar' => 'bg-emerald-500', 'chip' => 'bg-emerald-50 text-emerald-700 border-emerald-200', 'solid' => 'bg-emerald-600 text-white'],
+            'yellow' => ['dot' => 'text-yellow-300', 'bar' => 'bg-yellow-400', 'chip' => 'bg-yellow-50 text-yellow-800 border-yellow-200', 'solid' => 'bg-yellow-500 text-white'],
             'lime' => ['dot' => 'text-lime-300', 'bar' => 'bg-lime-500', 'chip' => 'bg-lime-50 text-lime-800 border-lime-200', 'solid' => 'bg-lime-600 text-white'],
             'fuchsia' => ['dot' => 'text-fuchsia-300', 'bar' => 'bg-fuchsia-500', 'chip' => 'bg-fuchsia-50 text-fuchsia-700 border-fuchsia-200', 'solid' => 'bg-fuchsia-600 text-white'],
             'gray' => ['dot' => 'text-gray-300', 'bar' => 'bg-gray-400', 'chip' => 'bg-gray-100 text-gray-700 border-gray-200', 'solid' => 'bg-gray-700 text-white'],

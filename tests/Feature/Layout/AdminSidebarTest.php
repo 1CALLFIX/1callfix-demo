@@ -88,6 +88,19 @@ class AdminSidebarTest extends TestCase
         }
     }
 
+    public function test_wallet_loyalty_referrals_and_memberships_share_one_group(): void
+    {
+        $rewards = collect(\App\Support\AdminNav::groups()['rewards']['items'])->pluck('route')->all();
+
+        foreach (['admin.wallet-ledger.index', 'admin.loyalty.index', 'admin.plans.index', 'admin.subscriptions.index', 'admin.earnings-control.index'] as $route) {
+            $this->assertContains($route, $rewards);
+        }
+
+        $admin = $this->makeUserWithPermission('wallets.view', 'global');
+        $this->grantPermission($admin, 'dashboard.view');
+        $this->actingAs($admin)->get(route('admin.wallet-ledger.index'))->assertOk()->assertSee('data-active-nav-group="rewards"', false);
+    }
+
     public function test_food_restaurants_link_is_current_on_the_filtered_stores_screen_not_stores(): void
     {
         $admin = $this->makeSuperAdmin();

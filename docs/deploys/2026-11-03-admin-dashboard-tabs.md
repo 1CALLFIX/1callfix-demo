@@ -21,7 +21,8 @@ Use with `docs/DEPLOY_RUNBOOK.md`.
   and the 10 newest orders (Services keeps its pipeline, stat cards, 7-day charts and Recent Bookings;
   Parcel keeps Parcel — Today).
 - **Side menu regrouped** (`App\Support\AdminNav`, one list): Users & Partners · Services · Parcel · Shop · Food ·
-  Taxi · Rental · Hotel · Marketing & Offers · Website & App · Finance · Cities & Franchises · Messages & Alerts ·
+  Taxi · Rental · Hotel · Marketing & Offers · Wallet, Rewards & Memberships · Website & Pages · Finance ·
+  Countries, Cities & Franchises · Messages & Alerts ·
   Settings & System. Each group has its own colour; groups start closed except the one you are in, and stay as
   you leave them. Every old screen is still in the menu (test checks the full list).
 - New filtered links: **Shop Orders / Food Orders** (Marketplace Orders `?moduleFilter=shop|food`, with
