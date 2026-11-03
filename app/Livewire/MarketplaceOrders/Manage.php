@@ -23,6 +23,11 @@ class Manage extends Component
 
     public string $statusFilter = '';
     public string $search = '';
+
+    /** Admin menu 2026-11-03: '' (all) | shop | food — Shop Orders and Food Orders are this screen, filtered. */
+    public string $moduleFilter = '';
+
+    protected $queryString = ['moduleFilter' => ['except' => '']];
     public ?int $selectedOrderId = null;
 
     public function mount(): void
@@ -36,6 +41,11 @@ class Manage extends Component
     }
 
     public function updatingStatusFilter(): void
+    {
+        $this->resetPage();
+    }
+
+    public function updatingModuleFilter(): void
     {
         $this->resetPage();
     }
@@ -130,13 +140,17 @@ class Manage extends Component
 
         $orders = $this->scopedOrdersQuery()
             ->when($this->statusFilter !== '', fn ($q) => $q->where('status', $this->statusFilter))
+            ->when($this->moduleFilter === 'food', fn ($q) => $q->where('module', \App\Support\Modules::FOOD))
+            ->when($this->moduleFilter === 'shop', fn ($q) => $q->where('module', '!=', \App\Support\Modules::FOOD))
             ->when($this->search !== '', fn ($q) => $q->where(fn ($qq) => $qq
                 ->where('code', 'like', "%{$this->search}%")
                 ->orWhereHas('customer', fn ($c) => $c->where('name', 'like', "%{$this->search}%"))))
             ->latest('id')
             ->paginate(20);
 
-        return view('livewire.marketplace-orders.manage', ['order' => null, 'orders' => $orders])
-            ->layout('layouts.admin', ['title' => 'Marketplace Orders']);
+        $title = ['shop' => 'Shop Orders', 'food' => 'Food Orders'][$this->moduleFilter] ?? 'Marketplace Orders';
+
+        return view('livewire.marketplace-orders.manage', ['order' => null, 'orders' => $orders, 'pageTitle' => $title])
+            ->layout('layouts.admin', ['title' => $title]);
     }
 }

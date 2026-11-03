@@ -377,7 +377,7 @@ class AdminScreensDesignSystemMigrationTest extends TestCase
         $scenario['booking']->update(['price_final' => 777]);
         $admin = $this->makeSuperAdmin();
 
-        $component = Livewire::actingAs($admin)->test(Dashboard::class);
+        $component = Livewire::actingAs($admin)->withQueryParams(['tab' => 'service'])->test(Dashboard::class);
         $component->assertSee($scenario['booking']->code);
 
         // Key interaction: the period tab buttons are real wire:click

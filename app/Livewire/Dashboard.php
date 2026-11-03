@@ -3,25 +3,33 @@
 namespace App\Livewire;
 
 use App\Models\Booking;
-use App\Models\HotelReservation;
 use App\Models\MarketplaceOrder;
 use App\Models\ParcelOrder;
 use App\Models\Provider;
-use App\Models\PropertyReservation;
-use App\Models\RentalReservation;
 use App\Models\Franchise;
 use App\Models\Setting;
-use App\Models\TaxiRide;
 use App\Services\Ai\DailyInsightsService;
 use App\Services\AuthorizationService;
 use App\Services\ProviderCommercialRateResolver;
 use App\Services\TimezoneResolver;
+use App\Support\AdminNav;
+use App\Support\ModuleSales;
+use App\Support\Modules;
 use App\Support\Turnaround;
 use Livewire\Component;
 
 class Dashboard extends Component
 {
-    public string $period = 'week'; // week | month | year
+    public string $period = 'week'; // today | week | month | year
+
+    /**
+     * Owner request 2026-11-03: the dashboard is tabbed by module. 'all' is the whole business (every module's
+     * orders and sales in one table, with a grand total); each module tab shows that module's own numbers and its
+     * quick links (the same links as its side-menu group). A tab the viewer cannot open falls back to 'all'.
+     */
+    public string $tab = 'all';
+
+    protected $queryString = ['tab' => ['except' => 'all'], 'period' => ['except' => 'week']];
 
     /**
      * dashboard.view was seeded (2026_08_11_016000) but never checked -- see
@@ -41,12 +49,69 @@ class Dashboard extends Component
 
     public function setPeriod(string $period)
     {
-        $this->period = $period;
+        $this->period = in_array($period, ['today', 'week', 'month', 'year'], true) ? $period : 'week';
+    }
+
+    public function setTab(string $tab): void
+    {
+        $this->tab = $tab;
+    }
+
+    /** Tab keys this viewer can open, in menu order: 'all' plus every module they hold a permission for. */
+    private function tabs(): array
+    {
+        $visible = ModuleSales::visibleKeys(auth()->user());
+        $tabs = ['all' => ['label' => 'All modules', 'colour' => 'slate', 'prelaunch' => false]];
+        foreach (ModuleSales::modules() as $key => $m) {
+            if (in_array($key, $visible, true)) {
+                $tabs[$key] = ['label' => $m['label'], 'colour' => $m['colour'], 'prelaunch' => $m['prelaunch']];
+            }
+        }
+
+        return $tabs;
+    }
+
+    /** The side-menu group of a module (quick links on its tab), already filtered to what the viewer can open. */
+    private function quickLinks(string $tab): array
+    {
+        [$groups] = AdminNav::forUser(auth()->user());
+
+        foreach ($groups as $group) {
+            if (($group['module'] ?? null) === $tab) {
+                return $group['items'];
+            }
+        }
+
+        return [];
+    }
+
+    /** Ten newest shop or food orders, on the Marketplace Orders row scope. */
+    private function recentMarketplace(bool $food)
+    {
+        $columns = ['zone_id' => 'zone_id', 'franchise_id' => 'franchise_id', 'city_id' => 'franchise.city_id', 'country_id' => 'franchise.country_id'];
+
+        return app(AuthorizationService::class)
+            ->scopeQuery(MarketplaceOrder::query(), auth()->user(), 'marketplace_orders.view', $columns)
+            ->where('module', $food ? '=' : '!=', Modules::FOOD)
+            ->with(['customer', 'store', 'statusHistory' => Turnaround::historyScope()])
+            ->latest('id')->take(10)->get();
+    }
+
+    /** Ten newest parcel orders, on the Parcel Orders row scope. */
+    private function recentParcels()
+    {
+        $columns = ['zone_id' => 'zone_id', 'franchise_id' => 'franchise_id', 'city_id' => 'franchise.city_id', 'country_id' => 'franchise.country_id'];
+
+        return app(AuthorizationService::class)
+            ->scopeQuery(ParcelOrder::query(), auth()->user(), 'parcel_orders.view', $columns)
+            ->with(['customer', 'assignedWorker.user', 'statusHistory' => Turnaround::historyScope()])
+            ->latest('id')->take(10)->get();
     }
 
     private function periodStart()
     {
         return match ($this->period) {
+            'today' => now(app(TimezoneResolver::class)->platformTimezone())->startOfDay()->utc(),
             'month' => now()->startOfMonth(),
             'year' => now()->startOfYear(),
             default => now()->startOfWeek(),
@@ -110,52 +175,6 @@ class Dashboard extends Component
     }
 
     /**
-     * Admin Command Center mission (Phase 4 audit finding) — this screen was
-     * entirely Booking/Service-only; an admin had no way to see today's
-     * Parcel/Taxi/Rental/Hotel/Marketplace volume anywhere on the dashboard,
-     * even after those verticals shipped real admin screens. Each entry
-     * here is gated by the SAME permission its own vertical admin screen's
-     * mount() already requires (not dashboard.view) -- a viewer only sees a
-     * vertical's card if they can actually open that vertical's screen,
-     * same discipline GlobalSearch already established this session. Every
-     * module still ships `is_implemented=false` by default, so most of
-     * these will genuinely read 0 in production until a real business
-     * activation decision is made -- that's accurate, not fabricated.
-     *
-     * @return array<int, array{label: string, count: int, route: string}>
-     */
-    private function otherVerticalStats(): array
-    {
-        $user = auth()->user();
-        $authz = app(AuthorizationService::class);
-        $columns = ['zone_id' => 'zone_id', 'franchise_id' => 'franchise_id', 'city_id' => 'franchise.city_id', 'country_id' => 'franchise.country_id'];
-        $today = now()->startOfDay();
-
-        $verticals = [
-            ['permission' => 'taxi_rides.view', 'model' => TaxiRide::class, 'label' => 'Taxi Rides Today', 'route' => 'admin.taxi-rides.index'],
-            ['permission' => 'property_reservations.view', 'model' => PropertyReservation::class, 'label' => 'Property Reservations Today', 'route' => 'admin.property-reservations.index'],
-            ['permission' => 'rental_reservations.view', 'model' => RentalReservation::class, 'label' => 'Rental Reservations Today', 'route' => 'admin.rental-reservations.index'],
-            ['permission' => 'hotel_reservations.view', 'model' => HotelReservation::class, 'label' => 'Hotel Reservations Today', 'route' => 'admin.hotel-reservations.index'],
-            ['permission' => 'marketplace_orders.view', 'model' => MarketplaceOrder::class, 'label' => 'Marketplace Orders Today', 'route' => 'admin.marketplace-orders.index'],
-        ];
-
-        $stats = [];
-        foreach ($verticals as $v) {
-            if (! $user->hasPermissionAnywhere($v['permission'])) {
-                continue;
-            }
-
-            $count = $authz->scopeQuery($v['model']::query(), $user, $v['permission'], $columns)
-                ->where('created_at', '>=', $today)
-                ->count();
-
-            $stats[] = ['label' => $v['label'], 'count' => $count, 'route' => route($v['route'])];
-        }
-
-        return $stats;
-    }
-
-    /**
      * Admin Polish + AI session, Part 1 item 1 — a real 7-day trend, not
      * just a point-in-time number. Rendered as an inline SVG in the view
      * (server-computed points, no JS charting library / CDN dependency —
@@ -204,6 +223,42 @@ class Dashboard extends Component
 
     public function render()
     {
+        $tabs = $this->tabs();
+        if (! isset($tabs[$this->tab])) {
+            $this->tab = 'all';
+        }
+
+        $currencySymbol = Setting::get('locale.currency_symbol', '₹');
+        $periodLabel = ['today' => 'Today', 'week' => 'This Week', 'month' => 'This Month', 'year' => 'This Year'][$this->period] ?? 'This Week';
+        $moduleSales = ModuleSales::summary(auth()->user(), $this->periodStart());
+        $shared = compact('tabs', 'currencySymbol', 'periodLabel', 'moduleSales');
+
+        if ($this->tab === 'all') {
+            // Daily Insights: gated by operations.view (see the services branch below for the reasoning).
+            $insights = auth()->user()->hasPermissionAnywhere('operations.view')
+                ? app(DailyInsightsService::class)->digest(auth()->user())
+                : null;
+
+            return view('livewire.dashboard', $shared + ['salesTotal' => ModuleSales::total($moduleSales), 'insights' => $insights])
+                ->layout('layouts.admin', ['title' => 'Dashboard']);
+        }
+
+        if ($this->tab !== 'service') {
+            $recent = match ($this->tab) {
+                'parcel' => $this->recentParcels(),
+                'shop' => $this->recentMarketplace(false),
+                'food' => $this->recentMarketplace(true),
+                default => collect(),
+            };
+
+            return view('livewire.dashboard', $shared + [
+                'row' => $moduleSales[$this->tab],
+                'quickLinks' => $this->quickLinks($this->tab),
+                'recent' => $recent,
+                'parcelToday' => $this->tab === 'parcel' ? $this->parcelToday() : null,
+            ])->layout('layouts.admin', ['title' => 'Dashboard']);
+        }
+
         $today = now()->startOfDay();
         $periodStart = $this->periodStart();
 
@@ -257,9 +312,6 @@ class Dashboard extends Component
             ->take(10)
             ->get();
 
-        $currencySymbol = Setting::get('locale.currency_symbol', '₹');
-        $otherVerticals = $this->otherVerticalStats();
-        $parcelToday = $this->parcelToday();
 
         // Drill-down targets (mission's own explicit "allow dashboard cards
         // to drill directly into the underlying records" requirement) --
@@ -336,12 +388,14 @@ class Dashboard extends Component
         // detectors already require — a viewer without it would just see
         // an always-empty panel (scopeQuery() fails closed), so it's hidden
         // entirely instead, same "gate each card by its own permission"
-        // convention otherVerticalStats() above already established.
+        // convention every module tab follows.
         $insights = auth()->user()->hasPermissionAnywhere('operations.view')
             ? app(DailyInsightsService::class)->digest(auth()->user())
             : null;
 
-        return view('livewire.dashboard', compact('stats', 'funnel', 'trend', 'recentBookings', 'currencySymbol', 'otherVerticals', 'parcelToday', 'links', 'insights', 'commissionRatesConfigured'))
+        return view('livewire.dashboard', $shared + compact('stats', 'funnel', 'trend', 'recentBookings', 'links', 'insights', 'commissionRatesConfigured') + [
+            'row' => $moduleSales['service'], 'quickLinks' => $this->quickLinks('service'),
+        ])
             ->layout('layouts.admin', ['title' => 'Dashboard']);
     }
 }

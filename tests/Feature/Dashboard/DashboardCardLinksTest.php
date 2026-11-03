@@ -37,7 +37,7 @@ class DashboardCardLinksTest extends TestCase
         $this->makeBookingScenario('searching_provider');
         $actor = $this->fullyPermittedActor();
 
-        $html = Livewire::actingAs($actor)->test(Dashboard::class)->assertOk()->html();
+        $html = Livewire::actingAs($actor)->withQueryParams(['tab' => 'service'])->test(Dashboard::class)->assertOk()->html();
 
         // Pipeline stage cards -> Bookings filtered by that status.
         foreach (['searching_provider', 'assigned', 'in_progress', 'completed', 'cancelled', 'disputed'] as $status) {
@@ -61,7 +61,7 @@ class DashboardCardLinksTest extends TestCase
     {
         $actor = $this->fullyPermittedActor();
 
-        Livewire::actingAs($actor)->test(Dashboard::class)
+        Livewire::actingAs($actor)->withQueryParams(['tab' => 'service'])->test(Dashboard::class)
             ->assertOk()
             ->assertSee('Commissions')
             ->assertSee('Rates not set — 100% to providers');
@@ -74,7 +74,7 @@ class DashboardCardLinksTest extends TestCase
 
         $actor = $this->fullyPermittedActor();
 
-        Livewire::actingAs($actor)->test(Dashboard::class)
+        Livewire::actingAs($actor)->withQueryParams(['tab' => 'service'])->test(Dashboard::class)
             ->assertOk()
             ->assertSee('Commissions')
             ->assertDontSee('Rates not set — 100% to providers');
@@ -85,7 +85,7 @@ class DashboardCardLinksTest extends TestCase
         // dashboard.view only — no bookings/providers/franchises/commissions.
         $actor = $this->makeUserWithPermission('dashboard.view', 'global');
 
-        $html = Livewire::actingAs($actor)->test(Dashboard::class)->assertOk()->html();
+        $html = Livewire::actingAs($actor)->withQueryParams(['tab' => 'service'])->test(Dashboard::class)->assertOk()->html();
 
         $this->assertStringNotContainsString('/admin/bookings?statusFilter=', $html);
         $this->assertStringNotContainsString('/admin/commissions', $html);

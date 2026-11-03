@@ -82,7 +82,8 @@
             @endif
         </div>
     @else
-        <h1 class="text-2xl font-bold mb-4">Marketplace Orders</h1>
+        <h1 class="text-2xl font-bold mb-4">{{ $pageTitle }}</h1>
+        <x-ui.filter-tabs class="mb-3" :tabs="['' => 'Shop + Food', 'shop' => 'Shop', 'food' => 'Food']" :active="$moduleFilter" model="moduleFilter" />
 
         <div class="flex gap-3 mb-4">
             <input type="text" wire:model.live.debounce.400ms="search" placeholder="Search order code or customer..." class="border rounded px-3 py-2 text-sm w-96">

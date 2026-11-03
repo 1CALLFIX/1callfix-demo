@@ -30,9 +30,12 @@ class DashboardOtherVerticalsTest extends TestCase
         // dashboard.view but no parcel_orders.view -- the card must not appear.
         $actor = $this->makeUserWithPermission('dashboard.view', 'global');
 
-        Livewire::actingAs($actor)->test(Dashboard::class)
+        // No Parcel tab at all, and asking for it falls back to All modules.
+        Livewire::actingAs($actor)->withQueryParams(['tab' => 'parcel'])->test(Dashboard::class)
             ->assertOk()
-            ->assertDontSee('Parcel — Today');
+            ->assertSet('tab', 'all')
+            ->assertDontSee('Parcel — Today')
+            ->assertDontSee("setTab('parcel')", false);
     }
 
     public function test_other_vertical_card_visible_and_scoped_with_permission(): void
@@ -43,11 +46,14 @@ class DashboardOtherVerticalsTest extends TestCase
         $actor = $this->makeUserWithPermission('dashboard.view', 'global');
         $this->grantPermission($actor, 'parcel_orders.view', 'franchise', $scenario['franchise']->id);
 
-        // otherVerticals is built inside render() and passed to the view
-        // (not a computed property) -- assert on the rendered output.
+        // Parcel is its own dashboard tab (owner request 2026-11-03).
         Livewire::actingAs($actor)->test(Dashboard::class)
             ->assertOk()
-            ->assertSee('Parcel — Today');
+            ->assertSee("setTab('parcel')", false)
+            ->call('setTab', 'parcel')
+            ->assertSee('Parcel — Today')
+            ->assertSee($scenario['order']->code)
+            ->assertDontSee($other['order']->code);
     }
 
     public function test_unassigned_bookings_counts_searching_provider_status(): void
@@ -58,7 +64,7 @@ class DashboardOtherVerticalsTest extends TestCase
 
         $actor = $this->makeUserWithPermission('dashboard.view', 'franchise', $scenario['franchise']->id);
 
-        Livewire::actingAs($actor)->test(Dashboard::class)
+        Livewire::actingAs($actor)->withQueryParams(['tab' => 'service'])->test(Dashboard::class)
             ->assertOk()
             ->assertSee('Unassigned Bookings');
 

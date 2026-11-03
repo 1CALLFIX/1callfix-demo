@@ -97,8 +97,8 @@ class AdminSerialNumberTest extends TestCase
             $headers += $h;
             $cells += $c;
         }
-        // 59 list tables + 19 sub-tables (one of them header-less)
-        $this->assertSame(77, $headers);
-        $this->assertSame(78, $cells);
+        // 60 list tables (2026-11-03: the dashboard's Recent module orders) + 19 sub-tables (one of them header-less)
+        $this->assertSame(78, $headers);
+        $this->assertSame(79, $cells);
     }
 }

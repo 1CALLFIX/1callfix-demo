@@ -43,17 +43,60 @@ class AdminSidebarTest extends TestCase
         $response->assertDontSee('data-active-nav-group="finance"', false);
     }
 
-    public function test_other_verticals_group_is_muted_and_labelled_pre_launch(): void
+    public function test_each_module_has_its_own_group_and_pre_launch_ones_are_muted(): void
     {
         $admin = $this->makeUserWithPermission('parcel_orders.view', 'global');
         $this->grantPermission($admin, 'dashboard.view');
+        $this->grantPermission($admin, 'taxi_rides.view');
 
         $response = $this->actingAs($admin)->get(route('admin.dashboard'));
 
         $response->assertOk();
-        $response->assertSee('data-group-key="other_verticals"', false);
+        // Parcel is live: its own group, not muted. Taxi is pre-launch: its own group, muted and labelled.
+        $response->assertSee('data-group-key="parcel" data-prelaunch="0"', false);
+        $response->assertSee('data-group-key="taxi" data-prelaunch="1"', false);
         $response->assertSee('pre-launch', false);
         $response->assertSee('Parcel Orders');
+        $response->assertDontSee('data-group-key="other_verticals"', false);
+    }
+
+    public function test_every_admin_screen_route_in_the_old_menu_is_still_in_the_menu(): void
+    {
+        $routes = collect(\App\Support\AdminNav::groups())->flatMap(fn ($g) => $g['items'])->pluck('route')->unique();
+
+        foreach ([
+            'admin.dashboard', 'admin.all-users.index', 'admin.customers.index', 'admin.providers.index', 'admin.partners.index',
+            'admin.bookings.index', 'admin.kyc.support-requests.index', 'admin.chat.index', 'admin.zones.index', 'admin.geography.index',
+            'admin.franchises.index', 'admin.modules.index', 'admin.services.index', 'admin.categories.index', 'admin.subcategories.index',
+            'admin.seo.settings', 'admin.seo.city-content', 'admin.banners.index', 'admin.home-spotlight.index', 'admin.site-controls',
+            'admin.home-sections', 'admin.site-text', 'admin.search-box.index', 'admin.partner-page.settings', 'admin.partner-leads.index',
+            'admin.badges.index', 'admin.flash-sales.index', 'admin.coupons.index', 'admin.performance-campaigns.index', 'admin.loyalty.index',
+            'admin.plans.index', 'admin.subscriptions.index', 'admin.payouts.index', 'admin.wallet-ledger.index', 'admin.earnings-control.index',
+            'admin.cancellation-policy.index', 'admin.commissions.index', 'admin.franchise-earnings.index', 'admin.payments.index',
+            'admin.booking-disputes.index', 'admin.shop-returns.index', 'admin.parcel-claims.index', 'admin.charge-waivers.index',
+            'admin.mismatch-refunds.index', 'admin.refund-controls.index', 'admin.payment-gateways.index', 'admin.notifications.index',
+            'admin.cms.index', 'admin.parcel-orders.dashboard', 'admin.parcel-orders.index', 'admin.parcel-orders.settings',
+            'admin.parcel-packs.index', 'admin.taxi-rides.index', 'admin.properties.index', 'admin.property-reservations.index',
+            'admin.vehicles.index', 'admin.equipment.index', 'admin.rental-reservations.index', 'admin.accommodations.index',
+            'admin.hotel-reservations.index', 'admin.stores.index', 'admin.marketplace-categories.index', 'admin.products.index',
+            'admin.change-approvals.index', 'admin.add-ons.index', 'admin.marketplace-orders.index', 'admin.marketplace-orders.settings',
+            'admin.food.dashboard', 'admin.food.settings', 'admin.shop-commission.index', 'admin.shop-tax-report', 'admin.operations.index',
+            'admin.alert-emails.index', 'admin.operations.backup-restore', 'admin.operations.data-clear', 'admin.providers.availability',
+            'admin.reviews.google', 'admin.security.headers', 'admin.roles.index', 'admin.settings.index',
+        ] as $route) {
+            $this->assertTrue($routes->contains($route), "{$route} is missing from the admin menu");
+        }
+    }
+
+    public function test_food_restaurants_link_is_current_on_the_filtered_stores_screen_not_stores(): void
+    {
+        $admin = $this->makeSuperAdmin();
+
+        $html = $this->actingAs($admin)->get(route('admin.stores.index', ['moduleFilter' => 'food']))->assertOk()->getContent();
+
+        $this->assertStringContainsString('data-active-nav-group="food"', $html);
+        $this->assertMatchesRegularExpression('/href="[^"]*moduleFilter=food"[^>]*aria-current="page"/', $html);
+        $this->assertDoesNotMatchRegularExpression('/href="'.preg_quote(route('admin.stores.index'), '/').'"[^>]*aria-current="page"/', $html);
     }
 
     public function test_a_group_with_zero_visible_items_for_this_actor_is_not_rendered_at_all(): void

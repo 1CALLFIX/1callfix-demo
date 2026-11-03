@@ -23,6 +23,9 @@ class Manage extends Component
     public string $search = '';
     public string $moduleFilter = '';
 
+    /** Admin menu 2026-11-03: Food → Restaurants opens this screen with ?moduleFilter=food. */
+    protected $queryString = ['moduleFilter' => ['except' => '']];
+
     /** E-commerce Phase 1: '' | pending | approved | rejected (shops sellers opened through /partners). */
     public string $approvalFilter = '';
 

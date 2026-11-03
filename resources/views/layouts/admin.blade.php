@@ -44,20 +44,9 @@
            preference for plain, explicit CSS over cleverness. */
         .nav-group-trigger .chevron { transition: transform .15s ease; }
         .nav-group-trigger[aria-expanded="false"] .chevron { transform: rotate(-90deg); }
-        body.grp-collapsed-users #admin-sidebar [data-group-key="users"] .nav-group-panel,
-        body.grp-collapsed-operations #admin-sidebar [data-group-key="operations"] .nav-group-panel,
-        body.grp-collapsed-geography #admin-sidebar [data-group-key="geography"] .nav-group-panel,
-        body.grp-collapsed-catalog #admin-sidebar [data-group-key="catalog"] .nav-group-panel,
-        body.grp-collapsed-growth #admin-sidebar [data-group-key="growth"] .nav-group-panel,
-        body.grp-collapsed-finance #admin-sidebar [data-group-key="finance"] .nav-group-panel,
-        body.grp-collapsed-communication #admin-sidebar [data-group-key="communication"] .nav-group-panel,
-        body.grp-collapsed-other_verticals #admin-sidebar [data-group-key="other_verticals"] .nav-group-panel,
-        body.grp-collapsed-system #admin-sidebar [data-group-key="system"] .nav-group-panel {
-            display: none;
-        }
-        /* "Other Verticals" — pre-launch verticals, deliberately muted so
-           the rail reads as "intentionally secondary", not broken/missing. */
-        #admin-sidebar [data-group-key="other_verticals"] { opacity: .72; }
+        /* Pre-launch module groups (Taxi, Rental, Hotel) are muted so the
+           rail reads as "intentionally secondary", not broken/missing. */
+        #admin-sidebar [data-prelaunch="1"] { opacity: .72; }
         .nav-group-label { padding-left: .7rem; }
 
         /* Trix's default height is tiny; match our other textareas' rows="3"-ish feel */
@@ -84,203 +73,20 @@
     </style>
 </head>
 @php
-    // Sidebar Reorganization session — grouped nav, replacing the previous
-    // ~40-item flat rail. Computed here (before <body>, not inside <nav>
-    // below) purely so <body>'s data-active-nav-group attribute — read by
-    // the anti-flash script above the fold — can know the answer before
-    // the nav itself renders. Each item's 'permission' is still the SAME
-    // slug (or list of slugs, any-of) its target screen's own mount()
-    // enforces — kept in sync by hand since no shared route->permission
-    // registry exists in this codebase (Phase 11 audit finding). This only
-    // hides links a user can't open anyway — it is NOT the enforcement
-    // boundary, each screen's own mount() check still is.
-    $navGroups = [];
-    $activeNavGroup = null;
-
-    if (auth()->check()) {
-        $navGroups = [
-            'overview' => [
-                'label' => 'Overview', 'collapsible' => false, 'icon' => null,
-                'items' => [
-                    ['label' => 'Dashboard', 'route' => 'admin.dashboard', 'icon' => 'home', 'permission' => 'dashboard.view'],
-                ],
-            ],
-            // Users Sidebar Reorganization session — every person-directory
-            // screen (previously scattered inside Operations, alongside
-            // Bookings/KYC/Chat) under one umbrella. "Drivers" is a
-            // reserved, not-yet-functional nav slot for the Parcel
-            // vertical's future riders — see App\Livewire\Drivers\Index's
-            // own docblock. Every permission here is unchanged from before
-            // this move (customers.view/workers.view stay super_admin-only
-            // exactly as they were seeded) — this is a pure relocation,
-            // never a re-scoping.
-            'users' => [
-                'label' => 'Users', 'collapsible' => true, 'icon' => 'users',
-                'items' => [
-                    ['label' => 'All Users', 'route' => 'admin.all-users.index', 'icon' => 'users', 'permission' => 'users.directory.view'],
-                    ['label' => 'Customers', 'route' => 'admin.customers.index', 'icon' => 'users', 'permission' => 'customers.view'],
-                    ['label' => 'Providers', 'route' => 'admin.providers.index', 'icon' => 'users', 'permission' => 'providers.view'],
-                    // Partners (2026-10-26) replaces Workers and the empty Drivers slot: People + Businesses tabs.
-                    ['label' => 'Partners', 'route' => 'admin.partners.index', 'icon' => 'users', 'permission' => ['workers.view', 'providers.view']],
-                ],
-            ],
-            'operations' => [
-                'label' => 'Operations', 'collapsible' => true, 'icon' => 'clipboard',
-                'items' => [
-                    ['label' => 'Bookings', 'route' => 'admin.bookings.index', 'icon' => 'clipboard', 'permission' => 'bookings.view'],
-                    ['label' => 'KYC Support Requests', 'route' => 'admin.kyc.support-requests.index', 'icon' => 'shield', 'permission' => ['kyc.support_requests.create', 'kyc.support_requests.decide']],
-                    ['label' => 'Chat', 'route' => 'admin.chat.index', 'icon' => 'chat', 'permission' => 'chat.view'],
-                ],
-            ],
-            'geography' => [
-                'label' => 'Geography', 'collapsible' => true, 'icon' => 'map',
-                'items' => [
-                    ['label' => 'Zones', 'route' => 'admin.zones.index', 'icon' => 'map', 'permission' => 'zones.manage'],
-                    ['label' => 'Geography', 'route' => 'admin.geography.index', 'icon' => 'map', 'permission' => 'geography.manage'],
-                    ['label' => 'Franchises', 'route' => 'admin.franchises.index', 'icon' => 'building', 'permission' => 'franchises.manage'],
-                    ['label' => 'Modules', 'route' => 'admin.modules.index', 'icon' => 'gear', 'permission' => 'modules.manage'],
-                ],
-            ],
-            'catalog' => [
-                'label' => 'Catalog', 'collapsible' => true, 'icon' => 'wrench',
-                'items' => [
-                    ['label' => 'Services', 'route' => 'admin.services.index', 'icon' => 'wrench', 'permission' => 'services.manage'],
-                    ['label' => 'Categories', 'route' => 'admin.categories.index', 'icon' => 'wrench', 'permission' => 'categories.manage'],
-                    ['label' => 'Subcategories', 'route' => 'admin.subcategories.index', 'icon' => 'wrench', 'permission' => 'categories.manage'],
-                    ['label' => 'Search & Social', 'route' => 'admin.seo.settings', 'icon' => 'magnifying-glass', 'permission' => 'seo.manage_global'],
-                    ['label' => 'City Page Content', 'route' => 'admin.seo.city-content', 'icon' => 'map', 'permission' => 'seo.edit_city_content'],
-                ],
-            ],
-            'growth' => [
-                'label' => 'Growth', 'collapsible' => true, 'icon' => 'sparkles',
-                'items' => [
-                    ['label' => 'Banners', 'route' => 'admin.banners.index', 'icon' => 'megaphone', 'permission' => 'banners.manage'],
-                    ['label' => 'Home Spotlight', 'route' => 'admin.home-spotlight.index', 'icon' => 'sparkles', 'permission' => 'banners.manage'],
-                    ['label' => 'Homepage & sign-up', 'route' => 'admin.site-controls', 'icon' => 'home', 'permission' => 'site_controls.manage'],
-                    ['label' => 'Homepage sections', 'route' => 'admin.home-sections', 'icon' => 'home', 'permission' => 'site_controls.manage'],
-                    ['label' => 'Website text & language', 'route' => 'admin.site-text', 'icon' => 'document-text', 'permission' => 'site_controls.manage'],
-                    ['label' => 'Search Box', 'route' => 'admin.search-box.index', 'icon' => 'magnifying-glass', 'permission' => 'banners.manage'],
-                    ['label' => 'Partner page', 'route' => 'admin.partner-page.settings', 'icon' => 'users', 'permission' => 'partner_page.manage'],
-                    ['label' => 'Partner leads', 'route' => 'admin.partner-leads.index', 'icon' => 'users', 'permission' => 'partner_page.manage'],
-                    ['label' => 'Badges', 'route' => 'admin.badges.index', 'icon' => 'tag', 'permission' => 'badges.view'],
-                    ['label' => 'Flash Sales', 'route' => 'admin.flash-sales.index', 'icon' => 'bolt', 'permission' => 'flash_sales.view'],
-                    ['label' => 'Coupons', 'route' => 'admin.coupons.index', 'icon' => 'ticket', 'permission' => 'coupons.view'],
-                    ['label' => 'Performance Campaigns', 'route' => 'admin.performance-campaigns.index', 'icon' => 'trophy', 'permission' => 'performance_campaigns.view'],
-                    ['label' => 'Loyalty & Referrals', 'route' => 'admin.loyalty.index', 'icon' => 'sparkles', 'permission' => 'loyalty.view'],
-                    ['label' => 'Plans & Memberships', 'route' => 'admin.plans.index', 'icon' => 'sparkles', 'permission' => 'plans.view'],
-                    ['label' => 'Subscriptions', 'route' => 'admin.subscriptions.index', 'icon' => 'ticket', 'permission' => 'subscriptions.view'],
-                ],
-            ],
-            'finance' => [
-                'label' => 'Finance', 'collapsible' => true, 'icon' => 'banknotes',
-                'items' => [
-                    ['label' => 'Payouts', 'route' => 'admin.payouts.index', 'icon' => 'banknotes', 'permission' => 'payouts.manage'],
-                    ['label' => 'Wallet Ledger', 'route' => 'admin.wallet-ledger.index', 'icon' => 'banknotes', 'permission' => 'wallets.view'],
-                    // EARN3 — super_admin only: this permission is deliberately never seeded to
-                    // any role, so only the super_admin fast path in AuthorizationService passes.
-                    ['label' => 'Earnings Control', 'route' => 'admin.earnings-control.index', 'icon' => 'shield', 'permission' => 'earnings_control.manage'],
-                    // super_admin only (permission never seeded to a role) — see the Earnings Control entry.
-                    ['label' => 'Cancellation Policy', 'route' => 'admin.cancellation-policy.index', 'icon' => 'shield', 'permission' => 'cancellation_policy.manage'],
-                    ['label' => 'Commissions', 'route' => 'admin.commissions.index', 'icon' => 'banknotes', 'permission' => 'commissions.view'],
-                    ['label' => 'Franchise Earnings', 'route' => 'admin.franchise-earnings.index', 'icon' => 'banknotes', 'permission' => 'commissions.view'],
-                    ['label' => 'Payments', 'route' => 'admin.payments.index', 'icon' => 'banknotes', 'permission' => 'payments.view'],
-                    ['label' => 'Pricing Disputes', 'route' => 'admin.booking-disputes.index', 'icon' => 'banknotes', 'permission' => 'bookings.refund_dispute'],
-                    ['label' => 'Returns & food problems', 'route' => 'admin.shop-returns.index', 'icon' => 'banknotes', 'permission' => 'marketplace_returns.manage'],
-                    ['label' => 'Parcel Claims', 'route' => 'admin.parcel-claims.index', 'icon' => 'banknotes', 'permission' => 'parcel_claims.manage'],
-                    ['label' => 'Charge Waivers', 'route' => 'admin.charge-waivers.index', 'icon' => 'banknotes', 'permission' => 'bookings.waive_charge'],
-                    ['label' => 'Mismatch Refunds', 'route' => 'admin.mismatch-refunds.index', 'icon' => 'banknotes', 'permission' => 'payments.refund_mismatch'],
-                    // super_admin only (permission never seeded to a role) — see the Earnings Control entry.
-                    ['label' => 'Refund Controls', 'route' => 'admin.refund-controls.index', 'icon' => 'shield', 'permission' => 'refund_controls.manage'],
-                    ['label' => 'Payment Gateways', 'route' => 'admin.payment-gateways.index', 'icon' => 'shield', 'permission' => 'payment_gateways.manage'],
-                ],
-            ],
-            'communication' => [
-                'label' => 'Communication', 'collapsible' => true, 'icon' => 'chat',
-                'items' => [
-                    ['label' => 'Notification Center', 'route' => 'admin.notifications.index', 'icon' => 'bell', 'permission' => 'notification.view'],
-                    ['label' => 'Website / CMS', 'route' => 'admin.cms.index', 'icon' => 'document', 'permission' => 'cms.manage'],
-                ],
-            ],
-            // Pre-launch verticals — none is activated yet (see Modules).
-            // Collapsed by default (see the anti-flash script above) and
-            // visually muted (see .nav-group opacity rule) so this doesn't
-            // compete for attention with the one vertical that's actually
-            // live, without hiding it outright.
-            'other_verticals' => [
-                'label' => 'Other Verticals', 'collapsible' => true, 'icon' => 'building', 'preLaunch' => true,
-                'items' => [
-                    ['label' => 'Parcel Dashboard', 'route' => 'admin.parcel-orders.dashboard', 'icon' => 'chart', 'permission' => 'parcel_orders.view'],
-                    ['label' => 'Parcel Orders', 'route' => 'admin.parcel-orders.index', 'icon' => 'clipboard', 'permission' => 'parcel_orders.view'],
-                    // super_admin only (permission never seeded to a role) — see the Earnings Control entry.
-                    ['label' => 'Parcel Settings', 'route' => 'admin.parcel-orders.settings', 'icon' => 'gear', 'permission' => 'parcel_settings.manage'],
-                    ['label' => 'Parcel Packs', 'route' => 'admin.parcel-packs.index', 'icon' => 'gear', 'permission' => 'parcel_settings.manage'],
-                    ['label' => 'Taxi Rides', 'route' => 'admin.taxi-rides.index', 'icon' => 'clipboard', 'permission' => 'taxi_rides.view'],
-                    ['label' => 'Properties', 'route' => 'admin.properties.index', 'icon' => 'building', 'permission' => 'properties.manage'],
-                    ['label' => 'Property Reservations', 'route' => 'admin.property-reservations.index', 'icon' => 'clipboard', 'permission' => 'property_reservations.view'],
-                    ['label' => 'Vehicles', 'route' => 'admin.vehicles.index', 'icon' => 'building', 'permission' => 'vehicles.manage'],
-                    ['label' => 'Equipment', 'route' => 'admin.equipment.index', 'icon' => 'wrench', 'permission' => 'equipment.manage'],
-                    ['label' => 'Rental Reservations', 'route' => 'admin.rental-reservations.index', 'icon' => 'clipboard', 'permission' => 'rental_reservations.view'],
-                    ['label' => 'Accommodations', 'route' => 'admin.accommodations.index', 'icon' => 'building', 'permission' => 'accommodations.manage'],
-                    ['label' => 'Hotel Reservations', 'route' => 'admin.hotel-reservations.index', 'icon' => 'clipboard', 'permission' => 'hotel_reservations.view'],
-                    ['label' => 'Stores', 'route' => 'admin.stores.index', 'icon' => 'building', 'permission' => 'stores.manage'],
-                    ['label' => 'Marketplace Categories', 'route' => 'admin.marketplace-categories.index', 'icon' => 'wrench', 'permission' => 'marketplace_categories.manage'],
-                    ['label' => 'Products', 'route' => 'admin.products.index', 'icon' => 'wrench', 'permission' => 'products.manage'],
-                    ['label' => 'Changes to approve', 'route' => 'admin.change-approvals.index', 'icon' => 'check-circle', 'permission' => 'products.manage'],
-                    ['label' => 'Add-Ons', 'route' => 'admin.add-ons.index', 'icon' => 'wrench', 'permission' => 'products.manage'],
-                    ['label' => 'Marketplace Orders', 'route' => 'admin.marketplace-orders.index', 'icon' => 'clipboard', 'permission' => 'marketplace_orders.view'],
-                    // super_admin only (permission never seeded to a role) — see the Earnings Control entry.
-                    ['label' => 'Shop Settings', 'route' => 'admin.marketplace-orders.settings', 'icon' => 'gear', 'permission' => 'marketplace_settings.manage'],
-                    ['label' => 'Food Dashboard', 'route' => 'admin.food.dashboard', 'icon' => 'chart', 'permission' => 'marketplace_orders.view'],
-                    // Food delivery: same Super-Admin-only permission as Shop Settings (one engine).
-                    ['label' => 'Food Settings', 'route' => 'admin.food.settings', 'icon' => 'gear', 'permission' => 'marketplace_settings.manage'],
-                    ['label' => 'Shop Commission', 'route' => 'admin.shop-commission.index', 'icon' => 'banknotes', 'permission' => 'marketplace_commission.manage'],
-                    // super_admin only (permission never seeded to a role) — see the Earnings Control entry.
-                    ['label' => 'Shop Tax Report', 'route' => 'admin.shop-tax-report', 'icon' => 'chart', 'permission' => 'marketplace_tax_report.view'],
-                ],
-            ],
-            'system' => [
-                'label' => 'System', 'collapsible' => true, 'icon' => 'gear',
-                'items' => [
-                    ['label' => 'Operations', 'route' => 'admin.operations.index', 'icon' => 'activity', 'permission' => 'operations.view'],
-                    // super_admin only (permission never seeded to a role) — see the Earnings Control entry.
-                    ['label' => 'Alert Emails', 'route' => 'admin.alert-emails.index', 'icon' => 'activity', 'permission' => 'alert_emails.manage'],
-                    ['label' => 'Backup & Restore', 'route' => 'admin.operations.backup-restore', 'icon' => 'shield', 'permission' => 'backups.restore'],
-                    // Test/staging tool only: the screen itself 404s in production, so the link is hidden there.
-                    ['label' => 'Clear Data', 'route' => 'admin.operations.data-clear', 'icon' => 'exclamation-triangle', 'permission' => 'operations.data_clear', 'hide_in_production' => true],
-                    // super_admin only (permission never seeded to a role), like Alert Emails above.
-                    ['label' => 'Availability & Shifts', 'route' => 'admin.providers.availability', 'icon' => 'clock', 'permission' => 'provider_availability.manage'],
-                    ['label' => 'Google Reviews', 'route' => 'admin.reviews.google', 'icon' => 'star', 'permission' => 'google_reviews.manage'],
-                    ['label' => 'Security Headers', 'route' => 'admin.security.headers', 'icon' => 'shield', 'permission' => 'security_headers.manage'],
-                    ['label' => 'Roles & Permissions', 'route' => 'admin.roles.index', 'icon' => 'shield', 'permission' => 'roles.manage'],
-                    ['label' => 'Settings', 'route' => 'admin.settings.index', 'icon' => 'gear', 'permission' => 'settings.manage'],
-                ],
-            ],
-        ];
-
-        $canSeeNavItem = fn ($item) => ! (($item['hide_in_production'] ?? false) && app()->environment('production'))
-            && collect((array) $item['permission'])->contains(fn ($p) => auth()->user()->hasPermissionAnywhere($p));
-
-        foreach ($navGroups as $key => $group) {
-            $items = array_values(array_filter($group['items'], $canSeeNavItem));
-            // Red dot on Partners while anyone in the user's area waits past the Overdue hours (2026-10-27).
-            foreach ($items as $i => $item) {
-                if ($item['route'] === 'admin.partners.index') {
-                    $items[$i]['alert'] = \App\Support\PartnerReview::overdueFor(auth()->user());
-                }
-            }
-            if (empty($items)) {
-                unset($navGroups[$key]);
-                continue;
-            }
-            $navGroups[$key]['items'] = $items;
-
-            if (collect($items)->contains(fn ($item) => request()->routeIs($item['route'].'*'))) {
-                $activeNavGroup = $key;
-            }
-        }
-    }
+    // The side menu lives in App\Support\AdminNav (owner request 2026-11-03: grouped by section and by module).
+    // Computed before <body> so its data-active-nav-group attribute, read by the anti-flash script, knows the
+    // answer before the nav renders. Only hides links a user cannot open; each screen's mount() still enforces.
+    [$navGroups, $activeNavGroup] = auth()->check() ? \App\Support\AdminNav::forUser(auth()->user()) : [[], null];
+    $collapsibleKeys = array_keys(array_filter($navGroups, fn ($g) => $g['collapsible']));
 @endphp
 <body class="bg-gray-100 text-gray-900" data-active-nav-group="{{ $activeNavGroup ?? '' }}">
+    {{-- One collapse rule per group: a class on <body> hides that group's panel (set before first paint below). --}}
+    <style>
+        @foreach ($collapsibleKeys as $key)
+        body.grp-collapsed-{{ $key }} #admin-sidebar [data-group-key="{{ $key }}"] .nav-group-panel{{ $loop->last ? '' : ',' }}
+        @endforeach
+        @if ($collapsibleKeys) { display: none; } @endif
+    </style>
     {{-- Restore the sidebar state before the first paint, so a page load
          doesn't flash the collapsed rail open. Also syncs the toggle
          button's aria-expanded to match (was previously hardcoded "false"
@@ -300,14 +106,14 @@
         // "Other Verticals", which starts collapsed until a viewer
         // deliberately opens it).
         (function () {
-            var GROUP_KEYS = ['users', 'operations', 'geography', 'catalog', 'growth', 'finance', 'communication', 'other_verticals', 'system'];
+            var GROUP_KEYS = @json($collapsibleKeys);
             var activeGroup = document.body.getAttribute('data-active-nav-group');
             var stored = {};
             try { stored = JSON.parse(localStorage.getItem('adminSidebarGroupCollapse') || '{}'); } catch (e) { stored = {}; }
 
             GROUP_KEYS.forEach(function (key) {
                 if (key === activeGroup) return;
-                var collapsed = Object.prototype.hasOwnProperty.call(stored, key) ? !!stored[key] : (key === 'other_verticals');
+                var collapsed = Object.prototype.hasOwnProperty.call(stored, key) ? !!stored[key] : true;
                 if (collapsed) document.body.classList.add('grp-collapsed-' + key);
             });
         })();
@@ -351,16 +157,17 @@
         <div class="flex">
             <nav id="admin-sidebar" aria-label="Main navigation" class="bg-slate-800 min-h-[calc(100vh-52px)] flex flex-col items-center py-4 gap-1 sticky top-[52px] shrink-0 overflow-y-auto">
                 @foreach ($navGroups as $groupKey => $group)
-                    <div class="w-full" data-group-key="{{ $groupKey }}">
+                    @php $tone = \App\Support\AdminNav::tone($group['colour'] ?? 'gray'); @endphp
+                    <div class="w-full" data-group-key="{{ $groupKey }}" data-prelaunch="{{ empty($group['preLaunch']) ? '0' : '1' }}">
                         @if ($group['collapsible'])
-                            @php $groupExpanded = $groupKey === $activeNavGroup || $groupKey !== 'other_verticals'; @endphp
+                            @php $groupExpanded = $groupKey === $activeNavGroup; @endphp
                             <button type="button"
                                     class="nav-group-trigger nav-item h-9 rounded-lg flex items-center gap-3 w-full text-gray-500 hover:bg-slate-700 hover:text-gray-300 transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
                                     aria-expanded="{{ $groupExpanded ? 'true' : 'false' }}"
                                     aria-controls="nav-group-panel-{{ $groupKey }}"
                                     title="{{ $group['label'] }}{{ !empty($group['preLaunch']) ? ' (pre-launch)' : '' }}">
-                                <span class="shrink-0"><x-icon :name="$group['icon']" /></span>
-                                <span class="nav-label nav-group-label text-[11px] font-semibold uppercase tracking-wide flex-1 text-left flex items-center gap-1.5">
+                                <span class="shrink-0 {{ $tone['dot'] }}"><x-icon :name="$group['icon']" /></span>
+                                <span class="nav-label nav-group-label text-[11px] font-semibold uppercase tracking-wide flex-1 text-left flex items-center gap-1.5 {{ $tone['dot'] }}">
                                     {{ $group['label'] }}
                                     @if (!empty($group['preLaunch']))
                                         <span class="normal-case font-normal text-amber-400/90">· pre-launch</span>
@@ -374,13 +181,13 @@
 
                         <div id="nav-group-panel-{{ $groupKey }}" class="nav-group-panel flex flex-col items-center gap-1 w-full" role="group" aria-label="{{ $group['label'] }}">
                             @foreach ($group['items'] as $item)
-                                @php $isCurrent = request()->routeIs($item['route'].'*'); @endphp
-                                <a href="{{ route($item['route']) }}"
+                                @php $isCurrent = $item['current']; @endphp
+                                <a href="{{ $item['url'] }}"
                                    title="{{ $item['label'] }}{{ ($item['alert'] ?? 0) > 0 ? ' — '.$item['alert'].' overdue' : '' }}"
                                    @if ($isCurrent) aria-current="page" @endif
                                    @class([
                                        'nav-item h-11 rounded-lg flex items-center gap-3 transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white',
-                                       'bg-slate-600 text-white' => $isCurrent,
+                                       'bg-slate-600 text-white ring-1 ring-inset ring-white/10' => $isCurrent,
                                        'text-gray-400 hover:bg-slate-700 hover:text-white' => !$isCurrent,
                                    ])>
                                     <span class="relative shrink-0"><x-icon :name="$item['icon']" />

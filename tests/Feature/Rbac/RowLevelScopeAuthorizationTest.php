@@ -516,7 +516,7 @@ class RowLevelScopeAuthorizationTest extends TestCase
         [$mine, $other] = $this->makeTwoWorlds();
         $actor = $this->makeUserWithPermission('dashboard.view', 'zone', $mine['zone']->id);
 
-        $component = Livewire::actingAs($actor)->test(Dashboard::class);
+        $component = Livewire::actingAs($actor)->withQueryParams(['tab' => 'service'])->test(Dashboard::class);
         $stats = $component->viewData('stats');
 
         // Both scenarios' bookings share status 'assigned' -> active_bookings;
@@ -531,7 +531,7 @@ class RowLevelScopeAuthorizationTest extends TestCase
         [$mine, $other] = $this->makeTwoWorlds();
         $actor = $this->makeUserWithPermission('dashboard.view', 'zone', $mine['zone']->id);
 
-        $component = Livewire::actingAs($actor)->test(Dashboard::class);
+        $component = Livewire::actingAs($actor)->withQueryParams(['tab' => 'service'])->test(Dashboard::class);
         $codes = $component->viewData('recentBookings')->pluck('code')->all();
 
         $this->assertContains($mine['booking']->code, $codes);

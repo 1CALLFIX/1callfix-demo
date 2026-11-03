@@ -65,7 +65,8 @@ class TimestampsTatPresenceTest extends TestCase
         $this->actingAs($this->makeSuperAdmin());
 
         Livewire::test(BookingsIndex::class)->assertSee('Completed')->assertSee('TAT')->assertSee('2h 00m');
-        Livewire::test(Dashboard::class)->assertSee('Recent Bookings')->assertSee('TAT')->assertSee('Parcel — Today')->assertDontSee('Other Verticals');
+        Livewire::withQueryParams(['tab' => 'service'])->test(Dashboard::class)->assertSee('Recent Bookings')->assertSee('TAT')->assertSee('2h 00m');
+        Livewire::withQueryParams(['tab' => 'parcel'])->test(Dashboard::class)->assertSee('Parcel — Today')->assertSee('TAT')->assertDontSee('Other Verticals');
     }
 
     public function test_activity_is_recorded_once_a_minute_and_drives_online_column(): void
