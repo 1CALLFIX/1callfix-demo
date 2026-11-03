@@ -34,18 +34,19 @@ class ModuleActivationServiceTest extends TestCase
     public function test_unimplemented_module_never_resolves_active_even_with_an_explicit_on_row(): void
     {
         $franchise = $this->makeFranchise();
-        $food = Module::where('code', 'food')->firstOrFail();
-        $this->assertFalse($food->is_implemented);
+        // Grocery (Food is built since 2026-11-03).
+        $grocery = Module::where('code', 'grocery')->firstOrFail();
+        $this->assertFalse($grocery->is_implemented);
 
         // Explicitly force an "on" row directly — bypassing setActive()'s
         // own is_implemented-agnostic write path, simulating an admin who
-        // pre-configured Food's rollout before the module actually ships.
+        // pre-configured Grocery's rollout before the module actually ships.
         ModuleActivation::create([
-            'module_id' => $food->id, 'scope_type' => 'franchise', 'scope_id' => $franchise->id, 'is_active' => true,
+            'module_id' => $grocery->id, 'scope_type' => 'franchise', 'scope_id' => $franchise->id, 'is_active' => true,
         ]);
 
         $this->assertFalse(
-            $this->service->isActive('food', ['franchise_id' => $franchise->id]),
+            $this->service->isActive('grocery', ['franchise_id' => $franchise->id]),
             'An unimplemented module must never resolve active, regardless of any activation row.'
         );
     }

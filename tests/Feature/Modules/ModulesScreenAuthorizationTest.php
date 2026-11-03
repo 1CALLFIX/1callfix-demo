@@ -50,12 +50,12 @@ class ModulesScreenAuthorizationTest extends TestCase
         Livewire::actingAs($actor)->test(ModulesManage::class)
             ->set('scopeLevel', 'franchise')
             ->set('scopeId', $franchise->id)
-            ->call('toggle', 'food');
+            ->call('toggle', 'grocery');
 
         $this->assertDatabaseMissing('module_activations', [
             'scope_type' => 'franchise',
             'scope_id' => $franchise->id,
-            'module_id' => \App\Models\Module::where('code', 'food')->value('id'),
+            'module_id' => \App\Models\Module::where('code', 'grocery')->value('id'),
         ]);
     }
 
@@ -116,7 +116,7 @@ class ModulesScreenAuthorizationTest extends TestCase
         Livewire::actingAs($actor)->test(ModulesManage::class)
             ->set('scopeLevel', 'franchise')
             ->set('scopeId', $franchise->id)
-            ->call('toggle', 'food');
+            ->call('toggle', 'grocery');
 
         $this->assertSame(0, ActivityLog::where('subject_type', ModuleActivation::class)->count());
     }

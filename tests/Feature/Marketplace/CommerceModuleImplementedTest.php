@@ -21,17 +21,22 @@ class CommerceModuleImplementedTest extends TestCase
 
     public function test_commerce_is_built_but_off_until_an_admin_switches_it_on(): void
     {
-        $this->assertTrue((bool) Module::where('code', Modules::COMMERCE)->value('is_implemented'));
-        foreach ([Modules::FOOD, Modules::GROCERY, Modules::PHARMACY] as $code) {
+        // Food is built too since 2026-11-03 (same step, its own migration).
+        foreach ([Modules::COMMERCE, Modules::FOOD] as $code) {
+            $this->assertTrue((bool) Module::where('code', $code)->value('is_implemented'), "{$code} is built");
+        }
+        foreach ([Modules::GROCERY, Modules::PHARMACY] as $code) {
             $this->assertFalse((bool) Module::where('code', $code)->value('is_implemented'), "{$code} stays unbuilt");
         }
 
         [, , $franchise] = $this->makeFranchiseTree();
         $modules = app(ModuleActivationService::class);
-        $this->assertFalse($modules->isActive(Modules::COMMERCE, ['franchise_id' => $franchise->id]), 'off by default');
-        $this->assertFalse($modules->isActiveAnywhere(Modules::COMMERCE));
+        foreach ([Modules::COMMERCE, Modules::FOOD] as $code) {
+            $this->assertFalse($modules->isActive($code, ['franchise_id' => $franchise->id]), "{$code} off by default");
+            $this->assertFalse($modules->isActiveAnywhere($code));
 
-        $modules->setActive(Modules::COMMERCE, 'franchise', $franchise->id, true);
-        $this->assertTrue($modules->isActive(Modules::COMMERCE, ['franchise_id' => $franchise->id]), 'now it can be switched on');
+            $modules->setActive($code, 'franchise', $franchise->id, true);
+            $this->assertTrue($modules->isActive($code, ['franchise_id' => $franchise->id]), "{$code} can now be switched on");
+        }
     }
 }
