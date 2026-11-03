@@ -198,6 +198,7 @@ class ProductChoices extends Component
         ActivityLogger::logModel(auth()->user(), $product, 'Seller updated product units and choices', ['choices' => $names, 'rows' => count($this->rows)]);
         $this->flashMessage = $names === [] ? 'Saved.' : 'Saved. Customers now pick '.implode(' and ', $names).' before adding it.';
         $this->flashType = 'success';
+        $this->dispatch('seller-scroll-top'); // the message is at the top; Save is at the bottom
     }
 
     /** Takes all choices off this product: it sells as one item again, with its own stock. */

@@ -219,6 +219,17 @@ class SellerPortalTest extends TestCase
         $this->assertFalse($p->fresh()->is_approved);
     }
 
+    /** Owner 2026-11-03 (live): Edit far down the list opened the form at the top, out of sight; same for "Saved.". */
+    public function test_the_page_moves_up_to_the_form_and_to_the_saved_message(): void
+    {
+        $p = $this->w['product'];
+        Livewire::actingAs($this->sellerUser())->test(Products::class)
+            ->call('edit', $p->id)->assertDispatched('seller-scroll-top')
+            ->call('save')->assertHasNoErrors()->assertDispatched('seller-scroll-top')->assertSee('Saved.');
+        Livewire::actingAs($this->sellerUser())->test(Products::class)->call('startCreate')->assertDispatched('seller-scroll-top');
+        $this->get(route('seller.products'))->assertSee('seller-scroll-top.window', false);
+    }
+
     public function test_a_seller_cannot_touch_another_shops_products_or_orders(): void
     {
         $other = $this->makeStore($this->w['franchise'], $this->w['zone']);

@@ -1,4 +1,6 @@
-<div class="space-y-4">
+<div class="space-y-4" x-data x-on:seller-scroll-top.window="$nextTick(() => window.scrollTo({ top: 0, behavior: 'smooth' }))">
+    {{-- 2026-11-03 (owner, live walk-through): the form and the "Saved." message are at the top of the page; a seller
+         who pressed Edit or Save far down the list never saw them. The page now moves up to them. --}}
     <div class="flex flex-wrap items-center justify-between gap-3">
         <h1 class="text-2xl font-bold tracking-tight">Products</h1>
         @unless ($creating)

@@ -68,6 +68,7 @@ class Products extends Component
     {
         $this->resetForm();
         $this->creating = true;
+        $this->dispatch('seller-scroll-top');
     }
 
     public function edit(int $productId): void
@@ -86,6 +87,7 @@ class Products extends Component
         $this->editingHasChoices = ! empty($product->option_names);
         $this->photos = $product->images ?? [];
         $this->creating = true;
+        $this->dispatch('seller-scroll-top'); // the form opens at the top of the page
     }
 
     public function cancel(): void
@@ -172,6 +174,7 @@ class Products extends Component
             $this->flash($needsApproval ? 'Product added. It shows to customers once approved.' : 'Product added.', 'success');
         }
 
+        $this->dispatch('seller-scroll-top'); // so the seller sees "Saved."
         $this->resetForm();
     }
 

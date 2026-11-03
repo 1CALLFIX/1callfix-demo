@@ -66,7 +66,7 @@ class ProductChoicesTest extends TestCase
                 $c->set("rows.$i.price", '350');
             }
         }
-        $c->call('save')->assertHasNoErrors();
+        $c->call('save')->assertHasNoErrors()->assertDispatched('seller-scroll-top'); // "Saved." is at the top
 
         return $this->w['shirt']->fresh();
     }
