@@ -6,7 +6,7 @@ Use with `docs/DEPLOY_RUNBOOK.md`.
 |---|---|
 | Deploys | `main` at the commit that adds this file (`git log -1` in runbook step 1) |
 | Live before | `1712695` (Food F1-F5, deployed 2026-11-03 by the Food session) — stop if the server shows anything else |
-| Full test suite | 4405 passed of 4406 (12 chunks, all 429 files, 2026-11-03); known failure only: `NotificationCenterAuditTest::test_provider_status_shows_log_fallback_by_default` (local .env) |
+| Full test suite | 4459 passed of 4460 after the merge with Food (12 chunks, all 434 files, 2026-11-03); known failure only: `NotificationCenterAuditTest::test_provider_status_shows_log_fallback_by_default` (local .env) |
 | Composer | no |
 | Front-end build (steps 6–7) | **yes** (new classes: photo box, change screens, Add many) |
 | Version | `VERSION` file bumped to `2026.11.03.3` (main had `2026.11.03.2` from Food) |
