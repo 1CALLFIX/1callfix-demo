@@ -20,6 +20,10 @@ class FoodSettings extends MarketplaceSettings
             'group' => 'Restaurants', 'label' => 'FSSAI licence needed before a restaurant is approved', 'type' => 'switch', 'default' => '1',
             'help' => 'On (default): a restaurant cannot be approved, or take orders, without an FSSAI licence number on its page. The law in India needs it for every food business; keep it on.',
         ],
+        'food.fssai_at_signup' => [
+            'group' => 'Restaurants', 'label' => 'FSSAI number must be given at sign-up', 'type' => 'switch', 'default' => '0', 'global' => true,
+            'help' => 'Off (default, owner decision 2026-11-03): the FSSAI number is optional on the sign-up form; the restaurant can add it later on its Restaurant page. The switch above still stops approval and orders until it is added.',
+        ],
         'food.cuisines' => [
             'group' => 'Restaurants', 'label' => 'Cuisines a restaurant can choose', 'type' => 'text', 'global' => true,
             'default' => "South Indian\nAndhra\nNorth Indian\nBiryani\nChinese\nFast food\nPizza & burgers\nBakery & sweets\nIce cream & desserts\nJuices & beverages",

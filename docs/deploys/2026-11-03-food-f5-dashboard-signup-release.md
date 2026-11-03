@@ -23,7 +23,9 @@ Food stays **OFF** for customers until the owner switches it on in Admin → Mod
 - **Restaurant sign-up** through /partners → the one partner sign-up (owner rule: one join path). The "Restaurant"
   card opens when Super Admin turns on **Food Settings → Restaurants → Take restaurant sign-ups on /partners**
   (default off = waiting list, as before). The sign-up asks for the restaurant name, address, documents and the
-  14-digit **FSSAI number** (required while "FSSAI licence needed" is on). The restaurant waits at approval in
+  14-digit **FSSAI number** — optional at sign-up (owner decision 2026-11-03; Super Admin switch "FSSAI number must be
+  given at sign-up", default off). Without it the restaurant can sign up but is not approved or shown to customers
+  until it adds the number on its Restaurant page (switch "FSSAI licence needed before a restaurant is approved"). The restaurant waits at approval in
   Admin → Stores (Food); its owner signs in at /seller to add the menu and hours. One store per account.
 
 ## Step 5 — migrations (all of Food, plus Phase A if not live)
@@ -51,8 +53,9 @@ public launch.
 5. Customer order page: Report a problem (Item missing, photo). Admin → Returns & food problems → Food problems:
    pick "Restaurant's fault", accept, request refund. Customer sees the refund; Test Restaurant → Orders → Problems
    shows what came out of its earnings. Food Dashboard shows the refund split.
-6. Food Settings → Take restaurant sign-ups ON. /partners → Restaurant → sign up with a spare number and a 14-digit
-   FSSAI number → Admin → Stores (Food) shows it pending. Reject or delete it after the test; turn sign-ups off again
+6. Food Settings → Take restaurant sign-ups ON. /partners → Restaurant → sign up with a spare number, FSSAI left
+   blank → Admin → Stores (Food) shows it pending; Approve says it has no FSSAI number. Sign in as it at /seller →
+   Restaurant page → add a 14-digit number → Approve now works. Reject or delete it after the test; turn sign-ups off again
    if not recruiting yet.
 7. Switch Food off for the franchise again if it is not going live: `/{city}/food` returns 404.
 

@@ -84,7 +84,7 @@ class Register extends Component
     /** Seller sign-up only: the shop's name as customers will see it. */
     public string $storeName = '';
 
-    /** Food F5, restaurant sign-up only: the 14-digit FSSAI licence number (required while Food Settings asks for it). */
+    /** Food F5, restaurant sign-up only: the 14-digit FSSAI licence number (optional unless Food Settings → "FSSAI number must be given at sign-up" is on). */
     public string $fssaiNumber = '';
 
     public bool $terms = false;
@@ -483,7 +483,7 @@ class Register extends Component
             ]),
             'address' => ['required', 'string', 'min:6', 'max:500'],
             ...($this->isSeller() ? ['storeName' => ['required', 'string', 'min:2', 'max:120']] : []),
-            ...($this->isRestaurant() ? ['fssaiNumber' => [\App\Support\FoodSettings::on('food.fssai_required') ? 'required' : 'nullable', 'regex:/^\d{14}$/']] : []),
+            ...($this->isRestaurant() ? ['fssaiNumber' => [\App\Support\FoodSettings::on('food.fssai_at_signup') ? 'required' : 'nullable', 'regex:/^\d{14}$/']] : []),
             'terms' => ['accepted'],
             'documents' => ['array'],
             'documents.*' => ['file', 'mimes:jpg,jpeg,png,pdf', 'max:10240'],
@@ -679,7 +679,7 @@ class Register extends Component
             'isRider' => $this->isRider(),
             'isSeller' => $this->isSeller(),
             'isRestaurant' => $this->isRestaurant(),
-            'fssaiRequired' => $this->isRestaurant() && \App\Support\FoodSettings::on('food.fssai_required'),
+            'fssaiRequired' => $this->isRestaurant() && \App\Support\FoodSettings::on('food.fssai_at_signup'),
             'servicesStep' => $servicesStep,
             'servicesMax' => SiteControls::servicesMax(),
             'serviceCategories' => $servicesStep === 'hidden' ? collect() : $this->offerableCategories(),

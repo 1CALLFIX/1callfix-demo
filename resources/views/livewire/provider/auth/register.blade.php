@@ -210,11 +210,11 @@
                     </div>
                     @if ($isRestaurant)
                         <div>
-                            <label for="pr-fssai" class="block text-sm font-medium text-slate-900">FSSAI licence number{{ $fssaiRequired ? '' : ' (optional for now)' }}</label>
+                            <label for="pr-fssai" class="block text-sm font-medium text-slate-900">FSSAI licence number{{ $fssaiRequired ? '' : ' (optional)' }}</label>
                             <input id="pr-fssai" type="text" inputmode="numeric" maxlength="14" wire:model="fssaiNumber" placeholder="14 digits"
                                    @class(['mt-1.5 block min-h-11 w-full rounded-lg border px-3 py-2.5 text-base shadow-sm focus:outline focus:outline-2 focus:outline-blue-600',
                                            'border-red-400' => $errors->has('fssaiNumber'), 'border-slate-300' => ! $errors->has('fssaiNumber')])>
-                            <p class="mt-1 text-xs text-slate-500">Food businesses need one by law. Customers see it on your menu.</p>
+                            <p class="mt-1 text-xs text-slate-500">{{ $fssaiRequired ? 'Food businesses need one by law. Customers see it on your menu.' : 'No licence number yet? Leave it blank and add it later on your Restaurant page. It is needed before your restaurant goes live.' }}</p>
                             @error('fssaiNumber') <p class="mt-1.5 text-sm text-red-700">{{ $message }}</p> @enderror
                         </div>
                     @endif

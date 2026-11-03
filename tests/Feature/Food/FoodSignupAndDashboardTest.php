@@ -79,7 +79,6 @@ class FoodSignupAndDashboardTest extends TestCase
             ->set('documents.id_proof', UploadedFile::fake()->image('id.jpg'))
             ->set('documents.address_proof', UploadedFile::fake()->image('addr.png'))
             ->set('documents.bank_details', UploadedFile::fake()->create('bank.pdf', 120, 'application/pdf'))
-            ->call('submitApplication')->assertHasErrors(['fssaiNumber' => 'required'])
             ->set('fssaiNumber', '12345')->call('submitApplication')->assertHasErrors(['fssaiNumber' => 'regex'])
             ->set('fssaiNumber', '12345678901234')->call('submitApplication')->assertHasNoErrors()->assertSet('submitted', true)
             ->assertSee('menu and opening hours');
@@ -95,10 +94,9 @@ class FoodSignupAndDashboardTest extends TestCase
         $this->assertFalse($user->fresh()->canApplyAsPartner('food'), 'one restaurant per account through sign-up');
     }
 
-    public function test_the_fssai_number_can_be_left_for_later_when_food_settings_do_not_ask_for_it(): void
+    public function test_the_fssai_number_is_optional_at_sign_up_by_default_and_the_approval_check_still_applies(): void
     {
         Setting::set('food.recruiting_restaurants', '1');
-        Setting::set('food.fssai_required', '0');
         $this->apply('9876500024');
 
         $c = Livewire::test(Register::class)->set('phone', '9876500024')->call('requestPhoneCode')
@@ -111,7 +109,27 @@ class FoodSignupAndDashboardTest extends TestCase
             ->set('documents.bank_details', UploadedFile::fake()->create('bank.pdf', 120, 'application/pdf'))
             ->call('submitApplication')->assertHasNoErrors()->assertSet('submitted', true);
 
-        $this->assertNull(Store::where('name', 'Sita Mess')->sole()->fssai_number);
+        $store = Store::where('name', 'Sita Mess')->sole();
+        $this->assertNull($store->fssai_number);
+        $this->assertTrue($store->missingFssai(), 'not approved or shown to customers until the number is added');
+    }
+
+    public function test_super_admin_can_make_the_fssai_number_required_at_sign_up(): void
+    {
+        Setting::set('food.recruiting_restaurants', '1');
+        Setting::set('food.fssai_at_signup', '1');
+        $this->apply('9876500025');
+
+        $c = Livewire::test(Register::class)->set('phone', '9876500025')->call('requestPhoneCode')
+            ->call('phoneTokenReceived', $this->firebase->issuePhoneToken($this->e164('9876500025')));
+        $c->call('useCurrentLocationForNewAddress', 14.44, 79.98)
+            ->set('name', 'Gopi')->set('password', 'food-pass-1')->set('password_confirmation', 'food-pass-1')
+            ->set('address', '3 Bazaar Street, Nellore')->set('terms', true)->set('storeName', 'Gopi Biryani')
+            ->set('documents.id_proof', UploadedFile::fake()->image('id.jpg'))
+            ->set('documents.address_proof', UploadedFile::fake()->image('addr.png'))
+            ->set('documents.bank_details', UploadedFile::fake()->create('bank.pdf', 120, 'application/pdf'))
+            ->call('submitApplication')->assertHasErrors(['fssaiNumber' => 'required'])
+            ->set('fssaiNumber', '12345678901234')->call('submitApplication')->assertHasNoErrors()->assertSet('submitted', true);
     }
 
     public function test_the_dashboard_counts_food_orders_waiting_late_problems_and_strikes(): void
