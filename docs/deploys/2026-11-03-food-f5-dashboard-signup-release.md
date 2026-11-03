@@ -8,12 +8,12 @@ Food stays **OFF** for customers until the owner switches it on in Admin → Mod
 | | |
 |---|---|
 | Deploys | `main` at the commit that adds this file |
-| Branch | `feature/food-f1-restaurants` (F1–F5, on top of `feature/shop-phase-a` 47a71a7) |
+| Branch | `feature/food-f1-restaurants` (F1–F5), merged onto main b812e85 (shop Phase A and its fixes already on main) |
 | Live before | `<hash currently on the server>` |
-| Full test suite | 2026-11-03 at 89ca414, folder by folder: 4434 tests, all pass except the known `NotificationCenterAuditTest::test_provider_status_shows_log_fallback_by_default` (local .env, unrelated) |
+| Full test suite | 2026-11-03 on the merged main (Food + b812e85), folder by folder: 4441 tests, all pass except the known `NotificationCenterAuditTest::test_provider_status_shows_log_fallback_by_default` (local .env, unrelated) |
 | Composer | no |
 | Front-end build (steps 6–7) | yes |
-| Version | bump `VERSION` at merge time |
+| Version | `2026.11.03.2` (2026.11.03.1 is taken by the seller change-rules branch, not in this release) |
 
 ## What F5 adds
 - Admin → Other Verticals → **Food Dashboard** (permission `marketplace_orders.view`, own franchise/zone only):
