@@ -37,7 +37,13 @@ class Property extends Model
 
         static::creating(function (Property $property) {
             if (empty($property->slug)) {
-                $property->slug = Str::slug($property->name).'-'.Str::random(6);
+                // Owner link rule: a clean, readable slug; -2, -3 only on a repeat (never a random code).
+                $base = Str::slug($property->name) ?: 'property';
+                $slug = $base;
+                for ($n = 2; static::withTrashed()->where('slug', $slug)->exists(); $n++) {
+                    $slug = $base.'-'.$n;
+                }
+                $property->slug = $slug;
             }
         });
     }

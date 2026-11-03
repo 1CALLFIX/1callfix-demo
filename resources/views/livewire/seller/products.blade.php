@@ -4,7 +4,10 @@
     <div class="flex flex-wrap items-center justify-between gap-3">
         <h1 class="text-2xl font-bold tracking-tight">Products</h1>
         @unless ($creating)
-            <x-ui.button wire:click="startCreate">Add a product</x-ui.button>
+            <div class="flex flex-wrap gap-2">
+                <a href="{{ route('seller.products.add-many') }}" wire:navigate class="inline-flex min-h-10 items-center gap-1.5 rounded-lg border-2 border-blue-600 px-3 text-sm font-bold text-blue-700 hover:bg-blue-50" data-testid="add-many"><x-icon name="photo" class="h-4 w-4" /> Add many (list or photo)</a>
+                <x-ui.button wire:click="startCreate">Add a product</x-ui.button>
+            </div>
         @endunless
     </div>
 
@@ -115,6 +118,29 @@
             </form>
         </x-ui.card>
     @endif
+
+    @unless ($creating)
+        {{-- 2026-11-03: change many products in Excel: download, change, upload. --}}
+        <details class="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm" @if ($sheetErrors) open @endif>
+            <summary class="cursor-pointer font-semibold text-slate-800">Change many in Excel</summary>
+            <p class="mt-2 text-slate-600">Download your products, change the price, discount, stock or show (yes / no) in Excel, save as CSV and upload it here. Add a row with an empty id for a new product. A new name is checked by 1CallFix first.</p>
+            <div class="mt-3 flex flex-wrap items-center gap-2">
+                <x-ui.button type="button" variant="secondary" wire:click="downloadSheet">Download my products</x-ui.button>
+                <label class="inline-flex min-h-10 cursor-pointer items-center gap-1.5 rounded-lg border border-slate-300 px-3 font-medium text-slate-800 hover:bg-slate-50">
+                    <span>{{ $sheet ? 'File chosen' : 'Choose the file' }}</span>
+                    <input type="file" wire:model="sheet" accept=".csv,text/csv" class="sr-only">
+                </label>
+                @if ($sheet)<x-ui.button type="button" wire:click="uploadSheet" wire:loading.attr="disabled">Upload changes</x-ui.button>@endif
+            </div>
+            @error('sheet') <p class="mt-2 text-red-700">{{ $message }}</p> @enderror
+            @if ($sheetErrors)
+                <ul class="mt-2 list-disc space-y-0.5 pl-5 text-xs text-red-700" data-testid="sheet-errors">
+                    @foreach (array_slice($sheetErrors, 0, 30) as $e)<li>{{ $e }}</li>@endforeach
+                    @if (count($sheetErrors) > 30)<li>and {{ count($sheetErrors) - 30 }} more</li>@endif
+                </ul>
+            @endif
+        </details>
+    @endunless
 
     <input type="search" wire:model.live.debounce.300ms="search" placeholder="Search your products" class="block min-h-11 w-full rounded-lg border border-slate-300 px-3 text-base">
 

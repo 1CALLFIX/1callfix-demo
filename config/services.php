@@ -195,6 +195,10 @@ return [
             'api_key' => env('ANTHROPIC_API_KEY'),
             'model' => env('ANTHROPIC_MODEL', 'claude-opus-5'),
             'timeout' => env('ANTHROPIC_TIMEOUT_SECONDS', 10),
+            // Seller "photo to product list" (2026-11-03). On whenever ANTHROPIC_API_KEY is set (independent of
+            // AI_DRIVER, which only drives the admin narrative). Shop Settings can switch it off and cap it per day.
+            'photo_model' => env('ANTHROPIC_PHOTO_MODEL', 'claude-opus-5-5'),
+            'photo_timeout' => env('ANTHROPIC_PHOTO_TIMEOUT_SECONDS', 100),
         ],
     ],
 

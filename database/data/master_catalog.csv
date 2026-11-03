@@ -1,0 +1,805 @@
+﻿category,sub_category,product_name,phase
+Clothing,Men's Topwear,T-Shirt Round Neck,Launch
+Clothing,Men's Topwear,T-Shirt Polo,Launch
+Clothing,Men's Topwear,Casual Shirt,Launch
+Clothing,Men's Topwear,Formal Shirt,Launch
+Clothing,Men's Topwear,Linen Shirt,Launch
+Clothing,Men's Topwear,Sweatshirt,Launch
+Clothing,Men's Topwear,Hoodie,Launch
+Clothing,Men's Topwear,Jacket,Launch
+Clothing,Men's Topwear,Sweater,Launch
+Clothing,Men's Topwear,Kurta,Launch
+Clothing,Men's Bottomwear,Jeans,Launch
+Clothing,Men's Bottomwear,Chinos,Launch
+Clothing,Men's Bottomwear,Formal Trousers,Launch
+Clothing,Men's Bottomwear,Cargo Pants,Launch
+Clothing,Men's Bottomwear,Track Pants,Launch
+Clothing,Men's Bottomwear,Shorts,Launch
+Clothing,Men's Bottomwear,Lungi,Launch
+Clothing,Men's Bottomwear,Dhoti,Launch
+Clothing,Men's Bottomwear,Pyjama,Launch
+Clothing,Men's Bottomwear,Joggers,Launch
+Clothing,Men's Ethnic Wear,Kurta Pyjama Set,Launch
+Clothing,Men's Ethnic Wear,Sherwani,Launch
+Clothing,Men's Ethnic Wear,Nehru Jacket,Launch
+Clothing,Men's Ethnic Wear,Pathani Suit,Launch
+Clothing,Men's Ethnic Wear,Silk Dhoti Set,Launch
+Clothing,Men's Ethnic Wear,Angavastram,Launch
+Clothing,Men's Innerwear and Nightwear,Vest,Launch
+Clothing,Men's Innerwear and Nightwear,Brief,Launch
+Clothing,Men's Innerwear and Nightwear,Boxer,Launch
+Clothing,Men's Innerwear and Nightwear,Thermal Wear,Launch
+Clothing,Men's Innerwear and Nightwear,Night Suit,Launch
+Clothing,Men's Innerwear and Nightwear,Lounge Pants,Launch
+Clothing,Men's Innerwear and Nightwear,Socks,Launch
+Clothing,Women's Ethnic Wear,Cotton Saree,Launch
+Clothing,Women's Ethnic Wear,Silk Saree,Launch
+Clothing,Women's Ethnic Wear,Georgette Saree,Launch
+Clothing,Women's Ethnic Wear,Kurti,Launch
+Clothing,Women's Ethnic Wear,Kurta Set,Launch
+Clothing,Women's Ethnic Wear,Salwar Suit Material,Launch
+Clothing,Women's Ethnic Wear,Anarkali,Launch
+Clothing,Women's Ethnic Wear,Lehenga,Launch
+Clothing,Women's Ethnic Wear,Dupatta,Launch
+Clothing,Women's Ethnic Wear,Leggings,Launch
+Clothing,Women's Ethnic Wear,Palazzo,Launch
+Clothing,Women's Ethnic Wear,Half Saree Set,Launch
+Clothing,Women's Western Wear,Top,Launch
+Clothing,Women's Western Wear,Tunic,Launch
+Clothing,Women's Western Wear,Dress,Launch
+Clothing,Women's Western Wear,Jeans,Launch
+Clothing,Women's Western Wear,Jeggings,Launch
+Clothing,Women's Western Wear,Skirt,Launch
+Clothing,Women's Western Wear,Shrug,Launch
+Clothing,Women's Western Wear,Jumpsuit,Launch
+Clothing,Women's Western Wear,Co-ord Set,Launch
+Clothing,Women's Western Wear,Jacket,Launch
+Clothing,Women's Innerwear and Nightwear,Bra,Launch
+Clothing,Women's Innerwear and Nightwear,Panty,Launch
+Clothing,Women's Innerwear and Nightwear,Camisole,Launch
+Clothing,Women's Innerwear and Nightwear,Slip,Launch
+Clothing,Women's Innerwear and Nightwear,Shapewear,Launch
+Clothing,Women's Innerwear and Nightwear,Nighty,Launch
+Clothing,Women's Innerwear and Nightwear,Night Suit,Launch
+Clothing,Women's Innerwear and Nightwear,Maternity Wear,Launch
+Clothing,Kids' Boys,T-Shirt,Launch
+Clothing,Kids' Boys,Shirt,Launch
+Clothing,Kids' Boys,Shorts,Launch
+Clothing,Kids' Boys,Jeans,Launch
+Clothing,Kids' Boys,Track Suit,Launch
+Clothing,Kids' Boys,Kurta Set,Launch
+Clothing,Kids' Boys,Party Wear,Launch
+Clothing,Kids' Boys,School Uniform,Launch
+Clothing,Kids' Girls,Frock,Launch
+Clothing,Kids' Girls,Skirt Top Set,Launch
+Clothing,Kids' Girls,Lehenga Choli,Launch
+Clothing,Kids' Girls,Pavadai Set,Launch
+Clothing,Kids' Girls,Leggings,Launch
+Clothing,Kids' Girls,Party Dress,Launch
+Clothing,Kids' Girls,School Uniform,Launch
+Clothing,Baby Wear,Rompers,Launch
+Clothing,Baby Wear,Bodysuit,Launch
+Clothing,Baby Wear,Baby Frock,Launch
+Clothing,Baby Wear,Baby Set,Launch
+Clothing,Baby Wear,Swaddle,Launch
+Clothing,Baby Wear,Cap and Mittens,Launch
+Clothing,Baby Wear,Bibs,Launch
+Clothing,Footwear Men,Casual Shoes,Launch
+Clothing,Footwear Men,Sports Shoes,Launch
+Clothing,Footwear Men,Formal Shoes,Launch
+Clothing,Footwear Men,Sandals,Launch
+Clothing,Footwear Men,Slippers,Launch
+Clothing,Footwear Men,Flip Flops,Launch
+Clothing,Footwear Men,Boots,Launch
+Clothing,Footwear Men,Sneakers,Launch
+Clothing,Footwear Women,Flats,Launch
+Clothing,Footwear Women,Heels,Launch
+Clothing,Footwear Women,Sandals,Launch
+Clothing,Footwear Women,Wedges,Launch
+Clothing,Footwear Women,Sports Shoes,Launch
+Clothing,Footwear Women,Slippers,Launch
+Clothing,Footwear Women,Bellies,Launch
+Clothing,Footwear Kids,School Shoes,Launch
+Clothing,Footwear Kids,Sandals,Launch
+Clothing,Footwear Kids,Sports Shoes,Launch
+Clothing,Footwear Kids,Slippers,Launch
+Clothing,Footwear Kids,Booties,Launch
+Clothing,Bags and Luggage,Backpack,Launch
+Clothing,Bags and Luggage,School Bag,Launch
+Clothing,Bags and Luggage,Laptop Bag,Launch
+Clothing,Bags and Luggage,Handbag,Launch
+Clothing,Bags and Luggage,Sling Bag,Launch
+Clothing,Bags and Luggage,Wallet,Launch
+Clothing,Bags and Luggage,Travel Bag,Launch
+Clothing,Bags and Luggage,Trolley Bag,Launch
+Clothing,Bags and Luggage,Duffle Bag,Launch
+Clothing,Watches and Accessories,Analog Watch,Launch
+Clothing,Watches and Accessories,Digital Watch,Launch
+Clothing,Watches and Accessories,Smart Watch Strap,Launch
+Clothing,Watches and Accessories,Belt,Launch
+Clothing,Watches and Accessories,Sunglasses,Launch
+Clothing,Watches and Accessories,Cap,Launch
+Clothing,Watches and Accessories,Scarf,Launch
+Clothing,Watches and Accessories,Handkerchief,Launch
+Clothing,Watches and Accessories,Tie,Launch
+Clothing,Jewellery and Fashion,Artificial Necklace Set,Launch
+Clothing,Jewellery and Fashion,Earrings,Launch
+Clothing,Jewellery and Fashion,Bangles,Launch
+Clothing,Jewellery and Fashion,Rings,Launch
+Clothing,Jewellery and Fashion,Anklets,Launch
+Clothing,Jewellery and Fashion,Hair Accessories,Launch
+Clothing,Jewellery and Fashion,Maang Tikka,Launch
+Clothing,Jewellery and Fashion,Nose Pin,Launch
+Clothing,Fabrics and Tailoring,Shirt Material,Launch
+Clothing,Fabrics and Tailoring,Suit Material,Launch
+Clothing,Fabrics and Tailoring,Blouse Piece,Launch
+Clothing,Fabrics and Tailoring,Lining Cloth,Launch
+Clothing,Fabrics and Tailoring,Embroidery Thread,Launch
+Clothing,Fabrics and Tailoring,Buttons and Zips,Launch
+Electronics,Mobile Accessories,Phone Case,Launch
+Electronics,Mobile Accessories,Screen Guard,Launch
+Electronics,Mobile Accessories,Charger,Launch
+Electronics,Mobile Accessories,Fast Charger,Launch
+Electronics,Mobile Accessories,Charging Cable,Launch
+Electronics,Mobile Accessories,Power Bank,Launch
+Electronics,Mobile Accessories,Car Mobile Holder,Launch
+Electronics,Mobile Accessories,Selfie Stick,Launch
+Electronics,Mobile Accessories,Mobile Stand,Launch
+Electronics,Mobile Accessories,Memory Card,Launch
+Electronics,Audio,Wired Earphones,Launch
+Electronics,Audio,Wireless Earbuds,Launch
+Electronics,Audio,Neckband,Launch
+Electronics,Audio,Headphones,Launch
+Electronics,Audio,Bluetooth Speaker,Launch
+Electronics,Audio,Home Theatre,Launch
+Electronics,Audio,Soundbar,Launch
+Electronics,Audio,Microphone,Launch
+Electronics,Audio,Aux Cable,Launch
+Electronics,Smart Wearables,Smart Watch,Launch
+Electronics,Smart Wearables,Fitness Band,Launch
+Electronics,Smart Wearables,Smart Ring Sizer,Launch
+Electronics,Smart Wearables,Wearable Charger,Launch
+Electronics,Computer Accessories,Keyboard,Launch
+Electronics,Computer Accessories,Mouse,Launch
+Electronics,Computer Accessories,Mouse Pad,Launch
+Electronics,Computer Accessories,Webcam,Launch
+Electronics,Computer Accessories,USB Hub,Launch
+Electronics,Computer Accessories,Pen Drive,Launch
+Electronics,Computer Accessories,External Hard Disk,Launch
+Electronics,Computer Accessories,Laptop Stand,Launch
+Electronics,Computer Accessories,Laptop Cooling Pad,Launch
+Electronics,Computer Accessories,Laptop Charger,Launch
+Electronics,Computer Accessories,Laptop Bag,Launch
+Electronics,Networking,Wi-Fi Router,Launch
+Electronics,Networking,Range Extender,Launch
+Electronics,Networking,LAN Cable,Launch
+Electronics,Networking,Network Switch,Launch
+Electronics,Networking,USB Wi-Fi Adapter,Launch
+Electronics,Networking,Dongle,Launch
+Electronics,Printers and Ink,Inkjet Printer,Launch
+Electronics,Printers and Ink,Laser Printer,Launch
+Electronics,Printers and Ink,Ink Bottle,Launch
+Electronics,Printers and Ink,Ink Cartridge,Launch
+Electronics,Printers and Ink,Toner,Launch
+Electronics,Printers and Ink,Printer Paper,Launch
+Electronics,CCTV and Security,CCTV Camera,Launch
+Electronics,CCTV and Security,Wi-Fi Camera,Launch
+Electronics,CCTV and Security,DVR,Launch
+Electronics,CCTV and Security,NVR,Launch
+Electronics,CCTV and Security,CCTV Cable,Launch
+Electronics,CCTV and Security,Power Supply,Launch
+Electronics,CCTV and Security,Video Door Phone,Launch
+Electronics,CCTV and Security,Biometric Machine,Launch
+Electronics,CCTV and Security,Door Alarm,Launch
+Electronics,Small Kitchen Appliances,Mixer Grinder,Launch
+Electronics,Small Kitchen Appliances,Wet Grinder,Launch
+Electronics,Small Kitchen Appliances,Induction Cooktop,Launch
+Electronics,Small Kitchen Appliances,Electric Kettle,Launch
+Electronics,Small Kitchen Appliances,Toaster,Launch
+Electronics,Small Kitchen Appliances,Sandwich Maker,Launch
+Electronics,Small Kitchen Appliances,Rice Cooker,Launch
+Electronics,Small Kitchen Appliances,Air Fryer,Launch
+Electronics,Small Kitchen Appliances,Juicer,Launch
+Electronics,Small Kitchen Appliances,Hand Blender,Launch
+Electronics,Small Kitchen Appliances,Electric Chopper,Launch
+Electronics,Small Kitchen Appliances,Gas Stove,Launch
+Electronics,Home Appliances,Ceiling Fan,Launch
+Electronics,Home Appliances,Table Fan,Launch
+Electronics,Home Appliances,Wall Fan,Launch
+Electronics,Home Appliances,Pedestal Fan,Launch
+Electronics,Home Appliances,Air Cooler,Launch
+Electronics,Home Appliances,Room Heater,Launch
+Electronics,Home Appliances,Iron Box,Launch
+Electronics,Home Appliances,Vacuum Cleaner,Launch
+Electronics,Home Appliances,Water Heater,Launch
+Electronics,Home Appliances,Room Freshener Machine,Launch
+Electronics,Home Appliances,Stabilizer,Launch
+Electronics,Home Appliances,Inverter Battery,Launch
+Electronics,Lighting,LED Bulb,Launch
+Electronics,Lighting,LED Tube Light,Launch
+Electronics,Lighting,Panel Light,Launch
+Electronics,Lighting,Ceiling Light,Launch
+Electronics,Lighting,Night Lamp,Launch
+Electronics,Lighting,Emergency Light,Launch
+Electronics,Lighting,Torch,Launch
+Electronics,Lighting,Solar Lamp,Launch
+Electronics,Lighting,Decorative String Lights,Launch
+Electronics,Lighting,Study Lamp,Launch
+Electronics,Electrical Fittings,Switch,Launch
+Electronics,Electrical Fittings,Socket,Launch
+Electronics,Electrical Fittings,Extension Board,Launch
+Electronics,Electrical Fittings,Plug,Launch
+Electronics,Electrical Fittings,Wire,Launch
+Electronics,Electrical Fittings,MCB,Launch
+Electronics,Electrical Fittings,Holder,Launch
+Electronics,Electrical Fittings,Fan Regulator,Launch
+Electronics,Electrical Fittings,Electrical Tape,Launch
+Electronics,Batteries and Power,AA Battery,Launch
+Electronics,Batteries and Power,AAA Battery,Launch
+Electronics,Batteries and Power,Rechargeable Battery,Launch
+Electronics,Batteries and Power,Coin Cell,Launch
+Electronics,Batteries and Power,UPS,Launch
+Electronics,Batteries and Power,Solar Panel,Launch
+Electronics,TV and Entertainment,LED TV,Launch
+Electronics,TV and Entertainment,Smart TV,Launch
+Electronics,TV and Entertainment,TV Stand,Launch
+Electronics,TV and Entertainment,TV Wall Mount,Launch
+Electronics,TV and Entertainment,Set Top Box,Launch
+Electronics,TV and Entertainment,HDMI Cable,Launch
+Electronics,TV and Entertainment,Remote Control,Launch
+Electronics,TV and Entertainment,Gaming Console Accessories,Launch
+Electronics,Cameras,Action Camera,Launch
+Electronics,Cameras,Tripod,Launch
+Electronics,Cameras,Camera Bag,Launch
+Electronics,Cameras,Ring Light,Launch
+Electronics,Cameras,Memory Card,Launch
+Electronics,Cameras,Camera Lens Cleaner,Launch
+Beauty,Skin Care,Face Wash,Launch
+Beauty,Skin Care,Moisturizer,Launch
+Beauty,Skin Care,Sunscreen,Launch
+Beauty,Skin Care,Face Serum,Launch
+Beauty,Skin Care,Face Mask,Launch
+Beauty,Skin Care,Toner,Launch
+Beauty,Skin Care,Night Cream,Launch
+Beauty,Skin Care,Lip Balm,Launch
+Beauty,Skin Care,Body Lotion,Launch
+Beauty,Skin Care,Scrub,Launch
+Beauty,Skin Care,Cold Cream,Launch
+Beauty,Hair Care,Shampoo,Launch
+Beauty,Hair Care,Conditioner,Launch
+Beauty,Hair Care,Hair Oil,Launch
+Beauty,Hair Care,Hair Serum,Launch
+Beauty,Hair Care,Hair Mask,Launch
+Beauty,Hair Care,Hair Colour,Launch
+Beauty,Hair Care,Henna,Launch
+Beauty,Hair Care,Comb,Launch
+Beauty,Hair Care,Hair Brush,Launch
+Beauty,Hair Care,Hair Dryer,Launch
+Beauty,Hair Care,Straightener,Launch
+Beauty,Hair Care,Hair Clips,Launch
+Beauty,Make-up,Lipstick,Launch
+Beauty,Make-up,Kajal,Launch
+Beauty,Make-up,Eyeliner,Launch
+Beauty,Make-up,Mascara,Launch
+Beauty,Make-up,Foundation,Launch
+Beauty,Make-up,Compact Powder,Launch
+Beauty,Make-up,Concealer,Launch
+Beauty,Make-up,Blush,Launch
+Beauty,Make-up,Eyeshadow,Launch
+Beauty,Make-up,Nail Polish,Launch
+Beauty,Make-up,Nail Polish Remover,Launch
+Beauty,Make-up,Makeup Brush Set,Launch
+Beauty,Make-up,Bindi,Launch
+Beauty,Make-up,Sindoor,Launch
+Beauty,Fragrances,Perfume,Launch
+Beauty,Fragrances,Deodorant,Launch
+Beauty,Fragrances,Body Mist,Launch
+Beauty,Fragrances,Attar,Launch
+Beauty,Fragrances,Roll-on,Launch
+Beauty,Fragrances,Talcum Powder,Launch
+Beauty,Men's Grooming,Trimmer,Launch
+Beauty,Men's Grooming,Shaving Razor,Launch
+Beauty,Men's Grooming,Shaving Foam,Launch
+Beauty,Men's Grooming,Shaving Cream,Launch
+Beauty,Men's Grooming,After Shave,Launch
+Beauty,Men's Grooming,Beard Oil,Launch
+Beauty,Men's Grooming,Beard Wash,Launch
+Beauty,Men's Grooming,Hair Wax,Launch
+Beauty,Men's Grooming,Face Wash for Men,Launch
+Beauty,Bath and Body,Bath Soap,Launch
+Beauty,Bath and Body,Body Wash,Launch
+Beauty,Bath and Body,Bathing Bar,Launch
+Beauty,Bath and Body,Loofah,Launch
+Beauty,Bath and Body,Hand Wash,Launch
+Beauty,Bath and Body,Hand Sanitizer,Launch
+Beauty,Bath and Body,Hand Cream,Launch
+Beauty,Bath and Body,Foot Cream,Launch
+Beauty,Personal Care,Sanitary Pads,Launch
+Beauty,Personal Care,Panty Liners,Launch
+Beauty,Personal Care,Menstrual Cup,Launch
+Beauty,Personal Care,Cotton Buds,Launch
+Beauty,Personal Care,Tissues,Launch
+Beauty,Personal Care,Wet Wipes,Launch
+Beauty,Personal Care,Toothpaste,Launch
+Beauty,Personal Care,Toothbrush,Launch
+Beauty,Personal Care,Mouthwash,Launch
+Beauty,Personal Care,Intimate Wash,Launch
+Beauty,Salon Supplies,Facial Kit,Launch
+Beauty,Salon Supplies,Waxing Kit,Launch
+Beauty,Salon Supplies,Bleach,Launch
+Beauty,Salon Supplies,Manicure Set,Launch
+Beauty,Salon Supplies,Hair Removal Cream,Launch
+Beauty,Salon Supplies,Salon Towels,Launch
+Beauty,Ayurvedic and Natural,Herbal Face Pack,Launch
+Beauty,Ayurvedic and Natural,Coconut Oil,Launch
+Beauty,Ayurvedic and Natural,Aloe Vera Gel,Launch
+Beauty,Ayurvedic and Natural,Neem Products,Launch
+Beauty,Ayurvedic and Natural,Multani Mitti,Launch
+Beauty,Ayurvedic and Natural,Kumkum,Launch
+Beauty,Ayurvedic and Natural,Turmeric Powder for Skin,Launch
+Furniture,Living Room,Sofa,Launch
+Furniture,Living Room,Sofa Set,Launch
+Furniture,Living Room,Recliner,Launch
+Furniture,Living Room,Coffee Table,Launch
+Furniture,Living Room,TV Unit,Launch
+Furniture,Living Room,Shoe Rack,Launch
+Furniture,Living Room,Diwan,Launch
+Furniture,Living Room,Bean Bag,Launch
+Furniture,Living Room,Side Table,Launch
+Furniture,Living Room,Console Table,Launch
+Furniture,Bedroom,Cot,Launch
+Furniture,Bedroom,Double Bed,Launch
+Furniture,Bedroom,Single Bed,Launch
+Furniture,Bedroom,Bunk Bed,Launch
+Furniture,Bedroom,Mattress,Launch
+Furniture,Bedroom,Pillow,Launch
+Furniture,Bedroom,Wardrobe,Launch
+Furniture,Bedroom,Dressing Table,Launch
+Furniture,Bedroom,Bedside Table,Launch
+Furniture,Bedroom,Folding Bed,Launch
+Furniture,Dining,Dining Table,Launch
+Furniture,Dining,Dining Chair,Launch
+Furniture,Dining,Dining Set,Launch
+Furniture,Dining,Bar Stool,Launch
+Furniture,Dining,Crockery Unit,Launch
+Furniture,Dining,Kitchen Trolley,Launch
+Furniture,Office,Office Chair,Launch
+Furniture,Office,Study Table,Launch
+Furniture,Office,Computer Table,Launch
+Furniture,Office,Office Desk,Launch
+Furniture,Office,Filing Cabinet,Launch
+Furniture,Office,Visitor Chair,Launch
+Furniture,Office,Reception Counter,Launch
+Furniture,Storage,Bookshelf,Launch
+Furniture,Storage,Cupboard,Launch
+Furniture,Storage,Almirah,Launch
+Furniture,Storage,Shoe Cabinet,Launch
+Furniture,Storage,Storage Box,Launch
+Furniture,Storage,Wall Shelf,Launch
+Furniture,Storage,Clothes Stand,Launch
+Furniture,Storage,Plastic Rack,Launch
+Furniture,Storage,Steel Rack,Launch
+Furniture,Outdoor and Garden,Garden Chair,Launch
+Furniture,Outdoor and Garden,Swing,Launch
+Furniture,Outdoor and Garden,Outdoor Table,Launch
+Furniture,Outdoor and Garden,Plastic Chair,Launch
+Furniture,Outdoor and Garden,Plastic Table,Launch
+Furniture,Outdoor and Garden,Hammock,Launch
+Furniture,Kids Furniture,Kids Study Table,Launch
+Furniture,Kids Furniture,Kids Chair,Launch
+Furniture,Kids Furniture,Kids Bed,Launch
+Furniture,Kids Furniture,Toy Storage,Launch
+Furniture,Kids Furniture,Baby Cradle,Launch
+Furniture,Kids Furniture,Baby High Chair,Launch
+Furniture,Home Decor,Wall Clock,Launch
+Furniture,Home Decor,Wall Art,Launch
+Furniture,Home Decor,Photo Frame,Launch
+Furniture,Home Decor,Mirror,Launch
+Furniture,Home Decor,Artificial Flowers,Launch
+Furniture,Home Decor,Vase,Launch
+Furniture,Home Decor,Curtains,Launch
+Furniture,Home Decor,Curtain Rod,Launch
+Furniture,Home Decor,Door Mat,Launch
+Furniture,Home Decor,Carpet,Launch
+Furniture,Home Decor,Cushion Cover,Launch
+Furniture,Home Decor,Bed Sheet,Launch
+Furniture,Home Decor,Bedspread,Launch
+Furniture,Home Decor,Blanket,Launch
+Furniture,Home Decor,Wall Sticker,Launch
+Home and Kitchen,Cookware,Pressure Cooker,Later
+Home and Kitchen,Cookware,Kadai,Later
+Home and Kitchen,Cookware,Frying Pan,Later
+Home and Kitchen,Cookware,Tawa,Later
+Home and Kitchen,Cookware,Idli Cooker,Later
+Home and Kitchen,Cookware,Non-stick Set,Later
+Home and Kitchen,Cookware,Casserole,Later
+Home and Kitchen,Cookware,Kettle,Later
+Home and Kitchen,Cookware,Stockpot,Later
+Home and Kitchen,Kitchen Tools,Knife Set,Later
+Home and Kitchen,Kitchen Tools,Peeler,Later
+Home and Kitchen,Kitchen Tools,Grater,Later
+Home and Kitchen,Kitchen Tools,Chopping Board,Later
+Home and Kitchen,Kitchen Tools,Ladle,Later
+Home and Kitchen,Kitchen Tools,Spatula,Later
+Home and Kitchen,Kitchen Tools,Rolling Pin,Later
+Home and Kitchen,Kitchen Tools,Masher,Later
+Home and Kitchen,Kitchen Tools,Strainer,Later
+Home and Kitchen,Kitchen Tools,Measuring Cups,Later
+Home and Kitchen,Dinnerware,Plate Set,Later
+Home and Kitchen,Dinnerware,Bowl Set,Later
+Home and Kitchen,Dinnerware,Glass Set,Later
+Home and Kitchen,Dinnerware,Cup Set,Later
+Home and Kitchen,Dinnerware,Steel Plates,Later
+Home and Kitchen,Dinnerware,Tumbler,Later
+Home and Kitchen,Dinnerware,Spoons,Later
+Home and Kitchen,Dinnerware,Serving Bowl,Later
+Home and Kitchen,Dinnerware,Dinner Set,Later
+Home and Kitchen,Storage and Containers,Lunch Box,Later
+Home and Kitchen,Storage and Containers,Water Bottle,Later
+Home and Kitchen,Storage and Containers,Flask,Later
+Home and Kitchen,Storage and Containers,Spice Rack,Later
+Home and Kitchen,Storage and Containers,Airtight Container,Later
+Home and Kitchen,Storage and Containers,Oil Dispenser,Later
+Home and Kitchen,Storage and Containers,Water Can,Later
+Home and Kitchen,Storage and Containers,Tiffin Box,Later
+Home and Kitchen,Storage and Containers,Bread Box,Later
+Home and Kitchen,Cleaning Supplies,Floor Cleaner,Later
+Home and Kitchen,Cleaning Supplies,Toilet Cleaner,Later
+Home and Kitchen,Cleaning Supplies,Detergent Powder,Later
+Home and Kitchen,Cleaning Supplies,Liquid Detergent,Later
+Home and Kitchen,Cleaning Supplies,Dish Wash Gel,Later
+Home and Kitchen,Cleaning Supplies,Scrub Pad,Later
+Home and Kitchen,Cleaning Supplies,Mop,Later
+Home and Kitchen,Cleaning Supplies,Broom,Later
+Home and Kitchen,Cleaning Supplies,Dustbin,Later
+Home and Kitchen,Cleaning Supplies,Phenyl,Later
+Home and Kitchen,Cleaning Supplies,Garbage Bags,Later
+Home and Kitchen,Cleaning Supplies,Bucket,Later
+Home and Kitchen,Cleaning Supplies,Mug,Later
+Home and Kitchen,Bath and Laundry,Towel,Later
+Home and Kitchen,Bath and Laundry,Bath Mat,Later
+Home and Kitchen,Bath and Laundry,Shower Curtain,Later
+Home and Kitchen,Bath and Laundry,Laundry Basket,Later
+Home and Kitchen,Bath and Laundry,Clothes Hanger,Later
+Home and Kitchen,Bath and Laundry,Clothes Clips,Later
+Home and Kitchen,Bath and Laundry,Drying Stand,Later
+Home and Kitchen,Bath and Laundry,Iron Table,Later
+Home and Kitchen,Pooja and Festive,Pooja Thali,Later
+Home and Kitchen,Pooja and Festive,Diya,Later
+Home and Kitchen,Pooja and Festive,Agarbatti,Later
+Home and Kitchen,Pooja and Festive,Camphor,Later
+Home and Kitchen,Pooja and Festive,Idols,Later
+Home and Kitchen,Pooja and Festive,Pooja Oil,Later
+Home and Kitchen,Pooja and Festive,Festival Decor,Later
+Home and Kitchen,Pooja and Festive,Toran,Later
+Home and Kitchen,Pooja and Festive,Rangoli Colours,Later
+Home and Kitchen,Tools and Hardware,Screwdriver Set,Later
+Home and Kitchen,Tools and Hardware,Hammer,Later
+Home and Kitchen,Tools and Hardware,Drill Machine,Later
+Home and Kitchen,Tools and Hardware,Spanner Set,Later
+Home and Kitchen,Tools and Hardware,Measuring Tape,Later
+Home and Kitchen,Tools and Hardware,Padlock,Later
+Home and Kitchen,Tools and Hardware,Door Handle,Later
+Home and Kitchen,Tools and Hardware,Nuts and Bolts,Later
+Home and Kitchen,Tools and Hardware,Adhesive,Later
+Home and Kitchen,Tools and Hardware,Paint Brush,Later
+Grocery,Staples,Rice,Later
+Grocery,Staples,Wheat Flour,Later
+Grocery,Staples,Dal,Later
+Grocery,Staples,Sugar,Later
+Grocery,Staples,Salt,Later
+Grocery,Staples,Cooking Oil,Later
+Grocery,Staples,Ghee,Later
+Grocery,Staples,Poha,Later
+Grocery,Staples,Rava,Later
+Grocery,Staples,Besan,Later
+Grocery,Spices and Masalas,Chilli Powder,Later
+Grocery,Spices and Masalas,Turmeric,Later
+Grocery,Spices and Masalas,Coriander Powder,Later
+Grocery,Spices and Masalas,Garam Masala,Later
+Grocery,Spices and Masalas,Mustard Seeds,Later
+Grocery,Spices and Masalas,Cumin,Later
+Grocery,Spices and Masalas,Pepper,Later
+Grocery,Spices and Masalas,Biryani Masala,Later
+Grocery,Spices and Masalas,Sambar Powder,Later
+Grocery,Snacks and Beverages,Biscuits,Later
+Grocery,Snacks and Beverages,Chips,Later
+Grocery,Snacks and Beverages,Namkeen,Later
+Grocery,Snacks and Beverages,Chocolates,Later
+Grocery,Snacks and Beverages,Tea,Later
+Grocery,Snacks and Beverages,Coffee,Later
+Grocery,Snacks and Beverages,Soft Drinks,Later
+Grocery,Snacks and Beverages,Juice,Later
+Grocery,Snacks and Beverages,Packaged Water,Later
+Grocery,Snacks and Beverages,Energy Drink,Later
+Grocery,Dry Fruits and Nuts,Cashew,Later
+Grocery,Dry Fruits and Nuts,Almond,Later
+Grocery,Dry Fruits and Nuts,Raisin,Later
+Grocery,Dry Fruits and Nuts,Pista,Later
+Grocery,Dry Fruits and Nuts,Dates,Later
+Grocery,Dry Fruits and Nuts,Walnut,Later
+Grocery,Dry Fruits and Nuts,Peanut,Later
+Grocery,Fresh Produce,Vegetables,Later
+Grocery,Fresh Produce,Fruits,Later
+Grocery,Fresh Produce,Leafy Greens,Later
+Grocery,Fresh Produce,Coconut,Later
+Grocery,Fresh Produce,Curry Leaves,Later
+Grocery,Fresh Produce,Onion,Later
+Grocery,Fresh Produce,Potato,Later
+Grocery,Dairy and Bakery,Milk,Later
+Grocery,Dairy and Bakery,Curd,Later
+Grocery,Dairy and Bakery,Paneer,Later
+Grocery,Dairy and Bakery,Butter,Later
+Grocery,Dairy and Bakery,Cheese,Later
+Grocery,Dairy and Bakery,Bread,Later
+Grocery,Dairy and Bakery,Cake,Later
+Grocery,Dairy and Bakery,Eggs,Later
+Grocery,Packaged Foods,Instant Noodles,Later
+Grocery,Packaged Foods,Pasta,Later
+Grocery,Packaged Foods,Ready Mix,Later
+Grocery,Packaged Foods,Pickles,Later
+Grocery,Packaged Foods,Jam,Later
+Grocery,Packaged Foods,Sauces,Later
+Grocery,Packaged Foods,Papad,Later
+Grocery,Packaged Foods,Breakfast Cereal,Later
+Grocery,Baby Food,Infant Formula,Later
+Grocery,Baby Food,Cereals,Later
+Grocery,Baby Food,Baby Biscuits,Later
+Grocery,Baby Food,Baby Snacks,Later
+Grocery,Household Needs,Matchbox,Later
+Grocery,Household Needs,Candles,Later
+Grocery,Household Needs,Mosquito Repellent,Later
+Grocery,Household Needs,Air Freshener,Later
+Grocery,Household Needs,Insect Killer,Later
+Grocery,Household Needs,Naphthalene Balls,Later
+Baby and Kids,Baby Care,Diapers,Later
+Baby and Kids,Baby Care,Baby Wipes,Later
+Baby and Kids,Baby Care,Baby Soap,Later
+Baby and Kids,Baby Care,Baby Shampoo,Later
+Baby and Kids,Baby Care,Baby Oil,Later
+Baby and Kids,Baby Care,Baby Powder,Later
+Baby and Kids,Baby Care,Feeding Bottle,Later
+Baby and Kids,Baby Care,Pacifier,Later
+Baby and Kids,Baby Care,Baby Bath Tub,Later
+Baby and Kids,Toys,Soft Toys,Later
+Baby and Kids,Toys,Building Blocks,Later
+Baby and Kids,Toys,Remote Control Car,Later
+Baby and Kids,Toys,Dolls,Later
+Baby and Kids,Toys,Puzzle,Later
+Baby and Kids,Toys,Board Games,Later
+Baby and Kids,Toys,Musical Toys,Later
+Baby and Kids,Toys,Outdoor Toys,Later
+Baby and Kids,Toys,Educational Toys,Later
+Baby and Kids,Kids Gear,Stroller,Later
+Baby and Kids,Kids Gear,Baby Walker,Later
+Baby and Kids,Kids Gear,Car Seat,Later
+Baby and Kids,Kids Gear,Baby Carrier,Later
+Baby and Kids,Kids Gear,School Bag,Later
+Baby and Kids,Kids Gear,Water Bottle,Later
+Baby and Kids,Kids Gear,Lunch Box,Later
+Baby and Kids,Maternity,Maternity Wear,Later
+Baby and Kids,Maternity,Nursing Bra,Later
+Baby and Kids,Maternity,Feeding Pillow,Later
+Baby and Kids,Maternity,Stretch Mark Cream,Later
+Baby and Kids,Maternity,Breast Pump,Later
+Sports and Fitness,Fitness Equipment,Dumbbells,Later
+Sports and Fitness,Fitness Equipment,Yoga Mat,Later
+Sports and Fitness,Fitness Equipment,Skipping Rope,Later
+Sports and Fitness,Fitness Equipment,Resistance Bands,Later
+Sports and Fitness,Fitness Equipment,Gym Gloves,Later
+Sports and Fitness,Fitness Equipment,Treadmill,Later
+Sports and Fitness,Fitness Equipment,Exercise Cycle,Later
+Sports and Fitness,Fitness Equipment,Bench,Later
+Sports and Fitness,Fitness Equipment,Weight Plates,Later
+Sports and Fitness,Fitness Equipment,Push-up Stand,Later
+Sports and Fitness,Outdoor Sports,Cricket Bat,Later
+Sports and Fitness,Outdoor Sports,Cricket Ball,Later
+Sports and Fitness,Outdoor Sports,Football,Later
+Sports and Fitness,Outdoor Sports,Volleyball,Later
+Sports and Fitness,Outdoor Sports,Badminton Racket,Later
+Sports and Fitness,Outdoor Sports,Shuttlecock,Later
+Sports and Fitness,Outdoor Sports,Carrom Board,Later
+Sports and Fitness,Outdoor Sports,Chess Board,Later
+Sports and Fitness,Outdoor Sports,Cycling Helmet,Later
+Sports and Fitness,Outdoor Sports,Tennis Ball,Later
+Sports and Fitness,Sportswear,Track Suit,Later
+Sports and Fitness,Sportswear,Sports T-Shirt,Later
+Sports and Fitness,Sportswear,Sports Shorts,Later
+Sports and Fitness,Sportswear,Compression Wear,Later
+Sports and Fitness,Sportswear,Swimwear,Later
+Sports and Fitness,Sportswear,Sports Socks,Later
+Sports and Fitness,Health Supplements,Protein Powder,Later
+Sports and Fitness,Health Supplements,Multivitamin,Later
+Sports and Fitness,Health Supplements,Omega 3,Later
+Sports and Fitness,Health Supplements,Glucose,Later
+Sports and Fitness,Health Supplements,Energy Bar,Later
+Books and Stationery,Books,School Textbooks,Later
+Books and Stationery,Books,Competitive Exam Books,Later
+Books and Stationery,Books,Story Books,Later
+Books and Stationery,Books,Novels,Later
+Books and Stationery,Books,Religious Books,Later
+Books and Stationery,Books,Cooking Books,Later
+Books and Stationery,Books,Dictionary,Later
+Books and Stationery,Books,Colouring Books,Later
+Books and Stationery,Stationery,Notebook,Later
+Books and Stationery,Stationery,Pen,Later
+Books and Stationery,Stationery,Pencil,Later
+Books and Stationery,Stationery,Eraser,Later
+Books and Stationery,Stationery,Sharpener,Later
+Books and Stationery,Stationery,Geometry Box,Later
+Books and Stationery,Stationery,Files and Folders,Later
+Books and Stationery,Stationery,Calculator,Later
+Books and Stationery,Stationery,Stapler,Later
+Books and Stationery,Stationery,Tape,Later
+Books and Stationery,Stationery,Glue,Later
+Books and Stationery,Stationery,Sticky Notes,Later
+Books and Stationery,Stationery,Marker,Later
+Books and Stationery,Stationery,Highlighter,Later
+Books and Stationery,Art and Craft,Colour Pencils,Later
+Books and Stationery,Art and Craft,Crayons,Later
+Books and Stationery,Art and Craft,Water Colours,Later
+Books and Stationery,Art and Craft,Drawing Book,Later
+Books and Stationery,Art and Craft,Craft Paper,Later
+Books and Stationery,Art and Craft,Clay,Later
+Books and Stationery,Art and Craft,Paint Brushes,Later
+Books and Stationery,School Supplies,School Bag,Later
+Books and Stationery,School Supplies,Lunch Box,Later
+Books and Stationery,School Supplies,Water Bottle,Later
+Books and Stationery,School Supplies,ID Card Holder,Later
+Books and Stationery,School Supplies,Uniform Belt,Later
+Books and Stationery,School Supplies,School Tie,Later
+Books and Stationery,School Supplies,Geometry Instruments,Later
+Books and Stationery,Office Supplies,A4 Paper,Later
+Books and Stationery,Office Supplies,Register,Later
+Books and Stationery,Office Supplies,Invoice Book,Later
+Books and Stationery,Office Supplies,Stamp Pad,Later
+Books and Stationery,Office Supplies,Visiting Card Holder,Later
+Books and Stationery,Office Supplies,Whiteboard,Later
+Books and Stationery,Office Supplies,Duster,Later
+Books and Stationery,Office Supplies,Chart Paper,Later
+Pharmacy and Health,Medicines OTC,Pain Relief,Later
+Pharmacy and Health,Medicines OTC,Cough Syrup,Later
+Pharmacy and Health,Medicines OTC,Antacid,Later
+Pharmacy and Health,Medicines OTC,Cold Tablets,Later
+Pharmacy and Health,Medicines OTC,Fever Tablets,Later
+Pharmacy and Health,Medicines OTC,Ointments,Later
+Pharmacy and Health,Medicines OTC,ORS,Later
+Pharmacy and Health,Medicines OTC,Vitamin Tablets,Later
+Pharmacy and Health,Health Devices,BP Monitor,Later
+Pharmacy and Health,Health Devices,Glucometer,Later
+Pharmacy and Health,Health Devices,Thermometer,Later
+Pharmacy and Health,Health Devices,Pulse Oximeter,Later
+Pharmacy and Health,Health Devices,Nebulizer,Later
+Pharmacy and Health,Health Devices,Weighing Scale,Later
+Pharmacy and Health,Health Devices,Steamer,Later
+Pharmacy and Health,Health Devices,Heating Pad,Later
+Pharmacy and Health,First Aid,Bandage,Later
+Pharmacy and Health,First Aid,Cotton,Later
+Pharmacy and Health,First Aid,Antiseptic,Later
+Pharmacy and Health,First Aid,Dettol,Later
+Pharmacy and Health,First Aid,Plaster,Later
+Pharmacy and Health,First Aid,Gloves,Later
+Pharmacy and Health,First Aid,Face Masks,Later
+Pharmacy and Health,First Aid,Sanitizer,Later
+Pharmacy and Health,Wellness,Ayurvedic Tablets,Later
+Pharmacy and Health,Wellness,Chyawanprash,Later
+Pharmacy and Health,Wellness,Herbal Tea,Later
+Pharmacy and Health,Wellness,Honey,Later
+Pharmacy and Health,Wellness,Immunity Boosters,Later
+Pharmacy and Health,Wellness,Joint Pain Oil,Later
+Pharmacy and Health,Elder Care,Walking Stick,Later
+Pharmacy and Health,Elder Care,Adult Diapers,Later
+Pharmacy and Health,Elder Care,Knee Support,Later
+Pharmacy and Health,Elder Care,Back Support,Later
+Pharmacy and Health,Elder Care,Wheelchair,Later
+Automotive,Car Accessories,Seat Cover,Later
+Automotive,Car Accessories,Floor Mat,Later
+Automotive,Car Accessories,Car Perfume,Later
+Automotive,Car Accessories,Car Charger,Later
+Automotive,Car Accessories,Car Cleaning Kit,Later
+Automotive,Car Accessories,Car Cover,Later
+Automotive,Car Accessories,Steering Cover,Later
+Automotive,Car Accessories,Tyre Inflator,Later
+Automotive,Bike Accessories,Helmet,Later
+Automotive,Bike Accessories,Bike Cover,Later
+Automotive,Bike Accessories,Bike Lock,Later
+Automotive,Bike Accessories,Mobile Holder,Later
+Automotive,Bike Accessories,Saddle Bag,Later
+Automotive,Bike Accessories,Gloves,Later
+Automotive,Bike Accessories,Handle Grip,Later
+Automotive,Oils and Care,Engine Oil,Later
+Automotive,Oils and Care,Brake Oil,Later
+Automotive,Oils and Care,Coolant,Later
+Automotive,Oils and Care,Car Shampoo,Later
+Automotive,Oils and Care,Wax Polish,Later
+Automotive,Oils and Care,Bike Chain Lube,Later
+Automotive,Oils and Care,Dashboard Polish,Later
+Automotive,Spares,Battery,Later
+Automotive,Spares,Tyre,Later
+Automotive,Spares,Tube,Later
+Automotive,Spares,Wiper,Later
+Automotive,Spares,Headlight Bulb,Later
+Automotive,Spares,Air Filter,Later
+Automotive,Spares,Oil Filter,Later
+Automotive,Spares,Spark Plug,Later
+Tools and Hardware,Power Tools,Drill,Later
+Tools and Hardware,Power Tools,Grinder,Later
+Tools and Hardware,Power Tools,Jigsaw,Later
+Tools and Hardware,Power Tools,Welding Machine,Later
+Tools and Hardware,Power Tools,Pressure Washer,Later
+Tools and Hardware,Power Tools,Air Compressor,Later
+Tools and Hardware,Plumbing,Taps,Later
+Tools and Hardware,Plumbing,Pipes,Later
+Tools and Hardware,Plumbing,Fittings,Later
+Tools and Hardware,Plumbing,Valve,Later
+Tools and Hardware,Plumbing,Shower Head,Later
+Tools and Hardware,Plumbing,Water Tank,Later
+Tools and Hardware,Plumbing,Float Valve,Later
+Tools and Hardware,Plumbing,Pipe Tape,Later
+Tools and Hardware,Paints and Coatings,Wall Paint,Later
+Tools and Hardware,Paints and Coatings,Primer,Later
+Tools and Hardware,Paints and Coatings,Putty,Later
+Tools and Hardware,Paints and Coatings,Enamel,Later
+Tools and Hardware,Paints and Coatings,Waterproofing,Later
+Tools and Hardware,Paints and Coatings,Wood Polish,Later
+Tools and Hardware,Paints and Coatings,Spray Paint,Later
+Tools and Hardware,Safety,Safety Helmet,Later
+Tools and Hardware,Safety,Safety Shoes,Later
+Tools and Hardware,Safety,Gloves,Later
+Tools and Hardware,Safety,Goggles,Later
+Tools and Hardware,Safety,Fire Extinguisher,Later
+Tools and Hardware,Safety,Reflective Jacket,Later
+Pet Supplies,Dog,Dog Food,Later
+Pet Supplies,Dog,Dog Treats,Later
+Pet Supplies,Dog,Collar and Leash,Later
+Pet Supplies,Dog,Dog Bed,Later
+Pet Supplies,Dog,Dog Shampoo,Later
+Pet Supplies,Dog,Toys,Later
+Pet Supplies,Cat,Cat Food,Later
+Pet Supplies,Cat,Cat Litter,Later
+Pet Supplies,Cat,Scratching Post,Later
+Pet Supplies,Cat,Cat Toys,Later
+Pet Supplies,Cat,Cat Bed,Later
+Pet Supplies,Birds and Fish,Bird Cage,Later
+Pet Supplies,Birds and Fish,Bird Feed,Later
+Pet Supplies,Birds and Fish,Fish Tank,Later
+Pet Supplies,Birds and Fish,Fish Food,Later
+Pet Supplies,Birds and Fish,Aquarium Filter,Later
+Garden and Agriculture,Plants and Seeds,Indoor Plants,Later
+Garden and Agriculture,Plants and Seeds,Flower Plants,Later
+Garden and Agriculture,Plants and Seeds,Vegetable Seeds,Later
+Garden and Agriculture,Plants and Seeds,Herb Seeds,Later
+Garden and Agriculture,Plants and Seeds,Bonsai,Later
+Garden and Agriculture,Garden Tools,Pot,Later
+Garden and Agriculture,Garden Tools,Planter,Later
+Garden and Agriculture,Garden Tools,Watering Can,Later
+Garden and Agriculture,Garden Tools,Garden Spray,Later
+Garden and Agriculture,Garden Tools,Pruner,Later
+Garden and Agriculture,Garden Tools,Hose Pipe,Later
+Garden and Agriculture,Garden Tools,Garden Gloves,Later
+Garden and Agriculture,Fertilizers,Organic Manure,Later
+Garden and Agriculture,Fertilizers,Cocopeat,Later
+Garden and Agriculture,Fertilizers,Vermicompost,Later
+Garden and Agriculture,Fertilizers,NPK,Later
+Garden and Agriculture,Fertilizers,Growth Booster,Later
+Garden and Agriculture,Fertilizers,Pesticides,Later
+Gifts and Occasions,Gift Items,Gift Hamper,Later
+Gifts and Occasions,Gift Items,Greeting Cards,Later
+Gifts and Occasions,Gift Items,Gift Wrap,Later
+Gifts and Occasions,Gift Items,Photo Frame,Later
+Gifts and Occasions,Gift Items,Personalised Mug,Later
+Gifts and Occasions,Gift Items,Trophy,Later
+Gifts and Occasions,Gift Items,Return Gift,Later
+Gifts and Occasions,Party Supplies,Balloons,Later
+Gifts and Occasions,Party Supplies,Banners,Later
+Gifts and Occasions,Party Supplies,Candles,Later
+Gifts and Occasions,Party Supplies,Party Hats,Later
+Gifts and Occasions,Party Supplies,Streamers,Later
+Gifts and Occasions,Party Supplies,Disposable Plates,Later
+Gifts and Occasions,Festival Items,Diwali Crackers,Later
+Gifts and Occasions,Festival Items,Sankranti Items,Later
+Gifts and Occasions,Festival Items,Ganesh Idols,Later
+Gifts and Occasions,Festival Items,Rakhi,Later
+Gifts and Occasions,Festival Items,Christmas Decor,Later
+Gifts and Occasions,Festival Items,Eid Items,Later
+Gifts and Occasions,Festival Items,Rangoli Colours,Later

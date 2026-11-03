@@ -29,6 +29,15 @@ final class MarketplaceSettings
             'group' => 'Sellers', 'label' => 'New seller products wait for admin approval', 'type' => 'switch', 'default' => '1',
             'help' => 'On (default): a NEW product a seller adds is hidden from customers until an admin approves it in Admin → Products. Editing a product (name, photos, price, stock) never needs approval again. Off: new products go live at once. The blocked words below always apply.',
         ],
+        // ── adding products in bulk (2026-11-03) ──
+        'marketplace.photo_list_enabled' => [
+            'group' => 'Sellers', 'label' => 'Sellers can add products from a photo', 'type' => 'switch', 'default' => '1', 'global' => true,
+            'help' => 'On: a seller photographs a price list, bill, shelf or menu and checks the items read from it before adding. Needs the Claude API key on the server; each photo costs a few rupees.',
+        ],
+        'marketplace.photo_list_daily_limit' => [
+            'group' => 'Sellers', 'label' => 'Photos each shop can read per day', 'type' => 'int', 'default' => '20', 'global' => true, 'min' => 0, 'max' => 500,
+            'help' => 'Keeps the cost in check. 0 = none.',
+        ],
         'marketplace.blocked_product_words' => [
             'group' => 'Sellers', 'label' => 'Blocked words in product names', 'type' => 'text', 'default' => null, 'global' => true,
             'help' => 'One word or phrase per line (for example medicine, alcohol, tobacco). A seller cannot list a product whose name or description contains one. Phase 1 sells no food, medicine or regulated items.',

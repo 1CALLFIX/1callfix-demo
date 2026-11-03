@@ -25,8 +25,14 @@ class MarketplaceCategory extends Model
         parent::boot();
 
         static::creating(function (MarketplaceCategory $category) {
+            // Owner link rule: a clean, readable slug; -2, -3 only on a repeat (never a random code).
             if (empty($category->slug)) {
-                $category->slug = Str::slug($category->name).'-'.Str::random(6);
+                $base = Str::slug($category->name) ?: 'category';
+                $slug = $base;
+                for ($n = 2; static::withTrashed()->where('slug', $slug)->exists(); $n++) {
+                    $slug = $base.'-'.$n;
+                }
+                $category->slug = $slug;
             }
         });
     }

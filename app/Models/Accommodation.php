@@ -39,7 +39,13 @@ class Accommodation extends Model
 
         static::creating(function (Accommodation $accommodation) {
             if (empty($accommodation->slug)) {
-                $accommodation->slug = Str::slug($accommodation->name).'-'.Str::random(6);
+                // Owner link rule: a clean, readable slug; -2, -3 only on a repeat (never a random code).
+                $base = Str::slug($accommodation->name) ?: 'accommodation';
+                $slug = $base;
+                for ($n = 2; static::withTrashed()->where('slug', $slug)->exists(); $n++) {
+                    $slug = $base.'-'.$n;
+                }
+                $accommodation->slug = $slug;
             }
         });
     }

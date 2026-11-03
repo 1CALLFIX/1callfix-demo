@@ -223,6 +223,38 @@ class Products extends Component
         $this->resetForm();
     }
 
+    /** 2026-11-03: the seller's products as a CSV that opens in Excel. */
+    public function downloadSheet()
+    {
+        $store = $this->shop();
+        $csv = app(\App\Services\Catalog\SellerProductSheet::class)->export($store);
+
+        return response()->streamDownload(fn () => print($csv), \Illuminate\Support\Str::slug($store->name).'-products.csv', ['Content-Type' => 'text/csv; charset=UTF-8']);
+    }
+
+    /** The sheet uploaded back: same rules as editing here (price/stock at once, a new name waits). */
+    public $sheet = null;
+
+    public function uploadSheet(): void
+    {
+        $this->validate(['sheet' => ['required', 'file', 'mimes:csv,txt', 'max:2048']], ['sheet.required' => 'Choose the file first.', 'sheet.mimes' => 'Upload the .csv file (in Excel: Save As, CSV).'], ['sheet' => 'file']);
+        $store = $this->shop();
+        $r = app(\App\Services\Catalog\SellerProductSheet::class)->import($store, auth()->user(), $this->sheet->getRealPath(), $this->shopScope($store));
+        $this->sheet = null;
+        $parts = array_filter([
+            $r['updated'] ? $r['updated'].' changed' : null,
+            $r['added'] ? $r['added'].' added' : null,
+            $r['waiting'] ? $r['waiting'].' new names waiting for approval' : null,
+            $r['unchanged'] ? $r['unchanged'].' unchanged' : null,
+        ]);
+        $this->sheetErrors = $r['errors'];
+        $this->flash(($parts ? 'File read: '.implode(', ', $parts).'.' : 'Nothing changed.').($r['errors'] ? ' '.count($r['errors']).' rows were skipped (see below).' : ''), $r['errors'] && ! $parts ? 'error' : 'success');
+        $this->dispatch('seller-scroll-top');
+    }
+
+    /** Row problems of the last uploaded sheet. */
+    public array $sheetErrors = [];
+
     /** Quick stock change from the list. */
     public function setStock(int $productId, string $value): void
     {
