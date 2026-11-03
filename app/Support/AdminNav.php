@@ -131,7 +131,7 @@ class AdminNav
             ],
             // Owner 2026-11-03: wallet, loyalty, referrals and memberships in one place.
             'rewards' => [
-                'label' => 'Wallet, Rewards & Memberships', 'collapsible' => true, 'icon' => 'wallet', 'colour' => 'yellow',
+                'label' => 'Wallet & Rewards', 'collapsible' => true, 'icon' => 'wallet', 'colour' => 'yellow',
                 'items' => [
                     ['label' => 'Wallet Ledger', 'route' => 'admin.wallet-ledger.index', 'icon' => 'wallet', 'permission' => 'wallets.view'],
                     ['label' => 'Loyalty & Referrals', 'route' => 'admin.loyalty.index', 'icon' => 'sparkles', 'permission' => 'loyalty.view'],
@@ -171,7 +171,7 @@ class AdminNav
                 ],
             ],
             'geography' => [
-                'label' => 'Countries, Cities & Franchises', 'collapsible' => true, 'icon' => 'map', 'colour' => 'lime',
+                'label' => 'Cities & Franchises', 'collapsible' => true, 'icon' => 'map', 'colour' => 'lime',
                 'items' => [
                     ['label' => 'Countries & Cities', 'route' => 'admin.geography.index', 'icon' => 'map', 'permission' => 'geography.manage'],
                     ['label' => 'Franchises', 'route' => 'admin.franchises.index', 'icon' => 'building', 'permission' => 'franchises.manage'],
