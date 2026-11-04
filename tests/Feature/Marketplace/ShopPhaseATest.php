@@ -131,4 +131,18 @@ class ShopPhaseATest extends TestCase
             ->assertSee('Pay ₹540.00')
             ->set('paymentMethod', 'cash')->assertViewHas('total', 630.0)->assertSee('Place order');
     }
+
+    /** Sticky buy bar 2026-11-04: phones keep Add / Buy now at the bottom; it calls the same actions; none when sold out. */
+    public function test_the_sticky_buy_bar_is_on_the_page_and_uses_the_same_actions(): void
+    {
+        $bottle = $this->w['bottle'];
+        $this->page()->assertSeeHtml('data-testid="sticky-buy-bar"')
+            ->assertSeeHtml("call('addToCart', {$bottle->id})")
+            ->assertSeeHtml("call('buyNow')")
+            ->call('addToCart', $bottle->id)
+            ->assertSeeHtml("call('removeOne', {$bottle->id})");
+
+        $bottle->update(['stock' => 0]);
+        $this->page()->assertDontSeeHtml('data-testid="sticky-buy-bar"');
+    }
 }

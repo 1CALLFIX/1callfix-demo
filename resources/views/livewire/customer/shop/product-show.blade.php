@@ -1,6 +1,23 @@
 @php $t = fn (string $key, array $r = []) => \App\Support\SiteText::get($key, $r); @endphp
-<div class="mb-bottom-nav">
-    <div class="mx-auto max-w-6xl px-4 py-6 sm:px-6 lg:px-8">
+{{-- Sticky buy bar 2026-11-04: on phones, once the main Add / Buy now buttons scroll away, the same buttons stay
+     at the bottom of the screen (and the floating cart bar steps aside so they don't stack). --}}
+<div class="mb-bottom-nav"
+     x-data="{
+        stuck: false,
+        init() {
+            const target = this.$refs.buy;
+            if (! target || ! ('IntersectionObserver' in window)) return;
+            const phone = window.matchMedia('(max-width: 639px)');
+            new IntersectionObserver(([e]) => { this.stuck = phone.matches && ! e.isIntersecting && e.boundingClientRect.top < 0; }).observe(target);
+        },
+        call(method, id = null) {
+            (id === null ? this.$wire.call(method) : this.$wire.call(method, id)).then(() => this.$nextTick(() => {
+                const note = document.querySelector('[data-testid=choice-missing], [data-testid=cart-message]');
+                if (note) note.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }));
+        },
+     }">
+    <div class="mx-auto max-w-6xl px-4 py-6 pb-28 sm:px-6 sm:pb-6 lg:px-8">
         <x-customer.breadcrumbs :items="[
             ['label' => $t('shop.crumb_shop'), 'url' => route('customer.shop.home', $city->slug)],
             ['label' => $store->name, 'url' => route('customer.shop.store', [$city->slug, $store->slug])],
@@ -91,7 +108,7 @@
                 @endforeach
 
                 @if ($cartMessage)
-                    <p role="status" class="mt-3 rounded-xl bg-amber-50 px-4 py-2.5 text-sm text-amber-900">{{ $cartMessage }}</p>
+                    <p role="status" data-testid="cart-message" class="mt-3 rounded-xl bg-amber-50 px-4 py-2.5 text-sm text-amber-900">{{ $cartMessage }}</p>
                 @endif
 
                 {{-- Add to Cart + Buy now (Amazon / Flipkart / Meesho). Once in the cart: the stepper and Buy now. --}}
@@ -101,7 +118,7 @@
                     $addAction = $hasChoices ? 'addChoice' : 'addToCart('.$product->id.')';
                     $lessAction = $hasChoices ? 'removeChoiceOne' : 'removeOne('.$product->id.')';
                 @endphp
-                <div class="mt-5 grid max-w-md grid-cols-2 gap-3">
+                <div x-ref="buy" class="mt-5 grid max-w-md grid-cols-2 gap-3">
                     @if (! $store->is_open)
                         <p class="col-span-2 rounded-2xl bg-slate-100 py-3.5 text-center font-semibold text-slate-500">{{ $t('shop.product.shop_closed') }}</p>
                     @elseif ($soldOut)
@@ -151,6 +168,42 @@
         @endif
     </div>
 
-    <livewire:customer.shop.cart-bar />
+    @if ($store->is_open && ! $soldOut)
+        @php
+            // Only fixed method names and the integer product id go in here, so the raw echo below is safe.
+            $stickyAdd = $hasChoices ? "call('addChoice')" : "call('addToCart', ".(int) $product->id.')';
+            $stickyLess = $hasChoices ? "call('removeChoiceOne')" : "call('removeOne', ".(int) $product->id.')';
+        @endphp
+        <div x-show="stuck" style="display:none" x-transition.opacity
+             class="fixed inset-x-0 bottom-16 z-40 border-t border-slate-200 bg-white/95 px-4 py-2.5 shadow-[0_-4px_16px_rgba(15,23,42,0.08)] backdrop-blur sm:hidden"
+             data-testid="sticky-buy-bar">
+            <div class="mx-auto flex max-w-xl items-center gap-3">
+                <div class="min-w-0 shrink-0">
+                    <p class="text-lg font-extrabold leading-tight tabular-nums text-slate-900">@if (! $selected && $product->choicePricesDiffer())<span class="text-xs font-medium text-slate-500">{{ $t('shop.card.from') }} </span>@endif{{ $currencySymbol }}{{ number_format($priceNow, 2) }}</p>
+                    @if ($inCartQty > 0)
+                        <a href="{{ route('customer.cart') }}" wire:navigate class="text-xs font-semibold text-blue-700">{{ $t('shop.product.in_bag', ['count' => $inCartQty]) }} · {{ $t('cart.bar_view') }}</a>
+                    @elseif ($pct)
+                        <p class="text-xs font-bold text-emerald-600">{{ $t('shop.product.percent_off', ['percent' => $pct]) }}</p>
+                    @endif
+                </div>
+                <div class="grid flex-1 grid-cols-2 gap-2">
+                    @if ($inCartQty > 0)
+                        <div class="flex items-center justify-between rounded-xl border-2 border-blue-600 text-blue-700">
+                            <button type="button" x-on:click="{!! $stickyLess !!}" class="min-h-11 px-3 text-lg font-bold" aria-label="{{ $t('shop.product.one_less') }}">−</button>
+                            <span class="text-sm font-bold tabular-nums" aria-live="polite">{{ $inCartQty }}</span>
+                            <button type="button" x-on:click="{!! $stickyAdd !!}" class="min-h-11 px-3 text-lg font-bold" aria-label="{{ $t('shop.product.one_more') }}">+</button>
+                        </div>
+                    @else
+                        <button type="button" x-on:click="{!! $stickyAdd !!}" class="inline-flex min-h-11 items-center justify-center rounded-xl border-2 border-blue-600 bg-white px-2 text-sm font-bold text-blue-700">{{ $t('shop.product.add_to_bag') }}</button>
+                    @endif
+                    <button type="button" x-on:click="call('buyNow')" class="inline-flex min-h-11 items-center justify-center rounded-xl bg-amber-400 px-2 text-sm font-bold text-slate-900 shadow-sm">{{ $t('shop.product.buy_now') }}</button>
+                </div>
+            </div>
+        </div>
+    @endif
+
+    <div x-show="! stuck">
+        <livewire:customer.shop.cart-bar />
+    </div>
     <livewire:customer.shop.choice-sheet />
 </div>
