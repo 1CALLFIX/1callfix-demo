@@ -1,15 +1,21 @@
 <div class="space-y-5">
-    <div class="flex flex-wrap items-start justify-between gap-3">
-        <div>
-            <h1 class="text-2xl font-bold tracking-tight">{{ $store->name }}</h1>
-            <p class="text-sm text-slate-500">{{ $store->address_line }}</p>
+    {{-- Partner apps 2026-11-04: open/closed as one big switch card, the same as the rider's online switch. --}}
+    @php $word = $store->isRestaurant() ? 'restaurant' : 'shop'; @endphp
+    <div @class(['flex items-center justify-between gap-3 rounded-2xl p-4 text-white',
+        'bg-emerald-600' => $store->isSellable() && $store->is_open, 'bg-slate-800' => ! ($store->isSellable() && $store->is_open)])>
+        <div class="min-w-0">
+            <h1 class="truncate text-xl font-bold tracking-tight">{{ $store->name }}</h1>
+            <p class="truncate text-xs opacity-90">{{ $store->address_line }}</p>
+            @if ($store->isSellable())
+                <p class="mt-1 text-sm font-semibold">{{ $store->is_open ? 'Open — customers can order' : 'Closed — customers cannot order' }}</p>
+            @endif
         </div>
         @if ($store->isSellable())
-            <button type="button" wire:click="toggleOpen"
-                    @class(['inline-flex min-h-11 items-center gap-2 rounded-full px-5 text-sm font-semibold',
-                            'bg-emerald-600 text-white' => $store->is_open, 'bg-slate-200 text-slate-700' => ! $store->is_open])>
-                <span @class(['h-2.5 w-2.5 rounded-full', 'bg-white' => $store->is_open, 'bg-slate-500' => ! $store->is_open])></span>
-                {{ $store->is_open ? 'Open — tap to close' : 'Closed — tap to open' }}
+            <button type="button" wire:click="toggleOpen" role="switch" aria-checked="{{ $store->is_open ? 'true' : 'false' }}"
+                    aria-label="{{ $store->is_open ? 'Close the '.$word : 'Open the '.$word }}" data-testid="open-switch"
+                    @class(['relative inline-flex h-10 w-[4.5rem] shrink-0 items-center rounded-full ring-2',
+                        'bg-white/30 ring-white/70' => $store->is_open, 'bg-white/20 ring-white/40' => ! $store->is_open])>
+                <span @class(['absolute h-8 w-8 rounded-full shadow', 'right-1 bg-white' => $store->is_open, 'left-1 bg-slate-300' => ! $store->is_open])></span>
             </button>
         @endif
     </div>
@@ -70,7 +76,7 @@
         <div class="rounded-2xl border border-slate-300 bg-white p-4 text-sm text-slate-700">Your shop is switched off by the {{ \App\Models\Setting::get('branding.platform_name', '1CallFix') }} team. Contact support.</div>
     @elseif (! $moduleLive)
         <div class="rounded-2xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900">
-            <p class="font-semibold">Your shop is approved.</p>
+            <p class="font-semibold">Your {{ $word }} is approved.</p>
             <p class="mt-1">Shopping opens to customers in your area soon. Keep your products and stock up to date.</p>
         </div>
     @endif

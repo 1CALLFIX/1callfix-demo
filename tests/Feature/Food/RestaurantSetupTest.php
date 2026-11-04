@@ -269,8 +269,10 @@ class RestaurantSetupTest extends TestCase
 
     public function test_the_seller_menu_says_menu_add_ons_and_restaurant_for_a_restaurant(): void
     {
-        $this->actingAs($this->owner)->get(route('seller.dashboard'))->assertOk()
-            ->assertSee('Menu')->assertSee('Add-ons')->assertSee('Restaurant');
+        // Partner apps 2026-11-04: Menu is a bottom tab; Add-ons and Restaurant details are on More.
+        $this->actingAs($this->owner)->get(route('seller.dashboard'))->assertOk()->assertSee('Menu')->assertSee('Restaurant');
+        $this->actingAs($this->owner)->get(route('seller.more'))->assertOk()
+            ->assertSee('Add-ons')->assertSee('Restaurant details')->assertSee(route('seller.add-ons'), false);
     }
 
     // ── test login (owner thumb rule) ───────────────────────────────────

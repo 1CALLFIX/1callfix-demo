@@ -7,9 +7,10 @@
     // Rider app 2026-11-04: an app-style bottom bar (like the customer app). Home runs every job — parcel, shop,
     // food and return pickups — so there is no separate Shop tab any more.
     $navItems = [
-        ['label' => 'Jobs', 'route' => 'rider.dashboard', 'icon' => 'home', 'also' => ['rider.shop']],
-        ['label' => 'History', 'route' => 'rider.history', 'icon' => 'clock'],
+        ['label' => 'Home', 'route' => 'rider.dashboard', 'icon' => 'home', 'also' => ['rider.shop']],
         ['label' => 'Earnings', 'route' => 'rider.earnings', 'icon' => 'banknotes', 'also' => ['rider.payment-accounts', 'rider.request-payout']],
+        ['label' => 'History', 'route' => 'rider.history', 'icon' => 'clock'],
+        ['label' => 'More', 'route' => 'rider.more', 'icon' => 'squares'],
     ];
     $riderNow = auth()->check() ? \App\Models\FieldWorker::where('user_id', auth()->id())->first(['id', 'is_online']) : null;
 @endphp
@@ -41,29 +42,14 @@
                 <a href="{{ route('rider.dashboard') }}" wire:navigate class="truncate text-base font-bold tracking-tight">
                     {{ $platformName }} <span class="font-medium text-blue-600">Rider</span>
                 </a>
-                <div class="flex shrink-0 items-center gap-2" x-data="{ menu: false }">
-                    @if ($riderNow)
-                        <span @class(['inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold',
-                            'bg-emerald-100 text-emerald-800' => $riderNow->is_online, 'bg-slate-100 text-slate-600' => ! $riderNow->is_online])>
-                            <span @class(['h-2 w-2 rounded-full', 'bg-emerald-500' => $riderNow->is_online, 'bg-slate-400' => ! $riderNow->is_online])></span>
-                            {{ $riderNow->is_online ? 'Online' : 'Offline' }}
-                        </span>
-                    @endif
-                    <div class="relative">
-                        <button type="button" x-on:click="menu = ! menu" x-bind:aria-expanded="menu" aria-label="More"
-                                class="flex h-10 w-10 items-center justify-center rounded-full text-slate-600 hover:bg-slate-100">
-                            <span aria-hidden="true" class="text-xl leading-none">&#8943;</span>
-                        </button>
-                        <div x-show="menu" x-on:click.outside="menu = false" style="display: none;"
-                             class="absolute right-0 mt-2 w-56 rounded-xl border border-slate-200 bg-white p-2 text-sm shadow-lg">
-                            <x-partner.mode-switch current="parcel" class="block rounded-lg px-3 py-2 hover:bg-slate-50" />
-                            <form method="POST" action="{{ route('rider.logout') }}">
-                                @csrf
-                                <button type="submit" class="block w-full rounded-lg px-3 py-2 text-left text-slate-600 hover:bg-slate-50">Sign out</button>
-                            </form>
-                        </div>
-                    </div>
-                </div>
+                {{-- Partner apps 2026-11-04: sign out and mode switch live on the More tab; Home has its own big switch. --}}
+                @if ($riderNow && ! request()->routeIs('rider.dashboard'))
+                    <a href="{{ route('rider.dashboard') }}" wire:navigate @class(['inline-flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold',
+                        'bg-emerald-100 text-emerald-800' => $riderNow->is_online, 'bg-slate-100 text-slate-600' => ! $riderNow->is_online])>
+                        <span @class(['h-2 w-2 rounded-full', 'bg-emerald-500' => $riderNow->is_online, 'bg-slate-400' => ! $riderNow->is_online])></span>
+                        {{ $riderNow->is_online ? 'Online' : 'Offline' }}
+                    </a>
+                @endif
             </div>
         </header>
     @endauth
@@ -120,26 +106,7 @@
     </main>
 
     @auth
-        {{-- Rider app 2026-11-04: the app-style bottom bar, on every screen size (riders work on a phone). --}}
-        <nav aria-label="Rider sections" class="fixed inset-x-0 bottom-0 z-40 border-t border-slate-200 bg-white/95 shadow-[0_-8px_24px_-12px_rgba(15,23,42,0.15)] backdrop-blur pb-safe">
-            <ul class="mx-auto grid max-w-3xl grid-cols-3">
-                @foreach ($navItems as $item)
-                    @php $isCurrent = request()->routeIs($item['route'], ...($item['also'] ?? [])); @endphp
-                    <li>
-                        <a href="{{ route($item['route']) }}" wire:navigate @if ($isCurrent) aria-current="page" @endif
-                           @class([
-                               'flex min-h-16 flex-col items-center justify-center gap-1 px-1 py-2 text-xs font-semibold transition',
-                               'text-blue-600' => $isCurrent,
-                               'text-slate-500' => ! $isCurrent,
-                           ])>
-                            <x-icon :name="$item['icon']" class="h-6 w-6" />
-                            <span>{{ $item['label'] }}</span>
-                            <span aria-hidden="true" @class(['block h-0.5 w-6 rounded-full', 'bg-blue-600' => $isCurrent, 'bg-transparent' => ! $isCurrent])></span>
-                        </a>
-                    </li>
-                @endforeach
-            </ul>
-        </nav>
+        <x-partner.bottom-nav :items="$navItems" label="Rider sections" />
     @endauth
 
     @livewireScripts

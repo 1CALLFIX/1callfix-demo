@@ -108,13 +108,13 @@ class ProviderHeartbeatLeakTest extends TestCase
 
     public function test_the_full_layout_still_mounts_the_toggle_twice_and_the_dashboard_once(): void
     {
-        // Documents why the interval has to be page-wide: three markers exist on
-        // the Dashboard (header chip, drawer copy, Dashboard card).
+        // Documents why the interval has to be page-wide: two markers exist on the Dashboard (header chip and
+        // Dashboard card; the drawer copy went with the drawer, partner apps 2026-11-04).
         $provider = $this->provider(true);
 
         $html = $this->actingAs($provider->user)->get(route('provider.dashboard'))->assertOk()->getContent();
 
-        $this->assertGreaterThanOrEqual(3, substr_count($html, 'providerHeartbeat'));
+        $this->assertGreaterThanOrEqual(2, substr_count($html, 'providerHeartbeat'));
         $this->assertStringNotContainsString('setInterval(', $html);
     }
 

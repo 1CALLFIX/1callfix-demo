@@ -269,6 +269,7 @@ Route::middleware(['auth', \App\Http\Middleware\EnsureIsProvider::class, \App\Ht
         Route::get('/history', ProviderHistory::class)->name('provider.history');
         Route::get('/activity', ProviderActivity::class)->name('provider.activity');
         Route::get('/shifts', ProviderShifts::class)->name('provider.shifts');
+        Route::view('/more', 'partner.more.provider')->name('provider.more'); // Partner apps 2026-11-04: the More tab
     });
 
 /*
@@ -296,6 +297,7 @@ Route::middleware(['auth', \App\Http\Middleware\EnsureIsParcelRider::class, \App
         Route::get('/earnings', \App\Livewire\Rider\Earnings::class)->name('rider.earnings');
         Route::get('/payment-accounts', \App\Livewire\Rider\PaymentAccounts::class)->name('rider.payment-accounts');
         Route::get('/request-payout', \App\Livewire\Rider\RequestPayout::class)->name('rider.request-payout');
+        Route::view('/more', 'partner.more.rider')->name('rider.more'); // Partner apps 2026-11-04: the More tab
     });
 
 /*
@@ -326,6 +328,7 @@ Route::middleware(['auth', \App\Http\Middleware\EnsureIsSeller::class, \App\Http
         Route::get('/earnings', \App\Livewire\Seller\Earnings::class)->name('seller.earnings');
         Route::get('/payment-accounts', \App\Livewire\Seller\PaymentAccounts::class)->name('seller.payment-accounts');
         Route::get('/request-payout', \App\Livewire\Seller\RequestPayout::class)->name('seller.request-payout');
+        Route::view('/more', 'partner.more.seller')->name('seller.more'); // Partner apps 2026-11-04: the More tab
     });
 
 // Public content. `page` renders real seeded `content_pages` rows — the

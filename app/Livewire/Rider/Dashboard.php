@@ -308,6 +308,33 @@ class Dashboard extends Component
         }
     }
 
+    /**
+     * Partner apps 2026-11-04: the Today card on Home — jobs finished today (parcel, shop, food, return pickups) and
+     * what the rider earned on them, counted from midnight in the platform timezone.
+     *
+     * @return array{jobs:int, earned:float}
+     */
+    private function todayStats(\App\Models\FieldWorker $rider): array
+    {
+        $from = now(app(TimezoneResolver::class)->platformTimezone())->startOfDay()->utc();
+
+        $parcels = \App\Models\ParcelOrder::where('assigned_worker_id', $rider->id)->where('status', 'delivered')
+            ->where('delivered_at', '>=', $from)->with('commission')->get(['id']);
+        $orderIds = \App\Models\MarketplaceOrder::where('assigned_worker_id', $rider->id)->where('order_type', 'delivery')
+            ->where('status', 'completed')->where('completed_at', '>=', $from)->pluck('id');
+        $shares = \App\Models\MarketplaceSettlement::whereIn('marketplace_order_id', $orderIds)->where('field_worker_id', $rider->id)
+            ->get(['rider_share', 'rider_topup']);
+        $returns = \App\Models\MarketplaceReturn::where('pickup_worker_id', $rider->id)
+            ->where('pickup_status', \App\Models\MarketplaceReturn::PICKUP_DROPPED)->where('dropped_at', '>=', $from)->get(['pickup_fee']);
+
+        return [
+            'jobs' => $parcels->count() + $orderIds->count() + $returns->count(),
+            'earned' => round((float) $parcels->sum(fn ($o) => (float) ($o->commission?->provider_commission ?? 0))
+                + (float) $shares->sum(fn ($s) => (float) $s->rider_share + (float) $s->rider_topup)
+                + (float) $returns->sum('pickup_fee'), 2),
+        ];
+    }
+
     public function render()
     {
         $offers = app(RiderOfferService::class);
@@ -350,6 +377,7 @@ class Dashboard extends Component
             'safetyPhotoCount' => $job ? $job->safetyPhotos()->count() : 0,
             'refusalPay' => $job ? ParcelSettings::get('parcel.refusal_rider_pay', ParcelWaitingCharge::scope($job)) : null,
             'tz' => app(TimezoneResolver::class)->platformTimezone(),
+            'today' => $this->todayStats($rider),
         ])->layout('components.layouts.rider', ['title' => 'Home']);
     }
 }

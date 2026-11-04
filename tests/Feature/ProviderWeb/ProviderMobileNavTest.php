@@ -30,35 +30,30 @@ class ProviderMobileNavTest extends TestCase
         return $this->makeProviderIn($franchise, $zone)->user;
     }
 
-    public function test_the_dashboard_response_contains_the_hamburger_and_drawer(): void
+    /** Partner apps 2026-11-04: the hamburger drawer became an app-style bottom bar on every screen size. */
+    public function test_the_dashboard_shows_the_bottom_bar_with_home_jobs_earnings_and_more(): void
     {
         $response = $this->actingAs($this->providerUser())->get(route('provider.dashboard'));
 
         $response->assertOk();
-        $response->assertSee('Open menu', false);
-        $response->assertSee('Partner menu', false);
+        $response->assertSee('data-testid="partner-bottom-nav"', false);
+        foreach (['provider.dashboard', 'provider.jobs.index', 'provider.earnings', 'provider.more'] as $route) {
+            $response->assertSee(route($route), false);
+        }
+        $response->assertDontSee('Open menu', false);
     }
 
-    /**
-     * The exact bug: History and Activity previously vanished below `sm`
-     * with nothing replacing them. Now every route is unconditionally in
-     * the markup (inline nav + drawer both render all five, CSS only
-     * decides which copy is visible at a given width).
-     */
-    public function test_every_provider_section_is_reachable_from_the_rendered_markup(): void
+    /** Every section that is not a daily tab is one tap away on More — nothing unreachable on a phone. */
+    public function test_every_provider_section_is_reachable_from_the_more_screen(): void
     {
-        $response = $this->actingAs($this->providerUser())->get(route('provider.dashboard'));
+        $response = $this->actingAs($this->providerUser())->get(route('provider.more'));
 
         $response->assertOk();
-        $response->assertSee(route('provider.dashboard'), false);
-        $response->assertSee(route('provider.jobs.index'), false);
-        $response->assertSee(route('provider.earnings'), false);
-        $response->assertSee(route('provider.history'), false);
-        $response->assertSee(route('provider.activity'), false);
-
-        $response->assertSee('Job Offers');
-        $response->assertSee('History');
-        $response->assertSee('Earnings');
+        $response->assertSee('data-testid="partner-more"', false);
+        foreach (['provider.history', 'provider.activity', 'provider.wallet', 'provider.payment-accounts', 'provider.request-payout'] as $route) {
+            $response->assertSee(route($route), false);
+        }
+        $response->assertSee('Job history');
         $response->assertSee('Activity');
     }
 
@@ -79,9 +74,9 @@ class ProviderMobileNavTest extends TestCase
         $response->assertSee('wire:name="provider.online-toggle"', false);
     }
 
-    public function test_sign_out_is_reachable_from_the_drawer_markup(): void
+    public function test_sign_out_is_reachable_from_the_more_screen(): void
     {
-        $response = $this->actingAs($this->providerUser())->get(route('provider.dashboard'));
+        $response = $this->actingAs($this->providerUser())->get(route('provider.more'));
 
         $response->assertOk();
         $response->assertSee(route('provider.logout'), false);

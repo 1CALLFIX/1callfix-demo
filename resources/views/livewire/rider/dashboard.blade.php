@@ -32,23 +32,44 @@
      x-on:livewire:navigating.window="stopHeartbeat()">
     <style>[x-cloak]{display:none!important}</style>
 
-    <div class="flex items-start justify-between gap-3">
-        <div>
-            <h1 class="text-xl font-bold tracking-tight">Hi {{ \Illuminate\Support\Str::before($rider->user?->name ?? 'Rider', ' ') }}</h1>
-            <p class="text-sm text-slate-600">{{ $rider->is_online ? 'You are online' : 'You are offline' }}</p>
+    {{-- Partner apps 2026-11-04: one big online switch (the delivery-app way), then today's numbers at a glance. --}}
+    <div @class(['flex items-center justify-between gap-3 rounded-2xl p-4',
+        'bg-emerald-600 text-white' => $rider->is_online, 'bg-slate-800 text-white' => ! $rider->is_online])>
+        <div class="min-w-0">
+            <p class="text-sm font-medium opacity-90">Hi {{ \Illuminate\Support\Str::before($rider->user?->name ?? 'Rider', ' ') }}</p>
+            <h1 class="text-xl font-bold tracking-tight">{{ $rider->is_online ? 'You are online' : 'You are offline' }}</h1>
+            <p class="text-xs opacity-90">{{ $rider->is_online ? 'Offers will ring on this phone.' : ($rider->kyc_status === 'approved' ? 'Turn on the switch to get delivery offers.' : 'Waiting for your documents to be approved.') }}</p>
         </div>
         @if ($rider->is_online)
-            <button type="button" wire:click="goOffline" x-on:click="stopHeartbeat()"
-                    class="inline-flex min-h-11 items-center gap-2 rounded-full bg-emerald-600 px-5 text-sm font-semibold text-white hover:bg-emerald-700">
-                <span class="h-2 w-2 rounded-full bg-white"></span> Online
+            <button type="button" wire:click="goOffline" x-on:click="stopHeartbeat()" role="switch" aria-checked="true" aria-label="Go offline"
+                    class="relative inline-flex h-10 w-[4.5rem] shrink-0 items-center rounded-full bg-white/30 ring-2 ring-white/70" data-testid="online-switch">
+                <span class="absolute right-1 h-8 w-8 rounded-full bg-white shadow"></span>
             </button>
         @elseif ($rider->kyc_status === 'approved')
-            <button type="button" x-on:click="goOnline(); startHeartbeat()"
-                    class="inline-flex min-h-11 items-center gap-2 rounded-full bg-slate-800 px-5 text-sm font-semibold text-white hover:bg-slate-900">
-                Go online
+            <button type="button" x-on:click="goOnline(); startHeartbeat()" role="switch" aria-checked="false" aria-label="Go online"
+                    class="relative inline-flex h-10 w-[4.5rem] shrink-0 items-center rounded-full bg-white/20 ring-2 ring-white/40" data-testid="online-switch">
+                <span class="absolute left-1 h-8 w-8 rounded-full bg-slate-300 shadow"></span>
             </button>
         @endif
     </div>
+
+    <div class="mt-3 grid grid-cols-3 divide-x divide-slate-100 rounded-2xl border border-slate-200 bg-white text-center" data-testid="rider-today">
+        <div class="px-2 py-3">
+            <p class="text-lg font-bold tabular-nums">{{ $fmt($today['earned']) }}</p>
+            <p class="text-xs text-slate-500">Earned today</p>
+        </div>
+        <div class="px-2 py-3">
+            <p class="text-lg font-bold tabular-nums">{{ $today['jobs'] }}</p>
+            <p class="text-xs text-slate-500">Jobs today</p>
+        </div>
+        <a href="{{ route('rider.earnings') }}" wire:navigate @class(['px-2 py-3', 'rounded-r-2xl bg-rose-50' => $overCashLimit])>
+            <p @class(['text-lg font-bold tabular-nums', 'text-rose-700' => $duesOwed > 0])>{{ $fmt($duesOwed) }}</p>
+            <p class="text-xs text-slate-500">Cash dues →</p>
+        </a>
+    </div>
+    @if ($overCashLimit)
+        <p class="mt-2 text-sm font-medium text-rose-800">You will not get cash orders until you settle your cash dues.</p>
+    @endif
 
     {{-- A rider who signed up on /partners can sign in before approval; offers start only once the documents are approved. --}}
     @if ($rider->kyc_status !== 'approved')
@@ -78,12 +99,6 @@
             We don't have a recent location for you, so you won't get offers.
             <button type="button" x-on:click="goOnline()" class="font-semibold underline">Share location</button>
         </div>
-    @endif
-    @if ($duesOwed > 0)
-        <a href="{{ route('rider.earnings') }}" wire:navigate class="mt-4 block rounded-xl border p-3 text-sm {{ $overCashLimit ? 'border-rose-200 bg-rose-50 text-rose-900' : 'border-slate-200 bg-white text-slate-700' }}">
-            Cash dues: <span class="font-semibold">{{ $fmt($duesOwed) }}</span>.
-            {{ $overCashLimit ? 'You will not get cash orders until you settle.' : 'Recovered from your online earnings.' }} →
-        </a>
     @endif
 
     {{-- ═══════════ Current job ═══════════ --}}

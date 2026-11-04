@@ -196,8 +196,8 @@ class OneAccountManyPartnerRolesTest extends TestCase
         $user = $provider->user;
         $user->forceFill(['phone_verified_at' => now(), 'password' => Hash::make('my-old-pass-1')])->save();
 
-        // The partner dashboard offers "Deliver parcels too" while riders are being recruited.
-        $this->actingAs($user)->get(route('provider.dashboard'))->assertOk()
+        // The partner app's More tab offers "Deliver parcels too" while riders are being recruited.
+        $this->actingAs($user)->get(route('provider.more'))->assertOk()
             ->assertSee('Deliver parcels too')->assertSee(route('customer.partners', ['role' => 'parcel']), false);
 
         // /partners (rider card) → the rider sign-up; a fresh code to the account's own number.
@@ -222,8 +222,8 @@ class OneAccountManyPartnerRolesTest extends TestCase
         $this->assertSame(1, User::where('phone', $user->phone)->count());
 
         // Both dashboards, one sign-in: each offers a switch to the other.
-        $this->actingAs($user->fresh())->get(route('provider.dashboard'))->assertOk()->assertSee('Switch to rider mode');
-        $this->actingAs($user->fresh())->get(route('rider.dashboard'))->assertOk()->assertSee('Switch to partner mode');
+        $this->actingAs($user->fresh())->get(route('provider.more'))->assertOk()->assertSee('Switch to rider mode');
+        $this->actingAs($user->fresh())->get(route('rider.more'))->assertOk()->assertSee('Switch to partner mode');
     }
 
     public function test_a_rider_can_add_services_and_a_second_same_role_application_is_refused(): void

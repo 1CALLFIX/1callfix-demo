@@ -8,13 +8,14 @@
     $isRestaurant = auth()->check() && \App\Models\Store::whereHas('provider', fn ($q) => $q->where('user_id', auth()->id()))
         ->when((int) request()->query('store'), fn ($q, $id) => $q->whereKey($id))
         ->orderBy('id')->value('module') === \App\Support\Modules::FOOD; // same shop InteractsWithSeller::shop() picks
+    // Partner apps 2026-11-04: an app-style bottom bar with four daily tabs; Shop/Restaurant details, Add-ons, bank
+    // accounts, mode switch and sign out moved to More (the old top row scrolled sideways on a phone).
     $navItems = [
         ['label' => 'Home', 'route' => 'seller.dashboard', 'icon' => 'home'],
         ['label' => 'Orders', 'route' => 'seller.orders', 'icon' => 'clipboard'],
-        ['label' => $isRestaurant ? 'Menu' : 'Products', 'route' => 'seller.products', 'icon' => 'wrench'],
-        ...($isRestaurant ? [['label' => 'Add-ons', 'route' => 'seller.add-ons', 'icon' => 'wrench']] : []),
-        ['label' => $isRestaurant ? 'Restaurant' : 'Shop', 'route' => 'seller.shop', 'icon' => 'building'],
+        ['label' => $isRestaurant ? 'Menu' : 'Products', 'route' => 'seller.products', 'icon' => 'tag', 'also' => ['seller.products.add-many', 'seller.products.choices']],
         ['label' => 'Earnings', 'route' => 'seller.earnings', 'icon' => 'banknotes', 'also' => ['seller.payment-accounts', 'seller.request-payout']],
+        ['label' => 'More', 'route' => 'seller.more', 'icon' => 'squares', 'also' => ['seller.shop', 'seller.add-ons']],
     ];
 @endphp
 <!DOCTYPE html>
@@ -39,36 +40,16 @@
     <a href="#seller-main" class="skip-link">Skip to main content</a>
 
     @auth
-        <header class="border-b border-slate-200 bg-white">
+        <header class="sticky top-0 z-30 border-b border-slate-200 bg-white/95 backdrop-blur">
             <div class="mx-auto flex max-w-5xl items-center justify-between gap-3 px-4 py-3 sm:px-6">
                 <a href="{{ route('seller.dashboard') }}" wire:navigate class="truncate text-base font-bold tracking-tight">
-                    {{ $platformName }} <span class="font-medium text-blue-600">Seller</span>
+                    {{ $platformName }} <span class="font-medium text-blue-600">{{ $isRestaurant ? 'Restaurant' : 'Seller' }}</span>
                 </a>
-                <div class="flex shrink-0 items-center gap-4">
-                    <x-partner.mode-switch current="commerce" class="hidden text-sm sm:inline" />
-                    <form method="POST" action="{{ route('seller.logout') }}">
-                        @csrf
-                        <button type="submit" class="text-sm text-slate-500 hover:text-slate-900">Sign out</button>
-                    </form>
-                </div>
             </div>
-            <nav aria-label="Seller sections" class="mx-auto flex max-w-5xl gap-1 overflow-x-auto px-2 pb-2 sm:px-4">
-                @foreach ($navItems as $item)
-                    @php $isCurrent = request()->routeIs($item['route'], ...($item['also'] ?? [])); @endphp
-                    <a href="{{ route($item['route']) }}" wire:navigate @if ($isCurrent) aria-current="page" @endif
-                       @class([
-                           'inline-flex min-h-10 flex-1 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg px-3 text-sm font-medium transition',
-                           'bg-blue-50 text-blue-700' => $isCurrent,
-                           'text-slate-600 hover:bg-slate-50' => ! $isCurrent,
-                       ])>
-                        <x-icon :name="$item['icon']" class="h-4 w-4" /> {{ $item['label'] }}
-                    </a>
-                @endforeach
-            </nav>
         </header>
     @endauth
 
-    <main id="seller-main" tabindex="-1" class="mx-auto w-full max-w-5xl flex-1 px-4 py-6 focus:outline-none sm:px-6">
+    <main id="seller-main" tabindex="-1" class="mx-auto w-full max-w-5xl flex-1 px-4 py-5 focus:outline-none sm:px-6" @auth style="padding-bottom: calc(5.5rem + env(safe-area-inset-bottom, 0px));" @endauth>
         @auth
             @unless (request()->routeIs('seller.login'))
                 <livewire:seller.order-watcher />
@@ -81,6 +62,10 @@
             <x-ui.app-version class="mt-10 text-center" />
         @endauth
     </main>
+
+    @auth
+        <x-partner.bottom-nav :items="$navItems" label="Seller sections" />
+    @endauth
 
     @livewireScripts
     @stack('scripts')
