@@ -106,16 +106,19 @@ class ProviderHeartbeatLeakTest extends TestCase
         $this->assertSame(0, substr_count($dashboard->html(), self::MARKER));
     }
 
-    public function test_the_full_layout_still_mounts_the_toggle_twice_and_the_dashboard_once(): void
+    public function test_the_dashboard_has_one_marker_and_other_pages_keep_the_header_chip(): void
     {
-        // Documents why the interval has to be page-wide: two markers exist on the Dashboard (header chip and
-        // Dashboard card; the drawer copy went with the drawer, partner apps 2026-11-04).
+        // Partner apps 2026-11-04: the Dashboard's big switch card replaces the header chip there (one marker);
+        // every other page keeps the header chip (one marker). The interval stays page-wide in provider-alerts.js.
         $provider = $this->provider(true);
 
         $html = $this->actingAs($provider->user)->get(route('provider.dashboard'))->assertOk()->getContent();
-
-        $this->assertGreaterThanOrEqual(2, substr_count($html, 'providerHeartbeat'));
+        $this->assertSame(1, substr_count($html, 'x-data="providerHeartbeat"'));
+        $this->assertStringContainsString('data-testid="provider-switch-card"', $html);
         $this->assertStringNotContainsString('setInterval(', $html);
+
+        $jobs = $this->actingAs($provider->user)->get(route('provider.jobs.index'))->assertOk()->getContent();
+        $this->assertSame(1, substr_count($jobs, 'x-data="providerHeartbeat"'));
     }
 
     public function test_a_stale_twin_re_renders_offline_when_another_copy_goes_offline(): void

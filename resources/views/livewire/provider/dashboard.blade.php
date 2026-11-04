@@ -1,6 +1,62 @@
 <div wire:poll.10s>
-    <h1 class="text-xl font-bold tracking-tight">Hi, {{ $provider->user?->name ?? 'there' }}</h1>
-    <p class="text-sm text-slate-500">{{ $provider->zone?->name ? $provider->zone->name.' · ' : '' }}KYC {{ $provider->kyc_status }}</p>
+    {{-- Partner apps 2026-11-04: one big online switch, same look as the rider and seller apps. --}}
+    <div @class(['rounded-2xl p-4 text-white', 'bg-emerald-600' => $provider->is_online, 'bg-slate-800' => ! $provider->is_online])
+         data-testid="provider-switch-card">
+        <div class="flex items-center justify-between gap-3">
+            <div class="min-w-0">
+                <p class="text-sm font-medium opacity-90">Hi, {{ $provider->user?->name ?? 'there' }}</p>
+                <h1 class="text-xl font-bold tracking-tight">{{ $provider->is_online ? 'You are online' : 'You are offline' }}</h1>
+                <p class="text-xs opacity-90">{{ $provider->is_online ? 'Job offers will ring on this phone.' : 'Turn on the switch to get job offers.' }}</p>
+            </div>
+            @if ($provider->is_online)
+                <button type="button" wire:click="goOffline" role="switch" aria-checked="true" aria-label="Go offline"
+                        class="relative inline-flex h-10 w-[4.5rem] shrink-0 items-center rounded-full bg-white/30 ring-2 ring-white/70" data-testid="online-switch">
+                    <span class="absolute right-1 h-8 w-8 rounded-full bg-white shadow"></span>
+                </button>
+            @else
+                <button type="button" x-data role="switch" aria-checked="false" aria-label="Go online"
+                        x-on:click="
+                            $el.disabled = true;
+                            navigator.geolocation
+                                ? navigator.geolocation.getCurrentPosition(
+                                    p => { $wire.goOnline(p.coords.latitude, p.coords.longitude); $el.disabled = false; },
+                                    () => { $wire.goOnline(null, null); $el.disabled = false; },
+                                    { timeout: 8000 })
+                                : ($wire.goOnline(null, null), $el.disabled = false)
+                        "
+                        class="relative inline-flex h-10 w-[4.5rem] shrink-0 items-center rounded-full bg-white/20 ring-2 ring-white/40 disabled:opacity-50" data-testid="online-switch">
+                    <span class="absolute left-1 h-8 w-8 rounded-full bg-slate-300 shadow"></span>
+                </button>
+            @endif
+        </div>
+        <div class="mt-3 flex items-center justify-between gap-3 border-t border-white/20 pt-3 text-xs">
+            <p class="opacity-90">
+                {{ $provider->zone?->name ? $provider->zone->name.' · ' : '' }}KYC {{ $provider->kyc_status }} ·
+                @if ($provider->location_updated_at)
+                    Location updated {{ $provider->location_updated_at->diffForHumans() }}
+                @else
+                    No location on file
+                @endif
+            </p>
+            @if ($provider->is_online)
+                <button type="button" x-data
+                        x-on:click="
+                            $el.disabled = true;
+                            navigator.geolocation
+                                ? navigator.geolocation.getCurrentPosition(
+                                    p => { $wire.refreshLocation(p.coords.latitude, p.coords.longitude); $el.disabled = false; },
+                                    () => { $wire.refreshLocation(null, null); $el.disabled = false; },
+                                    { timeout: 8000 })
+                                : ($wire.refreshLocation(null, null), $el.disabled = false)
+                        "
+                        class="inline-flex min-h-9 shrink-0 items-center rounded-lg bg-white/20 px-3 font-semibold hover:bg-white/30 disabled:opacity-50">
+                    Refresh location
+                </button>
+                {{-- Location heartbeat marker — see online-toggle.blade.php. --}}
+                <div x-data="providerHeartbeat" aria-hidden="true"></div>
+            @endif
+        </div>
+    </div>
 
     @if ($notice)
         <div role="status" class="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">{{ $notice }}</div>
@@ -74,68 +130,6 @@
             </a>
         @endif
     </div>
-
-    {{-- ===================== Online / offline ===================== --}}
-    <x-ui.card class="mt-4 !p-5">
-        <div class="flex items-center justify-between gap-4">
-            <div>
-                <p class="text-sm font-semibold">
-                    You are
-                    <span class="{{ $provider->is_online ? 'text-emerald-600' : 'text-slate-500' }}">
-                        {{ $provider->is_online ? 'online' : 'offline' }}
-                    </span>
-                </p>
-                <p class="mt-0.5 text-xs text-slate-500">
-                    @if ($provider->location_updated_at)
-                        Location updated {{ $provider->location_updated_at->diffForHumans() }}
-                    @else
-                        No location on file
-                    @endif
-                </p>
-            </div>
-
-            @if ($provider->is_online)
-                <div class="flex flex-wrap items-center justify-end gap-2">
-                    <button type="button" x-data
-                            x-on:click="
-                                $el.disabled = true;
-                                navigator.geolocation
-                                    ? navigator.geolocation.getCurrentPosition(
-                                        p => { $wire.refreshLocation(p.coords.latitude, p.coords.longitude); $el.disabled = false; },
-                                        () => { $wire.refreshLocation(null, null); $el.disabled = false; },
-                                        { timeout: 8000 })
-                                    : ($wire.refreshLocation(null, null), $el.disabled = false)
-                            "
-                            class="inline-flex min-h-11 items-center rounded-lg border border-blue-300 bg-white px-4 text-sm font-semibold text-blue-700 hover:bg-blue-50 disabled:opacity-50">
-                        Refresh location
-                    </button>
-                    <button type="button" wire:click="goOffline"
-                            class="inline-flex min-h-11 items-center rounded-lg border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-800 hover:bg-slate-50">
-                        Go offline
-                    </button>
-                </div>
-            @else
-                <button type="button" x-data
-                        x-on:click="
-                            $el.disabled = true;
-                            navigator.geolocation
-                                ? navigator.geolocation.getCurrentPosition(
-                                    p => { $wire.goOnline(p.coords.latitude, p.coords.longitude); $el.disabled = false; },
-                                    () => { $wire.goOnline(null, null); $el.disabled = false; },
-                                    { timeout: 8000 })
-                                : ($wire.goOnline(null, null), $el.disabled = false)
-                        "
-                        class="inline-flex min-h-11 items-center rounded-lg bg-emerald-600 px-4 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-50">
-                    Go online
-                </button>
-            @endif
-        </div>
-
-        @if ($provider->is_online)
-            {{-- Location heartbeat marker — see online-toggle.blade.php. --}}
-            <div x-data="providerHeartbeat" aria-hidden="true"></div>
-        @endif
-    </x-ui.card>
 
     {{-- ===================== Eligibility panel ===================== --}}
     <x-ui.card class="mt-4 !p-5" title="Will you get jobs?">

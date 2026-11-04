@@ -64,9 +64,12 @@
                 <a href="{{ route('provider.dashboard') }}" wire:navigate class="truncate text-base font-bold tracking-tight">
                     {{ $platformName }} <span class="font-medium text-blue-600">Partner</span>
                 </a>
-                <div class="flex shrink-0 items-center gap-3">
-                    <livewire:provider.online-toggle />
-                </div>
+                {{-- The home page has the big switch card; every other page keeps this small one. --}}
+                @unless (request()->routeIs('provider.dashboard'))
+                    <div class="flex shrink-0 items-center gap-3">
+                        <livewire:provider.online-toggle />
+                    </div>
+                @endunless
             </div>
         </header>
     @endif
