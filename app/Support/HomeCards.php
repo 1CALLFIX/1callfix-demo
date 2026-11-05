@@ -47,9 +47,13 @@ final class HomeCards
         return match ($card) {
             'parcel' => 25,
             'shop' => 35,
+            'food' => 37,
             default => ($index + 1) * 10,
         };
     }
+
+    /** Owner 2026-11-05: parcel is promoted with a banner, so its card is off until switched on. */
+    private const DEFAULT_OFF = ['parcel'];
 
     public static function showKey(string $card): string
     {
@@ -70,7 +74,7 @@ final class HomeCards
     {
         $v = self::raw(self::showKey($card));
 
-        return $v === null || $v === '' ? true : in_array(strtolower($v), ['1', 'true', 'on', 'yes'], true);
+        return $v === null || $v === '' ? ! in_array($card, self::DEFAULT_OFF, true) : in_array(strtolower($v), ['1', 'true', 'on', 'yes'], true);
     }
 
     public static function cardOrder(string $card, int $index = 0): int

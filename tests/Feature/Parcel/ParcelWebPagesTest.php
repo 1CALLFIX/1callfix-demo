@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Parcel;
 
+use Tests\Feature\Support\UnsavedHomeLayout;
 use App\Livewire\Customer\Parcel\Create;
 use App\Livewire\Customer\Parcel\Show;
 use App\Livewire\ParcelOrders\Manage as AdminParcelOrders;
@@ -255,6 +256,7 @@ class ParcelWebPagesTest extends TestCase
 
     public function test_home_shows_the_parcel_tile_only_where_parcel_is_active(): void
     {
+        UnsavedHomeLayout::apply();
         $w = $this->world(active: false);
         app(\App\Services\Customer\CustomerLocationContext::class)->setZone($w['zone']->id);
 

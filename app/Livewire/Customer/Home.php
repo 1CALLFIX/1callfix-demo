@@ -207,6 +207,13 @@ class Home extends Component
         if (($city = $this->shopCity()) && \App\Support\HomeCards::cardShown('shop')) {
             $tiles = $this->shopCategories($city, $n)->map(fn ($c) => ['name' => $c->name, 'url' => route('customer.shop.home', [$city->slug, 'category' => $c->slug]),
                 'image' => self::shopCategoryImage($c), 'tint' => null, 'new' => $isNew($c)])->all();
+            // Owner 2026-11-05: every live business gets its card. Products not yet in a shop category → the shops themselves.
+            if (count($tiles) < 2) {
+                $tiles = $this->shopStores($city)->whereHas('products', fn ($q) => $q->where('is_active', true)->where('is_approved', true))
+                    ->orderByDesc('is_open')->orderBy('name')->limit($n)->get()
+                    ->map(fn ($s) => ['name' => $s->name, 'url' => route('customer.shop.store', [$city->slug, $s->slug]),
+                        'image' => $s->logo_url, 'tint' => null, 'new' => $isNew($s)])->all();
+            }
             if ($tiles !== []) {
                 $open = $this->shopsOpen($city);
                 $cards[] = ['key' => 'shop', 'order' => \App\Support\HomeCards::cardOrder('shop'), 'title' => $text('home.card.shop.title'),
@@ -215,6 +222,28 @@ class Home extends Component
                         $open === 1 => $text('home.card.shop.live_one'),
                         $open > 1 => $text('home.card.shop.live', ['count' => $open]),
                         default => $text('home.card.shop.line'),
+                    }];
+            }
+        }
+
+        // Food card (owner 2026-11-05): restaurants with a menu in the visitor's city, open ones first.
+        $foodCity = app(\App\Services\Seo\CityContext::class)->current();
+        if ($foodCity && \App\Support\Seo\CityModules::foodLiveIn($foodCity) && \App\Support\HomeCards::cardShown('food')) {
+            $restaurants = \App\Livewire\Customer\Food\Home::publicRestaurantsIn($foodCity)->with(['hours', 'franchise'])
+                ->whereHas('products', fn ($q) => $q->where('is_active', true)->where('is_approved', true))
+                ->orderByDesc('is_open')->orderBy('name')->limit($n * 2)->get()
+                ->reject(fn ($s) => $s->missingFssai())->take($n);
+            if ($restaurants->isNotEmpty()) {
+                $open = \App\Livewire\Customer\Food\Home::openCountIn($foodCity);
+                $home = route('customer.food.home', $foodCity->slug);
+                $cards[] = ['key' => 'food', 'order' => \App\Support\HomeCards::cardOrder('food'), 'title' => $text('home.card.food.title'),
+                    'url' => $home, 'line_url' => $home,
+                    'tiles' => $restaurants->map(fn ($s) => ['name' => $s->name, 'url' => route('customer.food.restaurant', [$foodCity->slug, $s->slug]),
+                        'image' => $s->logo_url, 'tint' => null, 'new' => $isNew($s)])->values()->all(),
+                    'line' => \App\Support\HomeCards::line('food') ?? match (true) {
+                        $open === 1 => $text('home.card.food.live_one'),
+                        $open > 1 => $text('home.card.food.live', ['count' => $open]),
+                        default => $text('home.card.food.line'),
                     }];
             }
         }

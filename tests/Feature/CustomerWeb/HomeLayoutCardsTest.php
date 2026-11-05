@@ -71,8 +71,16 @@ class HomeLayoutCardsTest extends TestCase
         return $pos;
     }
 
+    /** The 2026-11-05 migration saves an order; these tests cover a database where none was ever saved. */
+    private function forgetSavedOrder(): void
+    {
+        Setting::clear(HomeLayout::ORDER, 'global', null);
+        request()->attributes->replace([]);
+    }
+
     public function test_the_order_follows_the_older_settings_until_the_super_admin_saves_one(): void
     {
+        $this->forgetSavedOrder();
         $this->assertFalse(HomeLayout::hasSavedOrder());
         $this->assertSame(['doors', 'categories', 'hero_banner', 'parcel_card', 'module_cards'], array_slice(HomeLayout::order(), 0, 5));
 
@@ -120,6 +128,11 @@ class HomeLayoutCardsTest extends TestCase
         MarketplaceCategory::create(['module' => 'commerce', 'name' => 'Toys', 'slug' => 'toys', 'position' => 2, 'is_active' => true]);
         $this->makeProduct($store, ['name' => 'Sona Rice', 'marketplace_category_id' => $rice->id]);
 
+        // Owner 2026-11-05: parcel gets a banner, so its card is off until the Super Admin switches it on.
+        $this->assertNotContains('parcel', $this->cardsOrder($this->get('/')->getContent()));
+        Setting::set(HomeCards::showKey('parcel'), '1');
+        request()->attributes->replace([]);
+
         $html = $this->get('/')->assertOk()->assertSee('Parcel &amp; delivery', false)->assertSee('Send now')->assertSee('My parcels')
             ->assertSee('Shop near you')->assertSee('Grocery')->assertDontSee('Toys')
             ->assertSee('1 shop open now, order in a tap')->assertSee('category=grocery', false)->getContent();
@@ -128,6 +141,48 @@ class HomeLayoutCardsTest extends TestCase
         Setting::set(HomeCards::orderKey('shop'), '1');
         Setting::set(HomeCards::showKey('parcel'), '0');
         $this->assertSame(['shop', 'category_'.$this->category->id], $this->cardsOrder($this->get('/')->getContent()));
+    }
+
+    public function test_the_shop_card_shows_the_shops_when_products_have_no_shop_category(): void
+    {
+        $this->activateMarketplaceModuleFor($this->franchise);
+        $store = $this->makeStore($this->franchise, $this->zone, null, ['name' => 'Ravi Kirana', 'slug' => 'ravi-kirana', 'is_open' => true]);
+        $this->makeProduct($store, ['name' => 'Sona Rice', 'marketplace_category_id' => null]);
+
+        $html = $this->get('/')->assertOk()->assertSee('Shop near you')->assertSee('Ravi Kirana')
+            ->assertSee('/shop/ravi-kirana', false)->getContent();
+        $this->assertContains('shop', $this->cardsOrder($html));
+    }
+
+    public function test_a_food_card_shows_restaurants_with_a_menu_and_a_licence_only(): void
+    {
+        $this->activateMarketplaceModuleFor($this->franchise, \App\Support\Modules::FOOD);
+        $food = fn (string $name, array $o = []) => $this->makeStore($this->franchise, $this->zone, null, array_merge([
+            'module' => \App\Support\Modules::FOOD, 'name' => $name, 'slug' => Str::slug($name), 'fssai_number' => '12345678901234', 'is_open' => true,
+        ], $o));
+        $this->makeProduct($food('Annapurna Mess'), ['name' => 'Veg Meals']);
+        $this->makeProduct($food('No Licence Kitchen', ['fssai_number' => null]), ['name' => 'Dosa']);
+        $food('Empty Kitchen');
+
+        $html = $this->get('/')->assertOk()->assertSee('Food near you')->assertSee('Annapurna Mess')
+            ->assertSee('/food/annapurna-mess', false)->assertDontSee('No Licence Kitchen')->assertDontSee('Empty Kitchen')->getContent();
+        $this->assertContains('food', $this->cardsOrder($html));
+
+        Setting::set(HomeCards::showKey('food'), '0');
+        request()->attributes->replace([]);
+        $this->assertNotContains('food', $this->cardsOrder($this->get('/')->getContent()));
+    }
+
+    public function test_the_2026_11_05_order_puts_the_banner_first_and_the_business_cards_after_most_booked_and_offers(): void
+    {
+        $migration = require database_path('migrations/2026_11_05_100000_home_order_modules_after_offers.php');
+        $migration->up();
+        request()->attributes->replace([]);
+
+        $this->assertSame(['hero_banner', 'doors', 'most_booked', 'offers', 'module_cards', 'categories'], array_slice(HomeLayout::order(), 0, 6));
+        $this->assertFalse(HomeCards::cardShown('parcel'));
+        $this->assertNotContains('parcel_card', HomeLayout::visible());
+        $this->assertSame('Best offers near you', SiteText::get('home.offers.title'));
     }
 
     public function test_the_super_admin_moves_and_hides_sections_and_only_a_super_admin_can(): void
@@ -156,6 +211,7 @@ class HomeLayoutCardsTest extends TestCase
 
     public function test_saving_without_reordering_keeps_the_older_settings_in_charge(): void
     {
+        $this->forgetSavedOrder();
         $this->actingAs($this->makeSuperAdmin());
         Livewire::test(Manage::class)->call('save');
         $this->assertFalse(HomeLayout::hasSavedOrder());

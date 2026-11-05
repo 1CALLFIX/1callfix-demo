@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\CustomerWeb;
 
+use Tests\Feature\Support\UnsavedHomeLayout;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
 use Tests\Feature\CustomerWeb\Support\CatalogFixtures;
@@ -79,6 +80,7 @@ class HeaderSearchAndHeroTest extends TestCase
 
     public function test_dom_order_is_hero_headline_then_category_grid_then_banner_by_default(): void
     {
+        UnsavedHomeLayout::apply();
         $this->makeBanner('top', ['title' => 'Hero Ad Banner']);
         $category = $this->makeCategory(['name' => 'Cleaning Cat']);
         $this->makeService($category, ['name' => 'Some Service']);

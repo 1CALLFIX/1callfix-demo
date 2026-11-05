@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Parcel;
 
+use Tests\Feature\Support\UnsavedHomeLayout;
 use App\Livewire\SiteControls\Manage;
 use App\Models\ActivityLog;
 use App\Models\Franchise;
@@ -37,6 +38,7 @@ class ParcelHomeCardTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        UnsavedHomeLayout::apply();
         $this->liveCity();
         $this->makeCategoryAndService();
         $this->franchise = Franchise::firstOrFail();

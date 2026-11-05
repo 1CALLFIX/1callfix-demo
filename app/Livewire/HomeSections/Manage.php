@@ -105,6 +105,7 @@ class Manage extends Component
         }
         $list['parcel'] = ['title' => \App\Support\SiteText::get('home.card.parcel.title'), 'index' => 0];
         $list['shop'] = ['title' => \App\Support\SiteText::get('home.card.shop.title'), 'index' => 0];
+        $list['food'] = ['title' => \App\Support\SiteText::get('home.card.food.title'), 'index' => 0];
 
         return $list;
     }
