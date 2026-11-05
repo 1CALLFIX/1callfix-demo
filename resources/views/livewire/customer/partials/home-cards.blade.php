@@ -4,7 +4,8 @@
     Data, order and words: Home::moduleCards() + HomeCards + SiteText (all Super Admin).
 --}}
 @php
-    $cols = \App\Support\HomeCards::icons() === 8 ? 'grid-cols-4 sm:grid-cols-8' : 'grid-cols-4';
+    // Owner 2026-11-05: one row only — four icons fit across (eight from `sm` when set), the rest scroll sideways.
+    $cols = \App\Support\HomeCards::icons() === 8 ? 'auto-cols-[calc((100%_-_1.5rem)/4.4)] sm:auto-cols-[calc((100%_-_3.5rem)/8.4)]' : 'auto-cols-[calc((100%_-_1.5rem)/4.4)]';
     $fit = \App\Support\SiteControls::imageClasses();
 @endphp
 <section aria-label="{{ \App\Support\SiteText::get('home.categories.sr') }}" class="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8" data-testid="home-cards">
@@ -22,9 +23,9 @@
                     </a>
                 </div>
 
-                <ul class="mt-3 grid {{ $cols }} gap-x-2 gap-y-4">
+                <ul class="mt-3 grid grid-flow-col {{ $cols }} snap-x gap-x-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                     @foreach ($card['tiles'] as $tile)
-                        <li>
+                        <li class="snap-start">
                             <a href="{{ $tile['url'] }}" wire:navigate
                                class="group flex h-full flex-col items-center gap-1.5 rounded-2xl p-1 text-center focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600">
                                 <span aria-hidden="true" class="relative grid h-14 w-14 place-items-center overflow-hidden rounded-2xl bg-gradient-to-br from-blue-50 to-sky-100 text-blue-700 ring-1 ring-inset ring-blue-100 transition duration-200 group-hover:-translate-y-0.5 group-hover:shadow-md group-hover:shadow-blue-600/15 sm:h-16 sm:w-16"

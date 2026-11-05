@@ -44,9 +44,9 @@
                 </div>
             </div>
 
-            <ul class="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <ul class="mt-8 flex snap-x gap-4 overflow-x-auto pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                 @foreach ($google['reviews'] as $review)
-                    <li class="flex flex-col rounded-2xl border border-slate-200 bg-white p-5">
+                    <li class="flex w-[80%] shrink-0 snap-start flex-col rounded-2xl border border-slate-200 bg-white p-5 sm:w-[45%] lg:w-[31%]">
                         <div class="flex items-center gap-3">
                             @if ($review['photo'])
                                 <img src="{{ $review['photo'] }}" alt="" width="40" height="40" loading="lazy" decoding="async"

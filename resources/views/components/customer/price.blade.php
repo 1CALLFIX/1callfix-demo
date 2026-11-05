@@ -39,15 +39,16 @@
 
     <span @class([
         'font-bold text-slate-900',
-        'text-lg' => ! $isLarge,
+        'text-lg' => ! $isLarge && $size !== 'xs',
+        'text-sm' => $size === 'xs',
         'text-3xl' => $isLarge,
     ])>{{ $currencySymbol }}{{ number_format($card['price'], 2) }}</span>
 
     @if ($card['original_price'] !== null)
-        <span class="text-sm text-slate-400 line-through">
+        <span @class(['text-slate-400 line-through', 'text-sm' => $size !== 'xs', 'text-[11px]' => $size === 'xs'])>
             <span class="sr-only">Usual price</span>{{ $currencySymbol }}{{ number_format($card['original_price'], 2) }}
         </span>
-        @if ($card['discount_percent'])
+        @if ($card['discount_percent'] && $size !== 'xs')
             <span class="rounded bg-emerald-50 px-1.5 py-0.5 text-[11px] font-semibold text-emerald-700">
                 {{ $card['discount_percent'] }}% off
             </span>

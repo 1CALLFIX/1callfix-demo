@@ -2,6 +2,7 @@
     'card',
     'currencySymbol' => '₹',
     'compact' => false,
+    'tile' => false,
 ])
 
 {{--
@@ -40,6 +41,32 @@
 @php
     $service = $card['service'];
 @endphp
+
+@if ($tile)
+{{-- Homepage tile (owner 2026-11-05): a small picture, the service name and the price — nothing else. --}}
+<a href="{{ $card['url'] }}"
+   {{ $attributes->merge(['class' => 'group relative flex h-full flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white transition duration-200 hover:border-blue-300 hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600']) }}
+   data-service-tile>
+    <div class="{{ \App\Support\SiteControls::frameClasses() }} relative aspect-square w-full overflow-hidden bg-slate-100">
+        <span aria-hidden="true"
+              class="absolute inset-0 flex items-center justify-center text-lg font-bold text-slate-700"
+              style="background-color: {{ preg_match('/^#[0-9a-fA-F]{6}$/', (string) ($card['category']->color ?? '')) ? $card['category']->color.'26' : '#E2E8F0' }}">
+            <x-customer.initial :name="$card['name']" />
+        </span>
+        @if ($card['image_url'])
+            <img src="{{ $card['image_url'] }}" alt="" loading="lazy" decoding="async" width="300" height="300"
+                 class="absolute inset-0 h-full w-full {{ \App\Support\SiteControls::imageClasses() }}">
+        @endif
+        @if ($card['discount_percent'] ?? null)
+            <span class="absolute left-1 top-1 rounded bg-emerald-600 px-1 text-[10px] font-bold leading-4 text-white">{{ $card['discount_percent'] }}% off</span>
+        @endif
+    </div>
+    <div class="flex flex-1 flex-col gap-1 p-2">
+        <h3 class="line-clamp-2 text-xs font-semibold leading-snug text-slate-900 sm:text-sm">{{ $card['name'] }}</h3>
+        <x-customer.price :card="$card" :currency-symbol="$currencySymbol" size="xs" class="mt-auto" />
+    </div>
+</a>
+@else
 
 {{-- `relative` is load-bearing, not decorative — do not strip it.
 
@@ -134,3 +161,4 @@
         <x-customer.price :card="$card" :currency-symbol="$currencySymbol" class="mt-auto pt-1" />
     </div>
 </a>
+@endif

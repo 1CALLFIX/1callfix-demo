@@ -45,15 +45,15 @@ final class HomeCards
     public static function defaultOrder(string $card, int $index = 0): int
     {
         return match ($card) {
-            'parcel' => 25,
             'shop' => 35,
             'food' => 37,
+            'parcel' => 39,
             default => ($index + 1) * 10,
         };
     }
 
-    /** Owner 2026-11-05: parcel is promoted with a banner, so its card is off until switched on. */
-    private const DEFAULT_OFF = ['parcel'];
+    /** Cards off until switched on (none: owner 2026-11-05 evening brought the Parcel card back, after Food). */
+    private const DEFAULT_OFF = [];
 
     public static function showKey(string $card): string
     {

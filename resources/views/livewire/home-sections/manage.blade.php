@@ -38,6 +38,8 @@
                 @endforeach
             </ol>
             <p class="mt-2 text-xs text-gray-500">Moves take effect when you press Save.</p>
+            <label class="mt-4 flex items-start gap-2 text-sm"><input type="checkbox" wire:model="newAutoscroll" class="mt-0.5" data-testid="new-autoscroll">
+                <span>"New &amp; noteworthy" moves slowly left and right on its own (it stops when the visitor touches it)</span></label>
         </x-ui.card>
 
         <x-ui.card>
@@ -108,6 +110,15 @@
                 <label class="flex items-start gap-2 text-sm"><input type="checkbox" wire:model="showPromise" class="mt-0.5"> <span>Show the line under the heading</span></label>
                 <label class="flex items-start gap-2 text-sm md:col-span-2"><input type="checkbox" wire:model="liveInfo" class="mt-0.5">
                     <span>Live numbers on the doors (services listed, shops open now, parcel price). Real numbers only; a zero shows the plain line.</span></label>
+            </div>
+            <div class="mt-4 grid gap-4 md:grid-cols-2">
+                <label class="block text-sm"><span class="font-medium">Line under the heading (English)</span>
+                    <textarea wire:model="promiseEn" rows="2" maxlength="300" class="mt-1 w-full rounded border-gray-300 text-sm" data-testid="promise-en"></textarea></label>
+                <label class="block text-sm"><span class="font-medium">Line under the heading (Telugu)</span>
+                    <textarea wire:model="promiseTe" rows="2" maxlength="300" class="mt-1 w-full rounded border-gray-300 text-sm" data-testid="promise-te"></textarea></label>
+                <p class="text-xs text-gray-500 md:col-span-2">Name every business you run, in plain words (search engines read it too). Empty = our built-in words. Also in Website text &amp; language (<code>home.promise</code>).</p>
+                @error('promiseEn') <p class="text-xs text-red-600">{{ $message }}</p> @enderror
+                @error('promiseTe') <p class="text-xs text-red-600">{{ $message }}</p> @enderror
             </div>
 
             <div class="mt-6 grid gap-4 md:grid-cols-3">

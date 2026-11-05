@@ -117,20 +117,27 @@
     }
 }
 
-/* REF 1CF-HOME-CATEGORY-HERO-001 — homepage category rows. Column counts come
- * from Admin → Homepage & sign-up (set as CSS variables on the grid), so no
- * per-count utility class has to exist in the build. */
+/* REF 1CF-HOME-CATEGORY-HERO-001 — homepage category icons. Owner 2026-11-05: ONE row that scrolls sideways,
+ * never a second row. The Admin column count (Admin → Homepage & sign-up, set as CSS variables) is how many fit
+ * across at once; a part of the next one peeks in so people see the row scrolls. */
 .cf-cat-grid {
-    grid-template-columns: repeat(var(--cf-cols-m, 4), minmax(0, 1fr));
+    grid-auto-flow: column;
+    grid-template-columns: none;
+    grid-auto-columns: calc((100% - var(--cf-cols-m, 4) * 0.5rem) / (var(--cf-cols-m, 4) + 0.4));
+    overflow-x: auto;
+    scroll-snap-type: x proximity;
+    scrollbar-width: none;
 }
+.cf-cat-grid::-webkit-scrollbar { display: none; }
+.cf-cat-grid > li { scroll-snap-align: start; }
 @media (min-width: 768px) {
     .cf-cat-grid {
-        grid-template-columns: repeat(min(var(--cf-cols-d, 8), 6), minmax(0, 1fr));
+        grid-auto-columns: calc((100% - min(var(--cf-cols-d, 8), 6) * 1rem) / (min(var(--cf-cols-d, 8), 6) + 0.4));
     }
 }
 @media (min-width: 1024px) {
     .cf-cat-grid {
-        grid-template-columns: repeat(var(--cf-cols-d, 8), minmax(0, 1fr));
+        grid-auto-columns: calc((100% - var(--cf-cols-d, 8) * 1rem) / (var(--cf-cols-d, 8) + 0.4));
     }
 }
 

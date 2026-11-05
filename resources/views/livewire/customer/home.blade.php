@@ -110,12 +110,12 @@
 
             <div @class(['grid gap-8', 'mt-5 sm:mt-7' => $controls::showHeadline(), 'lg:grid-cols-2 lg:items-start' => $showCollage])>
 
-                {{-- Category icons, in rows. Columns per Admin setting. --}}
+                {{-- Category icons in one sideways-scrolling row (owner 2026-11-05). How many fit across: Admin setting. --}}
                 <div>
                     @if ($categories->isNotEmpty())
                         <h2 id="shortcuts-heading" class="sr-only">{{ $t('home.categories.sr') }}</h2>
                         <ul aria-labelledby="shortcuts-heading"
-                            class="cf-cat-grid grid gap-x-2 gap-y-4 rounded-3xl border border-slate-200 bg-white p-3 shadow-lg shadow-blue-900/5 sm:gap-x-4 sm:gap-y-6 sm:p-6"
+                            class="cf-cat-grid grid gap-x-2 rounded-3xl border border-slate-200 bg-white p-3 shadow-lg shadow-blue-900/5 sm:gap-x-4 sm:p-6"
                             style="--cf-cols-m: {{ $colsMobile }}; --cf-cols-d: {{ $colsDesktop }};">
                             {{-- Parcel as the first icon, where parcel is on (Admin switch, picture uploadable). --}}
                             @if ($parcelActive && $controls::parcelGridTile())
@@ -183,7 +183,7 @@
                                         :link-label="$t('home.see_all')"
                                         :link="route('customer.services.index', ['sort' => 'newest'])" />
 
-            <x-customer.service-rail :cards="$newServices" :currency-symbol="$currencySymbol" labelled-by="new-heading" class="mt-6" />
+            <x-customer.service-rail :cards="$newServices" :currency-symbol="$currencySymbol" labelled-by="new-heading" class="mt-6" tile :autoscroll="\App\Support\HomeLayout::newAutoscroll()" />
         </section>
     @endif
         @break
@@ -205,7 +205,7 @@
                                             :link-label="$t('home.see_all')"
                                             :link="route('customer.services.index')" />
 
-                <x-customer.service-rail :cards="$mostBooked" :currency-symbol="$currencySymbol" labelled-by="booked-heading" class="mt-6" />
+                <x-customer.service-rail :cards="$mostBooked" :currency-symbol="$currencySymbol" labelled-by="booked-heading" class="mt-6" tile />
             </div>
         </section>
     @endif
@@ -255,7 +255,7 @@
                 <x-customer.service-rail :cards="$collection['cards']"
                                          :currency-symbol="$currencySymbol"
                                          :labelled-by="'collection-'.$collectionCategory->id"
-                                         class="mt-6" />
+                                         class="mt-6" tile />
             </section>
         @endif
     @endforeach
@@ -276,7 +276,7 @@
                                             :link-label="$t('home.see_all')"
                                             :link="route('customer.offers')" />
 
-                <x-customer.service-rail :cards="$offers" :currency-symbol="$currencySymbol" labelled-by="offers-heading" class="mt-6" />
+                <x-customer.service-rail :cards="$offers" :currency-symbol="$currencySymbol" labelled-by="offers-heading" class="mt-6" tile />
             </div>
         </section>
     @endif
@@ -302,9 +302,9 @@
                         {{ $t('home.membership.line') }}
                     </p>
 
-                    <ul class="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                    <ul class="mt-6 flex snap-x gap-4 overflow-x-auto pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                         @foreach ($membershipPlans as $plan)
-                            <li class="rounded-2xl bg-white/10 p-5 ring-1 ring-inset ring-white/15 backdrop-blur-sm">
+                            <li class="w-[70%] shrink-0 snap-start sm:w-[45%] lg:w-[31%] rounded-2xl bg-white/10 p-5 ring-1 ring-inset ring-white/15 backdrop-blur-sm">
                                 <h3 class="text-sm font-semibold text-white">{{ $plan->name }}</h3>
                                 <p class="mt-2 text-2xl font-bold text-white">
                                     {{ $currencySymbol }}{{ number_format((float) $plan->price, 2) }}
@@ -342,10 +342,10 @@
             <h2 id="trust-heading" class="text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">
                 {{ $t('home.trust.title', ['brand' => $platformName]) }}
             </h2>
-            <ul class="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+            <ul class="mt-8 flex snap-x gap-4 overflow-x-auto pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden lg:grid lg:grid-cols-4 lg:overflow-visible">
                 @foreach (['shield', 'banknotes', 'clock', 'chat'] as $n => $icon)
                     @php [$trustTitle, $trustBody] = [$t('home.trust.'.($n + 1).'.title'), $t('home.trust.'.($n + 1).'.body')]; @endphp
-                    <li class="rounded-2xl border border-slate-200 p-5 transition hover:border-blue-200 hover:shadow-md hover:shadow-blue-900/5">
+                    <li class="w-[70%] shrink-0 snap-start rounded-2xl border border-slate-200 p-5 sm:w-[45%] lg:w-auto transition hover:border-blue-200 hover:shadow-md hover:shadow-blue-900/5">
                         <span class="grid h-10 w-10 place-items-center rounded-xl bg-blue-50 text-blue-600">
                             <x-icon :name="$icon" class="h-5 w-5" />
                         </span>

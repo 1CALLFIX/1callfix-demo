@@ -7,6 +7,7 @@ use App\Services\SettingsAuditor;
 use App\Support\HomeCards;
 use App\Support\HomeDoors;
 use App\Support\HomeLayout;
+use App\Support\SiteText;
 use App\Support\SuperAdminGate;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Component;
@@ -34,6 +35,13 @@ class Manage extends Component
     public bool $show = true;
     public bool $liveInfo = true;
     public bool $showPromise = true;
+
+    /** The line under the doors heading (Website text `home.promise`), editable here too. */
+    public string $promiseEn = '';
+
+    public string $promiseTe = '';
+
+    public bool $newAutoscroll = true;
 
     /** @var array<string, bool> */
     public array $doorShow = [];
@@ -72,6 +80,9 @@ class Manage extends Component
         $this->show = HomeDoors::show();
         $this->liveInfo = HomeDoors::liveInfo();
         $this->showPromise = HomeDoors::showPromise();
+        $this->promiseEn = SiteText::saved('home.promise', 'en') ?? SiteText::TEXTS['home.promise'][2];
+        $this->promiseTe = SiteText::saved('home.promise', 'te') ?? SiteText::TEXTS['home.promise'][3];
+        $this->newAutoscroll = HomeLayout::newAutoscroll();
         foreach (array_keys(HomeDoors::DOORS) as $door) {
             $this->doorShow[$door] = HomeDoors::doorShown($door);
             $this->doorOrder[$door] = (string) HomeDoors::doorOrder($door);
@@ -145,7 +156,10 @@ class Manage extends Component
             'cardOrder.*' => ['required', 'integer', 'between:1,999'],
             'cardLineEn.*' => ['nullable', 'string', 'max:120'],
             'cardLineTe.*' => ['nullable', 'string', 'max:120'],
+            'promiseEn' => ['nullable', 'string', 'max:300'],
+            'promiseTe' => ['nullable', 'string', 'max:300'],
         ], [], [
+            'promiseEn' => 'English line', 'promiseTe' => 'Telugu line',
             'doorOrder.*' => 'order', 'doorImage.*' => 'picture', 'cardOrder.*' => 'order',
             'cardLineEn.*' => 'English line', 'cardLineTe.*' => 'Telugu line',
             'cardIcons' => 'icons per card', 'cardCategoryLimit' => 'category cards', 'cardNewDays' => '"New" days',
@@ -170,7 +184,13 @@ class Manage extends Component
             HomeDoors::SHOW => $bool($this->show),
             HomeDoors::LIVE_INFO => $bool($this->liveInfo),
             HomeDoors::SHOW_PROMISE => $bool($this->showPromise),
+            HomeLayout::NEW_AUTOSCROLL => $bool($this->newAutoscroll),
         ];
+        // The line is saved as Website text: blank or the built-in words = no saved copy (the built-in words show).
+        foreach (['en' => [$this->promiseEn, 2], 'te' => [$this->promiseTe, 3]] as $locale => [$line, $i]) {
+            $line = trim($line);
+            $values[SiteText::settingKey('home.promise', $locale)] = $line === '' || $line === SiteText::TEXTS['home.promise'][$i] ? null : $line;
+        }
         foreach (array_keys(HomeDoors::DOORS) as $door) {
             $values["home.door.{$door}.show"] = $bool((bool) ($this->doorShow[$door] ?? true));
             $values["home.door.{$door}.order"] = (string) (int) ($this->doorOrder[$door] ?? HomeDoors::DOORS[$door][0]);

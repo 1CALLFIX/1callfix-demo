@@ -17,6 +17,9 @@ final class HomeLayout
 {
     public const ORDER = 'home.layout.order';
 
+    /** Owner 2026-11-05: "New & noteworthy" drifts left and right on its own. Super Admin switch, on by default. */
+    public const NEW_AUTOSCROLL = 'home.new.autoscroll';
+
     /** section => label in Admin, in the default order. */
     public const SECTIONS = [
         'doors' => 'Explore doors (Services / Parcel / Shop)',
@@ -141,5 +144,12 @@ final class HomeLayout
         }
 
         return $bag->get($memo);
+    }
+
+    public static function newAutoscroll(): bool
+    {
+        $v = self::raw(self::NEW_AUTOSCROLL);
+
+        return $v === null || $v === '' ? true : in_array(strtolower($v), ['1', 'true', 'on', 'yes'], true);
     }
 }

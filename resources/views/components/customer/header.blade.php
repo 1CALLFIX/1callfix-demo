@@ -22,11 +22,9 @@
             {{-- Brand --}}
             <a href="{{ route('customer.home') }}"
                class="flex min-h-11 min-w-0 items-center gap-2 rounded focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900">
-                {{-- Name is shown on mobile too, smaller and truncating: the
-                     brand link may shrink (min-w-0) below `sm` so a long name
-                     ellipsises instead of pushing the account/cart cluster
-                     off-screen. From `sm` it is full size. --}}
-                <x-customer.brand-mark name-class="min-w-0 truncate text-base sm:text-lg" />
+                {{-- Owner 2026-11-05: on a phone only the logo shows (the name was cut to "1Call..."); the name
+                     beside it comes back from `sm` up. The logo's alt text still carries the name. --}}
+                <x-customer.brand-mark name-class="hidden min-w-0 truncate text-base sm:inline sm:text-lg" />
             </a>
 
             {{-- Location + search as ONE elevated pill from `sm` up (1CF-TOPBAR-POLISH-001): pin + area

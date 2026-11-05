@@ -128,15 +128,11 @@ class HomeLayoutCardsTest extends TestCase
         MarketplaceCategory::create(['module' => 'commerce', 'name' => 'Toys', 'slug' => 'toys', 'position' => 2, 'is_active' => true]);
         $this->makeProduct($store, ['name' => 'Sona Rice', 'marketplace_category_id' => $rice->id]);
 
-        // Owner 2026-11-05: parcel gets a banner, so its card is off until the Super Admin switches it on.
-        $this->assertNotContains('parcel', $this->cardsOrder($this->get('/')->getContent()));
-        Setting::set(HomeCards::showKey('parcel'), '1');
-        request()->attributes->replace([]);
-
+        // Owner 2026-11-05 (evening): the Parcel card is back, after the services and shop cards.
         $html = $this->get('/')->assertOk()->assertSee('Parcel &amp; delivery', false)->assertSee('Send now')->assertSee('My parcels')
             ->assertSee('Shop near you')->assertSee('Grocery')->assertDontSee('Toys')
             ->assertSee('1 shop open now, order in a tap')->assertSee('category=grocery', false)->getContent();
-        $this->assertSame(['category_'.$this->category->id, 'parcel', 'shop'], $this->cardsOrder($html));
+        $this->assertSame(['category_'.$this->category->id, 'shop', 'parcel'], $this->cardsOrder($html));
 
         Setting::set(HomeCards::orderKey('shop'), '1');
         Setting::set(HomeCards::showKey('parcel'), '0');
@@ -183,6 +179,45 @@ class HomeLayoutCardsTest extends TestCase
         $this->assertFalse(HomeCards::cardShown('parcel'));
         $this->assertNotContains('parcel_card', HomeLayout::visible());
         $this->assertSame('Best offers near you', SiteText::get('home.offers.title'));
+    }
+
+    public function test_the_evening_2026_11_05_order_puts_the_doors_first_and_brings_the_parcel_card_back(): void
+    {
+        foreach (['2026_11_05_100000_home_order_modules_after_offers', '2026_11_05_120000_home_doors_first_parcel_card_back'] as $file) {
+            (require database_path("migrations/{$file}.php"))->up();
+        }
+        request()->attributes->replace([]);
+
+        $this->assertSame(['doors', 'hero_banner', 'most_booked', 'offers', 'module_cards'], array_slice(HomeLayout::order(), 0, 5));
+        $this->assertTrue(HomeCards::cardShown('parcel'));
+        $this->assertSame(39, HomeCards::cardOrder('parcel'));
+        $this->assertGreaterThan(HomeCards::cardOrder('food'), HomeCards::cardOrder('parcel'));
+    }
+
+    public function test_the_super_admin_edits_the_explore_line_in_both_languages_and_switches_off_the_moving_row(): void
+    {
+        $this->actingAs($this->makeSuperAdmin());
+        $page = Livewire::test(Manage::class)
+            ->assertSet('promiseEn', SiteText::TEXTS['home.promise'][2])
+            ->assertSet('newAutoscroll', true)
+            ->set('promiseEn', 'Pros, shops, food and parcels in Nellore.')
+            ->set('promiseTe', 'నెల్లూరులో అన్నీ.')
+            ->set('newAutoscroll', false)
+            ->call('save')->assertHasNoErrors();
+
+        request()->attributes->replace([]);
+        $this->assertSame('Pros, shops, food and parcels in Nellore.', SiteText::saved('home.promise', 'en'));
+        $this->assertSame('నెల్లూరులో అన్నీ.', SiteText::saved('home.promise', 'te'));
+        $this->assertFalse(HomeLayout::newAutoscroll());
+
+        // Back to the built-in words: nothing saved.
+        $page->set('promiseEn', '')->set('promiseTe', SiteText::TEXTS['home.promise'][3])->call('save');
+        request()->attributes->replace([]);
+        $this->assertNull(SiteText::saved('home.promise', 'en'));
+        $this->assertNull(SiteText::saved('home.promise', 'te'));
+
+        $this->actingAs($this->makeUserWithNoPermissions());
+        Livewire::test(Manage::class)->assertForbidden();
     }
 
     public function test_the_super_admin_moves_and_hides_sections_and_only_a_super_admin_can(): void

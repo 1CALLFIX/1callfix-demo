@@ -118,7 +118,7 @@ final class SiteText
         'nav.account' => ['nav', 'Account', 'Account', 'ఖాతా'],
 
         'home.explore_title' => ['home', 'Doors row heading (:brand = platform name)', 'Explore :brand', ':brand లో చూడండి'],
-        'home.promise' => ['home', 'Line under the doors heading (switch on Homepage sections)', 'Trusted local pros, nearby shops and parcel delivery, in one app.', 'నమ్మకమైన స్థానిక నిపుణులు, దగ్గరి షాపులు, పార్సిల్ డెలివరీ — అన్నీ ఒకే యాప్‌లో.'],
+        'home.promise' => ['home', 'Line under the doors heading (switch on Homepage sections)', 'Home services by trusted local pros, shopping from nearby stores, food delivery from local restaurants and parcel delivery across town — all in one app.', 'నమ్మకమైన స్థానిక నిపుణుల ఇంటి సేవలు, దగ్గరి షాపుల నుండి షాపింగ్, స్థానిక రెస్టారెంట్ల నుండి ఫుడ్ డెలివరీ, ఊరంతా పార్సిల్ డెలివరీ — అన్నీ ఒకే యాప్‌లో.'],
         'home.door.services.title' => ['home', 'Services door: title', 'Services', 'సేవలు'],
         'home.door.services.line' => ['home', 'Services door: line', 'Book trusted pros', 'నమ్మకమైన నిపుణులను బుక్ చేయండి'],
         'home.door.services.live' => ['home', 'Services door: live line (:count services listed)', ':count services to book', 'బుక్ చేయడానికి :count సేవలు'],

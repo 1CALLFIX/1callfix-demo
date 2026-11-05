@@ -240,7 +240,7 @@ class SiteBrandingTest extends TestCase
         $this->assertStringNotContainsString('Acme Fix', Blade::render('<x-customer.header />'));
     }
 
-    public function test_name_beside_logo_is_visible_on_mobile_in_header_and_truncates_rather_than_hides(): void
+    public function test_name_beside_logo_is_hidden_on_phones_and_shown_from_sm_in_the_header(): void
     {
         Livewire::actingAs($this->admin())->test(SettingsManage::class)
             ->set('brandingLogoUpload', $this->transparentPng())->call('uploadLogo');
@@ -250,10 +250,12 @@ class SiteBrandingTest extends TestCase
         $header = Blade::render('<x-customer.header />');
         $footer = Blade::render('<x-customer.footer />');
 
-        // Header: never `hidden` on mobile; truncates so a long name can't push
-        // the account/cart cluster off-screen. Footer always shows it.
-        $this->assertMatchesRegularExpression('/truncate[^"]*"[^>]*>Acme Fix/', $header);
-        $this->assertDoesNotMatchRegularExpression('/hidden[^"]*"[^>]*>Acme Fix/', $header);
+        // Owner 2026-11-05: on a phone the header shows the logo only (the name was cut to "1Call...");
+        // from `sm` the name shows again and still truncates. Footer always shows it.
+        $this->assertMatchesRegularExpression('/class="hidden [^"]*"[^>]*>Acme Fix/', $header);
+        $this->assertMatchesRegularExpression('/class="[^"]*sm:inline[^"]*"[^>]*>Acme Fix/', $header);
+        $this->assertMatchesRegularExpression('/class="[^"]*truncate[^"]*"[^>]*>Acme Fix/', $header);
+        $this->assertStringContainsString('alt="1CallFix"', $header);
         $this->assertStringContainsString('Acme Fix', $footer);
     }
 
