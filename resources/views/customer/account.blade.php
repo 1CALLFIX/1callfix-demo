@@ -97,6 +97,9 @@
                     Log out
                 </button>
             </form>
+            {{-- Google Play account deletion (owner 2026-11-05). --}}
+            <a href="{{ route('account.delete') }}" data-testid="delete-account-link"
+               class="mt-6 inline-flex min-h-11 items-center text-sm font-medium text-rose-700 underline underline-offset-4">{{ \App\Support\SiteText::get('account.delete.link') }}</a>
         </div>
     </div>
 </x-layouts.customer>

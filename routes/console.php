@@ -189,3 +189,8 @@ ScheduleRunTracker::track(Schedule::command('cancellation:sweep'), 'cancellation
 ScheduleRunTracker::track(Schedule::command('backups:refresh-catalog'), 'backups:refresh-catalog')
     ->everyFiveMinutes()
     ->withoutOverlapping(10);
+
+// Google Play account deletion (2026-11-05): personal details of accounts closed 30+ days ago are erased.
+ScheduleRunTracker::track(Schedule::command('accounts:erase-closed'), 'accounts:erase-closed')
+    ->dailyAt('03:30')
+    ->withoutOverlapping(30);

@@ -45,7 +45,8 @@ class User extends Authenticatable
 
     protected $hidden = ['password', 'remember_token'];
     protected $casts = ['phone_verified_at' => 'datetime', 'email_verified_at' => 'datetime', 'push_ops_alerts' => 'boolean',
-        'referral_blocked_at' => 'datetime', 'last_login_at' => 'datetime', 'last_seen_at' => 'datetime'];
+        'referral_blocked_at' => 'datetime', 'last_login_at' => 'datetime', 'last_seen_at' => 'datetime',
+        'deletion_requested_at' => 'datetime', 'closed_at' => 'datetime', 'erased_at' => 'datetime'];
     /** Minutes of inactivity after which a user is no longer shown as online (admin people lists). */
     public const ONLINE_WINDOW_MINUTES = 5;
 

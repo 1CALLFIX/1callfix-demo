@@ -344,6 +344,11 @@ Route::get('/sitemap-{city}.xml', [\App\Http\Controllers\Customer\SitemapControl
 // Conventional long-form URLs (what payment gateways and app-store listings usually ask for).
 Route::get('/privacy-policy', [PageController::class, 'privacy']);
 Route::get('/terms-and-conditions', [PageController::class, 'terms']);
+// Google Play account deletion (owner 2026-11-05): one public page with the steps for every app; signed in, the button.
+Route::get('/delete-account', [\App\Http\Controllers\AccountDeletionController::class, 'show'])->name('account.delete');
+Route::post('/delete-account', [\App\Http\Controllers\AccountDeletionController::class, 'destroy'])
+    ->middleware(['auth', \App\Http\Middleware\EnsureAccountNotSuspended::class, 'throttle:6,1'])->name('account.delete.submit');
+Route::permanentRedirect('/account/delete', '/delete-account');
 
 // REF 1CF-PARTNER-PAGE-001: the public partner page lives at /partners. The older and alternative addresses
 // (/coming-soon/partners, /join, /become-a-partner, /work-with-us) permanently 301 to it, query string kept (UTM

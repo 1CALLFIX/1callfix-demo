@@ -30,6 +30,7 @@ class AdminNav
                 'items' => [
                     ['label' => 'All Users', 'route' => 'admin.all-users.index', 'icon' => 'users', 'permission' => 'users.directory.view'],
                     ['label' => 'Customers', 'route' => 'admin.customers.index', 'icon' => 'users', 'permission' => 'customers.view'],
+                    ['label' => 'Account deletions', 'route' => 'admin.account-deletions', 'icon' => 'users', 'permission' => 'users.directory.view'],
                     ['label' => 'Providers', 'route' => 'admin.providers.index', 'icon' => 'users', 'permission' => 'providers.view'],
                     // Partners (2026-10-26) replaces Workers and the empty Drivers slot: People + Businesses tabs.
                     ['label' => 'Partners', 'route' => 'admin.partners.index', 'icon' => 'users', 'permission' => ['workers.view', 'providers.view']],

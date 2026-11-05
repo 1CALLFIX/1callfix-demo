@@ -9,6 +9,8 @@
 @php
     // Help numbers: the same admin-edited list the partner page shows (Admin → Partners page → Support numbers).
     $phones = \App\Support\PartnerPage\PartnerPageSettings::lines('support_phones');
+    // Inside the Android apps only: rate the app on the Play Store (rider app for riders, Partner app otherwise).
+    $rateUrl = \App\Support\NativeApp::rateUrl($mode === 'parcel' ? 'rider' : 'partner');
 @endphp
 {{-- Partner apps 2026-11-04: the "More" screen — everything that is not a daily tab, in one place, big tap targets. --}}
 <div class="space-y-4" data-testid="partner-more">
@@ -29,7 +31,7 @@
         </div>
     @endif
 
-    @if ($rows || $phones)
+    @if ($rows || $phones || $rateUrl)
     <ul class="divide-y divide-slate-100 overflow-hidden rounded-2xl border border-slate-200 bg-white">
         @foreach ($rows as $r)
             <li>
@@ -50,12 +52,25 @@
                 </a>
             </li>
         @endforeach
+        @if ($rateUrl)
+            <li>
+                <a href="{{ $rateUrl }}" data-testid="rate-app" class="flex min-h-14 items-center gap-3 px-4 hover:bg-slate-50">
+                    <x-icon name="star" class="h-5 w-5 shrink-0 text-amber-500" />
+                    <span class="flex-1 text-sm font-medium text-slate-800">{{ \App\Support\SiteText::get('app.rate') }}</span>
+                    <x-icon name="chevron-right" class="h-4 w-4 text-slate-400" />
+                </a>
+            </li>
+        @endif
     </ul>
     @endif
 
     <div class="flex flex-col text-sm">
         <x-partner.mode-switch :current="$mode" class="flex min-h-12 items-center px-1" />
     </div>
+
+    {{-- Google Play account deletion (owner 2026-11-05): partners send a request; an admin settles dues, then closes. --}}
+    <a href="{{ route('account.delete') }}" data-testid="partner-delete-account"
+       class="flex min-h-12 items-center justify-center text-sm font-medium text-slate-500 underline underline-offset-4">Delete my account</a>
 
     <form method="POST" action="{{ route($logoutRoute) }}">
         @csrf

@@ -93,6 +93,8 @@ Route::middleware(['auth', \Illuminate\Session\Middleware\AuthenticateSession::c
         Route::get('/workers', fn (\Illuminate\Http\Request $request) => redirect()->route('admin.partners.index', ['tab' => 'people'] + $request->query(), 301))->name('admin.workers.index');
         Route::get('/workers/{workerId}', WorkersShow::class)->name('admin.workers.show');
         Route::get('/all-users', AllUsersIndex::class)->name('admin.all-users.index');
+        // Google Play account deletion (2026-11-05): partner requests + closed accounts. Super Admin only, checked in the component.
+        Route::get('/account-deletions', \App\Livewire\AccountDeletions\Index::class)->name('admin.account-deletions');
         Route::get('/drivers', fn (\Illuminate\Http\Request $request) => redirect()->route('admin.partners.index', ['tab' => 'people', 'typeFilter' => 'taxi_driver'] + $request->query(), 301))->name('admin.drivers.index');
         Route::get('/geography', GeographyManage::class)->name('admin.geography.index');
         Route::get('/seo/city-content', SeoCityContent::class)->name('admin.seo.city-content');

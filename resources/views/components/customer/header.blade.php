@@ -143,6 +143,10 @@
                                 $menu[] = [$partnerCta, route('customer.partners')];
                             }
                             $menu[] = [$t('header.menu.help'), route('customer.help')];
+                            // Inside the Android app only: rate it on the Play Store.
+                            if ($rateUrl = \App\Support\NativeApp::rateUrl('customer')) {
+                                $menu[] = [$t('app.rate'), $rateUrl];
+                            }
                             if (! auth()->check()) {
                                 // Signed out: same tab switches, global scope only. The
                                 // target is auth-gated, so this routes via sign-in.
