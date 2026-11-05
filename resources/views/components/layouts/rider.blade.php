@@ -23,6 +23,7 @@
     <meta name="robots" content="noindex, nofollow">
     <meta name="theme-color" content="#2563eb">
     <meta name="csrf-token" content="{{ csrf_token() }}">
+    @auth<meta name="cf-signed-in" content="{{ auth()->id() }}">@endauth {{-- read by resources/js/native-app.js (Android apps only) --}}
     <link rel="manifest" href="{{ asset('manifest.webmanifest') }}">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <link rel="icon" href="{{ asset('icons/icon.svg') }}" type="image/svg+xml">

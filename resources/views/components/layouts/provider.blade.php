@@ -40,6 +40,7 @@
     <meta name="robots" content="noindex, nofollow">
     <meta name="theme-color" content="#2563eb">
     <meta name="csrf-token" content="{{ csrf_token() }}">
+    @auth<meta name="cf-signed-in" content="{{ auth()->id() }}">@endauth {{-- read by resources/js/native-app.js (Android apps only) --}}
     {{-- PWA manifest — needed for installability and (on iOS) for closed-app
          web push to work at all. --}}
     <link rel="manifest" href="{{ asset('manifest.webmanifest') }}">

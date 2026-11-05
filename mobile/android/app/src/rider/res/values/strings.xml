@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">1CallFix Rider</string>
+    <string name="title_activity_main">1CallFix Rider</string>
+    <string name="package_name">com.onecall.deliveryboy</string>
+    <string name="custom_url_scheme">com.onecall.deliveryboy</string>
+</resources>

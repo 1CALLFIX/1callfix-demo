@@ -65,6 +65,12 @@ class ProviderJobOfferNotification extends Notification implements ShouldQueue
      * already-accepted one to the job page. Ownership is never read from
      * this URL; Index only ever queries the signed-in provider's own rows.
      */
+    /** Android apps (mobile/) ring kind=offer pushes on the loud offers channel. */
+    public function pushKind(): string
+    {
+        return 'offer';
+    }
+
     public function pushLink($notifiable): string
     {
         return route('provider.jobs.index', ['offer' => $this->booking->id]);

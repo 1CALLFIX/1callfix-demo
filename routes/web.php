@@ -351,6 +351,8 @@ Route::get('/terms-and-conditions', [PageController::class, 'terms']);
 // CMS slug can ever shadow them; ReservedSlugs reads the live route list, so none of these words can become a city,
 // category or service slug.
 Route::get('/partners', [PageController::class, 'partners'])->name('customer.partners');
+// Start page of the 1CallFix Partner Android app (mobile/): signed-in partner → own app, else sign-in choices.
+Route::get('/app/partner', \App\Http\Controllers\Partner\PartnerAppStartController::class)->name('partner.app.start');
 foreach (['/coming-soon/partners', '/join', '/become-a-partner', '/work-with-us'] as $legacyPartnerPath) {
     Route::get($legacyPartnerPath, [PageController::class, 'partnersMoved']);
 }

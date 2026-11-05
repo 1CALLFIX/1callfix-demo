@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -24,6 +25,13 @@ class PushTokenController extends Controller
         $validated = $request->validate([
             'token' => ['required', 'string', 'max:255'],
         ]);
+
+        // One phone, one account: when someone else signs in on the same phone (the Android apps), the
+        // previous account stops getting that phone's notifications.
+        User::query()
+            ->where('fcm_token', $validated['token'])
+            ->whereKeyNot($request->user()->getKey())
+            ->update(['fcm_token' => null]);
 
         $request->user()->update(['fcm_token' => $validated['token']]);
 

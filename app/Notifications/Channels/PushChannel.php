@@ -37,6 +37,10 @@ class PushChannel
         $data = method_exists($notification, 'pushLink')
             ? array_filter(['link' => $notification->pushLink($notifiable)])
             : [];
+        // kind=offer: the Android apps ring it on their loud offers channel (mobile/.../PushService.java).
+        if (method_exists($notification, 'pushKind')) {
+            $data['kind'] = $notification->pushKind();
+        }
 
         try {
             $this->adapter->send($token, $title, $body, $data);

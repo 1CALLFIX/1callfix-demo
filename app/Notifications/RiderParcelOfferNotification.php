@@ -38,6 +38,12 @@ class RiderParcelOfferNotification extends Notification implements ShouldQueue
         return 'rider.parcel_offered';
     }
 
+    /** Android apps (mobile/) ring kind=offer pushes on the loud offers channel. */
+    public function pushKind(): string
+    {
+        return 'offer';
+    }
+
     public function pushLink($notifiable): string
     {
         return route('rider.dashboard');

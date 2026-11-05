@@ -132,6 +132,8 @@ class FirebaseFcmPushAdapter implements PushAdapter
             'webpush' => [
                 'headers' => ['Urgency' => 'high'],
             ],
+            // The Android apps (mobile/) show data messages themselves; high priority wakes a sleeping phone.
+            'android' => ['priority' => 'high'],
         ];
 
         if ($link) {

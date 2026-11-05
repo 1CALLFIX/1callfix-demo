@@ -22,6 +22,7 @@ import {
     signInWithPhoneNumber,
     GoogleAuthProvider,
     signInWithPopup,
+    signInWithCredential,
 } from 'firebase/auth';
 
 const config = {
@@ -120,11 +121,22 @@ window.customerAuth = {
         const a = ensureAuth();
         if (!a) return;
         try {
-            const res = await signInWithPopup(a, new GoogleAuthProvider());
+            // Inside the Android app Google refuses its sign-in page in a web view, so the app's native
+            // Google sign-in gives us the Google token and Firebase signs in with it (mobile/README.md).
+            const native = window.Capacitor?.isNativePlatform?.() && window.Capacitor.Plugins?.FirebaseAuthentication;
+            let res;
+            if (native) {
+                const g = await native.signInWithGoogle();
+                const googleIdToken = g?.credential?.idToken;
+                if (!googleIdToken) return; // user backed out
+                res = await signInWithCredential(a, GoogleAuthProvider.credential(googleIdToken));
+            } else {
+                res = await signInWithPopup(a, new GoogleAuthProvider());
+            }
             const idToken = await res.user.getIdToken();
             window.Livewire.dispatch('firebase-google-token', { idToken });
         } catch (e) {
-            if (e?.code === 'auth/popup-closed-by-user' || e?.code === 'auth/cancelled-popup-request') {
+            if (e?.code === 'auth/popup-closed-by-user' || e?.code === 'auth/cancelled-popup-request' || /cancel/i.test(e?.message || '')) {
                 return; // user backed out — no error banner
             }
             console.error(e);

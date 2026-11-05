@@ -14,3 +14,4 @@ import './search-bar';
 import './password-toggle';
 import './places-autocomplete';
 import './rotating-placeholder';
+import './native-app';

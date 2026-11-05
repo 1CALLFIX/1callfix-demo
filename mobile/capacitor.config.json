@@ -1,0 +1,36 @@
+{
+  "appId": "com.call.customer",
+  "appName": "1CallFix",
+  "webDir": "www",
+  "server": {
+    "url": "https://www.1callfix.com/",
+    "errorPath": "offline.html",
+    "allowNavigation": [
+      "1callfix.com",
+      "*.1callfix.com",
+      "*.razorpay.com",
+      "onecallfix-6b538.firebaseapp.com",
+      "*.google.com",
+      "*.gstatic.com"
+    ]
+  },
+  "android": {
+    "appendUserAgent": "1CallFixApp",
+    "allowMixedContent": false,
+    "captureInput": true
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchShowDuration": 600,
+      "backgroundColor": "#2563EB",
+      "showSpinner": false
+    },
+    "PushNotifications": {
+      "presentationOptions": ["badge", "sound", "alert"]
+    },
+    "FirebaseAuthentication": {
+      "skipNativeAuth": true,
+      "providers": ["google.com"]
+    }
+  }
+}
