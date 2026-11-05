@@ -31,6 +31,9 @@ deploy both together if that one is not live yet.
   phone, email and address text are erased 30 days later (`accounts:erase-closed`, daily 03:30). Bills and orders
   stay. Partners only send a request; Admin → Users & Partners → Account deletions (Super Admin) closes it after
   dues are settled, and can Reopen within 30 days. Links: customer Account page, partner More tab.
+- **Shop sub-categories**: the shop page shows a category when its sub-categories have products (master-list
+  products sit in sub-categories), and picking a category shows its sub-categories as a second row. Seller and
+  commission category drop-downs list each sub-category under its own category.
 
 ## Step 5 — migrations that must be pending (exactly these)
 - `2026_11_05_100000_home_order_modules_after_offers` (settings only: saves the order above, Parcel card off)
@@ -49,6 +52,7 @@ Rollback count for `migrate:rollback --step=`: 2 (the order migration's `down()`
   In Chrome on the same phone it is not there.
 
 - `/delete-account` opens signed out and shows the steps.
+- `/nellore/shop`: tap a category → a second row of its sub-categories.
 
 ## Admin settings to do after deploy (owner)
 - Play Console, each of the 3 apps → App content → Data safety → Delete account URL: `https://www.1callfix.com/delete-account`

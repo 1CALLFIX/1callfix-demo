@@ -28,12 +28,25 @@
                 @foreach ($categories as $c)
                     <button type="button" wire:click="pickCategory('{{ $c->slug }}')"
                             @class(['shrink-0 rounded-full border px-4 py-2 text-sm font-medium',
-                                    'border-blue-600 bg-blue-600 text-white' => $activeCategory?->id === $c->id,
-                                    'border-slate-300 bg-white text-slate-700 hover:border-blue-400' => $activeCategory?->id !== $c->id])>
+                                    'border-blue-600 bg-blue-600 text-white' => $parentCategory?->id === $c->id,
+                                    'border-slate-300 bg-white text-slate-700 hover:border-blue-400' => $parentCategory?->id !== $c->id])>
                         {{ $c->name }}
                     </button>
                 @endforeach
             </nav>
+            {{-- Sub-categories of the picked category (2026-11-05). Tap the picked one again to see the whole category. --}}
+            @if ($subCategories->isNotEmpty())
+                <nav aria-label="{{ $parentCategory->name }}" class="mt-2 flex gap-2 overflow-x-auto pb-1" data-testid="shop-subcategories">
+                    @foreach ($subCategories as $sub)
+                        <button type="button" wire:click="pickSubCategory('{{ $sub->slug }}')"
+                                @class(['shrink-0 rounded-full border px-3 py-1.5 text-xs font-medium',
+                                        'border-blue-600 bg-blue-50 text-blue-700' => $activeCategory?->id === $sub->id,
+                                        'border-slate-200 bg-white text-slate-600 hover:border-blue-300' => $activeCategory?->id !== $sub->id])>
+                            {{ $sub->name }}
+                        </button>
+                    @endforeach
+                </nav>
+            @endif
         @endif
 
         @if ($search === '' && ! $activeCategory && $stores->isNotEmpty())

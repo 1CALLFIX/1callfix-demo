@@ -38,7 +38,7 @@
                     <span class="font-medium">Category</span>
                     <select wire:model="categoryId" class="mt-1 block min-h-11 w-full rounded-lg border border-slate-300 px-3 text-base">
                         <option value="">Choose…</option>
-                        @foreach ($categories as $c)<option value="{{ $c->id }}">{{ $c->parent_id ? '— ' : '' }}{{ $c->name }}</option>@endforeach
+                        @foreach (\App\Models\MarketplaceCategory::grouped($categories) as $c)<option value="{{ $c->id }}">{{ $c->parent_id ? '— ' : '' }}{{ $c->name }}</option>@endforeach
                     </select>
                     @error('categoryId') <span class="text-sm text-red-700">{{ $message }}</span> @enderror
                 </label>

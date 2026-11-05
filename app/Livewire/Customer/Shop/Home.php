@@ -45,11 +45,25 @@ class Home extends Component
         $this->resetPage();
     }
 
+    public function pickSubCategory(string $slug): void
+    {
+        if ($this->categorySlug === $slug) {
+            $sub = MarketplaceCategory::where('slug', $slug)->first();
+            $slug = (string) $sub?->parent?->slug;
+        }
+        $this->categorySlug = $slug;
+        $this->resetPage();
+    }
+
     public function render()
     {
         $storeIds = $this->cityStores()->pluck('id');
         $category = $this->categorySlug !== '' ? MarketplaceCategory::where('slug', $this->categorySlug)->where('is_active', true)->first() : null;
         $categoryIds = $category ? MarketplaceCategory::where('parent_id', $category->id)->pluck('id')->push($category->id) : null;
+        // 2026-11-05: products from the master list sit in sub-categories. A category shows when it or one of its
+        // sub-categories has something to buy here; picking one shows its sub-categories as a second row.
+        $sellable = fn ($q) => $q->whereIn('store_id', $storeIds)->where('is_active', true)->where('is_approved', true);
+        $parent = $category ? ($category->parent_id ? $category->parent : $category) : null;
         $term = trim($this->search);
 
         $products = Product::whereIn('store_id', $storeIds)->where('is_active', true)->where('is_approved', true)
@@ -63,8 +77,12 @@ class Home extends Component
             'stores' => $this->cityStores()->withCount(['products' => fn ($q) => $q->where('is_active', true)->where('is_approved', true)])
                 ->orderByDesc('is_open')->orderBy('name')->get(),
             'categories' => MarketplaceCategory::where('module', Modules::COMMERCE)->whereNull('parent_id')->where('is_active', true)
-                ->whereHas('products', fn ($q) => $q->whereIn('store_id', $storeIds)->where('is_active', true)->where('is_approved', true))
+                ->where(fn ($q) => $q->whereHas('products', $sellable)
+                    ->orWhereHas('children', fn ($c) => $c->where('is_active', true)->whereHas('products', $sellable)))
                 ->orderBy('position')->orderBy('name')->get(['id', 'name', 'slug', 'image']),
+            'subCategories' => $parent ? MarketplaceCategory::where('parent_id', $parent->id)->where('is_active', true)
+                ->whereHas('products', $sellable)->orderBy('position')->orderBy('name')->get(['id', 'name', 'slug']) : collect(),
+            'parentCategory' => $parent,
             'products' => $products,
             'activeCategory' => $category,
             'inCart' => $this->cartQuantities(),

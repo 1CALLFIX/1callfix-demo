@@ -19,7 +19,7 @@
                     <select wire:model="storeId" class="mt-1 block w-full rounded border px-2 py-1.5"><option value="">Any shop</option>@foreach ($stores as $s)<option value="{{ $s->id }}">{{ $s->name }}</option>@endforeach</select>
                     @error('storeId') <span class="text-xs text-red-600">{{ $message }}</span> @enderror</label>
                 <label class="text-sm">Category <span class="text-gray-400">(any)</span>
-                    <select wire:model="categoryId" class="mt-1 block w-full rounded border px-2 py-1.5"><option value="">Any category</option>@foreach ($categories as $c)<option value="{{ $c->id }}">{{ $c->parent_id ? '— ' : '' }}{{ $c->name }}</option>@endforeach</select></label>
+                    <select wire:model="categoryId" class="mt-1 block w-full rounded border px-2 py-1.5"><option value="">Any category</option>@foreach (\App\Models\MarketplaceCategory::grouped($categories) as $c)<option value="{{ $c->id }}">{{ $c->parent_id ? '— ' : '' }}{{ $c->name }}</option>@endforeach</select></label>
                 <label class="text-sm">Franchise @if ($hq)<span class="text-gray-400">(any)</span>@endif
                     <select wire:model="franchiseId" class="mt-1 block w-full rounded border px-2 py-1.5">@if ($hq)<option value="">Any franchise</option>@endif @foreach ($franchises as $f)<option value="{{ $f->id }}">{{ $f->name }}</option>@endforeach</select>
                     @error('franchiseId') <span class="text-xs text-red-600">{{ $message }}</span> @enderror</label>

@@ -39,5 +39,25 @@ class MarketplaceCategory extends Model
 
     public function parent() { return $this->belongsTo(MarketplaceCategory::class, 'parent_id'); }
     public function children() { return $this->hasMany(MarketplaceCategory::class, 'parent_id'); }
+
+    /**
+     * For drop-downs (2026-11-05): each main category followed by its own sub-categories, keeping the list's order.
+     * A sub-category whose main category is not in the list goes at the end.
+     *
+     * @param  iterable<MarketplaceCategory>  $categories
+     * @return \Illuminate\Support\Collection<int, MarketplaceCategory>
+     */
+    public static function grouped(iterable $categories): \Illuminate\Support\Collection
+    {
+        $all = collect($categories)->values();
+        $children = $all->whereNotNull('parent_id')->groupBy('parent_id');
+        $out = collect();
+        foreach ($all->whereNull('parent_id') as $parent) {
+            $out->push($parent);
+            $out = $out->concat($children->pull($parent->id, collect()));
+        }
+
+        return $out->concat($children->flatten(1))->values();
+    }
     public function products() { return $this->hasMany(Product::class); }
 }
