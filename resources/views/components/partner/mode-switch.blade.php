@@ -10,6 +10,12 @@
         'parcel' => ['Switch to rider mode', 'rider.dashboard', 'Deliver parcels too'],
         'commerce' => ['Switch to my shop', 'seller.dashboard', 'Open a shop too'],
     ];
+    // Owner rule 2026-11-06: deliveries live in the Rider app, services and shops in the Partner app. Inside one
+    // of those two apps, a role that belongs to the other app opens that app (its Play Store page, which the app
+    // turns into "open it" when it is installed) instead of loading the other app's screens here. Same sign-in.
+    $appFor = ['service' => 'partner', 'commerce' => 'partner', 'parcel' => 'rider'];
+    $appName = ['partner' => 'Open the Partner app', 'rider' => 'Open the Rider app'];
+    $flavor = \App\Support\NativeApp::flavor();
     $links = [];
     $apply = null;
     foreach ($modes as $role => [$switchLabel, $route, $applyLabel]) {
@@ -17,7 +23,10 @@
             continue;
         }
         if ($user->holdsPartnerRole($role)) {
-            $links[] = [$switchLabel, route($route)];
+            $target = $appFor[$role];
+            $links[] = in_array($flavor, ['partner', 'rider'], true) && $flavor !== $target
+                ? [$appName[$target], 'https://play.google.com/store/apps/details?id='.\App\Support\NativeApp::PACKAGES[$target]]
+                : [$switchLabel, route($route)];
         } elseif ($apply === null && $user->canApplyAsPartner($role)
             && (collect(\App\Support\PartnerPage\PartnerPageData::roles())->firstWhere('code', $role)['hands_off'] ?? false)) {
             $apply = [$applyLabel, route('customer.partners', ['role' => $role]).'#formCard'];

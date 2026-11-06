@@ -54,6 +54,13 @@
         </provider>
     </application>
 
+    <!-- The other 1CallFix apps: "Deliver too" / "Offer services too" opens them directly when installed. -->
+    <queries>
+        <package android:name="com.call.customer" />
+        <package android:name="com.onecall.deliveryboy" />
+        <package android:name="com.onecall.vendor" />
+    </queries>
+
     <uses-permission android:name="android.permission.INTERNET" />
     <!-- Push notifications (Android 13+ asks the user). -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />

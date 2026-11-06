@@ -30,6 +30,12 @@ class KycNotification extends Notification implements ShouldQueue
     {
     }
 
+    /** A rider's KYC result rings on the Rider app; a service partner's on the Partner app. */
+    public function pushApp(): string
+    {
+        return ($this->context['app'] ?? null) === 'rider' ? 'rider' : 'partner';
+    }
+
     public function via($notifiable): array
     {
         return $this->channels;

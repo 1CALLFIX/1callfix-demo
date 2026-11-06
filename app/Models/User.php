@@ -124,7 +124,9 @@ class User extends Authenticatable
     public function planSubscriptions() { return $this->morphMany(\App\Models\Subscription::class, 'subscribable'); }
 
     public function routeNotificationForSms(): ?string { return $this->phone; }
-    public function routeNotificationForPush(): ?string { return $this->fcm_token; }
+    /** The right app's token for this notification (App\Support\PushApp); the browser token when there is none. */
+    public function routeNotificationForPush($notification = null): ?string { return \App\Support\PushApp::tokenFor($this, $notification); }
+    public function pushTokens() { return $this->hasMany(UserPushToken::class); }
 
     /** @see \App\Services\AuthorizationService::can() */
     public function hasPermission(string $permission, array $scope = []): bool

@@ -13,9 +13,9 @@ use Illuminate\Http\Request;
  * is the browser counterpart the Phase 2 push work needed, since no web
  * user could previously get an fcm_token written at all.
  *
- * The token is stored on the single users.fcm_token column (last-writer
- * wins across a user's devices — a documented v1 limitation; a
- * push_subscriptions table is the multi-device upgrade path).
+ * A browser's token goes on users.fcm_token. An Android app's token goes in
+ * user_push_tokens, one per app (App\Support\PushApp), so one account can
+ * use the Partner and Rider apps on one phone and each rings for its own jobs.
  */
 class PushTokenController extends Controller
 {
@@ -26,8 +26,17 @@ class PushTokenController extends Controller
             'token' => ['required', 'string', 'max:255'],
         ]);
 
-        // One phone, one account: when someone else signs in on the same phone (the Android apps), the
-        // previous account stops getting that phone's notifications.
+        // Inside an Android app: each app keeps its own token, so the Partner app and the Rider app on one phone
+        // both ring for their own jobs (owner rule 2026-11-06). Another account signed in before on this phone
+        // stops getting its notifications.
+        $app = \App\Support\NativeApp::flavor();
+        if ($app !== null) {
+            \App\Support\PushApp::register($request->user(), $app, $validated['token']);
+
+            return response()->json(['message' => 'Push token registered.']);
+        }
+
+        // One browser, one account.
         User::query()
             ->where('fcm_token', $validated['token'])
             ->whereKeyNot($request->user()->getKey())
@@ -41,7 +50,12 @@ class PushTokenController extends Controller
     /** Clear it — called when a user turns notifications off or revokes permission. */
     public function destroy(Request $request): JsonResponse
     {
-        $request->user()->update(['fcm_token' => null]);
+        $app = \App\Support\NativeApp::flavor();
+        if ($app !== null) {
+            $request->user()->pushTokens()->where('app', $app)->delete();
+        } else {
+            $request->user()->update(['fcm_token' => null]);
+        }
 
         return response()->json(['message' => 'Push token cleared.']);
     }

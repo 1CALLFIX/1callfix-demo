@@ -58,6 +58,7 @@ final class AccountDeletionService
         DB::transaction(function () use ($user, $actor, $reason) {
             $user->forceFill(['status' => 'suspended', 'closed_at' => now(), 'fcm_token' => null])->save();
             $user->tokens()->delete();
+            $user->pushTokens()->delete(); // each app's own notification token (2026-11-06)
             ActivityLogger::logModel($actor ?? $user, $user, 'Account closed', ['reason' => $reason, 'erase_after_days' => self::ERASE_AFTER_DAYS]);
         });
     }
@@ -95,6 +96,7 @@ final class AccountDeletionService
                         'lng' => $a->lng !== null ? round((float) $a->lng, 2) : null,
                     ])->save());
                     $user->tokens()->delete();
+                    $user->pushTokens()->delete();
                     $user->forceFill([
                         'name' => 'Deleted user', 'phone' => 'deleted-'.$user->id, 'email' => null, 'password' => null,
                         'fcm_token' => null, 'profile_photo' => null, 'avatar_url' => null, 'erased_at' => now(),

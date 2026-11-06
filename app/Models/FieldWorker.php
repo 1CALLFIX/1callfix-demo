@@ -48,6 +48,29 @@ class FieldWorker extends Model
     ];
 
     public function user() { return $this->belongsTo(User::class); }
+
+    /**
+     * Owner rule 2026-11-06: one person may be a service partner and a rider on one account, and may take a
+     * service job while delivering. But while their service work has started (start code given, status
+     * in_progress) they get no delivery offers, so food or a parcel never waits on a job in someone's house.
+     */
+    public function scopeNotDoingServiceWork($query)
+    {
+        $busyUsers = Provider::query()
+            ->whereNotNull('user_id')
+            ->whereIn('id', Booking::query()->where('status', 'in_progress')->whereNotNull('provider_id')->select('provider_id'))
+            ->select('user_id');
+
+        return $query->where(fn ($q) => $q->whereNull('user_id')->orWhereNotIn('user_id', $busyUsers));
+    }
+
+    public function isDoingServiceWork(): bool
+    {
+        return $this->user_id !== null && Booking::query()
+            ->where('status', 'in_progress')
+            ->whereHas('provider', fn ($q) => $q->where('user_id', $this->user_id))
+            ->exists();
+    }
     public function franchise() { return $this->belongsTo(Franchise::class); }
     public function zone() { return $this->belongsTo(Zone::class); }
     public function capabilities() { return $this->hasMany(FieldWorkerCapability::class); }

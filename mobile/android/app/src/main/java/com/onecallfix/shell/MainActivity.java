@@ -116,6 +116,19 @@ public class MainActivity extends BridgeActivity {
                     || (host.endsWith("google.com") && path.startsWith("/maps"))
                     || host.equals("play.google.com");
 
+            // "Deliver too" / "Offer services too" (owner rule 2026-11-06): the site links to the other 1CallFix
+            // app's Play Store page. If that app is already on the phone, open it straight away instead.
+            if (host.equals("play.google.com")) {
+                String pkg = uri.getQueryParameter("id");
+                if (pkg != null && (pkg.equals("com.call.customer") || pkg.equals("com.onecall.deliveryboy") || pkg.equals("com.onecall.vendor"))) {
+                    Intent launch = getPackageManager().getLaunchIntentForPackage(pkg);
+                    if (launch != null) {
+                        startActivity(launch);
+                        return true;
+                    }
+                }
+            }
+
             if (!webScheme || outsideHost) {
                 startActivity(new Intent(Intent.ACTION_VIEW, uri).addCategory(Intent.CATEGORY_BROWSABLE));
                 return true;

@@ -32,7 +32,7 @@ class ReviewFieldWorkerKycAction
             $worker->documents()->where('is_current', true)->where('status', 'pending')->update(['status' => 'approved']);
 
             if ($worker->user) {
-                $worker->user->notify(new KycNotification('kyc_approved', ChannelResolver::resolve(['franchise_id' => $worker->franchise_id])));
+                $worker->user->notify(new KycNotification('kyc_approved', ChannelResolver::resolve(['franchise_id' => $worker->franchise_id]), ['app' => 'rider']));
             }
 
             return $worker->fresh();
@@ -52,7 +52,7 @@ class ReviewFieldWorkerKycAction
             ]);
 
             if ($worker->user) {
-                $worker->user->notify(new KycNotification('kyc_rejected', ChannelResolver::resolve(['franchise_id' => $worker->franchise_id]), ['reason' => $reason]));
+                $worker->user->notify(new KycNotification('kyc_rejected', ChannelResolver::resolve(['franchise_id' => $worker->franchise_id]), ['reason' => $reason, 'app' => 'rider']));
             }
 
             return $worker->fresh();

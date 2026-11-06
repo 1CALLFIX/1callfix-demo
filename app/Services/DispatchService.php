@@ -694,6 +694,8 @@ class DispatchService
                 ->whereHas('user', fn ($u) => $u->where('status', '!=', 'suspended')))
             ->whereHas('capabilities', fn ($q) => $q->whereIn('capability_type', (array) $capabilityType))
             ->whereNotIn('id', $excludeWorkerIds)
+            // A rider who is also a service partner gets no delivery offers while a service job is in progress.
+            ->notDoingServiceWork()
             ->get()
             ->map(fn (FieldWorker $worker) => [
                 'provider' => $worker,

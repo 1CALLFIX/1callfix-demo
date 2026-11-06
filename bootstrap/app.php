@@ -53,6 +53,9 @@ return Application::configure(basePath: dirname(__DIR__))
         // Customer pages in English or Telugu (Admin → Website text & language); staff panels stay English.
         $middleware->web(append: [\App\Http\Middleware\SetCustomerLocale::class]);
 
+        // Inside the Rider app, Partner app pages say "open the Partner app" (and the other way round).
+        $middleware->web(append: [\App\Http\Middleware\OpenInRightApp::class]);
+
         // Last-active time for the admin Online column (writes after the response, at most once a minute).
         $middleware->web(append: [\App\Http\Middleware\TouchLastSeen::class]);
         $middleware->api(append: [\App\Http\Middleware\TouchLastSeen::class]);

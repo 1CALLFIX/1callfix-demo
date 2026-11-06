@@ -61,8 +61,9 @@ class PushChannel
             // re-registered a device in the moments between this send()
             // and this exception being caught, not merely a comparison
             // against a value that was always going to match itself.
-            if ($notifiable instanceof User && $notifiable->fcm_token === $e->token) {
-                $notifiable->update(['fcm_token' => null]);
+            // Per-app tokens (2026-11-06): the dead token may sit on users.fcm_token or in user_push_tokens.
+            if ($notifiable instanceof User && $e->token === $token) {
+                \App\Support\PushApp::forget($e->token);
             }
         }
     }
