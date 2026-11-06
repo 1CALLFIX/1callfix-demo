@@ -6,7 +6,7 @@ Use with `docs/DEPLOY_RUNBOOK.md`.
 |---|---|
 | Deploys | `main` at the commit that adds this file |
 | Live before | `2595a13` |
-| Full test suite | run at deploy time; known failures only: `NotificationCenterAuditTest::test_provider_status_shows_log_fallback_by_default` |
+| Full test suite | 4528 passed of 4529; known failures only: `NotificationCenterAuditTest::test_provider_status_shows_log_fallback_by_default` |
 | Composer | no |
 | Front-end build (steps 6–7) | yes |
 | Version | `VERSION` 2026.11.06.2 |
