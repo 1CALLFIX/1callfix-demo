@@ -55,8 +55,9 @@
                 <h2 id="shops-heading" class="text-lg font-bold">{{ $t('shop.home.near_you') }}</h2>
                 <div class="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                     @foreach ($stores as $s)
+                        <div class="relative" wire:key="shop-{{ $s->id }}">
                         <a href="{{ route('customer.shop.store', [$city->slug, $s->slug]) }}" wire:navigate
-                           class="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white p-3 hover:border-blue-300">
+                           class="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white p-3 pr-12 hover:border-blue-300">
                             @if ($s->logo_url)
                                 <img src="{{ $s->logo_url }}" alt="" class="h-14 w-14 shrink-0 rounded-xl object-cover">
                             @else
@@ -69,6 +70,9 @@
                                 <span @class(['mt-1 inline-block rounded-full px-2 py-0.5 text-[11px] font-semibold', 'bg-emerald-50 text-emerald-700' => $s->is_open, 'bg-slate-100 text-slate-500' => ! $s->is_open])>{{ $s->is_open ? $t('shop.open_now') : $t('shop.closed') }}</span>
                             </span>
                         </a>
+                        {{-- ♡ on the card corner (2026-11-07), outside the link. --}}
+                        <x-customer.save-button small :item="'store:'.$s->id" :title="$s->name" :image="$s->logo_url" :url="route('customer.shop.store', [$city->slug, $s->slug])" class="absolute right-2 top-2 z-10" />
+                        </div>
                     @endforeach
                 </div>
             </section>

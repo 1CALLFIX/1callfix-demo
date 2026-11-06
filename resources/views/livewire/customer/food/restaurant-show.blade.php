@@ -5,14 +5,15 @@
 @endphp
 {{-- Food F3: one restaurant's menu. Every word from SiteText (English + Telugu). --}}
 <div class="mb-bottom-nav">
-    <div class="mx-auto max-w-3xl px-4 py-6 sm:px-6">
-        <x-customer.breadcrumbs :items="[
+    {{-- Photo first on phones (2026-11-07): the restaurant card runs edge to edge under the header. --}}
+    <div class="mx-auto max-w-3xl px-4 pb-6 sm:px-6 sm:pt-6">
+        <x-customer.breadcrumbs class="hidden sm:block" :items="[
             ['label' => $city->name, 'url' => route('customer.city.show', $city->slug)],
             ['label' => $t('food.crumb'), 'url' => route('customer.food.home', $city->slug)],
             ['label' => $store->name, 'url' => null],
         ]" />
 
-        <header class="relative mt-4 overflow-hidden rounded-3xl border border-slate-200 bg-white">
+        <header class="relative -mx-4 overflow-hidden border-b border-slate-200 bg-white sm:mx-0 sm:mt-4 sm:rounded-3xl sm:border">
             {{-- ♡ + Share on the cover's corner (owner 2026-11-07); without a cover they sit above the rating --}}
             @if ($store->cover_url)
                 <x-customer.item-actions :item="'store:'.$store->id" :title="$store->name" :image="$store->cover_url" class="absolute right-3 top-3 z-10" />
@@ -37,7 +38,7 @@
                 @endif
                 @if ($card['rating'])
                     <div class="shrink-0 rounded-xl border border-slate-200 px-2.5 py-1.5 text-center">
-                        <p class="text-sm font-bold text-emerald-700">★ {{ $card['rating']['avg'] }}</p>
+                        <p class="inline-flex rounded-md bg-emerald-600 px-1.5 py-0.5 text-xs font-bold leading-4 text-white" data-rating-chip>{{ $card['rating']['avg'] }} ★</p>
                         <p class="text-[11px] text-slate-500">{{ $card['rating']['n'] == 1 ? $t('food.rating_one') : $t('food.rating_many', ['count' => $card['rating']['n']]) }}</p>
                     </div>
                 @endif
@@ -127,14 +128,14 @@
                                     @if (! $open)
                                         <span class="flex min-h-10 items-center justify-center rounded-lg border border-slate-200 bg-white text-xs font-semibold text-slate-400 shadow-sm">{{ $t('food.menu.add') }}</span>
                                     @elseif ($n > 0)
-                                        <div class="flex items-center justify-between rounded-lg bg-blue-600 text-white shadow-sm">
+                                        <div class="flex items-center justify-between rounded-lg bg-[var(--mod)] text-white shadow-sm">
                                             <button type="button" wire:click="removeOne({{ $d->id }})" class="min-h-10 px-3 text-lg font-bold" aria-label="{{ $t('shop.card.one_less', ['item' => $d->name]) }}">−</button>
                                             <span class="text-sm font-bold tabular-nums" aria-live="polite">{{ $n }}</span>
                                             <button type="button" wire:click="add({{ $d->id }})" class="min-h-10 px-3 text-lg font-bold" aria-label="{{ $t('shop.card.one_more', ['item' => $d->name]) }}">+</button>
                                         </div>
                                     @else
                                         <button type="button" wire:click="add({{ $d->id }})" data-testid="dish-add"
-                                                class="min-h-10 w-full rounded-lg border-2 border-blue-600 bg-white text-sm font-bold text-blue-700 shadow-sm hover:bg-blue-50">{{ $t('food.menu.add') }}</button>
+                                                class="min-h-10 w-full rounded-lg border-2 border-[var(--mod)] bg-white text-sm font-bold text-[var(--mod-ink)] shadow-sm hover:bg-[var(--mod-soft)]">{{ $t('food.menu.add') }}</button>
                                     @endif
                                 </div>
                                 @if ($customizable && $open)<p class="mt-1 text-[11px] text-slate-500">{{ $t('food.menu.customisable') }}</p>@endif

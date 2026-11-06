@@ -77,6 +77,24 @@
         </x-ui.card>
 
         <x-ui.card>
+            <h2 class="text-sm font-semibold mb-1">Module colours</h2>
+            <p class="text-xs text-gray-500 mb-3">Each business has its own colour: the strip under the header on its pages, its card on the homepage and its small buttons. 1CallFix blue stays on the main buttons.</p>
+            <div class="grid gap-4 sm:grid-cols-2 md:grid-cols-4">
+                @foreach (['services' => 'Services', 'food' => 'Food', 'shop' => 'Shop', 'parcel' => 'Parcel'] as $m => $label)
+                    <div>
+                        <label class="block text-sm font-medium mb-1" for="sc-mod-{{ $m }}">{{ $label }}</label>
+                        <div class="flex items-center gap-2">
+                            <input type="color" id="sc-mod-{{ $m }}" wire:model.live="moduleColours.{{ $m }}" class="h-10 w-14 cursor-pointer rounded border border-gray-300 bg-white p-1">
+                            <input type="text" wire:model.live="moduleColours.{{ $m }}" maxlength="7" aria-label="{{ $label }} colour code" class="{{ $input }} font-mono uppercase">
+                        </div>
+                        @error('moduleColours.'.$m)<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
+                    </div>
+                @endforeach
+            </div>
+            <p class="text-xs text-gray-500 mt-3">Defaults: Services #2563EB, Food #E23744, Shop #16A34A, Parcel #7C3AED.</p>
+        </x-ui.card>
+
+        <x-ui.card>
             <h2 class="text-sm font-semibold mb-1">Parcel card</h2>
             <p class="text-xs text-gray-500 mb-3">Shown only where Parcel is switched on (Admin → Modules). The price is the area's base fare from Parcel Settings.</p>
             <div class="grid gap-4 md:grid-cols-2">

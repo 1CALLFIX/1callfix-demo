@@ -40,6 +40,9 @@ class Manage extends Component
     public string $parcelSubtitle = '';
     public bool $parcelShowPrice = true;
     public string $parcelColour = 'blue';
+
+    /** Module colours (2026-11-07): services, food, shop, parcel. */
+    public array $moduleColours = [];
     public bool $parcelShowChips = true;
     public string $parcelChips = '';
     public string $parcelSendLabel = '';
@@ -91,6 +94,9 @@ class Manage extends Component
         $this->parcelSubtitle = S::parcelSubtitle();
         $this->parcelShowPrice = S::parcelShowPrice();
         $this->parcelColour = S::parcelColour();
+        foreach (array_keys(\App\Support\ModuleTheme::DEFAULTS) as $m) {
+            $this->moduleColours[$m] = \App\Support\ModuleTheme::colour($m);
+        }
         $this->parcelShowChips = S::parcelShowChips();
         $this->parcelChips = S::parcelChipsText();
         $this->parcelSendLabel = S::parcelSendLabel();
@@ -144,7 +150,9 @@ class Manage extends Component
             'reviewAmberHours' => ['required', 'integer', 'between:1,720'],
             'reviewRedHours' => ['required', 'integer', 'between:1,720', 'gte:reviewAmberHours'],
             'headerPartnerLabel' => ['required', 'string', 'max:30'],
+            'moduleColours.*' => ['required', 'regex:/^#[0-9a-fA-F]{6}$/'],
         ], [], [
+            'moduleColours.*' => 'module colour',
             'categoryLimit' => 'number of categories', 'columnsMobile' => 'phone columns', 'columnsDesktop' => 'desktop columns',
             'parcelTitle' => 'parcel title', 'parcelSubtitle' => 'parcel subtitle', 'parcelImageFile' => 'parcel picture', 'parcelIconFile' => 'parcel icon',
             'parcelChips' => 'chips', 'parcelSendLabel' => 'send button', 'parcelTrackLabel' => 'track button', 'parcelBadgeText' => 'icon label',
@@ -195,7 +203,7 @@ class Manage extends Component
             S::REVIEW_RED_HOURS => (string) (int) $this->reviewRedHours,
             S::HEADER_PARTNER_BUTTON => $bool($this->headerPartnerButton),
             S::HEADER_PARTNER_LABEL => trim($this->headerPartnerLabel),
-        ] as $key => $value) {
+        ] + collect(\App\Support\ModuleTheme::DEFAULTS)->mapWithKeys(fn ($d, $m) => [\App\Support\ModuleTheme::key($m) => strtoupper((string) ($this->moduleColours[$m] ?? $d))])->all() as $key => $value) {
             $changed = SettingsAuditor::put($admin, $key, $value) || $changed;
         }
 

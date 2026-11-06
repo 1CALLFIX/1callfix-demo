@@ -12,21 +12,23 @@
 --}}
 
 <div class="mb-bottom-nav">
-    <div class="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-        <x-customer.breadcrumbs :items="array_values(array_filter([
+    {{-- Photo first on phones (2026-11-07, Urban Company): the photo runs edge to edge under the header and the title
+         card overlaps it; breadcrumbs show from tablet width up. --}}
+    <div class="mx-auto max-w-7xl px-4 pb-8 sm:px-6 sm:pt-8 lg:px-8">
+        <x-customer.breadcrumbs class="hidden sm:block" :items="array_values(array_filter([
             ['label' => 'Home', 'url' => route('customer.home')],
             ['label' => \App\Support\SiteText::get('city.crumb_services'), 'url' => \App\Support\Seo\PublicUrl::services()],
             $service->category ? ['label' => $service->category->name, 'url' => \App\Support\Seo\PublicUrl::category($service->category)] : null,
             ['label' => $service->name, 'url' => null],
         ]))" />
 
-        <div class="mt-6 grid gap-10 lg:grid-cols-[minmax(0,1fr)_22rem]">
+        <div class="grid gap-10 sm:mt-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
 
             {{-- ========================= Main column ========================= --}}
             <div class="min-w-0">
 
                 {{-- Media --}}
-                <div class="relative overflow-hidden rounded-2xl bg-slate-100">
+                <div class="relative -mx-4 overflow-hidden bg-slate-100 sm:mx-0 sm:rounded-2xl">
                     {{-- ♡ + Share on the photo's corner (owner 2026-11-07, Urban Company / Flipkart pattern) --}}
                     <x-customer.item-actions :item="'service:'.$service->id" :title="$service->name" :image="$card['image_url']" class="absolute right-3 top-3 z-10" />
                     @if ($card['image_url'])
@@ -45,8 +47,8 @@
                     @endif
                 </div>
 
-                {{-- Title block --}}
-                <div class="mt-6">
+                {{-- Title block: on phones a white card that overlaps the photo's bottom edge --}}
+                <div class="relative -mx-4 -mt-5 rounded-t-3xl bg-white px-4 pt-5 sm:mx-0 sm:mt-6 sm:rounded-none sm:px-0 sm:pt-0">
                     @if (! empty($card['badges']))
                         <div class="mb-3 flex flex-wrap gap-1.5">
                             @foreach ($card['badges'] as $badge)

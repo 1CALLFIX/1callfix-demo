@@ -90,6 +90,9 @@
      Making this anchor a containing block keeps those spans inside the
      card, where both clips apply. Same `relative` convention as the media
      div below. --}}
+{{-- 2026-11-07: a ♡ on the card's photo corner (Meesho), kept OUTSIDE the link: a button or link inside a link is not
+     allowed and a browser would break the card apart. --}}
+<div class="relative h-full" data-service-card>
 <a href="{{ $card['url'] }}"
    {{ $attributes->merge(['class' => 'group relative flex h-full flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white transition duration-200 hover:-translate-y-0.5 hover:border-blue-300 hover:shadow-lg hover:shadow-blue-900/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600']) }}>
 
@@ -161,4 +164,6 @@
         <x-customer.price :card="$card" :currency-symbol="$currencySymbol" class="mt-auto pt-1" />
     </div>
 </a>
+<x-customer.save-button small :item="'service:'.$service->id" :title="$card['name']" :image="$card['image_url']" :url="$card['url']" class="absolute right-2 top-2 z-10" />
+</div>
 @endif

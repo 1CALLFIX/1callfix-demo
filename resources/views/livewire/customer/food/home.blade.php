@@ -46,7 +46,7 @@
                 <ul class="mt-3 grid gap-3 sm:grid-cols-2">
                     @foreach ($cards as $c)
                         @php $s = $c['store']; @endphp
-                        <li wire:key="r-{{ $s->id }}">
+                        <li wire:key="r-{{ $s->id }}" class="relative">
                             <a href="{{ $c['url'] }}" wire:navigate data-testid="restaurant-card"
                                @class(['block overflow-hidden rounded-2xl border bg-white transition hover:border-blue-300 hover:shadow-sm', 'border-slate-200' => $c['open'], 'border-slate-200 opacity-70' => ! $c['open']])>
                                 {{-- Restaurant portal 2026-11-04: the cover photo, wide, on top. --}}
@@ -60,9 +60,9 @@
                                     <span class="flex h-20 w-20 shrink-0 items-center justify-center rounded-xl bg-orange-50 text-2xl font-bold text-orange-700">{{ mb_substr($s->name, 0, 1) }}</span>
                                 @endif
                                 <span class="min-w-0 flex-1">
-                                    <span class="flex items-start justify-between gap-2">
+                                    <span @class(['flex items-start justify-between gap-2', 'pr-9' => ! $s->cover_url])>
                                         <span class="truncate font-semibold text-slate-900">{{ $s->name }}</span>
-                                        @if ($c['rating'])<span class="shrink-0 rounded-md bg-emerald-700 px-1.5 py-0.5 text-xs font-bold text-white">★ {{ $c['rating']['avg'] }}</span>@endif
+                                        @if ($c['rating'])<span class="shrink-0 rounded-md bg-emerald-600 px-1.5 py-0.5 text-xs font-bold leading-4 text-white" data-rating-chip>{{ $c['rating']['avg'] }} ★</span>@endif
                                     </span>
                                     @if ($c['cuisines'])<span class="block truncate text-xs text-slate-500">{{ $c['cuisines'] }}</span>@endif
                                     <span class="mt-1 flex flex-wrap gap-x-2 gap-y-0.5 text-xs text-slate-700">
@@ -84,6 +84,8 @@
                                 </span>
                                 </span>
                             </a>
+                            {{-- ♡ on the card corner (2026-11-07), outside the link. --}}
+                            <x-customer.save-button small :item="'store:'.$s->id" :title="$s->name" :image="$s->cover_url ?: $s->logo_url" :url="$c['url']" class="absolute right-2 top-2 z-10" />
                         </li>
                     @endforeach
                 </ul>

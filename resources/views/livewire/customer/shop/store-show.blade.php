@@ -22,7 +22,7 @@
                 <ul class="mt-3 flex flex-wrap gap-2 text-xs font-semibold">
                     <li @class(['rounded-full px-3 py-1', 'bg-emerald-50 text-emerald-700' => $store->is_open, 'bg-slate-100 text-slate-500' => ! $store->is_open])>{{ $store->is_open ? $t('shop.open_now') : $t('shop.closed_now') }}</li>
                     @if ($rating && $rating->n > 0)
-                        <li class="rounded-full bg-amber-50 px-3 py-1 text-amber-800">{{ $rating->n == 1 ? $t('shop.store.rating_one', ['avg' => number_format((float) $rating->avg, 1)]) : $t('shop.store.rating_many', ['avg' => number_format((float) $rating->avg, 1), 'count' => $rating->n]) }}</li>
+                        <li class="rounded-full bg-emerald-600 px-3 py-1 text-white" data-rating-chip>{{ $rating->n == 1 ? $t('shop.store.rating_one', ['avg' => number_format((float) $rating->avg, 1)]) : $t('shop.store.rating_many', ['avg' => number_format((float) $rating->avg, 1), 'count' => $rating->n]) }}</li>
                     @endif
                     <li class="rounded-full bg-slate-100 px-3 py-1 text-slate-700">
                         @if ((float) $store->delivery_fee_flat > 0)
@@ -49,7 +49,7 @@
                    class="min-h-11 w-full rounded-xl border border-slate-300 px-4 text-base sm:w-80">
             @foreach ($categories as $c)
                 <button type="button" wire:click="$set('categoryId', {{ $categoryId === $c->id ? 'null' : $c->id }})"
-                        @class(['rounded-full border px-3 py-1.5 text-sm', 'border-blue-600 bg-blue-600 text-white' => $categoryId === $c->id, 'border-slate-300 bg-white text-slate-700' => $categoryId !== $c->id])>{{ $c->name }}</button>
+                        @class(['rounded-full border px-3 py-1.5 text-sm', 'border-[var(--mod)] bg-[var(--mod)] text-white' => $categoryId === $c->id, 'border-slate-300 bg-white text-slate-700' => $categoryId !== $c->id])>{{ $c->name }}</button>
             @endforeach
         </div>
 

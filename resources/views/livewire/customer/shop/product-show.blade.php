@@ -17,14 +17,15 @@
             }));
         },
      }">
-    <div class="mx-auto max-w-6xl px-4 py-6 pb-28 sm:px-6 sm:pb-6 lg:px-8">
-        <x-customer.breadcrumbs :items="[
+    {{-- Photo first on phones (2026-11-07, Flipkart / Amazon): edge to edge under the header; breadcrumbs from tablet up. --}}
+    <div class="mx-auto max-w-6xl px-4 pb-28 sm:px-6 sm:py-6 lg:px-8">
+        <x-customer.breadcrumbs class="hidden sm:block" :items="[
             ['label' => $t('shop.crumb_shop'), 'url' => route('customer.shop.home', $city->slug)],
             ['label' => $store->name, 'url' => route('customer.shop.store', [$city->slug, $store->slug])],
             ['label' => $product->name, 'url' => null],
         ]" />
 
-        <div class="mt-4 grid gap-6 md:grid-cols-2">
+        <div class="grid gap-6 sm:mt-4 md:grid-cols-2">
             @php
                 // Product choices 2026-11-02: the picked choice's photo comes first.
                 $images = $product->image_urls;
@@ -37,7 +38,7 @@
                 $stockNow = $selected ? (int) $selected->stock : (int) $product->stock;
             @endphp
             <div x-data="{ shown: 0 }">
-                <div class="relative aspect-square overflow-hidden rounded-3xl border border-slate-200 bg-white">
+                <div class="relative -mx-4 aspect-square overflow-hidden border-b border-slate-200 bg-white sm:mx-0 sm:rounded-3xl sm:border">
                     {{-- ♡ + Share on the photo's corner (owner 2026-11-07, Flipkart / Amazon pattern) --}}
                     <x-customer.item-actions :item="'product:'.$product->id" :title="$product->name" :image="$product->image_urls[0] ?? null" class="absolute right-3 top-3 z-10" />
                     @forelse ($images as $i => $src)
@@ -47,7 +48,7 @@
                     @endforelse
                 </div>
                 @if (count($images) > 1)
-                    <div class="mt-2 flex gap-2">
+                    <div class="mt-2 flex gap-2 overflow-x-auto">
                         @foreach ($images as $i => $src)
                             <button type="button" x-on:click="shown = {{ $i }}" class="h-16 w-16 overflow-hidden rounded-xl border-2"
                                     x-bind:class="shown === {{ $i }} ? 'border-blue-600' : 'border-slate-200'" aria-label="{{ $t('shop.product.photo', ['number' => $i + 1]) }}">
@@ -59,7 +60,7 @@
             </div>
 
             <div>
-                <a href="{{ route('customer.shop.store', [$city->slug, $store->slug]) }}" wire:navigate class="text-sm font-semibold uppercase tracking-wide text-blue-700">{{ $store->name }}</a>
+                <a href="{{ route('customer.shop.store', [$city->slug, $store->slug]) }}" wire:navigate class="text-sm font-semibold uppercase tracking-wide text-[var(--mod-ink)]">{{ $store->name }}</a>
                 <h1 class="mt-1 text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">{{ $product->name }}</h1>
 
                 {{-- Shop Phase A 2026-11-02: price block like the big marketplaces: offer price, % off, the price before,

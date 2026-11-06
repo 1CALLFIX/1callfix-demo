@@ -11,7 +11,7 @@
 @endphp
 {{-- E-commerce Phase 2 product card. The shop name sits on every card: on 1CallFix you always know which local shop
      you are buying from. --}}
-<article class="group flex flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white transition hover:border-blue-300 hover:shadow-md" wire:key="p-{{ $product->id }}">
+<article class="group relative flex flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white transition hover:border-blue-300 hover:shadow-md" wire:key="p-{{ $product->id }}">
     <a href="{{ $url }}" wire:navigate class="relative block aspect-square bg-slate-50">
         @if ($image)
             <img src="{{ $image }}" alt="{{ $product->name }}" loading="lazy" class="h-full w-full object-cover">
@@ -22,6 +22,8 @@
             <span class="absolute left-2 top-2 rounded-full bg-blue-600 px-2 py-0.5 text-[11px] font-bold text-white">{{ $t('shop.card.off_online', ['percent' => rtrim(rtrim(number_format((float) $product->discount_percent, 1), '0'), '.')]) }}</span>
         @endif
     </a>
+    {{-- ♡ on the photo corner (Meesho, 2026-11-07), outside the link. --}}
+    <x-customer.save-button small :item="'product:'.$product->id" :title="$product->name" :image="$image" :url="$url" class="absolute right-2 top-2 z-10" />
     <div class="flex flex-1 flex-col p-3">
         @if ($showStore)
             <p class="truncate text-[11px] font-medium uppercase tracking-wide text-slate-500">{{ $product->store->name }}</p>

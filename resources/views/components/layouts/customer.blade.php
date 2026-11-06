@@ -122,7 +122,8 @@
         </script>
     @endif
 </head>
-<body class="min-h-full bg-white text-slate-900 antialiased flex flex-col">
+@php $pageModule = \App\Support\ModuleTheme::forRoute(request()->route()?->getName()); @endphp
+<body class="min-h-full bg-white text-slate-900 antialiased flex flex-col" @if ($pageModule) style="{{ \App\Support\ModuleTheme::style($pageModule) }}" data-module="{{ $pageModule }}" @endif>
     {{-- Keyboard users tabbing from the top of the document can jump past the
          whole header into the page content (WCAG 2.1 AA 2.4.1). Visually
          hidden until focused — see .skip-link in resources/css/app.css. --}}
@@ -130,6 +131,10 @@
 
     @unless ($minimalChrome)
         <x-customer.header />
+        @if ($pageModule)
+            {{-- The module's own colour under the header (2026-11-07): services blue, food red, shop green, parcel purple. --}}
+            <div class="h-1 w-full bg-[var(--mod)]" aria-hidden="true" data-module-strip></div>
+        @endif
     @endunless
 
     <main id="customer-main" tabindex="-1" class="min-w-0 flex-1 overflow-x-clip focus:outline-none">

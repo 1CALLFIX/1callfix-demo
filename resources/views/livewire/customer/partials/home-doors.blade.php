@@ -16,14 +16,16 @@
     <ul class="mt-3 grid snap-x snap-mandatory grid-flow-col auto-cols-[minmax(calc((100%_-_1.5rem)/4.4),1fr)] gap-2 overflow-x-auto pb-2 sm:auto-cols-[minmax(9rem,1fr)] sm:gap-4">
         @foreach ($doors as $door)
             <li class="snap-start" wire:key="door-{{ $door['key'] }}">
-                <a href="{{ $door['url'] }}" wire:navigate data-door="{{ $door['key'] }}"
-                   class="group flex h-full flex-col items-center rounded-2xl border border-slate-200 bg-white p-1.5 text-center shadow-sm shadow-slate-900/5 transition duration-200 hover:-translate-y-0.5 hover:border-blue-300 hover:shadow-lg hover:shadow-blue-600/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 sm:rounded-3xl sm:p-4">
-                    <span class="grid aspect-square w-full max-w-16 place-items-center overflow-hidden rounded-xl bg-gradient-to-br from-blue-50 to-sky-50 sm:max-w-28 sm:rounded-2xl">
+                <a href="{{ $door['url'] }}" wire:navigate data-door="{{ $door['key'] }}" style="{{ \App\Support\ModuleTheme::style($door['key']) ?: \App\Support\ModuleTheme::style('services') }}"
+                   class="group relative flex h-full flex-col items-center overflow-hidden rounded-2xl border border-slate-200 bg-white p-1.5 text-center shadow-sm shadow-slate-900/5 transition duration-200 hover:-translate-y-0.5 hover:border-[var(--mod)] hover:shadow-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 sm:rounded-3xl sm:p-4">
+                    {{-- Each business in its own colour (2026-11-07): tinted picture box and a bar along the bottom. --}}
+                    <span class="grid aspect-square w-full max-w-16 place-items-center overflow-hidden rounded-xl bg-[var(--mod-soft)] sm:max-w-28 sm:rounded-2xl">
                         <img src="{{ $door['image'] }}" alt="" width="112" height="112" loading="eager" decoding="async"
                              @class(["h-full w-full transition duration-300 group-hover:scale-105", \App\Support\SiteControls::imageFit() === "cover" ? "object-cover" : "object-contain"])>
                     </span>
                     <span class="mt-1.5 text-xs font-bold text-slate-900 sm:mt-2 sm:text-base">{{ $door['title'] }}</span>
                     <span class="mt-0.5 line-clamp-2 text-[10px] leading-tight text-slate-500 sm:text-xs">{{ $door['line'] }}</span>
+                    <span class="absolute inset-x-0 bottom-0 h-1 bg-[var(--mod)]" aria-hidden="true"></span>
                 </a>
             </li>
         @endforeach
