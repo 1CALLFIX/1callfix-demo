@@ -6,7 +6,7 @@ Use with `docs/DEPLOY_RUNBOOK.md`.
 |---|---|
 | Deploys | `main` at the commit that adds this file (`git log -1` in runbook step 1) |
 | Live before | `f12f7da` |
-| Full test suite | run at deploy time; known failures only: `NotificationCenterAuditTest::test_provider_status_shows_log_fallback_by_default` |
+| Full test suite | 4523 passed of 4524; known failures only: `NotificationCenterAuditTest::test_provider_status_shows_log_fallback_by_default` |
 | Composer | no |
 | Front-end build (steps 6–7) | yes (one new page) |
 | Version | `VERSION` 2026.11.06.1 |
