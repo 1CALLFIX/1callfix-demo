@@ -4,8 +4,12 @@ import android.content.ActivityNotFoundException;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.SystemClock;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebView;
+import android.widget.Toast;
+
+import androidx.activity.OnBackPressedCallback;
 
 import com.getcapacitor.BridgeActivity;
 import com.getcapacitor.BridgeWebViewClient;
@@ -22,6 +26,11 @@ public class MainActivity extends BridgeActivity {
     /** True while the app is on screen: the site rings for offers itself then, so PushService stays quiet. */
     static volatile boolean inForeground = false;
 
+    /** A second back press within this time on the home page closes the app. */
+    private static final long EXIT_WINDOW_MS = 2000;
+
+    private long lastBackOnHome = 0;
+
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -37,7 +46,58 @@ public class MainActivity extends BridgeActivity {
             }
         });
 
+        // Added after the plugins load, so it runs before the Capacitor App plugin's own back handling.
+        getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
+            @Override
+            public void handleOnBackPressed() {
+                onBack();
+            }
+        });
+
         openLinkFrom(getIntent());
+    }
+
+    /**
+     * Back goes to the previous page until the home page. On the home page (or with nowhere left to go back to,
+     * e.g. a sign-in page the app was sent to) the first press shows "Press back again to exit" and a second
+     * press within two seconds closes the app.
+     */
+    private void onBack() {
+        WebView web = bridge == null ? null : bridge.getWebView();
+        if (web != null && !isHomePage(web.getUrl()) && web.canGoBack()) {
+            lastBackOnHome = 0;
+            web.goBack();
+            return;
+        }
+
+        long now = SystemClock.elapsedRealtime();
+        if (now - lastBackOnHome < EXIT_WINDOW_MS) {
+            finish();
+            return;
+        }
+        lastBackOnHome = now;
+        Toast.makeText(this, "Press back again to exit", Toast.LENGTH_SHORT).show();
+    }
+
+    /** This app's home page(s) on our own site: customer "/", rider "/rider", partner "/provider" or "/seller". */
+    private boolean isHomePage(String url) {
+        if (url == null || bridge == null) {
+            return false;
+        }
+        Uri uri = Uri.parse(url);
+        String serverHost = stripWww(Uri.parse(bridge.getServerUrl()).getHost());
+        if (!stripWww(uri.getHost()).equals(serverHost)) {
+            return false;
+        }
+        String path = uri.getPath() == null ? "" : uri.getPath().replaceAll("/+$", "");
+        switch (getPackageName()) {
+            case "com.onecall.deliveryboy":
+                return path.equals("/rider");
+            case "com.onecall.vendor":
+                return path.equals("/app/partner") || path.equals("/provider") || path.equals("/seller");
+            default:
+                return path.isEmpty();
+        }
     }
 
     @Override

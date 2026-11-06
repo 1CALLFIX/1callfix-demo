@@ -101,6 +101,7 @@ app/src/main/assets/capacitor.plugins.json
 app/src/main/res/xml/config.xml
 
 # 1CallFix: secrets stay on the build PC, never in git (see mobile/README.md)
+key.properties
 key-*.properties
 *.jks
 *.keystore

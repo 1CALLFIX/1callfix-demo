@@ -25,26 +25,34 @@ The site's heartbeat runs while the app is open, as it does in a browser today.
 ## Secrets: never in git
 These stay on the build PC only (`android/.gitignore` blocks them):
 - `android/app/google-services.json`: one file covers all three packages. It is the old apps' file, at
-  `1.8.40-2\Customer App 1.8.10\android\app\google-services.json`.
-- `android/key-customer.properties`, `android/key-rider.properties`, `android/key-partner.properties`. Each live
-  app was signed with its **own** key (the old folders hold three different `keystore.jks` files):
+  `F:\Prod-files\Glover\1.8.10\1.8.10 - 2\Apps\Customer\1.8.12\android\app\google-services.json`.
+- `android/key.properties`: **one** file for all three apps. Customer, rider and partner are all signed with
+  the same upload key, `F:\Prod-files\Keystore\keystore.jks` (alias `upload`, upload-key SHA-1
+  `2D:66:61:59:41:4C:59:C1:BD:65:40:86:51:AC:B6:BA:B9:4F:54:A0`, the same as `upload_certificate.pem` beside
+  it). The password is in the old apps' `android\key.properties` under that `Apps` folder:
   ```
-  storeFile=F:/Prod-files/Keystore/<that app's keystore>.jks
+  storeFile=F:/Prod-files/Keystore/keystore.jks
   storePassword=...
   keyAlias=upload
   keyPassword=...
   ```
+  Without this file the release build is unsigned and Play Console rejects it.
+  `F:\Prod-files\New Keystore` holds a different key (SHA-1 `92:FB:9E:…`) that none of the live apps use.
 
 ## One-time setup on the build PC
-1. Install Android Studio (it includes Java 21) and Node 20 or newer.
+1. Install Android Studio and Node 20 or newer. Install **JDK 21** too: Android Studio now bundles JDK 25,
+   and Gradle 8.14 fails on it ("Unsupported class file major version 69"). Unpack the Temurin 21 zip to
+   `%USERPROFILE%\.jdks\` (no admin needed) and set `JAVA_HOME` to it before building (see below).
 2. `git clone` the repo (or `git pull`), then `cd mobile && npm ci`.
-3. Copy `google-services.json` and the three `key-*.properties` files into place (see above).
+3. Copy `google-services.json` and `key.properties` into place (see above).
 4. Firebase console → project `onecallfix-6b538` → Project settings → each of the three Android apps → add the
-   **SHA-1** of that app's upload key, and the **App signing key SHA-1** from Play Console → Setup → App
-   signing. Google sign-in fails without them. Get the upload-key SHA-1 with:
-   `keytool -list -v -keystore <keystore>.jks -alias upload`
+   upload-key **SHA-1** above (the same for all three), and the **App signing key SHA-1** from Play Console →
+   Setup → App signing for each app. Google sign-in fails without them. Check the upload-key SHA-1 with:
+   `keytool -list -v -keystore F:\Prod-files\Keystore\keystore.jks -alias upload`
 
 ## Every build
+In PowerShell, first point Gradle at JDK 21 (only for that window):
+`$env:JAVA_HOME="$env:USERPROFILE\.jdks\jdk-21.0.13+9"` (use the folder name you unpacked).
 ```
 cd mobile
 git pull

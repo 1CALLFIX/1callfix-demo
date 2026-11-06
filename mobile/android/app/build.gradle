@@ -42,20 +42,18 @@ android {
         }
     }
 
-    // Each live app was signed with its own key. android/key-<flavor>.properties (NEVER in git) holds
-    // storeFile, storePassword, keyAlias, keyPassword for that app — see mobile/README.md.
+    // All three apps (customer, rider, partner) are signed with the same upload key. android/key.properties
+    // (NEVER in git) holds storeFile, storePassword, keyAlias, keyPassword. See mobile/README.md.
+    def keyFile = rootProject.file("key.properties")
     signingConfigs {
-        ["customer", "rider", "partner"].each { name ->
-            def f = rootProject.file("key-${name}.properties")
-            if (f.exists()) {
-                def props = new Properties()
-                f.withInputStream { props.load(it) }
-                create(name) {
-                    storeFile file(props["storeFile"])
-                    storePassword props["storePassword"]
-                    keyAlias props["keyAlias"]
-                    keyPassword props["keyPassword"]
-                }
+        if (keyFile.exists()) {
+            def props = new Properties()
+            keyFile.withInputStream { props.load(it) }
+            create("upload") {
+                storeFile file(props["storeFile"])
+                storePassword props["storePassword"]
+                keyAlias props["keyAlias"]
+                keyPassword props["keyPassword"]
             }
         }
     }
@@ -64,15 +62,11 @@ android {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            // Signed only when key.properties is on this machine; otherwise the release build is unsigned.
+            if (keyFile.exists()) {
+                signingConfig signingConfigs.upload
+            }
         }
-    }
-}
-
-// Sign each release flavor with its own key, when the key file is on this machine.
-android.productFlavors.all { flavor ->
-    def cfg = android.signingConfigs.findByName(flavor.name)
-    if (cfg != null) {
-        flavor.signingConfig = cfg
     }
 }
 
