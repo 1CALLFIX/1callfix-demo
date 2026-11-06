@@ -7,7 +7,7 @@ Use with `docs/DEPLOY_RUNBOOK.md`. Ships in the same deploy as `2026-11-07-like-
 |---|---|
 | Deploys | `main` at the commit that adds this file |
 | Live before | `d63d6b2` |
-| Full test suite | see the commit that records it; known failures only: `NotificationCenterAuditTest::test_provider_status_shows_log_fallback_by_default` |
+| Full test suite | 4540 passed of 4541 on 1286928; known failures only: `NotificationCenterAuditTest::test_provider_status_shows_log_fallback_by_default` |
 | Composer | no |
 | Front-end build (steps 6–7) | yes |
 | Version | `VERSION` 2026.11.07.2 |
