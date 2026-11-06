@@ -16,6 +16,7 @@
         <div class="relative max-w-[62%]">
             <p class="text-xs font-semibold uppercase tracking-widest text-blue-700">{{ \App\Support\SiteControls::parcelSubtitle() }}</p>
             <h1 class="mt-1 text-2xl font-black tracking-tight text-slate-900 sm:text-3xl">{{ \App\Support\SiteControls::parcelPageHeading() }}</h1>
+            <x-customer.share-button :title="\App\Support\SiteControls::parcelPageHeading()" class="mt-3" />
             <p class="mt-1 text-sm text-slate-600">{{ \App\Support\SiteControls::parcelPageIntro() }}</p>
         </div>
     </div>

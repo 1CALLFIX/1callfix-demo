@@ -13,6 +13,7 @@
         <div aria-hidden="true" class="pointer-events-none absolute -right-16 -top-20 h-64 w-64 rounded-full bg-white/10 blur-3xl"></div>
         <div class="relative">
             <h1 class="text-2xl font-bold tracking-tight sm:text-3xl">{{ $card['name'] }}</h1>
+            <x-customer.share-button :title="$card['name']" class="mt-3" />
             <p class="mt-3 flex flex-wrap items-baseline gap-x-3 gap-y-1">
                 <span class="text-4xl font-bold" data-testid="membership-price">{{ $currencySymbol }}{{ number_format($card['price'], 2) }}</span>
                 <span class="text-sm text-blue-100" data-testid="membership-validity">valid for {{ $card['validity_label'] }} from activation</span>

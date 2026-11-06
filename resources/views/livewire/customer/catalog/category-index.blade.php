@@ -9,6 +9,7 @@
 
         <header class="mt-4">
             <h1 class="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">All categories</h1>
+            <x-customer.share-button :title="'All categories'" class="mt-3" />
             <p class="mt-2 max-w-2xl text-sm text-slate-600">
                 Every service category available. Pick one to see its subcategories and services.
             </p>

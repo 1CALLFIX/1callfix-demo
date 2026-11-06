@@ -15,6 +15,7 @@
             <h1 class="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
                 {{ $offersOnly ? 'Offers on now' : 'All services' }}
             </h1>
+            <x-customer.share-button :title="$offersOnly ? 'Offers on now' : 'All services'" class="mt-3" />
             <p class="mt-2 max-w-2xl text-sm text-slate-600">
                 {{ $offersOnly
                     ? 'Services with limited-time pricing available in your area right now.'

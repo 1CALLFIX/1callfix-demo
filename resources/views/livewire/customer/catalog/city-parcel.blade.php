@@ -14,6 +14,7 @@
                     <p class="inline-block rounded-full bg-amber-400 px-3 py-0.5 text-xs font-bold text-slate-900">{{ $t('city.parcel.from', ['price' => $price]) }}</p>
                 @endif
                 <h1 class="mt-2 text-2xl font-bold tracking-tight sm:text-3xl">{{ $t('city.parcel.title', ['city' => $city->name]) }}</h1>
+                <x-customer.share-button :title="$t('city.parcel.title', ['city' => $city->name])" class="mt-3" />
                 <p class="mt-1 max-w-xl text-sm text-blue-100">{{ $t('city.parcel.intro', ['brand' => $brand, 'city' => $city->name]) }}</p>
                 <div class="mt-5 flex flex-wrap gap-3">
                     <a href="{{ route('customer.parcels.create') }}" wire:navigate

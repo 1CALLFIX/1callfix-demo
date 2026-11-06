@@ -11,6 +11,7 @@
         <header class="mt-4">
             <p class="text-xs font-semibold uppercase tracking-widest text-blue-700">{{ $t('food.home.kicker', ['city' => $city->name]) }}</p>
             <h1 class="mt-1 text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">{{ $t('food.home.title') }}</h1>
+            <x-customer.share-button :title="$t('food.home.title')" class="mt-3" />
             <p class="mt-1 max-w-xl text-sm text-slate-600">{{ $t('food.home.intro') }}</p>
             <label class="mt-4 block max-w-xl">
                 <span class="sr-only">{{ $t('food.home.search_label') }}</span>

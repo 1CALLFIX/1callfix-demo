@@ -15,6 +15,7 @@
             @endif
             <div class="min-w-0 flex-1">
                 <h1 class="text-2xl font-bold tracking-tight">{{ $store->name }}</h1>
+                <x-customer.share-button :title="$store->name" class="mt-2" />
                 <p class="text-sm text-slate-500">{{ $store->address_line }}</p>
                 @if ($store->description)<p class="mt-1 text-sm text-slate-700">{{ $store->description }}</p>@endif
                 <ul class="mt-3 flex flex-wrap gap-2 text-xs font-semibold">

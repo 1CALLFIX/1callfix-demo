@@ -153,6 +153,16 @@ class FoodCustomerPagesTest extends TestCase
         $this->menu()->set('vegOnly', true)->assertSee('Veg Meals')->assertDontSee('Egg Curry');
     }
 
+    public function test_the_restaurant_and_every_dish_can_be_shared_and_a_shared_dish_link_jumps_to_that_dish(): void
+    {
+        $html = $this->get('/nellore/food/annapurna-mess')->assertOk()->getContent();
+
+        $this->assertSame(2, substr_count($html, 'data-share-button'), 'one for the restaurant, one for its one dish');
+        $this->assertStringContainsString('id="dish-'.$this->meals->id.'"', $html);
+        $this->assertStringContainsString('#dish-'.$this->meals->id, $html);
+        $this->assertStringContainsString('aria-label="Share Veg Meals · ', $html);
+    }
+
     public function test_plain_dishes_add_straight_in_for_a_visitor_and_a_customer(): void
     {
         $this->menu()->call('add', $this->meals->id)->call('add', $this->meals->id)->assertSet('customizing', null);

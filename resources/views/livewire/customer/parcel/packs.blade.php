@@ -9,6 +9,7 @@
         <x-icon name="arrow-left" class="h-4 w-4" /> Send a parcel
     </a>
     <h1 class="mt-3 text-2xl font-bold tracking-tight">Parcel packs</h1>
+    <x-customer.share-button :title="'Parcel packs'" class="mt-3" />
     <p class="mt-1 text-sm text-slate-600">Prepaid parcels for shops and offices. Each parcel uses one credit; anything beyond what the pack covers is paid online. Pack parcels are paid online or from the wallet, not in cash.</p>
 
     @if ($notice)

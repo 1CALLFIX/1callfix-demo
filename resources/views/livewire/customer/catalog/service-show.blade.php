@@ -60,6 +60,7 @@
                     @endif
 
                     <h1 class="mt-1 text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">{{ $service->name }}</h1>
+                    <x-customer.share-button :title="$service->name" class="mt-3" />
 
                     <div class="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-slate-600">
                         <x-customer.rating :rating="$card['rating']" :count="$card['review_count']" />

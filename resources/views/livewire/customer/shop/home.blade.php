@@ -11,6 +11,7 @@
         <header class="mt-4 rounded-3xl bg-gradient-to-br from-blue-600 to-blue-800 px-5 py-6 text-white sm:px-8 sm:py-8">
             <p class="text-xs font-semibold uppercase tracking-widest text-blue-100">{{ $t('shop.home.kicker', ['city' => $city->name]) }}</p>
             <h1 class="mt-1 text-2xl font-bold tracking-tight sm:text-3xl">{{ $t('shop.home.title') }}</h1>
+            <x-customer.share-button :title="$t('shop.home.title')" class="mt-3" />
             <p class="mt-1 max-w-xl text-sm text-blue-100">{{ $t('shop.home.intro') }}</p>
             <label class="mt-4 block max-w-xl">
                 <span class="sr-only">{{ $t('shop.home.search_label', ['city' => $city->name]) }}</span>

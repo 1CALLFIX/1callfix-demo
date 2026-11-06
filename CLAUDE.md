@@ -136,6 +136,14 @@ end to end before and after deploy.
 - Passwords are never stored in git; the owner passes one on the command line on the server.
 - `test-accounts disable` before public launch.
 
+### THUMB RULE — EVERYTHING PUBLIC CAN BE SHARED
+Owner rule 2026-11-06. Every module, and every service, product, shop, restaurant, dish, hotel room, rental item
+and any future item, has a Share option: `<x-customer.share-button :title="..." />` on its page (a `compact` icon
+with a `hash` for items listed inside a page, like dishes). In the Android apps it opens the phone's share sheet
+(`@capacitor/share`), in a phone browser the browser's, otherwise WhatsApp and Copy link. Its words are SiteText
+(`share.*`). `tests/Feature/CustomerWeb/ShareButtonTest.php` fails for any public page without it; a new private
+page (cart, checkout, orders, account) goes on that test's PRIVATE list.
+
 ### THUMB RULE — EVERY PUBLIC LINK IS ADMIN-CONTROLLED, CITY-AWARE AND NEVER BREAKS
 - Every public catalog page (city, category, subcategory, service, and every future
   module: parcel, hotel, food, marketplace, products, vendors) has a clean, readable

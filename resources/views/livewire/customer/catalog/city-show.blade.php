@@ -10,6 +10,7 @@
 
         <header class="mt-4">
             <h1 class="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">{{ $heading }}</h1>
+            <x-customer.share-button :title="$heading" class="mt-3" />
             @if ($intro)
                 <p class="mt-2 max-w-2xl whitespace-pre-line text-sm leading-relaxed text-slate-600">{{ $intro }}</p>
             @endif

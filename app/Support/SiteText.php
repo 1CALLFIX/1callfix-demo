@@ -40,10 +40,18 @@ final class SiteText
         'city' => 'City pages',
         'food' => 'Food',
         'account' => 'Delete account page',
+        'share' => 'Share button',
     ];
 
     /** @var array<string, array{0: string, 1: string, 2: string, 3: string}> */
     public const TEXTS = [
+        // Share button on every service, product, shop, restaurant and dish (owner 2026-11-06).
+        'share.button' => ['share', 'Share button', 'Share', 'షేర్ చేయండి'],
+        'share.button_item' => ['share', 'Small share icon, read aloud (:name)', 'Share :name', ':name షేర్ చేయండి'],
+        'share.whatsapp' => ['share', 'Share menu: WhatsApp', 'WhatsApp', 'వాట్సాప్'],
+        'share.copy' => ['share', 'Share menu: copy the link', 'Copy link', 'లింక్ కాపీ చేయండి'],
+        'share.copied' => ['share', 'Share menu: after copying', 'Link copied', 'లింక్ కాపీ అయింది'],
+        'share.message' => ['share', 'Message sent with the link (:name)', 'Check out :name on 1CallFix', '1CallFix లో :name చూడండి'],
         'language.to_te' => ['language', 'Switch button, shown while in English', 'తెలుగు', 'తెలుగు'],
         'language.to_en' => ['language', 'Switch button, shown while in Telugu', 'English', 'English'],
 

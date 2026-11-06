@@ -9,6 +9,7 @@
 
         <header class="mt-4">
             <h1 class="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">{{ $t('city.hub.title', ['brand' => $brand, 'city' => $city->name]) }}</h1>
+            <x-customer.share-button :title="$t('city.hub.title', ['brand' => $brand, 'city' => $city->name])" class="mt-3" />
             <p class="mt-2 max-w-2xl text-sm leading-relaxed text-slate-600">{{ $t('city.hub.intro', ['city' => $city->name]) }}</p>
         </header>
 

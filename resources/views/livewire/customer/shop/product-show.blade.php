@@ -59,6 +59,7 @@
             <div>
                 <a href="{{ route('customer.shop.store', [$city->slug, $store->slug]) }}" wire:navigate class="text-sm font-semibold uppercase tracking-wide text-blue-700">{{ $store->name }}</a>
                 <h1 class="mt-1 text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">{{ $product->name }}</h1>
+                <x-customer.share-button :title="$product->name" class="mt-3" />
 
                 {{-- Shop Phase A 2026-11-02: price block like the big marketplaces: offer price, % off, the price before,
                      "Inclusive of all taxes", the unit, and the online-only offer note. --}}

@@ -23,6 +23,7 @@
                 @endif
                 <div class="min-w-0 flex-1">
                     <h1 class="text-2xl font-bold tracking-tight text-slate-900">{{ $store->name }}</h1>
+                    <x-customer.share-button :title="$store->name" class="mt-2" />
                     @if ($card['cuisines'])<p class="text-sm text-slate-600">{{ $card['cuisines'] }}</p>@endif
                     @if ($store->address_line)<p class="text-xs text-slate-500">{{ $store->address_line }}</p>@endif
                 </div>
@@ -87,9 +88,10 @@
                             $customizable = $d->hasChoices() || $d->groups_count > 0;
                             $n = $qty[$d->id] ?? 0;
                         @endphp
-                        <li class="flex gap-4 p-4" wire:key="dish-{{ $d->id }}" data-testid="dish">
+                        <li id="dish-{{ $d->id }}" class="flex scroll-mt-24 gap-4 p-4" wire:key="dish-{{ $d->id }}" data-testid="dish">
                             <div class="min-w-0 flex-1">
-                                <p class="flex items-center gap-1.5"><x-food-mark :type="$d->food_type ?: 'veg'" /><span class="font-semibold text-slate-900">{{ $d->name }}</span></p>
+                                <p class="flex items-center gap-1.5"><x-food-mark :type="$d->food_type ?: 'veg'" /><span class="font-semibold text-slate-900">{{ $d->name }}</span>
+                                    <x-customer.share-button compact :title="$d->name.' · '.$store->name" :hash="'dish-'.$d->id" class="-my-2 ml-auto" /></p>
                                 <p class="mt-1 text-sm font-bold text-slate-900">
                                     @if ($d->hasChoices() && $d->choicePricesDiffer())<span class="text-xs font-medium text-slate-500">{{ $t('food.menu.from') }}</span>@endif
                                     {{ $money($d->hasChoices() ? $d->fromPrice() : $d->effective_price) }}
