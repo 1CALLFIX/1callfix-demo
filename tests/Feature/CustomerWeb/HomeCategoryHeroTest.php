@@ -40,6 +40,9 @@ class HomeCategoryHeroTest extends TestCase
         $this->get('/')->assertOk()
             ->assertSee(SiteControls::DEFAULT_HEADLINE)
             ->assertSee('cf-cat-grid', false)
+            // 2026-11-05: the one-row icons must never widen the page (it dragged sideways and stretched the bottom bar).
+            ->assertSee('<div class="min-w-0">', false)
+            ->assertSee('overflow-x-clip', false)
             ->assertSee('--cf-cols-m: 4; --cf-cols-d: 8;', false)
             ->assertDontSee('aria-label="Featured services"', false);
     }

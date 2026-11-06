@@ -35,7 +35,9 @@
     carries content authored in this file.
 --}}
 
-<div class="mb-bottom-nav">
+{{-- overflow-x-clip (2026-11-05): a sideways row can never widen the page (that dragged the page and stretched the
+     fixed bottom bar). clip, not hidden, so sticky elements keep working. --}}
+<div class="mb-bottom-nav overflow-x-clip">
 
     @php
         $controls = \App\Support\SiteControls::class;
@@ -108,10 +110,10 @@
                     'sr-only' => ! $controls::showHeadline(),
                 ])>{{ $headline }}</h1>
 
-            <div @class(['grid gap-8', 'mt-5 sm:mt-7' => $controls::showHeadline(), 'lg:grid-cols-2 lg:items-start' => $showCollage])>
+            <div @class(['grid grid-cols-1 gap-8', 'mt-5 sm:mt-7' => $controls::showHeadline(), 'lg:grid-cols-2 lg:items-start' => $showCollage])>
 
-                {{-- Category icons in one sideways-scrolling row (owner 2026-11-05). How many fit across: Admin setting. --}}
-                <div>
+                {{-- Category icons in one sideways-scrolling row (owner 2026-11-05). How many fit across: Admin setting. min-w-0: a grid child otherwise grows to fit every icon and the page scrolls sideways. --}}
+                <div class="min-w-0">
                     @if ($categories->isNotEmpty())
                         <h2 id="shortcuts-heading" class="sr-only">{{ $t('home.categories.sr') }}</h2>
                         <ul aria-labelledby="shortcuts-heading"

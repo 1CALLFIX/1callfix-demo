@@ -9,9 +9,9 @@
     $fit = \App\Support\SiteControls::imageClasses();
 @endphp
 <section aria-label="{{ \App\Support\SiteText::get('home.categories.sr') }}" class="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8" data-testid="home-cards">
-    <div @class(['grid gap-4', 'lg:grid-cols-2' => count($cards) > 1])>
+    <div @class(['grid grid-cols-1 gap-4', 'lg:grid-cols-2' => count($cards) > 1])>
         @foreach ($cards as $card)
-            <article class="flex flex-col rounded-3xl border border-slate-200 bg-white p-4 shadow-sm shadow-slate-900/5 sm:p-5"
+            <article class="flex min-w-0 flex-col rounded-3xl border border-slate-200 bg-white p-4 shadow-sm shadow-slate-900/5 sm:p-5"
                      aria-labelledby="card-{{ $card['key'] }}" data-card="{{ $card['key'] }}" wire:key="card-{{ $card['key'] }}">
                 <div class="flex items-center justify-between gap-3">
                     <h2 id="card-{{ $card['key'] }}" class="truncate text-base font-bold tracking-tight text-slate-900 sm:text-lg">{{ $card['title'] }}</h2>

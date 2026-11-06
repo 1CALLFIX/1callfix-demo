@@ -132,7 +132,7 @@
         <x-customer.header />
     @endunless
 
-    <main id="customer-main" tabindex="-1" class="flex-1 focus:outline-none">
+    <main id="customer-main" tabindex="-1" class="min-w-0 flex-1 overflow-x-clip focus:outline-none">
         {{ $slot }}
     </main>
 
