@@ -138,8 +138,10 @@ end to end before and after deploy.
 
 ### THUMB RULE — EVERYTHING PUBLIC CAN BE SHARED
 Owner rule 2026-11-06. Every module, and every service, product, shop, restaurant, dish, hotel room, rental item
-and any future item, has a Share option: `<x-customer.share-button :title="..." />` on its page (a `compact` icon
-with a `hash` for items listed inside a page, like dishes). In the Android apps it opens the phone's share sheet
+and any future item, has a Share option. An item with a photo gets `<x-customer.item-actions :item="'type:'.$id"
+:title :image />` on the photo's top-right corner: a round ♡ Like (saves to Account → Saved) and a round Share
+(owner 2026-11-07, the Flipkart / Meesho / Urban Company pattern; `small` + `hash` for items inside a page, like
+dishes). A page without an item photo uses `<x-customer.share-button :title="..." />`. In the Android apps it opens the phone's share sheet
 (`@capacitor/share`), in a phone browser the browser's, otherwise WhatsApp and Copy link. Its words are SiteText
 (`share.*`). `tests/Feature/CustomerWeb/ShareButtonTest.php` fails for any public page without it; a new private
 page (cart, checkout, orders, account) goes on that test's PRIVATE list.

@@ -41,6 +41,7 @@ final class SiteText
         'food' => 'Food',
         'account' => 'Delete account page',
         'share' => 'Share button',
+        'saved' => 'Like (Saved) button',
     ];
 
     /** @var array<string, array{0: string, 1: string, 2: string, 3: string}> */
@@ -52,6 +53,16 @@ final class SiteText
         'share.copy' => ['share', 'Share menu: copy the link', 'Copy link', 'లింక్ కాపీ చేయండి'],
         'share.copied' => ['share', 'Share menu: after copying', 'Link copied', 'లింక్ కాపీ అయింది'],
         'share.message' => ['share', 'Message sent with the link (:name)', 'Check out :name on 1CallFix', '1CallFix లో :name చూడండి'],
+        // ♡ Like / Save beside Share, and Account → Saved (owner 2026-11-07).
+        'saved.button' => ['saved', 'Heart button, read aloud (:name)', 'Save :name', ':name సేవ్ చేయండి'],
+        'saved.remove' => ['saved', 'Heart on the Saved page, read aloud (:name)', 'Remove :name from Saved', 'సేవ్ చేసిన వాటి నుండి :name తీసివేయండి'],
+        'saved.title' => ['saved', 'Saved page heading', 'Saved', 'సేవ్ చేసినవి'],
+        'saved.intro' => ['saved', 'Saved page line under the heading', 'Services, products, shops and dishes you liked.', 'మీకు నచ్చిన సేవలు, వస్తువులు, షాపులు, వంటకాలు.'],
+        'saved.empty' => ['saved', 'Saved page with nothing saved', 'Nothing saved yet', 'ఇంకా ఏమీ సేవ్ చేయలేదు'],
+        'saved.empty_hint' => ['saved', 'Saved page with nothing saved: hint', 'Tap ♡ on anything you like to keep it here.', 'నచ్చిన దానిపై ♡ నొక్కండి, అది ఇక్కడ ఉంటుంది.'],
+        'saved.browse' => ['saved', 'Saved page with nothing saved: button', 'Start exploring', 'చూడటం ప్రారంభించండి'],
+        'saved.account_hint' => ['saved', 'Account page: line under "Saved"', 'Everything you liked with ♡.', '♡ తో మీకు నచ్చినవన్నీ.'],
+        'header.menu.saved' => ['header', 'Menu: saved (liked) items', 'Saved', 'సేవ్ చేసినవి'],
         'language.to_te' => ['language', 'Switch button, shown while in English', 'తెలుగు', 'తెలుగు'],
         'language.to_en' => ['language', 'Switch button, shown while in Telugu', 'English', 'English'],
 

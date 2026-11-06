@@ -158,6 +158,7 @@ class FoodCustomerPagesTest extends TestCase
         $html = $this->get('/nellore/food/annapurna-mess')->assertOk()->getContent();
 
         $this->assertSame(2, substr_count($html, 'data-share-button'), 'one for the restaurant, one for its one dish');
+        $this->assertSame(2, substr_count($html, 'data-save-button'), 'a ♡ beside each Share (2026-11-07)');
         $this->assertStringContainsString('id="dish-'.$this->meals->id.'"', $html);
         $this->assertStringContainsString('#dish-'.$this->meals->id, $html);
         $this->assertStringContainsString('aria-label="Share Veg Meals · ', $html);

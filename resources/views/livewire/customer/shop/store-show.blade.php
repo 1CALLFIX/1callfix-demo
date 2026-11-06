@@ -7,15 +7,16 @@
             ['label' => $store->name, 'url' => null],
         ]" />
 
-        <header class="mt-4 flex flex-wrap items-start gap-4 rounded-3xl border border-slate-200 bg-white p-5">
+        <header class="relative mt-4 flex flex-wrap items-start gap-4 rounded-3xl border border-slate-200 bg-white p-5">
+            {{-- ♡ + Share on the card's corner (owner 2026-11-07) --}}
+            <x-customer.item-actions :item="'store:'.$store->id" :title="$store->name" :image="$store->logo_url" class="absolute right-3 top-3 z-10" />
             @if ($store->logo_url)
                 <img src="{{ $store->logo_url }}" alt="" class="h-20 w-20 rounded-2xl object-cover">
             @else
                 <span class="flex h-20 w-20 items-center justify-center rounded-2xl bg-blue-50 text-3xl font-bold text-blue-700">{{ mb_substr($store->name, 0, 1) }}</span>
             @endif
-            <div class="min-w-0 flex-1">
+            <div class="min-w-0 flex-1 pr-24">
                 <h1 class="text-2xl font-bold tracking-tight">{{ $store->name }}</h1>
-                <x-customer.share-button :title="$store->name" class="mt-2" />
                 <p class="text-sm text-slate-500">{{ $store->address_line }}</p>
                 @if ($store->description)<p class="mt-1 text-sm text-slate-700">{{ $store->description }}</p>@endif
                 <ul class="mt-3 flex flex-wrap gap-2 text-xs font-semibold">

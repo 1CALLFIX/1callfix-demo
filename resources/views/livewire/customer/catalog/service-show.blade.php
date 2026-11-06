@@ -26,7 +26,9 @@
             <div class="min-w-0">
 
                 {{-- Media --}}
-                <div class="overflow-hidden rounded-2xl bg-slate-100">
+                <div class="relative overflow-hidden rounded-2xl bg-slate-100">
+                    {{-- ♡ + Share on the photo's corner (owner 2026-11-07, Urban Company / Flipkart pattern) --}}
+                    <x-customer.item-actions :item="'service:'.$service->id" :title="$service->name" :image="$card['image_url']" class="absolute right-3 top-3 z-10" />
                     @if ($card['image_url'])
                         {{-- The LCP element on this screen, so it loads eagerly
                              and at high priority while everything below stays
@@ -60,7 +62,6 @@
                     @endif
 
                     <h1 class="mt-1 text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">{{ $service->name }}</h1>
-                    <x-customer.share-button :title="$service->name" class="mt-3" />
 
                     <div class="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-slate-600">
                         <x-customer.rating :rating="$card['rating']" :count="$card['review_count']" />
@@ -95,7 +96,12 @@
                 @if ($service->description)
                     <section aria-labelledby="about-heading" class="mt-8">
                         <h2 id="about-heading" class="text-lg font-semibold text-slate-900">About this service</h2>
-                        <p class="mt-2 whitespace-pre-line text-sm leading-relaxed text-slate-600">{{ $service->description }}</p>
+                        @if (\App\Support\SafeHtml::isHtml($service->description))
+                            {{-- Old-app descriptions are HTML: shown formatted, never as code (2026-11-07). --}}
+                            <div class="mt-2 text-sm leading-relaxed text-slate-600 [&_h2]:mt-3 [&_h2]:font-semibold [&_h2]:text-slate-900 [&_h3]:mt-3 [&_h3]:font-semibold [&_h3]:text-slate-900 [&_h4]:mt-3 [&_h4]:font-semibold [&_h4]:text-slate-900 [&_li]:mt-1 [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:mt-2 [&_ul]:list-disc [&_ul]:pl-5" data-testid="service-description">{!! \App\Support\SafeHtml::clean($service->description) !!}</div>
+                        @else
+                            <p class="mt-2 whitespace-pre-line text-sm leading-relaxed text-slate-600">{{ $service->description }}</p>
+                        @endif
                     </section>
                 @endif
 

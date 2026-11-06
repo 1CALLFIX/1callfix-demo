@@ -31,6 +31,7 @@
                 @php
                     $accountSections = [
                         ['Your bookings', 'Track live jobs and revisit past ones.', route('customer.orders.index')],
+                        [\App\Support\SiteText::get('saved.title'), \App\Support\SiteText::get('saved.account_hint'), route('customer.saved')],
                         ['Saved addresses', 'Keep the places you book for most.', route('customer.addresses')],
                         ['Membership', 'Plan benefits, what you have used, renewal.', route('customer.membership.account')],
                     ];

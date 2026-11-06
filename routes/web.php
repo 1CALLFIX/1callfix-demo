@@ -185,6 +185,10 @@ Route::middleware(['auth', \App\Http\Middleware\EnsureAccountNotSuspended::class
     // Saved addresses (the same CRUD + delete-guard rules AddressController enforces).
     Route::get('/account/addresses', CustomerAddresses::class)->name('customer.addresses');
 
+    // ♡ Like / Save (owner 2026-11-07): the heart beside Share, and the list on Account → Saved.
+    Route::get('/account/saved', \App\Livewire\Customer\Account\Saved::class)->name('customer.saved');
+    Route::post('/saved/toggle', [\App\Http\Controllers\Customer\SavedItemController::class, 'toggle'])->name('customer.saved.toggle');
+
     // REF 1CF-PROMPT-20260925-EARN3 — Earnings: Wallet / Loyalty / Referrals.
     // Each tab 404s unless earnings.enabled AND its own tab switch are ON for
     // the customer's scope (checked inside the component, every request).

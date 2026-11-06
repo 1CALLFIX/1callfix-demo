@@ -35,12 +35,12 @@ class ShareButtonTest extends TestCase
             if (! str_contains($html, '<h1') || $this->isPrivate($view)) {
                 continue;
             }
-            if (! str_contains($html, '<x-customer.share-button')) {
+            if (! str_contains($html, '<x-customer.share-button') && ! str_contains($html, '<x-customer.item-actions')) {
                 $missing[] = $view;
             }
         }
 
-        $this->assertSame([], $missing, 'Public pages without a Share button (add <x-customer.share-button>).');
+        $this->assertSame([], $missing, 'Public pages without a Share button (add <x-customer.share-button>, or <x-customer.item-actions> on an item photo).');
     }
 
     public function test_the_button_tries_the_app_share_sheet_then_the_browser_one_then_offers_whatsapp_and_copy(): void

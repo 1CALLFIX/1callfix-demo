@@ -115,6 +115,7 @@
                             }
                             if (auth()->check()) {
                                 $menu[] = [$t('header.menu.bookings'), route('customer.orders.index')];
+                                $menu[] = [$t('header.menu.saved'), route('customer.saved')];
                                 // Parcel: shown while parcel is on somewhere, or for anyone who already has parcels.
                                 if (app(\App\Services\ModuleActivationService::class)->isActiveAnywhere(\App\Support\Modules::PARCEL)
                                     || \App\Models\ParcelOrder::where('customer_id', auth()->id())->exists()) {

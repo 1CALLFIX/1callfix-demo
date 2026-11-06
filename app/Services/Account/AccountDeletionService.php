@@ -97,6 +97,7 @@ final class AccountDeletionService
                     ])->save());
                     $user->tokens()->delete();
                     $user->pushTokens()->delete();
+                    \App\Models\SavedItem::where('user_id', $user->id)->delete(); // ♡ Saved list (2026-11-07)
                     $user->forceFill([
                         'name' => 'Deleted user', 'phone' => 'deleted-'.$user->id, 'email' => null, 'password' => null,
                         'fcm_token' => null, 'profile_photo' => null, 'avatar_url' => null, 'erased_at' => now(),

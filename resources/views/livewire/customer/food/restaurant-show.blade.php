@@ -12,7 +12,11 @@
             ['label' => $store->name, 'url' => null],
         ]" />
 
-        <header class="mt-4 overflow-hidden rounded-3xl border border-slate-200 bg-white">
+        <header class="relative mt-4 overflow-hidden rounded-3xl border border-slate-200 bg-white">
+            {{-- ♡ + Share on the cover's corner (owner 2026-11-07); without a cover they sit above the rating --}}
+            @if ($store->cover_url)
+                <x-customer.item-actions :item="'store:'.$store->id" :title="$store->name" :image="$store->cover_url" class="absolute right-3 top-3 z-10" />
+            @endif
             @if ($store->cover_url)
                 <img src="{{ $store->cover_url }}" alt="" class="h-44 w-full object-cover sm:h-56" data-testid="restaurant-cover">
             @endif
@@ -23,15 +27,21 @@
                 @endif
                 <div class="min-w-0 flex-1">
                     <h1 class="text-2xl font-bold tracking-tight text-slate-900">{{ $store->name }}</h1>
-                    <x-customer.share-button :title="$store->name" class="mt-2" />
                     @if ($card['cuisines'])<p class="text-sm text-slate-600">{{ $card['cuisines'] }}</p>@endif
                     @if ($store->address_line)<p class="text-xs text-slate-500">{{ $store->address_line }}</p>@endif
                 </div>
+                @if ($card['rating'] || ! $store->cover_url)
+                <div class="flex shrink-0 flex-col items-end gap-2">
+                @if (! $store->cover_url)
+                    <x-customer.item-actions :item="'store:'.$store->id" :title="$store->name" :image="$store->logo_url" />
+                @endif
                 @if ($card['rating'])
                     <div class="shrink-0 rounded-xl border border-slate-200 px-2.5 py-1.5 text-center">
                         <p class="text-sm font-bold text-emerald-700">★ {{ $card['rating']['avg'] }}</p>
                         <p class="text-[11px] text-slate-500">{{ $card['rating']['n'] == 1 ? $t('food.rating_one') : $t('food.rating_many', ['count' => $card['rating']['n']]) }}</p>
                     </div>
+                @endif
+                </div>
                 @endif
             </div>
             @if ($store->description)<p class="mt-3 text-sm text-slate-700">{{ $store->description }}</p>@endif
@@ -90,8 +100,7 @@
                         @endphp
                         <li id="dish-{{ $d->id }}" class="flex scroll-mt-24 gap-4 p-4" wire:key="dish-{{ $d->id }}" data-testid="dish">
                             <div class="min-w-0 flex-1">
-                                <p class="flex items-center gap-1.5"><x-food-mark :type="$d->food_type ?: 'veg'" /><span class="font-semibold text-slate-900">{{ $d->name }}</span>
-                                    <x-customer.share-button compact :title="$d->name.' · '.$store->name" :hash="'dish-'.$d->id" class="-my-2 ml-auto" /></p>
+                                <p class="flex items-center gap-1.5"><x-food-mark :type="$d->food_type ?: 'veg'" /><span class="font-semibold text-slate-900">{{ $d->name }}</span></p>
                                 <p class="mt-1 text-sm font-bold text-slate-900">
                                     @if ($d->hasChoices() && $d->choicePricesDiffer())<span class="text-xs font-medium text-slate-500">{{ $t('food.menu.from') }}</span>@endif
                                     {{ $money($d->hasChoices() ? $d->fromPrice() : $d->effective_price) }}
@@ -101,10 +110,18 @@
                                     @endif
                                 </p>
                                 @if ($d->description)<p class="mt-1 line-clamp-2 text-sm text-slate-600">{{ $d->description }}</p>@endif
+                                @unless ($image)
+                                    {{-- No photo: ♡ + Share under the words (owner 2026-11-07) --}}
+                                    <x-customer.item-actions small :item="'product:'.$d->id" :title="$d->name.' · '.$store->name" :hash="'dish-'.$d->id" class="mt-2" />
+                                @endunless
                             </div>
                             <div class="flex w-28 shrink-0 flex-col items-center">
                                 @if ($image)
-                                    <img src="{{ $image }}" alt="{{ $d->name }}" loading="lazy" class="h-24 w-28 rounded-xl object-cover">
+                                    <div class="relative">
+                                        <img src="{{ $image }}" alt="{{ $d->name }}" loading="lazy" class="h-24 w-28 rounded-xl object-cover">
+                                        {{-- ♡ + Share on the dish photo's corner (owner 2026-11-07) --}}
+                                        <x-customer.item-actions small :item="'product:'.$d->id" :title="$d->name.' · '.$store->name" :image="$image" :hash="'dish-'.$d->id" class="absolute right-1 top-1 gap-1" />
+                                    </div>
                                 @endif
                                 <div @class(['w-24', '-mt-4' => $image])>
                                     @if (! $open)

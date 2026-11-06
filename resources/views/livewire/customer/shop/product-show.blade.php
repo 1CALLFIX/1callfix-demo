@@ -37,7 +37,9 @@
                 $stockNow = $selected ? (int) $selected->stock : (int) $product->stock;
             @endphp
             <div x-data="{ shown: 0 }">
-                <div class="aspect-square overflow-hidden rounded-3xl border border-slate-200 bg-white">
+                <div class="relative aspect-square overflow-hidden rounded-3xl border border-slate-200 bg-white">
+                    {{-- ♡ + Share on the photo's corner (owner 2026-11-07, Flipkart / Amazon pattern) --}}
+                    <x-customer.item-actions :item="'product:'.$product->id" :title="$product->name" :image="$product->image_urls[0] ?? null" class="absolute right-3 top-3 z-10" />
                     @forelse ($images as $i => $src)
                         <img src="{{ $src }}" alt="{{ $product->name }}" x-show="shown === {{ $i }}" @if ($i > 0) style="display:none" @endif class="h-full w-full object-contain">
                     @empty
@@ -59,7 +61,6 @@
             <div>
                 <a href="{{ route('customer.shop.store', [$city->slug, $store->slug]) }}" wire:navigate class="text-sm font-semibold uppercase tracking-wide text-blue-700">{{ $store->name }}</a>
                 <h1 class="mt-1 text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">{{ $product->name }}</h1>
-                <x-customer.share-button :title="$product->name" class="mt-3" />
 
                 {{-- Shop Phase A 2026-11-02: price block like the big marketplaces: offer price, % off, the price before,
                      "Inclusive of all taxes", the unit, and the online-only offer note. --}}
