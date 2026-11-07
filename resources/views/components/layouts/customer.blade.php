@@ -130,6 +130,7 @@
     <a href="#customer-main" class="skip-link">Skip to main content</a>
 
     @unless ($minimalChrome)
+        <x-customer.app-banner />
         <x-customer.header />
         @if ($pageModule)
             {{-- The module's own colour under the header (2026-11-07): services blue, food red, shop green, parcel purple. --}}

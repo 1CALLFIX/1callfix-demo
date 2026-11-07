@@ -75,6 +75,9 @@ class Manage extends Component
 
     public bool $voiceSearch = true;
 
+    public bool $appBanner = true;
+    public string $appBannerDays = '14';
+
     public string $unpaidAttemptMinutes = '15';
     public string $headerPartnerLabel = '';
 
@@ -125,6 +128,8 @@ class Manage extends Component
         $this->reviewRedHours = (string) S::reviewRedHours();
         $this->headerPartnerButton = S::headerPartnerButton();
         $this->voiceSearch = S::voiceSearch();
+        $this->appBanner = S::appBanner();
+        $this->appBannerDays = (string) S::appBannerDays();
         $this->unpaidAttemptMinutes = (string) \App\Services\Payments\UnpaidAttemptService::minutes();
         $this->headerPartnerLabel = S::headerPartnerLabel();
     }
@@ -162,6 +167,7 @@ class Manage extends Component
             'reviewAmberHours' => ['required', 'integer', 'between:1,720'],
             'reviewRedHours' => ['required', 'integer', 'between:1,720', 'gte:reviewAmberHours'],
             'unpaidAttemptMinutes' => ['required', 'integer', 'between:5,120'],
+            'appBannerDays' => ['required', 'integer', 'between:1,90'],
             'headerPartnerLabel' => ['required', 'string', 'max:30'],
             'moduleColours.*' => ['required', 'regex:/^#[0-9a-fA-F]{6}$/'],
             'membershipBenefits' => ['required', 'integer', 'between:0,10'],
@@ -218,6 +224,8 @@ class Manage extends Component
             S::REVIEW_RED_HOURS => (string) (int) $this->reviewRedHours,
             S::HEADER_PARTNER_BUTTON => $bool($this->headerPartnerButton),
             S::VOICE_SEARCH => $bool($this->voiceSearch),
+            S::APP_BANNER => $bool($this->appBanner),
+            S::APP_BANNER_DAYS => (string) (int) $this->appBannerDays,
             \App\Services\Payments\UnpaidAttemptService::MINUTES => (string) (int) $this->unpaidAttemptMinutes,
             S::HEADER_PARTNER_LABEL => trim($this->headerPartnerLabel),
             \App\Support\HomeLayout::MEMBERSHIP_BENEFITS => (string) (int) $this->membershipBenefits,

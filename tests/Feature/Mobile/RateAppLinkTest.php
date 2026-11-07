@@ -41,7 +41,9 @@ class RateAppLinkTest extends TestCase
             ->assertSee('Rate &amp; review', false)->assertSee($this->play('com.call.customer'), false);
 
         $this->withHeader('User-Agent', self::BROWSER)->get('/')->assertOk()
-            ->assertDontSee('Rate &amp; review', false)->assertDontSee('play.google.com/store/apps', false);
+            ->assertDontSee('Rate &amp; review', false);
+        // The website's only Play link is the "Get the app" strip (owner 2026-11-07), never the rate link.
+        $this->assertSame(1, substr_count($this->withHeader('User-Agent', self::BROWSER)->get('/')->getContent(), 'play.google.com/store/apps'));
     }
 
     public function test_the_rider_seller_and_partner_more_tabs_open_their_own_play_page(): void

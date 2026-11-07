@@ -71,6 +71,11 @@ final class SiteControls
     // Voice search (owner 2026-11-07): a mic button in the search box on browsers that can listen (Chrome on Android).
     public const VOICE_SEARCH = 'search.voice';
 
+    /** "Get the app" strip on phones (owner 2026-11-07): Android → Play Store, iPhone → Add to Home Screen. */
+    public const APP_BANNER = 'app_banner.show';
+    public const APP_BANNER_DAYS = 'app_banner.hide_days';
+    public const DEFAULT_APP_BANNER_DAYS = 14;
+
     public const SERVICES_MODES = ['required', 'optional', 'hidden'];
     public const FITS = ['contain', 'cover'];
     public const ICON_SIZES = ['small', 'medium', 'large'];
@@ -250,6 +255,19 @@ final class SiteControls
     public static function voiceSearch(): bool
     {
         return self::flag(self::VOICE_SEARCH, true);
+    }
+
+    public static function appBanner(): bool
+    {
+        return self::flag(self::APP_BANNER, true);
+    }
+
+    /** Days the strip stays away on that phone after the customer closes it (1 to 90). */
+    public static function appBannerDays(): int
+    {
+        $v = self::raw(self::APP_BANNER_DAYS);
+
+        return is_numeric($v) ? max(1, min(90, (int) $v)) : self::DEFAULT_APP_BANNER_DAYS;
     }
 
     public static function headerPartnerLabel(): string

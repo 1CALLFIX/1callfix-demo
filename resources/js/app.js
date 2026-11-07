@@ -16,3 +16,4 @@ import './places-autocomplete';
 import './address-map';
 import './rotating-placeholder';
 import './native-app';
+import './app-banner';

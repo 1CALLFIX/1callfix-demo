@@ -323,6 +323,23 @@
             </p>
         </x-ui.card>
 
+        <x-ui.card>
+            <h2 class="text-sm font-semibold mb-3">"Get the app" strip on phones</h2>
+            <label class="flex items-center gap-2 text-sm">
+                <input type="checkbox" wire:model="appBanner"> Show a small strip at the top of the website on phones
+            </label>
+            <div class="mt-3 max-w-xs">
+                <label class="block text-sm font-medium mb-1" for="sc-app-banner-days">After the customer closes it, hide it for (days)</label>
+                <input id="sc-app-banner-days" type="number" min="1" max="90" wire:model="appBannerDays" class="w-full border rounded px-3 py-2 text-sm">
+                @error('appBannerDays') <p class="text-xs text-red-600 mt-1">{{ $message }}</p> @enderror
+            </div>
+            <p class="text-xs text-gray-500 mt-3">
+                Android phones: "Get the app" opens the 1CallFix app on the Play Store. iPhones (no iOS app): it shows how to add 1CallFix to the
+                Home Screen (Share → Add to Home Screen). Never shown on computers, inside the app, or once the website is installed on the phone.
+                Its words are in Website text → "Get the app strip".
+            </p>
+        </x-ui.card>
+
         <x-ui.button type="submit">Save</x-ui.button>
     </form>
 </div>

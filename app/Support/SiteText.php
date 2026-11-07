@@ -49,6 +49,7 @@ final class SiteText
         'upload' => 'Photo upload hints',
         'address_map' => 'Address map (pin)',
         'pay_step' => 'Payment step (unpaid online orders)',
+        'app_banner' => 'Get the app strip (phones)',
     ];
 
     /** @var array<string, array{0: string, 1: string, 2: string, 3: string}> */
@@ -110,6 +111,12 @@ final class SiteText
         'header.menu.saved' => ['header', 'Menu: saved (liked) items', 'Saved', 'సేవ్ చేసినవి'],
         'language.to_te' => ['language', 'Switch button, shown while in English', 'తెలుగు', 'తెలుగు'],
         'language.to_en' => ['language', 'Switch button, shown while in Telugu', 'English', 'English'],
+        // "Get the app" strip on phones (owner 2026-11-07). Android → Play Store; iPhone → Add to Home Screen (no iOS app).
+        'app_banner.title' => ['app_banner', 'Strip heading', '1CallFix app', '1CallFix యాప్'],
+        'app_banner.android_line' => ['app_banner', 'Android phones: line', 'Faster booking and live updates in the app.', 'యాప్‌లో వేగంగా బుక్ చేయండి, లైవ్ అప్‌డేట్‌లు పొందండి.'],
+        'app_banner.android_button' => ['app_banner', 'Android phones: button', 'Get the app', 'యాప్ పొందండి'],
+        'app_banner.ios_line' => ['app_banner', 'iPhones: how to add it', 'Tap Share, then "Add to Home Screen".', 'షేర్ నొక్కి, "Add to Home Screen" ఎంచుకోండి.'],
+        'app_banner.close' => ['app_banner', 'Close button, read aloud', 'Close', 'మూసివేయండి'],
         'language.choose' => ['language', 'Language menu button, read aloud (3 or more languages)', 'Choose language', 'భాష ఎంచుకోండి'],
 
         'header.search_placeholder' => ['header', 'Search box hint', 'Search services, products, shops…', 'సేవలు, వస్తువులు, షాపులు వెతకండి…'],
