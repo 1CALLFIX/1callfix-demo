@@ -8,11 +8,11 @@
         ]" />
 
         {{-- Our own opening: the city's shops, not a faceless catalogue. --}}
-        <header class="mt-4 rounded-3xl bg-gradient-to-br from-blue-600 to-blue-800 px-5 py-6 text-white sm:px-8 sm:py-8">
-            <p class="text-xs font-semibold uppercase tracking-widest text-blue-100">{{ $t('shop.home.kicker', ['city' => $city->name]) }}</p>
+        <header class="mt-4 rounded-3xl bg-gradient-to-br from-[var(--mod,#2563EB)] to-[var(--mod-ink,#1D4ED8)] px-5 py-6 text-white sm:px-8 sm:py-8">
+            <p class="text-xs font-semibold uppercase tracking-widest text-white/80">{{ $t('shop.home.kicker', ['city' => $city->name]) }}</p>
             <h1 class="mt-1 text-2xl font-bold tracking-tight sm:text-3xl">{{ $t('shop.home.title') }}</h1>
             <x-customer.share-button :title="$t('shop.home.title')" class="mt-3" />
-            <p class="mt-1 max-w-xl text-sm text-blue-100">{{ $t('shop.home.intro') }}</p>
+            <p class="mt-1 max-w-xl text-sm text-white/85">{{ $t('shop.home.intro') }}</p>
             <label class="mt-4 block max-w-xl">
                 <span class="sr-only">{{ $t('shop.home.search_label', ['city' => $city->name]) }}</span>
                 <input type="search" wire:model.live.debounce.300ms="search" placeholder="{{ $t('shop.home.search_placeholder') }}"
@@ -29,8 +29,8 @@
                 @foreach ($categories as $c)
                     <button type="button" wire:click="pickCategory('{{ $c->slug }}')"
                             @class(['shrink-0 rounded-full border px-4 py-2 text-sm font-medium',
-                                    'border-blue-600 bg-blue-600 text-white' => $parentCategory?->id === $c->id,
-                                    'border-slate-300 bg-white text-slate-700 hover:border-blue-400' => $parentCategory?->id !== $c->id])>
+                                    'border-[var(--mod,#2563EB)] bg-[var(--mod,#2563EB)] text-white' => $parentCategory?->id === $c->id,
+                                    'border-slate-300 bg-white text-slate-700 hover:border-[var(--mod,#2563EB)]' => $parentCategory?->id !== $c->id])>
                         {{ $c->name }}
                     </button>
                 @endforeach
@@ -41,8 +41,8 @@
                     @foreach ($subCategories as $sub)
                         <button type="button" wire:click="pickSubCategory('{{ $sub->slug }}')"
                                 @class(['shrink-0 rounded-full border px-3 py-1.5 text-xs font-medium',
-                                        'border-blue-600 bg-blue-50 text-blue-700' => $activeCategory?->id === $sub->id,
-                                        'border-slate-200 bg-white text-slate-600 hover:border-blue-300' => $activeCategory?->id !== $sub->id])>
+                                        'border-[var(--mod,#2563EB)] bg-[var(--mod-soft,#EFF6FF)] text-[var(--mod-ink,#1D4ED8)]' => $activeCategory?->id === $sub->id,
+                                        'border-slate-200 bg-white text-slate-600 hover:border-[var(--mod,#2563EB)]' => $activeCategory?->id !== $sub->id])>
                             {{ $sub->name }}
                         </button>
                     @endforeach
@@ -57,11 +57,11 @@
                     @foreach ($stores as $s)
                         <div class="relative" wire:key="shop-{{ $s->id }}">
                         <a href="{{ route('customer.shop.store', [$city->slug, $s->slug]) }}" wire:navigate
-                           class="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white p-3 pr-12 hover:border-blue-300">
+                           class="cf-card flex items-center gap-3 p-3 pr-12">
                             @if ($s->logo_url)
                                 <img src="{{ $s->logo_url }}" alt="" class="h-14 w-14 shrink-0 rounded-xl object-cover">
                             @else
-                                <span class="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-xl font-bold text-blue-700">{{ mb_substr($s->name, 0, 1) }}</span>
+                                <span class="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-[var(--mod-soft,#EFF6FF)] text-xl font-bold text-[var(--mod-ink,#1D4ED8)]">{{ mb_substr($s->name, 0, 1) }}</span>
                             @endif
                             <span class="min-w-0">
                                 <span class="block truncate font-semibold text-slate-900">{{ $s->name }}</span>

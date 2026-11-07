@@ -25,6 +25,7 @@ use Tests\TestCase;
 class MembershipPagesTest extends TestCase
 {
     use PrimeSilverFixtures;
+    use \Tests\Feature\Rbac\RbacTestHelpers;
     use RefreshDatabase;
 
     // ============================================================== homepage
@@ -37,17 +38,37 @@ class MembershipPagesTest extends TestCase
 
         $this->assertSame(1, substr_count($html, 'id="membership-heading"'), 'Still exactly one membership section.');
         $this->assertSame(1, substr_count($html, $plan->name), 'Still exactly one Prime Silver card.');
-        $this->assertStringContainsString('About membership', $html);
-        $this->assertStringContainsString('1,999.00', $html);
+        $this->assertStringContainsString('See all benefits &amp; join', $html);
+        $this->assertStringContainsString('1,999', $html);
+        // Owner 2026-11-07: the card lists the plan's real benefits.
+        $this->assertGreaterThan(0, substr_count($html, 'data-membership-benefit'));
+        $this->assertStringContainsString($plan->entitlements()->where('is_enabled', true)->first()->displayName(), $html);
         $this->assertStringContainsString('11 months', $html, 'The card shows the real validity, not the raw "custom" billing cycle.');
         $this->assertStringNotContainsString('/ custom', $html);
         $this->assertStringContainsString('href="'.route('customer.membership.show', $plan).'"', $html);
         $this->assertStringNotContainsString(route('customer.coming-soon', 'booking'), $html, 'The CTA no longer dead-ends on the booking placeholder.');
     }
 
+    public function test_super_admin_controls_how_many_benefits_the_homepage_card_lists_and_the_worth_chip(): void
+    {
+        $this->seedPrimeSilver();
+        $admin = $this->makeSuperAdmin();
+
+        Livewire::actingAs($admin)->test(\App\Livewire\SiteControls\Manage::class)
+            ->assertSet('membershipBenefits', 4)->assertSet('membershipShowWorth', true)
+            ->set('membershipBenefits', 11)->call('save')->assertHasErrors('membershipBenefits');
+
+        Livewire::actingAs($admin)->test(\App\Livewire\SiteControls\Manage::class)
+            ->set('membershipBenefits', 1)->set('membershipShowWorth', false)->call('save')->assertHasNoErrors();
+
+        $html = $this->get('/')->assertOk()->getContent();
+        $this->assertSame(1, substr_count($html, 'data-membership-benefit'));
+        $this->assertStringNotContainsString('data-membership-worth', $html);
+    }
+
     public function test_the_homepage_shows_no_membership_section_without_a_live_plan(): void
     {
-        $this->get('/')->assertOk()->assertDontSee('About membership');
+        $this->get('/')->assertOk()->assertDontSee('data-membership-box', false);
     }
 
     // ================================================================ details

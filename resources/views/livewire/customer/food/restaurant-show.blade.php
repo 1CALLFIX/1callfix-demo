@@ -211,7 +211,7 @@
                 @endif
 
                 <button type="button" wire:click="addCustomized" data-testid="sheet-add"
-                        class="mt-5 flex min-h-12 w-full items-center justify-between rounded-2xl bg-blue-600 px-5 font-bold text-white hover:bg-blue-700">
+                        class="mt-5 flex min-h-12 w-full items-center justify-between rounded-2xl bg-[var(--mod,#2563EB)] px-5 font-bold text-white hover:bg-[var(--mod-ink,#1D4ED8)]">
                     <span>{{ $t('food.sheet.add') }}</span><span class="tabular-nums">{{ $money($sheetTotal) }}</span>
                 </button>
             </div>
@@ -226,7 +226,7 @@
                 <p class="mt-2 text-sm text-slate-700">{{ $t('food.conflict.body', ['restaurant' => $conflict['inCart'], 'new' => $store->name]) }}</p>
                 <div class="mt-5 grid grid-cols-2 gap-3">
                     <button type="button" wire:click="keepCart" class="min-h-12 rounded-2xl border border-slate-300 font-semibold text-slate-700">{{ $t('food.conflict.keep') }}</button>
-                    <button type="button" wire:click="replaceCart" data-testid="conflict-replace" class="min-h-12 rounded-2xl bg-blue-600 font-bold text-white">{{ $t('food.conflict.replace') }}</button>
+                    <button type="button" wire:click="replaceCart" data-testid="conflict-replace" class="min-h-12 rounded-2xl bg-[var(--mod,#2563EB)] font-bold text-white">{{ $t('food.conflict.replace') }}</button>
                 </div>
             </div>
         </div>

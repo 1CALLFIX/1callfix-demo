@@ -87,6 +87,8 @@
                             </span>
                         @endif
                     </div>
+
+                    <x-customer.trust-strip class="mt-4" />
                 </div>
 
                 {{-- F3: the franchise's own intro for this city, when it wrote one --}}

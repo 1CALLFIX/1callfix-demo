@@ -292,34 +292,67 @@
     @case('membership')
     @if ($membershipPlans->isNotEmpty())
         <section aria-labelledby="membership-heading" class="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
-            <div class="relative overflow-hidden rounded-3xl bg-gradient-to-br from-blue-700 via-blue-600 to-blue-800 p-6 shadow-xl shadow-blue-900/20 sm:p-10">
-                {{-- Soft light bloom, purely decorative. --}}
-                <div aria-hidden="true" class="pointer-events-none absolute -right-16 -top-20 h-64 w-64 rounded-full bg-white/10 blur-3xl"></div>
+            {{-- Owner 2026-11-07: show the benefits, look premium. Every benefit and value comes from the plan's own
+                 enabled entitlements (MembershipPresenter, same as the plan page); nothing is invented here. --}}
+            <div class="relative overflow-hidden rounded-3xl bg-gradient-to-br from-slate-900 via-blue-900 to-blue-700 p-6 shadow-xl shadow-blue-900/25 sm:p-10" data-membership-box>
+                <div aria-hidden="true" class="pointer-events-none absolute -right-20 -top-24 h-72 w-72 rounded-full bg-amber-300/20 blur-3xl"></div>
+                <div aria-hidden="true" class="pointer-events-none absolute -bottom-24 -left-16 h-64 w-64 rounded-full bg-blue-400/20 blur-3xl"></div>
 
                 <div class="relative">
-                    <h2 id="membership-heading" class="text-xl font-bold tracking-tight text-white sm:text-2xl">
+                    <p class="inline-flex items-center gap-1.5 rounded-full bg-amber-300/15 px-3 py-1 text-xs font-semibold text-amber-200 ring-1 ring-inset ring-amber-200/30">
+                        <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3 7l4.5 4L12 4l4.5 7L21 7l-2 12H5L3 7z"/></svg>
+                        {{ $t('home.membership.kicker') }}
+                    </p>
+                    <h2 id="membership-heading" class="mt-3 text-2xl font-bold tracking-tight text-white sm:text-3xl">
                         {{ $t('home.membership.title', ['brand' => $platformName]) }}
                     </h2>
-                    <p class="mt-2 max-w-2xl text-sm text-blue-100">
+                    <p class="mt-2 max-w-2xl text-sm text-blue-100 sm:text-base">
                         {{ $t('home.membership.line') }}
                     </p>
 
+                    @php
+                        $presenter = app(\App\Services\Plans\MembershipPresenter::class);
+                        $listMax = \App\Support\HomeLayout::membershipBenefits();
+                        $showWorth = \App\Support\HomeLayout::membershipShowWorth();
+                    @endphp
                     <ul class="mt-6 flex snap-x gap-4 overflow-x-auto pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                         @foreach ($membershipPlans as $plan)
-                            <li class="w-[70%] shrink-0 snap-start sm:w-[45%] lg:w-[31%] rounded-2xl bg-white/10 p-5 ring-1 ring-inset ring-white/15 backdrop-blur-sm">
-                                <h3 class="text-sm font-semibold text-white">{{ $plan->name }}</h3>
-                                <p class="mt-2 text-2xl font-bold text-white">
-                                    {{ $currencySymbol }}{{ number_format((float) $plan->price, 2) }}
-                                    <span class="text-xs font-medium text-blue-200">/ {{ $plan->validityLabel() }}</span>
+                            @php
+                                $card = $presenter->plan($plan);
+                                $benefits = collect($card['entitlements']);
+                                $worth = $benefits->sum(fn ($b) => ($b['advertised_value'] ?? 0) * max(1, (int) ($b['total_quantity'] ?? 1)));
+                            @endphp
+                            <li @class(['flex shrink-0 snap-start flex-col rounded-2xl bg-white p-5 shadow-lg', 'w-full sm:w-[26rem]' => $membershipPlans->count() === 1, 'w-[85%] sm:w-[22rem]' => $membershipPlans->count() > 1]) data-membership-plan>
+                                <h3 class="text-base font-bold text-slate-900">{{ $card['name'] }}</h3>
+                                <p class="mt-1 text-3xl font-extrabold tracking-tight text-slate-900">
+                                    {{ $currencySymbol }}{{ number_format($card['price'], fmod($card['price'], 1) ? 2 : 0) }}
+                                    <span class="text-sm font-medium text-slate-500">/ {{ $card['validity_label'] }}</span>
                                 </p>
+                                @if ($showWorth && $worth > $card['price'])
+                                    <p class="mt-2 inline-flex self-start rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-bold text-emerald-700" data-membership-worth>
+                                        {{ $t('home.membership.worth', ['amount' => $currencySymbol.number_format($worth, 0)]) }}
+                                    </p>
+                                @endif
+                                @if ($listMax > 0 && $benefits->isNotEmpty())
+                                    <ul class="mt-4 space-y-2 text-sm text-slate-700">
+                                        @foreach ($benefits->take($listMax) as $b)
+                                            <li class="flex gap-2" data-membership-benefit>
+                                                <svg class="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M16.7 5.3a1 1 0 010 1.4l-8 8a1 1 0 01-1.4 0l-4-4a1 1 0 111.4-1.4L8 12.6l7.3-7.3a1 1 0 011.4 0z" clip-rule="evenodd"/></svg>
+                                                <span>@if ((int) $b['total_quantity'] > 1)<span class="font-semibold">{{ $b['total_quantity'] }}×</span> @endif{{ $b['name'] }}</span>
+                                            </li>
+                                        @endforeach
+                                        @if ($benefits->count() > $listMax)
+                                            <li class="pl-6 text-xs font-semibold text-slate-500">{{ $t('home.membership.more', ['count' => $benefits->count() - $listMax]) }}</li>
+                                        @endif
+                                    </ul>
+                                @endif
+                                <a href="{{ route('customer.membership.show', $plan) }}"
+                                   class="mt-5 inline-flex min-h-11 items-center justify-center rounded-xl bg-blue-600 px-5 text-sm font-bold text-white shadow-sm transition hover:bg-blue-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 sm:self-start">
+                                    {{ $t('home.membership.button') }}
+                                </a>
                             </li>
                         @endforeach
                     </ul>
-
-                    <a href="{{ route('customer.membership.show', $membershipPlans->first()) }}"
-                       class="mt-6 inline-flex min-h-11 items-center rounded-lg bg-white px-5 text-sm font-semibold text-blue-700 shadow-sm transition hover:bg-blue-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">
-                        {{ $t('home.membership.button') }}
-                    </a>
                 </div>
             </div>
         </section>

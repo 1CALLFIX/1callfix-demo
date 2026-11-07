@@ -162,3 +162,20 @@
 .cf-img-gloss img {
     filter: saturate(1.08) contrast(1.04);
 }
+
+/* Look Phase 2 (owner 2026-11-07): ONE card style for every business — service, product, shop, restaurant, Saved.
+   The hover border and shadow take the page's module colour (--mod, set on <body> by ModuleTheme); blue where a page
+   has no module (homepage, city hub). */
+@utility cf-card {
+  border-radius: 1rem;
+  border: 1px solid #e2e8f0;
+  background-color: #fff;
+  transition: border-color .2s, box-shadow .2s, transform .2s;
+  &:hover {
+    border-color: color-mix(in srgb, var(--mod, #2563EB) 45%, white);
+    box-shadow: 0 12px 24px -14px color-mix(in srgb, var(--mod, #2563EB) 45%, transparent);
+  }
+  @media (hover: hover) {
+    &:hover { transform: translateY(-2px); }
+  }
+}

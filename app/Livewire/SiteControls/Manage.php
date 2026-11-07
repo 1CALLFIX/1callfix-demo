@@ -43,6 +43,10 @@ class Manage extends Component
 
     /** Module colours (2026-11-07): services, food, shop, parcel. */
     public array $moduleColours = [];
+
+    /** Homepage membership box (owner 2026-11-07): benefits listed per plan card, and the "Benefits worth" chip. */
+    public int $membershipBenefits = 4;
+    public bool $membershipShowWorth = true;
     public bool $parcelShowChips = true;
     public string $parcelChips = '';
     public string $parcelSendLabel = '';
@@ -97,6 +101,8 @@ class Manage extends Component
         foreach (array_keys(\App\Support\ModuleTheme::DEFAULTS) as $m) {
             $this->moduleColours[$m] = \App\Support\ModuleTheme::colour($m);
         }
+        $this->membershipBenefits = \App\Support\HomeLayout::membershipBenefits();
+        $this->membershipShowWorth = \App\Support\HomeLayout::membershipShowWorth();
         $this->parcelShowChips = S::parcelShowChips();
         $this->parcelChips = S::parcelChipsText();
         $this->parcelSendLabel = S::parcelSendLabel();
@@ -151,7 +157,9 @@ class Manage extends Component
             'reviewRedHours' => ['required', 'integer', 'between:1,720', 'gte:reviewAmberHours'],
             'headerPartnerLabel' => ['required', 'string', 'max:30'],
             'moduleColours.*' => ['required', 'regex:/^#[0-9a-fA-F]{6}$/'],
+            'membershipBenefits' => ['required', 'integer', 'between:0,10'],
         ], [], [
+            'membershipBenefits' => 'benefits to list',
             'moduleColours.*' => 'module colour',
             'categoryLimit' => 'number of categories', 'columnsMobile' => 'phone columns', 'columnsDesktop' => 'desktop columns',
             'parcelTitle' => 'parcel title', 'parcelSubtitle' => 'parcel subtitle', 'parcelImageFile' => 'parcel picture', 'parcelIconFile' => 'parcel icon',
@@ -203,6 +211,8 @@ class Manage extends Component
             S::REVIEW_RED_HOURS => (string) (int) $this->reviewRedHours,
             S::HEADER_PARTNER_BUTTON => $bool($this->headerPartnerButton),
             S::HEADER_PARTNER_LABEL => trim($this->headerPartnerLabel),
+            \App\Support\HomeLayout::MEMBERSHIP_BENEFITS => (string) (int) $this->membershipBenefits,
+            \App\Support\HomeLayout::MEMBERSHIP_SHOW_WORTH => $bool($this->membershipShowWorth),
         ] + collect(\App\Support\ModuleTheme::DEFAULTS)->mapWithKeys(fn ($d, $m) => [\App\Support\ModuleTheme::key($m) => strtoupper((string) ($this->moduleColours[$m] ?? $d))])->all() as $key => $value) {
             $changed = SettingsAuditor::put($admin, $key, $value) || $changed;
         }

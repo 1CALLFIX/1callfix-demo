@@ -96,7 +96,7 @@
                     </button>
 
                     <div x-show="open" style="display:none" x-transition.origin.top.right role="menu"
-                         class="absolute right-0 top-full z-50 mt-2 w-64 overflow-hidden rounded-2xl border border-slate-200 bg-white py-2 shadow-xl shadow-slate-900/10">
+                         class="absolute right-0 top-full z-50 mt-2 max-h-[calc(100dvh-6rem)] w-64 overflow-y-auto rounded-2xl border border-slate-200 bg-white py-2 shadow-xl shadow-slate-900/10">
                         @auth
                             <div class="border-b border-slate-100 px-4 pb-3 pt-1">
                                 <p class="truncate text-sm font-semibold text-slate-900">{{ auth()->user()->name }}</p>
@@ -159,11 +159,24 @@
                                 }
                                 $menu[] = [$t('header.sign_in'), route('customer.login')];
                             }
+                            // Owner 2026-11-07: the footer's link columns are hidden on phones and in the apps, so they
+                            // live here instead ("More", phones only), minus any link the menu already has.
+                            $have = array_column($menu, 1);
+                            $more = collect(\App\Support\PartnerPage\FooterLinks::groups())->flatten(1)
+                                ->reject(fn ($l) => in_array($l['href'], $have, true))->unique('href')->values();
                         @endphp
                         @foreach ($menu as [$label, $href])
                             <a href="{{ $href }}" role="menuitem"
                                class="block px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50 hover:text-slate-900">{{ $label }}</a>
                         @endforeach
+                        @if ($more->isNotEmpty())
+                            <div class="mt-1 border-t border-slate-100 pt-1 sm:hidden" data-menu-more>
+                                <p class="px-4 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400">{{ $t('header.menu.more') }}</p>
+                                @foreach ($more as $l)
+                                    <a href="{{ $l['href'] }}" role="menuitem" class="block px-4 py-2 text-sm text-slate-600 transition hover:bg-slate-50 hover:text-slate-900">{{ $l['label'] }}</a>
+                                @endforeach
+                            </div>
+                        @endif
 
                         @auth
                             <form method="POST" action="{{ route('customer.logout') }}" class="mt-1 border-t border-slate-100 pt-1">

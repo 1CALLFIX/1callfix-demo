@@ -20,6 +20,22 @@ final class HomeLayout
     /** Owner 2026-11-05: "New & noteworthy" drifts left and right on its own. Super Admin switch, on by default. */
     public const NEW_AUTOSCROLL = 'home.new.autoscroll';
 
+    /** Homepage membership box (owner 2026-11-07), Admin → Homepage & sign-up. */
+    public const MEMBERSHIP_BENEFITS = 'home.membership_benefits';
+    public const MEMBERSHIP_SHOW_WORTH = 'home.membership_show_worth';
+
+    public static function membershipBenefits(): int
+    {
+        $v = \App\Models\Setting::get(self::MEMBERSHIP_BENEFITS);
+
+        return is_numeric($v) ? max(0, min(10, (int) $v)) : 4;
+    }
+
+    public static function membershipShowWorth(): bool
+    {
+        return (string) \App\Models\Setting::get(self::MEMBERSHIP_SHOW_WORTH, '1') !== '0';
+    }
+
     /** section => label in Admin, in the default order. */
     public const SECTIONS = [
         'doors' => 'Explore doors (Services / Parcel / Shop)',

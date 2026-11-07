@@ -42,6 +42,7 @@ final class SiteText
         'account' => 'Delete account page',
         'share' => 'Share button',
         'saved' => 'Like (Saved) button',
+        'trust' => 'Service page trust strip',
     ];
 
     /** @var array<string, array{0: string, 1: string, 2: string, 3: string}> */
@@ -60,8 +61,21 @@ final class SiteText
         'saved.intro' => ['saved', 'Saved page line under the heading', 'Services, products, shops and dishes you liked.', 'మీకు నచ్చిన సేవలు, వస్తువులు, షాపులు, వంటకాలు.'],
         'saved.empty' => ['saved', 'Saved page with nothing saved', 'Nothing saved yet', 'ఇంకా ఏమీ సేవ్ చేయలేదు'],
         'saved.empty_hint' => ['saved', 'Saved page with nothing saved: hint', 'Tap ♡ on anything you like to keep it here.', 'నచ్చిన దానిపై ♡ నొక్కండి, అది ఇక్కడ ఉంటుంది.'],
+        'saved.tab_all' => ['saved', 'Saved page tab: everything', 'All', 'అన్నీ'],
+        'saved.tab_services' => ['saved', 'Saved page tab: services', 'Services', 'సేవలు'],
+        'saved.tab_items' => ['saved', 'Saved page tab: products and dishes', 'Products & dishes', 'వస్తువులు & వంటకాలు'],
+        'saved.tab_shops' => ['saved', 'Saved page tab: shops and restaurants', 'Shops & restaurants', 'షాపులు & రెస్టారెంట్లు'],
+        // Trust strip under the service name (owner 2026-11-07, Phase 2). Only true promises: every partner is document-checked
+        // and approved, every job starts and ends with the customer's OTP, every job can be rated.
+        'trust.verified' => ['trust', 'Trust strip: first line', 'Verified professionals', 'ధృవీకరించిన నిపుణులు'],
+        'trust.verified_hint' => ['trust', 'Trust strip: first line, small text', 'ID and documents checked', 'ID, పత్రాలు తనిఖీ చేశాం'],
+        'trust.otp' => ['trust', 'Trust strip: second line', 'Your OTP starts the job', 'మీ OTP తో పని మొదలవుతుంది'],
+        'trust.otp_hint' => ['trust', 'Trust strip: second line, small text', 'And closes it when done', 'పూర్తయ్యాక అదే ముగిస్తుంది'],
+        'trust.rate' => ['trust', 'Trust strip: third line', 'Rate every job', 'ప్రతి పనికి రేటింగ్ ఇవ్వండి'],
+        'trust.rate_hint' => ['trust', 'Trust strip: third line, small text', 'Your review keeps quality up', 'మీ రివ్యూ నాణ్యతను కాపాడుతుంది'],
         'saved.browse' => ['saved', 'Saved page with nothing saved: button', 'Start exploring', 'చూడటం ప్రారంభించండి'],
         'saved.account_hint' => ['saved', 'Account page: line under "Saved"', 'Everything you liked with ♡.', '♡ తో మీకు నచ్చినవన్నీ.'],
+        'header.menu.more' => ['header', 'Menu on phones: heading over the footer links', 'More', 'మరిన్ని'],
         'header.menu.saved' => ['header', 'Menu: saved (liked) items', 'Saved', 'సేవ్ చేసినవి'],
         'language.to_te' => ['language', 'Switch button, shown while in English', 'తెలుగు', 'తెలుగు'],
         'language.to_en' => ['language', 'Switch button, shown while in Telugu', 'English', 'English'],
@@ -181,8 +195,11 @@ final class SiteText
         'home.offers.line' => ['home', 'Offers row: line', 'Limited-time pricing, while it lasts.', 'పరిమిత కాల ధరలు, ఉన్నంత వరకే.'],
         'home.banner.mid' => ['home', 'Middle banners (screen readers)', 'Offers and announcements', 'ఆఫర్లు మరియు ప్రకటనలు'],
         'home.membership.title' => ['home', 'Membership box: heading (:brand = platform name)', ':brand membership', ':brand మెంబర్‌షిప్'],
-        'home.membership.line' => ['home', 'Membership box: line', 'Membership plans available on your account.', 'మీ ఖాతాకు అందుబాటులో ఉన్న మెంబర్‌షిప్ ప్లాన్లు.'],
-        'home.membership.button' => ['home', 'Membership box: button', 'About membership', 'మెంబర్‌షిప్ గురించి'],
+        'home.membership.line' => ['home', 'Membership box: line', 'Pay once, save on home services all year.', 'ఒకసారి కట్టండి, ఏడాదంతా ఇంటి సేవలపై ఆదా చేయండి.'],
+        'home.membership.kicker' => ['home', 'Membership box: small label over the heading', 'Members save more', 'సభ్యులకు ఎక్కువ ఆదా'],
+        'home.membership.worth' => ['home', 'Membership card: total value of the benefits (:amount)', 'Benefits worth :amount', ':amount విలువైన ప్రయోజనాలు'],
+        'home.membership.more' => ['home', 'Membership card: more benefits not listed (:count)', '+ :count more', '+ మరో :count'],
+        'home.membership.button' => ['home', 'Membership box: button', 'See all benefits & join', 'అన్ని ప్రయోజనాలు చూసి చేరండి'],
         'home.trust.title' => ['home', 'Why choose us: heading (:brand = platform name)', 'Why choose :brand', ':brand నే ఎందుకు ఎంచుకోవాలి'],
         'home.trust.1.title' => ['home', 'Why choose us: point 1 heading', 'Verified professionals', 'ధృవీకరించిన నిపుణులు'],
         'home.trust.1.body' => ['home', 'Why choose us: point 1 text', 'Every professional is onboarded through document verification before taking work.', 'ప్రతి నిపుణుడు పని తీసుకునే ముందు డాక్యుమెంట్ల ధృవీకరణతో చేరతారు.'],

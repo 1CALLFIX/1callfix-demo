@@ -45,7 +45,7 @@
 @if ($tile)
 {{-- Homepage tile (owner 2026-11-05): a small picture, the service name and the price — nothing else. --}}
 <a href="{{ $card['url'] }}"
-   {{ $attributes->merge(['class' => 'group relative flex h-full flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white transition duration-200 hover:border-blue-300 hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600']) }}
+   {{ $attributes->merge(['class' => 'cf-card group relative flex h-full flex-col overflow-hidden focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600']) }}
    data-service-tile>
     <div class="{{ \App\Support\SiteControls::frameClasses() }} relative aspect-square w-full overflow-hidden bg-slate-100">
         <span aria-hidden="true"
@@ -94,7 +94,7 @@
      allowed and a browser would break the card apart. --}}
 <div class="relative h-full" data-service-card>
 <a href="{{ $card['url'] }}"
-   {{ $attributes->merge(['class' => 'group relative flex h-full flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white transition duration-200 hover:-translate-y-0.5 hover:border-blue-300 hover:shadow-lg hover:shadow-blue-900/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600']) }}>
+   {{ $attributes->merge(['class' => 'cf-card group relative flex h-full flex-col overflow-hidden focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600']) }}>
 
     {{-- Media --}}
     <div class="{{ \App\Support\SiteControls::frameClasses() }} relative aspect-[4/3] w-full overflow-hidden bg-slate-100">

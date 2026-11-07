@@ -15,9 +15,23 @@
                 <a href="{{ route('customer.home') }}" wire:navigate class="mt-4 inline-flex min-h-11 items-center rounded-full bg-blue-600 px-5 text-sm font-semibold text-white hover:bg-blue-700">{{ $t('saved.browse') }}</a>
             </div>
         @else
+            {{-- Tabs (look Phase 2): shown only when more than one kind is saved; a kind with nothing saved has no tab. --}}
+            @php $kinds = collect(\App\Livewire\Customer\Account\Saved::TABS)->keys()->filter(fn ($k) => ($counts[$k] ?? 0) > 0); @endphp
+            @if ($kinds->count() > 1)
+                <nav aria-label="{{ $t('saved.title') }}" class="mt-5 flex gap-2 overflow-x-auto pb-1" data-saved-tabs>
+                    @foreach (collect(['all' => $total])->merge($kinds->mapWithKeys(fn ($k) => [$k => $counts[$k]])) as $key => $n)
+                        <button type="button" wire:click="pickTab('{{ $key }}')" aria-pressed="{{ $activeTab === $key ? 'true' : 'false' }}"
+                                @class(['shrink-0 rounded-full border px-4 py-2 text-sm font-medium',
+                                        'border-rose-500 bg-rose-500 text-white' => $activeTab === $key,
+                                        'border-slate-300 bg-white text-slate-700 hover:border-rose-300' => $activeTab !== $key])>
+                            {{ $t('saved.tab_'.$key) }} <span @class(['ml-1 tabular-nums', 'text-rose-100' => $activeTab === $key, 'text-slate-400' => $activeTab !== $key])>{{ $n }}</span>
+                        </button>
+                    @endforeach
+                </nav>
+            @endif
             <ul class="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3">
                 @foreach ($items as $item)
-                    <li class="relative overflow-hidden rounded-2xl border border-slate-200 bg-white" wire:key="saved-{{ $item->id }}" data-testid="saved-item">
+                    <li class="cf-card relative overflow-hidden" wire:key="saved-{{ $item->id }}" data-testid="saved-item">
                         <a href="{{ $item->url }}" class="block">
                             <span class="flex aspect-square w-full items-center justify-center bg-slate-100 text-3xl font-bold text-slate-300">
                                 @if ($item->image_url)

@@ -95,6 +95,23 @@
         </x-ui.card>
 
         <x-ui.card>
+            <h2 class="text-sm font-semibold mb-1">Membership box on the homepage</h2>
+            <p class="text-xs text-gray-500 mb-3">Each active membership plan shows as a card with its benefits, from Admin → Plans (name, price, benefits, quantity, value). Its words are in Website text → Homepage; on/off and position in Homepage sections.</p>
+            <div class="grid gap-4 sm:grid-cols-2">
+                <div>
+                    <label class="block text-sm font-medium mb-1" for="sc-mem-benefits">Benefits to list on each card</label>
+                    <input type="number" id="sc-mem-benefits" min="0" max="10" wire:model="membershipBenefits" class="{{ $input }} w-28">
+                    <p class="text-xs text-gray-500 mt-1">The rest show as "+ 2 more". 0 = no list.</p>
+                    @error('membershipBenefits')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
+                </div>
+                <label class="flex items-start gap-2 text-sm">
+                    <input type="checkbox" wire:model="membershipShowWorth" class="mt-1 rounded border-gray-300">
+                    <span><span class="font-medium">Show "Benefits worth ₹…"</span><br><span class="text-xs text-gray-500">The total of each benefit's value × quantity, shown only when it is more than the plan's price.</span></span>
+                </label>
+            </div>
+        </x-ui.card>
+
+        <x-ui.card>
             <h2 class="text-sm font-semibold mb-1">Parcel card</h2>
             <p class="text-xs text-gray-500 mb-3">Shown only where Parcel is switched on (Admin → Modules). The price is the area's base fare from Parcel Settings.</p>
             <div class="grid gap-4 md:grid-cols-2">

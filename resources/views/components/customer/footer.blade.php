@@ -15,10 +15,14 @@
      */
     $socialLinks = collect(\App\Models\SocialMediaLink::footerLinks());
     $creditLine = \App\Services\BrandingAssetService::creditLine();
+    // Owner 2026-11-07: on phones the link columns move into the ☰ menu ("More"), so the footer is just the brand,
+    // social icons, rights and credit line. Phones: hidden by CSS (the links stay in the page for search engines).
+    // Inside the Android apps: not rendered at all, and no "Get the app" buttons.
+    $inApp = \App\Support\NativeApp::inApp();
 @endphp
 
 <footer class="mb-bottom-nav border-t border-slate-200 bg-slate-50">
-    <div class="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
+    <div class="mx-auto max-w-7xl px-4 py-8 sm:px-6 sm:py-12 lg:px-8">
         <div class="grid gap-10 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
 
             <div class="sm:col-span-2 md:col-span-3 lg:col-span-1">
@@ -52,8 +56,8 @@
                 @endif
             </div>
 
-            @foreach ($columns as $heading => $links)
-                <div>
+            @foreach ($inApp ? [] : $columns as $heading => $links)
+                <div class="hidden sm:block" data-footer-column>
                     <h2 class="text-sm font-semibold text-slate-900">{{ $heading }}</h2>
                     {{-- inline-flex + min-h-11 rather than a bare inline <a>:
                          as plain text links these were 18px tall, well under
@@ -80,7 +84,7 @@
                 'Get the iPhone app' => \App\Support\PartnerPage\FooterLinks::appUrl('store.ios_url'),
             ]);
         @endphp
-        @if ($appLinks !== [])
+        @if ($appLinks !== [] && ! $inApp)
             <ul class="mt-8 flex flex-wrap gap-3">
                 @foreach ($appLinks as $label => $url)
                     <li><a href="{{ $url }}" rel="noopener" class="inline-flex min-h-11 items-center rounded-lg border border-slate-300 px-4 text-sm font-semibold text-slate-700 hover:border-blue-400 hover:text-blue-700">{{ $label }}</a></li>
@@ -88,7 +92,7 @@
             </ul>
         @endif
 
-        <div class="mt-10 flex flex-col gap-3 border-t border-slate-200 pt-6 sm:flex-row sm:items-end sm:justify-between">
+        <div class="mt-8 flex flex-col gap-3 border-t sm:mt-10 border-slate-200 pt-6 sm:flex-row sm:items-end sm:justify-between">
         <div class="space-y-1">
             <p class="text-xs text-slate-500">
                 &copy; {{ now()->year }} {{ $platformName }}. All rights reserved.

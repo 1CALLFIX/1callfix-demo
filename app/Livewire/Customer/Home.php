@@ -441,6 +441,7 @@ class Home extends Component
             ->where('is_active', true)
             ->where('plan_family', 'customer_membership')
             ->where('eligible_actor_type', 'customer')
+            ->with('entitlements.targets')
             ->orderBy('price')
             ->limit(3)
             ->get();

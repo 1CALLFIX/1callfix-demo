@@ -9,7 +9,7 @@
         ]" />
 
         <header class="mt-4">
-            <p class="text-xs font-semibold uppercase tracking-widest text-blue-700">{{ $t('food.home.kicker', ['city' => $city->name]) }}</p>
+            <p class="text-xs font-semibold uppercase tracking-widest text-[var(--mod-ink,#1D4ED8)]">{{ $t('food.home.kicker', ['city' => $city->name]) }}</p>
             <h1 class="mt-1 text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">{{ $t('food.home.title') }}</h1>
             <x-customer.share-button :title="$t('food.home.title')" class="mt-3" />
             <p class="mt-1 max-w-xl text-sm text-slate-600">{{ $t('food.home.intro') }}</p>
@@ -29,7 +29,7 @@
             @foreach ($cuisines as $c)
                 <button type="button" wire:click="pickCuisine(@js($c))" aria-pressed="{{ $cuisine === $c ? 'true' : 'false' }}"
                         @class(['shrink-0 rounded-full border px-4 py-2 text-sm font-medium',
-                                'border-blue-600 bg-blue-600 text-white' => $cuisine === $c, 'border-slate-300 bg-white text-slate-700 hover:border-blue-400' => $cuisine !== $c])>{{ $c }}</button>
+                                'border-[var(--mod,#2563EB)] bg-[var(--mod,#2563EB)] text-white' => $cuisine === $c, 'border-slate-300 bg-white text-slate-700 hover:border-[var(--mod,#2563EB)]' => $cuisine !== $c])>{{ $c }}</button>
             @endforeach
         </nav>
 
@@ -48,7 +48,7 @@
                         @php $s = $c['store']; @endphp
                         <li wire:key="r-{{ $s->id }}" class="relative">
                             <a href="{{ $c['url'] }}" wire:navigate data-testid="restaurant-card"
-                               @class(['block overflow-hidden rounded-2xl border bg-white transition hover:border-blue-300 hover:shadow-sm', 'border-slate-200' => $c['open'], 'border-slate-200 opacity-70' => ! $c['open']])>
+                               @class(['cf-card block overflow-hidden', 'opacity-70' => ! $c['open']])>
                                 {{-- Restaurant portal 2026-11-04: the cover photo, wide, on top. --}}
                                 @if ($s->cover_url)
                                     <img src="{{ $s->cover_url }}" alt="" loading="lazy" @class(['h-36 w-full object-cover', 'grayscale' => ! $c['open']]) data-testid="restaurant-cover">
