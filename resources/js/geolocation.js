@@ -67,7 +67,17 @@ window.cfWireLocateButton = function (wire) {
             if (label) label.textContent = 'Locating…';
             if (errorEl) errorEl.hidden = true;
             window.cfLocate(
-                (lat, lng) => Promise.resolve(wire.useCurrentLocationForNewAddress(lat, lng)).finally(restore),
+                (lat, lng) => {
+                    // Customer address forms with a map (address-map.js): move the map there; the map then fills the
+                    // address and checks the area itself. Without a map, the form's method is called directly, as before.
+                    const map = document.querySelector('[data-address-map][data-ready="1"]:not([hidden])');
+                    if (map) {
+                        window.dispatchEvent(new CustomEvent('cf-address-located', { detail: { lat, lng } }));
+                        restore();
+                        return;
+                    }
+                    return Promise.resolve(wire.useCurrentLocationForNewAddress(lat, lng)).finally(restore);
+                },
                 onFail,
                 { highAccuracy: true },
             );

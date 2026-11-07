@@ -173,6 +173,13 @@ class Checkout extends Component
             'newAddress.pincode' => ['nullable', 'string', 'max:12'],
         ], [], ['newAddress.label' => 'name', 'newAddress.address_line' => 'address'])['newAddress'];
 
+        // Owner 2026-11-07: the real door for the rider, never the area centre or the shop itself, when the map is available.
+        if ($this->locatedLat === null && \App\Support\AddressPin::required()) {
+            $this->addressError = \App\Support\SiteText::get('address_map.pin_required');
+
+            return;
+        }
+
         $zone = $this->locatedZoneId ? Zone::where('is_active', true)->find($this->locatedZoneId) : null;
         if (! $zone && ($picked = $location->zone()) && (int) $picked->franchise_id === (int) $this->store->franchise_id) {
             $zone = $picked;

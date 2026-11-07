@@ -56,6 +56,7 @@
                             @if ($addingAddress)
                                 <div class="rounded-2xl border-2 border-dashed border-blue-300 bg-blue-50/40 p-3" data-testid="checkout-new-address">
                                     <p class="text-sm font-bold">{{ $t('shop_checkout.new_address') }}</p>
+                                    <x-customer.address-map prefix="newAddress" :fields="['address_line', 'pincode']" :lat="$locatedLat" :lng="$locatedLng" :pinned="$locatedLat !== null" />
                                     <button type="button" data-locate-address class="mt-2 inline-flex min-h-11 items-center gap-1.5 rounded-xl border border-slate-300 bg-white px-3 text-sm font-medium text-slate-800 hover:bg-slate-50">
                                         <x-icon name="map-pin" class="h-4 w-4 text-blue-600" />
                                         <span data-locate-address-label>{{ $t('shop_checkout.use_location') }}</span>

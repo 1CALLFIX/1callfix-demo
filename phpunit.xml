@@ -35,6 +35,8 @@
         <env name="APP_ENV" value="testing"/>
         <env name="APP_KEY" value="base64:Pl17tPes0CiW1JSYeYd0DjnY+F8QRf5tAAlmEVHYn0g="/>
         <env name="APP_MAINTENANCE_DRIVER" value="file"/>
+        <!-- Tests never use the real Google Maps key; a test that needs the map sets config(services.google_maps.key) itself. -->
+        <env name="GOOGLE_MAPS_API_KEY" value="" force="true"/>
         <env name="BCRYPT_ROUNDS" value="4"/>
         <env name="BROADCAST_CONNECTION" value="null"/>
         <env name="CACHE_STORE" value="array"/>

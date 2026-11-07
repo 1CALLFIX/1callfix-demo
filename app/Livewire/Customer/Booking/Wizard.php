@@ -221,7 +221,7 @@ class Wizard extends Component
 
         if (! $zone) {
             $this->reset('newAddressLat', 'newAddressLng', 'newAddressZoneId', 'newAddressLocatedLabel');
-            $this->error = "We don't have a team serving that exact spot yet — type the address and pick your area from the top of the page.";
+            $this->error = \App\Support\SiteText::get('address_map.outside');
 
             return;
         }
@@ -243,6 +243,13 @@ class Wizard extends Component
     public function saveNewAddress(): void
     {
         $this->error = '';
+
+        // Owner 2026-11-07: the real spot, never the area centre, when the map is available.
+        if ($this->newAddressLat === null && \App\Support\AddressPin::required()) {
+            $this->error = \App\Support\SiteText::get('address_map.pin_required');
+
+            return;
+        }
 
         $zone = $this->newAddressZoneId
             ? \App\Models\Zone::where('is_active', true)->find($this->newAddressZoneId)

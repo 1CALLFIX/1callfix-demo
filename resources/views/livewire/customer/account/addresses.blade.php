@@ -47,6 +47,14 @@
         <div class="mt-4 rounded-xl border border-slate-200 p-4">
             <p class="text-sm font-semibold">{{ $editingId ? 'Edit address' : 'Add address' }}</p>
 
+            @php $editingAddress = $editingId ? \App\Models\Address::where('user_id', auth()->id())->find($editingId) : null; @endphp
+            <x-customer.address-map wire:key="address-map-{{ $editingId ?? 'new' }}" prefix="form" :fields="['address_line', 'city', 'pincode']"
+                                    :lat="$locatedLat ?? $editingAddress?->lat" :lng="$locatedLng ?? $editingAddress?->lng"
+                                    :pinned="$locatedLat !== null || $editingAddress !== null" />
+            @if ($editingId && $locatedZoneName !== '')
+                <p class="mt-1.5 text-xs text-emerald-700">Pinned — service area <span class="font-medium">{{ $locatedZoneName }}</span>.</p>
+            @endif
+
             @unless ($editingId)
                 <button type="button" data-locate-address
                         class="mt-3 inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-800 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600">
@@ -76,6 +84,7 @@
             <label class="mt-2 flex items-center gap-2 text-sm text-slate-700">
                 <input type="checkbox" wire:model="form.is_default" class="h-4 w-4 accent-blue-600"> Make this my default address
             </label>
+            @if ($error) <p class="mt-3 text-xs text-rose-600" data-address-error>{{ $error }}</p> @endif
             <div class="mt-3 flex gap-2">
                 <button wire:click="save" class="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700">Save</button>
                 <button wire:click="$set('showForm', false)" class="rounded-lg px-4 py-2 text-sm text-slate-600 hover:bg-slate-100">Cancel</button>

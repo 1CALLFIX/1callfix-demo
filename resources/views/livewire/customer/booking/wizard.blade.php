@@ -149,6 +149,8 @@
                         <div class="mt-4 rounded-lg bg-slate-50 p-3">
                             <p class="text-sm font-medium">Add an address</p>
 
+                            <x-customer.address-map prefix="newAddress" :fields="['address_line', 'city', 'pincode']" :lat="$newAddressLat" :lng="$newAddressLng" :pinned="$newAddressLat !== null" />
+
                             <button type="button" data-locate-address
                                     class="mt-2 inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-800 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900">
                                 <x-icon name="map" class="h-4 w-4 text-slate-500" />
@@ -168,6 +170,7 @@
                                 <input wire:model="newAddress.pincode" placeholder="PIN code (optional)" class="rounded-lg border border-slate-300 px-3 py-2 text-sm">
                             </div>
                             @error('newAddress.address_line') <p class="mt-1 text-xs text-rose-600">{{ $message }}</p> @enderror
+                            @if ($error) <p class="mt-1 text-xs text-rose-600" data-address-error>{{ $error }}</p> @endif
                             <div class="mt-3 flex gap-2">
                                 <button wire:click="saveNewAddress" class="rounded-lg bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700">Save address</button>
                                 <button wire:click="$set('addingAddress', false)" class="rounded-lg px-3 py-2 text-sm text-slate-600 hover:bg-slate-100">Cancel</button>

@@ -100,10 +100,7 @@ class Addresses extends Component
     {
         $this->reset('error', 'notice');
 
-        if ($this->editingId) {
-            return;
-        }
-
+        // Owner 2026-11-07: the map pin (x-customer.address-map) also re-pins an address being edited.
         validator(
             ['lat' => $lat, 'lng' => $lng],
             ['lat' => ['required', 'numeric', 'between:-90,90'], 'lng' => ['required', 'numeric', 'between:-180,180']],
@@ -113,7 +110,7 @@ class Addresses extends Component
 
         if (! $zone) {
             $this->reset('locatedLat', 'locatedLng', 'locatedZoneId', 'locatedZoneName');
-            $this->error = "We don't have a team serving that exact spot yet — type the address and pick your area from the top of the page.";
+            $this->error = \App\Support\SiteText::get('address_map.outside');
 
             return;
         }
@@ -138,9 +135,19 @@ class Addresses extends Component
                 'city' => $data['city'] ?: null,
                 'pincode' => $data['pincode'] ?: null,
                 'is_default' => $data['is_default'],
-            ])->save();
+            ]);
+            // Moved on the map: the new spot and the team that serves it.
+            if ($this->locatedLat !== null && $this->locatedZoneId && ($zone = \App\Models\Zone::where('is_active', true)->find($this->locatedZoneId))) {
+                $address->fill(['lat' => $this->locatedLat, 'lng' => $this->locatedLng, 'zone_id' => $zone->id, 'franchise_id' => $zone->franchise_id]);
+            }
+            $address->save();
             $this->notice = 'Address updated.';
         } else {
+            if ($this->locatedLat === null && \App\Support\AddressPin::required()) {
+                $this->error = \App\Support\SiteText::get('address_map.pin_required');
+
+                return;
+            }
             $zone = $this->locatedZoneId
                 ? \App\Models\Zone::where('is_active', true)->find($this->locatedZoneId)
                 : $location->zone();

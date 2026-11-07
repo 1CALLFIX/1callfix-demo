@@ -67,11 +67,12 @@ class CustomerAddressesTest extends TestCase
             ->call('startAdd')
             ->call('useCurrentLocationForNewAddress', 51.5072, -0.1276)
             ->assertSet('locatedZoneId', null)
-            ->assertSet('error', "We don't have a team serving that exact spot yet — type the address and pick your area from the top of the page.");
+            ->assertSet('error', \App\Support\SiteText::get('address_map.outside'));
     }
 
-    public function test_use_current_location_is_a_noop_while_editing_an_address(): void
+    public function test_moving_the_pin_while_editing_moves_the_saved_address(): void
     {
+        // Owner 2026-11-07: the map also corrects an address that was saved in the wrong spot.
         [, , $franchise, $zone] = $this->makeFranchiseTree();
         $zone->update(['center_lat' => 19.0760, 'center_lng' => 72.8777, 'default_dispatch_radius_km' => 10]);
         $customer = $this->makeCustomer();
@@ -79,8 +80,51 @@ class CustomerAddressesTest extends TestCase
 
         Livewire::actingAs($customer)->test(Addresses::class)
             ->call('edit', $address->id)
-            ->call('useCurrentLocationForNewAddress', 19.0800, 72.8777)
-            ->assertSet('locatedZoneId', null);
+            ->call('useCurrentLocationForNewAddress', 19.0800, 72.8790)
+            ->assertSet('locatedZoneId', $zone->id)
+            ->call('save')
+            ->assertHasNoErrors();
+
+        $address->refresh();
+        $this->assertEqualsWithDelta(19.0800, (float) $address->lat, 0.0001);
+        $this->assertEqualsWithDelta(72.8790, (float) $address->lng, 0.0001);
+    }
+
+    public function test_with_the_map_available_an_address_needs_a_real_pin_not_the_area_centre(): void
+    {
+        config(['services.google_maps.key' => 'test-key']);
+        [, , , $zone] = $this->makeFranchiseTree();
+        $zone->update(['center_lat' => 19.0760, 'center_lng' => 72.8777, 'default_dispatch_radius_km' => 10]);
+        $customer = $this->makeCustomer();
+        session([CustomerLocationContext::SESSION_KEY => $zone->id]);
+
+        $page = Livewire::actingAs($customer)->test(Addresses::class)
+            ->call('startAdd')
+            ->assertSeeHtml('data-address-map')
+            ->assertSeeHtml('data-prefix="form"')
+            ->set('form.address_line', '5 Test Lane')
+            ->call('save')
+            ->assertSet('error', \App\Support\SiteText::get('address_map.pin_required'))
+            ->assertSee(\App\Support\SiteText::get('address_map.pin_required'));
+        $this->assertSame(0, Address::where('user_id', $customer->id)->count());
+
+        $page->call('useCurrentLocationForNewAddress', 19.0812, 72.8801)->call('save')->assertSee('Address added');
+        $address = Address::where('user_id', $customer->id)->sole();
+        $this->assertEqualsWithDelta(19.0812, (float) $address->lat, 0.0001, 'the pin, not the area centre');
+    }
+
+    public function test_without_a_maps_key_there_is_no_map_and_the_old_form_still_works(): void
+    {
+        config(['services.google_maps.key' => null]);
+        [, , , $zone] = $this->makeFranchiseTree();
+        session([CustomerLocationContext::SESSION_KEY => $zone->id]);
+
+        Livewire::actingAs($this->makeCustomer())->test(Addresses::class)
+            ->call('startAdd')
+            ->assertDontSeeHtml('data-address-map')
+            ->set('form.address_line', '5 Test Lane')
+            ->call('save')
+            ->assertSee('Address added');
     }
 
     public function test_adding_an_address_derives_the_franchise_from_the_browsing_zone(): void

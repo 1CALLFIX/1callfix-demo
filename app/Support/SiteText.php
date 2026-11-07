@@ -45,6 +45,7 @@ final class SiteText
         'trust' => 'Service page trust strip',
         'contact' => 'Contact page',
         'upload' => 'Photo upload hints',
+        'address_map' => 'Address map (pin)',
     ];
 
     /** @var array<string, array{0: string, 1: string, 2: string, 3: string}> */
@@ -156,6 +157,12 @@ final class SiteText
         'search.voice_listening' => ['header', 'Search box: while the mic is listening', 'Listening… say a service, like “AC repair”', 'వింటున్నాం… “AC repair” లాంటి సర్వీస్ పేరు చెప్పండి'],
         'search.voice_failed' => ['header', 'Search box: nothing was heard', 'Didn’t catch that. Tap the mic and try again.', 'అర్థం కాలేదు. మైక్ నొక్కి మళ్లీ ప్రయత్నించండి.'],
         'search.voice_blocked' => ['header', 'Search box: microphone not allowed', 'Microphone is blocked. Allow it for this site in your browser settings.', 'మైక్రోఫోన్ బ్లాక్ అయింది. బ్రౌజర్ సెట్టింగ్స్‌లో ఈ సైట్‌కు అనుమతించండి.'],
+        'address_map.search' => ['address_map', 'Search box above the map', 'Search your area, street or building', 'మీ ఏరియా, వీధి లేదా బిల్డింగ్ వెతకండి'],
+        'address_map.find' => ['address_map', 'Search button', 'Find', 'వెతుకు'],
+        'address_map.hint' => ['address_map', 'Line under the map', 'Move the map so the red pin sits on your door. Street, city and PIN fill in by themselves; check and correct them.', 'ఎర్ర పిన్ మీ ఇంటి గుమ్మం మీద ఉండేలా మ్యాప్‌ను జరపండి. వీధి, ఊరు, పిన్ కోడ్ వాటంతట అవే నిండుతాయి; ఒకసారి చూసి సరిచేయండి.'],
+        'address_map.not_found' => ['address_map', 'Search found nothing', 'Couldn’t find that place. Try a nearby landmark, or move the map.', 'ఆ చోటు దొరకలేదు. దగ్గర్లోని గుర్తు వెతకండి లేదా మ్యాప్‌ను జరపండి.'],
+        'address_map.outside' => ['address_map', 'Pin outside every service area', 'We don’t serve this exact spot yet. Move the pin to your address, or choose another area at the top.', 'ఈ చోటుకు ఇంకా మా సేవ లేదు. పిన్‌ను మీ చిరునామాకు జరపండి, లేదా పైన వేరే ఏరియా ఎంచుకోండి.'],
+        'address_map.pin_required' => ['address_map', 'Saving without a pin', 'Put the red pin on your location on the map first (or tap Use my current location).', 'ముందుగా మ్యాప్‌లో ఎర్ర పిన్‌ను మీ చోటు మీద పెట్టండి (లేదా నా ప్రస్తుత లొకేషన్ నొక్కండి).'],
         'search.open_now' => ['header', 'Search box: shop open badge', 'Open now', 'ఇప్పుడు తెరిచి ఉంది'],
 
         'location.set' => ['location', 'Location button, nothing chosen yet', 'Set location', 'ప్రాంతం ఎంచుకోండి'],

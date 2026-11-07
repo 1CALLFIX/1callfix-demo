@@ -92,7 +92,7 @@ class BookingWizardTest extends TestCase
             ->call('useCurrentLocationForNewAddress', 51.5072, -0.1276) // London — outside every radius
             ->assertSet('newAddressZoneId', null);
 
-        $this->assertStringContainsString("don't have a team serving", $component->get('error'));
+        $this->assertSame(\App\Support\SiteText::get('address_map.outside'), $component->get('error'));
 
         $component->call('saveNewAddress')->assertHasNoErrors();
 

@@ -13,5 +13,6 @@ import './carousel';
 import './search-bar';
 import './password-toggle';
 import './places-autocomplete';
+import './address-map';
 import './rotating-placeholder';
 import './native-app';
