@@ -32,6 +32,9 @@ class Manage extends Component
     use WithPagination;
 
     public string $statusFilter = '';
+
+    /** NO PAYMENT, NO BOOKING (owner 2026-11-07): list unpaid online parcel orders (payment attempts) instead, for support. */
+    public bool $attempts = false;
     public string $search = '';
     public ?int $selectedOrderId = null;
 
@@ -83,7 +86,7 @@ class Manage extends Component
     private function scopedOrdersQuery()
     {
         return app(AuthorizationService::class)
-            ->scopeQuery(ParcelOrder::query(), auth()->user(), 'parcel_orders.view', $this->scopeColumns())
+            ->scopeQuery(ParcelOrder::query()->when($this->attempts, fn ($q) => $q->paymentAttempts(), fn ($q) => $q->booked()), auth()->user(), 'parcel_orders.view', $this->scopeColumns())
             ->with(['customer', 'assignedWorker.user', 'franchise', 'pickupAddress', 'dropoffAddress', 'statusHistory' => \App\Support\Turnaround::historyScope()]);
     }
 

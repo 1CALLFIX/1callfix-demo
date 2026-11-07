@@ -78,6 +78,10 @@ class CreateMarketplaceOrderAction
         $customer = \App\Models\User::findOrFail($data['customer_id']);
         $address = null;
 
+        // NO PAYMENT, NO BOOKING (owner 2026-11-07): the customer's unpaid online order ends first (its stock and coupon
+        // go back), so ordering again after leaving the payment window never leaves two — and its coupon counts once.
+        app(\App\Services\Payments\OrderAttempts::class)->replaceShopFor($customer->id);
+
         // E-commerce Phase 2: the address must be the customer's own, and a shop delivers only within its own city.
         if ($orderType === 'delivery') {
             $address = \App\Models\Address::where('user_id', $customer->id)->find($data['delivery_address_id']);
@@ -251,7 +255,11 @@ class CreateMarketplaceOrderAction
                 ]);
             }
 
-            $this->cart->clearForStore($customer, $store->id);
+            // An online order keeps the cart until its payment arrives (MarketplacePaymentService::markPaid() empties it):
+            // leaving the payment window, the customer still has the cart and can order again, e.g. with cash.
+            if ($paymentMethod !== 'online') {
+                $this->cart->clearForStore($customer, $store->id);
+            }
 
             if ($paymentMethod === 'wallet') {
                 $this->payWithWallet($order);

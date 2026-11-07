@@ -21,7 +21,8 @@ use Illuminate\Support\Facades\Log;
  * A payment that still arrives afterwards is refunded by RazorpayWebhookHandler (booking already cancelled ->
  * refundIfPaid), the existing late-capture path.
  *
- * Bundle (cart) children are left to the bundle flow for now; they are hidden as attempts but not expired here.
+ * Services cart (bundles): an unpaid online bundle ends the same way — every child cancelled quietly with no fee; a
+ * late payment is refunded in full by RazorpayWebhookHandler (cancelled bundle -> BundleSettlementService).
  */
 class UnpaidAttemptService
 {
@@ -52,9 +53,15 @@ class UnpaidAttemptService
     /** @return int attempts ended because they ran out of time */
     public function expire(): int
     {
-        $ids = $this->openAttempts()->where('created_at', '<=', now()->subMinutes(self::minutes()))->pluck('id');
+        $cutoff = now()->subMinutes(self::minutes());
+        $ids = $this->openAttempts()->where('created_at', '<=', $cutoff)->pluck('id');
+        $ended = $ids->sum(fn ($id) => $this->end((int) $id, 'Online payment not completed in time — no booking was made.') ? 1 : 0);
 
-        return $ids->sum(fn ($id) => $this->end((int) $id, 'Online payment not completed in time — no booking was made.') ? 1 : 0);
+        foreach ($this->openBundles()->where('created_at', '<=', $cutoff)->pluck('id') as $bundleId) {
+            $ended += $this->endBundle((int) $bundleId, 'Online payment not completed in time — no booking was made.');
+        }
+
+        return $ended;
     }
 
     /** @return int attempts ended because the customer started a new booking */
@@ -62,7 +69,14 @@ class UnpaidAttemptService
     {
         $ids = $this->openAttempts()->where('customer_id', $customerId)->pluck('id');
 
-        return $ids->sum(fn ($id) => $this->end((int) $id, 'Replaced by the customer\'s new booking before payment — no booking was made.') ? 1 : 0);
+        $reason = 'Replaced by the customer\'s new booking before payment — no booking was made.';
+        $ended = $ids->sum(fn ($id) => $this->end((int) $id, $reason) ? 1 : 0);
+
+        foreach ($this->openBundles()->where('customer_id', $customerId)->pluck('id') as $bundleId) {
+            $ended += $this->endBundle((int) $bundleId, $reason);
+        }
+
+        return $ended;
     }
 
     /** Ends one open attempt now (the customer's own "Book with cash instead" / "Cancel"). */
@@ -78,6 +92,30 @@ class UnpaidAttemptService
             ->where('payment_status', 'pending')
             ->where('status', 'pending')
             ->whereNull('booking_bundle_id');
+    }
+
+    private function openBundles()
+    {
+        return \App\Models\BookingBundle::query()
+            ->where('payment_method', 'online')
+            ->where('payment_status', 'pending')
+            ->where('status', 'active');
+    }
+
+    /** Ends an unpaid online bundle: each open child quietly, no fee; the bundle then latches to cancelled. */
+    private function endBundle(int $bundleId, string $reason): int
+    {
+        $ended = 0;
+        foreach (Booking::where('booking_bundle_id', $bundleId)->whereNotIn('status', ['completed', 'cancelled'])->pluck('id') as $id) {
+            try {
+                $this->cancelAction->execute((int) $id, $reason, waiveFee: true, cancelledByRole: 'system', notifyCustomer: false);
+                $ended++;
+            } catch (\Throwable $e) {
+                Log::error("UnpaidAttemptService: could not end unpaid bundle child [{$id}]: ".$e->getMessage());
+            }
+        }
+
+        return $ended > 0 ? 1 : 0;
     }
 
     private function end(int $id, string $reason): bool

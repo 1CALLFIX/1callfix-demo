@@ -22,7 +22,7 @@ class AdminCancelParcelOrderAction
     {
     }
 
-    public function execute(int $parcelOrderId, string $reason, string $cancelledBy = 'admin'): ParcelOrder
+    public function execute(int $parcelOrderId, string $reason, string $cancelledBy = 'admin', bool $notifyCustomer = true): ParcelOrder
     {
         $order = DB::transaction(function () use ($parcelOrderId, $reason, $cancelledBy) {
             $order = ParcelOrder::lockForUpdate()->findOrFail($parcelOrderId);
@@ -57,7 +57,8 @@ class AdminCancelParcelOrderAction
 
         $this->cancellationService->refundIfPaidForParcelOrder($order, (float) $order->cancellation_fee);
 
-        if ($order->customer) {
+        // $notifyCustomer false: an unpaid online order ending (NO PAYMENT, NO BOOKING) — for the customer there never was an order.
+        if ($notifyCustomer && $order->customer) {
             $channels = ChannelResolver::resolve(['zone_id' => $order->zone_id, 'franchise_id' => $order->franchise_id]);
             $order->customer->notify(new ParcelOrderStatusNotification('cancelled', $order, $channels));
         }

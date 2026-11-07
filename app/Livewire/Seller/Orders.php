@@ -140,7 +140,8 @@ class Orders extends Component
             default => ['pending'],
         };
 
-        $base = MarketplaceOrder::where('store_id', $store->id);
+        // booked(): a shop or restaurant never sees an unpaid online order (NO PAYMENT, NO BOOKING, owner 2026-11-07).
+        $base = MarketplaceOrder::where('store_id', $store->id)->booked();
 
         return view('livewire.seller.orders', [
             'orders' => (clone $base)->whereIn('status', $statuses)

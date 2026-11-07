@@ -288,7 +288,8 @@ class SellerPortalTest extends TestCase
     public function test_an_unpaid_online_order_cannot_be_accepted_from_the_portal(): void
     {
         $order = $this->order('online');
-        Livewire::actingAs($this->sellerUser())->test(Orders::class)->call('advance', $order->id, 'accepted')->assertSet('flashType', 'error');
+        // NO PAYMENT, NO BOOKING (owner 2026-11-07): the shop cannot even open an unpaid online order (not found).
+        Livewire::actingAs($this->sellerUser())->test(Orders::class)->call('advance', $order->id, 'accepted')->assertNotFound();
         $this->assertSame('pending', $order->fresh()->status);
     }
 

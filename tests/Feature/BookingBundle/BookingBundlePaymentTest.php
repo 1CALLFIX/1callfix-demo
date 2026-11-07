@@ -346,11 +346,12 @@ class BookingBundlePaymentTest extends TestCase
     public function test_a_customer_cannot_confirm_their_bundle_with_another_bundles_order_id(): void
     {
         $world = $this->world(1000, 500);
-        $bundleA = $this->makeBundle($world);
-        $bundleB = $this->makeBundle($world);
-
         $this->fakeOrderSequence([['order_A', 150000], ['order_B', 150000]]);
+        // Bundle A's payment is started before bundle B exists: B then replaces the unpaid A (NO PAYMENT, NO BOOKING),
+        // but A's Razorpay order still exists — exactly the order id that must never confirm bundle B.
+        $bundleA = $this->makeBundle($world);
         $this->createOrder($bundleA)->assertOk()->assertJsonPath('data.razorpay_order_id', 'order_A');
+        $bundleB = $this->makeBundle($world);
         $this->createOrder($bundleB)->assertOk()->assertJsonPath('data.razorpay_order_id', 'order_B');
 
         // Same customer owns both — but bundle A's order id is not bundle B's
@@ -368,7 +369,9 @@ class BookingBundlePaymentTest extends TestCase
     {
         $world = $this->world(1000, 500);
         $bundleA = $this->makeBundle($world);
-        $bundleB = $this->makeBundle($world);
+        // Another customer: one customer's new booking replaces their own unpaid bundle (NO PAYMENT, NO BOOKING).
+        $other = $this->makeCustomer();
+        $bundleB = $this->makeBundle(array_merge($world, ['customer' => $other, 'address' => $this->makeAddress($other, $world['franchise'], $world['zone'])]));
 
         $this->fakeOrderSequence([['order_only_A', 150000], ['order_only_B', 150000]]);
         $this->createOrder($bundleA)->assertOk()->assertJsonPath('data.razorpay_order_id', 'order_only_A');
@@ -425,7 +428,9 @@ class BookingBundlePaymentTest extends TestCase
         // one customer), and — the point of this test — the duplicate webhook
         // did NOT double it to 2 x children.
         Notification::assertSentToTimes($world['customer'], PaymentStatusNotification::class, $children->count());
-        Notification::assertCount($children->count());
+        // + one "booking created" per child, sent at this capture (NO PAYMENT, NO BOOKING) — also exactly once.
+        Notification::assertSentToTimes($world['customer'], \App\Notifications\BookingStatusNotification::class, $children->count());
+        Notification::assertCount($children->count() * 2);
     }
 
     // ============================== 11 + 12. paid state propagation ==============================
@@ -688,7 +693,9 @@ class BookingBundlePaymentTest extends TestCase
         $this->postWebhook($this->capturedPayload('order_e2e', 'pay_e2e'))->assertOk();
         $this->assertSame(1, Payment::where('booking_bundle_id', $bundle->id)->where('status', 'captured')->count());
         Notification::assertSentToTimes($world['customer'], PaymentStatusNotification::class, 3);
-        Notification::assertCount(3);
+        // + "booking created" per child, sent at the capture (NO PAYMENT, NO BOOKING).
+        Notification::assertSentToTimes($world['customer'], \App\Notifications\BookingStatusNotification::class, 3);
+        Notification::assertCount(6);
     }
 
     // ============================== 21. single-booking regression guard ==============================

@@ -98,6 +98,10 @@ class CreateBookingBundleAction
             }
         }
 
+        // NO PAYMENT, NO BOOKING (owner 2026-11-07): after the replay check (a repeated tap returns the same bundle), the
+        // customer's unpaid online attempts end, so going back from the payment window never leaves two.
+        app(\App\Services\Payments\UnpaidAttemptService::class)->replaceFor($customerId);
+
         // The wrapper row carries a single franchise/zone/address (E1 schema);
         // it takes the first child's, while each child booking keeps its own
         // address-derived franchise/zone. In the normal case (one customer,
@@ -195,7 +199,9 @@ class CreateBookingBundleAction
             }
         }
 
-        foreach ($bundle->children as $child) {
+        // NO PAYMENT, NO BOOKING (owner 2026-11-07): an unpaid online bundle is only a payment attempt — its "booking
+        // created" messages and admin alerts go when Razorpay captures it (RazorpayWebhookHandler).
+        foreach ($awaitingCouponPayment ? [] : $bundle->children as $child) {
             if ($child->customer) {
                 $channels = ChannelResolver::resolve(['zone_id' => $child->zone_id, 'franchise_id' => $child->franchise_id]);
                 $child->customer->notify(new BookingStatusNotification('created', $child, $channels));

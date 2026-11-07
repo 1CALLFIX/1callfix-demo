@@ -251,6 +251,7 @@
         <div class="flex gap-3 mb-4">
             <input type="text" wire:model.live.debounce.400ms="search" placeholder="Search order code or customer..." class="border rounded px-3 py-2 text-sm w-96">
             <x-ui.filter-tabs class="w-full" :tabs="['' => 'All', 'flagged' => 'Flagged'] + collect(['pending','searching_worker','assigned','worker_en_route_pickup','picked_up','en_route_dropoff','delivered','cancelled','disputed'])->mapWithKeys(fn ($s) => [$s => ucfirst(str_replace('_', ' ', $s))])->all()" :active="$statusFilter" model="statusFilter" />
+            <button type="button" wire:click="$toggle('attempts')" title="Online payments started but not completed. Not orders: no rider was asked; they end on their own." class="shrink-0 rounded px-3 py-1.5 text-sm {{ $attempts ? 'bg-amber-600 text-white' : 'border border-amber-300 bg-white text-amber-800' }}">{{ $attempts ? '← Back to orders' : 'Payment attempts (not orders)' }}</button>
         </div>
 
         <x-ui.table>

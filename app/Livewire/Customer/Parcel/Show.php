@@ -43,6 +43,39 @@ class Show extends Component
 
     public string $notice = '';
 
+    /** Set by the Razorpay success handler (?paid=1): wait for the bank's confirmation, never offer Pay again. */
+    #[\Livewire\Attributes\Url(as: 'paid')]
+    public bool $justPaid = false;
+
+    /** NO PAYMENT, NO BOOKING (owner 2026-11-07): open / ended unpaid online order, or null for a real order. */
+    private function attemptState(ParcelOrder $o): ?string
+    {
+        if ($o->payment_method !== 'online' || $o->payment_status !== 'pending') {
+            return null;
+        }
+
+        return match ($o->status) {
+            'pending' => 'open',
+            'cancelled' => 'ended',
+            default => null,
+        };
+    }
+
+    /** "Don't send now": the unpaid parcel order ends quietly; nothing was booked. */
+    public function leaveAttempt(\App\Actions\AdminCancelParcelOrderAction $action)
+    {
+        $order = $this->order();
+        if ($this->attemptState($order) === 'open') {
+            try {
+                $action->execute($order->id, 'Customer left the payment — no order was made', 'customer', notifyCustomer: false);
+            } catch (\RuntimeException $e) {
+                report($e);
+            }
+        }
+
+        return $this->redirectRoute('customer.parcels.create', navigate: true);
+    }
+
     public string $error = '';
 
     public function mount(ParcelOrder $parcelOrder): void
@@ -174,6 +207,7 @@ class Show extends Component
 
         return view('livewire.customer.parcel.show', [
             'order' => $order,
+            'attempt' => $this->attemptState($order),
             'cancelFee' => $order->canBeCancelledByCustomer() ? app(CustomerCancelParcelOrderAction::class)->fee($order) : 0.0,
             'live' => ! in_array($order->status, ['delivered', 'cancelled'], true),
             'canClaim' => app(\App\Services\Parcel\ParcelProtectionClaimService::class)->cannotClaim($order, auth()->id()) === null,

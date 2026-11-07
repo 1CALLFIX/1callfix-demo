@@ -21,7 +21,7 @@ class MarketplaceOrderController extends Controller
     /** GET /api/marketplace-orders/mine */
     public function mine(Request $request)
     {
-        $orders = MarketplaceOrder::where('customer_id', $request->user()->id)
+        $orders = MarketplaceOrder::where('customer_id', $request->user()->id)->booked() /* NO PAYMENT, NO BOOKING: an unpaid online order is not listed */
             ->with(['store', 'items'])
             ->latest()
             ->get();

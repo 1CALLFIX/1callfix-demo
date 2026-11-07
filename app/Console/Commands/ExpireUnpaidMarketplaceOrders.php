@@ -41,7 +41,8 @@ class ExpireUnpaidMarketplaceOrders extends Command
                     }
 
                     try {
-                        $cancel->execute($order->id, "Payment not received within {$minutes} minutes");
+                        // Quietly: an unpaid online order was never an order (NO PAYMENT, NO BOOKING, owner 2026-11-07).
+                        $cancel->execute($order->id, "Payment not received within {$minutes} minutes — no order was made", 'system', notifyCustomer: false);
                         $expired++;
                     } catch (\Throwable $e) {
                         Log::warning("marketplace:expire-unpaid could not cancel order [{$order->id}]: ".$e->getMessage());

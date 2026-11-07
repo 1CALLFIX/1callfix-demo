@@ -70,7 +70,8 @@ class Dashboard extends Component
 
     private function orders()
     {
-        return $this->scoped(MarketplaceOrder::query())->where('module', Modules::FOOD);
+        // booked(): unpaid online orders are not orders (NO PAYMENT, NO BOOKING, owner 2026-11-07).
+        return $this->scoped(MarketplaceOrder::query()->booked())->where('module', Modules::FOOD);
     }
 
     public function render()

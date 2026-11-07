@@ -17,7 +17,7 @@ class Index extends Component
     public function render()
     {
         return view('livewire.customer.parcel.index', [
-            'orders' => ParcelOrder::where('customer_id', auth()->id())
+            'orders' => ParcelOrder::where('customer_id', auth()->id())->booked() /* unpaid online = not an order (NO PAYMENT, NO BOOKING) */
                 ->with(['dropoffAddress:id,address_line', 'franchise'])
                 ->latest()
                 ->paginate(10),

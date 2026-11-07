@@ -15,7 +15,8 @@ class Orders extends Component
     public function render()
     {
         return view('livewire.customer.shop.orders', [
-            'orders' => MarketplaceOrder::where('customer_id', auth()->id())->with(['store:id,name,logo', 'items:id,marketplace_order_id,quantity', 'franchise'])
+            // booked(): an unpaid online order is not an order (NO PAYMENT, NO BOOKING, owner 2026-11-07).
+            'orders' => MarketplaceOrder::where('customer_id', auth()->id())->booked()->with(['store:id,name,logo', 'items:id,marketplace_order_id,quantity', 'franchise'])
                 ->latest('id')->paginate(15),
             'currencySymbol' => Setting::get('locale.currency_symbol', '₹'),
         ])->layout('components.layouts.customer', ['title' => 'Shop orders']);

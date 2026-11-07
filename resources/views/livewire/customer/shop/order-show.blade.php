@@ -3,6 +3,33 @@
     <div class="mx-auto max-w-3xl px-4 py-6 sm:px-6">
         <a href="{{ route('customer.shop.orders') }}" wire:navigate class="text-sm text-blue-700">{{ $t('shop_order.back') }}</a>
 
+        @if ($attempt)
+            {{-- NO PAYMENT, NO BOOKING (owner 2026-11-07): an unpaid online order is only a payment step. The shop never sees it,
+                 nothing is called an order, the cart is kept, and it ends by itself when time runs out. --}}
+            <section data-payment-attempt="{{ $attempt }}" class="mx-auto mt-4 max-w-lg rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
+                     @if ($attempt === 'open' && $justPaid) wire:poll.3s @elseif ($attempt === 'open') wire:poll.30s @endif>
+                <p class="text-sm font-semibold text-slate-500">{{ $order->store->name }}</p>
+                @if ($attempt === 'ended')
+                    <h1 class="mt-1 text-xl font-bold text-slate-900">{{ $t('pay_step.ended_title') }}</h1>
+                    <p class="mt-2 text-sm text-slate-600">{{ $t('pay_step.ended_order') }}</p>
+                    <a href="{{ route('customer.cart') }}" wire:navigate class="mt-4 inline-flex min-h-11 items-center rounded-lg bg-blue-600 px-4 text-sm font-semibold text-white hover:bg-blue-700">{{ $t('pay_step.to_cart') }}</a>
+                @elseif ($justPaid)
+                    <h1 class="mt-1 text-xl font-bold text-slate-900">{{ $t('pay_step.confirming_title') }}</h1>
+                    <p class="mt-2 text-sm text-slate-600">{{ $t('pay_step.confirming_order') }}</p>
+                    <div class="mt-4 h-1.5 overflow-hidden rounded-full bg-slate-100"><div class="h-full w-1/3 animate-pulse rounded-full bg-blue-600"></div></div>
+                @else
+                    <h1 class="mt-1 text-xl font-bold text-slate-900">{{ $t('pay_step.title') }}</h1>
+                    <p class="mt-2 text-sm text-slate-600">{{ $t('pay_step.order_line', ['amount' => $currencySymbol.number_format((float) $order->total_amount, 2)]) }}</p>
+                    @if ($flash)<p role="alert" class="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800">{{ $flash }}</p>@endif
+                    <div class="mt-4 flex flex-col gap-2">
+                        <button type="button" wire:click="payNow" wire:loading.attr="disabled" data-testid="attempt-pay" class="inline-flex min-h-12 items-center justify-center rounded-xl bg-blue-600 px-4 text-base font-semibold text-white hover:bg-blue-700 disabled:opacity-60">{{ $t('shop_order.pay_amount', ['amount' => $currencySymbol.number_format((float) $order->total_amount, 2)]) }}</button>
+                        <button type="button" wire:click="changePayment" data-testid="attempt-change" class="inline-flex min-h-11 items-center justify-center rounded-xl border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-800 hover:bg-slate-50">{{ $t('pay_step.change') }}</button>
+                        <button type="button" wire:click="leaveAttempt" data-testid="attempt-leave" class="min-h-11 rounded-xl px-4 text-sm text-slate-500 hover:bg-slate-50">{{ $t('pay_step.leave_order') }}</button>
+                    </div>
+                @endif
+            </section>
+        @else
+
         <header class="mt-2 flex flex-wrap items-start justify-between gap-3">
             <div>
                 <h1 class="text-2xl font-bold tracking-tight">{{ $order->store->name }}</h1>
@@ -209,6 +236,7 @@
                 @endif
             </section>
         @endif
+        @endif {{-- payment attempt / order --}}
     </div>
 
     @assets
@@ -225,7 +253,8 @@
                 name: @js(\App\Models\Setting::get('branding.platform_name', '1CallFix')),
                 prefill: @js(\App\Support\RazorpayPrefill::forCurrentUser()),
                 description: @js('Order '.$order->code),
-                handler: () => { window.location = redirect; },
+                // Paid: "Confirming your payment…" until the bank confirms (never a second Pay button).
+                handler: () => { const u = new URL(redirect, window.location.origin); u.searchParams.set('paid', '1'); window.location = u.toString(); },
                 modal: { ondismiss: () => { window.location = redirect; } },
             }).open();
         });

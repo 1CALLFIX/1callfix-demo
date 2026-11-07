@@ -551,7 +551,8 @@
                 name: @js(\App\Models\Setting::get('branding.platform_name', '1CallFix')),
                 prefill: @js(\App\Support\RazorpayPrefill::forCurrentUser()),
                 description: 'Parcel delivery',
-                handler: () => { window.location = redirect; },
+                // Paid: "Confirming your payment…" until the bank confirms (NO PAYMENT, NO BOOKING).
+                handler: () => { const u = new URL(redirect, window.location.origin); u.searchParams.set('paid', '1'); window.location = u.toString(); },
                 modal: { ondismiss: () => { window.location = redirect; } },
             }).open();
         });

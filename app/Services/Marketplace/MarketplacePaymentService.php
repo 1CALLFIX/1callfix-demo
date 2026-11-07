@@ -104,6 +104,11 @@ class MarketplacePaymentService
         $order = $order->fresh();
 
         if ($outcome === 'paid') {
+            // The order is real now: its cart lines go (kept until here so a customer leaving the payment window could
+            // still order again — NO PAYMENT, NO BOOKING, owner 2026-11-07).
+            if ($order->customer) {
+                app(\App\Services\CartService::class)->clearForStore($order->customer, (int) $order->store_id);
+            }
             if ($order->customer) {
                 $channels = ChannelResolver::resolve(['zone_id' => $order->zone_id, 'franchise_id' => $order->franchise_id]);
                 $order->customer->notify(new MarketplaceOrderStatusNotification('created', $order, $channels));

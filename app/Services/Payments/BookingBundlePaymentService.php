@@ -57,7 +57,8 @@ class BookingBundlePaymentService
             /** @var BookingBundle $locked */
             $locked = BookingBundle::query()->whereKey($bundle->getKey())->lockForUpdate()->firstOrFail();
 
-            if ($locked->payment_status !== 'pending') {
+            // An ended unpaid bundle (expired / replaced — NO PAYMENT, NO BOOKING) can never be paid.
+            if ($locked->payment_status !== 'pending' || $locked->status !== 'active') {
                 throw new \RuntimeException(self::NOT_PAYABLE_MESSAGE);
             }
 

@@ -46,6 +46,7 @@ final class SiteText
         'contact' => 'Contact page',
         'upload' => 'Photo upload hints',
         'address_map' => 'Address map (pin)',
+        'pay_step' => 'Payment step (unpaid online orders)',
     ];
 
     /** @var array<string, array{0: string, 1: string, 2: string, 3: string}> */
@@ -163,6 +164,19 @@ final class SiteText
         'address_map.not_found' => ['address_map', 'Search found nothing', 'Couldn’t find that place. Try a nearby landmark, or move the map.', 'ఆ చోటు దొరకలేదు. దగ్గర్లోని గుర్తు వెతకండి లేదా మ్యాప్‌ను జరపండి.'],
         'address_map.outside' => ['address_map', 'Pin outside every service area', 'We don’t serve this exact spot yet. Move the pin to your address, or choose another area at the top.', 'ఈ చోటుకు ఇంకా మా సేవ లేదు. పిన్‌ను మీ చిరునామాకు జరపండి, లేదా పైన వేరే ఏరియా ఎంచుకోండి.'],
         'address_map.pin_required' => ['address_map', 'Saving without a pin', 'Put the red pin on your location on the map first (or tap Use my current location).', 'ముందుగా మ్యాప్‌లో ఎర్ర పిన్‌ను మీ చోటు మీద పెట్టండి (లేదా నా ప్రస్తుత లొకేషన్ నొక్కండి).'],
+        'pay_step.title' => ['pay_step', 'Heading', 'Complete your payment', 'మీ చెల్లింపు పూర్తి చేయండి'],
+        'pay_step.order_line' => ['pay_step', 'Shop / food line (:amount)', 'Your order is placed only after the payment. Pay :amount to place it.', 'చెల్లింపు తర్వాతే మీ ఆర్డర్ నమోదవుతుంది. ఆర్డర్ చేయడానికి :amount చెల్లించండి.'],
+        'pay_step.parcel_line' => ['pay_step', 'Parcel line (:amount)', 'Your parcel order is placed only after the payment. Pay :amount to place it.', 'చెల్లింపు తర్వాతే మీ పార్సిల్ ఆర్డర్ నమోదవుతుంది. :amount చెల్లించండి.'],
+        'pay_step.change' => ['pay_step', 'Shop / food: change payment', 'Change payment method (your cart is kept)', 'చెల్లింపు విధానం మార్చండి (మీ కార్ట్ అలాగే ఉంటుంది)'],
+        'pay_step.leave_order' => ['pay_step', 'Shop / food: leave', 'Don’t order now', 'ఇప్పుడు ఆర్డర్ చేయవద్దు'],
+        'pay_step.leave_parcel' => ['pay_step', 'Parcel: leave', 'Don’t send now', 'ఇప్పుడు పంపవద్దు'],
+        'pay_step.confirming_title' => ['pay_step', 'After paying: heading', 'Confirming your payment…', 'మీ చెల్లింపును నిర్ధారిస్తున్నాం…'],
+        'pay_step.confirming_order' => ['pay_step', 'After paying: line', 'Your payment went through. We are confirming it with the bank; your order appears here in a few seconds. Please don’t pay again.', 'మీ చెల్లింపు జరిగింది. బ్యాంక్‌తో నిర్ధారిస్తున్నాం; కొన్ని క్షణాల్లో మీ ఆర్డర్ ఇక్కడ కనిపిస్తుంది. దయచేసి మళ్లీ చెల్లించవద్దు.'],
+        'pay_step.ended_title' => ['pay_step', 'Ended: heading', 'Payment not completed', 'చెల్లింపు పూర్తి కాలేదు'],
+        'pay_step.ended_order' => ['pay_step', 'Shop / food ended: line', 'No order was made and nothing was charged. If money left your account, it is refunded automatically. Your cart is kept.', 'ఆర్డర్ నమోదు కాలేదు, ఏమీ వసూలు చేయలేదు. మీ ఖాతా నుంచి డబ్బు వెళ్లి ఉంటే ఆటోమేటిక్‌గా తిరిగి వస్తుంది. మీ కార్ట్ అలాగే ఉంది.'],
+        'pay_step.ended_parcel' => ['pay_step', 'Parcel ended: line', 'No parcel order was made and nothing was charged. If money left your account, it is refunded automatically.', 'పార్సిల్ ఆర్డర్ నమోదు కాలేదు, ఏమీ వసూలు చేయలేదు. మీ ఖాతా నుంచి డబ్బు వెళ్లి ఉంటే ఆటోమేటిక్‌గా తిరిగి వస్తుంది.'],
+        'pay_step.to_cart' => ['pay_step', 'Shop / food ended: button', 'Go to cart', 'కార్ట్‌కు వెళ్లండి'],
+        'pay_step.new_parcel' => ['pay_step', 'Parcel ended: button', 'Send a parcel', 'పార్సిల్ పంపండి'],
         'search.open_now' => ['header', 'Search box: shop open badge', 'Open now', 'ఇప్పుడు తెరిచి ఉంది'],
 
         'location.set' => ['location', 'Location button, nothing chosen yet', 'Set location', 'ప్రాంతం ఎంచుకోండి'],

@@ -30,6 +30,10 @@ class OrderShow extends Component
 
     public string $flash = '';
 
+    /** Set by the Razorpay success handler (?paid=1): wait for the bank's confirmation, never offer Pay again. */
+    #[\Livewire\Attributes\Url(as: 'paid')]
+    public bool $justPaid = false;
+
     public string $flashType = 'success';
 
     public function mount(MarketplaceOrder $order): void
@@ -43,6 +47,45 @@ class OrderShow extends Component
             $this->flash = (string) session('shop_error');
             $this->flashType = 'error';
         }
+    }
+
+    /**
+     * NO PAYMENT, NO BOOKING (owner 2026-11-07): "open" while an online order waits for its payment, "ended" once it
+     * ran out of time or was replaced, null for a real order. The page then shows only the payment step.
+     */
+    private function attemptState(): ?string
+    {
+        $o = $this->order;
+        if ($o->payment_method !== 'online' || $o->payment_status !== 'pending') {
+            return null;
+        }
+
+        return match ($o->status) {
+            'pending' => 'open',
+            'cancelled' => 'ended',
+            default => null,
+        };
+    }
+
+    /** Back to the checkout to pay another way; the cart was kept. Ordering again replaces this unpaid order. */
+    public function changePayment()
+    {
+        return $this->redirectRoute('customer.shop.checkout', ['store' => $this->order->store_id], navigate: true);
+    }
+
+    /** "Don't order now": the unpaid order ends quietly (stock and coupon back); the cart stays. */
+    public function leaveAttempt(AdminCancelMarketplaceOrderAction $action)
+    {
+        $this->order->refresh();
+        if ($this->attemptState() === 'open') {
+            try {
+                $action->execute($this->order->id, 'Customer left the payment — no order was made', 'customer', notifyCustomer: false);
+            } catch (\RuntimeException $e) {
+                report($e);
+            }
+        }
+
+        return $this->redirectRoute('customer.cart', navigate: true);
     }
 
     public function payNow(MarketplacePaymentService $payments): void
@@ -180,6 +223,7 @@ class OrderShow extends Component
             && ($this->order->order_type === 'pickup' || $this->order->assigned_worker_id !== null);
 
         return view('livewire.customer.shop.order-show', [
+            'attempt' => $this->attemptState(),
             'open' => $open,
             'showCode' => $showCode,
             // Food F2: a food order can be cancelled only until the restaurant accepts (the action enforces it too).

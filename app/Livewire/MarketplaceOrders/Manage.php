@@ -22,6 +22,9 @@ class Manage extends Component
     use WithPagination;
 
     public string $statusFilter = '';
+
+    /** NO PAYMENT, NO BOOKING (owner 2026-11-07): list unpaid online orders (payment attempts) instead, for support. */
+    public bool $attempts = false;
     public string $search = '';
 
     /** Admin menu 2026-11-03: '' (all) | shop | food — Shop Orders and Food Orders are this screen, filtered. */
@@ -59,6 +62,8 @@ class Manage extends Component
     {
         return app(AuthorizationService::class)
             ->scopeQuery(MarketplaceOrder::query(), auth()->user(), 'marketplace_orders.view', $this->scopeColumns())
+            // NO PAYMENT, NO BOOKING (owner 2026-11-07): unpaid online orders only under "Payment attempts".
+            ->when($this->attempts, fn ($q) => $q->paymentAttempts(), fn ($q) => $q->booked())
             ->with(['customer', 'store', 'franchise', 'statusHistory' => \App\Support\Turnaround::historyScope()]);
     }
 

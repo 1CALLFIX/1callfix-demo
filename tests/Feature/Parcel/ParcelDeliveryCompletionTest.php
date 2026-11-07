@@ -266,9 +266,16 @@ class ParcelDeliveryCompletionTest extends TestCase
     {
         $w = $this->world();
         Setting::set('parcel.unpaid_expiry_minutes', '30');
+        // Three different customers: one customer's new order replaces their own unpaid one (NO PAYMENT, NO BOOKING).
+        $other = function () use ($w) {
+            $c = $this->makeCustomer();
+            [$pickup, $dropoff] = $this->makeParcelAddresses($w['franchise'], $w['zone'], $c);
+
+            return array_merge($w, ['customer' => $c, 'pickup' => $pickup, 'dropoff' => $dropoff]);
+        };
         $old = $this->create($w, ['payment_method' => 'online']);
-        $fresh = $this->create($w, ['payment_method' => 'online']);
-        $cash = $this->create($w, ['payment_method' => 'cash']);
+        $fresh = $this->create($other(), ['payment_method' => 'online']);
+        $cash = $this->create($other(), ['payment_method' => 'cash']);
         ParcelOrder::whereKey([$old->id, $cash->id])->update(['created_at' => now()->subMinutes(31)]);
         ParcelOrder::whereKey($fresh->id)->update(['created_at' => now()->subMinutes(10)]);
 

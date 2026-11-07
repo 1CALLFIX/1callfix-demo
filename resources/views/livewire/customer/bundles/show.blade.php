@@ -9,7 +9,14 @@
         <x-icon name="arrow-left" class="h-4 w-4" /> Orders
     </a>
 
-    <h1 class="mt-3 text-2xl font-bold tracking-tight text-slate-900">Your bundle</h1>
+    {{-- NO PAYMENT, NO BOOKING (owner 2026-11-07): an unpaid online bundle is only a payment step. --}}
+    @php $bundleAttempt = $bundle->payment_method === 'online' && $bundle->payment_status === 'pending' ? ($bundle->status === 'active' ? 'open' : 'ended') : null; @endphp
+    <h1 class="mt-3 text-2xl font-bold tracking-tight text-slate-900" data-payment-attempt="{{ $bundleAttempt }}">{{ match ($bundleAttempt) { 'open' => 'Complete your payment', 'ended' => 'Payment not completed', default => 'Your bundle' } }}</h1>
+    @if ($bundleAttempt === 'open')
+        <p class="mt-1 text-sm text-slate-600">Your bookings are made only after the payment.</p>
+    @elseif ($bundleAttempt === 'ended')
+        <p class="mt-1 text-sm text-slate-600">No booking was made and nothing was charged. If money left your account, it is refunded automatically.</p>
+    @endif
     <p class="mt-1 text-sm text-slate-600">
         {{ $children->count() }} {{ \Illuminate\Support\Str::plural('service', $children->count()) }} ·
         status: <span class="font-medium text-slate-900">{{ ucfirst(str_replace('_', ' ', $derivedStatus)) }}</span> ·
@@ -36,7 +43,7 @@
             </dl>
         @endif
 
-        @if ($bundle->payment_status !== 'paid' && $bundle->payment_method !== 'wallet')
+        @if ($bundle->payment_status !== 'paid' && $bundle->payment_method !== 'wallet' && $bundle->status === 'active')
             <button type="button" wire:click="payNow"
                     class="mt-3 flex min-h-12 w-full items-center justify-center rounded-lg bg-blue-600 px-6 text-sm font-semibold text-white transition hover:bg-blue-700">
                 Pay now

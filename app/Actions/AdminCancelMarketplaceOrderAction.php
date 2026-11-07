@@ -29,7 +29,7 @@ class AdminCancelMarketplaceOrderAction
      * never the customer's doing, so no cancellation fee is charged and the customer is refunded in full, and a
      * seller cannot cancel once the order is ready (with a rider or waiting for collection).
      */
-    public function execute(int $orderId, string $reason, string $by = 'admin'): MarketplaceOrder
+    public function execute(int $orderId, string $reason, string $by = 'admin', bool $notifyCustomer = true): MarketplaceOrder
     {
         $order = DB::transaction(function () use ($orderId, $reason, $by) {
             $order = MarketplaceOrder::lockForUpdate()->with('items')->findOrFail($orderId);
@@ -87,7 +87,8 @@ class AdminCancelMarketplaceOrderAction
             app(\App\Services\Coupons\CouponService::class)->release($usage);
         }
 
-        if ($order->customer) {
+        // $notifyCustomer false: an unpaid online order ending (NO PAYMENT, NO BOOKING) — for the customer there never was an order.
+        if ($notifyCustomer && $order->customer) {
             $channels = ChannelResolver::resolve(['zone_id' => $order->zone_id, 'franchise_id' => $order->franchise_id]);
             $order->customer->notify(new MarketplaceOrderStatusNotification('cancelled', $order, $channels));
         }

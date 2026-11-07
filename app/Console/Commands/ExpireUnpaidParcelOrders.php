@@ -41,7 +41,8 @@ class ExpireUnpaidParcelOrders extends Command
                     }
 
                     try {
-                        $cancel->execute($order->id, "Payment not received within {$minutes} minutes", 'system');
+                        // Quietly: an unpaid online order was never an order (NO PAYMENT, NO BOOKING, owner 2026-11-07).
+                        $cancel->execute($order->id, "Payment not received within {$minutes} minutes — no order was made", 'system', notifyCustomer: false);
                         $expired++;
                     } catch (\Throwable $e) {
                         Log::warning("parcel:expire-unpaid could not cancel parcel order [{$order->id}]: ".$e->getMessage());

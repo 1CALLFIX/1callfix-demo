@@ -231,7 +231,7 @@ class CustomerBookingApiTest extends TestCase
                 'code' => 'TST-'.now()->format('dm').'-'.str_pad((string) random_int(1, 99999999), 8, '0', STR_PAD_LEFT),
                 'franchise_id' => $franchise->id, 'zone_id' => $zone->id,
                 'customer_id' => $customer->id, 'service_id' => $service->id, 'address_id' => $address->id,
-                'status' => 'pending', 'price_quoted' => 500, 'payment_status' => 'pending', 'payment_method' => 'online',
+                'status' => 'pending', 'price_quoted' => 500, 'payment_status' => 'pending', 'payment_method' => 'cash', // real bookings (an unpaid online one is not listed)
             ]);
         }
 

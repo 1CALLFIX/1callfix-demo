@@ -69,6 +69,21 @@ class MarketplaceOrder extends Model implements Orderable
         return $this->payment_method === 'online' && $this->payment_status === 'pending' && $this->status === 'pending';
     }
 
+    /** NO PAYMENT, NO BOOKING (owner 2026-11-07): real orders only — not an online order whose payment never arrived. */
+    public function scopeBooked($query)
+    {
+        return $query->where(fn ($q) => $q->where('payment_method', '!=', 'online')
+            ->orWhereNull('payment_method')
+            ->orWhere('payment_status', '!=', 'pending')
+            ->orWhereNotIn('status', ['pending', 'cancelled']));
+    }
+
+    /** Unpaid online orders (open or ended): payment attempts, listed only for support. */
+    public function scopePaymentAttempts($query)
+    {
+        return $query->where('payment_method', 'online')->where('payment_status', 'pending')->whereIn('status', ['pending', 'cancelled']);
+    }
+
     /** THUMB RULE — any discount or coupon on the order is a benefit, so the order must be paid online. */
     public function usesBenefit(): bool
     {

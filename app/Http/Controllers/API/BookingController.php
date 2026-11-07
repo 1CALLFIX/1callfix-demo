@@ -132,7 +132,7 @@ class BookingController extends Controller
     /** GET /api/bookings/mine */
     public function mine(Request $request)
     {
-        $bookings = Booking::where('customer_id', $request->user()->id)
+        $bookings = Booking::where('customer_id', $request->user()->id)->booked() /* NO PAYMENT, NO BOOKING: an unpaid online order is not listed */
             ->with(['service.category', 'service.subcategory', 'address', 'provider.user', 'assignedWorker.user'])
             ->latest()
             ->paginate((int) $request->integer('per_page', 20));

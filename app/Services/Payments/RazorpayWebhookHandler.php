@@ -200,8 +200,25 @@ class RazorpayWebhookHandler
         // a retried/duplicate webhook cannot double-notify or re-run it.
         if ($payment->purpose === 'booking_bundle') {
             $bundle = $payment->bookingBundle;
+            // NO PAYMENT, NO BOOKING (owner 2026-11-07): an unpaid bundle that already ended (expired / replaced) is never
+            // revived by a late payment — the money goes back in full (its children were cancelled with no fee).
+            if ($bundle && $bundle->fresh()->status === 'cancelled') {
+                app(\App\Services\BundleSettlementService::class)->settleFromChildren($bundle->id);
+
+                return ['outcome' => 'captured', 'payment' => $payment];
+            }
             if ($bundle) {
+                $bundleBecameBooking = $bundle->payment_method === 'online' && $bundle->fresh()->payment_status !== 'paid';
                 app(BookingBundlePaymentService::class)->markBundlePaid($bundle);
+                if ($bundleBecameBooking) {
+                    foreach ($bundle->children()->with('customer')->where('status', '!=', 'cancelled')->get() as $child) {
+                        if ($child->customer) {
+                            $channels = ChannelResolver::resolve(['zone_id' => $child->zone_id, 'franchise_id' => $child->franchise_id]);
+                            $child->customer->notify(new \App\Notifications\BookingStatusNotification('created', $child, $channels));
+                        }
+                        app(\App\Services\AdminOpsAlertService::class)->bookingCreated($child);
+                    }
+                }
 
                 // Coupon / online bundle: the children were held at creation and are dispatched only now.
                 app(\App\Services\Coupons\CouponDispatchGate::class)->releaseBundle($bundle->fresh());

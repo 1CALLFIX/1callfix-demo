@@ -45,6 +45,8 @@ trait InteractsWithSeller
     {
         $order = MarketplaceOrder::with(['items', 'customer', 'deliveryAddress', 'store'])->findOrFail($orderId);
         abort_unless(Store::whereKey($order->store_id)->where('provider_id', $this->seller()->id)->exists(), 404);
+        // An unpaid online order is not an order yet: the shop cannot open or act on it (NO PAYMENT, NO BOOKING).
+        abort_if($order->payment_method === 'online' && $order->payment_status === 'pending' && in_array($order->status, ['pending', 'cancelled'], true), 404);
 
         return $order;
     }

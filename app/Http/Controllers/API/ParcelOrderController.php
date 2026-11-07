@@ -197,7 +197,7 @@ class ParcelOrderController extends Controller
 
     public function mine(Request $request)
     {
-        $orders = ParcelOrder::where('customer_id', $request->user()->id)
+        $orders = ParcelOrder::where('customer_id', $request->user()->id)->booked() /* NO PAYMENT, NO BOOKING: an unpaid online order is not listed */
             ->with(['pickupAddress', 'dropoffAddress', 'assignedWorker.user'])
             ->latest()
             ->paginate((int) $request->integer('per_page', 20));

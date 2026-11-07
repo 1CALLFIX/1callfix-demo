@@ -78,6 +78,11 @@ class CreateParcelOrderAction
             throw new \RuntimeException('Sending parcels is not available on your account. Please contact support.');
         }
 
+        // NO PAYMENT, NO BOOKING (owner 2026-11-07): the customer's unpaid online parcel order ends first (never two).
+        if (! empty($data['customer_id'])) {
+            app(\App\Services\Payments\OrderAttempts::class)->replaceParcelFor((int) $data['customer_id']);
+        }
+
         if (! empty($data['coupon_code'])) {
             throw new \RuntimeException('Coupons and offers are not available on parcel delivery.');
         }

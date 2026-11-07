@@ -50,6 +50,13 @@ class Show extends Component
             return;
         }
 
+        // NO PAYMENT, NO BOOKING (owner 2026-11-07): an unpaid bundle that ended can never be paid.
+        if ($bundle->status !== 'active') {
+            $this->error = 'This payment has expired. No booking was made, please book again.';
+
+            return;
+        }
+
         try {
             $order = $payments->createOrder($bundle);
         } catch (\Throwable $e) {

@@ -78,11 +78,18 @@ class MarketplaceOrderLifecycleTest extends TestCase
         $product = $this->makeProduct($store);
         app(CartService::class)->add($customer, $product, 1);
 
-        app(CreateMarketplaceOrderAction::class)->execute([
+        // Online (the default): the cart stays until the payment arrives (NO PAYMENT, NO BOOKING, owner 2026-11-07)…
+        $online = app(CreateMarketplaceOrderAction::class)->execute([
             'store_id' => $store->id, 'customer_id' => $customer->id, 'order_type' => 'pickup',
         ]);
+        $this->assertCount(1, app(CartService::class)->listForStore($customer, $store->id));
 
+        // …and a cash order (which also replaces that unpaid one) clears it at once.
+        app(CreateMarketplaceOrderAction::class)->execute([
+            'store_id' => $store->id, 'customer_id' => $customer->id, 'order_type' => 'pickup', 'payment_method' => 'cash',
+        ]);
         $this->assertCount(0, app(CartService::class)->listForStore($customer, $store->id));
+        $this->assertSame('cancelled', $online->fresh()->status);
     }
 
     public function test_checkout_fails_when_cart_is_empty(): void

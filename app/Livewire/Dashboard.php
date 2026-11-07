@@ -91,7 +91,7 @@ class Dashboard extends Component
         $columns = ['zone_id' => 'zone_id', 'franchise_id' => 'franchise_id', 'city_id' => 'franchise.city_id', 'country_id' => 'franchise.country_id'];
 
         return app(AuthorizationService::class)
-            ->scopeQuery(MarketplaceOrder::query(), auth()->user(), 'marketplace_orders.view', $columns)
+            ->scopeQuery(MarketplaceOrder::query()->booked(), auth()->user(), 'marketplace_orders.view', $columns)
             ->where('module', $food ? '=' : '!=', Modules::FOOD)
             ->with(['customer', 'store', 'statusHistory' => Turnaround::historyScope()])
             ->latest('id')->take(10)->get();
@@ -103,7 +103,7 @@ class Dashboard extends Component
         $columns = ['zone_id' => 'zone_id', 'franchise_id' => 'franchise_id', 'city_id' => 'franchise.city_id', 'country_id' => 'franchise.country_id'];
 
         return app(AuthorizationService::class)
-            ->scopeQuery(ParcelOrder::query(), auth()->user(), 'parcel_orders.view', $columns)
+            ->scopeQuery(ParcelOrder::query()->booked(), auth()->user(), 'parcel_orders.view', $columns)
             ->with(['customer', 'assignedWorker.user', 'statusHistory' => Turnaround::historyScope()])
             ->latest('id')->take(10)->get();
     }
@@ -156,7 +156,7 @@ class Dashboard extends Component
 
         $columns = ['zone_id' => 'zone_id', 'franchise_id' => 'franchise_id', 'city_id' => 'franchise.city_id', 'country_id' => 'franchise.country_id'];
         $todayStart = now(app(TimezoneResolver::class)->platformTimezone())->startOfDay()->utc();
-        $today = app(AuthorizationService::class)->scopeQuery(ParcelOrder::query(), $user, 'parcel_orders.view', $columns)
+        $today = app(AuthorizationService::class)->scopeQuery(ParcelOrder::query()->booked(), $user, 'parcel_orders.view', $columns)
             ->where('created_at', '>=', $todayStart)
             ->get(['id', 'status', 'created_at', 'delivered_at', 'price_quoted', 'price_final']);
 

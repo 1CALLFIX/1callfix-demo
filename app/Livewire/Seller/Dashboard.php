@@ -73,7 +73,8 @@ class Dashboard extends Component
     {
         $store = $this->shop()->load(['franchise', 'hours']);
         $seller = $this->seller();
-        $today = MarketplaceOrder::where('store_id', $store->id)->whereDate('created_at', today());
+        // booked(): unpaid online orders are not orders (NO PAYMENT, NO BOOKING, owner 2026-11-07).
+        $today = MarketplaceOrder::where('store_id', $store->id)->booked()->whereDate('created_at', today());
 
         return view('livewire.seller.dashboard', [
             'store' => $store,
@@ -81,7 +82,7 @@ class Dashboard extends Component
             'moduleLive' => $this->shopModuleLive($store),
             'ordersToday' => (clone $today)->count(),
             'salesToday' => (float) (clone $today)->where('status', 'completed')->sum('subtotal'),
-            'activeOrders' => MarketplaceOrder::where('store_id', $store->id)->whereIn('status', ['pending', 'accepted', 'preparing', 'ready'])->count(),
+            'activeOrders' => MarketplaceOrder::where('store_id', $store->id)->booked()->whereIn('status', ['pending', 'accepted', 'preparing', 'ready'])->count(),
             'productCount' => Product::where('store_id', $store->id)->count(),
             'awaitingApproval' => Product::where('store_id', $store->id)->where('is_approved', false)->count(),
             'lowStock' => Product::where('store_id', $store->id)->where('is_active', true)->where('stock', '<=', 3)->orderBy('stock')->limit(5)->get(['id', 'name', 'stock']),

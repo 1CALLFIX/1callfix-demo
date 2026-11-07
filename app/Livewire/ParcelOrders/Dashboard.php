@@ -67,7 +67,7 @@ class Dashboard extends Component
     private function orders()
     {
         return app(AuthorizationService::class)
-            ->scopeQuery(ParcelOrder::query(), auth()->user(), 'parcel_orders.view', [
+            ->scopeQuery(ParcelOrder::query()->booked(), auth()->user(), 'parcel_orders.view', [
                 'zone_id' => 'zone_id', 'franchise_id' => 'franchise_id', 'city_id' => 'franchise.city_id', 'country_id' => 'franchise.country_id',
             ])
             ->when($this->franchiseId, fn ($q) => $q->where('franchise_id', $this->franchiseId));
