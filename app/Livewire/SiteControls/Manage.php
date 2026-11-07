@@ -72,6 +72,8 @@ class Manage extends Component
     public string $reviewRedHours = '48';
 
     public bool $headerPartnerButton = true;
+
+    public bool $voiceSearch = true;
     public string $headerPartnerLabel = '';
 
     public string $flashMessage = '';
@@ -120,6 +122,7 @@ class Manage extends Component
         $this->reviewAmberHours = (string) S::reviewAmberHours();
         $this->reviewRedHours = (string) S::reviewRedHours();
         $this->headerPartnerButton = S::headerPartnerButton();
+        $this->voiceSearch = S::voiceSearch();
         $this->headerPartnerLabel = S::headerPartnerLabel();
     }
 
@@ -210,6 +213,7 @@ class Manage extends Component
             S::REVIEW_AMBER_HOURS => (string) (int) $this->reviewAmberHours,
             S::REVIEW_RED_HOURS => (string) (int) $this->reviewRedHours,
             S::HEADER_PARTNER_BUTTON => $bool($this->headerPartnerButton),
+            S::VOICE_SEARCH => $bool($this->voiceSearch),
             S::HEADER_PARTNER_LABEL => trim($this->headerPartnerLabel),
             \App\Support\HomeLayout::MEMBERSHIP_BENEFITS => (string) (int) $this->membershipBenefits,
             \App\Support\HomeLayout::MEMBERSHIP_SHOW_WORTH => $bool($this->membershipShowWorth),

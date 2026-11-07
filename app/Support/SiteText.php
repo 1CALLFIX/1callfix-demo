@@ -152,6 +152,10 @@ final class SiteText
 
         'search.products' => ['header', 'Search box: shop items group', 'Shop items', 'షాప్ వస్తువులు'],
         'search.shops' => ['header', 'Search box: shops group', 'Shops', 'షాపులు'],
+        'search.voice_start' => ['header', 'Search box: mic button (tooltip, screen readers)', 'Search by voice', 'వాయిస్‌తో వెతకండి'],
+        'search.voice_listening' => ['header', 'Search box: while the mic is listening', 'Listening… say a service, like “AC repair”', 'వింటున్నాం… “AC repair” లాంటి సర్వీస్ పేరు చెప్పండి'],
+        'search.voice_failed' => ['header', 'Search box: nothing was heard', 'Didn’t catch that. Tap the mic and try again.', 'అర్థం కాలేదు. మైక్ నొక్కి మళ్లీ ప్రయత్నించండి.'],
+        'search.voice_blocked' => ['header', 'Search box: microphone not allowed', 'Microphone is blocked. Allow it for this site in your browser settings.', 'మైక్రోఫోన్ బ్లాక్ అయింది. బ్రౌజర్ సెట్టింగ్స్‌లో ఈ సైట్‌కు అనుమతించండి.'],
         'search.open_now' => ['header', 'Search box: shop open badge', 'Open now', 'ఇప్పుడు తెరిచి ఉంది'],
 
         'location.set' => ['location', 'Location button, nothing chosen yet', 'Set location', 'ప్రాంతం ఎంచుకోండి'],

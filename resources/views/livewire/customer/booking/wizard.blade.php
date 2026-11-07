@@ -332,7 +332,8 @@
                         @php $addr = $addresses->firstWhere('id', $addressId); @endphp
                         @if ($addr)<p><span class="text-slate-400">Address:</span> {{ $addr->label }}</p>@endif
                         <p><span class="text-slate-400">Time:</span> {{ $scheduledAt ? \Illuminate\Support\Carbon::parse($scheduledAt)->format('D j M, g:i A') : 'As soon as possible' }}</p>
-                        @if ($step === 'pay')<p class="capitalize"><span class="text-slate-400">Pay:</span> {{ $paymentMethod }}</p>@endif
+                        {{-- Only a method the customer can really use (owner walk-through 2026-11-07: "Pay: Wallet" showed with the wallet greyed out). --}}
+                        @if ($step === 'pay' && ! ($paymentMethod === 'wallet' && $walletBalance < $estimate))<p class="capitalize"><span class="text-slate-400">Pay:</span> {{ $paymentMethod }}</p>@endif
                     </div>
                 @endif
             </div>

@@ -98,7 +98,9 @@ class SearchBoxSettingsTest extends TestCase
         $form = substr($html, $start, strpos($html, '</form>', $start) - $start);
 
         $this->assertStringNotContainsString('type="submit"', $form);
-        $this->assertSame(1, substr_count($form, '<svg'), 'a single magnifier icon remains');
+        // The voice search mic (owner 2026-11-07) is a separate button, not a second search icon.
+        $withoutMic = preg_replace('/<button[^>]*data-voice-btn.*?<\/button>/s', '', $form);
+        $this->assertSame(1, substr_count($withoutMic, '<svg'), 'a single magnifier icon remains');
     }
 
     public function test_managing_the_search_box_needs_permission(): void

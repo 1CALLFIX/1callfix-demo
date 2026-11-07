@@ -382,8 +382,10 @@ class Show extends Component
             'isInFlight' => in_array($booking->status, self::IN_FLIGHT_STATUSES, true),
             // True while dispatch is still hunting — drives the prominent
             // "finding a professional" panel.
+            // Not while an online booking waits for its payment: nothing is sent to professionals until it is paid
+            // (CreateBookingAction pay-before-dispatch), so "contacting professionals" would be untrue (owner walk-through 2026-11-07).
             'isSearching' => in_array($booking->status, ['pending', 'searching_provider'], true)
-                && $booking->status !== 'cancelled',
+                && ! ($booking->payment_method === 'online' && $booking->payment_status !== 'paid'),
             'pendingExtra' => $booking->status === 'on_hold' ? $booking->extraItems()->where('status', 'pending_approval')->latest('id')->first() : null,
             'contactedCount' => $contactedCount,
             'providerDistanceKm' => $providerDistanceKm,

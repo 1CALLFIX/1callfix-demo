@@ -143,11 +143,98 @@ function initSearchBar(root) {
     // highlight pointing at a row that is changing is worse than none.
     input.addEventListener('input', clearActive);
 
+    initVoice(root, input);
+
     // Mouse and keyboard share one notion of "active" so they can't fight.
     root.addEventListener('pointerover', (event) => {
         const option = event.target.closest('[data-search-option]');
         if (option && root.contains(option)) {
             setActive(option);
+        }
+    });
+}
+
+/*
+ * Voice search (owner 2026-11-07). The browser's own speech recognition (free; Chrome on Android and computers) turns
+ * what the customer says into words in the search box, exactly as if typed, so the usual suggestions open. The mic
+ * button is drawn by the Blade view (Super Admin switch) and only shown once html.cf-voice is set here, i.e. on a
+ * browser that can listen. Indian English (en-IN): service names are English, and Indian English recognises them
+ * well even with a Telugu accent.
+ */
+const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+if (SpeechRecognition) {
+    document.documentElement.classList.add('cf-voice');
+}
+
+function initVoice(root, input) {
+    if (!SpeechRecognition) {
+        return;
+    }
+    let listening = null;
+    let clearTimer = null;
+
+    const say = (text, ms = 0) => {
+        const status = root.querySelector('[data-voice-status]');
+        if (!status) {
+            return;
+        }
+        clearTimeout(clearTimer);
+        status.textContent = text;
+        if (ms) {
+            clearTimer = setTimeout(() => { status.textContent = ''; }, ms);
+        }
+    };
+
+    // Delegated: Livewire re-draws the button when the box is cleared.
+    root.addEventListener('click', (event) => {
+        const btn = event.target.closest('[data-voice-btn]');
+        if (!btn || !root.contains(btn)) {
+            return;
+        }
+        event.preventDefault();
+        if (listening) {
+            listening.stop();
+            return;
+        }
+
+        const rec = new SpeechRecognition();
+        rec.lang = 'en-IN';
+        rec.interimResults = false;
+        rec.maxAlternatives = 1;
+        let heard = false;
+
+        rec.onresult = (e) => {
+            const text = (e.results?.[0]?.[0]?.transcript || '').trim();
+            if (!text) {
+                return;
+            }
+            heard = true;
+            say('');
+            input.value = text;
+            input.focus();
+            // wire:model.live listens to `input`: the term goes to the server and the suggestions open.
+            input.dispatchEvent(new Event('input', { bubbles: true }));
+        };
+        rec.onerror = (e) => {
+            heard = true; // the error message below replaces the "didn't catch that" one
+            const blocked = e.error === 'not-allowed' || e.error === 'service-not-allowed';
+            say(blocked ? btn.dataset.voiceBlocked : btn.dataset.voiceFailed, 5000);
+        };
+        rec.onend = () => {
+            listening = null;
+            btn.removeAttribute('data-listening');
+            if (!heard) {
+                say(btn.dataset.voiceFailed, 5000);
+            }
+        };
+
+        try {
+            rec.start();
+            listening = rec;
+            btn.setAttribute('data-listening', '');
+            say(btn.dataset.voiceListening);
+        } catch (err) {
+            say(btn.dataset.voiceFailed, 5000);
         }
     });
 }

@@ -297,6 +297,18 @@
             </p>
         </x-ui.card>
 
+        <x-ui.card>
+            <h2 class="text-sm font-semibold mb-3">Voice search</h2>
+            <label class="flex items-center gap-2 text-sm">
+                <input type="checkbox" wire:model="voiceSearch"> Show a 🎤 mic button in the website search box
+            </label>
+            <p class="text-xs text-gray-500 mt-3">
+                Customers tap the mic and say what they need ("AC repair", "plumber"); the words go into the search box. Shown only on browsers
+                that can listen (Chrome on Android and computers); elsewhere the box looks as before. Free, uses the browser's own speech recognition.
+                Its words are in Website text → Header ("Search box: mic…").
+            </p>
+        </x-ui.card>
+
         <x-ui.button type="submit">Save</x-ui.button>
     </form>
 </div>

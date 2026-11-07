@@ -87,6 +87,21 @@
                     <span class="sr-only">Clear search</span>
                     <x-icon name="x-circle" class="h-5 w-5" />
                 </button>
+            @elseif (\App\Support\SiteControls::voiceSearch())
+                {{-- Voice search (owner 2026-11-07). Hidden until search-bar.js finds a browser that can listen and adds
+                     html.cf-voice; the spoken words go into this box like typing. --}}
+                @once
+                    <style>[data-voice-btn]{display:none}html.cf-voice [data-voice-btn]{display:grid}[data-voice-btn][data-listening]{color:#dc2626}</style>
+                @endonce
+                <button type="button" data-voice-btn wire:ignore
+                        data-voice-listening="{{ \App\Support\SiteText::get('search.voice_listening') }}"
+                        data-voice-failed="{{ \App\Support\SiteText::get('search.voice_failed') }}"
+                        data-voice-blocked="{{ \App\Support\SiteText::get('search.voice_blocked') }}"
+                        title="{{ \App\Support\SiteText::get('search.voice_start') }}"
+                        class="absolute inset-y-0 right-0 w-10 place-items-center text-slate-500 transition hover:text-blue-600 focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-blue-600">
+                    <span class="sr-only">{{ \App\Support\SiteText::get('search.voice_start') }}</span>
+                    <svg aria-hidden="true" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0M12 17v4M8 21h8"/></svg>
+                </button>
             @endif
         </div>
 
@@ -99,6 +114,7 @@
     </div>
 
     <p wire:loading wire:target="term" class="mt-1 text-xs text-slate-500">Searching…</p>
+    <p data-voice-status wire:ignore role="status" aria-live="polite" @class(['text-xs font-medium text-slate-600 empty:hidden', 'absolute left-0 top-full mt-1 rounded-md bg-white px-2 py-1 shadow' => $pill, 'mt-1' => ! $pill])></p>
 
     <p role="status" aria-live="polite" class="sr-only">
         @if ($showSuggestions)

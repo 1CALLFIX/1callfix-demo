@@ -68,6 +68,9 @@ final class SiteControls
     public const HEADER_PARTNER_LABEL = 'header.partner_label';
     public const DEFAULT_HEADER_PARTNER_LABEL = 'Become a partner';
 
+    // Voice search (owner 2026-11-07): a mic button in the search box on browsers that can listen (Chrome on Android).
+    public const VOICE_SEARCH = 'search.voice';
+
     public const SERVICES_MODES = ['required', 'optional', 'hidden'];
     public const FITS = ['contain', 'cover'];
     public const ICON_SIZES = ['small', 'medium', 'large'];
@@ -242,6 +245,11 @@ final class SiteControls
     public static function headerPartnerButton(): bool
     {
         return self::flag(self::HEADER_PARTNER_BUTTON, true);
+    }
+
+    public static function voiceSearch(): bool
+    {
+        return self::flag(self::VOICE_SEARCH, true);
     }
 
     public static function headerPartnerLabel(): string

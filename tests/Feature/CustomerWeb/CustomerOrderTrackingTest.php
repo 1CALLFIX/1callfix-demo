@@ -114,6 +114,20 @@ class CustomerOrderTrackingTest extends TestCase
             ->assertSeeHtml('wire:poll.6s');
     }
 
+    public function test_an_unpaid_online_booking_does_not_claim_professionals_are_being_contacted(): void
+    {
+        // Owner walk-through 2026-11-07: nothing is sent to professionals until an online booking is paid.
+        $me = $this->makeCustomer();
+        $booking = $this->bookingFor($me, ['status' => 'pending', 'provider_id' => null, 'payment_method' => 'online', 'payment_status' => 'pending']);
+
+        Livewire::actingAs($me)->test(OrderShow::class, ['booking' => $booking])
+            ->assertDontSee('Finding you a professional');
+
+        $booking->update(['payment_status' => 'paid']);
+        Livewire::actingAs($me)->test(OrderShow::class, ['booking' => $booking->fresh()])
+            ->assertSee('Finding you a professional');
+    }
+
     public function test_an_assigned_booking_still_polls_but_drops_the_searching_panel(): void
     {
         $me = $this->makeCustomer();
