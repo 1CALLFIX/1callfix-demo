@@ -433,6 +433,7 @@
                     amount: o.amount,
                     currency: o.currency,
                     name: @js(\App\Models\Setting::get('branding.platform_name', '1CallFix')),
+                    prefill: @js(\App\Support\RazorpayPrefill::forCurrentUser()),
                     description: 'Booking ' + (e.bookingCode ?? ''),
                     handler: () => window.location.reload(),
                 }).open();

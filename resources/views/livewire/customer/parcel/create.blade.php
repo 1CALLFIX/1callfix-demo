@@ -549,6 +549,7 @@
                 amount: o.amount,
                 currency: o.currency,
                 name: @js(\App\Models\Setting::get('branding.platform_name', '1CallFix')),
+                prefill: @js(\App\Support\RazorpayPrefill::forCurrentUser()),
                 description: 'Parcel delivery',
                 handler: () => { window.location = redirect; },
                 modal: { ondismiss: () => { window.location = redirect; } },

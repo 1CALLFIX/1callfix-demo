@@ -12,6 +12,7 @@ use App\Support\PartnerPage\PartnerPageSettings as P;
  */
 final class PartnerPageData
 {
+
     /**
      * Role cards from the module registry. `live` is the registry's own answer (ModuleActivationService), read live;
      * a module that is not live is "Opening soon" and its leads go to the waiting list. A role that `hands_off`
@@ -35,13 +36,16 @@ final class PartnerPageData
             if (! in_array($code, $registry, true) || in_array($code, $hidden, true)) {
                 continue;
             }
-            $live = $activation->isActive($code);
+            // Owner 2026-11-07: modules are switched on per city/franchise (Nellore), never for the whole country, so
+            // "live" = switched on in at least one place. The country-level check showed Food and Shop as "Opening soon".
+            $live = $activation->isActiveAnywhere($code);
             $cards[] = [
                 'code' => $code,
                 'label' => $wording[$code]['label'],
                 'blurb' => $wording[$code]['blurb'],
                 'module' => P::ROLE_MODULE_NAMES[$code] ?? '',
                 'live' => $live,
+                // Sign-ups stay owner-controlled: restaurants and sellers only when Super Admin opens them.
                 'hands_off' => ($code === 'service' && $live) || ($code === 'parcel' && app(\App\Services\Parcel\ParcelReadiness::class)->recruitingRiders())
                     || ($code === 'commerce' && \App\Support\MarketplaceSettings::recruitingSellers())
                     || ($code === 'food' && \App\Support\FoodSettings::recruitingRestaurants()),

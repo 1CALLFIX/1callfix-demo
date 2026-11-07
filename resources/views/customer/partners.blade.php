@@ -220,7 +220,9 @@ body:has(.pp) footer{margin-bottom:0}
                             <h3>{{ $role['label'] }}</h3>
                             @if ($role['module'] !== '') <span class="mod">{{ $role['module'] }}</span> @endif
                             <span class="bl">{{ $role['blurb'] }}</span>
-                            <span class="go">{{ $role['live'] || $role['hands_off'] || ($role['enquiry'] ?? false) ? 'Apply now' : 'Join the waitlist' }} {!! $arrow !!}</span>
+                            {{-- "Apply now" only when the form really continues into a sign-up (or an enquiry); a live module whose
+                                 sign-ups Super Admin has not opened yet (Food / Shop Settings) still says what happens: waitlist. --}}
+                            <span class="go">{{ $role['hands_off'] || ($role['enquiry'] ?? false) ? 'Apply now' : 'Join the waitlist' }} {!! $arrow !!}</span>
                         </a>
                     </li>
                 @endforeach

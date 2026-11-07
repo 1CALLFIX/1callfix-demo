@@ -70,6 +70,7 @@
                 amount: o.amount,
                 currency: o.currency,
                 name: @js(\App\Models\Setting::get('branding.platform_name', '1CallFix')),
+                prefill: @js(\App\Support\RazorpayPrefill::forCurrentUser()),
                 description: 'Parcel pack',
                 handler: () => window.location.reload(),
             }).open();

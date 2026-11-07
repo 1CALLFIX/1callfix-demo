@@ -223,6 +223,7 @@
             new window.Razorpay({
                 key: o.razorpay_key_id, order_id: o.razorpay_order_id, amount: o.amount, currency: o.currency,
                 name: @js(\App\Models\Setting::get('branding.platform_name', '1CallFix')),
+                prefill: @js(\App\Support\RazorpayPrefill::forCurrentUser()),
                 description: @js('Order '.$order->code),
                 handler: () => { window.location = redirect; },
                 modal: { ondismiss: () => { window.location = redirect; } },

@@ -94,7 +94,7 @@ final class PartnerPageSettings
 
     public const ROLE_DEFAULTS = [
         'service' => ['Service professional', 'AC, electrical, plumbing, carpentry and appliance repair. Get jobs near you and work on your schedule.'],
-        'parcel' => ['Delivery rider', 'Pick up and deliver parcels across your city with your own vehicle. Join the waitlist and be first in line.'],
+        'parcel' => ['Delivery rider', 'Pick up and deliver parcels across your city with your own vehicle. Earn on every delivery and choose when you work.'],
         'food' => ['Restaurant partner', 'List your kitchen and menu, take orders, and let delivery riders bring them to customers.'],
         'grocery' => ['Grocery store', 'Put your store online and sell groceries to customers nearby.'],
         'pharmacy' => ['Pharmacy', 'List health products and medicines for nearby customers.'],

@@ -63,10 +63,34 @@ class PartnerLandingPageTest extends TestCase
         $country = Country::create(['name' => 'T', 'code' => 'ZZ', 'currency_code' => 'INR', 'default_timezone' => 'Asia/Kolkata', 'is_active' => true]);
         app(ModuleActivationService::class)->setActive('parcel', 'country', $country->id, true);
 
-        // Whatever the registry answers for the global scope is exactly what the card shows.
-        $this->assertSame(app(ModuleActivationService::class)->isActive('parcel'), $roles()['parcel']['live']);
+        // Owner 2026-11-07: switched on in one place (a city/franchise, never the whole country) = Live.
+        $this->assertTrue($roles()['parcel']['live']);
         $this->assertTrue($roles()['service']['hands_off']);
-        $this->assertFalse($roles()['parcel']['hands_off'], 'only the service role continues into the provider sign-up');
+        $this->assertFalse($roles()['parcel']['hands_off'], 'riders sign up once parcel prices are set, not merely when live');
+        $this->assertFalse($roles()['grocery']['live']);
+    }
+
+    public function test_food_and_shop_switched_on_for_one_franchise_show_live(): void
+    {
+        foreach (['food', 'commerce'] as $code) {
+            Module::where('code', $code)->update(['is_implemented' => true]);
+            app(ModuleActivationService::class)->setActive($code, 'franchise', 1, true);
+        }
+
+        $roles = collect(PartnerPageData::roles())->keyBy('code');
+        foreach (['food', 'commerce'] as $code) {
+            $this->assertTrue($roles[$code]['live'], $code);
+            $this->assertFalse($roles[$code]['hands_off'], "{$code}: sign-ups stay closed until Super Admin opens them");
+        }
+
+        $html = $this->get(route('customer.partners'))->assertOk()->getContent();
+        $this->assertSame(3, substr_count($html, '>Live<'), 'service, restaurant, shop');
+        $this->assertStringNotContainsString('Join the waitlist and be first in line', $html, 'rider text no longer offers a waitlist');
+        // Live but sign-ups not opened yet: the button says what really happens.
+        foreach (['food', 'commerce'] as $code) {
+            $this->assertMatchesRegularExpression('/data-role="'.$code.'".*?class="go">Join the waitlist/s', $html, $code);
+        }
+        $this->assertMatchesRegularExpression('/data-role="service".*?class="go">Apply now/s', $html);
     }
 
     public function test_a_hidden_module_card_is_not_rendered(): void
