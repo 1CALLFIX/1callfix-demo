@@ -38,7 +38,8 @@ class SharedFooterTest extends TestCase
     /**
      * The baseline is the footer as rendered by origin/main (9af9569, captured in a clean worktree of that commit).
      * The ONLY allowed differences are the partner link (/coming-soon/partners became /partners, 301 from the old one)
-     * and the version label under the copyright line (2026-10-23).
+     * and the version label under the copyright line (2026-10-23). 2026-11-07 (owner): the fixture now carries the
+     * phone change: link columns hidden below sm (class "hidden sm:block") and tighter padding on phones.
      */
     private function snapshot(): string
     {

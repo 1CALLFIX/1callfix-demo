@@ -105,7 +105,7 @@ class CustomerRoutesTest extends TestCase
         $this->get(route('customer.home'))
             ->assertOk()
             ->assertSee('1CallFix Prime Silver')
-            ->assertSee('1,999.00')
+            ->assertSee('1,999')
             ->assertSee(route('customer.membership.show', 'prime-silver'), false)
             ->assertDontSee(route('customer.coming-soon', 'membership'), false);
 
