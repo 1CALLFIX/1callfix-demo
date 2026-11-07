@@ -219,7 +219,7 @@ class Manage extends Component
 
         foreach ([S::PARCEL_IMAGE => 'parcelImageFile', S::PARCEL_ICON => 'parcelIconFile'] as $key => $field) {
             if ($this->{$field}) {
-                $this->replacePicture($key, $this->{$field}->store('site/parcel', 'public'));
+                $this->replacePicture($key, \App\Support\ImageShrinker::store($this->{$field}, 'site/parcel', $field === 'parcelImageFile' ? 'parcel_picture' : 'parcel_icon'));
                 $this->{$field} = null;
                 $changed = true;
             }

@@ -344,7 +344,7 @@ class Manage extends Component
 
     private function storeImage($file): string
     {
-        return $file->store('banners', 'public');
+        return \App\Support\ImageShrinker::store($file, 'banners', 'banner');
     }
 
     private function deleteStoredImage(?string $image): void

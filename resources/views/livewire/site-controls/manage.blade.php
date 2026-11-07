@@ -73,7 +73,7 @@
                     <label class="{{ $check }}"><input type="checkbox" wire:model="imageGloss" class="mt-0.5"> <span>Glossy finish (soft highlight and slightly richer colour, no blur)</span></label>
                 </div>
             </div>
-            <p class="text-xs text-gray-500 mt-3">Applies to category icons, service cards, banners and the photo tiles. For sharp pictures upload at least 400×400 px for icons and 1200 px wide for banners.</p>
+            <p class="text-xs text-gray-500 mt-3">Applies to category icons, service cards, banners and the photo tiles. The best size for each picture is shown under its upload.</p>
         </x-ui.card>
 
         <x-ui.card>
@@ -188,6 +188,7 @@
                             <img src="{{ $url }}" alt="" class="h-14 w-20 rounded border bg-blue-50 object-contain">
                             <div class="space-y-1">
                                 <input type="file" accept="image/png,image/jpeg,image/webp" wire:model="{{ $field }}" class="text-xs">
+                                <x-ui.image-size :use="$which === 'image' ? 'parcel_picture' : 'parcel_icon'" />
                                 @if ($uploaded)
                                     <button type="button" wire:click="resetParcelPicture('{{ $which }}')" class="text-xs text-red-600 underline">Use the built-in one</button>
                                 @else

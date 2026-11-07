@@ -63,6 +63,23 @@ class RestaurantPortalTest extends TestCase
         $this->assertNotNull($store->cover_url);
     }
 
+    /** Menu item photos get the dish size hint and are shrunk to it (owner 2026-11-07). */
+    public function test_a_dish_photo_shows_the_dish_size_and_is_shrunk_to_it(): void
+    {
+        Livewire::actingAs($this->owner)->test(Products::class)
+            ->call('startCreate')
+            ->assertSee(\App\Support\ImageSizes::line('dish_photo'))
+            ->set('name', 'Masala Dosa')->set('price', '80')->set('foodType', 'veg')
+            ->set('newUploads', [UploadedFile::fake()->image('dosa.jpg', 3000, 3000)])
+            ->call('save')->assertHasNoErrors();
+
+        $dish = Product::where('store_id', $this->restaurant->id)->where('name', 'Masala Dosa')->firstOrFail();
+        $path = collect($dish->images)->first() ?? collect($dish->pending_changes['images'] ?? [])->first();
+        $this->assertNotNull($path, 'the photo was saved');
+        [$w, $h] = getimagesizefromstring(Storage::disk('public')->get($path));
+        $this->assertSame([800, 800], [$w, $h]);
+    }
+
     public function test_a_shop_keeps_its_shop_words(): void
     {
         $shopOwner = $this->makeStoreOwner($this->franchise, $this->zone);

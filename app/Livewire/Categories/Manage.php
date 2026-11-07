@@ -165,7 +165,7 @@ class Manage extends Component
     /** Store an uploaded icon on the public disk, return its relative path. */
     private function storeIcon($file): string
     {
-        return $file->store('categories', 'public');
+        return \App\Support\ImageShrinker::store($file, 'categories', 'category_icon');
     }
 
     /**

@@ -111,6 +111,8 @@
     @endauth
 
     @livewireScripts
+    {{-- "Saved" / "Not saved" beside the Save button (owner 2026-11-07), same as admin. --}}
+    <script data-navigate-once src="{{ asset('js/admin-save-feedback.js') }}?v={{ @filemtime(public_path('js/admin-save-feedback.js')) }}"></script>
     @stack('scripts')
 </body>
 </html>

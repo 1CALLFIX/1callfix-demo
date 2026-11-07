@@ -214,7 +214,7 @@ class Manage extends Component
 
         foreach (array_keys(HomeDoors::DOORS) as $door) {
             if ($file = $this->doorImage[$door] ?? null) {
-                $this->replacePicture($door, $file->store('site/home', 'public'));
+                $this->replacePicture($door, \App\Support\ImageShrinker::store($file, 'site/home', 'home_door'));
                 $changed = true;
             }
         }

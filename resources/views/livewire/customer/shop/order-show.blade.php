@@ -187,6 +187,7 @@
                             @error('returnDescription') <p class="text-red-700">{{ $message }}</p> @enderror
                             <label class="block"><span class="font-medium">{{ $order->isFood() && ! $foodPhotoNeeded ? $t('food.issue.photos_optional') : $t($rk.'photos') }}</span>
                                 <input type="file" wire:model="returnPhotos" multiple accept="image/jpeg,image/png,image/webp" class="mt-1 block text-sm"></label>
+                                <x-ui.image-size use="return_photo" />
                             @error('returnPhotos') <p class="text-red-700">{{ $message }}</p> @enderror
                             @error('returnPhotos.*') <p class="text-red-700">{{ $message }}</p> @enderror
                             @if ($order->isFood())

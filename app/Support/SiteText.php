@@ -44,6 +44,7 @@ final class SiteText
         'saved' => 'Like (Saved) button',
         'trust' => 'Service page trust strip',
         'contact' => 'Contact page',
+        'upload' => 'Photo upload hints',
     ];
 
     /** @var array<string, array{0: string, 1: string, 2: string, 3: string}> */
@@ -90,6 +91,9 @@ final class SiteText
         'contact.grievance' => ['contact', 'Grievance officer heading', 'Grievance officer', 'ఫిర్యాదుల అధికారి'],
         'contact.company' => ['contact', 'Company heading', 'Company', 'సంస్థ'],
         'contact.soon' => ['contact', 'Shown when no phone, WhatsApp or email is set', 'Our phone and email will be listed here soon. Meanwhile, the Help centre answers most questions.', 'మా ఫోన్, ఇమెయిల్ త్వరలో ఇక్కడ ఉంటాయి. అప్పటి వరకు, సహాయ కేంద్రం చాలా ప్రశ్నలకు సమాధానం ఇస్తుంది.'],
+        // Under the photo uploads customers see (owner 2026-11-07: show sizes on every upload). Limits match the server's.
+        'upload.claim_photo' => ['upload', 'Parcel problem report: under the photo upload', 'Clear phone photos · up to 8 MB each.', 'స్పష్టమైన ఫోన్ ఫోటోలు · ఒక్కోటి 8 MB వరకు.'],
+        'upload.return_photo' => ['upload', 'Shop return: under the photo upload', 'Clear photos (JPG, PNG or WebP) · up to 5 MB each.', 'స్పష్టమైన ఫోటోలు (JPG, PNG లేదా WebP) · ఒక్కోటి 5 MB వరకు.'],
         'trust.verified' => ['trust', 'Trust strip: first line', 'Verified professionals', 'ధృవీకరించిన నిపుణులు'],
         'trust.verified_hint' => ['trust', 'Trust strip: first line, small text', 'ID and documents checked', 'ID, పత్రాలు తనిఖీ చేశాం'],
         'trust.otp' => ['trust', 'Trust strip: second line', 'Your OTP starts the job', 'మీ OTP తో పని మొదలవుతుంది'],

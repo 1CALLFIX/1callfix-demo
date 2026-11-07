@@ -78,6 +78,7 @@
                         </label>
                     @endif
                 </div>
+                <x-ui.image-size use="product_camera" class="mt-2 text-xs text-slate-500" />
                 <div wire:loading wire:target="photos" class="mt-2 text-xs font-medium text-blue-700">Uploading…</div>
                 @error('photos') <p class="mt-2 text-sm text-red-700">{{ $message }}</p> @enderror
                 @error('photos.*') <p class="mt-2 text-sm text-red-700">{{ $message }}</p> @enderror

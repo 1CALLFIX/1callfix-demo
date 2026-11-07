@@ -126,7 +126,8 @@
                             </label>
                         @endif
                     </div>
-                    <p class="mt-1.5 text-xs text-slate-500">JPG, PNG or WEBP, up to 4 MB each. The first photo is the main one customers see.</p>
+                    <x-ui.image-size :use="$isRestaurant ? 'dish_photo' : 'product_photo'" class="mt-1.5 text-xs text-slate-500" />
+                    <p class="text-xs text-slate-500">The first photo is the main one customers see.</p>
                     <div wire:loading wire:target="newUploads" class="text-xs font-medium text-blue-700">Uploading…</div>
                     @error('newUploads.*') <span class="block text-sm text-red-700">{{ $message }}</span> @enderror
                     @error('uploads') <span class="text-sm text-red-700">{{ $message }}</span> @enderror

@@ -49,6 +49,7 @@
                     @endif
                     <span class="text-[11px] text-gray-500" wire:loading wire:target="coverImageFile">Uploading…</span>
                 </label>
+                <x-ui.image-size use="service_cover" />
             </div>
 
             <div class="flex-1 min-w-48">
@@ -551,6 +552,7 @@
                                 <span wire:loading.remove wire:target="editCoverImageFile">Click/Tap to select media</span>
                                 <span wire:loading wire:target="editCoverImageFile">Uploading…</span>
                             </label>
+                            <x-ui.image-size use="service_cover" />
                         </div>
                         @error('editCoverImageFile') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
                     </div>

@@ -70,6 +70,7 @@
                             <img src="{{ $store->logo_url }}" alt="" class="h-12 w-12 rounded-lg object-cover">
                         @endif
                         <input type="file" wire:model="logo" accept="image/jpeg,image/png,image/webp" class="text-sm">
+                        <x-ui.image-size use="store_logo" />
                     </div>
                     @error('logo') <span class="text-sm text-red-700">{{ $message }}</span> @enderror
                 </div>
@@ -83,6 +84,7 @@
                             <img src="{{ $store->cover_url }}" alt="" class="h-20 w-40 rounded-lg object-cover">
                         @endif
                         <input type="file" wire:model="cover" accept="image/jpeg,image/png,image/webp" class="text-sm" data-testid="cover-input">
+                        <x-ui.image-size use="store_cover" />
                     </div>
                     @error('cover') <span class="text-sm text-red-700">{{ $message }}</span> @enderror
                 </div>

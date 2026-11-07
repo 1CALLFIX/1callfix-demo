@@ -176,14 +176,14 @@ class Shop extends Component
             if ($store->logo && ! str_contains($store->logo, '://')) {
                 Storage::disk('public')->delete($store->logo);
             }
-            $fields['logo'] = $this->logo->store('stores/'.$store->id, 'public');
+            $fields['logo'] = \App\Support\ImageShrinker::store($this->logo, 'stores/'.$store->id, 'store_logo');
             $this->logo = null;
         }
         if ($this->cover) {
             if ($store->cover_image && ! str_contains($store->cover_image, '://')) {
                 Storage::disk('public')->delete($store->cover_image);
             }
-            $fields['cover_image'] = $this->cover->store('stores/'.$store->id, 'public');
+            $fields['cover_image'] = \App\Support\ImageShrinker::store($this->cover, 'stores/'.$store->id, 'store_cover');
             $this->cover = null;
         }
 

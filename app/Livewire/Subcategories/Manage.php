@@ -186,7 +186,7 @@ class Manage extends Component
 
     private function storeIcon($file): string
     {
-        return $file->store('subcategories', 'public');
+        return \App\Support\ImageShrinker::store($file, 'subcategories', 'subcategory_icon');
     }
 
     private function deleteStoredIcon(?string $image): void

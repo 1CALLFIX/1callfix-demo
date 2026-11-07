@@ -61,6 +61,7 @@
                     @endif
                     <span class="text-[11px] text-gray-500" wire:loading wire:target="imageFile">Uploading…</span>
                 </label>
+                <x-ui.image-size use="banner" />
             </div>
 
             <div class="flex-1 min-w-48">
@@ -539,6 +540,7 @@
                                 <span wire:loading.remove wire:target="editImageFile">Change</span>
                                 <span wire:loading wire:target="editImageFile">Uploading…</span>
                             </label>
+                            <x-ui.image-size use="banner" />
                         </div>
                         @error('editImageFile') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
                     </div>

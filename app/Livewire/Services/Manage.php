@@ -271,7 +271,7 @@ class Manage extends Component
 
     private function storeCover($file): string
     {
-        return $file->store('services', 'public');
+        return \App\Support\ImageShrinker::store($file, 'services', 'service_cover');
     }
 
     private function deleteStoredCover(?string $image): void

@@ -1,6 +1,6 @@
 <div>
     @if (session('message'))
-        <div class="mb-4 bg-green-50 text-green-700 text-sm px-4 py-2 rounded">{{ session('message') }}</div>
+        <div class="mb-4 bg-green-50 text-green-700 text-sm px-4 py-2 rounded" data-flash>{{ session('message') }}</div>
     @endif
 
     @if ($accommodation)

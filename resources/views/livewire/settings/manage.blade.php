@@ -951,7 +951,7 @@
                 @endphp
                 <div class="mt-6 pt-4 border-t">
                     <h3 class="text-sm font-semibold mb-1">Site logo</h3>
-                    <p class="text-xs text-gray-400 mb-3">PNG, JPG or SVG, up to 4&nbsp;MB. Square with a transparent background works best. Shown in the public header and footer; 32×32 favicon and 180×180 apple-touch icon are generated automatically.</p>
+                    <p class="text-xs text-gray-400 mb-3">Shown in the public header and footer; 32×32 favicon and 180×180 apple-touch icon are generated automatically.</p>
                     <div class="flex flex-wrap items-center gap-4">
                         <div class="h-20 w-20 rounded border grid place-items-center bg-[repeating-conic-gradient(#e5e7eb_0_25%,#fff_0_50%)] bg-[length:12px_12px]">
                             @if ($logoUrl)
@@ -968,6 +968,7 @@
                         @endif
                         <div>
                             <input type="file" wire:model="brandingLogoUpload" accept=".png,.jpg,.jpeg,.svg,image/png,image/jpeg,image/svg+xml" class="text-xs">
+                            <x-ui.image-size use="site_logo" />
                             <div wire:loading wire:target="brandingLogoUpload" class="text-xs text-gray-500 mt-1">Uploading…</div>
                             @error('brandingLogoUpload') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
                             <div class="mt-2 flex gap-2">

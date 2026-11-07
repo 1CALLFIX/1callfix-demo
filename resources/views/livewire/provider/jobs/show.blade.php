@@ -155,6 +155,7 @@
                         <label class="block text-xs font-medium text-slate-700">Bill / photo of the work or parts (optional)
                             <input type="file" multiple accept="image/*,application/pdf" wire:model="sparesEvidence" class="mt-1 block w-full text-sm">
                         </label>
+                        <x-ui.image-size use="evidence_photo" class="text-xs text-slate-500" />
                         @error('sparesEvidence.*') <p class="text-sm text-red-700">{{ $message }}</p> @enderror
                         <label class="block text-xs font-medium text-slate-700">Who is getting the spare part?
                             <select wire:model="sparesSource" class="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm">

@@ -279,6 +279,8 @@
     </script>
 
     @livewireScripts
+    {{-- Owner 2026-11-07: "Saved" / "Not saved" shown beside the Save button on every admin screen (long pages hid the top message). --}}
+    <script data-navigate-once src="{{ asset('js/admin-save-feedback.js') }}?v={{ @filemtime(public_path('js/admin-save-feedback.js')) }}"></script>
 
     <script src="https://unpkg.com/trix@2.1.6/dist/trix.umd.min.js"></script>
     <script>

@@ -289,6 +289,7 @@
                         <div>
                             <label for="claim-photos" class="block text-sm font-medium">Photos {{ $claimReason === 'damaged' ? '(needed)' : '(optional)' }}</label>
                             <input id="claim-photos" type="file" accept="image/*" multiple wire:model="claimPhotos" class="mt-1 block w-full text-sm">
+                            <x-ui.image-size use="claim_photo" />
                             <p wire:loading wire:target="claimPhotos" class="mt-1 text-xs text-slate-500">Uploading…</p>
                             @error('claimPhotos.*') <p class="mt-1 text-xs text-rose-700">{{ $message }}</p> @enderror
                         </div>

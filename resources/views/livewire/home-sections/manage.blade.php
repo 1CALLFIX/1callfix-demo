@@ -132,8 +132,9 @@
                         <label class="mt-2 block text-xs text-gray-500" for="hs-order-{{ $door }}">Order (1 = first)</label>
                         <input id="hs-order-{{ $door }}" type="number" min="1" max="99" wire:model="doorOrder.{{ $door }}" class="w-24 border rounded px-2 py-1 text-sm">
                         @error('doorOrder.'.$door) <p class="text-xs text-red-600 mt-1">{{ $message }}</p> @enderror
-                        <label class="mt-2 block text-xs text-gray-500" for="hs-img-{{ $door }}">Picture (PNG, JPG or WebP, max 2 MB, square works best)</label>
+                        <label class="mt-2 block text-xs text-gray-500" for="hs-img-{{ $door }}">Picture</label>
                         <input id="hs-img-{{ $door }}" type="file" accept="image/png,image/jpeg,image/webp" wire:model="doorImage.{{ $door }}" class="text-xs">
+                        <x-ui.image-size use="home_door" />
                         @error('doorImage.'.$door) <p class="text-xs text-red-600 mt-1">{{ $message }}</p> @enderror
                         @if ($d['uploaded'])
                             <button type="button" wire:click="resetPicture('{{ $door }}')" class="mt-2 text-xs text-blue-700 underline">Use the built-in picture</button>

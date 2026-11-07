@@ -192,7 +192,7 @@ class Products extends Component
 
         $paths = $this->photos;
         foreach ($this->uploads as $file) {
-            $paths[] = $file->store('products/'.$store->id, 'public');
+            $paths[] = \App\Support\ImageShrinker::store($file, 'products/'.$store->id, $store->isRestaurant() ? 'dish_photo' : 'product_photo');
         }
 
         $fields = [

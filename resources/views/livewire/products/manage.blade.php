@@ -11,7 +11,7 @@
     </div>
 
     @if (session('message'))
-        <div class="mb-4 bg-green-50 text-green-700 text-sm px-4 py-2 rounded">{{ session('message') }}</div>
+        <div class="mb-4 bg-green-50 text-green-700 text-sm px-4 py-2 rounded" data-flash>{{ session('message') }}</div>
     @endif
 
     @error('permission') <div class="bg-red-50 text-red-700 rounded p-3 mb-4 text-sm">{{ $message }}</div> @enderror

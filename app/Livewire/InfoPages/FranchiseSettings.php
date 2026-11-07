@@ -130,7 +130,7 @@ class FranchiseSettings extends Component
             $changed[] = 'accepting';
         }
         if ($this->heroImageFile) {
-            $path = $this->heroImageFile->store('site/franchise', 'public');
+            $path = \App\Support\ImageShrinker::store($this->heroImageFile, 'site/franchise', 'franchise_hero');
             SettingsAuditor::put($admin, self::HERO_IMAGE, $path);
             $this->heroImageFile = null;
             $changed[] = 'hero_image';

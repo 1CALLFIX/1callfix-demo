@@ -61,7 +61,7 @@
 
         <x-ui.card>
             <h2 class="text-sm font-semibold mb-1">Top picture (optional)</h2>
-            <p class="text-xs text-gray-500 mb-3">A real photo of your team, office or partners at work. JPG, PNG or WebP, up to 4 MB, at least 1200 px wide. Without one, the page shows a designed panel.</p>
+            <p class="text-xs text-gray-500 mb-3">Without one, the page shows a designed panel.</p>
             @if ($heroUrl)
                 <div class="mb-3 flex items-center gap-3">
                     <img src="{{ $heroUrl }}" alt="" class="h-20 w-32 rounded object-cover">
@@ -69,6 +69,7 @@
                 </div>
             @endif
             <input type="file" wire:model="heroImageFile" accept="image/jpeg,image/png,image/webp" class="text-sm">
+            <x-ui.image-size use="franchise_hero" />
             @error('heroImageFile')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
         </x-ui.card>
 

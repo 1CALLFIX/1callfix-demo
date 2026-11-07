@@ -54,6 +54,7 @@
                     @endif
                     <span class="text-[11px] text-gray-500" wire:loading wire:target="iconFile">Uploading…</span>
                 </label>
+                <x-ui.image-size use="category_icon" />
             </div>
             <div class="flex-1 min-w-48">
                 <label class="block text-xs font-medium mb-1">Name <span class="text-red-500">*</span></label>
@@ -312,6 +313,7 @@
                                     <span wire:loading.remove wire:target="editIconFile">Change</span>
                                     <span wire:loading wire:target="editIconFile">Uploading…</span>
                                 </label>
+                                <x-ui.image-size use="category_icon" />
                             </div>
                             @error('editIconFile') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
                         </div>

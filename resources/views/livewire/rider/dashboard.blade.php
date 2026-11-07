@@ -308,6 +308,7 @@
                         <label for="safety-photo" class="mt-3 block text-xs font-semibold uppercase tracking-wide text-slate-500">Photo</label>
                         <input id="safety-photo" type="file" accept="image/*" capture="environment" wire:model="safetyPhoto"
                                class="mt-1 block w-full text-sm file:mr-3 file:min-h-10 file:rounded-lg file:border-0 file:bg-slate-800 file:px-3 file:text-sm file:font-semibold file:text-white">
+                        <x-ui.image-size use="safety_photo" />
                         <p wire:loading wire:target="safetyPhoto" class="mt-1 text-xs text-slate-500">Uploading…</p>
                         @error('safetyPhoto') <p class="mt-1 text-xs text-rose-700">{{ $message }}</p> @enderror
                         <label for="safety-note" class="mt-3 block text-xs font-semibold uppercase tracking-wide text-slate-500">Note (optional)</label>
