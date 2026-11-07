@@ -291,70 +291,87 @@
     --}}
     @case('membership')
     @if ($membershipPlans->isNotEmpty())
-        <section aria-labelledby="membership-heading" class="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
-            {{-- Owner 2026-11-07: show the benefits, look premium. Every benefit and value comes from the plan's own
-                 enabled entitlements (MembershipPresenter, same as the plan page); nothing is invented here. --}}
-            <div class="relative overflow-hidden rounded-3xl bg-gradient-to-br from-slate-900 via-blue-900 to-blue-700 p-6 shadow-xl shadow-blue-900/25 sm:p-10" data-membership-box>
-                <div aria-hidden="true" class="pointer-events-none absolute -right-20 -top-24 h-72 w-72 rounded-full bg-amber-300/20 blur-3xl"></div>
-                <div aria-hidden="true" class="pointer-events-none absolute -bottom-24 -left-16 h-64 w-64 rounded-full bg-blue-400/20 blur-3xl"></div>
-
-                <div class="relative">
-                    <p class="inline-flex items-center gap-1.5 rounded-full bg-amber-300/15 px-3 py-1 text-xs font-semibold text-amber-200 ring-1 ring-inset ring-amber-200/30">
+        <section aria-labelledby="membership-heading" class="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8" data-membership-box>
+            {{-- Owner 2026-11-07 (2nd look): smaller and more premium, the way Urban Company Plus / Swiggy One / Zomato Gold
+                 show it: one slim heading line, then compact dark plan cards with a gold touch, side by side, so a second
+                 or third plan sits beside Prime Silver (two on a computer; on a phone the next card peeks in to swipe).
+                 Every benefit and value still comes from the plan's own enabled entitlements (MembershipPresenter). --}}
+            @php
+                $presenter = app(\App\Services\Plans\MembershipPresenter::class);
+                $listMax = \App\Support\HomeLayout::membershipBenefits();
+                $showWorth = \App\Support\HomeLayout::membershipShowWorth();
+                $manyPlans = $membershipPlans->count() > 1;
+            @endphp
+            <div class="flex items-end justify-between gap-3">
+                <div class="min-w-0">
+                    <p class="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-amber-600">
                         <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3 7l4.5 4L12 4l4.5 7L21 7l-2 12H5L3 7z"/></svg>
                         {{ $t('home.membership.kicker') }}
                     </p>
-                    <h2 id="membership-heading" class="mt-3 text-2xl font-bold tracking-tight text-white sm:text-3xl">
+                    <h2 id="membership-heading" class="mt-0.5 text-lg font-bold tracking-tight text-slate-900 sm:text-xl">
                         {{ $t('home.membership.title', ['brand' => $platformName]) }}
                     </h2>
-                    <p class="mt-2 max-w-2xl text-sm text-blue-100 sm:text-base">
-                        {{ $t('home.membership.line') }}
-                    </p>
-
-                    @php
-                        $presenter = app(\App\Services\Plans\MembershipPresenter::class);
-                        $listMax = \App\Support\HomeLayout::membershipBenefits();
-                        $showWorth = \App\Support\HomeLayout::membershipShowWorth();
-                    @endphp
-                    <ul class="mt-6 flex snap-x gap-4 overflow-x-auto pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                        @foreach ($membershipPlans as $plan)
-                            @php
-                                $card = $presenter->plan($plan);
-                                $benefits = collect($card['entitlements']);
-                                $worth = $benefits->sum(fn ($b) => ($b['advertised_value'] ?? 0) * max(1, (int) ($b['total_quantity'] ?? 1)));
-                            @endphp
-                            <li @class(['flex shrink-0 snap-start flex-col rounded-2xl bg-white p-5 shadow-lg', 'w-full sm:w-[26rem]' => $membershipPlans->count() === 1, 'w-[85%] sm:w-[22rem]' => $membershipPlans->count() > 1]) data-membership-plan>
-                                <h3 class="text-base font-bold text-slate-900">{{ $card['name'] }}</h3>
-                                <p class="mt-1 text-3xl font-extrabold tracking-tight text-slate-900">
-                                    {{ $currencySymbol }}{{ number_format($card['price'], fmod($card['price'], 1) ? 2 : 0) }}
-                                    <span class="text-sm font-medium text-slate-500">/ {{ $card['validity_label'] }}</span>
-                                </p>
-                                @if ($showWorth && $worth > $card['price'])
-                                    <p class="mt-2 inline-flex self-start rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-bold text-emerald-700" data-membership-worth>
-                                        {{ $t('home.membership.worth', ['amount' => $currencySymbol.number_format($worth, 0)]) }}
-                                    </p>
-                                @endif
-                                @if ($listMax > 0 && $benefits->isNotEmpty())
-                                    <ul class="mt-4 space-y-2 text-sm text-slate-700">
-                                        @foreach ($benefits->take($listMax) as $b)
-                                            <li class="flex gap-2" data-membership-benefit>
-                                                <svg class="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M16.7 5.3a1 1 0 010 1.4l-8 8a1 1 0 01-1.4 0l-4-4a1 1 0 111.4-1.4L8 12.6l7.3-7.3a1 1 0 011.4 0z" clip-rule="evenodd"/></svg>
-                                                <span>@if ((int) $b['total_quantity'] > 1)<span class="font-semibold">{{ $b['total_quantity'] }}×</span> @endif{{ $b['name'] }}</span>
-                                            </li>
-                                        @endforeach
-                                        @if ($benefits->count() > $listMax)
-                                            <li class="pl-6 text-xs font-semibold text-slate-500">{{ $t('home.membership.more', ['count' => $benefits->count() - $listMax]) }}</li>
-                                        @endif
-                                    </ul>
-                                @endif
-                                <a href="{{ route('customer.membership.show', $plan) }}"
-                                   class="mt-5 inline-flex min-h-11 items-center justify-center rounded-xl bg-blue-600 px-5 text-sm font-bold text-white shadow-sm transition hover:bg-blue-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 sm:self-start">
-                                    {{ $t('home.membership.button') }}
-                                </a>
-                            </li>
-                        @endforeach
-                    </ul>
+                    <p class="text-xs text-slate-500 sm:text-sm">{{ $t('home.membership.line') }}</p>
                 </div>
             </div>
+
+            <ul @class(['mt-4 flex snap-x snap-mandatory gap-3 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden', '-mx-4 px-4 sm:mx-0 sm:px-0' => $manyPlans])>
+                @foreach ($membershipPlans as $plan)
+                    @php
+                        $card = $presenter->plan($plan);
+                        $benefits = collect($card['entitlements']);
+                        $worth = $benefits->sum(fn ($b) => ($b['advertised_value'] ?? 0) * max(1, (int) ($b['total_quantity'] ?? 1)));
+                    @endphp
+                    <li @class([
+                            'relative flex shrink-0 snap-start flex-col overflow-hidden rounded-2xl bg-gradient-to-br from-slate-900 via-slate-900 to-blue-900 p-4 text-white shadow-md ring-1 ring-amber-300/30',
+                            'w-full sm:w-[24rem]' => ! $manyPlans,
+                            'w-[84%] sm:w-[22rem]' => $manyPlans,
+                        ]) data-membership-plan>
+                        <div aria-hidden="true" class="pointer-events-none absolute -right-10 -top-12 h-32 w-32 rounded-full bg-amber-300/15 blur-2xl"></div>
+
+                        <div class="relative flex items-start justify-between gap-3">
+                            <h3 class="flex min-w-0 items-center gap-2 text-sm font-bold leading-snug">
+                                <span class="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-gradient-to-br from-amber-200 to-amber-400 text-slate-900" aria-hidden="true">
+                                    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="currentColor"><path d="M3 7l4.5 4L12 4l4.5 7L21 7l-2 12H5L3 7z"/></svg>
+                                </span>
+                                <span class="line-clamp-2">{{ $card['name'] }}</span>
+                            </h3>
+                            <p class="shrink-0 text-right leading-none">
+                                <span class="text-xl font-extrabold tracking-tight text-amber-200">{{ $currencySymbol }}{{ number_format($card['price'], fmod($card['price'], 1) ? 2 : 0) }}</span>
+                                <span class="mt-1 block text-[11px] font-medium text-slate-300">/ {{ $card['validity_label'] }}</span>
+                            </p>
+                        </div>
+
+                        @if ($showWorth && $worth > $card['price'])
+                            <p class="relative mt-3 inline-flex self-start rounded-full bg-emerald-400/15 px-2 py-0.5 text-[11px] font-bold text-emerald-300 ring-1 ring-inset ring-emerald-300/30" data-membership-worth>
+                                {{ $t('home.membership.worth', ['amount' => $currencySymbol.number_format($worth, 0)]) }}
+                            </p>
+                        @endif
+
+                        @if ($listMax > 0 && $benefits->isNotEmpty())
+                            <ul class="relative mt-3 space-y-1.5 text-xs text-slate-200">
+                                @foreach ($benefits->take($listMax) as $b)
+                                    <li class="flex items-center gap-1.5" data-membership-benefit>
+                                        <svg class="h-3.5 w-3.5 shrink-0 text-amber-300" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M16.7 5.3a1 1 0 010 1.4l-8 8a1 1 0 01-1.4 0l-4-4a1 1 0 111.4-1.4L8 12.6l7.3-7.3a1 1 0 011.4 0z" clip-rule="evenodd"/></svg>
+                                        <span class="truncate" title="{{ $b['name'] }}">@if ((int) $b['total_quantity'] > 1)<span class="font-semibold text-white">{{ $b['total_quantity'] }}×</span> @endif{{ $b['name'] }}</span>
+                                    </li>
+                                @endforeach
+                                @if ($benefits->count() > $listMax)
+                                    <li class="pl-5 text-[11px] font-semibold text-slate-400">{{ $t('home.membership.more', ['count' => $benefits->count() - $listMax]) }}</li>
+                                @endif
+                            </ul>
+                        @endif
+
+                        <div class="relative mt-auto pt-4">
+                        <a href="{{ route('customer.membership.show', $plan) }}"
+                           class="flex w-full min-h-10 items-center justify-center gap-1 rounded-xl bg-gradient-to-r from-amber-300 to-amber-400 px-4 text-sm font-bold text-slate-900 shadow-sm transition hover:from-amber-200 hover:to-amber-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-300">
+                            {{ $t('home.membership.button') }}
+                            <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M7.3 4.3a1 1 0 011.4 0l5 5a1 1 0 010 1.4l-5 5a1 1 0 01-1.4-1.4L11.6 10 7.3 5.7a1 1 0 010-1.4z" clip-rule="evenodd"/></svg>
+                        </a>
+                        </div>
+                    </li>
+                @endforeach
+            </ul>
         </section>
     @endif
         @break

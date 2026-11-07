@@ -66,6 +66,24 @@ class MembershipPagesTest extends TestCase
         $this->assertStringNotContainsString('data-membership-worth', $html);
     }
 
+    /** Owner 2026-11-07: compact cards; a second plan sits beside Prime Silver, the next one peeking on phones. */
+    public function test_a_second_plan_sits_beside_prime_silver_as_a_compact_card(): void
+    {
+        $silver = $this->seedPrimeSilver();
+        $html = $this->get('/')->assertOk()->getContent();
+        $this->assertSame(1, substr_count($html, 'data-membership-plan'));
+        $this->assertStringContainsString('w-full sm:w-[24rem]', $html, 'one plan: full width on phones, compact on computers');
+
+        $gold = $silver->replicate(['slug', 'name', 'price']);
+        $gold->fill(['slug' => 'prime-gold-test', 'name' => 'Prime Gold', 'price' => 2999])->save();
+
+        $html = $this->get('/')->assertOk()->getContent();
+        $this->assertSame(2, substr_count($html, 'data-membership-plan'));
+        $this->assertSame(2, substr_count($html, 'w-[84%] sm:w-[22rem]'), 'two plans: side by side, the next one peeking on phones');
+        $this->assertLessThan(strpos($html, 'Prime Gold'), strpos($html, $silver->name), 'cheapest first');
+        $this->assertSame(1, substr_count($html, 'id="membership-heading"'));
+    }
+
     public function test_the_homepage_shows_no_membership_section_without_a_live_plan(): void
     {
         $this->get('/')->assertOk()->assertDontSee('data-membership-box', false);
