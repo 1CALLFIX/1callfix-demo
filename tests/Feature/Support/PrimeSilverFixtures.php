@@ -163,10 +163,14 @@ trait PrimeSilverFixtures
         return compact('customer', 'address', 'franchise', 'zone', 'plan', 'subscription', 'catalog');
     }
 
-    /** Places a cash booking through the real CreateBookingAction. */
-    protected function bookService(User $customer, Address $address, Service $service, string $method = 'online'): Booking
+    /**
+     * Places a booking through the real CreateBookingAction. An online one is then marked paid: an unpaid online booking is
+     * only a payment attempt and the customer's next booking replaces it (NO PAYMENT, NO BOOKING, owner 2026-11-07);
+     * pass $paid = false to keep it unpaid.
+     */
+    protected function bookService(User $customer, Address $address, Service $service, string $method = 'online', bool $paid = true): Booking
     {
-        return app(CreateBookingAction::class)->execute([
+        $booking = app(CreateBookingAction::class)->execute([
             'franchise_id' => $address->franchise_id,
             'zone_id' => $address->zone_id,
             'customer_id' => $customer->id,
@@ -174,6 +178,11 @@ trait PrimeSilverFixtures
             'address_id' => $address->id,
             'payment_method' => $method,
         ]);
+        if ($method === 'online' && $paid) {
+            $booking->update(['payment_status' => 'paid']);
+        }
+
+        return $booking;
     }
 
     protected function balanceOf(Subscription $subscription, string $label): \App\Models\EntitlementBalance

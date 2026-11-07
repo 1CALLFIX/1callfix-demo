@@ -104,6 +104,11 @@ class Wizard extends Component
         $this->serviceId = $service->id;
         $this->preselectRequiredGroups();
 
+        // "Book with cash instead" from an unpaid online attempt (NO PAYMENT, NO BOOKING) comes back with cash chosen.
+        if (request()->query('pay') === 'cash') {
+            $this->paymentMethod = 'cash';
+        }
+
         $default = Address::where('user_id', auth()->id())->listed()
             ->whereNotNull('zone_id')
             ->orderByDesc('is_default')
@@ -456,7 +461,8 @@ class Wizard extends Component
             return;
         }
 
-        $this->redirectRoute('customer.orders.show', ['booking' => $booking->id], navigate: true);
+        // An online booking opens straight onto its payment (Razorpay opens by itself: ?pay=1).
+        $this->redirectRoute('customer.orders.show', array_filter(['booking' => $booking->id, 'pay' => $booking->isPaymentAttempt() ? 1 : null]), navigate: true);
     }
 
     /**

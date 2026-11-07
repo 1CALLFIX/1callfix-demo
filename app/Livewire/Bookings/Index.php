@@ -23,6 +23,10 @@ class Index extends Component
     use HasCsvExport;
 
     public string $statusFilter = '';
+
+    /** NO PAYMENT, NO BOOKING (owner 2026-11-07): show unpaid online payment attempts instead of bookings (support calls). */
+    #[\Livewire\Attributes\Url]
+    public bool $attempts = false;
     public string $search = '';
 
     // ====================== Natural-language search ======================
@@ -230,6 +234,8 @@ class Index extends Component
         $scoped = fn ($query) => app(AuthorizationService::class)->scopeQuery($query, auth()->user(), 'bookings.view', $this->bookingScopeColumns());
 
         return $scoped(Booking::with(['customer', 'service', 'provider.user', 'statusHistory' => \App\Support\Turnaround::historyScope()]))
+            // NO PAYMENT, NO BOOKING: unpaid online attempts are listed only under "Payment attempts".
+            ->when($this->attempts, fn ($q) => $q->paymentAttempts(), fn ($q) => $q->booked())
             ->when($this->statusFilter, fn ($q) => $q->where('status', $this->statusFilter))
             ->when($this->search, fn ($q) => $q->where('code', 'like', "%{$this->search}%"))
             // Natural-language search results (Part 2 item 2) -- zone_id and
@@ -269,7 +275,8 @@ class Index extends Component
             ->latest()
             ->paginate(20);
 
-        $statusCounts = $scoped(Booking::query())
+        $attemptCount = $scoped(Booking::query()->paymentAttempts()->where('status', 'pending'))->count();
+        $statusCounts = $scoped(Booking::query()->booked())
             ->selectRaw('status, count(*) as total')
             ->groupBy('status')
             ->pluck('total', 'status');
@@ -277,6 +284,7 @@ class Index extends Component
         return view('livewire.bookings.index', [
             'bookings' => $bookings,
             'statusCounts' => $statusCounts,
+            'attemptCount' => $attemptCount,
             'zones' => Zone::with('franchise')
                 ->where('is_active', true)
                 ->whereHas('franchise.modules', fn ($q) => $q->where('service', true))

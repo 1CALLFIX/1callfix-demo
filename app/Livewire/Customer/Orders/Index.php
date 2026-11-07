@@ -29,7 +29,8 @@ class Index extends Component
 
     public function render()
     {
-        $query = Booking::where('customer_id', auth()->id())
+        // booked(): an unpaid online attempt is not a booking (NO PAYMENT, NO BOOKING, owner 2026-11-07).
+        $query = Booking::where('customer_id', auth()->id())->booked()
             ->with(['service:id,name,category_id', 'service.category:id,name', 'address:id,label', 'provider.user:id,name', 'franchise:id,country_id', 'franchise.country:id,default_timezone'])
             ->latest();
 

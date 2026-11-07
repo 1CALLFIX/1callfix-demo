@@ -33,6 +33,12 @@ class PaymentController extends Controller
             return response()->json(['message' => 'Online payments are currently disabled.'], 422);
         }
 
+        // NO PAYMENT, NO BOOKING (owner 2026-11-07): an attempt that ran out of time or was replaced can never be paid.
+        $expiresAt = \App\Services\Payments\UnpaidAttemptService::expiresAt($booking);
+        if ($booking->status === 'cancelled' || ($expiresAt !== null && $expiresAt->isPast())) {
+            return response()->json(['message' => 'This payment has expired. No booking was made, please book again.'], 409);
+        }
+
         try {
             $order = $gateway->createOrder($booking);
         } catch (\App\Exceptions\PaymentGatewayException $e) {

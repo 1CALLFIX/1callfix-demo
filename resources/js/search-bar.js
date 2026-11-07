@@ -161,7 +161,10 @@ function initSearchBar(root) {
  * browser that can listen. Indian English (en-IN): service names are English, and Indian English recognises them
  * well even with a Telugu accent.
  */
-const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+// Inside the 1CallFix Android apps (Capacitor) the page gets no microphone ("Microphone is blocked", owner 2026-11-07):
+// no mic there until the app ships a native speech plugin. Browsers (Chrome on Android, computers) keep it.
+const inNativeApp = Boolean(window.Capacitor?.isNativePlatform?.());
+const SpeechRecognition = inNativeApp ? null : (window.SpeechRecognition || window.webkitSpeechRecognition);
 if (SpeechRecognition) {
     document.documentElement.classList.add('cf-voice');
 }

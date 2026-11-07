@@ -259,7 +259,20 @@
                 @endif
             </button>
         @endforeach
+        {{-- NO PAYMENT, NO BOOKING (owner 2026-11-07): unpaid online attempts are not bookings; listed here only for support. --}}
+        <button wire:click="$toggle('attempts')" data-testid="payment-attempts-toggle"
+                title="Online payments that were started but not completed. Not bookings: no professional is sent; they end on their own."
+                class="px-3 py-1.5 rounded text-sm {{ $attempts ? 'bg-amber-600 text-white' : 'bg-white border border-amber-300 text-amber-800' }}">
+            {{ $attempts ? '← Back to bookings' : 'Payment attempts (not booked)' }}
+            @unless ($attempts) <span class="opacity-60">({{ $attemptCount }} open)</span> @endunless
+        </button>
     </div>
+    @if ($attempts)
+        <p class="mb-3 rounded border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+            Payment attempts: the customer started an online payment and did not finish it. These are not bookings — no professional
+            was sent. Open ones end by themselves after the time set in Site controls; money that arrives later is refunded automatically.
+        </p>
+    @endif
 
     <input type="text" wire:model.live.debounce.400ms="search" placeholder="Search by booking code..."
            class="w-full max-w-sm border rounded px-3 py-2 text-sm mb-4">

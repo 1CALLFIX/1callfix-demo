@@ -19,6 +19,53 @@
         <x-icon name="arrow-left" class="h-4 w-4" /> All bookings
     </a>
 
+    @if ($attempt)
+        {{-- NO PAYMENT, NO BOOKING (owner 2026-11-07): an online booking that is not paid yet is only a payment step.
+             Nothing here is called a booking, no professional is sent, and it ends by itself when time runs out. --}}
+        <section data-payment-attempt="{{ $attempt }}" class="mx-auto mt-4 max-w-lg rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
+                 @if ($attempt === 'open' && $justPaid) wire:poll.3s @elseif ($attempt === 'open') wire:poll.30s @endif>
+            <p class="text-sm font-semibold text-slate-500">{{ $booking->service?->name ?? 'Service' }}</p>
+            @if ($attempt === 'ended')
+                <h1 class="mt-1 text-xl font-bold text-slate-900">Payment not completed</h1>
+                <p class="mt-2 text-sm text-slate-600">No booking was made and nothing was charged. If money left your account, it is refunded automatically.</p>
+                <a href="{{ $booking->service ? \App\Support\Seo\PublicUrl::service($booking->service) : route('customer.home') }}" wire:navigate
+                   class="mt-4 inline-flex min-h-11 items-center rounded-lg bg-blue-600 px-4 text-sm font-semibold text-white hover:bg-blue-700">Book again</a>
+            @elseif ($justPaid)
+                <h1 class="mt-1 text-xl font-bold text-slate-900">Confirming your payment…</h1>
+                <p class="mt-2 text-sm text-slate-600">Your payment went through. We are confirming it with the bank; your booking appears here in a few seconds. Please don't pay again.</p>
+                <div class="mt-4 h-1.5 overflow-hidden rounded-full bg-slate-100"><div class="h-full w-1/3 animate-pulse rounded-full bg-blue-600"></div></div>
+            @else
+                <h1 class="mt-1 text-xl font-bold text-slate-900">Complete your payment</h1>
+                <p class="mt-2 text-sm text-slate-600">Your booking is made only after the payment. Pay {{ $currencySymbol }}{{ number_format($booking->amountPayable(), 2) }} to confirm.</p>
+                @if ((float) $booking->coupon_discount_amount > 0)
+                    <p class="mt-1 text-sm text-emerald-700">Coupon discount −{{ $currencySymbol }}{{ number_format((float) $booking->coupon_discount_amount, 2) }} · your coupon is kept for you until then.</p>
+                @endif
+                @if ($attemptSecondsLeft !== null)
+                    <p class="mt-1 text-xs text-amber-700" data-hold-seconds="{{ $attemptSecondsLeft }}">Pay within {{ max(1, (int) ceil($attemptSecondsLeft / 60)) }} {{ \Illuminate\Support\Str::plural('minute', max(1, (int) ceil($attemptSecondsLeft / 60))) }}, after that this payment closes.</p>
+                @endif
+                @if ($error)
+                    <p role="alert" class="mt-3 rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-800">{{ $error }}</p>
+                @endif
+                <div class="mt-4 flex flex-col gap-2">
+                    @if ($gatewayConfigured)
+                        <button wire:click="startPayment" wire:loading.attr="disabled" data-testid="attempt-pay"
+                                class="inline-flex min-h-12 items-center justify-center rounded-xl bg-blue-600 px-4 text-base font-semibold text-white hover:bg-blue-700 disabled:opacity-60">
+                            Pay {{ $currencySymbol }}{{ number_format($booking->amountPayable(), 2) }}
+                        </button>
+                    @endif
+                    @if ($cashInstead)
+                        <button wire:click="bookWithCashInstead" data-testid="attempt-cash"
+                                class="inline-flex min-h-11 items-center justify-center rounded-xl border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-800 hover:bg-slate-50">
+                            Book with cash instead (pay the professional after the job)
+                        </button>
+                    @endif
+                    <button wire:click="abandonAttempt" data-testid="attempt-leave"
+                            class="min-h-11 rounded-xl px-4 text-sm text-slate-500 hover:bg-slate-50">Don't book now</button>
+                </div>
+            @endif
+        </section>
+    @else
+
     <div class="mt-3 flex flex-wrap items-start justify-between gap-3">
         <div>
             <h1 class="text-2xl font-bold tracking-tight">{{ $booking->service?->name ?? 'Service' }}</h1>
@@ -412,6 +459,7 @@
             </div>
         </aside>
     </div>
+    @endif {{-- payment attempt / booking --}}
 
     {{-- Razorpay checkout — only wired when the gateway is configured. The
          server already created the pending Payment + order; the webhook
@@ -424,6 +472,10 @@
         @endassets
         @script
         <script>
+            @if ($attempt === 'open' && $payNow && ! $justPaid)
+                // Straight from "Confirm booking": open the payment window without another tap.
+                $wire.startPayment();
+            @endif
             $wire.on('razorpay-open', (e) => {
                 const o = e.order ?? e[0]?.order;
                 if (!o || !window.Razorpay) return;
@@ -435,7 +487,8 @@
                     name: @js(\App\Models\Setting::get('branding.platform_name', '1CallFix')),
                     prefill: @js(\App\Support\RazorpayPrefill::forCurrentUser()),
                     description: 'Booking ' + (e.bookingCode ?? ''),
-                    handler: () => window.location.reload(),
+                    // Paid: wait for the bank's confirmation on "Confirming your payment…" instead of showing Pay again.
+                    handler: () => { const u = new URL(window.location.href); u.searchParams.set('paid', '1'); window.location.href = u.toString(); },
                 }).open();
             });
         </script>

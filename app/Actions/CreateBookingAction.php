@@ -79,6 +79,12 @@ class CreateBookingAction
             throw new \RuntimeException('Scheduled bookings must be paid online or from wallet — cash on delivery is not available for a scheduled booking.');
         }
 
+        // NO PAYMENT, NO BOOKING (owner 2026-11-07): the customer's earlier unpaid online attempts end here, so going
+        // back from the payment window and booking again never leaves two.
+        if (! empty($data['customer_id'])) {
+            app(\App\Services\Payments\UnpaidAttemptService::class)->replaceFor((int) $data['customer_id']);
+        }
+
         $booking = DB::transaction(function () use ($data, $paymentMethod, &$walletPayment) {
             $booking = $this->createWithinTransaction($data);
 
@@ -115,13 +121,17 @@ class CreateBookingAction
             ServiceMatchingJob::dispatch($booking->id);
         }
 
-        if ($booking->customer) {
-            $channels = ChannelResolver::resolve(['zone_id' => $booking->zone_id, 'franchise_id' => $booking->franchise_id]);
-            $booking->customer->notify(new BookingStatusNotification('created', $booking, $channels));
-        }
+        // An unpaid online booking is only a payment attempt: no "booking created" message and no admin alert until
+        // Razorpay captures it (RazorpayWebhookHandler sends both then). NO PAYMENT, NO BOOKING (owner 2026-11-07).
+        if (! $booking->isPaymentAttempt()) {
+            if ($booking->customer) {
+                $channels = ChannelResolver::resolve(['zone_id' => $booking->zone_id, 'franchise_id' => $booking->franchise_id]);
+                $booking->customer->notify(new BookingStatusNotification('created', $booking, $channels));
+            }
 
-        // Phase 2 — real-time operational push to opted-in admins.
-        app(AdminOpsAlertService::class)->bookingCreated($booking);
+            // Phase 2 — real-time operational push to opted-in admins.
+            app(AdminOpsAlertService::class)->bookingCreated($booking);
+        }
 
         // A wallet-paid booking is captured synchronously here, never
         // through RazorpayWebhookHandler — fire the same payment-captured

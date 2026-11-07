@@ -21,7 +21,16 @@ class BookingsNaturalLanguageSearchTest extends TestCase
 {
     use RefreshDatabase;
     use RbacTestHelpers;
-    use BookingFixtureHelpers;
+    use BookingFixtureHelpers { makeBookingScenario as baseBookingScenario; }
+
+    /** Real bookings (cash): an unpaid ONLINE one is only a payment attempt and is not listed (NO PAYMENT, NO BOOKING). */
+    protected function makeBookingScenario(string $status = 'searching_provider'): array
+    {
+        $scenario = $this->baseBookingScenario($status);
+        $scenario['booking']->update(['payment_method' => 'cash']);
+
+        return $scenario;
+    }
 
     private function extraBooking(array $scenario, string $status): Booking
     {
@@ -30,7 +39,7 @@ class BookingsNaturalLanguageSearchTest extends TestCase
             'franchise_id' => $scenario['franchise']->id, 'zone_id' => $scenario['zone']->id,
             'customer_id' => $scenario['customer']->id, 'service_id' => $scenario['service']->id,
             'address_id' => $scenario['address']->id, 'status' => $status,
-            'price_quoted' => 500, 'payment_status' => 'pending', 'payment_method' => 'online',
+            'price_quoted' => 500, 'payment_status' => 'pending', 'payment_method' => 'cash',
         ]);
     }
 

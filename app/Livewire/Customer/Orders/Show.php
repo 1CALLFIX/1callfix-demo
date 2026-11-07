@@ -66,11 +66,74 @@ class Show extends Component
 
     public string $pricingDisputeReason = '';
 
+    /** Set by the Razorpay success handler (?paid=1): the payment went through, the page waits for its confirmation. */
+    #[\Livewire\Attributes\Url(as: 'paid')]
+    public bool $justPaid = false;
+
+    /** ?pay=1 from the booking form: open Razorpay straight away (once). */
+    #[\Livewire\Attributes\Url(as: 'pay')]
+    public bool $payNow = false;
+
     public function mount(Booking $booking): void
     {
         abort_unless($booking->customer_id === auth()->id(), 404);
 
         $this->bookingId = $booking->id;
+    }
+
+    /**
+     * NO PAYMENT, NO BOOKING (owner 2026-11-07): "open" while an online booking waits for its payment, "ended" once it
+     * ran out of time or was replaced, null for a real booking. The page then shows only the payment screen.
+     */
+    private function attemptState(Booking $booking): ?string
+    {
+        if (! $booking->isPaymentAttempt() || $booking->booking_bundle_id !== null) {
+            return null;
+        }
+        if ($booking->status === 'pending' && ($at = \App\Services\Payments\UnpaidAttemptService::expiresAt($booking)) && $at->isPast()) {
+            // Out of time but the sweep has not run yet: end it now, so it can never be paid as a booking.
+            app(\App\Services\Payments\UnpaidAttemptService::class)->endNow($booking, 'Online payment not completed in time — no booking was made.');
+
+            return 'ended';
+        }
+
+        return $booking->status === 'pending' ? 'open' : 'ended';
+    }
+
+    /** Cash is offered instead only where the THUMB RULE allows it: no benefit used, not scheduled, cash on in this area. */
+    private function cashInsteadAllowed(Booking $booking): bool
+    {
+        return $booking->coupon_id === null
+            && (float) ($booking->referral_balance_used ?? 0) <= 0
+            && ! $booking->hasFlashSaleBenefit()
+            && ! $booking->hasMemberDiscountBenefit()
+            && $booking->scheduled_at === null
+            && array_key_exists('cash', Setting::enabledPaymentMethods(array_filter(['zone_id' => $booking->zone_id, 'franchise_id' => $booking->franchise_id])));
+    }
+
+    /** "Book with cash instead": this attempt ends (no booking) and the booking form opens again with cash chosen. */
+    public function bookWithCashInstead()
+    {
+        $booking = $this->booking();
+        if ($this->attemptState($booking) !== 'open' || ! $this->cashInsteadAllowed($booking)) {
+            $this->error = 'Cash is not available for this booking.';
+
+            return null;
+        }
+        app(\App\Services\Payments\UnpaidAttemptService::class)->endNow($booking, 'Customer chose to book with cash instead — no booking was made from this payment attempt.');
+
+        return $this->redirectRoute('customer.book', ['service' => $booking->service_id, 'pay' => 'cash']);
+    }
+
+    /** "Don't book": the attempt ends; nothing was booked and nothing is charged. */
+    public function abandonAttempt()
+    {
+        $booking = $this->booking();
+        if ($this->attemptState($booking) === 'open') {
+            app(\App\Services\Payments\UnpaidAttemptService::class)->endNow($booking, 'Customer left the payment — no booking was made.');
+        }
+
+        return $this->redirectRoute('customer.orders.index');
     }
 
     /**
@@ -273,10 +336,18 @@ class Show extends Component
     public function startPayment(PaymentGateway $gateway): void
     {
         $this->reset('error', 'notice');
+        $this->payNow = false;
         $booking = $this->booking();
 
         if ($booking->payment_status === 'paid') {
             $this->notice = 'This booking is already paid.';
+
+            return;
+        }
+
+        // An ended payment attempt can never be paid as a booking (NO PAYMENT, NO BOOKING).
+        if ($booking->isPaymentAttempt() && $this->attemptState($booking) !== 'open') {
+            $this->error = 'This payment has expired. No booking was made, please book again.';
 
             return;
         }
@@ -358,8 +429,17 @@ class Show extends Component
 
         $cancelQuote = app(CustomerCancelBookingAction::class)->quote($booking);
 
+        $attempt = $this->attemptState($booking);
+        if ($attempt === 'ended') {
+            $booking = $this->booking();
+        }
+
         return view('livewire.customer.orders.show', [
             'booking' => $booking,
+            // NO PAYMENT, NO BOOKING (owner 2026-11-07)
+            'attempt' => $attempt,
+            'attemptSecondsLeft' => $attempt === 'open' && ($at = \App\Services\Payments\UnpaidAttemptService::expiresAt($booking)) ? max(0, (int) ceil(now()->diffInSeconds($at, false))) : null,
+            'cashInstead' => $attempt === 'open' && $this->cashInsteadAllowed($booking),
             // REF 1CF-CANCEL-POLICY-001
             'cancelQuote' => $cancelQuote,
             'policyLines' => app(\App\Services\Cancellation\CancellationPolicy::class)->policyLines($booking),

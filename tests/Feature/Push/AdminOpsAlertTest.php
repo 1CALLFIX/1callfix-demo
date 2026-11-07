@@ -100,7 +100,9 @@ class AdminOpsAlertTest extends TestCase
             'customer_id' => $customer->id,
             'service_id' => $service->id,
             'address_id' => $address->id,
-            'payment_method' => 'online',
+            // Cash: a booking at once. An unpaid ONLINE booking is only a payment attempt and alerts on capture instead
+            // (NO PAYMENT, NO BOOKING, owner 2026-11-07 — NoPaymentNoBookingTest).
+            'payment_method' => 'cash',
         ]);
 
         Notification::assertSentTo($optedIn, AdminOpsAlertNotification::class);

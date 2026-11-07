@@ -84,9 +84,10 @@ class JourneyScreensTest extends TestCase
         $this->actingAs($s['customer']);
 
         Livewire::test(CustomerOrderShow::class, ['booking' => $s['booking']])
-            ->assertSee('Booked')
-            ->assertSee('as soon as your payment is confirmed')
-            ->assertSee('Payment pending');
+            // NO PAYMENT, NO BOOKING (owner 2026-11-07): an unpaid online booking is a payment step, not "Booked".
+            ->assertSee('Complete your payment')
+            ->assertSee('Your booking is made only after the payment')
+            ->assertDontSee('Finding you a professional');
     }
 
     public function test_customer_sees_the_spares_hold_while_it_lasts(): void

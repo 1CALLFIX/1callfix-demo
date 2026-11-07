@@ -96,6 +96,12 @@ ScheduleRunTracker::track(Schedule::command('coupons:sweep-unpaid'), 'coupons:sw
     ->everyMinute()
     ->withoutOverlapping(10);
 
+// NO PAYMENT, NO BOOKING (owner 2026-11-07) — an unpaid online service booking is only a payment attempt; it ends
+// quietly after payments.unpaid_attempt_minutes (default 15). A payment arriving later is refunded by the webhook.
+ScheduleRunTracker::track(Schedule::command('bookings:expire-unpaid-attempts'), 'bookings:expire-unpaid-attempts')
+    ->everyMinute()
+    ->withoutOverlapping(10);
+
 // E-commerce Phase 0 — cancels online shop orders not paid within marketplace.unpaid_expiry_minutes
 // (default 30; stock goes back), and pays sellers once the return window has passed.
 ScheduleRunTracker::track(Schedule::command('marketplace:expire-unpaid'), 'marketplace:expire-unpaid')

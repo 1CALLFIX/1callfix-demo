@@ -46,7 +46,7 @@ class AdminCancelBookingAction
      *        refundIfPaid()'s own param of the same name; see its docblock.
      *        Passed true only by DispatchDeadlineSweepService.
      */
-    public function execute(int $bookingId, string $reason, bool $reconcileBundle = true, ?string $customerNotificationEvent = null, bool $creditToMainWallet = false, bool $waiveFee = false, ?callable $feeResolver = null, string $cancelledByRole = 'admin'): Booking
+    public function execute(int $bookingId, string $reason, bool $reconcileBundle = true, ?string $customerNotificationEvent = null, bool $creditToMainWallet = false, bool $waiveFee = false, ?callable $feeResolver = null, string $cancelledByRole = 'admin', bool $notifyCustomer = true): Booking
     {
         $statusBeforeCancel = null;
 
@@ -114,7 +114,8 @@ class AdminCancelBookingAction
             $this->entitlementService->reverseForCancelledBooking($booking);
         }
 
-        if ($booking->customer) {
+        // $notifyCustomer false: an unpaid online attempt ending (UnpaidAttemptService) — for the customer there never was a booking.
+        if ($notifyCustomer && $booking->customer) {
             $channels = ChannelResolver::resolve(['zone_id' => $booking->zone_id, 'franchise_id' => $booking->franchise_id]);
             $booking->customer->notify(new BookingStatusNotification($customerNotificationEvent ?? 'cancelled', $booking, $channels));
         }

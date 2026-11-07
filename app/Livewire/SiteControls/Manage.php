@@ -74,6 +74,8 @@ class Manage extends Component
     public bool $headerPartnerButton = true;
 
     public bool $voiceSearch = true;
+
+    public string $unpaidAttemptMinutes = '15';
     public string $headerPartnerLabel = '';
 
     public string $flashMessage = '';
@@ -123,6 +125,7 @@ class Manage extends Component
         $this->reviewRedHours = (string) S::reviewRedHours();
         $this->headerPartnerButton = S::headerPartnerButton();
         $this->voiceSearch = S::voiceSearch();
+        $this->unpaidAttemptMinutes = (string) \App\Services\Payments\UnpaidAttemptService::minutes();
         $this->headerPartnerLabel = S::headerPartnerLabel();
     }
 
@@ -158,6 +161,7 @@ class Manage extends Component
             'windowMinutes' => ['required', 'integer', 'between:1,1440'],
             'reviewAmberHours' => ['required', 'integer', 'between:1,720'],
             'reviewRedHours' => ['required', 'integer', 'between:1,720', 'gte:reviewAmberHours'],
+            'unpaidAttemptMinutes' => ['required', 'integer', 'between:5,120'],
             'headerPartnerLabel' => ['required', 'string', 'max:30'],
             'moduleColours.*' => ['required', 'regex:/^#[0-9a-fA-F]{6}$/'],
             'membershipBenefits' => ['required', 'integer', 'between:0,10'],
@@ -214,6 +218,7 @@ class Manage extends Component
             S::REVIEW_RED_HOURS => (string) (int) $this->reviewRedHours,
             S::HEADER_PARTNER_BUTTON => $bool($this->headerPartnerButton),
             S::VOICE_SEARCH => $bool($this->voiceSearch),
+            \App\Services\Payments\UnpaidAttemptService::MINUTES => (string) (int) $this->unpaidAttemptMinutes,
             S::HEADER_PARTNER_LABEL => trim($this->headerPartnerLabel),
             \App\Support\HomeLayout::MEMBERSHIP_BENEFITS => (string) (int) $this->membershipBenefits,
             \App\Support\HomeLayout::MEMBERSHIP_SHOW_WORTH => $bool($this->membershipShowWorth),

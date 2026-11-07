@@ -122,7 +122,8 @@ class Dashboard extends Component
     {
         $columns = ['zone_id' => 'zone_id', 'franchise_id' => 'franchise_id', 'city_id' => 'franchise.city_id', 'country_id' => 'franchise.country_id'];
 
-        return app(AuthorizationService::class)->scopeQuery(Booking::query(), auth()->user(), 'dashboard.view', $columns);
+        // booked(): unpaid online attempts are not bookings and are not counted (NO PAYMENT, NO BOOKING, owner 2026-11-07).
+        return app(AuthorizationService::class)->scopeQuery(Booking::query()->booked(), auth()->user(), 'dashboard.view', $columns);
     }
 
     private function scopedProviders()

@@ -236,8 +236,9 @@ class RazorpayWebhookHandler
             // this app already follows (AcceptBookingAction,
             // AdminCancelBookingAction, ServiceMatchingJob, ...).
             $bookingWasAlreadyCancelled = false;
+            $becameBooking = false; // it was a payment attempt until this capture (NO PAYMENT, NO BOOKING)
 
-            DB::transaction(function () use ($booking, &$bookingWasAlreadyCancelled) {
+            DB::transaction(function () use ($booking, &$bookingWasAlreadyCancelled, &$becameBooking) {
                 $locked = Booking::whereKey($booking->id)->lockForUpdate()->first();
 
                 if (! $locked) {
@@ -250,6 +251,7 @@ class RazorpayWebhookHandler
                     return;
                 }
 
+                $becameBooking = $locked->isPaymentAttempt();
                 $locked->payment_status = 'paid';
                 $locked->save();
             });
@@ -268,6 +270,14 @@ class RazorpayWebhookHandler
                 // if reached more than once.
                 app(CancellationService::class)->refundIfPaid($booking->fresh(), (float) $booking->cancellation_fee);
             } else {
+                // The payment made it a booking: the "booking created" message and admin alert held back at creation go now.
+                if ($becameBooking) {
+                    if ($booking->customer) {
+                        $channels = ChannelResolver::resolve(['zone_id' => $booking->zone_id, 'franchise_id' => $booking->franchise_id]);
+                        $booking->customer->notify(new \App\Notifications\BookingStatusNotification('created', $booking->fresh(), $channels));
+                    }
+                    app(\App\Services\AdminOpsAlertService::class)->bookingCreated($booking->fresh());
+                }
                 if ($booking->customer) {
                     $channels = ChannelResolver::resolve(['zone_id' => $booking->zone_id, 'franchise_id' => $booking->franchise_id]);
                     $booking->customer->notify(new PaymentStatusNotification('completed', $booking, $channels));

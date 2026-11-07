@@ -53,6 +53,7 @@ class VoiceSearchTest extends TestCase
         $js = file_get_contents(resource_path('js/search-bar.js'));
         $this->assertStringContainsString('window.SpeechRecognition || window.webkitSpeechRecognition', $js);
         $this->assertStringContainsString("classList.add('cf-voice')", $js);
+        $this->assertStringContainsString('inNativeApp ? null', $js, 'no mic inside the Android apps (no microphone access there)');
         $this->assertStringContainsString("rec.lang = 'en-IN'", $js);
         $this->assertStringContainsString("new Event('input', { bubbles: true })", $js, 'spoken words behave like typing');
     }

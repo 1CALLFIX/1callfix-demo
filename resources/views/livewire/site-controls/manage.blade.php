@@ -298,6 +298,20 @@
         </x-ui.card>
 
         <x-ui.card>
+            <h2 class="text-sm font-semibold mb-3">Online payment: time to pay</h2>
+            <div class="max-w-xs">
+                <label class="block text-sm font-medium mb-1" for="sc-unpaid">Minutes a customer has to finish an online payment</label>
+                <input id="sc-unpaid" type="number" min="5" max="120" wire:model="unpaidAttemptMinutes" class="{{ $input }}">
+                @error('unpaidAttemptMinutes') <p class="text-xs text-red-600 mt-1">{{ $message }}</p> @enderror
+            </div>
+            <p class="text-xs text-gray-500 mt-3">
+                No payment, no booking: an online service booking becomes a booking only when the payment arrives. Until then nobody sees it
+                as a booking and no professional is sent. If it is not paid in these minutes it ends quietly (the customer can book again);
+                money that still arrives later is refunded automatically. Admin → Bookings → "Payment attempts" lists them for support calls.
+            </p>
+        </x-ui.card>
+
+        <x-ui.card>
             <h2 class="text-sm font-semibold mb-3">Voice search</h2>
             <label class="flex items-center gap-2 text-sm">
                 <input type="checkbox" wire:model="voiceSearch"> Show a 🎤 mic button in the website search box

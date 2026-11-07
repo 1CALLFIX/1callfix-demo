@@ -94,6 +94,15 @@ class CouponEngineTest extends TestCase
         ], $extra));
     }
 
+    /** A booking the customer has paid (an unpaid online one is only a payment attempt and is replaced by the next — NO PAYMENT, NO BOOKING). */
+    private function bookPaid(array $w, array $extra = []): Booking
+    {
+        $booking = $this->book($w, $extra);
+        $booking->update(['payment_status' => 'paid']);
+
+        return $booking;
+    }
+
     private function fundWallet(User $user, float $amount): void
     {
         app(WalletService::class)->credit($user, $amount, 'test top-up', 'test:'.Str::random(8));
@@ -286,7 +295,7 @@ class CouponEngineTest extends TestCase
         $w = $this->world();
         $this->coupon(['usage_limit' => 1, 'per_user_limit' => 1]);
 
-        $this->book($w, ['coupon_code' => 'SAVE100']);
+        $this->bookPaid($w, ['coupon_code' => 'SAVE100']);
 
         // Same customer again.
         try {
@@ -327,7 +336,7 @@ class CouponEngineTest extends TestCase
         $w = $this->world();
         $coupon = $this->coupon(['total_budget' => 150, 'per_user_limit' => 5, 'value' => 100]);
 
-        $this->book($w, ['coupon_code' => 'SAVE100']);          // 100 reserved
+        $this->bookPaid($w, ['coupon_code' => 'SAVE100']);          // 100 reserved
         try {
             $this->book($w, ['coupon_code' => 'SAVE100']);      // 200 > 150
             $this->fail('budget');
@@ -373,7 +382,7 @@ class CouponEngineTest extends TestCase
         $coupon = $this->coupon(['per_user_limit' => 5]);
         CouponTarget::create(['coupon_id' => $coupon->id, 'target_type' => 'customer_type', 'operator' => 'include', 'params' => ['type' => 'new']]);
 
-        $this->assertNotNull($this->book($w, ['coupon_code' => 'SAVE100'])->coupon_id, 'brand new customer qualifies');
+        $this->assertNotNull($this->bookPaid($w, ['coupon_code' => 'SAVE100'])->coupon_id, 'brand new customer qualifies');
 
         $this->expectException(CouponException::class); // now has a booking => no longer new
         $this->book($w, ['coupon_code' => 'SAVE100']);

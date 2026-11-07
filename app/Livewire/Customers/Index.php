@@ -74,7 +74,7 @@ class Index extends Component
 
     protected function archiveWarning(Model $row): ?string
     {
-        $open = $row->bookings()->whereNotIn('status', ['completed', 'cancelled'])->count();
+        $open = $row->bookings()->booked()->whereNotIn('status', ['completed', 'cancelled'])->count();
         $balance = app(WalletService::class)->balance($row);
         $notes = [];
         if ($open > 0) {

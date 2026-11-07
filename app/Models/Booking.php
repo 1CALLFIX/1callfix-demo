@@ -56,6 +56,35 @@ class Booking extends Model implements Orderable
      * from the referral balance (owner decision 2026-10-17) is subtracted
      * the same way, so Razorpay collects only the rest.
      */
+    /**
+     * Owner rule 2026-11-07 — NO PAYMENT, NO BOOKING. An online booking whose payment has not arrived is only a
+     * payment attempt: the customer, admin lists, counts and alerts never see it as a booking, nothing is sent to a
+     * professional, and it expires unpaid (UnpaidAttemptSweep). Razorpay's capture turns it into the booking.
+     * (Status 'pending' = not yet paid; 'cancelled' = an attempt that expired or was replaced.)
+     */
+    public function isPaymentAttempt(): bool
+    {
+        // A booking just created has no payment_status loaded yet: the column's default is 'pending'.
+        return $this->payment_method === 'online'
+            && ($this->payment_status ?? 'pending') === 'pending'
+            && in_array($this->status ?? 'pending', ['pending', 'cancelled'], true);
+    }
+
+    /** Real bookings only: every list, count and report a person reads. */
+    public function scopeBooked($query)
+    {
+        return $query->where(fn ($q) => $q->where('payment_method', '!=', 'online')
+            ->orWhereNull('payment_method')
+            ->orWhere('payment_status', '!=', 'pending')
+            ->orWhereNotIn('status', ['pending', 'cancelled']));
+    }
+
+    /** Payment attempts only (Admin → Bookings → "Payment attempts (not booked)"). */
+    public function scopePaymentAttempts($query)
+    {
+        return $query->where('payment_method', 'online')->where('payment_status', 'pending')->whereIn('status', ['pending', 'cancelled']);
+    }
+
     public function amountPayable(): float
     {
         return round(max((float) $this->price_quoted - (float) ($this->coupon_discount_amount ?? 0) - (float) ($this->referral_balance_used ?? 0), 0), 2);

@@ -71,9 +71,10 @@ class CouponUnpaidHoldTest extends TestCase
 
         $this->assertSame('reserved', CouponUsage::firstOrFail()->status);
         $this->page($w, $booking)
-            ->assertSee('Complete payment within')
-            ->assertSee('your coupon is released')
-            ->assertSeeHtml('data-hold-seconds="1800"')
+            // NO PAYMENT, NO BOOKING (owner 2026-11-07): one clock, Site controls "time to pay" (default 15 min).
+            ->assertSee('Complete your payment')
+            ->assertSee('your coupon is kept for you')
+            ->assertSeeHtml('data-hold-seconds="900"')
             ->assertSee('Coupon discount')->assertSee('₹400.00');
     }
 
@@ -84,9 +85,9 @@ class CouponUnpaidHoldTest extends TestCase
         $booking = $this->book($w);
 
         $this->travel(10)->minutes();
-        $this->page($w, $booking)->assertSeeHtml('data-hold-seconds="1200"');
+        $this->page($w, $booking)->assertSeeHtml('data-hold-seconds="300"');
 
-        Setting::set('coupons.unpaid_hold_minutes', '45');
+        Setting::set(\App\Services\Payments\UnpaidAttemptService::MINUTES, '45');
         $this->page($w, $booking)->assertSeeHtml('data-hold-seconds="2100"');
     }
 
@@ -151,8 +152,8 @@ class CouponUnpaidHoldTest extends TestCase
         ]);
 
         $this->page($w, $booking)
-            ->assertSee('Complete payment within')
-            ->assertDontSee('your coupon is released')
-            ->assertSee('We start finding a professional as soon as your payment is received');
+            ->assertSee('Complete your payment')
+            ->assertDontSee('your coupon is kept')
+            ->assertSee('Your booking is made only after the payment');
     }
 }
