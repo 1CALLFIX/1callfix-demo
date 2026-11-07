@@ -26,22 +26,23 @@ class CmsRootPagesTest extends TestCase
 
     public function test_an_active_cms_page_is_served_at_the_site_root_with_its_search_description(): void
     {
-        $this->page('franchise', ['title' => 'Franchise', 'meta_description' => 'Own a 1CallFix franchise in your city.']);
+        // 2026-11-07: /franchise is now a built-in page, so the sample CMS page is "investors".
+        $this->page('investors', ['title' => 'Investors', 'meta_description' => 'Own a 1CallFix franchise in your city.']);
 
-        $this->get('/franchise')
+        $this->get('/investors')
             ->assertOk()
-            ->assertSeeText('Body of franchise.')
+            ->assertSeeText('Body of investors.')
             ->assertSee('<meta name="description" content="Own a 1CallFix franchise in your city.">', false);
     }
 
     public function test_inactive_unknown_and_nested_addresses_are_404(): void
     {
         $this->page('draft-page', ['is_active' => false]);
-        $this->page('franchise');
+        $this->page('investors');
 
         $this->get('/draft-page')->assertNotFound();
         $this->get('/no-such-page')->assertNotFound();
-        $this->get('/franchise/extra')->assertNotFound();
+        $this->get('/investors/extra')->assertNotFound();
     }
 
     public function test_a_cms_page_can_never_shadow_a_real_route(): void

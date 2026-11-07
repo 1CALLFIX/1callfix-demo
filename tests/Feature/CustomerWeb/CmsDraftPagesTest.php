@@ -21,6 +21,11 @@ class CmsDraftPagesTest extends TestCase
             $this->assertNotNull($page, "{$slug} draft is missing");
             $this->assertFalse($page->is_active);
             $this->assertTrue($page->show_in_footer);
+            if ($slug === 'contact') {
+                // 2026-11-07: /contact is the built-in Contact page (Admin → Contact page); the old draft is unused.
+                $this->get('/contact')->assertOk()->assertSee('data-contact-soon', false);
+                continue;
+            }
             $this->get('/'.$slug)->assertNotFound();
         }
     }
