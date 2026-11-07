@@ -153,6 +153,9 @@ class AdminNav
                     ['label' => 'Website text & language', 'route' => 'admin.site-text', 'icon' => 'document-text', 'permission' => 'site_controls.manage'],
                     ['label' => 'Search Box', 'route' => 'admin.search-box.index', 'icon' => 'magnifying-glass', 'permission' => 'banners.manage'],
                     ['label' => 'Partner page', 'route' => 'admin.partner-page.settings', 'icon' => 'users', 'permission' => 'partner_page.manage'],
+                    // super_admin only (permission never seeded to a role; each screen also checks the role itself).
+                    ['label' => 'Franchise page', 'route' => 'admin.franchise-page', 'icon' => 'building', 'permission' => 'franchise_page.manage'],
+                    ['label' => 'Contact page', 'route' => 'admin.contact-page', 'icon' => 'phone', 'permission' => 'contact_page.manage'],
                     ['label' => 'Website / CMS', 'route' => 'admin.cms.index', 'icon' => 'document', 'permission' => 'cms.manage'],
                     ['label' => 'Search & Social', 'route' => 'admin.seo.settings', 'icon' => 'magnifying-glass', 'permission' => 'seo.manage_global'],
                     ['label' => 'City Page Content', 'route' => 'admin.seo.city-content', 'icon' => 'map', 'permission' => 'seo.edit_city_content'],

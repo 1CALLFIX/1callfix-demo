@@ -79,6 +79,20 @@ final class FooterLinks
             $columns['Company'][] = ['label' => $page->title, 'href' => url('/'.$page->slug)];
         }
 
+        // Owner 2026-11-07: Contact and Franchise pages, added wherever the groups came from (unless already there), and
+        // only while the Super Admin has the page switched on.
+        $have = collect($columns)->flatten(1)->pluck('href')->all();
+        try {
+            if (\App\Livewire\InfoPages\ContactSettings::pageEnabled() && ! in_array(route('customer.contact'), $have, true)) {
+                $columns['Company'][] = ['label' => 'Contact us', 'href' => route('customer.contact')];
+            }
+            if (\App\Support\InfoPages\FranchisePage::enabled() && ! in_array(route('customer.franchise'), $have, true)) {
+                $columns['For professionals'][] = ['label' => 'Franchise', 'href' => route('customer.franchise')];
+            }
+        } catch (\Throwable) {
+            // the settings store is down: the footer still renders the rest
+        }
+
         return $columns;
     }
 

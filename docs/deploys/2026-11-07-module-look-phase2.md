@@ -1,4 +1,4 @@
-# Release 2026-11-07 — New look, Phase 2 + short footer on phones
+# Release 2026-11-07 — New look, Phase 2 + short footer on phones + Contact and Franchise pages
 
 Use with `docs/DEPLOY_RUNBOOK.md`.
 
@@ -9,7 +9,7 @@ Use with `docs/DEPLOY_RUNBOOK.md`.
 | Full test suite | see the chore commit after this one |
 | Composer | no |
 | Front-end build (steps 6–7) | yes (new `cf-card` style) |
-| Version | `VERSION` 2026.11.07.3 |
+| Version | `VERSION` 2026.11.07.4 |
 
 ## What's in it
 - **Trust strip on every service page**, under the name, in the page's colour: Verified professionals (ID and
@@ -29,6 +29,21 @@ Use with `docs/DEPLOY_RUNBOOK.md`.
   join" (was "About membership"). Super Admin controls: Homepage & sign-up → Membership box (benefits to list,
   0–10, default 4; worth chip on/off); words in Website text → Homepage; on/off and position in Homepage sections.
 
+- **Contact page** `/contact` (`/contact-us` 301s there): Call, WhatsApp, Email, hours, office address + map,
+  grievance officer (from Shop Settings), help / bookings / partner boxes, social links. Details: Admin → Website &
+  Pages → **Contact page** (Super Admin only, all blank at first: the page says "listed here soon" until filled).
+  Words: Website text → "Contact page" (en + te).
+- **Franchise page** `/franchise` (`/franchise-enquiry` 301s there): hero, live numbers from the app (services,
+  businesses live, approved partners; test logins never counted; a 0 is hidden), why tiles, what you get, how you
+  earn, investment box, who we look for, 5 steps, cities, partner stories, FAQ (Google FAQ markup), closing band,
+  small print. Every word, list, picture and switch: Admin → Website & Pages → **Franchise page**, Super Admin only
+  (checked against the role, not a grantable permission), audit-logged, [ ] placeholders refused. Investment figures,
+  cities and partner stories ship EMPTY (hidden) — fill them only with real, agreed facts.
+- **Applying = the one /partners form** (owner rule): new "Franchise owner" card ("Taking applications"); the
+  lead is saved as `new` in Admin → Partner leads (role "Franchise owner") for HQ to call; no sign-up hand-off.
+- Footer: "Contact us" under Company, "Franchise" under For professionals (also added to a saved custom footer);
+  both in the sitemap; both hidden everywhere when switched off.
+
 ## Step 5 — migrations that must be pending
 - none
 
@@ -40,5 +55,7 @@ Use with `docs/DEPLOY_RUNBOOK.md`.
 - Homepage at phone width: footer has no link columns; ☰ menu ends with "More" (How It Works, Help & FAQs, …).
 - Desktop: footer columns still there; ☰ menu has no "More".
 - Homepage: membership box shows the plan's benefits and "See all benefits & join".
+- /franchise (phone + desktop): hero, numbers strip, Apply → /partners with "Franchise owner" picked.
+- /contact: "listed here soon" until the owner fills Admin → Contact page.
 - Account → Saved with a service and a product saved: tabs, and tapping Services shows only the service.
 - Tail of storage/logs/laravel.log: no new errors.

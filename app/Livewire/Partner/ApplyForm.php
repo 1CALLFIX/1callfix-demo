@@ -157,7 +157,7 @@ class ApplyForm extends Component
                 'city' => $cityName,
                 'role' => $this->role,
                 // Set here from the registry; never from the browser.
-                'status' => $card['hands_off'] ? PartnerLead::STATUS_HANDED_OFF : PartnerLead::STATUS_WAITLIST,
+                'status' => $card['hands_off'] ? PartnerLead::STATUS_HANDED_OFF : (($card['enquiry'] ?? false) ? PartnerLead::STATUS_NEW : PartnerLead::STATUS_WAITLIST),
                 'consent_text' => P::text('form.consent_text'),
                 'acquisition' => AcquisitionContext::current(),
                 'source' => 'partner_page',
@@ -183,7 +183,7 @@ class ApplyForm extends Component
             return;
         }
 
-        $this->outcome = 'waitlist';
+        $this->outcome = ($card['enquiry'] ?? false) ? 'enquiry' : 'waitlist';
     }
 
     /** This browser already handed this mobile + role's lead off (it is in the session) — a revisit, not a new try. */
@@ -236,8 +236,9 @@ class ApplyForm extends Component
             'roles' => PartnerPageData::roles(),
             'consentText' => P::text('form.consent_text'),
             'waitlistNote' => P::text('form.waitlist_note'),
-            'doneTitle' => P::text('form.done_title'),
-            'doneBody' => P::text('form.done_body'),
+            // A franchise application has its own thank-you words (Admin → Franchise page).
+            'doneTitle' => $this->outcome === 'enquiry' ? \App\Support\InfoPages\FranchisePage::get('apply_done_title') : P::text('form.done_title'),
+            'doneBody' => $this->outcome === 'enquiry' ? \App\Support\InfoPages\FranchisePage::get('apply_done_body') : P::text('form.done_body'),
         ]);
     }
 }

@@ -32,7 +32,7 @@
                 @error('role') <p class="msg">{{ $message }}</p> @enderror
             </fieldset>
 
-            @if ($current && ! $current['live'] && ! $current['hands_off'])
+            @if ($current && ! $current['live'] && ! $current['hands_off'] && ! ($current['enquiry'] ?? false))
                 <div class="waitnote" id="waitNote">{{ $waitlistNote }}</div>
             @endif
 
@@ -84,7 +84,7 @@
             @if ($error) <p role="alert" class="msg">{{ $error }}</p> @endif
 
             <button type="submit" wire:loading.attr="disabled" class="btn btn-accent submit">
-                {{ ($current['hands_off'] ?? false) ? 'Continue to sign-up' : 'Join the waitlist' }} {!! $arrow !!}
+                {{ ($current['hands_off'] ?? false) ? 'Continue to sign-up' : (($current['enquiry'] ?? false) ? 'Send application' : 'Join the waitlist') }} {!! $arrow !!}
             </button>
         </form>
     @endif

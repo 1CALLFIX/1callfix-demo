@@ -122,6 +122,26 @@ class PageController extends Controller
         return view('customer.help', ['faqGroups' => $faqs]);
     }
 
+    /** Contact page (owner 2026-11-07): details from Admin → Contact page, words from Website text. */
+    public function contact(): View
+    {
+        abort_unless(\App\Livewire\InfoPages\ContactSettings::pageEnabled(), 404);
+
+        return view('customer.contact');
+    }
+
+    /** Franchise page (owner 2026-11-07): everything from Admin → Franchise page (Super Admin only). */
+    public function franchise(): View
+    {
+        abort_unless(\App\Support\InfoPages\FranchisePage::enabled(), 404);
+
+        return view('customer.franchise', [
+            'p' => \App\Support\InfoPages\FranchisePage::content(),
+            'liveStats' => \App\Support\InfoPages\FranchisePage::liveStats(),
+            'heroUrl' => \App\Livewire\InfoPages\FranchiseSettings::heroImageUrl(),
+        ]);
+    }
+
     public function howItWorks(): View
     {
         return view('customer.how-it-works');

@@ -49,7 +49,7 @@ class PartnerLandingPageTest extends TestCase
         foreach (['Service professional', 'Delivery rider', 'Restaurant partner', 'Grocery store', 'Pharmacy', 'Cab driver', 'Hotel or stay host', 'Property or rental owner', 'Seller or shop'] as $label) {
             $this->assertStringContainsString($label, $html);
         }
-        $this->assertSame(9, substr_count($html, 'data-role="'));
+        $this->assertSame(10, substr_count($html, 'data-role="'), 'nine module cards + the franchise owner card (2026-11-07)');
         $this->assertSame(1, substr_count($html, '>Live<'));
         $this->assertSame(8, substr_count($html, '>Opening soon<'));
     }

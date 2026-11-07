@@ -94,6 +94,13 @@ class SitemapController extends Controller
         $add($this->abs(route('customer.how-it-works', [], false)), null, '0.5');
         $add($this->abs(route('customer.help', [], false)), null, '0.5');
         $add($this->abs(route('customer.partners', [], false)), null, '0.5');
+        // Owner 2026-11-07: listed only while switched on (a page that 404s never goes into the sitemap).
+        if (\App\Livewire\InfoPages\ContactSettings::pageEnabled()) {
+            $add($this->abs(route('customer.contact', [], false)), null, '0.4');
+        }
+        if (\App\Support\InfoPages\FranchisePage::enabled()) {
+            $add($this->abs(route('customer.franchise', [], false)), null, '0.6');
+        }
 
         $pages = ContentPage::query()->where('is_active', true)->get(['slug', 'updated_at']);
         $hasPrivacy = $pages->contains(fn ($p) => in_array($p->slug, ['privacy', 'privacy-policy'], true));

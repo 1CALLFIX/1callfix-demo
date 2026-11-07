@@ -25,7 +25,7 @@ class PartnerPageDefaultsFillTest extends TestCase
     {
         $this->assertStringContainsString('Your skills.', $html, 'hero title');
         $this->assertStringContainsString('One page for every role.', $html, 'hero subtitle');
-        $this->assertSame(9, substr_count($html, 'data-role="'), 'nine role cards');
+        $this->assertSame(10, substr_count($html, 'data-role="'), 'nine module cards + the franchise owner card');
         foreach (P::defaultSteps() as $step) {
             $this->assertStringContainsString($step['title'], $html, 'step: '.$step['title']);
         }

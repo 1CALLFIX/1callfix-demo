@@ -45,6 +45,22 @@ final class PartnerPageData
                 'hands_off' => ($code === 'service' && $live) || ($code === 'parcel' && app(\App\Services\Parcel\ParcelReadiness::class)->recruitingRiders())
                     || ($code === 'commerce' && \App\Support\MarketplaceSettings::recruitingSellers())
                     || ($code === 'food' && \App\Support\FoodSettings::recruitingRestaurants()),
+                'enquiry' => false,
+            ];
+        }
+
+        // Owner 2026-11-07: franchise owners apply through this same form (one way in for every partner). Not a module:
+        // the lead is kept as "new" for the HQ team to call; there is no sign-up hand-off. Card and words: Admin → Franchise page.
+        if (\App\Support\InfoPages\FranchisePage::accepting()) {
+            $f = \App\Support\InfoPages\FranchisePage::content();
+            $cards[] = [
+                'code' => \App\Support\InfoPages\FranchisePage::ROLE,
+                'label' => $f['card_label'] ?: 'Franchise owner',
+                'blurb' => $f['card_blurb'],
+                'module' => '',
+                'live' => false,
+                'hands_off' => false,
+                'enquiry' => true,
             ];
         }
 

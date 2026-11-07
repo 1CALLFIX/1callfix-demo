@@ -54,7 +54,7 @@ class Leads extends Component
     {
         return PartnerLead::query()
             ->when(in_array($this->statusFilter, PartnerLead::STATUSES, true), fn ($q) => $q->where('status', $this->statusFilter))
-            ->when(in_array($this->roleFilter, Modules::slugs(), true), fn ($q) => $q->where('role', $this->roleFilter))
+            ->when(in_array($this->roleFilter, array_keys(self::roleNames()), true), fn ($q) => $q->where('role', $this->roleFilter))
             ->orderByDesc('id');
     }
 
@@ -112,12 +112,18 @@ class Leads extends Component
         );
     }
 
+    /** Role code => name for the list and filter: every module, plus franchise owners (owner 2026-11-07). */
+    public static function roleNames(): array
+    {
+        return Modules::ALL + ['franchise' => 'Franchise owner'];
+    }
+
     public function render()
     {
         return view('livewire.partner-page.leads', [
             'leads' => $this->baseQuery()->paginate(self::PER_PAGE),
             'statuses' => PartnerLead::STATUSES,
-            'roles' => Modules::ALL,
+            'roles' => self::roleNames(),
         ])->layout('layouts.admin', ['title' => 'Partner leads']);
     }
 }

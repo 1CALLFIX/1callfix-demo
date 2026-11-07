@@ -216,11 +216,11 @@ body:has(.pp) footer{margin-bottom:0}
                            x-on:click="$dispatch('partner-role-select', { role: '{{ $role['code'] }}' })"
                            x-bind:aria-current="sel === '{{ $role['code'] }}' ? 'true' : null">
                             {{-- A role can take sign-ups before its module opens to customers (delivery riders): "Now hiring". --}}
-                            <span class="pill {{ $role['live'] || $role['hands_off'] ? 'live' : '' }}">{{ $role['live'] ? 'Live' : ($role['hands_off'] ? 'Now hiring' : 'Opening soon') }}</span>
+                            <span class="pill {{ $role['live'] || $role['hands_off'] || ($role['enquiry'] ?? false) ? 'live' : '' }}">{{ $role['live'] ? 'Live' : ($role['hands_off'] ? 'Now hiring' : (($role['enquiry'] ?? false) ? 'Taking applications' : 'Opening soon')) }}</span>
                             <h3>{{ $role['label'] }}</h3>
                             @if ($role['module'] !== '') <span class="mod">{{ $role['module'] }}</span> @endif
                             <span class="bl">{{ $role['blurb'] }}</span>
-                            <span class="go">{{ $role['live'] || $role['hands_off'] ? 'Apply now' : 'Join the waitlist' }} {!! $arrow !!}</span>
+                            <span class="go">{{ $role['live'] || $role['hands_off'] || ($role['enquiry'] ?? false) ? 'Apply now' : 'Join the waitlist' }} {!! $arrow !!}</span>
                         </a>
                     </li>
                 @endforeach

@@ -109,6 +109,9 @@ Route::middleware(['auth', \Illuminate\Session\Middleware\AuthenticateSession::c
         // REF 1CF-PARTNER-PAGE-001: the public /partners page's words and lists. Permission partner_page.manage, checked in the component.
         Route::get('/partner-leads', \App\Livewire\PartnerPage\Leads::class)->name('admin.partner-leads.index');
         Route::get('/partner-page', \App\Livewire\PartnerPage\Settings::class)->name('admin.partner-page.settings');
+        // Owner 2026-11-07: Super Admin only, checked against the role in each component.
+        Route::get('/franchise-page', \App\Livewire\InfoPages\FranchiseSettings::class)->name('admin.franchise-page');
+        Route::get('/contact-page', \App\Livewire\InfoPages\ContactSettings::class)->name('admin.contact-page');
         Route::get('/franchises', FranchisesManage::class)->name('admin.franchises.index');
         Route::get('/franchises/{franchiseId}/pricing', FranchisePricingManage::class)->name('admin.franchises.pricing');
         Route::get('/zones', ZonesManage::class)->name('admin.zones.index');

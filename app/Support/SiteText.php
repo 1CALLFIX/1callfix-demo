@@ -43,6 +43,7 @@ final class SiteText
         'share' => 'Share button',
         'saved' => 'Like (Saved) button',
         'trust' => 'Service page trust strip',
+        'contact' => 'Contact page',
     ];
 
     /** @var array<string, array{0: string, 1: string, 2: string, 3: string}> */
@@ -67,6 +68,28 @@ final class SiteText
         'saved.tab_shops' => ['saved', 'Saved page tab: shops and restaurants', 'Shops & restaurants', 'షాపులు & రెస్టారెంట్లు'],
         // Trust strip under the service name (owner 2026-11-07, Phase 2). Only true promises: every partner is document-checked
         // and approved, every job starts and ends with the customer's OTP, every job can be rated.
+        // Contact page (owner 2026-11-07). The details themselves (phone, email, address) are Admin → Contact page.
+        'contact.title' => ['contact', 'Heading', 'Contact us', 'మమ్మల్ని సంప్రదించండి'],
+        'contact.intro' => ['contact', 'Line under the heading', 'Bookings, orders, partners or anything else: we are here to help.', 'బుకింగ్‌లు, ఆర్డర్లు, భాగస్వాములు లేదా మరేదైనా: మేము సహాయం చేస్తాము.'],
+        'contact.call' => ['contact', 'Call button', 'Call us', 'కాల్ చేయండి'],
+        'contact.whatsapp' => ['contact', 'WhatsApp button', 'Chat on WhatsApp', 'వాట్సాప్‌లో చాట్ చేయండి'],
+        'contact.email' => ['contact', 'Email button', 'Email us', 'ఇమెయిల్ చేయండి'],
+        'contact.hours' => ['contact', 'Working hours label', 'Working hours', 'పని వేళలు'],
+        'contact.office' => ['contact', 'Office address heading', 'Our office', 'మా కార్యాలయం'],
+        'contact.map' => ['contact', 'Map link', 'Open in Google Maps', 'గూగుల్ మ్యాప్స్‌లో తెరవండి'],
+        'contact.help_title' => ['contact', 'Help box: heading', 'Quick answers', 'త్వరిత సమాధానాలు'],
+        'contact.help_text' => ['contact', 'Help box: line', 'Most questions are already answered in our Help centre.', 'చాలా ప్రశ్నలకు మా సహాయ కేంద్రంలో సమాధానాలు ఉన్నాయి.'],
+        'contact.help_button' => ['contact', 'Help box: button', 'Open Help centre', 'సహాయ కేంద్రం తెరవండి'],
+        'contact.orders_title' => ['contact', 'Bookings box: heading', 'About a booking or order?', 'బుకింగ్ లేదా ఆర్డర్ గురించా?'],
+        'contact.orders_text' => ['contact', 'Bookings box: line', 'Open it in My bookings to see its status, details and invoice.', 'దాని స్థితి, వివరాలు, ఇన్‌వాయిస్ కోసం నా బుకింగ్‌లలో తెరవండి.'],
+        'contact.orders_button' => ['contact', 'Bookings box: button', 'My bookings', 'నా బుకింగ్‌లు'],
+        'contact.partner_title' => ['contact', 'Partner box: heading', 'Work with 1CallFix', '1CallFix తో కలిసి పని చేయండి'],
+        'contact.partner_text' => ['contact', 'Partner box: line', 'Join as a partner, or bring 1CallFix to your city as a franchise.', 'భాగస్వామిగా చేరండి, లేదా ఫ్రాంచైజీగా 1CallFix ని మీ నగరానికి తీసుకురండి.'],
+        'contact.partner_button' => ['contact', 'Partner box: partner button', 'Become a partner', 'భాగస్వామి అవ్వండి'],
+        'contact.franchise_button' => ['contact', 'Partner box: franchise button', 'Franchise', 'ఫ్రాంచైజీ'],
+        'contact.grievance' => ['contact', 'Grievance officer heading', 'Grievance officer', 'ఫిర్యాదుల అధికారి'],
+        'contact.company' => ['contact', 'Company heading', 'Company', 'సంస్థ'],
+        'contact.soon' => ['contact', 'Shown when no phone, WhatsApp or email is set', 'Our phone and email will be listed here soon. Meanwhile, the Help centre answers most questions.', 'మా ఫోన్, ఇమెయిల్ త్వరలో ఇక్కడ ఉంటాయి. అప్పటి వరకు, సహాయ కేంద్రం చాలా ప్రశ్నలకు సమాధానం ఇస్తుంది.'],
         'trust.verified' => ['trust', 'Trust strip: first line', 'Verified professionals', 'ధృవీకరించిన నిపుణులు'],
         'trust.verified_hint' => ['trust', 'Trust strip: first line, small text', 'ID and documents checked', 'ID, పత్రాలు తనిఖీ చేశాం'],
         'trust.otp' => ['trust', 'Trust strip: second line', 'Your OTP starts the job', 'మీ OTP తో పని మొదలవుతుంది'],

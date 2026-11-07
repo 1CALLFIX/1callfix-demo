@@ -342,6 +342,11 @@ Route::get('/help', [PageController::class, 'help'])->name('customer.help');
 Route::get('/how-it-works', [PageController::class, 'howItWorks'])->name('customer.how-it-works');
 Route::get('/privacy', [PageController::class, 'privacy'])->name('customer.privacy');
 Route::get('/terms', [PageController::class, 'terms'])->name('customer.terms');
+// Owner 2026-11-07: Contact and Franchise pages, every word and detail Super Admin controlled (Admin → Website & Pages).
+Route::get('/contact', [PageController::class, 'contact'])->name('customer.contact');
+Route::get('/franchise', [PageController::class, 'franchise'])->name('customer.franchise');
+Route::permanentRedirect('/contact-us', '/contact');
+Route::permanentRedirect('/franchise-enquiry', '/franchise');
 Route::get('/sitemap.xml', [\App\Http\Controllers\Customer\SitemapController::class, 'index'])->name('customer.sitemap');
 Route::get('/sitemap-static.xml', [\App\Http\Controllers\Customer\SitemapController::class, 'static'])->name('customer.sitemap.static');
 Route::get('/sitemap-{city}.xml', [\App\Http\Controllers\Customer\SitemapController::class, 'city'])->where('city', '[a-z0-9-]+')->name('customer.sitemap.city');
