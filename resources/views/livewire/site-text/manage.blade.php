@@ -1,8 +1,9 @@
 <div>
     <h1 class="text-xl font-semibold mb-1">Website text &amp; language</h1>
     <p class="text-sm text-gray-500 mb-4">
-        Every word customers read, in English and Telugu. Leave a box blank to use the default shown under it.
-        Super Admin only; every change is audit-logged.
+        Every word customers read, in English and each website language. Leave a box blank to use the default shown under it
+        (a new language with no default shows the English words). Which languages customers can pick is set in
+        <a href="{{ route('admin.languages') }}" class="text-blue-700 underline">Languages</a>. Super Admin only; every change is audit-logged.
     </p>
 
     @if ($flashMessage)
@@ -11,20 +12,43 @@
 
     <form wire:submit="save" class="space-y-6">
         <x-ui.card>
-            <h2 class="text-sm font-semibold mb-3">Telugu</h2>
-            <div class="grid gap-4 md:grid-cols-2">
-                <label class="flex items-start gap-2 text-sm md:col-span-2">
-                    <input type="checkbox" wire:model="teluguEnabled" class="mt-0.5">
-                    <span>Offer Telugu on the website (a English / తెలుగు switch in the top bar). Off = English everywhere.
-                        Have a native Telugu reader check the Telugu texts below before switching this on.</span>
-                </label>
+            <div class="grid gap-4 md:grid-cols-[minmax(0,16rem)_1fr]">
                 <div>
-                    <label class="block text-sm font-medium mb-1" for="st-default">Language for a first-time visitor</label>
-                    <select id="st-default" wire:model="defaultLocale" class="w-full border rounded px-3 py-2 text-sm">
-                        <option value="en">English</option>
-                        <option value="te">తెలుగు (Telugu)</option>
+                    <label class="block text-sm font-medium mb-1" for="st-language">Language next to English</label>
+                    <select id="st-language" wire:model.live="language" class="w-full border rounded px-3 py-2 text-sm" data-testid="st-language">
+                        @foreach ($languages as $code => $l)
+                            <option value="{{ $code }}">{{ $l['english'] }}{{ $l['name'] !== $l['english'] ? ' ('.$l['name'].')' : '' }}{{ $l['on'] ? '' : ' (off)' }}</option>
+                        @endforeach
                     </select>
-                    <p class="text-xs text-gray-500 mt-1">They can switch at any time; the choice is remembered on their device.</p>
+                    <p class="text-xs mt-1 {{ $missing > 0 ? 'text-amber-700' : 'text-green-700' }}" data-testid="st-missing">
+                        @if ($missing > 0)
+                            {{ $missing }} of {{ $total }} not typed yet (they show in English).
+                        @else
+                            Every text has {{ $otherEnglish }} words.
+                        @endif
+                        {{ $otherOn ? 'On for customers.' : 'Off: customers do not see it yet.' }}
+                    </p>
+                </div>
+                <div>
+                    <p class="text-sm font-medium mb-1">Spreadsheet (for a translator)</p>
+                    <div class="flex flex-wrap items-center gap-3">
+                        <button type="button" wire:click="download" class="rounded border border-blue-600 px-3 py-1.5 text-sm font-semibold text-blue-700" data-testid="st-download">
+                            Download {{ $otherEnglish }} sheet
+                        </button>
+                        <label class="text-sm">
+                            <span class="sr-only">Upload the filled {{ $otherEnglish }} sheet</span>
+                            <input type="file" wire:model="sheet" accept=".csv,.xlsx,.xls" class="text-sm" data-testid="st-upload">
+                        </label>
+                        <span wire:loading wire:target="sheet" class="text-xs text-gray-500">Reading…</span>
+                    </div>
+                    <p class="text-xs text-gray-500 mt-1">Fill in the 4th column only, keep words like <code>:name</code> as they are, and upload it back here. Uploading fills the boxes below; press Save to make them live.</p>
+                    @error('sheet') <p class="text-xs text-red-600 mt-1">{{ $message }}</p> @enderror
+                    @if ($sheetWarnings)
+                        <ul class="mt-2 list-disc pl-5 text-xs text-amber-700" data-testid="st-warnings">
+                            @foreach (array_slice($sheetWarnings, 0, 20) as $w)<li>{{ $w }}</li>@endforeach
+                            @if (count($sheetWarnings) > 20)<li>…and {{ count($sheetWarnings) - 20 }} more.</li>@endif
+                        </ul>
+                    @endif
                 </div>
             </div>
         </x-ui.card>
@@ -52,10 +76,10 @@
                             <input id="st-{{ $row['field'] }}-en" type="text" maxlength="500" wire:model="values.{{ $row['field'] }}.en" placeholder="{{ $row['en'] }}" class="w-full border rounded px-3 py-2 text-sm">
                             <p class="text-xs text-gray-400 mt-1">Default: {{ $row['en'] }}</p>
                         </div>
-                        <div>
-                            <label class="block text-xs text-gray-500 mb-1" for="st-{{ $row['field'] }}-te">తెలుగు</label>
-                            <input id="st-{{ $row['field'] }}-te" type="text" maxlength="500" lang="te" wire:model="values.{{ $row['field'] }}.te" placeholder="{{ $row['te'] }}" class="w-full border rounded px-3 py-2 text-sm">
-                            <p class="text-xs text-gray-400 mt-1">Default: {{ $row['te'] }}</p>
+                        <div wire:key="st-{{ $row['field'] }}-{{ $language }}">
+                            <label class="block text-xs text-gray-500 mb-1" for="st-{{ $row['field'] }}-{{ $language }}">{{ $otherName }}</label>
+                            <input id="st-{{ $row['field'] }}-{{ $language }}" type="text" maxlength="500" lang="{{ $language }}" @if ($otherRtl) dir="rtl" @endif wire:model="values.{{ $row['field'] }}.{{ $language }}" placeholder="{{ $row['other'] !== '' ? $row['other'] : $row['en'] }}" class="w-full border rounded px-3 py-2 text-sm">
+                            <p class="text-xs text-gray-400 mt-1">{{ $row['other'] !== '' ? 'Default: '.$row['other'] : 'Not typed: shows the English' }}</p>
                         </div>
                     </div>
                 @empty

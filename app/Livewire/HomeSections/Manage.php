@@ -61,6 +61,8 @@ class Manage extends Component
     public array $cardLineEn = [];
     /** @var array<string, string> */
     public array $cardLineTe = [];
+    /** Offer lines in languages added on Admin → Languages (code => card => line); blank = the English line. */
+    public array $cardLineOther = [];
 
     public string $flashMessage = '';
 
@@ -97,6 +99,9 @@ class Manage extends Component
             $this->cardOrder[$card] = (string) HomeCards::cardOrder($card, $c['index']);
             $this->cardLineEn[$card] = HomeCards::savedLine($card, 'en');
             $this->cardLineTe[$card] = HomeCards::savedLine($card, 'te');
+            foreach (self::otherLanguages() as $code => $l) {
+                $this->cardLineOther[$code][$card] = HomeCards::savedLine($card, $code);
+            }
         }
     }
 
@@ -156,12 +161,13 @@ class Manage extends Component
             'cardOrder.*' => ['required', 'integer', 'between:1,999'],
             'cardLineEn.*' => ['nullable', 'string', 'max:120'],
             'cardLineTe.*' => ['nullable', 'string', 'max:120'],
+            'cardLineOther.*.*' => ['nullable', 'string', 'max:120'],
             'promiseEn' => ['nullable', 'string', 'max:300'],
             'promiseTe' => ['nullable', 'string', 'max:300'],
         ], [], [
             'promiseEn' => 'English line', 'promiseTe' => 'Telugu line',
             'doorOrder.*' => 'order', 'doorImage.*' => 'picture', 'cardOrder.*' => 'order',
-            'cardLineEn.*' => 'English line', 'cardLineTe.*' => 'Telugu line',
+            'cardLineEn.*' => 'English line', 'cardLineTe.*' => 'Telugu line', 'cardLineOther.*.*' => 'line',
             'cardIcons' => 'icons per card', 'cardCategoryLimit' => 'category cards', 'cardNewDays' => '"New" days',
         ]);
 
@@ -206,6 +212,9 @@ class Manage extends Component
             $values[HomeCards::orderKey($card)] = (string) (int) ($this->cardOrder[$card] ?? HomeCards::defaultOrder($card, $c['index']));
             $values[HomeCards::lineKey($card, 'en')] = trim((string) ($this->cardLineEn[$card] ?? ''));
             $values[HomeCards::lineKey($card, 'te')] = trim((string) ($this->cardLineTe[$card] ?? ''));
+            foreach (array_keys(self::otherLanguages()) as $code) {
+                $values[HomeCards::lineKey($card, $code)] = trim((string) ($this->cardLineOther[$code][$card] ?? ''));
+            }
         }
 
         foreach ($values as $key => $value) {
@@ -253,6 +262,12 @@ class Manage extends Component
         HomeCards::forget();
     }
 
+    /** Languages added on Admin → Languages (beyond English and Telugu, which have their own columns). */
+    private static function otherLanguages(): array
+    {
+        return array_filter(\App\Support\Languages::all(), fn ($l) => ! $l['built_in']);
+    }
+
     private function authorizeAdmin(): void
     {
         abort_unless(SuperAdminGate::allows(auth()->user()), 403, 'Only a Super Admin can change the homepage sections.');
@@ -271,6 +286,7 @@ class Manage extends Component
             'sectionLabels' => HomeLayout::SECTIONS,
             'orderSaved' => HomeLayout::hasSavedOrder(),
             'cards' => $this->cardList(),
+            'otherLanguages' => self::otherLanguages(),
         ])->layout('layouts.admin', ['title' => 'Homepage sections']);
     }
 }

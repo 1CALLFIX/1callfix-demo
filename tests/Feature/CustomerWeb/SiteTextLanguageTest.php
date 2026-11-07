@@ -105,13 +105,11 @@ class SiteTextLanguageTest extends TestCase
         $this->actingAs($admin);
         Livewire::test(Manage::class)
             ->assertSee('Website text &amp; language', false)
-            ->set('teluguEnabled', true)
             ->set('values.header__menu__help.te', 'సహాయం')
             ->set('values.header__partner.en', 'Partner with us')
             ->call('save')
-            ->assertSee('Saved 3 change(s).');
+            ->assertSee('Saved 2 change(s).');
 
-        $this->assertSame('1', Setting::get(SiteText::TELUGU_ENABLED));
         $this->assertSame('సహాయం', Setting::get('text.header.menu.help.te'));
         $this->assertSame('Partner with us', Setting::get(SiteControls::HEADER_PARTNER_LABEL), 'the old field is still the English one');
         $this->assertTrue(ActivityLog::where('description', 'Setting text.header.menu.help.te changed')->exists());

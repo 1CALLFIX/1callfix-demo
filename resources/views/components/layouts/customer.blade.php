@@ -19,7 +19,7 @@
     $brandShareLogo = app(\App\Services\BrandingAssetService::class)->url('logo_display_path');
 @endphp
 <!DOCTYPE html>
-<html lang="{{ str_replace('_', '-', app()->getLocale()) }}" class="h-full">
+<html lang="{{ str_replace('_', '-', app()->getLocale()) }}"{!! \App\Support\Languages::isRtl(app()->getLocale()) ? ' dir="rtl"' : '' !!} class="h-full">
 <head>
     <meta charset="utf-8">
     {{-- viewport-fit=cover is what makes env(safe-area-inset-*) resolve to a

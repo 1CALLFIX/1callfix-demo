@@ -151,6 +151,7 @@ class AdminNav
                     ['label' => 'Homepage & sign-up', 'route' => 'admin.site-controls', 'icon' => 'home', 'permission' => 'site_controls.manage'],
                     ['label' => 'Homepage sections', 'route' => 'admin.home-sections', 'icon' => 'home', 'permission' => 'site_controls.manage'],
                     ['label' => 'Website text & language', 'route' => 'admin.site-text', 'icon' => 'document-text', 'permission' => 'site_controls.manage'],
+                    ['label' => 'Languages', 'route' => 'admin.languages', 'icon' => 'document-text', 'permission' => 'site_controls.manage'],
                     ['label' => 'Search Box', 'route' => 'admin.search-box.index', 'icon' => 'magnifying-glass', 'permission' => 'banners.manage'],
                     ['label' => 'Partner page', 'route' => 'admin.partner-page.settings', 'icon' => 'users', 'permission' => 'partner_page.manage'],
                     // super_admin only (permission never seeded to a role; each screen also checks the role itself).

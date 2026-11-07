@@ -11,7 +11,7 @@ class LanguageController extends Controller
 {
     public function __invoke(Request $request, string $locale)
     {
-        abort_unless(in_array($locale, SiteText::LOCALES, true), 404);
+        abort_unless(\App\Support\Languages::isActive($locale), 404);
 
         return back()->withCookie(cookie()->forever(SiteText::COOKIE, $locale));
     }

@@ -75,7 +75,8 @@
                     <thead>
                         <tr class="text-left text-xs text-gray-500">
                             <th class="py-2 pr-3">Card</th><th class="py-2 pr-3">Show</th><th class="py-2 pr-3">Order</th>
-                            <th class="py-2 pr-3">Offer line (English)</th><th class="py-2">Offer line (Telugu)</th>
+                            <th class="py-2 pr-3">Offer line (English)</th><th class="py-2 pr-3">Offer line (Telugu)</th>
+                            @foreach ($otherLanguages as $code => $l)<th class="py-2 pr-3">Offer line ({{ $l['english'] }})</th>@endforeach
                         </tr>
                     </thead>
                     <tbody class="divide-y">
@@ -95,6 +96,12 @@
                                     <input type="text" maxlength="120" wire:model="cardLineTe.{{ $card }}" class="w-64 border rounded px-2 py-1" placeholder="తెలుగులో (ఖాళీగా ఉంటే English)" aria-label="Telugu offer line for {{ $c['title'] }}">
                                     @error('cardLineTe.'.$card) <p class="text-xs text-red-600 mt-1">{{ $message }}</p> @enderror
                                 </td>
+                                @foreach ($otherLanguages as $code => $l)
+                                    <td class="py-2 pr-3">
+                                        <input type="text" maxlength="120" lang="{{ $code }}" @if ($l['rtl']) dir="rtl" @endif wire:model="cardLineOther.{{ $code }}.{{ $card }}" class="w-64 border rounded px-2 py-1" placeholder="{{ $l['name'] }} (blank = English)" aria-label="{{ $l['english'] }} offer line for {{ $c['title'] }}">
+                                        @error('cardLineOther.'.$code.'.'.$card) <p class="text-xs text-red-600 mt-1">{{ $message }}</p> @enderror
+                                    </td>
+                                @endforeach
                             </tr>
                         @endforeach
                     </tbody>

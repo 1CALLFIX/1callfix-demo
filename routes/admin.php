@@ -125,6 +125,8 @@ Route::middleware(['auth', \Illuminate\Session\Middleware\AuthenticateSession::c
         // Owner rule 2026-10-31: every customer-facing word, English + Telugu. Super Admin only, checked in the component.
         Route::get('/homepage-sections', \App\Livewire\HomeSections\Manage::class)->name('admin.home-sections');
         Route::get('/website-text', \App\Livewire\SiteText\Manage::class)->name('admin.site-text');
+        // Owner 2026-11-07: add / switch on website languages (Tamil, Urdu, Arabic ...) without code. Super Admin only, checked in the component.
+        Route::get('/languages', \App\Livewire\Languages\Manage::class)->name('admin.languages');
         Route::get('/search-box', SearchBoxManage::class)->name('admin.search-box.index');
         Route::get('/badges', BadgesManage::class)->name('admin.badges.index');
         Route::get('/flash-sales', FlashSalesManage::class)->name('admin.flash-sales.index');

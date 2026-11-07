@@ -15,12 +15,14 @@ use App\Models\Setting;
  * Text that already had its own Super Admin field before this screen (Admin → Homepage & sign-up) keeps that field as
  * its English value: LEGACY maps the old setting key to the entry here, so only the Telugu side is new.
  *
- * Telugu is OFF until the Super Admin switches it on (i18n.telugu_enabled), so the Telugu defaults can be checked by
- * a native reader first. Customers then choose with the switch in the top bar (cookie, per device). Admin, provider,
- * rider and seller panels stay English.
+ * Telugu is OFF until the Super Admin switches it on, so the Telugu defaults can be checked by a native reader first.
+ * Owner 2026-11-07: more languages (Tamil, Urdu, Arabic ...) are added and switched on in Admin → Languages
+ * (App\Support\Languages), no code; their words are saved as `text.{key}.{code}` and a word not typed yet shows in
+ * English. Customers choose in the top bar (cookie, per device). Admin, provider, rider and seller panels stay English.
  */
 final class SiteText
 {
+    /** The built-in languages (with default words). Admin → Languages adds more: use Languages::codes() for the full list. */
     public const LOCALES = ['en', 'te'];
     public const COOKIE = 'cf_locale';
 
@@ -108,6 +110,7 @@ final class SiteText
         'header.menu.saved' => ['header', 'Menu: saved (liked) items', 'Saved', 'సేవ్ చేసినవి'],
         'language.to_te' => ['language', 'Switch button, shown while in English', 'తెలుగు', 'తెలుగు'],
         'language.to_en' => ['language', 'Switch button, shown while in Telugu', 'English', 'English'],
+        'language.choose' => ['language', 'Language menu button, read aloud (3 or more languages)', 'Choose language', 'భాష ఎంచుకోండి'],
 
         'header.search_placeholder' => ['header', 'Search box hint', 'Search services, products, shops…', 'సేవలు, వస్తువులు, షాపులు వెతకండి…'],
         'header.sign_in' => ['header', 'Sign in link', 'Sign in', 'సైన్ ఇన్'],
@@ -693,25 +696,46 @@ final class SiteText
         SiteControls::HEADER_PARTNER_LABEL => 'header.partner',
     ];
 
+    /** Telugu is on (Admin → Languages; before that screen was first saved, the older Telugu switch). */
     public static function teluguEnabled(): bool
     {
-        return in_array(strtolower((string) self::raw(self::TELUGU_ENABLED)), ['1', 'true', 'on', 'yes'], true);
+        return Languages::isActive('te');
     }
 
-    /** The language a customer page is drawn in: their choice (cookie), else the site default; English if Telugu is off. */
+    /** The language a customer page is drawn in: their choice (cookie), else the site default; only languages that are on. */
     public static function localeFor(?string $chosen): string
     {
-        if (! self::teluguEnabled()) {
+        $active = Languages::activeCodes();
+        if (count($active) < 2) {
             return 'en';
         }
-        $chosen = in_array($chosen, self::LOCALES, true) ? $chosen : (string) self::raw(self::DEFAULT_LOCALE);
+        $chosen = in_array($chosen, $active, true) ? $chosen : (string) self::raw(self::DEFAULT_LOCALE);
 
-        return in_array($chosen, self::LOCALES, true) ? $chosen : 'en';
+        return in_array($chosen, $active, true) ? $chosen : 'en';
     }
 
     public static function isTelugu(): bool
     {
         return app()->getLocale() === 'te';
+    }
+
+    /** The page is in a language other than English. */
+    public static function isTranslated(): bool
+    {
+        return app()->getLocale() !== 'en';
+    }
+
+    /** The built-in default for $key in $locale ('' when there is none: only English and Telugu ship with words). */
+    public static function defaultFor(string $key, string $locale): string
+    {
+        $entry = self::TEXTS[$key] ?? null;
+
+        return match (true) {
+            $entry === null => '',
+            $locale === 'en' => $entry[2],
+            $locale === 'te' => $entry[3],
+            default => '',
+        };
     }
 
     /** The text for $key in the current language, with :name placeholders replaced. Unknown keys return the key. */
@@ -722,7 +746,8 @@ final class SiteText
             return $key;
         }
         $en = self::saved($key, 'en') ?? $entry[2];
-        $text = self::isTelugu() ? (self::saved($key, 'te') ?? ($entry[3] !== '' ? $entry[3] : $en)) : $en;
+        $locale = app()->getLocale();
+        $text = $locale === 'en' ? $en : (self::saved($key, $locale) ?? (self::defaultFor($key, $locale) ?: $en));
 
         foreach ($replace as $name => $value) {
             $text = str_replace(':'.$name, (string) $value, $text);
@@ -738,11 +763,12 @@ final class SiteText
     public static function legacy(string $settingKey, string $english): string
     {
         $key = self::LEGACY[$settingKey] ?? null;
-        if ($key === null || ! self::isTelugu()) {
+        $locale = app()->getLocale();
+        if ($key === null || $locale === 'en') {
             return $english;
         }
 
-        return self::saved($key, 'te') ?? (self::TEXTS[$key][3] !== '' ? self::TEXTS[$key][3] : $english);
+        return self::saved($key, $locale) ?? (self::defaultFor($key, $locale) ?: $english);
     }
 
     /** Setting key that stores $key in $locale; the English side of a LEGACY entry is its old field. */

@@ -84,13 +84,14 @@ final class HomeCards
         return is_numeric($v) ? max(1, min(999, (int) $v)) : self::defaultOrder($card, $index);
     }
 
-    /** The Super Admin's offer line for a card in the visitor's language (Telugu falls back to English), or null. */
+    /** The Super Admin's offer line for a card in the visitor's language (another language falls back to English), or null. */
     public static function line(string $card): ?string
     {
-        if (SiteText::isTelugu()) {
-            $te = trim((string) self::raw(self::lineKey($card, 'te')));
-            if ($te !== '') {
-                return $te;
+        $locale = app()->getLocale();
+        if ($locale !== 'en') {
+            $own = trim((string) self::raw(self::lineKey($card, $locale)));
+            if ($own !== '') {
+                return $own;
             }
         }
         $en = trim((string) self::raw(self::lineKey($card, 'en')));

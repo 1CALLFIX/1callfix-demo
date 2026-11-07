@@ -171,8 +171,8 @@ class SearchBar extends Component
      */
     private function placeholderExamples(): array
     {
-        // Telugu: the Super Admin's one Telugu hint (Website text & language); the rotating examples are English.
-        if (\App\Support\SiteText::isTelugu()) {
+        // Not English: the Super Admin's one hint in that language (Website text); the rotating examples are English.
+        if (\App\Support\SiteText::isTranslated()) {
             return [\App\Support\SiteText::get('header.search_placeholder')];
         }
 

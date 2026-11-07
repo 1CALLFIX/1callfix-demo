@@ -48,15 +48,44 @@
                  stays uncluttered like the reference marketplaces. --}}
             <div class="ml-auto flex min-w-0 items-center gap-1 sm:ml-0 sm:gap-2">
 
-                @if (\App\Support\SiteText::teluguEnabled())
-                    @php $other = \App\Support\SiteText::isTelugu() ? 'en' : 'te'; @endphp
+                {{-- Languages are the Super Admin's (Admin → Languages): two on = one switch button, three or more = a small menu. --}}
+                @php
+                    $cfLanguages = \App\Support\Languages::active();
+                    $cfLocale = app()->getLocale();
+                    $cfLanguageLabel = fn (string $code) => match ($code) {
+                        'en' => $t('language.to_en'),
+                        'te' => $t('language.to_te'),
+                        default => $cfLanguages[$code]['name'] ?? $code,
+                    };
+                @endphp
+                @if (count($cfLanguages) === 2)
+                    @php $other = collect(array_keys($cfLanguages))->first(fn ($c) => $c !== $cfLocale) ?? 'en'; @endphp
                     <form method="POST" action="{{ route('customer.language', $other) }}">
                         @csrf
                         <button type="submit" lang="{{ $other }}" data-testid="language-switch"
                                 class="inline-flex min-h-10 items-center whitespace-nowrap rounded-full border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600">
-                            {{ $t($other === 'te' ? 'language.to_te' : 'language.to_en') }}
+                            {{ $cfLanguageLabel($other) }}
                         </button>
                     </form>
+                @elseif (count($cfLanguages) > 2)
+                    <details class="relative" data-testid="language-switch">
+                        <summary aria-label="{{ $t('language.choose') }}"
+                                 class="inline-flex min-h-10 cursor-pointer list-none items-center gap-1 whitespace-nowrap rounded-full border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 [&::-webkit-details-marker]:hidden">
+                            <span lang="{{ $cfLocale }}">{{ $cfLanguages[$cfLocale]['name'] ?? 'English' }}</span>
+                            <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.17l3.71-3.94a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd"/></svg>
+                        </summary>
+                        <div class="absolute end-0 z-50 mt-2 min-w-40 rounded-xl border border-slate-200 bg-white p-1 shadow-lg">
+                            @foreach ($cfLanguages as $code => $lang)
+                                <form method="POST" action="{{ route('customer.language', $code) }}">
+                                    @csrf
+                                    <button type="submit" lang="{{ $code }}" @if ($lang['rtl']) dir="rtl" @endif
+                                            @class(['flex w-full items-center rounded-lg px-3 py-2 text-start text-sm hover:bg-slate-50', 'font-semibold text-blue-700' => $code === $cfLocale, 'text-slate-700' => $code !== $cfLocale])>
+                                        {{ $lang['name'] }}
+                                    </button>
+                                </form>
+                            @endforeach
+                        </div>
+                    </details>
                 @endif
 
                 {{-- Shop Phase A: visitors have a cart too (their shop items, kept in the session). --}}
