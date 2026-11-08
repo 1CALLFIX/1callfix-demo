@@ -121,7 +121,9 @@ class DispatchQueueTest extends TestCase
 
         $this->assertMatchesRegularExpression('/^programs=onecallfix-default,onecallfix-dispatch$/m', $sections['group:onecallfix-worker'] ?? '');
         $this->assertMatchesRegularExpression('/^numprocs=1$/m', $sections['program:onecallfix-dispatch'] ?? '');
-        $this->assertMatchesRegularExpression('/^command=.*queue:work database --queue=dispatch /m', $sections['program:onecallfix-dispatch']);
+        $this->assertMatchesRegularExpression('/^command=.*queue:work --queue=dispatch /m', $sections['program:onecallfix-dispatch']);
         $this->assertDoesNotMatchRegularExpression('/^command=.*--queue=/m', $sections['program:onecallfix-default'] ?? '');
+        // 2026-11-08: no connection name, so both workers follow QUEUE_CONNECTION in .env (redis).
+        $this->assertDoesNotMatchRegularExpression('/queue:work (database|redis)\b/', $conf);
     }
 }

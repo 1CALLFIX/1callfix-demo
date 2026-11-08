@@ -94,6 +94,7 @@ class SitemapController extends Controller
         $add($this->abs(route('customer.how-it-works', [], false)), null, '0.5');
         $add($this->abs(route('customer.help', [], false)), null, '0.5');
         $add($this->abs(route('customer.partners', [], false)), null, '0.5');
+        $add($this->abs(route('customer.get-app', [], false)), null, '0.6');
         // Owner 2026-11-07: listed only while switched on (a page that 404s never goes into the sitemap).
         if (\App\Livewire\InfoPages\ContactSettings::pageEnabled()) {
             $add($this->abs(route('customer.contact', [], false)), null, '0.4');

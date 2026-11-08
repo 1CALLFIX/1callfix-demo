@@ -53,12 +53,19 @@ class PartnerApplyFormBehaviourTest extends TestCase
         $this->assertStringContainsString(route('provider.login'), $html);
     }
 
-    public function test_footer_app_buttons_show_only_when_the_admin_sets_a_link(): void
+    /** Owner 2026-11-08: the Play badge is always there (customer app by default); a typed link wins; iPhone only when typed. */
+    public function test_footer_app_badge_uses_the_admin_link_when_set_and_iphone_only_when_typed(): void
     {
-        $this->get('/')->assertOk()->assertDontSee('Get the Android app');
+        $this->get('/')->assertOk()
+            ->assertSee('data-testid="footer-app"', false)
+            ->assertSee('https://play.google.com/store/apps/details?id=com.call.customer', false)
+            ->assertDontSee('Get the iPhone app');
 
         \App\Models\Setting::set(\App\Support\PartnerPage\PartnerPageSettings::key('store.android_url'), 'https://play.google.com/store/apps/details?id=example');
-        $this->get('/')->assertOk()->assertSee('Get the Android app')->assertDontSee('Get the iPhone app');
+        \App\Models\Setting::set(\App\Support\PartnerPage\PartnerPageSettings::key('store.ios_url'), 'https://apps.apple.com/app/id1');
+        $this->get('/')->assertOk()
+            ->assertSee('https://play.google.com/store/apps/details?id=example', false)
+            ->assertSee('Get the iPhone app');
     }
 
     public function test_required_field_errors_use_plain_wording(): void

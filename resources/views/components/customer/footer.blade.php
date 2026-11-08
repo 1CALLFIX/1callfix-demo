@@ -77,20 +77,17 @@
             @endforeach
         </div>
 
-        {{-- App buttons: shown only when the admin has set the link (Admin → Partner page → App links). --}}
-        @php
-            $appLinks = array_filter([
-                'Get the Android app' => \App\Support\PartnerPage\FooterLinks::appUrl('store.android_url'),
-                'Get the iPhone app' => \App\Support\PartnerPage\FooterLinks::appUrl('store.ios_url'),
-            ]);
-        @endphp
-        @if ($appLinks !== [] && ! $inApp)
-            <ul class="mt-8 flex flex-wrap gap-3">
-                @foreach ($appLinks as $label => $url)
-                    <li><a href="{{ $url }}" rel="noopener" class="inline-flex min-h-11 items-center rounded-lg border border-slate-300 px-4 text-sm font-semibold text-slate-700 hover:border-blue-400 hover:text-blue-700">{{ $label }}</a></li>
-                @endforeach
-            </ul>
-        @endif
+        {{-- App (owner 2026-11-08): always the Play Store badge (Partner page → App links overrides the link), plus the
+             iPhone link only if one was typed; "Get the app" opens /app with the QR code and iPhone steps. --}}
+        @unless ($inApp)
+            <div class="mt-8 flex flex-wrap items-center gap-3" data-testid="footer-app">
+                <x-customer.play-badge size="sm" />
+                @if ($iosUrl = \App\Support\AppLinks::ios())
+                    <a href="{{ $iosUrl }}" rel="noopener" class="inline-flex min-h-11 items-center rounded-lg border border-slate-300 px-4 text-sm font-semibold text-slate-700 hover:border-blue-400 hover:text-blue-700">{{ \App\Support\SiteText::get('get_app.ios_button') }}</a>
+                @endif
+                <a href="{{ route('customer.get-app') }}" class="text-sm font-semibold text-blue-700 underline-offset-4 hover:underline">{{ \App\Support\SiteText::get('get_app.footer_more') }}</a>
+            </div>
+        @endunless
 
         <div class="mt-8 flex flex-col gap-3 border-t sm:mt-10 border-slate-200 pt-6 sm:flex-row sm:items-end sm:justify-between">
         <div class="space-y-1">

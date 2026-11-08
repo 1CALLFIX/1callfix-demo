@@ -340,6 +340,8 @@ Route::middleware(['auth', \App\Http\Middleware\EnsureIsSeller::class, \App\Http
 // database/seeders/LegalContentSeeder.php's own docblock).
 Route::get('/help', [PageController::class, 'help'])->name('customer.help');
 Route::get('/how-it-works', [PageController::class, 'howItWorks'])->name('customer.how-it-works');
+// Owner 2026-11-08: "Get the app" page + the printable link in the QR code (/app?go=1 → Play Store on Android).
+Route::get('/app', \App\Livewire\Customer\GetApp::class)->name('customer.get-app');
 Route::get('/privacy', [PageController::class, 'privacy'])->name('customer.privacy');
 Route::get('/terms', [PageController::class, 'terms'])->name('customer.terms');
 // Owner 2026-11-07: Contact and Franchise pages, every word and detail Super Admin controlled (Admin → Website & Pages).

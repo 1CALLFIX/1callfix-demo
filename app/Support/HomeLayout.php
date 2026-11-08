@@ -57,6 +57,7 @@ final class HomeLayout
         'membership' => 'Membership',
         'reviews' => 'Google reviews',
         'trust' => 'Why choose us',
+        'get_app' => 'Get the app (Play Store button, QR code on computers)',
         'faq' => 'Questions (FAQ)',
     ];
 
