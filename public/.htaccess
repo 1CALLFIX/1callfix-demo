@@ -1,3 +1,8 @@
+# LiteSpeed's own page cache (2026-11-08): only answers PHP has marked with X-LiteSpeed-Cache-Control are kept.
+<IfModule LiteSpeed>
+    CacheLookup on
+</IfModule>
+
 <IfModule mod_rewrite.c>
     <IfModule mod_negotiation.c>
         Options -MultiViews -Indexes
