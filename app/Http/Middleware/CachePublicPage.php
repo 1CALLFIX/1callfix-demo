@@ -2,8 +2,10 @@
 
 namespace App\Http\Middleware;
 
+use App\Support\LiteSpeed;
 use App\Support\NativeApp;
 use App\Support\PageCache;
+use App\Support\SiteText;
 use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cookie;
@@ -24,12 +26,13 @@ use Symfony\Component\HttpFoundation\Response;
  * Kept separately per language and per app (website / customer / rider / partner app). Each visitor's own security
  * token (CSRF) is put back into the page on the way out, so forms and Livewire keep working.
  * Any admin save of a setting or catalog item clears every saved page at once (PageCache::flush).
+ *
+ * The web server's own cache (App\Support\LiteSpeed, LSCACHE switch): a website visitor with no zone and the default
+ * language gets the copy with an EMPTY token, marked so the web server may keep it and hand it out without PHP;
+ * resources/js/lscache.js fills the visitor's own token in (and, on a city page, asks /_hello to set the city).
  */
 class CachePublicPage
 {
-    /** Session keys Laravel itself keeps for every visitor; anything else means "personal". */
-    private const NEUTRAL_SESSION_KEYS = ['_token', '_previous', '_flash'];
-
     /**
      * Session values a page may set for a brand-new visitor and that are the same for everyone, so they are saved
      * with the page and set again on every saved copy: a city page points a new visitor at that city's first zone
@@ -49,10 +52,18 @@ class CachePublicPage
         $zone = (int) $request->session()->get(self::ZONE_KEY, 0);
         $key = PageCache::key($request->path().'|z'.$zone, app()->getLocale(), NativeApp::inApp() ? (NativeApp::flavor() ?? 'app') : 'web');
         $token = (string) $request->session()->token();
+        $webServer = $this->webServerMayKeep($request, $zone);
 
         if (is_array($saved = PageCache::get($key))) {
             foreach ($saved['session'] as $k => $v) {
                 session([$k => $v]);
+            }
+
+            if ($webServer) {
+                return response($this->forWebServer($saved['html'], PageCache::TOKEN_MARK, $saved['session'] !== []), 200, [
+                    'Content-Type' => 'text/html; charset=UTF-8',
+                    LiteSpeed::MARK => '1',
+                ]);
             }
 
             return response(str_replace(PageCache::TOKEN_MARK, $token, $saved['html']), 200, [
@@ -71,11 +82,17 @@ class CachePublicPage
             }
         }
         if ($this->storable($request, $response, $before) && $token !== '') {
+            $html = (string) $response->getContent();
             PageCache::put($key, [
-                'html' => str_replace($token, PageCache::TOKEN_MARK, (string) $response->getContent()),
+                'html' => str_replace($token, PageCache::TOKEN_MARK, $html),
                 'session' => $replay,
             ]);
             $response->headers->set('X-Page-Cache', 'MISS');
+
+            if ($webServer) {
+                $response->setContent($this->forWebServer($html, $token, $replay !== []));
+                $response->headers->set(LiteSpeed::MARK, '1');
+            }
         }
 
         return $response;
@@ -90,25 +107,24 @@ class CachePublicPage
             return false;
         }
 
-        return $this->onlyNeutral($request->session()->all());
+        return ! PageCache::isPersonal($request->session()->all());
     }
 
-    /** @param array<string, mixed> $session */
-    private function onlyNeutral(array $session): bool
+    /**
+     * The web server may keep this copy for everyone it serves: a website visitor (the apps are sent to PHP by
+     * public/.htaccess), no zone yet and the default language (visitors with cf_zone / cf_locale go to PHP too).
+     */
+    private function webServerMayKeep(Request $request, int $zone): bool
     {
-        foreach ($session as $k => $v) {
-            // The area's zone alone ("customer" => ["zone_id" => 3]) is not personal; a typed address or pin is.
-            if ($k === 'customer' && is_array($v) && array_keys($v) === ['zone_id']) {
-                continue;
-            }
-            if (! in_array($k, self::NEUTRAL_SESSION_KEYS, true)) {
-                return false;
-            }
-        }
-        // A flash message or old form input is for this visitor only.
-        $flash = $session['_flash'] ?? [];
+        return LiteSpeed::enabled() && ! NativeApp::inApp() && $zone === 0 && ! $request->cookies->has(SiteText::COOKIE);
+    }
 
-        return empty($flash['new']) && empty($flash['old']);
+    /** The copy for the web server: no security token (lscache.js fills it in) and, if the page sets the city, a hint. */
+    private function forWebServer(string $html, string $token, bool $setsCity): string
+    {
+        $html = str_replace($token, '', $html);
+
+        return $setsCity ? preg_replace('/<head>/', "<head>\n    <meta name=\"cf-hello\" content=\"1\">", $html, 1) : $html;
     }
 
     /** @param list<string> $ignore */

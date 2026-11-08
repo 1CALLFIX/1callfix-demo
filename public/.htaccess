@@ -1,6 +1,12 @@
 # LiteSpeed's own page cache (2026-11-08): only answers PHP has marked with X-LiteSpeed-Cache-Control are kept.
 <IfModule LiteSpeed>
     CacheLookup on
+    RewriteEngine On
+    # Signed in or something personal (cf_nc), a zone (cf_zone), a chosen language (cf_locale) or our Android apps:
+    # never a saved copy, always PHP (app/Support/LiteSpeed.php).
+    RewriteCond %{HTTP_COOKIE} (^|;\s*)(cf_nc|cf_zone|cf_locale)= [OR]
+    RewriteCond %{HTTP_USER_AGENT} 1CallFixApp
+    RewriteRule .* - [E=Cache-Control:no-cache]
 </IfModule>
 
 <IfModule mod_rewrite.c>

@@ -56,8 +56,33 @@ final class PageCache
         }
     }
 
+    /** Session keys Laravel itself keeps for every visitor; anything else (except the area's zone) is "personal". */
+    private const NEUTRAL_SESSION_KEYS = ['_token', '_previous', '_flash'];
+
+    /**
+     * Does this session hold anything about this one visitor? The area's zone alone ("customer" => ["zone_id" => 3])
+     * is shared by everyone there; a typed address or pin, guest cart, intended URL or flash message is personal.
+     *
+     * @param  array<string, mixed>  $session
+     */
+    public static function isPersonal(array $session): bool
+    {
+        foreach ($session as $k => $v) {
+            if ($k === 'customer' && is_array($v) && array_keys($v) === ['zone_id']) {
+                continue;
+            }
+            if (! in_array($k, self::NEUTRAL_SESSION_KEYS, true)) {
+                return true;
+            }
+        }
+        $flash = $session['_flash'] ?? [];
+
+        return ! empty($flash['new']) || ! empty($flash['old']);
+    }
+
     public static function flush(): void
     {
+        LiteSpeed::$purge = true; // the web server's own copies go too (App\Http\Middleware\LiteSpeedCache)
         try {
             Cache::forever(self::GENERATION, self::generation() + 1);
         } catch (\Throwable) {

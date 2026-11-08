@@ -78,6 +78,9 @@ Route::get('/_lsprobe', fn () => response('lsprobe made at '.now()->format('H:i:
     'X-LiteSpeed-Cache-Control' => 'public, max-age=60',
 ]))->withoutMiddleware('web')->name('lsprobe');
 
+// The web server's page cache (App\Support\LiteSpeed): resources/js/lscache.js asks here for the visitor's own token.
+Route::get('/_hello', \App\Http\Controllers\Customer\SessionHelloController::class)->middleware('throttle:60,1')->name('session.hello');
+
 Route::get('/', CustomerHome::class)->middleware('page.cache')->name('customer.home');
 
 // The top-bar English / Telugu switch (shown only when the Super Admin has switched Telugu on).
@@ -353,7 +356,7 @@ Route::get('/privacy', [PageController::class, 'privacy'])->name('customer.priva
 Route::get('/terms', [PageController::class, 'terms'])->name('customer.terms');
 // Owner 2026-11-07: Contact and Franchise pages, every word and detail Super Admin controlled (Admin → Website & Pages).
 Route::get('/contact', [PageController::class, 'contact'])->name('customer.contact');
-Route::get('/franchise', [PageController::class, 'franchise'])->name('customer.franchise');
+Route::get('/franchise', [PageController::class, 'franchise'])->middleware('page.cache')->name('customer.franchise');
 Route::permanentRedirect('/contact-us', '/contact');
 Route::permanentRedirect('/franchise-enquiry', '/franchise');
 Route::get('/sitemap.xml', [\App\Http\Controllers\Customer\SitemapController::class, 'index'])->name('customer.sitemap');
@@ -373,7 +376,7 @@ Route::permanentRedirect('/account/delete', '/delete-account');
 // survives). Code-only redirects: declared BEFORE the {feature} wildcard and the /{city} routes below so no city or
 // CMS slug can ever shadow them; ReservedSlugs reads the live route list, so none of these words can become a city,
 // category or service slug.
-Route::get('/partners', [PageController::class, 'partners'])->name('customer.partners');
+Route::get('/partners', [PageController::class, 'partners'])->middleware('page.cache')->name('customer.partners');
 // Start page of the 1CallFix Partner Android app (mobile/): signed-in partner → own app, else sign-in choices.
 Route::get('/app/partner', \App\Http\Controllers\Partner\PartnerAppStartController::class)->name('partner.app.start');
 foreach (['/coming-soon/partners', '/join', '/become-a-partner', '/work-with-us'] as $legacyPartnerPath) {
