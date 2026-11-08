@@ -115,9 +115,20 @@ class PageCacheTest extends TestCase
         // The saved copy still points this visitor at the city, exactly as building the page would.
         $this->assertSame($zone, session(\App\Services\Customer\CustomerLocationContext::SESSION_KEY));
 
-        // A visitor who already chose a place is personal: built fresh.
+        // Only the area's zone (shared by everyone there) is not personal: same saved copy, and every next page too.
         $this->newVisitor()->withSession([\App\Services\Customer\CustomerLocationContext::SESSION_KEY => $zone])
-            ->get('/nellore/services')->assertOk()->assertHeaderMissing('X-Page-Cache');
+            ->get('/nellore/services')->assertOk()->assertHeader('X-Page-Cache', 'MISS'); // first copy for this zone
+        $this->newVisitor()->withSession([\App\Services\Customer\CustomerLocationContext::SESSION_KEY => $zone])
+            ->get('/nellore/services')->assertOk()->assertHeader('X-Page-Cache', 'HIT');
+        $this->get('/')->assertOk()->assertHeader('X-Page-Cache', 'MISS');
+        $this->newVisitor()->withSession([\App\Services\Customer\CustomerLocationContext::SESSION_KEY => $zone])
+            ->get('/')->assertOk()->assertHeader('X-Page-Cache', 'HIT');
+
+        // A typed address / map pin is personal (the top bar shows it): built fresh.
+        $this->newVisitor()->withSession([
+            \App\Services\Customer\CustomerLocationContext::SESSION_KEY => $zone,
+            \App\Services\Customer\CustomerLocationContext::SESSION_KEY_LABEL => 'Dargamitta, Nellore',
+        ])->get('/nellore/services')->assertOk()->assertHeaderMissing('X-Page-Cache');
     }
 
     public function test_a_private_page_is_never_saved(): void

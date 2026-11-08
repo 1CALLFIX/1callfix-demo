@@ -16,8 +16,9 @@ use Symfony\Component\HttpFoundation\Response;
  * nothing personal yet, so the finished page is kept for PageCache::TTL seconds and handed out again. Built fresh,
  * exactly as before, whenever ANY of these is true:
  *  - signed in; any query string (?page, ?q, ?utm_…, previews); not a plain GET;
- *  - the visitor's session holds anything beyond Laravel's own keys (chosen location, guest cart, intended URL,
- *    flash message…): every per-visitor choice lives in the session, so "nothing personal" is checkable;
+ *  - the visitor's session holds anything beyond Laravel's own keys and the area's zone (a typed address or map
+ *    pin, guest cart, intended URL, flash message…): every per-visitor choice lives in the session, so "nothing
+ *    personal" is checkable. The zone alone is shared by everyone in that area, so pages are kept per zone;
  *  - building the page changed the session or queued a cookie (then it depended on this visitor);
  *  - the page is not a 200 HTML page.
  * Kept separately per language and per app (website / customer / rider / partner app). Each visitor's own security
@@ -34,7 +35,9 @@ class CachePublicPage
      * with the page and set again on every saved copy: a city page points a new visitor at that city's first zone
      * (CityContext::enter), which later pages (booking, prices) rely on.
      */
-    private const REPLAYED_SESSION_KEYS = [\App\Services\Customer\CustomerLocationContext::SESSION_KEY];
+    private const REPLAYED_SESSION_KEYS = [self::ZONE_KEY];
+
+    private const ZONE_KEY = \App\Services\Customer\CustomerLocationContext::SESSION_KEY;
 
     public function handle(Request $request, Closure $next): Response
     {
@@ -42,7 +45,9 @@ class CachePublicPage
             return $next($request);
         }
 
-        $key = PageCache::key($request->path(), app()->getLocale(), NativeApp::inApp() ? (NativeApp::flavor() ?? 'app') : 'web');
+        // The zone is shared by everyone in it (not personal), but pages differ by zone: one copy per zone.
+        $zone = (int) $request->session()->get(self::ZONE_KEY, 0);
+        $key = PageCache::key($request->path().'|z'.$zone, app()->getLocale(), NativeApp::inApp() ? (NativeApp::flavor() ?? 'app') : 'web');
         $token = (string) $request->session()->token();
 
         if (is_array($saved = PageCache::get($key))) {
@@ -56,7 +61,7 @@ class CachePublicPage
             ]);
         }
 
-        $before = $this->sessionShape($request);
+        $before = $this->sessionShape($request, self::REPLAYED_SESSION_KEYS);
         $response = $next($request);
 
         $replay = [];
@@ -65,7 +70,7 @@ class CachePublicPage
                 $replay[$k] = $request->session()->get($k);
             }
         }
-        if ($this->storable($request, $response, $before, array_keys($replay)) && $token !== '') {
+        if ($this->storable($request, $response, $before) && $token !== '') {
             PageCache::put($key, [
                 'html' => str_replace($token, PageCache::TOKEN_MARK, (string) $response->getContent()),
                 'session' => $replay,
@@ -92,6 +97,10 @@ class CachePublicPage
     private function onlyNeutral(array $session): bool
     {
         foreach ($session as $k => $v) {
+            // The area's zone alone ("customer" => ["zone_id" => 3]) is not personal; a typed address or pin is.
+            if ($k === 'customer' && is_array($v) && array_keys($v) === ['zone_id']) {
+                continue;
+            }
             if (! in_array($k, self::NEUTRAL_SESSION_KEYS, true)) {
                 return false;
             }
@@ -111,8 +120,7 @@ class CachePublicPage
         return json_encode(array_filter($all, fn ($v) => $v !== [])) ?: '';
     }
 
-    /** @param list<string> $replayed session keys the page set that are saved with it */
-    private function storable(Request $request, Response $response, string $before, array $replayed): bool
+    private function storable(Request $request, Response $response, string $before): bool
     {
         // The city pages (CityRouteController) return a plain Response whose type is only filled in when it is sent.
         $type = $response->headers->get('Content-Type');
@@ -124,7 +132,7 @@ class CachePublicPage
             && $html
             && ! $response->headers->has('Location')
             && Cookie::getQueuedCookies() === []
-            && $this->sessionShape($request, $replayed) === $before
+            && $this->sessionShape($request, self::REPLAYED_SESSION_KEYS) === $before
             && ! auth()->check();
     }
 }
