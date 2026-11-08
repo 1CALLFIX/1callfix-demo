@@ -152,6 +152,18 @@ class AppServiceProvider extends ServiceProvider
             }
         });
 
+        // Ready-made public pages (2026-11-08): saving anything a public page shows clears them all at once.
+        foreach ([
+            \App\Models\Setting::class, \App\Models\City::class, \App\Models\ServiceCategory::class,
+            \App\Models\ServiceSubcategory::class, \App\Models\Service::class, \App\Models\ServiceOption::class,
+            \App\Models\ServiceOptionGroup::class, \App\Models\ContentPage::class, \App\Models\CityPageContent::class,
+            \App\Models\Banner::class, \App\Models\Faq::class, \App\Models\FlashSale::class, \App\Models\Module::class,
+            \App\Models\Store::class, \App\Models\Product::class, \App\Models\ProductVariant::class,
+            \App\Models\SocialMediaLink::class, \App\Models\Zone::class, \App\Models\Franchise::class,
+        ] as $model) {
+            $model::observe(\App\Observers\PageCacheObserver::class);
+        }
+
         // Sitemap freshness: saving anything the sitemap lists (or the SEO/branding settings) rebuilds it on the next hit.
         foreach ([
             \App\Models\Setting::class, \App\Models\City::class, \App\Models\ServiceCategory::class,

@@ -71,7 +71,7 @@ use Illuminate\Support\Facades\Route;
 |
 */
 
-Route::get('/', CustomerHome::class)->name('customer.home');
+Route::get('/', CustomerHome::class)->middleware('page.cache')->name('customer.home');
 
 // The top-bar English / Telugu switch (shown only when the Super Admin has switched Telugu on).
 Route::post('/language/{locale}', \App\Http\Controllers\Customer\LanguageController::class)->name('customer.language');
@@ -103,7 +103,7 @@ Route::get('/categories', fn (\Illuminate\Http\Request $request) => redirect()->
 // F3: the city-less catalog URLs are permanent 301s to /{city}/{slug} (query string kept). The public pages
 // themselves live at the city-prefixed wildcards at the bottom of this file. Names kept for the shims.
 Route::get('/categories/{slug}', [LegacyCatalogRedirectController::class, 'category'])->name('customer.categories.show');
-Route::get('/services', CustomerServiceIndex::class)->name('customer.services.index');
+Route::get('/services', CustomerServiceIndex::class)->middleware('page.cache')->name('customer.services.index');
 // Same component, narrowed to services carrying a live flash sale — see
 // ServiceIndex::mount(), which reads this route's name.
 Route::get('/offers', CustomerServiceIndex::class)->name('customer.offers');
@@ -341,7 +341,7 @@ Route::middleware(['auth', \App\Http\Middleware\EnsureIsSeller::class, \App\Http
 Route::get('/help', [PageController::class, 'help'])->name('customer.help');
 Route::get('/how-it-works', [PageController::class, 'howItWorks'])->name('customer.how-it-works');
 // Owner 2026-11-08: "Get the app" page + the printable link in the QR code (/app?go=1 → Play Store on Android).
-Route::get('/app', \App\Livewire\Customer\GetApp::class)->name('customer.get-app');
+Route::get('/app', \App\Livewire\Customer\GetApp::class)->middleware('page.cache')->name('customer.get-app');
 Route::get('/privacy', [PageController::class, 'privacy'])->name('customer.privacy');
 Route::get('/terms', [PageController::class, 'terms'])->name('customer.terms');
 // Owner 2026-11-07: Contact and Franchise pages, every word and detail Super Admin controlled (Admin → Website & Pages).
@@ -391,22 +391,22 @@ $cityPattern = '(?!(?:api|admin|provider|rider|seller|shop|livewire|storage|buil
 // E-commerce Phase 2: the shop, city-prefixed like every public catalog page (/{city}/shop, /{city}/shop/{shop},
 // /{city}/shop/{shop}/{product}). Declared before /{city}/{slug} so "shop" is never read as a catalog slug — and it
 // is reserved anyway by the /shop/... routes below. 404 while Commerce is off for that city.
-Route::get('/{city}/shop', \App\Livewire\Customer\Shop\Home::class)->where('city', $cityPattern)->name('customer.shop.home');
-Route::get('/{city}/shop/{storeSlug}', \App\Livewire\Customer\Shop\StoreShow::class)->where(['city' => $cityPattern, 'storeSlug' => '[A-Za-z0-9_-]+'])->name('customer.shop.store');
-Route::get('/{city}/shop/{storeSlug}/{productSlug}', \App\Livewire\Customer\Shop\ProductShow::class)->where(['city' => $cityPattern, 'storeSlug' => '[A-Za-z0-9_-]+', 'productSlug' => '[A-Za-z0-9_-]+'])->name('customer.shop.product');
+Route::get('/{city}/shop', \App\Livewire\Customer\Shop\Home::class)->where('city', $cityPattern)->middleware('page.cache')->name('customer.shop.home');
+Route::get('/{city}/shop/{storeSlug}', \App\Livewire\Customer\Shop\StoreShow::class)->where(['city' => $cityPattern, 'storeSlug' => '[A-Za-z0-9_-]+'])->middleware('page.cache')->name('customer.shop.store');
+Route::get('/{city}/shop/{storeSlug}/{productSlug}', \App\Livewire\Customer\Shop\ProductShow::class)->where(['city' => $cityPattern, 'storeSlug' => '[A-Za-z0-9_-]+', 'productSlug' => '[A-Za-z0-9_-]+'])->middleware('page.cache')->name('customer.shop.product');
 
 // Food F3: restaurants, city-prefixed like the shop (/{city}/food, /{city}/food/{restaurant}). 404 while Food is off for
 // that city (Admin → Modules). The cart, checkout and orders are the shop's (/cart, /shop/checkout, /shop/orders).
-Route::get('/{city}/food', \App\Livewire\Customer\Food\Home::class)->where('city', $cityPattern)->name('customer.food.home');
-Route::get('/{city}/food/{restaurantSlug}', \App\Livewire\Customer\Food\RestaurantShow::class)->where(['city' => $cityPattern, 'restaurantSlug' => '[A-Za-z0-9_-]+'])->name('customer.food.restaurant');
+Route::get('/{city}/food', \App\Livewire\Customer\Food\Home::class)->where('city', $cityPattern)->middleware('page.cache')->name('customer.food.home');
+Route::get('/{city}/food/{restaurantSlug}', \App\Livewire\Customer\Food\RestaurantShow::class)->where(['city' => $cityPattern, 'restaurantSlug' => '[A-Za-z0-9_-]+'])->middleware('page.cache')->name('customer.food.restaurant');
 
 // City URL architecture (2026-11-01): /{city} is the hub, each business has its own word after the city. The older
 // /{city}/{slug} catalog URL permanently 301s to /{city}/services/{slug}. Future words (food, grocery, pharmacy,
 // taxi, hotels, rentals) are reserved in App\Support\Seo\CityModules and 404 until they get a page.
-Route::get('/{city}/services', [CityRouteController::class, 'services'])->where('city', $cityPattern)->name('customer.city.services');
-Route::get('/{city}/services/{slug}', [CityRouteController::class, 'item'])->where(['city' => $cityPattern, 'slug' => '[A-Za-z0-9_-]+'])->name('customer.city.item');
-Route::get('/{city}/parcel', [CityRouteController::class, 'parcel'])->where('city', $cityPattern)->name('customer.city.parcel');
-Route::get('/{city}', [CityRouteController::class, 'city'])->where('city', $cityPattern)->name('customer.city.show');
+Route::get('/{city}/services', [CityRouteController::class, 'services'])->where('city', $cityPattern)->middleware('page.cache')->name('customer.city.services');
+Route::get('/{city}/services/{slug}', [CityRouteController::class, 'item'])->where(['city' => $cityPattern, 'slug' => '[A-Za-z0-9_-]+'])->middleware('page.cache')->name('customer.city.item');
+Route::get('/{city}/parcel', [CityRouteController::class, 'parcel'])->where('city', $cityPattern)->middleware('page.cache')->name('customer.city.parcel');
+Route::get('/{city}', [CityRouteController::class, 'city'])->where('city', $cityPattern)->middleware('page.cache')->name('customer.city.show');
 Route::get('/{city}/{slug}', [CityRouteController::class, 'legacyItem'])->where(['city' => $cityPattern, 'slug' => '[A-Za-z0-9_-]+'])->name('customer.city.legacy');
 
 // REF 1CF-CMS-ROOT-PAGES-001 - CMS pages at the site root (1callfix.com/franchise). Fallback = only

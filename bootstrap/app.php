@@ -47,6 +47,9 @@ return Application::configure(basePath: dirname(__DIR__))
         // route in routes/api.php.
         $middleware->throttleApi();
 
+        // Ready-made public pages for visitors who have not signed in (App\Http\Middleware\CachePublicPage).
+        $middleware->alias(['page.cache' => \App\Http\Middleware\CachePublicPage::class]);
+
         // F1 — first-touch UTM / click-id capture on web pages.
         $middleware->web(append: [\App\Http\Middleware\CaptureAcquisition::class]);
 
