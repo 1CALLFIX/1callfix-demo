@@ -29,6 +29,13 @@ class CachePublicPage
     /** Session keys Laravel itself keeps for every visitor; anything else means "personal". */
     private const NEUTRAL_SESSION_KEYS = ['_token', '_previous', '_flash'];
 
+    /**
+     * Session values a page may set for a brand-new visitor and that are the same for everyone, so they are saved
+     * with the page and set again on every saved copy: a city page points a new visitor at that city's first zone
+     * (CityContext::enter), which later pages (booking, prices) rely on.
+     */
+    private const REPLAYED_SESSION_KEYS = [\App\Services\Customer\CustomerLocationContext::SESSION_KEY];
+
     public function handle(Request $request, Closure $next): Response
     {
         if (! $this->eligible($request)) {
@@ -38,8 +45,12 @@ class CachePublicPage
         $key = PageCache::key($request->path(), app()->getLocale(), NativeApp::inApp() ? (NativeApp::flavor() ?? 'app') : 'web');
         $token = (string) $request->session()->token();
 
-        if (is_string($html = PageCache::get($key))) {
-            return response(str_replace(PageCache::TOKEN_MARK, $token, $html), 200, [
+        if (is_array($saved = PageCache::get($key))) {
+            foreach ($saved['session'] as $k => $v) {
+                session([$k => $v]);
+            }
+
+            return response(str_replace(PageCache::TOKEN_MARK, $token, $saved['html']), 200, [
                 'Content-Type' => 'text/html; charset=UTF-8',
                 'X-Page-Cache' => 'HIT',
             ]);
@@ -48,8 +59,17 @@ class CachePublicPage
         $before = $this->sessionShape($request);
         $response = $next($request);
 
-        if ($this->storable($request, $response, $before) && $token !== '') {
-            PageCache::put($key, str_replace($token, PageCache::TOKEN_MARK, (string) $response->getContent()));
+        $replay = [];
+        foreach (self::REPLAYED_SESSION_KEYS as $k) {
+            if ($request->session()->has($k)) {
+                $replay[$k] = $request->session()->get($k);
+            }
+        }
+        if ($this->storable($request, $response, $before, array_keys($replay)) && $token !== '') {
+            PageCache::put($key, [
+                'html' => str_replace($token, PageCache::TOKEN_MARK, (string) $response->getContent()),
+                'session' => $replay,
+            ]);
             $response->headers->set('X-Page-Cache', 'MISS');
         }
 
@@ -82,18 +102,29 @@ class CachePublicPage
         return empty($flash['new']) && empty($flash['old']);
     }
 
-    private function sessionShape(Request $request): string
+    /** @param list<string> $ignore */
+    private function sessionShape(Request $request, array $ignore = []): string
     {
-        return json_encode(array_diff_key($request->session()->all(), ['_previous' => 1])) ?: '';
+        // Dotted keys ("customer.zone_id") live nested; drop them, then any group they leave empty.
+        $all = \Illuminate\Support\Arr::except($request->session()->all(), ['_previous', ...$ignore]);
+
+        return json_encode(array_filter($all, fn ($v) => $v !== [])) ?: '';
     }
 
-    private function storable(Request $request, Response $response, string $before): bool
+    /** @param list<string> $replayed session keys the page set that are saved with it */
+    private function storable(Request $request, Response $response, string $before, array $replayed): bool
     {
+        // The city pages (CityRouteController) return a plain Response whose type is only filled in when it is sent.
+        $type = $response->headers->get('Content-Type');
+        $html = $type === null
+            ? str_contains(substr((string) $response->getContent(), 0, 200), '<html')
+            : str_contains($type, 'text/html');
+
         return $response->getStatusCode() === 200
-            && str_contains((string) $response->headers->get('Content-Type'), 'text/html')
+            && $html
             && ! $response->headers->has('Location')
             && Cookie::getQueuedCookies() === []
-            && $this->sessionShape($request) === $before
+            && $this->sessionShape($request, $replayed) === $before
             && ! auth()->check();
     }
 }

@@ -34,21 +34,23 @@ final class PageCache
         return 'pagecache:'.self::generation().':'.sha1($path.'|'.$locale.'|'.$client);
     }
 
-    public static function get(string $key): ?string
+    /** @return array{html: string, session: array<string, mixed>}|null */
+    public static function get(string $key): ?array
     {
         try {
             $v = Cache::get($key);
 
-            return is_string($v) ? $v : null;
+            return is_array($v) && is_string($v['html'] ?? null) && is_array($v['session'] ?? null) ? $v : null;
         } catch (\Throwable) {
             return null; // the cache being down never breaks a page: it is simply built
         }
     }
 
-    public static function put(string $key, string $html): void
+    /** @param array{html: string, session: array<string, mixed>} $page */
+    public static function put(string $key, array $page): void
     {
         try {
-            Cache::put($key, $html, self::TTL);
+            Cache::put($key, $page, self::TTL);
         } catch (\Throwable) {
             // same: never fail a page because it could not be saved
         }

@@ -104,6 +104,22 @@ class PageCacheTest extends TestCase
             ->get('/')->assertHeader('X-Page-Cache', 'MISS')->assertDontSee('data-testid="get-app"', false);
     }
 
+    public function test_city_pages_from_the_city_controller_are_saved_too(): void
+    {
+        $this->newVisitor()->get('/nellore/services')->assertOk()->assertHeader('X-Page-Cache', 'MISS');
+        $zone = session(\App\Services\Customer\CustomerLocationContext::SESSION_KEY);
+        $this->assertNotNull($zone, 'a city page points a new visitor at the city');
+
+        $this->newVisitor()->get('/nellore/services')->assertOk()->assertHeader('X-Page-Cache', 'HIT')
+            ->assertSee('How do I book a home service in Nellore?');
+        // The saved copy still points this visitor at the city, exactly as building the page would.
+        $this->assertSame($zone, session(\App\Services\Customer\CustomerLocationContext::SESSION_KEY));
+
+        // A visitor who already chose a place is personal: built fresh.
+        $this->newVisitor()->withSession([\App\Services\Customer\CustomerLocationContext::SESSION_KEY => $zone])
+            ->get('/nellore/services')->assertOk()->assertHeaderMissing('X-Page-Cache');
+    }
+
     public function test_a_private_page_is_never_saved(): void
     {
         $this->newVisitor()->get('/cart');
