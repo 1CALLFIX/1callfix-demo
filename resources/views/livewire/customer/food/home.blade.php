@@ -91,6 +91,8 @@
                 </ul>
             @endif
         </section>
+
+        <x-customer.faq section="food" :city="$city" />
     </div>
 
     <livewire:customer.shop.cart-bar />

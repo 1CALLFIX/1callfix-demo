@@ -23,5 +23,7 @@
                 @endforeach
             </div>
         </section>
+
+        <x-customer.faq section="services" :city="$city" />
     </div>
 </div>

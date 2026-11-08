@@ -6,6 +6,7 @@ use App\Models\Module;
 use App\Models\Setting;
 use App\Models\SocialMediaLink;
 use App\Support\Seo;
+use App\Support\Seo\PublicUrl;
 
 /**
  * Global, admin-controlled SEO values (Admin → SEO → Search & social). Extends the existing Setting store and
@@ -155,7 +156,7 @@ final class SeoSettings
      *
      * @return array<int, array<string, mixed>>
      */
-    public static function serviceSchema(string $name, ?string $description, ?string $imageUrl, string $url, float $price, ?array $rating): array
+    public static function serviceSchema(string $name, ?string $description, ?string $imageUrl, string $url, float $price, ?array $rating, ?\App\Models\City $city = null, ?\App\Models\ServiceCategory $category = null): array
     {
         $base = Seo::canonicalBase();
         $service = array_filter([
@@ -163,7 +164,8 @@ final class SeoSettings
             'description' => $description,
             'image' => $imageUrl ? Seo::absoluteUrl($imageUrl) : null,
             'provider' => ['@type' => 'Organization', 'name' => self::business()['legal_name'] ?? self::siteName(), 'url' => $base.'/'],
-            'areaServed' => self::business()['city'] ?? null,
+            // The city of the page's URL (each city has its own pages), else the business's own city.
+            'areaServed' => $city ? ['@type' => 'City', 'name' => $city->name] : (self::business()['city'] ?? null),
         ], fn ($v) => $v !== null && $v !== '');
 
         if ($price > 0) {
@@ -175,13 +177,34 @@ final class SeoSettings
             $service['aggregateRating'] = ['@type' => 'AggregateRating', 'ratingValue' => round((float) $rating['average'], 1), 'reviewCount' => (int) $rating['count']];
         }
 
-        $crumbs = ['@context' => 'https://schema.org', '@type' => 'BreadcrumbList', 'itemListElement' => [
-            ['@type' => 'ListItem', 'position' => 1, 'name' => 'Home', 'item' => $base.'/'],
-            ['@type' => 'ListItem', 'position' => 2, 'name' => 'Services', 'item' => $base.'/services'],
-            ['@type' => 'ListItem', 'position' => 3, 'name' => $name, 'item' => $url],
-        ]];
+        if ($city === null) {
+            $trail = [['Home', $base.'/'], ['Services', $base.'/services'], [$name, $url]];
+        } else {
+            // Home › Services in Nellore › AC Repair › Split AC Service: the path Google shows under the result.
+            $trail = [['Home', $base.'/'], ['Services in '.$city->name, Seo::absoluteUrl(PublicUrl::services($city))]];
+            if ($category !== null) {
+                $trail[] = [$category->name, Seo::absoluteUrl(PublicUrl::category($category, $city))];
+            }
+            $trail[] = [$name, $url];
+        }
 
-        return [$service, $crumbs];
+        return [$service, self::breadcrumbs($trail)];
+    }
+
+    /**
+     * BreadcrumbList for a list of [name, absolute url] steps.
+     *
+     * @param  array<int, array{0: string, 1: string}>  $trail
+     * @return array<string, mixed>
+     */
+    public static function breadcrumbs(array $trail): array
+    {
+        $items = [];
+        foreach (array_values($trail) as $i => [$name, $url]) {
+            $items[] = ['@type' => 'ListItem', 'position' => $i + 1, 'name' => $name, 'item' => $url];
+        }
+
+        return ['@context' => 'https://schema.org', '@type' => 'BreadcrumbList', 'itemListElement' => $items];
     }
 
     /**

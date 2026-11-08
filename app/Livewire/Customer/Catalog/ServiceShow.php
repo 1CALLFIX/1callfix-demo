@@ -334,6 +334,8 @@ class ServiceShow extends Component
                 \App\Support\Seo::canonicalUrl(),
                 (float) $card['price'],
                 $ratings->forService($service->id),
+                request()->attributes->get('f3.city'),
+                $service->category,
             ),
         ]);
     }

@@ -155,6 +155,13 @@ class CategoryShow extends Component
             'indexable' => $seo['indexable'] && ! ($this->search !== '' || $this->subcategory !== null || $this->sort !== 'recommended'),
             'ogImage' => $category->image_url,
             'metaDescription' => $seo['metaDescription'],
+            'schema' => ($city = request()->attributes->get('f3.city'))
+                ? [\App\Services\Seo\SeoSettings::breadcrumbs([
+                    ['Home', \App\Support\Seo::canonicalBase().'/'],
+                    ['Services in '.$city->name, \App\Support\Seo::absoluteUrl(\App\Support\Seo\PublicUrl::services($city))],
+                    [$category->name, \App\Support\Seo::canonicalUrl()],
+                ])]
+                : [],
         ]);
     }
 

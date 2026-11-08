@@ -31,6 +31,18 @@ class CityPageSeo
             ->where('city_id', $city->id)->where('subject_type', $subjectType)->where('subject_id', $subjectId)
             ->first();
 
+        // A category or service page without franchise-written copy still names its city, because people search
+        // "AC repair in Nellore" (owner 2026-11-08: rank for each city). "Laptop| CCTV | IT" reads "Laptop, CCTV, IT".
+        if (in_array($subjectType, [CityPageContent::SUBJECT_CATEGORY, CityPageContent::SUBJECT_SERVICE], true)) {
+            $defaultTitle = trim((string) preg_replace('/\s*\|\s*/', ', ', $defaultTitle), ' ,');
+            if (stripos($defaultTitle, $city->name) === false) {
+                $defaultTitle .= ' in '.$city->name;
+            }
+            if ($defaultMeta !== null && stripos($defaultMeta, $city->name) === false) {
+                $defaultMeta = \Illuminate\Support\Str::limit($defaultTitle.': '.$defaultMeta, 157);
+            }
+        }
+
         return [
             'title' => $this->filled($content?->title) ?? $defaultTitle,
             'metaDescription' => $this->filled($content?->meta_description) ?? $defaultMeta,

@@ -104,6 +104,8 @@
                 @foreach ($grievance as $line)<p>{{ $line }}</p>@endforeach
             </aside>
         @endif
+
+        <x-customer.faq section="shop" :city="$city" />
     </div>
 
     <livewire:customer.shop.cart-bar />
