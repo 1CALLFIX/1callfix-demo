@@ -10,8 +10,9 @@ namespace App\Support;
  * plain website visitor with no zone and the default language. Such a copy goes out with no cookies and an EMPTY
  * security token; resources/js/lscache.js fills the visitor's own token back in (cookie cf_csrf, or /_hello).
  *
- * public/.htaccess skips the cache for anyone carrying cf_nc (signed in / something personal), cf_zone, cf_locale or
- * the app's user agent, so they always reach PHP. Any admin save sends X-LiteSpeed-Purge. Switch: LSCACHE in .env.
+ * public/.htaccess skips the cache for anyone carrying cf_nc (signed in / something personal), cf_zone, cf_locale,
+ * cf_app or the app's user agent, and every kept copy also says X-LiteSpeed-Vary on those cookies (LiteSpeed::VARY),
+ * so they always reach PHP. Any admin save sends X-LiteSpeed-Purge. Switch: LSCACHE in .env.
  */
 final class LiteSpeed
 {
@@ -22,6 +23,15 @@ final class LiteSpeed
 
     /** Mirrors the session's zone, so the web server sends visitors with a zone to PHP (pages differ by zone). */
     public const COOKIE_ZONE = 'cf_zone';
+
+    /** Inside our Android apps (mirrors NativeApp::flavor()), so the web server sends them to PHP even without the UA rule. */
+    public const COOKIE_APP = 'cf_app';
+
+    /**
+     * Second safety layer next to public/.htaccess: a kept copy is only for requests WITHOUT these cookies; anyone
+     * carrying one looks for a different copy, which PHP never stores, so they always reach PHP.
+     */
+    public const VARY = 'cookie=cf_nc,cookie=cf_zone,cookie=cf_locale,cookie=cf_app';
 
     /** The visitor's own security token, readable by lscache.js to fill into a saved page. */
     public const COOKIE_TOKEN = 'cf_csrf';

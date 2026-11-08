@@ -40,6 +40,7 @@ class LiteSpeedCache
                 $response->headers->removeCookie($cookie->getName(), $cookie->getPath(), $cookie->getDomain());
             }
             $response->headers->set('X-LiteSpeed-Cache-Control', 'public, max-age='.LiteSpeed::TTL);
+            $response->headers->set('X-LiteSpeed-Vary', LiteSpeed::VARY);
 
             return $response;
         }
@@ -63,6 +64,9 @@ class LiteSpeedCache
         $this->keep($request, $response, LiteSpeed::COOKIE_ZONE, $zone > 0 ? (string) $zone : null, $minutes, true);
 
         $this->keep($request, $response, LiteSpeed::COOKIE_TOKEN, (string) $session->token() ?: null, $minutes, false);
+
+        $app = \App\Support\NativeApp::inApp() ? (\App\Support\NativeApp::flavor() ?? 'app') : null;
+        $this->keep($request, $response, LiteSpeed::COOKIE_APP, $app, 60 * 24 * 365, true);
     }
 
     /** Sets the cookie when its value changed, removes it when it should be gone; untouched otherwise. */

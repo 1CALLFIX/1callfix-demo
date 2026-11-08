@@ -41,6 +41,13 @@ function init() {
     const meta = document.querySelector('meta[name="csrf-token"]');
     if (!meta || meta.getAttribute('content')) return;
 
+    // Our Android app must never show the website's saved copy: mark this phone as the app and load its own page once.
+    if (window.Capacitor?.isNativePlatform?.() && !readCookie('cf_app')) {
+        document.cookie = 'cf_app=app; path=/; max-age=31536000; secure; samesite=lax';
+        location.reload();
+        return;
+    }
+
     const saved = readCookie(COOKIE);
     const needsCity = document.querySelector('meta[name="cf-hello"]') && !readCookie('cf_zone');
     if (saved && !needsCity) {

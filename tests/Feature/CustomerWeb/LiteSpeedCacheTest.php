@@ -53,6 +53,8 @@ class LiteSpeedCacheTest extends TestCase
         foreach (['MISS', 'HIT'] as $round) {
             $r = $this->newVisitor()->get('/app')->assertOk()
                 ->assertHeader('X-LiteSpeed-Cache-Control', 'public, max-age=60')
+                // Second safety layer: anyone with these cookies looks for another copy, which is never stored.
+                ->assertHeader('X-LiteSpeed-Vary', 'cookie=cf_nc,cookie=cf_zone,cookie=cf_locale,cookie=cf_app')
                 ->assertHeaderMissing(LiteSpeed::MARK);
             $this->assertSame([], $r->headers->getCookies(), $round.': a kept copy never carries anyone\'s cookie');
             $this->assertSame('', $this->csrfIn($r->getContent()), $round);
@@ -80,8 +82,9 @@ class LiteSpeedCacheTest extends TestCase
         $this->assertSame('1', $this->cookieValue($r, LiteSpeed::COOKIE_PERSONAL));
         $this->assertSame((string) session()->token(), $this->cookieValue($r, LiteSpeed::COOKIE_TOKEN));
 
-        $this->newVisitor()->withHeader('User-Agent', 'Mozilla/5.0 (Linux; Android 14) 1CallFixApp/customer')
+        $r = $this->newVisitor()->withHeader('User-Agent', 'Mozilla/5.0 (Linux; Android 14) 1CallFixApp/customer')
             ->get('/')->assertOk()->assertHeaderMissing('X-LiteSpeed-Cache-Control');
+        $this->assertSame('customer', $this->cookieValue($r, LiteSpeed::COOKIE_APP), 'the app is marked by cookie too');
 
         $this->newVisitor()->withUnencryptedCookie(SiteText::COOKIE, 'en')->withHeader('User-Agent', 'Mozilla/5.0')
             ->get('/app')->assertOk()->assertHeaderMissing('X-LiteSpeed-Cache-Control');

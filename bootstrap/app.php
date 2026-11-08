@@ -71,6 +71,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->append(\App\Http\Middleware\LiteSpeedCache::class);
         $middleware->encryptCookies(except: [
             \App\Support\LiteSpeed::COOKIE_PERSONAL, \App\Support\LiteSpeed::COOKIE_ZONE, \App\Support\LiteSpeed::COOKIE_TOKEN,
+            \App\Support\LiteSpeed::COOKIE_APP,
         ]);
 
     })
