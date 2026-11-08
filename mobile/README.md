@@ -17,6 +17,9 @@ What the app adds on top of the site:
 - **Google sign-in.** Google blocks its sign-in page inside apps, so the app signs in natively and Firebase
   continues exactly as on the website (`resources/js/customer-auth.js`).
 - **Phone, UPI, WhatsApp and Maps links** open in their own apps (`MainActivity.java`).
+- **Voice search (mic in the search box).** The app listens with the phone's own Google speech
+  (`@capacitor-community/speech-recognition`, `resources/js/search-bar.js`). The first tap asks "Allow microphone?";
+  Google's "Speak now" box opens and the words go into the search box. Apps built before 2026-11-08 show no mic.
 - Camera and location for the site's own upload buttons and location prompts, and a "No internet" page.
 
 **Not in this first version:** location while the rider or partner app is in the background with the screen off.
@@ -74,7 +77,7 @@ the walk-through below, then promote the release to Production.
 
 ## Walk-through on a real phone
 - **Customer:** home page opens; sign in with mobile + password, with OTP, and with Google; allow notifications;
-  book a service and pay with UPI (the UPI app opens and comes back); the call/WhatsApp buttons open the dialer
+  tap the mic in the search box, allow the microphone, say "AC repair" (the words appear and suggestions open); book a service and pay with UPI (the UPI app opens and comes back); the call/WhatsApp buttons open the dialer
   or WhatsApp; with the app closed, a booking update arrives as a notification and tapping it opens that page.
 - **Rider** (test.rider): opens /rider; allow notifications and location; go online; lock the phone and place a
   test parcel. The offer must ring loudly. Tap it and accept.

@@ -6,6 +6,7 @@
     "sync": "cap sync android && node scripts/flavor-configs.mjs"
   },
   "dependencies": {
+    "@capacitor-community/speech-recognition": "7.0.1",
     "@capacitor-firebase/authentication": "8.6.0",
     "@capacitor/android": "8.6.0",
     "@capacitor/app": "8.1.2",

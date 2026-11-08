@@ -161,16 +161,38 @@ function initSearchBar(root) {
  * browser that can listen. Indian English (en-IN): service names are English, and Indian English recognises them
  * well even with a Telugu accent.
  */
-// Inside the 1CallFix Android apps (Capacitor) the page gets no microphone ("Microphone is blocked", owner 2026-11-07):
-// no mic there until the app ships a native speech plugin. Browsers (Chrome on Android, computers) keep it.
+// Inside the 1CallFix Android apps (Capacitor) the page gets no browser microphone ("Microphone is blocked", owner
+// 2026-11-07), so the app listens with the phone's own Google speech through @capacitor-community/speech-recognition
+// (owner 2026-11-08, apps built from then on). An older app without that add-on simply shows no mic.
 const inNativeApp = Boolean(window.Capacitor?.isNativePlatform?.());
+const NativeSpeech = inNativeApp && window.Capacitor?.isPluginAvailable?.('SpeechRecognition')
+    ? window.Capacitor.Plugins?.SpeechRecognition
+    : null;
 const SpeechRecognition = inNativeApp ? null : (window.SpeechRecognition || window.webkitSpeechRecognition);
-if (SpeechRecognition) {
+if (SpeechRecognition || NativeSpeech) {
     document.documentElement.classList.add('cf-voice');
 }
 
+// One go of listening in the app: ask for the microphone the first time, then Google's own "Speak now" box
+// listens and closes by itself. Resolves with the words, '' when nothing was heard, or throws 'blocked'.
+async function listenInApp() {
+    let perm = await NativeSpeech.checkPermissions();
+    if (perm.speechRecognition !== 'granted') {
+        perm = await NativeSpeech.requestPermissions();
+    }
+    if (perm.speechRecognition !== 'granted') {
+        throw new Error('blocked');
+    }
+    try {
+        const res = await NativeSpeech.start({ language: 'en-IN', maxResults: 1, partialResults: false, popup: true });
+        return (res?.matches?.[0] || '').trim();
+    } catch (err) {
+        return ''; // closed the box or said nothing
+    }
+}
+
 function initVoice(root, input) {
-    if (!SpeechRecognition) {
+    if (!SpeechRecognition && !NativeSpeech) {
         return;
     }
     let listening = null;
@@ -200,6 +222,27 @@ function initVoice(root, input) {
             return;
         }
 
+        const useWords = (text) => {
+            say('');
+            input.value = text;
+            input.focus();
+            // wire:model.live listens to `input`: the term goes to the server and the suggestions open.
+            input.dispatchEvent(new Event('input', { bubbles: true }));
+        };
+
+        if (NativeSpeech) {
+            listening = { stop: () => {} }; // Google's box has its own cancel
+            btn.setAttribute('data-listening', '');
+            listenInApp()
+                .then((text) => (text ? useWords(text) : say(btn.dataset.voiceFailed, 5000)))
+                .catch(() => say(btn.dataset.voiceBlocked, 5000))
+                .finally(() => {
+                    listening = null;
+                    btn.removeAttribute('data-listening');
+                });
+            return;
+        }
+
         const rec = new SpeechRecognition();
         rec.lang = 'en-IN';
         rec.interimResults = false;
@@ -212,11 +255,7 @@ function initVoice(root, input) {
                 return;
             }
             heard = true;
-            say('');
-            input.value = text;
-            input.focus();
-            // wire:model.live listens to `input`: the term goes to the server and the suggestions open.
-            input.dispatchEvent(new Event('input', { bubbles: true }));
+            useWords(text);
         };
         rec.onerror = (e) => {
             heard = true; // the error message below replaces the "didn't catch that" one
