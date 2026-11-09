@@ -188,4 +188,28 @@ class StayOnlineAndReachedStoreTest extends TestCase
         Livewire::actingAs($rider->user)->test(RiderDashboard::class)->set('shopOtp', $order->fresh()->delivery_otp)->call('deliverShop')->assertSet('notice', 'Delivered. Thank you!');
         $this->assertSame('completed', $order->fresh()->status);
     }
+    public function test_the_card_shows_km_and_minutes_to_the_restaurant_then_to_the_customer(): void
+    {
+        // Owner 2026-11-09: "Pickup 5 km · 15 min" before pickup, "Deliver 3 km · 8 min" after.
+        $rider = $this->makeDeliveryRiderIn($this->franchise, $this->zone, 'parcel_rider');
+        $order = $this->carried($rider);
+        $at = fn (float $kmNorth) => $rider->forceFill(['current_lat' => 1.0 + $kmNorth / 111.19, 'current_lng' => 1.0, 'location_updated_at' => now()])->save();
+
+        $at(-2.0); // 2 km south of the restaurant
+        Livewire::actingAs($rider->user)->test(RiderDashboard::class)
+            ->assertSeeHtml('data-testid="pickup-leg">2 km · 8 min')   // 2 x 1.3 at 20 km/h = 7.8 min
+            ->assertDontSeeHtml('data-testid="drop-leg"');               // shows after "Reached restaurant"
+        $this->assertSame(['km' => 3.2, 'minutes' => 13], $order->fresh()->riderLeg('drop'), 'before pickup: restaurant to customer');
+
+        // Picked up, now 1 km north of the restaurant: 2.2 km to the customer, no pickup leg.
+        $order->forceFill(['rider_at_store_at' => now(), 'picked_up_at' => now()])->save();
+        $at(1.0);
+        Livewire::actingAs($rider->user)->test(RiderDashboard::class)
+            ->assertSeeHtml('data-testid="drop-leg">2.2 km · 9 min')
+            ->assertDontSeeHtml('data-testid="pickup-leg"');
+
+        // A phone that has gone quiet shows no guess.
+        $rider->forceFill(['location_updated_at' => now()->subMinutes(30)])->save();
+        $this->assertNull($order->fresh()->riderLeg('drop'));
+    }
 }

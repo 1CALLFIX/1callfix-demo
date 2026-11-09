@@ -8,6 +8,10 @@
     $place = $food ? 'restaurant' : 'shop';
     $atStore = $job->rider_at_store_at !== null;
     $dropKm = $job->dropDistanceKm();
+    // Owner 2026-11-09: "Pickup 5 km · 15 min" / "Deliver 3 km · 8 min" beside each heading.
+    $km = fn ($n) => rtrim(rtrim(number_format($n, 1), '0'), '.');
+    $pickupLeg = $job->picked_up_at ? null : $job->riderLeg('pickup');
+    $dropLeg = $job->riderLeg('drop');
 @endphp
 <section @class(['rounded-2xl border-2 bg-white p-4 shadow-sm', 'border-orange-400' => $food, 'border-violet-400' => ! $food]) data-testid="current-job">
     <div class="flex items-center justify-between gap-2">
@@ -16,7 +20,10 @@
     </div>
 
     <div class="mt-3">
-        <p class="text-xs font-semibold uppercase text-slate-500">1. Pickup</p>
+        <div class="flex items-center justify-between gap-2">
+            <p class="text-xs font-semibold uppercase text-slate-500">1. Pickup</p>
+            @if ($pickupLeg)<span class="rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-bold text-blue-800" data-testid="pickup-leg">{{ $km($pickupLeg['km']) }} km · {{ $pickupLeg['minutes'] }} min</span>@endif
+        </div>
         <p class="font-semibold">{{ $job->store->name }}</p>
         <p class="text-sm text-slate-600">{{ $job->store->address_line }}</p>
         <div class="mt-2 flex flex-wrap gap-2 text-sm">
@@ -73,7 +80,10 @@
         </div>
 
         <div class="mt-4 border-t border-slate-100 pt-3">
-            <p class="text-xs font-semibold uppercase text-slate-500">2. Deliver</p>
+            <div class="flex items-center justify-between gap-2">
+                <p class="text-xs font-semibold uppercase text-slate-500">2. Deliver</p>
+                @if ($dropLeg)<span class="rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-bold text-blue-800" data-testid="drop-leg">{{ $km($dropLeg['km']) }} km · {{ $dropLeg['minutes'] }} min</span>@endif
+            </div>
             {{-- Shop checkout polish 2026-11-02: an order sent to someone else names the receiver; the rider calls them. --}}
             @if ($job->recipient_name)
                 <p class="font-semibold">{{ $job->recipient_name }} <span class="text-xs font-normal text-slate-500">(ordered by {{ $job->customer?->name }})</span></p>

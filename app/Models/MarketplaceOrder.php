@@ -168,6 +168,41 @@ class MarketplaceOrder extends Model implements Orderable
         return round(app(\App\Services\DispatchService::class)->haversineKm((float) $from->lat, (float) $from->lng, (float) $to->lat, (float) $to->lng), 1);
     }
 
+    /**
+     * Owner 2026-11-09: "Pickup 5 km · 15 min" and "Deliver 3 km · 8 min" on the rider's card. $to = 'pickup' (rider →
+     * restaurant / shop) or 'drop' (rider → customer once picked up; restaurant → customer before). Straight-line km,
+     * the same measure as "Drop: 3.2 km away"; minutes allow for roads (x1.3) at the Super Admin's rider speed.
+     * Null when a location is missing or the rider's phone has not reported for 15 minutes.
+     *
+     * @return array{km: float, minutes: int}|null
+     */
+    public function riderLeg(string $to): ?array
+    {
+        $rider = $this->assignedWorker;
+        $riderFresh = $rider && $rider->current_lat !== null && $rider->current_lng !== null
+            && $rider->location_updated_at && $rider->location_updated_at->gt(now()->subMinutes(15));
+        $store = $this->store;
+
+        if ($to === 'pickup') {
+            $from = $riderFresh ? [(float) $rider->current_lat, (float) $rider->current_lng] : null;
+            $dest = $store && $store->lat !== null ? [(float) $store->lat, (float) $store->lng] : null;
+        } else {
+            $from = $this->picked_up_at
+                ? ($riderFresh ? [(float) $rider->current_lat, (float) $rider->current_lng] : null)
+                : ($store && $store->lat !== null ? [(float) $store->lat, (float) $store->lng] : null);
+            $address = $this->deliveryAddress;
+            $dest = $address && $address->lat !== null ? [(float) $address->lat, (float) $address->lng] : null;
+        }
+        if (! $from || ! $dest) {
+            return null;
+        }
+
+        $km = app(\App\Services\DispatchService::class)->haversineKm($from[0], $from[1], $dest[0], $dest[1]);
+        $speed = max(5, (int) \App\Support\MarketplaceSettings::get('marketplace.dispatch.rider_speed_kmh'));
+
+        return ['km' => round($km, 1), 'minutes' => max(1, (int) ceil($km * 1.3 / $speed * 60))];
+    }
+
     public function isOpenForRider(): bool
     {
         return $this->order_type === 'delivery'

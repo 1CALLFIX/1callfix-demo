@@ -139,6 +139,10 @@ Portion",
             'default' => '6', 'help' => 'A rider who missed an offer is offered it again next round. After the last round the restaurant / shop and admins are alerted and can pick a rider by hand.',
         ],
         // Owner 2026-11-09: the rider can tap "Reached restaurant / shop" only this close to it (phone GPS at the tap).
+        'marketplace.dispatch.rider_speed_kmh' => [
+            'group' => 'Delivery', 'label' => 'Rider speed', 'type' => 'int', 'unit' => 'km/h', 'min' => 5, 'max' => 60,
+            'default' => '20', 'help' => 'Average speed in town, used for the minutes on the rider\'s card ("Pickup 2.4 km · 10 min"). 20 km/h suits city traffic on a bike.',
+        ],
         'marketplace.dispatch.reached_radius_m' => [
             'group' => 'Delivery', 'label' => 'Reached distance', 'type' => 'int', 'unit' => 'metres', 'min' => 50, 'max' => 2000,
             'default' => '150', 'help' => 'How close the rider must be to the restaurant / shop to tap "Reached". 150 m allows for phone GPS and map-pin error. If one restaurant is often refused, fix its map pin instead.',
