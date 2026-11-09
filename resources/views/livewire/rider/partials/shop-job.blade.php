@@ -34,7 +34,18 @@
                 Drop: <span class="font-bold">{{ rtrim(rtrim(number_format($dropKm, 1), '0'), '.') }} km</span> away
             </p>
         @endif
-        <button type="button" wire:click="reachedStore" class="mt-4 min-h-12 w-full rounded-xl bg-blue-600 text-base font-bold text-white" data-testid="reached-store">
+        {{-- Owner 2026-11-09: the phone's location at the tap is checked against the Reached distance (default 150 m). --}}
+        <button type="button" x-data
+                x-on:click="
+                    $el.disabled = true;
+                    navigator.geolocation
+                        ? navigator.geolocation.getCurrentPosition(
+                            p => { $wire.reachedStore(p.coords.latitude, p.coords.longitude); $el.disabled = false; },
+                            () => { $wire.reachedStore(null, null); $el.disabled = false; },
+                            { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 })
+                        : ($wire.reachedStore(null, null), $el.disabled = false)
+                "
+                class="mt-4 min-h-12 w-full rounded-xl bg-blue-600 text-base font-bold text-white disabled:opacity-60" data-testid="reached-store">
             Reached {{ $place }}
         </button>
         <p class="mt-2 text-center text-xs text-slate-500">Order details show after you reach.</p>

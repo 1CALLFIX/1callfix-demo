@@ -151,7 +151,7 @@ class FoodRiderRingTest extends TestCase
             'notifiable_type' => FieldWorker::class, 'notifiable_id' => $rider->id, 'status' => 'rejected', 'notified_at' => now(),
         ]);
 
-        Livewire::actingAs($this->restaurant->provider->user)->test(SellerOrders::class)->set('tab', 'active')
+        Livewire::actingAs($this->restaurant->provider->user)->test(SellerOrders::class)->set('tab', 'ready')
             ->assertSee('Pick a rider')
             ->call('togglePicker', $order->id)->assertSee('Anees')->assertSee('km')
             ->call('ringRider', $order->id, $rider->id)->assertSee('Ringing Anees');
@@ -162,7 +162,7 @@ class FoodRiderRingTest extends TestCase
         $this->assertSame($rider->id, $order->fresh()->assigned_worker_id);
 
         // Assigned: no more picking.
-        Livewire::actingAs($this->restaurant->provider->user)->test(SellerOrders::class)->set('tab', 'active')
+        Livewire::actingAs($this->restaurant->provider->user)->test(SellerOrders::class)->set('tab', 'ready')
             ->assertDontSee('Pick a rider')
             ->call('ringRider', $order->id, $rider->id)->assertSee('already has a rider');
     }

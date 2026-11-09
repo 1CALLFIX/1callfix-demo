@@ -110,12 +110,12 @@ class PickupCodeTest extends TestCase
         $wrong = $code === '1111' ? '2222' : '1111';
 
         // The restaurant sees the code from the start.
-        $seller = fn () => Livewire::actingAs($this->restaurant->provider->user)->test(SellerOrders::class)->set('tab', 'active');
+        $seller = fn () => Livewire::actingAs($this->restaurant->provider->user)->test(SellerOrders::class)->set('tab', 'ready');
         $seller()->assertSee('Pickup code')->assertSee($code);
 
         // The rider sees it only once he has reached, and cannot deliver before the hand-over.
         $rider_page = Livewire::actingAs($rider->user)->test(RiderDashboard::class)->assertDontSee('Tell this code at the counter')
-            ->call('reachedStore')->assertSee('Tell this code at the counter')->assertSee($code)
+            ->call('reachedStore', 1.0, 1.0)->assertSee('Tell this code at the counter')->assertSee($code)
             ->assertSee('Waiting for handover')
             ->set('shopOtp', $order->delivery_otp)->call('deliverShop')
             ->assertSet('error', 'Not handed over yet. Tell the pickup code.');
@@ -129,12 +129,64 @@ class PickupCodeTest extends TestCase
         $this->assertNotNull($order->fresh()->picked_up_at);
         $this->assertTrue($order->statusHistory()->where('note', 'Handed to rider Anees (pickup code checked)')->exists());
 
-        Livewire::actingAs($this->restaurant->provider->user)->test(SellerOrders::class)->set('tab', 'active')
+        Livewire::actingAs($this->restaurant->provider->user)->test(SellerOrders::class)->set('tab', 'handed')
             ->assertSee('Picked up by Anees')->assertSee('Anees is delivering');
 
         Livewire::actingAs($rider->user)->test(RiderDashboard::class)->assertSee('Picked up ✓ Deliver now')
             ->set('shopOtp', $order->fresh()->delivery_otp)->call('deliverShop')->assertSet('notice', 'Delivered. Thank you!');
         $this->assertSame('completed', $order->fresh()->status);
+    }
+
+    public function test_the_restaurant_cannot_hand_over_before_the_rider_has_reached_and_his_message_carries_the_code(): void
+    {
+        // Owner 2026-11-09: the restaurant handed over before the rider tapped "Reached restaurant", so his screen
+        // said "tell the code" with no code on it.
+        $rider = $this->makeDeliveryRiderIn($this->franchise, $this->zone, 'parcel_rider');
+        $order = $this->carriedBy($rider);
+        $code = $order->pickup_code;
+
+        Livewire::actingAs($this->restaurant->provider->user)->test(SellerOrders::class)->set('tab', 'ready')
+            ->assertSee('Hand over when the rider arrives')
+            ->set("riderCodes.{$order->id}", $code)->call('handToRider', $order->id)
+            ->assertSee('Rider not here yet');
+        $this->assertNull($order->fresh()->picked_up_at);
+
+        Livewire::actingAs($rider->user)->test(RiderDashboard::class)->call('reachedStore', 1.0, 1.0)
+            ->assertSet('notice', "Tell code {$code} at the counter.");
+
+        Livewire::actingAs($this->restaurant->provider->user)->test(SellerOrders::class)->set('tab', 'ready')
+            ->set("riderCodes.{$order->id}", $code)->call('handToRider', $order->id)
+            ->assertSee('Handed over to');
+        $this->assertNotNull($order->fresh()->picked_up_at);
+    }
+
+    public function test_reached_works_only_within_the_super_admins_distance(): void
+    {
+        // Owner 2026-11-09: within 150 m by default, Super Admin setting (Shop Settings → Delivery → Reached distance).
+        $rider = $this->makeDeliveryRiderIn($this->franchise, $this->zone, 'parcel_rider');
+        $order = $this->carriedBy($rider);
+        $page = fn () => Livewire::actingAs($rider->user)->test(RiderDashboard::class);
+        $north = fn (float $metres) => 1.0 + $metres / 111195; // the restaurant is at 1.0, 1.0
+
+        $page()->call('reachedStore', null, null)->assertSet('error', 'Turn on location to continue.');
+        $page()->call('reachedStore', $north(1100), 1.0)->assertSet('error', "You're 1.1 km away. Tap when you reach.");
+        $page()->call('reachedStore', $north(200), 1.0)->assertSet('error', "You're 200 m away. Tap when you reach.");
+        $this->assertNull($order->fresh()->rider_at_store_at);
+
+        // Super Admin widens it to 300 m: 200 m is now fine.
+        \App\Models\Setting::set('marketplace.dispatch.reached_radius_m', '300');
+        $page()->call('reachedStore', $north(200), 1.0)->assertSet('error', '');
+        $this->assertNotNull($order->fresh()->rider_at_store_at);
+    }
+
+    public function test_reached_at_120_metres_is_fine_by_default(): void
+    {
+        $rider = $this->makeDeliveryRiderIn($this->franchise, $this->zone, 'parcel_rider');
+        $order = $this->carriedBy($rider);
+
+        Livewire::actingAs($rider->user)->test(RiderDashboard::class)
+            ->call('reachedStore', 1.0 + 120 / 111195, 1.0)->assertSet('error', '');
+        $this->assertNotNull($order->fresh()->rider_at_store_at);
     }
 
     public function test_food_still_cooking_cannot_be_handed_over_and_another_shop_cannot_hand_it_over(): void

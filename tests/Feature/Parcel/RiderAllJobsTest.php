@@ -63,7 +63,7 @@ class RiderAllJobsTest extends TestCase
             ->assertSet('notice', 'Accepted. Head to the restaurant; take the food once they mark it ready.')
             ->assertSeeHtml('data-testid="current-job"')->assertSee('Reached restaurant')
             ->assertDontSee('Collect ₹240.00 cash') // owner 2026-11-09: details only once at the restaurant
-            ->call('reachedStore')->assertSee('Tell this code at the counter')
+            ->call('reachedStore', 1.0, 1.0)->assertSee('Tell this code at the counter')
             ->assertSee('Collect ₹240.00 cash')
             ->assertDontSee($shop['order']->code); // one job at a time: no other offers while carrying one
 
@@ -77,7 +77,7 @@ class RiderAllJobsTest extends TestCase
     public function test_home_and_earnings_show_the_same_cash_dues_and_history_lists_every_kind(): void
     {
         $food = $this->offeredOrder(Modules::FOOD, 'cash');
-        $home = Livewire::actingAs($food['rider']->user)->test(Dashboard::class)->call('acceptShopOffer', $food['order']->id)->call('reachedStore');
+        $home = Livewire::actingAs($food['rider']->user)->test(Dashboard::class)->call('acceptShopOffer', $food['order']->id)->call('reachedStore', 1.0, 1.0);
         $food['order']->forceFill(['picked_up_at' => now()])->save();
         $home->set('shopOtp', $food['order']->fresh()->delivery_otp)->call('deliverShop')->assertSet('notice', 'Delivered. Thank you!');
 

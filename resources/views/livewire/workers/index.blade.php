@@ -88,7 +88,7 @@
                     </td>
                     <td class="px-4 py-2">{{ $worker->documents->count() }} uploaded</td>
                     <td class="px-4 py-2 text-gray-500">@include('livewire.partners.partials.waiting', ['row' => $worker])</td>
-                    <td class="px-4 py-2"><x-ui.presence :user="$worker->user" :on-duty="(bool) $worker->is_online" /></td>
+                    <td class="px-4 py-2"><x-ui.presence :user="$worker->user" :on-duty="(bool) $worker->is_online" :location-at="$worker->location_updated_at" /></td>
                     <td class="px-4 py-2">
                         <x-ui.row-actions :id="$worker->id" :archived="$worker->trashed()" :can-manage="$canManage" :can-force="$canForce"
                                           :view-href="route('admin.workers.show', $worker->id)" view-label="Review"

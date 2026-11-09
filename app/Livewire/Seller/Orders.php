@@ -65,6 +65,10 @@ class Orders extends Component
             'ready' => 'Marked ready.',
             default => 'Updated.',
         });
+        // Owner 2026-11-09: follow the order to its new tab, so it never seems to vanish.
+        if ($this->flashType === 'success') {
+            $this->tab = $to === 'ready' ? 'ready' : 'cooking';
+        }
     }
 
     public function startReject(int $orderId): void
@@ -141,6 +145,12 @@ class Orders extends Component
 
             return;
         }
+        // Owner 2026-11-09: only to a rider who is at the counter ("Reached restaurant" tapped on his phone).
+        if ($order->rider_at_store_at === null) {
+            $this->flash('Rider not here yet. Hand over when he arrives and tells the code.', 'error');
+
+            return;
+        }
         if ($typed === '' || ! hash_equals((string) $order->ensurePickupCode(), $typed)) {
             $this->flash('Wrong code for this order.', 'error');
 
@@ -154,6 +164,7 @@ class Orders extends Component
             'changed_at' => now(),
         ]);
         unset($this->riderCodes[$orderId]);
+        $this->tab = 'handed';
         $this->flash('Handed over to '.($order->assignedWorker?->user?->name ?? 'the rider').'.', 'success');
     }
 
@@ -187,8 +198,12 @@ class Orders extends Component
     public function render()
     {
         $store = $this->shop();
-        $statuses = match ($this->tab) {
-            'active' => ['accepted', 'preparing', 'ready'],
+        // Owner 2026-11-09: one tab per step — New, Cooking (accepted / cooking), Ready (waiting for the rider or the
+        // customer), Handed over (with the rider), Completed. "active" is the old In progress link.
+        $tab = $this->tab === 'active' ? 'cooking' : $this->tab;
+        $statuses = match ($tab) {
+            'cooking' => ['accepted', 'preparing'],
+            'ready', 'handed' => ['ready'],
             'done' => ['completed'],
             'cancelled' => ['cancelled'],
             'returns' => ['__none__'],
@@ -200,12 +215,16 @@ class Orders extends Component
 
         return view('livewire.seller.orders', [
             'orders' => (clone $base)->whereIn('status', $statuses)
+                ->when($tab === 'ready', fn ($q) => $q->whereNull('picked_up_at'))
+                ->when($tab === 'handed', fn ($q) => $q->whereNotNull('picked_up_at'))
                 ->with(['items', 'customer:id,name', 'deliveryAddress', 'assignedWorker.user:id,name', 'franchise'])
-                ->orderBy($this->tab === 'new' || $this->tab === 'active' ? 'created_at' : 'updated_at', $this->tab === 'new' || $this->tab === 'active' ? 'asc' : 'desc')
+                ->orderBy(in_array($tab, ['new', 'cooking', 'ready', 'handed'], true) ? 'created_at' : 'updated_at', in_array($tab, ['new', 'cooking', 'ready', 'handed'], true) ? 'asc' : 'desc')
                 ->paginate(20),
             'counts' => [
                 'new' => (clone $base)->where('status', 'pending')->count(),
-                'active' => (clone $base)->whereIn('status', ['accepted', 'preparing', 'ready'])->count(),
+                'cooking' => (clone $base)->whereIn('status', ['accepted', 'preparing'])->count(),
+                'ready' => (clone $base)->where('status', 'ready')->whereNull('picked_up_at')->count(),
+                'handed' => (clone $base)->where('status', 'ready')->whereNotNull('picked_up_at')->count(),
                 'returns' => \App\Models\MarketplaceReturn::where('store_id', $store->id)->whereIn('status', ['requested', 'accepted'])->count(),
             ],
             'returns' => $this->tab === 'returns'
@@ -215,6 +234,7 @@ class Orders extends Component
             // Food F2: the cooking time pre-filled on Accept (its usual time plus busy minutes).
             'usualPrep' => $store->isRestaurant() ? $store->currentPrepMinutes() : null,
             'isRestaurant' => $store->isRestaurant(),
+            'activeTab' => $tab,
             // Owner 2026-11-09: nearby riders for the open "Pick a rider" list.
             'pickerRiders' => $this->pickingFor ? app(\App\Services\Marketplace\RiderPicker::class)->candidates($this->ownOrder($this->pickingFor)) : collect(),
         ])->layout('components.layouts.seller', ['title' => 'Orders']);

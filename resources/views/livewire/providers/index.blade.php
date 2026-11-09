@@ -80,7 +80,7 @@
                     <td class="px-4 py-2"><x-ui.status-badge type="provider_kyc" :status="$provider->kyc_status" /></td>
                     <td class="px-4 py-2">{{ $provider->documents->count() }} uploaded</td>
                     <td class="px-4 py-2 text-gray-500">@include('livewire.partners.partials.waiting', ['row' => $provider])</td>
-                    <td class="px-4 py-2"><x-ui.presence :user="$provider->user" :on-duty="(bool) $provider->is_online" /></td>
+                    <td class="px-4 py-2"><x-ui.presence :user="$provider->user" :on-duty="(bool) $provider->is_online" :location-at="$provider->location_updated_at" /></td>
                     <td class="px-4 py-2">
                         <x-ui.row-actions :id="$provider->id" :archived="$provider->trashed()" :can-manage="$canManage" :can-force="$canForce"
                                           :view-href="route('admin.providers.show', $provider->id)" view-label="Review"

@@ -2,9 +2,10 @@
     <h1 class="text-2xl font-bold tracking-tight">Orders</h1>
 
     <div class="flex flex-wrap gap-2 text-sm" role="tablist">
-        @foreach (['new' => 'New', 'active' => 'In progress', 'done' => 'Completed', 'cancelled' => 'Cancelled', 'returns' => $isRestaurant ? 'Problems' : 'Returns'] as $key => $label)
-            <button type="button" role="tab" wire:click="$set('tab', '{{ $key }}')" aria-selected="{{ $tab === $key ? 'true' : 'false' }}"
-                    @class(['rounded-lg px-3 py-1.5 font-medium', 'bg-slate-900 text-white' => $tab === $key, 'border border-slate-300 bg-white text-slate-700' => $tab !== $key])>
+        {{-- Owner 2026-11-09: one tab per step of the order. --}}
+        @foreach (['new' => 'New', 'cooking' => $isRestaurant ? 'Cooking' : 'Packing', 'ready' => 'Ready', 'handed' => 'Handed over', 'done' => 'Completed', 'cancelled' => 'Cancelled', 'returns' => $isRestaurant ? 'Problems' : 'Returns'] as $key => $label)
+            <button type="button" role="tab" wire:click="$set('tab', '{{ $key }}')" aria-selected="{{ $activeTab === $key ? 'true' : 'false' }}"
+                    @class(['rounded-lg px-3 py-1.5 font-medium', 'bg-slate-900 text-white' => $activeTab === $key, 'border border-slate-300 bg-white text-slate-700' => $activeTab !== $key])>
                 {{ $label }}@if (isset($counts[$key]) && $counts[$key] > 0) <span class="ml-1 rounded-full bg-amber-500 px-1.5 text-xs text-white">{{ $counts[$key] }}</span>@endif
             </button>
         @endforeach
@@ -82,6 +83,26 @@
                 <div>
                     <p class="font-semibold">{{ $order->code }} · {{ $isPickup ? 'Pickup at shop' : 'Delivery' }}</p>
                     <p class="text-xs text-slate-500">{{ $order->customer?->name }} · {{ app(\App\Services\TimezoneResolver::class)->format($order->created_at, $order->franchise, 'd M, h:i A') }} · {{ $order->created_at->diffForHumans(short: true) }}</p>
+                    {{-- Owner 2026-11-09: where the order is, at a glance. --}}
+                    @unless (in_array($order->status, ['pending', 'cancelled'], true))
+                        @php
+                            $steps = $isPickup
+                                ? ['Accepted', $order->isFood() ? 'Cooking' : 'Packing', 'Ready', 'Collected']
+                                : ['Accepted', $order->isFood() ? 'Cooking' : 'Packing', 'Ready', 'Handed over', 'Delivered'];
+                            $at = match (true) {
+                                $order->status === 'completed' => count($steps) - 1,
+                                $order->status === 'ready' && $order->picked_up_at !== null => 3,
+                                $order->status === 'ready' => 2,
+                                $order->status === 'preparing' => 1,
+                                default => 0,
+                            };
+                        @endphp
+                        <ol class="mt-2 flex flex-wrap items-center gap-1 text-[11px] font-semibold" data-testid="order-steps">
+                            @foreach ($steps as $i => $step)
+                                <li @class(['rounded-full px-2 py-0.5', 'bg-emerald-600 text-white' => $i === $at, 'bg-emerald-50 text-emerald-700' => $i < $at, 'bg-slate-100 text-slate-400' => $i > $at])>{{ $step }}</li>
+                            @endforeach
+                        </ol>
+                    @endunless
                 </div>
                 <div class="text-right">
                     <p class="text-lg font-bold">{{ $currencySymbol }}{{ number_format((float) $order->total_amount, 2) }}</p>
@@ -135,7 +156,9 @@
                     @else
                         <p class="text-sm text-slate-600">Pickup code <span class="ml-1 text-2xl font-extrabold tracking-[0.2em] text-slate-900">{{ $order->ensurePickupCode() }}</span></p>
                         <p class="text-xs text-slate-500">Write on the bag. Give only to the rider with this code.</p>
-                        @if ($order->assigned_worker_id && $order->status === 'ready')
+                        @if ($order->assigned_worker_id && $order->status === 'ready' && ! $order->rider_at_store_at)
+                            <p class="mt-2 text-xs font-semibold text-slate-500">Hand over when the rider arrives and tells the code.</p>
+                        @elseif ($order->assigned_worker_id && $order->status === 'ready')
                             <div class="mt-2 flex flex-wrap items-center gap-2">
                                 <label for="rider-code-{{ $order->id }}" class="sr-only">Code the rider tells you</label>
                                 <input id="rider-code-{{ $order->id }}" type="text" inputmode="numeric" maxlength="8" placeholder="Rider's code"
@@ -195,7 +218,7 @@
                 @elseif ($order->status === 'accepted')
                     <x-ui.button wire:click="advance({{ $order->id }}, 'preparing')">{{ $order->isFood() ? 'Start cooking' : 'Start packing' }}</x-ui.button>
                 @elseif ($order->status === 'preparing')
-                    <x-ui.button wire:click="advance({{ $order->id }}, 'ready')">{{ $order->isFood() ? ($isPickup ? 'Food is ready for pickup' : 'Food is packed and ready') : ($isPickup ? 'Ready for pickup' : 'Packed — call a rider') }}</x-ui.button>
+                    <x-ui.button wire:click="advance({{ $order->id }}, 'ready')">Mark ready</x-ui.button>
                 @elseif ($order->status === 'ready' && $isPickup)
                     <label class="sr-only" for="code-{{ $order->id }}">Collection code</label>
                     <input id="code-{{ $order->id }}" type="text" inputmode="numeric" maxlength="8" wire:model="codes.{{ $order->id }}" placeholder="Customer's code"

@@ -56,13 +56,37 @@ trait HandlesShopJobs
      * Owner 2026-11-09: "Reached restaurant". Before this the rider sees only the restaurant and how far the
      * customer is; after it, the items to collect, the customer and the delivery.
      */
-    public function reachedStore(): void
+    public function reachedStore(?float $lat = null, ?float $lng = null): void
     {
         $this->reset('notice', 'error');
         $job = app(RiderOfferService::class)->activeShopJob($this->rider());
         if (! $job || $job->rider_at_store_at !== null) {
             return;
         }
+
+        // Owner 2026-11-09: only near the restaurant / shop (Super Admin: Shop Settings → Delivery → Reached distance).
+        // The phone's location at the tap is checked here; a place without a map pin is not checked.
+        $store = $job->store;
+        if ($store && $store->lat !== null && $store->lng !== null) {
+            if ($lat === null || $lng === null || abs($lat) > 90 || abs($lng) > 180) {
+                $this->error = 'Turn on location to continue.';
+
+                return;
+            }
+            $metres = app(\App\Services\DispatchService::class)->haversineKm($lat, $lng, (float) $store->lat, (float) $store->lng) * 1000;
+            $limit = (int) \App\Support\MarketplaceSettings::get('marketplace.dispatch.reached_radius_m', array_filter([
+                'zone_id' => $job->zone_id, 'franchise_id' => $job->franchise_id,
+            ]));
+            if ($metres > $limit) {
+                $away = $metres >= 1000 ? rtrim(rtrim(number_format($metres / 1000, 1), '0'), '.').' km' : (int) round($metres).' m';
+                $this->error = "You're {$away} away. Tap when you reach.";
+
+                return;
+            }
+            // The fix just read is the rider's freshest location too.
+            $this->rider()->forceFill(['current_lat' => $lat, 'current_lng' => $lng, 'location_updated_at' => now()])->save();
+        }
+
         $job->forceFill(['rider_at_store_at' => now()])->save();
         $job->statusHistory()->create([
             'status' => $job->status,
@@ -70,7 +94,7 @@ trait HandlesShopJobs
             'note' => 'Rider reached '.($job->isFood() ? 'restaurant' : 'shop'),
             'changed_at' => now(),
         ]);
-        $this->notice = 'Tell the pickup code at the counter.';
+        $this->notice = 'Tell code '.$job->ensurePickupCode().' at the counter.';
     }
 
     protected function deliverShopWith(string $code): bool

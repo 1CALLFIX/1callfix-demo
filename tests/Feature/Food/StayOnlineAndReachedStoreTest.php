@@ -171,7 +171,7 @@ class StayOnlineAndReachedStoreTest extends TestCase
             ->assertSet('error', 'Tap "Reached restaurant" first.');
         $this->assertSame('ready', $order->fresh()->status);
 
-        $page->call('reachedStore')
+        $page->call('reachedStore', 1.0, 1.0)
             ->assertSee('Tell this code at the counter')->assertSee($order->code)
             ->assertSee('Chicken Biryani')->assertSee('2 ×')
             ->assertSee('Ravi Kumar')->assertSee('23-1-633 Mulapet')
