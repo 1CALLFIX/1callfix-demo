@@ -13,7 +13,7 @@
         <p class="font-semibold">{{ $returnJob->customer?->name }}</p>
         <p class="text-sm text-slate-600">{{ $addr?->address_line }}@if ($addr?->landmark), {{ $addr->landmark }}@endif</p>
         <div class="mt-2 flex flex-wrap gap-2 text-sm">
-            @if ($addr && $addr->lat !== null)<a href="https://www.google.com/maps/dir/?api=1&destination={{ $addr->lat }},{{ $addr->lng }}" target="_blank" rel="noopener" class="inline-flex min-h-10 items-center rounded-lg border border-slate-300 bg-white px-3 font-medium">Directions</a>@endif
+            @if ($addr)<x-ui.map-link :lat="$addr->lat" :lng="$addr->lng" class="inline-flex min-h-10 items-center rounded-lg border border-slate-300 bg-white px-3 font-medium">Directions</x-ui.map-link>@endif
             @if ($returnJob->customer?->phone)<a href="tel:{{ $returnJob->customer->phone }}" class="inline-flex min-h-10 items-center rounded-lg border border-slate-300 bg-white px-3 font-medium">Call the customer</a>@endif
         </div>
         <ul class="mt-2 list-disc pl-5 text-sm text-slate-700">
@@ -29,7 +29,7 @@
         <p class="font-semibold">{{ $returnJob->store?->name }}</p>
         <p class="text-sm text-slate-600">{{ $returnJob->store?->address_line }}</p>
         <div class="mt-2 flex flex-wrap gap-2 text-sm">
-            <a href="https://www.google.com/maps/dir/?api=1&destination={{ $returnJob->store?->lat }},{{ $returnJob->store?->lng }}" target="_blank" rel="noopener" class="inline-flex min-h-10 items-center rounded-lg border border-slate-300 bg-white px-3 font-medium">Directions</a>
+            <x-ui.map-link :lat="$returnJob->store?->lat" :lng="$returnJob->store?->lng" class="inline-flex min-h-10 items-center rounded-lg border border-slate-300 bg-white px-3 font-medium">Directions</x-ui.map-link>
             @if ($returnJob->store?->phone)<a href="tel:{{ $returnJob->store->phone }}" class="inline-flex min-h-10 items-center rounded-lg border border-slate-300 bg-white px-3 font-medium">Call the shop</a>@endif
         </div>
     </div>

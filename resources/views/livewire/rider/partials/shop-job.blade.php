@@ -20,7 +20,7 @@
         <p class="font-semibold">{{ $job->store->name }}</p>
         <p class="text-sm text-slate-600">{{ $job->store->address_line }}</p>
         <div class="mt-2 flex flex-wrap gap-2 text-sm">
-            <a href="https://www.google.com/maps/dir/?api=1&destination={{ $job->store->lat }},{{ $job->store->lng }}" target="_blank" rel="noopener" class="inline-flex min-h-10 items-center rounded-lg border border-slate-300 bg-white px-3 font-medium">Directions</a>
+            <x-ui.map-link :lat="$job->store->lat" :lng="$job->store->lng" class="inline-flex min-h-10 items-center rounded-lg border border-slate-300 bg-white px-3 font-medium">Directions</x-ui.map-link>
             @if ($job->store->phone)<a href="tel:{{ $job->store->phone }}" class="inline-flex min-h-10 items-center rounded-lg border border-slate-300 bg-white px-3 font-medium">Call {{ $place }}</a>@endif
         </div>
         @if ($job->status === 'preparing')
@@ -82,7 +82,7 @@
             @endif
             <p class="text-sm text-slate-600">{{ $job->deliveryAddress?->address_line }}@if ($job->deliveryAddress?->landmark), {{ $job->deliveryAddress->landmark }}@endif</p>
             <div class="mt-2 flex flex-wrap gap-2 text-sm">
-                @if ($job->deliveryAddress)<a href="https://www.google.com/maps/dir/?api=1&destination={{ $job->deliveryAddress->lat }},{{ $job->deliveryAddress->lng }}" target="_blank" rel="noopener" class="inline-flex min-h-10 items-center rounded-lg border border-slate-300 bg-white px-3 font-medium">Directions</a>@endif
+                @if ($job->deliveryAddress)<x-ui.map-link :lat="$job->deliveryAddress->lat" :lng="$job->deliveryAddress->lng" class="inline-flex min-h-10 items-center rounded-lg border border-slate-300 bg-white px-3 font-medium">Directions</x-ui.map-link>@endif
                 @if ($job->recipient_phone)<a href="tel:{{ $job->recipient_phone }}" class="inline-flex min-h-10 items-center rounded-lg border border-slate-300 bg-white px-3 font-medium">Call {{ $job->recipient_name }}</a>@endif
                 @if ($job->customer?->phone)<a href="tel:{{ $job->customer->phone }}" class="inline-flex min-h-10 items-center rounded-lg border border-slate-300 bg-white px-3 font-medium">Call customer</a>@endif
             </div>

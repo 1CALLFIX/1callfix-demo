@@ -45,6 +45,9 @@ class DashboardOtherVerticalsTest extends TestCase
 
         $actor = $this->makeUserWithPermission('dashboard.view', 'global');
         $this->grantPermission($actor, 'parcel_orders.view', 'franchise', $scenario['franchise']->id);
+        // Owner 2026-11-09: the dashboard shows only modules switched on somewhere.
+        \App\Models\Module::where('code', 'parcel')->update(['is_implemented' => true]);
+        app(\App\Services\ModuleActivationService::class)->setActive('parcel', 'franchise', $scenario['franchise']->id, true);
 
         // Parcel is its own dashboard tab (owner request 2026-11-03).
         Livewire::actingAs($actor)->test(Dashboard::class)

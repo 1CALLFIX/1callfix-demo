@@ -50,22 +50,20 @@ trait FiltersPartners
         $this->resetPage();
     }
 
-    /** Inside the Partners page the list opens on Needs review, unless the link asked for a status. */
+    /**
+     * Owner 2026-11-09: every list opens on All (Needs review used to open first and was usually empty). The
+     * Needs review tab keeps its count and red overdue badge, so waiting partners still stand out.
+     */
     protected function startOnNeedsReview(): void
     {
-        if ($this->embedded && ! request()->query->has('statusFilter')) {
-            $this->statusFilter = 'review';
-        }
     }
 
-    /** Status tabs: Needs review first inside the Partners page. */
+    /** Status tabs: All first, then Needs review. */
     protected function statusTabs(): array
     {
         $rest = ['approved' => 'Approved', 'rejected' => 'Rejected', 'archived' => 'Archived'];
 
-        return $this->embedded
-            ? ['review' => 'Needs review', '' => 'All partners'] + $rest
-            : ['' => 'All', 'review' => 'Needs review'] + $rest;
+        return ['' => $this->embedded ? 'All partners' : 'All', 'review' => 'Needs review'] + $rest;
     }
 
     /** The list's status filter, including Needs review (oldest wait first). */

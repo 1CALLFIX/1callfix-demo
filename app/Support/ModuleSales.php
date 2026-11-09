@@ -59,6 +59,62 @@ class ModuleSales
         ];
     }
 
+    /** Dashboard key => module code in Admin → Modules. */
+    public const MODULE_CODES = ['service' => 'service', 'parcel' => 'parcel', 'shop' => 'commerce', 'food' => 'food',
+        'taxi' => 'taxi', 'rental' => 'rental', 'hotel' => 'hotel'];
+
+    /**
+     * Owner 2026-11-09: the dashboard shows only modules that are built and switched on somewhere (Admin → Modules),
+     * not the ones still to be built. A module switched on later appears by itself.
+     */
+    public static function liveKeys(): array
+    {
+        $activation = app(\App\Services\ModuleActivationService::class);
+
+        return array_keys(array_filter(self::MODULE_CODES, fn ($code) => $activation->isActiveAnywhere($code)));
+    }
+
+    /**
+     * Orders placed per day for the last $days days, per module, on each module's own permission and row scope.
+     *
+     * @return array<string, array<string, int>> date => [module key => orders]
+     */
+    public static function daily(User $user, array $keys, int $days = 7, string $timezone = 'UTC'): array
+    {
+        $start = now($timezone)->subDays($days - 1)->startOfDay();
+        $out = [];
+        for ($i = 0; $i < $days; $i++) {
+            $out[$start->copy()->addDays($i)->toDateString()] = array_fill_keys($keys, 0);
+        }
+        $offset = $start->format('P');
+
+        foreach (self::modules() as $key => $module) {
+            if (! in_array($key, $keys, true)) {
+                continue;
+            }
+            foreach ($module['sources'] as $source) {
+                if (! $user->hasPermissionAnywhere($source['permission'])) {
+                    continue;
+                }
+                $q = app(AuthorizationService::class)
+                    ->scopeQuery($source['model']::query(), $user, $source['permission'], self::SCOPE_COLUMNS)
+                    ->where('created_at', '>=', $start->copy()->utc());
+                if (isset($source['where'])) {
+                    ($source['where'])($q);
+                }
+                $driver = $q->getConnection()->getDriverName();
+                $day = $driver === 'mysql' ? "DATE(CONVERT_TZ(created_at, '+00:00', '{$offset}'))" : 'DATE(created_at)';
+                foreach ($q->selectRaw("{$day} as d, COUNT(*) as n")->groupBy('d')->pluck('n', 'd') as $d => $n) {
+                    if (isset($out[$d][$key])) {
+                        $out[$d][$key] += (int) $n;
+                    }
+                }
+            }
+        }
+
+        return $out;
+    }
+
     /** The module keys this user can see (at least one source permission held). */
     public static function visibleKeys(User $user): array
     {

@@ -8,7 +8,7 @@
         <div @class(['mb-4 rounded px-4 py-2 text-sm', 'bg-green-50 text-green-700' => $flashType === 'success', 'bg-red-50 text-red-700' => $flashType !== 'success'])>{{ $flashMessage }}</div>
     @endif
 
-    <x-ui.filter-tabs class="mb-3" :tabs="['open' => 'Open', 'paid' => 'Paid', 'declined' => 'Declined', 'all' => 'All']" :active="$statusFilter" model="statusFilter" />
+    <x-ui.filter-tabs class="mb-3" :tabs="['all' => 'All', 'open' => 'Open', 'paid' => 'Paid', 'declined' => 'Declined']" :active="$statusFilter" model="statusFilter" />
 
     <x-ui.table>
         <x-slot:footer>{{ $rows->links() }}</x-slot:footer>

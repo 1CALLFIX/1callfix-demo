@@ -26,6 +26,16 @@ class DashboardModuleTabsTest extends TestCase
     use ParcelOrderFixtureHelpers;
     use MarketplaceFixtureHelpers;
 
+    /** Owner 2026-11-09: the dashboard shows only modules switched on somewhere (Admin → Modules). */
+    private function switchOn(string ...$codes): void
+    {
+        $franchiseId = \App\Models\Franchise::query()->value('id');
+        foreach ($codes as $code) {
+            \App\Models\Module::where('code', $code)->update(['is_implemented' => true]);
+            app(\App\Services\ModuleActivationService::class)->setActive($code, 'franchise', $franchiseId, true);
+        }
+    }
+
     public function test_all_modules_table_totals_every_module_and_splits_cash_from_online(): void
     {
         $booking = $this->makeBookingScenario('completed')['booking'];
@@ -35,6 +45,7 @@ class DashboardModuleTabsTest extends TestCase
         $this->makeMarketplaceOrderScenario('completed', ['total_amount' => 200]);
         $food = $this->makeMarketplaceOrderScenario('completed', ['total_amount' => 150, 'module' => Modules::FOOD]);
         $this->makeMarketplaceOrderScenario('cancelled', ['total_amount' => 999]);
+        $this->switchOn(Modules::PARCEL, Modules::COMMERCE, Modules::FOOD);
 
         $rows = ModuleSales::summary($this->makeSuperAdmin(), now()->startOfYear());
 
@@ -82,6 +93,7 @@ class DashboardModuleTabsTest extends TestCase
         $shop = $this->makeMarketplaceOrderScenario('pending');
         $food = $this->makeMarketplaceOrderScenario('pending', ['module' => Modules::FOOD]);
         $admin = $this->makeSuperAdmin();
+        $this->switchOn(Modules::COMMERCE, Modules::FOOD);
 
         Livewire::actingAs($admin)->withQueryParams(['tab' => 'shop'])->test(Dashboard::class)
             ->assertSee('Recent Shop Orders')->assertSee($shop['order']->code)->assertDontSee($food['order']->code)

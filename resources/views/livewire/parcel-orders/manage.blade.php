@@ -98,7 +98,7 @@
                     </p>
                     @if ($order->refusal_note) <p class="text-sm text-gray-700 mt-1">Rider's note: {{ $order->refusal_note }}</p> @endif
                     <p class="text-xs text-gray-500 mt-1">
-                        @if ($order->refused_lat !== null)<a href="https://www.google.com/maps?q={{ $order->refused_lat }},{{ $order->refused_lng }}" target="_blank" rel="noopener" class="underline">Where the rider was</a> · @endif
+                        @if ($order->refused_lat !== null)<x-ui.map-link mode="place" :lat="$order->refused_lat" :lng="$order->refused_lng" class="underline">Where the rider was</x-ui.map-link> · @endif
                         Refusal fee kept: {{ number_format((float) $order->cancellation_fee, 2) }}
                         · Trip pay to the rider: {{ $order->refusal_rider_pay !== null ? number_format((float) $order->refusal_rider_pay, 2) : 'none' }}
                     </p>
@@ -115,7 +115,7 @@
                                     · {{ $safetyTz->format($photo->taken_at, $order->franchise, 'd M, h:i A') }}
                                     <span class="block">Unusual: {{ collect($photo->concerns)->map(fn ($c) => \App\Services\Parcel\ParcelSettings::SAFETY_CONCERNS[$c] ?? $c)->implode(', ') }}</span>
                                     @if ($photo->note) <span class="block">“{{ $photo->note }}”</span> @endif
-                                    @if ($photo->lat !== null) <a href="https://www.google.com/maps?q={{ $photo->lat }},{{ $photo->lng }}" target="_blank" rel="noopener" class="underline">Map</a> @endif
+                                    @if ($photo->lat !== null) <x-ui.map-link mode="place" :lat="$photo->lat" :lng="$photo->lng" class="underline">Map</x-ui.map-link> @endif
                                 </figcaption>
                             </figure>
                         @endforeach

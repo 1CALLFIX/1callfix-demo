@@ -36,6 +36,8 @@ class Manage extends Component
     /** NO PAYMENT, NO BOOKING (owner 2026-11-07): list unpaid online parcel orders (payment attempts) instead, for support. */
     public bool $attempts = false;
     public string $search = '';
+
+    protected $queryString = ['search' => ['except' => '']]; // dashboard order codes open here
     public ?int $selectedOrderId = null;
 
     // --- Add New panel ---

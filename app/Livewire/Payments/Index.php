@@ -55,7 +55,7 @@ class Index extends Component
     public string $methodFilter = '';
     public string $search = '';
 
-    protected $queryString = ['purposeFilter', 'statusFilter', 'search'];
+    protected $queryString = ['purposeFilter', 'statusFilter', 'search', 'methodFilter' => ['except' => '']]; // dashboard cards link to Online / Cash
 
     /** payments.view was seeded (2026_08_14_002000) specifically for this screen. */
     public function mount(): void

@@ -1,6 +1,13 @@
 <div>
-    <div class="flex items-center justify-between mb-6 gap-4">
-        <h1 class="text-2xl font-bold">Dashboard</h1>
+    {{-- Owner 2026-11-09: a pleasant welcome with today's date. --}}
+    <div class="relative mb-6 flex flex-wrap items-center justify-between gap-4 overflow-hidden rounded-2xl bg-gradient-to-r from-indigo-600 via-blue-600 to-sky-500 px-6 py-5 text-white shadow-md">
+        <div aria-hidden="true" class="pointer-events-none absolute -right-10 -top-12 h-40 w-40 rounded-full bg-white/10"></div>
+        <div aria-hidden="true" class="pointer-events-none absolute right-24 -bottom-16 h-32 w-32 rounded-full bg-white/10"></div>
+        <div class="relative">
+            <p class="text-sm font-medium text-white/80">{{ $greeting['hour'] < 12 ? 'Good morning' : ($greeting['hour'] < 17 ? 'Good afternoon' : 'Good evening') }}, {{ $greeting['name'] }}</p>
+            <h1 class="text-2xl font-bold">Dashboard</h1>
+            <p class="mt-0.5 text-sm text-white/90" data-testid="dashboard-date">{{ $greeting['date'] }}</p>
+        </div>
 
         {{-- Phase 2 — "Enable order alerts": opt this admin into a push on
              every new booking / captured payment (App\Services\AdminOpsAlertService,
@@ -22,14 +29,14 @@
                     else { this.msg = 'Could not update. Check notification permission for this site.'; }
                 }
              }"
-             x-show="supported || enabled" style="display:none" class="text-right">
+             x-show="supported || enabled" style="display:none" class="relative text-right">
             <button type="button" x-on:click="toggle()" x-bind:disabled="busy"
                     class="inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 text-xs font-semibold transition disabled:opacity-60"
-                    x-bind:class="enabled ? 'border-emerald-300 bg-emerald-50 text-emerald-800' : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50'">
+                    x-bind:class="enabled ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-white/40 bg-white/15 text-white hover:bg-white/25'">
                 <span x-show="!busy" x-text="enabled ? 'Order alerts on' : 'Enable order alerts'"></span>
                 <span x-show="busy">Working…</span>
             </button>
-            <p x-show="msg" x-text="msg" class="mt-1 text-xs text-rose-600"></p>
+            <p x-show="msg" x-text="msg" class="mt-1 text-xs text-white"></p>
         </div>
     </div>
 
@@ -56,7 +63,7 @@
     </div>
 
     <div class="mb-4 flex flex-wrap items-center justify-between gap-2">
-        <div class="text-sm font-semibold text-gray-500">{{ $tabs[$tab]['label'] }} · {{ $periodLabel }}</div>
+        <div class="text-sm font-semibold text-gray-500">{{ $tabs[$tab]['label'] }} · {{ $periodLabel }} · <span class="text-gray-700" data-testid="period-dates">{{ $periodDates }}</span></div>
         <div class="flex gap-1 rounded bg-white p-1 shadow-sm">
             @foreach (['today' => 'Today', 'week' => 'This Week', 'month' => 'This Month', 'year' => 'This Year'] as $key => $label)
                 <button wire:click="setPeriod('{{ $key }}')"
@@ -71,17 +78,104 @@
         {{-- The whole business: every module's orders and sales, one grand total. --}}
         <div class="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
             @foreach ([
-                ['label' => 'Total orders', 'value' => number_format($salesTotal['orders']), 'hint' => $salesTotal['open'].' open · '.$salesTotal['cancelled'].' cancelled', 'bg' => 'from-indigo-500 to-blue-600'],
-                ['label' => 'Total sales', 'value' => $currencySymbol.number_format($salesTotal['sales'], 2), 'hint' => $salesTotal['completed'].' completed orders', 'bg' => 'from-emerald-500 to-green-600'],
-                ['label' => 'Paid online', 'value' => $currencySymbol.number_format($salesTotal['online'], 2), 'hint' => 'Razorpay and wallet', 'bg' => 'from-violet-500 to-purple-600'],
-                ['label' => 'Cash', 'value' => $currencySymbol.number_format($salesTotal['cash'], 2), 'hint' => 'collected by partners', 'bg' => 'from-orange-400 to-amber-500'],
+                ['label' => 'Total orders', 'value' => number_format($salesTotal['orders']), 'hint' => $salesTotal['open'].' open · '.$salesTotal['cancelled'].' cancelled', 'bg' => 'from-indigo-500 to-blue-600', 'url' => $kpiLinks['orders']],
+                ['label' => 'Total sales', 'value' => $currencySymbol.number_format($salesTotal['sales'], 2), 'hint' => $salesTotal['completed'].' completed orders', 'bg' => 'from-emerald-500 to-green-600', 'url' => $kpiLinks['sales']],
+                ['label' => 'Paid online', 'value' => $currencySymbol.number_format($salesTotal['online'], 2), 'hint' => 'Razorpay and wallet', 'bg' => 'from-violet-500 to-purple-600', 'url' => $kpiLinks['online']],
+                ['label' => 'Cash', 'value' => $currencySymbol.number_format($salesTotal['cash'], 2), 'hint' => 'collected by partners', 'bg' => 'from-orange-400 to-amber-500', 'url' => $kpiLinks['cash']],
             ] as $k)
-                <div class="rounded-2xl bg-gradient-to-br {{ $k['bg'] }} p-5 text-white shadow-md">
-                    <div class="text-xs font-medium uppercase tracking-wide text-white/80">{{ $k['label'] }}</div>
+                <a href="{{ $k['url'] }}" @unless (str_starts_with($k['url'], '#')) wire:navigate @endunless
+                   class="group block rounded-2xl bg-gradient-to-br {{ $k['bg'] }} p-5 text-white shadow-md transition hover:-translate-y-0.5 hover:shadow-lg">
+                    <div class="flex items-center justify-between text-xs font-medium uppercase tracking-wide text-white/80">{{ $k['label'] }} <span aria-hidden="true" class="opacity-0 transition group-hover:opacity-100">→</span></div>
                     <div class="mt-1 text-2xl font-bold tabular-nums">{{ $k['value'] }}</div>
                     <div class="mt-0.5 text-xs text-white/80">{{ $k['hint'] }}</div>
-                </div>
+                </a>
             @endforeach
+        </div>
+
+        {{-- Who is working right now; each tile opens its list. --}}
+        @if (! empty($team))
+            <div class="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-3" data-testid="team-now">
+                @foreach ($team as $t)
+                    @php($tone = \App\Support\AdminNav::tone($t['colour']))
+                    @php($pct = $t['of'] > 0 ? (int) round($t['value'] / $t['of'] * 100) : 0)
+                    <a href="{{ $t['url'] }}" wire:navigate class="group block">
+                        <x-ui.card class="h-full transition group-hover:shadow-md">
+                            <div class="flex items-center gap-3">
+                                <span class="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border {{ $tone['chip'] }}"><x-icon :name="$t['icon']" class="h-5 w-5" /></span>
+                                <div class="min-w-0 flex-1">
+                                    <div class="text-xs font-medium text-gray-500">{{ $t['label'] }}</div>
+                                    <div class="text-xl font-bold tabular-nums">{{ $t['value'] }} <span class="text-sm font-normal text-gray-400">/ {{ $t['of'] }}</span></div>
+                                </div>
+                                @if ($t['value'] > 0)<span class="relative flex h-2.5 w-2.5" aria-hidden="true"><span class="absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75 motion-safe:animate-ping"></span><span class="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500"></span></span>@endif
+                            </div>
+                            <div class="mt-3 h-1.5 overflow-hidden rounded-full bg-gray-100"><div class="h-full rounded-full {{ $tone['bar'] }}" style="width: {{ $pct }}%"></div></div>
+                        </x-ui.card>
+                    </a>
+                @endforeach
+            </div>
+        @endif
+
+        {{-- Owner 2026-11-09: a circle and a bar chart. Sales share by module (orders when nothing finished yet) and
+             orders per day for the last 7 days, one colour per module. Tap a module to open its tab. --}}
+        <?php
+            $hex = ['blue' => '#3b82f6', 'orange' => '#f97316', 'violet' => '#8b5cf6', 'rose' => '#f43f5e', 'amber' => '#f59e0b', 'teal' => '#14b8a6', 'cyan' => '#06b6d4', 'slate' => '#64748b'];
+            $shareBy = $salesTotal['sales'] > 0 ? 'sales' : 'orders';
+            $shareTotal = max(0.0001, (float) collect($moduleSales)->sum($shareBy));
+            $stops = []; $at = 0.0;
+            foreach ($moduleSales as $m) {
+                $part = (float) $m[$shareBy] / $shareTotal * 100;
+                if ($part <= 0) { continue; }
+                $stops[] = ($hex[$m['colour']] ?? '#64748b').' '.round($at, 2).'% '.round($at + $part, 2).'%';
+                $at += $part;
+            }
+            $ring = $stops ? 'conic-gradient('.implode(', ', $stops).')' : 'conic-gradient(#e5e7eb 0 100%)';
+            $dayMax = max(1, collect($daily)->map(fn ($d) => array_sum($d))->max());
+        ?>
+        <div class="mb-6 grid grid-cols-1 gap-4 lg:grid-cols-5">
+            <x-ui.card class="lg:col-span-2">
+                <div class="mb-4 text-sm font-semibold uppercase text-gray-500">{{ $shareBy === 'sales' ? 'Sales' : 'Orders' }} by module · {{ $periodLabel }}</div>
+                <div class="flex flex-wrap items-center gap-6">
+                    <div class="relative h-36 w-36 shrink-0 rounded-full" style="background: {{ $ring }}" role="img" data-testid="module-donut"
+                         aria-label="{{ collect($moduleSales)->map(fn ($m) => $m['label'].' '.($shareBy === 'sales' ? $currencySymbol.number_format($m['sales'], 0) : $m['orders']))->implode(', ') }}">
+                        <div class="absolute inset-4 flex flex-col items-center justify-center rounded-full bg-white text-center">
+                            <span class="text-lg font-bold tabular-nums">{{ $shareBy === 'sales' ? $currencySymbol.number_format($salesTotal['sales'], 0) : $salesTotal['orders'] }}</span>
+                            <span class="text-[11px] text-gray-500">{{ $shareBy === 'sales' ? 'sales' : 'orders' }}</span>
+                        </div>
+                    </div>
+                    <ul class="min-w-0 flex-1 space-y-1.5 text-sm">
+                        @foreach ($moduleSales as $key => $m)
+                            <li>
+                                <button type="button" wire:click="setTab('{{ $key }}')" class="flex w-full items-center justify-between gap-2 rounded-md px-1 py-0.5 hover:bg-gray-50">
+                                    <span class="inline-flex items-center gap-2"><span class="h-2.5 w-2.5 rounded-full" style="background: {{ $hex[$m['colour']] ?? '#64748b' }}"></span>{{ $m['label'] }}</span>
+                                    <span class="tabular-nums text-gray-600">{{ $shareBy === 'sales' ? $currencySymbol.number_format($m['sales'], 0) : $m['orders'] }} <span class="text-xs text-gray-400">{{ (int) round((float) $m[$shareBy] / $shareTotal * 100) }}%</span></span>
+                                </button>
+                            </li>
+                        @endforeach
+                    </ul>
+                </div>
+            </x-ui.card>
+            <x-ui.card class="lg:col-span-3">
+                <div class="mb-4 text-sm font-semibold uppercase text-gray-500">Orders · last 7 days</div>
+                <div class="flex h-40 items-end gap-2" role="img" data-testid="daily-bars"
+                     aria-label="Orders per day: {{ collect($daily)->map(fn ($d, $date) => \Illuminate\Support\Carbon::parse($date)->format('D').' '.array_sum($d))->implode(', ') }}">
+                    @foreach ($daily as $date => $perModule)
+                        @php($sum = array_sum($perModule))
+                        <div class="flex h-full flex-1 flex-col items-center justify-end gap-1" title="{{ \Illuminate\Support\Carbon::parse($date)->format('D j M') }}: {{ $sum }} orders">
+                            <div class="text-[11px] font-medium text-gray-600">{{ $sum }}</div>
+                            <div class="flex w-full flex-col-reverse overflow-hidden rounded-t" style="height: {{ max(3, (int) round($sum / $dayMax * 112)) }}px">
+                                @if ($sum === 0)
+                                    <div class="h-full w-full bg-gray-200"></div>
+                                @else
+                                    @foreach ($perModule as $key => $n)
+                                        @if ($n > 0)<div style="height: {{ $n / $sum * 100 }}%; background: {{ $hex[$moduleSales[$key]['colour'] ?? 'slate'] ?? '#64748b' }}"></div>@endif
+                                    @endforeach
+                                @endif
+                            </div>
+                            <div @class(['text-[11px]', 'font-semibold text-gray-700' => $loop->last, 'text-gray-400' => ! $loop->last])>{{ $loop->last ? 'Today' : \Illuminate\Support\Carbon::parse($date)->format('D') }}</div>
+                        </div>
+                    @endforeach
+                </div>
+            </x-ui.card>
         </div>
 
         <div class="mb-6 grid grid-cols-2 gap-3 md:grid-cols-4">
@@ -105,8 +199,9 @@
             @endforeach
         </div>
 
+        <div id="sales-by-module" class="scroll-mt-24"></div>
         <x-ui.table>
-            <x-slot:header>Sales by module · {{ $periodLabel }}</x-slot:header>
+            <x-slot:header>Sales by module · {{ $periodLabel }} · {{ $periodDates }}</x-slot:header>
             <thead class="bg-gray-50 text-left text-gray-500">
                 <tr>
                     <th class="px-4 py-2">Module</th>
@@ -125,7 +220,7 @@
                     @php($tone = \App\Support\AdminNav::tone($m['colour']))
                     <tr class="border-t">
                         <td class="px-4 py-2">
-                            <span class="inline-flex items-center gap-2 font-medium"><span class="h-2.5 w-2.5 rounded-full {{ $tone['bar'] }}"></span>{{ $m['label'] }}</span>
+                            <button type="button" wire:click="setTab('{{ $key }}')" class="inline-flex items-center gap-2 font-medium hover:text-blue-700 hover:underline"><span class="h-2.5 w-2.5 rounded-full {{ $tone['bar'] }}"></span>{{ $m['label'] }}</button>
                             @if ($m['prelaunch'])<span class="ml-1 text-[11px] text-amber-600">pre-launch</span>@endif
                         </td>
                         <td class="px-4 py-2 text-right tabular-nums">{{ $m['orders'] }}</td>
@@ -375,7 +470,7 @@
                     @forelse ($recentBookings as $booking)
                         <tr class="border-t">
                             <x-ui.sno :rows="$recentBookings" :loop="$loop" />
-                            <td class="px-4 py-2 font-mono text-xs">{{ $booking->code }}</td>
+                            <td class="px-4 py-2 font-mono text-xs"><a href="{{ route('admin.bookings.show', $booking->id) }}" wire:navigate class="text-blue-700 hover:underline">{{ $booking->code }}</a></td>
                             <td class="px-4 py-2">{{ $booking->customer->name ?? '—' }}</td>
                             <td class="px-4 py-2">{{ $booking->service->name ?? '—' }}</td>
                             <td class="px-4 py-2">{{ $booking->provider?->user?->name ?? '— unassigned —' }}</td>
@@ -438,7 +533,7 @@
                         @forelse ($recent as $o)
                             <tr class="border-t">
                                 <x-ui.sno :rows="$recent" :loop="$loop" />
-                                <td class="px-4 py-2 font-mono text-xs">{{ $o->code }}</td>
+                                <td class="px-4 py-2 font-mono text-xs">@if ($row['route'])<a href="{{ $row['route'] }}{{ str_contains($row['route'], '?') ? '&' : '?' }}search={{ urlencode($o->code) }}" class="text-blue-700 hover:underline">{{ $o->code }}</a>@else{{ $o->code }}@endif</td>
                                 <td class="px-4 py-2">{{ $o->customer->name ?? '—' }}</td>
                                 <td class="px-4 py-2">{{ $tab === 'parcel' ? ($o->assignedWorker?->user?->name ?? '—') : ($o->store->name ?? '—') }}</td>
                                 <td class="px-4 py-2"><x-ui.badge>{{ str_replace('_', ' ', $o->status) }}</x-ui.badge></td>

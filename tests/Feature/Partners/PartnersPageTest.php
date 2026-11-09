@@ -105,7 +105,7 @@ class PartnersPageTest extends TestCase
             ->assertSee('Needs review');
     }
 
-    public function test_lists_open_on_needs_review_oldest_wait_first_with_hours(): void
+    public function test_needs_review_lists_oldest_wait_first_with_hours_and_lists_open_on_all(): void
     {
         $this->travel(-30)->hours();
         $old = $this->pendingRider($this->franchiseA, $this->zoneA);
@@ -114,7 +114,8 @@ class PartnersPageTest extends TestCase
         $approved = $this->makeParcelRiderIn($this->franchiseA, $this->zoneA);
 
         Livewire::actingAs($this->makeSuperAdmin())->test(WorkersIndex::class, ['embedded' => true])
-            ->assertSet('statusFilter', 'review')
+            ->assertSet('statusFilter', '') // owner 2026-11-09: lists open on All
+            ->set('statusFilter', 'review')
             ->assertViewHas('workers', fn ($w) => $w->pluck('id')->all() === [$old->id, $new->id])
             ->assertSee('30 h')
             ->set('statusFilter', '')

@@ -1,6 +1,5 @@
 @php
     $fmt = fn ($n) => $currencySymbol.number_format((float) $n, 2);
-    $mapsLink = fn ($address) => $address ? 'https://www.google.com/maps/dir/?api=1&destination='.$address->lat.','.$address->lng : null;
 @endphp
 
 {{-- Poll for offers / job changes while online; the heartbeat below keeps the location fresh. --}}
@@ -141,7 +140,7 @@
                     <p class="text-slate-600">{{ $job->pickup_contact_name ?: $job->customer?->name }} · {{ $job->pickup_contact_phone ?: $job->customer?->phone }}</p>
                     @if ($beforePickup)
                         <div class="mt-2 flex flex-wrap gap-2">
-                            <a href="{{ $mapsLink($job->pickupAddress) }}" target="_blank" rel="noopener" class="inline-flex min-h-9 items-center rounded-lg border border-slate-300 bg-white px-3 font-medium">Directions</a>
+                            <x-ui.map-link :lat="$job->pickupAddress?->lat" :lng="$job->pickupAddress?->lng" class="inline-flex min-h-9 items-center rounded-lg border border-slate-300 bg-white px-3 font-medium">Directions</x-ui.map-link>
                             @if ($job->pickup_contact_phone ?: $job->customer?->phone)
                                 <a href="tel:{{ $job->pickup_contact_phone ?: $job->customer?->phone }}" class="inline-flex min-h-9 items-center rounded-lg border border-slate-300 bg-white px-3 font-medium">Call</a>
                             @endif
@@ -163,7 +162,7 @@
                         <p class="text-slate-600">{{ $drop['name'] }} · {{ $drop['phone'] }}</p>
                         @if ($current)
                             <div class="mt-2 flex flex-wrap gap-2">
-                                <a href="{{ $mapsLink($drop['address']) }}" target="_blank" rel="noopener" class="inline-flex min-h-9 items-center rounded-lg border border-slate-300 bg-white px-3 font-medium">Directions</a>
+                                <x-ui.map-link :lat="$drop['address']?->lat" :lng="$drop['address']?->lng" class="inline-flex min-h-9 items-center rounded-lg border border-slate-300 bg-white px-3 font-medium">Directions</x-ui.map-link>
                                 @if ($drop['phone'])
                                     <a href="tel:{{ $drop['phone'] }}" class="inline-flex min-h-9 items-center rounded-lg border border-slate-300 bg-white px-3 font-medium">Call recipient</a>
                                 @endif
@@ -218,7 +217,7 @@
                 <div class="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
                     <p class="font-semibold">Every drop is done. Take the return back to the sender.</p>
                     <div class="mt-2 flex flex-wrap gap-2">
-                        <a href="{{ $mapsLink($job->pickupAddress) }}" target="_blank" rel="noopener" class="inline-flex min-h-9 items-center rounded-lg border border-amber-300 bg-white px-3 font-medium">Directions</a>
+                        <x-ui.map-link :lat="$job->pickupAddress?->lat" :lng="$job->pickupAddress?->lng" class="inline-flex min-h-9 items-center rounded-lg border border-amber-300 bg-white px-3 font-medium">Directions</x-ui.map-link>
                         @if ($job->pickup_contact_phone ?: $job->customer?->phone)
                             <a href="tel:{{ $job->pickup_contact_phone ?: $job->customer?->phone }}" class="inline-flex min-h-9 items-center rounded-lg border border-amber-300 bg-white px-3 font-medium">Call sender</a>
                         @endif

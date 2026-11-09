@@ -17,10 +17,10 @@ class Index extends Component
 {
     use WithPagination;
 
-    public string $statusFilter = 'open';
+    public string $statusFilter = 'all'; // owner 2026-11-09: every list opens on All
 
     /** Food F5: the Food Dashboard links straight to ?statusFilter=food. */
-    protected $queryString = ['statusFilter' => ['except' => 'open']];
+    protected $queryString = ['statusFilter' => ['except' => 'all']];
 
     public ?int $actingId = null;
 

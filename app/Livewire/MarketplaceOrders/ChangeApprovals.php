@@ -21,7 +21,7 @@ class ChangeApprovals extends Component
 {
     use WithPagination;
 
-    public string $tab = 'waiting';
+    public string $tab = 'all'; // all | waiting | decided (owner 2026-11-09: every list opens on All)
 
     /** pending change id => reason being typed for a rejection. */
     public array $notes = [];
@@ -110,7 +110,9 @@ class ChangeApprovals extends Component
     public function render()
     {
         $changes = $this->scoped()
-            ->when($this->tab === 'waiting', fn ($q) => $q->pending()->oldest('id'), fn ($q) => $q->whereIn('status', [PendingChange::APPROVED, PendingChange::REJECTED])->latest('reviewed_at'))
+            ->when($this->tab === 'waiting', fn ($q) => $q->pending()->oldest('id'))
+            ->when($this->tab === 'decided', fn ($q) => $q->whereIn('status', [PendingChange::APPROVED, PendingChange::REJECTED])->latest('reviewed_at'))
+            ->when($this->tab === 'all', fn ($q) => $q->latest('id'))
             ->with(['changeable', 'store', 'requester', 'reviewer'])->paginate(20);
         $categoryIds = $changes->flatMap(fn ($c) => [$c->new_values['marketplace_category_id'] ?? null, $c->old_values['marketplace_category_id'] ?? null])->filter()->unique();
 

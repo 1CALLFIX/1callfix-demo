@@ -30,7 +30,7 @@ class Manage extends Component
     /** Admin menu 2026-11-03: '' (all) | shop | food — Shop Orders and Food Orders are this screen, filtered. */
     public string $moduleFilter = '';
 
-    protected $queryString = ['moduleFilter' => ['except' => '']];
+    protected $queryString = ['moduleFilter' => ['except' => ''], 'search' => ['except' => '']]; // dashboard order codes open here
     public ?int $selectedOrderId = null;
 
     public function mount(): void

@@ -18,6 +18,7 @@
             <p class="text-sm text-slate-600">Sellers' changes to live items and shops. Until you approve, customers, riders and invoices keep the old details. Price, stock and on/off never come here; they change at once.</p>
         </div>
         <div class="flex gap-1 rounded-lg bg-slate-100 p-1 text-sm">
+            <button type="button" wire:click="$set('tab', 'all')" @class(['rounded-md px-3 py-1.5 font-medium', 'bg-white shadow-sm' => $tab === 'all'])>All</button>
             <button type="button" wire:click="$set('tab', 'waiting')" @class(['rounded-md px-3 py-1.5 font-medium', 'bg-white shadow-sm' => $tab === 'waiting'])>Waiting ({{ $waitingCount }})</button>
             <button type="button" wire:click="$set('tab', 'decided')" @class(['rounded-md px-3 py-1.5 font-medium', 'bg-white shadow-sm' => $tab === 'decided'])>Decided</button>
         </div>
@@ -66,7 +67,7 @@
                                         @elseif ($f === 'lat')
                                             @php $lat = $c->{$side}['lat'] ?? null; $lng = $c->{$side}['lng'] ?? null; @endphp
                                             @if ($lat !== null && $lng !== null)
-                                                <a href="https://www.google.com/maps?q={{ $lat }},{{ $lng }}" target="_blank" rel="noopener" class="text-blue-700 underline">{{ number_format((float) $lat, 5) }}, {{ number_format((float) $lng, 5) }}</a>
+                                                <x-ui.map-link mode="place" :lat="$lat" :lng="$lng" class="text-blue-700 underline">{{ number_format((float) $lat, 5) }}, {{ number_format((float) $lng, 5) }}</x-ui.map-link>
                                             @else
                                                 <span class="text-slate-400">—</span>
                                             @endif
@@ -92,7 +93,7 @@
             @endif
         </x-ui.card>
     @empty
-        <x-ui.card><p class="text-sm text-slate-600">{{ $tab === 'waiting' ? 'Nothing waiting. Sellers\' changes to names, photos, addresses and tax details show here.' : 'No decided changes yet.' }}</p></x-ui.card>
+        <x-ui.card><p class="text-sm text-slate-600">{{ $tab === 'all' ? 'No changes from sellers yet.' : ($tab === 'waiting' ? 'Nothing waiting. Sellers\' changes to names, photos, addresses and tax details show here.' : 'No decided changes yet.') }}</p></x-ui.card>
     @endforelse
 
     {{ $changes->links() }}

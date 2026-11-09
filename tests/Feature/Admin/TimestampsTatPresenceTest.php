@@ -66,6 +66,9 @@ class TimestampsTatPresenceTest extends TestCase
 
         Livewire::test(BookingsIndex::class)->assertSee('Completed')->assertSee('TAT')->assertSee('2h 00m');
         Livewire::withQueryParams(['tab' => 'service'])->test(Dashboard::class)->assertSee('Recent Bookings')->assertSee('TAT')->assertSee('2h 00m');
+        // Owner 2026-11-09: the dashboard shows only modules switched on somewhere.
+        \App\Models\Module::where('code', 'parcel')->update(['is_implemented' => true]);
+        app(\App\Services\ModuleActivationService::class)->setActive('parcel', 'franchise', $booking->franchise_id, true);
         Livewire::withQueryParams(['tab' => 'parcel'])->test(Dashboard::class)->assertSee('Parcel — Today')->assertSee('TAT')->assertDontSee('Other Verticals');
     }
 

@@ -60,7 +60,8 @@ class Dashboard extends Component
     /** Tab keys this viewer can open, in menu order: 'all' plus every module they hold a permission for. */
     private function tabs(): array
     {
-        $visible = ModuleSales::visibleKeys(auth()->user());
+        // Owner 2026-11-09: only modules that are built and switched on somewhere; the rest stay off the dashboard.
+        $visible = array_intersect(ModuleSales::visibleKeys(auth()->user()), ModuleSales::liveKeys());
         $tabs = ['all' => ['label' => 'All modules', 'colour' => 'slate', 'prelaunch' => false]];
         foreach (ModuleSales::modules() as $key => $m) {
             if (in_array($key, $visible, true)) {
@@ -106,6 +107,46 @@ class Dashboard extends Component
             ->scopeQuery(ParcelOrder::query()->booked(), auth()->user(), 'parcel_orders.view', $columns)
             ->with(['customer', 'assignedWorker.user', 'statusHistory' => Turnaround::historyScope()])
             ->latest('id')->take(10)->get();
+    }
+
+    /** Who is working right now (owner 2026-11-09: something alive on the dashboard). Each tile opens its list. */
+    private function teamNow(): array
+    {
+        $user = auth()->user();
+        $auth = app(AuthorizationService::class);
+        $columns = ['zone_id' => 'zone_id', 'franchise_id' => 'franchise_id', 'city_id' => 'franchise.city_id', 'country_id' => 'franchise.country_id'];
+        $tiles = [];
+
+        if ($user->hasPermissionAnywhere('workers.view')) {
+            $riders = $auth->scopeQuery(\App\Models\FieldWorker::query(), $user, 'workers.view', $columns)->where('kyc_status', 'approved');
+            $tiles[] = ['label' => 'Riders on duty', 'value' => (clone $riders)->where('is_online', true)->count(), 'of' => $riders->count(),
+                'icon' => 'map-pin', 'colour' => 'orange', 'url' => route('admin.partners.index', ['tab' => 'people'])];
+        }
+        if ($user->hasPermissionAnywhere('providers.view')) {
+            $pros = $auth->scopeQuery(Provider::query(), $user, 'providers.view', $columns)->where('kyc_status', 'approved');
+            $tiles[] = ['label' => 'Partners on duty', 'value' => (clone $pros)->where('is_online', true)->count(), 'of' => $pros->count(),
+                'icon' => 'wrench', 'colour' => 'blue', 'url' => route('admin.partners.index', ['tab' => 'businesses'])];
+        }
+        if ($user->hasPermissionAnywhere('stores.manage')) {
+            $stores = $auth->scopeQuery(\App\Models\Store::query(), $user, 'stores.manage', $columns)->where('is_active', true)->where('approval_status', 'approved');
+            $tiles[] = ['label' => 'Shops & restaurants open', 'value' => (clone $stores)->where('is_open', true)->count(), 'of' => $stores->count(),
+                'icon' => 'shopping-cart', 'colour' => 'violet', 'url' => route('admin.stores.index')];
+        }
+
+        return $tiles;
+    }
+
+    /** Where each top card goes when tapped. */
+    private function kpiLinks(): array
+    {
+        $payments = auth()->user()->hasPermissionAnywhere('payments.view');
+
+        return [
+            'orders' => '#sales-by-module',
+            'sales' => '#sales-by-module',
+            'online' => $payments ? route('admin.payments.index', ['methodFilter' => 'online']) : '#sales-by-module',
+            'cash' => $payments ? route('admin.payments.index', ['methodFilter' => 'cash']) : '#sales-by-module',
+        ];
     }
 
     private function periodStart()
@@ -231,8 +272,17 @@ class Dashboard extends Component
 
         $currencySymbol = Setting::get('locale.currency_symbol', '₹');
         $periodLabel = ['today' => 'Today', 'week' => 'This Week', 'month' => 'This Month', 'year' => 'This Year'][$this->period] ?? 'This Week';
-        $moduleSales = ModuleSales::summary(auth()->user(), $this->periodStart());
-        $shared = compact('tabs', 'currencySymbol', 'periodLabel', 'moduleSales');
+        $moduleSales = array_intersect_key(ModuleSales::summary(auth()->user(), $this->periodStart()), $tabs);
+        // Owner 2026-11-09: the dates the numbers cover ("Today · Mon, 9 Nov 2026") and a greeting with today's date.
+        $now = now(app(TimezoneResolver::class)->platformTimezone());
+        $periodDates = match ($this->period) {
+            'today' => $now->format('D, j M Y'),
+            'month' => $now->format('F Y'),
+            'year' => $now->format('Y'),
+            default => $now->copy()->startOfWeek()->format('j M').' – '.$now->format('j M Y'),
+        };
+        $greeting = ['hour' => (int) $now->format('G'), 'name' => auth()->user()->name, 'date' => $now->format('l, j F Y')];
+        $shared = compact('tabs', 'currencySymbol', 'periodLabel', 'moduleSales', 'periodDates', 'greeting');
 
         if ($this->tab === 'all') {
             // Daily Insights: gated by operations.view (see the services branch below for the reasoning).
@@ -240,7 +290,13 @@ class Dashboard extends Component
                 ? app(DailyInsightsService::class)->digest(auth()->user())
                 : null;
 
-            return view('livewire.dashboard', $shared + ['salesTotal' => ModuleSales::total($moduleSales), 'insights' => $insights])
+            return view('livewire.dashboard', $shared + [
+                'salesTotal' => ModuleSales::total($moduleSales),
+                'insights' => $insights,
+                'daily' => ModuleSales::daily(auth()->user(), array_keys($moduleSales), 7, app(TimezoneResolver::class)->platformTimezone()),
+                'team' => $this->teamNow(),
+                'kpiLinks' => $this->kpiLinks(),
+            ])
                 ->layout('layouts.admin', ['title' => 'Dashboard']);
         }
 

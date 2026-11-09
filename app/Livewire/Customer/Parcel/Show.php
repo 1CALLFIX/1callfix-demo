@@ -197,7 +197,8 @@ class Show extends Component
             'km' => $km,
             'to' => $before ? 'pickup' : ($returning ? 'you' : 'the drop'),
             'ago' => $w->location_updated_at->diffForHumans(short: true),
-            'map' => 'https://www.google.com/maps/search/?api=1&query='.$w->current_lat.','.$w->current_lng,
+            'lat' => $w->current_lat,
+            'lng' => $w->current_lng,
         ];
     }
 

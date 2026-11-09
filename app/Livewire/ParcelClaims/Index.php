@@ -17,7 +17,7 @@ class Index extends Component
 {
     use WithPagination;
 
-    public string $statusFilter = 'open';
+    public string $statusFilter = 'all'; // owner 2026-11-09: every list opens on All
 
     public ?int $actingId = null;
 

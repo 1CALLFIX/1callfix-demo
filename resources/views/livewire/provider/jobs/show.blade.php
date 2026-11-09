@@ -35,9 +35,7 @@
         <p class="mt-2 text-sm">{{ $booking->address?->address_line ?? '—' }}</p>
         @if ($booking->address?->landmark)<p class="text-sm text-slate-500">Landmark: {{ $booking->address->landmark }}</p>@endif
         @if ($booking->address && $booking->address->lat && $booking->address->lng)
-            <a target="_blank" rel="noopener"
-               href="https://maps.google.com/?q={{ $booking->address->lat }},{{ $booking->address->lng }}"
-               class="mt-1 inline-flex text-sm text-blue-600 hover:underline">Open in maps</a>
+            <x-ui.map-link :lat="$booking->address->lat" :lng="$booking->address->lng" class="mt-2 inline-flex min-h-10 items-center rounded-lg border border-slate-300 bg-white px-3 text-sm font-medium text-blue-700">Directions</x-ui.map-link>
         @endif
     </x-ui.card>
 

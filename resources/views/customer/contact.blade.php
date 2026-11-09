@@ -87,7 +87,7 @@
                             <h2 class="font-semibold text-slate-900">{{ $t('contact.office') }}</h2>
                             @if ($company)<p class="mt-2 text-sm font-medium text-slate-800">{{ $company }}</p>@endif
                             @if ($address)<p class="mt-1 whitespace-pre-line text-sm text-slate-600" data-contact-address>{{ $address }}</p>@endif
-                            @if ($map)<a href="{{ $map }}" target="_blank" rel="noopener" class="mt-3 inline-flex items-center gap-1 text-sm font-semibold text-blue-700 underline-offset-4 hover:underline"><x-icon name="map-pin" class="h-4 w-4" /> {{ $t('contact.map') }}</a>@endif
+                            @if ($map)<x-ui.map-link :url="$map" class="mt-3 inline-flex items-center gap-1 text-sm font-semibold text-blue-700 underline-offset-4 hover:underline"><x-icon name="map-pin" class="h-4 w-4" /> {{ $t('contact.map') }}</x-ui.map-link>@endif
                         </div>
                     @endif
                     @if ($grievance)

@@ -105,7 +105,7 @@ class OverduePartnersTest extends TestCase
         $this->riderWaiting(50);
         $this->riderWaiting(30);
 
-        Livewire::actingAs($this->makeSuperAdmin())->test(WorkersIndex::class, ['embedded' => true])
+        Livewire::actingAs($this->makeSuperAdmin())->test(WorkersIndex::class, ['embedded' => true])->set('statusFilter', 'review') // owner 2026-11-09: lists open on All
             ->assertViewHas('counts', fn ($c) => $c['review'] === 2 && $c['overdue'] === 1)
             ->assertSeeInOrder(['50 h', 'Overdue', '30 h'])
             ->assertSee('1 overdue')
@@ -117,7 +117,7 @@ class OverduePartnersTest extends TestCase
     {
         $this->riderWaiting(30);
 
-        Livewire::actingAs($this->makeSuperAdmin())->test(WorkersIndex::class, ['embedded' => true])
+        Livewire::actingAs($this->makeSuperAdmin())->test(WorkersIndex::class, ['embedded' => true])->set('statusFilter', 'review') // owner 2026-11-09: lists open on All
             ->assertSee('30 h')
             ->assertSee('text-amber-700', false)
             ->assertDontSee('Overdue')
@@ -132,7 +132,7 @@ class OverduePartnersTest extends TestCase
         $this->riderWaiting(1);
         $admin = $this->makeSuperAdmin();
 
-        Livewire::actingAs($admin)->test(ProvidersIndex::class, ['embedded' => true])
+        Livewire::actingAs($admin)->test(ProvidersIndex::class, ['embedded' => true])->set('statusFilter', 'review')
             ->assertViewHas('counts', fn ($c) => $c['review'] === 2 && $c['overdue'] === 1)
             ->assertSeeInOrder(['49 h', 'Overdue', '2 h']);
 
