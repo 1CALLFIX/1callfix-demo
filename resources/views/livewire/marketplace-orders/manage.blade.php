@@ -64,6 +64,22 @@
             @endforelse
         </x-ui.card>
 
+        {{-- Owner 2026-11-09: ring a nearby 1CallFix rider by hand (he still accepts on his phone). --}}
+        @if ($order->order_type === 'delivery' && $order->assigned_worker_id === null && in_array($order->status, ['preparing', 'ready'], true))
+            <x-ui.card class="mb-4" data-testid="admin-pick-rider">
+                <h3 class="font-semibold">Pick a rider</h3>
+                <p class="mb-2 text-sm text-gray-500">Online riders near the {{ $order->isFood() ? 'restaurant' : 'shop' }}, nearest first. The rider's phone rings and he accepts as usual.</p>
+                @forelse ($pickerRiders as $c)
+                    <div class="flex items-center justify-between border-t py-2 text-sm">
+                        <span><span class="font-medium">{{ $c['provider']->user?->name ?? 'Rider #'.$c['provider']->id }}</span> <span class="text-gray-500">· {{ rtrim(rtrim(number_format((float) $c['distance_km'], 1), '0'), '.') }} km</span></span>
+                        <x-ui.button wire:click="ringRider({{ $c['provider']->id }})">Ring</x-ui.button>
+                    </div>
+                @empty
+                    <p class="text-sm text-amber-700">No rider is online nearby right now (a rider shows here while his rider app is open).</p>
+                @endforelse
+            </x-ui.card>
+        @endif
+
         <div class="flex gap-2">
             @if ($order->status === 'pending')
                 <x-ui.button wire:click="advance('accepted')">Accept</x-ui.button>

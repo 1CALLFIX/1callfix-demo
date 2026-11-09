@@ -115,6 +115,19 @@ class Manage extends Component
         }
     }
 
+    /** Owner 2026-11-09: admin rings one nearby rider for this order (same rules as the restaurant's Pick a rider). */
+    public function ringRider(int $workerId, \App\Services\Marketplace\RiderPicker $picker): void
+    {
+        $order = $this->assertCanManage();
+
+        try {
+            $rider = $picker->offer($order, $workerId, auth()->user(), 'Admin');
+            session()->flash('message', 'Ringing '.($rider->user?->name ?? 'the rider').'.');
+        } catch (\RuntimeException $e) {
+            $this->addError('action', $e->getMessage());
+        }
+    }
+
     public function cancelOrder(AdminCancelMarketplaceOrderAction $action): void
     {
         abort_unless(auth()->user()->hasPermissionAnywhere('marketplace_orders.cancel'), 403);
@@ -140,7 +153,10 @@ class Manage extends Component
     public function render()
     {
         if ($this->selectedOrder) {
-            return view('livewire.marketplace-orders.manage', ['order' => $this->selectedOrder])->layout('layouts.admin', ['title' => 'Marketplace Orders']);
+            return view('livewire.marketplace-orders.manage', [
+                'order' => $this->selectedOrder,
+                'pickerRiders' => app(\App\Services\Marketplace\RiderPicker::class)->candidates($this->selectedOrder),
+            ])->layout('layouts.admin', ['title' => 'Marketplace Orders']);
         }
 
         $orders = $this->scopedOrdersQuery()

@@ -136,7 +136,7 @@ Portion",
         ],
         'marketplace.dispatch.max_rounds' => [
             'group' => 'Delivery', 'label' => 'Offer rounds before admin assigns', 'type' => 'int', 'unit' => 'rounds', 'min' => 1, 'max' => 50,
-            'default' => '6', 'help' => 'After the last round the order waits for an admin to assign a rider.',
+            'default' => '6', 'help' => 'A rider who missed an offer is offered it again next round. After the last round the restaurant / shop and admins are alerted and can pick a rider by hand.',
         ],
     ];
 

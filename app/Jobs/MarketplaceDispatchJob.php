@@ -68,6 +68,8 @@ class MarketplaceDispatchJob implements ShouldQueue
 
         if ($this->round > $maxRounds) {
             Log::warning("MarketplaceDispatchJob: exhausted {$maxRounds} rounds for order [{$order->id}] with no acceptance — leaving for manual admin assignment.");
+            app(\App\Services\Marketplace\RiderPicker::class)->alertNoRider($order);
+
             return;
         }
 
@@ -90,6 +92,8 @@ class MarketplaceDispatchJob implements ShouldQueue
                 'distance_km' => $candidate['distance_km'],
                 'notified_at' => now(),
             ]);
+            // Owner 2026-11-09: rings the phone even when the rider app is closed (parcel already did this).
+            optional($candidate['provider']->user)->notify(new \App\Notifications\RiderShopOfferNotification($order));
         }
 
         self::dispatch($this->marketplaceOrderId, $this->round + 1)

@@ -124,6 +124,31 @@
                     {{ $order->assignedWorker ? 'Rider '.$order->assignedWorker->user?->name.' is coming to collect it.' : 'Finding a rider…' }}
                 </p>
             @endif
+            {{-- Owner 2026-11-09: ring a nearby 1CallFix rider yourself (he still accepts on his phone). --}}
+            @if (! $isPickup && $order->assigned_worker_id === null && in_array($order->status, ['preparing', 'ready'], true))
+                <div class="mt-2" data-testid="pick-rider">
+                    <button type="button" wire:click="togglePicker({{ $order->id }})" class="text-sm font-semibold text-blue-700 hover:underline">
+                        {{ $pickingFor === $order->id ? 'Hide riders' : 'Pick a rider' }}
+                    </button>
+                    @if ($pickingFor === $order->id)
+                        @if ($pickerRiders->isEmpty())
+                            <p class="mt-2 rounded-lg bg-amber-50 p-3 text-sm text-amber-900">No rider is online near you right now. Riders show here when their rider app is open.</p>
+                        @else
+                            <ul class="mt-2 divide-y divide-slate-100 rounded-lg border border-slate-200">
+                                @foreach ($pickerRiders as $c)
+                                    <li class="flex items-center justify-between gap-3 px-3 py-2">
+                                        <span class="min-w-0 text-sm">
+                                            <span class="font-semibold text-slate-900">{{ $c['provider']->user?->name ?? 'Rider #'.$c['provider']->id }}</span>
+                                            <span class="text-slate-500">· {{ rtrim(rtrim(number_format((float) $c['distance_km'], 1), '0'), '.') }} km away</span>
+                                        </span>
+                                        <x-ui.button wire:click="ringRider({{ $order->id }}, {{ $c['provider']->id }})">Ring</x-ui.button>
+                                    </li>
+                                @endforeach
+                            </ul>
+                        @endif
+                    @endif
+                </div>
+            @endif
             @if ($order->status === 'completed')
                 <a href="{{ route('customer.shop.orders.invoice', $order) }}" target="_blank" rel="noopener" class="mt-2 inline-block text-sm font-medium text-blue-700">Tax invoice →</a>
             @endif

@@ -123,6 +123,27 @@ class Orders extends Component
         }
     }
 
+    /** Owner 2026-11-09: the order whose "Pick a rider" list is open (one at a time). */
+    public ?int $pickingFor = null;
+
+    public function togglePicker(int $orderId): void
+    {
+        $this->ownOrder($orderId);
+        $this->pickingFor = $this->pickingFor === $orderId ? null : $orderId;
+    }
+
+    /** Rings one nearby 1CallFix rider for this order; he accepts on his phone as usual. */
+    public function ringRider(int $orderId, int $workerId, \App\Services\Marketplace\RiderPicker $picker): void
+    {
+        $order = $this->ownOrder($orderId);
+        try {
+            $rider = $picker->offer($order, $workerId, auth()->user(), $order->isFood() ? 'Restaurant' : 'Shop');
+            $this->flash('Ringing '.($rider->user?->name ?? 'the rider').'. If nobody accepts within a minute, ring another rider.', 'success');
+        } catch (\RuntimeException $e) {
+            $this->flash($e->getMessage(), 'error');
+        }
+    }
+
     private function flash(string $message, string $type): void
     {
         $this->flashMessage = $message;
@@ -160,6 +181,8 @@ class Orders extends Component
             // Food F2: the cooking time pre-filled on Accept (its usual time plus busy minutes).
             'usualPrep' => $store->isRestaurant() ? $store->currentPrepMinutes() : null,
             'isRestaurant' => $store->isRestaurant(),
+            // Owner 2026-11-09: nearby riders for the open "Pick a rider" list.
+            'pickerRiders' => $this->pickingFor ? app(\App\Services\Marketplace\RiderPicker::class)->candidates($this->ownOrder($this->pickingFor)) : collect(),
         ])->layout('components.layouts.seller', ['title' => 'Orders']);
     }
 }

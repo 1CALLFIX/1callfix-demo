@@ -587,7 +587,7 @@ class DispatchService
      *
      * @return Collection<int, array{provider: FieldWorker, distance_km: float}>
      */
-    public function findMarketplaceDeliveryRiderCandidates(MarketplaceOrder $order, int $limit = 5): Collection
+    public function findMarketplaceDeliveryRiderCandidates(MarketplaceOrder $order, int $limit = 5, bool $manualPick = false): Collection
     {
         $order->loadMissing(['zone', 'store', 'franchise']);
 
@@ -605,9 +605,15 @@ class DispatchService
             default => ['commerce_delivery_rider', 'parcel_rider'],
         };
 
-        $alreadyOfferedWorkerIds = DispatchAttempt::where('dispatchable_type', MarketplaceOrder::class)
+        // Owner 2026-11-09 ("only 1 ring"): a rider who only MISSED an offer (timeout) is offered it again next round;
+        // one who declined it, or whose offer is still ringing, is not. A restaurant / admin picking a rider by hand
+        // ($manualPick) sees every eligible rider, including one who declined (they may have phoned him).
+        $alreadyOfferedWorkerIds = $manualPick ? collect() : DispatchAttempt::where('dispatchable_type', MarketplaceOrder::class)
             ->where('dispatchable_id', $order->id)
             ->where('notifiable_type', FieldWorker::class)
+            ->where(fn ($q) => $q->whereIn('status', ['rejected', 'accepted'])
+                ->orWhere(fn ($n) => $n->where('status', 'notified')
+                    ->where('notified_at', '>', now()->subSeconds((int) \App\Support\MarketplaceSettings::get('marketplace.dispatch.offer_timeout_seconds')))))
             ->pluck('notifiable_id');
 
         $busyWorkerIds = MarketplaceOrder::riderActive() // Food F2: a rider waiting at a restaurant is busy too
