@@ -24,6 +24,43 @@
     $ios = \App\Support\AppLinks::ios();
     $heading = $page ? 'h1' : 'h2';
 @endphp
+@if (! $page)
+{{-- Homepage (owner 2026-11-09: "the app section is very large"): one slim strip, the way Swiggy, Zomato, Flipkart and
+     Urban Company invite to their app: logo, one line, the store badge, a QR on computers. The full version is /app. --}}
+<section data-testid="get-app" aria-labelledby="get-app-title" class="px-4 py-6 sm:px-6 lg:px-8">
+    <div class="mx-auto flex max-w-7xl flex-col gap-4 rounded-2xl bg-gradient-to-r from-blue-50 via-white to-indigo-50 px-5 py-5 ring-1 ring-blue-100 sm:px-8 md:flex-row md:items-center md:justify-between">
+        <div class="flex min-w-0 items-center gap-4">
+            <span class="grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-white shadow-sm ring-1 ring-slate-200">
+                <x-customer.brand-mark img-class="h-10 w-10" name-class="hidden" />
+            </span>
+            <div class="min-w-0">
+                <h2 id="get-app-title" class="text-lg font-bold leading-snug text-slate-900 sm:text-xl">{{ $t('get_app.title') }}</h2>
+                <p class="mt-0.5 text-sm text-slate-600">{{ $t('get_app.eyebrow') }}</p>
+                @unless ($ios)
+                    <details class="group mt-1 text-sm">
+                        <summary class="cursor-pointer list-none py-1 font-semibold text-blue-700 [&::-webkit-details-marker]:hidden">
+                            {{ $t('get_app.iphone') }}
+                            <x-icon name="chevron-down" class="inline-block h-4 w-4 align-[-3px] transition group-open:rotate-180" />
+                        </summary>
+                        <p class="mt-1 max-w-md text-slate-600">{{ $t('get_app.iphone_steps') }}</p>
+                    </details>
+                @endunless
+            </div>
+        </div>
+        <div class="flex shrink-0 flex-wrap items-center gap-3">
+            <x-customer.play-badge />
+            @if ($ios)
+                <a href="{{ $ios }}" target="_blank" rel="noopener" class="inline-flex h-14 items-center rounded-xl border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-800 hover:border-blue-400">{{ $t('get_app.ios_button') }}</a>
+            @endif
+            {{-- Computers: point the phone camera here. --}}
+            <div class="hidden items-center gap-2 rounded-xl bg-white p-1.5 pr-3 shadow-sm ring-1 ring-slate-200 md:flex">
+                <img src="{{ asset('images/app-qr.svg') }}" alt="{{ $t('get_app.qr_alt') }}" width="56" height="56" class="h-14 w-14 rounded-lg">
+                <p class="max-w-[7.5rem] text-xs font-semibold leading-snug text-slate-700">{{ $t('get_app.qr') }}</p>
+            </div>
+        </div>
+    </div>
+</section>
+@else
 <section data-testid="get-app" aria-labelledby="get-app-title" @class(['px-4 sm:px-6 lg:px-8', 'py-12' => ! $page, 'py-8 sm:py-12' => $page])>
     <div class="relative mx-auto max-w-7xl overflow-hidden rounded-[2rem] bg-gradient-to-br from-blue-700 via-blue-600 to-indigo-700 text-white shadow-2xl shadow-blue-900/20">
         {{-- Soft light behind the content. --}}
@@ -134,4 +171,5 @@
         </div>
     </div>
 </section>
+@endif
 @endunless

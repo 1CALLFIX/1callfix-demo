@@ -143,6 +143,7 @@ final class SiteText
         'get_app.mock_tracking' => ['get_app', 'Phone picture: tracking card', 'Your rider is on the way', 'మీ రైడర్ దారిలో ఉన్నారు'],
         'get_app.mock_notice' => ['get_app', 'Phone picture: notification', 'Your order is on its way!', 'మీ ఆర్డర్ దారిలో ఉంది!'],
         'get_app.footer_more' => ['get_app', 'Footer: link to the /app page', 'Get the app', 'యాప్ పొందండి'],
+        'get_app.footer_iphone' => ['get_app', 'Footer: iPhone button (opens the /app page with the Home Screen steps)', 'Use on iPhone', 'iPhone లో వాడండి'],
         'get_app.page_title' => ['get_app', '/app page: title in search (:brand)', 'Download the :brand app', ':brand యాప్ డౌన్‌లోడ్ చేయండి'],
         'get_app.page_meta' => ['get_app', '/app page: search description (:brand)', 'Get the free :brand app: repairs, food delivery, parcel delivery and local shopping in one app, with live tracking.', 'ఉచిత :brand యాప్ పొందండి: రిపేర్లు, ఫుడ్ డెలివరీ, పార్సిల్ డెలివరీ మరియు స్థానిక షాపింగ్ ఒకే యాప్‌లో, లైవ్ ట్రాకింగ్‌తో.'],
         'faq.title' => ['faq', 'Heading', 'Questions people ask', 'ప్రజలు అడిగే ప్రశ్నలు'],
