@@ -80,7 +80,13 @@ class Dashboard extends Component
     public function goOffline(): void
     {
         $this->reset('notice', 'error');
-        app(SetProviderOnlineStatusAction::class)->execute($this->provider(), false);
+        try {
+            app(SetProviderOnlineStatusAction::class)->execute($this->provider(), false);
+        } catch (\App\Exceptions\CannotGoOfflineException $e) {
+            $this->error = $e->getMessage();
+
+            return;
+        }
         $this->notice = "You're offline.";
 
         $this->announceAvailabilityChange();

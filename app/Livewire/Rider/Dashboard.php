@@ -102,7 +102,13 @@ class Dashboard extends Component
     public function goOffline(RiderOfferService $offers): void
     {
         $this->reset('notice', 'error');
-        $offers->setOnline($this->rider(), false);
+        try {
+            $offers->setOnline($this->rider(), false);
+        } catch (\App\Exceptions\CannotGoOfflineException $e) {
+            $this->error = $e->getMessage();
+
+            return;
+        }
         $this->notice = "You're offline. You won't get new offers.";
     }
 

@@ -38,9 +38,21 @@
         <div class="min-w-0">
             <p class="text-sm font-medium opacity-90">Hi {{ \Illuminate\Support\Str::before($rider->user?->name ?? 'Rider', ' ') }}</p>
             <h1 class="text-xl font-bold tracking-tight">{{ $rider->is_online ? 'You are online' : 'You are offline' }}</h1>
-            <p class="text-xs opacity-90">{{ $rider->is_online ? 'Offers will ring on this phone.' : ($rider->kyc_status === 'approved' ? 'Turn on the switch to get delivery offers.' : 'Waiting for your documents to be approved.') }}</p>
+            @if ($job || $shopJob || $returnJob)
+                <p class="text-xs opacity-90">{{ $rider->is_online ? 'You stay online until this delivery is done.' : 'You have a delivery. Turn on the switch so the customer can follow you.' }}</p>
+            @else
+                <p class="text-xs opacity-90">{{ $rider->is_online ? 'Offers will ring on this phone.' : ($rider->kyc_status === 'approved' ? 'Turn on the switch to get delivery offers.' : 'Waiting for your documents to be approved.') }}</p>
+            @endif
         </div>
-        @if ($rider->is_online)
+        @if ($rider->is_online && ($job || $shopJob || $returnJob))
+            {{-- Owner 2026-11-09: locked online until the delivery in hand is done. --}}
+            <button type="button" disabled role="switch" aria-checked="true" aria-disabled="true" aria-label="Online until your delivery is done"
+                    class="relative inline-flex h-10 w-[4.5rem] shrink-0 cursor-not-allowed items-center rounded-full bg-white/30 opacity-70 ring-2 ring-white/70" data-testid="online-switch-locked">
+                <span class="absolute right-1 grid h-8 w-8 place-items-center rounded-full bg-white shadow">
+                    <svg class="h-4 w-4 text-emerald-700" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M10 1a4.5 4.5 0 00-4.5 4.5V9H5a2 2 0 00-2 2v6a2 2 0 002 2h10a2 2 0 002-2v-6a2 2 0 00-2-2h-.5V5.5A4.5 4.5 0 0010 1zm3 8V5.5a3 3 0 10-6 0V9h6z" clip-rule="evenodd"/></svg>
+                </span>
+            </button>
+        @elseif ($rider->is_online)
             <button type="button" wire:click="goOffline" x-on:click="stopHeartbeat()" role="switch" aria-checked="true" aria-label="Go offline"
                     class="relative inline-flex h-10 w-[4.5rem] shrink-0 items-center rounded-full bg-white/30 ring-2 ring-white/70" data-testid="online-switch">
                 <span class="absolute right-1 h-8 w-8 rounded-full bg-white shadow"></span>

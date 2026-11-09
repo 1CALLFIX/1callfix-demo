@@ -47,6 +47,13 @@ use Illuminate\Support\Facades\DB;
  */
 class SetProviderOnlineStatusAction
 {
+    /** On the way to a customer or working at the customer's place. */
+    public static function onTheWayOrWorking(Provider $provider): bool
+    {
+        return \App\Models\Booking::where('provider_id', $provider->id)
+            ->whereIn('status', ['provider_en_route', 'in_progress'])->exists();
+    }
+
     public function execute(Provider $provider, bool $online, ?float $lat = null, ?float $lng = null): Provider
     {
         // Owner decision 2026-10-26: a partner whose documents are not approved cannot go online (dispatch already
@@ -58,6 +65,12 @@ class SetProviderOnlineStatusAction
         }
 
         $this->assertShiftAllowsOnline($provider, $online);
+
+        // Owner 2026-11-09: no going offline on the way to a job or while working on it (the customer follows him).
+        // A job only scheduled (assigned) or on hold for spares does not block it: those can last days.
+        if (! $online && $provider->is_online && self::onTheWayOrWorking($provider)) {
+            throw new \App\Exceptions\CannotGoOfflineException('Finish the job you are on first. You can go offline after it is completed.');
+        }
 
         $hasFix = $online && $this->isUsableFix($lat, $lng);
 

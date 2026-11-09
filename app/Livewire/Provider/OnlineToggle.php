@@ -63,7 +63,13 @@ class OnlineToggle extends Component
     {
         $this->error = '';
 
-        app(SetProviderOnlineStatusAction::class)->execute($this->provider(), false);
+        try {
+            app(SetProviderOnlineStatusAction::class)->execute($this->provider(), false);
+        } catch (\App\Exceptions\CannotGoOfflineException $e) {
+            $this->error = $e->getMessage();
+
+            return;
+        }
 
         $this->announceAvailabilityChange();
     }

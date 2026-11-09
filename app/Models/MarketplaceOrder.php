@@ -35,7 +35,7 @@ class MarketplaceOrder extends Model implements Orderable
         'coupon_code', 'coupon_discount_amount', 'special_instructions',
         'confirmed_at', 'ready_at', 'completed_at',
         // Food F2
-        'accept_by', 'ready_by', 'rider_called_at',
+        'accept_by', 'ready_by', 'rider_called_at', 'rider_at_store_at',
     ];
 
     protected $casts = [
@@ -45,6 +45,7 @@ class MarketplaceOrder extends Model implements Orderable
         'accept_by' => 'datetime',
         'ready_by' => 'datetime',
         'rider_called_at' => 'datetime',
+        'rider_at_store_at' => 'datetime',
         'tax_by_platform' => 'boolean',
     ];
 
@@ -119,6 +120,18 @@ class MarketplaceOrder extends Model implements Orderable
     }
 
     /** Food F2: can a rider be offered / take this order now? */
+    /** Owner 2026-11-09: how far the customer is from the restaurant / shop, shown to the rider before pickup. */
+    public function dropDistanceKm(): ?float
+    {
+        $from = $this->store;
+        $to = $this->deliveryAddress;
+        if (! $from || ! $to || $from->lat === null || $to->lat === null) {
+            return null;
+        }
+
+        return round(app(\App\Services\DispatchService::class)->haversineKm((float) $from->lat, (float) $from->lng, (float) $to->lat, (float) $to->lng), 1);
+    }
+
     public function isOpenForRider(): bool
     {
         return $this->order_type === 'delivery'

@@ -13,10 +13,15 @@
     </span>
 
     @if ($provider->is_online)
-        <button type="button" wire:click="goOffline"
-                class="inline-flex min-h-9 items-center rounded-lg border border-slate-300 bg-white px-3 text-xs font-semibold text-slate-800 hover:bg-slate-50">
-            Go offline
-        </button>
+        @if (\App\Actions\SetProviderOnlineStatusAction::onTheWayOrWorking($provider))
+            {{-- Owner 2026-11-09: online until the job in hand is completed. --}}
+            <span class="inline-flex min-h-9 items-center rounded-lg border border-emerald-200 bg-emerald-50 px-3 text-xs font-semibold text-emerald-800" data-testid="offline-locked" title="You can go offline after the job is completed">On a job</span>
+        @else
+            <button type="button" wire:click="goOffline"
+                    class="inline-flex min-h-9 items-center rounded-lg border border-slate-300 bg-white px-3 text-xs font-semibold text-slate-800 hover:bg-slate-50">
+                Go offline
+            </button>
+        @endif
 
         {{-- Location heartbeat: a marker that exists only while online. The
              interval lives in the `providerHeartbeat` Alpine component

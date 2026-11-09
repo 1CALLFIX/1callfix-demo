@@ -121,7 +121,9 @@
             @endif
             @if (! $isPickup && ($order->status === 'ready' || ($order->status === 'preparing' && $order->rider_called_at)))
                 <p class="mt-2 text-sm text-slate-700">
-                    {{ $order->assignedWorker ? 'Rider '.$order->assignedWorker->user?->name.' is coming to collect it.' : 'Finding a rider…' }}
+                    {{ $order->assignedWorker
+                        ? ($order->rider_at_store_at ? 'Rider '.$order->assignedWorker->user?->name.' is here for this order.' : 'Rider '.$order->assignedWorker->user?->name.' is coming to collect it.')
+                        : 'Finding a rider…' }}
                 </p>
             @endif
             {{-- Owner 2026-11-09: ring a nearby 1CallFix rider yourself (he still accepts on his phone). --}}

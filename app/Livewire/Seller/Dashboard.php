@@ -21,6 +21,13 @@ class Dashboard extends Component
 
     public string $notice = '';
 
+    /** Orders the shop has received and not yet finished: new (paid or cash), accepted, cooking / packing, ready. */
+    private function ordersInProgress(\App\Models\Store $store): int
+    {
+        return \App\Models\MarketplaceOrder::where('store_id', $store->id)->booked()
+            ->whereIn('status', ['pending', 'accepted', 'preparing', 'ready'])->count();
+    }
+
     public function toggleOpen(): void
     {
         $store = $this->shop();
@@ -31,6 +38,12 @@ class Dashboard extends Component
         }
         if (! $store->is_open && $store->missingFssai()) {
             $this->notice = 'Add your FSSAI licence number on the Restaurant page before you open.';
+
+            return;
+        }
+        // Owner 2026-11-09: a restaurant / shop cannot close while an order it has is still in progress (until delivered).
+        if ($store->is_open && ($inProgress = $this->ordersInProgress($store)) > 0) {
+            $this->notice = "You have {$inProgress} ".($inProgress === 1 ? 'order' : 'orders').' in progress. You can close after '.($inProgress === 1 ? 'it is' : 'they are').' delivered.';
 
             return;
         }

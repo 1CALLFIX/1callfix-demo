@@ -25,8 +25,12 @@ class ExpireStaleOnlineProviders extends Command
     {
         $cutoff = now()->subMinutes(\App\Services\Providers\ShiftSchedule::staleMinutes());
 
+        // Owner 2026-11-09: never switched off on the way to a job or while working on it.
+        $onAJob = \App\Models\Booking::whereIn('status', ['provider_en_route', 'in_progress'])->whereNotNull('provider_id')->pluck('provider_id');
+
         $count = Provider::query()
             ->where('is_online', true)
+            ->whereNotIn('id', $onAJob)
             ->where(function ($q) use ($cutoff) {
                 $q->where('location_updated_at', '<', $cutoff)
                     ->orWhere(function ($q) use ($cutoff) {
@@ -41,7 +45,7 @@ class ExpireStaleOnlineProviders extends Command
             $schedule = app(\App\Services\Providers\ShiftSchedule::class);
             $grace = \App\Services\Providers\ShiftSchedule::graceMinutes();
 
-            Provider::query()->where('is_online', true)->with('franchise.country')->get()
+            Provider::query()->where('is_online', true)->whereNotIn('id', $onAJob)->with('franchise.country')->get()
                 ->each(function (Provider $provider) use ($schedule, $grace, &$outOfShift) {
                     if (! $schedule->isWithinShift($provider, now(), $grace)) {
                         $provider->forceFill(['is_online' => false])->save();

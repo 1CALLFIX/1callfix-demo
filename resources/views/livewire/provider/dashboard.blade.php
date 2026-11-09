@@ -6,9 +6,16 @@
             <div class="min-w-0">
                 <p class="text-sm font-medium opacity-90">Hi, {{ $provider->user?->name ?? 'there' }}</p>
                 <h1 class="text-xl font-bold tracking-tight">{{ $provider->is_online ? 'You are online' : 'You are offline' }}</h1>
-                <p class="text-xs opacity-90">{{ $provider->is_online ? 'Job offers will ring on this phone.' : 'Turn on the switch to get job offers.' }}</p>
+                @php $cfOnJob = \App\Actions\SetProviderOnlineStatusAction::onTheWayOrWorking($provider); @endphp
+                <p class="text-xs opacity-90">{{ $cfOnJob ? ($provider->is_online ? 'You stay online until this job is completed.' : 'You are on a job. Turn on the switch so the customer can follow you.') : ($provider->is_online ? 'Job offers will ring on this phone.' : 'Turn on the switch to get job offers.') }}</p>
             </div>
-            @if ($provider->is_online)
+            @if ($provider->is_online && $cfOnJob)
+                {{-- Owner 2026-11-09: locked online until the job in hand is completed. --}}
+                <button type="button" disabled role="switch" aria-checked="true" aria-disabled="true" aria-label="Online until your job is completed"
+                        class="relative inline-flex h-10 w-[4.5rem] shrink-0 cursor-not-allowed items-center rounded-full bg-white/30 opacity-70 ring-2 ring-white/70" data-testid="online-switch-locked">
+                    <span class="absolute right-1 h-8 w-8 rounded-full bg-white shadow"></span>
+                </button>
+            @elseif ($provider->is_online)
                 <button type="button" wire:click="goOffline" role="switch" aria-checked="true" aria-label="Go offline"
                         class="relative inline-flex h-10 w-[4.5rem] shrink-0 items-center rounded-full bg-white/30 ring-2 ring-white/70" data-testid="online-switch">
                     <span class="absolute right-1 h-8 w-8 rounded-full bg-white shadow"></span>

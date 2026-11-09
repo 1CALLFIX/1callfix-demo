@@ -105,8 +105,19 @@ class RiderOfferService
     }
 
     /** Online with a server-stamped location fix, or offline. A missing fix keeps them online but unofferable. */
+    /** Carrying a parcel, a shop / food order, or a return to bring back. */
+    public function onAJob(FieldWorker $rider): bool
+    {
+        return $this->activeJob($rider) !== null || $this->activeShopJob($rider) !== null
+            || app(\App\Services\Marketplace\MarketplaceReturnPickupService::class)->isBusy($rider);
+    }
+
     public function setOnline(FieldWorker $rider, bool $online, ?float $lat = null, ?float $lng = null): void
     {
+        // Owner 2026-11-09: a rider cannot go offline until the delivery in hand is done (the customer follows him).
+        if (! $online && $rider->is_online && $this->onAJob($rider)) {
+            throw new \App\Exceptions\CannotGoOfflineException('Finish your delivery first. You can go offline after it is delivered.');
+        }
         $rider->is_online = $online;
         if ($online && $lat !== null && $lng !== null) {
             $rider->current_lat = $lat;

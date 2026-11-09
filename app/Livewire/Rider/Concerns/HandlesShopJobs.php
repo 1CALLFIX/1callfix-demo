@@ -52,11 +52,37 @@ trait HandlesShopJobs
             ->where('status', 'notified')->update(['status' => 'rejected', 'responded_at' => now()]);
     }
 
+    /**
+     * Owner 2026-11-09: "I've reached the restaurant". Before this the rider sees only the restaurant and how far the
+     * customer is; after it, the items to collect, the customer and the delivery.
+     */
+    public function reachedStore(): void
+    {
+        $this->reset('notice', 'error');
+        $job = app(RiderOfferService::class)->activeShopJob($this->rider());
+        if (! $job || $job->rider_at_store_at !== null) {
+            return;
+        }
+        $job->forceFill(['rider_at_store_at' => now()])->save();
+        $job->statusHistory()->create([
+            'status' => $job->status,
+            'changed_by' => $this->rider()->user_id,
+            'note' => 'Rider reached the '.($job->isFood() ? 'restaurant' : 'shop'),
+            'changed_at' => now(),
+        ]);
+        $this->notice = 'Show the order number '.$job->code.' at the counter and check every item before you leave.';
+    }
+
     protected function deliverShopWith(string $code): bool
     {
         $this->reset('notice', 'error');
         $job = app(RiderOfferService::class)->activeShopJob($this->rider());
         if (! $job) {
+            return false;
+        }
+        if ($job->rider_at_store_at === null) {
+            $this->error = 'Tap "I\'ve reached the '.($job->isFood() ? 'restaurant' : 'shop').'" first.';
+
             return false;
         }
         try {
