@@ -14,6 +14,12 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
 
+        // Cloudflare (Layer 1): the visitor's real address and https come from Cloudflare's own addresses only.
+        $middleware->trustProxies(
+            at: \App\Support\Cloudflare::IP_RANGES,
+            headers: Request::HEADER_X_FORWARDED_FOR | Request::HEADER_X_FORWARDED_PROTO,
+        );
+
         // Opt-in canonical-host redirect (SEO). A no-op until the owner enables it in admin.
         $middleware->web(prepend: [\App\Http\Middleware\RedirectToCanonicalHost::class]);
 
