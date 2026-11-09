@@ -1,5 +1,7 @@
 # Release 2026-11-08 — the web server's own page cache (LiteSpeed)
 
+> Superseded 2026-11-09: removed, see `2026-11-09-litespeed-removed.md`.
+
 Use with `docs/DEPLOY_RUNBOOK.md`. Ships OFF (`LSCACHE` unset); switched on after the checks below.
 
 | | |

@@ -66,14 +66,6 @@ return Application::configure(basePath: dirname(__DIR__))
         // Admin-controlled security headers (Admin → System → Security headers). Global so /api/* gets nosniff too.
         $middleware->append(\App\Http\Middleware\SecurityHeaders::class);
 
-        // The web server's own page cache (App\Support\LiteSpeed, LSCACHE switch). Global and last, so it sees every
-        // cookie the session added. Its three small cookies stay unencrypted: public/.htaccess and lscache.js read them.
-        $middleware->append(\App\Http\Middleware\LiteSpeedCache::class);
-        $middleware->encryptCookies(except: [
-            \App\Support\LiteSpeed::COOKIE_PERSONAL, \App\Support\LiteSpeed::COOKIE_ZONE, \App\Support\LiteSpeed::COOKIE_TOKEN,
-            \App\Support\LiteSpeed::COOKIE_APP,
-        ]);
-
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         // api/* is stateless JSON. The Phase 2 push-token endpoints

@@ -71,16 +71,6 @@ use Illuminate\Support\Facades\Route;
 |
 */
 
-// LiteSpeed cache probe (2026-11-08): no session, no cookies, says "LiteSpeed may keep this 60 s" and shows when it
-// was made. Two visits with the same time + "x-litespeed-cache: hit" = the server's own page cache works here.
-Route::get('/_lsprobe', fn () => response('lsprobe made at '.now()->format('H:i:s.u'), 200, [
-    'Content-Type' => 'text/plain; charset=UTF-8',
-    'X-LiteSpeed-Cache-Control' => 'public, max-age=60',
-]))->withoutMiddleware('web')->name('lsprobe');
-
-// The web server's page cache (App\Support\LiteSpeed): resources/js/lscache.js asks here for the visitor's own token.
-Route::get('/_hello', \App\Http\Controllers\Customer\SessionHelloController::class)->middleware('throttle:60,1')->name('session.hello');
-
 Route::get('/', CustomerHome::class)->middleware('page.cache')->name('customer.home');
 
 // The top-bar English / Telugu switch (shown only when the Super Admin has switched Telugu on).

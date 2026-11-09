@@ -82,7 +82,6 @@ final class PageCache
 
     public static function flush(): void
     {
-        LiteSpeed::$purge = true; // the web server's own copies go too (App\Http\Middleware\LiteSpeedCache)
         try {
             Cache::forever(self::GENERATION, self::generation() + 1);
         } catch (\Throwable) {

@@ -131,6 +131,16 @@ class PageCacheTest extends TestCase
         ])->get('/nellore/services')->assertOk()->assertHeaderMissing('X-Page-Cache');
     }
 
+    public function test_partners_and_franchise_pages_are_saved_and_no_web_server_cache_is_asked_for(): void
+    {
+        foreach (['/partners', '/franchise'] as $path) {
+            $this->newVisitor()->get($path)->assertOk()->assertHeader('X-Page-Cache', 'MISS');
+            $r = $this->newVisitor()->get($path)->assertOk()->assertHeader('X-Page-Cache', 'HIT')
+                ->assertHeaderMissing('X-LiteSpeed-Cache-Control'); // 2026-11-09: LiteSpeed's own cache removed
+            $this->assertSame((string) session()->token(), $this->csrfIn($r->getContent()));
+        }
+    }
+
     public function test_a_private_page_is_never_saved(): void
     {
         $this->newVisitor()->get('/cart');

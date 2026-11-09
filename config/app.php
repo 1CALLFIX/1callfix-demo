@@ -18,9 +18,6 @@ return [
     // Ready-made public pages (App\Http\Middleware\CachePublicPage). PAGE_CACHE=false in .env switches them off at once.
     'page_cache' => (bool) env('PAGE_CACHE', true),
 
-    // The web server's own page cache on top (App\Support\LiteSpeed). Off until LSCACHE=true in .env.
-    'lscache' => (bool) env('LSCACHE', false),
-
     // Shown on login screens, side menus and the site footer (App\Support\AppVersion). VERSION file =
     // release number, bumped with each release note; build = the git commit the server is on.
     'version' => \App\Support\AppVersion::release(),

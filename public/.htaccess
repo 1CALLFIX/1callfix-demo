@@ -1,21 +1,9 @@
-# LiteSpeed's own page cache (2026-11-08): only answers PHP has marked with X-LiteSpeed-Cache-Control are kept.
-<IfModule LiteSpeed>
-    CacheLookup on
-</IfModule>
-
 <IfModule mod_rewrite.c>
     <IfModule mod_negotiation.c>
         Options -MultiViews -Indexes
     </IfModule>
 
     RewriteEngine On
-
-    # LiteSpeed page cache (app/Support/LiteSpeed.php): signed in or something personal (cf_nc), a zone (cf_zone),
-    # a chosen language (cf_locale) or our Android apps (cf_app / user agent) never get a saved copy: always PHP.
-    # (OpenLiteSpeed does not run rules inside <IfModule LiteSpeed>, so they live here.)
-    RewriteCond %{HTTP_COOKIE} (cf_nc|cf_zone|cf_locale|cf_app)= [OR]
-    RewriteCond %{HTTP_USER_AGENT} 1CallFixApp
-    RewriteRule .* - [E=Cache-Control:no-cache]
 
     # Handle Authorization Header
     RewriteCond %{HTTP:Authorization} .
