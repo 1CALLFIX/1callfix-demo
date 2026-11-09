@@ -43,7 +43,7 @@ class Dashboard extends Component
         }
         // Owner 2026-11-09: a restaurant / shop cannot close while an order it has is still in progress (until delivered).
         if ($store->is_open && ($inProgress = $this->ordersInProgress($store)) > 0) {
-            $this->notice = "You have {$inProgress} ".($inProgress === 1 ? 'order' : 'orders').' in progress. You can close after '.($inProgress === 1 ? 'it is' : 'they are').' delivered.';
+            $this->notice = "{$inProgress} ".($inProgress === 1 ? 'order' : 'orders').' in progress. Close after delivery.';
 
             return;
         }

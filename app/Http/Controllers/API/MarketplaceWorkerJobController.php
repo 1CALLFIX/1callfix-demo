@@ -64,6 +64,11 @@ class MarketplaceWorkerJobController extends Controller
 
         $validated = $request->validate(['otp' => 'required|string|size:4']);
 
+        // Owner 2026-11-09: the restaurant / shop must hand it over (pickup code checked) before it can be delivered.
+        if ($order->order_type === 'delivery' && $order->picked_up_at === null) {
+            return response()->json(['message' => 'Not handed over yet. Tell the pickup code.'], 409);
+        }
+
         try {
             $order = $action->execute($marketplaceOrderId, $worker, $validated['otp']);
         } catch (\RuntimeException $e) {

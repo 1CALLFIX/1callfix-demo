@@ -184,6 +184,12 @@ class MarketplaceApiTest extends TestCase
 
         $otp = $scenario['order']->fresh()->delivery_otp;
 
+        // Owner 2026-11-09: not before the shop hands it over against the pickup code.
+        $this->actingAs($rider->user, 'sanctum')
+            ->postJson("/api/worker/marketplace-orders/{$scenario['order']->id}/deliver", ['otp' => $otp])
+            ->assertStatus(409)->assertJsonPath('message', 'Not handed over yet. Tell the pickup code.');
+        $scenario['order']->forceFill(['picked_up_at' => now()])->save();
+
         $this->actingAs($rider->user, 'sanctum')
             ->postJson("/api/worker/marketplace-orders/{$scenario['order']->id}/deliver", ['otp' => $otp])
             ->assertOk()

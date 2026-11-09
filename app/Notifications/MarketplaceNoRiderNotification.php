@@ -39,8 +39,8 @@ class MarketplaceNoRiderNotification extends Notification implements ShouldQueue
     public function toPush($notifiable): array
     {
         return [
-            'title' => 'No rider yet for order '.$this->order->code,
-            'body' => 'No rider accepted it. Open the order and pick a nearby rider.',
+            'title' => 'No rider for '.$this->order->code,
+            'body' => 'Open the order and pick a rider.',
         ];
     }
 }

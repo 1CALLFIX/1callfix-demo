@@ -1,4 +1,4 @@
-# Release 2026-11-09 — stay online on a job, restaurant can't close mid-order, "I've reached the restaurant"
+# Release 2026-11-09 — stay online on a job, restaurant can't close mid-order, "Reached restaurant"
 
 Use with `docs/DEPLOY_RUNBOOK.md`. Ships together with `2026-11-09-rider-ring-and-pick.md` (same deploy).
 
@@ -21,7 +21,7 @@ Use with `docs/DEPLOY_RUNBOOK.md`. Ships together with `2026-11-09-rider-ring-an
 - **Restaurant / shop cannot close while an order is in progress** (new, accepted, cooking / packing, ready, until
   delivered): "You have N orders in progress. You can close after they are delivered." Admin can still close a store
   from Stores.
-- **Rider sees the order in two stages.** Before "I've reached the restaurant": only the restaurant (name, address,
+- **Rider sees the order in two stages.** Before "Reached restaurant": only the restaurant (name, address,
   directions, call) and "The customer is about X km from the restaurant". After tapping it: "Ask for order <number>",
   every item with quantity, size and add-ons, the customer, address, cash to collect and the code box. Delivering is
   refused until he has tapped it. The restaurant's order card says "Rider X is here for this order". Order history
@@ -40,7 +40,7 @@ Rollback count for `migrate:rollback --step=`: 1
   restaurant" shows items + customer.
 - Restaurant with an order in progress: Open/closed switch says it can't close yet.
 - Partner on a job (on the way / working): header says "On a job".
-- Order #3 (Anees, live): he must tap "I've reached the restaurant" before "Delivered" (the column is new and empty).
+- Order #3 (Anees, live): he must tap "Reached restaurant" before "Delivered" (the column is new and empty).
 
 ## Admin settings to do after deploy (owner)
 - none

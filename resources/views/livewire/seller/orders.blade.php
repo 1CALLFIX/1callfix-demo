@@ -122,9 +122,29 @@
             @if (! $isPickup && ($order->status === 'ready' || ($order->status === 'preparing' && $order->rider_called_at)))
                 <p class="mt-2 text-sm text-slate-700">
                     {{ $order->assignedWorker
-                        ? ($order->rider_at_store_at ? 'Rider '.$order->assignedWorker->user?->name.' is here for this order.' : 'Rider '.$order->assignedWorker->user?->name.' is coming to collect it.')
+                        ? ($order->picked_up_at ? $order->assignedWorker->user?->name.' is delivering.' : ($order->rider_at_store_at ? $order->assignedWorker->user?->name.' is at the counter.' : $order->assignedWorker->user?->name.' is coming.'))
                         : 'Finding a rider…' }}
                 </p>
+            @endif
+            {{-- Owner 2026-11-09: the pickup code. Write it on the bag / type it into your bill; the rider says it at the
+                 counter and you type it here before handing over. --}}
+            @if (! $isPickup && in_array($order->status, ['accepted', 'preparing', 'ready'], true))
+                <div class="mt-3 rounded-xl border border-slate-200 bg-slate-50 p-3" data-testid="pickup-code">
+                    @if ($order->picked_up_at)
+                        <p class="text-sm font-semibold text-emerald-800">Picked up by {{ $order->assignedWorker?->user?->name ?? 'the rider' }} at {{ app(\App\Services\TimezoneResolver::class)->format($order->picked_up_at, $order->franchise, 'h:i A') }}.</p>
+                    @else
+                        <p class="text-sm text-slate-600">Pickup code <span class="ml-1 text-2xl font-extrabold tracking-[0.2em] text-slate-900">{{ $order->ensurePickupCode() }}</span></p>
+                        <p class="text-xs text-slate-500">Write on the bag. Give only to the rider with this code.</p>
+                        @if ($order->assigned_worker_id && $order->status === 'ready')
+                            <div class="mt-2 flex flex-wrap items-center gap-2">
+                                <label for="rider-code-{{ $order->id }}" class="sr-only">Code the rider tells you</label>
+                                <input id="rider-code-{{ $order->id }}" type="text" inputmode="numeric" maxlength="8" placeholder="Rider's code"
+                                       wire:model="riderCodes.{{ $order->id }}" class="min-h-11 w-32 rounded-lg border border-slate-300 px-3 text-lg tracking-widest">
+                                <x-ui.button wire:click="handToRider({{ $order->id }})">Handed over</x-ui.button>
+                            </div>
+                        @endif
+                    @endif
+                </div>
             @endif
             {{-- Owner 2026-11-09: ring a nearby 1CallFix rider yourself (he still accepts on his phone). --}}
             @if (! $isPickup && $order->assigned_worker_id === null && in_array($order->status, ['preparing', 'ready'], true))
@@ -134,14 +154,14 @@
                     </button>
                     @if ($pickingFor === $order->id)
                         @if ($pickerRiders->isEmpty())
-                            <p class="mt-2 rounded-lg bg-amber-50 p-3 text-sm text-amber-900">No rider is online near you right now. Riders show here when their rider app is open.</p>
+                            <p class="mt-2 rounded-lg bg-amber-50 p-3 text-sm text-amber-900">No rider online nearby.</p>
                         @else
                             <ul class="mt-2 divide-y divide-slate-100 rounded-lg border border-slate-200">
                                 @foreach ($pickerRiders as $c)
                                     <li class="flex items-center justify-between gap-3 px-3 py-2">
                                         <span class="min-w-0 text-sm">
                                             <span class="font-semibold text-slate-900">{{ $c['provider']->user?->name ?? 'Rider #'.$c['provider']->id }}</span>
-                                            <span class="text-slate-500">· {{ rtrim(rtrim(number_format((float) $c['distance_km'], 1), '0'), '.') }} km away</span>
+                                            <span class="text-slate-500">· {{ rtrim(rtrim(number_format((float) $c['distance_km'], 1), '0'), '.') }} km</span>
                                         </span>
                                         <x-ui.button wire:click="ringRider({{ $order->id }}, {{ $c['provider']->id }})">Ring</x-ui.button>
                                     </li>

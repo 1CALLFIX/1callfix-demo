@@ -1,7 +1,7 @@
 {{-- Rider app 2026-11-04: the shop / food delivery being carried. Used on Home and the old Shop deliveries page.
      Needs: $job (MarketplaceOrder), $currencySymbol, $otpModel (Livewire property), $deliverAction (method).
-     Owner 2026-11-09: two stages. Before "I've reached the restaurant" the rider sees only the restaurant and how far
-     the customer is; after it, the order number, every item to collect, the customer and the delivery. --}}
+     Owner 2026-11-09: two stages, short words. Before "Reached restaurant" the rider sees only the restaurant and how far
+     the drop is; after it, the pickup code, the items, the customer and (after hand-over) the code box. --}}
 @php
     $cash = $job->payment_method === 'cash';
     $food = $job->isFood();
@@ -16,33 +16,41 @@
     </div>
 
     <div class="mt-3">
-        <p class="text-xs font-semibold uppercase text-slate-500">1. {{ $atStore ? 'Collect from the '.$place : 'Go to the '.$place }}</p>
+        <p class="text-xs font-semibold uppercase text-slate-500">1. Pickup</p>
         <p class="font-semibold">{{ $job->store->name }}</p>
         <p class="text-sm text-slate-600">{{ $job->store->address_line }}</p>
         <div class="mt-2 flex flex-wrap gap-2 text-sm">
             <a href="https://www.google.com/maps/dir/?api=1&destination={{ $job->store->lat }},{{ $job->store->lng }}" target="_blank" rel="noopener" class="inline-flex min-h-10 items-center rounded-lg border border-slate-300 bg-white px-3 font-medium">Directions</a>
-            @if ($job->store->phone)<a href="tel:{{ $job->store->phone }}" class="inline-flex min-h-10 items-center rounded-lg border border-slate-300 bg-white px-3 font-medium">Call the {{ $place }}</a>@endif
+            @if ($job->store->phone)<a href="tel:{{ $job->store->phone }}" class="inline-flex min-h-10 items-center rounded-lg border border-slate-300 bg-white px-3 font-medium">Call {{ $place }}</a>@endif
         </div>
         @if ($job->status === 'preparing')
-            <p class="mt-2 rounded-lg bg-amber-50 p-2 text-sm font-semibold text-amber-900">The food is cooking{{ $job->ready_by ? ', ready about '.$job->readyByLocal() : '' }}. Go to the restaurant; you can take it once they mark it ready.</p>
+            <p class="mt-2 rounded-lg bg-amber-50 p-2 text-sm font-semibold text-amber-900">Cooking{{ $job->ready_by ? ' · ready ~'.$job->readyByLocal() : '' }}</p>
         @endif
     </div>
 
     @unless ($atStore)
         @if ($dropKm !== null)
             <p class="mt-3 rounded-lg bg-slate-50 p-3 text-sm text-slate-700" data-testid="drop-distance">
-                The customer is about <span class="font-bold">{{ rtrim(rtrim(number_format($dropKm, 1), '0'), '.') }} km</span> from the {{ $place }}.
+                Drop: <span class="font-bold">{{ rtrim(rtrim(number_format($dropKm, 1), '0'), '.') }} km</span> away
             </p>
         @endif
         <button type="button" wire:click="reachedStore" class="mt-4 min-h-12 w-full rounded-xl bg-blue-600 text-base font-bold text-white" data-testid="reached-store">
-            I've reached the {{ $place }}
+            Reached {{ $place }}
         </button>
-        <p class="mt-2 text-center text-xs text-slate-500">The items and the customer's details show once you are at the {{ $place }}.</p>
+        <p class="mt-2 text-center text-xs text-slate-500">Order details show after you reach.</p>
     @else
-        {{-- What to collect: order number and every item, so two orders from one place never get mixed up. --}}
+        {{-- The pickup code the rider says at the counter; the restaurant types it and hands over. --}}
+        @if ($job->picked_up_at)
+            <p class="mt-3 rounded-xl bg-emerald-50 p-3 text-sm font-semibold text-emerald-800" data-testid="picked-up">Picked up ✓ Deliver now</p>
+        @else
+            <div class="mt-3 rounded-xl bg-blue-600 p-4 text-center text-white" data-testid="rider-pickup-code">
+                <p class="text-sm font-medium">Pickup code</p>
+                <p class="mt-1 text-4xl font-extrabold tracking-[0.3em]">{{ $job->ensurePickupCode() }}</p>
+                <p class="mt-1 text-xs text-blue-100">Tell this code at the counter</p>
+            </div>
+        @endif
         <div class="mt-3 rounded-xl border border-slate-200 bg-slate-50 p-3" data-testid="items-to-collect">
-            <p class="text-sm">Ask for order <span class="font-bold tracking-wide">{{ $job->code }}</span></p>
-            <ul class="mt-2 space-y-1.5">
+            <ul class="space-y-1.5">
                 @foreach ($job->items as $item)
                     <li class="text-sm">
                         <span class="font-semibold">{{ $item->quantity }} ×</span> {{ $item->product_name_snapshot }}@if ($item->variant_name_snapshot) <span class="text-slate-600">({{ $item->variant_name_snapshot }})</span>@endif
@@ -50,11 +58,11 @@
                     </li>
                 @endforeach
             </ul>
-            <p class="mt-2 text-xs text-slate-500">{{ $job->items->sum('quantity') }} {{ $job->items->sum('quantity') === 1 ? 'item' : 'items' }}. Check every item before you leave.</p>
+            <p class="mt-2 text-xs text-slate-500">{{ $job->items->sum('quantity') }} {{ $job->items->sum('quantity') === 1 ? 'item' : 'items' }} · check before leaving</p>
         </div>
 
         <div class="mt-4 border-t border-slate-100 pt-3">
-            <p class="text-xs font-semibold uppercase text-slate-500">2. Deliver to</p>
+            <p class="text-xs font-semibold uppercase text-slate-500">2. Deliver</p>
             {{-- Shop checkout polish 2026-11-02: an order sent to someone else names the receiver; the rider calls them. --}}
             @if ($job->recipient_name)
                 <p class="font-semibold">{{ $job->recipient_name }} <span class="text-xs font-normal text-slate-500">(ordered by {{ $job->customer?->name }})</span></p>
@@ -65,22 +73,24 @@
             <div class="mt-2 flex flex-wrap gap-2 text-sm">
                 @if ($job->deliveryAddress)<a href="https://www.google.com/maps/dir/?api=1&destination={{ $job->deliveryAddress->lat }},{{ $job->deliveryAddress->lng }}" target="_blank" rel="noopener" class="inline-flex min-h-10 items-center rounded-lg border border-slate-300 bg-white px-3 font-medium">Directions</a>@endif
                 @if ($job->recipient_phone)<a href="tel:{{ $job->recipient_phone }}" class="inline-flex min-h-10 items-center rounded-lg border border-slate-300 bg-white px-3 font-medium">Call {{ $job->recipient_name }}</a>@endif
-                @if ($job->customer?->phone)<a href="tel:{{ $job->customer->phone }}" class="inline-flex min-h-10 items-center rounded-lg border border-slate-300 bg-white px-3 font-medium">Call the customer</a>@endif
+                @if ($job->customer?->phone)<a href="tel:{{ $job->customer->phone }}" class="inline-flex min-h-10 items-center rounded-lg border border-slate-300 bg-white px-3 font-medium">Call customer</a>@endif
             </div>
             @if ($job->special_instructions)<p class="mt-1 text-sm text-slate-700">Note: {{ $job->special_instructions }}</p>@endif
         </div>
 
         <div @class(['mt-4 rounded-xl p-3 text-sm', 'bg-amber-50 text-amber-900' => $cash, 'bg-emerald-50 text-emerald-800' => ! $cash])>
             @if ($cash)
-                <p class="font-bold">Collect {{ $currencySymbol }}{{ number_format((float) $job->total_amount, 2) }} in cash before you hand it over.</p>
+                <p class="font-bold">Collect {{ $currencySymbol }}{{ number_format((float) $job->total_amount, 2) }} cash</p>
             @else
-                <p class="font-bold">Prepaid. Collect nothing.</p>
+                <p class="font-bold">Prepaid · collect nothing</p>
             @endif
         </div>
 
-        @if ($job->status === 'ready')
+        @if ($job->status === 'ready' && ! $job->picked_up_at)
+            <p class="mt-4 text-center text-sm text-slate-600">Waiting for handover…</p>
+        @elseif ($job->status === 'ready')
             <form wire:submit="{{ $deliverAction }}" class="mt-4">
-                <label for="shop-otp" class="block text-sm font-medium">3. Customer's code</label>
+                <label for="shop-otp" class="block text-sm font-medium">3. Customer code</label>
                 <div class="mt-1 flex gap-2">
                     <input id="shop-otp" type="text" inputmode="numeric" maxlength="8" wire:model="{{ $otpModel }}" class="min-h-12 w-40 rounded-xl border border-slate-300 px-3 text-lg tracking-widest">
                     <button type="submit" class="min-h-12 flex-1 rounded-xl bg-blue-600 font-bold text-white">Delivered</button>

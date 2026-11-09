@@ -61,12 +61,13 @@ class RiderAllJobsTest extends TestCase
 
         $home->call('acceptShopOffer', $food['order']->id)
             ->assertSet('notice', 'Accepted. Head to the restaurant; take the food once they mark it ready.')
-            ->assertSeeHtml('data-testid="current-job"')->assertSee('Go to the restaurant')
-            ->assertDontSee('Collect ₹240.00 in cash') // owner 2026-11-09: details only once at the restaurant
-            ->call('reachedStore')->assertSee('Collect from the restaurant')
-            ->assertSee('Collect ₹240.00 in cash')
+            ->assertSeeHtml('data-testid="current-job"')->assertSee('Reached restaurant')
+            ->assertDontSee('Collect ₹240.00 cash') // owner 2026-11-09: details only once at the restaurant
+            ->call('reachedStore')->assertSee('Tell this code at the counter')
+            ->assertSee('Collect ₹240.00 cash')
             ->assertDontSee($shop['order']->code); // one job at a time: no other offers while carrying one
 
+        $food['order']->forceFill(['picked_up_at' => now()])->save(); // handed over against the pickup code (PickupCodeTest)
         $home->set('shopOtp', '0000')->call('deliverShop')->assertSet('error', 'That code is not right. Ask the customer to read it from their order page.');
         $code = $food['order']->fresh()->delivery_otp; // accepting issues the customer's code
         $home->set('shopOtp', $code)->call('deliverShop')->assertSet('notice', 'Delivered. Thank you!');
@@ -77,6 +78,7 @@ class RiderAllJobsTest extends TestCase
     {
         $food = $this->offeredOrder(Modules::FOOD, 'cash');
         $home = Livewire::actingAs($food['rider']->user)->test(Dashboard::class)->call('acceptShopOffer', $food['order']->id)->call('reachedStore');
+        $food['order']->forceFill(['picked_up_at' => now()])->save();
         $home->set('shopOtp', $food['order']->fresh()->delivery_otp)->call('deliverShop')->assertSet('notice', 'Delivered. Thank you!');
 
         $owed = Livewire::actingAs($food['rider']->user)->test(Earnings::class)->viewData('owed');

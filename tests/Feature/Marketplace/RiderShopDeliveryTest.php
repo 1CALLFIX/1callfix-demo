@@ -89,6 +89,7 @@ class RiderShopDeliveryTest extends TestCase
         $this->assertSame($s['rider']->id, $order->assigned_worker_id);
         $this->assertNotEmpty($order->delivery_otp);
         $page->call('reachedStore'); // owner 2026-11-09: the rider confirms he is at the shop first
+        $order->forceFill(['picked_up_at' => now()])->save(); // ...and the shop hands it over (PickupCodeTest)
 
         $page->set('otp', '0000'.($order->delivery_otp === '0000' ? '1' : ''))->call('deliver')
             ->assertSet('error', 'That code is not right. Ask the customer to read it from their order page.');
@@ -103,7 +104,8 @@ class RiderShopDeliveryTest extends TestCase
         $s = $this->readyOrder('cash');
         $this->offer($s['order'], $s['rider']);
         $page = Livewire::actingAs($s['rider']->user)->test(ShopDeliveries::class)->call('accept', $s['order']->id)->call('reachedStore');
-        $page->assertSee('Collect ₹240.00 in cash', false);
+        $s['order']->forceFill(['picked_up_at' => now()])->save();
+        $page->assertSee('Collect ₹240.00 cash', false);
         $page->set('otp', $s['order']->fresh()->delivery_otp)->call('deliver');
 
         $row = MarketplaceSettlement::where('marketplace_order_id', $s['order']->id)->sole();

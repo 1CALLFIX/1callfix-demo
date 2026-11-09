@@ -53,7 +53,7 @@ trait HandlesShopJobs
     }
 
     /**
-     * Owner 2026-11-09: "I've reached the restaurant". Before this the rider sees only the restaurant and how far the
+     * Owner 2026-11-09: "Reached restaurant". Before this the rider sees only the restaurant and how far the
      * customer is; after it, the items to collect, the customer and the delivery.
      */
     public function reachedStore(): void
@@ -67,10 +67,10 @@ trait HandlesShopJobs
         $job->statusHistory()->create([
             'status' => $job->status,
             'changed_by' => $this->rider()->user_id,
-            'note' => 'Rider reached the '.($job->isFood() ? 'restaurant' : 'shop'),
+            'note' => 'Rider reached '.($job->isFood() ? 'restaurant' : 'shop'),
             'changed_at' => now(),
         ]);
-        $this->notice = 'Show the order number '.$job->code.' at the counter and check every item before you leave.';
+        $this->notice = 'Tell the pickup code at the counter.';
     }
 
     protected function deliverShopWith(string $code): bool
@@ -81,7 +81,12 @@ trait HandlesShopJobs
             return false;
         }
         if ($job->rider_at_store_at === null) {
-            $this->error = 'Tap "I\'ve reached the '.($job->isFood() ? 'restaurant' : 'shop').'" first.';
+            $this->error = 'Tap "Reached '.($job->isFood() ? 'restaurant' : 'shop').'" first.';
+
+            return false;
+        }
+        if ($job->picked_up_at === null) {
+            $this->error = 'Not handed over yet. Tell the pickup code.';
 
             return false;
         }

@@ -116,7 +116,7 @@ class RiderOfferService
     {
         // Owner 2026-11-09: a rider cannot go offline until the delivery in hand is done (the customer follows him).
         if (! $online && $rider->is_online && $this->onAJob($rider)) {
-            throw new \App\Exceptions\CannotGoOfflineException('Finish your delivery first. You can go offline after it is delivered.');
+            throw new \App\Exceptions\CannotGoOfflineException('Finish the delivery to go offline.');
         }
         $rider->is_online = $online;
         if ($online && $lat !== null && $lng !== null) {

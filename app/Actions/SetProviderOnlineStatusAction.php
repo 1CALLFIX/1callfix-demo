@@ -69,7 +69,7 @@ class SetProviderOnlineStatusAction
         // Owner 2026-11-09: no going offline on the way to a job or while working on it (the customer follows him).
         // A job only scheduled (assigned) or on hold for spares does not block it: those can last days.
         if (! $online && $provider->is_online && self::onTheWayOrWorking($provider)) {
-            throw new \App\Exceptions\CannotGoOfflineException('Finish the job you are on first. You can go offline after it is completed.');
+            throw new \App\Exceptions\CannotGoOfflineException('Finish the job to go offline.');
         }
 
         $hasFix = $online && $this->isUsableFix($lat, $lng);

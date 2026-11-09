@@ -28,7 +28,7 @@ use Tests\TestCase;
 /**
  * Owner 2026-11-09: a rider carrying a delivery and a service partner on the way to / working on a job cannot go
  * offline until it is done; a restaurant cannot close while it has orders in progress; the rider sees only the
- * restaurant and how far the customer is until he taps "I've reached the restaurant", then the order number, every
+ * restaurant and how far the customer is until he taps "Reached restaurant", then the order number, every
  * item, the customer and the delivery.
  */
 class StayOnlineAndReachedStoreTest extends TestCase
@@ -92,10 +92,10 @@ class StayOnlineAndReachedStoreTest extends TestCase
         $order = $this->carried($rider);
 
         Livewire::actingAs($rider->user)->test(RiderDashboard::class)
-            ->assertSee('You stay online until this delivery is done.')
+            ->assertSee('Online till the delivery is done')
             ->assertSeeHtml('data-testid="online-switch-locked"')
             ->call('goOffline')
-            ->assertSet('error', 'Finish your delivery first. You can go offline after it is delivered.');
+            ->assertSet('error', 'Finish the delivery to go offline.');
         $this->assertTrue($rider->fresh()->is_online);
 
         $order->forceFill(['rider_at_store_at' => now()])->save();
@@ -123,7 +123,7 @@ class StayOnlineAndReachedStoreTest extends TestCase
                 $action->execute($provider->fresh(), false);
                 $this->fail("Went offline while {$status}");
             } catch (CannotGoOfflineException $e) {
-                $this->assertSame('Finish the job you are on first. You can go offline after it is completed.', $e->getMessage());
+                $this->assertSame('Finish the job to go offline.', $e->getMessage());
             }
             $this->assertTrue($provider->fresh()->is_online);
         }
@@ -146,7 +146,7 @@ class StayOnlineAndReachedStoreTest extends TestCase
         $owner = $this->restaurant->provider->user;
 
         Livewire::actingAs($owner)->test(SellerDashboard::class)->call('toggleOpen')
-            ->assertSet('notice', 'You have 1 order in progress. You can close after it is delivered.');
+            ->assertSet('notice', '1 order in progress. Close after delivery.');
         $this->assertTrue($this->restaurant->fresh()->is_open);
 
         $order->forceFill(['status' => 'completed'])->save();
@@ -161,25 +161,31 @@ class StayOnlineAndReachedStoreTest extends TestCase
 
         $page = Livewire::actingAs($rider->user)->test(RiderDashboard::class)
             ->assertSee('Annapurna Mess')
-            ->assertSee('The customer is about')->assertSee('3.2 km')
-            ->assertSee('reached the restaurant')
+            ->assertSee('Drop:')->assertSee('3.2 km')
+            ->assertSee('Reached restaurant')
             ->assertDontSee('Ravi Kumar')->assertDontSee('23-1-633 Mulapet')->assertDontSee('Chicken Biryani')
             ->assertDontSeeHtml('id="shop-otp"');
 
         // Cannot mark it delivered before reaching the restaurant.
         $page->set('shopOtp', $order->delivery_otp)->call('deliverShop')
-            ->assertSet('error', 'Tap "I\'ve reached the restaurant" first.');
+            ->assertSet('error', 'Tap "Reached restaurant" first.');
         $this->assertSame('ready', $order->fresh()->status);
 
         $page->call('reachedStore')
-            ->assertSee('Ask for order')->assertSee($order->code)
+            ->assertSee('Tell this code at the counter')->assertSee($order->code)
             ->assertSee('Chicken Biryani')->assertSee('2 ×')
             ->assertSee('Ravi Kumar')->assertSee('23-1-633 Mulapet')
-            ->assertSeeHtml('id="shop-otp"');
+            ->assertDontSeeHtml('id="shop-otp"'); // the code box shows once the restaurant has handed it over
         $this->assertNotNull($order->fresh()->rider_at_store_at);
-        $this->assertTrue($order->statusHistory()->where('note', 'Rider reached the restaurant')->exists());
+        $this->assertTrue($order->statusHistory()->where('note', 'Rider reached restaurant')->exists());
 
-        $page->set('shopOtp', $order->fresh()->delivery_otp)->call('deliverShop')->assertSet('notice', 'Delivered. Thank you!');
+        // Owner 2026-11-09: the restaurant hands it over against the pickup code first.
+        $page->assertSee($order->fresh()->pickup_code)
+            ->set('shopOtp', $order->fresh()->delivery_otp)->call('deliverShop')
+            ->assertSet('error', 'Not handed over yet. Tell the pickup code.');
+        Livewire::actingAs($this->restaurant->provider->user)->test(\App\Livewire\Seller\Orders::class)->set('tab', 'active')
+            ->set("riderCodes.{$order->id}", $order->fresh()->pickup_code)->call('handToRider', $order->id);
+        Livewire::actingAs($rider->user)->test(RiderDashboard::class)->set('shopOtp', $order->fresh()->delivery_otp)->call('deliverShop')->assertSet('notice', 'Delivered. Thank you!');
         $this->assertSame('completed', $order->fresh()->status);
     }
 }

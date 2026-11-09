@@ -30,6 +30,13 @@ class OpenInRightApp
         }
 
         $name = (string) optional($request->route())->getName();
+
+        // Owner 2026-11-09: "in the rider app it's showing the customer app" after signing in or creating an account.
+        // Every sign-in / sign-up path that ends on the customer homepage lands on the app's own home instead.
+        if ($name === 'customer.home') {
+            return redirect()->to($this->appHome($request, $flavor));
+        }
+
         foreach (self::AREAS as $prefix => $app) {
             if (str_starts_with($name, $prefix) && $app !== $flavor) {
                 return response()->view('partner.open-other-app', [
@@ -40,5 +47,24 @@ class OpenInRightApp
         }
 
         return $next($request);
+    }
+
+    /** The app's own start: partner → its start page; rider → his dashboard, the rider sign-in, or the join page. */
+    private function appHome(Request $request, string $flavor): string
+    {
+        if ($flavor === 'partner') {
+            return route('partner.app.start');
+        }
+
+        $user = $request->user();
+        if (! $user) {
+            return route('rider.login');
+        }
+        $worker = $user->fieldWorkerProfile;
+
+        // Same test as EnsureIsParcelRider, so this never lands on its "not a rider" page.
+        return $worker && $worker->is_active && $worker->hasCapability('parcel_rider')
+            ? route('rider.dashboard')
+            : route('customer.partners');
     }
 }

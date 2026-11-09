@@ -64,6 +64,10 @@
             @endforelse
         </x-ui.card>
 
+        @if ($order->order_type === 'delivery' && $order->pickup_code)
+            <p class="mb-3 text-sm text-gray-600" data-testid="admin-pickup-code">Pickup code <span class="font-bold tracking-widest text-gray-900">{{ $order->pickup_code }}</span>
+                · {{ $order->picked_up_at ? 'handed to the rider '.$order->picked_up_at->diffForHumans() : 'not handed over yet' }}</p>
+        @endif
         {{-- Owner 2026-11-09: ring a nearby 1CallFix rider by hand (he still accepts on his phone). --}}
         @if ($order->order_type === 'delivery' && $order->assigned_worker_id === null && in_array($order->status, ['preparing', 'ready'], true))
             <x-ui.card class="mb-4" data-testid="admin-pick-rider">

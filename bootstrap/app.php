@@ -44,6 +44,11 @@ return Application::configure(basePath: dirname(__DIR__))
                 return route('seller.login');
             }
 
+            // Owner 2026-11-09: the Rider app opens /rider; signed out, it must show the rider sign-in, not the customer one.
+            if ($request->is('rider', 'rider/*')) {
+                return route('rider.login');
+            }
+
             return route('customer.login');
         });
 

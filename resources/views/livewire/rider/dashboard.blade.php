@@ -39,7 +39,7 @@
             <p class="text-sm font-medium opacity-90">Hi {{ \Illuminate\Support\Str::before($rider->user?->name ?? 'Rider', ' ') }}</p>
             <h1 class="text-xl font-bold tracking-tight">{{ $rider->is_online ? 'You are online' : 'You are offline' }}</h1>
             @if ($job || $shopJob || $returnJob)
-                <p class="text-xs opacity-90">{{ $rider->is_online ? 'You stay online until this delivery is done.' : 'You have a delivery. Turn on the switch so the customer can follow you.' }}</p>
+                <p class="text-xs opacity-90">{{ $rider->is_online ? 'Online till the delivery is done' : 'Delivery in hand · go online' }}</p>
             @else
                 <p class="text-xs opacity-90">{{ $rider->is_online ? 'Offers will ring on this phone.' : ($rider->kyc_status === 'approved' ? 'Turn on the switch to get delivery offers.' : 'Waiting for your documents to be approved.') }}</p>
             @endif

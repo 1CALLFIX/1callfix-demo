@@ -35,7 +35,7 @@ class MarketplaceOrder extends Model implements Orderable
         'coupon_code', 'coupon_discount_amount', 'special_instructions',
         'confirmed_at', 'ready_at', 'completed_at',
         // Food F2
-        'accept_by', 'ready_by', 'rider_called_at', 'rider_at_store_at',
+        'accept_by', 'ready_by', 'rider_called_at', 'rider_at_store_at', 'pickup_code', 'picked_up_at',
     ];
 
     protected $casts = [
@@ -46,6 +46,7 @@ class MarketplaceOrder extends Model implements Orderable
         'ready_by' => 'datetime',
         'rider_called_at' => 'datetime',
         'rider_at_store_at' => 'datetime',
+        'picked_up_at' => 'datetime',
         'tax_by_platform' => 'boolean',
     ];
 
@@ -120,6 +121,41 @@ class MarketplaceOrder extends Model implements Orderable
     }
 
     /** Food F2: can a rider be offered / take this order now? */
+    protected static function booted(): void
+    {
+        // Owner 2026-11-09: every delivery order gets its pickup code when it is placed.
+        static::creating(function (MarketplaceOrder $order) {
+            if ($order->order_type === 'delivery' && $order->pickup_code === null) {
+                $order->pickup_code = self::freshPickupCode($order->store_id);
+            }
+        });
+    }
+
+    /** 4 digits, not used by another open order of the same restaurant / shop. */
+    public static function freshPickupCode(?int $storeId): string
+    {
+        $taken = self::where('store_id', $storeId)->whereNotIn('status', ['completed', 'cancelled'])
+            ->whereNotNull('pickup_code')->pluck('pickup_code')->all();
+        do {
+            $code = (string) random_int(1000, 9999);
+        } while (in_array($code, $taken, true));
+
+        return $code;
+    }
+
+    /** The pickup code, made now for an order placed before codes existed. */
+    public function ensurePickupCode(): ?string
+    {
+        if ($this->order_type !== 'delivery') {
+            return null;
+        }
+        if ($this->pickup_code === null) {
+            $this->forceFill(['pickup_code' => self::freshPickupCode($this->store_id)])->save();
+        }
+
+        return $this->pickup_code;
+    }
+
     /** Owner 2026-11-09: how far the customer is from the restaurant / shop, shown to the rider before pickup. */
     public function dropDistanceKm(): ?float
     {

@@ -153,7 +153,7 @@ class FoodRiderRingTest extends TestCase
 
         Livewire::actingAs($this->restaurant->provider->user)->test(SellerOrders::class)->set('tab', 'active')
             ->assertSee('Pick a rider')
-            ->call('togglePicker', $order->id)->assertSee('Anees')->assertSee('km away')
+            ->call('togglePicker', $order->id)->assertSee('Anees')->assertSee('km')
             ->call('ringRider', $order->id, $rider->id)->assertSee('Ringing Anees');
 
         Notification::assertSentTo($rider->user, RiderShopOfferNotification::class);

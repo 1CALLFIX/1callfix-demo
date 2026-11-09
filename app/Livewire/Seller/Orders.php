@@ -123,6 +123,40 @@ class Orders extends Component
         }
     }
 
+    /** Owner 2026-11-09: pickup codes the riders tell at the counter, keyed by order id. */
+    public array $riderCodes = [];
+
+    /** The rider says the order's 4-digit pickup code; it must match before the bag is handed over. */
+    public function handToRider(int $orderId): void
+    {
+        $order = $this->ownOrder($orderId);
+        $typed = trim((string) ($this->riderCodes[$orderId] ?? ''));
+        if ($order->order_type !== 'delivery' || $order->assigned_worker_id === null || $order->picked_up_at !== null) {
+            $this->flash('No rider waiting for this order.', 'error');
+
+            return;
+        }
+        if ($order->status !== 'ready') {
+            $this->flash('Mark ready first.', 'error');
+
+            return;
+        }
+        if ($typed === '' || ! hash_equals((string) $order->ensurePickupCode(), $typed)) {
+            $this->flash('Wrong code for this order.', 'error');
+
+            return;
+        }
+        $order->forceFill(['picked_up_at' => now()])->save();
+        $order->statusHistory()->create([
+            'status' => $order->status,
+            'changed_by' => auth()->id(),
+            'note' => 'Handed to rider '.($order->assignedWorker?->user?->name ?? '#'.$order->assigned_worker_id).' (pickup code checked)',
+            'changed_at' => now(),
+        ]);
+        unset($this->riderCodes[$orderId]);
+        $this->flash('Handed over to '.($order->assignedWorker?->user?->name ?? 'the rider').'.', 'success');
+    }
+
     /** Owner 2026-11-09: the order whose "Pick a rider" list is open (one at a time). */
     public ?int $pickingFor = null;
 
@@ -138,7 +172,7 @@ class Orders extends Component
         $order = $this->ownOrder($orderId);
         try {
             $rider = $picker->offer($order, $workerId, auth()->user(), $order->isFood() ? 'Restaurant' : 'Shop');
-            $this->flash('Ringing '.($rider->user?->name ?? 'the rider').'. If nobody accepts within a minute, ring another rider.', 'success');
+            $this->flash('Ringing '.($rider->user?->name ?? 'the rider').'…', 'success');
         } catch (\RuntimeException $e) {
             $this->flash($e->getMessage(), 'error');
         }

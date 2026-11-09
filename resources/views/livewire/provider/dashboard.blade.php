@@ -7,7 +7,7 @@
                 <p class="text-sm font-medium opacity-90">Hi, {{ $provider->user?->name ?? 'there' }}</p>
                 <h1 class="text-xl font-bold tracking-tight">{{ $provider->is_online ? 'You are online' : 'You are offline' }}</h1>
                 @php $cfOnJob = \App\Actions\SetProviderOnlineStatusAction::onTheWayOrWorking($provider); @endphp
-                <p class="text-xs opacity-90">{{ $cfOnJob ? ($provider->is_online ? 'You stay online until this job is completed.' : 'You are on a job. Turn on the switch so the customer can follow you.') : ($provider->is_online ? 'Job offers will ring on this phone.' : 'Turn on the switch to get job offers.') }}</p>
+                <p class="text-xs opacity-90">{{ $cfOnJob ? ($provider->is_online ? 'Online till the job is done' : 'Job in hand · go online') : ($provider->is_online ? 'Job offers will ring on this phone.' : 'Turn on the switch to get job offers.') }}</p>
             </div>
             @if ($provider->is_online && $cfOnJob)
                 {{-- Owner 2026-11-09: locked online until the job in hand is completed. --}}

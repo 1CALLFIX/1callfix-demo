@@ -56,7 +56,7 @@ class RiderShopOfferNotification extends Notification implements ShouldQueue
 
         return [
             'title' => $food ? 'New food delivery' : 'New shop delivery',
-            'body' => "Pick up from {$place}. Open the rider app to accept before it expires.",
+            'body' => "Pickup: {$place}. Tap to accept.",
         ];
     }
 }
