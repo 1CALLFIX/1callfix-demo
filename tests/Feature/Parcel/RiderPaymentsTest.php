@@ -111,7 +111,7 @@ class RiderPaymentsTest extends TestCase
     public function test_rider_sign_in_links_to_the_partner_page_and_forgot_password(): void
     {
         $this->get(route('rider.login'))->assertOk()
-            ->assertSee(route('customer.partners').'#join')
+            ->assertSee(route('customer.partners', ['role' => 'parcel']).'#formCard', false)
             ->assertSee(route('customer.password.forgot'))
             ->assertDontSee('Ask your local');
     }

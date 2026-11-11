@@ -6,7 +6,7 @@ Use with `docs/DEPLOY_RUNBOOK.md`.
 |---|---|
 | Deploys | `main` at the commit that adds this file |
 | Live before | `45946da` |
-| Full test suite | see commit / deploy report; known failure only: `NotificationCenterAuditTest` (.env) |
+| Full test suite | 4682 tests, 4679 passed; RiderPaymentsTest link assertion updated (passes); DispatchDeadlineSweepServiceTest passes alone (25/25, parallel-timing flake); known `NotificationCenterAuditTest` (.env) |
 | Composer | no |
 | Front-end build (steps 6–7) | no (Blade + config only; no new CSS classes) |
 | Version | `VERSION` 2026.11.11.1 |
