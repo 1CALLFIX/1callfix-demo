@@ -48,6 +48,11 @@ class HotelSettings extends MarketplaceSettings
             'group' => 'Booking', 'label' => 'Most rooms in one booking', 'type' => 'int', 'unit' => 'rooms', 'min' => 1, 'max' => 50,
             'default' => '5', 'help' => 'Bigger group bookings go through the hotel directly.',
         ],
+        'hotel.weekend_nights' => [
+            'group' => 'Booking', 'label' => 'Nights that use a hotel\'s weekend price', 'type' => 'text', 'global' => true,
+            'default' => "Fri\nSat",
+            'help' => 'One per line: Mon, Tue, Wed, Thu, Fri, Sat, Sun. A hotel that sets a weekend price charges it on these nights (the night of Friday = check-in Friday).',
+        ],
         'hotel.needs_acceptance' => [
             'group' => 'Booking', 'label' => 'Hotel must accept each booking', 'type' => 'switch', 'default' => '0',
             'help' => 'Off (default): booked and confirmed at once from the hotel\'s room calendar. On: the hotel accepts in its portal within the time below, or the booking is cancelled and fully refunded. A single hotel can be set differently in Admin → Hotels.',

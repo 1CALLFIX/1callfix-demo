@@ -19,10 +19,10 @@ use App\Support\Modules;
 final class CityModules
 {
     /** Second segments with a page today. */
-    public const LIVE_SEGMENTS = ['services', 'shop', 'parcel', 'food'];
+    public const LIVE_SEGMENTS = ['services', 'shop', 'parcel', 'food', 'hotels'];
 
     /** Reserved for businesses that do not have a public city page yet (owner list 2026-11-01). */
-    public const FUTURE_SEGMENTS = ['grocery', 'pharmacy', 'taxi', 'hotels', 'rentals'];
+    public const FUTURE_SEGMENTS = ['grocery', 'pharmacy', 'taxi', 'rentals'];
 
     /** @return list<string> */
     public static function segments(): array

@@ -414,6 +414,10 @@ Route::get('/{city}/shop/{storeSlug}/{productSlug}', \App\Livewire\Customer\Shop
 Route::get('/{city}/food', \App\Livewire\Customer\Food\Home::class)->where('city', $cityPattern)->middleware('page.cache')->name('customer.food.home');
 Route::get('/{city}/food/{restaurantSlug}', \App\Livewire\Customer\Food\RestaurantShow::class)->where(['city' => $cityPattern, 'restaurantSlug' => '[A-Za-z0-9_-]+'])->middleware('page.cache')->name('customer.food.restaurant');
 
+// Hotels H2 (2026-11-12): /{city}/hotels and /{city}/hotels/{hotel}, like Food. 404 while Hotels is off for that city.
+Route::get('/{city}/hotels', \App\Livewire\Customer\Hotels\Home::class)->where('city', $cityPattern)->middleware('page.cache')->name('customer.hotels.home');
+Route::get('/{city}/hotels/{hotelSlug}', \App\Livewire\Customer\Hotels\Show::class)->where(['city' => $cityPattern, 'hotelSlug' => '[A-Za-z0-9_-]+'])->middleware('page.cache')->name('customer.hotels.show');
+
 // City URL architecture (2026-11-01): /{city} is the hub, each business has its own word after the city. The older
 // /{city}/{slug} catalog URL permanently 301s to /{city}/services/{slug}. Future words (food, grocery, pharmacy,
 // taxi, hotels, rentals) are reserved in App\Support\Seo\CityModules and 404 until they get a page.

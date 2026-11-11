@@ -14,7 +14,7 @@ class HotelRatePlan extends Model
 
     protected $fillable = [
         'hotel_room_type_id', 'name', 'meal_plan', 'cancellation_policy_label',
-        'nightly_rate', 'is_active',
+        'nightly_rate', 'weekend_rate', 'is_active',
     ];
 
     protected $casts = ['is_active' => 'boolean'];

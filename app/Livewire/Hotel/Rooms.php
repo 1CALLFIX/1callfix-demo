@@ -35,6 +35,8 @@ class Rooms extends Component
     public string $maxChildren = '0';
     public string $inventory = '1';
     public string $price = '';
+    /** Hotels H2: optional weekend price (nights from Hotel Settings). */
+    public string $weekendPrice = '';
     public string $mealPlan = 'room_only';
     /** @var array<int, mixed> */
     public array $newPhotos = [];
@@ -60,6 +62,7 @@ class Rooms extends Component
         $this->maxChildren = (string) $room->max_children;
         $this->inventory = (string) $room->total_inventory;
         $this->price = $plan ? rtrim(rtrim((string) $plan->nightly_rate, '0'), '.') : '';
+        $this->weekendPrice = $plan && $plan->weekend_rate !== null ? rtrim(rtrim((string) $plan->weekend_rate, '0'), '.') : '';
         $this->mealPlan = $plan?->meal_plan ?? 'room_only';
         $this->showForm = true;
     }
@@ -82,6 +85,7 @@ class Rooms extends Component
             'maxChildren' => ['required', 'integer', 'min:0', 'max:10'],
             'inventory' => ['required', 'integer', 'min:1', 'max:500'],
             'price' => ['required', 'numeric', 'min:1', 'max:500000'],
+            'weekendPrice' => ['nullable', 'numeric', 'min:1', 'max:500000'],
             'mealPlan' => ['required', Rule::in(array_keys(self::MEAL_PLANS))],
             'newPhotos' => ['array', 'max:'.max(0, $space)],
             'newPhotos.*' => ['image', 'mimes:jpg,jpeg,png,webp', 'max:8192'],
@@ -113,7 +117,7 @@ class Rooms extends Component
             }
 
             $plan = $this->planFor($room);
-            $planFields = ['nightly_rate' => round((float) $this->price, 2), 'meal_plan' => $this->mealPlan, 'is_active' => true];
+            $planFields = ['nightly_rate' => round((float) $this->price, 2), 'weekend_rate' => trim($this->weekendPrice) === '' ? null : round((float) $this->weekendPrice, 2), 'meal_plan' => $this->mealPlan, 'is_active' => true];
             $plan ? $plan->update($planFields) : HotelRatePlan::create($planFields + ['hotel_room_type_id' => $room->id, 'name' => 'Standard']);
 
             ActivityLogger::logModel(auth()->user(), $room, ($existing ? 'Room updated' : 'Room added').' (hotel portal)', ['price' => $this->price, 'rooms' => $this->inventory]);
@@ -150,7 +154,7 @@ class Rooms extends Component
 
     private function resetForm(): void
     {
-        $this->reset('editingId', 'showForm', 'roomName', 'roomDescription', 'beds', 'maxAdults', 'maxChildren', 'inventory', 'price', 'mealPlan', 'newPhotos');
+        $this->reset('editingId', 'showForm', 'roomName', 'roomDescription', 'beds', 'maxAdults', 'maxChildren', 'inventory', 'price', 'weekendPrice', 'mealPlan', 'newPhotos');
         $this->resetValidation();
     }
 

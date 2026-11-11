@@ -47,6 +47,12 @@
                     @error('maxChildren') <p class="mt-1.5 text-sm text-red-700">{{ $message }}</p> @enderror
                 </div>
             </div>
+            <div>
+                <label for="r-weekend" class="block text-sm font-medium text-slate-900">Weekend price per night (₹, optional)</label>
+                <input id="r-weekend" type="text" inputmode="decimal" wire:model="weekendPrice" class="{{ $inp }}" placeholder="Same as normal">
+                <p class="mt-1 text-xs text-slate-500">Used on {{ implode(' and ', \App\Support\HotelSettings::lines('hotel.weekend_nights')) }} nights.</p>
+                @error('weekendPrice') <p class="mt-1.5 text-sm text-red-700">{{ $message }}</p> @enderror
+            </div>
             <div class="grid gap-3 sm:grid-cols-2">
                 <div>
                     <label for="r-beds" class="block text-sm font-medium text-slate-900">Beds</label>
