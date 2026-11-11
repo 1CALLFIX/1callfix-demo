@@ -14,7 +14,7 @@
             <div role="alert" @class(['mb-5 rounded-lg px-3 py-2.5 text-sm', 'bg-amber-50 text-amber-900' => $notAppliedYet, 'bg-red-50 text-red-800' => ! $notAppliedYet])>
                 {{ $error }}
                 @if ($notAppliedYet)
-                    <a href="{{ route('customer.partners') }}" class="mt-2 block rounded-lg bg-slate-900 px-3 py-2 text-center font-medium text-white">Apply as a rider</a>
+                    <a href="{{ route('customer.partners', ['role' => 'parcel']) }}#formCard" class="mt-2 block rounded-lg bg-slate-900 px-3 py-2 text-center font-medium text-white">Apply as a rider</a>
                 @endif
             </div>
         @endif
@@ -43,12 +43,16 @@
         <p class="mt-4 text-center text-sm">
             <a href="{{ route('customer.password.forgot', ['for' => 'rider']) }}" wire:navigate class="font-medium text-blue-600 hover:underline">Forgot password?</a>
         </p>
+        {{-- Owner 2026-11-11: same short line as the partner sign-in; opens /partners with "Delivery rider" already picked. --}}
         <p class="mt-4 text-center text-sm text-slate-600">
-            Want to ride with {{ $platformName }}? <a href="{{ route('customer.partners') }}#join" class="font-medium text-slate-900 underline underline-offset-2">Apply on the partner page</a>
+            New to {{ $platformName }}? <a href="{{ route('customer.partners', ['role' => 'parcel']) }}#formCard" class="font-medium text-blue-600 underline underline-offset-2" data-testid="rider-join">Become a rider</a>
         </p>
-        <p class="mt-2 text-center text-sm text-slate-600">
-            Not a rider? <a href="{{ route('customer.login') }}" wire:navigate class="font-medium text-slate-900 underline underline-offset-2">Customer sign in</a>
-        </p>
+        {{-- Inside the Rider app the customer sign-in is a dead end (the app sends the customer home back here), so it shows on the website only. --}}
+        @unless (\App\Support\NativeApp::inApp())
+            <p class="mt-2 text-center text-sm text-slate-600">
+                Not a rider? <a href="{{ route('customer.login') }}" wire:navigate class="font-medium text-slate-900 underline underline-offset-2">Customer sign in</a>
+            </p>
+        @endunless
         <x-ui.app-version class="mt-4 text-center" />
     </x-ui.card>
 </div>

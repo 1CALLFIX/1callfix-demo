@@ -209,7 +209,7 @@ body:has(.pp) footer{margin-bottom:0}
         <section class="sec" id="roles" aria-labelledby="roles-heading"><div class="wrap">
             <h2 class="h2" id="roles-heading">Pick your role</h2>
             @if (filled($rolesLead)) <p class="lead" style="color:var(--muted)">{{ $rolesLead }}</p> @endif
-            <ul class="roles" x-data="{ sel: '{{ $roles[0]['code'] }}' }" x-on:partner-role-select.window="sel = $event.detail.role">
+            <ul class="roles" x-data="{ sel: '{{ in_array(request()->query('role'), array_column($roles, 'code'), true) ? request()->query('role') : $roles[0]['code'] }}' }" x-on:partner-role-select.window="sel = $event.detail.role">
                 @foreach ($roles as $role)
                     <li>
                         <a href="#join" class="role" data-role="{{ $role['code'] }}"

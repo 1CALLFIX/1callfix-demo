@@ -43,12 +43,18 @@
         <p class="mt-4 text-center text-sm">
             <a href="{{ route('customer.password.forgot', ['for' => 'seller']) }}" wire:navigate class="font-medium text-blue-600 hover:underline">Forgot password?</a>
         </p>
+        {{-- Owner 2026-11-11: short line like the partner sign-in; each link opens /partners with its own role already picked. --}}
         <p class="mt-4 text-center text-sm text-slate-600">
-            Want to sell on {{ $platformName }}? <a href="{{ route('customer.partners', ['role' => 'commerce']) }}#formCard" class="font-medium text-slate-900 underline underline-offset-2">Apply on the partner page</a>
+            New to {{ $platformName }}?
+            <a href="{{ route('customer.partners', ['role' => 'commerce']) }}#formCard" class="font-medium text-blue-600 underline underline-offset-2" data-testid="seller-join-shop">Open a shop</a>
+            ·
+            <a href="{{ route('customer.partners', ['role' => 'food']) }}#formCard" class="font-medium text-blue-600 underline underline-offset-2" data-testid="seller-join-food">Add your restaurant</a>
         </p>
-        <p class="mt-2 text-center text-sm text-slate-600">
-            Not a seller? <a href="{{ route('customer.login') }}" wire:navigate class="font-medium text-slate-900 underline underline-offset-2">Customer sign in</a>
-        </p>
+        @unless (\App\Support\NativeApp::inApp())
+            <p class="mt-2 text-center text-sm text-slate-600">
+                Not a seller? <a href="{{ route('customer.login') }}" wire:navigate class="font-medium text-slate-900 underline underline-offset-2">Customer sign in</a>
+            </p>
+        @endunless
         <x-ui.app-version class="mt-4 text-center" />
     </x-ui.card>
 </div>
