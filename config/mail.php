@@ -45,7 +45,9 @@ return [
             'port' => env('MAIL_PORT', 2525),
             'username' => env('MAIL_USERNAME'),
             'password' => env('MAIL_PASSWORD'),
-            'timeout' => null,
+            // 2026-11-11: booking emails are sent while the partner's tap waits. With no limit, an unreachable mail
+            // server held Accept / Start for minutes (mail host behind Cloudflare). 5 s caps that; MAIL_TIMEOUT overrides.
+            'timeout' => (int) env('MAIL_TIMEOUT', 5),
             'local_domain' => env('MAIL_EHLO_DOMAIN', parse_url((string) env('APP_URL', 'http://localhost'), PHP_URL_HOST)),
         ],
 
