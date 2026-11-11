@@ -2,10 +2,14 @@
 
 namespace App\Console\Commands;
 
+use App\Models\Accommodation;
+use App\Models\AccommodationType;
 use App\Models\AddOn;
 use App\Models\AddOnGroup;
 use App\Models\FieldWorker;
 use App\Models\FieldWorkerCapability;
+use App\Models\HotelRatePlan;
+use App\Models\HotelRoomType;
 use App\Models\Franchise;
 use App\Models\MarketplaceCategory;
 use App\Models\Product;
@@ -64,6 +68,8 @@ class TestAccountsCommand extends Command
         'seller' => ['Test Seller', 'provider', null, null, '6000000110'],
         // Food delivery F1 (2026-11-03): a restaurant is a seller whose store is module 'food' (/seller/login too).
         'restaurant' => ['Test Restaurant', 'provider', null, null, '6000000111'],
+        // Hotels H1 (2026-11-12): a hotel is a provider account that owns an approved Accommodation (partner sign-in → /hotel).
+        'hotel' => ['Test Hotel', 'provider', null, null, '6000000112'],
     ];
 
     /** A placeholder FSSAI number for the test restaurant only (hidden from the public like every test shop). */
@@ -211,6 +217,8 @@ class TestAccountsCommand extends Command
                     $this->makeTestShop($user, $franchise, $zone);
                 } elseif ($key === 'restaurant') {
                     $this->makeTestRestaurant($user, $franchise, $zone);
+                } elseif ($key === 'hotel') {
+                    $this->makeTestHotel($user, $franchise, $zone);
                 } elseif ($userRole === 'provider') {
                     Provider::updateOrCreate(['user_id' => $user->id], [
                         'franchise_id' => $franchise->id,
@@ -223,13 +231,13 @@ class TestAccountsCommand extends Command
                     ]);
                 }
 
-                return [$key, $email, $roleSlug ? "{$roleSlug} @ {$scopeType} #{$scopeIds[$scopeType]}" : ($key === 'rider' ? 'parcel + shop rider (approved)' : ($key === 'seller' ? 'seller, shop approved' : ($key === 'restaurant' ? 'restaurant, approved' : $userRole)))];
+                return [$key, $email, $roleSlug ? "{$roleSlug} @ {$scopeType} #{$scopeIds[$scopeType]}" : ($key === 'rider' ? 'parcel + shop rider (approved)' : ($key === 'seller' ? 'seller, shop approved' : ($key === 'restaurant' ? 'restaurant, approved' : ($key === 'hotel' ? 'hotel, approved' : $userRole))))];
             });
         }
 
         $this->info("Test accounts for franchise #{$franchise->id} {$franchise->name}, zone #{$zone->id} {$zone->name}:");
         $this->table(['Account', 'Login email', 'Access'], $rows);
-        $this->line('Staff log in at /admin/login, the provider at /provider/login, the rider at /rider/login, the seller at /seller/login, the customer at /login.');
+        $this->line('Staff log in at /admin/login, the provider at /provider/login, the rider at /rider/login, the seller at /seller/login, the hotel at /provider/login (opens /hotel), the customer at /login.');
 
         return self::SUCCESS;
     }
@@ -338,6 +346,45 @@ class TestAccountsCommand extends Command
         }
     }
 
+    /** The test hotel's rooms (name => [rooms of this kind, adults, price per night, meal plan]). */
+    private const TEST_HOTEL_ROOMS = [
+        'Test Standard Non-AC' => [3, 2, 999, 'room_only'],
+        'Test Deluxe AC' => [2, 3, 1799, 'breakfast'],
+    ];
+
+    /**
+     * Hotels H1: the test hotel — approved and active, pinned at the zone centre, with TEST_HOTEL_ROOMS. Re-running
+     * create resets these rooms and prices; other rooms and the calendar are left alone.
+     */
+    private function makeTestHotel(User $user, Franchise $franchise, Zone $zone): void
+    {
+        $provider = Provider::updateOrCreate(['user_id' => $user->id], [
+            'franchise_id' => $franchise->id, 'zone_id' => $zone->id, 'provider_type' => 'independent',
+            'kyc_status' => 'approved', 'is_active' => true, 'is_online' => false, 'skills' => null,
+        ]);
+        $hotel = Accommodation::withTrashed()->firstOrNew(['provider_id' => $provider->id]);
+        $hotel->fill([
+            'accommodation_type_id' => $hotel->accommodation_type_id ?: AccommodationType::where('slug', 'hotel')->value('id') ?? AccommodationType::orderBy('id')->value('id'),
+            'franchise_id' => $franchise->id, 'zone_id' => $zone->id,
+            'name' => $hotel->name ?: 'Test Hotel', 'address_line' => $hotel->address_line ?: 'Test address, '.$zone->name,
+            'description' => $hotel->description ?: 'Test hotel for walk-throughs. Not shown to customers.',
+            'lat' => $hotel->lat ?? $zone->center_lat ?? 0, 'lng' => $hotel->lng ?? $zone->center_lng ?? 0,
+            'contact_phone' => $user->phone, 'is_active' => true,
+            'approval_status' => 'approved', 'approved_at' => $hotel->approved_at ?? now(), 'rejection_reason' => null,
+        ])->save();
+        if ($hotel->trashed()) {
+            $hotel->restore();
+        }
+        foreach (self::TEST_HOTEL_ROOMS as $name => [$inventory, $adults, $price, $meal]) {
+            $room = HotelRoomType::updateOrCreate(['accommodation_id' => $hotel->id, 'name' => $name], [
+                'max_adults' => $adults, 'max_children' => 1, 'total_inventory' => $inventory, 'is_active' => true,
+            ]);
+            HotelRatePlan::updateOrCreate(['hotel_room_type_id' => $room->id, 'name' => 'Standard'], [
+                'nightly_rate' => $price, 'meal_plan' => $meal, 'is_active' => true,
+            ]);
+        }
+    }
+
     private function list(): int
     {
         $users = User::where('email', 'like', '%'.self::DOMAIN)->with('roleAssignments.role')->orderBy('id')->get();
@@ -358,6 +405,7 @@ class TestAccountsCommand extends Command
                 Provider::where('user_id', $user->id)->update(['is_active' => false, 'is_online' => false]);
                 FieldWorker::where('user_id', $user->id)->update(['is_active' => false, 'is_online' => false]);
                 Store::whereIn('provider_id', Provider::where('user_id', $user->id)->select('id'))->update(['is_active' => false, 'is_open' => false]);
+                Accommodation::whereIn('provider_id', Provider::where('user_id', $user->id)->select('id'))->update(['is_active' => false]);
                 $user->forceFill(['status' => 'suspended'])->save();
                 $user->tokens()->delete();
             });

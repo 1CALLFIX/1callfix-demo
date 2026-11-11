@@ -58,6 +58,7 @@ class UploadHintsAndSaveFeedbackTest extends TestCase
             'claim_photo' => ['Customer/Parcel/Show.php', "'claimPhotos.*'"],
             'return_photo' => ['Customer/Shop/OrderShow.php', "'returnPhotos.*'"],
             'kyc_document' => ['Provider/Auth/Register.php', "'documents.*'"],
+            'hotel_photo' => ['Hotel/Rooms.php', "'newPhotos.*'"],
         ];
         $this->assertEqualsCanonicalizing(array_keys(ImageSizes::USES), array_keys($where), 'every size has a checked limit');
 

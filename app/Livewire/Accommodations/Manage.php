@@ -47,6 +47,13 @@ class Manage extends Component
     public ?int $editAccommodationId = null;
     public string $editName = '';
     public bool $editIsActive = true;
+    public bool $editIsFeatured = false;
+    /** '' = follow Hotel Settings, '1' = must accept, '0' = confirmed at once. */
+    public string $editNeedsAcceptance = '';
+
+    /** Hotels H1: list filter — '' all, or pending / approved / rejected. */
+    public string $approvalFilter = '';
+    public string $rejectReason = '';
 
     // New room type form
     public string $roomTypeName = '';
@@ -67,6 +74,11 @@ class Manage extends Component
     }
 
     public function updatingSearch(): void
+    {
+        $this->resetPage();
+    }
+
+    public function updatingApprovalFilter(): void
     {
         $this->resetPage();
     }
@@ -143,6 +155,8 @@ class Manage extends Component
             'franchise_id' => $zone->franchise_id, 'zone_id' => $zone->id,
             'name' => $this->name, 'address_line' => $this->addressLine, 'lat' => $this->lat, 'lng' => $this->lng,
             'is_active' => true,
+            // Added by an admin: already checked, so approved (a partner sign-up waits as 'pending').
+            'approval_status' => 'approved', 'approved_at' => now(),
         ]);
 
         $this->reset(['providerId', 'accommodationTypeId', 'zoneId', 'name', 'addressLine', 'lat', 'lng']);
@@ -157,6 +171,8 @@ class Manage extends Component
         $this->editAccommodationId = $accommodation->id;
         $this->editName = $accommodation->name;
         $this->editIsActive = $accommodation->is_active;
+        $this->editIsFeatured = (bool) $accommodation->is_featured;
+        $this->editNeedsAcceptance = $accommodation->needs_acceptance === null ? '' : ($accommodation->needs_acceptance ? '1' : '0');
         $this->showEditModal = true;
     }
 
@@ -170,12 +186,60 @@ class Manage extends Component
         $accommodation = $this->scopedAccommodationsQuery()->find($this->editAccommodationId);
         abort_if(! $accommodation, 404);
 
-        $this->validate(['editName' => 'required|string|max:255']);
+        $this->validate(['editName' => 'required|string|max:255', 'editNeedsAcceptance' => 'in:,0,1']);
 
-        $accommodation->update(['name' => $this->editName, 'is_active' => $this->editIsActive]);
+        // A hotel goes live only after approval (Hotels H1): switching on a pending / rejected hotel is refused.
+        if ($this->editIsActive && ! $accommodation->isApproved()) {
+            $this->addError('editIsActive', 'Approve this hotel first.');
+
+            return;
+        }
+        $accommodation->update([
+            'name' => $this->editName, 'is_active' => $this->editIsActive, 'is_featured' => $this->editIsFeatured,
+            'needs_acceptance' => $this->editNeedsAcceptance === '' ? null : $this->editNeedsAcceptance === '1',
+        ]);
+        \App\Services\ActivityLogger::logModel(auth()->user(), $accommodation, 'Accommodation edited (admin)', [
+            'active' => $this->editIsActive, 'featured' => $this->editIsFeatured, 'needs_acceptance' => $this->editNeedsAcceptance ?: 'settings',
+        ]);
 
         $this->showEditModal = false;
         session()->flash('message', 'Accommodation updated.');
+    }
+
+    /**
+     * Hotels H1: approve a hotel that joined through /partners. Refused until it has the Hotel Settings minimum of
+     * photos and at least one room with a price, so customers never see an empty listing. Approving switches it on.
+     */
+    public function approve(int $accommodationId): void
+    {
+        $accommodation = $this->scopedAccommodationsQuery()->find($accommodationId);
+        abort_if(! $accommodation, 404);
+
+        $missing = collect(\App\Livewire\Hotel\Dashboard::checklist($accommodation, array_filter([
+            'zone_id' => $accommodation->zone_id, 'franchise_id' => $accommodation->franchise_id,
+            'city_id' => $accommodation->franchise?->city_id, 'country_id' => $accommodation->franchise?->country_id,
+        ])))->reject(fn ($i) => $i['done'])->pluck('label');
+        if ($missing->isNotEmpty()) {
+            session()->flash('error', 'Not ready to approve: '.$missing->implode(', ').'.');
+
+            return;
+        }
+
+        $accommodation->update(['approval_status' => 'approved', 'approved_at' => now(), 'rejection_reason' => null, 'is_active' => true]);
+        \App\Services\ActivityLogger::logModel(auth()->user(), $accommodation, 'Hotel approved (admin)');
+        session()->flash('message', "{$accommodation->name} approved and switched on.");
+    }
+
+    public function reject(int $accommodationId): void
+    {
+        $accommodation = $this->scopedAccommodationsQuery()->find($accommodationId);
+        abort_if(! $accommodation, 404);
+        $this->validate(['rejectReason' => 'required|string|min:5|max:500'], ['rejectReason.required' => 'Tell the hotel what to fix.']);
+
+        $accommodation->update(['approval_status' => 'rejected', 'rejection_reason' => trim($this->rejectReason), 'is_active' => false]);
+        \App\Services\ActivityLogger::logModel(auth()->user(), $accommodation, 'Hotel not approved (admin)', ['reason' => trim($this->rejectReason)]);
+        $this->reset('rejectReason');
+        session()->flash('message', "{$accommodation->name} marked not approved. The hotel sees your reason in its portal.");
     }
 
     // ============================== Room types + rate plans (nested, per selected accommodation) ==============================
@@ -286,6 +350,7 @@ class Manage extends Component
 
         $accommodations = $this->applyActiveFilter($this->scopedAccommodationsQuery())
             ->when($this->search !== '', fn ($q) => $q->where('name', 'like', "%{$this->search}%"))
+            ->when(in_array($this->approvalFilter, ['pending', 'approved', 'rejected'], true), fn ($q) => $q->where('approval_status', $this->approvalFilter))
             ->latest('id')
             ->paginate(20);
 
@@ -297,6 +362,7 @@ class Manage extends Component
             'providers' => $this->ownerProviderOptions('accommodations.manage'),
             'accommodationTypes' => AccommodationType::where('is_active', true)->orderBy('name')->get(),
             'zones' => Zone::where('is_active', true)->orderBy('name')->get(),
+            'pendingCount' => $this->scopedAccommodationsQuery()->where('approval_status', 'pending')->count(),
         ])->layout('layouts.admin', ['title' => 'Accommodations']);
     }
 }

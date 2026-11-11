@@ -85,6 +85,8 @@ class User extends Authenticatable
             'commerce' => ! \App\Models\Store::query()->whereHas('provider', fn ($q) => $q->where('user_id', $this->id))->exists(),
             // Food F5: a restaurant is a store too (same seller portal), so the same one-store rule.
             'food' => ! \App\Models\Store::query()->whereHas('provider', fn ($q) => $q->where('user_id', $this->id))->exists(),
+            // Hotels H1: one hotel per account through sign-up (more are added by an admin).
+            'hotel' => ! \App\Models\Accommodation::query()->whereHas('provider', fn ($q) => $q->where('user_id', $this->id))->exists(),
             default => false,
         };
     }
@@ -96,10 +98,13 @@ class User extends Authenticatable
     public function holdsPartnerRole(string $role): bool
     {
         return match ($role) {
-            'service' => ($p = $this->providerProfile) !== null && (! empty($p->skills) || ! $p->stores()->exists()),
+            // A hotel-only provider (Hotels H1) is not a service partner either.
+            'service' => ($p = $this->providerProfile) !== null && (! empty($p->skills)
+                || (! $p->stores()->exists() && ! \App\Models\Accommodation::where('provider_id', $p->id)->exists())),
             'parcel' => (bool) $this->fieldWorkerProfile?->hasCapability('parcel_rider'),
             'commerce' => (bool) $this->providerProfile?->stores()->exists(),
             'food' => (bool) $this->providerProfile?->stores()->where('module', \App\Support\Modules::FOOD)->exists(),
+            'hotel' => $this->providerProfile !== null && \App\Models\Accommodation::where('provider_id', $this->providerProfile->id)->exists(),
             default => false,
         };
     }

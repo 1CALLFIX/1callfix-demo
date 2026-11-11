@@ -18,6 +18,14 @@
                 </span>
                 <span aria-hidden="true">→</span>
             </a>
+            {{-- Hotels H1: a hotel signs in at the partner sign-in and lands in its hotel portal. --}}
+            <a href="{{ route('provider.login') }}" class="flex min-h-14 items-center justify-between rounded-2xl border border-slate-200 bg-white px-4 py-3 hover:border-blue-300" data-testid="start-hotel">
+                <span>
+                    <span class="block font-semibold">Hotel or stay</span>
+                    <span class="block text-xs text-slate-500">Rooms, prices and bookings</span>
+                </span>
+                <span aria-hidden="true">→</span>
+            </a>
         </div>
 
         <a href="{{ route('customer.partners') }}" class="mt-6 flex min-h-12 items-center justify-center rounded-xl bg-blue-600 px-4 font-semibold text-white hover:bg-blue-700" data-testid="start-join">

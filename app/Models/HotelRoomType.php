@@ -17,10 +17,10 @@ class HotelRoomType extends Model
     protected $fillable = [
         'accommodation_id', 'name', 'description',
         'max_adults', 'max_children', 'bed_configuration',
-        'total_inventory', 'cover_image', 'is_active',
+        'total_inventory', 'cover_image', 'photos', 'is_active',
     ];
 
-    protected $casts = ['is_active' => 'boolean'];
+    protected $casts = ['is_active' => 'boolean', 'photos' => 'array'];
 
     public function accommodation() { return $this->belongsTo(Accommodation::class); }
     public function ratePlans() { return $this->hasMany(HotelRatePlan::class); }

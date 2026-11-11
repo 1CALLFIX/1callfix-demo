@@ -181,6 +181,7 @@ Route::middleware(['auth', \Illuminate\Session\Middleware\AuthenticateSession::c
         Route::get('/rental-reservations', RentalReservationsManage::class)->name('admin.rental-reservations.index');
         Route::get('/accommodations', AccommodationsManage::class)->name('admin.accommodations.index');
         Route::get('/hotel-reservations', HotelReservationsManage::class)->name('admin.hotel-reservations.index');
+        Route::get('/hotel-settings', \App\Livewire\Hotels\Settings::class)->name('admin.hotel.settings');
         Route::get('/stores', StoresManage::class)->name('admin.stores.index');
         Route::get('/marketplace-categories', MarketplaceCategoriesManage::class)->name('admin.marketplace-categories.index');
         Route::get('/products', ProductsManage::class)->name('admin.products.index');

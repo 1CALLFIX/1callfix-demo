@@ -305,6 +305,20 @@ Route::middleware(['auth', \App\Http\Middleware\EnsureIsParcelRider::class, \App
     });
 
 /*
+ | Hotel portal (Hotels H1, owner 2026-11-12). A hotel is a provider account that owns an Accommodation; it joins on
+ | /partners ("Hotel or stay host") → the one partner sign-up, signs in at the partner sign-in, and waits for approval
+ | in Admin → Accommodations. Hotel details and photos, rooms and prices, and the room calendar.
+ */
+Route::middleware(['auth', \App\Http\Middleware\EnsureIsHotel::class, \App\Http\Middleware\EnsureAccountNotSuspended::class])
+    ->prefix('hotel')
+    ->group(function () {
+        Route::get('/', \App\Livewire\Hotel\Dashboard::class)->name('hotel.dashboard');
+        Route::get('/rooms', \App\Livewire\Hotel\Rooms::class)->name('hotel.rooms');
+        Route::get('/calendar', \App\Livewire\Hotel\Calendar::class)->name('hotel.calendar');
+        Route::get('/details', \App\Livewire\Hotel\Details::class)->name('hotel.details');
+    });
+
+/*
  | Seller portal (E-commerce Phase 1). A seller is a provider account that owns a shop (Store::provider_id); they
  | join on /partners ("Seller or shop") → the one partner sign-up, and the shop waits for approval in Admin → Stores.
  | Products, orders (accept → packing → ready, pickup hand-over by collection code), shop details and earnings.
@@ -386,7 +400,7 @@ require __DIR__.'/admin.php';
 // fallback: anything that is not a city/catalog slug is handed on to the CMS fallback by the controller itself.
 // First segments that are never a city (JSON API, admin/provider areas, framework + asset paths) are excluded
 // up front, so those requests never even touch the cities table.
-$cityPattern = '(?!(?:api|admin|provider|rider|seller|shop|livewire|storage|build|vendor|push)(?![A-Za-z0-9_-]))[A-Za-z0-9_-]+';
+$cityPattern = '(?!(?:api|admin|provider|rider|seller|hotel|shop|livewire|storage|build|vendor|push)(?![A-Za-z0-9_-]))[A-Za-z0-9_-]+';
 
 // E-commerce Phase 2: the shop, city-prefixed like every public catalog page (/{city}/shop, /{city}/shop/{shop},
 // /{city}/shop/{shop}/{product}). Declared before /{city}/{slug} so "shop" is never read as a catalog slug — and it

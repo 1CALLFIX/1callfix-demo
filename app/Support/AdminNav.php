@@ -115,6 +115,8 @@ class AdminNav
                 'items' => [
                     ['label' => 'Hotel Reservations', 'route' => 'admin.hotel-reservations.index', 'icon' => 'clipboard', 'permission' => 'hotel_reservations.view'],
                     ['label' => 'Accommodations', 'route' => 'admin.accommodations.index', 'icon' => 'building', 'permission' => 'accommodations.manage'],
+                    // Super Admin only, same permission as Shop / Food Settings (never seeded to a role).
+                    ['label' => 'Hotel Settings', 'route' => 'admin.hotel.settings', 'icon' => 'gear', 'permission' => 'marketplace_settings.manage'],
                 ],
             ],
             // ---- Shared across every module ----

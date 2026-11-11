@@ -48,7 +48,8 @@ final class PartnerPageData
                 // Sign-ups stay owner-controlled: restaurants and sellers only when Super Admin opens them.
                 'hands_off' => ($code === 'service' && $live) || ($code === 'parcel' && app(\App\Services\Parcel\ParcelReadiness::class)->recruitingRiders())
                     || ($code === 'commerce' && \App\Support\MarketplaceSettings::recruitingSellers())
-                    || ($code === 'food' && \App\Support\FoodSettings::recruitingRestaurants()),
+                    || ($code === 'food' && \App\Support\FoodSettings::recruitingRestaurants())
+                    || ($code === 'hotel' && \App\Support\HotelSettings::recruitingHotels()),
                 'enquiry' => false,
             ];
         }

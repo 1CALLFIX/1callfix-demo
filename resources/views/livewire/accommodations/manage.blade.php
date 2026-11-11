@@ -2,6 +2,9 @@
     @if (session('message'))
         <div class="mb-4 bg-green-50 text-green-700 text-sm px-4 py-2 rounded" data-flash>{{ session('message') }}</div>
     @endif
+    @if (session('error'))
+        <div class="mb-4 bg-red-50 text-red-700 text-sm px-4 py-2 rounded" role="alert">{{ session('error') }}</div>
+    @endif
 
     @if ($accommodation)
         <x-ui.button variant="ghost" wire:click="backToList" class="mb-2">&larr; Back to Accommodations</x-ui.button>
@@ -159,6 +162,16 @@
 
         <x-ui.filter-tabs class="mb-3" :tabs="['' => 'All', 'active' => 'Active', 'inactive' => 'Inactive', 'archived' => 'Archived']"
                           :active="$activeFilter" model="activeFilter" />
+        {{-- Hotels H1: hotels that joined through /partners wait here for approval. --}}
+        <x-ui.filter-tabs class="mb-3" :tabs="['' => 'Any approval', 'pending' => 'Waiting for approval'.($pendingCount ? ' ('.$pendingCount.')' : ''), 'approved' => 'Approved', 'rejected' => 'Not approved']"
+                          :active="$approvalFilter" model="approvalFilter" />
+        @if ($approvalFilter === 'pending' || $pendingCount)
+            <div class="mb-3 max-w-xl">
+                <label for="acc-reject" class="block text-xs font-medium text-gray-600">Reason, used by "Not approved" (the hotel sees it)</label>
+                <input id="acc-reject" type="text" wire:model="rejectReason" maxlength="500" class="mt-1 border rounded px-3 py-2 text-sm w-full" placeholder="Photos are blurry; add clear room photos">
+                @error('rejectReason') <p class="mt-1 text-sm text-red-700">{{ $message }}</p> @enderror
+            </div>
+        @endif
 
         <x-ui.table>
             <x-slot:footer>{{ $accommodations->links() }}</x-slot:footer>
@@ -170,6 +183,7 @@
                     <th class="px-4 py-2">Type</th>
                     <th class="px-4 py-2">Owner</th>
                     <th class="px-4 py-2">Status</th>
+                    <th class="px-4 py-2">Approval</th>
                     <th class="px-4 py-2"></th>
                 </tr>
             </thead>
@@ -182,8 +196,21 @@
                         <td class="px-4 py-2">{{ $a->provider?->user?->name }}</td>
                         <td class="px-4 py-2">
                             @if ($a->is_active) <x-ui.badge color="green">Active</x-ui.badge> @else <x-ui.badge color="gray">Inactive</x-ui.badge> @endif
+                            @if ($a->is_featured) <x-ui.badge color="blue">Featured</x-ui.badge> @endif
+                        </td>
+                        <td class="px-4 py-2">
+                            @if ($a->approval_status === 'pending') <x-ui.badge color="amber">Waiting</x-ui.badge>
+                            @elseif ($a->approval_status === 'rejected') <x-ui.badge color="red">Not approved</x-ui.badge>
+                            @else <x-ui.badge color="green">Approved</x-ui.badge> @endif
+                            <span class="block text-xs text-gray-500">{{ $a->photoCount() }} photos</span>
                         </td>
                         <td class="px-4 py-2 text-right">
+                            @if (! $a->trashed() && $a->approval_status !== 'approved')
+                                <x-ui.button variant="ghost" wire:click="approve({{ $a->id }})" wire:confirm="Approve {{ $a->name }} and show it to customers?">Approve</x-ui.button>
+                            @endif
+                            @if (! $a->trashed() && $a->approval_status === 'pending')
+                                <x-ui.button variant="ghost" wire:click="reject({{ $a->id }})">Not approved</x-ui.button>
+                            @endif
                             <x-ui.button variant="ghost" wire:click="viewAccommodation({{ $a->id }})">Rooms &amp; Rates</x-ui.button>
                             @unless ($a->trashed())
                                 <x-ui.button variant="ghost" wire:click="editAccommodation({{ $a->id }})">Edit</x-ui.button>
@@ -200,6 +227,16 @@
             <label class="flex items-center gap-2 text-sm mb-3">
                 <input type="checkbox" wire:model="editIsActive"> Active
             </label>
+            @error('editIsActive') <p class="mb-3 text-sm text-red-700">{{ $message }}</p> @enderror
+            <label class="flex items-center gap-2 text-sm mb-3">
+                <input type="checkbox" wire:model="editIsFeatured"> Featured (shown first in its city)
+            </label>
+            <label class="block text-sm mb-1" for="acc-accept">Bookings</label>
+            <select id="acc-accept" wire:model="editNeedsAcceptance" class="border rounded px-3 py-2 text-sm w-full mb-3">
+                <option value="">Follow Hotel Settings</option>
+                <option value="0">Confirmed at once from the calendar</option>
+                <option value="1">Hotel must accept each booking</option>
+            </select>
             <x-slot:footer>
                 <x-ui.button variant="secondary" wire:click="closeEditModal">Cancel</x-ui.button>
                 <x-ui.button wire:click="saveEdit">Save</x-ui.button>

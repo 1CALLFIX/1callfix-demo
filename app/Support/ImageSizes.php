@@ -28,6 +28,8 @@ final class ImageSizes
         // Restaurant menu items: shown as a small card on the restaurant page and full width on a phone when opened.
         'dish_photo' => [800, 800, 'square', 'JPG, PNG or WebP', 4, 'The dish itself in good light, from above or the side. No text or logos on the photo.'],
         'product_camera' => [1000, 1000, 'square', 'a phone photo', 10, 'Plain background, product filling the frame.'],
+        // Hotels H1: front, reception and room photos, shown as a swipeable gallery on the hotel page.
+        'hotel_photo' => [1600, 1067, '3:2 wide', 'JPG, PNG or WebP', 8, 'Real photos in daylight: the front, reception, and each room with the bed made. No text or logos on the photo.'],
         'evidence_photo' => [null, null, null, 'a clear phone photo or PDF', 4, null],
         'safety_photo' => [null, null, null, 'a clear phone photo', 8, null],
         'claim_photo' => [null, null, null, 'clear phone photos', 8, null],

@@ -123,7 +123,9 @@ class Login extends Component
         session()->regenerate();
 
         // E-commerce Phase 1: a shop-only seller is a provider account too; their home is the seller portal.
-        $this->redirectRoute($user->holdsPartnerRole('service') ? 'provider.dashboard' : 'seller.dashboard', navigate: true);
+        // Hotels H1: a hotel-only account's home is the hotel portal.
+        $this->redirectRoute($user->holdsPartnerRole('service') ? 'provider.dashboard'
+            : ($user->holdsPartnerRole('commerce') ? 'seller.dashboard' : ($user->holdsPartnerRole('hotel') ? 'hotel.dashboard' : 'seller.dashboard')), navigate: true);
     }
 
     public function render()

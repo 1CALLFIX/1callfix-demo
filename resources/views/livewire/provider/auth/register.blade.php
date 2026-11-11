@@ -5,12 +5,13 @@
     // A seller (E-commerce Phase 1) signs in at the seller portal.
     $seller = $isSeller;
     $place = $isRestaurant ? 'restaurant' : 'shop'; // Food F5: a restaurant joins the same way as a shop
+    // Hotels H1: a hotel signs in at the partner sign-in, then works in its hotel portal.
     $signInRoute = $rider ? 'rider.login' : ($seller ? 'seller.login' : 'provider.login');
 @endphp
 
 <div class="mx-auto flex max-w-lg flex-col justify-center px-4 py-12 sm:py-16">
     <div class="text-center">
-        <h1 class="text-2xl font-bold tracking-tight sm:text-3xl">{{ $rider ? 'Become a '.$platformName.' delivery rider' : ($seller ? ($isRestaurant ? 'Add your restaurant to ' : 'Open your shop on ').$platformName : 'Become a '.$platformName.' partner') }}</h1>
+        <h1 class="text-2xl font-bold tracking-tight sm:text-3xl">{{ $rider ? 'Become a '.$platformName.' delivery rider' : ($isHotel ? 'List your hotel on '.$platformName : ($seller ? ($isRestaurant ? 'Add your restaurant to ' : 'Open your shop on ').$platformName : 'Become a '.$platformName.' partner')) }}</h1>
         <p class="mt-2 text-sm text-slate-600">
             @if ($submitted)
                 Thanks — your application is in.
@@ -28,7 +29,13 @@
                     <span aria-hidden="true" class="mt-px font-bold">&check;</span>
                     <span>Application received.</span>
                 </div>
-                @if ($seller)
+                @if ($isHotel)
+                    <p>
+                        Our team will review your hotel and documents and contact you on
+                        <span class="font-medium">{{ $verifiedPhoneE164 }}</span>. Sign in now with this number and your
+                        password to add your rooms, prices and photos; customers see your hotel once it is approved.
+                    </p>
+                @elseif ($seller)
                     <p>
                         Our team will review your {{ $place }} and documents and contact you on
                         <span class="font-medium">{{ $verifiedPhoneE164 }}</span>. You can sign in to the seller
@@ -200,6 +207,28 @@
                     </fieldset>
                 @endif
 
+                @if ($isHotel)
+                    <div>
+                        <label for="pr-hotel" class="block text-sm font-medium text-slate-900">Hotel name</label>
+                        <input id="pr-hotel" type="text" wire:model="storeName" placeholder="As customers will see it"
+                               @class(['mt-1.5 block min-h-11 w-full rounded-lg border px-3 py-2.5 text-base shadow-sm focus:outline focus:outline-2 focus:outline-blue-600',
+                                       'border-red-400' => $errors->has('storeName'), 'border-slate-300' => ! $errors->has('storeName')])>
+                        @error('storeName') <p class="mt-1.5 text-sm text-red-700">{{ $message }}</p> @enderror
+                    </div>
+                    <div>
+                        <label for="pr-hotel-type" class="block text-sm font-medium text-slate-900">Kind of stay</label>
+                        <select id="pr-hotel-type" wire:model="hotelType"
+                                @class(['mt-1.5 block min-h-11 w-full rounded-lg border bg-white px-3 py-2.5 text-base shadow-sm focus:outline focus:outline-2 focus:outline-blue-600',
+                                        'border-red-400' => $errors->has('hotelType'), 'border-slate-300' => ! $errors->has('hotelType')])>
+                            <option value="">Choose one</option>
+                            @foreach ($hotelTypes as $t)
+                                <option value="{{ $t->slug }}">{{ $t->name }}</option>
+                            @endforeach
+                        </select>
+                        @error('hotelType') <p class="mt-1.5 text-sm text-red-700">{{ $message }}</p> @enderror
+                    </div>
+                @endif
+
                 @if ($seller)
                     <div>
                         <label for="pr-store" class="block text-sm font-medium text-slate-900">{{ $isRestaurant ? 'Restaurant name' : 'Shop name' }}</label>
@@ -298,7 +327,7 @@
 
     @unless ($submitted)
         <p class="mt-6 text-center text-sm text-slate-600">
-            {{ $rider ? 'Already a rider?' : ($seller ? ($isRestaurant ? 'Already on '.$platformName.'?' : 'Already a seller?') : 'Already a partner?') }}
+            {{ $rider ? 'Already a rider?' : ($isHotel ? 'Already listed?' : ($seller ? ($isRestaurant ? 'Already on '.$platformName.'?' : 'Already a seller?') : 'Already a partner?')) }}
             <a href="{{ route($signInRoute) }}" wire:navigate class="font-medium text-slate-900 underline underline-offset-2">Sign in</a>
         </p>
     @endunless

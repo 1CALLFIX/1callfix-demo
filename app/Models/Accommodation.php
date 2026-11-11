@@ -27,11 +27,59 @@ class Accommodation extends Model
         'contact_phone', 'contact_email',
         'check_in_time_start', 'check_in_time_end', 'check_out_time',
         'policies', 'cover_image', 'is_active',
+        // Hotels H1 (2026-11-12): partner sign-up + approval.
+        'approval_status', 'rejection_reason', 'approved_at', 'gst_number', 'photos', 'facilities',
+        'needs_acceptance', 'is_featured',
     ];
 
     protected $casts = [
         'is_active' => 'boolean',
+        'approved_at' => 'datetime',
+        'photos' => 'array',
+        'facilities' => 'array',
+        'needs_acceptance' => 'boolean',
+        'is_featured' => 'boolean',
     ];
+
+    /** Approved, switched on and (for private homes) home stays allowed: customers may see and book it. */
+    public function scopeBookable($query)
+    {
+        $query->where('is_active', true)->where('approval_status', 'approved');
+        if (! \App\Support\HotelSettings::homeStaysAllowed()) {
+            $query->whereHas('accommodationType', fn ($t) => $t->whereNotIn('slug', \App\Support\HotelSettings::HOME_STAY_TYPES));
+        }
+
+        return $query;
+    }
+
+    public function isApproved(): bool
+    {
+        return $this->approval_status === 'approved';
+    }
+
+    /** This hotel's own rule when set, otherwise Hotel Settings for its area. */
+    public function needsAcceptance(): bool
+    {
+        return $this->needs_acceptance ?? \App\Support\HotelSettings::on('hotel.needs_acceptance', array_filter(['zone_id' => $this->zone_id, 'franchise_id' => $this->franchise_id]));
+    }
+
+    /** Cover + extra hotel photos + every room's photos: what "needs N photos before approval" counts. */
+    public function photoCount(): int
+    {
+        $rooms = $this->roomTypes()->get(['cover_image', 'photos'])
+            ->sum(fn ($r) => ($r->cover_image ? 1 : 0) + count($r->photos ?? []));
+
+        return ($this->cover_image ? 1 : 0) + count($this->photos ?? []) + $rooms;
+    }
+
+    /** @return list<string> public URLs of the cover and extra photos, cover first. */
+    public function photoUrls(): array
+    {
+        return array_values(array_filter(array_map(
+            fn ($p) => $p ? (Str::startsWith($p, ['http://', 'https://', '//', 'data:']) ? $p : Storage::disk('public')->url($p)) : null,
+            [$this->cover_image, ...($this->photos ?? [])],
+        )));
+    }
 
     protected static function boot()
     {
