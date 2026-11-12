@@ -37,7 +37,7 @@
     </div>
 
     {{-- ── sort + filters ── --}}
-    <div class="mt-4 flex gap-2 overflow-x-auto pb-1" role="group" aria-label="Sort">
+    <div class="relative mt-4 flex gap-2 overflow-x-auto pb-1" role="group" aria-label="Sort">
         @foreach (['featured' => 'hotel.sort.featured', 'price' => 'hotel.sort.price', 'rating' => 'hotel.sort.rating'] as $code => $key)
             <button type="button" wire:click="$set('sort', '{{ $code }}')" @class([$chip, 'border-blue-600 bg-blue-600 text-white' => $sort === $code, 'border-slate-300 bg-white text-slate-700' => $sort !== $code])>{{ $t($key) }}</button>
         @endforeach
@@ -48,9 +48,10 @@
         </select>
     </div>
     @if ($allFacilities !== [])
-        <div class="mt-2 flex gap-2 overflow-x-auto pb-1" role="group" aria-label="Facilities">
+        <div class="relative mt-2 flex gap-2 overflow-x-auto pb-1" role="group" aria-label="Facilities">
             @foreach ($allFacilities as $f)
-                <label class="{{ $chip }} shrink-0 cursor-pointer border-slate-300 bg-white text-slate-700 has-[:checked]:border-blue-600 has-[:checked]:bg-blue-50 has-[:checked]:text-blue-700">
+                {{-- relative: the hidden checkbox stays inside its chip; without it the far-right chips' boxes stretched the page sideways on phones (owner 2026-11-12). --}}
+                <label class="{{ $chip }} relative shrink-0 cursor-pointer border-slate-300 bg-white text-slate-700 has-[:checked]:border-blue-600 has-[:checked]:bg-blue-50 has-[:checked]:text-blue-700">
                     <input type="checkbox" value="{{ $f }}" wire:model.live="facilities" class="sr-only">{{ $f }}
                 </label>
             @endforeach
