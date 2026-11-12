@@ -1,4 +1,5 @@
 <div class="space-y-5">
+    <x-partner.join-banner class="mb-4" />
     <div>
         <h1 class="text-2xl font-bold tracking-tight">{{ $hotel->name }}</h1>
         <p class="mt-1 text-sm text-slate-600">{{ $hotel->accommodationType?->name }} · {{ $hotel->address_line }}</p>

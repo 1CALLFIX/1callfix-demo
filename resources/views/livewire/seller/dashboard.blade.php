@@ -1,4 +1,5 @@
 <div class="space-y-5">
+    <x-partner.join-banner class="mb-4" />
     {{-- Partner apps 2026-11-04: open/closed as one big switch card, the same as the rider's online switch. --}}
     @php $word = $store->isRestaurant() ? 'restaurant' : 'shop'; @endphp
     <div @class(['flex items-center justify-between gap-3 rounded-2xl p-4 text-white',

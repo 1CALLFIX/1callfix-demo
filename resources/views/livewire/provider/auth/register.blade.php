@@ -16,8 +16,8 @@
             @if ($submitted)
                 Thanks — your application is in.
             @else
-                Verify your mobile number and fill in your details and documents together — the code
-                arrives while you type the rest.
+                About 2 minutes: verify your mobile number and tell us about your business. Documents can
+                come later.
             @endif
         </p>
     </div>
@@ -29,32 +29,13 @@
                     <span aria-hidden="true" class="mt-px font-bold">&check;</span>
                     <span>Application received.</span>
                 </div>
-                @if ($isHotel)
-                    <p>
-                        Our team will review your hotel and documents and contact you on
-                        <span class="font-medium">{{ $verifiedPhoneE164 }}</span>. Sign in now with this number and your
-                        password to add your rooms, prices and photos; customers see your hotel once it is approved.
-                    </p>
-                @elseif ($seller)
-                    <p>
-                        Our team will review your {{ $place }} and documents and contact you on
-                        <span class="font-medium">{{ $verifiedPhoneE164 }}</span>. You can sign in to the seller
-                        portal now with this number and your password to add your {{ $isRestaurant ? 'menu and opening hours' : 'products' }}; customers see your {{ $place }}
-                        once it is approved.
-                    </p>
-                @elseif ($rider)
-                    <p>
-                        Our team will review your documents and contact you on
-                        <span class="font-medium">{{ $verifiedPhoneE164 }}</span>. You can sign in to the rider
-                        app with this number and your password; parcel offers start once your documents are approved.
-                    </p>
-                @else
-                    <p>
-                        Our team will review your details and documents and contact you on
-                        <span class="font-medium">{{ $verifiedPhoneE164 }}</span>. You can’t sign in until
-                        your application is approved.
-                    </p>
-                @endif
+                <p>
+                    You are in. Next, finish joining: upload your documents and
+                    {{ $isHotel ? 'add your rooms, prices and photos' : ($seller ? ($isRestaurant ? 'add your menu and opening hours' : 'add your products') : ($rider ? 'get ready for your first delivery' : 'check the services you offer')) }}.
+                    We review and contact you on <span class="font-medium">{{ $verifiedPhoneE164 }}</span>; customers see you once you are approved.
+                </p>
+                <p class="text-slate-600">Next time, sign in with this mobile number. We send you a code — no password needed.</p>
+                <a href="{{ route('partner.join') }}" wire:navigate class="flex min-h-12 items-center justify-center rounded-lg bg-blue-600 px-4 text-base font-semibold text-white hover:bg-blue-700" data-testid="finish-joining">Finish joining →</a>
                 @if ($outOfCoverage)
                     <p class="rounded-lg bg-amber-50 px-3 py-2.5 text-amber-800">
                         We don’t have full coverage in your area yet — an operator will place your
@@ -136,6 +117,7 @@
                     @error('name') <p class="mt-1.5 text-sm text-red-700">{{ $message }}</p> @enderror
                 </div>
 
+                @if ($askPassword)
                 <div>
                     <label for="pr-password" class="block text-sm font-medium text-slate-900">Password</label>
                     <x-ui.password-input id="pr-password" name="password" autocomplete="new-password" wire:model="password" />
@@ -147,6 +129,8 @@
                     <label for="pr-password2" class="block text-sm font-medium text-slate-900">Confirm password</label>
                     <x-ui.password-input id="pr-password2" name="password_confirmation" autocomplete="new-password" wire:model="password_confirmation" />
                 </div>
+
+                @endif
 
                 <div>
                     <label for="pr-email" class="block text-sm font-medium text-slate-900">Email <span class="font-normal text-slate-500">(optional)</span></label>
@@ -284,6 +268,7 @@
                     @endif
                 </div>
 
+                @if ($docsAtSignup)
                 <fieldset class="space-y-3 rounded-lg border border-slate-200 p-3">
                     <legend class="px-1 text-xs font-medium text-slate-500">KYC documents (JPG, PNG or PDF, up to 10&nbsp;MB each)</legend>
                     @foreach ($requirements as $req)
@@ -304,6 +289,12 @@
                         </div>
                     @endforeach
                 </fieldset>
+                @else
+                    <p class="rounded-lg bg-emerald-50 px-3 py-2.5 text-sm text-emerald-900" data-testid="docs-later">
+                        No documents needed to apply. After you join, upload them from your partner app when you are ready —
+                        we approve you once they are checked.
+                    </p>
+                @endif
 
                 <label class="flex items-start gap-2 text-sm text-slate-700">
                     <input type="checkbox" wire:model="terms" class="mt-0.5 h-4 w-4 accent-blue-600">

@@ -1,4 +1,5 @@
 <div wire:poll.10s>
+    <x-partner.join-banner class="mb-4" />
     {{-- Partner apps 2026-11-04: one big online switch, same look as the rider and seller apps. --}}
     <div @class(['rounded-2xl p-4 text-white', 'bg-emerald-600' => $provider->is_online, 'bg-slate-800' => ! $provider->is_online])
          data-testid="provider-switch-card">

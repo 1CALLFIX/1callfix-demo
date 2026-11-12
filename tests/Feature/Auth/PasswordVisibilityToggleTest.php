@@ -27,7 +27,8 @@ class PasswordVisibilityToggleTest extends TestCase
     /** The two single-step sign-in screens render the toggle on a plain GET. */
     public function test_login_screens_render_the_toggle(): void
     {
-        foreach (['/login', '/provider/login'] as $path) {
+        // The partner sign-in opens on the mobile code (join in 2 minutes, 2026-11-12); ?with=password is the password form.
+        foreach (['/login', '/provider/login?with=password'] as $path) {
             $html = $this->get($path)->assertOk()->getContent();
 
             $this->assertSame(1, substr_count($html, 'data-password-field'), "{$path}: one password wrapper");

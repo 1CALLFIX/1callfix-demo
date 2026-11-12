@@ -81,7 +81,7 @@ class CreateParcelRiderAction
      *
      * @throws AccountAlreadyExistsException
      */
-    public function registerApplicant(Zone $zone, string $name, string $nationalPhone, ?string $email, string $plainPassword, array $registration = []): FieldWorker
+    public function registerApplicant(Zone $zone, string $name, string $nationalPhone, ?string $email, ?string $plainPassword, array $registration = []): FieldWorker
     {
         return DB::transaction(function () use ($zone, $name, $nationalPhone, $email, $plainPassword, $registration) {
             if (User::where('phone', $nationalPhone)->lockForUpdate()->exists()) {
@@ -91,7 +91,7 @@ class CreateParcelRiderAction
             $user = User::create([
                 'uuid' => (string) Str::uuid(), 'name' => $name, 'phone' => $nationalPhone,
                 'email' => filled($email) ? Str::lower(trim($email)) : null,
-                'password' => Hash::make($plainPassword), 'role' => 'provider', 'status' => 'active',
+                'password' => filled($plainPassword) ? Hash::make($plainPassword) : null, 'role' => 'provider', 'status' => 'active',
                 'franchise_id' => $zone->franchise_id, 'zone_id' => $zone->id,
                 'preferred_language' => 'en', 'phone_verified_at' => now(),
             ]);

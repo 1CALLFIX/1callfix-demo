@@ -29,6 +29,7 @@
      }"
      x-init="@if ($rider->is_online) startHeartbeat() @endif"
      x-on:livewire:navigating.window="stopHeartbeat()">
+    <x-partner.join-banner class="mb-4" />
     <style>[x-cloak]{display:none!important}</style>
 
     {{-- Partner apps 2026-11-04: one big online switch (the delivery-app way), then today's numbers at a glance. --}}

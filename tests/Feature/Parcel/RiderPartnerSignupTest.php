@@ -124,6 +124,7 @@ class RiderPartnerSignupTest extends TestCase
 
     public function test_the_sign_up_page_asks_a_rider_for_the_field_worker_documents_and_no_services(): void
     {
+        \App\Models\Setting::set(\App\Support\SiteControls::SIGNUP_DOCS_PREFIX.'parcel', '1'); // documents on the sign-up page (a Super Admin switch since 2026-11-12)
         $this->recruiting();
         $this->applyAsRider($this->randomPhone());
 
@@ -236,6 +237,7 @@ class RiderPartnerSignupTest extends TestCase
         $this->recruiting();
         $phone = $this->randomPhone();
         $this->signUpRider($phone)->call('submitApplication');
+        auth()->logout(); // signed in straight after applying (join in 2 minutes); check the next visit
 
         Livewire::test(RiderLogin::class)->set('identifier', $phone)->set('password', 'longenough1')->call('login')
             ->assertRedirect(route('rider.dashboard'));

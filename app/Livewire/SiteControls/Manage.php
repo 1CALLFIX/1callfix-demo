@@ -62,6 +62,12 @@ class Manage extends Component
     public string $servicesStep = 'required';
     public string $servicesMax = '0';
 
+    /** Join in 2 minutes: ask a password at sign-up, and which partners upload documents on the sign-up page. */
+    public bool $askPassword = false;
+
+    /** @var array<string, bool> role => documents on the sign-up page */
+    public array $docsAtSignup = [];
+
     public string $partnerFormPerMobile = '10';
     public string $partnerFormWindowMinutes = '10';
     public string $otpPerMobile = '5';
@@ -118,6 +124,8 @@ class Manage extends Component
         $this->parcelPageHeading = S::parcelPageHeading();
         $this->parcelPageIntro = S::parcelPageIntro();
         $this->servicesStep = S::servicesStep();
+        $this->askPassword = S::askPasswordAtSignup();
+        $this->docsAtSignup = collect(S::SIGNUP_ROLE_NAMES)->mapWithKeys(fn ($n, $r) => [$r => S::documentsAtSignup($r)])->all();
         $this->servicesMax = (string) S::servicesMax();
         $this->partnerFormPerMobile = (string) S::partnerFormPerMobile();
         $this->partnerFormWindowMinutes = (string) intdiv(S::partnerFormWindowSeconds(), 60);
@@ -215,6 +223,7 @@ class Manage extends Component
             S::PARCEL_PAGE_INTRO => trim($this->parcelPageIntro),
             S::SIGNUP_SERVICES => $this->servicesStep,
             S::SIGNUP_SERVICES_MAX => (string) (int) $this->servicesMax,
+            S::SIGNUP_ASK_PASSWORD => $bool($this->askPassword),
             S::LIMIT_PARTNER_FORM => (string) (int) $this->partnerFormPerMobile,
             S::LIMIT_PARTNER_WINDOW => (string) (int) $this->partnerFormWindowMinutes,
             S::LIMIT_OTP => (string) (int) $this->otpPerMobile,
@@ -230,7 +239,8 @@ class Manage extends Component
             S::HEADER_PARTNER_LABEL => trim($this->headerPartnerLabel),
             \App\Support\HomeLayout::MEMBERSHIP_BENEFITS => (string) (int) $this->membershipBenefits,
             \App\Support\HomeLayout::MEMBERSHIP_SHOW_WORTH => $bool($this->membershipShowWorth),
-        ] + collect(\App\Support\ModuleTheme::DEFAULTS)->mapWithKeys(fn ($d, $m) => [\App\Support\ModuleTheme::key($m) => strtoupper((string) ($this->moduleColours[$m] ?? $d))])->all() as $key => $value) {
+        ] + collect(S::SIGNUP_ROLE_NAMES)->mapWithKeys(fn ($n, $r) => [S::SIGNUP_DOCS_PREFIX.$r => $bool((bool) ($this->docsAtSignup[$r] ?? false))])->all()
+          + collect(\App\Support\ModuleTheme::DEFAULTS)->mapWithKeys(fn ($d, $m) => [\App\Support\ModuleTheme::key($m) => strtoupper((string) ($this->moduleColours[$m] ?? $d))])->all() as $key => $value) {
             $changed = SettingsAuditor::put($admin, $key, $value) || $changed;
         }
 

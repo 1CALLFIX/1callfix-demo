@@ -114,7 +114,9 @@ class User extends Authenticatable
     {
         return $this->canApplyAsPartner('service') || $this->canApplyAsPartner('parcel')
             || (\App\Support\MarketplaceSettings::recruitingSellers() && $this->canApplyAsPartner('commerce'))
-            || (\App\Support\FoodSettings::recruitingRestaurants() && $this->canApplyAsPartner('food'));
+            || (\App\Support\FoodSettings::recruitingRestaurants() && $this->canApplyAsPartner('food'))
+            // Join in 2 minutes (owner 2026-11-12): hotels were missing from the header button.
+            || (\App\Support\HotelSettings::recruitingHotels() && $this->canApplyAsPartner('hotel'));
     }
     public function addresses() { return $this->hasMany(Address::class); }
     public function bookings() { return $this->hasMany(Booking::class, 'customer_id'); }

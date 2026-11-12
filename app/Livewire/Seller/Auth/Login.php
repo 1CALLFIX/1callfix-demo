@@ -3,6 +3,8 @@
 namespace App\Livewire\Seller\Auth;
 
 use App\Livewire\Customer\Auth\Concerns\InteractsWithAuthThrottle;
+use App\Livewire\Partner\Concerns\SignsInWithMobileCode;
+use App\Models\User;
 use App\Services\Auth\CustomerAccountResolver;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
@@ -16,6 +18,7 @@ use Livewire\Component;
 class Login extends Component
 {
     use InteractsWithAuthThrottle;
+    use SignsInWithMobileCode;
 
     public string $identifier = '';
 
@@ -66,8 +69,14 @@ class Login extends Component
             return;
         }
 
+        $this->finishSignIn($user);
+    }
+
+    /** The same checks and destination for both ways in (password or mobile code). */
+    protected function finishSignIn(User $user): void
+    {
         if ($user->status === 'suspended') {
-            $this->hitThrottle('seller-login', $this->identifier);
+            $this->hitThrottle('seller-login', $this->signInKey());
             $this->error = 'This account has been suspended. Contact support for help.';
             $this->password = '';
 
@@ -75,17 +84,17 @@ class Login extends Component
         }
 
         if (! $user->holdsPartnerRole('commerce')) {
-            $this->clearThrottle('seller-login', $this->identifier);
+            $this->clearThrottle('seller-login', $this->signInKey());
             $this->notAppliedYet = $user->canApplyAsPartner('commerce');
             $this->error = $this->notAppliedYet
-                ? 'Your account has not opened a shop yet. Apply on the partner page with the same mobile number; you keep this password.'
+                ? 'Your account has not opened a shop yet. Apply on the partner page with the same mobile number; it takes about 2 minutes.'
                 : 'That account is not a seller.';
             $this->password = '';
 
             return;
         }
 
-        $this->clearThrottle('seller-login', $this->identifier);
+        $this->clearThrottle('seller-login', $this->signInKey());
 
         Auth::guard('web')->login($user);
         session()->regenerate();

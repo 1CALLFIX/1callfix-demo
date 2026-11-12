@@ -224,6 +224,22 @@
         </x-ui.card>
 
         <x-ui.card>
+            <h2 class="text-sm font-semibold mb-3">Partner sign-up: join in 2 minutes</h2>
+            <label class="flex items-start gap-2 text-sm">
+                <input type="checkbox" wire:model="askPassword" class="mt-0.5">
+                <span><span class="font-medium">Ask for a password at sign-up</span><br>
+                    <span class="text-xs text-gray-500">Off (recommended): partners sign in with a code sent to their mobile and can set a password later.</span></span>
+            </label>
+            <p class="mt-4 text-sm font-medium">Documents on the sign-up page</p>
+            <p class="text-xs text-gray-500">Ticked: documents must be uploaded to apply. Not ticked (recommended): the partner joins first and uploads them from their portal; approval still needs every required document.</p>
+            <div class="mt-2 grid gap-2 sm:grid-cols-2">
+                @foreach (\App\Support\SiteControls::SIGNUP_ROLE_NAMES as $role => $roleName)
+                    <label class="flex items-center gap-2 text-sm"><input type="checkbox" wire:model="docsAtSignup.{{ $role }}"> {{ $roleName }}</label>
+                @endforeach
+            </div>
+        </x-ui.card>
+
+        <x-ui.card>
             <h2 class="text-sm font-semibold mb-3">Sign-up attempt limits</h2>
             <div class="grid gap-4 md:grid-cols-3">
                 <div>

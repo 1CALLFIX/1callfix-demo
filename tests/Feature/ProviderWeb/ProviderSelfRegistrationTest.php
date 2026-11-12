@@ -94,7 +94,10 @@ class ProviderSelfRegistrationTest extends TestCase
         // One-page restructure: name, password, address, KYC uploads and the
         // terms box are all on screen from the first paint — the applicant
         // fills them while the OTP is still in flight, no step gate.
+        // (Password and documents on this page are Super Admin switches since 2026-11-12; both on here.)
         $this->coveredZone();
+        \App\Models\Setting::set(\App\Support\SiteControls::SIGNUP_ASK_PASSWORD, '1');
+        \App\Models\Setting::set(\App\Support\SiteControls::SIGNUP_DOCS_PREFIX.'service', '1');
 
         Livewire::test(Register::class)
             ->assertSet('step', 'phone')
@@ -176,7 +179,9 @@ class ProviderSelfRegistrationTest extends TestCase
 
         $c->call('submitApplication')->assertHasNoErrors()->assertSet('submitted', true);
 
-        $this->assertGuest();
+        // Join in 2 minutes (2026-11-12): signed in, with a "Finish joining" button; still pending until approved.
+        $this->assertAuthenticated();
+        $c->assertSee(route('partner.join'), false);
 
         $user = User::where('phone', $phone)->sole();
         $this->assertSame('provider', $user->role);
@@ -286,8 +291,9 @@ class ProviderSelfRegistrationTest extends TestCase
         $this->assertEquals(-33.8688, (float) $provider->registration_lat);
     }
 
-    public function test_missing_a_required_document_blocks_submission(): void
+    public function test_missing_a_required_document_blocks_submission_when_documents_are_asked_at_sign_up(): void
     {
+        \App\Models\Setting::set(\App\Support\SiteControls::SIGNUP_DOCS_PREFIX.'service', '1');
         $this->coveredZone();
         $phone = $this->randomPhone();
 

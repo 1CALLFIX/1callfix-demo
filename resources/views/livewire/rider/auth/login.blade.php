@@ -19,6 +19,7 @@
             </div>
         @endif
 
+        @if ($mode === 'password')
         <form wire:submit="login" class="space-y-5">
             <div>
                 <label for="identifier" class="block text-sm font-medium text-slate-900">Mobile number or email</label>
@@ -39,6 +40,10 @@
                 <span wire:loading wire:target="login">Signing in…</span>
             </x-ui.button>
         </form>
+            <button type="button" wire:click="$set('mode', 'code')" class="mt-4 flex min-h-11 w-full items-center justify-center text-sm font-medium text-slate-600 underline underline-offset-4 hover:text-slate-900">Sign in with a mobile code instead</button>
+        @else
+            @include('livewire.partner._code-sign-in')
+        @endif
 
         <p class="mt-4 text-center text-sm">
             <a href="{{ route('customer.password.forgot', ['for' => 'rider']) }}" wire:navigate class="font-medium text-blue-600 hover:underline">Forgot password?</a>
@@ -56,3 +61,7 @@
         <x-ui.app-version class="mt-4 text-center" />
     </x-ui.card>
 </div>
+
+@push('scripts')
+    @vite('resources/js/customer-auth.js')
+@endpush

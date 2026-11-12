@@ -92,13 +92,15 @@ class ExistingCustomerBecomesPartnerTest extends TestCase
         $this->assertSame('Ravi Kumar', $fresh->name);
         $this->assertTrue(Hash::check('my-old-pass-1', $fresh->password), 'password unchanged');
         $this->assertNotNull($fresh->phone_verified_at);
-        $this->assertGuest();
+        // Join in 2 minutes (2026-11-12): the proven number is signed straight in, on to "Finish joining".
+        $this->assertAuthenticatedAs($fresh);
     }
 
     public function test_after_applying_the_customer_signs_in_to_the_partner_area_with_the_old_password(): void
     {
         $customer = $this->customer();
         $this->fillAndSubmit($this->verified($customer->phone))->assertSet('submitted', true);
+        auth()->logout(); // signed in straight after applying; check the next visit
 
         Livewire::test(ProviderLogin::class)
             ->set('identifier', $customer->phone)->set('password', 'my-old-pass-1')
@@ -138,19 +140,29 @@ class ExistingCustomerBecomesPartnerTest extends TestCase
         $this->assertSame(0, Provider::count());
     }
 
-    public function test_a_new_number_still_needs_a_name_and_password(): void
+    public function test_a_new_number_still_needs_a_name_and_a_password_when_super_admin_asks_for_one(): void
     {
+        \App\Models\Setting::set(\App\Support\SiteControls::SIGNUP_ASK_PASSWORD, '1');
         $c = $this->verified($this->randomPhone())->assertSet('existingUserId', null)
             ->assertSeeHtml('wire:model="password"');
 
         $this->fillAndSubmit($c)->assertHasErrors(['name', 'password'])->assertSet('submitted', false);
     }
 
+    /** Join in 2 minutes (2026-11-12): by default a new number needs only a name — no password. */
+    public function test_a_new_number_needs_only_a_name_by_default(): void
+    {
+        $c = $this->verified($this->randomPhone())->assertSet('existingUserId', null)
+            ->assertDontSeeHtml('wire:model="password"');
+
+        $this->fillAndSubmit($c)->assertHasErrors(['name'])->assertHasNoErrors(['password'])->assertSet('submitted', false);
+    }
+
     public function test_partner_and_rider_sign_in_link_to_forgot_password_which_returns_them_there(): void
     {
-        $this->get(route('provider.login'))->assertOk()
+        $this->get(route('provider.login', ['with' => 'password']))->assertOk()
             ->assertSee('Forgot password?')->assertSee(route('customer.password.forgot', ['for' => 'partner']), false);
-        $this->get(route('rider.login'))->assertOk()
+        $this->get(route('rider.login', ['with' => 'password']))->assertOk()
             ->assertSee(route('customer.password.forgot', ['for' => 'rider']), false);
 
         Livewire::withQueryParams(['for' => 'partner'])->test(ForgotPassword::class)->assertSet('signInRoute', 'provider.login');
@@ -191,6 +203,7 @@ class ExistingCustomerBecomesPartnerTest extends TestCase
 
         // Then the application itself, on the same account, and sign-in works.
         $this->fillAndSubmit($this->verified($customer->phone))->assertSet('submitted', true);
+        auth()->logout();
         Livewire::test(ProviderLogin::class)
             ->set('identifier', $customer->phone)->set('password', 'my-old-pass-1')->call('login')
             ->assertRedirect(route('provider.dashboard'));

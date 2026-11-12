@@ -42,7 +42,7 @@ class RegisterHotelAction
         string $name = '',
         string $nationalPhone = '',
         ?string $email = null,
-        string $plainPassword = '',
+        ?string $plainPassword = null,
     ): Accommodation {
         $type = self::joinableTypes()->firstWhere('slug', $typeSlug);
         if ($type === null) {
@@ -63,7 +63,7 @@ class RegisterHotelAction
                     phone: $nationalPhone,
                     franchiseId: $zone->franchise_id,
                     zoneId: $zone->id,
-                    plainPassword: $plainPassword,
+                    plainPassword: filled($plainPassword) ? $plainPassword : null,
                     email: $email,
                     phoneVerified: true,
                     registration: $registration,

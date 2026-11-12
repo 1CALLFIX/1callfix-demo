@@ -258,6 +258,8 @@ Route::middleware('guest')->group(function () {
 // PHASE PSR — public provider self-registration. Not guest-only since 2026-10-27: a signed-in customer or partner adds
 // a partner role with the same account (the component sends anyone who cannot apply to their own home).
 Route::get('/provider/register', ProviderRegister::class)->name('provider.register');
+// Join in 2 minutes (owner 2026-11-12): "Finish joining" — the one checklist (documents, set-up, approval) for every partner.
+Route::get('/partner/join', \App\Livewire\Partner\Join::class)->middleware(['auth', \App\Http\Middleware\EnsureAccountNotSuspended::class])->name('partner.join');
 
 Route::post('/provider/logout', function () {
     Auth::guard('web')->logout();

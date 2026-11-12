@@ -52,6 +52,17 @@ final class SiteControls
     public const SIGNUP_SERVICES = 'provider_signup.services_step';
     public const SIGNUP_SERVICES_MAX = 'provider_signup.services_max';
 
+    /**
+     * Join in 2 minutes (owner 2026-11-12: "every business should feel very easy to join"): by default a partner signs
+     * up with a mobile code — no password — and uploads documents after joining (approval still needs them).
+     */
+    public const SIGNUP_ASK_PASSWORD = 'provider_signup.ask_password';
+
+    public const SIGNUP_DOCS_PREFIX = 'provider_signup.documents_at_signup.';
+
+    /** Partner roles that sign up through the one partner page, with the plain names Super Admin sees. */
+    public const SIGNUP_ROLE_NAMES = ['service' => 'Service providers', 'parcel' => 'Delivery riders', 'commerce' => 'Shops', 'food' => 'Restaurants', 'hotel' => 'Hotels and stays'];
+
     // Sign-up attempt limits
     public const LIMIT_PARTNER_FORM = 'signup_limits.partner_form_per_mobile';
     public const LIMIT_PARTNER_WINDOW = 'signup_limits.partner_form_window_minutes';
@@ -345,6 +356,18 @@ final class SiteControls
         $v = (string) self::raw(self::SIGNUP_SERVICES);
 
         return in_array($v, self::SERVICES_MODES, true) ? $v : 'required';
+    }
+
+    /** Ask new partners to set a password at sign-up (off: they sign in with a mobile code; a password can be set later). */
+    public static function askPasswordAtSignup(): bool
+    {
+        return (string) self::raw(self::SIGNUP_ASK_PASSWORD) === '1';
+    }
+
+    /** Documents uploaded on the sign-up page for this partner role (off: after joining, before approval). */
+    public static function documentsAtSignup(string $role): bool
+    {
+        return (string) self::raw(self::SIGNUP_DOCS_PREFIX.$role) === '1';
     }
 
     /** Most categories an applicant may tick; 0 = no limit. */

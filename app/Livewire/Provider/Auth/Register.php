@@ -488,7 +488,7 @@ class Register extends Component
         $this->validate([
             ...($existing ? [] : [
                 'name' => ['required', 'string', 'min:2', 'max:255'],
-                'password' => ['required', 'string', 'min:8', 'max:255', 'confirmed'],
+                ...(SiteControls::askPasswordAtSignup() ? ['password' => ['required', 'string', 'min:8', 'max:255', 'confirmed']] : []),
                 'email' => ['nullable', 'email', 'max:255'],
             ]),
             'address' => ['required', 'string', 'min:6', 'max:500'],
@@ -525,7 +525,7 @@ class Register extends Component
             $this->addError('skills', 'Choose at least one service you offer.');
         }
 
-        foreach ($requiredTypes as $type) {
+        foreach (SiteControls::documentsAtSignup($this->partnerRole) ? $requiredTypes : [] as $type) {
             if (! isset($this->documents[$type])) {
                 $this->addError('documents.'.$type, 'This document is required.');
             }
@@ -592,7 +592,7 @@ class Register extends Component
                         name: $this->name,
                         nationalPhone: PhoneNumber::national($this->verifiedPhoneE164),
                         email: filled($this->email) ? $this->email : null,
-                        plainPassword: $this->password,
+                        plainPassword: filled($this->password) ? $this->password : null,
                     );
                     $provider = $hotel->provider;
                     $providerId = $provider->id;
@@ -614,7 +614,7 @@ class Register extends Component
                         name: $this->name,
                         nationalPhone: PhoneNumber::national($this->verifiedPhoneE164),
                         email: filled($this->email) ? $this->email : null,
-                        plainPassword: $this->password,
+                        plainPassword: filled($this->password) ? $this->password : null,
                         module: $this->isRestaurant() ? \App\Support\Modules::FOOD : \App\Support\Modules::COMMERCE,
                         fssaiNumber: $this->isRestaurant() ? trim($this->fssaiNumber) : null,
                     );
@@ -636,7 +636,7 @@ class Register extends Component
                         name: $this->name,
                         nationalPhone: PhoneNumber::national($this->verifiedPhoneE164),
                         email: filled($this->email) ? $this->email : null,
-                        plainPassword: $this->password,
+                        plainPassword: filled($this->password) ? $this->password : null,
                         registration: $registration,
                     );
 
@@ -655,7 +655,7 @@ class Register extends Component
                         phone: PhoneNumber::national($this->verifiedPhoneE164),
                         franchiseId: $zone->franchise_id,
                         zoneId: $zone->id,
-                        plainPassword: $this->password,
+                        plainPassword: filled($this->password) ? $this->password : null,
                         email: filled($this->email) ? $this->email : null,
                         phoneVerified: true,
                         registration: $registration,
@@ -683,10 +683,15 @@ class Register extends Component
         $this->clearThrottle('provider-reg-phone', $this->phone);
         $this->clearThrottle('provider-reg-submit', $this->verifiedPhoneE164);
 
-        // No Auth::login() — the applicant cannot sign in until an admin
-        // approves; the dashboard would only show "pending KYC, no work".
+        // Join in 2 minutes (owner 2026-11-12): the mobile number is already proven by its code, so the new partner is
+        // signed in and goes straight to "Finish joining" (documents, then their menu / products / rooms / services).
+        // Approval still needs every required document; nothing is offered to customers before it.
         $this->submitted = true;
         $this->reset('password', 'password_confirmation', 'documents');
+        if (! auth()->check() && ($user = User::where('phone', PhoneNumber::national($this->verifiedPhoneE164))->first()) && $user->status === 'active') {
+            \Illuminate\Support\Facades\Auth::guard('web')->login($user);
+            session()->regenerate();
+        }
     }
 
     /** The categories an applicant can offer: the same active service categories customers browse. */
@@ -720,6 +725,8 @@ class Register extends Component
             'fssaiRequired' => $this->isRestaurant() && \App\Support\FoodSettings::on('food.fssai_at_signup'),
             'servicesStep' => $servicesStep,
             'servicesMax' => SiteControls::servicesMax(),
+            'askPassword' => SiteControls::askPasswordAtSignup(),
+            'docsAtSignup' => SiteControls::documentsAtSignup($this->partnerRole),
             'serviceCategories' => $servicesStep === 'hidden' ? collect() : $this->offerableCategories(),
         ])
             ->layout('components.layouts.provider', ['title' => $this->isRider() ? 'Become a delivery rider' : ($this->isHotel() ? 'List your hotel' : ($this->isRestaurant() ? 'Add your restaurant' : ($this->isSeller() ? 'Open your shop' : 'Become a partner')))]);

@@ -3,6 +3,8 @@
 namespace App\Livewire\Provider\Auth;
 
 use App\Livewire\Customer\Auth\Concerns\InteractsWithAuthThrottle;
+use App\Livewire\Partner\Concerns\SignsInWithMobileCode;
+use App\Models\User;
 use App\Services\Auth\CustomerAccountResolver;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
@@ -28,6 +30,7 @@ use Livewire\Component;
 class Login extends Component
 {
     use InteractsWithAuthThrottle;
+    use SignsInWithMobileCode;
 
     public string $identifier = '';
 
@@ -81,6 +84,12 @@ class Login extends Component
             return;
         }
 
+        $this->finishSignIn($user);
+    }
+
+    /** The same checks and destination for both ways in (password or mobile code). */
+    protected function finishSignIn(User $user): void
+    {
         // Enable/Disable Audit follow-up (LAUNCH-002 finding) — the
         // original suspension fix (f4d8d12) covered the admin panel and
         // the customer web login surfaces but never this one, since this
@@ -93,7 +102,7 @@ class Login extends Component
         // "suspended" is a more accurate reason than "not a registered
         // service partner."
         if ($user->status === 'suspended') {
-            $this->hitThrottle('provider-login', $this->identifier);
+            $this->hitThrottle('provider-login', $this->signInKey());
             $this->error = 'This account has been suspended. Contact support for help.';
             $this->password = '';
 
@@ -101,23 +110,23 @@ class Login extends Component
         }
 
         if (! $user->providerProfile()->exists() && $user->canApplyAsPartner('service')) {
-            $this->clearThrottle('provider-login', $this->identifier);
+            $this->clearThrottle('provider-login', $this->signInKey());
             $this->notAppliedYet = true;
-            $this->error = 'Your 1CallFix account has no partner application yet. Finish it below with the same mobile number; you keep this password.';
+            $this->error = 'Your 1CallFix account has no partner application yet. Finish it below with the same mobile number; it takes about 2 minutes.';
             $this->password = '';
 
             return;
         }
 
         if (! $user->providerProfile()->exists()) {
-            $this->hitThrottle('provider-login', $this->identifier);
+            $this->hitThrottle('provider-login', $this->signInKey());
             $this->error = 'That account is not a registered service partner.';
             $this->password = '';
 
             return;
         }
 
-        $this->clearThrottle('provider-login', $this->identifier);
+        $this->clearThrottle('provider-login', $this->signInKey());
 
         Auth::guard('web')->login($user);
         session()->regenerate();

@@ -3,7 +3,7 @@
 <div class="mx-auto flex max-w-md flex-col justify-center px-4 py-12 sm:py-20">
     <div class="text-center">
         <h1 class="text-2xl font-bold tracking-tight sm:text-3xl">{{ $platformName }} Partner</h1>
-        <p class="mt-2 text-sm text-slate-600">Sign in with your registered mobile number or email and password.</p>
+        <p class="mt-2 text-sm text-slate-600">Sign in with a code sent to your mobile. No password needed.</p>
     </div>
 
     <x-ui.card class="mt-8 !p-6 sm:!p-8">
@@ -19,6 +19,7 @@
             </div>
         @endif
 
+        @if ($mode === 'password')
         <form wire:submit="login" class="space-y-5">
             <div>
                 <label for="identifier" class="block text-sm font-medium text-slate-900">Mobile number or email</label>
@@ -42,6 +43,10 @@
                 <span wire:loading wire:target="login">Signing in…</span>
             </x-ui.button>
         </form>
+            <button type="button" wire:click="$set('mode', 'code')" class="mt-4 flex min-h-11 w-full items-center justify-center text-sm font-medium text-slate-600 underline underline-offset-4 hover:text-slate-900">Sign in with a mobile code instead</button>
+        @else
+            @include('livewire.partner._code-sign-in')
+        @endif
 
         <p class="mt-6 text-center text-sm text-slate-600">
             New to {{ $platformName }}?
@@ -56,3 +61,7 @@
         <x-ui.app-version class="mt-4 text-center" />
     </x-ui.card>
 </div>
+
+@push('scripts')
+    @vite('resources/js/customer-auth.js')
+@endpush

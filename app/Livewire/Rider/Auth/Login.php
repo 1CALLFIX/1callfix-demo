@@ -3,6 +3,8 @@
 namespace App\Livewire\Rider\Auth;
 
 use App\Livewire\Customer\Auth\Concerns\InteractsWithAuthThrottle;
+use App\Livewire\Partner\Concerns\SignsInWithMobileCode;
+use App\Models\User;
 use App\Services\Auth\CustomerAccountResolver;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
@@ -17,6 +19,7 @@ use Livewire\Component;
 class Login extends Component
 {
     use InteractsWithAuthThrottle;
+    use SignsInWithMobileCode;
 
     public string $identifier = '';
 
@@ -67,8 +70,14 @@ class Login extends Component
             return;
         }
 
+        $this->finishSignIn($user);
+    }
+
+    /** The same checks and destination for both ways in (password or mobile code). */
+    protected function finishSignIn(User $user): void
+    {
         if ($user->status === 'suspended') {
-            $this->hitThrottle('rider-login', $this->identifier);
+            $this->hitThrottle('rider-login', $this->signInKey());
             $this->error = 'This account has been suspended. Contact support for help.';
             $this->password = '';
 
@@ -76,23 +85,23 @@ class Login extends Component
         }
 
         if (! $this->isRider($user) && $user->canApplyAsPartner('parcel')) {
-            $this->clearThrottle('rider-login', $this->identifier);
+            $this->clearThrottle('rider-login', $this->signInKey());
             $this->notAppliedYet = true;
-            $this->error = 'Your 1CallFix account has not applied as a rider yet. Apply on the partner page with the same mobile number; you keep this password.';
+            $this->error = 'Your 1CallFix account has not applied as a rider yet. Apply on the partner page with the same mobile number; it takes about 2 minutes.';
             $this->password = '';
 
             return;
         }
 
         if (! $this->isRider($user)) {
-            $this->hitThrottle('rider-login', $this->identifier);
+            $this->hitThrottle('rider-login', $this->signInKey());
             $this->error = 'That account is not an active parcel rider.';
             $this->password = '';
 
             return;
         }
 
-        $this->clearThrottle('rider-login', $this->identifier);
+        $this->clearThrottle('rider-login', $this->signInKey());
 
         Auth::guard('web')->login($user);
         session()->regenerate();

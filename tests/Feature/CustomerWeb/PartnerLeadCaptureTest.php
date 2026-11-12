@@ -251,6 +251,7 @@ class PartnerLeadCaptureTest extends TestCase
             ->set('documents.address_proof', UploadedFile::fake()->image('addr.png'))
             ->set('documents.bank_details', UploadedFile::fake()->create('bank.pdf', 120, 'application/pdf'))
             ->call('submitApplication')->assertSet('submitted', true);
+        auth()->logout(); // signed in straight after applying (join in 2 minutes); the next sign-up is someone else
     }
 
     public function test_the_prune_command_keeps_everything_unless_retention_is_set(): void

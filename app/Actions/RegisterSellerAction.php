@@ -39,7 +39,7 @@ class RegisterSellerAction
         string $name = '',
         string $nationalPhone = '',
         ?string $email = null,
-        string $plainPassword = '',
+        ?string $plainPassword = null,
         string $module = Modules::COMMERCE,
         ?string $fssaiNumber = null,
     ): Store {
@@ -60,7 +60,7 @@ class RegisterSellerAction
                     phone: $nationalPhone,
                     franchiseId: $zone->franchise_id,
                     zoneId: $zone->id,
-                    plainPassword: $plainPassword,
+                    plainPassword: filled($plainPassword) ? $plainPassword : null,
                     email: $email,
                     phoneVerified: true,
                     registration: $registration,
