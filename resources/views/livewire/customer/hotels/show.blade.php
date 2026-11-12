@@ -35,7 +35,7 @@
     </div>
 
     {{-- ── stay dates (same fields as the list) ── --}}
-    <div class="mt-4 grid grid-cols-2 gap-3 rounded-2xl border border-slate-200 bg-white p-4 sm:grid-cols-4">
+    <div class="mt-4 grid grid-cols-2 gap-3 rounded-2xl border border-slate-200 bg-white p-4 sm:grid-cols-5">
         <label class="text-sm font-medium text-slate-700">{{ $t('hotel.search.check_in') }}
             <input type="date" wire:model.live="checkIn" value="{{ $in }}" min="{{ now()->toDateString() }}" class="mt-1 block min-h-11 w-full rounded-xl border border-slate-300 px-3">
         </label>
@@ -47,6 +47,9 @@
         </label>
         <label class="text-sm font-medium text-slate-700">{{ $t('hotel.search.guests') }}
             <input type="number" min="1" wire:model.live.debounce.500ms="adults" class="mt-1 block min-h-11 w-full rounded-xl border border-slate-300 px-3">
+        </label>
+        <label class="text-sm font-medium text-slate-700">{{ $t('hotel.search.children') }}
+            <input type="number" min="0" max="20" wire:model.live.debounce.500ms="children" class="mt-1 block min-h-11 w-full rounded-xl border border-slate-300 px-3">
         </label>
     </div>
 
@@ -63,7 +66,7 @@
                 <div class="grid gap-4 p-4 sm:grid-cols-[1fr_auto]">
                     <div>
                         <h3 class="text-base font-semibold">{{ $rc['room']->name }}</h3>
-                        <p class="text-sm text-slate-600">{{ $t('hotel.show.fits', ['adults' => $rc['room']->max_adults]) }}@if ($rc['room']->bed_configuration) · {{ $rc['room']->bed_configuration }}@endif</p>
+                        <p class="text-sm text-slate-600">{{ $rc['room']->max_children ? $t('hotel.show.fits_children', ['adults' => $rc['room']->max_adults, 'children' => $rc['room']->max_children]) : $t('hotel.show.fits', ['adults' => $rc['room']->max_adults]) }}@if ($rc['room']->bed_configuration) · {{ $rc['room']->bed_configuration }}@endif</p>
                         <p class="mt-1 text-sm font-medium text-emerald-700">{{ $rc['meal'] }}</p>
                         @if ($header['cancel']) <p class="text-sm font-medium text-emerald-700">✓ {{ $header['cancel'] }}</p> @endif
                         @if ($rc['room']->description) <p class="mt-2 text-sm text-slate-600">{{ $rc['room']->description }}</p> @endif
@@ -78,7 +81,7 @@
                         </dl>
                         @if ($rc['left']) <p class="mt-1 text-right text-xs font-semibold text-red-600">{{ $rc['left'] }}</p> @endif
                         @if ($rc['bookable'])
-                            <a href="{{ route('customer.hotels.book', ['hotel' => $hotel->id, 'room' => $rc['room']->id, 'plan' => $rc['plan']->id, 'in' => $in, 'out' => $out, 'rooms' => $rc['quote']['rooms'], 'adults' => $adults]) }}"
+                            <a href="{{ route('customer.hotels.book', ['hotel' => $hotel->id, 'room' => $rc['room']->id, 'plan' => $rc['plan']->id, 'in' => $in, 'out' => $out, 'rooms' => $rc['quote']['rooms'], 'adults' => $adults, 'children' => $children ?: null]) }}"
                                class="mt-3 flex min-h-11 items-center justify-center rounded-xl bg-blue-600 px-4 font-semibold text-white hover:bg-blue-700" data-testid="hotel-book">{{ $t('hotel.show.book') }}</a>
                         @elseif (! $rc['quote']['available'])
                             <p class="mt-3 text-center text-sm font-semibold text-slate-500">{{ $t('hotel.card.full') }}</p>

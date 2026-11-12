@@ -32,6 +32,8 @@ class HotelReservation extends Model implements Orderable
         'tax_amount', 'convenience_fee', 'amount_due', 'payment_expires_at', 'guest_gst_number', 'guest_business_name',
         // Hotels H3: e-voucher code, hotel accept deadline, no-show, who cancelled.
         'check_in_code', 'accept_by', 'no_show', 'cancelled_by',
+        // Hotels step 2: a coupon taken off the room price (online payment only).
+        'coupon_code', 'coupon_discount_amount',
     ];
 
     protected $casts = [
@@ -80,4 +82,27 @@ class HotelReservation extends Model implements Orderable
         return $this->status === 'pending' && $this->payment_status === 'pending' && $this->payment_method === 'online';
     }
     public function orderStatus(): string { return $this->status; }
+    /**
+     * Hotels step 2: the stay's coupon follows the booking. Cancelled before the stay (unpaid, declined, not accepted,
+     * cancelled by anyone) = the coupon is given back; the guest did not arrive = it counts as used; stay completed =
+     * used. Every path that changes the status saves this model, so one hook covers them all.
+     */
+    protected static function booted(): void
+    {
+        static::updated(function (HotelReservation $r) {
+            if (! $r->wasChanged('status') || ! in_array($r->status, ['cancelled', 'completed'], true)) {
+                return;
+            }
+            $usage = \App\Models\CouponUsage::where('hotel_reservation_id', $r->id)->where('status', 'reserved')->first();
+            if (! $usage) {
+                return;
+            }
+            $coupons = app(\App\Services\Coupons\CouponService::class);
+            match (true) {
+                $r->status === 'completed' => $coupons->confirm($usage),
+                (bool) $r->no_show => $coupons->consume($usage),
+                default => $coupons->release($usage),
+            };
+        });
+    }
 }

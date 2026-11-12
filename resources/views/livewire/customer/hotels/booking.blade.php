@@ -42,7 +42,7 @@
         @foreach ($r->rooms as $line)
             <p class="font-semibold">{{ $line->room_count }} × {{ $line->roomType?->name }} · {{ $t('hotel.meal.'.($line->ratePlan?->meal_plan ?? 'room_only')) }}</p>
         @endforeach
-        <p class="mt-1 text-slate-700">{{ $r->check_in_date->format('D, j M Y') }} → {{ $r->check_out_date->format('D, j M Y') }} · {{ $r->number_of_nights }} {{ \Illuminate\Support\Str::plural('night', $r->number_of_nights) }} · {{ $r->number_of_adults }} {{ $t('hotel.search.guests') }}</p>
+        <p class="mt-1 text-slate-700">{{ $r->check_in_date->format('D, j M Y') }} → {{ $r->check_out_date->format('D, j M Y') }} · {{ $r->number_of_nights }} {{ \Illuminate\Support\Str::plural('night', $r->number_of_nights) }} · @if ($r->number_of_children > 0) {{ $t('hotel.book.guests_line', ['adults' => $r->number_of_adults, 'children' => $r->number_of_children]) }} @else {{ $r->number_of_adults }} {{ $t('hotel.search.guests') }} @endif</p>
         @if ($primary = $r->guests->firstWhere('is_primary', true) ?? $r->guests->first())
             <p class="mt-1 text-slate-700">{{ $t('hotel.book.guest') }}: {{ $primary->name }}@if ($primary->phone) · {{ $primary->phone }}@endif</p>
         @endif
@@ -52,10 +52,20 @@
 
         <dl class="mt-3 space-y-1 border-t border-slate-100 pt-3">
             <div class="flex justify-between"><dt>{{ $t('hotel.show.room_price') }}</dt><dd>{{ $money((float) $r->price_quoted) }}</dd></div>
+            @if ((float) $r->coupon_discount_amount > 0) <div class="flex justify-between text-emerald-700"><dt>{{ $t('hotel.show.discount', ['code' => $r->coupon_code]) }}</dt><dd>−{{ $money((float) $r->coupon_discount_amount) }}</dd></div> @endif
             @if ((float) $r->tax_amount > 0) <div class="flex justify-between"><dt>{{ $t('hotel.show.gst') }}</dt><dd>{{ $money((float) $r->tax_amount) }}</dd></div> @endif
             @if ((float) $r->convenience_fee > 0) <div class="flex justify-between"><dt>{{ $t('hotel.show.fee') }}</dt><dd>{{ $money((float) $r->convenience_fee) }}</dd></div> @endif
             <div class="flex justify-between border-t border-slate-200 pt-1 font-bold"><dt>{{ $r->payment_status === 'pending' ? $t('hotel.show.total') : $t('hotel.booking.total_paid') }}</dt><dd>{{ $money($r->amountDue()) }}</dd></div>
         </dl>
+
+        @if (in_array($r->status, \App\Http\Controllers\Customer\HotelDocumentController::VOUCHER_STATUSES, true))
+            <div class="mt-3 flex flex-wrap gap-x-4 gap-y-1 border-t border-slate-100 pt-3" data-testid="hotel-documents">
+                <a href="{{ route('customer.hotels.voucher', $r->code) }}" target="_blank" rel="noopener" class="inline-flex min-h-11 items-center font-medium text-blue-600 underline">{{ $t('hotel.booking.voucher_link') }}</a>
+                @if (in_array($r->status, \App\Http\Controllers\Customer\HotelDocumentController::INVOICE_STATUSES, true))
+                    <a href="{{ route('customer.hotels.invoice', $r->code) }}" target="_blank" rel="noopener" class="inline-flex min-h-11 items-center font-medium text-blue-600 underline">{{ $t('hotel.booking.invoice_link') }}</a>
+                @endif
+            </div>
+        @endif
     </section>
 
     {{-- ── super-app extras during the stay (Hotels H4) ── --}}

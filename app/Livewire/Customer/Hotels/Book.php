@@ -43,6 +43,17 @@ class Book extends Component
     #[Url(as: 'adults')] #[Locked]
     public int $adults = 2;
 
+    #[Url(as: 'children')] #[Locked]
+    public int $children = 0;
+
+    /** Hotels step 2: a coupon (online / wallet only). Only the code is kept here; every amount is worked out on the server. */
+    public string $couponInput = '';
+
+    #[Locked]
+    public string $appliedCoupon = '';
+
+    public string $couponMessage = '';
+
     public string $guestName = '';
     public string $guestPhone = '';
     public string $requests = '';
@@ -90,7 +101,7 @@ class Book extends Component
             $reservation = $bookings->book(auth()->user(), $hotel, $room, $plan, $this->checkIn, $this->checkOut, $this->rooms, $this->adults, [
                 'guest_name' => $this->guestName, 'guest_phone' => $this->guestPhone, 'special_requests' => $this->requests,
                 'gst_number' => $this->business ? $this->gstNumber : null, 'business_name' => $this->business ? $this->businessName : null,
-            ], $method === 'wallet' ? 'wallet' : 'online');
+            ], $method === 'wallet' ? 'wallet' : 'online', $this->appliedCoupon !== '' ? $this->appliedCoupon : null, max(0, $this->children));
         } catch (\RuntimeException $e) {
             $this->error = $e->getMessage();
 
@@ -114,10 +125,45 @@ class Book extends Component
         return null;
     }
 
+    public function applyCoupon(HotelBookingService $bookings): void
+    {
+        $this->couponMessage = '';
+        $code = strtoupper(trim($this->couponInput));
+        if ($code === '') {
+            return;
+        }
+        [$hotel, $room, $plan] = $this->stay();
+        $q = HotelPricing::quote($room, $plan, $this->checkIn, $this->checkOut, max(1, $this->rooms));
+        [$discount, $message] = $bookings->previewCoupon(auth()->user(), $hotel, $q['room_total'], 'online', $code);
+        if ($message !== null) {
+            $this->appliedCoupon = '';
+            $this->couponMessage = $message;
+
+            return;
+        }
+        $this->appliedCoupon = $code;
+        $this->couponMessage = SiteText::get('hotel.book.coupon_applied', ['code' => $code]);
+    }
+
+    public function removeCoupon(): void
+    {
+        $this->reset('appliedCoupon', 'couponInput', 'couponMessage');
+    }
+
     public function render()
     {
         [$hotel, $room, $plan] = $this->stay();
         $q = HotelPricing::quote($room, $plan, $this->checkIn, $this->checkOut, max(1, $this->rooms));
+        // The coupon is worked out again on every screen (it can run out meanwhile); booking checks it once more.
+        if ($this->appliedCoupon !== '') {
+            [$discount, $message] = app(HotelBookingService::class)->previewCoupon(auth()->user(), $hotel, $q['room_total'], 'online', $this->appliedCoupon);
+            if ($message !== null) {
+                $this->appliedCoupon = '';
+                $this->couponMessage = $message;
+            } else {
+                $q = HotelPricing::withDiscount($q, $discount);
+            }
+        }
         $symbol = Setting::get('locale.currency_symbol', '₹');
         $money = fn (float $v) => $symbol.number_format($v, 2);
         $scope = array_filter(['zone_id' => $hotel->zone_id, 'franchise_id' => $hotel->franchise_id]);
@@ -135,6 +181,7 @@ class Book extends Component
             'cancel' => $until === null ? SiteText::get('hotel.free_cancel_always')
                 : ($until->isFuture() ? SiteText::get('hotel.free_cancel_until', ['time' => $until->setTimezone($tz)->format('j M, g:i A')]) : SiteText::get('hotel.book.no_free_cancel')),
             'canBook' => $q['available'] && $q['taxes_known'],
+            'couponsOn' => \App\Services\Coupons\CouponSettings::available(),
         ])->layout('components.layouts.customer', ['title' => SiteText::get('hotel.book.title'), 'indexable' => false]);
     }
 }

@@ -17,7 +17,7 @@
     </div>
 
     {{-- ── search ── --}}
-    <div class="mt-5 grid grid-cols-2 gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:grid-cols-4" data-testid="hotel-search">
+    <div class="mt-5 grid grid-cols-2 gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:grid-cols-5" data-testid="hotel-search">
         <label class="text-sm font-medium text-slate-700">{{ $t('hotel.search.check_in') }}
             <input type="date" wire:model.live="checkIn" value="{{ $in }}" min="{{ now()->toDateString() }}" class="{{ $field }}">
         </label>
@@ -32,6 +32,11 @@
         <label class="text-sm font-medium text-slate-700">{{ $t('hotel.search.guests') }}
             <select wire:model.live="adults" class="{{ $field }}">
                 @for ($i = 1; $i <= max(10, $maxRooms * 3); $i++) <option value="{{ $i }}">{{ $i }}</option> @endfor
+            </select>
+        </label>
+        <label class="text-sm font-medium text-slate-700">{{ $t('hotel.search.children') }}
+            <select wire:model.live="children" class="{{ $field }}" data-testid="hotel-children">
+                @for ($i = 0; $i <= 6; $i++) <option value="{{ $i }}">{{ $i }}</option> @endfor
             </select>
         </label>
     </div>

@@ -9,5 +9,5 @@
  */
 return [
     // E-commerce (2026-10-29): shop orders reserve on checkout, confirm on completion, release on cancel.
-    'connected_modules' => ['service', 'commerce'],
+    'connected_modules' => ['service', 'commerce', 'hotel'],
 ];

@@ -37,6 +37,9 @@ class Show extends Component
     #[Url(as: 'adults')]
     public int $adults = 2;
 
+    #[Url(as: 'children')]
+    public int $children = 0;
+
     public function mount(string $city, string $hotelSlug): void
     {
         if (! $this->enterHotelCity($city)) {
@@ -62,7 +65,7 @@ class Show extends Component
         foreach ($hotel->roomTypes as $room) {
             foreach ($room->ratePlans->where('is_active', true)->where('nightly_rate', '>', 0)->sortBy('nightly_rate') as $plan) {
                 $q = HotelPricing::quote($room, $plan, $in, $out, $roomsWanted);
-                $fits = $room->max_adults * $roomsWanted >= $this->adults;
+                $fits = $room->max_adults * $roomsWanted >= $this->adults && (int) $room->max_children * $roomsWanted >= max(0, $this->children);
                 $roomCards[] = [
                     'room' => $room, 'plan' => $plan, 'quote' => $q, 'fits' => $fits,
                     'photos' => array_values(array_filter(array_map($url, $room->photos ?: [$room->cover_image]))),
@@ -82,7 +85,7 @@ class Show extends Component
 
         $rating = Review::query()->join('hotel_reservations', 'hotel_reservations.id', '=', 'reviews.hotel_reservation_id')
             ->where('hotel_reservations.accommodation_id', $hotel->id)->selectRaw('avg(reviews.rating) as avg, count(*) as n')->first();
-        $header = Home::card($hotel, $this->hotelCity->slug, HotelPricing::cheapest($hotel, $in, $out, $roomsWanted, $this->adults), $nights, $rating, ['in' => $in, 'out' => $out, 'rooms' => $roomsWanted, 'adults' => $this->adults]);
+        $header = Home::card($hotel, $this->hotelCity->slug, HotelPricing::cheapest($hotel, $in, $out, $roomsWanted, $this->adults, max(0, $this->children)), $nights, $rating, ['in' => $in, 'out' => $out, 'rooms' => $roomsWanted, 'adults' => $this->adults, 'children' => max(0, $this->children)]);
         $photos = array_values(array_unique([...$hotel->photoUrls(), ...collect($roomCards)->pluck('photos')->flatten()->all()]));
 
         return view('livewire.customer.hotels.show', [

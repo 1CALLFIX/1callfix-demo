@@ -25,6 +25,7 @@ class CouponUsage extends Model
         'booking_id',
         'booking_bundle_id',
         'marketplace_order_id',
+        'hotel_reservation_id',
         'discount_applied',
         'status',
         'original_amount',

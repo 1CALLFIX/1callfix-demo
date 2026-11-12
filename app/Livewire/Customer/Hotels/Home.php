@@ -35,6 +35,10 @@ class Home extends Component
     #[Url(as: 'adults')]
     public int $adults = 2;
 
+    /** Hotels step 2: children travel too; a room counts them against its own children limit. */
+    #[Url(as: 'children')]
+    public int $children = 0;
+
     #[Url(as: 'sort')]
     public string $sort = 'featured';
 
@@ -63,6 +67,7 @@ class Home extends Component
         $maxRooms = (int) HotelSettings::get('hotel.max_rooms_per_booking');
         $rooms = max(1, min($maxRooms, $this->rooms));
         $adults = max(1, min(50, $this->adults));
+        $children = max(0, min(20, $this->children));
         $allowed = HotelSettings::lines('hotel.amenities');
         $wanted = array_values(array_intersect($allowed, $this->facilities));
 
@@ -76,14 +81,14 @@ class Home extends Component
             ->selectRaw('hotel_reservations.accommodation_id as hotel_id, avg(reviews.rating) as avg, count(*) as n')
             ->get()->keyBy('hotel_id');
 
-        $cards = $hotels->map(function (Accommodation $h) use ($in, $out, $nights, $rooms, $adults, $ratings) {
-            $best = HotelPricing::cheapest($h, $in, $out, $rooms, $adults);
+        $cards = $hotels->map(function (Accommodation $h) use ($in, $out, $nights, $rooms, $adults, $children, $ratings) {
+            $best = HotelPricing::cheapest($h, $in, $out, $rooms, $adults, $children);
             if ($best === null || $this->breakfast) {
                 // With "breakfast" on, only plans that include it count.
-                $best = $this->breakfast ? $this->cheapestWithBreakfast($h, $in, $out, $rooms, $adults) : $best;
+                $best = $this->breakfast ? $this->cheapestWithBreakfast($h, $in, $out, $rooms, $adults, $children) : $best;
             }
 
-            return self::card($h, $this->hotelCity->slug, $best, $nights, $ratings->get($h->id), ['in' => $in, 'out' => $out, 'rooms' => $rooms, 'adults' => $adults]);
+            return self::card($h, $this->hotelCity->slug, $best, $nights, $ratings->get($h->id), ['in' => $in, 'out' => $out, 'rooms' => $rooms, 'adults' => $adults, 'children' => $children]);
         })
             ->filter(fn ($c) => $wanted === [] || array_diff($wanted, $c['facilities']) === [])
             ->filter(fn ($c) => ! $this->breakfast || $c['available'])
@@ -113,11 +118,11 @@ class Home extends Component
         ]);
     }
 
-    private function cheapestWithBreakfast(Accommodation $h, string $in, string $out, int $rooms, int $adults): ?array
+    private function cheapestWithBreakfast(Accommodation $h, string $in, string $out, int $rooms, int $adults, int $children = 0): ?array
     {
         $best = null;
         foreach ($h->roomTypes as $room) {
-            if (! $room->is_active || $room->max_adults * $rooms < $adults) {
+            if (! $room->is_active || $room->max_adults * $rooms < $adults || (int) $room->max_children * $rooms < $children) {
                 continue;
             }
             foreach ($room->ratePlans->where('is_active', true)->where('meal_plan', '!=', 'room_only') as $plan) {
@@ -157,9 +162,9 @@ class Home extends Component
                 : ($until->isFuture() ? SiteText::get('hotel.free_cancel_until', ['time' => $until->setTimezone($tzName)->format('j M, g:i A')]) : null),
             'rating' => $rating && $rating->n > 0 ? ['avg' => round((float) $rating->avg, 1), 'n' => (int) $rating->n] : null,
             // Fastest booking (owner 2026-11-12: "just a few taps"): the cheapest free room straight to the booking page.
-            'quickBook' => $quote && $quote['taxes_known'] ? route('customer.hotels.book', ['hotel' => $h->id, 'room' => $best[0]->id, 'plan' => $best[1]->id, 'in' => $stay['in'], 'out' => $stay['out'], 'rooms' => $stay['rooms'], 'adults' => $stay['adults']]) : null,
+            'quickBook' => $quote && $quote['taxes_known'] ? route('customer.hotels.book', ['hotel' => $h->id, 'room' => $best[0]->id, 'plan' => $best[1]->id, 'in' => $stay['in'], 'out' => $stay['out'], 'rooms' => $stay['rooms'], 'adults' => $stay['adults'], 'children' => ($stay['children'] ?? 0) ?: null]) : null,
             'quickRoom' => $best ? $best[0]->name : null,
-            'url' => route('customer.hotels.show', [$citySlug, $h->slug] + array_filter(['in' => $stay['in'], 'out' => $stay['out'], 'rooms' => $stay['rooms'] > 1 ? $stay['rooms'] : null, 'adults' => $stay['adults'] !== 2 ? $stay['adults'] : null])),
+            'url' => route('customer.hotels.show', [$citySlug, $h->slug] + array_filter(['in' => $stay['in'], 'out' => $stay['out'], 'rooms' => $stay['rooms'] > 1 ? $stay['rooms'] : null, 'adults' => $stay['adults'] !== 2 ? $stay['adults'] : null, 'children' => ($stay['children'] ?? 0) ?: null])),
         ];
     }
 }

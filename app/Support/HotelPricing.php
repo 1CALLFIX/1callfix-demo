@@ -80,12 +80,28 @@ final class HotelPricing
         ];
     }
 
+    /**
+     * Hotels step 2: a coupon taken off the room price. GST is on what is left (each night keeps its own band from the
+     * hotel's price; the tax shrinks in the same proportion), rounded to the rupee; the fee is unchanged.
+     */
+    public static function withDiscount(array $quote, float $discount): array
+    {
+        $discount = round(max(0.0, min($discount, $quote['room_total'])), 2);
+        if ($discount <= 0) {
+            return $quote + ['discount' => 0.0];
+        }
+        $share = $quote['room_total'] > 0 ? ($quote['room_total'] - $discount) / $quote['room_total'] : 0.0;
+        $gst = round($quote['gst'] * $share);
+
+        return ['discount' => $discount, 'gst' => (float) $gst, 'total' => round($quote['room_total'] - $discount + $gst + $quote['fee'], 2)] + $quote;
+    }
+
     /** The cheapest room tonight-style quote for a hotel card: [room, plan, quote] or null when nothing is open. */
-    public static function cheapest(Accommodation $hotel, string $checkIn, string $checkOut, int $rooms = 1, int $adults = 1): ?array
+    public static function cheapest(Accommodation $hotel, string $checkIn, string $checkOut, int $rooms = 1, int $adults = 1, int $children = 0): ?array
     {
         $best = null;
         foreach ($hotel->roomTypes as $room) {
-            if (! $room->is_active || $room->max_adults * $rooms < $adults) {
+            if (! $room->is_active || $room->max_adults * $rooms < $adults || (int) $room->max_children * $rooms < $children) {
                 continue;
             }
             $plan = $room->ratePlans->where('is_active', true)->sortBy('nightly_rate')->first();

@@ -88,6 +88,7 @@
                         <select id="cf-module" wire:model.live="couponModule" class="w-full border rounded px-3 py-2 text-sm">
                             <option value="service">Service bookings</option>
                             <option value="commerce">Shop orders</option>
+                            <option value="hotel">Hotel stays</option>
                         </select>
                         @error('code') <p class="text-xs text-red-600 mt-1">{{ $message }}</p> @enderror
                     </div>

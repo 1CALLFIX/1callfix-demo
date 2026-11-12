@@ -11,12 +11,13 @@
         <p class="text-sm text-slate-600">{{ $room->name }} · {{ $t('hotel.meal.'.$plan->meal_plan) }}</p>
         <p class="mt-2 text-sm text-slate-800">
             {{ \Illuminate\Support\Carbon::parse($checkIn)->format('D, j M') }} → {{ \Illuminate\Support\Carbon::parse($checkOut)->format('D, j M') }}
-            · {{ $t('hotel.show.stay', ['rooms' => \App\Support\SiteText::count('hotel.rooms', $rooms), 'nights' => \App\Support\SiteText::count('hotel.nights', $nights)]) }} · {{ $adults }} {{ $t('hotel.search.guests') }}
+            · {{ $t('hotel.show.stay', ['rooms' => \App\Support\SiteText::count('hotel.rooms', $rooms), 'nights' => \App\Support\SiteText::count('hotel.nights', $nights)]) }} · @if ($children > 0) {{ $t('hotel.book.guests_line', ['adults' => $adults, 'children' => $children]) }} @else {{ $adults }} {{ $t('hotel.search.guests') }} @endif
         </p>
         <p class="mt-1 text-sm font-medium text-emerald-700">{{ $cancel }}</p>
 
         <dl class="mt-3 space-y-1 border-t border-slate-100 pt-3 text-sm" data-testid="hotel-book-price">
             <div class="flex justify-between"><dt>{{ $t('hotel.show.room_price') }}</dt><dd>{{ $money($quote['room_total']) }}</dd></div>
+            @if (($quote['discount'] ?? 0) > 0) <div class="flex justify-between text-emerald-700" data-testid="hotel-book-discount"><dt>{{ $t('hotel.show.discount', ['code' => $appliedCoupon]) }}</dt><dd>−{{ $money($quote['discount']) }}</dd></div> @endif
             @if ($quote['gst'] > 0) <div class="flex justify-between"><dt>{{ $t('hotel.show.gst') }}</dt><dd>{{ $money($quote['gst']) }}</dd></div> @endif
             @if ($quote['fee'] > 0) <div class="flex justify-between"><dt>{{ $t('hotel.show.fee') }}</dt><dd>{{ $money($quote['fee']) }}</dd></div> @endif
             <div class="flex justify-between border-t border-slate-200 pt-1 text-base font-bold"><dt>{{ $t('hotel.show.total') }}</dt><dd>{{ $money($quote['total']) }}</dd></div>
@@ -60,6 +61,26 @@
                 @error('businessName') <p class="text-sm text-red-700">{{ $message }}</p> @enderror
             @endif
         </section>
+
+        {{-- ── coupon (online / wallet only) ── --}}
+        @if ($couponsOn)
+            <section class="mt-4 rounded-2xl border border-slate-200 bg-white p-4" data-testid="hotel-coupon">
+                <h2 class="text-sm font-semibold uppercase text-slate-500">{{ $t('hotel.book.coupon') }}</h2>
+                @if ($appliedCoupon !== '')
+                    <div class="mt-2 flex items-center justify-between gap-3">
+                        <p class="text-sm font-semibold text-emerald-700">✓ {{ $t('hotel.book.coupon_applied', ['code' => $appliedCoupon]) }}</p>
+                        <button type="button" wire:click="removeCoupon" class="min-h-11 px-2 text-sm font-medium text-slate-600 underline">{{ $t('hotel.book.coupon_remove') }}</button>
+                    </div>
+                @else
+                    <form wire:submit="applyCoupon" class="mt-2 flex gap-2">
+                        <input type="text" wire:model="couponInput" maxlength="50" placeholder="{{ $t('hotel.book.coupon_placeholder') }}" aria-label="{{ $t('hotel.book.coupon_placeholder') }}" class="{{ $inp }} mt-0 uppercase">
+                        <button type="submit" class="min-h-11 shrink-0 rounded-xl border border-blue-600 px-4 text-sm font-semibold text-blue-700 hover:bg-blue-50">{{ $t('hotel.book.coupon_apply') }}</button>
+                    </form>
+                    @if ($couponMessage) <p role="alert" class="mt-2 text-sm text-red-700">{{ $couponMessage }}</p> @endif
+                @endif
+                <p class="mt-2 text-xs text-slate-500">{{ $t('hotel.book.coupon_online') }}</p>
+            </section>
+        @endif
 
         {{-- ── pay ── --}}
         <div class="mt-4 space-y-2">

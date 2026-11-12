@@ -212,6 +212,9 @@ Route::middleware(['auth', \App\Http\Middleware\EnsureAccountNotSuspended::class
     // Hotels H2b (2026-11-12): book a room (guest details + pay) and the customer's own hotel bookings.
     Route::get('/hotels/book', \App\Livewire\Customer\Hotels\Book::class)->name('customer.hotels.book');
     Route::get('/hotels/bookings/{code}', \App\Livewire\Customer\Hotels\Booking::class)->where('code', '[A-Za-z0-9-]+')->name('customer.hotels.booking');
+    // Hotels step 2: booking voucher (from confirmation) and tax invoice (after check-out), printable / save as PDF.
+    Route::get('/hotels/bookings/{code}/voucher', [\App\Http\Controllers\Customer\HotelDocumentController::class, 'voucher'])->where('code', '[A-Za-z0-9-]+')->name('customer.hotels.voucher');
+    Route::get('/hotels/bookings/{code}/invoice', [\App\Http\Controllers\Customer\HotelDocumentController::class, 'invoice'])->where('code', '[A-Za-z0-9-]+')->name('customer.hotels.invoice');
 
     // E-commerce Phase 2: the shop bag, checkout (one shop per order) and the customer's shop orders. Browsing is
     // public under /{city}/shop; a customer's own orders stay reachable even if Commerce is switched off later.

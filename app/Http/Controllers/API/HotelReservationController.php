@@ -45,7 +45,7 @@ class HotelReservationController extends Controller
      * Body: { accommodation_id, check_in_date, check_out_date, number_of_adults,
      *         rooms: [{room_type_id, rate_plan_id, room_count}] (one room type per booking, like the website),
      *         guests: [{name, phone, is_primary}], payment_method: online|wallet, special_requests,
-     *         gst_number?, business_name? }
+     *         gst_number?, business_name?, number_of_children?, coupon_code? (online / wallet only) }
      *
      * Owner 2026-11-12: the app books exactly like the website — the same HotelBookingService, so only approved
      * hotels, the HotelPricing total with GST, online or wallet only (never cash), the unpaid hold, the stay and
@@ -58,6 +58,8 @@ class HotelReservationController extends Controller
             'check_in_date' => 'required|date',
             'check_out_date' => 'required|date|after:check_in_date',
             'number_of_adults' => 'nullable|integer|min:1',
+            'number_of_children' => 'nullable|integer|min:0|max:20',
+            'coupon_code' => 'nullable|string|max:50',
             'payment_method' => 'nullable|in:online,wallet',
             'special_requests' => 'nullable|string|max:500',
             'gst_number' => ['nullable', 'string', 'regex:/^[0-9]{2}[A-Za-z0-9]{13}$/'],
@@ -92,7 +94,7 @@ class HotelReservationController extends Controller
                     'special_requests' => $validated['special_requests'] ?? null,
                     'gst_number' => $validated['gst_number'] ?? null,
                     'business_name' => $validated['business_name'] ?? null,
-                ], $validated['payment_method'] ?? 'online');
+                ], $validated['payment_method'] ?? 'online', $validated['coupon_code'] ?? null, (int) ($validated['number_of_children'] ?? 0));
         } catch (ModuleNotActiveException $e) {
             return response()->json(['message' => $e->getMessage()], 422);
         } catch (\RuntimeException $e) {
@@ -106,6 +108,8 @@ class HotelReservationController extends Controller
                 'payment_method' => $reservation->payment_method, 'payment_status' => $reservation->payment_status,
                 'price_quoted' => $reservation->price_quoted, 'tax_amount' => $reservation->tax_amount,
                 'convenience_fee' => $reservation->convenience_fee, 'amount_due' => $reservation->amount_due,
+                'coupon_code' => $reservation->coupon_code, 'coupon_discount_amount' => $reservation->coupon_discount_amount,
+                'number_of_children' => $reservation->number_of_children,
                 'payment_expires_at' => $reservation->payment_expires_at?->toIso8601String(),
                 'number_of_rooms' => $reservation->number_of_rooms,
             ],

@@ -12,9 +12,13 @@ use App\Models\Payment;
 use App\Models\Setting;
 use App\Models\User;
 use App\Services\CancellationService;
+use App\Services\Coupons\CouponService;
+use App\Services\Coupons\PromotionContext;
+use App\Services\Coupons\PromotionResult;
 use App\Services\HotelAvailabilityService;
 use App\Support\HotelPricing;
 use App\Support\HotelSettings;
+use App\Support\Modules;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
@@ -40,7 +44,7 @@ class HotelBookingService
      *
      * @throws \RuntimeException with a customer-facing reason
      */
-    public function book(User $customer, Accommodation $hotel, HotelRoomType $room, HotelRatePlan $plan, string $checkIn, string $checkOut, int $rooms, int $adults, array $guest, string $method): HotelReservation
+    public function book(User $customer, Accommodation $hotel, HotelRoomType $room, HotelRatePlan $plan, string $checkIn, string $checkOut, int $rooms, int $adults, array $guest, string $method, ?string $couponCode = null, int $children = 0): HotelReservation
     {
         $scope = HotelPricing::scope($hotel);
         // Hotels switched off for this area: say so first (the engine checks again inside its transaction).
@@ -73,6 +77,11 @@ class HotelBookingService
         if ($adults > $room->max_adults * $rooms) {
             throw new \RuntimeException("These rooms fit at most {$room->max_adults} adults each. Add a room.");
         }
+        if ($children < 0 || $children > (int) $room->max_children * $rooms) {
+            throw new \RuntimeException((int) $room->max_children === 0
+                ? 'This room does not take children. Choose another room.'
+                : "These rooms fit at most {$room->max_children} ".\Illuminate\Support\Str::plural('child', (int) $room->max_children).' each. Add a room.');
+        }
 
         $quote = HotelPricing::quote($room, $plan, $checkIn, $checkOut, $rooms);
         if (! $quote['taxes_known']) {
@@ -82,35 +91,93 @@ class HotelBookingService
             throw new \RuntimeException('These rooms were just taken for your dates. Please choose another room or date.');
         }
 
-        $reservation = $this->create->execute([
-            'franchise_id' => $hotel->franchise_id,
-            'zone_id' => $hotel->zone_id,
-            'accommodation_id' => $hotel->id,
-            'customer_id' => $customer->id,
-            'check_in_date' => $checkIn,
-            'check_out_date' => $checkOut,
-            'rooms' => [['room_type_id' => $room->id, 'rate_plan_id' => $plan->id, 'room_count' => $rooms]],
-            'number_of_adults' => $adults,
-            'guests' => [['name' => trim($guest['guest_name']), 'phone' => $guest['guest_phone'] ?? null, 'is_primary' => true, 'guest_type' => 'adult']],
-            'special_requests' => filled($guest['special_requests'] ?? null) ? trim($guest['special_requests']) : null,
-            'payment_method' => $method,
-            'tax_amount' => $quote['gst'],
-            'convenience_fee' => $quote['fee'],
-            'amount_due' => $quote['total'],
-            'payment_expires_at' => $method === 'online' ? now()->addMinutes((int) HotelSettings::get('hotel.unpaid_hold_minutes', $scope)) : null,
-            'guest_gst_number' => filled($guest['gst_number'] ?? null) ? strtoupper(trim($guest['gst_number'])) : null,
-            'guest_business_name' => filled($guest['business_name'] ?? null) ? trim($guest['business_name']) : null,
-        ]);
+        // Coupon (step 2): online or wallet only (the engine refuses anything else), checked now and again under the
+        // coupon lock in the same transaction that takes the rooms.
+        $couponCode = trim((string) $couponCode);
+        $ctx = null;
+        if ($couponCode !== '') {
+            $ctx = $this->couponContext($hotel, $customer, $method, $couponCode, $quote['room_total']);
+            $pre = app(CouponService::class)->validate($ctx);
+            if (! $pre->eligible) {
+                throw new \RuntimeException($pre->message ?: PromotionResult::GENERIC_MESSAGE);
+            }
+            $quote = HotelPricing::withDiscount($quote, $pre->discountTotal);
+        }
 
-        // The quote's room price is the one the customer saw (weekend price included); the engine's own quote knows
-        // only the calendar and normal price, so align it.
-        $reservation->forceFill(['price_quoted' => $quote['room_total']])->save();
+        $reservation = DB::transaction(function () use ($hotel, $customer, $room, $plan, $checkIn, $checkOut, $rooms, $adults, $children, $guest, $method, $quote, $scope, $ctx, $couponCode) {
+            $reservation = $this->create->execute([
+                'franchise_id' => $hotel->franchise_id,
+                'zone_id' => $hotel->zone_id,
+                'accommodation_id' => $hotel->id,
+                'customer_id' => $customer->id,
+                'check_in_date' => $checkIn,
+                'check_out_date' => $checkOut,
+                'rooms' => [['room_type_id' => $room->id, 'rate_plan_id' => $plan->id, 'room_count' => $rooms]],
+                'number_of_adults' => $adults,
+                'guests' => [['name' => trim($guest['guest_name']), 'phone' => $guest['guest_phone'] ?? null, 'is_primary' => true, 'guest_type' => 'adult']],
+                'special_requests' => filled($guest['special_requests'] ?? null) ? trim($guest['special_requests']) : null,
+                'payment_method' => $method,
+                'tax_amount' => $quote['gst'],
+                'convenience_fee' => $quote['fee'],
+                'amount_due' => $quote['total'],
+                'payment_expires_at' => $method === 'online' ? now()->addMinutes((int) HotelSettings::get('hotel.unpaid_hold_minutes', $scope)) : null,
+                'guest_gst_number' => filled($guest['gst_number'] ?? null) ? strtoupper(trim($guest['gst_number'])) : null,
+                'guest_business_name' => filled($guest['business_name'] ?? null) ? trim($guest['business_name']) : null,
+            ]);
+
+            // The quote's room price is the one the customer saw (weekend price included); the engine's own quote knows
+            // only the calendar and normal price, so align it. price_quoted stays before the coupon (commission base).
+            $reservation->forceFill([
+                'price_quoted' => $quote['room_total'],
+                'number_of_children' => $children,
+                'coupon_code' => $ctx ? strtoupper($couponCode) : null,
+                'coupon_discount_amount' => $quote['discount'] ?? 0,
+            ])->save();
+
+            if ($ctx) {
+                [$result, $usage] = app(CouponService::class)->reserve($ctx);
+                if (round(min($result->discountTotal, $quote['room_total']), 2) !== round((float) $quote['discount'], 2)) {
+                    throw new \RuntimeException('This coupon changed while you were booking. Please try again.');
+                }
+                $usage->forceFill(['hotel_reservation_id' => $reservation->id])->save();
+            }
+
+            return $reservation;
+        });
 
         if ($method === 'wallet') {
             $this->afterPaid($reservation->fresh());
         }
 
         return $reservation->fresh();
+    }
+
+    /** What a coupon would take off this stay right now: [discount, message]. Nothing is reserved. */
+    public function previewCoupon(User $customer, Accommodation $hotel, float $roomTotal, string $method, string $code): array
+    {
+        $result = app(CouponService::class)->validate($this->couponContext($hotel, $customer, $method, trim($code), $roomTotal));
+
+        return $result->eligible
+            ? [round(min($result->discountTotal, $roomTotal), 2), null]
+            : [0.0, $result->message ?: PromotionResult::GENERIC_MESSAGE];
+    }
+
+    /** The coupon engine's view of a stay: one line, the room price (no service targets ever match). */
+    private function couponContext(Accommodation $hotel, User $customer, string $method, string $code, float $roomTotal): PromotionContext
+    {
+        $hotel->loadMissing('franchise');
+
+        return new PromotionContext(
+            module: Modules::HOTEL,
+            franchiseId: $hotel->franchise_id,
+            cityId: $hotel->franchise?->city_id,
+            zoneId: $hotel->zone_id,
+            customer: $customer,
+            paymentMethod: $method,
+            lines: [['line_ref' => 'h0', 'line_total' => round($roomTotal, 2), 'flash_applied' => false, 'entitlement_covered' => false]],
+            code: $code,
+            countryId: $hotel->franchise?->country_id,
+        );
     }
 
     /** @return array{payment_id: int, razorpay_order_id: string, razorpay_key_id: ?string, amount: int, currency: string} */

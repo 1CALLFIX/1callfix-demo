@@ -175,8 +175,11 @@ class HotelStayService
             return [0.0, 0.0];
         }
         $share = $charged / max(1, (int) $r->number_of_nights);
+        // The hotel's part is on its own room price; the guest is charged on what they paid for those nights (after the
+        // coupon, which 1CallFix funds).
         $room = round((float) $r->price_quoted * $share, 2);
-        $total = min($r->amountDue(), round($room + (float) $r->tax_amount * $share + (float) $r->convenience_fee, 2));
+        $paidRoom = round(((float) $r->price_quoted - (float) $r->coupon_discount_amount) * $share, 2);
+        $total = min($r->amountDue(), round($paidRoom + (float) $r->tax_amount * $share + (float) $r->convenience_fee, 2));
 
         return [$total, $room];
     }
