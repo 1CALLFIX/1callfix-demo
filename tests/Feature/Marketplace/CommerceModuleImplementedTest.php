@@ -21,8 +21,8 @@ class CommerceModuleImplementedTest extends TestCase
 
     public function test_commerce_is_built_but_off_until_an_admin_switches_it_on(): void
     {
-        // Food is built too since 2026-11-03 (same step, its own migration).
-        foreach ([Modules::COMMERCE, Modules::FOOD] as $code) {
+        // Food is built too since 2026-11-03, Hotel / Stay since 2026-11-12 (same step, their own migrations).
+        foreach ([Modules::COMMERCE, Modules::FOOD, Modules::HOTEL] as $code) {
             $this->assertTrue((bool) Module::where('code', $code)->value('is_implemented'), "{$code} is built");
         }
         foreach ([Modules::GROCERY, Modules::PHARMACY] as $code) {
@@ -31,7 +31,7 @@ class CommerceModuleImplementedTest extends TestCase
 
         [, , $franchise] = $this->makeFranchiseTree();
         $modules = app(ModuleActivationService::class);
-        foreach ([Modules::COMMERCE, Modules::FOOD] as $code) {
+        foreach ([Modules::COMMERCE, Modules::FOOD, Modules::HOTEL] as $code) {
             $this->assertFalse($modules->isActive($code, ['franchise_id' => $franchise->id]), "{$code} off by default");
             $this->assertFalse($modules->isActiveAnywhere($code));
 
