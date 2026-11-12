@@ -58,6 +58,41 @@
         </dl>
     </section>
 
+    {{-- ── super-app extras during the stay (Hotels H4) ── --}}
+    @if ($foodUrl)
+        <a href="{{ $foodUrl }}" wire:navigate class="mt-4 flex min-h-12 items-center justify-between rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-800 hover:border-blue-300" data-testid="hotel-food-link">
+            🍽 {{ $t('hotel.booking.food') }} <span aria-hidden="true">→</span>
+        </a>
+    @endif
+
+    {{-- ── verified-stay review (Hotels H4) ── --}}
+    @if ($canReview)
+        <form wire:submit="submitReview" class="mt-4 space-y-3 rounded-2xl border border-slate-200 bg-white p-4" data-testid="hotel-review-form">
+            <h2 class="text-base font-semibold">{{ $t('hotel.review.title') }}</h2>
+            <div class="flex gap-1" role="radiogroup" aria-label="{{ $t('hotel.review.overall') }}">
+                @for ($i = 1; $i <= 5; $i++)
+                    <button type="button" wire:click="$set('rating', {{ $i }})" aria-label="{{ $i }}" @class(['text-3xl', 'text-amber-400' => $rating >= $i, 'text-slate-300' => $rating < $i])>★</button>
+                @endfor
+            </div>
+            @error('rating') <p class="text-sm text-red-700">{{ $message }}</p> @enderror
+            <div class="grid grid-cols-2 gap-2 text-sm">
+                @foreach (\App\Services\Hotels\HotelReviewService::SCORES as $k)
+                    <label class="flex items-center justify-between gap-2 rounded-lg bg-slate-50 px-2 py-1">{{ $t('hotel.review.score.'.$k) }}
+                        <select wire:model="scores.{{ $k }}" class="rounded border-slate-300 text-sm"><option value="">–</option>@for ($i = 5; $i >= 1; $i--)<option value="{{ $i }}">{{ $i }}</option>@endfor</select>
+                    </label>
+                @endforeach
+            </div>
+            <textarea wire:model="reviewComment" rows="3" maxlength="1000" placeholder="{{ $t('hotel.review.comment_hint') }}" class="block w-full rounded-xl border border-slate-300 px-3 py-2 text-base"></textarea>
+            <button type="submit" class="inline-flex min-h-11 items-center rounded-xl bg-blue-600 px-4 font-semibold text-white">{{ $t('hotel.review.send') }}</button>
+        </form>
+    @elseif ($review)
+        <section class="mt-4 rounded-2xl border border-slate-200 bg-white p-4 text-sm">
+            <p class="font-semibold">{{ $t('hotel.review.yours') }}: <span class="text-amber-500">{{ str_repeat('★', (int) $review->rating) }}</span></p>
+            @if ($review->comment) <p class="mt-1 text-slate-700">{{ $review->comment }}</p> @endif
+            @if ($review->provider_reply) <p class="mt-2 rounded-lg bg-slate-50 px-3 py-2 text-slate-700"><span class="font-semibold">{{ $t('hotel.review.hotel_reply') }}:</span> {{ $review->provider_reply }}</p> @endif
+        </section>
+    @endif
+
     {{-- ── cancel: the exact refund is shown before the button ── --}}
     @if ($canCancel)
         <section class="mt-4 rounded-2xl border border-slate-200 bg-white p-4 text-sm">

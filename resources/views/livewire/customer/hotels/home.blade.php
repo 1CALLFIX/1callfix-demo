@@ -96,6 +96,11 @@
                         </div>
                     </div>
                 </a>
+                @if ($c['available'] && $c['quickBook'])
+                    <a href="{{ $c['quickBook'] }}" class="mt-2 flex min-h-11 items-center justify-between rounded-xl bg-blue-600 px-4 text-sm font-semibold text-white hover:bg-blue-700" data-testid="hotel-quick-book">
+                        <span>{{ $t('hotel.card.book_now') }} · {{ $c['quickRoom'] }}</span><span>{{ $c['perNightText'] }} →</span>
+                    </a>
+                @endif
             </li>
         @empty
             <li class="rounded-2xl border border-dashed border-slate-300 bg-white p-8 text-center text-sm text-slate-600">{{ $t('hotel.empty') }}</li>

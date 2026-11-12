@@ -34,6 +34,20 @@ class Dashboard extends Component
         ];
     }
 
+    /** @var array<int, string> reply typed per review */
+    public array $replies = [];
+
+    public string $notice = '';
+
+    public function reply(int $reviewId, \App\Services\Hotels\HotelReviewService $reviews): void
+    {
+        $this->validate(['replies.'.$reviewId => ['required', 'string', 'min:2', 'max:1000']], ['replies.*.required' => 'Write your reply first.']);
+        $review = \App\Models\Review::findOrFail($reviewId);
+        $reviews->reply($review, $this->hotel(), $this->replies[$reviewId]);
+        unset($this->replies[$reviewId]);
+        $this->notice = 'Reply posted. Guests see it under the review.';
+    }
+
     public function render()
     {
         $hotel = $this->hotel();
@@ -43,6 +57,8 @@ class Dashboard extends Component
         return view('livewire.hotel.dashboard', [
             'hotel' => $hotel,
             'checklist' => $checklist,
+            'reviews' => \App\Models\Review::whereHas('hotelReservation', fn ($q) => $q->where('accommodation_id', $hotel->id))->with('customer:id,name')->latest()->limit(10)->get(),
+            'reviewSummary' => \App\Services\Hotels\HotelReviewService::summary($hotel),
             'ready' => collect($checklist)->every('done'),
             'moduleLive' => app(ModuleActivationService::class)->isActive(Modules::HOTEL, $scope),
             'rooms' => $hotel->roomTypes()->where('is_active', true)->count(),

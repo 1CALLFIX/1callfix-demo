@@ -153,6 +153,9 @@ class Home extends Component
             'cancel' => $until === null ? SiteText::get('hotel.free_cancel_always')
                 : ($until->isFuture() ? SiteText::get('hotel.free_cancel_until', ['time' => $until->setTimezone($tzName)->format('j M, g:i A')]) : null),
             'rating' => $rating && $rating->n > 0 ? ['avg' => round((float) $rating->avg, 1), 'n' => (int) $rating->n] : null,
+            // Fastest booking (owner 2026-11-12: "just a few taps"): the cheapest free room straight to the booking page.
+            'quickBook' => $quote && $quote['taxes_known'] ? route('customer.hotels.book', ['hotel' => $h->id, 'room' => $best[0]->id, 'plan' => $best[1]->id, 'in' => $stay['in'], 'out' => $stay['out'], 'rooms' => $stay['rooms'], 'adults' => $stay['adults']]) : null,
+            'quickRoom' => $best ? $best[0]->name : null,
             'url' => route('customer.hotels.show', [$citySlug, $h->slug] + array_filter(['in' => $stay['in'], 'out' => $stay['out'], 'rooms' => $stay['rooms'] > 1 ? $stay['rooms'] : null, 'adults' => $stay['adults'] !== 2 ? $stay['adults'] : null])),
         ];
     }

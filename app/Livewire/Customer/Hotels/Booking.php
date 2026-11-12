@@ -28,6 +28,14 @@ class Booking extends Component
 
     public bool $confirmingCancel = false;
 
+    /** Hotels H4: verified-stay review. */
+    public int $rating = 0;
+
+    /** @var array<string, int> */
+    public array $scores = [];
+
+    public string $reviewComment = '';
+
     public function mount(string $code): void
     {
         $this->code = $code;
@@ -72,6 +80,19 @@ class Booking extends Component
         $this->confirmingCancel = false;
     }
 
+    public function submitReview(\App\Services\Hotels\HotelReviewService $reviews): void
+    {
+        $this->reset('error', 'notice');
+        $this->validate(['rating' => ['required', 'integer', 'between:1,5'], 'reviewComment' => ['nullable', 'string', 'max:1000']],
+            ['rating.between' => SiteText::get('hotel.review.need_stars')]);
+        try {
+            $reviews->submit($this->reservation(), auth()->user(), $this->rating, $this->scores, $this->reviewComment);
+            $this->notice = SiteText::get('hotel.review.thanks');
+        } catch (\RuntimeException $e) {
+            $this->error = $e->getMessage();
+        }
+    }
+
     public function render()
     {
         $r = $this->reservation();
@@ -93,6 +114,10 @@ class Booking extends Component
             'money' => $money,
             'minutesLeft' => $awaiting ? max(1, (int) ceil(now()->diffInSeconds($r->payment_expires_at) / 60)) : null,
             'poll' => in_array($state, ['confirming', 'unpaid', 'waiting_hotel'], true),
+            'canReview' => app(\App\Services\Hotels\HotelReviewService::class)->canReview($r, auth()->user()),
+            'review' => \App\Models\Review::where('hotel_reservation_id', $r->id)->first(),
+            'foodUrl' => ($city = $r->accommodation->franchise?->city) && in_array($r->status, ['confirmed', 'checked_in'], true) && \App\Support\Seo\CityModules::foodLiveIn($city)
+                ? route('customer.food.home', $city->slug) : null,
             'canCancel' => in_array($r->status, ['pending', 'confirmed'], true) && $r->payment_status === 'paid',
             'charge' => in_array($r->status, ['pending', 'confirmed'], true) && $r->payment_status === 'paid' ? app(\App\Services\Hotels\HotelStayService::class)->chargeFor($r)[0] : 0.0,
         ])->layout('components.layouts.customer', ['title' => SiteText::get('hotel.booking.title', ['code' => $r->code]), 'indexable' => false]);

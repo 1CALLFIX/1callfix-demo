@@ -97,6 +97,9 @@ class Show extends Component
             ]),
             'mapUrl' => 'https://www.google.com/maps/search/?api=1&query='.$hotel->lat.','.$hotel->lng,
             'schema' => $this->schema($hotel, $photos, $header),
+            'reviewSummary' => \App\Services\Hotels\HotelReviewService::summary($hotel),
+            'reviews' => \App\Models\Review::whereHas('hotelReservation', fn ($q) => $q->where('accommodation_id', $hotel->id))
+                ->with('customer:id,name')->latest()->limit(10)->get(),
         ])->layout('components.layouts.customer', [
             'title' => $hotel->name.' · '.$this->hotelCity->name,
             'metaDescription' => \Illuminate\Support\Str::limit(trim(($hotel->accommodationType?->name ?? '').' in '.$this->hotelCity->name.'. '.$hotel->description), 155),

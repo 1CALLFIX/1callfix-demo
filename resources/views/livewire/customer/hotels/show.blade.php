@@ -93,6 +93,30 @@
         @endforelse
     </ul>
 
+    {{-- ── verified-stay reviews (Hotels H4) ── --}}
+    @if ($reviewSummary['n'] > 0)
+        <section class="mt-6 rounded-2xl border border-slate-200 bg-white p-4" data-testid="hotel-reviews">
+            <h2 class="text-lg font-semibold">★ {{ $reviewSummary['avg'] }} · {{ $t('hotel.review.count', ['n' => $reviewSummary['n']]) }}</h2>
+            <p class="text-xs text-slate-500">{{ $t('hotel.review.verified') }}</p>
+            @if ($reviewSummary['scores'] !== [])
+                <dl class="mt-3 grid grid-cols-2 gap-2 text-sm sm:grid-cols-4">
+                    @foreach ($reviewSummary['scores'] as $k => $v)
+                        <div class="rounded-lg bg-slate-50 px-2 py-1"><dt class="text-slate-600">{{ $t('hotel.review.score.'.$k) }}</dt><dd class="font-semibold">{{ $v }}/5</dd></div>
+                    @endforeach
+                </dl>
+            @endif
+            <ul class="mt-3 divide-y divide-slate-100">
+                @foreach ($reviews as $rv)
+                    <li class="py-3 text-sm">
+                        <p><span class="font-semibold">{{ \Illuminate\Support\Str::before((string) $rv->customer?->name, ' ') ?: 'Guest' }}</span> <span class="text-amber-500">{{ str_repeat('★', (int) $rv->rating) }}</span> <span class="text-xs text-slate-500">{{ $rv->created_at->format('M Y') }}</span></p>
+                        @if ($rv->comment) <p class="mt-1 text-slate-700">{{ $rv->comment }}</p> @endif
+                        @if ($rv->provider_reply) <p class="mt-2 rounded-lg bg-slate-50 px-3 py-2 text-slate-700"><span class="font-semibold">{{ $t('hotel.review.hotel_reply') }}:</span> {{ $rv->provider_reply }}</p> @endif
+                    </li>
+                @endforeach
+            </ul>
+        </section>
+    @endif
+
     {{-- ── about ── --}}
     <div class="mt-6 grid gap-4 sm:grid-cols-2">
         @if ($hotel->description)

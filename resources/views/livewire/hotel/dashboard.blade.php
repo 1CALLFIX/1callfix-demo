@@ -54,4 +54,27 @@
             @endforeach
         </ul>
     </div>
+
+    {{-- ── reviews from verified stays (Hotels H4) ── --}}
+    <div class="rounded-2xl border border-slate-200 bg-white p-4" data-testid="hotel-reviews">
+        <h2 class="text-sm font-semibold uppercase text-slate-500">Reviews {{ $reviewSummary['n'] ? '· ★ '.$reviewSummary['avg'].' from '.$reviewSummary['n'] : '' }}</h2>
+        @if ($notice) <p role="status" class="mt-2 rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-800">{{ $notice }}</p> @endif
+        @forelse ($reviews as $rv)
+            <div class="mt-3 border-t border-slate-100 pt-3 text-sm">
+                <p><span class="font-semibold">{{ $rv->customer?->name ?? 'Guest' }}</span> <span class="text-amber-500">{{ str_repeat('★', (int) $rv->rating) }}</span></p>
+                @if ($rv->comment) <p class="mt-1 text-slate-700">{{ $rv->comment }}</p> @endif
+                @if ($rv->provider_reply)
+                    <p class="mt-2 rounded-lg bg-slate-50 px-3 py-2 text-slate-700"><span class="font-semibold">Your reply:</span> {{ $rv->provider_reply }}</p>
+                @else
+                    <form wire:submit="reply({{ $rv->id }})" class="mt-2 flex gap-2">
+                        <input type="text" wire:model="replies.{{ $rv->id }}" maxlength="1000" placeholder="Thank the guest or answer the problem" class="min-h-11 flex-1 rounded-lg border border-slate-300 px-3 text-base">
+                        <button type="submit" class="min-h-11 rounded-lg bg-blue-600 px-3 text-sm font-semibold text-white">Reply</button>
+                    </form>
+                    @error('replies.'.$rv->id) <p class="mt-1 text-sm text-red-700">{{ $message }}</p> @enderror
+                @endif
+            </div>
+        @empty
+            <p class="mt-2 text-sm text-slate-600">No reviews yet. Guests can review after they check out.</p>
+        @endforelse
+    </div>
 </div>
