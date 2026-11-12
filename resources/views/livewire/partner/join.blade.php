@@ -89,6 +89,10 @@
     <div class="mt-6 rounded-2xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900">
         <p class="font-semibold">Need a hand?</p>
         <p class="mt-0.5">Our team can call you and set everything up with you.</p>
-        <button type="button" wire:click="helpMe" wire:loading.attr="disabled" class="mt-3 inline-flex min-h-11 items-center rounded-lg bg-blue-600 px-4 font-semibold text-white hover:bg-blue-700" data-testid="help-me-join">Call me, help me go live</button>
+        @if ($helpNotice)
+            <p role="status" class="mt-3 rounded-lg bg-white px-3 py-2 font-semibold text-emerald-800" data-testid="help-me-sent">&check; {{ $helpNotice }}</p>
+        @else
+            <button type="button" wire:click="helpMe" wire:loading.attr="disabled" class="mt-3 inline-flex min-h-11 items-center rounded-lg bg-blue-600 px-4 font-semibold text-white hover:bg-blue-700" data-testid="help-me-join">Call me, help me go live</button>
+        @endif
     </div>
 </div>

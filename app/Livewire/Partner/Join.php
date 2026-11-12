@@ -26,6 +26,9 @@ class Join extends Component
 
     public string $error = '';
 
+    /** Shown right under the "help me" button (it sits at the bottom of the page). */
+    public string $helpNotice = '';
+
     public function mount(): void
     {
         abort_unless($this->provider() || $this->rider(), 404);
@@ -126,7 +129,7 @@ class Join extends Component
             // A converted lead asking again is a fresh request for the team to call.
             $lead->forceFill(['status' => \App\Models\PartnerLead::STATUS_NEW, 'source' => 'help_me_join'])->save();
         }
-        $this->notice = 'Our team will call you on '.$u->phone.' to help you go live.';
+        $this->helpNotice = 'Thank you. Our team will call you on '.$u->phone.' to help you go live.';
     }
 
     /** "3. Set up" is done once customers would see something: a room with a price, a product or dish, or services. */

@@ -14,9 +14,9 @@
     @if ($notice) <div role="status" class="rounded bg-green-50 px-3 py-2 text-sm text-green-800">{{ $notice }}</div> @endif
 
     <x-ui.card>
-        <form wire:submit="save" class="space-y-3" data-testid="partner-documents">
+        <form wire:submit="save" wire:key="pd-form-{{ $type }}" class="space-y-3" data-testid="partner-documents">
             @forelse ($rows as $id => $row)
-                <div class="grid items-center gap-3 border-b border-gray-100 pb-3 md:grid-cols-[1fr_auto_auto]">
+                <div wire:key="pd-row-{{ $type }}-{{ $id }}" class="grid items-center gap-3 border-b border-gray-100 pb-3 md:grid-cols-[1fr_auto_auto]">
                     <div>
                         <label class="sr-only" for="pd-{{ $id }}">Document name</label>
                         <input id="pd-{{ $id }}" type="text" wire:model="rows.{{ $id }}.label" class="w-full rounded border px-3 py-2 text-sm">

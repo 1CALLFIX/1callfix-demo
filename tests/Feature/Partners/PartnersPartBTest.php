@@ -124,7 +124,7 @@ class PartnersPartBTest extends TestCase
         $hotel = $this->hotelOwner();
 
         Livewire::actingAs($hotel->user)->test(Join::class)
-            ->call('helpMe')->assertSee('Our team will call you')
+            ->call('helpMe')->assertSee('Our team will call you')->assertSee('data-testid="help-me-sent"', false)
             ->call('helpMe');
 
         $lead = PartnerLead::sole();
