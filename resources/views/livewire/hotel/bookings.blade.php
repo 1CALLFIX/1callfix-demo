@@ -37,7 +37,7 @@
                 <div class="flex items-start justify-between gap-3">
                     <div>
                         <p class="text-base font-semibold">{{ $guest?->name ?? 'Guest' }} <span class="text-xs font-normal text-slate-500">· {{ $r->code }}</span></p>
-                        <p class="text-sm text-slate-700">{{ $r->check_in_date->format('D j M') }} → {{ $r->check_out_date->format('D j M') }} · {{ $r->number_of_nights }} night(s) · {{ $r->number_of_adults }} adult(s)</p>
+                        <p class="text-sm text-slate-700">{{ $r->check_in_date->format('D j M') }} → {{ $r->check_out_date->format('D j M') }} · {{ $r->number_of_nights }} {{ \Illuminate\Support\Str::plural('night', $r->number_of_nights) }} · {{ $r->number_of_adults }} {{ \Illuminate\Support\Str::plural('adult', $r->number_of_adults) }}</p>
                         @foreach ($r->rooms as $line)
                             <p class="text-sm text-slate-600">{{ $line->room_count }} × {{ $line->roomType?->name }} · {{ \App\Livewire\Hotel\Rooms::MEAL_PLANS[$line->ratePlan?->meal_plan] ?? 'Room only' }}</p>
                         @endforeach

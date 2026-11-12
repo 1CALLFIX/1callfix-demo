@@ -67,7 +67,8 @@ class AdminCancelHotelReservationAction
 
         if ($reservation->customer) {
             $channels = ChannelResolver::resolve(['zone_id' => $reservation->zone_id, 'franchise_id' => $reservation->franchise_id]);
-            $reservation->customer->notify(new HotelReservationStatusNotification('cancelled', $reservation, $channels));
+            // A message that cannot be sent (mail server down) is logged and never stops the booking (2026-11-12).
+            rescue(fn () => $reservation->customer->notify(new HotelReservationStatusNotification('cancelled', $reservation, $channels)));
         }
 
         return $reservation->fresh();

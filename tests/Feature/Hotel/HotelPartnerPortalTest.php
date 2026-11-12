@@ -234,7 +234,9 @@ class HotelPartnerPortalTest extends TestCase
         $hotel = Accommodation::where('provider_id', $user->providerProfile->id)->firstOrFail();
         $this->assertSame('approved', $hotel->approval_status);
         $this->assertTrue($hotel->is_active);
-        $this->assertSame(2, $hotel->roomTypes()->count());
+        $this->assertSame(3, $hotel->roomTypes()->count());
+        $this->assertTrue($hotel->is_featured);
+        $this->assertGreaterThanOrEqual(5, $hotel->photoCount());
 
         Livewire::test(\App\Livewire\Provider\Auth\Login::class)
             ->set('identifier', $user->email)->set('password', 'Test-pass-123')->call('login')

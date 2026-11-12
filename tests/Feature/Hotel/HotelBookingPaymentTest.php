@@ -140,6 +140,19 @@ class HotelBookingPaymentTest extends TestCase
         $this->assertEquals(800.0, app(WalletService::class)->balance($this->customer->fresh()));
     }
 
+    /** 2026-11-12 walk-through: the mail server was unreachable and the wallet-paid booking stayed unconfirmed. */
+    public function test_a_message_that_cannot_be_sent_never_stops_the_booking(): void
+    {
+        Setting::set('payment.wallet_enabled', '1');
+        app(WalletService::class)->credit($this->customer, 5000, reason: 'top-up', ref: 'test-topup-'.Str::random(6));
+        \Illuminate\Support\Facades\Notification::shouldReceive('send')->andThrow(new \RuntimeException('Connection to mail server timed out.'));
+
+        $r = $this->book('wallet');
+
+        $this->assertSame('confirmed', $r->status);
+        $this->assertNotNull($r->check_in_code);
+    }
+
     public function test_unpaid_booking_expires_frees_the_rooms_and_a_late_payment_is_refunded_in_full(): void
     {
         $r = $this->book();

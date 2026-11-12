@@ -43,6 +43,7 @@ class Show extends Component
             return;
         }
         $this->hotelSlug = $hotelSlug;
+        [$this->checkIn, $this->checkOut] = $this->stayDates($this->checkIn, $this->checkOut);
         abort_unless(self::publicHotelsIn($this->hotelCity)->where('slug', $hotelSlug)->exists(), 404);
     }
 
@@ -68,7 +69,7 @@ class Show extends Component
                     'meal' => SiteText::get('hotel.meal.'.$plan->meal_plan),
                     'perNight' => $money($q['per_night_with_tax']),
                     'lines' => [
-                        [SiteText::get('hotel.show.room_price').' · '.SiteText::get('hotel.show.stay', ['rooms' => $roomsWanted, 'nights' => $nights]), $money($q['room_total'])],
+                        [SiteText::get('hotel.show.room_price').' · '.SiteText::get('hotel.show.stay', ['rooms' => SiteText::count('hotel.rooms', $roomsWanted), 'nights' => SiteText::count('hotel.nights', $nights)]), $money($q['room_total'])],
                         ...($q['gst'] > 0 ? [[SiteText::get('hotel.show.gst'), $money($q['gst'])]] : []),
                         ...($q['fee'] > 0 ? [[SiteText::get('hotel.show.fee'), $money($q['fee'])]] : []),
                     ],

@@ -84,7 +84,8 @@ class HotelStayService
     {
         $owner = $r->accommodation?->provider?->user;
         if ($owner) {
-            $owner->notify(new HotelNewBookingNotification($r, ChannelResolver::resolve(array_filter(['zone_id' => $r->zone_id, 'franchise_id' => $r->franchise_id])), $mustAccept));
+            // A message that cannot be sent (mail server down) is logged and never stops the booking (2026-11-12).
+            rescue(fn () => $owner->notify(new HotelNewBookingNotification($r, ChannelResolver::resolve(array_filter(['zone_id' => $r->zone_id, 'franchise_id' => $r->franchise_id])), $mustAccept)));
         }
     }
 
@@ -233,7 +234,8 @@ class HotelStayService
             app(CommissionService::class)->applyForHotelReservation($r->fresh());
         }
         if ($r->customer) {
-            $r->customer->notify(new HotelReservationStatusNotification('cancelled', $r, ChannelResolver::resolve(array_filter(['zone_id' => $r->zone_id, 'franchise_id' => $r->franchise_id]))));
+            // A message that cannot be sent (mail server down) is logged and never stops the booking (2026-11-12).
+            rescue(fn () => $r->customer->notify(new HotelReservationStatusNotification('cancelled', $r, ChannelResolver::resolve(array_filter(['zone_id' => $r->zone_id, 'franchise_id' => $r->franchise_id])))));
         }
 
         return $r->fresh();

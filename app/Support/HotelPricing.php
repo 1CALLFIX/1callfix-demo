@@ -36,6 +36,7 @@ final class HotelPricing
         $rows = HotelRoomAvailability::where('hotel_room_type_id', $room->id)->whereIn('date', $dates)->get()
             ->keyBy(fn ($r) => Carbon::parse($r->date)->toDateString());
         $weekend = array_map(fn ($d) => ucfirst(strtolower(substr($d, 0, 3))), HotelSettings::lines('hotel.weekend_nights'));
+        $bands = HotelSettings::gstBands(); // read once per quote, not once per night
 
         $nights = [];
         $roomTotal = 0.0;
@@ -47,7 +48,7 @@ final class HotelPricing
             $row = $rows->get($date);
             $price = $row?->price_override !== null ? (float) $row->price_override
                 : ($plan->weekend_rate !== null && in_array(Carbon::parse($date)->format('D'), $weekend, true) ? (float) $plan->weekend_rate : (float) $plan->nightly_rate);
-            $percent = HotelSettings::gstPercentFor($price);
+            $percent = HotelSettings::gstPercentFor($price, $bands);
             $taxesKnown = $taxesKnown && $percent !== null;
             $roomTotal += $price * $rooms;
             $gst += $percent !== null ? round($price * $percent / 100, 2) * $rooms : 0;
@@ -59,7 +60,8 @@ final class HotelPricing
 
         // GST is the customer's only when 1CallFix collects it; otherwise the hotel's price already carries it.
         $collect = HotelSettings::on('hotel.platform_collects_gst');
-        $gst = $collect ? round($gst, 2) : 0.0;
+        // GST rounded to the nearest rupee (CGST Act s.170), so the card, the hotel page and the payment show one number.
+        $gst = $collect ? round($gst) : 0.0;
         $fee = (float) (HotelSettings::get('hotel.convenience_fee', $scope) ?? 0);
         $total = round($roomTotal + $gst + $fee, 2);
         $count = max(1, count($nights));

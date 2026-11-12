@@ -195,7 +195,7 @@ Portion",
     /** A one-per-line list setting (units, choice names) as a clean array. */
     public static function lines(string $key): array
     {
-        return array_values(array_unique(array_filter(array_map('trim', preg_split('/\R/', (string) self::get($key))), fn ($v) => $v !== '')));
+        return array_values(array_unique(array_filter(array_map('trim', preg_split('/\R/', (string) static::get($key))), fn ($v) => $v !== '')));
     }
 
     /** The first blocked word (Shop Settings) found in this text, or null. Case-insensitive. */

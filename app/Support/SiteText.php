@@ -722,7 +722,11 @@ final class SiteText
         'hotel.filter.up_to' => ['hotel', 'Filter: up to a price (:amount)', 'Up to :amount', ':amount వరకు'],
         'hotel.card.per_night' => ['hotel', 'Card: price note, taxes included', 'a night, taxes included', 'ఒక రాత్రికి, పన్నులతో'],
         'hotel.card.plus_taxes' => ['hotel', 'Card: price note while GST is not set', 'a night + taxes', 'ఒక రాత్రికి + పన్నులు'],
-        'hotel.card.total' => ['hotel', 'Card: whole stay (:amount, :nights)', ':amount for :nights nights', ':nights రాత్రులకు :amount'],
+        'hotel.card.total' => ['hotel', 'Card: whole stay (:amount, :nights = "2 nights")', ':amount for :nights', ':nights కి :amount'],
+        'hotel.nights_one' => ['hotel', 'One night (:n)', ':n night', ':n రాత్రి'],
+        'hotel.nights_many' => ['hotel', 'Several nights (:n)', ':n nights', ':n రాత్రులు'],
+        'hotel.rooms_one' => ['hotel', 'One room (:n)', ':n room', ':n గది'],
+        'hotel.rooms_many' => ['hotel', 'Several rooms (:n)', ':n rooms', ':n గదులు'],
         'hotel.card.left' => ['hotel', 'Card: few rooms left (:count)', 'Only :count left', 'మిగిలినవి :count మాత్రమే'],
         'hotel.card.full' => ['hotel', 'Card: no room on these dates', 'Full on these dates', 'ఈ తేదీల్లో ఖాళీ లేదు'],
         'hotel.card.featured' => ['hotel', 'Card: featured badge', 'Recommended', 'సిఫార్సు'],
@@ -739,7 +743,7 @@ final class SiteText
         'hotel.show.fits' => ['hotel', 'Room: who fits (:adults)', 'Up to :adults adults', ':adults పెద్దల వరకు'],
         'hotel.show.book' => ['hotel', 'Room: book button', 'Book', 'బుక్ చేయండి'],
         'hotel.show.booking_soon' => ['hotel', 'Room: booking not open yet', 'Booking opens soon', 'బుకింగ్ త్వరలో'],
-        'hotel.show.stay' => ['hotel', 'Room: stay line (:rooms, :nights)', ':rooms room · :nights nights', ':rooms గది · :nights రాత్రులు'],
+        'hotel.show.stay' => ['hotel', 'Room: stay line (:rooms = "1 room", :nights = "2 nights")', ':rooms · :nights', ':rooms · :nights'],
         'hotel.show.room_price' => ['hotel', 'Price box: rooms', 'Room price', 'గది ధర'],
         'hotel.show.gst' => ['hotel', 'Price box: GST', 'Taxes (GST)', 'పన్నులు (GST)'],
         'hotel.show.fee' => ['hotel', 'Price box: convenience fee', 'Convenience fee', 'సౌకర్య రుసుము'],
@@ -798,7 +802,9 @@ final class SiteText
         'hotel.review.thanks' => ['hotel', 'Review: thank-you message', 'Thank you! Your review helps other guests.', 'ధన్యవాదాలు! మీ సమీక్ష ఇతర అతిథులకు సహాయపడుతుంది.'],
         'hotel.review.yours' => ['hotel', 'Review: your review heading', 'Your review', 'మీ సమీక్ష'],
         'hotel.review.hotel_reply' => ['hotel', 'Review: hotel reply label', 'Hotel replied', 'హోటల్ జవాబు'],
-        'hotel.review.count' => ['hotel', 'Review: number of reviews (:n)', ':n reviews', ':n సమీక్షలు'],
+        'hotel.reviews_one' => ['hotel', 'One review (:n)', ':n review', ':n సమీక్ష'],
+        'hotel.reviews_many' => ['hotel', 'Several reviews (:n)', ':n reviews', ':n సమీక్షలు'],
+        'hotel.booking.total_paid' => ['hotel', 'My booking: total once paid', 'Total paid', 'చెల్లించిన మొత్తం'],
         'hotel.review.verified' => ['hotel', 'Review: verified note', 'Only guests who stayed can review.', 'బస చేసిన అతిథులు మాత్రమే సమీక్షించగలరు.'],
         'hotel.review.score.cleanliness' => ['hotel', 'Review score: cleanliness', 'Cleanliness', 'శుభ్రత'],
         'hotel.review.score.staff' => ['hotel', 'Review score: staff', 'Staff', 'సిబ్బంది'],
@@ -904,6 +910,12 @@ final class SiteText
     }
 
     /** The text for $key in the current language, with :name placeholders replaced. Unknown keys return the key. */
+    /** Hotels: "1 night" / "2 nights", "1 room" / "3 rooms" in the current language. */
+    public static function count(string $base, int $n): string
+    {
+        return self::get($base.($n === 1 ? '_one' : '_many'), ['n' => $n]);
+    }
+
     public static function get(string $key, array $replace = []): string
     {
         $entry = self::TEXTS[$key] ?? null;

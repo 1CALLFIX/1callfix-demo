@@ -11,7 +11,7 @@
         <p class="text-sm text-slate-600">{{ $room->name }} · {{ $t('hotel.meal.'.$plan->meal_plan) }}</p>
         <p class="mt-2 text-sm text-slate-800">
             {{ \Illuminate\Support\Carbon::parse($checkIn)->format('D, j M') }} → {{ \Illuminate\Support\Carbon::parse($checkOut)->format('D, j M') }}
-            · {{ $t('hotel.show.stay', ['rooms' => $rooms, 'nights' => $nights]) }} · {{ $adults }} {{ $t('hotel.search.guests') }}
+            · {{ $t('hotel.show.stay', ['rooms' => \App\Support\SiteText::count('hotel.rooms', $rooms), 'nights' => \App\Support\SiteText::count('hotel.nights', $nights)]) }} · {{ $adults }} {{ $t('hotel.search.guests') }}
         </p>
         <p class="mt-1 text-sm font-medium text-emerald-700">{{ $cancel }}</p>
 

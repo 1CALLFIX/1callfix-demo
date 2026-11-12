@@ -51,7 +51,10 @@ class Home extends Component
 
     public function mount(string $city): void
     {
-        $this->enterHotelCity($city);
+        if ($this->enterHotelCity($city)) {
+            // Show the dates the prices are for (tonight → tomorrow when the link has none).
+            [$this->checkIn, $this->checkOut] = $this->stayDates($this->checkIn, $this->checkOut);
+        }
     }
 
     public function render()
@@ -148,7 +151,7 @@ class Home extends Component
             'perNightText' => $quote ? $money($quote['per_night_with_tax']) : null,
             'priceNote' => $quote && $quote['taxes_known'] ? SiteText::get('hotel.card.per_night') : SiteText::get('hotel.card.plus_taxes'),
             'total' => $quote['total'] ?? null,
-            'totalText' => $quote ? SiteText::get('hotel.card.total', ['amount' => $money($quote['total']), 'nights' => $nights]) : null,
+            'totalText' => $quote ? SiteText::get('hotel.card.total', ['amount' => $money($quote['total']), 'nights' => SiteText::count('hotel.nights', $nights)]) : null,
             'left' => $quote && $quote['left'] <= 3 ? SiteText::get('hotel.card.left', ['count' => $quote['left']]) : null,
             'cancel' => $until === null ? SiteText::get('hotel.free_cancel_always')
                 : ($until->isFuture() ? SiteText::get('hotel.free_cancel_until', ['time' => $until->setTimezone($tzName)->format('j M, g:i A')]) : null),

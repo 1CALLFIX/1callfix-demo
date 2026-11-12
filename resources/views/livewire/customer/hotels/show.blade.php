@@ -96,7 +96,7 @@
     {{-- ── verified-stay reviews (Hotels H4) ── --}}
     @if ($reviewSummary['n'] > 0)
         <section class="mt-6 rounded-2xl border border-slate-200 bg-white p-4" data-testid="hotel-reviews">
-            <h2 class="text-lg font-semibold">★ {{ $reviewSummary['avg'] }} · {{ $t('hotel.review.count', ['n' => $reviewSummary['n']]) }}</h2>
+            <h2 class="text-lg font-semibold">★ {{ $reviewSummary['avg'] }} · {{ \App\Support\SiteText::count('hotel.reviews', $reviewSummary['n']) }}</h2>
             <p class="text-xs text-slate-500">{{ $t('hotel.review.verified') }}</p>
             @if ($reviewSummary['scores'] !== [])
                 <dl class="mt-3 grid grid-cols-2 gap-2 text-sm sm:grid-cols-4">

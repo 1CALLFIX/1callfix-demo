@@ -54,7 +54,7 @@
             <div class="flex justify-between"><dt>{{ $t('hotel.show.room_price') }}</dt><dd>{{ $money((float) $r->price_quoted) }}</dd></div>
             @if ((float) $r->tax_amount > 0) <div class="flex justify-between"><dt>{{ $t('hotel.show.gst') }}</dt><dd>{{ $money((float) $r->tax_amount) }}</dd></div> @endif
             @if ((float) $r->convenience_fee > 0) <div class="flex justify-between"><dt>{{ $t('hotel.show.fee') }}</dt><dd>{{ $money((float) $r->convenience_fee) }}</dd></div> @endif
-            <div class="flex justify-between border-t border-slate-200 pt-1 font-bold"><dt>{{ $t('hotel.show.total') }}</dt><dd>{{ $money($r->amountDue()) }}</dd></div>
+            <div class="flex justify-between border-t border-slate-200 pt-1 font-bold"><dt>{{ $r->payment_status === 'pending' ? $t('hotel.show.total') : $t('hotel.booking.total_paid') }}</dt><dd>{{ $money($r->amountDue()) }}</dd></div>
         </dl>
     </section>
 

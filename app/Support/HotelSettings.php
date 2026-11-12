@@ -121,9 +121,9 @@ class HotelSettings extends MarketplaceSettings
      * GST % for one night at this price, from the Super Admin bands. Null when the bands are not set or do not
      * cover the price: booking is refused (fail closed).
      */
-    public static function gstPercentFor(float $nightlyPrice): ?float
+    public static function gstPercentFor(float $nightlyPrice, ?array $bands = null): ?float
     {
-        foreach (self::gstBands() as [$upTo, $percent]) {
+        foreach ($bands ?? self::gstBands() as [$upTo, $percent]) {
             if ($upTo === null || $nightlyPrice <= $upTo) {
                 return $percent;
             }

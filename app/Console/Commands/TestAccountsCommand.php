@@ -346,15 +346,26 @@ class TestAccountsCommand extends Command
         }
     }
 
-    /** The test hotel's rooms (name => [rooms of this kind, adults, price per night, meal plan]). */
+    /** Free-to-use hotel photos (Unsplash licence; their CDN is meant to be linked directly). */
+    private const UNSPLASH = 'https://images.unsplash.com/';
+
+    private const PHOTO = '?w=1600&q=80&auto=format&fit=crop';
+
+    /**
+     * The test hotel's rooms, one per option to try (name => [what it tests, rooms of this kind, adults, children,
+     * beds, normal price, weekend price, meal plan, photos]).
+     */
     private const TEST_HOTEL_ROOMS = [
-        'Test Standard Non-AC' => [3, 2, 999, 'room_only'],
-        'Test Deluxe AC' => [2, 3, 1799, 'breakfast'],
+        'Test Standard Non-AC' => ['Room only, ₹999 (0% GST band), ₹1,249 on weekend nights. One night closed on the calendar 14 days ahead.', 3, 2, 1, '1 queen bed', 999, 1249, 'room_only', ['photo-1582719478250-c89cae4dc85b', 'photo-1618773928121-c32242e63f39']],
+        'Test Deluxe AC' => ['Breakfast included, ₹1,799 (5% GST), ₹2,249 on weekends, festival price ₹2,499 seven days ahead.', 2, 3, 1, '1 king bed', 1799, 2249, 'breakfast', ['photo-1631049307264-da0ec9d70304', 'photo-1611892440504-42a792e24d32']],
+        'Test Family Suite' => ['All meals, 4 adults + 2 children, ₹3,499 (5% GST), ₹3,949 on weekends. Only 1 such room: "Only 1 left".', 1, 4, 2, '1 king + 2 single beds', 3499, 3949, 'full_board', ['photo-1590490360182-c33d57733427', 'photo-1578683010236-d716f9a3f461']],
     ];
 
     /**
-     * Hotels H1: the test hotel — approved and active, pinned at the zone centre, with TEST_HOTEL_ROOMS. Re-running
-     * create resets these rooms and prices; other rooms and the calendar are left alone.
+     * Hotels H1/H4: the test hotel with every option filled in (owner 2026-11-12: "a test hotel with all options and
+     * beautiful pics") — approved, featured, photos, facilities, house rules, GST number, three rooms (room only /
+     * breakfast / all meals) with weekend prices, a festival price and a closed night. Re-running create resets all of
+     * this; bookings are left alone.
      */
     private function makeTestHotel(User $user, Franchise $franchise, Zone $zone): void
     {
@@ -366,22 +377,38 @@ class TestAccountsCommand extends Command
         $hotel->fill([
             'accommodation_type_id' => $hotel->accommodation_type_id ?: AccommodationType::where('slug', 'hotel')->value('id') ?? AccommodationType::orderBy('id')->value('id'),
             'franchise_id' => $franchise->id, 'zone_id' => $zone->id,
-            'name' => $hotel->name ?: 'Test Hotel', 'address_line' => $hotel->address_line ?: 'Test address, '.$zone->name,
-            'description' => $hotel->description ?: 'Test hotel for walk-throughs. Not shown to customers.',
-            'lat' => $hotel->lat ?? $zone->center_lat ?? 0, 'lng' => $hotel->lng ?? $zone->center_lng ?? 0,
-            'contact_phone' => $user->phone, 'is_active' => true,
+            'name' => 'Test Hotel', 'address_line' => $hotel->address_line ?: 'Test address, '.$zone->name,
+            'description' => "Test hotel for walk-throughs, with every option filled in.\nPool, AC rooms with hot water, Wi-Fi and a 24-hour front desk. Five minutes from the railway station.",
+            'policies' => "Photo ID needed at check-in for every adult.\nNo smoking in rooms. Pets on request.",
+            // Its own pin a little off the zone centre, so "location pinned" is ticked like a real hotel's.
+            'lat' => (float) ($zone->center_lat ?? 0) + 0.002, 'lng' => (float) ($zone->center_lng ?? 0) + 0.002,
+            'contact_phone' => $user->phone, 'contact_email' => $user->email, 'gst_number' => '37AAAAA0000A1Z5',
+            'check_in_time_start' => '12:00:00', 'check_out_time' => '11:00:00',
+            'cover_image' => self::UNSPLASH.'photo-1564501049412-61c2a3083791'.self::PHOTO,
+            'photos' => array_map(fn ($id) => self::UNSPLASH.$id.self::PHOTO, ['photo-1542314831-068cd1dbfeeb', 'photo-1571896349842-33c89424de2d', 'photo-1551882547-ff40c63fe5fa', 'photo-1584132967334-10e028bd69f7']),
+            'facilities' => \App\Support\HotelSettings::lines('hotel.amenities'),
+            'is_featured' => true, 'needs_acceptance' => null, 'is_active' => true,
             'approval_status' => 'approved', 'approved_at' => $hotel->approved_at ?? now(), 'rejection_reason' => null,
         ])->save();
         if ($hotel->trashed()) {
             $hotel->restore();
         }
-        foreach (self::TEST_HOTEL_ROOMS as $name => [$inventory, $adults, $price, $meal]) {
+        foreach (self::TEST_HOTEL_ROOMS as $name => [$about, $inventory, $adults, $children, $beds, $price, $weekend, $meal, $photos]) {
+            $urls = array_map(fn ($id) => self::UNSPLASH.$id.self::PHOTO, $photos);
             $room = HotelRoomType::updateOrCreate(['accommodation_id' => $hotel->id, 'name' => $name], [
-                'max_adults' => $adults, 'max_children' => 1, 'total_inventory' => $inventory, 'is_active' => true,
+                'description' => $about, 'max_adults' => $adults, 'max_children' => $children, 'bed_configuration' => $beds,
+                'total_inventory' => $inventory, 'cover_image' => $urls[0], 'photos' => $urls, 'is_active' => true,
             ]);
             HotelRatePlan::updateOrCreate(['hotel_room_type_id' => $room->id, 'name' => 'Standard'], [
-                'nightly_rate' => $price, 'meal_plan' => $meal, 'is_active' => true,
+                'nightly_rate' => $price, 'weekend_rate' => $weekend, 'meal_plan' => $meal, 'is_active' => true,
             ]);
+            // Calendar options to try: a festival price on the Deluxe room, a closed night on the Standard room.
+            if ($name === 'Test Deluxe AC') {
+                \App\Models\HotelRoomAvailability::updateOrCreate(['hotel_room_type_id' => $room->id, 'date' => now()->addDays(7)->toDateString()], ['price_override' => 2499]);
+            }
+            if ($name === 'Test Standard Non-AC') {
+                \App\Models\HotelRoomAvailability::updateOrCreate(['hotel_room_type_id' => $room->id, 'date' => now()->addDays(14)->toDateString()], ['is_available' => false, 'reason' => 'blocked']);
+            }
         }
     }
 
