@@ -47,6 +47,7 @@ final class HomeCards
         return match ($card) {
             'shop' => 35,
             'food' => 37,
+            'hotels' => 38, // Hotels (2026-11-12)
             'parcel' => 39,
             default => ($index + 1) * 10,
         };

@@ -252,6 +252,25 @@ class Home extends Component
             }
         }
 
+        // Hotels card (owner 2026-11-12: "here in this section hotel is missing"): bookable hotels in the visitor's city,
+        // featured first, each with its photo.
+        if ($foodCity && \App\Support\Seo\CityModules::hotelsLiveIn($foodCity) && \App\Support\HomeCards::cardShown('hotels')) {
+            $hotels = \App\Livewire\Customer\Hotels\Home::publicHotelsIn($foodCity)->orderByDesc('is_featured')->orderBy('name')->limit($n)->get();
+            if ($hotels->isNotEmpty()) {
+                $count = \App\Livewire\Customer\Hotels\Home::publicHotelsIn($foodCity)->count();
+                $home = route('customer.hotels.home', $foodCity->slug);
+                $cards[] = ['key' => 'hotels', 'order' => \App\Support\HomeCards::cardOrder('hotels'), 'title' => $text('home.card.hotels.title'),
+                    'url' => $home, 'line_url' => $home,
+                    'tiles' => $hotels->map(fn ($h) => ['name' => $h->name, 'url' => route('customer.hotels.show', [$foodCity->slug, $h->slug]),
+                        'image' => $h->cover_image_url, 'tint' => null, 'new' => $isNew($h)])->values()->all(),
+                    'line' => \App\Support\HomeCards::line('hotels') ?? match (true) {
+                        $count === 1 => $text('home.card.hotels.live_one'),
+                        $count > 1 => $text('home.card.hotels.live', ['count' => $count]),
+                        default => $text('home.card.hotels.line'),
+                    }];
+            }
+        }
+
         usort($cards, fn ($a, $b) => [$a['order'], $a['key']] <=> [$b['order'], $b['key']]);
 
         return $cards;

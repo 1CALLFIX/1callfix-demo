@@ -169,6 +169,31 @@ class HomeLayoutCardsTest extends TestCase
         $this->assertNotContains('food', $this->cardsOrder($this->get('/')->getContent()));
     }
 
+    /** Owner 2026-11-12: "here in this section hotel is missing". */
+    public function test_a_hotels_card_shows_bookable_hotels_where_hotels_is_on(): void
+    {
+        \App\Models\Module::where('code', \App\Support\Modules::HOTEL)->update(['is_implemented' => true]);
+        $type = \App\Models\AccommodationType::firstOrCreate(['slug' => 'hotel'], ['name' => 'Hotel', 'is_active' => true]);
+        $owner = \App\Models\Provider::create([
+            'user_id' => \App\Models\User::create(['uuid' => (string) Str::uuid(), 'name' => 'Owner', 'phone' => '9'.fake()->numerify('#########'), 'role' => 'provider', 'status' => 'active'])->id,
+            'franchise_id' => $this->franchise->id, 'zone_id' => $this->zone->id, 'provider_type' => 'independent', 'kyc_status' => 'approved', 'is_active' => true,
+        ]);
+        $hotel = fn (string $name, string $status) => \App\Models\Accommodation::create([
+            'provider_id' => $owner->id, 'accommodation_type_id' => $type->id, 'franchise_id' => $this->franchise->id, 'zone_id' => $this->zone->id,
+            'name' => $name, 'address_line' => 'Road', 'lat' => 1, 'lng' => 1, 'is_active' => true, 'approval_status' => $status,
+        ]);
+        $hotel('Sea View Lodge', 'approved');
+        $hotel('Pending Inn', 'pending');
+
+        $this->assertNotContains('hotels', $this->cardsOrder($this->get('/')->getContent()), 'Hotels off: no card.');
+
+        app(\App\Services\ModuleActivationService::class)->setActive(\App\Support\Modules::HOTEL, 'franchise', $this->franchise->id, true);
+        request()->attributes->replace([]);
+        $html = $this->get('/')->assertOk()->assertSee('Hotels near you')->assertSee('Sea View Lodge')
+            ->assertSee('/hotels/sea-view-lodge', false)->assertDontSee('Pending Inn')->assertSee('1 hotel to book, in 3 taps')->getContent();
+        $this->assertContains('hotels', $this->cardsOrder($html));
+    }
+
     public function test_the_2026_11_05_order_puts_the_banner_first_and_the_business_cards_after_most_booked_and_offers(): void
     {
         $migration = require database_path('migrations/2026_11_05_100000_home_order_modules_after_offers.php');
