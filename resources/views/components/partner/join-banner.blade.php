@@ -1,5 +1,5 @@
 {{-- Join in 2 minutes (owner 2026-11-12): while a partner still has required documents to upload, every portal home
-     shows one line pointing to "Finish joining". Nothing shows once they are all in. --}}
+     shows one line pointing to "Go live". Nothing shows once they are all in. --}}
 @php
     $user = auth()->user();
     $kyc = app(\App\Services\Kyc\KycDocumentService::class);
@@ -15,7 +15,7 @@
 @endphp
 @if ($missing > 0)
     <a href="{{ route('partner.join') }}" wire:navigate {{ $attributes->merge(['class' => 'flex min-h-12 items-center justify-between gap-3 rounded-2xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-900 hover:bg-amber-100']) }} data-testid="join-banner">
-        <span>Finish joining: upload {{ $missing }} {{ \Illuminate\Support\Str::plural('document', $missing) }} so we can approve you.</span>
+        <span>Go live: upload {{ $missing }} {{ \Illuminate\Support\Str::plural('document', $missing) }} so we can approve you.</span>
         <span aria-hidden="true">→</span>
     </a>
 @endif

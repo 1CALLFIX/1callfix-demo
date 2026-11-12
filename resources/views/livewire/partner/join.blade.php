@@ -5,7 +5,7 @@
     $docLabel = ['pending' => ['Checking', 'bg-amber-100 text-amber-800'], 'approved' => ['Approved', 'bg-emerald-100 text-emerald-800'], 'rejected' => ['Please upload again', 'bg-red-100 text-red-800']];
 ?>
 <div class="mx-auto max-w-2xl px-4 py-6 sm:py-10" data-testid="partner-join">
-    <h1 class="text-2xl font-bold tracking-tight">Finish joining</h1>
+    <h1 class="text-2xl font-bold tracking-tight">Go live</h1>
     <p class="mt-1 text-sm text-slate-600">A few steps, in any order. Customers see you once we approve you.</p>
 
     @if ($notice) <div role="status" class="mt-4 rounded-lg bg-emerald-50 px-3 py-2.5 text-sm text-emerald-800">{{ $notice }}</div> @endif

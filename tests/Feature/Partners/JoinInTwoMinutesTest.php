@@ -23,7 +23,7 @@ use Tests\TestCase;
 /**
  * Join in 2 minutes (owner 2026-11-12: "every business ... should feel very easy to join apart from all of the
  * aggregators"): apply with a mobile code, name, business and address — no password, no documents; signed straight in
- * to "Finish joining" (documents any time, set-up, approval); every partner sign-in works with a mobile code. Approval
+ * to "Go live" (documents any time, set-up, approval); every partner sign-in works with a mobile code. Approval
  * still needs every required document. Password and documents-at-sign-up are Super Admin switches.
  */
 class JoinInTwoMinutesTest extends TestCase
@@ -69,7 +69,7 @@ class JoinInTwoMinutesTest extends TestCase
             ->assertSee('No documents needed to apply');
 
         $this->apply($phone)->assertHasNoErrors()->assertSet('submitted', true)
-            ->assertSee('Finish joining')->assertSee(route('partner.join'), false);
+            ->assertSee('Go live')->assertSee(route('partner.join'), false);
 
         $user = User::where('phone', $phone)->sole();
         $this->assertNull($user->password, 'No password: they sign in with a mobile code.');

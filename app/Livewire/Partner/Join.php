@@ -9,7 +9,7 @@ use Livewire\Component;
 use Livewire\WithFileUploads;
 
 /**
- * "Finish joining" (owner 2026-11-12: "every business should feel very easy to join"). A partner applies in about two
+ * "Go live" (owner 2026-11-12: "every business should feel very easy to join"). A partner applies in about two
  * minutes (mobile code, name, business, address); this page is the one checklist for the rest, for every kind of
  * partner: 1. applied ✓  2. documents (upload here, any time)  3. set up (menu / products / rooms / services)
  * 4. approval. Approval still needs every required document (ReviewProviderKycAction / ReviewFieldWorkerKycAction);
@@ -126,6 +126,6 @@ class Join extends Component
             'links' => $this->setUpLinks(),
             'allDocs' => collect($groups)->every(fn ($g) => $g['missing'] === 0),
             'approved' => collect($groups)->every(fn ($g) => $g['status'] === 'approved'),
-        ])->layout('components.layouts.provider', ['title' => 'Finish joining']);
+        ])->layout('components.layouts.provider', ['title' => 'Go live']);
     }
 }

@@ -30,12 +30,12 @@
                     <span>Application received.</span>
                 </div>
                 <p>
-                    You are in. Next, finish joining: upload your documents and
+                    You are in. Next, go live: upload your documents and
                     {{ $isHotel ? 'add your rooms, prices and photos' : ($seller ? ($isRestaurant ? 'add your menu and opening hours' : 'add your products') : ($rider ? 'get ready for your first delivery' : 'check the services you offer')) }}.
                     We review and contact you on <span class="font-medium">{{ $verifiedPhoneE164 }}</span>; customers see you once you are approved.
                 </p>
                 <p class="text-slate-600">Next time, sign in with this mobile number. We send you a code — no password needed.</p>
-                <a href="{{ route('partner.join') }}" wire:navigate class="flex min-h-12 items-center justify-center rounded-lg bg-blue-600 px-4 text-base font-semibold text-white hover:bg-blue-700" data-testid="finish-joining">Finish joining →</a>
+                <a href="{{ route('partner.join') }}" wire:navigate class="flex min-h-12 items-center justify-center rounded-lg bg-blue-600 px-4 text-base font-semibold text-white hover:bg-blue-700" data-testid="finish-joining">Go live →</a>
                 @if ($outOfCoverage)
                     <p class="rounded-lg bg-amber-50 px-3 py-2.5 text-amber-800">
                         We don’t have full coverage in your area yet — an operator will place your
