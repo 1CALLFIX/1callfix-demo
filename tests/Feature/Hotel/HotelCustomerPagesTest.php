@@ -110,6 +110,20 @@ class HotelCustomerPagesTest extends TestCase
             ->assertSee('"@type":"Hotel"', false);
     }
 
+    /** Owner 2026-11-12: "no where showing hotel even after activated on modules" — door, city hub and sitemap. */
+    public function test_hotels_has_a_door_a_hub_entry_and_sitemap_entries_only_when_on(): void
+    {
+        [$hotel] = $this->hotel(['name' => 'Grand Nellore']);
+        $this->assertStringNotContainsString('data-door="hotels"', $this->get('/nellore')->getContent(), 'Off: no door.');
+
+        $this->activateHotelFor($this->franchise);
+        \Illuminate\Support\Facades\Cache::flush();
+        $this->get('/nellore')->assertOk()->assertSee('data-door="hotels"', false)->assertSee('1 hotel to book');
+        $xml = $this->get('/sitemap-nellore.xml')->assertOk()->getContent();
+        $this->assertStringContainsString('<loc>https://1callfix.com/nellore/hotels</loc>', $xml);
+        $this->assertStringContainsString('<loc>https://1callfix.com/nellore/hotels/'.$hotel->slug.'</loc>', $xml);
+    }
+
     public function test_a_pending_hotels_page_is_not_found(): void
     {
         $this->activateHotelFor($this->franchise);

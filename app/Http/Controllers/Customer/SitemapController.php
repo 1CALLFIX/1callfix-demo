@@ -181,6 +181,19 @@ class SitemapController extends Controller
             }
         }
 
+        // Hotels (2026-11-12): /{city}/hotels and each real (never a test) hotel, once Hotels is on in the city.
+        if (\App\Support\Seo\CityModules::hotelsLiveIn($city)) {
+            $hotels = \App\Models\Accommodation::query()->bookable()->whereHas('franchise', fn ($q) => $q->where('city_id', $city->id))
+                ->whereDoesntHave('provider.user', fn ($q) => $q->where('email', 'like', '%'.\App\Console\Commands\TestAccountsCommand::DOMAIN))
+                ->get(['slug', 'updated_at']);
+            if ($hotels->isNotEmpty()) {
+                $add($this->abs('/'.$city->slug.'/hotels'), null, '0.8');
+                foreach ($hotels as $hotel) {
+                    $add($this->abs('/'.$city->slug.'/hotels/'.$hotel->slug), $hotel->updated_at, '0.7');
+                }
+            }
+        }
+
         return $this->urlset($urls);
     }
 

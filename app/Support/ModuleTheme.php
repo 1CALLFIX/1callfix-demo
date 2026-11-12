@@ -17,6 +17,7 @@ class ModuleTheme
         'food' => '#E23744',     // tomato red
         'shop' => '#16A34A',     // green
         'parcel' => '#7C3AED',   // purple
+        'hotels' => '#0284C7',   // sky blue (Hotels 2026-11-12)
     ];
 
     public static function key(string $module): string
@@ -62,6 +63,7 @@ class ModuleTheme
 
         return match (true) {
             str_starts_with($route, 'customer.food.') => 'food',
+            str_starts_with($route, 'customer.hotels.') => 'hotels',
             str_starts_with($route, 'customer.shop.') => 'shop',
             str_starts_with($route, 'customer.parcels.'), $route === 'customer.city.parcel' => 'parcel',
             str_starts_with($route, 'customer.services.'), str_starts_with($route, 'customer.categories.'),

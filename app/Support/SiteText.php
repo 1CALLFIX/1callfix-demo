@@ -860,6 +860,10 @@ final class SiteText
         'home.door.food.line' => ['home', 'Food door: line', 'Order from restaurants near you', 'దగ్గరి రెస్టారెంట్ల నుండి ఆర్డర్ చేయండి'],
         'home.door.food.live' => ['home', 'Food door: live line (:count restaurants open now)', ':count restaurants open now', 'ఇప్పుడు :count రెస్టారెంట్లు తెరిచి ఉన్నాయి'],
         'home.door.food.live_one' => ['home', 'Food door: live line, one restaurant open', '1 restaurant open now', 'ఇప్పుడు 1 రెస్టారెంట్ తెరిచి ఉంది'],
+        'home.door.hotels.title' => ['home', 'Hotels door: title', 'Hotels', 'హోటళ్లు'],
+        'home.door.hotels.line' => ['home', 'Hotels door: line', 'Book hotels and lodges near you', 'దగ్గరి హోటళ్లు, లాడ్జ్‌లు బుక్ చేయండి'],
+        'home.door.hotels.live' => ['home', 'Hotels door: live line (:count hotels)', ':count hotels to book', 'బుక్ చేయడానికి :count హోటళ్లు'],
+        'home.door.hotels.live_one' => ['home', 'Hotels door: live line, one hotel', '1 hotel to book', 'బుక్ చేయడానికి 1 హోటల్'],
     ];
 
     /** Old Homepage & sign-up setting key => entry here (that field stays the English value). */

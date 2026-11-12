@@ -53,6 +53,12 @@ final class CityModules
     }
 
     /** Food F3: /{city}/food. */
+    /** Hotels (2026-11-12): the Hotels door, the city hub and the sitemap. */
+    public static function hotelsLiveIn(City $city): bool
+    {
+        return self::liveIn($city, Modules::HOTEL);
+    }
+
     public static function foodLiveIn(City $city): bool
     {
         return self::liveIn($city, Modules::FOOD);

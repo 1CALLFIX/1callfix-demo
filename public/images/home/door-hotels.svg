@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" role="img" aria-label="Hotels">
+  <!-- 1CallFix's own drawing (2026-11-12): default Hotels door on the homepage — a bed with a pillow under a key tag. -->
+  <rect x="6" y="6" width="108" height="108" rx="26" fill="#E0F2FE"/>
+  <rect x="24" y="52" width="72" height="22" rx="6" fill="#0EA5E9"/>
+  <rect x="24" y="40" width="10" height="44" rx="4" fill="#0369A1"/>
+  <rect x="86" y="58" width="10" height="26" rx="4" fill="#0369A1"/>
+  <rect x="36" y="44" width="22" height="12" rx="5" fill="#FFFFFF"/>
+  <rect x="24" y="72" width="72" height="6" rx="3" fill="#0369A1"/>
+  <circle cx="82" cy="32" r="8" fill="none" stroke="#0369A1" stroke-width="4"/>
+  <path d="M76 38l-10 10M70 44l4 4" fill="none" stroke="#0369A1" stroke-width="4" stroke-linecap="round"/>
+</svg>
