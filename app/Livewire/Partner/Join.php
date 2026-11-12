@@ -126,6 +126,19 @@ class Join extends Component
             'links' => $this->setUpLinks(),
             'allDocs' => collect($groups)->every(fn ($g) => $g['missing'] === 0),
             'approved' => collect($groups)->every(fn ($g) => $g['status'] === 'approved'),
-        ])->layout('components.layouts.provider', ['title' => 'Go live']);
+        ])->layout($this->portalLayout(), ['title' => 'Go live']);
+    }
+
+    /** The partner's own portal frame (hotel, shop / restaurant, rider), never another role's tabs. */
+    private function portalLayout(): string
+    {
+        $u = auth()->user();
+
+        return match (true) {
+            $u->holdsPartnerRole('hotel') && ! $u->holdsPartnerRole('service') => 'components.layouts.hotel',
+            $u->holdsPartnerRole('commerce') && ! $u->holdsPartnerRole('service') => 'components.layouts.seller',
+            $u->holdsPartnerRole('parcel') && ! $u->providerProfile()->exists() => 'components.layouts.rider',
+            default => 'components.layouts.provider',
+        };
     }
 }

@@ -41,7 +41,7 @@
                                         <span wire:loading wire:target="files.{{ $g['key'] }}.{{ $req->document_type }}">Uploading…</span>
                                         <input type="file" accept=".jpg,.jpeg,.png,.pdf" capture="environment" wire:model="files.{{ $g['key'] }}.{{ $req->document_type }}" class="sr-only">
                                     </label>
-                                    <x-ui.image-size use="kyc_document" class="w-full" />
+                                    <x-ui.image-size use="kyc_document" class="w-full text-xs text-slate-500" />
                                 @endif
                             </li>
                             @error('files.'.$g['key'].'.'.$req->document_type) <li class="pb-2 text-sm text-red-700">{{ $message }}</li> @enderror
