@@ -206,7 +206,7 @@ class CreateMarketplaceOrderAction
             $this->lockAndDecrementStock($lines, $isFood);
 
             $order = MarketplaceOrder::create([
-                'code' => $this->orderCode->generateForMarketplaceOrder($store->franchise),
+                'code' => $this->orderCode->generateForMarketplaceOrder($store->franchise, $store->module),
                 'franchise_id' => $store->franchise_id,
                 'zone_id' => $store->zone_id,
                 'customer_id' => $customer->id,

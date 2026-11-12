@@ -149,6 +149,15 @@ class FoodOrderFlowTest extends TestCase
 
     // ── charges from Food Settings ──────────────────────────────────────
 
+    /** Owner 2026-11-12: a food order number says FOD, never the shop's MKT. */
+    public function test_a_food_order_number_is_tagged_fod_not_mkt(): void
+    {
+        $order = $this->order();
+
+        $this->assertMatchesRegularExpression('/^[A-Z0-9]+-FOD-\d{4}-\d{8}$/', $order->code);
+        $this->assertSame('MKT', \App\Services\OrderCodeService::marketplaceSegment(\App\Support\Modules::COMMERCE));
+    }
+
     public function test_packaging_and_gst_follow_food_settings_and_gst_stays_with_the_platform(): void
     {
         $this->restaurant->forceFill(['packaging_charge' => 30])->save();

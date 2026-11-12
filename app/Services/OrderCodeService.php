@@ -70,11 +70,26 @@ class OrderCodeService
      * dedicated counter FOR its own vertical, just applied to a family of
      * four instead of one.
      */
-    public function generateForMarketplaceOrder(Franchise $franchise): string
+    public function generateForMarketplaceOrder(Franchise $franchise, ?string $module = null): string
     {
         $sequenceNumber = $this->incrementSequence('marketplace_order_sequences', $franchise);
 
-        return sprintf('%s-MKT-%s-%08d', strtoupper($franchise->code), now()->format('dm'), $sequenceNumber);
+        return sprintf('%s-%s-%s-%08d', strtoupper($franchise->code), self::marketplaceSegment($module), now()->format('dm'), $sequenceNumber);
+    }
+
+    /**
+     * Owner 2026-11-12: a food order must not look like a shop order. Each business on the shared order table gets
+     * its own code word (shop keeps MKT); the one counter stays shared, so every code is still unique. Codes already
+     * given are never rewritten (old SMS and links keep working).
+     */
+    public static function marketplaceSegment(?string $module): string
+    {
+        return match ($module) {
+            \App\Support\Modules::FOOD => 'FOD',
+            \App\Support\Modules::GROCERY => 'GRO',
+            \App\Support\Modules::PHARMACY => 'PHR',
+            default => 'MKT',
+        };
     }
 
     /**
