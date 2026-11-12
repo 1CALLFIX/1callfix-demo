@@ -126,6 +126,12 @@ ScheduleRunTracker::track(Schedule::command('parcel:expire-unpaid'), 'parcel:exp
     ->everyFiveMinutes()
     ->withoutOverlapping(10);
 
+// Hotels H2b — no payment, no booking: cancels online hotel bookings not paid within hotel.unpaid_hold_minutes
+// (default 15) and frees their rooms; a late capture is refunded in full.
+ScheduleRunTracker::track(Schedule::command('hotels:expire-unpaid'), 'hotels:expire-unpaid')
+    ->everyMinute()
+    ->withoutOverlapping(5);
+
 // Parcel Stage 1 — offers scheduled parcels to riders parcel.schedule_dispatch_lead_minutes before pickup.
 ScheduleRunTracker::track(Schedule::command('parcel:release-scheduled'), 'parcel:release-scheduled')
     ->everyMinute()

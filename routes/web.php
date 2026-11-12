@@ -209,6 +209,10 @@ Route::middleware(['auth', \App\Http\Middleware\EnsureAccountNotSuspended::class
     Route::get('/parcel/packs', \App\Livewire\Customer\Parcel\Packs::class)->name('customer.parcels.packs');
     Route::get('/parcels/{parcelOrder}', \App\Livewire\Customer\Parcel\Show::class)->name('customer.parcels.show');
 
+    // Hotels H2b (2026-11-12): book a room (guest details + pay) and the customer's own hotel bookings.
+    Route::get('/hotels/book', \App\Livewire\Customer\Hotels\Book::class)->name('customer.hotels.book');
+    Route::get('/hotels/bookings/{code}', \App\Livewire\Customer\Hotels\Booking::class)->where('code', '[A-Za-z0-9-]+')->name('customer.hotels.booking');
+
     // E-commerce Phase 2: the shop bag, checkout (one shop per order) and the customer's shop orders. Browsing is
     // public under /{city}/shop; a customer's own orders stay reachable even if Commerce is switched off later.
     // One cart (owner 2026-10-30): the shop bag lives in /cart now; the old link moves there for good, query kept.

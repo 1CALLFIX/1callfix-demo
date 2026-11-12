@@ -66,6 +66,10 @@ class HotelSettings extends MarketplaceSettings
             'group' => 'Payment', 'label' => 'Allow "Pay at hotel"', 'type' => 'switch', 'default' => '0',
             'help' => 'Off (default): full payment online (Razorpay or wallet) when booking. On: customers may pay at the hotel instead. Pay-at-hotel bookings never get a coupon, offer or wallet credit (online-only rule).',
         ],
+        'hotel.unpaid_hold_minutes' => [
+            'group' => 'Payment', 'label' => 'Hold rooms for an unpaid online booking', 'type' => 'int', 'unit' => 'minutes', 'min' => 5, 'max' => 60,
+            'default' => '15', 'help' => 'No payment, no booking: if the customer does not finish paying in this time, the booking is cancelled and the rooms are free again. A payment that still arrives later is refunded in full.',
+        ],
         'hotel.convenience_fee' => [
             'group' => 'Payment', 'label' => 'Convenience fee per booking', 'type' => 'decimal', 'unit' => '₹', 'min' => 0, 'max' => 2000,
             'default' => null, 'help' => 'Added to the customer\'s total and kept by 1CallFix. Blank = no fee.',

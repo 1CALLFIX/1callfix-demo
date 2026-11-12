@@ -77,8 +77,10 @@
                             <div class="flex justify-between gap-3 border-t border-slate-200 pt-1 font-semibold"><dt>{{ $t('hotel.show.total') }}</dt><dd>{{ $rc['total'] }}</dd></div>
                         </dl>
                         @if ($rc['left']) <p class="mt-1 text-right text-xs font-semibold text-red-600">{{ $rc['left'] }}</p> @endif
-                        {{-- H2b adds the Book button here (booking + payment page). --}}
-                        @if (! $rc['quote']['available'])
+                        @if ($rc['bookable'])
+                            <a href="{{ route('customer.hotels.book', ['hotel' => $hotel->id, 'room' => $rc['room']->id, 'plan' => $rc['plan']->id, 'in' => $in, 'out' => $out, 'rooms' => $rc['quote']['rooms'], 'adults' => $adults]) }}"
+                               class="mt-3 flex min-h-11 items-center justify-center rounded-xl bg-blue-600 px-4 font-semibold text-white hover:bg-blue-700" data-testid="hotel-book">{{ $t('hotel.show.book') }}</a>
+                        @elseif (! $rc['quote']['available'])
                             <p class="mt-3 text-center text-sm font-semibold text-slate-500">{{ $t('hotel.card.full') }}</p>
                         @elseif (! $rc['quote']['taxes_known'])
                             <p class="mt-3 text-center text-sm font-semibold text-slate-500">{{ $t('hotel.show.booking_soon') }}</p>

@@ -56,9 +56,10 @@ trait InteractsWithHotelCity
     protected function stayDates(string $checkIn, string $checkOut): array
     {
         $today = Carbon::parse(app(\App\Services\TimezoneResolver::class)->format(now(), $this->hotelCity->franchises()->first(), 'Y-m-d'));
-        $in = rescue(fn () => Carbon::parse($checkIn), null, false);
+        // Whole dates only (a blank or broken date is "not given"): never two "now"s a moment apart.
+        $in = preg_match('/^\d{4}-\d{2}-\d{2}$/', $checkIn) === 1 ? rescue(fn () => Carbon::parse($checkIn)->startOfDay(), null, false) : null;
         $in = $in && $in->gte($today) && $in->lte($today->copy()->addDays((int) \App\Support\HotelSettings::get('hotel.booking_window_days'))) ? $in : $today;
-        $out = rescue(fn () => Carbon::parse($checkOut), null, false);
+        $out = preg_match('/^\d{4}-\d{2}-\d{2}$/', $checkOut) === 1 ? rescue(fn () => Carbon::parse($checkOut)->startOfDay(), null, false) : null;
         $max = (int) \App\Support\HotelSettings::get('hotel.max_nights');
         $out = $out && $out->gt($in) && $in->diffInDays($out) <= $max ? $out : $in->copy()->addDay();
 

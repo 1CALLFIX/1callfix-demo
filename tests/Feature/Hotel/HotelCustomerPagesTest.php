@@ -104,6 +104,8 @@ class HotelCustomerPagesTest extends TestCase
 
         $this->get('/nellore/hotels/'.$hotel->slug)->assertOk()
             ->assertSee('Grand Nellore')->assertSee($room->name)->assertSee('Free Wi-Fi')
+            // No dates in the link = tonight, one night (₹2,000 + 5% GST), never a 0-night ₹0 stay.
+            ->assertSee('₹2,100')->assertDontSee('0 nights')
             ->assertSee('data-item-actions', false)
             ->assertSee('"@type":"Hotel"', false);
     }

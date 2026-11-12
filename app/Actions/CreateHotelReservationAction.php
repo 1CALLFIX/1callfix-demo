@@ -126,6 +126,13 @@ class CreateHotelReservationAction
                 'price_quoted' => $totalPrice,
                 'payment_method' => $paymentMethod,
                 'special_requests' => $data['special_requests'] ?? null,
+                // Hotels H2b: set by HotelBookingService from the HotelPricing quote (absent for older callers).
+                'tax_amount' => (float) ($data['tax_amount'] ?? 0),
+                'convenience_fee' => (float) ($data['convenience_fee'] ?? 0),
+                'amount_due' => $data['amount_due'] ?? null,
+                'payment_expires_at' => $data['payment_expires_at'] ?? null,
+                'guest_gst_number' => $data['guest_gst_number'] ?? null,
+                'guest_business_name' => $data['guest_business_name'] ?? null,
             ]);
 
             foreach ($resolved as $line) {
@@ -218,7 +225,7 @@ class CreateHotelReservationAction
 
         app(WalletService::class)->debit(
             $reservation->customer,
-            (float) $reservation->price_quoted,
+            $reservation->amountDue(),
             reason: "Payment for reservation {$reservation->code}",
             ref: "hotel_reservation:{$reservation->id}:wallet-payment"
         );
@@ -226,7 +233,7 @@ class CreateHotelReservationAction
         Payment::create([
             'hotel_reservation_id' => $reservation->id,
             'purpose' => 'hotel_reservation',
-            'amount' => $reservation->price_quoted,
+            'amount' => $reservation->amountDue(),
             'gateway' => 'wallet',
             'status' => 'captured',
             'captured_at' => now(),

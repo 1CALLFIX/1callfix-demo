@@ -28,12 +28,15 @@ class HotelReservation extends Model implements Orderable
         'status', 'price_quoted', 'price_final', 'payment_status', 'payment_method',
         'cancellation_reason_id', 'cancellation_note', 'cancellation_fee',
         'special_requests', 'confirmed_at', 'checked_in_at', 'checked_out_at', 'completed_at',
+        // Hotels H2b: taxes, fee and what the customer pays; unpaid hold; business guest's GST invoice.
+        'tax_amount', 'convenience_fee', 'amount_due', 'payment_expires_at', 'guest_gst_number', 'guest_business_name',
     ];
 
     protected $casts = [
         'check_in_date' => 'date',
         'check_out_date' => 'date',
         'confirmed_at' => 'datetime',
+        'payment_expires_at' => 'datetime',
         'checked_in_at' => 'datetime',
         'checked_out_at' => 'datetime',
         'completed_at' => 'datetime',
@@ -64,5 +67,13 @@ class HotelReservation extends Model implements Orderable
     public function orderZoneId(): ?int { return $this->zone_id; }
     public function orderCustomerId(): int { return $this->customer_id; }
     public function orderTotalPrice(): float { return (float) ($this->price_final ?? $this->price_quoted); }
+
+    /** Hotels H2b: what the customer pays (room price + GST + fee); older rows had only the room price. */
+    public function amountDue(): float { return (float) ($this->amount_due ?? $this->price_quoted); }
+
+    public function isAwaitingOnlinePayment(): bool
+    {
+        return $this->status === 'pending' && $this->payment_status === 'pending' && $this->payment_method === 'online';
+    }
     public function orderStatus(): string { return $this->status; }
 }
