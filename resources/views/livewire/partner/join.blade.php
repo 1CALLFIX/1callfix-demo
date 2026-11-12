@@ -8,6 +8,14 @@
     <h1 class="text-2xl font-bold tracking-tight">Go live</h1>
     <p class="mt-1 text-sm text-slate-600">A few steps, in any order. Customers see you once we approve you.</p>
 
+    {{-- Progress (partners part B) --}}
+    <div class="mt-4" data-testid="join-progress">
+        <div class="flex items-center justify-between text-sm font-medium text-slate-700"><span>{{ $done }} of 4 done</span>@if ($done === 4)<span class="text-emerald-700">You are live</span>@endif</div>
+        <div class="mt-1.5 h-2.5 w-full overflow-hidden rounded-full bg-slate-200" role="progressbar" aria-valuemin="0" aria-valuemax="4" aria-valuenow="{{ $done }}" aria-label="Go live progress">
+            <div class="h-full rounded-full bg-emerald-600 transition-all" style="width: {{ $done * 25 }}%"></div>
+        </div>
+    </div>
+
     @if ($notice) <div role="status" class="mt-4 rounded-lg bg-emerald-50 px-3 py-2.5 text-sm text-emerald-800">{{ $notice }}</div> @endif
     @if ($error) <div role="alert" class="mt-4 rounded-lg bg-red-50 px-3 py-2.5 text-sm text-red-800">{{ $error }}</div> @endif
 
@@ -52,7 +60,7 @@
         </li>
 
         <li class="flex gap-3 rounded-2xl border border-slate-200 bg-white p-4">
-            {!! $step(false, 3) !!}
+            {!! $step($setUp, 3) !!}
             <div class="min-w-0 flex-1">
                 <p class="font-semibold">Set up what customers will see</p>
                 <div class="mt-2 flex flex-col gap-2">
@@ -76,4 +84,11 @@
             </div>
         </li>
     </ol>
+
+    {{-- Help me join (partners part B): the team calls and does it with them. --}}
+    <div class="mt-6 rounded-2xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900">
+        <p class="font-semibold">Need a hand?</p>
+        <p class="mt-0.5">Our team can call you and set everything up with you.</p>
+        <button type="button" wire:click="helpMe" wire:loading.attr="disabled" class="mt-3 inline-flex min-h-11 items-center rounded-lg bg-blue-600 px-4 font-semibold text-white hover:bg-blue-700" data-testid="help-me-join">Call me, help me go live</button>
+    </div>
 </div>

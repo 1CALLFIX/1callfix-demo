@@ -43,6 +43,7 @@ final class PartnerPageData
                 'code' => $code,
                 'label' => $wording[$code]['label'],
                 'blurb' => $wording[$code]['blurb'],
+                'terms' => $wording[$code]['terms'],
                 'module' => P::ROLE_MODULE_NAMES[$code] ?? '',
                 'live' => $live,
                 // Sign-ups stay owner-controlled: restaurants and sellers only when Super Admin opens them.

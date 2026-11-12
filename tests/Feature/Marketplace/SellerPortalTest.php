@@ -119,7 +119,9 @@ class SellerPortalTest extends TestCase
         $this->assertSame($user->id, $store->provider->user_id);
         $this->assertSame('pending', $store->provider->kyc_status);
         $this->assertEmpty($store->provider->skills, 'a seller is never offered service jobs');
-        $this->assertSame(3, $store->provider->documents()->count());
+        // Partners part B (2026-11-12): a shop has its own list (photo ID, bank details, GST / shop licence if any) —
+        // address proof is not on it, so only the two that are on the list are kept.
+        $this->assertSame(2, $store->provider->documents()->count());
         $this->assertTrue($user->holdsPartnerRole('commerce'));
         $this->assertFalse($user->fresh()->canApplyAsPartner('commerce'), 'one shop per account through sign-up');
 

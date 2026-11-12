@@ -219,6 +219,9 @@ final class PartnerPageSettings
             $out[$code] = [
                 'label' => trim((string) ($own[$code]['label'] ?? '')) ?: $label,
                 'blurb' => trim((string) ($own[$code]['blurb'] ?? '')) ?: $blurb,
+                // Partners part B (owner 2026-11-12): the plain terms for this kind of business, e.g.
+                // "Commission 10% · Paid every week · No joining fee". Blank = not shown (never invented).
+                'terms' => trim((string) ($own[$code]['terms'] ?? '')),
             ];
         }
 
@@ -393,8 +396,9 @@ final class PartnerPageSettings
             case 'role_cards':
                 foreach ($data as $code => $w) {
                     if (! in_array($code, self::ROLE_ORDER, true) || ! is_array($w)
-                        || (isset($w['label']) && ! $str($w['label'], 60)) || (isset($w['blurb']) && ! $str($w['blurb'], 160))) {
-                        return 'Keys must be role codes ('.implode(', ', self::ROLE_ORDER).') with label (max 60) and blurb (max 160).';
+                        || (isset($w['label']) && ! $str($w['label'], 60)) || (isset($w['blurb']) && ! $str($w['blurb'], 160))
+                        || (isset($w['terms']) && ! $str($w['terms'], 140))) {
+                        return 'Keys must be role codes ('.implode(', ', self::ROLE_ORDER).') with label (max 60), blurb (max 160) and terms (max 140).';
                     }
                 }
 

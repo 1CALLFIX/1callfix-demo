@@ -124,11 +124,61 @@ class KycDocumentService
         return $global->sortBy('sort_order')->values();
     }
 
+    /**
+     * Partners part B (owner 2026-11-12): which document lists apply to this partner — its own kind of business, not the
+     * service-provider list for everyone. A rider is `field_worker`; a provider account can be a hotel, a restaurant,
+     * a shop and / or a service provider at once, and then needs every list it belongs to.
+     *
+     * @return list<string>
+     */
+    public function applicableTypesFor(Provider|FieldWorker $subject): array
+    {
+        if ($subject instanceof FieldWorker) {
+            return ['field_worker'];
+        }
+        $types = [];
+        if (\App\Models\Accommodation::where('provider_id', $subject->id)->exists()) {
+            $types[] = 'hotel';
+        }
+        $modules = $subject->stores()->pluck('module')->unique();
+        if ($modules->contains(\App\Support\Modules::FOOD)) {
+            $types[] = 'restaurant';
+        }
+        if ($modules->contains(fn ($m) => $m !== \App\Support\Modules::FOOD)) {
+            $types[] = 'shop';
+        }
+        if ($types === [] || ! empty($subject->skills)) {
+            $types[] = 'provider';
+        }
+
+        return $types;
+    }
+
+    /**
+     * Every document this partner is asked for: the lists of all its kinds merged by document type (required when any
+     * list requires it; the first list's wording wins).
+     */
+    public function requirementsForSubject(Provider|FieldWorker $subject, ?int $countryId = null): \Illuminate\Support\Collection
+    {
+        $merged = collect();
+        foreach ($this->applicableTypesFor($subject) as $type) {
+            foreach ($this->requirementsFor($type, $countryId) as $req) {
+                $have = $merged->get($req->document_type);
+                if (! $have) {
+                    $merged->put($req->document_type, clone $req);
+                } elseif ($req->is_required && ! $have->is_required) {
+                    $have->is_required = true;
+                }
+            }
+        }
+
+        return $merged->values();
+    }
+
     /** @param  Provider|FieldWorker  $subject */
     public function missingRequiredForSubmission(Provider|FieldWorker $subject, ?int $countryId = null): array
     {
-        $applicableType = $subject instanceof Provider ? 'provider' : 'field_worker';
-        $required = $this->requirementsFor($applicableType, $countryId)->where('is_required', true)->pluck('document_type');
+        $required = $this->requirementsForSubject($subject, $countryId)->where('is_required', true)->pluck('document_type');
         $submittedTypes = $subject->currentDocuments()->where('status', '!=', 'rejected')->pluck('type');
 
         return $required->diff($submittedTypes)->values()->all();
@@ -137,8 +187,7 @@ class KycDocumentService
     /** @param  Provider|FieldWorker  $subject */
     public function missingApprovedRequirements(Provider|FieldWorker $subject, ?int $countryId = null): array
     {
-        $applicableType = $subject instanceof Provider ? 'provider' : 'field_worker';
-        $required = $this->requirementsFor($applicableType, $countryId)->where('is_required', true)->pluck('document_type');
+        $required = $this->requirementsForSubject($subject, $countryId)->where('is_required', true)->pluck('document_type');
         $approvedTypes = $subject->currentDocuments()->where('status', 'approved')->pluck('type');
 
         return $required->diff($approvedTypes)->values()->all();

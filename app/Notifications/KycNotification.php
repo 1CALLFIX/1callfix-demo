@@ -54,7 +54,11 @@ class KycNotification extends Notification implements ShouldQueue
             'deadline_final_warning' => ['subject' => 'KYC deadline tomorrow', 'body' => 'Your KYC deadline is tomorrow. Withdrawals will be restricted if KYC is not completed in time.'],
             'withdrawal_restricted' => ['subject' => 'Withdrawals restricted', 'body' => 'Your KYC deadline has passed — withdrawals are temporarily restricted. You can continue accepting and completing jobs. Please complete your KYC or contact your Franchise Office.'],
             'withdrawal_restored' => ['subject' => 'Withdrawals restored', 'body' => 'Your withdrawal eligibility has been restored.'],
-            'kyc_approved' => ['subject' => 'KYC approved', 'body' => 'Your KYC has been approved.'],
+            // Partners part B (owner 2026-11-12): plain-language messages through joining.
+            'joined' => ['subject' => 'Welcome to 1CallFix', 'body' => 'You have joined. To go live, upload your documents and set up what customers will see — open "Go live" in your partner app.'],
+            'documents_in' => ['subject' => 'We have your documents', 'body' => 'Thank you — all your documents are in. We are checking them and will tell you as soon as you are approved.'],
+            'document_rejected' => ['subject' => 'Please upload a document again', 'body' => 'We could not accept your '.($this->context['document'] ?? 'document').': '.($this->context['reason'] ?? 'it was not clear').'. Please upload it again from "Go live".'],
+            'kyc_approved' => ['subject' => 'You are approved', 'body' => 'You are approved. Customers can now find you on 1CallFix.'],
             'kyc_rejected' => ['subject' => 'KYC rejected', 'body' => 'Your KYC submission was rejected: '.($this->context['reason'] ?? 'see your account for details').'.'],
             'resubmission_required' => ['subject' => 'KYC resubmission required', 'body' => 'Please resubmit the requested KYC document(s).'],
             default => ['subject' => 'KYC update', 'body' => 'There is an update to your KYC status.'],
@@ -65,7 +69,10 @@ class KycNotification extends Notification implements ShouldQueue
     {
         $copy = $this->copy();
 
-        return (new MailMessage)->subject($copy['subject'])->line($copy['body']);
+        $mail = (new MailMessage)->subject($copy['subject'])->line($copy['body']);
+
+        // The joining messages open "Go live" straight away.
+        return in_array($this->event, ['joined', 'document_rejected'], true) ? $mail->action('Go live', route('partner.join')) : $mail;
     }
 
     public function toSms($notifiable): string

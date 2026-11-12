@@ -237,9 +237,16 @@ class Register extends Component
     }
 
     /** kyc_document_requirements.applicable_type for this sign-up. */
+    /** The document list for the business being signed up (partners part B: each kind of business has its own). */
     private function documentsFor(): string
     {
-        return $this->isRider() ? 'field_worker' : 'provider';
+        return match (true) {
+            $this->isRider() => 'field_worker',
+            $this->isHotel() => 'hotel',
+            $this->isRestaurant() => 'restaurant',
+            $this->isSeller() => 'shop',
+            default => 'provider',
+        };
     }
 
     // ─────────────────────────── Phone step ──────────────────────────────
@@ -688,9 +695,16 @@ class Register extends Component
         // Approval still needs every required document; nothing is offered to customers before it.
         $this->submitted = true;
         $this->reset('password', 'password_confirmation', 'documents');
-        if (! auth()->check() && ($user = User::where('phone', PhoneNumber::national($this->verifiedPhoneE164))->first()) && $user->status === 'active') {
-            \Illuminate\Support\Facades\Auth::guard('web')->login($user);
+        $joined = User::where('phone', PhoneNumber::national($this->verifiedPhoneE164))->first();
+        if (! auth()->check() && $joined && $joined->status === 'active') {
+            \Illuminate\Support\Facades\Auth::guard('web')->login($joined);
             session()->regenerate();
+        }
+        // Partners part B: "Welcome — go live" (email / app message). A message that cannot be sent never stops the sign-up.
+        if ($joined) {
+            rescue(fn () => $joined->notify(new \App\Notifications\KycNotification('joined',
+                \App\Notifications\Support\ChannelResolver::resolve(array_filter(['zone_id' => $zone->id, 'franchise_id' => $zone->franchise_id])),
+                $this->isRider() ? ['app' => 'rider'] : [])));
         }
     }
 

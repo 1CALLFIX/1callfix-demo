@@ -50,7 +50,10 @@
                                     @endforeach
                                 </select>
                             </td>
-                            <td class="py-2 pr-4">{{ $lead->acquisition['utm_source'] ?? $lead->source }}</td>
+                            <td class="py-2 pr-4">
+                                @if ($lead->source === 'help_me_join') <span class="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-800">Asked for a call</span>
+                                @else {{ $lead->acquisition['utm_source'] ?? $lead->source }} @endif
+                            </td>
                             <td class="py-2 pr-4"><x-ui.datetime :at="$lead->created_at" /></td>
                         </tr>
                     @empty

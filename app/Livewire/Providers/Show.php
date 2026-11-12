@@ -417,6 +417,15 @@ class Show extends Component
         unset($this->documentRejectionReason[$documentId]);
         $this->provider->load(['documents', 'currentDocuments']);
 
+        // Partners part B: the partner hears straight away what to upload again, and why.
+        if ($status === 'rejected' && $this->provider->user) {
+            $label = app(\App\Services\Kyc\KycDocumentService::class)->requirementsForSubject($this->provider, $this->provider->franchise?->country_id)
+                ->firstWhere('document_type', $document->type)?->label ?? str_replace('_', ' ', $document->type);
+            rescue(fn () => $this->provider->user->notify(new \App\Notifications\KycNotification('document_rejected',
+                \App\Notifications\Support\ChannelResolver::resolve(array_filter(['franchise_id' => $this->provider->franchise_id])),
+                ['document' => $label, 'reason' => $reason ?: 'it was not clear'])));
+        }
+
         $this->flashType = 'success';
         $this->flashMessage = 'Document marked as '.$status.'.';
     }

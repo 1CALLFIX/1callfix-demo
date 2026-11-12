@@ -122,6 +122,8 @@ Route::middleware(['auth', \Illuminate\Session\Middleware\AuthenticateSession::c
         Route::get('/home-spotlight', HomeSpotlightManage::class)->name('admin.home-spotlight.index');
         // REF 1CF-HOME-CATEGORY-HERO-001: homepage opener, pictures, partner sign-up services step + limits. Super Admin only, checked in the component.
         Route::get('/homepage-signup', \App\Livewire\SiteControls\Manage::class)->name('admin.site-controls');
+        // Partners part B (2026-11-12): the documents each kind of business uploads. Super Admin only, checked in the component.
+        Route::get('/partner-documents', \App\Livewire\PartnerDocuments\Manage::class)->name('admin.partner-documents');
         // Owner rule 2026-10-31: every customer-facing word, English + Telugu. Super Admin only, checked in the component.
         Route::get('/homepage-sections', \App\Livewire\HomeSections\Manage::class)->name('admin.home-sections');
         Route::get('/website-text', \App\Livewire\SiteText\Manage::class)->name('admin.site-text');

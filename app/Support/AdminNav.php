@@ -156,6 +156,7 @@ class AdminNav
                     ['label' => 'Languages', 'route' => 'admin.languages', 'icon' => 'document-text', 'permission' => 'site_controls.manage'],
                     ['label' => 'Search Box', 'route' => 'admin.search-box.index', 'icon' => 'magnifying-glass', 'permission' => 'banners.manage'],
                     ['label' => 'Partner page', 'route' => 'admin.partner-page.settings', 'icon' => 'users', 'permission' => 'partner_page.manage'],
+                    ['label' => 'Partner documents', 'route' => 'admin.partner-documents', 'icon' => 'document-text', 'permission' => 'site_controls.manage'],
                     // super_admin only (permission never seeded to a role; each screen also checks the role itself).
                     ['label' => 'Franchise page', 'route' => 'admin.franchise-page', 'icon' => 'building', 'permission' => 'franchise_page.manage'],
                     ['label' => 'Contact page', 'route' => 'admin.contact-page', 'icon' => 'phone', 'permission' => 'contact_page.manage'],

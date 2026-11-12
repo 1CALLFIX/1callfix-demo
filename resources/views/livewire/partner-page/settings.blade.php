@@ -89,7 +89,7 @@
                     'benefits' => '[{"icon":"clipboard","color":"blue","title":"…","body":"…"}] 1 to 12 tiles. Icons: '.implode(', ', array_keys(\App\Models\PartnerBenefit::ICONS)).'. Colours: '.implode(', ', P::COLORS),
                     'faq' => '[{"tab":"everyone","q":"…","a":"…"}] up to 40. Tabs: '.implode(', ', array_keys(P::FAQ_TABS)),
                     'footer.groups' => '[{"title":"Company","links":[{"label":"…","href":"/help"}]}] up to 6 groups of 1 to 12 links. Blank = the built-in footer. CMS pages marked "show in footer" are still added to Company.',
-                    'role_cards' => '{"service":{"label":"…","blurb":"…"}} optional wording per role code',
+                    'role_cards' => '{"hotel":{"label":"…","blurb":"…","terms":"Commission 10% · Paid every week · No joining fee"}} optional wording per role code; terms (max 140) shows on the card',
                 ] as $short => $hint)
                     @php $field = S::field($short); @endphp
                     <div>
