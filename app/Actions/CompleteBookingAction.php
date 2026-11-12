@@ -45,10 +45,10 @@ class CompleteBookingAction
      * @throws \RuntimeException if the OTP is wrong or the booking isn't
      *         in a completable state
      */
-    public function execute(int $bookingId, Provider $provider, string $enteredOtp): Booking
+    public function execute(int $bookingId, Provider $provider, string $enteredOtp, ?\App\Support\AdminOverride $override = null): Booking
     {
         try {
-            $booking = DB::transaction(function () use ($bookingId, $provider, $enteredOtp) {
+            $booking = DB::transaction(function () use ($bookingId, $provider, $enteredOtp, $override) {
                 $booking = Booking::lockForUpdate()->findOrFail($bookingId);
 
                 if ($booking->provider_id !== $provider->id) {
@@ -69,7 +69,10 @@ class CompleteBookingAction
                 // this transaction; on a wrong code it throws and the counter
                 // increment is committed separately in the catch below,
                 // surviving this transaction's rollback.
-                $this->bookingOtp->verifyOrFail($booking, 'completion', $enteredOtp);
+                // Owner 2026-11-12: an admin emergency override skips the code (the provider could not enter it).
+                if (! $override) {
+                    $this->bookingOtp->verifyOrFail($booking, 'completion', $enteredOtp);
+                }
 
                 $approvedExtras = $booking->extraItems()
                     ->where('status', 'approved')
@@ -82,12 +85,13 @@ class CompleteBookingAction
 
                 $booking->statusHistory()->create([
                     'status' => 'completed',
-                    'changed_by' => $provider->user_id,
-                    'note' => 'Completed with verified OTP',
+                    'changed_by' => $override?->by->id ?? $provider->user_id,
+                    'note' => $override?->note('Job completed') ?? 'Completed with verified OTP',
                     'changed_at' => now(),
                 ]);
 
                 $provider->increment('jobs_completed');
+                $override?->log(Booking::class, $booking->id, 'job completed');
 
                 event(new BookingStatusUpdated($booking));
 

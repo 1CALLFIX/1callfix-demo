@@ -33,6 +33,9 @@ class Show extends Component
     // Job-journey controls (REF 1CF-JOURNEY-001): hold / spares available / resume by the operator.
     public string $holdReason = 'awaiting_spares';
     public string $holdNote = '';
+
+    /** Owner 2026-11-12: written reason for an emergency start / complete (App\Support\AdminOverride). */
+    public string $emergencyReason = '';
     public bool $waiveFee = false;
     public string $flashMessage = '';
     public string $flashType = 'success';
@@ -395,6 +398,51 @@ class Show extends Component
     public function markSparesAvailable(MarkSparesAvailableAction $action): void
     {
         $this->jobControl(fn () => $action->execute($this->booking->id, auth()->id()), 'Marked: spare parts available.');
+    }
+
+    public function canEmergencyOverride(): bool
+    {
+        return auth()->user()->hasPermission(\App\Support\AdminOverride::PERMISSION, $this->bookingScope());
+    }
+
+    /** Owner 2026-11-12: the provider cannot enter the start code (phone dead, app down) -- an admin starts the job. */
+    public function emergencyStart(\App\Actions\StartBookingAction $action): void
+    {
+        $this->emergency(fn (\App\Support\AdminOverride $o) => $action->execute($this->booking->id, '', null, $o), 'Job marked started. It is in the history with your name and reason.');
+    }
+
+    /** Owner 2026-11-12: the provider cannot enter the completion code -- an admin completes the job (payment, commission, receipt run as normal). */
+    public function emergencyComplete(\App\Actions\CompleteBookingAction $action): void
+    {
+        $this->emergency(function (\App\Support\AdminOverride $o) use ($action) {
+            if (! $this->booking->provider) {
+                throw new \RuntimeException('Assign a professional first.');
+            }
+
+            return $action->execute($this->booking->id, $this->booking->provider, '', $o);
+        }, 'Job marked completed. It is in the history with your name and reason.');
+    }
+
+    private function emergency(callable $run, string $success): void
+    {
+        if (! $this->canEmergencyOverride()) {
+            $this->flashType = 'error';
+            $this->flashMessage = 'You do not have permission to make emergency changes.';
+
+            return;
+        }
+
+        try {
+            $run(\App\Support\AdminOverride::make(auth()->user(), $this->emergencyReason));
+            $this->emergencyReason = '';
+            $this->flashType = 'success';
+            $this->flashMessage = $success;
+        } catch (\Throwable $e) {
+            $this->flashType = 'error';
+            $this->flashMessage = $e->getMessage();
+        }
+
+        $this->booking = $this->booking->fresh(['customer', 'service', 'provider.user', 'assignedWorker.user', 'address', 'zone', 'franchise.country', 'dispatchAttempts.provider.user', 'extraItems', 'payment', 'commission', 'compensations', 'statusHistory']);
     }
 
     public function resumeJob(ResumeBookingAction $action): void

@@ -311,6 +311,21 @@
                 </x-ui.card>
             @endif
 
+            {{-- Owner 2026-11-12: emergency start / complete when the professional cannot (reason required, logged). --}}
+            @if ($booking->provider_id && in_array($booking->status, ['assigned', 'provider_en_route', 'in_progress'], true) && $this->canEmergencyOverride())
+                <x-ui.card>
+                    <div class="font-semibold mb-1">Emergency: update for the professional</div>
+                    <p class="mb-2 text-sm text-gray-600">Only when the professional cannot update the job (phone dead, app not working). Your name and reason go in the history.</p>
+                    <input type="text" wire:model="emergencyReason" maxlength="500" placeholder="Reason (required)" class="w-full border rounded px-3 py-2 text-sm mb-2">
+                    <div class="flex flex-wrap gap-2">
+                        @if ($booking->status !== 'in_progress')
+                            <x-ui.button variant="secondary" wire:click="emergencyStart" wire:confirm="Mark this job as started for the professional?">Mark started</x-ui.button>
+                        @endif
+                        <x-ui.button wire:click="emergencyComplete" wire:confirm="Mark this job as completed for the professional? Payment and commission run as normal.">Mark completed</x-ui.button>
+                    </div>
+                </x-ui.card>
+            @endif
+
             {{-- REF 1CF-CANCEL-POLICY-001 — interim-work declaration, its evidence, dispute review, unpaid-charge waiver --}}
             @php $cancelRequests = $booking->cancellationRequests()->latest('id')->get(); @endphp
             @if ($booking->interim_declared_at || $cancelRequests->isNotEmpty())

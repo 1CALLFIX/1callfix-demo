@@ -22,9 +22,9 @@ use Illuminate\Support\Facades\Log;
  */
 class AcceptMarketplaceDeliveryOfferAction
 {
-    public function execute(int $orderId, FieldWorker $worker): MarketplaceOrder
+    public function execute(int $orderId, FieldWorker $worker, ?\App\Support\AdminOverride $override = null): MarketplaceOrder
     {
-        $order = DB::transaction(function () use ($orderId, $worker) {
+        $order = DB::transaction(function () use ($orderId, $worker, $override) {
             $order = MarketplaceOrder::lockForUpdate()->findOrFail($orderId);
 
             // Food F2: a food order can be taken while it is still cooking once a rider was called for it.
@@ -67,10 +67,12 @@ class AcceptMarketplaceDeliveryOfferAction
 
             $order->statusHistory()->create([
                 'status' => $order->status,
-                'changed_by' => $worker->user_id,
-                'note' => "Delivery accepted by rider #{$worker->id}",
+                'changed_by' => $override?->by->id ?? $worker->user_id,
+                'note' => $override?->note('Rider '.($worker->user?->name ?? "#{$worker->id}").' assigned') ?? "Delivery accepted by rider #{$worker->id}",
                 'changed_at' => now(),
             ]);
+
+            $override?->log(MarketplaceOrder::class, $order->id, 'rider assigned directly', ['rider_id' => $worker->id]);
 
             event(new MarketplaceOrderStatusUpdated($order));
 

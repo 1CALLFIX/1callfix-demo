@@ -19,7 +19,7 @@ class AdminAssignParcelRiderAction
     {
     }
 
-    public function execute(int $parcelOrderId, int $fieldWorkerId): ParcelOrder
+    public function execute(int $parcelOrderId, int $fieldWorkerId, ?\App\Models\User $admin = null): ParcelOrder
     {
         $worker = FieldWorker::with('user')->findOrFail($fieldWorkerId);
 
@@ -49,6 +49,17 @@ class AdminAssignParcelRiderAction
             );
         });
 
-        return $this->accept->execute($parcelOrderId, $worker);
+        $order = $this->accept->execute($parcelOrderId, $worker);
+
+        // Owner 2026-11-12: the history names the admin who assigned the rider.
+        if ($admin) {
+            $order->statusHistory()->create([
+                'status' => $order->status, 'changed_by' => $admin->id,
+                'note' => mb_substr('Rider '.($worker->user?->name ?? "#{$worker->id}").' assigned by admin '.($admin->name ?: "#{$admin->id}"), 0, 255),
+                'changed_at' => now(),
+            ]);
+        }
+
+        return $order;
     }
 }

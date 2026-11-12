@@ -33,10 +33,10 @@ class MarkParcelDeliveredAction
     {
     }
 
-    public function execute(int $parcelOrderId, FieldWorker $worker, string $enteredOtp, ?int $stopId = null): ParcelOrder
+    public function execute(int $parcelOrderId, FieldWorker $worker, string $enteredOtp, ?int $stopId = null, ?\App\Support\AdminOverride $override = null): ParcelOrder
     {
         $finished = false;
-        $order = DB::transaction(function () use ($parcelOrderId, $worker, $enteredOtp, $stopId, &$finished) {
+        $order = DB::transaction(function () use ($parcelOrderId, $worker, $enteredOtp, $stopId, $override, &$finished) {
             $order = ParcelOrder::lockForUpdate()->findOrFail($parcelOrderId);
 
             if ($order->assigned_worker_id !== $worker->id) {
@@ -51,8 +51,14 @@ class MarkParcelDeliveredAction
                 throw new \RuntimeException('Every drop is done. Take the return back to the sender.');
             }
 
+            // Owner 2026-11-12: admin emergency override, single-drop parcels only (a multi-drop or return trip has
+            // a code per stop; the rider finishes those, or the admin cancels).
+            if ($override && ($stopId !== null || $order->stops()->exists() || $order->return_trip)) {
+                throw new \RuntimeException('An emergency delivery can only be marked on a parcel with one drop and no return.');
+            }
+
             if ($stopId === null) {
-                $this->deliverFirstDrop($order, $worker, $enteredOtp);
+                $this->deliverFirstDrop($order, $worker, $enteredOtp, $override !== null);
             } else {
                 $this->deliverStop($order, $worker, $enteredOtp, $stopId);
             }
@@ -82,7 +88,8 @@ class MarkParcelDeliveredAction
                 return $order->fresh();
             }
 
-            self::finish($order, $worker, 'Delivered with verified OTP');
+            self::finish($order, $worker, $override?->note('Marked delivered') ?? 'Delivered with verified OTP', $override?->by->id);
+            $override?->log(\App\Models\ParcelOrder::class, $order->id, 'parcel marked delivered');
             $finished = true;
 
             return $order->fresh();
@@ -98,12 +105,12 @@ class MarkParcelDeliveredAction
         return $order;
     }
 
-    private function deliverFirstDrop(ParcelOrder $order, FieldWorker $worker, string $enteredOtp): void
+    private function deliverFirstDrop(ParcelOrder $order, FieldWorker $worker, string $enteredOtp, bool $skipOtp = false): void
     {
         if ($order->drop_delivered_at) {
             throw new \RuntimeException('This drop is already done.');
         }
-        if (empty($order->delivery_otp) || ! hash_equals((string) $order->delivery_otp, $enteredOtp)) {
+        if (! $skipOtp && (empty($order->delivery_otp) || ! hash_equals((string) $order->delivery_otp, $enteredOtp))) {
             throw new \RuntimeException('Incorrect delivery OTP.');
         }
 
@@ -160,7 +167,7 @@ class MarkParcelDeliveredAction
     }
 
     /** Inside the caller's transaction with $order locked: the order is done. */
-    public static function finish(ParcelOrder $order, FieldWorker $worker, string $note): void
+    public static function finish(ParcelOrder $order, FieldWorker $worker, string $note, ?int $changedBy = null): void
     {
         $order->status = 'delivered';
         $order->price_final = $order->price_quoted;
@@ -169,7 +176,7 @@ class MarkParcelDeliveredAction
 
         $order->statusHistory()->create([
             'status' => 'delivered',
-            'changed_by' => $worker->user_id,
+            'changed_by' => $changedBy ?? $worker->user_id,
             'note' => $note,
             'changed_at' => now(),
         ]);

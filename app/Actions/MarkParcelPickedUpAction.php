@@ -24,9 +24,9 @@ use Illuminate\Support\Facades\Log;
  */
 class MarkParcelPickedUpAction
 {
-    public function execute(int $parcelOrderId, FieldWorker $worker, string $enteredOtp): ParcelOrder
+    public function execute(int $parcelOrderId, FieldWorker $worker, string $enteredOtp, ?\App\Support\AdminOverride $override = null): ParcelOrder
     {
-        $order = DB::transaction(function () use ($parcelOrderId, $worker, $enteredOtp) {
+        $order = DB::transaction(function () use ($parcelOrderId, $worker, $enteredOtp, $override) {
             $order = ParcelOrder::lockForUpdate()->findOrFail($parcelOrderId);
 
             if ($order->assigned_worker_id !== $worker->id) {
@@ -37,7 +37,8 @@ class MarkParcelPickedUpAction
                 throw new \RuntimeException("Parcel order [{$parcelOrderId}] cannot be marked picked up from status '{$order->status}'.");
             }
 
-            if (empty($order->pickup_otp) || $order->pickup_otp !== $enteredOtp) {
+            // Owner 2026-11-12: an admin emergency override skips the code (the rider could not enter it).
+            if (! $override && (empty($order->pickup_otp) || $order->pickup_otp !== $enteredOtp)) {
                 throw new \RuntimeException('Incorrect pickup OTP.');
             }
 
@@ -76,10 +77,12 @@ class MarkParcelPickedUpAction
 
             $order->statusHistory()->create([
                 'status' => 'picked_up',
-                'changed_by' => $worker->user_id,
-                'note' => 'Picked up with verified OTP'.($order->waiting_charge ? " (waited {$order->waiting_minutes} min, waiting charge {$order->waiting_charge} paid to the rider)" : ''),
+                'changed_by' => $override?->by->id ?? $worker->user_id,
+                'note' => ($override?->note('Marked picked up') ?? 'Picked up with verified OTP').($order->waiting_charge ? " (waited {$order->waiting_minutes} min, waiting charge {$order->waiting_charge} paid to the rider)" : ''),
                 'changed_at' => now(),
             ]);
+
+            $override?->log(ParcelOrder::class, $order->id, 'parcel marked picked up');
 
             event(new ParcelOrderStatusUpdated($order));
 

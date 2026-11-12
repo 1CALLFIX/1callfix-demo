@@ -54,28 +54,6 @@
                         @endforeach
                     </ul>
                 @endif
-
-                {{-- App (owner 2026-11-09: "no app install shortcuts are visible"): a clear "Get the app" block under the
-                     logo, shown on phones too, like Zomato / Swiggy footers. Play badge (Partner page → App links
-                     overrides the link); the iPhone app if one is set, else "add to Home Screen" (steps on /app). --}}
-                @unless ($inApp)
-                    <div class="mt-6" data-testid="footer-app">
-                        <h2 class="text-sm font-semibold text-slate-900">
-                            <a href="{{ route('customer.get-app') }}" class="hover:text-blue-700">{{ \App\Support\SiteText::get('get_app.footer_more') }}</a>
-                        </h2>
-                        <div class="mt-3 flex flex-wrap items-center gap-2">
-                            <x-customer.play-badge size="sm" />
-                            @if ($iosUrl = \App\Support\AppLinks::ios())
-                                <a href="{{ $iosUrl }}" target="_blank" rel="noopener" class="inline-flex h-11 items-center rounded-xl bg-slate-950 px-3 text-sm font-semibold text-white hover:bg-black">{{ \App\Support\SiteText::get('get_app.ios_button') }}</a>
-                            @else
-                                <a href="{{ route('customer.get-app') }}" class="inline-flex h-11 items-center gap-2 whitespace-nowrap rounded-xl bg-slate-950 px-3 text-sm font-semibold text-white hover:bg-black">
-                                    <svg aria-hidden="true" viewBox="0 0 24 24" fill="currentColor" class="h-5 w-5"><path d="M16.4 12.6c0-2.5 2-3.6 2.1-3.7-1.2-1.7-3-1.9-3.6-2-1.5-.2-3 .9-3.8.9-.8 0-2-.9-3.3-.9-1.7 0-3.3 1-4.2 2.5-1.8 3.1-.5 7.7 1.3 10.2.9 1.2 1.9 2.6 3.2 2.6 1.3-.1 1.8-.8 3.3-.8 1.6 0 2 .8 3.3.8 1.4 0 2.3-1.2 3.1-2.5 1-1.4 1.4-2.8 1.4-2.9 0 0-2.8-1.1-2.8-4.2ZM13.9 5.2c.7-.8 1.2-2 1-3.2-1 .1-2.2.7-3 1.5-.6.7-1.2 1.9-1 3.1 1.1.1 2.3-.6 3-1.4Z"/></svg>
-                                    {{ \App\Support\SiteText::get('get_app.footer_iphone') }}
-                                </a>
-                            @endif
-                        </div>
-                    </div>
-                @endunless
             </div>
 
             @foreach ($inApp ? [] : $columns as $heading => $links)
@@ -100,7 +78,7 @@
         </div>
 
 
-        <div class="mt-8 flex flex-col gap-3 border-t sm:mt-10 border-slate-200 pt-6 sm:flex-row sm:items-end sm:justify-between">
+        <div class="mt-8 flex flex-col gap-3 border-t sm:mt-10 border-slate-200 pt-6 sm:flex-row sm:items-center sm:justify-between">
         <div class="space-y-1">
             <p class="text-xs text-slate-500">
                 &copy; {{ now()->year }} {{ $platformName }}. All rights reserved.
@@ -113,6 +91,22 @@
             @endif
             <x-ui.app-version />
         </div>
+            {{-- App (owner 2026-11-09: "no app install shortcuts are visible"; 2026-11-12: moved from under the logo into
+                 this bottom bar, side by side). Play badge (Partner page → App links overrides the link); the iPhone app
+                 if one is set, else "add to Home Screen" (steps on /app). Never inside our Android apps. --}}
+            @unless ($inApp)
+                <div class="flex flex-wrap items-center gap-2" data-testid="footer-app">
+                    <x-customer.play-badge size="sm" />
+                    @if ($iosUrl = \App\Support\AppLinks::ios())
+                        <a href="{{ $iosUrl }}" target="_blank" rel="noopener" class="inline-flex h-11 items-center rounded-xl bg-slate-950 px-3 text-sm font-semibold text-white hover:bg-black">{{ \App\Support\SiteText::get('get_app.ios_button') }}</a>
+                    @else
+                        <a href="{{ route('customer.get-app') }}" class="inline-flex h-11 items-center gap-2 whitespace-nowrap rounded-xl bg-slate-950 px-3 text-sm font-semibold text-white hover:bg-black">
+                            <svg aria-hidden="true" viewBox="0 0 24 24" fill="currentColor" class="h-5 w-5"><path d="M16.4 12.6c0-2.5 2-3.6 2.1-3.7-1.2-1.7-3-1.9-3.6-2-1.5-.2-3 .9-3.8.9-.8 0-2-.9-3.3-.9-1.7 0-3.3 1-4.2 2.5-1.8 3.1-.5 7.7 1.3 10.2.9 1.2 1.9 2.6 3.2 2.6 1.3-.1 1.8-.8 3.3-.8 1.6 0 2 .8 3.3.8 1.4 0 2.3-1.2 3.1-2.5 1-1.4 1.4-2.8 1.4-2.9 0 0-2.8-1.1-2.8-4.2ZM13.9 5.2c.7-.8 1.2-2 1-3.2-1 .1-2.2.7-3 1.5-.6.7-1.2 1.9-1 3.1 1.1.1 2.3-.6 3-1.4Z"/></svg>
+                            {{ \App\Support\SiteText::get('get_app.footer_iphone') }}
+                        </a>
+                    @endif
+                </div>
+            @endunless
             @if (filled($creditLine))
                 {{-- U+FE0E asks for the text (not colour-emoji) heart (any FE0E/FE0F the admin typed is normalised) so it takes the
                      red below in every browser instead of a platform emoji. --}}

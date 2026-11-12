@@ -76,7 +76,12 @@
                 @forelse ($pickerRiders as $c)
                     <div class="flex items-center justify-between border-t py-2 text-sm">
                         <span><span class="font-medium">{{ $c['provider']->user?->name ?? 'Rider #'.$c['provider']->id }}</span> <span class="text-gray-500">· {{ rtrim(rtrim(number_format((float) $c['distance_km'], 1), '0'), '.') }} km</span></span>
-                        <x-ui.button wire:click="ringRider({{ $c['provider']->id }})">Ring</x-ui.button>
+                        <span class="flex gap-2">
+                            <x-ui.button wire:click="ringRider({{ $c['provider']->id }})">Ring</x-ui.button>
+                            @if ($this->canEmergencyOverride($order))
+                                <x-ui.button variant="secondary" wire:click="assignRiderNow({{ $c['provider']->id }})" wire:confirm="Give this order to this rider now, without waiting for them to accept?">Assign now</x-ui.button>
+                            @endif
+                        </span>
                     </div>
                 @empty
                     <p class="text-sm text-amber-700">No rider is online nearby right now (a rider shows here while his rider app is open).</p>
@@ -84,18 +89,32 @@
             </x-ui.card>
         @endif
 
+        @php($canOverride = ! in_array($order->status, ['completed', 'cancelled'], true) && $this->canEmergencyOverride($order))
+        @if ($canOverride)
+            {{-- Owner 2026-11-12: every admin status change / direct assign needs a reason; it goes in the history with the admin's name. --}}
+            <div class="mb-3">
+                <label class="text-sm text-gray-600">Reason for an admin change (required, goes in the history)</label>
+                <input type="text" wire:model="emergencyReason" maxlength="500" placeholder="e.g. restaurant's tablet is not working" class="mt-1 w-full border rounded px-3 py-2 text-sm">
+            </div>
+        @endif
+
         <div class="flex gap-2">
-            @if ($order->status === 'pending')
-                <x-ui.button wire:click="advance('accepted')">Accept</x-ui.button>
-            @endif
-            @if ($order->status === 'accepted')
-                <x-ui.button wire:click="advance('preparing')">Start Preparing</x-ui.button>
-            @endif
-            @if ($order->status === 'preparing')
-                <x-ui.button wire:click="advance('ready')">Mark Ready</x-ui.button>
-            @endif
-            @if ($order->status === 'ready' && $order->order_type === 'pickup')
-                <x-ui.button wire:click="completePickup">Mark Collected</x-ui.button>
+            @if ($canOverride)
+                @if ($order->status === 'pending')
+                    <x-ui.button wire:click="advance('accepted')">Accept</x-ui.button>
+                @endif
+                @if ($order->status === 'accepted')
+                    <x-ui.button wire:click="advance('preparing')">Start Preparing</x-ui.button>
+                @endif
+                @if ($order->status === 'preparing')
+                    <x-ui.button wire:click="advance('ready')">Mark Ready</x-ui.button>
+                @endif
+                @if ($order->status === 'ready' && $order->order_type === 'pickup')
+                    <x-ui.button wire:click="completePickup">Mark Collected</x-ui.button>
+                @endif
+                @if ($order->status === 'ready' && $order->order_type === 'delivery' && $order->assigned_worker_id)
+                    <x-ui.button wire:click="emergencyDelivered" wire:confirm="Mark this order delivered for the rider?">Mark Delivered</x-ui.button>
+                @endif
             @endif
             @if (! in_array($order->status, ['completed', 'cancelled']))
                 <x-ui.button variant="danger" wire:click="cancelOrder" wire:confirm="Cancel this order?">Cancel</x-ui.button>

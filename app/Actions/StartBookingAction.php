@@ -27,10 +27,10 @@ class StartBookingAction
     private const STARTABLE_STATUSES = ['assigned', 'provider_en_route'];
 
     /** @throws \RuntimeException if the booking isn't in a startable state, or the OTP is wrong */
-    public function execute(int $bookingId, string $enteredOtp, ?int $changedByUserId = null): Booking
+    public function execute(int $bookingId, string $enteredOtp, ?int $changedByUserId = null, ?\App\Support\AdminOverride $override = null): Booking
     {
         try {
-            $booking = DB::transaction(function () use ($bookingId, $enteredOtp, $changedByUserId) {
+            $booking = DB::transaction(function () use ($bookingId, $enteredOtp, $changedByUserId, $override) {
                 $booking = Booking::lockForUpdate()->findOrFail($bookingId);
 
                 if (! in_array($booking->status, self::STARTABLE_STATUSES, true)) {
@@ -45,17 +45,22 @@ class StartBookingAction
                 // transaction; on a wrong code it throws and the counter
                 // increment is committed separately in the catch below,
                 // surviving this transaction's rollback.
-                app(BookingOtpService::class)->verifyOrFail($booking, 'start', $enteredOtp);
+                // Owner 2026-11-12: an admin emergency override skips the code (the provider could not enter it).
+                if (! $override) {
+                    app(BookingOtpService::class)->verifyOrFail($booking, 'start', $enteredOtp);
+                }
 
                 $booking->status = 'in_progress';
                 $booking->save();
 
                 $booking->statusHistory()->create([
                     'status' => 'in_progress',
-                    'changed_by' => $changedByUserId,
-                    'note' => 'Started with verified OTP',
+                    'changed_by' => $override?->by->id ?? $changedByUserId,
+                    'note' => $override?->note('Job started') ?? 'Started with verified OTP',
                     'changed_at' => now(),
                 ]);
+
+                $override?->log(Booking::class, $booking->id, 'job started');
 
                 event(new BookingStatusUpdated($booking));
 

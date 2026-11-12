@@ -60,6 +60,9 @@ class Manage extends Component
     // --- Manual rider assignment (detail view) ---
     public ?int $assignWorkerId = null;
 
+    /** Owner 2026-11-12: written reason for an emergency picked up / delivered (App\Support\AdminOverride). */
+    public string $emergencyReason = '';
+
     public function mount(): void
     {
         abort_unless(auth()->user()->hasPermissionAnywhere('parcel_orders.view'), 403, 'You do not have permission to view Parcel orders.');
@@ -224,11 +227,47 @@ class Manage extends Component
         }
 
         try {
-            $action->execute($order->id, $this->assignWorkerId);
+            $action->execute($order->id, $this->assignWorkerId, auth()->user());
             $this->assignWorkerId = null;
             session()->flash('message', 'Rider assigned.');
         } catch (\RuntimeException $e) {
             $this->addError('assign', $e->getMessage());
+        }
+    }
+
+    public function canEmergencyOverride(ParcelOrder $order): bool
+    {
+        return auth()->user()->hasPermission(\App\Support\AdminOverride::PERMISSION, $this->orderScope($order));
+    }
+
+    /** Owner 2026-11-12: the rider cannot enter the pickup code -- an admin marks it picked up (cash, waiting charge as normal). */
+    public function emergencyPickedUp(\App\Actions\MarkParcelPickedUpAction $action): void
+    {
+        $this->emergency(fn (ParcelOrder $order, $rider, $o) => $action->execute($order->id, $rider, '', $o), 'Marked picked up.');
+    }
+
+    /** Owner 2026-11-12: the rider cannot enter the delivery code -- an admin marks it delivered (commission as normal). */
+    public function emergencyDelivered(\App\Actions\MarkParcelDeliveredAction $action): void
+    {
+        $this->emergency(fn (ParcelOrder $order, $rider, $o) => $action->execute($order->id, $rider, '', null, $o), 'Marked delivered.');
+    }
+
+    private function emergency(callable $run, string $success): void
+    {
+        $order = $this->scopedOrdersQuery()->find($this->selectedOrderId);
+        abort_if(! $order, 404);
+        abort_unless($this->canEmergencyOverride($order), 403);
+
+        try {
+            $rider = $order->assigned_worker_id ? \App\Models\FieldWorker::find($order->assigned_worker_id) : null;
+            if (! $rider) {
+                throw new \RuntimeException('Assign a rider first.');
+            }
+            $run($order, $rider, \App\Support\AdminOverride::make(auth()->user(), $this->emergencyReason));
+            $this->emergencyReason = '';
+            session()->flash('message', $success.' It is in the history with your name and reason.');
+        } catch (\RuntimeException $e) {
+            $this->addError('emergency', $e->getMessage());
         }
     }
 

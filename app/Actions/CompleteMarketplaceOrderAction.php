@@ -31,16 +31,23 @@ class CompleteMarketplaceOrderAction
      * E-commerce Phase 1: `$seller` is the seller handing a pickup order over at the shop — they must enter the
      * customer's collection code (made at `ready`). The admin screen completes a pickup without one, as before.
      */
-    public function execute(int $orderId, ?FieldWorker $worker = null, ?string $enteredOtp = null, ?User $seller = null): MarketplaceOrder
+    public function execute(int $orderId, ?FieldWorker $worker = null, ?string $enteredOtp = null, ?User $seller = null, ?\App\Support\AdminOverride $override = null): MarketplaceOrder
     {
-        $order = DB::transaction(function () use ($orderId, $worker, $enteredOtp, $seller) {
+        $order = DB::transaction(function () use ($orderId, $worker, $enteredOtp, $seller, $override) {
             $order = MarketplaceOrder::lockForUpdate()->findOrFail($orderId);
 
             if ($order->status !== 'ready') {
                 throw new \RuntimeException("Order [{$orderId}] cannot be completed from status '{$order->status}'.");
             }
 
-            if ($order->order_type === 'delivery') {
+            if ($override && $order->order_type === 'delivery') {
+                // Owner 2026-11-12: admin emergency override for the assigned rider (no code). The rider still gets
+                // the job and the cash due, exactly as if they had entered the code.
+                $worker = $order->assigned_worker_id ? FieldWorker::find($order->assigned_worker_id) : null;
+                if (! $worker) {
+                    throw new \RuntimeException('Assign a rider first, then mark it delivered.');
+                }
+            } elseif ($order->order_type === 'delivery') {
                 if (! $worker || $order->assigned_worker_id !== $worker->id) {
                     throw new \RuntimeException('This order is not assigned to you.');
                 }
@@ -68,12 +75,14 @@ class CompleteMarketplaceOrderAction
 
             $order->statusHistory()->create([
                 'status' => 'completed',
-                'changed_by' => $worker?->user_id ?? $seller?->id,
-                'note' => $order->order_type === 'delivery' ? 'Delivered with verified OTP' : 'Collected by customer',
+                'changed_by' => $override?->by->id ?? $worker?->user_id ?? $seller?->id,
+                'note' => $override?->note($order->order_type === 'delivery' ? 'Marked delivered' : 'Marked collected')
+                    ?? ($order->order_type === 'delivery' ? 'Delivered with verified OTP' : 'Collected by customer'),
                 'changed_at' => now(),
             ]);
 
             $worker?->increment('jobs_completed');
+            $override?->log(MarketplaceOrder::class, $order->id, 'order marked '.($order->order_type === 'delivery' ? 'delivered' : 'collected'));
 
             event(new MarketplaceOrderStatusUpdated($order));
 

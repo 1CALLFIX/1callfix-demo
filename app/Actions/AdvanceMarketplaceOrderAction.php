@@ -33,7 +33,7 @@ class AdvanceMarketplaceOrderAction
     ];
 
     /** Food F2: `$prepMinutes` = the cooking time the restaurant confirms when it accepts (null = its usual time). */
-    public function execute(int $orderId, string $toStatus, ?int $prepMinutes = null): MarketplaceOrder
+    public function execute(int $orderId, string $toStatus, ?int $prepMinutes = null, ?\App\Support\AdminOverride $override = null): MarketplaceOrder
     {
         if ($prepMinutes !== null && ($prepMinutes < 1 || $prepMinutes > 240)) {
             throw new \RuntimeException('Enter a cooking time between 1 and 240 minutes.');
@@ -43,7 +43,7 @@ class AdvanceMarketplaceOrderAction
             throw new \RuntimeException("'{$toStatus}' is not a valid store-side advance target.");
         }
 
-        $order = DB::transaction(function () use ($orderId, $toStatus, $prepMinutes) {
+        $order = DB::transaction(function () use ($orderId, $toStatus, $prepMinutes, $override) {
             $order = MarketplaceOrder::lockForUpdate()->findOrFail($orderId);
             $fromStatus = self::TRANSITIONS[$toStatus];
 
@@ -82,9 +82,12 @@ class AdvanceMarketplaceOrderAction
 
             $order->statusHistory()->create([
                 'status' => $toStatus,
-                'note' => "Order marked {$toStatus}",
+                'changed_by' => $override?->by->id,
+                'note' => $override?->note("Marked {$toStatus}") ?? "Order marked {$toStatus}",
                 'changed_at' => now(),
             ]);
+
+            $override?->log(MarketplaceOrder::class, $order->id, "order marked {$toStatus}");
 
             event(new MarketplaceOrderStatusUpdated($order));
 

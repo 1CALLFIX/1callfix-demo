@@ -145,6 +145,21 @@
             </x-ui.card>
         @endif
 
+        {{-- Owner 2026-11-12: emergency picked up / delivered when the rider cannot (reason required, logged). --}}
+        @if ($order->assigned_worker_id && in_array($order->status, ['assigned', 'worker_en_route_pickup', 'picked_up', 'en_route_dropoff'], true) && $this->canEmergencyOverride($order))
+            <x-ui.card class="mb-4">
+                <h3 class="font-semibold mb-1">Emergency: update for the rider</h3>
+                <p class="mb-2 text-sm text-gray-600">Only when the rider cannot update the order. Your name and reason go in the history.</p>
+                <input type="text" wire:model="emergencyReason" maxlength="500" placeholder="Reason (required)" class="w-full border rounded px-3 py-2 text-sm mb-2">
+                @if (in_array($order->status, ['assigned', 'worker_en_route_pickup'], true))
+                    <x-ui.button wire:click="emergencyPickedUp" wire:confirm="Mark this parcel picked up for the rider?">Mark picked up</x-ui.button>
+                @else
+                    <x-ui.button wire:click="emergencyDelivered" wire:confirm="Mark this parcel delivered for the rider?">Mark delivered</x-ui.button>
+                @endif
+                @error('emergency') <p class="text-sm text-red-700 mt-2">{{ $message }}</p> @enderror
+            </x-ui.card>
+        @endif
+
         {{-- REF 1CF-JOURNEY-001 — the order's journey; the raw log stays below. --}}
         @php($journey = \App\Support\Journey\JourneyBuilder::build('parcel', $order->status, $order->statusHistory))
         @if ($journey)

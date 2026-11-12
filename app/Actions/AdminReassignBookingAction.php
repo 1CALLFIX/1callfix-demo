@@ -101,6 +101,7 @@ class AdminReassignBookingAction
 
             $booking->statusHistory()->create([
                 'status' => $booking->status,
+                'changed_by' => $admin?->id,
                 'note' => $note,
                 'changed_at' => now(),
             ]);

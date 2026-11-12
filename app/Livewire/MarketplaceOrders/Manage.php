@@ -90,29 +90,51 @@ class Manage extends Component
         return $order;
     }
 
-    public function advance(string $toStatus, AdvanceMarketplaceOrderAction $action): void
+    /** Owner 2026-11-12: written reason for any status change an admin makes for the shop / restaurant / rider. */
+    public string $emergencyReason = '';
+
+    public function canEmergencyOverride(MarketplaceOrder $order): bool
+    {
+        return auth()->user()->hasPermission(\App\Support\AdminOverride::PERMISSION, [
+            'zone_id' => $order->zone_id, 'franchise_id' => $order->franchise_id,
+            'city_id' => $order->franchise?->city_id, 'country_id' => $order->franchise?->country_id,
+        ]);
+    }
+
+    /**
+     * Owner 2026-11-12: every status change an admin makes here is an emergency override: it needs the
+     * orders.emergency_override permission for this order's franchise and a written reason, and is logged with the
+     * admin's name. (Before, "view orders" alone was enough and the history did not say who did it.)
+     */
+    private function emergency(callable $run, string $success): void
     {
         $order = $this->assertCanManage();
+        abort_unless($this->canEmergencyOverride($order), 403);
 
         try {
-            $action->execute($order->id, $toStatus);
-            session()->flash('message', "Order marked {$toStatus}.");
+            $run($order, \App\Support\AdminOverride::make(auth()->user(), $this->emergencyReason));
+            $this->emergencyReason = '';
+            session()->flash('message', $success.' It is in the history with your name and reason.');
         } catch (\RuntimeException $e) {
             $this->addError('action', $e->getMessage());
         }
     }
 
-    /** Admin completing a `pickup` order on the store's behalf (the customer collected in person) -- no worker/OTP involved, same as CompleteMarketplaceOrderAction's own pickup path. */
+    public function advance(string $toStatus, AdvanceMarketplaceOrderAction $action): void
+    {
+        $this->emergency(fn (MarketplaceOrder $order, $o) => $action->execute($order->id, $toStatus, null, $o), "Order marked {$toStatus}.");
+    }
+
+    /** Admin completing a `pickup` order on the store's behalf (the customer collected in person) -- no worker/OTP involved. */
     public function completePickup(CompleteMarketplaceOrderAction $action): void
     {
-        $order = $this->assertCanManage();
+        $this->emergency(fn (MarketplaceOrder $order, $o) => $action->execute($order->id, null, null, null, $o), 'Order marked collected.');
+    }
 
-        try {
-            $action->execute($order->id);
-            session()->flash('message', 'Order marked complete.');
-        } catch (\RuntimeException $e) {
-            $this->addError('action', $e->getMessage());
-        }
+    /** Owner 2026-11-12: the rider cannot enter the delivery code -- an admin marks it delivered (commission, cash due as normal). */
+    public function emergencyDelivered(CompleteMarketplaceOrderAction $action): void
+    {
+        $this->emergency(fn (MarketplaceOrder $order, $o) => $action->execute($order->id, null, null, null, $o), 'Order marked delivered.');
     }
 
     /** Owner 2026-11-09: admin rings one nearby rider for this order (same rules as the restaurant's Pick a rider). */
@@ -126,6 +148,15 @@ class Manage extends Component
         } catch (\RuntimeException $e) {
             $this->addError('action', $e->getMessage());
         }
+    }
+
+    /** Owner 2026-11-12: emergency -- give the order to a nearby rider straight away, without waiting for him to accept. */
+    public function assignRiderNow(int $workerId, \App\Services\Marketplace\RiderPicker $picker, \App\Actions\AcceptMarketplaceDeliveryOfferAction $accept): void
+    {
+        $this->emergency(function (MarketplaceOrder $order, $o) use ($workerId, $picker, $accept) {
+            $rider = $picker->offer($order, $workerId, auth()->user(), 'Admin');
+            $accept->execute($order->id, $rider, $o);
+        }, 'Rider assigned.');
     }
 
     public function cancelOrder(AdminCancelMarketplaceOrderAction $action): void
