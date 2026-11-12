@@ -95,6 +95,14 @@ class HotelSettings extends MarketplaceSettings
             'group' => 'Cancellation', 'label' => 'Charge when the guest does not arrive', 'type' => 'int', 'unit' => 'nights', 'min' => 0, 'max' => 30,
             'default' => '1', 'help' => 'The hotel marks "Did not arrive" after check-in day; this many nights are charged, the rest refunded.',
         ],
+        'hotel.non_refundable_allowed' => [
+            'group' => 'Cancellation', 'label' => 'Hotels may offer a cheaper non-refundable price', 'type' => 'switch', 'default' => '1',
+            'help' => 'On: a hotel can set "Non-refundable discount %" on a room; guests then see both prices. A non-refundable booking keeps the whole amount if cancelled or the guest does not arrive, and its dates cannot be changed.',
+        ],
+        'hotel.date_change_allowed' => [
+            'group' => 'Cancellation', 'label' => 'Guests may change dates', 'type' => 'switch', 'default' => '1',
+            'help' => 'On: while free cancellation still applies, the guest can pick new dates at the same hotel. They pay the new stay; once it is confirmed the old booking is cancelled free and refunded in full.',
+        ],
         // ── tax ──
         'hotel.gst_slabs' => [
             'group' => 'Tax', 'label' => 'GST on rooms by price per night', 'type' => 'text', 'global' => true,

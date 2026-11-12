@@ -46,6 +46,14 @@ class Book extends Component
     #[Url(as: 'children')] #[Locked]
     public int $children = 0;
 
+    /** Step 3: the cheaper no-refund price for this room. */
+    #[Url(as: 'nr')] #[Locked]
+    public bool $nr = false;
+
+    /** Step 3: "Change dates" — the code of the guest's booking this one replaces. */
+    #[Url(as: 'replace')] #[Locked]
+    public string $replace = '';
+
     /** Hotels step 2: a coupon (online / wallet only). Only the code is kept here; every amount is worked out on the server. */
     public string $couponInput = '';
 
@@ -72,6 +80,13 @@ class Book extends Component
     }
 
     /** @return array{0: Accommodation, 1: HotelRoomType, 2: HotelRatePlan} */
+    /** The guest's own booking being replaced by "Change dates" (null when this is a new stay). */
+    private function replacing(): ?\App\Models\HotelReservation
+    {
+        return $this->replace === '' ? null
+            : \App\Models\HotelReservation::where('code', $this->replace)->where('customer_id', auth()->id())->first();
+    }
+
     private function stay(): array
     {
         $hotel = Accommodation::bookable()->with(['franchise', 'accommodationType'])->findOrFail($this->hotelId);
@@ -101,7 +116,9 @@ class Book extends Component
             $reservation = $bookings->book(auth()->user(), $hotel, $room, $plan, $this->checkIn, $this->checkOut, $this->rooms, $this->adults, [
                 'guest_name' => $this->guestName, 'guest_phone' => $this->guestPhone, 'special_requests' => $this->requests,
                 'gst_number' => $this->business ? $this->gstNumber : null, 'business_name' => $this->business ? $this->businessName : null,
-            ], $method === 'wallet' ? 'wallet' : 'online', $this->appliedCoupon !== '' ? $this->appliedCoupon : null, max(0, $this->children));
+            ], $method === 'wallet' ? 'wallet' : 'online', $this->appliedCoupon !== '' ? $this->appliedCoupon : null, max(0, $this->children), [
+                'non_refundable' => $this->nr, 'replaces' => $this->replacing(),
+            ]);
         } catch (\RuntimeException $e) {
             $this->error = $e->getMessage();
 
@@ -133,7 +150,7 @@ class Book extends Component
             return;
         }
         [$hotel, $room, $plan] = $this->stay();
-        $q = HotelPricing::quote($room, $plan, $this->checkIn, $this->checkOut, max(1, $this->rooms));
+        $q = HotelPricing::quote($room, $plan, $this->checkIn, $this->checkOut, max(1, $this->rooms), $this->nr);
         [$discount, $message] = $bookings->previewCoupon(auth()->user(), $hotel, $q['room_total'], 'online', $code);
         if ($message !== null) {
             $this->appliedCoupon = '';
@@ -153,7 +170,7 @@ class Book extends Component
     public function render()
     {
         [$hotel, $room, $plan] = $this->stay();
-        $q = HotelPricing::quote($room, $plan, $this->checkIn, $this->checkOut, max(1, $this->rooms));
+        $q = HotelPricing::quote($room, $plan, $this->checkIn, $this->checkOut, max(1, $this->rooms), $this->nr);
         // The coupon is worked out again on every screen (it can run out meanwhile); booking checks it once more.
         if ($this->appliedCoupon !== '') {
             [$discount, $message] = app(HotelBookingService::class)->previewCoupon(auth()->user(), $hotel, $q['room_total'], 'online', $this->appliedCoupon);
@@ -178,8 +195,9 @@ class Book extends Component
             'money' => $money,
             'walletOn' => $walletOn && $balance >= $q['total'],
             'balance' => $money($balance),
-            'cancel' => $until === null ? SiteText::get('hotel.free_cancel_always')
-                : ($until->isFuture() ? SiteText::get('hotel.free_cancel_until', ['time' => $until->setTimezone($tz)->format('j M, g:i A')]) : SiteText::get('hotel.book.no_free_cancel')),
+            'replacing' => $this->replacing(),
+            'cancel' => $this->nr ? SiteText::get('hotel.book.non_refundable') : ($until === null ? SiteText::get('hotel.free_cancel_always')
+                : ($until->isFuture() ? SiteText::get('hotel.free_cancel_until', ['time' => $until->setTimezone($tz)->format('j M, g:i A')]) : SiteText::get('hotel.book.no_free_cancel'))),
             'canBook' => $q['available'] && $q['taxes_known'],
             'couponsOn' => \App\Services\Coupons\CouponSettings::available(),
         ])->layout('components.layouts.customer', ['title' => SiteText::get('hotel.book.title'), 'indexable' => false]);

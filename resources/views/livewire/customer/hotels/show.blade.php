@@ -68,7 +68,8 @@
                         <h3 class="text-base font-semibold">{{ $rc['room']->name }}</h3>
                         <p class="text-sm text-slate-600">{{ $rc['room']->max_children ? $t('hotel.show.fits_children', ['adults' => $rc['room']->max_adults, 'children' => $rc['room']->max_children]) : $t('hotel.show.fits', ['adults' => $rc['room']->max_adults]) }}@if ($rc['room']->bed_configuration) · {{ $rc['room']->bed_configuration }}@endif</p>
                         <p class="mt-1 text-sm font-medium text-emerald-700">{{ $rc['meal'] }}</p>
-                        @if ($header['cancel']) <p class="text-sm font-medium text-emerald-700">✓ {{ $header['cancel'] }}</p> @endif
+                        @if ($rc['nr']) <p class="text-sm font-medium text-amber-700" data-testid="hotel-non-refundable">{{ $rc['nrLabel'] }}</p>
+                        @elseif ($header['cancel']) <p class="text-sm font-medium text-emerald-700">✓ {{ $header['cancel'] }}</p> @endif
                         @if ($rc['room']->description) <p class="mt-2 text-sm text-slate-600">{{ $rc['room']->description }}</p> @endif
                     </div>
                     <div class="min-w-[14rem] rounded-xl bg-slate-50 p-3 text-sm">
@@ -81,7 +82,7 @@
                         </dl>
                         @if ($rc['left']) <p class="mt-1 text-right text-xs font-semibold text-red-600">{{ $rc['left'] }}</p> @endif
                         @if ($rc['bookable'])
-                            <a href="{{ route('customer.hotels.book', ['hotel' => $hotel->id, 'room' => $rc['room']->id, 'plan' => $rc['plan']->id, 'in' => $in, 'out' => $out, 'rooms' => $rc['quote']['rooms'], 'adults' => $adults, 'children' => $children ?: null]) }}"
+                            <a href="{{ route('customer.hotels.book', ['hotel' => $hotel->id, 'room' => $rc['room']->id, 'plan' => $rc['plan']->id, 'in' => $in, 'out' => $out, 'rooms' => $rc['quote']['rooms'], 'adults' => $adults, 'children' => $children ?: null, 'nr' => $rc['nr'] ? 1 : null]) }}"
                                class="mt-3 flex min-h-11 items-center justify-center rounded-xl bg-blue-600 px-4 font-semibold text-white hover:bg-blue-700" data-testid="hotel-book">{{ $t('hotel.show.book') }}</a>
                         @elseif (! $rc['quote']['available'])
                             <p class="mt-3 text-center text-sm font-semibold text-slate-500">{{ $t('hotel.card.full') }}</p>

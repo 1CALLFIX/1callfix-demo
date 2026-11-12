@@ -38,6 +38,8 @@ class Rooms extends Component
     /** Hotels H2: optional weekend price (nights from Hotel Settings). */
     public string $weekendPrice = '';
     public string $mealPlan = 'room_only';
+    /** Step 3: optional — also sell this room this % cheaper with no refund (blank = not offered). */
+    public string $nonRefundablePercent = '';
     /** @var array<int, mixed> */
     public array $newPhotos = [];
 
@@ -64,6 +66,7 @@ class Rooms extends Component
         $this->price = $plan ? rtrim(rtrim((string) $plan->nightly_rate, '0'), '.') : '';
         $this->weekendPrice = $plan && $plan->weekend_rate !== null ? rtrim(rtrim((string) $plan->weekend_rate, '0'), '.') : '';
         $this->mealPlan = $plan?->meal_plan ?? 'room_only';
+        $this->nonRefundablePercent = $room->non_refundable_percent !== null ? (string) (0 + (float) $room->non_refundable_percent) : '';
         $this->showForm = true;
     }
 
@@ -87,12 +90,14 @@ class Rooms extends Component
             'price' => ['required', 'numeric', 'min:1', 'max:500000'],
             'weekendPrice' => ['nullable', 'numeric', 'min:1', 'max:500000'],
             'mealPlan' => ['required', Rule::in(array_keys(self::MEAL_PLANS))],
+            'nonRefundablePercent' => ['nullable', 'numeric', 'min:1', 'max:50'],
             'newPhotos' => ['array', 'max:'.max(0, $space)],
             'newPhotos.*' => ['image', 'mimes:jpg,jpeg,png,webp', 'max:8192'],
         ], [
             'roomName.required' => 'Give this room a name, like "Deluxe AC".',
             'inventory.required' => 'How many rooms of this kind do you have?',
             'price.required' => 'Enter the price per night.',
+            'nonRefundablePercent.max' => 'Up to 50% cheaper. Leave it blank to sell only the normal price.',
             'newPhotos.max' => 'Up to '.self::MAX_PHOTOS.' photos per room. Remove one first.',
         ]);
 
@@ -105,6 +110,7 @@ class Rooms extends Component
                 'max_adults' => (int) $this->maxAdults,
                 'max_children' => (int) $this->maxChildren,
                 'total_inventory' => (int) $this->inventory,
+                'non_refundable_percent' => trim($this->nonRefundablePercent) === '' ? null : round((float) $this->nonRefundablePercent, 2),
             ];
             $room = $existing ?? HotelRoomType::create($fields + ['accommodation_id' => $hotel->id, 'is_active' => true]);
             if ($existing) {
@@ -154,7 +160,7 @@ class Rooms extends Component
 
     private function resetForm(): void
     {
-        $this->reset('editingId', 'showForm', 'roomName', 'roomDescription', 'beds', 'maxAdults', 'maxChildren', 'inventory', 'price', 'weekendPrice', 'mealPlan', 'newPhotos');
+        $this->reset('editingId', 'showForm', 'roomName', 'roomDescription', 'beds', 'maxAdults', 'maxChildren', 'inventory', 'price', 'weekendPrice', 'mealPlan', 'nonRefundablePercent', 'newPhotos');
         $this->resetValidation();
     }
 

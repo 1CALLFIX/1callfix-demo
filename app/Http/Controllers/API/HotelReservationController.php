@@ -60,6 +60,7 @@ class HotelReservationController extends Controller
             'number_of_adults' => 'nullable|integer|min:1',
             'number_of_children' => 'nullable|integer|min:0|max:20',
             'coupon_code' => 'nullable|string|max:50',
+            'non_refundable' => 'nullable|boolean',
             'payment_method' => 'nullable|in:online,wallet',
             'special_requests' => 'nullable|string|max:500',
             'gst_number' => ['nullable', 'string', 'regex:/^[0-9]{2}[A-Za-z0-9]{13}$/'],
@@ -94,7 +95,9 @@ class HotelReservationController extends Controller
                     'special_requests' => $validated['special_requests'] ?? null,
                     'gst_number' => $validated['gst_number'] ?? null,
                     'business_name' => $validated['business_name'] ?? null,
-                ], $validated['payment_method'] ?? 'online', $validated['coupon_code'] ?? null, (int) ($validated['number_of_children'] ?? 0));
+                ], $validated['payment_method'] ?? 'online', $validated['coupon_code'] ?? null, (int) ($validated['number_of_children'] ?? 0), [
+                    'non_refundable' => (bool) ($validated['non_refundable'] ?? false),
+                ]);
         } catch (ModuleNotActiveException $e) {
             return response()->json(['message' => $e->getMessage()], 422);
         } catch (\RuntimeException $e) {
@@ -110,6 +113,7 @@ class HotelReservationController extends Controller
                 'convenience_fee' => $reservation->convenience_fee, 'amount_due' => $reservation->amount_due,
                 'coupon_code' => $reservation->coupon_code, 'coupon_discount_amount' => $reservation->coupon_discount_amount,
                 'number_of_children' => $reservation->number_of_children,
+                'non_refundable' => (bool) $reservation->non_refundable,
                 'payment_expires_at' => $reservation->payment_expires_at?->toIso8601String(),
                 'number_of_rooms' => $reservation->number_of_rooms,
             ],

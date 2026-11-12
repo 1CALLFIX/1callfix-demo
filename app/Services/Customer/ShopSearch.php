@@ -17,6 +17,29 @@ use Illuminate\Support\Collection;
  */
 class ShopSearch
 {
+    /**
+     * One search for hotels too (owner 2026-11-12: "we already have a search box in the top bar"): bookable hotels in
+     * the visitor's city whose name, address (area, landmark) or description matches, where Hotels is on.
+     *
+     * @return array{city: ?string, hotels: Collection}
+     */
+    public function hotels(string $term, int $limit): array
+    {
+        $city = app(CityContext::class)->current();
+        $term = trim($term);
+        if (! $city || mb_strlen($term) < 2 || ! \App\Support\Seo\CityModules::hotelsLiveIn($city)) {
+            return ['city' => null, 'hotels' => collect()];
+        }
+        $like = '%'.$term.'%';
+
+        return [
+            'city' => $city->slug,
+            'hotels' => \App\Livewire\Customer\Hotels\Home::publicHotelsIn($city)
+                ->where(fn ($q) => $q->where('name', 'like', $like)->orWhere('address_line', 'like', $like)->orWhere('description', 'like', $like))
+                ->orderByDesc('is_featured')->orderBy('name')->limit($limit)->get(['id', 'name', 'slug', 'address_line']),
+        ];
+    }
+
     /** @return array{city: ?string, products: Collection, shops: Collection} */
     public function search(string $term, int $productLimit, int $shopLimit): array
     {

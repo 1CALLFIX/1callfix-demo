@@ -241,6 +241,8 @@ class SearchBar extends Component
             'matchedProducts' => collect(),
             'matchedShops' => collect(),
             'shopCitySlug' => null,
+            'matchedHotels' => collect(),
+            'hotelCitySlug' => null,
             'resultCount' => 0,
         ];
 
@@ -273,6 +275,7 @@ class SearchBar extends Component
             ->get(['id', 'name', 'category_id', 'slug']);
 
         [$citySlug, $products, $shops] = $this->shopMatches($term);
+        $hotels = app(\App\Services\Customer\ShopSearch::class)->hotels($term, 4);
 
         return array_merge($empty, [
             'matchedCategories' => $matchedCategories,
@@ -280,7 +283,9 @@ class SearchBar extends Component
             'matchedProducts' => $products,
             'matchedShops' => $shops,
             'shopCitySlug' => $citySlug,
-            'resultCount' => $matchedCategories->count() + $services->count() + $products->count() + $shops->count(),
+            'matchedHotels' => $hotels['hotels'],
+            'hotelCitySlug' => $hotels['city'],
+            'resultCount' => $matchedCategories->count() + $services->count() + $products->count() + $shops->count() + $hotels['hotels']->count(),
         ]);
     }
 

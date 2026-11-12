@@ -168,7 +168,25 @@
                 </section>
             @endif
 
-            @if ($services->isEmpty() && $categories->isEmpty() && $subcategories->isEmpty() && $products->isEmpty() && $shops->isEmpty())
+            @if ($hotels->isNotEmpty())
+                <section aria-labelledby="matched-hotels-heading" class="mt-8" data-testid="search-page-hotels">
+                    <div class="flex items-baseline justify-between gap-3">
+                        <h2 id="matched-hotels-heading" class="text-sm font-semibold text-slate-900">{{ \App\Support\SiteText::get('search.hotels') }}</h2>
+                        <a href="{{ route('customer.hotels.home', [$hotelCity, 'q' => $term]) }}" wire:navigate class="text-sm font-medium text-blue-600 underline">{{ \App\Support\SiteText::get('search.all_hotels') }}</a>
+                    </div>
+                    <ul class="mt-3 space-y-2">
+                        @foreach ($hotels as $hotel)
+                            <li><a href="{{ route('customer.hotels.show', [$hotelCity, $hotel->slug]) }}" wire:navigate
+                                   class="flex min-h-11 flex-col justify-center rounded-xl border border-slate-200 px-4 py-2 hover:bg-slate-50">
+                                    <span class="text-sm font-medium text-slate-900">{{ $hotel->name }}</span>
+                                    <span class="text-xs text-slate-500">{{ $hotel->address_line }}</span>
+                                </a></li>
+                        @endforeach
+                    </ul>
+                </section>
+            @endif
+
+            @if ($services->isEmpty() && $categories->isEmpty() && $subcategories->isEmpty() && $products->isEmpty() && $shops->isEmpty() && $hotels->isEmpty())
                 {{-- Genuine no-results: nothing matched in any group. --}}
                 <div class="mt-8 rounded-xl border border-slate-200">
                     <x-ui.empty-state icon="magnifying-glass"

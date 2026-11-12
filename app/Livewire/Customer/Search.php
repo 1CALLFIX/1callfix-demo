@@ -90,11 +90,14 @@ class Search extends Component
             : collect();
 
         $shop = app(\App\Services\Customer\ShopSearch::class)->search($hasQuery ? $term : '', 12, 6);
+        $hotels = app(\App\Services\Customer\ShopSearch::class)->hotels($hasQuery ? $term : '', 6);
 
         return view('livewire.customer.search', [
             'shopCity' => $shop['city'],
             'products' => $shop['products'],
             'shops' => $shop['shops'],
+            'hotels' => $hotels['hotels'],
+            'hotelCity' => $hotels['city'],
             'term' => $term,
             'hasQuery' => $hasQuery,
             'minLength' => self::MIN_LENGTH,

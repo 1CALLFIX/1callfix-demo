@@ -16,8 +16,26 @@
         <x-customer.share-button :title="$t('hotel.meta.title', ['city' => $city->name])" />
     </div>
 
+    {{-- ── near me, map (step 3); the words come from the top-bar search (one search) ── --}}
+    <div class="mt-5 flex flex-wrap items-center gap-2" x-data="{ locating: false, denied: false }">
+        @if (trim($q) !== '')
+            <button type="button" wire:click="$set('q', '')" class="{{ $chip }} border-blue-600 bg-blue-50 text-blue-700" data-testid="hotel-q-chip">&ldquo;{{ \Illuminate\Support\Str::limit($q, 30) }}&rdquo; &times;</button>
+        @endif
+        @if ($hasNear)
+            <button type="button" wire:click="$set('near', '')" class="{{ $chip }} border-blue-600 bg-blue-50 text-blue-700">📍 {{ $t('hotel.search.near_clear') }}</button>
+        @else
+            <button type="button" class="{{ $chip }} border-slate-300 bg-white text-slate-700" data-testid="hotel-near-me"
+                    x-on:click="if (! navigator.geolocation) { denied = true; return; } locating = true; navigator.geolocation.getCurrentPosition((p) => { locating = false; $wire.set('near', p.coords.latitude.toFixed(5) + ',' + p.coords.longitude.toFixed(5)); }, () => { locating = false; denied = true; }, { timeout: 10000 })"
+                    x-bind:disabled="locating">📍 {{ $t('hotel.search.near_me') }}</button>
+        @endif
+        @if ($mapKey && $mapPoints !== [])
+            <button type="button" wire:click="$toggle('showMap')" class="{{ $chip }} border-slate-300 bg-white text-slate-700" data-testid="hotel-map-toggle">{{ $showMap ? $t('hotel.map.hide') : $t('hotel.map.show') }}</button>
+        @endif
+        <p x-show="denied" x-cloak class="w-full text-sm text-amber-800">{{ $t('hotel.search.no_location') }}</p>
+    </div>
+
     {{-- ── search ── --}}
-    <div class="mt-5 grid grid-cols-2 gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:grid-cols-5" data-testid="hotel-search">
+    <div class="mt-3 grid grid-cols-2 gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:grid-cols-5" data-testid="hotel-search">
         <label class="text-sm font-medium text-slate-700">{{ $t('hotel.search.check_in') }}
             <input type="date" wire:model.live="checkIn" value="{{ $in }}" min="{{ now()->toDateString() }}" class="{{ $field }}">
         </label>
@@ -43,7 +61,7 @@
 
     {{-- ── sort + filters ── --}}
     <div class="relative mt-4 flex gap-2 overflow-x-auto pb-1" role="group" aria-label="Sort">
-        @foreach (['featured' => 'hotel.sort.featured', 'price' => 'hotel.sort.price', 'rating' => 'hotel.sort.rating'] as $code => $key)
+        @foreach (['featured' => 'hotel.sort.featured', 'price' => 'hotel.sort.price', 'rating' => 'hotel.sort.rating'] + ($hasNear ? ['distance' => 'hotel.sort.distance'] : []) as $code => $key)
             <button type="button" wire:click="$set('sort', '{{ $code }}')" @class([$chip, 'border-blue-600 bg-blue-600 text-white' => $sort === $code, 'border-slate-300 bg-white text-slate-700' => $sort !== $code])>{{ $t($key) }}</button>
         @endforeach
         <button type="button" wire:click="$toggle('breakfast')" @class([$chip, 'border-blue-600 bg-blue-50 text-blue-700' => $breakfast, 'border-slate-300 bg-white text-slate-700' => ! $breakfast])>{{ $t('hotel.filter.breakfast') }}</button>
@@ -63,6 +81,12 @@
         </div>
     @endif
 
+    {{-- ── map (step 3): every hotel in the list, tap a pin for its page ── --}}
+    @if ($showMap && $mapKey && $mapPoints !== [])
+        <div wire:key="hotel-map-{{ md5(json_encode([$mapPoints, $here ?? null])) }}" data-hotel-map='@json(['points' => $mapPoints, 'here' => $here ?? null, 'key' => $mapKey])' x-data x-init="window.cfHotelMap && window.cfHotelMap($el)"
+             class="mt-4 h-72 w-full overflow-hidden rounded-2xl border border-slate-200 bg-slate-100 sm:h-96" data-testid="hotel-map" role="region" aria-label="{{ $t('hotel.map.show') }}"></div>
+    @endif
+
     {{-- ── hotels ── --}}
     <ul class="mt-5 space-y-4" data-testid="hotel-cards">
         @forelse ($cards as $c)
@@ -77,6 +101,7 @@
                             <div>
                                 <h2 class="text-lg font-semibold leading-tight">{{ $c['hotel']->name }}</h2>
                                 <p class="text-sm text-slate-500">{{ $c['type'] }} · {{ \Illuminate\Support\Str::limit($c['hotel']->address_line, 60) }}</p>
+                                @if ($c['distance']) <p class="text-sm font-medium text-blue-700" data-testid="hotel-distance">📍 {{ $c['distance'] }}</p> @endif
                             </div>
                             @if ($c['rating'])
                                 <span class="shrink-0 rounded-lg bg-emerald-600 px-2 py-1 text-sm font-bold text-white">★ {{ $t('hotel.card.rating', ['avg' => $c['rating']['avg'], 'n' => $c['rating']['n']]) }}</span>
@@ -112,4 +137,37 @@
             <li class="rounded-2xl border border-dashed border-slate-300 bg-white p-8 text-center text-sm text-slate-600">{{ $t('hotel.empty') }}</li>
         @endforelse
     </ul>
+
+    @script
+    <script>
+        // Step 3: Google map with a pin per hotel (same browser key as the address map). Loaded only when "Map" is on.
+        // Works whichever runs first: this script or the map element's x-init (a link that opens with the map on).
+        window.cfHotelMap = (el) => {
+            if (! el || el.dataset.drawn) return;
+            el.dataset.drawn = '1';
+            const { points, here, key } = JSON.parse(el.dataset.hotelMap);
+            const draw = () => {
+                const map = new google.maps.Map(el, { center: points[0], zoom: 13, mapTypeControl: false, streetViewControl: false });
+                const bounds = new google.maps.LatLngBounds();
+                points.forEach((p) => {
+                    const m = new google.maps.Marker({ position: { lat: p.lat, lng: p.lng }, map, title: p.name, label: p.price ? { text: p.price, fontSize: '11px', fontWeight: '700' } : undefined });
+                    m.addListener('click', () => { window.location.href = p.url; });
+                    bounds.extend(m.getPosition());
+                });
+                if (here) { bounds.extend({ lat: here[0], lng: here[1] }); new google.maps.Marker({ position: { lat: here[0], lng: here[1] }, map, title: 'You' }); }
+                if (points.length > 1 || here) map.fitBounds(bounds, 40);
+            };
+            if (window.google?.maps?.Map) { draw(); return; }
+            (window.__cfHotelMapQueue ||= []).push(draw);
+            if (window.__cfHotelMapLoading) return;
+            window.__cfHotelMapLoading = true;
+            window.__cfHotelMapReady = () => { (window.__cfHotelMapQueue || []).splice(0).forEach((f) => f()); };
+            const s = document.createElement('script');
+            s.src = 'https://maps.googleapis.com/maps/api/js?key=' + encodeURIComponent(key) + '&v=weekly&callback=__cfHotelMapReady';
+            s.async = true;
+            document.head.appendChild(s);
+        };
+        document.querySelectorAll('[data-hotel-map]').forEach((el) => window.cfHotelMap(el));
+    </script>
+    @endscript
 </div>

@@ -34,6 +34,8 @@ class HotelReservation extends Model implements Orderable
         'check_in_code', 'accept_by', 'no_show', 'cancelled_by',
         // Hotels step 2: a coupon taken off the room price (online payment only).
         'coupon_code', 'coupon_discount_amount',
+        // Hotels step 3: the cheaper no-refund price; "Change dates" (this booking replaces an older one).
+        'non_refundable', 'replaces_reservation_id',
     ];
 
     protected $casts = [
@@ -43,6 +45,7 @@ class HotelReservation extends Model implements Orderable
         'payment_expires_at' => 'datetime',
         'accept_by' => 'datetime',
         'no_show' => 'boolean',
+        'non_refundable' => 'boolean',
         'checked_in_at' => 'datetime',
         'checked_out_at' => 'datetime',
         'completed_at' => 'datetime',

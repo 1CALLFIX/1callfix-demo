@@ -42,6 +42,17 @@ class Home extends Component
     #[Url(as: 'sort')]
     public string $sort = 'featured';
 
+    /** Step 3: area, landmark or hotel name (matched on the name, address, type and description). */
+    #[Url(as: 'q')]
+    public string $q = '';
+
+    /** Step 3: "Near me" — "lat,lng" from the browser; cards then show the distance and the nearest come first. */
+    #[Url(as: 'near')]
+    public string $near = '';
+
+    #[Url(as: 'map')]
+    public bool $showMap = false;
+
     #[Url(as: 'max')]
     public int $maxPrice = 0;
 
@@ -61,6 +72,17 @@ class Home extends Component
         }
     }
 
+    /** "Near me" turned on: nearest first (the customer can still pick another order). */
+    public function updatedNear(): void
+    {
+        if (self::point($this->near) !== null && $this->sort === 'featured') {
+            $this->sort = 'distance';
+        }
+        if (self::point($this->near) === null && $this->sort === 'distance') {
+            $this->sort = 'featured';
+        }
+    }
+
     public function render()
     {
         [$in, $out, $nights] = $this->stayDates($this->checkIn, $this->checkOut);
@@ -74,6 +96,15 @@ class Home extends Component
         $hotels = self::publicHotelsIn($this->hotelCity)
             ->with(['accommodationType', 'franchise', 'roomTypes.ratePlans', 'roomTypes.accommodation'])
             ->get();
+        $words = array_filter(preg_split('/\s+/', mb_strtolower(trim(mb_substr($this->q, 0, 80)))));
+        if ($words !== []) {
+            $hotels = $hotels->filter(function (Accommodation $h) use ($words) {
+                $hay = mb_strtolower(implode(' ', [$h->name, $h->address_line, $h->accommodationType?->name, $h->description]));
+
+                return collect($words)->every(fn ($w) => str_contains($hay, $w));
+            })->values();
+        }
+        $here = self::point($this->near);
 
         $ratings = Review::query()->join('hotel_reservations', 'hotel_reservations.id', '=', 'reviews.hotel_reservation_id')
             ->whereIn('hotel_reservations.accommodation_id', $hotels->pluck('id'))
@@ -81,14 +112,18 @@ class Home extends Component
             ->selectRaw('hotel_reservations.accommodation_id as hotel_id, avg(reviews.rating) as avg, count(*) as n')
             ->get()->keyBy('hotel_id');
 
-        $cards = $hotels->map(function (Accommodation $h) use ($in, $out, $nights, $rooms, $adults, $children, $ratings) {
+        $cards = $hotels->map(function (Accommodation $h) use ($in, $out, $nights, $rooms, $adults, $children, $ratings, $here) {
             $best = HotelPricing::cheapest($h, $in, $out, $rooms, $adults, $children);
             if ($best === null || $this->breakfast) {
                 // With "breakfast" on, only plans that include it count.
                 $best = $this->breakfast ? $this->cheapestWithBreakfast($h, $in, $out, $rooms, $adults, $children) : $best;
             }
 
-            return self::card($h, $this->hotelCity->slug, $best, $nights, $ratings->get($h->id), ['in' => $in, 'out' => $out, 'rooms' => $rooms, 'adults' => $adults, 'children' => $children]);
+            $card = self::card($h, $this->hotelCity->slug, $best, $nights, $ratings->get($h->id), ['in' => $in, 'out' => $out, 'rooms' => $rooms, 'adults' => $adults, 'children' => $children]);
+            $card['km'] = $here && $h->lat !== null && $h->lng !== null ? self::km($here, [(float) $h->lat, (float) $h->lng]) : null;
+            $card['distance'] = $card['km'] !== null ? SiteText::get('hotel.card.distance', ['km' => number_format($card['km'], $card['km'] < 10 ? 1 : 0)]) : null;
+
+            return $card;
         })
             ->filter(fn ($c) => $wanted === [] || array_diff($wanted, $c['facilities']) === [])
             ->filter(fn ($c) => ! $this->breakfast || $c['available'])
@@ -97,6 +132,7 @@ class Home extends Component
                 fn ($a, $b) => $b['available'] <=> $a['available'],
                 fn ($a, $b) => match ($this->sort) {
                     'price' => ($a['total'] ?? PHP_INT_MAX) <=> ($b['total'] ?? PHP_INT_MAX),
+                    'distance' => ($a['km'] ?? PHP_INT_MAX) <=> ($b['km'] ?? PHP_INT_MAX),
                     'rating' => ($b['rating']['avg'] ?? 0) <=> ($a['rating']['avg'] ?? 0),
                     default => [$b['featured'], $b['rating']['avg'] ?? 0] <=> [$a['featured'], $a['rating']['avg'] ?? 0],
                 },
@@ -111,11 +147,38 @@ class Home extends Component
             'maxRooms' => $maxRooms,
             'allFacilities' => $allowed,
             'priceSteps' => self::PRICE_STEPS,
+            'hasNear' => $here !== null,
+            'mapKey' => config('services.google_maps.key'),
+            'mapPoints' => $cards->filter(fn ($c) => $c['hotel']->lat !== null && $c['hotel']->lng !== null)->map(fn ($c) => [
+                'lat' => (float) $c['hotel']->lat, 'lng' => (float) $c['hotel']->lng, 'name' => $c['hotel']->name,
+                'price' => $c['available'] ? $c['perNightText'] : null, 'url' => $c['url'],
+            ])->values()->all(),
+            'here' => $here,
         ])->layout('components.layouts.customer', [
             'title' => SiteText::get('hotel.meta.title', ['city' => $this->hotelCity->name]),
             'metaDescription' => SiteText::get('hotel.meta.description', ['city' => $this->hotelCity->name, 'brand' => $brand]),
-            'indexable' => $this->sort === 'featured' && $this->maxPrice === 0 && ! $this->breakfast && $wanted === [] && $cards->isNotEmpty(),
+            'indexable' => $this->sort === 'featured' && $this->maxPrice === 0 && ! $this->breakfast && $wanted === [] && trim($this->q) === '' && $this->near === '' && $cards->isNotEmpty(),
         ]);
+    }
+
+    /** "lat,lng" → [lat, lng], or null for anything that is not a real point. */
+    public static function point(string $near): ?array
+    {
+        if (! preg_match('/^\s*(-?\d{1,2}(?:\.\d+)?)\s*,\s*(-?\d{1,3}(?:\.\d+)?)\s*$/', $near, $m)) {
+            return null;
+        }
+        [$lat, $lng] = [(float) $m[1], (float) $m[2]];
+
+        return abs($lat) <= 90 && abs($lng) <= 180 ? [$lat, $lng] : null;
+    }
+
+    /** Straight-line distance in km (haversine). */
+    public static function km(array $a, array $b): float
+    {
+        [$la1, $lo1, $la2, $lo2] = array_map('deg2rad', [$a[0], $a[1], $b[0], $b[1]]);
+        $h = sin(($la2 - $la1) / 2) ** 2 + cos($la1) * cos($la2) * sin(($lo2 - $lo1) / 2) ** 2;
+
+        return round(6371 * 2 * asin(min(1, sqrt($h))), 1);
     }
 
     private function cheapestWithBreakfast(Accommodation $h, string $in, string $out, int $rooms, int $adults, int $children = 0): ?array

@@ -53,6 +53,14 @@
                 <p class="mt-1 text-xs text-slate-500">Used on {{ implode(' and ', \App\Support\HotelSettings::lines('hotel.weekend_nights')) }} nights.</p>
                 @error('weekendPrice') <p class="mt-1.5 text-sm text-red-700">{{ $message }}</p> @enderror
             </div>
+            @if (\App\Support\HotelSettings::on('hotel.non_refundable_allowed'))
+                <div>
+                    <label for="r-nr" class="block text-sm font-medium text-slate-900">Non-refundable price: % cheaper (optional)</label>
+                    <input id="r-nr" type="text" inputmode="decimal" wire:model="nonRefundablePercent" class="{{ $inp }}" placeholder="e.g. 10">
+                    <p class="mt-1 text-xs text-slate-500">Guests also see a cheaper price with no refund: you keep the whole amount if they cancel or do not arrive. Blank = only the normal price.</p>
+                    @error('nonRefundablePercent') <p class="mt-1.5 text-sm text-red-700">{{ $message }}</p> @enderror
+                </div>
+            @endif
             <div class="grid gap-3 sm:grid-cols-2">
                 <div>
                     <label for="r-beds" class="block text-sm font-medium text-slate-900">Beds</label>

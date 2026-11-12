@@ -63,11 +63,15 @@ class Show extends Component
 
         $roomCards = [];
         foreach ($hotel->roomTypes as $room) {
+            $nrPercent = HotelPricing::nonRefundablePercent($room);
             foreach ($room->ratePlans->where('is_active', true)->where('nightly_rate', '>', 0)->sortBy('nightly_rate') as $plan) {
-                $q = HotelPricing::quote($room, $plan, $in, $out, $roomsWanted);
+              // Step 3: the normal price, then (when the hotel offers one) the cheaper no-refund price for the same room.
+              foreach ($nrPercent !== null ? [false, true] : [false] as $nr) {
+                $q = HotelPricing::quote($room, $plan, $in, $out, $roomsWanted, $nr);
                 $fits = $room->max_adults * $roomsWanted >= $this->adults && (int) $room->max_children * $roomsWanted >= max(0, $this->children);
                 $roomCards[] = [
                     'room' => $room, 'plan' => $plan, 'quote' => $q, 'fits' => $fits,
+                    'nr' => $nr, 'nrLabel' => $nr ? SiteText::get('hotel.show.non_refundable', ['percent' => rtrim(rtrim(number_format($nrPercent, 2), '0'), '.')]) : null,
                     'photos' => array_values(array_filter(array_map($url, $room->photos ?: [$room->cover_image]))),
                     'meal' => SiteText::get('hotel.meal.'.$plan->meal_plan),
                     'perNight' => $money($q['per_night_with_tax']),
@@ -80,6 +84,7 @@ class Show extends Component
                     'left' => $q['available'] && $q['left'] <= 3 ? SiteText::get('hotel.card.left', ['count' => $q['left']]) : null,
                     'bookable' => $q['available'] && $fits && $q['taxes_known'],
                 ];
+              }
             }
         }
 

@@ -28,6 +28,11 @@ class Booking extends Component
 
     public bool $confirmingCancel = false;
 
+    /** Step 3: "Change dates" — the new dates the guest wants to see prices for. */
+    public string $newIn = '';
+
+    public string $newOut = '';
+
     /** Hotels H4: verified-stay review. */
     public int $rating = 0;
 
@@ -93,6 +98,31 @@ class Booking extends Component
         }
     }
 
+    /** Step 3: new dates → the booking page for the same room, marked as replacing this booking. */
+    public function changeDates()
+    {
+        $this->reset('error');
+        $r = $this->reservation();
+        $this->validate([
+            'newIn' => ['required', 'date', 'after_or_equal:today'],
+            'newOut' => ['required', 'date', 'after:newIn'],
+        ], [], ['newIn' => 'check-in', 'newOut' => 'check-out']);
+        try {
+            app(HotelBookingService::class)->assertCanBeReplaced($r, auth()->user(), $r->accommodation);
+        } catch (\RuntimeException $e) {
+            $this->error = $e->getMessage();
+
+            return null;
+        }
+        $line = $r->rooms->first();
+
+        return $this->redirectRoute('customer.hotels.book', array_filter([
+            'hotel' => $r->accommodation_id, 'room' => $line?->hotel_room_type_id, 'plan' => $line?->hotel_rate_plan_id,
+            'in' => $this->newIn, 'out' => $this->newOut, 'rooms' => (int) ($line?->room_count ?? 1),
+            'adults' => (int) $r->number_of_adults, 'children' => (int) $r->number_of_children ?: null, 'replace' => $r->code,
+        ]), navigate: true);
+    }
+
     public function render()
     {
         $r = $this->reservation();
@@ -119,6 +149,8 @@ class Booking extends Component
             'foodUrl' => ($city = $r->accommodation->franchise?->city) && in_array($r->status, ['confirmed', 'checked_in'], true) && \App\Support\Seo\CityModules::foodLiveIn($city)
                 ? route('customer.food.home', $city->slug) : null,
             'canCancel' => in_array($r->status, ['pending', 'confirmed'], true) && $r->payment_status === 'paid',
+            'canChange' => rescue(fn () => app(HotelBookingService::class)->assertCanBeReplaced($r, auth()->user(), $r->accommodation) === null, false, false),
+            'replacedBy' => $r->status === 'cancelled' ? HotelReservation::where('replaces_reservation_id', $r->id)->where('customer_id', auth()->id())->whereIn('status', ['confirmed', 'checked_in', 'checked_out', 'completed'])->value('code') : null,
             'charge' => in_array($r->status, ['pending', 'confirmed'], true) && $r->payment_status === 'paid' ? app(\App\Services\Hotels\HotelStayService::class)->chargeFor($r)[0] : 0.0,
         ])->layout('components.layouts.customer', ['title' => SiteText::get('hotel.booking.title', ['code' => $r->code]), 'indexable' => false]);
     }

@@ -44,7 +44,7 @@ class HotelBookingService
      *
      * @throws \RuntimeException with a customer-facing reason
      */
-    public function book(User $customer, Accommodation $hotel, HotelRoomType $room, HotelRatePlan $plan, string $checkIn, string $checkOut, int $rooms, int $adults, array $guest, string $method, ?string $couponCode = null, int $children = 0): HotelReservation
+    public function book(User $customer, Accommodation $hotel, HotelRoomType $room, HotelRatePlan $plan, string $checkIn, string $checkOut, int $rooms, int $adults, array $guest, string $method, ?string $couponCode = null, int $children = 0, array $options = []): HotelReservation
     {
         $scope = HotelPricing::scope($hotel);
         // Hotels switched off for this area: say so first (the engine checks again inside its transaction).
@@ -83,7 +83,18 @@ class HotelBookingService
                 : "These rooms fit at most {$room->max_children} ".\Illuminate\Support\Str::plural('child', (int) $room->max_children).' each. Add a room.');
         }
 
-        $quote = HotelPricing::quote($room, $plan, $checkIn, $checkOut, $rooms);
+        // Step 3: the cheaper no-refund price (only where the room offers it), and "Change dates" (replaces an older
+        // booking of the same guest at the same hotel, while that one can still be cancelled free).
+        $nonRefundable = (bool) ($options['non_refundable'] ?? false);
+        if ($nonRefundable && HotelPricing::nonRefundablePercent($room) === null) {
+            throw new \RuntimeException('This room has no non-refundable price. Choose the other price.');
+        }
+        $replaces = $options['replaces'] ?? null;
+        if ($replaces !== null) {
+            $this->assertCanBeReplaced($replaces, $customer, $hotel);
+        }
+
+        $quote = HotelPricing::quote($room, $plan, $checkIn, $checkOut, $rooms, $nonRefundable);
         if (! $quote['taxes_known']) {
             throw new \RuntimeException('Booking opens soon for this hotel.');
         }
@@ -104,7 +115,7 @@ class HotelBookingService
             $quote = HotelPricing::withDiscount($quote, $pre->discountTotal);
         }
 
-        $reservation = DB::transaction(function () use ($hotel, $customer, $room, $plan, $checkIn, $checkOut, $rooms, $adults, $children, $guest, $method, $quote, $scope, $ctx, $couponCode) {
+        $reservation = DB::transaction(function () use ($hotel, $customer, $room, $plan, $checkIn, $checkOut, $rooms, $adults, $children, $guest, $method, $quote, $scope, $ctx, $couponCode, $nonRefundable, $replaces) {
             $reservation = $this->create->execute([
                 'franchise_id' => $hotel->franchise_id,
                 'zone_id' => $hotel->zone_id,
@@ -132,6 +143,8 @@ class HotelBookingService
                 'number_of_children' => $children,
                 'coupon_code' => $ctx ? strtoupper($couponCode) : null,
                 'coupon_discount_amount' => $quote['discount'] ?? 0,
+                'non_refundable' => $nonRefundable,
+                'replaces_reservation_id' => $replaces?->id,
             ])->save();
 
             if ($ctx) {
@@ -150,6 +163,26 @@ class HotelBookingService
         }
 
         return $reservation->fresh();
+    }
+
+    /**
+     * "Change dates" may start only from the guest's own paid booking at this hotel, not yet in the stay, not
+     * non-refundable, while cancelling it would still be free, and with Hotel Settings allowing date changes.
+     *
+     * @throws \RuntimeException with a customer-facing reason
+     */
+    public function assertCanBeReplaced(HotelReservation $old, User $customer, Accommodation $hotel): void
+    {
+        $ok = $old->customer_id === $customer->id
+            && $old->accommodation_id === $hotel->id
+            && in_array($old->status, ['pending', 'confirmed'], true)
+            && $old->payment_status === 'paid'
+            && ! $old->non_refundable
+            && HotelSettings::on('hotel.date_change_allowed', HotelPricing::scope($hotel))
+            && app(HotelStayService::class)->chargeFor($old)[0] <= 0;
+        if (! $ok) {
+            throw new \RuntimeException('The dates of this booking can no longer be changed. Please call us.');
+        }
     }
 
     /** What a coupon would take off this stay right now: [discount, message]. Nothing is reserved. */

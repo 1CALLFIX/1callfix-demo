@@ -103,6 +103,28 @@
         </section>
     @endif
 
+    {{-- ── change dates (step 3): pay the new stay; this one is cancelled free once that is confirmed ── --}}
+    @if ($replacedBy)
+        <a href="{{ route('customer.hotels.booking', $replacedBy) }}" wire:navigate class="mt-4 block rounded-2xl border border-blue-200 bg-blue-50 p-4 text-sm font-semibold text-blue-800" data-testid="hotel-replaced-by">{{ $t('hotel.booking.replaced_by', ['code' => $replacedBy]) }} →</a>
+    @endif
+    @if ($canChange)
+        <form wire:submit="changeDates" class="mt-4 rounded-2xl border border-slate-200 bg-white p-4 text-sm" data-testid="hotel-change-dates">
+            <h2 class="text-base font-semibold">{{ $t('hotel.booking.change_dates') }}</h2>
+            <p class="mt-1 text-slate-600">{{ $t('hotel.booking.change_hint') }}</p>
+            <div class="mt-3 grid grid-cols-2 gap-3">
+                <label class="font-medium text-slate-700">{{ $t('hotel.search.check_in') }}
+                    <input type="date" wire:model="newIn" min="{{ now()->toDateString() }}" class="mt-1 block min-h-11 w-full rounded-xl border border-slate-300 px-3">
+                </label>
+                <label class="font-medium text-slate-700">{{ $t('hotel.search.check_out') }}
+                    <input type="date" wire:model="newOut" min="{{ now()->addDay()->toDateString() }}" class="mt-1 block min-h-11 w-full rounded-xl border border-slate-300 px-3">
+                </label>
+            </div>
+            @error('newIn') <p class="mt-1 text-red-700">{{ $message }}</p> @enderror
+            @error('newOut') <p class="mt-1 text-red-700">{{ $message }}</p> @enderror
+            <button type="submit" class="mt-3 inline-flex min-h-11 items-center rounded-xl border border-blue-600 px-4 font-semibold text-blue-700 hover:bg-blue-50">{{ $t('hotel.booking.change_button') }}</button>
+        </form>
+    @endif
+
     {{-- ── cancel: the exact refund is shown before the button ── --}}
     @if ($canCancel)
         <section class="mt-4 rounded-2xl border border-slate-200 bg-white p-4 text-sm">

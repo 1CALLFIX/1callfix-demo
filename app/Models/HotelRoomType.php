@@ -18,6 +18,8 @@ class HotelRoomType extends Model
         'accommodation_id', 'name', 'description',
         'max_adults', 'max_children', 'bed_configuration',
         'total_inventory', 'cover_image', 'photos', 'is_active',
+        // Hotels step 3: also sold this % cheaper with no refund (null = not offered).
+        'non_refundable_percent',
     ];
 
     protected $casts = ['is_active' => 'boolean', 'photos' => 'array'];

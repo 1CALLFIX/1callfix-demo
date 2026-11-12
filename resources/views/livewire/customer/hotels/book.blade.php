@@ -13,7 +13,8 @@
             {{ \Illuminate\Support\Carbon::parse($checkIn)->format('D, j M') }} → {{ \Illuminate\Support\Carbon::parse($checkOut)->format('D, j M') }}
             · {{ $t('hotel.show.stay', ['rooms' => \App\Support\SiteText::count('hotel.rooms', $rooms), 'nights' => \App\Support\SiteText::count('hotel.nights', $nights)]) }} · @if ($children > 0) {{ $t('hotel.book.guests_line', ['adults' => $adults, 'children' => $children]) }} @else {{ $adults }} {{ $t('hotel.search.guests') }} @endif
         </p>
-        <p class="mt-1 text-sm font-medium text-emerald-700">{{ $cancel }}</p>
+        <p @class(['mt-1 text-sm font-medium', 'text-amber-700' => $nr, 'text-emerald-700' => ! $nr])>{{ $cancel }}</p>
+        @if ($replacing) <p class="mt-2 rounded-lg bg-blue-50 px-3 py-2 text-sm text-blue-900" data-testid="hotel-replacing">{{ $t('hotel.book.replacing', ['code' => $replacing->code]) }}</p> @endif
 
         <dl class="mt-3 space-y-1 border-t border-slate-100 pt-3 text-sm" data-testid="hotel-book-price">
             <div class="flex justify-between"><dt>{{ $t('hotel.show.room_price') }}</dt><dd>{{ $money($quote['room_total']) }}</dd></div>

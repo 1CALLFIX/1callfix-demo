@@ -64,8 +64,16 @@ class HotelStayService
     private function confirm(HotelReservation $r): HotelReservation
     {
         $r->forceFill(['check_in_code' => $this->newCode($r), 'accept_by' => null])->save();
+        $confirmed = app(ConfirmHotelReservationAction::class)->execute($r->id);
 
-        return app(ConfirmHotelReservationAction::class)->execute($r->id);
+        // "Change dates" (step 3): the new stay is confirmed, so the booking it replaces ends — free, refunded in
+        // full, its rooms freed (only now, so a declined or unpaid new booking never costs the guest their room).
+        if ($r->replaces_reservation_id && ($old = HotelReservation::find($r->replaces_reservation_id))
+            && in_array($old->status, ['pending', 'confirmed'], true)) {
+            $this->cancel($old, 'customer', 'Dates changed: replaced by booking '.$r->code, 0, 0);
+        }
+
+        return $confirmed;
     }
 
     /** 4 digits, different from the hotel's other open bookings (the desk types it in). */
@@ -163,6 +171,10 @@ class HotelStayService
     {
         $r->loadMissing('accommodation.franchise');
         $scope = HotelPricing::scope($r->accommodation);
+        // Step 3 (before any free time): a non-refundable price keeps the whole amount (the hotel keeps its whole room price).
+        if ($r->non_refundable) {
+            return [$r->amountDue(), round((float) $r->price_quoted, 2)];
+        }
         if (! $noShow) {
             $until = HotelPricing::freeCancelUntil($r->accommodation, $r->check_in_date->toDateString());
             if ($until === null || $until->isFuture()) {

@@ -245,9 +245,29 @@
                             @endforeach
                         </div>
                     @endif
+
+                    @if ($matchedHotels->isNotEmpty())
+                        <div role="group" aria-labelledby="{{ $listId }}-h-hotels" data-testid="search-hotels">
+                            <p id="{{ $listId }}-h-hotels" class="px-4 pt-3 pb-1 text-xs font-semibold uppercase tracking-wide text-slate-400">
+                                {{ \App\Support\SiteText::get('search.hotels') }}
+                            </p>
+                            @foreach ($matchedHotels as $hotel)
+                                @php $optId = $listId.'-opt-'.$optSeq++; @endphp
+                                <a href="{{ route('customer.hotels.show', [$hotelCitySlug, $hotel->slug]) }}"
+                                   role="option" id="{{ $optId }}" data-search-option aria-selected="false" tabindex="-1"
+                                   class="flex min-h-12 items-center gap-3 px-4 py-2 text-left transition hover:bg-slate-50 data-[active=true]:bg-slate-100 focus-visible:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-blue-600">
+                                    <x-customer.result-icon :name="$hotel->name" />
+                                    <span class="min-w-0 flex-1">
+                                        <span class="block truncate text-sm font-medium text-slate-900">{{ $hotel->name }}</span>
+                                        <span class="block truncate text-xs text-slate-500">{{ $hotel->address_line }}</span>
+                                    </span>
+                                </a>
+                            @endforeach
+                        </div>
+                    @endif
                 </div>
 
-                <a href="{{ route('customer.search', ['q' => trim($term)]) }}"
+                <a href="{{ route('customer.search', ['q' => trim($term)]) }}\"
                    class="flex min-h-12 items-center justify-center border-t border-slate-200 bg-slate-50 px-4 text-sm font-medium text-slate-700 transition hover:text-slate-900 focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-blue-600">
                     See all results for “{{ $term }}”
                 </a>

@@ -28,10 +28,12 @@ final class HotelPricing
      *   taxes_known: bool, left: int, available: bool
      * }
      */
-    public static function quote(HotelRoomType $room, HotelRatePlan $plan, string $checkIn, string $checkOut, int $rooms = 1): array
+    public static function quote(HotelRoomType $room, HotelRatePlan $plan, string $checkIn, string $checkOut, int $rooms = 1, bool $nonRefundable = false): array
     {
         $hotel = $room->accommodation;
         $scope = $hotel ? self::scope($hotel) : [];
+        // Step 3: the cheaper no-refund price takes the hotel's % off every night (before GST, so the band follows it).
+        $nrPercent = $nonRefundable ? self::nonRefundablePercent($room) : null;
         $dates = collect(CarbonPeriod::create($checkIn, Carbon::parse($checkOut)->subDay()))->map->toDateString();
         $rows = HotelRoomAvailability::where('hotel_room_type_id', $room->id)->whereIn('date', $dates)->get()
             ->keyBy(fn ($r) => Carbon::parse($r->date)->toDateString());
@@ -48,6 +50,9 @@ final class HotelPricing
             $row = $rows->get($date);
             $price = $row?->price_override !== null ? (float) $row->price_override
                 : ($plan->weekend_rate !== null && in_array(Carbon::parse($date)->format('D'), $weekend, true) ? (float) $plan->weekend_rate : (float) $plan->nightly_rate);
+            if ($nrPercent !== null) {
+                $price = round($price * (100 - $nrPercent) / 100, 2);
+            }
             $percent = HotelSettings::gstPercentFor($price, $bands);
             $taxesKnown = $taxesKnown && $percent !== null;
             $roomTotal += $price * $rooms;
@@ -94,6 +99,18 @@ final class HotelPricing
         $gst = round($quote['gst'] * $share);
 
         return ['discount' => $discount, 'gst' => (float) $gst, 'total' => round($quote['room_total'] - $discount + $gst + $quote['fee'], 2)] + $quote;
+    }
+
+    /** The room's no-refund discount when the hotel offers one and Hotel Settings allow it (null = not offered). */
+    public static function nonRefundablePercent(HotelRoomType $room): ?float
+    {
+        $pct = (float) ($room->non_refundable_percent ?? 0);
+        if ($pct <= 0 || $pct >= 100) {
+            return null;
+        }
+        $hotel = $room->accommodation;
+
+        return HotelSettings::on('hotel.non_refundable_allowed', $hotel ? self::scope($hotel) : []) ? $pct : null;
     }
 
     /** The cheapest room tonight-style quote for a hotel card: [room, plan, quote] or null when nothing is open. */
