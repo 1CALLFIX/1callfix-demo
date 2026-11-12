@@ -43,11 +43,25 @@ class HotelBookingService
     public function book(User $customer, Accommodation $hotel, HotelRoomType $room, HotelRatePlan $plan, string $checkIn, string $checkOut, int $rooms, int $adults, array $guest, string $method): HotelReservation
     {
         $scope = HotelPricing::scope($hotel);
+        // Hotels switched off for this area: say so first (the engine checks again inside its transaction).
+        $franchise = $hotel->franchise;
+        if ($franchise && ! app(\App\Services\ModuleActivationService::class)->isActive(\App\Support\Modules::HOTEL, [
+            'zone_id' => $hotel->zone_id, 'franchise_id' => $franchise->id, 'city_id' => $franchise->city_id, 'country_id' => $franchise->country_id,
+        ])) {
+            throw new \App\Exceptions\ModuleNotActiveException(\App\Support\Modules::HOTEL);
+        }
         if (! Accommodation::bookable()->whereKey($hotel->id)->exists() || $room->accommodation_id !== $hotel->id || $plan->hotel_room_type_id !== $room->id || ! $room->is_active || ! $plan->is_active) {
             throw new \RuntimeException('This room cannot be booked right now.');
         }
         if (! in_array($method, ['online', 'wallet'], true)) {
             throw new \RuntimeException('Choose how to pay.');
+        }
+        // Never a past check-in, never past the booking window (the hotel's local date). The pages clean dates in the
+        // query too; this is the check every caller (website, app API) goes through.
+        $today = Carbon::parse(app(\App\Services\TimezoneResolver::class)->format(now(), $hotel->franchise, 'Y-m-d'));
+        $in = Carbon::parse($checkIn)->startOfDay();
+        if ($in->lt($today) || $in->gt($today->copy()->addDays((int) HotelSettings::get('hotel.booking_window_days', $scope)))) {
+            throw new \RuntimeException('Choose a check-in date from today up to '.HotelSettings::get('hotel.booking_window_days', $scope).' days ahead.');
         }
         $nights = Carbon::parse($checkIn)->diffInDays(Carbon::parse($checkOut));
         if ($nights < 1 || $nights > (int) HotelSettings::get('hotel.max_nights', $scope)) {

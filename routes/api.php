@@ -235,6 +235,7 @@ Route::middleware(['auth:sanctum', \App\Http\Middleware\EnsureNotInMaintenanceMo
     Route::post('/hotel-reservations', [\App\Http\Controllers\API\HotelReservationController::class, 'store']);
     Route::get('/hotel-reservations/mine', [\App\Http\Controllers\API\HotelReservationController::class, 'mine']);
     Route::get('/hotel-reservations/{reservationId}', [\App\Http\Controllers\API\HotelReservationController::class, 'show']);
+    Route::post('/hotel-reservations/{reservationId}/pay', [\App\Http\Controllers\API\HotelReservationController::class, 'pay']);
 
     // Phase 24 -- Marketplace Foundation (authenticated actions only -- browse is public, see above).
     Route::get('/cart', [\App\Http\Controllers\API\CartController::class, 'index']);

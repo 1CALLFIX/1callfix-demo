@@ -32,7 +32,7 @@ class HotelSettings extends MarketplaceSettings
         ],
         'hotel.amenities' => [
             'group' => 'Joining', 'label' => 'Facilities a hotel can tick', 'type' => 'text', 'global' => true,
-            'default' => "Free Wi-Fi\nAir conditioning\nTV\nHot water\nParking\nPower backup\nLift\nRestaurant\nRoom service\n24-hour front desk\nCCTV\nCouple friendly\nFamily rooms\nPet friendly",
+            'default' => "Free Wi-Fi\nAir conditioning\nTV\nHot water\nParking\nPower backup\nLift\nRestaurant\nRoom service\n24-hour front desk\nCCTV\nCouple friendly\nLocal ID accepted\nFamily rooms\nPet friendly",
             'help' => 'One per line. Customers filter by them.',
         ],
         // ── booking ──

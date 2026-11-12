@@ -40,7 +40,9 @@ class HotelController extends Controller
      */
     public function index(Request $request, HotelAvailabilityService $availability)
     {
-        $query = Accommodation::query()->where('is_active', true)->with(['accommodationType', 'provider.user']);
+        // Only hotels customers may book (approved, switched on; private homes only when Hotel Settings allow them) —
+        // the same rule as the website (owner 2026-11-12: the app must never list a hotel still waiting for approval).
+        $query = Accommodation::query()->bookable()->with(['accommodationType']);
 
         if ($request->filled('zone_id')) {
             $query->where('zone_id', $request->integer('zone_id'));
@@ -73,8 +75,8 @@ class HotelController extends Controller
     /** GET /api/hotels/{id} */
     public function show(int $accommodationId)
     {
-        $accommodation = Accommodation::where('is_active', true)
-            ->with(['accommodationType', 'provider.user', 'amenities'])
+        $accommodation = Accommodation::bookable()
+            ->with(['accommodationType', 'amenities'])
             ->find($accommodationId);
 
         if (! $accommodation) {
@@ -87,7 +89,7 @@ class HotelController extends Controller
     /** GET /api/hotels/{id}/room-types -- each room type eager-loads its own active rate plans. */
     public function roomTypes(int $accommodationId)
     {
-        $accommodation = Accommodation::find($accommodationId);
+        $accommodation = Accommodation::bookable()->find($accommodationId);
         if (! $accommodation) {
             return response()->json(['message' => 'Accommodation not found.'], 404);
         }
@@ -108,7 +110,9 @@ class HotelController extends Controller
      */
     public function availability(Request $request, int $accommodationId, int $roomTypeId, HotelAvailabilityService $availability)
     {
-        $roomType = HotelRoomType::where('accommodation_id', $accommodationId)->find($roomTypeId);
+        $roomType = HotelRoomType::where('accommodation_id', $accommodationId)
+            ->whereHas('accommodation', fn ($a) => $a->bookable())
+            ->find($roomTypeId);
         if (! $roomType) {
             return response()->json(['message' => 'Room type not found.'], 404);
         }
