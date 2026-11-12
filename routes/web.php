@@ -348,6 +348,8 @@ Route::middleware(['auth', \App\Http\Middleware\EnsureIsSeller::class, \App\Http
     ->group(function () {
         Route::get('/', \App\Livewire\Seller\Dashboard::class)->name('seller.dashboard');
         Route::get('/orders', \App\Livewire\Seller\Orders::class)->name('seller.orders');
+        // No billing software (owner 2026-11-12): the printable kitchen slip for one order.
+        Route::get('/orders/{order}/slip', [\App\Http\Controllers\Seller\KitchenSlipController::class, 'show'])->name('seller.orders.slip');
         Route::get('/products', \App\Livewire\Seller\Products::class)->name('seller.products');
         Route::get('/products/add-many', \App\Livewire\Seller\AddProducts::class)->name('seller.products.add-many');
         Route::get('/products/{product}/choices', \App\Livewire\Seller\ProductChoices::class)->whereNumber('product')->name('seller.products.choices');

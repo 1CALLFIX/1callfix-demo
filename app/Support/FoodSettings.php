@@ -76,6 +76,10 @@ class FoodSettings extends MarketplaceSettings
             'group' => 'Orders', 'label' => 'Time a restaurant has to accept an order', 'type' => 'int', 'unit' => 'minutes', 'min' => 1, 'max' => 30,
             'default' => '10', 'help' => 'Owner decision 2026-11-02: 10 minutes. Not accepted in time = cancelled and refunded in full.',
         ],
+        'food.nudge_after_minutes' => [
+            'group' => 'Orders', 'label' => 'Remind the restaurant about a waiting order after', 'type' => 'int', 'unit' => 'minutes', 'min' => 0, 'max' => 29,
+            'default' => '2', 'help' => 'A paid order not accepted after this long rings the owner\'s phone (partner app) and goes by email / SMS / WhatsApp when those are on. Once per order, before it would be cancelled. 0 = no reminder.',
+        ],
         'food.max_per_dish' => [
             'group' => 'Orders', 'label' => 'Most of one dish in a cart', 'type' => 'int', 'unit' => 'items', 'min' => 1, 'max' => 100,
             'default' => '20', 'help' => 'Dishes have no stock count. A restaurant can set a lower limit on a dish ("Limit per order").',

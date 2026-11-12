@@ -83,6 +83,17 @@ class Create extends Component
 
     public string $error = '';
 
+    /**
+     * Restaurant delivery service (owner 2026-11-12): ?from=store — a restaurant or shop owner books one of our riders
+     * for its OWN order (phone / WhatsApp). Pickup = their shop, contents = food, paid from their prepaid 1CallFix
+     * balance (wallet), parcel prices. Prepaid food only: no cash on delivery here (owner decision).
+     */
+    #[\Livewire\Attributes\Url(as: 'from', except: '')]
+    public string $from = '';
+
+    #[\Livewire\Attributes\Locked]
+    public ?int $forStoreId = null;
+
     public function mount(): void
     {
         // Switched off on the Modules screen everywhere = the page does not exist.
@@ -106,6 +117,28 @@ class Create extends Component
             $this->paymentMethod = (string) $last->payment_method; // dropped in render() if not offered here
             $this->cashCollectAt = $last->cash_collect_at === 'drop' ? 'drop' : 'pickup';
         }
+
+        // Restaurant delivery service: the owner's own shop is the pickup; food; prepaid balance.
+        if ($this->from === 'store' && ($store = $this->ownStore())) {
+            $this->forStoreId = $store->id;
+            $this->pickupMode = 'pin';
+            $this->pickupAddressId = null;
+            $this->pickupLat = (float) $store->lat;
+            $this->pickupLng = (float) $store->lng;
+            $this->pickupLine = (string) $store->address_line;
+            $this->pickupContactName = (string) $store->name;
+            $this->pickupContactPhone = (string) ($store->phone ?: auth()->user()->phone);
+            $this->packageContents = $store->module === Modules::FOOD ? 'food' : 'other';
+            $this->paymentMethod = 'wallet';
+            $this->cod = false;
+        }
+    }
+
+    /** The signed-in owner's own active shop / restaurant with a map point (restaurant delivery service). */
+    private function ownStore(): ?\App\Models\Store
+    {
+        return \App\Models\Store::whereHas('provider', fn ($q) => $q->where('user_id', auth()->id()))
+            ->whereNotNull('lat')->whereNotNull('lng')->orderByDesc('is_active')->orderBy('id')->first();
     }
 
     /**
@@ -229,6 +262,10 @@ class Create extends Component
 
     public function submit(CreateParcelOrderAction $action, ParcelPaymentService $payments): void
     {
+        if ($this->forStoreId !== null) {
+            $this->cod = false;
+            $this->codAmount = '';
+        }
         abort_unless(app(ModuleActivationService::class)->isActiveAnywhere(Modules::PARCEL), 404);
         $this->error = '';
         $this->validate($this->rules(), [

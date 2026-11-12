@@ -1,5 +1,6 @@
 <div class="space-y-4" wire:poll.20s>
     <h1 class="text-2xl font-bold tracking-tight">Orders</h1>
+    <x-partner.book-rider-button />
 
     <div class="flex flex-wrap gap-2 text-sm" role="tablist">
         {{-- Owner 2026-11-09: one tab per step of the order. --}}
@@ -83,6 +84,9 @@
                 <div>
                     <p class="font-semibold">{{ $order->code }} · {{ $isPickup ? 'Pickup at shop' : 'Delivery' }}</p>
                     <p class="text-xs text-slate-500">{{ $order->customer?->name }} · {{ app(\App\Services\TimezoneResolver::class)->format($order->created_at, $order->franchise, 'd M, h:i A') }} · {{ $order->created_at->diffForHumans(short: true) }}</p>
+                    @if ($order->status !== 'cancelled')
+                        <a href="{{ route('seller.orders.slip', [$order, 'print' => 1]) }}" target="_blank" rel="noopener" class="mt-1 inline-flex min-h-9 items-center text-xs font-semibold text-blue-700 underline" data-testid="kitchen-slip-link">🖨 Print kitchen slip</a>
+                    @endif
                     {{-- Owner 2026-11-09: where the order is, at a glance. --}}
                     @unless (in_array($order->status, ['pending', 'cancelled'], true))
                         @php

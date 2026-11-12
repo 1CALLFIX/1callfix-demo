@@ -43,6 +43,7 @@ class MarketplaceOrder extends Model implements Orderable
         'ready_at' => 'datetime',
         'completed_at' => 'datetime',
         'accept_by' => 'datetime',
+        'accept_nudged_at' => 'datetime',
         'ready_by' => 'datetime',
         'rider_called_at' => 'datetime',
         'rider_at_store_at' => 'datetime',

@@ -9,6 +9,14 @@
 @endphp
 
 <div class="mx-auto max-w-2xl px-4 py-6 sm:px-6 lg:px-8">
+    @if ($forStoreId !== null)
+        {{-- Restaurant delivery service (owner 2026-11-12). --}}
+        <div class="mb-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900" data-testid="book-rider-for-store">
+            <p class="font-semibold">Book a rider for your own order</p>
+            <p class="mt-0.5">Pickup is {{ $pickupContactName }}. Add your customer's address and number; we deliver and send them the tracking. Paid from your 1CallFix balance — the customer pays you for the food directly.</p>
+            <a href="{{ route('customer.earnings.wallet') }}" wire:navigate class="mt-2 inline-flex min-h-11 items-center font-semibold underline">Add money to your balance →</a>
+        </div>
+    @endif
     {{-- Picture header (owner 2026-10-26): same picture and subtitle as the homepage parcel card (Admin → Homepage & sign-up). --}}
     <div class="relative overflow-hidden rounded-3xl bg-gradient-to-b from-blue-100 to-blue-50 px-5 pb-5 pt-5 sm:px-8">
         <img src="{{ \App\Support\SiteControls::parcelImageUrl() }}" alt="" aria-hidden="true" decoding="async"
@@ -329,8 +337,9 @@
                 @error('restrictedConfirmed') <p class="mt-1 pl-8 text-xs text-rose-700">{{ $message }}</p> @enderror
             </div>
 
-            {{-- Stage 2: cash on delivery for shops — the rider collects the item price; paid to the sender's wallet. --}}
-            @if ($codMax)
+            {{-- Stage 2: cash on delivery for shops — the rider collects the item price; paid to the sender's wallet.
+                 Not while booking a rider for the restaurant's own order (owner 2026-11-12: prepaid food only). --}}
+            @if ($codMax && $forStoreId === null)
                 <div class="mt-3 rounded-lg border border-slate-200 p-3">
                     <label class="flex cursor-pointer items-start gap-3 text-sm">
                         <input type="checkbox" wire:model.live="cod" class="mt-0.5 h-5 w-5 rounded border-slate-300 text-blue-600 focus:ring-blue-500">
