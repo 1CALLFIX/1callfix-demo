@@ -7,6 +7,8 @@
     // Hotels H1: the hotel portal, same app-style bottom bar as the seller portal.
     $navItems = [
         ['label' => 'Home', 'route' => 'hotel.dashboard', 'icon' => 'home'],
+        ['label' => 'Bookings', 'route' => 'hotel.bookings', 'icon' => 'clipboard',
+            'dot' => auth()->check() ? \App\Models\HotelReservation::whereHas('accommodation.provider', fn ($q) => $q->where('user_id', auth()->id()))->where('status', 'pending')->where('payment_status', 'paid')->count() ?: null : null],
         ['label' => 'Rooms', 'route' => 'hotel.rooms', 'icon' => 'building'],
         ['label' => 'Calendar', 'route' => 'hotel.calendar', 'icon' => 'clock'],
         ['label' => 'Hotel', 'route' => 'hotel.details', 'icon' => 'squares'],

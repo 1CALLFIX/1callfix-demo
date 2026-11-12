@@ -380,6 +380,9 @@ class CommissionService
             franchise: $reservation->franchise, worker: $reservation->provider(),
             total: (float) ($reservation->price_final ?? $reservation->price_quoted),
             orderCode: $reservation->code, orderLabel: 'hotel reservation',
+            // Hotels H3 (owner 2026-11-12): a hotel's negotiated rate wins, otherwise Hotel Settings' commission (15%).
+            platformPercentOverride: $this->rateResolver->resolvedTier($reservation->franchise, $reservation->provider()) === 'agreement'
+                ? null : (float) \App\Support\HotelSettings::get('hotel.commission_percent', \App\Support\HotelPricing::scope($reservation->accommodation)),
         );
     }
 
@@ -406,7 +409,8 @@ class CommissionService
         float $total,
         string $orderCode,
         string $orderLabel,
-        bool $earnerHoldsCash = false
+        bool $earnerHoldsCash = false,
+        ?float $platformPercentOverride = null,
     ): Commission {
         $existing = Commission::where($identifyingColumn, $identifyingId)->first();
         if ($existing) {
@@ -418,7 +422,7 @@ class CommissionService
         // never applies to a FieldWorker order; it still resolves through
         // franchise->global exactly like every other caller. No FieldWorker
         // split-calculation logic below this line changes at all.
-        $platformFeePercent = $this->rateResolver->resolve($franchise, $worker instanceof \App\Models\Provider ? $worker : null);
+        $platformFeePercent = $platformPercentOverride ?? $this->rateResolver->resolve($franchise, $worker instanceof \App\Models\Provider ? $worker : null);
         $platformCommission = round($total * ($platformFeePercent / 100), 2);
 
         $franchiseCommission = $franchise->commission_model === 'revenue_share'

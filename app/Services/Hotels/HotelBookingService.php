@@ -2,7 +2,6 @@
 
 namespace App\Services\Hotels;
 
-use App\Actions\ConfirmHotelReservationAction;
 use App\Actions\CreateHotelReservationAction;
 use App\Contracts\PaymentGateway;
 use App\Models\Accommodation;
@@ -170,13 +169,11 @@ class HotelBookingService
         $this->refundInFull($reservation->fresh(), $payment, $outcome === 'cancelled' ? 'booking was cancelled before the payment arrived' : 'paid twice');
     }
 
-    /** Paid: confirmed at once from the calendar, unless this hotel must accept bookings (H3). */
+    /** Paid: confirmed at once with a check-in code, or waiting for the hotel to accept (HotelStayService, H3). */
     private function afterPaid(HotelReservation $reservation): void
     {
         $reservation->statusHistory()->create(['status' => $reservation->status, 'note' => 'Paid ('.$reservation->payment_method.')', 'changed_at' => now()]);
-        if ($reservation->status === 'pending' && ! $reservation->accommodation->needsAcceptance()) {
-            app(ConfirmHotelReservationAction::class)->execute($reservation->id);
-        }
+        app(HotelStayService::class)->afterPaid($reservation);
     }
 
     private function refundInFull(HotelReservation $reservation, Payment $payment, string $why): void

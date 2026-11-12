@@ -132,6 +132,16 @@ ScheduleRunTracker::track(Schedule::command('hotels:expire-unpaid'), 'hotels:exp
     ->everyMinute()
     ->withoutOverlapping(5);
 
+// Hotels H3 — paid bookings the hotel did not accept within hotel.accept_window_minutes: cancelled + full refund.
+ScheduleRunTracker::track(Schedule::command('hotels:expire-unaccepted'), 'hotels:expire-unaccepted')
+    ->everyMinute()
+    ->withoutOverlapping(5);
+
+// Hotels H3 — stays checked out longer than hotel.payout_hold_hours: completed, commission split, hotel paid.
+ScheduleRunTracker::track(Schedule::command('hotels:complete-stays'), 'hotels:complete-stays')
+    ->everyFifteenMinutes()
+    ->withoutOverlapping(10);
+
 // Parcel Stage 1 — offers scheduled parcels to riders parcel.schedule_dispatch_lead_minutes before pickup.
 ScheduleRunTracker::track(Schedule::command('parcel:release-scheduled'), 'parcel:release-scheduled')
     ->everyMinute()

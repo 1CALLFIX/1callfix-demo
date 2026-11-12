@@ -24,6 +24,10 @@ class Booking extends Component
 
     public string $error = '';
 
+    public string $notice = '';
+
+    public bool $confirmingCancel = false;
+
     public function mount(string $code): void
     {
         $this->code = $code;
@@ -55,6 +59,19 @@ class Booking extends Component
         $this->dispatch('razorpay-open', order: $checkout, done: $here.'?paid=1', back: $here)->self();
     }
 
+    /** Hotels H3: cancel by the Hotel Settings rule; the page showed the exact refund before this button. */
+    public function cancel(\App\Services\Hotels\HotelStayService $stays): void
+    {
+        $this->reset('error', 'notice');
+        try {
+            $stays->customerCancel($this->reservation());
+            $this->notice = SiteText::get('hotel.booking.cancelled_notice');
+        } catch (\RuntimeException $e) {
+            $this->error = $e->getMessage();
+        }
+        $this->confirmingCancel = false;
+    }
+
     public function render()
     {
         $r = $this->reservation();
@@ -76,6 +93,8 @@ class Booking extends Component
             'money' => $money,
             'minutesLeft' => $awaiting ? max(1, (int) ceil(now()->diffInSeconds($r->payment_expires_at) / 60)) : null,
             'poll' => in_array($state, ['confirming', 'unpaid', 'waiting_hotel'], true),
+            'canCancel' => in_array($r->status, ['pending', 'confirmed'], true) && $r->payment_status === 'paid',
+            'charge' => in_array($r->status, ['pending', 'confirmed'], true) && $r->payment_status === 'paid' ? app(\App\Services\Hotels\HotelStayService::class)->chargeFor($r)[0] : 0.0,
         ])->layout('components.layouts.customer', ['title' => SiteText::get('hotel.booking.title', ['code' => $r->code]), 'indexable' => false]);
     }
 }

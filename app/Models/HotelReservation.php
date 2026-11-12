@@ -30,6 +30,8 @@ class HotelReservation extends Model implements Orderable
         'special_requests', 'confirmed_at', 'checked_in_at', 'checked_out_at', 'completed_at',
         // Hotels H2b: taxes, fee and what the customer pays; unpaid hold; business guest's GST invoice.
         'tax_amount', 'convenience_fee', 'amount_due', 'payment_expires_at', 'guest_gst_number', 'guest_business_name',
+        // Hotels H3: e-voucher code, hotel accept deadline, no-show, who cancelled.
+        'check_in_code', 'accept_by', 'no_show', 'cancelled_by',
     ];
 
     protected $casts = [
@@ -37,6 +39,8 @@ class HotelReservation extends Model implements Orderable
         'check_out_date' => 'date',
         'confirmed_at' => 'datetime',
         'payment_expires_at' => 'datetime',
+        'accept_by' => 'datetime',
+        'no_show' => 'boolean',
         'checked_in_at' => 'datetime',
         'checked_out_at' => 'datetime',
         'completed_at' => 'datetime',

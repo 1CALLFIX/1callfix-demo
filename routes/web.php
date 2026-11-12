@@ -317,6 +317,7 @@ Route::middleware(['auth', \App\Http\Middleware\EnsureIsHotel::class, \App\Http\
     ->prefix('hotel')
     ->group(function () {
         Route::get('/', \App\Livewire\Hotel\Dashboard::class)->name('hotel.dashboard');
+        Route::get('/bookings', \App\Livewire\Hotel\Bookings::class)->name('hotel.bookings');
         Route::get('/rooms', \App\Livewire\Hotel\Rooms::class)->name('hotel.rooms');
         Route::get('/calendar', \App\Livewire\Hotel\Calendar::class)->name('hotel.calendar');
         Route::get('/details', \App\Livewire\Hotel\Details::class)->name('hotel.details');

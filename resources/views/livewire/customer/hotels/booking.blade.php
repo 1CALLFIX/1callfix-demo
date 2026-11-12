@@ -24,6 +24,19 @@
     @if ($error)
         <div role="alert" class="mt-3 rounded-xl bg-red-50 px-3 py-2.5 text-sm text-red-800">{{ $error }}</div>
     @endif
+    @if ($notice)
+        <div role="status" class="mt-3 rounded-xl bg-emerald-50 px-3 py-2.5 text-sm text-emerald-800">{{ $notice }}</div>
+    @endif
+
+    {{-- ── e-voucher: show this code at the desk (Hotels H3) ── --}}
+    @if (in_array($r->status, ['confirmed', 'checked_in'], true) && $r->check_in_code)
+        <section class="mt-4 rounded-2xl border-2 border-dashed border-blue-300 bg-white p-4 text-center" data-testid="hotel-voucher">
+            <p class="text-xs font-semibold uppercase text-slate-500">{{ $t('hotel.booking.code_label') }}</p>
+            <p class="mt-1 text-4xl font-bold tracking-[0.3em] text-slate-900">{{ $r->check_in_code }}</p>
+            <p class="mt-2 text-sm text-slate-600">{{ $t('hotel.booking.code_hint') }}</p>
+            <p class="mt-1 text-sm font-medium text-slate-800">{{ $t('hotel.show.times', ['in' => \Illuminate\Support\Carbon::parse($hotel->check_in_time_start ?: '14:00')->format('g:i A'), 'out' => \Illuminate\Support\Carbon::parse($hotel->check_out_time ?: '11:00')->format('g:i A')]) }}</p>
+        </section>
+    @endif
 
     <section class="mt-4 rounded-2xl border border-slate-200 bg-white p-4 text-sm">
         @foreach ($r->rooms as $line)
@@ -44,6 +57,21 @@
             <div class="flex justify-between border-t border-slate-200 pt-1 font-bold"><dt>{{ $t('hotel.show.total') }}</dt><dd>{{ $money($r->amountDue()) }}</dd></div>
         </dl>
     </section>
+
+    {{-- ── cancel: the exact refund is shown before the button ── --}}
+    @if ($canCancel)
+        <section class="mt-4 rounded-2xl border border-slate-200 bg-white p-4 text-sm">
+            <p class="text-slate-700">{{ $charge > 0 ? $t('hotel.booking.cancel_charge', ['charge' => $money($charge), 'refund' => $money(max(0, $r->amountDue() - $charge))]) : $t('hotel.booking.cancel_free', ['refund' => $money($r->amountDue())]) }}</p>
+            @if ($confirmingCancel)
+                <div class="mt-3 flex flex-wrap gap-2">
+                    <button type="button" wire:click="cancel" wire:loading.attr="disabled" class="inline-flex min-h-11 items-center rounded-xl bg-red-600 px-4 font-semibold text-white" data-testid="hotel-cancel-confirm">{{ $t('hotel.booking.cancel_yes') }}</button>
+                    <button type="button" wire:click="$set('confirmingCancel', false)" class="inline-flex min-h-11 items-center rounded-xl border border-slate-300 px-4 font-semibold text-slate-700">{{ $t('hotel.booking.cancel_no') }}</button>
+                </div>
+            @else
+                <button type="button" wire:click="$set('confirmingCancel', true)" class="mt-3 inline-flex min-h-11 items-center rounded-xl border border-red-300 px-4 font-semibold text-red-700" data-testid="hotel-cancel">{{ $t('hotel.booking.cancel') }}</button>
+            @endif
+        </section>
+    @endif
 
     @if ($state === 'unpaid')
         @assets

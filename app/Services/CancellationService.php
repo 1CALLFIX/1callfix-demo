@@ -545,29 +545,9 @@ class CancellationService
      */
     public function calculateFeeForHotelReservation(HotelReservation $reservation): float
     {
-        $reservation->loadMissing('franchise');
-
-        $scope = array_filter([
-            'zone_id' => $reservation->zone_id,
-            'franchise_id' => $reservation->franchise_id,
-            'city_id' => $reservation->franchise?->city_id,
-            'country_id' => $reservation->franchise?->country_id,
-        ]);
-
-        $freeHoursBeforeCheckIn = (int) Setting::get('hotel.free_cancellation_hours_before_checkin', '48', $scope);
-        $feeType = Setting::get('hotel.cancellation_fee_type', 'flat', $scope);
-        $feeValue = (float) Setting::get('hotel.cancellation_fee_value', '0', $scope);
-
-        $hoursUntilCheckIn = now()->diffInHours($reservation->check_in_date->startOfDay(), false);
-
-        if ($hoursUntilCheckIn >= $freeHoursBeforeCheckIn) {
-            return 0.0;
-        }
-
-        $basis = (float) ($reservation->price_quoted ?? 0);
-        $fee = $feeType === 'percent' ? round($basis * $feeValue / 100, 2) : $feeValue;
-
-        return round(min($fee, $basis), 2);
+        // Hotels H3 (owner 2026-11-12): one cancellation rule for every channel, from Hotel Settings
+        // (free until hotel.free_cancel_hours before check-in, then hotel.late_cancel_nights).
+        return app(\App\Services\Hotels\HotelStayService::class)->chargeFor($reservation)[0];
     }
 
     /** HOTEL / STAY BOOKING MODULE -- the HotelReservation counterpart to refundIfPaidForPropertyReservation() above, same reasoning. */

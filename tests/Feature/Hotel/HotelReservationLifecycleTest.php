@@ -295,6 +295,8 @@ class HotelReservationLifecycleTest extends TestCase
         $scenario = $this->makeHotelReservationScenario('pending');
         $scenario['reservation']->update(['price_quoted' => 2000]);
         $scenario['franchise']->update(['platform_fee_percent' => 20, 'commission_model' => 'revenue_share', 'commission_value' => 10, 'owner_user_id' => null]);
+        // Hotels H3 (owner 2026-11-12): hotels pay Hotel Settings' commission (not the general platform rate).
+        \App\Models\Setting::set('hotel.commission_percent', '20');
 
         $confirmed = app(ConfirmHotelReservationAction::class)->execute($scenario['reservation']->id);
         $this->assertSame('confirmed', $confirmed->status);
@@ -352,6 +354,7 @@ class HotelReservationLifecycleTest extends TestCase
         $scenario = $this->makeHotelReservationScenario('checked_out');
         $scenario['reservation']->update(['price_quoted' => 1000]);
         $scenario['franchise']->update(['platform_fee_percent' => 0, 'commission_model' => 'flat_fee', 'commission_value' => 0]);
+        \App\Models\Setting::set('hotel.commission_percent', '0');
 
         app(CompleteHotelReservationAction::class)->execute($scenario['reservation']->id);
         app(\App\Services\CommissionService::class)->applyForHotelReservation($scenario['reservation']->fresh());
@@ -415,9 +418,9 @@ class HotelReservationLifecycleTest extends TestCase
 
     public function test_cancellation_fee_is_zero_within_the_free_window_before_checkin(): void
     {
-        \App\Models\Setting::set('hotel.free_cancellation_hours_before_checkin', '48');
-        \App\Models\Setting::set('hotel.cancellation_fee_type', 'flat');
-        \App\Models\Setting::set('hotel.cancellation_fee_value', '200');
+        // Hotels H3: the one rule from Hotel Settings — free until hotel.free_cancel_hours before check-in.
+        \App\Models\Setting::set('hotel.free_cancel_hours', '48');
+        \App\Models\Setting::set('hotel.late_cancel_nights', '1');
 
         $scenario = $this->makeHotelReservationScenario('pending'); // check-in is 5 days out in the fixture
 
@@ -428,16 +431,16 @@ class HotelReservationLifecycleTest extends TestCase
 
     public function test_cancellation_fee_applies_when_cancelled_close_to_checkin(): void
     {
-        \App\Models\Setting::set('hotel.free_cancellation_hours_before_checkin', '48');
-        \App\Models\Setting::set('hotel.cancellation_fee_type', 'flat');
-        \App\Models\Setting::set('hotel.cancellation_fee_value', '200');
+        // Hotels H3: after the free time, Hotel Settings' late-cancel nights are kept (here 1 of 2 nights).
+        \App\Models\Setting::set('hotel.free_cancel_hours', '48');
+        \App\Models\Setting::set('hotel.late_cancel_nights', '1');
 
         $scenario = $this->makeHotelReservationScenario('pending');
-        $scenario['reservation']->update(['check_in_date' => now()->addHours(10)->toDateString()]);
+        $scenario['reservation']->update(['check_in_date' => now()->addHours(10)->toDateString(), 'check_out_date' => now()->addHours(10)->addDays(2)->toDateString(), 'number_of_nights' => 2, 'price_quoted' => 2000]);
 
         $reservation = app(AdminCancelHotelReservationAction::class)->execute($scenario['reservation']->id, 'test');
 
-        $this->assertSame(200.0, (float) $reservation->cancellation_fee);
+        $this->assertSame(1000.0, (float) $reservation->cancellation_fee);
     }
 
     // ============================== Payment ==============================

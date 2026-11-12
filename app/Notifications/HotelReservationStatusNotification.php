@@ -42,7 +42,7 @@ class HotelReservationStatusNotification extends Notification
 
         return match ($this->event) {
             'created' => ['subject' => 'Reservation requested', 'body' => "Your hotel reservation {$this->reservation->code} has been requested."],
-            'confirmed' => ['subject' => 'Reservation confirmed', 'body' => "Your hotel reservation {$this->reservation->code} is confirmed for {$this->reservation->check_in_date->format('d M Y')} to {$this->reservation->check_out_date->format('d M Y')}."],
+            'confirmed' => ['subject' => 'Reservation confirmed', 'body' => "Your hotel reservation {$this->reservation->code} is confirmed for {$this->reservation->check_in_date->format('d M Y')} to {$this->reservation->check_out_date->format('d M Y')}.".($this->reservation->check_in_code ? " Check-in code: {$this->reservation->check_in_code}. Show your photo ID at the reception." : '')],
             'checked_in' => ['subject' => 'Checked in', 'body' => "You're checked in for reservation {$this->reservation->code}."],
             'checked_out' => ['subject' => 'Checked out', 'body' => "You're checked out for reservation {$this->reservation->code}."],
             'completed' => ['subject' => 'Stay completed', 'body' => "Your stay for reservation {$this->reservation->code} is complete. Thank you for using 1CallFix."],
