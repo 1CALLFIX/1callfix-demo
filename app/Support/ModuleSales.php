@@ -61,12 +61,17 @@ class ModuleSales
                 ['model' => \App\Models\EventOrder::class, 'permission' => 'events.manage', 'done' => ['confirmed'], 'value' => 'total', 'route' => 'admin.events.index',
                     'where' => fn ($q) => $q->where('payment_status', '!=', 'pending')],
             ]],
+            // Function halls R2: paid bookings; value = the hall's total (price + GST + fee), not the deposit.
+            'halls' => ['label' => 'Function halls', 'colour' => 'teal', 'prelaunch' => true, 'sources' => [
+                ['model' => \App\Models\HallBooking::class, 'permission' => 'halls.manage', 'done' => ['confirmed', 'completed'], 'value' => 'total', 'route' => 'admin.hall-bookings.index',
+                    'where' => fn ($q) => $q->where('payment_status', '!=', 'pending')],
+            ]],
         ];
     }
 
     /** Dashboard key => module code in Admin → Modules. */
     public const MODULE_CODES = ['service' => 'service', 'parcel' => 'parcel', 'shop' => 'commerce', 'food' => 'food',
-        'taxi' => 'taxi', 'rental' => 'rental', 'hotel' => 'hotel', 'events' => 'events'];
+        'taxi' => 'taxi', 'rental' => 'rental', 'hotel' => 'hotel', 'events' => 'events', 'halls' => 'halls'];
 
     /**
      * Owner 2026-11-09: the dashboard shows only modules that are built and switched on somewhere (Admin → Modules),

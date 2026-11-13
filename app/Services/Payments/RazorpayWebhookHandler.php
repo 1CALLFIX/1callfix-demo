@@ -199,6 +199,14 @@ class RazorpayWebhookHandler
             return ['outcome' => 'captured', 'payment' => $payment];
         }
 
+        // Function halls R2 (2026-11-13): an online hall booking holds its slot unpaid until this capture, then waits
+        // for the owner to accept.
+        if ($payment->purpose === 'hall_booking') {
+            app(\App\Services\Halls\HallBookingService::class)->markPaid($payment);
+
+            return ['outcome' => 'captured', 'payment' => $payment];
+        }
+
         // E-commerce Phase 0 (2026-10-25): an online shop order is held from the seller until this capture.
         if ($payment->purpose === 'marketplace_order') {
             app(\App\Services\Marketplace\MarketplacePaymentService::class)->markPaid($payment);
@@ -374,7 +382,7 @@ class RazorpayWebhookHandler
 
         // A failed parcel attempt changes nothing: the order stays pending and the customer can pay again
         // (a new gateway order is opened each time) or cancel; unpaid orders expire on their own.
-        if (in_array($payment->purpose, ['parcel_order', 'marketplace_order', 'parcel_pack', 'hotel_reservation', 'event_order'], true)) {
+        if (in_array($payment->purpose, ['parcel_order', 'marketplace_order', 'parcel_pack', 'hotel_reservation', 'event_order', 'hall_booking'], true)) {
             return ['outcome' => 'failed', 'payment' => $payment];
         }
 

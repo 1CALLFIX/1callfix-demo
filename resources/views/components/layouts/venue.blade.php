@@ -7,6 +7,7 @@
     // Function halls R1: the hall portal, same app-style bottom bar as the hotel and organiser portals.
     $navItems = [
         ['label' => 'Home', 'route' => 'venue.dashboard', 'icon' => 'home', 'also' => ['venue.halls.create', 'venue.halls.edit']],
+        ['label' => 'Bookings', 'route' => 'venue.bookings', 'icon' => 'clipboard', 'dot' => auth()->check() ? \App\Models\HallBooking::where('status', 'awaiting_owner')->whereHas('hall.provider', fn ($q) => $q->where('user_id', auth()->id()))->count() : 0],
         ['label' => 'Dates', 'route' => 'venue.dates', 'icon' => 'clock'],
     ];
 @endphp

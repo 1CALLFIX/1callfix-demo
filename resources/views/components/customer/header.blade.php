@@ -150,6 +150,10 @@
                                     || \App\Models\ParcelOrder::where('customer_id', auth()->id())->exists()) {
                                     $menu[] = [$t('header.menu.parcels'), route('customer.parcels.index')];
                                 }
+                                // Function halls R2: anyone who has booked a hall.
+                                if (\App\Models\HallBooking::where('customer_id', auth()->id())->exists()) {
+                                    $menu[] = [$t('header.menu.halls'), route('customer.halls.bookings')];
+                                }
                                 // Events E2: anyone who has bought tickets.
                                 if (\App\Models\EventOrder::where('customer_id', auth()->id())->exists()) {
                                     $menu[] = [$t('header.menu.tickets'), route('customer.events.tickets')];

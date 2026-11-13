@@ -220,6 +220,10 @@ Route::middleware(['auth', \App\Http\Middleware\EnsureAccountNotSuspended::class
     Route::get('/events/book', \App\Livewire\Customer\Events\Book::class)->name('customer.events.book');
     Route::get('/events/tickets', \App\Livewire\Customer\Events\Tickets::class)->name('customer.events.tickets');
     Route::get('/events/orders/{code}', \App\Livewire\Customer\Events\Order::class)->where('code', '[A-Za-z0-9-]+')->name('customer.events.order');
+    // Function halls R2 (2026-11-13): book a hall, the booking page, My hall bookings.
+    Route::get('/halls/book', \App\Livewire\Customer\Halls\Book::class)->name('customer.halls.book');
+    Route::get('/halls/bookings', \App\Livewire\Customer\Halls\Bookings::class)->name('customer.halls.bookings');
+    Route::get('/halls/bookings/{code}', \App\Livewire\Customer\Halls\Booking::class)->where('code', '[A-Za-z0-9-]+')->name('customer.halls.booking');
 
     // E-commerce Phase 2: the shop bag, checkout (one shop per order) and the customer's shop orders. Browsing is
     // public under /{city}/shop; a customer's own orders stay reachable even if Commerce is switched off later.
@@ -362,6 +366,7 @@ Route::middleware(['auth', \App\Http\Middleware\EnsureIsHallOwner::class, \App\H
         Route::get('/halls/new', \App\Livewire\Venue\HallEditor::class)->name('venue.halls.create');
         Route::get('/halls/{hallId}', \App\Livewire\Venue\HallEditor::class)->whereNumber('hallId')->name('venue.halls.edit');
         Route::get('/dates', \App\Livewire\Venue\Dates::class)->name('venue.dates');
+        Route::get('/bookings', \App\Livewire\Venue\Bookings::class)->name('venue.bookings');
     });
 
 /*
@@ -468,6 +473,9 @@ Route::get('/{city}/hotels/{hotelSlug}', \App\Livewire\Customer\Hotels\Show::cla
 // Events E2 (2026-11-13): /{city}/events and /{city}/events/{event}. 404 while Events is off for that city.
 Route::get('/{city}/events', \App\Livewire\Customer\Events\Home::class)->where('city', $cityPattern)->middleware('page.cache')->name('customer.events.home');
 Route::get('/{city}/events/{eventSlug}', \App\Livewire\Customer\Events\Show::class)->where(['city' => $cityPattern, 'eventSlug' => '[A-Za-z0-9_-]+'])->middleware('page.cache')->name('customer.events.show');
+// Function halls R2 (2026-11-13): /{city}/halls and /{city}/halls/{hall}. 404 while Function Halls is off for that city.
+Route::get('/{city}/halls', \App\Livewire\Customer\Halls\Home::class)->where('city', $cityPattern)->middleware('page.cache')->name('customer.halls.home');
+Route::get('/{city}/halls/{hallSlug}', \App\Livewire\Customer\Halls\Show::class)->where(['city' => $cityPattern, 'hallSlug' => '[A-Za-z0-9_-]+'])->middleware('page.cache')->name('customer.halls.show');
 
 // City URL architecture (2026-11-01): /{city} is the hub, each business has its own word after the city. The older
 // /{city}/{slug} catalog URL permanently 301s to /{city}/services/{slug}. Future words (food, grocery, pharmacy,

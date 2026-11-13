@@ -181,6 +181,20 @@ class SitemapController extends Controller
             }
         }
 
+        // Function halls R2 (2026-11-13): /{city}/halls and each real (never a test) live hall, once Function Halls is on.
+        if (\App\Support\Seo\CityModules::hallsLiveIn($city)) {
+            $halls = \App\Models\Hall::query()->where('status', 'approved')->where('is_active', true)
+                ->whereHas('franchise', fn ($q) => $q->where('city_id', $city->id))
+                ->whereDoesntHave('provider.user', fn ($q) => $q->where('email', 'like', '%'.\App\Console\Commands\TestAccountsCommand::DOMAIN))
+                ->get(['slug', 'updated_at']);
+            if ($halls->isNotEmpty()) {
+                $add($this->abs('/'.$city->slug.'/halls'), null, '0.8');
+                foreach ($halls as $hall) {
+                    $add($this->abs('/'.$city->slug.'/halls/'.$hall->slug), $hall->updated_at, '0.7');
+                }
+            }
+        }
+
         // Events E2 (2026-11-13): /{city}/events and each real (never a test) event not over yet, once Events is on.
         if (\App\Support\Seo\CityModules::eventsLiveIn($city)) {
             $events = \App\Models\Event::query()->where('status', 'approved')->where('ends_at', '>', now())

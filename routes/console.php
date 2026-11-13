@@ -138,6 +138,12 @@ ScheduleRunTracker::track(Schedule::command('events:expire-unpaid'), 'events:exp
     ->everyMinute()
     ->withoutOverlapping(5);
 
+// Function halls R2 — no payment, no booking: unpaid online hall bookings past hall.unpaid_hold_minutes free their slot;
+// paid bookings the owner did not answer within hall.owner_accept_hours are declined and refunded in full.
+ScheduleRunTracker::track(Schedule::command('halls:expire'), 'halls:expire')
+    ->everyMinute()
+    ->withoutOverlapping(5);
+
 // Events E3 — events past event.payout_hold_hours (default 48) after their end are finished and the organisers paid.
 ScheduleRunTracker::track(Schedule::command('events:complete'), 'events:complete')
     ->hourly()
