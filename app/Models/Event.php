@@ -23,7 +23,7 @@ class Event extends Model
     protected $fillable = [
         'event_organiser_id', 'franchise_id', 'zone_id', 'title', 'slug', 'category', 'description', 'cover_image', 'photos',
         'venue_name', 'venue_address', 'lat', 'lng', 'accommodation_id', 'starts_at', 'ends_at', 'min_age', 'terms',
-        'status', 'rejection_reason', 'submitted_at', 'approved_at', 'is_featured',
+        'status', 'rejection_reason', 'submitted_at', 'approved_at', 'is_featured', 'cancelled_at', 'cancellation_reason', 'cancelled_by', 'completed_at',
     ];
 
     protected $casts = [
@@ -33,6 +33,8 @@ class Event extends Model
         'submitted_at' => 'datetime',
         'approved_at' => 'datetime',
         'is_featured' => 'boolean',
+        'cancelled_at' => 'datetime',
+        'completed_at' => 'datetime',
         'min_age' => 'integer',
     ];
 
@@ -41,6 +43,8 @@ class Event extends Model
     public function zone() { return $this->belongsTo(Zone::class); }
     public function accommodation() { return $this->belongsTo(Accommodation::class); }
     public function ticketTypes() { return $this->hasMany(EventTicketType::class)->orderBy('sort_order')->orderBy('id'); }
+    public function orders() { return $this->hasMany(EventOrder::class); }
+    public function tickets() { return $this->hasMany(EventTicket::class); }
 
     /** The organiser may still change it: anything not yet approved, finished or cancelled. */
     public function isEditable(): bool

@@ -228,6 +228,136 @@ class TicketPurchaseTest extends TestCase
         $this->actingAs($this->customer)->get(route('customer.events.tickets'))->assertOk()->assertSee('Year End Bash');
     }
 
+    // ── E3: gate, cancelling, buyer cancellation, organiser payout ──
+
+    private function organiserUser(): User
+    {
+        return $this->event->organiser->provider->user;
+    }
+
+    public function test_gate_lets_each_ticket_in_once_and_only_at_its_own_event(): void
+    {
+        Setting::set('payment.wallet_enabled', '1');
+        app(WalletService::class)->credit($this->customer, 5000, reason: 'top-up', ref: 'test-topup-'.Str::random(6));
+        $order = $this->buy([$this->couple->id => 1], 'wallet');
+        $code = $order->tickets()->first()->code;
+        $service = app(EventTicketService::class);
+
+        $first = $service->checkIn($this->event, strtolower($code), $this->organiserUser());
+        $this->assertTrue($first['ok']);
+        $this->assertStringContainsString('let 2 people in', $first['message']);
+        $this->assertFalse($service->checkIn($this->event, $code, $this->organiserUser())['ok'], 'Used once.');
+        $this->assertStringContainsString('Already used', $service->checkIn($this->event, $code, $this->organiserUser())['message']);
+        $this->assertFalse($service->checkIn($this->event, 'TNOTAREALONE', $this->organiserUser())['ok']);
+
+        $other = $this->event->replicate(['slug'])->fill(['slug' => 'other-night']);
+        $other->save();
+        $this->assertSame('Not a ticket for this event.', $service->checkIn($other, $order->tickets()->latest('id')->first()->code, $this->organiserUser())['message']);
+
+        // The organiser's own gate page; another organiser cannot open it.
+        Livewire::actingAs($this->organiserUser())->test(\App\Livewire\Organiser\Gate::class, ['eventId' => $this->event->id])
+            ->assertSee('2 / 2 in');
+        $this->actingAs($this->customer)->get(route('organiser.events.gate', $this->event->id))->assertForbidden();
+    }
+
+    public function test_cancelling_the_event_refunds_every_buyer_in_full_once(): void
+    {
+        \Illuminate\Support\Facades\Notification::fake();
+        Setting::set('event.booking_fee_per_ticket', '20');
+        Setting::set('payment.wallet_enabled', '1');
+        app(WalletService::class)->credit($this->customer, 5000, reason: 'top-up', ref: 'test-topup-'.Str::random(6));
+        $wallet = $this->buy([$this->early->id => 1], 'wallet');           // ₹499 + ₹20 = ₹519 from the wallet
+        $online = $this->buy([$this->couple->id => 1]);                     // ₹1,000 + ₹180 GST + ₹20 = ₹1,200 online
+        $this->capture($online);
+        $unpaid = $this->buy([$this->early->id => 1]);
+
+        Livewire::actingAs($this->organiserUser())->test(\App\Livewire\Organiser\EventEditor::class, ['eventId' => $this->event->id])
+            ->call('cancelEvent')->assertHasErrors('cancelReason')
+            ->set('cancelReason', 'Venue not available')->call('cancelEvent')->assertHasNoErrors();
+
+        $this->assertSame('cancelled', $this->event->fresh()->status);
+        $this->assertEquals(5000.0, app(WalletService::class)->balance($this->customer), 'Wallet order back in full, fee included.');
+        $this->assertSame([1200.0], $this->refunds, 'Online order back in full through Razorpay.');
+        foreach ([$wallet, $online] as $o) {
+            $this->assertSame('cancelled', $o->fresh()->status);
+            $this->assertSame('refunded', $o->fresh()->payment_status);
+            $this->assertSame(0, $o->tickets()->where('status', 'valid')->count());
+        }
+        $this->assertSame('cancelled', $unpaid->fresh()->status);
+        \Illuminate\Support\Facades\Notification::assertSentTo($this->customer, \App\Notifications\EventOrderStatusNotification::class);
+
+        // Again: nothing more is refunded.
+        $this->assertThrows(fn () => app(EventTicketService::class)->cancelEvent($this->event->fresh(), $this->organiserUser(), 'Again please'), \RuntimeException::class);
+        $this->assertSame([1200.0], $this->refunds);
+        $this->assertFalse(app(EventTicketService::class)->checkIn($this->event, $online->tickets()->first()->code, $this->organiserUser())['ok']);
+    }
+
+    public function test_admin_can_cancel_an_event_too(): void
+    {
+        Livewire::actingAs($this->makeSuperAdmin())->test(\App\Livewire\Events\Manage::class)
+            ->call('viewEvent', $this->event->id)->assertSee('Cancel the event')
+            ->set('cancelReason', 'Organiser not reachable')->call('cancelEvent', $this->event->id);
+        $this->assertSame('cancelled', $this->event->fresh()->status);
+        $this->assertSame('Organiser not reachable', $this->event->fresh()->cancellation_reason);
+    }
+
+    public function test_buyers_cancel_only_when_event_settings_allow_it_and_keep_no_fee(): void
+    {
+        Setting::set('event.booking_fee_per_ticket', '20');
+        Setting::set('payment.wallet_enabled', '1');
+        app(WalletService::class)->credit($this->customer, 5000, reason: 'top-up', ref: 'test-topup-'.Str::random(6));
+        $order = $this->buy([$this->early->id => 2], 'wallet'); // 2 × ₹499 + ₹40 fee = ₹1,038
+        $this->assertFalse(EventTicketService::buyerCanCancel($order), 'Off by default.');
+        $this->assertThrows(fn () => app(EventTicketService::class)->buyerCancel($order, $this->customer), \RuntimeException::class);
+
+        Setting::set('event.buyer_cancel_allowed', '1');
+        $this->get(route('customer.events.show', [$this->city->slug, 'year-end-bash']))->assertSee('48 hours before the start');
+        $page = Livewire::actingAs($this->customer)->test(Order::class, ['code' => $order->code])->assertSee('Cancel these tickets')->call('cancelTickets');
+        $page->assertSee('₹998.00 refunded');
+        $this->assertEquals(5000.0 - 40.0, app(WalletService::class)->balance($this->customer), 'Booking fee kept.');
+        $this->assertSame(0, $this->early->fresh()->sold, 'Back on sale.');
+
+        $late = $this->buy([$this->early->id => 1], 'wallet');
+        $this->event->update(['starts_at' => now()->addHours(10)]);
+        $this->assertFalse(EventTicketService::buyerCanCancel($late->fresh()), 'Too close to the start.');
+    }
+
+    public function test_after_the_event_and_the_payout_hold_the_organiser_is_paid_once(): void
+    {
+        Setting::set('event.booking_fee_per_ticket', '20');
+        $order = $this->buy([$this->couple->id => 2]); // ticket sales ₹2,000 (+ GST ₹360 + fee ₹40)
+        $this->capture($order);
+        $this->event->update(['starts_at' => now()->subHours(30), 'ends_at' => now()->subHours(25)]);
+
+        $this->artisan('events:complete')->assertSuccessful();
+        $this->assertSame('approved', $this->event->fresh()->status, 'Within the 48-hour hold.');
+
+        $this->travel(24)->hours();
+        $this->artisan('events:complete')->assertSuccessful();
+        $this->assertSame('completed', $this->event->fresh()->status);
+        $commission = \App\Models\Commission::where('event_order_id', $order->id)->firstOrFail();
+        $this->assertEquals(200.0, (float) $commission->platform_commission, '10% of the ticket prices.');
+        $this->assertEquals(2000.0 - 200.0 - (float) $commission->franchise_commission, (float) $commission->provider_commission,
+            'Ticket prices only: GST stays with 1CallFix (it pays it), the fee is 1CallFix\'s; the franchise takes its usual share.');
+        $this->assertEquals((float) $commission->provider_commission, app(WalletService::class)->balance($this->organiserUser()));
+
+        $this->event->update(['status' => 'approved']);
+        $this->artisan('events:complete')->assertSuccessful();
+        $this->assertSame(1, \App\Models\Commission::where('event_order_id', $order->id)->count());
+        $this->assertEquals((float) $commission->provider_commission, app(WalletService::class)->balance($this->organiserUser()));
+    }
+
+    public function test_dashboard_counts_paid_ticket_orders_only(): void
+    {
+        $paid = $this->buy([$this->couple->id => 1]);
+        $this->capture($paid);
+        $this->buy([$this->early->id => 1]); // unpaid attempt
+
+        $row = \App\Support\ModuleSales::summary($this->makeSuperAdmin(), now()->subDay())['events'];
+        $this->assertSame(1, $row['orders']);
+        $this->assertEquals(1180.0, $row['sales']);
+    }
+
     public function test_two_buyers_never_get_the_last_ticket_twice(): void
     {
         $this->buy([$this->early->id => 2]);

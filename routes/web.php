@@ -345,6 +345,8 @@ Route::middleware(['auth', \App\Http\Middleware\EnsureIsOrganiser::class, \App\H
         Route::get('/events', \App\Livewire\Organiser\Events::class)->name('organiser.events');
         Route::get('/events/new', \App\Livewire\Organiser\EventEditor::class)->name('organiser.events.create');
         Route::get('/events/{eventId}', \App\Livewire\Organiser\EventEditor::class)->whereNumber('eventId')->name('organiser.events.edit');
+        // Events E3: the gate scanner (camera or typed code).
+        Route::get('/events/{eventId}/gate', \App\Livewire\Organiser\Gate::class)->whereNumber('eventId')->name('organiser.events.gate');
         Route::get('/details', \App\Livewire\Organiser\Details::class)->name('organiser.details');
     });
 

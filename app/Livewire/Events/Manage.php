@@ -33,6 +33,9 @@ class Manage extends Component
 
     public string $rejectReason = '';
 
+    /** Events E3: the reason buyers see when the team cancels an event. */
+    public string $cancelReason = '';
+
     private const COLUMNS = ['zone_id' => 'zone_id', 'franchise_id' => 'franchise_id', 'city_id' => 'franchise.city_id', 'country_id' => 'franchise.country_id'];
 
     public function mount(): void
@@ -147,6 +150,23 @@ class Manage extends Component
         session()->flash('message', "{$event->title} sent back to the organiser with your reason.");
     }
 
+    /** Events E3: the team cancels an event (e.g. the organiser cannot be reached); every buyer is refunded in full. */
+    public function cancelEvent(int $id, \App\Services\Events\EventTicketService $tickets): void
+    {
+        $event = $this->events()->find($id);
+        abort_if(! $event, 404);
+        $this->validate(['cancelReason' => 'required|string|min:5|max:500'], ['cancelReason.required' => 'Write the reason buyers will see.']);
+        try {
+            $n = $tickets->cancelEvent($event, auth()->user(), $this->cancelReason);
+        } catch (\RuntimeException $e) {
+            session()->flash('error', $e->getMessage());
+
+            return;
+        }
+        $this->reset('cancelReason');
+        session()->flash('message', "{$event->title} cancelled. {$n} ".\Illuminate\Support\Str::plural('order', $n).' refunded in full.');
+    }
+
     public function toggleFeatured(int $id): void
     {
         $event = $this->events()->find($id);
@@ -170,6 +190,7 @@ class Manage extends Component
                 ->orderByRaw("approval_status = 'pending' desc")->latest('id')->paginate(20);
         } elseif ($this->selectedEventId) {
             $data['event'] = $this->events()->with(['organiser.provider', 'ticketTypes', 'franchise'])->findOrFail($this->selectedEventId);
+            $data['sales'] = \App\Services\Events\EventTicketService::salesSummary($data['event']);
         } else {
             $data['events'] = $this->events()->with('organiser')->withSum('ticketTypes as tickets_total', 'quantity')
                 ->when(array_key_exists($this->statusFilter, Event::STATUS_LABELS), fn ($q) => $q->where('status', $this->statusFilter))

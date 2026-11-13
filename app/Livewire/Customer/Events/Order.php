@@ -47,6 +47,22 @@ class Order extends Component
         $this->dispatch('razorpay-open', order: $checkout, done: $url.'?paid=1', back: $url)->self();
     }
 
+    /** Events E3: the buyer cancels (only while Event Settings allows it); the booking fee is kept. */
+    public function cancelTickets(EventTicketService $tickets): void
+    {
+        $this->reset('error');
+        try {
+            $amount = $tickets->buyerCancel($this->order(), auth()->user());
+        } catch (\RuntimeException $e) {
+            $this->error = $e->getMessage();
+
+            return;
+        }
+        $this->refunded = $amount;
+    }
+
+    public ?float $refunded = null;
+
     public function render()
     {
         $order = $this->order();
@@ -62,6 +78,7 @@ class Order extends Component
             'money' => fn (float $v) => $symbol.number_format($v, 2),
             'eventUrl' => $event->franchise?->city ? route('customer.events.show', [$event->franchise->city->slug, $event->slug]) : null,
             'justPaid' => request()->boolean('paid'),
+            'canCancel' => EventTicketService::buyerCanCancel($order),
         ])->layout('components.layouts.customer', ['title' => SiteText::get('event.order.title'), 'indexable' => false]);
     }
 }

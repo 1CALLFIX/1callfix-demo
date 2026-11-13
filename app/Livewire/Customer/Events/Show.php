@@ -64,6 +64,7 @@ class Show extends Component
             'when' => $event->starts_at->copy()->setTimezone($tz)->format('l, j F Y · g:i A').' – '.$event->ends_at->copy()->setTimezone($tz)->format($event->ends_at->copy()->setTimezone($tz)->isSameDay($event->starts_at->copy()->setTimezone($tz)) ? 'g:i A' : 'j M, g:i A'),
             'mapUrl' => $event->lat !== null ? 'https://www.google.com/maps/search/?api=1&query='.$event->lat.','.$event->lng
                 : 'https://www.google.com/maps/search/?api=1&query='.urlencode($event->venue_name.', '.$event->venue_address),
+            'refundLine' => \App\Services\Events\EventTicketService::refundLine($event),
             'maxOrder' => (int) EventSettings::get('event.max_tickets_per_order', $scope),
             'schema' => $this->schema($event),
         ])->layout('components.layouts.customer', [

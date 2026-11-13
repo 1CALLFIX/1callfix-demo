@@ -108,6 +108,7 @@ class Book extends Component
             'when' => $event->starts_at->copy()->setTimezone($tz)->format('D, j M Y · g:i A'),
             'walletOn' => $walletOn && $balance >= $quote['total'],
             'balance' => $money($balance),
+            'refundLine' => \App\Services\Events\EventTicketService::refundLine($event),
             'canBuy' => $quote['tickets'] > 0 && $quote['taxes_known'],
             'backUrl' => $this->eventUrl($event),
         ])->layout('components.layouts.customer', ['title' => SiteText::get('event.buy.choose'), 'indexable' => false]);

@@ -78,6 +78,17 @@
         @endif
 
         <x-ui.card class="mb-4">
+            <h3 class="mb-2 font-semibold">Sales</h3>
+            <p class="text-sm text-gray-600" data-testid="admin-event-sales">
+                {{ $sales['orders'] }} paid {{ \Illuminate\Support\Str::plural('order', $sales['orders']) }} · {{ $sales['tickets'] }} tickets · {{ $sales['checked_in'] }} / {{ $sales['people'] }} people in
+                · ticket sales ₹{{ number_format($sales['ticket_sales'], 2) }} · paid by buyers ₹{{ number_format($sales['total_paid'], 2) }}
+            </p>
+            @if ($event->status === 'cancelled')
+                <p class="mt-1 text-sm text-red-700">Cancelled {{ $event->cancelled_at?->timezone($tz)->format('j M Y, g:i A') }}: {{ $event->cancellation_reason }}</p>
+            @endif
+        </x-ui.card>
+
+        <x-ui.card class="mb-4">
             <h3 class="mb-2 font-semibold">Tickets</h3>
             @foreach ($event->ticketTypes as $t)
                 <div class="flex justify-between border-t py-2 text-sm first:border-t-0">
@@ -107,6 +118,15 @@
             @endif
             <x-ui.button variant="secondary" wire:click="toggleFeatured({{ $event->id }})">{{ $event->is_featured ? 'Remove from featured' : 'Feature it' }}</x-ui.button>
         </div>
+        @if (in_array($event->status, ['in_review', 'approved'], true))
+            <x-ui.card class="mt-6">
+                <h3 class="font-semibold text-red-700">Cancel the event</h3>
+                <p class="mb-2 text-sm text-gray-600">Every buyer is refunded in full (to their wallet or card / UPI) and gets a message with this reason. Cannot be undone.</p>
+                <input type="text" wire:model="cancelReason" maxlength="500" placeholder="Reason buyers will see" class="mb-2 w-full rounded border px-3 py-2 text-sm">
+                @error('cancelReason') <p class="mb-2 text-sm text-red-700">{{ $message }}</p> @enderror
+                <x-ui.button variant="danger" wire:click="cancelEvent({{ $event->id }})" wire:confirm="Cancel this event and refund every buyer in full?">Cancel event and refund everyone</x-ui.button>
+            </x-ui.card>
+        @endif
     @else
         <x-ui.filter-tabs class="mb-3" :tabs="['' => 'All'] + \App\Models\Event::STATUS_LABELS" :active="$statusFilter" model="statusFilter" />
         <x-ui.table>

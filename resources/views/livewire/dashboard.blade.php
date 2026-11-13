@@ -118,7 +118,7 @@
         {{-- Owner 2026-11-09: a circle and a bar chart. Sales share by module (orders when nothing finished yet) and
              orders per day for the last 7 days, one colour per module. Tap a module to open its tab. --}}
         <?php
-            $hex = ['blue' => '#3b82f6', 'orange' => '#f97316', 'violet' => '#8b5cf6', 'rose' => '#f43f5e', 'amber' => '#f59e0b', 'teal' => '#14b8a6', 'cyan' => '#06b6d4', 'slate' => '#64748b'];
+            $hex = ['blue' => '#3b82f6', 'orange' => '#f97316', 'violet' => '#8b5cf6', 'rose' => '#f43f5e', 'amber' => '#f59e0b', 'teal' => '#14b8a6', 'cyan' => '#06b6d4', 'fuchsia' => '#d946ef', 'slate' => '#64748b'];
             $shareBy = $salesTotal['sales'] > 0 ? 'sales' : 'orders';
             $shareTotal = max(0.0001, (float) collect($moduleSales)->sum($shareBy));
             $stops = []; $at = 0.0;

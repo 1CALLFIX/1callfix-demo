@@ -138,6 +138,11 @@ ScheduleRunTracker::track(Schedule::command('events:expire-unpaid'), 'events:exp
     ->everyMinute()
     ->withoutOverlapping(5);
 
+// Events E3 — events past event.payout_hold_hours (default 48) after their end are finished and the organisers paid.
+ScheduleRunTracker::track(Schedule::command('events:complete'), 'events:complete')
+    ->hourly()
+    ->withoutOverlapping(30);
+
 // Hotels H3 — paid bookings the hotel did not accept within hotel.accept_window_minutes: cancelled + full refund.
 ScheduleRunTracker::track(Schedule::command('hotels:expire-unaccepted'), 'hotels:expire-unaccepted')
     ->everyMinute()

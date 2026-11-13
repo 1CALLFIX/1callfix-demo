@@ -40,6 +40,15 @@
         </ul>
     @endif
 
+    @if ($refunded !== null)
+        <p role="status" class="mt-4 rounded-xl bg-emerald-50 px-4 py-3 text-sm text-emerald-800">{{ $t('event.order.refunded', ['amount' => $money($refunded)]) }}</p>
+    @elseif ((float) $order->refunded_amount > 0)
+        <p class="mt-4 rounded-xl bg-slate-50 px-4 py-3 text-sm text-slate-700">{{ $t('event.order.refunded', ['amount' => $money((float) $order->refunded_amount)]) }}</p>
+    @endif
+    @if ($canCancel)
+        <button type="button" wire:click="cancelTickets" wire:confirm="{{ $t('event.order.cancel_confirm') }}" class="mt-4 min-h-11 w-full rounded-xl border border-red-300 bg-white px-4 text-sm font-semibold text-red-700" data-testid="event-cancel-tickets">{{ $t('event.order.cancel') }}</button>
+    @endif
+
     <div class="mt-5 space-y-1 rounded-2xl border border-slate-200 bg-white p-4 text-sm">
         @foreach ($order->items as $item)
             <div class="flex justify-between gap-3"><span>{{ $item->quantity }} × {{ $item->name }}</span><span>{{ $money((float) $item->line_total) }}</span></div>

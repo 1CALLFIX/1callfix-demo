@@ -56,12 +56,17 @@ class ModuleSales
             'hotel' => ['label' => 'Hotel', 'colour' => 'cyan', 'prelaunch' => true, 'sources' => [
                 ['model' => HotelReservation::class, 'permission' => 'hotel_reservations.view', 'done' => ['checked_out', 'completed'], 'value' => 'COALESCE(price_final, price_quoted)', 'route' => 'admin.hotel-reservations.index'],
             ]],
+            // Events E3 (2026-11-13): paid ticket orders (an unpaid online attempt is not an order: no payment, no ticket).
+            'events' => ['label' => 'Events', 'colour' => 'fuchsia', 'prelaunch' => true, 'sources' => [
+                ['model' => \App\Models\EventOrder::class, 'permission' => 'events.manage', 'done' => ['confirmed'], 'value' => 'total', 'route' => 'admin.events.index',
+                    'where' => fn ($q) => $q->where('payment_status', '!=', 'pending')],
+            ]],
         ];
     }
 
     /** Dashboard key => module code in Admin → Modules. */
     public const MODULE_CODES = ['service' => 'service', 'parcel' => 'parcel', 'shop' => 'commerce', 'food' => 'food',
-        'taxi' => 'taxi', 'rental' => 'rental', 'hotel' => 'hotel'];
+        'taxi' => 'taxi', 'rental' => 'rental', 'hotel' => 'hotel', 'events' => 'events'];
 
     /**
      * Owner 2026-11-09: the dashboard shows only modules that are built and switched on somewhere (Admin → Modules),

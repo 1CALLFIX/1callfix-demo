@@ -253,6 +253,7 @@ class EventTicketService
     /** Paid: one ticket row per ticket, each with its own code for the gate. Call inside a transaction. */
     private function confirm(EventOrder $order): void
     {
+        DB::afterCommit(fn () => $this->notify($order->fresh('event'), 'confirmed'));
         $order->forceFill(['status' => 'confirmed', 'payment_status' => 'paid', 'paid_at' => now(), 'payment_expires_at' => null])->save();
         foreach ($order->items()->get() as $item) {
             for ($i = 0; $i < $item->quantity; $i++) {
@@ -271,6 +272,217 @@ class EventTicketService
         }
         $this->gateway->refund($payment->gateway_payment_id, (float) $payment->amount, "Tickets {$order->code}: {$why}");
         $payment->forceFill(['refunded_amount' => $payment->amount, 'status' => 'refunded'])->save();
+    }
+
+    private function notify(EventOrder $order, string $what, ?float $amount = null): void
+    {
+        $customer = $order->customer;
+        if ($customer === null) {
+            return;
+        }
+        // A message that cannot be sent (mail server down) is logged and never stops the order.
+        rescue(fn () => $customer->notify(new \App\Notifications\EventOrderStatusNotification($what, $order, \App\Notifications\Support\ChannelResolver::resolve(
+            array_filter(['zone_id' => $order->zone_id, 'franchise_id' => $order->franchise_id])), $amount)));
+    }
+
+    /** Money back to where it came from: the wallet, or the card / UPI through Razorpay. Returns the amount sent back. */
+    private function refund(EventOrder $order, float $amount, string $why): float
+    {
+        $amount = round($amount, 2);
+        $payment = Payment::where('event_order_id', $order->id)->where('status', 'captured')->latest('id')->first();
+        if ($payment === null || $amount <= 0) {
+            return 0.0;
+        }
+        $amount = min($amount, (float) $payment->amount);
+        if ($payment->gateway === 'wallet') {
+            app(WalletService::class)->credit($order->customer, $amount, reason: "Refund: tickets {$order->code} ({$why})", ref: "event_order:{$order->id}:wallet-refund");
+        } else {
+            $this->gateway->refund((string) $payment->gateway_payment_id, $amount, "Tickets {$order->code}: {$why}");
+        }
+        $payment->forceFill(['refunded_amount' => $amount, 'status' => 'refunded'])->save();
+
+        return $amount;
+    }
+
+    /**
+     * Sales so far (paid orders only): per ticket type sold / of, and in total tickets, people, money taken, how many
+     * have come in at the gate, and the organiser's estimated share after commission.
+     *
+     * @return array{types: list<array{name: string, sold: int, of: int}>, orders: int, tickets: int, people: int, checked_in: int, ticket_sales: float, total_paid: float, organiser_share: float}
+     */
+    public static function salesSummary(Event $event): array
+    {
+        $paidOrders = EventOrder::where('event_id', $event->id)->where('status', 'confirmed')->where('payment_status', 'paid');
+        $soldByType = \App\Models\EventOrderItem::whereIn('event_order_id', (clone $paidOrders)->select('id'))
+            ->selectRaw('event_ticket_type_id, SUM(quantity) as q')->groupBy('event_ticket_type_id')->pluck('q', 'event_ticket_type_id');
+        $tickets = EventTicket::where('event_id', $event->id)->whereIn('status', ['valid', 'used']);
+        $sales = (float) (clone $paidOrders)->sum('subtotal');
+        $percent = (float) EventSettings::get('event.commission_percent', self::scope($event));
+
+        return [
+            'types' => $event->ticketTypes->map(fn ($t) => ['name' => $t->name, 'sold' => (int) ($soldByType[$t->id] ?? 0), 'of' => $t->quantity])->values()->all(),
+            'orders' => (clone $paidOrders)->count(),
+            'tickets' => (clone $tickets)->count(),
+            'people' => (int) (clone $tickets)->sum('admits'),
+            'checked_in' => (int) (clone $tickets)->where('status', 'used')->sum('admits'),
+            'ticket_sales' => round($sales, 2),
+            'total_paid' => round((float) (clone $paidOrders)->sum('total'), 2),
+            'organiser_share' => round($sales * (1 - $percent / 100), 2),
+        ];
+    }
+
+    // ------------------------------------------------------------------ gate (E3)
+
+    /**
+     * The organiser's gate scanner: a ticket of THIS event, paid and not used yet, lets its people in once.
+     *
+     * @return array{ok: bool, message: string, ticket: ?EventTicket}
+     */
+    public function checkIn(Event $event, string $code, User $by): array
+    {
+        $code = strtoupper(trim($code));
+        if ($code === '') {
+            return ['ok' => false, 'message' => 'Scan or type the ticket code.', 'ticket' => null];
+        }
+
+        return DB::transaction(function () use ($event, $code, $by) {
+            $ticket = EventTicket::with(['ticketType', 'order'])->where('code', $code)->lockForUpdate()->first();
+            if ($ticket === null || $ticket->event_id !== $event->id) {
+                return ['ok' => false, 'message' => 'Not a ticket for this event.', 'ticket' => null];
+            }
+            if ($ticket->status === 'used') {
+                $at = $ticket->checked_in_at?->copy()->setTimezone(app(\App\Services\TimezoneResolver::class)->platformTimezone())->format('g:i A');
+
+                return ['ok' => false, 'message' => "Already used at {$at}.", 'ticket' => $ticket];
+            }
+            if ($ticket->status !== 'valid' || $ticket->order?->status !== 'confirmed') {
+                return ['ok' => false, 'message' => 'This ticket was cancelled.', 'ticket' => $ticket];
+            }
+            $ticket->forceFill(['status' => 'used', 'checked_in_at' => now(), 'checked_in_by' => $by->id])->save();
+
+            return ['ok' => true, 'message' => 'Welcome! '.$ticket->ticketType?->name.($ticket->admits > 1 ? " · let {$ticket->admits} people in" : '').' · '.$ticket->order?->buyer_name, 'ticket' => $ticket];
+        });
+    }
+
+    // ------------------------------------------------------------------ cancelling (E3)
+
+    /**
+     * The event is cancelled (organiser or admin, with a reason): every paid order is refunded IN FULL (owner rule:
+     * fixed, not a setting), every ticket is cancelled, unpaid orders end. Each order is handled under its own lock,
+     * so running it again never refunds twice.
+     */
+    public function cancelEvent(Event $event, User $by, string $reason): int
+    {
+        $reason = trim($reason);
+        if (mb_strlen($reason) < 5) {
+            throw new \RuntimeException('Write the reason buyers will see (at least 5 letters).');
+        }
+        DB::transaction(function () use ($event, $by, $reason) {
+            $locked = Event::lockForUpdate()->findOrFail($event->id);
+            if (in_array($locked->status, ['cancelled', 'completed'], true)) {
+                throw new \RuntimeException('This event is already '.strtolower($locked->statusLabel()).'.');
+            }
+            if ($locked->status === 'approved' && $locked->ends_at->isPast()) {
+                throw new \RuntimeException('This event is already over.');
+            }
+            $locked->forceFill(['status' => 'cancelled', 'cancelled_at' => now(), 'cancellation_reason' => $reason, 'cancelled_by' => $by->id])->save();
+        });
+        \App\Services\ActivityLogger::logModel($by, $event, 'Event cancelled; every buyer refunded in full', ['reason' => $reason]);
+
+        $refunded = 0;
+        foreach (EventOrder::where('event_id', $event->id)->whereIn('status', ['pending', 'confirmed'])->pluck('id') as $orderId) {
+            $result = DB::transaction(function () use ($orderId, $reason) {
+                $o = EventOrder::with('customer')->lockForUpdate()->find($orderId);
+                if (! $o || ! in_array($o->status, ['pending', 'confirmed'], true)) {
+                    return null;
+                }
+                $amount = $o->payment_status === 'paid' ? $this->refund($o, (float) $o->total, 'event cancelled') : 0.0;
+                $o->forceFill(['status' => 'cancelled', 'payment_status' => $amount > 0 ? 'refunded' : $o->payment_status,
+                    'refunded_amount' => $amount, 'payment_expires_at' => null, 'cancellation_note' => 'Event cancelled: '.$reason])->save();
+                $o->tickets()->where('status', 'valid')->update(['status' => 'cancelled']);
+
+                return [$o, $amount];
+            });
+            if ($result !== null && $result[1] > 0) {
+                $refunded++;
+                $this->notify($result[0], 'event_cancelled', $result[1]);
+            }
+        }
+
+        return $refunded;
+    }
+
+    /** The refund rule a buyer reads before paying (Event Settings: buyers may cancel, or not). */
+    public static function refundLine(Event $event): string
+    {
+        $scope = self::scope($event);
+
+        return EventSettings::on('event.buyer_cancel_allowed', $scope)
+            ? \App\Support\SiteText::get('event.buy.refund_until', ['hours' => EventSettings::get('event.buyer_cancel_hours', $scope)])
+            : \App\Support\SiteText::get('event.buy.no_refund');
+    }
+
+    /** Buyers may cancel only when Event Settings allows it, until its hours before the start, with no ticket used. */
+    public static function buyerCanCancel(EventOrder $order): bool
+    {
+        $event = $order->event;
+        $scope = self::scope($event);
+
+        return $order->status === 'confirmed' && $order->payment_status === 'paid' && $event->status === 'approved'
+            && EventSettings::on('event.buyer_cancel_allowed', $scope)
+            && now()->lt($event->starts_at->copy()->subHours((int) EventSettings::get('event.buyer_cancel_hours', $scope)))
+            && ! $order->tickets()->where('status', 'used')->exists();
+    }
+
+    /** The buyer cancels: the ticket price and GST come back, the booking fee is kept; the tickets go back on sale. */
+    public function buyerCancel(EventOrder $order, User $customer): float
+    {
+        if ($order->customer_id !== $customer->id) {
+            throw new \RuntimeException('This is not your order.');
+        }
+        [$o, $amount] = DB::transaction(function () use ($order) {
+            $o = EventOrder::with(['items', 'customer', 'event.franchise'])->lockForUpdate()->findOrFail($order->id);
+            if (! self::buyerCanCancel($o)) {
+                throw new \RuntimeException('These tickets can no longer be cancelled.');
+            }
+            $amount = $this->refund($o, (float) $o->total - (float) $o->booking_fee, 'cancelled by the buyer');
+            $o->forceFill(['status' => 'cancelled', 'payment_status' => 'refunded', 'refunded_amount' => $amount, 'cancellation_note' => 'Cancelled by you'])->save();
+            $o->tickets()->update(['status' => 'cancelled']);
+            foreach ($o->items as $item) {
+                EventTicketType::whereKey($item->event_ticket_type_id)->where('sold', '>=', $item->quantity)->decrement('sold', $item->quantity);
+            }
+
+            return [$o, $amount];
+        });
+        $this->notify($o, 'cancelled', $amount);
+
+        return $amount;
+    }
+
+    // ------------------------------------------------------------------ after the event (E3)
+
+    /**
+     * events:complete — an approved event over for longer than Event Settings' payout hold is finished, and each of its
+     * paid orders pays the organiser (CommissionService: commission kept, the rest to the organiser's wallet, from
+     * where the usual payout takes it). Idempotent: one commission row per order.
+     */
+    public function completeEvents(): int
+    {
+        $count = 0;
+        Event::with('franchise')->where('status', 'approved')->where('ends_at', '<', now())->orderBy('id')->limit(100)->get()
+            ->each(function (Event $event) use (&$count) {
+                $hold = (int) EventSettings::get('event.payout_hold_hours', self::scope($event));
+                if ($event->ends_at->copy()->addHours($hold)->isFuture()) {
+                    return;
+                }
+                foreach (EventOrder::where('event_id', $event->id)->where('status', 'confirmed')->where('payment_status', 'paid')->get() as $order) {
+                    app(\App\Services\CommissionService::class)->applyForEventOrder($order);
+                }
+                $event->forceFill(['status' => 'completed', 'completed_at' => now()])->save();
+                $count++;
+            });
+
+        return $count;
     }
 
     /**

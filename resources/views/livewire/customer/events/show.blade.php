@@ -77,7 +77,7 @@
                     <p class="rounded-lg bg-slate-100 px-3 py-2 text-sm text-slate-700">{{ $t('event.buy.opening_soon') }}</p>
                 @elseif (! $card['soldOut'])
                     <button type="submit" class="flex min-h-12 w-full items-center justify-center rounded-xl bg-blue-600 px-4 font-semibold text-white hover:bg-blue-700" data-testid="event-continue">{{ $t('event.buy.choose') }} →</button>
-                    <p class="text-xs text-slate-500">{{ $t('event.buy.no_refund') }}</p>
+                    <p class="text-xs text-slate-500">{{ $refundLine }}</p>
                 @endif
             </form>
         </aside>

@@ -52,6 +52,9 @@ class EventEditor extends Component
 
     public string $notice = '';
 
+    /** Events E3: the reason buyers see when the organiser cancels the event. */
+    public string $cancelReason = '';
+
     public function mount(?int $eventId = null): void
     {
         if ($eventId !== null) {
@@ -269,6 +272,24 @@ class EventEditor extends Component
         return $problems;
     }
 
+    /** Events E3: cancel the event; every buyer gets all their money back (owner rule, not a setting). */
+    public function cancelEvent(\App\Services\Events\EventTicketService $tickets): void
+    {
+        $this->reset('notice');
+        $event = $this->event();
+        abort_if($event === null, 404);
+        $this->validate(['cancelReason' => ['required', 'string', 'min:5', 'max:500']], ['cancelReason.required' => 'Write the reason buyers will see.']);
+        try {
+            $n = $tickets->cancelEvent($event, auth()->user(), $this->cancelReason);
+        } catch (\RuntimeException $e) {
+            $this->addError('event', $e->getMessage());
+
+            return;
+        }
+        $this->reset('cancelReason');
+        $this->notice = "Event cancelled. {$n} ".\Illuminate\Support\Str::plural('order', $n).' refunded in full; buyers are told by message.';
+    }
+
     public function deleteDraft(): void
     {
         $event = $this->event();
@@ -289,6 +310,7 @@ class EventEditor extends Component
             'editable' => $event === null || $event->isEditable(),
             'categories' => EventSettings::lines('event.categories'),
             'maxPerOrder' => (int) EventSettings::get('event.max_tickets_per_order'),
+            'sales' => $event && in_array($event->status, ['approved', 'completed', 'cancelled'], true) ? \App\Services\Events\EventTicketService::salesSummary($event->load('ticketTypes')) : null,
         ])->layout('components.layouts.organiser', ['title' => $event ? $event->title : 'New event']);
     }
 }

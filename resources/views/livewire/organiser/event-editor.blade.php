@@ -19,6 +19,31 @@
         <div role="status" class="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">Approved. Tickets go on sale when Events opens in your city. To change anything now, call us.</div>
     @endif
 
+    @if ($sales)
+        <section class="space-y-3 rounded-2xl border border-slate-200 bg-white p-4 sm:p-6" data-testid="event-sales">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+                <h2 class="font-semibold">Sales</h2>
+                @if ($event->status === 'approved')
+                    <a href="{{ route('organiser.events.gate', $event->id) }}" wire:navigate class="rounded-lg bg-slate-900 px-3 py-2 text-sm font-semibold text-white">Open gate scanner</a>
+                @endif
+            </div>
+            <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                <div class="rounded-xl bg-slate-50 p-3"><p class="text-xs text-slate-500">Tickets sold</p><p class="text-xl font-bold">{{ $sales['tickets'] }}</p></div>
+                <div class="rounded-xl bg-slate-50 p-3"><p class="text-xs text-slate-500">People in</p><p class="text-xl font-bold">{{ $sales['checked_in'] }} / {{ $sales['people'] }}</p></div>
+                <div class="rounded-xl bg-slate-50 p-3"><p class="text-xs text-slate-500">Ticket sales</p><p class="text-xl font-bold">₹{{ number_format($sales['ticket_sales']) }}</p></div>
+                <div class="rounded-xl bg-slate-50 p-3"><p class="text-xs text-slate-500">Your share (after commission)</p><p class="text-xl font-bold">₹{{ number_format($sales['organiser_share']) }}</p></div>
+            </div>
+            @foreach ($sales['types'] as $t)
+                <div class="flex justify-between border-t pt-2 text-sm"><span>{{ $t['name'] }}</span><span>{{ $t['sold'] }} sold of {{ $t['of'] }}</span></div>
+            @endforeach
+            <p class="text-xs text-slate-500">Your share reaches your wallet after the event (Event Settings payout time), then goes out in your next payout.</p>
+        </section>
+    @endif
+
+    @if ($event?->status === 'cancelled')
+        <div role="status" class="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">Cancelled: {{ $event->cancellation_reason }}. Every buyer was refunded in full.</div>
+    @endif
+
     @error('event') <div role="alert" class="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700" data-testid="event-error">{{ $message }}</div> @enderror
     @if ($notice) <div role="status" class="rounded-xl bg-emerald-50 px-4 py-3 text-sm text-emerald-800" data-testid="event-notice">{{ $notice }}</div> @endif
 
@@ -167,6 +192,18 @@
             @error('terms') <p class="text-sm text-red-700">{{ $message }}</p> @enderror
         </section>
     </fieldset>
+
+    @if (in_array($event?->status, ['in_review', 'approved'], true))
+        <details class="rounded-2xl border border-red-200 bg-white p-4">
+            <summary class="cursor-pointer text-sm font-semibold text-red-700">Cancel this event</summary>
+            <div class="mt-3 space-y-2">
+                <p class="text-sm text-slate-700">Every buyer gets all their money back and a message with your reason. This cannot be undone.</p>
+                <input type="text" wire:model="cancelReason" maxlength="500" placeholder="Reason buyers will see, e.g. Venue not available" class="block min-h-11 w-full rounded-lg border border-slate-300 px-3 text-base">
+                @error('cancelReason') <p class="text-sm text-red-700">{{ $message }}</p> @enderror
+                <button type="button" wire:click="cancelEvent" wire:confirm="Cancel the event and refund every buyer in full?" class="min-h-11 rounded-lg bg-red-600 px-4 text-sm font-semibold text-white">Cancel event and refund everyone</button>
+            </div>
+        </details>
+    @endif
 
     @if ($editable)
         <div class="flex flex-wrap items-center gap-3">

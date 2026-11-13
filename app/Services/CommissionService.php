@@ -371,6 +371,27 @@ class CommissionService
      * through the `accommodation` relation, same shape `PropertyReservation`
      * reaches its `property` owner).
      */
+    /**
+     * Events E3 (owner 2026-11-13): the organiser's share of one paid ticket order, after the event and Event
+     * Settings' payout hold (EventTicketService::completeEvents). Base = the ticket prices; the booking fee is
+     * 1CallFix's; GST is 1CallFix's to pay when it collects GST, otherwise it goes to the organiser with its tickets.
+     * An organiser's negotiated rate wins, otherwise Event Settings' commission (10%). Idempotent (one row per order).
+     */
+    public function applyForEventOrder(\App\Models\EventOrder $order): Commission
+    {
+        $order->loadMissing(['franchise.owner', 'event.organiser.provider.user']);
+        $organiser = $order->event->organiser->provider;
+        $base = (float) $order->subtotal + ($order->platform_collects_gst ? 0.0 : (float) $order->tax_amount);
+
+        return $this->applyForFieldWorkerOrder(
+            identifyingColumn: 'event_order_id', identifyingId: $order->id,
+            franchise: $order->franchise, worker: $organiser,
+            total: $base, orderCode: $order->code, orderLabel: 'event tickets',
+            platformPercentOverride: $this->rateResolver->resolvedTier($order->franchise, $organiser) === 'agreement'
+                ? null : (float) \App\Support\EventSettings::get('event.commission_percent', \App\Services\Events\EventTicketService::scope($order->event)),
+        );
+    }
+
     public function applyForHotelReservation(HotelReservation $reservation): Commission
     {
         $reservation->loadMissing(['franchise.owner', 'accommodation.provider.user']);
