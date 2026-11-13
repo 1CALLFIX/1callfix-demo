@@ -88,6 +88,25 @@
             </div>
         </x-ui.card>
 
+        <x-ui.card class="mb-6">
+            <h2 class="text-sm font-semibold mb-3">Hall damage claims (₹)</h2>
+            <p class="text-xs text-gray-500 mb-3">Same model for deciding how much of a hall deposit the hall gets after it reports damage (the rest goes back to the customer). The limits apply to the hall's part. Blank limit = that level cannot approve; blank threshold / escalation = off.</p>
+            <div class="grid gap-4 sm:grid-cols-2">
+                <label class="block text-sm"><span class="block text-xs font-medium mb-1">Franchise limit</span>
+                    <input type="text" inputmode="decimal" wire:model="hallFranchiseLimit" class="w-full rounded border-gray-300 text-sm">
+                    @error('hallFranchiseLimit') <p class="text-xs text-red-600 mt-1">{{ $message }}</p> @enderror</label>
+                <label class="block text-sm"><span class="block text-xs font-medium mb-1">HQ limit</span>
+                    <input type="text" inputmode="decimal" wire:model="hallHqLimit" class="w-full rounded border-gray-300 text-sm">
+                    @error('hallHqLimit') <p class="text-xs text-red-600 mt-1">{{ $message }}</p> @enderror</label>
+                <label class="block text-sm"><span class="block text-xs font-medium mb-1">Second approval above</span>
+                    <input type="text" inputmode="decimal" wire:model="hallDualApprovalAbove" class="w-full rounded border-gray-300 text-sm">
+                    @error('hallDualApprovalAbove') <p class="text-xs text-red-600 mt-1">{{ $message }}</p> @enderror</label>
+                <label class="block text-sm"><span class="block text-xs font-medium mb-1">Escalate after (hours)</span>
+                    <input type="text" inputmode="numeric" wire:model="hallEscalateAfterHours" class="w-full rounded border-gray-300 text-sm">
+                    @error('hallEscalateAfterHours') <p class="text-xs text-red-600 mt-1">{{ $message }}</p> @enderror</label>
+            </div>
+        </x-ui.card>
+
         <x-ui.card>
             <h2 class="text-sm font-semibold mb-3">Pricing-dispute refunds (₹)</h2>
             <p class="text-xs text-gray-500 mb-3">

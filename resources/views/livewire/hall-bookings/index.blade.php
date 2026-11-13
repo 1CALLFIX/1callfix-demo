@@ -30,7 +30,7 @@
                         @if ($b->status === 'awaiting_owner') <div class="mt-1 text-xs text-amber-700">answer by {{ $b->accept_by?->copy()->setTimezone($tz)->format('g:i A') }}</div> @endif
                         @if ($b->decline_reason) <div class="mt-1 text-xs text-gray-500">{{ $b->decline_reason }}</div> @endif
                         @if ($b->cancellation_reason) <div class="mt-1 text-xs text-gray-500">{{ $b->cancellation_reason }}</div> @endif
-                        @if ((float) $b->deposit_amount > 0) <div class="mt-1 text-xs {{ $b->deposit_status === 'claimed' ? 'font-semibold text-red-700' : 'text-gray-500' }}">deposit ₹{{ number_format((float) $b->deposit_amount) }}: {{ ['none' => 'not paid yet', 'held' => 'held', 'returned' => 'returned', 'claimed' => 'damage reported'][$b->deposit_status] ?? $b->deposit_status }}</div> @endif
+                        @if ((float) $b->deposit_amount > 0) <div class="mt-1 text-xs {{ $b->deposit_status === 'claimed' ? 'font-semibold text-red-700' : 'text-gray-500' }}">deposit ₹{{ number_format((float) $b->deposit_amount) }}: {{ ['none' => 'not paid yet', 'held' => 'held', 'returned' => 'returned', 'claimed' => 'damage reported', 'settled' => 'settled after damage check'][$b->deposit_status] ?? $b->deposit_status }}</div> @endif
                         @if ($b->damage_note) <div class="mt-1 text-xs text-red-700">"{{ $b->damage_note }}"</div> @endif</td>
                 </tr>
             @empty

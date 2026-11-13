@@ -83,6 +83,10 @@
                     <div class="space-y-2">
                         <textarea wire:model="damageNote" rows="2" maxlength="1000" placeholder="What was damaged? e.g. 4 chairs broken, stage curtain torn" class="block w-full rounded-lg border border-slate-300 px-3 py-2 text-base"></textarea>
                         @error('damageNote') <p class="text-sm text-red-700">{{ $message }}</p> @enderror
+                        <label class="block text-xs font-medium text-slate-700">How much of the ₹{{ number_format((float) $b->deposit_amount) }} deposit do you ask for?
+                            <input type="number" min="1" max="{{ (int) $b->deposit_amount }}" inputmode="numeric" wire:model="damageAmount" class="mt-1 block min-h-11 w-full rounded-lg border border-slate-300 px-3 text-base font-semibold">
+                        </label>
+                        @error('damageAmount') <p class="text-sm text-red-700">{{ $message }}</p> @enderror
                         <div class="flex gap-2">
                             <button type="button" wire:click="reportDamage" class="min-h-11 flex-1 rounded-lg bg-amber-600 px-3 text-sm font-semibold text-white">Report damage</button>
                             <button type="button" wire:click="$set('damageId', null)" class="min-h-11 rounded-lg border border-slate-300 px-3 text-sm">Back</button>

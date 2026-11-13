@@ -106,6 +106,7 @@ class AdminNav
                     // Function halls R1 (owner 2026-11-13): halls first.
                     ['label' => 'Function halls', 'route' => 'admin.halls.index', 'icon' => 'building', 'permission' => 'halls.manage'],
                     ['label' => 'Hall bookings', 'route' => 'admin.hall-bookings.index', 'icon' => 'clipboard', 'permission' => 'halls.manage'],
+                    ['label' => 'Damage claims', 'route' => 'admin.hall-damage-claims.index', 'icon' => 'banknotes', 'permission' => 'hall_damage.payout'],
                     // Super Admin only, same permission as Shop / Food / Hotel / Event Settings.
                     ['label' => 'Hall Settings', 'route' => 'admin.halls.settings', 'icon' => 'gear', 'permission' => 'marketplace_settings.manage'],
                     ['label' => 'Rental Reservations', 'route' => 'admin.rental-reservations.index', 'icon' => 'clipboard', 'permission' => 'rental_reservations.view'],

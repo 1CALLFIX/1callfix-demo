@@ -459,4 +459,123 @@ class HallBookingTest extends TestCase
         $this->assertCount(1, $this->refunds, 'Only one deposit went back.');
         Livewire::actingAs($this->makeSuperAdmin())->test(\App\Livewire\HallBookings\Index::class)->set('statusFilter', 'damage')->assertSee('4 chairs broken');
     }
+
+    // ── R4: damage claims under the money approval model ──
+
+    /** A finished booking with its deposit held and damage reported (asking ₹4,000 of the ₹10,000 deposit). */
+    private function claimed(float $asked = 4000): \App\Models\HallDamageClaim
+    {
+        $booking = $this->confirmed($this->morning, 40);
+        $this->payBalanceOnline($booking);
+        $this->travelTo($booking->fresh()->ends_at->copy()->addHours(2));
+        Livewire::actingAs($this->owner)->test(VenueBookings::class)->set('tab', 'past')->call('startDamage', $booking->id)
+            ->assertSet('damageAmount', '10000')->set('damageNote', '4 chairs broken and the stage curtain torn')->set('damageAmount', (string) $asked)
+            ->call('reportDamage')->assertHasNoErrors();
+        $this->refunds = [];
+
+        return \App\Models\HallDamageClaim::where('hall_booking_id', $booking->id)->firstOrFail();
+    }
+
+    private function claims(): \App\Services\Halls\HallDamageClaimService
+    {
+        return app(\App\Services\Halls\HallDamageClaimService::class);
+    }
+
+    public function test_a_damage_report_opens_a_claim_and_keeps_the_deposit_held(): void
+    {
+        $claim = $this->claimed();
+        $this->assertSame('open', $claim->status);
+        $this->assertEquals(4000.0, (float) $claim->asked_amount);
+        $this->assertEquals(10000.0, (float) $claim->deposit_amount);
+
+        $this->travelTo($claim->booking->ends_at->copy()->addHours(60));
+        $this->artisan('halls:after-events')->assertSuccessful();
+        $this->assertSame('claimed', $claim->booking->fresh()->deposit_status, 'Never returned by itself while a claim waits.');
+        $this->assertSame([], $this->refunds);
+    }
+
+    public function test_super_admin_decides_and_it_settles_at_once_when_no_second_approval_is_set(): void
+    {
+        $claim = $this->claimed();
+        $admin = $this->makeSuperAdmin();
+
+        $this->assertFalse($this->claims()->decide($claim, $admin, 4000, '')['ok'], 'A reason is required.');
+        $this->assertFalse($this->claims()->decide($claim, $admin, 12000, 'too much')['ok'], 'At most the deposit.');
+
+        Livewire::actingAs($admin)->test(\App\Livewire\Halls\DamageClaims::class)->assertSee('4 chairs broken')
+            ->set('amounts.'.$claim->id, '3000')->assertSee('Customer gets back')->assertSee('₹7,000.00')
+            ->set('reasons.'.$claim->id, 'Checked the photos with the owner')->call('decide', $claim->id);
+
+        $claim->refresh();
+        $this->assertSame('settled', $claim->status);
+        $this->assertEquals(3000.0, (float) $claim->hall_amount);
+        $this->assertSame([7000.0], $this->refunds, 'The customer gets the rest back to where they paid.');
+        $this->assertEquals(3000.0, app(WalletService::class)->balance($this->owner), 'The hall gets its part in its wallet.');
+        $this->assertSame('settled', $claim->booking->fresh()->deposit_status);
+
+        // Idempotent: nothing moves twice.
+        $this->assertFalse($this->claims()->decide($claim->fresh(), $admin, 3000, 'again')['ok']);
+        $this->assertEquals(3000.0, app(WalletService::class)->balance($this->owner));
+    }
+
+    public function test_above_the_threshold_a_different_person_must_approve(): void
+    {
+        Setting::set(\App\Services\Halls\HallDamageClaimService::DUAL_APPROVAL_KEY, '2000');
+        $claim = $this->claimed();
+        $maker = $this->makeSuperAdmin();
+        $checker = $this->makeSuperAdmin();
+
+        $this->assertTrue($this->claims()->decide($claim, $maker, 4000, 'Damage confirmed')['ok']);
+        $this->assertSame('awaiting_approval', $claim->fresh()->status);
+        $this->assertSame([], $this->refunds, 'Nothing moves before the second approval.');
+
+        $this->assertFalse($this->claims()->approve($claim->fresh(), $maker, 'self')['ok'], 'Never the same person.');
+        $this->assertTrue($this->claims()->reject($claim->fresh(), $checker, 'Ask the owner for photos first')['ok']);
+        $this->assertSame('open', $claim->fresh()->status);
+
+        $this->claims()->decide($claim->fresh(), $maker, 4000, 'Photos received');
+        $this->assertTrue($this->claims()->approve($claim->fresh(), $checker, 'Photos look right')['ok']);
+        $this->assertSame('settled', $claim->fresh()->status);
+        $this->assertSame([6000.0], $this->refunds);
+    }
+
+    public function test_franchise_limits_and_scope_are_checked_server_side(): void
+    {
+        $claim = $this->claimed();
+        $local = $this->makeUserWithPermission('hall_damage.payout', 'franchise', $this->franchise->id);
+        $outsider = $this->makeUserWithNoPermissions();
+
+        // No franchise limit set: a franchise user can decide, but it waits for someone whose limit covers it.
+        $this->assertTrue($this->claims()->decide($claim, $local, 4000, 'Damage confirmed')['ok']);
+        $this->assertSame('awaiting_approval', $claim->fresh()->status);
+
+        Setting::set(\App\Services\Halls\HallDamageClaimService::FRANCHISE_LIMIT_KEY, '5000');
+        $other = $this->makeUserWithPermission('hall_damage.payout', 'franchise', $this->franchise->id);
+        $this->assertTrue($this->claims()->approve($claim->fresh(), $other, 'Within our limit')['ok']);
+        $this->assertSame('settled', $claim->fresh()->status);
+
+        Livewire::actingAs($outsider)->test(\App\Livewire\Halls\DamageClaims::class)->assertForbidden();
+    }
+
+    public function test_nothing_for_the_hall_returns_the_whole_deposit(): void
+    {
+        $claim = $this->claimed();
+        $this->assertTrue($this->claims()->decide($claim, $this->makeSuperAdmin(), 0, 'No damage seen on the photos')['ok']);
+        $this->assertSame([10000.0], $this->refunds);
+        $this->assertEquals(0.0, app(WalletService::class)->balance($this->owner));
+    }
+
+    public function test_waiting_claims_escalate_after_the_set_hours(): void
+    {
+        Setting::set(\App\Services\Halls\HallDamageClaimService::FRANCHISE_LIMIT_KEY, '5000');
+        Setting::set(\App\Services\Halls\HallDamageClaimService::HQ_LIMIT_KEY, '20000');
+        $claim = $this->claimed();
+        $this->artisan('refunds:escalate-hall-damage')->assertSuccessful();
+        $this->assertSame(0, $claim->fresh()->escalation_level, 'Escalation off until hours are set.');
+
+        Setting::set(\App\Services\Halls\HallDamageClaimService::ESCALATE_HOURS_KEY, '4');
+        $this->travel(9)->hours();
+        $this->artisan('refunds:escalate-hall-damage')->assertSuccessful();
+        $this->assertSame(3, $claim->fresh()->escalation_level, 'Franchise → HQ → Super Admin after 2 × 4 hours.');
+    }
 }

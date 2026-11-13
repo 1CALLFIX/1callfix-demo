@@ -182,6 +182,11 @@ ScheduleRunTracker::track(Schedule::command('refunds:escalate-parcel-claims'), '
     ->everyFifteenMinutes()
     ->withoutOverlapping(10);
 
+// Function halls R4 — hall damage claims waiting past refund.hall_damage.escalate_after_hours move up a level.
+ScheduleRunTracker::track(Schedule::command('refunds:escalate-hall-damage'), 'refunds:escalate-hall-damage')
+    ->everyFifteenMinutes()
+    ->withoutOverlapping(10);
+
 // Parcel Stage 2 — delete old rider safety photos (parcel.safety_photo_keep_days; no-op while unset).
 ScheduleRunTracker::track(Schedule::command('parcel:purge-safety-photos'), 'parcel:purge-safety-photos')
     ->dailyAt('03:30')

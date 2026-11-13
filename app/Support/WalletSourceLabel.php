@@ -57,6 +57,12 @@ final class WalletSourceLabel
             'regex' => '/^parcel_order:\d+:cod-remit$/',
             'like' => ['%:cod-remit'],
         ],
+        // Function halls R4 (2026-11-13): the hall's part of a deposit after a damage claim (approval model).
+        'hall_damage_claim' => [
+            'label' => 'Hall damage claim',
+            'regex' => '/^hall_booking:\d+:damage-claim-\d+$/',
+            'like' => ['%:damage-claim-%'],
+        ],
         // Parcel Stage 2 (2026-10-31): a protection claim paid into the customer's wallet (approval model).
         'protection_payout' => [
             'label' => 'Parcel protection payout',
@@ -217,6 +223,7 @@ final class WalletSourceLabel
             'mkt-cash-due:1:franchise-earning:00000000-0000-0000-0000-000000000000',
         ],
         'app/Services/Parcel/ParcelProtectionClaimService.php' => ['parcel_order:1:protection-claim-2'],
+        'app/Services/Halls/HallDamageClaimService.php' => ['hall_booking:1:damage-claim-2'],
         'app/Services/Parcel/ParcelPackService.php' => ['parcel_pack_purchase:1:wallet-payment'],
         'app/Services/Parcel/FieldWorkerCashDueService.php' => [
             'rider-cash-due:1:settle:00000000-0000-0000-0000-000000000000',

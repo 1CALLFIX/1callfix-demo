@@ -26,6 +26,7 @@ class Bookings extends Component
     public ?int $cancellingId = null;
     public ?int $damageId = null;
     public string $damageNote = '';
+    public string $damageAmount = '';
     public string $reason = '';
     public string $notice = '';
     public string $error = '';
@@ -97,21 +98,25 @@ class Bookings extends Component
 
     public function startDamage(int $id): void
     {
-        $this->own($id);
+        $booking = $this->own($id);
         $this->damageId = $id;
         $this->reset('damageNote', 'notice', 'error', 'cancellingId');
+        $this->damageAmount = (string) (int) $booking->deposit_amount;
     }
 
     /** R3: damage after the event: the deposit is held and our team checks it. */
     public function reportDamage(HallBookingService $halls): void
     {
         $this->reset('notice', 'error');
-        $this->validate(['damageNote' => ['required', 'string', 'min:10', 'max:1000']], ['damageNote.required' => 'Say what was damaged.', 'damageNote.min' => 'Say a little more about what was damaged.']);
+        $this->validate([
+            'damageNote' => ['required', 'string', 'min:10', 'max:1000'],
+            'damageAmount' => ['required', 'numeric', 'min:1'],
+        ], ['damageNote.required' => 'Say what was damaged.', 'damageNote.min' => 'Say a little more about what was damaged.', 'damageAmount.required' => 'How much of the deposit do you ask for?']);
         $booking = $this->own((int) $this->damageId);
         try {
-            $halls->reportDamage($booking, auth()->user(), $this->damageNote);
+            $halls->reportDamage($booking, auth()->user(), $this->damageNote, (float) $this->damageAmount);
             $this->notice = 'Damage reported. The deposit is held and our team will call you.';
-            $this->reset('damageId', 'damageNote');
+            $this->reset('damageId', 'damageNote', 'damageAmount');
         } catch (\RuntimeException $e) {
             $this->error = $e->getMessage();
         }

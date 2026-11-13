@@ -763,16 +763,42 @@ class HallBookingService
         return $booking->ends_at->copy()->addHours($hours)->isFuture();
     }
 
-    /** The owner reports damage: the deposit is held for the team to decide (R4: money approval rules). */
-    public function reportDamage(HallBooking $booking, User $owner, string $note): HallBooking
+    /**
+     * The owner reports damage and asks for part (or all) of the deposit: the deposit is held and a claim waits in
+     * Admin → Damage claims, decided under the money approval rules (HallDamageClaimService).
+     */
+    public function reportDamage(HallBooking $booking, User $owner, string $note, ?float $asked = null): HallBooking
     {
         if (! self::damageOpen($booking)) {
             throw new \RuntimeException('Damage can be reported only after the event starts and before the deposit goes back.');
         }
-        $booking->forceFill(['deposit_status' => 'claimed', 'damage_note' => mb_substr(trim($note), 0, 1000), 'damage_reported_at' => now()])->save();
-        ActivityLogger::logModel($owner, $booking, 'Damage reported by the hall: deposit held for the team', ['note' => trim($note)]);
+        $asked = $asked === null ? (float) $booking->deposit_amount : $asked;
+        if ($asked <= 0 || $asked > (float) $booking->deposit_amount) {
+            throw new \RuntimeException('Ask for between ₹1 and the deposit (₹'.number_format((float) $booking->deposit_amount).').');
+        }
+        DB::transaction(function () use ($booking, $owner, $note, $asked) {
+            $booking->forceFill(['deposit_status' => 'claimed', 'damage_note' => mb_substr(trim($note), 0, 1000), 'damage_reported_at' => now()])->save();
+            app(HallDamageClaimService::class)->open($booking, $asked, $note);
+            ActivityLogger::logModel($owner, $booking, 'Damage reported by the hall: deposit held for the team', ['note' => trim($note), 'asked' => $asked]);
+        });
 
         return $booking->fresh();
+    }
+
+    /** R4: part of what was paid back to the customer (used when a damage claim is settled). */
+    public function refundPart(HallBooking $booking, float $amount, string $why, string $kind): float
+    {
+        return $this->refund($booking, $amount, $why, $kind);
+    }
+
+    /** R4: tell both sides how a damage claim ended. */
+    public function notifyDamageSettled(HallBooking $booking, float $hallAmount, float $back): void
+    {
+        $this->notifyCustomer($booking, 'deposit_settled', $back);
+        $owner = $booking->hall?->provider?->user;
+        if ($owner) {
+            rescue(fn () => $owner->notify(new \App\Notifications\HallBookingNotification('owner_damage_settled', $booking, $this->channels($booking), $hallAmount)));
+        }
     }
 
     private function channels(HallBooking $booking): array

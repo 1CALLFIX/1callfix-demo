@@ -7,6 +7,7 @@ use App\Services\BookingDisputeService;
 use App\Services\ChargeWaiverService;
 use App\Services\Marketplace\MarketplaceReturnService;
 use App\Services\Parcel\ParcelProtectionClaimService;
+use App\Services\Halls\HallDamageClaimService;
 use App\Services\Payments\AmountMismatchService;
 use App\Services\Payments\MismatchRefundService;
 use App\Services\SettingsAuditor;
@@ -65,6 +66,15 @@ class Manage extends Component
 
     public string $claimEscalateAfterHours = '';
 
+    /** Function halls R4: hall damage claims on deposits (refund.hall_damage.*). */
+    public string $hallFranchiseLimit = '';
+
+    public string $hallHqLimit = '';
+
+    public string $hallDualApprovalAbove = '';
+
+    public string $hallEscalateAfterHours = '';
+
     public string $noticeUnderReview = '';
 
     public string $noticeRefunded = '';
@@ -101,6 +111,10 @@ class Manage extends Component
         $this->claimHqLimit = (string) Setting::get(ParcelProtectionClaimService::HQ_LIMIT_KEY, '');
         $this->claimDualApprovalAbove = (string) Setting::get(ParcelProtectionClaimService::DUAL_APPROVAL_KEY, '');
         $this->claimEscalateAfterHours = (string) Setting::get(ParcelProtectionClaimService::ESCALATE_HOURS_KEY, '');
+        $this->hallFranchiseLimit = (string) Setting::get(HallDamageClaimService::FRANCHISE_LIMIT_KEY, '');
+        $this->hallHqLimit = (string) Setting::get(HallDamageClaimService::HQ_LIMIT_KEY, '');
+        $this->hallDualApprovalAbove = (string) Setting::get(HallDamageClaimService::DUAL_APPROVAL_KEY, '');
+        $this->hallEscalateAfterHours = (string) Setting::get(HallDamageClaimService::ESCALATE_HOURS_KEY, '');
 
         $notices = app(AmountMismatchService::class);
         $this->noticeUnderReview = $notices->customerMessage();
@@ -132,6 +146,10 @@ class Manage extends Component
             'claimHqLimit' => ['nullable', 'numeric', 'min:0', 'max:100000000'],
             'claimDualApprovalAbove' => ['nullable', 'numeric', 'min:0', 'max:100000000'],
             'claimEscalateAfterHours' => ['nullable', 'integer', 'min:1', 'max:720'],
+            'hallFranchiseLimit' => ['nullable', 'numeric', 'min:0', 'max:100000000'],
+            'hallHqLimit' => ['nullable', 'numeric', 'min:0', 'max:100000000'],
+            'hallDualApprovalAbove' => ['nullable', 'numeric', 'min:0', 'max:100000000'],
+            'hallEscalateAfterHours' => ['nullable', 'integer', 'min:1', 'max:720'],
             'noticeUnderReview' => ['required', 'string', 'min:10', 'max:300'],
             'noticeRefunded' => ['required', 'string', 'min:10', 'max:300'],
         ], [], [
@@ -173,6 +191,12 @@ class Manage extends Component
             return;
         }
 
+        if ($this->hallFranchiseLimit !== '' && $this->hallHqLimit !== '' && (float) $this->hallFranchiseLimit > (float) $this->hallHqLimit) {
+            $this->addError('hallFranchiseLimit', 'The franchise limit cannot be higher than the HQ limit.');
+
+            return;
+        }
+
         if (! str_contains($this->noticeRefunded, '[amount]')) {
             $this->addError('noticeRefunded', 'The refund message must contain [amount] so the customer sees the refunded amount.');
 
@@ -203,6 +227,10 @@ class Manage extends Component
             ParcelProtectionClaimService::HQ_LIMIT_KEY => $this->claimHqLimit,
             ParcelProtectionClaimService::DUAL_APPROVAL_KEY => $this->claimDualApprovalAbove,
             ParcelProtectionClaimService::ESCALATE_HOURS_KEY => $this->claimEscalateAfterHours,
+            HallDamageClaimService::FRANCHISE_LIMIT_KEY => $this->hallFranchiseLimit,
+            HallDamageClaimService::HQ_LIMIT_KEY => $this->hallHqLimit,
+            HallDamageClaimService::DUAL_APPROVAL_KEY => $this->hallDualApprovalAbove,
+            HallDamageClaimService::ESCALATE_HOURS_KEY => $this->hallEscalateAfterHours,
             AmountMismatchService::COPY_UNDER_REVIEW_KEY => trim($this->noticeUnderReview),
             AmountMismatchService::COPY_REFUNDED_KEY => trim($this->noticeRefunded),
         ] as $key => $value) {

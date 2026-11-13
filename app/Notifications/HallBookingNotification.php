@@ -55,6 +55,8 @@ class HallBookingNotification extends Notification
             'hall_cancelled' => ['subject' => 'The hall cancelled your booking: full refund', 'body' => "{$hall} cancelled your booking for {$when} (booking {$b->code}). All your money, {$money}, is being refunded to where you paid from."],
             'deposit_returned' => ['subject' => 'Deposit returned', 'body' => "Your deposit of {$money} for {$hall} (booking {$b->code}) is being refunded to where you paid from. Thank you!"],
             'owner_cancelled' => ['subject' => 'A hall booking was cancelled', 'body' => "The booking {$b->code} for {$hall} on {$when} ({$b->customer_name}) was cancelled. The date is open again."],
+            'deposit_settled' => ['subject' => 'Your deposit after the damage check', 'body' => "Our team checked the damage the hall reported for booking {$b->code}. {$money} of your deposit is being refunded to where you paid from."],
+            'owner_damage_settled' => ['subject' => 'Damage claim decided', 'body' => "Our team decided your damage claim for booking {$b->code}: {$money} goes to your earnings."],
             'owner_new' => ['subject' => 'New hall booking: please accept', 'body' => "New booking for {$hall} on {$when}: {$b->customer_name}".($b->occasion ? ", {$b->occasion}" : '').". Accept or decline by {$by} in your hall portal, or it is declined and refunded."],
             default => ['subject' => 'Hall booking update', 'body' => "Your booking {$b->code} for {$hall} was updated."],
         };

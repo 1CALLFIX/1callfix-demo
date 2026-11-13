@@ -997,6 +997,7 @@ final class SiteText
         'hall.booking.deposit_none' => ['hall', 'Booking page: deposit not paid yet (:amount)', 'Refundable deposit :amount is paid with the balance.', 'తిరిగి వచ్చే డిపాజిట్ :amount బ్యాలెన్స్‌తో చెల్లించాలి.'],
         'hall.booking.deposit_held' => ['hall', 'Booking page: deposit held (:amount)', 'Your deposit :amount comes back to you after the function.', 'మీ డిపాజిట్ :amount వేడుక తర్వాత మీకు తిరిగి వస్తుంది.'],
         'hall.booking.deposit_returned' => ['hall', 'Booking page: deposit returned (:amount)', 'Your deposit :amount has been returned.', 'మీ డిపాజిట్ :amount తిరిగి ఇవ్వబడింది.'],
+        'hall.booking.deposit_settled' => ['hall', 'Booking page: deposit settled after a damage check (:amount)', 'Our team checked the damage the hall reported. What is left of your deposit has been refunded.', 'హాల్ తెలిపిన నష్టాన్ని మా టీమ్ పరిశీలించింది. మీ డిపాజిట్‌లో మిగిలినది తిరిగి ఇవ్వబడింది.'],
         'hall.booking.deposit_claimed' => ['hall', 'Booking page: damage reported (:amount)', 'The hall reported damage. Our team checks it and will call you about your deposit :amount.', 'హాల్ నష్టం జరిగిందని తెలిపింది. మా టీమ్ చూసి మీ డిపాజిట్ :amount గురించి మీకు కాల్ చేస్తుంది.'],
         'hall.booking.cancel' => ['hall', 'Booking page: cancel button', 'Cancel this booking', 'ఈ బుకింగ్ రద్దు చేయండి'],
         'hall.booking.cancel_get_back' => ['hall', 'Booking page: refund if cancelled now (:amount)', 'If you cancel now, you get back :amount.', 'ఇప్పుడు రద్దు చేస్తే, మీకు :amount తిరిగి వస్తుంది.'],
