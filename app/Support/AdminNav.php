@@ -119,6 +119,15 @@ class AdminNav
                     ['label' => 'Hotel Settings', 'route' => 'admin.hotel.settings', 'icon' => 'gear', 'permission' => 'marketplace_settings.manage'],
                 ],
             ],
+            // Events E1 (owner 2026-11-13): ticket sales, its own module next to Rental and Hotel.
+            'events' => [
+                'label' => 'Events', 'collapsible' => true, 'icon' => 'ticket', 'colour' => 'fuchsia', 'module' => 'events', 'preLaunch' => true,
+                'items' => [
+                    ['label' => 'Events & organisers', 'route' => 'admin.events.index', 'icon' => 'ticket', 'permission' => 'events.manage'],
+                    // Super Admin only, same permission as Shop / Food / Hotel Settings.
+                    ['label' => 'Event Settings', 'route' => 'admin.events.settings', 'icon' => 'gear', 'permission' => 'marketplace_settings.manage'],
+                ],
+            ],
             // ---- Shared across every module ----
             'marketing' => [
                 'label' => 'Marketing & Offers', 'collapsible' => true, 'icon' => 'megaphone', 'colour' => 'pink',

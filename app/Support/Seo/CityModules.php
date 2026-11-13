@@ -22,7 +22,7 @@ final class CityModules
     public const LIVE_SEGMENTS = ['services', 'shop', 'parcel', 'food', 'hotels'];
 
     /** Reserved for businesses that do not have a public city page yet (owner list 2026-11-01). */
-    public const FUTURE_SEGMENTS = ['grocery', 'pharmacy', 'taxi', 'rentals'];
+    public const FUTURE_SEGMENTS = ['grocery', 'pharmacy', 'taxi', 'rentals', 'events', 'halls'];
 
     /** @return list<string> */
     public static function segments(): array

@@ -143,6 +143,12 @@ class Dashboard extends Component
                 'icon' => 'building', 'colour' => 'cyan', 'url' => route('admin.accommodations.index'), 'optional' => true];
         }
 
+        if ($user->hasPermissionAnywhere('events.manage')) {
+            $organisers = $auth->scopeQuery(\App\Models\EventOrganiser::query(), $user, 'events.manage', $columns)->where('approval_status', 'approved');
+            $tiles[] = ['label' => 'Event organisers', 'value' => (clone $organisers)->where('is_active', true)->count(), 'of' => $organisers->count(),
+                'icon' => 'ticket', 'colour' => 'fuchsia', 'url' => route('admin.events.index', ['tab' => 'organisers']), 'optional' => true];
+        }
+
         // Riders and service partners always show; a business kind shows once one has joined.
         return array_values(array_filter($tiles, fn ($t) => empty($t['optional']) || $t['of'] > 0));
     }

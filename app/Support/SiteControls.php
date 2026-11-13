@@ -61,7 +61,7 @@ final class SiteControls
     public const SIGNUP_DOCS_PREFIX = 'provider_signup.documents_at_signup.';
 
     /** Partner roles that sign up through the one partner page, with the plain names Super Admin sees. */
-    public const SIGNUP_ROLE_NAMES = ['service' => 'Service providers', 'parcel' => 'Delivery riders', 'commerce' => 'Shops', 'food' => 'Restaurants', 'hotel' => 'Hotels and stays'];
+    public const SIGNUP_ROLE_NAMES = ['service' => 'Service providers', 'parcel' => 'Delivery riders', 'commerce' => 'Shops', 'food' => 'Restaurants', 'hotel' => 'Hotels and stays', 'events' => 'Event organisers'];
 
     // Sign-up attempt limits
     public const LIMIT_PARTNER_FORM = 'signup_limits.partner_form_per_mobile';

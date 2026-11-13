@@ -60,6 +60,7 @@ class Index extends Component
         'pharmacy' => 'Pharmacies',
         'hotel' => 'Hotels & stays',
         'rental' => 'Rentals',
+        'events' => 'Event organisers',
     ];
 
     /** Providers that run this kind of business. A service professional runs no store, stay or rental listing. */
@@ -74,8 +75,10 @@ class Index extends Component
             'food', 'grocery', 'commerce', 'pharmacy' => $query->whereHas('stores', fn ($s) => $s->where('module', $this->typeFilter)),
             'hotel' => $query->whereIn('id', $listings(\App\Models\Accommodation::class)),
             'rental' => $query->where($rentals),
+            'events' => $query->whereIn('id', $listings(\App\Models\EventOrganiser::class)),
             'service' => $query->whereDoesntHave('stores')
                 ->whereNotIn('id', $listings(\App\Models\Accommodation::class))
+                ->whereNotIn('id', $listings(\App\Models\EventOrganiser::class))
                 ->whereNot($rentals),
             default => $query,
         };

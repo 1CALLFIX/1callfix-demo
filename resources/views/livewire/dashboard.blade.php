@@ -94,7 +94,7 @@
 
         {{-- Who is working right now; each tile opens its list. --}}
         @if (! empty($team))
-            <div class="mb-6 grid grid-cols-2 gap-3 {{ [1 => 'sm:grid-cols-1', 2 => 'sm:grid-cols-2', 3 => 'sm:grid-cols-3', 4 => 'sm:grid-cols-2 lg:grid-cols-4'][count($team)] ?? 'sm:grid-cols-3 lg:grid-cols-5' }}" data-testid="team-now">
+            <div class="mb-6 grid grid-cols-2 gap-3 {{ [1 => 'sm:grid-cols-1', 2 => 'sm:grid-cols-2', 3 => 'sm:grid-cols-3', 4 => 'sm:grid-cols-2 lg:grid-cols-4', 5 => 'sm:grid-cols-3 lg:grid-cols-5'][count($team)] ?? 'sm:grid-cols-3 lg:grid-cols-6' }}" data-testid="team-now">
                 @foreach ($team as $t)
                     @php($tone = \App\Support\AdminNav::tone($t['colour']))
                     @php($pct = $t['of'] > 0 ? (int) round($t['value'] / $t['of'] * 100) : 0)

@@ -50,7 +50,8 @@ final class PartnerPageData
                 'hands_off' => ($code === 'service' && $live) || ($code === 'parcel' && app(\App\Services\Parcel\ParcelReadiness::class)->recruitingRiders())
                     || ($code === 'commerce' && \App\Support\MarketplaceSettings::recruitingSellers())
                     || ($code === 'food' && \App\Support\FoodSettings::recruitingRestaurants())
-                    || ($code === 'hotel' && \App\Support\HotelSettings::recruitingHotels()),
+                    || ($code === 'hotel' && \App\Support\HotelSettings::recruitingHotels())
+                    || ($code === 'events' && \App\Support\EventSettings::recruitingOrganisers()),
                 'enquiry' => false,
             ];
         }

@@ -11,7 +11,7 @@
 
 <div class="mx-auto flex max-w-lg flex-col justify-center px-4 py-12 sm:py-16">
     <div class="text-center">
-        <h1 class="text-2xl font-bold tracking-tight sm:text-3xl">{{ $rider ? 'Become a '.$platformName.' delivery rider' : ($isHotel ? 'List your hotel on '.$platformName : ($seller ? ($isRestaurant ? 'Add your restaurant to ' : 'Open your shop on ').$platformName : 'Become a '.$platformName.' partner')) }}</h1>
+        <h1 class="text-2xl font-bold tracking-tight sm:text-3xl">{{ $rider ? 'Become a '.$platformName.' delivery rider' : ($isOrganiser ? 'Sell your event tickets on '.$platformName : ($isHotel ? 'List your hotel on '.$platformName : ($seller ? ($isRestaurant ? 'Add your restaurant to ' : 'Open your shop on ').$platformName : 'Become a '.$platformName.' partner'))) }}</h1>
         <p class="mt-2 text-sm text-slate-600">
             @if ($submitted)
                 Thanks — your application is in.
@@ -31,7 +31,7 @@
                 </div>
                 <p>
                     You are in. Next, go live: upload your documents and
-                    {{ $isHotel ? 'add your rooms, prices and photos' : ($seller ? ($isRestaurant ? 'add your menu and opening hours' : 'add your products') : ($rider ? 'get ready for your first delivery' : 'check the services you offer')) }}.
+                    {{ $isOrganiser ? 'create your first event with its tickets' : ($isHotel ? 'add your rooms, prices and photos' : ($seller ? ($isRestaurant ? 'add your menu and opening hours' : 'add your products') : ($rider ? 'get ready for your first delivery' : 'check the services you offer'))) }}.
                     We review and contact you on <span class="font-medium">{{ $verifiedPhoneE164 }}</span>; customers see you once you are approved.
                 </p>
                 <p class="text-slate-600">Next time, sign in with this mobile number. We send you a code — no password needed.</p>
@@ -191,9 +191,19 @@
                     </fieldset>
                 @endif
 
+                @if ($isOrganiser)
+                    <div>
+                        <label for="pr-organiser" class="block text-sm font-medium text-slate-900">Organiser or company name</label>
+                        <input id="pr-organiser" type="text" wire:model="storeName" placeholder="As ticket buyers will see it, e.g. Nellore Nights"
+                               @class(['mt-1.5 block min-h-11 w-full rounded-lg border px-3 py-2.5 text-base shadow-sm focus:outline focus:outline-2 focus:outline-blue-600',
+                                       'border-red-400' => $errors->has('storeName'), 'border-slate-300' => ! $errors->has('storeName')])>
+                        @error('storeName') <p class="mt-1.5 text-sm text-red-700">{{ $message }}</p> @enderror
+                    </div>
+                @endif
+
                 @if ($isHotel)
                     <div>
-                        <label for="pr-hotel" class="block text-sm font-medium text-slate-900">Hotel name</label>
+                        <label for="pr-hotel"class="block text-sm font-medium text-slate-900">Hotel name</label>
                         <input id="pr-hotel" type="text" wire:model="storeName" placeholder="As customers will see it"
                                @class(['mt-1.5 block min-h-11 w-full rounded-lg border px-3 py-2.5 text-base shadow-sm focus:outline focus:outline-2 focus:outline-blue-600',
                                        'border-red-400' => $errors->has('storeName'), 'border-slate-300' => ! $errors->has('storeName')])>
@@ -318,7 +328,7 @@
 
     @unless ($submitted)
         <p class="mt-6 text-center text-sm text-slate-600">
-            {{ $rider ? 'Already a rider?' : ($isHotel ? 'Already listed?' : ($seller ? ($isRestaurant ? 'Already on '.$platformName.'?' : 'Already a seller?') : 'Already a partner?')) }}
+            {{ $rider ? 'Already a rider?' : ($isOrganiser ? 'Already selling with us?' : ($isHotel ? 'Already listed?' : ($seller ? ($isRestaurant ? 'Already on '.$platformName.'?' : 'Already a seller?') : 'Already a partner?'))) }}
             <a href="{{ route($signInRoute) }}" wire:navigate class="font-medium text-slate-900 underline underline-offset-2">Sign in</a>
         </p>
     @endunless

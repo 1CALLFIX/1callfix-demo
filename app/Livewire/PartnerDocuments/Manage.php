@@ -18,7 +18,7 @@ class Manage extends Component
 {
     public const TYPES = [
         'provider' => 'Service providers', 'field_worker' => 'Delivery riders', 'hotel' => 'Hotels and stays',
-        'restaurant' => 'Restaurants', 'shop' => 'Shops',
+        'restaurant' => 'Restaurants', 'shop' => 'Shops', 'organiser' => 'Event organisers',
     ];
 
     #[Url(as: 'for')]

@@ -30,6 +30,9 @@ final class ImageSizes
         'product_camera' => [1000, 1000, 'square', 'a phone photo', 10, 'Plain background, product filling the frame.'],
         // Hotels H1: front, reception and room photos, shown as a swipeable gallery on the hotel page.
         'hotel_photo' => [1600, 1067, '3:2 wide', 'JPG, PNG or WebP', 8, 'Real photos in daylight: the front, reception, and each room with the bed made. No text or logos on the photo.'],
+        // Events E1: the event poster / cover, wide on the event page and in lists.
+        'event_cover' => [1600, 900, '16:9 wide', 'JPG, PNG or WebP', 8, 'Your event poster or a photo of the venue. Keep text large and in the middle.'],
+        'organiser_logo' => [512, 512, 'square', 'JPG, PNG or WebP', 2, null],
         'evidence_photo' => [null, null, null, 'a clear phone photo or PDF', 4, null],
         'safety_photo' => [null, null, null, 'a clear phone photo', 8, null],
         'claim_photo' => [null, null, null, 'clear phone photos', 8, null],

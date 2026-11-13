@@ -329,6 +329,21 @@ Route::middleware(['auth', \App\Http\Middleware\EnsureIsHotel::class, \App\Http\
     });
 
 /*
+ | Organiser portal (Events E1, owner 2026-11-13). An event organiser is a provider account that owns an
+ | EventOrganiser; it joins on /partners ("Event organiser") → the one partner sign-up, signs in at the partner
+ | sign-in, and waits for approval in Admin → Events. It builds events with ticket types and sends each for review.
+ */
+Route::middleware(['auth', \App\Http\Middleware\EnsureIsOrganiser::class, \App\Http\Middleware\EnsureAccountNotSuspended::class])
+    ->prefix('organiser')
+    ->group(function () {
+        Route::get('/', \App\Livewire\Organiser\Dashboard::class)->name('organiser.dashboard');
+        Route::get('/events', \App\Livewire\Organiser\Events::class)->name('organiser.events');
+        Route::get('/events/new', \App\Livewire\Organiser\EventEditor::class)->name('organiser.events.create');
+        Route::get('/events/{eventId}', \App\Livewire\Organiser\EventEditor::class)->whereNumber('eventId')->name('organiser.events.edit');
+        Route::get('/details', \App\Livewire\Organiser\Details::class)->name('organiser.details');
+    });
+
+/*
  | Seller portal (E-commerce Phase 1). A seller is a provider account that owns a shop (Store::provider_id); they
  | join on /partners ("Seller or shop") → the one partner sign-up, and the shop waits for approval in Admin → Stores.
  | Products, orders (accept → packing → ready, pickup hand-over by collection code), shop details and earnings.
@@ -412,7 +427,7 @@ require __DIR__.'/admin.php';
 // fallback: anything that is not a city/catalog slug is handed on to the CMS fallback by the controller itself.
 // First segments that are never a city (JSON API, admin/provider areas, framework + asset paths) are excluded
 // up front, so those requests never even touch the cities table.
-$cityPattern = '(?!(?:api|admin|provider|rider|seller|hotel|shop|livewire|storage|build|vendor|push)(?![A-Za-z0-9_-]))[A-Za-z0-9_-]+';
+$cityPattern = '(?!(?:api|admin|provider|rider|seller|hotel|organiser|shop|livewire|storage|build|vendor|push)(?![A-Za-z0-9_-]))[A-Za-z0-9_-]+';
 
 // E-commerce Phase 2: the shop, city-prefixed like every public catalog page (/{city}/shop, /{city}/shop/{shop},
 // /{city}/shop/{shop}/{product}). Declared before /{city}/{slug} so "shop" is never read as a catalog slug — and it

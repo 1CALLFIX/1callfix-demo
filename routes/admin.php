@@ -184,6 +184,9 @@ Route::middleware(['auth', \Illuminate\Session\Middleware\AuthenticateSession::c
         Route::get('/accommodations', AccommodationsManage::class)->name('admin.accommodations.index');
         Route::get('/hotel-reservations', HotelReservationsManage::class)->name('admin.hotel-reservations.index');
         Route::get('/hotel-settings', \App\Livewire\Hotels\Settings::class)->name('admin.hotel.settings');
+        // Events E1 (owner 2026-11-13): approve organisers and events; Event Settings (Super Admin only).
+        Route::get('/events', \App\Livewire\Events\Manage::class)->name('admin.events.index');
+        Route::get('/event-settings', \App\Livewire\Events\Settings::class)->name('admin.events.settings');
         Route::get('/stores', StoresManage::class)->name('admin.stores.index');
         Route::get('/marketplace-categories', MarketplaceCategoriesManage::class)->name('admin.marketplace-categories.index');
         Route::get('/products', ProductsManage::class)->name('admin.products.index');

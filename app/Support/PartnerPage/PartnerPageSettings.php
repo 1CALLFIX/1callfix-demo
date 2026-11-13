@@ -90,7 +90,7 @@ final class PartnerPageSettings
     public const COLORS = ['blue', 'green', 'amber', 'rose', 'violet', 'teal'];
 
     /** Role cards, in display order. `commerce` is the registry's code for sellers. */
-    public const ROLE_ORDER = ['service', 'parcel', 'food', 'grocery', 'pharmacy', 'taxi', 'hotel', 'rental', 'commerce'];
+    public const ROLE_ORDER = ['service', 'parcel', 'food', 'grocery', 'pharmacy', 'taxi', 'hotel', 'rental', 'events', 'commerce'];
 
     public const ROLE_DEFAULTS = [
         'service' => ['Service professional', 'AC, electrical, plumbing, carpentry and appliance repair. Get jobs near you and work on your schedule.'],
@@ -101,13 +101,14 @@ final class PartnerPageSettings
         'taxi' => ['Cab driver', 'Drive with your own vehicle once rides open in your city.'],
         'hotel' => ['Hotel or stay host', 'List your hotel, homestay or guest house for travellers.'],
         'rental' => ['Property or rental owner', 'List your property or rental for customers who want to rent.'],
+        'events' => ['Event organiser', 'Sell tickets for your party, concert, workshop or fest. Paid online, entry by QR code.'],
         'commerce' => ['Seller or shop', 'Sell your products to customers near you.'],
     ];
 
     /** Module name shown on each role card. */
     public const ROLE_MODULE_NAMES = [
         'service' => 'Home services', 'parcel' => 'Parcel delivery', 'food' => 'Food delivery', 'grocery' => 'Grocery',
-        'pharmacy' => 'Pharmacy', 'taxi' => 'Taxi', 'hotel' => 'Hotel booking', 'rental' => 'Rentals', 'commerce' => 'Marketplace',
+        'pharmacy' => 'Pharmacy', 'taxi' => 'Taxi', 'hotel' => 'Hotel booking', 'rental' => 'Rentals', 'events' => 'Events', 'commerce' => 'Marketplace',
     ];
 
     private const MAX_JSON_BYTES = 20000;

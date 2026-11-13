@@ -70,6 +70,8 @@ class TestAccountsCommand extends Command
         'restaurant' => ['Test Restaurant', 'provider', null, null, '6000000111'],
         // Hotels H1 (2026-11-12): a hotel is a provider account that owns an approved Accommodation (partner sign-in → /hotel).
         'hotel' => ['Test Hotel', 'provider', null, null, '6000000112'],
+        // Events E1 (2026-11-13): an organiser is a provider account that owns an approved EventOrganiser (partner sign-in → /organiser).
+        'organiser' => ['Test Organiser', 'provider', null, null, '6000000113'],
     ];
 
     /** A placeholder FSSAI number for the test restaurant only (hidden from the public like every test shop). */
@@ -219,6 +221,8 @@ class TestAccountsCommand extends Command
                     $this->makeTestRestaurant($user, $franchise, $zone);
                 } elseif ($key === 'hotel') {
                     $this->makeTestHotel($user, $franchise, $zone);
+                } elseif ($key === 'organiser') {
+                    $this->makeTestOrganiser($user, $franchise, $zone);
                 } elseif ($userRole === 'provider') {
                     Provider::updateOrCreate(['user_id' => $user->id], [
                         'franchise_id' => $franchise->id,
@@ -231,13 +235,13 @@ class TestAccountsCommand extends Command
                     ]);
                 }
 
-                return [$key, $email, $roleSlug ? "{$roleSlug} @ {$scopeType} #{$scopeIds[$scopeType]}" : ($key === 'rider' ? 'parcel + shop rider (approved)' : ($key === 'seller' ? 'seller, shop approved' : ($key === 'restaurant' ? 'restaurant, approved' : ($key === 'hotel' ? 'hotel, approved' : $userRole))))];
+                return [$key, $email, $roleSlug ? "{$roleSlug} @ {$scopeType} #{$scopeIds[$scopeType]}" : ($key === 'rider' ? 'parcel + shop rider (approved)' : ($key === 'seller' ? 'seller, shop approved' : ($key === 'restaurant' ? 'restaurant, approved' : ($key === 'hotel' ? 'hotel, approved' : ($key === 'organiser' ? 'event organiser, approved, 1 event in review' : $userRole)))))];
             });
         }
 
         $this->info("Test accounts for franchise #{$franchise->id} {$franchise->name}, zone #{$zone->id} {$zone->name}:");
         $this->table(['Account', 'Login email', 'Access'], $rows);
-        $this->line('Staff log in at /admin/login, the provider at /provider/login, the rider at /rider/login, the seller at /seller/login, the hotel at /provider/login (opens /hotel), the customer at /login.');
+        $this->line('Staff log in at /admin/login, the provider at /provider/login, the rider at /rider/login, the seller at /seller/login, the hotel at /provider/login (opens /hotel), the organiser at /provider/login (opens /organiser), the customer at /login.');
 
         return self::SUCCESS;
     }
@@ -412,6 +416,45 @@ class TestAccountsCommand extends Command
         }
     }
 
+    /**
+     * Events E1: the test organiser, approved, with one test event ("Test Year End Bash") in review and three ticket
+     * types (Early Bird / Regular / Couple), so the admin approval and the portal can be walked through at once.
+     * Re-running create resets the organiser and that event; other events are left alone.
+     */
+    private function makeTestOrganiser(User $user, Franchise $franchise, Zone $zone): void
+    {
+        $provider = Provider::updateOrCreate(['user_id' => $user->id], [
+            'franchise_id' => $franchise->id, 'zone_id' => $zone->id, 'provider_type' => 'independent',
+            'kyc_status' => 'approved', 'is_active' => true, 'is_online' => false, 'skills' => null,
+        ]);
+        $organiser = \App\Models\EventOrganiser::updateOrCreate(['provider_id' => $provider->id], [
+            'franchise_id' => $franchise->id, 'zone_id' => $zone->id, 'name' => 'Test Organiser',
+            'about' => 'Test organiser for walk-throughs. Not a real event company.',
+            'contact_phone' => $user->phone, 'address_line' => 'Test address, '.$zone->name,
+            'approval_status' => 'approved', 'approved_at' => now(), 'rejection_reason' => null, 'is_active' => true,
+        ]);
+
+        $tz = app(\App\Services\TimezoneResolver::class)->platformTimezone();
+        $start = now($tz)->addDays(30)->setTime(20, 0);
+        $event = \App\Models\Event::firstOrNew(['event_organiser_id' => $organiser->id, 'title' => 'Test Year End Bash']);
+        $event->fill([
+            'franchise_id' => $franchise->id, 'zone_id' => $zone->id,
+            'slug' => $event->slug ?: \App\Models\Event::uniqueSlug('Test Year End Bash'),
+            'category' => 'New Year', 'description' => "Test event for walk-throughs. DJ night with food stalls.\nNot a real event.",
+            'cover_image' => self::UNSPLASH.'photo-1492684223066-81342ee5ff30?w=1600&q=80',
+            'venue_name' => 'Test Venue', 'venue_address' => 'Test address, '.$zone->name,
+            'starts_at' => $start->copy()->utc(), 'ends_at' => $start->copy()->addHours(5)->utc(),
+            'min_age' => 18, 'terms' => 'Carry a photo ID. Test event only.',
+            'status' => 'in_review', 'submitted_at' => now(), 'approved_at' => null, 'rejection_reason' => null,
+        ])->save();
+        foreach ([['Early Bird', 499, 50, 1, 10], ['Regular', 799, 200, 1, 0], ['Couple', 1399, 50, 2, 0]] as $i => [$name, $price, $qty, $admits, $earlyDays]) {
+            \App\Models\EventTicketType::updateOrCreate(['event_id' => $event->id, 'name' => $name], [
+                'price' => $price, 'quantity' => $qty, 'admits' => $admits, 'max_per_order' => 10, 'sort_order' => $i, 'is_active' => true,
+                'sale_ends_at' => $earlyDays ? now($tz)->addDays($earlyDays)->endOfDay()->utc() : null,
+            ]);
+        }
+    }
+
     private function list(): int
     {
         $users = User::where('email', 'like', '%'.self::DOMAIN)->with('roleAssignments.role')->orderBy('id')->get();
@@ -433,6 +476,7 @@ class TestAccountsCommand extends Command
                 FieldWorker::where('user_id', $user->id)->update(['is_active' => false, 'is_online' => false]);
                 Store::whereIn('provider_id', Provider::where('user_id', $user->id)->select('id'))->update(['is_active' => false, 'is_open' => false]);
                 Accommodation::whereIn('provider_id', Provider::where('user_id', $user->id)->select('id'))->update(['is_active' => false]);
+                \App\Models\EventOrganiser::whereIn('provider_id', Provider::where('user_id', $user->id)->select('id'))->update(['is_active' => false]);
                 $user->forceFill(['status' => 'suspended'])->save();
                 $user->tokens()->delete();
             });
