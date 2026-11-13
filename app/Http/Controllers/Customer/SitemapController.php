@@ -181,6 +181,21 @@ class SitemapController extends Controller
             }
         }
 
+        // Events E2 (2026-11-13): /{city}/events and each real (never a test) event not over yet, once Events is on.
+        if (\App\Support\Seo\CityModules::eventsLiveIn($city)) {
+            $events = \App\Models\Event::query()->where('status', 'approved')->where('ends_at', '>', now())
+                ->whereHas('franchise', fn ($q) => $q->where('city_id', $city->id))
+                ->whereHas('organiser', fn ($q) => $q->where('approval_status', 'approved')->where('is_active', true))
+                ->whereDoesntHave('organiser.provider.user', fn ($q) => $q->where('email', 'like', '%'.\App\Console\Commands\TestAccountsCommand::DOMAIN))
+                ->get(['slug', 'updated_at']);
+            if ($events->isNotEmpty()) {
+                $add($this->abs('/'.$city->slug.'/events'), null, '0.8');
+                foreach ($events as $event) {
+                    $add($this->abs('/'.$city->slug.'/events/'.$event->slug), $event->updated_at, '0.7');
+                }
+            }
+        }
+
         // Hotels (2026-11-12): /{city}/hotels and each real (never a test) hotel, once Hotels is on in the city.
         if (\App\Support\Seo\CityModules::hotelsLiveIn($city)) {
             $hotels = \App\Models\Accommodation::query()->bookable()->whereHas('franchise', fn ($q) => $q->where('city_id', $city->id))

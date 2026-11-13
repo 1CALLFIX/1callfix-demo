@@ -53,6 +53,9 @@ class CityHub extends Component
         if (CityModules::hotelsLiveIn($city)) {
             $live['hotels'] = ['url' => route('customer.hotels.home', $city->slug), 'count' => \App\Livewire\Customer\Hotels\Home::publicHotelsIn($city)->count()];
         }
+        if (CityModules::eventsLiveIn($city)) {
+            $live['events'] = ['url' => route('customer.events.home', $city->slug), 'count' => \App\Livewire\Customer\Events\Home::publicEventsIn($city)->count()];
+        }
         if (CityModules::parcelLiveIn($city)) {
             $from = $pages->parcelFrom($city);
             $live['parcel'] = ['url' => route('customer.city.parcel', $city->slug),

@@ -31,6 +31,7 @@ final class HomeDoors
         'shop' => [3, 'images/home/door-shop.svg'],
         'food' => [4, 'images/home/door-food.svg'], // Food F3
         'hotels' => [5, 'images/home/door-hotels.svg'], // Hotels (2026-11-12)
+        'events' => [6, 'images/home/door-events.svg'], // Events E2 (2026-11-13)
     ];
 
     public static function show(): bool

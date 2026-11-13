@@ -216,6 +216,11 @@ Route::middleware(['auth', \App\Http\Middleware\EnsureAccountNotSuspended::class
     Route::get('/hotels/bookings/{code}/voucher', [\App\Http\Controllers\Customer\HotelDocumentController::class, 'voucher'])->where('code', '[A-Za-z0-9-]+')->name('customer.hotels.voucher');
     Route::get('/hotels/bookings/{code}/invoice', [\App\Http\Controllers\Customer\HotelDocumentController::class, 'invoice'])->where('code', '[A-Za-z0-9-]+')->name('customer.hotels.invoice');
 
+    // Events E2 (2026-11-13): buy tickets (bill + pay), the customer's tickets with their QR codes.
+    Route::get('/events/book', \App\Livewire\Customer\Events\Book::class)->name('customer.events.book');
+    Route::get('/events/tickets', \App\Livewire\Customer\Events\Tickets::class)->name('customer.events.tickets');
+    Route::get('/events/orders/{code}', \App\Livewire\Customer\Events\Order::class)->where('code', '[A-Za-z0-9-]+')->name('customer.events.order');
+
     // E-commerce Phase 2: the shop bag, checkout (one shop per order) and the customer's shop orders. Browsing is
     // public under /{city}/shop; a customer's own orders stay reachable even if Commerce is switched off later.
     // One cart (owner 2026-10-30): the shop bag lives in /cart now; the old link moves there for good, query kept.
@@ -444,6 +449,9 @@ Route::get('/{city}/food/{restaurantSlug}', \App\Livewire\Customer\Food\Restaura
 // Hotels H2 (2026-11-12): /{city}/hotels and /{city}/hotels/{hotel}, like Food. 404 while Hotels is off for that city.
 Route::get('/{city}/hotels', \App\Livewire\Customer\Hotels\Home::class)->where('city', $cityPattern)->middleware('page.cache')->name('customer.hotels.home');
 Route::get('/{city}/hotels/{hotelSlug}', \App\Livewire\Customer\Hotels\Show::class)->where(['city' => $cityPattern, 'hotelSlug' => '[A-Za-z0-9_-]+'])->middleware('page.cache')->name('customer.hotels.show');
+// Events E2 (2026-11-13): /{city}/events and /{city}/events/{event}. 404 while Events is off for that city.
+Route::get('/{city}/events', \App\Livewire\Customer\Events\Home::class)->where('city', $cityPattern)->middleware('page.cache')->name('customer.events.home');
+Route::get('/{city}/events/{eventSlug}', \App\Livewire\Customer\Events\Show::class)->where(['city' => $cityPattern, 'eventSlug' => '[A-Za-z0-9_-]+'])->middleware('page.cache')->name('customer.events.show');
 
 // City URL architecture (2026-11-01): /{city} is the hub, each business has its own word after the city. The older
 // /{city}/{slug} catalog URL permanently 301s to /{city}/services/{slug}. Future words (food, grocery, pharmacy,

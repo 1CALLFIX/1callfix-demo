@@ -132,6 +132,12 @@ ScheduleRunTracker::track(Schedule::command('hotels:expire-unpaid'), 'hotels:exp
     ->everyMinute()
     ->withoutOverlapping(5);
 
+// Events E2 — no payment, no ticket: online ticket orders not paid within event.unpaid_hold_minutes (default 10) are
+// cancelled and their tickets go back on sale; a late capture is refunded in full.
+ScheduleRunTracker::track(Schedule::command('events:expire-unpaid'), 'events:expire-unpaid')
+    ->everyMinute()
+    ->withoutOverlapping(5);
+
 // Hotels H3 — paid bookings the hotel did not accept within hotel.accept_window_minutes: cancelled + full refund.
 ScheduleRunTracker::track(Schedule::command('hotels:expire-unaccepted'), 'hotels:expire-unaccepted')
     ->everyMinute()

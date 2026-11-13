@@ -123,6 +123,10 @@ class Home extends Component
         if ($city && \App\Support\Seo\CityModules::hotelsLiveIn($city)) {
             $live['hotels'] = ['url' => route('customer.hotels.home', $city->slug), 'count' => \App\Livewire\Customer\Hotels\Home::publicHotelsIn($city)->count()];
         }
+        // Events E2 (2026-11-13): the visitor's city when Events is on there; the live line counts events not over yet.
+        if ($city && \App\Support\Seo\CityModules::eventsLiveIn($city)) {
+            $live['events'] = ['url' => route('customer.events.home', $city->slug), 'count' => \App\Livewire\Customer\Events\Home::publicEventsIn($city)->count()];
+        }
 
         return \App\Support\HomeDoors::doors($live);
     }

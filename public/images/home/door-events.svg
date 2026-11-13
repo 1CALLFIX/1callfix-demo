@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" role="img" aria-label="Events">
+  <!-- 1CallFix's own drawing (2026-11-13): default Events door on the homepage — a ticket with a star, and confetti. -->
+  <rect x="6" y="6" width="108" height="108" rx="26" fill="#FAE8FF"/>
+  <path d="M24 44a6 6 0 0 1 6-6h60a6 6 0 0 1 6 6v8a8 8 0 0 0 0 16v8a6 6 0 0 1-6 6H30a6 6 0 0 1-6-6v-8a8 8 0 0 0 0-16z" fill="#C026D3" transform="rotate(-8 60 60)"/>
+  <path d="M74 44v32" stroke="#FAE8FF" stroke-width="3" stroke-dasharray="4 4" transform="rotate(-8 60 60)"/>
+  <path d="M50 49l3.5 7.2 7.9 1.1-5.7 5.6 1.3 7.9L50 67.1l-7 3.7 1.3-7.9-5.7-5.6 7.9-1.1z" fill="#FFFFFF" transform="rotate(-8 60 60)"/>
+  <circle cx="30" cy="26" r="4" fill="#F59E0B"/>
+  <circle cx="92" cy="22" r="3" fill="#0EA5E9"/>
+  <rect x="86" y="88" width="8" height="4" rx="2" fill="#F59E0B" transform="rotate(30 90 90)"/>
+  <rect x="20" y="88" width="8" height="4" rx="2" fill="#0EA5E9" transform="rotate(-30 24 90)"/>
+</svg>
