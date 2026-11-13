@@ -105,6 +105,30 @@ class HallEditor extends Component
         }
     }
 
+    /** One tap adds a ready slot with usual times (owner 2026-11-13: easy for every vendor); the owner only types the price. */
+    public const PRESETS = [
+        'full' => ['Full day', '06:00', '23:00'],
+        'morning' => ['Morning', '06:00', '14:00'],
+        'evening' => ['Evening', '17:00', '23:00'],
+    ];
+
+    public function addPreset(string $which): void
+    {
+        $preset = self::PRESETS[$which] ?? null;
+        if ($preset === null || count($this->hallSlots) >= self::MAX_SLOTS) {
+            return;
+        }
+        // Replace the empty first row instead of adding a second one.
+        $rows = array_values(array_filter($this->hallSlots, fn ($r) => filled($r['id']) || filled($r['price']) || ! in_array($r['name'], ['', 'Full day'], true)));
+        if (collect($rows)->contains(fn ($r) => strcasecmp(trim($r['name']), $preset[0]) === 0)) {
+            $this->hallSlots = $rows ?: $this->hallSlots;
+
+            return;
+        }
+        $rows[] = ['id' => null, 'name' => $preset[0], 'start_time' => $preset[1], 'end_time' => $preset[2], 'price' => ''];
+        $this->hallSlots = $rows;
+    }
+
     public function removeSlot(int $index): void
     {
         unset($this->hallSlots[$index]);

@@ -136,6 +136,20 @@ end to end before and after deploy.
 - Passwords are never stored in git; the owner passes one on the command line on the server.
 - `test-accounts disable` before public launch.
 
+### THUMB RULE — EASE OF USE IN EVERY STEP, FOR EVERYONE
+Owner rule 2026-11-13: "in every aspect ease of use is a thumb rule, otherwise no one will show interest in our
+multi module app". Every module, screen and step (customers, vendors / partners, riders, staff, admin) must be very
+easy to operate, user friendly, colourful and attractive. Never make a module complicated for a vendor.
+- No technical fields: never ask anyone to type latitude / longitude, codes or IDs ("Use my current location"
+  button instead). Plain words, no jargon.
+- Tap instead of type: preset buttons and chips (e.g. "+ Morning", "+ Evening" slots, kinds as chips) with sensible
+  defaults; the person only types what only they know (a price, a name).
+- One clear main action per screen, big buttons (at least 44 px), numbered steps for anything longer than one card,
+  a Save / Send bar that stays at the bottom on phones.
+- Colourful and friendly: each step or section has its own colour and icon; status shown as coloured badges.
+- Fewer options: a new setting or field needs a reason; extras are optional and say so.
+- Check every new screen against this rule before calling it done.
+
 ### THUMB RULE — EVERYTHING PUBLIC CAN BE SHARED
 Owner rule 2026-11-06. Every module, and every service, product, shop, restaurant, dish, hotel room, rental item
 and any future item, has a Share option. An item with a photo gets `<x-customer.item-actions :item="'type:'.$id"

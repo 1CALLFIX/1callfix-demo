@@ -168,6 +168,19 @@ class HallPortalTest extends TestCase
         $this->assertSame('Sri Lakshmi Function Hall', $hall->fresh()->name);
     }
 
+    /** Owner 2026-11-13 (ease of use thumb rule): one tap adds a slot with its usual times; only the price is typed. */
+    public function test_slot_buttons_add_ready_slots_and_the_page_has_no_typed_map_numbers(): void
+    {
+        [$user, $hall] = $this->owner();
+        $page = Livewire::actingAs($user)->test(HallEditor::class, ['hallId' => $hall->id])
+            ->call('addPreset', 'morning')->call('addPreset', 'evening')->call('addPreset', 'morning');
+        $names = array_column($page->get('hallSlots'), 'name');
+        $this->assertSame(['Morning', 'Evening'], $names, 'The empty starter row is replaced, and Morning is not added twice.');
+        $this->assertSame('17:00', $page->get('hallSlots')[1]['start_time']);
+
+        $page->assertSee('Location saved')->assertSee('Morning</button>', false)->assertDontSee('Map latitude');
+    }
+
     public function test_slot_rules_are_checked(): void
     {
         [$user, $hall] = $this->owner();
