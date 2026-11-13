@@ -308,18 +308,24 @@ class HallPortalTest extends TestCase
             ->assertSee($hall->name)->call('viewHall', $other->id)->assertNotFound();
     }
 
-    public function test_test_accounts_make_an_approved_hall_with_three_slots(): void
+    /** Owner 2026-11-13: "a test rental property in each category". */
+    public function test_test_accounts_make_one_approved_hall_of_every_kind(): void
     {
         [, , $franchise] = $this->makeFranchiseTree();
         $this->artisan('test-accounts', ['action' => 'create', '--password' => 'test-pass-123', '--franchise' => $franchise->id])->assertSuccessful();
+        $this->artisan('test-accounts', ['action' => 'create', '--password' => 'test-pass-123', '--franchise' => $franchise->id])->assertSuccessful();
 
-        $hall = Hall::whereHas('provider.user', fn ($q) => $q->where('email', 'test.hall@1callfix.test'))->firstOrFail();
-        $this->assertSame('approved', $hall->status);
-        $this->assertTrue($hall->is_active);
-        $this->assertSame(3, $hall->slots()->count());
-        $this->assertSame([], HallEditor::submitProblems($hall));
+        $halls = Hall::whereHas('provider.user', fn ($q) => $q->where('email', 'test.hall@1callfix.test'))->get();
+        $this->assertCount(7, $halls, 'Running it twice never makes duplicates.');
+        $this->assertEqualsCanonicalizing(HallSettings::lines('hall.types'), $halls->pluck('hall_type')->all(), 'Every kind of hall has one.');
+        foreach ($halls as $hall) {
+            $this->assertSame('approved', $hall->status);
+            $this->assertTrue($hall->is_active);
+            $this->assertSame([], HallEditor::submitProblems($hall), $hall->name.' is complete.');
+        }
+        $this->assertSame(3, $halls->firstWhere('name', 'Test Function Hall')->slots()->count());
 
         $this->artisan('test-accounts', ['action' => 'disable'])->assertSuccessful();
-        $this->assertFalse($hall->fresh()->is_active);
+        $this->assertSame(0, Hall::whereIn('id', $halls->pluck('id'))->where('is_active', true)->count());
     }
 }

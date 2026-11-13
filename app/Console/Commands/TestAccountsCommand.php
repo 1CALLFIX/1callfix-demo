@@ -239,7 +239,7 @@ class TestAccountsCommand extends Command
                     ]);
                 }
 
-                return [$key, $email, $roleSlug ? "{$roleSlug} @ {$scopeType} #{$scopeIds[$scopeType]}" : ($key === 'rider' ? 'parcel + shop rider (approved)' : ($key === 'seller' ? 'seller, shop approved' : ($key === 'restaurant' ? 'restaurant, approved' : ($key === 'hotel' ? 'hotel, approved' : ($key === 'organiser' ? 'event organiser, approved, 1 event in review' : ($key === 'hall' ? 'function hall, approved' : $userRole))))))];
+                return [$key, $email, $roleSlug ? "{$roleSlug} @ {$scopeType} #{$scopeIds[$scopeType]}" : ($key === 'rider' ? 'parcel + shop rider (approved)' : ($key === 'seller' ? 'seller, shop approved' : ($key === 'restaurant' ? 'restaurant, approved' : ($key === 'hotel' ? 'hotel, approved' : ($key === 'organiser' ? 'event organiser, approved, 1 event in review' : ($key === 'hall' ? 'one approved test hall of every kind' : $userRole))))))];
             });
         }
 
@@ -460,32 +460,59 @@ class TestAccountsCommand extends Command
     }
 
     /**
-     * Function halls R1: the test hall owner with one approved, switched-on hall ("Test Function Hall"), three slots
-     * (Full day / Morning / Evening) and a deposit, so the portal, admin and (R2) booking can be walked through.
-     * Re-running create resets that hall; other halls are left alone.
+     * Function halls: the test hall owner with one approved, switched-on test hall of every kind (owner 2026-11-13: "a test
+     * rental property in each category"), each with its own photos, capacity, slots and prices, so every kind can be
+     * walked through. Re-running create resets these halls; other halls are left alone.
      */
+    public const TEST_HALLS = [
+        // name, kind, seats, standing, AC, parking, rooms, deposit, [slot => price], cover, photos
+        ['Test Function Hall', 'Function hall', 400, 700, true, 40, 2, 10000, ['Full day' => 60000, 'Morning' => 35000, 'Evening' => 40000],
+            'photo-1519167758481-83f550bb49b3', ['photo-1464366400600-7168b8af9bc3', 'photo-1511795409834-ef04bbd61622', 'photo-1505236858219-8359eb29e329']],
+        ['Test Banquet Hall', 'Banquet hall', 250, 400, true, 25, 1, 8000, ['Lunch' => 30000, 'Dinner' => 38000],
+            'photo-1519225421980-715cb0215aed', ['photo-1478146896981-b80fe463b330', 'photo-1464366400600-7168b8af9bc3', 'photo-1505236858219-8359eb29e329']],
+        ['Test Convention Centre', 'Convention centre', 1500, 2500, true, 200, 6, 50000, ['Full day' => 250000, 'Morning' => 140000, 'Evening' => 160000],
+            'photo-1540541338287-41700207dee6', ['photo-1505236858219-8359eb29e329', 'photo-1511795409834-ef04bbd61622', 'photo-1519167758481-83f550bb49b3']],
+        ['Test Garden Lawn', 'Open lawn / garden', 600, 1000, false, 60, 0, 15000, ['Evening' => 45000, 'Full day' => 70000],
+            'photo-1469371670807-013ccf25f16a', ['photo-1519225421980-715cb0215aed', 'photo-1478146896981-b80fe463b330', 'photo-1464366400600-7168b8af9bc3']],
+        ['Test Party Hall', 'Party hall', 80, 120, true, 10, 0, 3000, ['Afternoon' => 8000, 'Evening' => 12000],
+            'photo-1530103862676-de8c9debad1d', ['photo-1533174072545-7a4b6ad7a6c3', 'photo-1511795409834-ef04bbd61622', 'photo-1478146896981-b80fe463b330']],
+        ['Test Community Hall', 'Community hall', 300, 450, false, 20, 1, 5000, ['Full day' => 18000, 'Morning' => 10000, 'Evening' => 12000],
+            'photo-1497366216548-37526070297c', ['photo-1505236858219-8359eb29e329', 'photo-1464366400600-7168b8af9bc3', 'photo-1519167758481-83f550bb49b3']],
+        ['Test Farmhouse Resort', 'Resort / farmhouse', 200, 350, true, 50, 8, 25000, ['Full day' => 90000, 'Evening' => 55000],
+            'photo-1587271407850-8d438ca9fdf2', ['photo-1469371670807-013ccf25f16a', 'photo-1519225421980-715cb0215aed', 'photo-1530103862676-de8c9debad1d']],
+    ];
+
+    private const SLOT_TIMES = [
+        'Full day' => ['06:00:00', '23:00:00'], 'Morning' => ['06:00:00', '14:00:00'], 'Afternoon' => ['12:00:00', '17:00:00'],
+        'Evening' => ['17:00:00', '23:00:00'], 'Lunch' => ['10:00:00', '16:00:00'], 'Dinner' => ['18:00:00', '23:30:00'],
+    ];
+
     private function makeTestHall(User $user, Franchise $franchise, Zone $zone): void
     {
         $provider = Provider::updateOrCreate(['user_id' => $user->id], [
             'franchise_id' => $franchise->id, 'zone_id' => $zone->id, 'provider_type' => 'independent',
             'kyc_status' => 'approved', 'is_active' => true, 'is_online' => false, 'skills' => null,
         ]);
-        $hall = \App\Models\Hall::firstOrNew(['provider_id' => $provider->id, 'name' => 'Test Function Hall']);
-        $hall->fill([
-            'franchise_id' => $franchise->id, 'zone_id' => $zone->id,
-            'slug' => $hall->slug ?: \App\Models\Hall::uniqueSlug('Test Function Hall'),
-            'hall_type' => 'Function hall', 'about' => "Test hall for walk-throughs. AC hall with dining and two rooms.\nNot a real hall.",
-            'address_line' => 'Test address, '.$zone->name, 'contact_phone' => $user->phone,
-            'seating_capacity' => 400, 'floating_capacity' => 700, 'is_ac' => true, 'parking_cars' => 40, 'rooms' => 2,
-            'amenities' => ['Generator / power backup', 'Dining hall', 'Stage', 'Bride and groom rooms', 'Outside caterers allowed'],
-            'cover_image' => self::UNSPLASH.'photo-1519167758481-83f550bb49b3?w=1600&q=80',
-            'photos' => [self::UNSPLASH.'photo-1464366400600-7168b8af9bc3?w=1600&q=80', self::UNSPLASH.'photo-1511795409834-ef04bbd61622?w=1600&q=80', self::UNSPLASH.'photo-1505236858219-8359eb29e329?w=1600&q=80'],
-            'rules' => 'Music till 10 PM. No fireworks inside. Test hall only.', 'deposit_amount' => 10000,
-            'status' => 'approved', 'submitted_at' => now(), 'approved_at' => now(), 'rejection_reason' => null,
-            'is_active' => true, 'pending_changes' => null, 'pending_requested_at' => null, 'pending_rejection' => null,
-        ])->save();
-        foreach ([['Full day', '06:00:00', '23:00:00', 60000], ['Morning', '06:00:00', '14:00:00', 35000], ['Evening', '17:00:00', '23:00:00', 40000]] as $i => [$name, $from, $to, $price]) {
-            \App\Models\HallSlot::updateOrCreate(['hall_id' => $hall->id, 'name' => $name], ['start_time' => $from, 'end_time' => $to, 'price' => $price, 'is_active' => true, 'sort_order' => $i]);
+        $photo = fn (string $id) => self::UNSPLASH.$id.'?w=1600&q=80';
+        foreach (self::TEST_HALLS as [$name, $kind, $seats, $standing, $ac, $parking, $rooms, $deposit, $slots, $cover, $photos]) {
+            $hall = \App\Models\Hall::firstOrNew(['provider_id' => $provider->id, 'name' => $name]);
+            $hall->fill([
+                'franchise_id' => $franchise->id, 'zone_id' => $zone->id,
+                'slug' => $hall->slug ?: \App\Models\Hall::uniqueSlug($name),
+                'hall_type' => $kind, 'about' => "Test {$kind} for walk-throughs. Seats {$seats}.\nNot a real hall.",
+                'address_line' => 'Test address, '.$zone->name, 'contact_phone' => $user->phone,
+                'seating_capacity' => $seats, 'floating_capacity' => $standing, 'is_ac' => $ac, 'parking_cars' => $parking, 'rooms' => $rooms,
+                'amenities' => ['Generator / power backup', 'Dining hall', 'Stage', 'Outside caterers allowed'],
+                'cover_image' => $photo($cover), 'photos' => array_map($photo, $photos),
+                'rules' => 'Music till 10 PM. No fireworks inside. Test hall only.', 'deposit_amount' => $deposit,
+                'status' => 'approved', 'submitted_at' => now(), 'approved_at' => now(), 'rejection_reason' => null,
+                'is_active' => true, 'pending_changes' => null, 'pending_requested_at' => null, 'pending_rejection' => null,
+            ])->save();
+            $i = 0;
+            foreach ($slots as $slot => $price) {
+                [$from, $to] = self::SLOT_TIMES[$slot];
+                \App\Models\HallSlot::updateOrCreate(['hall_id' => $hall->id, 'name' => $slot], ['start_time' => $from, 'end_time' => $to, 'price' => $price, 'is_active' => true, 'sort_order' => $i++]);
+            }
         }
     }
 
