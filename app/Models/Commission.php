@@ -21,6 +21,7 @@ class Commission extends Model
         'rental_reservation_id',
         'hotel_reservation_id',
         'event_order_id',
+        'hall_booking_id',
         'provider_commission',
         'franchise_commission',
         'platform_commission'

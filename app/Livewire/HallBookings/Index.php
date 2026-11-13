@@ -39,6 +39,7 @@ class Index extends Component
         return view('livewire.hall-bookings.index', [
             'bookings' => (clone $query)->with(['hall', 'customer'])
                 ->when(array_key_exists($this->statusFilter, HallBooking::STATUS_LABELS), fn ($q) => $q->where('status', $this->statusFilter))
+                ->when($this->statusFilter === 'damage', fn ($q) => $q->where('deposit_status', 'claimed'))
                 ->latest('id')->paginate(25),
             'tz' => app(\App\Services\TimezoneResolver::class)->platformTimezone(),
         ])->layout('layouts.admin', ['title' => 'Hall bookings']);

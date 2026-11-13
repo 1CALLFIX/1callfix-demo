@@ -138,9 +138,12 @@ class HallBookingService
         $dueOn = Carbon::parse($date, self::tz($hall))->startOfDay()->subDays($dueDays);
         $fullNow = $advancePercent >= 100 || $dueOn->lessThanOrEqualTo($today);
 
-        $payNow = $fullNow ? round($total + $deposit, 2) : round(round(($price + $gst) * $advancePercent / 100) + $fee, 2);
+        // The advance (the part a late cancellation keeps) is the same whether paid alone or with everything.
+        $advance = round(round(($price + $gst) * min(100, $advancePercent) / 100) + $fee, 2);
+        $payNow = $fullNow ? round($total + $deposit, 2) : $advance;
 
         return [
+            'advance' => $advance,
             'price' => $price,
             'gst_percent' => (float) ($percent ?? 0),
             'gst' => $gst,
@@ -225,6 +228,7 @@ class HallBookingService
                 'total' => $quote['total'],
                 'deposit_amount' => $quote['deposit'],
                 'pay_now' => $quote['pay_now'],
+                'advance_amount' => $quote['advance'],
                 'paid_in_full' => $quote['full_now'],
                 'balance_due_on' => $quote['balance_due_on'],
                 'payment_expires_at' => $method === 'online' ? now()->addMinutes((int) HallSettings::get('hall.unpaid_hold_minutes', $scope)) : null,
@@ -287,6 +291,11 @@ class HallBookingService
         if (! $booking) {
             return;
         }
+        if ($booking->balance_payment_id === $payment->id) {
+            $this->markBalancePaid($booking, $payment);
+
+            return;
+        }
 
         $outcome = DB::transaction(function () use ($booking) {
             $locked = HallBooking::whereKey($booking->id)->lockForUpdate()->first();
@@ -323,6 +332,8 @@ class HallBookingService
         $booking->forceFill([
             'status' => 'awaiting_owner', 'payment_status' => 'paid', 'paid_at' => now(), 'payment_expires_at' => null,
             'paid_amount' => $booking->pay_now, 'accept_by' => now()->addHours(max(1, $hours)),
+            // Paid in full (the date was close): the deposit is already with us.
+            'deposit_status' => $booking->paid_in_full && (float) $booking->deposit_amount > 0 ? 'held' : 'none',
         ])->save();
         DB::afterCommit(function () use ($booking) {
             $b = $booking->fresh(['hall.provider.user', 'customer']);
@@ -416,23 +427,352 @@ class HallBookingService
         $payment->forceFill(['refunded_amount' => $payment->amount, 'status' => 'refunded'])->save();
     }
 
-    /** Money back to where it came from: the wallet, or the card / UPI through Razorpay. Returns the amount sent back. */
-    private function refund(HallBooking $booking, float $amount, string $why): float
+    /**
+     * Money back to where it came from (the wallet, or the card / UPI through Razorpay), newest payment first, so a
+     * deposit paid with the balance comes back from the balance payment. Returns the amount sent back.
+     */
+    private function refund(HallBooking $booking, float $amount, string $why, string $kind = 'decline'): float
     {
-        $amount = round($amount, 2);
-        $payment = Payment::where('hall_booking_id', $booking->id)->where('status', 'captured')->latest('id')->first();
-        if ($payment === null || $amount <= 0) {
-            return 0.0;
+        $left = round($amount, 2);
+        $sent = 0.0;
+        $payments = Payment::where('hall_booking_id', $booking->id)->whereIn('status', ['captured', 'refunded'])->orderByDesc('id')->get();
+        foreach ($payments as $payment) {
+            if ($left <= 0) {
+                break;
+            }
+            $room = round((float) $payment->amount - (float) $payment->refunded_amount, 2);
+            $part = min($left, $room);
+            if ($part <= 0) {
+                continue;
+            }
+            if ($payment->gateway === 'wallet') {
+                app(WalletService::class)->credit($booking->customer, $part, reason: "Refund: hall booking {$booking->code} ({$why})", ref: "hall_booking:{$booking->id}:wallet-refund:{$kind}-{$payment->id}");
+            } else {
+                $this->gateway->refund((string) $payment->gateway_payment_id, $part, "Hall booking {$booking->code}: {$why}");
+            }
+            $refunded = round((float) $payment->refunded_amount + $part, 2);
+            $payment->forceFill(['refunded_amount' => $refunded, 'status' => $refunded >= (float) $payment->amount ? 'refunded' : 'captured'])->save();
+            $left = round($left - $part, 2);
+            $sent = round($sent + $part, 2);
         }
-        $amount = min($amount, (float) $payment->amount - (float) $payment->refunded_amount);
-        if ($payment->gateway === 'wallet') {
-            app(WalletService::class)->credit($booking->customer, $amount, reason: "Refund: hall booking {$booking->code} ({$why})", ref: "hall_booking:{$booking->id}:wallet-refund");
-        } else {
-            $this->gateway->refund((string) $payment->gateway_payment_id, $amount, "Hall booking {$booking->code}: {$why}");
-        }
-        $payment->forceFill(['refunded_amount' => round((float) $payment->refunded_amount + $amount, 2), 'status' => 'refunded'])->save();
 
-        return $amount;
+        return $sent;
+    }
+
+    // ─────────────────────────── R3: balance ───────────────────────────
+
+    /** Days of grace after the balance due date before an unpaid booking is cancelled (fixed: one less setting). */
+    public const BALANCE_GRACE_DAYS = 2;
+
+    /** @return array{payment_id: int, razorpay_order_id: string, razorpay_key_id: ?string, amount: int, currency: string} */
+    public function startBalancePayment(HallBooking $booking): array
+    {
+        if (! $booking->balanceOpen()) {
+            throw new \RuntimeException('There is nothing to pay on this booking now.');
+        }
+        if (! $this->gateway->isConfigured()) {
+            throw new \RuntimeException('Online payment is not available right now.');
+        }
+        $amount = $booking->balanceLater();
+        $gatewayOrder = $this->gateway->createRawOrder($amount, 'hallbal-'.$booking->id.'-'.now()->format('His'),
+            ['hall_booking_id' => $booking->id, 'purpose' => 'hall_booking', 'part' => 'balance']);
+        $payment = Payment::create([
+            'hall_booking_id' => $booking->id, 'purpose' => 'hall_booking', 'amount' => $amount,
+            'gateway' => $this->gateway->identifier(), 'gateway_order_id' => $gatewayOrder['razorpay_order_id'], 'status' => 'pending',
+        ]);
+        $booking->forceFill(['balance_payment_id' => $payment->id])->save();
+
+        return [
+            'payment_id' => $payment->id,
+            'razorpay_order_id' => $gatewayOrder['razorpay_order_id'],
+            'razorpay_key_id' => $gatewayOrder['key_id'],
+            'amount' => $gatewayOrder['amount'],
+            'currency' => $gatewayOrder['currency'],
+        ];
+    }
+
+    /** The balance (and deposit) from the customer's own wallet, at once. */
+    public function payBalanceFromWallet(HallBooking $booking, User $customer): HallBooking
+    {
+        if ($booking->customer_id !== $customer->id || ! $booking->balanceOpen()) {
+            throw new \RuntimeException('There is nothing to pay on this booking now.');
+        }
+        if (Setting::get('payment.wallet_enabled', null, array_filter(['zone_id' => $booking->zone_id, 'franchise_id' => $booking->franchise_id])) !== '1') {
+            throw new \RuntimeException('Wallet payments are not enabled.');
+        }
+
+        return DB::transaction(function () use ($booking, $customer) {
+            $locked = HallBooking::whereKey($booking->id)->lockForUpdate()->firstOrFail();
+            if (! $locked->balanceOpen()) {
+                throw new \RuntimeException('There is nothing to pay on this booking now.');
+            }
+            $amount = $locked->balanceLater();
+            app(WalletService::class)->debit($customer, $amount, reason: "Hall booking {$locked->code}: balance", ref: "hall_booking_balance:{$locked->id}:wallet-payment");
+            $payment = Payment::create([
+                'hall_booking_id' => $locked->id, 'purpose' => 'hall_booking', 'amount' => $amount,
+                'gateway' => 'wallet', 'status' => 'captured', 'captured_at' => now(),
+            ]);
+            $locked->forceFill(['balance_payment_id' => $payment->id])->save();
+            $this->balanceReceived($locked, $amount);
+
+            return $locked->fresh();
+        });
+    }
+
+    /** Webhook capture of a balance payment. Booking ended meanwhile, or already paid → money back in full. */
+    private function markBalancePaid(HallBooking $booking, Payment $payment): void
+    {
+        $ok = DB::transaction(function () use ($booking, $payment) {
+            $locked = HallBooking::whereKey($booking->id)->lockForUpdate()->first();
+            if (! $locked || ! $locked->balanceOpen()) {
+                return false;
+            }
+            $this->balanceReceived($locked, (float) $payment->amount);
+
+            return true;
+        });
+        if (! $ok) {
+            $this->refundPaymentInFull($booking->fresh(), $payment, 'balance not needed any more');
+        }
+    }
+
+    private function balanceReceived(HallBooking $booking, float $amount): void
+    {
+        $booking->forceFill([
+            'balance_paid_at' => now(),
+            'paid_amount' => round((float) $booking->paid_amount + $amount, 2),
+            'deposit_status' => (float) $booking->deposit_amount > 0 ? 'held' : 'none',
+        ])->save();
+        DB::afterCommit(fn () => $this->notifyCustomer($booking->fresh(['hall', 'customer']), 'balance_paid', $amount));
+    }
+
+    /** A reminder from 3 days before the due date, once a day, until paid (scheduled). */
+    public function remindBalance(): int
+    {
+        $count = 0;
+        $today = now(app(TimezoneResolver::class)->platformTimezone())->toDateString();
+        HallBooking::with(['hall', 'customer'])->where('status', 'confirmed')->whereNull('balance_paid_at')->where('paid_in_full', false)
+            ->whereNotNull('balance_due_on')->where('balance_due_on', '<=', Carbon::parse($today)->addDays(3)->toDateString())
+            ->where(fn ($q) => $q->whereNull('balance_reminded_on')->orWhere('balance_reminded_on', '<', $today))
+            ->orderBy('id')->limit(200)->get()
+            ->each(function (HallBooking $b) use ($today, &$count) {
+                $b->forceFill(['balance_reminded_on' => $today])->save();
+                $this->notifyCustomer($b, 'balance_due', $b->balanceLater());
+                $count++;
+            });
+
+        return $count;
+    }
+
+    /** Balance still unpaid two days after it was due: cancelled under the normal cancellation rule (scheduled). */
+    public function cancelUnpaidBalances(): int
+    {
+        $count = 0;
+        $today = now(app(TimezoneResolver::class)->platformTimezone())->toDateString();
+        HallBooking::where('status', 'confirmed')->whereNull('balance_paid_at')->where('paid_in_full', false)
+            ->whereNotNull('balance_due_on')->where('balance_due_on', '<', Carbon::parse($today)->subDays(self::BALANCE_GRACE_DAYS)->toDateString())
+            ->orderBy('id')->limit(100)->pluck('id')
+            ->each(function (int $id) use (&$count) {
+                try {
+                    $this->cancelByCustomerRule(HallBooking::findOrFail($id), null, 'Balance not paid in time');
+                    $count++;
+                } catch (\Throwable $e) {
+                    report($e);
+                }
+            });
+
+        return $count;
+    }
+
+    // ─────────────────────────── R3: cancellation ───────────────────────────
+
+    /**
+     * What the customer gets back if they cancel now (Hall Settings rule). Waiting for the hall: everything. Confirmed:
+     * at least full-days before → everything less the cancellation fee; at least half-days → half the advance kept;
+     * closer → the advance kept. The deposit always comes back. What is kept (not the fee) goes to the owner.
+     *
+     * @return array{refund: float, kept: float, fee: float, days: int}
+     */
+    public static function cancelQuote(HallBooking $booking): array
+    {
+        $booking->loadMissing('hall.franchise');
+        $paid = (float) $booking->paid_amount - (float) $booking->refunded_amount;
+        if ($booking->status === 'awaiting_owner') {
+            return ['refund' => round($paid, 2), 'kept' => 0.0, 'fee' => 0.0, 'days' => 0];
+        }
+        $scope = self::scope($booking->hall);
+        $tz = self::tz($booking->hall);
+        $deposit = $booking->deposit_status === 'held' ? (float) $booking->deposit_amount : 0.0;
+        $forHall = max(0, $paid - $deposit);
+        $days = (int) now($tz)->startOfDay()->diffInDays(Carbon::parse($booking->event_date->toDateString(), $tz)->startOfDay(), false);
+        $advance = min($forHall, (float) $booking->advance_amount);
+        $fee = 0.0;
+        $kept = 0.0;
+        if ($days >= (int) HallSettings::get('hall.cancel_full_days', $scope)) {
+            $fee = min($forHall, (float) HallSettings::get('hall.cancel_fee', $scope));
+        } elseif ($days >= (int) HallSettings::get('hall.cancel_half_days', $scope)) {
+            $kept = round($advance / 2, 2);
+        } else {
+            $kept = $advance;
+        }
+
+        return ['refund' => round($forHall - $fee - $kept + $deposit, 2), 'kept' => round($kept, 2), 'fee' => round($fee, 2), 'days' => $days];
+    }
+
+    /** The customer cancels (waiting for the hall, or confirmed before the event starts). Returns the refund. */
+    public function customerCancel(HallBooking $booking, User $customer, string $reason = ''): float
+    {
+        if ($booking->customer_id !== $customer->id) {
+            throw new \RuntimeException('This is not your booking.');
+        }
+
+        return $this->cancelByCustomerRule($booking, $customer, trim($reason) ?: 'Cancelled by the customer');
+    }
+
+    private function cancelByCustomerRule(HallBooking $booking, ?User $by, string $reason): float
+    {
+        $refunded = 0.0;
+        $done = DB::transaction(function () use ($booking, $by, $reason, &$refunded) {
+            $locked = HallBooking::with(['hall.franchise', 'customer'])->whereKey($booking->id)->lockForUpdate()->firstOrFail();
+            if (! in_array($locked->status, ['awaiting_owner', 'confirmed'], true) || $locked->starts_at->isPast()) {
+                throw new \RuntimeException('This booking can no longer be cancelled.');
+            }
+            $q = self::cancelQuote($locked);
+            $refunded = $this->refund($locked, $q['refund'], $reason, 'cancel');
+            $heldDeposit = $locked->deposit_status === 'held';
+            $locked->forceFill([
+                'status' => 'cancelled', 'cancelled_at' => now(), 'cancellation_reason' => mb_substr($reason, 0, 500), 'cancelled_by' => $by?->id,
+                'refunded_amount' => round((float) $locked->refunded_amount + $refunded, 2), 'kept_amount' => $q['kept'],
+                'payment_status' => $q['kept'] + $q['fee'] > 0 ? 'partially_refunded' : 'refunded',
+                'deposit_status' => $heldDeposit ? 'returned' : $locked->deposit_status,
+                'deposit_returned_at' => $heldDeposit ? now() : $locked->deposit_returned_at,
+            ])->save();
+            ActivityLogger::logModel($by, $locked, 'Hall booking cancelled under the cancellation rule', $q + ['reason' => $reason, 'refunded' => $refunded]);
+
+            return $locked;
+        });
+        $b = $done->fresh(['hall.provider.user', 'customer']);
+        $this->notifyCustomer($b, 'cancelled', $refunded);
+        $this->notifyOwner($b, 'cancelled');
+
+        return $refunded;
+    }
+
+    /** The owner (or the team) cancels a confirmed booking: the customer always gets everything back. */
+    public function ownerCancel(HallBooking $booking, User $by, string $reason): float
+    {
+        $refunded = 0.0;
+        $done = DB::transaction(function () use ($booking, $by, $reason, &$refunded) {
+            $locked = HallBooking::with('customer')->whereKey($booking->id)->lockForUpdate()->firstOrFail();
+            if ($locked->status !== 'confirmed' || $locked->starts_at->isPast()) {
+                throw new \RuntimeException('Only a confirmed booking that has not started can be cancelled.');
+            }
+            $refunded = $this->refund($locked, (float) $locked->paid_amount - (float) $locked->refunded_amount, trim($reason), 'cancel');
+            $heldDeposit = $locked->deposit_status === 'held';
+            $locked->forceFill([
+                'status' => 'cancelled', 'cancelled_at' => now(), 'cancellation_reason' => mb_substr(trim($reason), 0, 500), 'cancelled_by' => $by->id,
+                'refunded_amount' => round((float) $locked->refunded_amount + $refunded, 2), 'kept_amount' => 0, 'payment_status' => 'refunded',
+                'deposit_status' => $heldDeposit ? 'returned' : $locked->deposit_status,
+                'deposit_returned_at' => $heldDeposit ? now() : $locked->deposit_returned_at,
+            ])->save();
+            ActivityLogger::logModel($by, $locked, 'Hall booking cancelled by the hall / team: full refund', ['reason' => $reason, 'refunded' => $refunded]);
+
+            return $locked;
+        });
+        $this->notifyCustomer($done->fresh(['hall', 'customer']), 'hall_cancelled', $refunded);
+
+        return $refunded;
+    }
+
+    // ─────────────────────────── R3: after the event ───────────────────────────
+
+    /**
+     * Scheduled: (1) confirmed bookings past the event + Hall Settings' payout hours → completed, the owner paid (after
+     * commission); (2) a cancelled booking that left money with the owner → paid the same way once its date passed;
+     * (3) deposits held past Hall Settings' return hours with no damage reported → back to the customer.
+     *
+     * @return array{completed: int, paid_cancelled: int, deposits: int}
+     */
+    public function afterEvents(): array
+    {
+        $done = ['completed' => 0, 'paid_cancelled' => 0, 'deposits' => 0];
+        $commissions = app(\App\Services\CommissionService::class);
+        $paidAlready = \App\Models\Commission::whereNotNull('hall_booking_id')->select('hall_booking_id');
+
+        HallBooking::with('hall.franchise')->where('status', 'confirmed')->where('ends_at', '<', now())->orderBy('id')->limit(200)->get()
+            ->each(function (HallBooking $b) use ($commissions, &$done) {
+                $hours = (int) HallSettings::get('hall.payout_hours', self::scope($b->hall));
+                if ($b->ends_at->copy()->addHours($hours)->isFuture() || $b->balanceLater() > 0) {
+                    return;
+                }
+                DB::transaction(function () use ($b, $commissions) {
+                    $b->forceFill(['status' => 'completed', 'completed_at' => now()])->save();
+                    $commissions->applyForHallBooking($b);
+                    ActivityLogger::logModel(null, $b, 'Hall booking completed; owner paid after commission');
+                });
+                $done['completed']++;
+            });
+
+        HallBooking::with('hall.franchise')->where('status', 'cancelled')->where('kept_amount', '>', 0)->where('ends_at', '<', now())
+            ->whereNotIn('id', $paidAlready)->orderBy('id')->limit(200)->get()
+            ->each(function (HallBooking $b) use ($commissions, &$done) {
+                $hours = (int) HallSettings::get('hall.payout_hours', self::scope($b->hall));
+                if ($b->ends_at->copy()->addHours($hours)->isFuture()) {
+                    return;
+                }
+                $commissions->applyForHallBooking($b);
+                $done['paid_cancelled']++;
+            });
+
+        HallBooking::with(['hall.franchise', 'customer'])->where('deposit_status', 'held')->whereIn('status', ['completed', 'confirmed'])->where('ends_at', '<', now())
+            ->orderBy('id')->limit(200)->get()
+            ->each(function (HallBooking $b) use (&$done) {
+                $hours = (int) HallSettings::get('hall.deposit_refund_hours', self::scope($b->hall));
+                if ($b->ends_at->copy()->addHours($hours)->isFuture()) {
+                    return;
+                }
+                $sent = DB::transaction(function () use ($b) {
+                    $locked = HallBooking::with('customer')->whereKey($b->id)->lockForUpdate()->firstOrFail();
+                    if ($locked->deposit_status !== 'held') {
+                        return 0.0;
+                    }
+                    $sent = $this->refund($locked, (float) $locked->deposit_amount, 'deposit returned', 'deposit');
+                    $locked->forceFill(['deposit_status' => 'returned', 'deposit_returned_at' => now(),
+                        'refunded_amount' => round((float) $locked->refunded_amount + $sent, 2)])->save();
+
+                    return $sent;
+                });
+                if ($sent > 0) {
+                    $this->notifyCustomer($b->fresh(['hall', 'customer']), 'deposit_returned', $sent);
+                    $done['deposits']++;
+                }
+            });
+
+        return $done;
+    }
+
+    /** Can the owner still report damage? After the event starts, until the deposit goes back. */
+    public static function damageOpen(HallBooking $booking): bool
+    {
+        if ($booking->deposit_status !== 'held' || ! in_array($booking->status, ['confirmed', 'completed'], true) || $booking->starts_at->isFuture()) {
+            return false;
+        }
+        $booking->loadMissing('hall.franchise');
+        $hours = (int) HallSettings::get('hall.deposit_refund_hours', self::scope($booking->hall));
+
+        return $booking->ends_at->copy()->addHours($hours)->isFuture();
+    }
+
+    /** The owner reports damage: the deposit is held for the team to decide (R4: money approval rules). */
+    public function reportDamage(HallBooking $booking, User $owner, string $note): HallBooking
+    {
+        if (! self::damageOpen($booking)) {
+            throw new \RuntimeException('Damage can be reported only after the event starts and before the deposit goes back.');
+        }
+        $booking->forceFill(['deposit_status' => 'claimed', 'damage_note' => mb_substr(trim($note), 0, 1000), 'damage_reported_at' => now()])->save();
+        ActivityLogger::logModel($owner, $booking, 'Damage reported by the hall: deposit held for the team', ['note' => trim($note)]);
+
+        return $booking->fresh();
     }
 
     private function channels(HallBooking $booking): array

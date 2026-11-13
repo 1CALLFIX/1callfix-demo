@@ -312,4 +312,151 @@ class HallBookingTest extends TestCase
         Livewire::actingAs($this->makeSuperAdmin())->test(\App\Livewire\HallBookings\Index::class)->assertSee($booking->code)->assertSee('Waiting for the hall');
         Livewire::actingAs($this->makeUserWithNoPermissions())->test(\App\Livewire\HallBookings\Index::class)->assertForbidden();
     }
+
+    // ── R3: balance, cancellation, after the event ──
+
+    private function confirmed(HallSlot $slot, int $daysAhead, string $method = 'online'): HallBooking
+    {
+        $booking = $this->book($slot, $this->day($daysAhead), $method);
+        if ($method === 'online') {
+            $this->capture($booking);
+        }
+
+        return app(HallBookingService::class)->accept($booking->fresh(), $this->owner);
+    }
+
+    private function payBalanceOnline(HallBooking $booking): Payment
+    {
+        $checkout = app(HallBookingService::class)->startBalancePayment($booking->fresh());
+        $payment = Payment::findOrFail($checkout['payment_id']);
+        $payment->forceFill(['status' => 'captured', 'gateway_payment_id' => 'pay_'.Str::random(6), 'captured_at' => now()])->save();
+        app(HallBookingService::class)->markPaid($payment->fresh());
+
+        return $payment->fresh();
+    }
+
+    public function test_balance_and_deposit_are_paid_online_from_the_booking_page(): void
+    {
+        $booking = $this->confirmed($this->fullDay, 60);
+        $this->assertTrue($booking->balanceOpen());
+        $this->assertEquals(45000 + 10000, $booking->balanceLater(), 'The rest of ₹60,000 plus the ₹10,000 deposit.');
+        $this->actingAs($this->customer)->get(route('customer.halls.booking', $booking->code))->assertSee('Pay balance ₹55,000.00');
+
+        $payment = $this->payBalanceOnline($booking);
+        $this->assertEquals(55000.0, (float) $payment->amount);
+        $booking->refresh();
+        $this->assertNotNull($booking->balance_paid_at);
+        $this->assertEquals(70000.0, (float) $booking->paid_amount);
+        $this->assertSame('held', $booking->deposit_status);
+        $this->assertFalse($booking->balanceOpen());
+        $this->actingAs($this->customer)->get(route('customer.halls.booking', $booking->code))->assertSee('comes back to you after the function');
+    }
+
+    public function test_balance_from_the_wallet(): void
+    {
+        Setting::set('payment.wallet_enabled', '1');
+        app(WalletService::class)->credit($this->customer, 100000, reason: 'top-up', ref: 'test-topup-'.Str::random(6));
+        $booking = $this->confirmed($this->fullDay, 60, 'wallet');
+        app(HallBookingService::class)->payBalanceFromWallet($booking, $this->customer);
+        $this->assertEquals(100000 - 70000, app(WalletService::class)->balance($this->customer));
+        $this->assertSame('held', $booking->fresh()->deposit_status);
+    }
+
+    public function test_customer_cancellation_follows_the_hall_settings_rule(): void
+    {
+        // 45 days before: everything back less ₹500.
+        $far = $this->confirmed($this->fullDay, 45);
+        $this->assertEquals(14500.0, HallBookingService::cancelQuote($far)['refund']);
+        $this->actingAs($this->customer)->get(route('customer.halls.booking', $far->code))->assertSee('If you cancel now, you get back ₹14,500.00');
+        $this->assertEquals(14500.0, app(HallBookingService::class)->customerCancel($far, $this->customer));
+        $this->assertSame('cancelled', $far->fresh()->status);
+        $this->assertEquals(0.0, (float) $far->fresh()->kept_amount);
+        $this->assertTrue(HallBookingService::isFree($this->hall, $this->fullDay, $this->day(45)), 'The date is open again.');
+
+        // 10 days before: half the advance kept for the owner.
+        $mid = $this->confirmed($this->morning, 10);
+        $this->assertEquals(8750.0, (float) $mid->advance_amount);
+        $q = HallBookingService::cancelQuote($mid);
+        $this->assertEquals(4375.0, $q['kept']);
+        $this->assertEquals(4375.0, $q['refund']);
+
+        // 3 days before (paid in full with the deposit, the date was close): the advance is kept, the rest and the deposit come back.
+        $close = $this->confirmed($this->evening, 3);
+        $this->assertTrue($close->paid_in_full);
+        $this->assertSame('held', $close->deposit_status);
+        $q = HallBookingService::cancelQuote($close);
+        $this->assertEquals(10000.0, $q['kept'], '25% of ₹40,000.');
+        $this->assertEquals(40000 + 10000 - 10000, $q['refund']);
+    }
+
+    public function test_cancelling_before_the_hall_answers_gives_everything_back(): void
+    {
+        $booking = $this->book($this->morning, $this->day(5));
+        $this->capture($booking);
+        $this->assertEquals((float) $booking->fresh()->paid_amount, app(HallBookingService::class)->customerCancel($booking->fresh(), $this->customer));
+    }
+
+    public function test_the_owner_cancels_and_the_customer_gets_everything_back(): void
+    {
+        $booking = $this->confirmed($this->fullDay, 60);
+        $this->payBalanceOnline($booking);
+        $this->refunds = [];
+
+        Livewire::actingAs($this->owner)->test(VenueBookings::class)->assertSee('Fully paid')->call('startCancel', $booking->id)
+            ->call('cancelBooking')->assertHasErrors('reason')->set('reason', 'Hall under repair')->call('cancelBooking')->assertSee('gets all their money back');
+        $booking->refresh();
+        $this->assertSame('cancelled', $booking->status);
+        $this->assertEquals(70000.0, (float) $booking->refunded_amount);
+        $this->assertEqualsCanonicalizing([55000.0, 15000.0], $this->refunds, 'Each payment refunded back to where it came from.');
+    }
+
+    public function test_an_unpaid_balance_is_reminded_then_cancelled_and_the_owner_keeps_the_advance(): void
+    {
+        $booking = $this->confirmed($this->fullDay, 30);
+        $this->travelTo(now('Asia/Kolkata')->addDays(21)->setTime(10, 0));
+        $this->artisan('halls:after-events')->assertSuccessful();
+        $this->assertNotNull($booking->fresh()->balance_reminded_on, '3 days before the due date: reminded.');
+        $this->assertSame('confirmed', $booking->fresh()->status);
+
+        $this->travelTo(now('Asia/Kolkata')->addDays(5)->setTime(10, 0)); // 26 days on: 3 days after the due date
+        $this->artisan('halls:after-events')->assertSuccessful();
+        $booking->refresh();
+        $this->assertSame('cancelled', $booking->status);
+        $this->assertSame('Balance not paid in time', $booking->cancellation_reason);
+        $this->assertEquals(15000.0, (float) $booking->kept_amount);
+
+        $this->travelTo($booking->ends_at->copy()->addHours(25));
+        $this->artisan('halls:after-events')->assertSuccessful();
+        $commission = \App\Models\Commission::where('hall_booking_id', $booking->id)->firstOrFail();
+        $this->assertEquals(1500.0, (float) $commission->platform_commission, '10% of the ₹15,000 kept.');
+    }
+
+    public function test_after_the_event_the_owner_is_paid_and_the_deposit_comes_back_unless_damage_is_reported(): void
+    {
+        $paid = $this->confirmed($this->fullDay, 60);
+        $this->payBalanceOnline($paid);
+        $claimed = $this->confirmed($this->morning, 61);
+        $this->payBalanceOnline($claimed);
+        $this->refunds = [];
+
+        $this->travelTo($claimed->fresh()->ends_at->copy()->addHours(2));
+        Livewire::actingAs($this->owner)->test(VenueBookings::class)->set('tab', 'past')->assertSee('Hold the deposit')
+            ->call('startDamage', $claimed->id)->set('damageNote', '4 chairs broken and the stage curtain torn')->call('reportDamage')->assertSee('Damage reported');
+        $this->assertSame('claimed', $claimed->fresh()->deposit_status);
+
+        $this->travelTo($claimed->fresh()->ends_at->copy()->addHours(49));
+        $this->artisan('halls:after-events')->assertSuccessful();
+        $paid->refresh();
+        $this->assertSame('completed', $paid->status);
+        $this->assertSame('returned', $paid->deposit_status);
+        $this->assertContains(10000.0, $this->refunds);
+        $commission = \App\Models\Commission::where('hall_booking_id', $paid->id)->firstOrFail();
+        $this->assertEquals(6000.0, (float) $commission->platform_commission, '10% of ₹60,000.');
+
+        $claimed->refresh();
+        $this->assertSame('completed', $claimed->status);
+        $this->assertSame('claimed', $claimed->deposit_status, 'Damage reported: the deposit waits for the team.');
+        $this->assertCount(1, $this->refunds, 'Only one deposit went back.');
+        Livewire::actingAs($this->makeSuperAdmin())->test(\App\Livewire\HallBookings\Index::class)->set('statusFilter', 'damage')->assertSee('4 chairs broken');
+    }
 }

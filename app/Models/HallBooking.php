@@ -28,6 +28,9 @@ class HallBooking extends Model
         'deposit_amount', 'pay_now', 'paid_in_full', 'balance_due_on', 'paid_amount', 'refunded_amount',
         'payment_expires_at', 'paid_at', 'accept_by', 'accepted_at', 'declined_at', 'decline_reason', 'cancelled_at',
         'cancellation_reason', 'cancelled_by',
+        // R3
+        'advance_amount', 'balance_payment_id', 'balance_paid_at', 'balance_reminded_on', 'deposit_status', 'deposit_returned_at',
+        'damage_note', 'damage_reported_at', 'kept_amount', 'completed_at',
     ];
 
     protected $casts = [
@@ -53,6 +56,13 @@ class HallBooking extends Model
         'paid_amount' => 'decimal:2',
         'refunded_amount' => 'decimal:2',
         'guests' => 'integer',
+        'advance_amount' => 'decimal:2',
+        'kept_amount' => 'decimal:2',
+        'balance_paid_at' => 'datetime',
+        'balance_reminded_on' => 'date',
+        'deposit_returned_at' => 'datetime',
+        'damage_reported_at' => 'datetime',
+        'completed_at' => 'datetime',
     ];
 
     public function hall() { return $this->belongsTo(Hall::class); }
@@ -67,10 +77,20 @@ class HallBooking extends Model
         return $this->status === 'pending_payment' && $this->payment_status === 'pending' && $this->payment_method === 'online';
     }
 
-    /** What is still to pay later: the rest of the total, plus the deposit (paid with the balance). */
+    /** What is still to pay later: the rest of the total, plus the deposit (paid with the balance). 0 once paid. */
     public function balanceLater(): float
     {
+        if ($this->paid_in_full || $this->balance_paid_at !== null) {
+            return 0.0;
+        }
+
         return round(max(0, (float) $this->total + (float) $this->deposit_amount - (float) $this->pay_now), 2);
+    }
+
+    /** The balance can be paid now: confirmed, not yet paid, the event not started. */
+    public function balanceOpen(): bool
+    {
+        return $this->status === 'confirmed' && $this->balanceLater() > 0 && $this->starts_at->isFuture();
     }
 
     public function statusLabel(): string

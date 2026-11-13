@@ -22,6 +22,10 @@ class Bookings extends Component
     public string $tab = 'upcoming';
 
     public ?int $decliningId = null;
+    /** R3: the booking being cancelled by the owner, or the one damage is being reported on. */
+    public ?int $cancellingId = null;
+    public ?int $damageId = null;
+    public string $damageNote = '';
     public string $reason = '';
     public string $notice = '';
     public string $error = '';
@@ -69,12 +73,56 @@ class Bookings extends Component
         }
     }
 
+    public function startCancel(int $id): void
+    {
+        $this->own($id);
+        $this->cancellingId = $id;
+        $this->reset('reason', 'notice', 'error', 'damageId');
+    }
+
+    /** R3: the owner cancels a confirmed booking; the customer always gets everything back. */
+    public function cancelBooking(HallBookingService $halls): void
+    {
+        $this->reset('notice', 'error');
+        $this->validate(['reason' => ['required', 'string', 'min:5', 'max:300']], ['reason.required' => 'Tell the customer why.']);
+        $booking = $this->own((int) $this->cancellingId);
+        try {
+            $halls->ownerCancel($booking, auth()->user(), $this->reason);
+            $this->notice = 'Booking cancelled. The customer gets all their money back.';
+            $this->reset('cancellingId', 'reason');
+        } catch (\RuntimeException $e) {
+            $this->error = $e->getMessage();
+        }
+    }
+
+    public function startDamage(int $id): void
+    {
+        $this->own($id);
+        $this->damageId = $id;
+        $this->reset('damageNote', 'notice', 'error', 'cancellingId');
+    }
+
+    /** R3: damage after the event: the deposit is held and our team checks it. */
+    public function reportDamage(HallBookingService $halls): void
+    {
+        $this->reset('notice', 'error');
+        $this->validate(['damageNote' => ['required', 'string', 'min:10', 'max:1000']], ['damageNote.required' => 'Say what was damaged.', 'damageNote.min' => 'Say a little more about what was damaged.']);
+        $booking = $this->own((int) $this->damageId);
+        try {
+            $halls->reportDamage($booking, auth()->user(), $this->damageNote);
+            $this->notice = 'Damage reported. The deposit is held and our team will call you.';
+            $this->reset('damageId', 'damageNote');
+        } catch (\RuntimeException $e) {
+            $this->error = $e->getMessage();
+        }
+    }
+
     public function render()
     {
         $tz = app(TimezoneResolver::class)->platformTimezone();
         $waiting = (clone $this->ownBookings())->where('status', 'awaiting_owner')->orderBy('accept_by')->get();
         $list = match ($this->tab) {
-            'past' => (clone $this->ownBookings())->whereIn('status', ['confirmed', 'completed', 'declined', 'cancelled'])->where('ends_at', '<', now())->orderByDesc('starts_at')->limit(50)->get(),
+            'past' => (clone $this->ownBookings())->whereIn('status', ['confirmed', 'completed', 'cancelled'])->where('ends_at', '<', now())->orderByDesc('starts_at')->limit(50)->get(),
             default => (clone $this->ownBookings())->where('status', 'confirmed')->where('ends_at', '>=', now())->orderBy('starts_at')->limit(100)->get(),
         };
 

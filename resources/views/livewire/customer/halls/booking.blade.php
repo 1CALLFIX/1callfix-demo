@@ -29,6 +29,23 @@
         <div role="alert" class="mt-5 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700" data-testid="hall-booking-declined">{{ $t('hall.booking.declined', ['reason' => $booking->decline_reason, 'amount' => $money((float) $booking->refunded_amount)]) }}</div>
     @elseif ($booking->status === 'expired')
         <div role="alert" class="mt-5 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">{{ $t('hall.booking.expired') }}</div>
+    @elseif ($booking->status === 'cancelled')
+        <div role="alert" class="mt-5 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700" data-testid="hall-booking-cancelled">{{ $t('hall.booking.cancelled', ['reason' => $booking->cancellation_reason, 'amount' => $money((float) $booking->refunded_amount)]) }}</div>
+    @elseif ($booking->status === 'completed')
+        <div role="status" class="mt-5 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">🎉 {{ $t('hall.booking.completed') }}</div>
+    @endif
+
+    @if ($booking->balanceOpen())
+        {{-- R3: one big, clear button to pay what is left (balance + deposit). --}}
+        <div class="mt-4 space-y-3 rounded-2xl border-2 border-blue-200 bg-blue-50 p-4" data-testid="hall-balance">
+            <p class="text-sm text-blue-900">{{ $t('hall.booking.balance_due', ['amount' => $money($booking->balanceLater()), 'date' => $booking->balance_due_on?->format('j M Y')]) }}</p>
+            <button type="button" wire:click="payBalance" wire:loading.attr="disabled" class="flex min-h-12 w-full items-center justify-center rounded-xl bg-blue-600 px-4 font-semibold text-white hover:bg-blue-700" data-testid="hall-pay-balance">{{ $t('hall.booking.pay_balance', ['amount' => $money($booking->balanceLater())]) }}</button>
+            @if ($walletOn)
+                <button type="button" wire:click="payBalanceFromWallet" wire:loading.attr="disabled" class="flex min-h-12 w-full items-center justify-center rounded-xl border border-slate-300 bg-white px-4 font-semibold text-slate-800">{{ $t('hall.booking.pay_balance_wallet') }}</button>
+            @endif
+        </div>
+    @elseif (in_array($booking->status, ['confirmed', 'completed'], true) && (float) $booking->deposit_amount > 0)
+        <p class="mt-4 rounded-xl bg-slate-50 px-4 py-3 text-sm text-slate-700">{{ $t('hall.booking.deposit_'.$booking->deposit_status, ['amount' => $money((float) $booking->deposit_amount)]) }}</p>
     @endif
 
     <dl class="mt-5 space-y-3 rounded-2xl border border-slate-200 bg-white p-4 text-sm">
@@ -54,8 +71,20 @@
         @endif
     </div>
 
-    @if (in_array($booking->status, ['awaiting_owner', 'confirmed'], true))
-        <p class="mt-4 text-xs text-slate-500">{{ $refundLine }}</p>
+    @if ($refunded !== null)
+        <p role="status" class="mt-4 rounded-xl bg-emerald-50 px-4 py-3 text-sm text-emerald-800">{{ $t('hall.booking.refunded', ['amount' => $money($refunded)]) }}</p>
+    @endif
+
+    @if ($canCancel && $cancelQuote)
+        <details class="mt-5 rounded-2xl border border-slate-200 bg-white p-4" data-testid="hall-cancel">
+            <summary class="cursor-pointer text-sm font-semibold text-red-700">{{ $t('hall.booking.cancel') }}</summary>
+            <div class="mt-3 space-y-3 text-sm">
+                <p class="rounded-xl bg-amber-50 px-3 py-2 font-semibold text-amber-900" data-testid="hall-cancel-refund">{{ $t('hall.booking.cancel_get_back', ['amount' => $money($cancelQuote['refund'])]) }}</p>
+                <p class="text-xs text-slate-500">{{ $refundLine }}</p>
+                <input type="text" wire:model="cancelReason" maxlength="300" placeholder="{{ $t('hall.booking.cancel_reason') }}" class="block min-h-11 w-full rounded-xl border border-slate-300 px-3 text-base">
+                <button type="button" wire:click="cancelBooking" wire:confirm="{{ $t('hall.booking.cancel_confirm', ['amount' => $money($cancelQuote['refund'])]) }}" class="flex min-h-12 w-full items-center justify-center rounded-xl bg-red-600 px-4 font-semibold text-white" data-testid="hall-cancel-button">{{ $t('hall.booking.cancel') }}</button>
+            </div>
+        </details>
     @endif
 
     @assets

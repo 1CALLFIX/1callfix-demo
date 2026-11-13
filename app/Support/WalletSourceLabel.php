@@ -35,7 +35,7 @@ final class WalletSourceLabel
         ],
         'wallet_payment' => [
             'label' => 'Paid from wallet',
-            'regex' => '/^(booking|booking_bundle|event_order|hall_booking|hotel_reservation|marketplace_order|parcel_order|parcel_pack_purchase|property_reservation|rental_reservation|taxi_ride):\d+:wallet-payment$/',
+            'regex' => '/^(booking|booking_bundle|event_order|hall_booking|hall_booking_balance|hotel_reservation|marketplace_order|parcel_order|parcel_pack_purchase|property_reservation|rental_reservation|taxi_ride):\d+:wallet-payment$/',
             'like' => ['%:wallet-payment'],
         ],
         'refund' => [
@@ -205,7 +205,7 @@ final class WalletSourceLabel
         // Events E2/E3: tickets paid from the wallet, and their refund (event cancelled / buyer cancelled).
         'app/Services/Events/EventTicketService.php' => ['event_order:1:wallet-payment', 'event_order:1:wallet-refund'],
         // Function halls R2: the advance paid from the wallet, and its refund (declined / not answered).
-        'app/Services/Halls/HallBookingService.php' => ['hall_booking:1:wallet-payment', 'hall_booking:1:wallet-refund'],
+        'app/Services/Halls/HallBookingService.php' => ['hall_booking:1:wallet-payment', 'hall_booking_balance:1:wallet-payment', 'hall_booking:1:wallet-refund:cancel-1'],
         'app/Services/CompensationService.php' => ['compensation:1:overtime:00000000-0000-0000-0000-000000000000'],
         // E-commerce Phase 3b: a shop return refunded to the wallet (wallet / cash orders) — labelled "Refund".
         'app/Services/Marketplace/MarketplaceReturnService.php' => ['marketplace_order:1:wallet-refund:return-2'],

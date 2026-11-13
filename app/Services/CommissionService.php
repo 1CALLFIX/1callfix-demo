@@ -392,6 +392,28 @@ class CommissionService
         );
     }
 
+    /**
+     * Function halls R3: the owner's earnings for one booking, after the event (or what a customer cancellation left
+     * for the owner). Base = the hall price (+ GST when the hall pays its own GST), or the kept amount on a cancel.
+     * The hall's negotiated rate wins, otherwise Hall Settings' commission. Idempotent (one row per booking).
+     */
+    public function applyForHallBooking(\App\Models\HallBooking $booking): Commission
+    {
+        $booking->loadMissing(['franchise.owner', 'hall.provider.user', 'hall.franchise']);
+        $owner = $booking->hall->provider;
+        $base = $booking->status === 'cancelled'
+            ? (float) $booking->kept_amount
+            : (float) $booking->hall_price + ($booking->platform_collects_gst ? 0.0 : (float) $booking->gst_amount);
+
+        return $this->applyForFieldWorkerOrder(
+            identifyingColumn: 'hall_booking_id', identifyingId: $booking->id,
+            franchise: $booking->franchise, worker: $owner,
+            total: $base, orderCode: $booking->code, orderLabel: 'hall booking',
+            platformPercentOverride: $this->rateResolver->resolvedTier($booking->franchise, $owner) === 'agreement'
+                ? null : (float) \App\Support\HallSettings::get('hall.commission_percent', $booking->hall->scope()),
+        );
+    }
+
     public function applyForHotelReservation(HotelReservation $reservation): Commission
     {
         $reservation->loadMissing(['franchise.owner', 'accommodation.provider.user']);

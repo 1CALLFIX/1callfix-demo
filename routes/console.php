@@ -144,6 +144,11 @@ ScheduleRunTracker::track(Schedule::command('halls:expire'), 'halls:expire')
     ->everyMinute()
     ->withoutOverlapping(5);
 
+// Function halls R3 — balance reminders, unpaid-balance cancellations, owner payouts after the event, deposit returns.
+ScheduleRunTracker::track(Schedule::command('halls:after-events'), 'halls:after-events')
+    ->hourly()
+    ->withoutOverlapping(30);
+
 // Events E3 — events past event.payout_hold_hours (default 48) after their end are finished and the organisers paid.
 ScheduleRunTracker::track(Schedule::command('events:complete'), 'events:complete')
     ->hourly()

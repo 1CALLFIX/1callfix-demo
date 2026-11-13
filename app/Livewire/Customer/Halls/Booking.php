@@ -47,6 +47,49 @@ class Booking extends Component
         $this->dispatch('razorpay-open', order: $checkout, done: $url.'?paid=1', back: $url)->self();
     }
 
+    /** R3: the balance (and deposit) online. */
+    public function payBalance(HallBookingService $halls): void
+    {
+        $this->reset('error');
+        $booking = $this->booking();
+        try {
+            $checkout = $halls->startBalancePayment($booking);
+        } catch (\RuntimeException $e) {
+            $this->error = $e->getMessage();
+
+            return;
+        }
+        $url = route('customer.halls.booking', $booking->code);
+        $this->dispatch('razorpay-open', order: $checkout, done: $url.'?paid=1', back: $url)->self();
+    }
+
+    /** R3: the balance (and deposit) from the wallet, at once. */
+    public function payBalanceFromWallet(HallBookingService $halls): void
+    {
+        $this->reset('error');
+        try {
+            $halls->payBalanceFromWallet($this->booking(), auth()->user());
+        } catch (\RuntimeException $e) {
+            $this->error = $e->getMessage();
+        }
+    }
+
+    public string $cancelReason = '';
+
+    public ?float $refunded = null;
+
+    /** R3: the customer cancels; the refund shown before is what comes back. */
+    public function cancelBooking(HallBookingService $halls): void
+    {
+        $this->reset('error');
+        $this->validate(['cancelReason' => ['nullable', 'string', 'max:300']]);
+        try {
+            $this->refunded = $halls->customerCancel($this->booking(), auth()->user(), $this->cancelReason);
+        } catch (\RuntimeException $e) {
+            $this->error = $e->getMessage();
+        }
+    }
+
     public function render()
     {
         $booking = $this->booking();
@@ -66,6 +109,10 @@ class Booking extends Component
                 : 'https://www.google.com/maps/search/?api=1&query='.urlencode($hall->name.', '.$hall->address_line),
             'justPaid' => request()->boolean('paid'),
             'refundLine' => HallBookingService::refundLine($hall),
+            'canCancel' => in_array($booking->status, ['awaiting_owner', 'confirmed'], true) && $booking->starts_at->isFuture(),
+            'cancelQuote' => in_array($booking->status, ['awaiting_owner', 'confirmed'], true) ? HallBookingService::cancelQuote($booking) : null,
+            'walletOn' => \App\Models\Setting::get('payment.wallet_enabled', null, array_filter(['zone_id' => $booking->zone_id, 'franchise_id' => $booking->franchise_id])) === '1'
+                && app(\App\Services\WalletService::class)->balance(auth()->user()) >= $booking->balanceLater(),
         ])->layout('components.layouts.customer', ['title' => SiteText::get('hall.booking.title'), 'indexable' => false]);
     }
 }

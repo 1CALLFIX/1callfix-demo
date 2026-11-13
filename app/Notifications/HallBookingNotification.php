@@ -49,6 +49,12 @@ class HallBookingNotification extends Notification
             'received' => ['subject' => 'Hall booking paid: waiting for the hall', 'body' => "We received your payment for {$hall} on {$when} (booking {$b->code}). The hall confirms by {$by}; if it cannot, you get all your money back."],
             'confirmed' => ['subject' => 'Your hall is booked', 'body' => "{$hall} is booked for you on {$when} (booking {$b->code}). Open My hall bookings for the details."],
             'declined' => ['subject' => 'Hall not available: full refund', 'body' => "{$hall} could not take your booking for {$when} (booking {$b->code}). {$money} is being refunded to where you paid from."],
+            'balance_due' => ['subject' => 'Hall booking: balance due', 'body' => "Please pay the balance of {$money} for {$hall} on {$when} (booking {$b->code}) by ".($b->balance_due_on?->format('j M Y') ?? 'the due date').'. Open My hall bookings and tap Pay balance.'],
+            'balance_paid' => ['subject' => 'Balance received', 'body' => "We received {$money} for {$hall} on {$when} (booking {$b->code}). You are all set."],
+            'cancelled' => ['subject' => 'Hall booking cancelled', 'body' => "Your booking {$b->code} for {$hall} on {$when} is cancelled. {$money} is being refunded to where you paid from."],
+            'hall_cancelled' => ['subject' => 'The hall cancelled your booking: full refund', 'body' => "{$hall} cancelled your booking for {$when} (booking {$b->code}). All your money, {$money}, is being refunded to where you paid from."],
+            'deposit_returned' => ['subject' => 'Deposit returned', 'body' => "Your deposit of {$money} for {$hall} (booking {$b->code}) is being refunded to where you paid from. Thank you!"],
+            'owner_cancelled' => ['subject' => 'A hall booking was cancelled', 'body' => "The booking {$b->code} for {$hall} on {$when} ({$b->customer_name}) was cancelled. The date is open again."],
             'owner_new' => ['subject' => 'New hall booking: please accept', 'body' => "New booking for {$hall} on {$when}: {$b->customer_name}".($b->occasion ? ", {$b->occasion}" : '').". Accept or decline by {$by} in your hall portal, or it is declined and refunded."],
             default => ['subject' => 'Hall booking update', 'body' => "Your booking {$b->code} for {$hall} was updated."],
         };
