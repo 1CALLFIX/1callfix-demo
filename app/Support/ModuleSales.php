@@ -31,6 +31,19 @@ class ModuleSales
      */
     public static function modules(): array
     {
+        // Owner 2026-11-13: "soon" / "pre-launch" only while the module is switched on nowhere (Admin → Modules).
+        $activation = app(\App\Services\ModuleActivationService::class);
+        $out = [];
+        foreach (self::defined() as $key => $module) {
+            $module['prelaunch'] = ! $activation->isActiveAnywhere(self::MODULE_CODES[$key] ?? $key);
+            $out[$key] = $module;
+        }
+
+        return $out;
+    }
+
+    private static function defined(): array
+    {
         return [
             'service' => ['label' => 'Services', 'colour' => 'blue', 'prelaunch' => false, 'sources' => [
                 ['model' => Booking::class, 'permission' => 'dashboard.view', 'done' => ['completed'], 'value' => 'COALESCE(price_final, price_quoted)', 'route' => 'admin.bookings.index', 'link_permission' => 'bookings.view'],

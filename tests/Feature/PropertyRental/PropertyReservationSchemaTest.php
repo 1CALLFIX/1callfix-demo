@@ -64,7 +64,7 @@ class PropertyReservationSchemaTest extends TestCase
         $module = \App\Models\Module::where('code', 'rental')->first();
 
         $this->assertNotNull($module, 'The modules table must carry a rental row after the rename migration.');
-        $this->assertSame('Rental', $module->name);
+        $this->assertSame('Rental · Vehicles & equipment', $module->name);
         $this->assertNull(\App\Models\Module::where('code', 'property_rental')->first(), 'No stale property_rental row should remain.');
         $this->assertNull(\App\Models\Module::where('code', 'car_rental')->first(), 'No stale car_rental row should remain.');
     }

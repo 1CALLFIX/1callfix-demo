@@ -78,7 +78,7 @@ class Modules
     public const ALL = [
         'service' => 'Service',
         'parcel' => 'Parcel Delivery',
-        'rental' => 'Rental',
+        'rental' => 'Rental · Vehicles & equipment',
         'food' => 'Food Delivery',
         'grocery' => 'Grocery',
         'pharmacy' => 'Pharmacy',
@@ -86,7 +86,7 @@ class Modules
         'taxi' => 'Taxi Booking',
         'hotel' => 'Hotel / Stay',
         'events' => 'Events',
-        'halls' => 'Function Halls',
+        'halls' => 'Rental · Function halls',
     ];
 
     public static function options(): array

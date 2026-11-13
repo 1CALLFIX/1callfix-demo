@@ -101,7 +101,7 @@ class AdminNav
                 ],
             ],
             'rental' => [
-                'label' => 'Rental', 'collapsible' => true, 'icon' => 'building', 'colour' => 'teal', 'module' => 'rental', 'preLaunch' => true,
+                'label' => 'Rental', 'collapsible' => true, 'icon' => 'building', 'colour' => 'teal', 'module' => 'halls', 'preLaunch' => true,
                 'items' => [
                     // Function halls R1 (owner 2026-11-13): halls first.
                     ['label' => 'Function halls', 'route' => 'admin.halls.index', 'icon' => 'building', 'permission' => 'halls.manage'],
@@ -243,6 +243,10 @@ class AdminNav
             if (empty($items)) {
                 continue;
             }
+            // Owner 2026-11-13: "pre-launch" only while the module is switched on nowhere (Admin → Modules).
+            if (! empty($group['module'])) {
+                $group['preLaunch'] = ! self::moduleLive($group['module']);
+            }
             foreach ($items as $i => $item) {
                 $items[$i]['url'] = route($item['route'], $item['params'] ?? []);
                 $items[$i]['current'] = self::isCurrent($item);
@@ -260,6 +264,14 @@ class AdminNav
         }
 
         return [$groups, $active];
+    }
+
+    /** Menu module key → Admin → Modules code; switched on in at least one place. */
+    public static function moduleLive(string $key): bool
+    {
+        $code = ['shop' => 'commerce'][$key] ?? $key;
+
+        return app(\App\Services\ModuleActivationService::class)->isActiveAnywhere($code);
     }
 
     /**

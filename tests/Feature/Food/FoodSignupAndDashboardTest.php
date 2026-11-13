@@ -56,13 +56,20 @@ class FoodSignupAndDashboardTest extends TestCase
             ->set('cityChoice', '__other')->set('city', 'Nellore')->set('consent', true)->call('submit')->get('outcome');
     }
 
-    public function test_restaurant_card_is_a_waiting_list_until_super_admin_opens_restaurant_sign_ups(): void
+    /** Owner 2026-11-13: before Food is live, a waitlist until restaurant sign-ups open early; once live, Apply now. */
+    public function test_restaurant_card_is_a_waiting_list_until_food_is_live_or_sign_ups_open_early(): void
     {
+        \Illuminate\Support\Facades\DB::table('module_activations')->where('module_id', \App\Models\Module::where('code', 'food')->value('id'))->update(['is_active' => false]);
         $this->assertSame('waitlist', $this->apply('9876500021'));
 
         Setting::set('food.recruiting_restaurants', '1');
         $this->assertSame('handoff', $this->apply('9876500022'));
+
+        Setting::set('food.recruiting_restaurants', '0');
+        \Illuminate\Support\Facades\DB::table('module_activations')->where('module_id', \App\Models\Module::where('code', 'food')->value('id'))->update(['is_active' => true]);
+        $this->assertSame('handoff', $this->apply('9876500024'), 'Food is live: restaurants apply at once.');
     }
+
 
     public function test_a_new_restaurant_signs_up_with_its_fssai_number_and_waits_for_approval(): void
     {

@@ -46,8 +46,9 @@ final class PartnerPageData
                 'terms' => $wording[$code]['terms'],
                 'module' => P::ROLE_MODULE_NAMES[$code] ?? '',
                 'live' => $live,
-                // Sign-ups stay owner-controlled: restaurants and sellers only when Super Admin opens them.
-                'hands_off' => ($code === 'service' && $live) || ($code === 'parcel' && app(\App\Services\Parcel\ParcelReadiness::class)->recruitingRiders())
+                // Owner 2026-11-13: "Live" always means "Apply now" (never Live + Join the waitlist). Before a module is
+                // live, its own early sign-up switch can still open it. Parcel keeps its rider readiness check.
+                'hands_off' => ($live && $code !== 'parcel') || ($code === 'parcel' && app(\App\Services\Parcel\ParcelReadiness::class)->recruitingRiders())
                     || ($code === 'commerce' && \App\Support\MarketplaceSettings::recruitingSellers())
                     || ($code === 'food' && \App\Support\FoodSettings::recruitingRestaurants())
                     || ($code === 'hotel' && \App\Support\HotelSettings::recruitingHotels())

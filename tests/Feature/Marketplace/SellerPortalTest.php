@@ -82,8 +82,10 @@ class SellerPortalTest extends TestCase
 
     // ── joining ─────────────────────────────────────────────────────────
 
-    public function test_seller_or_shop_is_a_waiting_list_until_super_admin_opens_seller_sign_ups(): void
+    /** Owner 2026-11-13: before the shop is live, a waitlist until seller sign-ups open early; once live, Apply now. */
+    public function test_seller_or_shop_is_a_waiting_list_until_the_shop_is_live_or_sign_ups_open_early(): void
     {
+        \Illuminate\Support\Facades\DB::table('module_activations')->where('module_id', \App\Models\Module::where('code', 'commerce')->value('id'))->update(['is_active' => false]);
         Livewire::test(ApplyForm::class)->set('role', 'commerce')->set('name', 'Lakshmi Stores')->set('phone', '9876500011')
             ->set('cityChoice', '__other')->set('city', 'Nellore')->set('consent', true)->call('submit')->assertSet('outcome', 'waitlist');
 

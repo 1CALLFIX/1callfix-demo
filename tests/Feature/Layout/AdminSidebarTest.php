@@ -49,6 +49,11 @@ class AdminSidebarTest extends TestCase
         $this->grantPermission($admin, 'dashboard.view');
         $this->grantPermission($admin, 'taxi_rides.view');
 
+        // Owner 2026-11-13: "pre-launch" follows Admin → Modules. Parcel switched on somewhere = live.
+        \App\Models\Module::where('code', 'parcel')->update(['is_implemented' => true]);
+        $country = \App\Models\Country::create(['name' => 'T', 'code' => 'ZZ', 'currency_code' => 'INR', 'default_timezone' => 'Asia/Kolkata', 'is_active' => true]);
+        app(\App\Services\ModuleActivationService::class)->setActive('parcel', 'country', $country->id, true);
+
         $response = $this->actingAs($admin)->get(route('admin.dashboard'));
 
         $response->assertOk();

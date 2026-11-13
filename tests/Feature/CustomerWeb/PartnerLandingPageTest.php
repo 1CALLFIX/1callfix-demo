@@ -46,7 +46,7 @@ class PartnerLandingPageTest extends TestCase
     {
         $html = $this->get(route('customer.partners'))->assertOk()->getContent();
 
-        foreach (['Service professional', 'Delivery rider', 'Restaurant partner', 'Grocery store', 'Pharmacy', 'Cab driver', 'Hotel or stay host', 'Property or rental owner', 'Event organiser', 'Function hall owner', 'Seller or shop'] as $label) {
+        foreach (['Service professional', 'Delivery rider', 'Restaurant partner', 'Grocery store', 'Pharmacy', 'Cab driver', 'Hotel or stay host', 'Vehicle or equipment owner', 'Event organiser', 'Function hall owner', 'Seller or shop'] as $label) {
             $this->assertStringContainsString($label, $html);
         }
         $this->assertSame(12, substr_count($html, 'data-role="'), 'eleven module cards (+ Event organiser, + Function hall owner, 2026-11-13) + the franchise owner card (2026-11-07)');
@@ -80,15 +80,15 @@ class PartnerLandingPageTest extends TestCase
         $roles = collect(PartnerPageData::roles())->keyBy('code');
         foreach (['food', 'commerce'] as $code) {
             $this->assertTrue($roles[$code]['live'], $code);
-            $this->assertFalse($roles[$code]['hands_off'], "{$code}: sign-ups stay closed until Super Admin opens them");
+            // Owner 2026-11-13: Live always means Apply now (it was "Live" + "Join the waitlist" before).
+            $this->assertTrue($roles[$code]['hands_off'], "{$code}: a live module takes sign-ups");
         }
 
         $html = $this->get(route('customer.partners'))->assertOk()->getContent();
         $this->assertSame(3, substr_count($html, '>Live<'), 'service, restaurant, shop');
         $this->assertStringNotContainsString('Join the waitlist and be first in line', $html, 'rider text no longer offers a waitlist');
-        // Live but sign-ups not opened yet: the button says what really happens.
         foreach (['food', 'commerce'] as $code) {
-            $this->assertMatchesRegularExpression('/data-role="'.$code.'".*?class="go">Join the waitlist/s', $html, $code);
+            $this->assertDoesNotMatchRegularExpression('/data-role="'.$code.'"[^>]*>(?:(?!data-role=).)*?class="go">Join the waitlist/s', $html, $code.': never Live + Join the waitlist');
         }
         $this->assertMatchesRegularExpression('/data-role="service".*?class="go">Apply now/s', $html);
     }
