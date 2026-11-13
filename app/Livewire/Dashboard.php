@@ -127,13 +127,24 @@ class Dashboard extends Component
             $tiles[] = ['label' => 'Partners on duty', 'value' => (clone $pros)->where('is_online', true)->count(), 'of' => $pros->count(),
                 'icon' => 'wrench', 'colour' => 'blue', 'url' => route('admin.partners.index', ['tab' => 'businesses'])];
         }
+        // Owner 2026-11-13: one tile per kind of business, shown once at least one has joined (approved).
         if ($user->hasPermissionAnywhere('stores.manage')) {
-            $stores = $auth->scopeQuery(\App\Models\Store::query(), $user, 'stores.manage', $columns)->where('is_active', true)->where('approval_status', 'approved');
-            $tiles[] = ['label' => 'Shops & restaurants open', 'value' => (clone $stores)->where('is_open', true)->count(), 'of' => $stores->count(),
-                'icon' => 'shopping-cart', 'colour' => 'violet', 'url' => route('admin.stores.index')];
+            $stores = fn () => $auth->scopeQuery(\App\Models\Store::query(), $user, 'stores.manage', $columns)->where('is_active', true)->where('approval_status', 'approved');
+            $shops = $stores()->where('module', '!=', Modules::FOOD);
+            $food = $stores()->where('module', Modules::FOOD);
+            $tiles[] = ['label' => 'Shops open', 'value' => (clone $shops)->where('is_open', true)->count(), 'of' => $shops->count(),
+                'icon' => 'shopping-cart', 'colour' => 'violet', 'url' => route('admin.stores.index'), 'optional' => true];
+            $tiles[] = ['label' => 'Restaurants open', 'value' => (clone $food)->where('is_open', true)->count(), 'of' => $food->count(),
+                'icon' => 'sparkles', 'colour' => 'rose', 'url' => route('admin.stores.index', ['moduleFilter' => 'food']), 'optional' => true];
+        }
+        if ($user->hasPermissionAnywhere('accommodations.manage')) {
+            $hotels = $auth->scopeQuery(\App\Models\Accommodation::query(), $user, 'accommodations.manage', $columns)->where('approval_status', 'approved');
+            $tiles[] = ['label' => 'Hotels live', 'value' => (clone $hotels)->where('is_active', true)->count(), 'of' => $hotels->count(),
+                'icon' => 'building', 'colour' => 'cyan', 'url' => route('admin.accommodations.index'), 'optional' => true];
         }
 
-        return $tiles;
+        // Riders and service partners always show; a business kind shows once one has joined.
+        return array_values(array_filter($tiles, fn ($t) => empty($t['optional']) || $t['of'] > 0));
     }
 
     /** Where each top card goes when tapped. */

@@ -49,6 +49,22 @@ class DashboardLiveModulesTest extends TestCase
             ->assertSet('tab', 'all')->assertDontSee("setTab('food')", false);
     }
 
+    /** Owner 2026-11-13: shops, restaurants and hotels each get their own tile, once one has joined. */
+    public function test_each_kind_of_business_gets_its_own_tile_once_one_has_joined(): void
+    {
+        Livewire::actingAs($this->makeSuperAdmin())->test(Dashboard::class)
+            ->assertSee('Riders on duty')->assertSee('Partners on duty')
+            ->assertDontSee('Shops open')->assertDontSee('Restaurants open')->assertDontSee('Hotels live');
+
+        [, , $franchise, $zone] = $this->makeFranchiseTree();
+        $this->makeStore($franchise, $zone, null, ['module' => Modules::FOOD, 'name' => 'Annapurna Mess', 'fssai_number' => '12345678901234'])
+            ->forceFill(['approval_status' => 'approved', 'is_active' => true, 'is_open' => true])->save();
+
+        Livewire::actingAs($this->makeSuperAdmin())->test(Dashboard::class)
+            ->assertSee('Restaurants open')->assertDontSee('Shops open')
+            ->assertSee(route('admin.stores.index', ['moduleFilter' => 'food']), false);
+    }
+
     public function test_the_dashboard_shows_todays_date_the_period_dates_charts_and_links(): void
     {
         $this->travelTo(\Illuminate\Support\Carbon::parse('2026-11-09 10:00', 'Asia/Kolkata'));
