@@ -275,6 +275,28 @@ class Home extends Component
             }
         }
 
+        // Events card (owner 2026-11-13: "show upcoming events with days and time counter in city"): approved events in
+        // the visitor's city that have not started yet, soonest first, each with its poster and a live countdown.
+        if ($foodCity && \App\Support\Seo\CityModules::eventsLiveIn($foodCity) && \App\Support\HomeCards::cardShown('events')) {
+            $upcoming = \App\Livewire\Customer\Events\Home::publicEventsIn($foodCity)->where('starts_at', '>', now())->limit($n)->get();
+            if ($upcoming->isNotEmpty()) {
+                $count = \App\Livewire\Customer\Events\Home::publicEventsIn($foodCity)->where('starts_at', '>', now())->count();
+                $home = route('customer.events.home', $foodCity->slug);
+                $tz = app(\App\Services\TimezoneResolver::class)->platformTimezone();
+                $cards[] = ['key' => 'events', 'order' => \App\Support\HomeCards::cardOrder('events'), 'title' => $text('home.card.events.title', ['city' => $foodCity->name]),
+                    'url' => $home, 'line_url' => $home, 'wide' => true,
+                    'tiles' => $upcoming->map(fn ($e) => ['name' => $e->title, 'url' => route('customer.events.show', [$foodCity->slug, $e->slug]),
+                        'image' => $e->coverUrl(), 'tint' => null, 'new' => false,
+                        'when' => $e->starts_at->copy()->setTimezone($tz)->format('D, j M · g:i A'), 'venue' => $e->venue_name,
+                        'starts' => $e->starts_at->copy()->utc()->toIso8601String()])->values()->all(),
+                    'line' => \App\Support\HomeCards::line('events') ?? match (true) {
+                        $count === 1 => $text('home.card.events.live_one'),
+                        $count > 1 => $text('home.card.events.live', ['count' => $count]),
+                        default => $text('home.card.events.line'),
+                    }];
+            }
+        }
+
         usort($cards, fn ($a, $b) => [$a['order'], $a['key']] <=> [$b['order'], $b['key']]);
 
         return $cards;

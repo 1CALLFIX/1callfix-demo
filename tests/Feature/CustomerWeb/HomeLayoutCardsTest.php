@@ -194,6 +194,32 @@ class HomeLayoutCardsTest extends TestCase
         $this->assertContains('hotels', $this->cardsOrder($html));
     }
 
+    /** Owner 2026-11-13: "show upcoming events with days and time counter in city just as hotels". */
+    public function test_an_events_card_counts_down_to_upcoming_events_where_events_is_on(): void
+    {
+        $owner = \App\Models\Provider::create([
+            'user_id' => \App\Models\User::create(['uuid' => (string) Str::uuid(), 'name' => 'Owner', 'phone' => '9'.fake()->numerify('#########'), 'role' => 'provider', 'status' => 'active'])->id,
+            'franchise_id' => $this->franchise->id, 'zone_id' => $this->zone->id, 'provider_type' => 'independent', 'kyc_status' => 'approved', 'is_active' => true,
+        ]);
+        $organiser = \App\Models\EventOrganiser::create(['provider_id' => $owner->id, 'franchise_id' => $this->franchise->id, 'zone_id' => $this->zone->id, 'name' => 'Nellore Nights', 'approval_status' => 'approved', 'is_active' => true]);
+        $event = fn (string $title, string $status, $start) => \App\Models\Event::create([
+            'event_organiser_id' => $organiser->id, 'franchise_id' => $this->franchise->id, 'zone_id' => $this->zone->id, 'title' => $title,
+            'slug' => Str::slug($title), 'venue_name' => 'Grand Hall', 'venue_address' => 'Road', 'starts_at' => $start, 'ends_at' => $start->copy()->addHours(5), 'status' => $status,
+        ]);
+        $event('Year End Bash', 'approved', now()->addDays(3));
+        $event('Draft Party', 'in_review', now()->addDays(2));
+        $event('Already Started', 'approved', now()->subHour());
+
+        $this->assertNotContains('events', $this->cardsOrder($this->get('/')->getContent()), 'Events off: no card.');
+
+        app(\App\Services\ModuleActivationService::class)->setActive(\App\Support\Modules::EVENTS, 'franchise', $this->franchise->id, true);
+        request()->attributes->replace([]);
+        $html = $this->get('/')->assertOk()->assertSee('Upcoming events in')->assertSee('Year End Bash')
+            ->assertSee('/events/year-end-bash', false)->assertDontSee('Draft Party')->assertDontSee('Already Started')
+            ->assertSee('data-countdown', false)->assertSee('Starts in')->assertSee('1 event coming up')->getContent();
+        $this->assertContains('events', $this->cardsOrder($html));
+    }
+
     public function test_the_2026_11_05_order_puts_the_banner_first_and_the_business_cards_after_most_booked_and_offers(): void
     {
         $migration = require database_path('migrations/2026_11_05_100000_home_order_modules_after_offers.php');

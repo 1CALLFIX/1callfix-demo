@@ -48,6 +48,7 @@ final class HomeCards
             'shop' => 35,
             'food' => 37,
             'hotels' => 38, // Hotels (2026-11-12)
+            'events' => 36, // Events (owner 2026-11-13: upcoming events with a countdown)
             'parcel' => 39,
             default => ($index + 1) * 10,
         };

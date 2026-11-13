@@ -23,6 +23,41 @@
                     </a>
                 </div>
 
+                @if (! empty($card['wide']))
+                {{-- Events (owner 2026-11-13): poster cards with a live days / hours / minutes / seconds countdown to the start. --}}
+                <ul class="mt-3 flex snap-x gap-3 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" data-testid="event-countdowns">
+                    @foreach ($card['tiles'] as $tile)
+                        <li class="w-60 shrink-0 snap-start sm:w-64">
+                            <a href="{{ $tile['url'] }}" wire:navigate class="group block overflow-hidden rounded-2xl border border-slate-200 bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600">
+                                <span class="relative block aspect-video bg-gradient-to-br from-fuchsia-100 to-blue-100">
+                                    @if (! empty($tile['image'])) <img src="{{ $tile['image'] }}" alt="" loading="lazy" decoding="async" class="h-full w-full object-cover"> @endif
+                                </span>
+                                <span class="block p-3">
+                                    <span class="line-clamp-1 text-sm font-semibold text-slate-900">{{ $tile['name'] }}</span>
+                                    <span class="mt-0.5 block truncate text-xs text-slate-500">{{ $tile['when'] }} · {{ $tile['venue'] }}</span>
+                                    <span class="mt-2 block" wire:ignore
+                                          x-data="{ at: Date.parse(@js($tile['starts'])), left: 0, timer: null,
+                                                    tick() { this.left = Math.max(0, Math.floor((this.at - Date.now()) / 1000)); },
+                                                    init() { this.tick(); this.timer = setInterval(() => this.tick(), 1000); },
+                                                    destroy() { clearInterval(this.timer); },
+                                                    pad(n) { return String(n).padStart(2, '0'); } }">
+                                        <span x-show="left > 0" class="block text-[10px] font-semibold uppercase tracking-wide text-fuchsia-700">{{ \App\Support\SiteText::get('home.card.events.starts_in') }}</span>
+                                        <span x-show="left > 0" class="mt-1 grid grid-cols-4 gap-1 text-center" data-countdown>
+                                            @foreach (['days' => 'Math.floor(left / 86400)', 'hours' => 'pad(Math.floor(left % 86400 / 3600))', 'minutes' => 'pad(Math.floor(left % 3600 / 60))', 'seconds' => 'pad(left % 60)'] as $unit => $expr)
+                                                <span class="rounded-lg bg-slate-900 px-1 py-1 text-white">
+                                                    <span class="block text-sm font-bold tabular-nums" x-text="{{ $expr }}">&nbsp;</span>
+                                                    <span class="block text-[9px] uppercase text-slate-300">{{ \App\Support\SiteText::get('home.card.events.'.$unit) }}</span>
+                                                </span>
+                                            @endforeach
+                                        </span>
+                                        <span x-show="left <= 0" x-cloak class="inline-block rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-800">{{ \App\Support\SiteText::get('home.card.events.on_now') }}</span>
+                                    </span>
+                                </span>
+                            </a>
+                        </li>
+                    @endforeach
+                </ul>
+                @else
                 <ul class="mt-3 grid grid-flow-col {{ $cols }} snap-x gap-x-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                     @foreach ($card['tiles'] as $tile)
                         <li class="snap-start">
@@ -48,6 +83,7 @@
                         </li>
                     @endforeach
                 </ul>
+                @endif
 
                 @if ($card['line'])
                     <a href="{{ $card['line_url'] }}" wire:navigate data-testid="card-line"
