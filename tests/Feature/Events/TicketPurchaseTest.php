@@ -155,10 +155,16 @@ class TicketPurchaseTest extends TestCase
         $this->assertSame(0, EventOrder::count());
     }
 
-    public function test_gst_bands_blank_means_nothing_can_be_sold(): void
+    public function test_gst_is_optional_blank_bands_sell_without_gst_but_a_gap_refuses(): void
     {
-        Setting::set('event.gst_slabs', '');
+        Setting::set('event.gst_slabs', '100 : 0');
         $this->assertThrows(fn () => $this->buy([$this->couple->id => 1]), \RuntimeException::class, 'Ticket sales open soon');
+
+        Setting::set('event.gst_slabs', '');
+        $this->get(route('customer.events.show', [$this->city->slug, 'year-end-bash']))->assertOk()->assertSee('₹1,000')->assertSee('data-testid="event-continue"', false);
+        $order = $this->buy([$this->couple->id => 1]);
+        $this->assertSame(0.0, (float) $order->tax_amount);
+        $this->assertSame(1000.0, (float) $order->subtotal);
     }
 
     public function test_events_switched_off_for_the_city_refuses_and_hides_the_pages(): void

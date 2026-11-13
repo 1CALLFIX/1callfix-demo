@@ -87,10 +87,10 @@ class HotelCustomerPagesTest extends TestCase
         $this->assertFalse(HotelPricing::quote($room->fresh(), $plan->fresh(), $friday->toDateString(), $sunday->toDateString())['available']);
     }
 
-    public function test_no_gst_bands_means_plus_taxes_and_no_book_button(): void
+    public function test_gst_bands_with_a_gap_mean_plus_taxes_and_no_book_button(): void
     {
         $this->activateHotelFor($this->franchise);
-        Setting::set('hotel.gst_slabs', null);
+        Setting::set('hotel.gst_slabs', '100 : 0');
         [$hotel] = $this->hotel(['name' => 'Fail Closed Inn']);
 
         $this->get('/nellore/hotels/'.$hotel->slug)->assertOk()

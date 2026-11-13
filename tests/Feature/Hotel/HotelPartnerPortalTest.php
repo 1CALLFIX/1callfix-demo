@@ -45,9 +45,12 @@ class HotelPartnerPortalTest extends TestCase
 
     // ── settings ──
 
-    public function test_gst_bands_are_read_from_settings_and_fail_closed_when_blank(): void
+    public function test_gst_bands_are_read_from_settings_optional_when_blank_and_fail_closed_on_a_gap(): void
     {
-        $this->assertNull(HotelSettings::gstPercentFor(1500), 'No bands set: nobody can book.');
+        $this->assertSame(0.0, HotelSettings::gstPercentFor(1500), 'No bands set: no GST (owner 2026-11-13: GST optional).');
+        Setting::set('hotel.gst_slabs', '1000 : 0');
+        $this->assertNull(HotelSettings::gstPercentFor(1500), 'Bands that do not cover the price: nobody can book.');
+        $this->assertNotNull(HotelSettings::validate('hotel.gst_slabs', '1000 : 0'), 'Bands must end with a * line.');
 
         Setting::set('hotel.gst_slabs', "1000 : 0\n7500 : 5\n* : 18");
         $this->assertSame(0.0, HotelSettings::gstPercentFor(999));

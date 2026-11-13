@@ -180,7 +180,7 @@ class HotelBookingPaymentTest extends TestCase
             $this->assertStringContainsString('just taken', $e->getMessage());
         }
 
-        Setting::set('hotel.gst_slabs', null);
+        Setting::set('hotel.gst_slabs', '100 : 0'); // bands with a gap: the price is not covered
         $this->expectExceptionMessage('Booking opens soon');
         app(HotelBookingService::class)->book($this->customer, $this->hotel, $this->room, $this->plan, now()->addDays(40)->toDateString(), now()->addDays(41)->toDateString(), 1, 2, ['guest_name' => 'Asha'], 'online');
     }

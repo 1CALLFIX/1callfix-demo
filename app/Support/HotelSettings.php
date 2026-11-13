@@ -107,7 +107,7 @@ class HotelSettings extends MarketplaceSettings
         'hotel.gst_slabs' => [
             'group' => 'Tax', 'label' => 'GST on rooms by price per night', 'type' => 'text', 'global' => true,
             'default' => null,
-            'help' => 'One line per band: "up to price : GST %", highest last with *, for example "1000 : 0", "7500 : 5", "* : 18". Check the current rates with your CA. Blank = nobody can book a hotel (the law sets these rates, so they must be entered first).',
+            'help' => 'One line per band: "up to price : GST %", highest last with *, for example "1000 : 0", "7500 : 5", "* : 18". Check the current rates with your CA. Blank = no GST is charged (start without GST and add the bands when you register for it). Once entered, end with a "*" line so every price is covered.',
         ],
         'hotel.platform_collects_gst' => [
             'group' => 'Tax', 'label' => '1CallFix collects and pays the GST', 'type' => 'switch', 'default' => '1', 'global' => true,
@@ -126,12 +126,16 @@ class HotelSettings extends MarketplaceSettings
     }
 
     /**
-     * GST % for one night at this price, from the Super Admin bands. Null when the bands are not set or do not
-     * cover the price: booking is refused (fail closed).
+     * GST % for one night at this price, from the Super Admin bands. Blank bands = 0 (GST is optional, owner 2026-11-13).
+     * Bands that do not cover the price = null: booking is refused (fail closed).
      */
     public static function gstPercentFor(float $nightlyPrice, ?array $bands = null): ?float
     {
-        foreach ($bands ?? self::gstBands() as [$upTo, $percent]) {
+        $bands ??= self::gstBands();
+        if ($bands === []) {
+            return 0.0;
+        }
+        foreach ($bands as [$upTo, $percent]) {
             if ($upTo === null || $nightlyPrice <= $upTo) {
                 return $percent;
             }
@@ -160,6 +164,9 @@ class HotelSettings extends MarketplaceSettings
                 if (trim($line) !== '' && preg_match('/^\s*(\*|\d+(?:\.\d+)?)\s*:\s*(\d+(?:\.\d+)?)\s*%?\s*$/', $line) !== 1) {
                     return "This line is not \"price : GST %\": {$line}";
                 }
+            }
+            if (preg_match('/^\s*\*\s*:/m', (string) $value) !== 1) {
+                return 'Add a last line for every higher price, like "* : 18".';
             }
         }
 

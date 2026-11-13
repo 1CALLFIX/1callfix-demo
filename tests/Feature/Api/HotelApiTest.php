@@ -236,10 +236,10 @@ class HotelApiTest extends TestCase
         $this->assertNotNull($r->payment_expires_at, 'An unpaid online booking holds the rooms only for a while.');
     }
 
-    public function test_no_gst_bands_means_the_app_cannot_book_either(): void
+    public function test_gst_bands_with_a_gap_mean_the_app_cannot_book_either(): void
     {
         [$hotel, $room, $plan, $customer] = $this->bookableHotel();
-        Setting::set('hotel.gst_slabs', null);
+        Setting::set('hotel.gst_slabs', '100 : 0');
 
         $this->actingAs($customer, 'sanctum')->postJson('/api/hotel-reservations', $this->body($hotel, $room, $plan))
             ->assertStatus(409)->assertJsonPath('message', 'Booking opens soon for this hotel.');

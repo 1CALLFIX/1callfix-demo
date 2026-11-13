@@ -64,9 +64,14 @@ class OrganiserPortalTest extends TestCase
 
     // ── settings ──
 
-    public function test_gst_bands_fail_closed_and_the_settings_page_is_super_admin_only(): void
+    public function test_gst_is_optional_bands_fail_closed_on_a_gap_and_the_settings_page_is_super_admin_only(): void
     {
-        $this->assertNull(EventSettings::gstPercentFor(800), 'No bands set: no ticket can be sold.');
+        $this->assertSame(0.0, EventSettings::gstPercentFor(800), 'No bands set: no GST (owner 2026-11-13: GST optional).');
+        Setting::set('event.gst_slabs', '500 : 0');
+        $this->assertNull(EventSettings::gstPercentFor(800), 'Bands that do not cover the price: no sale.');
+        $this->assertNotNull(EventSettings::validate('event.gst_slabs', '500 : 0'), 'Bands must end with a * line.');
+        $this->assertNull(EventSettings::validate('event.gst_slabs', "500 : 0\n* : 18"));
+        $this->assertNull(EventSettings::validate('event.gst_slabs', ''));
         Setting::set('event.gst_slabs', "500 : 0\n* : 18");
         $this->assertSame(0.0, EventSettings::gstPercentFor(500));
         $this->assertSame(18.0, EventSettings::gstPercentFor(501));
