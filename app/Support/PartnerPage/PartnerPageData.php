@@ -51,7 +51,8 @@ final class PartnerPageData
                     || ($code === 'commerce' && \App\Support\MarketplaceSettings::recruitingSellers())
                     || ($code === 'food' && \App\Support\FoodSettings::recruitingRestaurants())
                     || ($code === 'hotel' && \App\Support\HotelSettings::recruitingHotels())
-                    || ($code === 'events' && \App\Support\EventSettings::recruitingOrganisers()),
+                    || ($code === 'events' && \App\Support\EventSettings::recruitingOrganisers())
+                    || ($code === 'halls' && \App\Support\HallSettings::recruitingOwners()),
                 'enquiry' => false,
             ];
         }

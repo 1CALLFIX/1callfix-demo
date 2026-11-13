@@ -71,6 +71,8 @@ class Modules
     public const COMMERCE = 'commerce';
     /** Events E1 (owner 2026-11-13): event ticket sales, its own module next to Rental. */
     public const EVENTS = 'events';
+    /** Function halls R1 (owner 2026-11-13): hall booking, shown under Rental. */
+    public const HALLS = 'halls';
 
     /** slug => display label, in rollout order */
     public const ALL = [
@@ -84,6 +86,7 @@ class Modules
         'taxi' => 'Taxi Booking',
         'hotel' => 'Hotel / Stay',
         'events' => 'Events',
+        'halls' => 'Function Halls',
     ];
 
     public static function options(): array

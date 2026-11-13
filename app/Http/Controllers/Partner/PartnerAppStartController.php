@@ -19,7 +19,7 @@ class PartnerAppStartController extends Controller
         $user = $request->user();
 
         if ($user) {
-            foreach (['service' => 'provider.dashboard', 'commerce' => 'seller.dashboard', 'hotel' => 'hotel.dashboard', 'events' => 'organiser.dashboard', 'parcel' => 'rider.dashboard'] as $role => $route) {
+            foreach (['service' => 'provider.dashboard', 'commerce' => 'seller.dashboard', 'hotel' => 'hotel.dashboard', 'events' => 'organiser.dashboard', 'halls' => 'venue.dashboard', 'parcel' => 'rider.dashboard'] as $role => $route) {
                 if ($user->holdsPartnerRole($role)) {
                     return redirect()->route($route);
                 }

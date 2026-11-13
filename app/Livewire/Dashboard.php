@@ -149,6 +149,12 @@ class Dashboard extends Component
                 'icon' => 'ticket', 'colour' => 'fuchsia', 'url' => route('admin.events.index', ['tab' => 'organisers']), 'optional' => true];
         }
 
+        if ($user->hasPermissionAnywhere('halls.manage')) {
+            $halls = $auth->scopeQuery(\App\Models\Hall::query(), $user, 'halls.manage', $columns)->where('status', 'approved');
+            $tiles[] = ['label' => 'Function halls', 'value' => (clone $halls)->where('is_active', true)->count(), 'of' => $halls->count(),
+                'icon' => 'building', 'colour' => 'teal', 'url' => route('admin.halls.index', ['status' => 'approved']), 'optional' => true];
+        }
+
         // Riders and service partners always show; a business kind shows once one has joined.
         return array_values(array_filter($tiles, fn ($t) => empty($t['optional']) || $t['of'] > 0));
     }

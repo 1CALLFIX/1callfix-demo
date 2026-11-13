@@ -114,7 +114,7 @@ class Join extends Component
         $this->reset('notice', 'error');
         $u = auth()->user();
         $role = match (true) {
-            $u->holdsPartnerRole('hotel') => 'hotel', $u->holdsPartnerRole('events') => 'events', $u->holdsPartnerRole('food') => 'food', $u->holdsPartnerRole('commerce') => 'commerce',
+            $u->holdsPartnerRole('hotel') => 'hotel', $u->holdsPartnerRole('events') => 'events', $u->holdsPartnerRole('halls') => 'halls', $u->holdsPartnerRole('food') => 'food', $u->holdsPartnerRole('commerce') => 'commerce',
             $u->holdsPartnerRole('parcel') && ! $u->providerProfile()->exists() => 'parcel', default => 'service',
         };
         $phone = \App\Support\PhoneNumber::national((string) $u->phone);
@@ -141,6 +141,9 @@ class Join extends Component
         if ($u->holdsPartnerRole('hotel')) {
             $done[] = \App\Models\HotelRoomType::whereHas('accommodation', fn ($q) => $q->where('provider_id', $p?->id))->where('is_active', true)->whereHas('ratePlans', fn ($q) => $q->where('is_active', true))->exists();
         }
+        if ($u->holdsPartnerRole('halls')) {
+            $done[] = \App\Models\Hall::where('provider_id', $p?->id)->whereIn('status', ['in_review', 'approved'])->exists();
+        }
         if ($u->holdsPartnerRole('events')) {
             $done[] = \App\Models\Event::whereHas('organiser', fn ($q) => $q->where('provider_id', $p?->id))->whereHas('ticketTypes')->exists();
         }
@@ -162,6 +165,9 @@ class Join extends Component
         if ($u->holdsPartnerRole('hotel')) {
             $links[] = ['label' => 'Add your rooms, prices and photos', 'url' => route('hotel.rooms')];
             $links[] = ['label' => 'Hotel details, check-in times and facilities', 'url' => route('hotel.details')];
+        }
+        if ($u->holdsPartnerRole('halls')) {
+            $links[] = ['label' => 'Add your slots, prices and photos, then send your hall for review', 'url' => route('venue.dashboard')];
         }
         if ($u->holdsPartnerRole('events')) {
             $links[] = ['label' => 'Create your first event and its tickets', 'url' => route('organiser.events')];
@@ -207,6 +213,7 @@ class Join extends Component
         return match (true) {
             $u->holdsPartnerRole('hotel') && ! $u->holdsPartnerRole('service') => 'components.layouts.hotel',
             $u->holdsPartnerRole('events') && ! $u->holdsPartnerRole('service') && ! $u->holdsPartnerRole('commerce') => 'components.layouts.organiser',
+            $u->holdsPartnerRole('halls') && ! $u->holdsPartnerRole('service') && ! $u->holdsPartnerRole('commerce') => 'components.layouts.venue',
             $u->holdsPartnerRole('commerce') && ! $u->holdsPartnerRole('service') => 'components.layouts.seller',
             $u->holdsPartnerRole('parcel') && ! $u->providerProfile()->exists() => 'components.layouts.rider',
             default => 'components.layouts.provider',

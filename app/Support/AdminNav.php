@@ -103,6 +103,10 @@ class AdminNav
             'rental' => [
                 'label' => 'Rental', 'collapsible' => true, 'icon' => 'building', 'colour' => 'teal', 'module' => 'rental', 'preLaunch' => true,
                 'items' => [
+                    // Function halls R1 (owner 2026-11-13): halls first.
+                    ['label' => 'Function halls', 'route' => 'admin.halls.index', 'icon' => 'building', 'permission' => 'halls.manage'],
+                    // Super Admin only, same permission as Shop / Food / Hotel / Event Settings.
+                    ['label' => 'Hall Settings', 'route' => 'admin.halls.settings', 'icon' => 'gear', 'permission' => 'marketplace_settings.manage'],
                     ['label' => 'Rental Reservations', 'route' => 'admin.rental-reservations.index', 'icon' => 'clipboard', 'permission' => 'rental_reservations.view'],
                     ['label' => 'Vehicles', 'route' => 'admin.vehicles.index', 'icon' => 'building', 'permission' => 'vehicles.manage'],
                     ['label' => 'Equipment', 'route' => 'admin.equipment.index', 'icon' => 'wrench', 'permission' => 'equipment.manage'],

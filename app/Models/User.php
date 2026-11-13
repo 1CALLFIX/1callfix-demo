@@ -89,6 +89,8 @@ class User extends Authenticatable
             'hotel' => ! \App\Models\Accommodation::query()->whereHas('provider', fn ($q) => $q->where('user_id', $this->id))->exists(),
             // Events E1: one organiser per account through sign-up.
             'events' => ! \App\Models\EventOrganiser::query()->whereHas('provider', fn ($q) => $q->where('user_id', $this->id))->exists(),
+            // Function halls R1: one hall through sign-up (more are added in the hall portal).
+            'halls' => ! \App\Models\Hall::query()->whereHas('provider', fn ($q) => $q->where('user_id', $this->id))->exists(),
             default => false,
         };
     }
@@ -103,12 +105,14 @@ class User extends Authenticatable
             // A hotel-only provider (Hotels H1) is not a service partner either.
             'service' => ($p = $this->providerProfile) !== null && (! empty($p->skills)
                 || (! $p->stores()->exists() && ! \App\Models\Accommodation::where('provider_id', $p->id)->exists()
-                    && ! \App\Models\EventOrganiser::where('provider_id', $p->id)->exists())),
+                    && ! \App\Models\EventOrganiser::where('provider_id', $p->id)->exists()
+                    && ! \App\Models\Hall::where('provider_id', $p->id)->exists())),
             'parcel' => (bool) $this->fieldWorkerProfile?->hasCapability('parcel_rider'),
             'commerce' => (bool) $this->providerProfile?->stores()->exists(),
             'food' => (bool) $this->providerProfile?->stores()->where('module', \App\Support\Modules::FOOD)->exists(),
             'hotel' => $this->providerProfile !== null && \App\Models\Accommodation::where('provider_id', $this->providerProfile->id)->exists(),
             'events' => $this->providerProfile !== null && \App\Models\EventOrganiser::where('provider_id', $this->providerProfile->id)->exists(),
+            'halls' => $this->providerProfile !== null && \App\Models\Hall::where('provider_id', $this->providerProfile->id)->exists(),
             default => false,
         };
     }
@@ -121,7 +125,8 @@ class User extends Authenticatable
             || (\App\Support\FoodSettings::recruitingRestaurants() && $this->canApplyAsPartner('food'))
             // Join in 2 minutes (owner 2026-11-12): hotels were missing from the header button.
             || (\App\Support\HotelSettings::recruitingHotels() && $this->canApplyAsPartner('hotel'))
-            || (\App\Support\EventSettings::recruitingOrganisers() && $this->canApplyAsPartner('events'));
+            || (\App\Support\EventSettings::recruitingOrganisers() && $this->canApplyAsPartner('events'))
+            || (\App\Support\HallSettings::recruitingOwners() && $this->canApplyAsPartner('halls'));
     }
     public function addresses() { return $this->hasMany(Address::class); }
     public function bookings() { return $this->hasMany(Booking::class, 'customer_id'); }

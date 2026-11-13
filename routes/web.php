@@ -351,6 +351,20 @@ Route::middleware(['auth', \App\Http\Middleware\EnsureIsOrganiser::class, \App\H
     });
 
 /*
+ | Hall portal (Function halls R1, owner 2026-11-13). A hall owner is a provider account that owns a Hall; it joins on
+ | /partners ("Function hall owner") → the one partner sign-up, signs in at the partner sign-in, finishes its hall
+ | (slots, prices, photos) and sends it for review in Admin → Function halls.
+ */
+Route::middleware(['auth', \App\Http\Middleware\EnsureIsHallOwner::class, \App\Http\Middleware\EnsureAccountNotSuspended::class])
+    ->prefix('venue')
+    ->group(function () {
+        Route::get('/', \App\Livewire\Venue\Dashboard::class)->name('venue.dashboard');
+        Route::get('/halls/new', \App\Livewire\Venue\HallEditor::class)->name('venue.halls.create');
+        Route::get('/halls/{hallId}', \App\Livewire\Venue\HallEditor::class)->whereNumber('hallId')->name('venue.halls.edit');
+        Route::get('/dates', \App\Livewire\Venue\Dates::class)->name('venue.dates');
+    });
+
+/*
  | Seller portal (E-commerce Phase 1). A seller is a provider account that owns a shop (Store::provider_id); they
  | join on /partners ("Seller or shop") → the one partner sign-up, and the shop waits for approval in Admin → Stores.
  | Products, orders (accept → packing → ready, pickup hand-over by collection code), shop details and earnings.
@@ -434,7 +448,7 @@ require __DIR__.'/admin.php';
 // fallback: anything that is not a city/catalog slug is handed on to the CMS fallback by the controller itself.
 // First segments that are never a city (JSON API, admin/provider areas, framework + asset paths) are excluded
 // up front, so those requests never even touch the cities table.
-$cityPattern = '(?!(?:api|admin|provider|rider|seller|hotel|organiser|shop|livewire|storage|build|vendor|push)(?![A-Za-z0-9_-]))[A-Za-z0-9_-]+';
+$cityPattern = '(?!(?:api|admin|provider|rider|seller|hotel|organiser|venue|shop|livewire|storage|build|vendor|push)(?![A-Za-z0-9_-]))[A-Za-z0-9_-]+';
 
 // E-commerce Phase 2: the shop, city-prefixed like every public catalog page (/{city}/shop, /{city}/shop/{shop},
 // /{city}/shop/{shop}/{product}). Declared before /{city}/{slug} so "shop" is never read as a catalog slug — and it

@@ -143,6 +143,9 @@ class KycDocumentService
         if (\App\Models\EventOrganiser::where('provider_id', $subject->id)->exists()) {
             $types[] = 'organiser';
         }
+        if (\App\Models\Hall::where('provider_id', $subject->id)->exists()) {
+            $types[] = 'hall';
+        }
         $modules = $subject->stores()->pluck('module')->unique();
         if ($modules->contains(\App\Support\Modules::FOOD)) {
             $types[] = 'restaurant';

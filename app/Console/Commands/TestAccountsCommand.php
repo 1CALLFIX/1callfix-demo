@@ -72,6 +72,8 @@ class TestAccountsCommand extends Command
         'hotel' => ['Test Hotel', 'provider', null, null, '6000000112'],
         // Events E1 (2026-11-13): an organiser is a provider account that owns an approved EventOrganiser (partner sign-in → /organiser).
         'organiser' => ['Test Organiser', 'provider', null, null, '6000000113'],
+        // Function halls R1 (2026-11-13): a hall owner is a provider account that owns an approved Hall (partner sign-in → /venue).
+        'hall' => ['Test Hall Owner', 'provider', null, null, '6000000114'],
     ];
 
     /** A placeholder FSSAI number for the test restaurant only (hidden from the public like every test shop). */
@@ -223,6 +225,8 @@ class TestAccountsCommand extends Command
                     $this->makeTestHotel($user, $franchise, $zone);
                 } elseif ($key === 'organiser') {
                     $this->makeTestOrganiser($user, $franchise, $zone);
+                } elseif ($key === 'hall') {
+                    $this->makeTestHall($user, $franchise, $zone);
                 } elseif ($userRole === 'provider') {
                     Provider::updateOrCreate(['user_id' => $user->id], [
                         'franchise_id' => $franchise->id,
@@ -235,7 +239,7 @@ class TestAccountsCommand extends Command
                     ]);
                 }
 
-                return [$key, $email, $roleSlug ? "{$roleSlug} @ {$scopeType} #{$scopeIds[$scopeType]}" : ($key === 'rider' ? 'parcel + shop rider (approved)' : ($key === 'seller' ? 'seller, shop approved' : ($key === 'restaurant' ? 'restaurant, approved' : ($key === 'hotel' ? 'hotel, approved' : ($key === 'organiser' ? 'event organiser, approved, 1 event in review' : $userRole)))))];
+                return [$key, $email, $roleSlug ? "{$roleSlug} @ {$scopeType} #{$scopeIds[$scopeType]}" : ($key === 'rider' ? 'parcel + shop rider (approved)' : ($key === 'seller' ? 'seller, shop approved' : ($key === 'restaurant' ? 'restaurant, approved' : ($key === 'hotel' ? 'hotel, approved' : ($key === 'organiser' ? 'event organiser, approved, 1 event in review' : ($key === 'hall' ? 'function hall, approved' : $userRole))))))];
             });
         }
 
@@ -455,6 +459,36 @@ class TestAccountsCommand extends Command
         }
     }
 
+    /**
+     * Function halls R1: the test hall owner with one approved, switched-on hall ("Test Function Hall"), three slots
+     * (Full day / Morning / Evening) and a deposit, so the portal, admin and (R2) booking can be walked through.
+     * Re-running create resets that hall; other halls are left alone.
+     */
+    private function makeTestHall(User $user, Franchise $franchise, Zone $zone): void
+    {
+        $provider = Provider::updateOrCreate(['user_id' => $user->id], [
+            'franchise_id' => $franchise->id, 'zone_id' => $zone->id, 'provider_type' => 'independent',
+            'kyc_status' => 'approved', 'is_active' => true, 'is_online' => false, 'skills' => null,
+        ]);
+        $hall = \App\Models\Hall::firstOrNew(['provider_id' => $provider->id, 'name' => 'Test Function Hall']);
+        $hall->fill([
+            'franchise_id' => $franchise->id, 'zone_id' => $zone->id,
+            'slug' => $hall->slug ?: \App\Models\Hall::uniqueSlug('Test Function Hall'),
+            'hall_type' => 'Function hall', 'about' => "Test hall for walk-throughs. AC hall with dining and two rooms.\nNot a real hall.",
+            'address_line' => 'Test address, '.$zone->name, 'contact_phone' => $user->phone,
+            'seating_capacity' => 400, 'floating_capacity' => 700, 'is_ac' => true, 'parking_cars' => 40, 'rooms' => 2,
+            'amenities' => ['Generator / power backup', 'Dining hall', 'Stage', 'Bride and groom rooms', 'Outside caterers allowed'],
+            'cover_image' => self::UNSPLASH.'photo-1519167758481-83f550bb49b3?w=1600&q=80',
+            'photos' => [self::UNSPLASH.'photo-1464366400600-7168b8af9bc3?w=1600&q=80', self::UNSPLASH.'photo-1511795409834-ef04bbd61622?w=1600&q=80', self::UNSPLASH.'photo-1505236858219-8359eb29e329?w=1600&q=80'],
+            'rules' => 'Music till 10 PM. No fireworks inside. Test hall only.', 'deposit_amount' => 10000,
+            'status' => 'approved', 'submitted_at' => now(), 'approved_at' => now(), 'rejection_reason' => null,
+            'is_active' => true, 'pending_changes' => null, 'pending_requested_at' => null, 'pending_rejection' => null,
+        ])->save();
+        foreach ([['Full day', '06:00:00', '23:00:00', 60000], ['Morning', '06:00:00', '14:00:00', 35000], ['Evening', '17:00:00', '23:00:00', 40000]] as $i => [$name, $from, $to, $price]) {
+            \App\Models\HallSlot::updateOrCreate(['hall_id' => $hall->id, 'name' => $name], ['start_time' => $from, 'end_time' => $to, 'price' => $price, 'is_active' => true, 'sort_order' => $i]);
+        }
+    }
+
     private function list(): int
     {
         $users = User::where('email', 'like', '%'.self::DOMAIN)->with('roleAssignments.role')->orderBy('id')->get();
@@ -477,6 +511,7 @@ class TestAccountsCommand extends Command
                 Store::whereIn('provider_id', Provider::where('user_id', $user->id)->select('id'))->update(['is_active' => false, 'is_open' => false]);
                 Accommodation::whereIn('provider_id', Provider::where('user_id', $user->id)->select('id'))->update(['is_active' => false]);
                 \App\Models\EventOrganiser::whereIn('provider_id', Provider::where('user_id', $user->id)->select('id'))->update(['is_active' => false]);
+                \App\Models\Hall::whereIn('provider_id', Provider::where('user_id', $user->id)->select('id'))->update(['is_active' => false]);
                 $user->forceFill(['status' => 'suspended'])->save();
                 $user->tokens()->delete();
             });
