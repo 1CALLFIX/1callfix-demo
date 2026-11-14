@@ -228,4 +228,52 @@ class SubcategorySectionsTest extends TestCase
             'Split AC Gas Top- Up', 'Split AC Install', 'Split AC Un-Install', 'Split AC Shifting'], $order);
         $this->assertSame(range(11, 18), Service::where('subcategory_id', $split->id)->orderBy('sort_order')->pluck('sort_order')->all());
     }
+
+    public function test_every_other_appliance_gets_service_repair_install_sections(): void
+    {
+        $appliance = $this->makeCategory(['name' => 'Appliance | AC Repair']);
+        $geyser = $this->makeSubcategory($appliance, ['name' => 'Geyser Repair']);
+        $make = fn (string $name) => $this->makeService($appliance, ['subcategory_id' => $geyser->id, 'name' => $name, 'sort_order' => 0]);
+        $install = $make('Geyser Install');
+        $repair = $make('Geyser Repair');
+        $uninstall = $make('Geyser Un-Install');
+        $gasRepair = $make('Gas Geyser Repair');
+        $chimney = $this->makeService($appliance, ['subcategory_id' => $this->makeSubcategory($appliance, ['name' => 'Chimney'])->id, 'name' => 'Chimney Service', 'sort_order' => 0]);
+        $handSet = $this->makeService($appliance, ['subcategory_id' => $this->makeSubcategory($appliance, ['name' => 'Split AC'])->id, 'name' => 'Split AC Repair', 'page_section' => 'Repair & gas']);
+        $beauty = $this->makeService($this->makeCategory(['name' => 'Beauty Care']), ['name' => 'Haircut']);
+
+        $migration = require database_path('migrations/2026_11_17_100400_appliance_page_sections.php');
+        $migration->up();
+        $migration->up();
+
+        $this->assertSame('Repair', $repair->fresh()->page_section);
+        $this->assertSame('Repair', $gasRepair->fresh()->page_section);
+        $this->assertSame('Install & move', $install->fresh()->page_section);
+        $this->assertSame('Install & move', $uninstall->fresh()->page_section);
+        $this->assertSame('Service', $chimney->fresh()->page_section);
+        $this->assertSame('Repair & gas', $handSet->fresh()->page_section); // already set: untouched
+        $this->assertNull($beauty->fresh()->page_section); // not an appliance
+
+        Livewire::test(CategoryShow::class, ['category' => $appliance])
+            ->call('selectSubcategory', $geyser->id)
+            ->assertSeeHtml('data-testid="service-sections"')
+            ->assertSeeInOrder(['Repair', 'Gas Geyser Repair', 'Geyser Repair', 'Install &amp; move', 'Geyser Install'], false);
+    }
+
+    public function test_the_photo_migration_changes_only_photos_still_as_picked_and_rolls_back(): void
+    {
+        $category = $this->makeCategory(['name' => 'Appliance']);
+        \Illuminate\Support\Facades\DB::table('service_categories')->where('id', $category->id)->update(['id' => 1, 'image' => 'categories/1NAs42PMmXhmaDSY48YKY6lduK2dInKxqW0VyFMa.png']);
+        $migration = require database_path('migrations/2026_11_17_100300_category_photos.php');
+
+        $migration->up();
+        $this->assertStringStartsWith('https://images.unsplash.com/photo-1792799888905', \App\Models\ServiceCategory::find(1)->image);
+
+        $migration->down();
+        $this->assertSame('categories/1NAs42PMmXhmaDSY48YKY6lduK2dInKxqW0VyFMa.png', \App\Models\ServiceCategory::find(1)->image);
+
+        \App\Models\ServiceCategory::whereKey(1)->update(['image' => 'categories/admin-own.png']);
+        $migration->up();
+        $this->assertSame('categories/admin-own.png', \App\Models\ServiceCategory::find(1)->image); // admin's change kept
+    }
 }
