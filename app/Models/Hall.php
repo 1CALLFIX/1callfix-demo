@@ -29,13 +29,16 @@ class Hall extends Model
     protected $fillable = [
         'provider_id', 'franchise_id', 'zone_id', 'name', 'slug', 'hall_type', 'about', 'address_line', 'lat', 'lng',
         'contact_phone', 'seating_capacity', 'floating_capacity', 'is_ac', 'parking_cars', 'rooms', 'amenities',
-        'cover_image', 'photos', 'rules', 'deposit_amount', 'gst_number', 'status', 'rejection_reason', 'submitted_at',
+        'cover_image', 'photos', 'rules', 'rule_list', 'facility_charges', 'outside_policy', 'deposit_amount', 'gst_number', 'status', 'rejection_reason', 'submitted_at',
         'approved_at', 'is_active', 'is_featured', 'pending_changes', 'pending_requested_at', 'pending_rejection',
     ];
 
     protected $casts = [
         'amenities' => 'array',
         'photos' => 'array',
+        'rule_list' => 'array',
+        'facility_charges' => 'array',
+        'outside_policy' => 'array',
         'pending_changes' => 'array',
         'is_ac' => 'boolean',
         'is_active' => 'boolean',

@@ -28,7 +28,7 @@
                 <div class="flex flex-wrap items-start justify-between gap-3">
                     <div>
                         <p class="font-semibold">{{ $b?->hall?->name }} · <span class="font-mono text-xs">{{ $b?->code }}</span></p>
-                        <p class="text-sm text-gray-500">{{ $b?->event_date?->format('j M Y') }} · {{ $b?->customer_name }} ({{ $b?->customer_phone }}) · {{ $c->franchise?->name }}</p>
+                        <p class="text-sm text-gray-500">{{ $b?->dateLabel('j M Y') }} · {{ $b?->customer_name }} ({{ $b?->customer_phone }}) · {{ $c->franchise?->name }}</p>
                         <p class="mt-2 rounded bg-amber-50 px-3 py-2 text-sm text-amber-900">"{{ $c->note }}"</p>
                     </div>
                     <div class="text-right text-sm">

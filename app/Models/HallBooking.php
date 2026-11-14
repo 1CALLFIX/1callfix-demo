@@ -22,7 +22,7 @@ class HallBooking extends Model
     ];
 
     protected $fillable = [
-        'code', 'hall_id', 'hall_slot_id', 'customer_id', 'franchise_id', 'zone_id', 'event_date', 'slot_name', 'starts_at',
+        'code', 'hall_id', 'hall_slot_id', 'customer_id', 'franchise_id', 'zone_id', 'event_date', 'days', 'last_date', 'slot_name', 'starts_at',
         'ends_at', 'occasion', 'guests', 'customer_name', 'customer_phone', 'notes', 'status', 'payment_method',
         'payment_status', 'hall_price', 'gst_percent', 'gst_amount', 'platform_collects_gst', 'booking_fee', 'total',
         'deposit_amount', 'pay_now', 'paid_in_full', 'balance_due_on', 'paid_amount', 'refunded_amount',
@@ -35,6 +35,8 @@ class HallBooking extends Model
 
     protected $casts = [
         'event_date' => 'date',
+        'last_date' => 'date',
+        'days' => 'integer',
         'starts_at' => 'datetime',
         'ends_at' => 'datetime',
         'balance_due_on' => 'date',
@@ -106,5 +108,16 @@ class HallBooking extends Model
         } while (static::where('code', $code)->exists());
 
         return $code;
+    }
+
+    /** "Sat, 14 Nov 2026" or, for a booking of several days, "Sat, 14 Nov – Sun, 15 Nov 2026 (2 days)". */
+    public function dateLabel(string $format = 'D, j M Y'): string
+    {
+        $days = max(1, (int) $this->days);
+        if ($days === 1 || $this->last_date === null) {
+            return (string) $this->event_date?->format($format);
+        }
+
+        return $this->event_date->format('D, j M').' – '.$this->last_date->format($format).' ('.$days.' days)';
     }
 }

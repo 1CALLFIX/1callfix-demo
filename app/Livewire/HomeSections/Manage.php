@@ -49,6 +49,8 @@ class Manage extends Component
     public array $doorOrder = [];
     /** @var array<string, \Livewire\Features\SupportFileUploads\TemporaryUploadedFile|null> */
     public array $doorImage = [];
+    /** Owner 2026-11-14: each door's name and line, English and Telugu (Website text home.door.<door>.title / .line). @var array<string, array<string, string>> */
+    public array $doorWords = [];
 
     public string $cardIcons = '4';
     public string $cardCategoryLimit = '6';
@@ -89,6 +91,12 @@ class Manage extends Component
             $this->doorShow[$door] = HomeDoors::doorShown($door);
             $this->doorOrder[$door] = (string) HomeDoors::doorOrder($door);
             $this->doorImage[$door] = null;
+            foreach (['title', 'line'] as $part) {
+                foreach (['en' => 2, 'te' => 3] as $locale => $i) {
+                    $key = "home.door.{$door}.{$part}";
+                    $this->doorWords[$door][$part.'_'.$locale] = (string) (SiteText::saved($key, $locale) ?? (SiteText::TEXTS[$key][$i] ?? ''));
+                }
+            }
         }
 
         $this->cardIcons = (string) HomeCards::icons();
@@ -166,7 +174,12 @@ class Manage extends Component
             'cardLineOther.*.*' => ['nullable', 'string', 'max:120'],
             'promiseEn' => ['nullable', 'string', 'max:300'],
             'promiseTe' => ['nullable', 'string', 'max:300'],
+            'doorWords.*.title_en' => ['nullable', 'string', 'max:40'],
+            'doorWords.*.title_te' => ['nullable', 'string', 'max:40'],
+            'doorWords.*.line_en' => ['nullable', 'string', 'max:80'],
+            'doorWords.*.line_te' => ['nullable', 'string', 'max:80'],
         ], [], [
+            'doorWords.*.title_en' => 'name', 'doorWords.*.title_te' => 'name', 'doorWords.*.line_en' => 'line', 'doorWords.*.line_te' => 'line',
             'promiseEn' => 'English line', 'promiseTe' => 'Telugu line',
             'doorOrder.*' => 'order', 'doorImage.*' => 'picture', 'cardOrder.*' => 'order',
             'cardLineEn.*' => 'English line', 'cardLineTe.*' => 'Telugu line', 'cardLineOther.*.*' => 'line',
@@ -202,6 +215,14 @@ class Manage extends Component
         foreach (array_keys(HomeDoors::DOORS) as $door) {
             $values["home.door.{$door}.show"] = $bool((bool) ($this->doorShow[$door] ?? true));
             $values["home.door.{$door}.order"] = (string) (int) ($this->doorOrder[$door] ?? HomeDoors::DOORS[$door][0]);
+            // Saved as Website text: blank or the built-in words = no saved copy (the built-in words show).
+            foreach (['title', 'line'] as $part) {
+                foreach (['en' => 2, 'te' => 3] as $locale => $i) {
+                    $key = "home.door.{$door}.{$part}";
+                    $word = trim((string) ($this->doorWords[$door][$part.'_'.$locale] ?? ''));
+                    $values[SiteText::settingKey($key, $locale)] = $word === '' || $word === (SiteText::TEXTS[$key][$i] ?? null) ? null : $word;
+                }
+            }
         }
 
         $values += [

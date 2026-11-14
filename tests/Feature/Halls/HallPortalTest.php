@@ -87,6 +87,48 @@ class HallPortalTest extends TestCase
         Livewire::actingAs($this->makeSuperAdmin())->test(HallSettingsPage::class)->assertOk()->assertSee('Advance paid online to book')->assertSee('Function halls →');
     }
 
+    public function test_settings_show_the_real_lists_and_saving_them_unchanged_stores_nothing(): void
+    {
+        $admin = $this->makeSuperAdmin();
+        $page = Livewire::actingAs($admin)->test(HallSettingsPage::class)
+            ->assertSet('inputs.hall__amenities', HallSettings::REGISTRY['hall.amenities']['default'])
+            ->assertSet('inputs.hall__outside_options', HallSettings::REGISTRY['hall.outside_options']['default'])
+            ->assertSee('What customers may bring from outside')
+            ->call('save');
+        $this->assertNull(Setting::where('key', 'hall.amenities')->value('value'), 'The built-in list is shown, not stored.');
+
+        $page->set('inputs.hall__rule_options', "No alcohol
+Band till 9 PM")->call('save');
+        $this->assertSame(['No alcohol', 'Band till 9 PM'], HallSettings::ruleOptions());
+        $groups = HallSettings::amenityGroups();
+        $this->assertSame('Parking and arrival', $groups[0]['title']);
+        $this->assertContains('Fire extinguishers', collect($groups)->firstWhere('title', 'Safety')['items']);
+    }
+
+    public function test_owner_marks_facilities_free_or_paid_answers_outside_items_and_taps_rules(): void
+    {
+        [$user, $hall] = $this->owner();
+        $k = fn (string $n) => HallEditor::key($n);
+        $this->fill(Livewire::actingAs($user)->test(HallEditor::class, ['hallId' => $hall->id]))
+            ->set('amenities', ['Dining hall', 'Generator / power backup', 'Fire extinguishers'])
+            ->assertSee('Free or paid?')
+            ->set('paid.'.$k('Generator / power backup'), true)->set('paidPrice.'.$k('Generator / power backup'), '1500')
+            ->set('outside.'.$k('Outside food'), 'no')->set('outside.'.$k('Vessels and utensils from outside'), 'fee')
+            ->set('ruleList', ['No smoking inside'])
+            ->call('save')->assertHasNoErrors();
+
+        $hall->refresh();
+        $this->assertEquals(['Generator / power backup' => 1500], $hall->facility_charges);
+        $this->assertSame(['Outside food' => 'no', 'Vessels and utensils from outside' => 'fee'], $hall->outside_policy);
+        $this->assertSame(['No smoking inside'], $hall->rule_list);
+
+        // Reopened, the screen shows what was saved; a facility no longer ticked drops its charge.
+        Livewire::actingAs($user)->test(HallEditor::class, ['hallId' => $hall->id])
+            ->assertSet('paid.'.$k('Generator / power backup'), true)->assertSet('outside.'.$k('Outside food'), 'no')
+            ->set('amenities', ['Dining hall'])->call('save')->assertHasNoErrors();
+        $this->assertNull($hall->fresh()->facility_charges);
+    }
+
     // ── joining ──
 
     public function test_partner_page_card_hands_off_only_when_super_admin_takes_hall_owners(): void

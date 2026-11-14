@@ -84,11 +84,30 @@ class HallBookingService
         return $hall->isLive() && app(ModuleActivationService::class)->isActive(Modules::HALLS, self::scope($hall));
     }
 
-    /** Free on that date: nothing holding an overlapping time, nothing blocked. Read-only; book() re-checks under a lock. */
-    public static function isFree(Hall $hall, HallSlot $slot, string $date, ?int $ignoreBookingId = null): bool
+    /** Most days one booking may cover (Hall Settings, at least 1). */
+    public static function maxDays(Hall $hall): int
+    {
+        return max(1, min(7, (int) HallSettings::get('hall.max_days', self::scope($hall))));
+    }
+
+    /**
+     * The whole hold of a booking of $days days in a row: the slot start on the first day to the slot end on the last.
+     *
+     * @return array{0: Carbon, 1: Carbon}
+     */
+    public static function span(HallSlot $slot, string $date, int $days, string $tz): array
+    {
+        [$start] = self::range($slot, $date, $tz);
+        [, $end] = self::range($slot, Carbon::parse($date)->addDays(max(1, $days) - 1)->toDateString(), $tz);
+
+        return [$start, $end];
+    }
+
+    /** Free on that date (and the days after it): nothing holding an overlapping time, nothing blocked. Read-only; book() re-checks under a lock. */
+    public static function isFree(Hall $hall, HallSlot $slot, string $date, ?int $ignoreBookingId = null, int $days = 1): bool
     {
         $tz = self::tz($hall);
-        [$start, $end] = self::range($slot, $date, $tz);
+        [$start, $end] = self::span($slot, $date, $days, $tz);
 
         $taken = HallBooking::where('hall_id', $hall->id)->whereIn('status', HallBooking::HOLDING)
             ->when($ignoreBookingId, fn ($q) => $q->whereKeyNot($ignoreBookingId))
@@ -102,7 +121,7 @@ class HallBookingService
 
         $day = Carbon::parse($date);
         $blocks = HallBlockedDate::with('slot')->where('hall_id', $hall->id)
-            ->whereBetween('date', [$day->copy()->subDay()->toDateString(), $day->copy()->addDay()->toDateString()])->get();
+            ->whereBetween('date', [$day->copy()->subDay()->toDateString(), $day->copy()->addDays(max(1, $days))->toDateString()])->get();
         foreach ($blocks as $b) {
             $d = $b->date->toDateString();
             [$bs, $be] = $b->slot ? self::range($b->slot, $d, $tz)
@@ -116,16 +135,66 @@ class HallBookingService
     }
 
     /**
+     * Owner 2026-11-14: each day from $from for $count days — 'free' (every slot free), 'part' (some free), 'full' (none
+     * free) or 'closed' (outside the booking window). One query for bookings and one for blocked dates.
+     *
+     * @return array<string, string> date => state
+     */
+    public static function availability(Hall $hall, string $from, int $count): array
+    {
+        $tz = self::tz($hall);
+        $slots = $hall->slots()->where('is_active', true)->get();
+        [$first, $last] = self::dateWindow($hall);
+        $start = Carbon::parse($from);
+        $end = $start->copy()->addDays($count);
+
+        $held = HallBooking::where('hall_id', $hall->id)->whereIn('status', HallBooking::HOLDING)
+            ->where('starts_at', '<', Carbon::parse($end->toDateString(), $tz)->addDays(2)->utc())
+            ->where('ends_at', '>', Carbon::parse($start->toDateString(), $tz)->subDay()->utc())
+            ->where(fn ($q) => $q->where('status', '!=', 'pending_payment')->orWhere('payment_expires_at', '>', now()))
+            ->get(['starts_at', 'ends_at'])->map(fn ($b) => [$b->starts_at, $b->ends_at]);
+        $blocks = HallBlockedDate::with('slot')->where('hall_id', $hall->id)
+            ->whereBetween('date', [$start->copy()->subDay()->toDateString(), $end->toDateString()])->get()
+            ->map(function ($b) use ($tz) {
+                $d = $b->date->toDateString();
+
+                return $b->slot ? self::range($b->slot, $d, $tz)
+                    : [Carbon::parse($d, $tz)->startOfDay()->utc(), Carbon::parse($d, $tz)->addDay()->startOfDay()->utc()];
+            });
+        $busy = $held->concat($blocks);
+
+        $out = [];
+        for ($d = $start->copy(); $d->lt($end); $d->addDay()) {
+            $date = $d->toDateString();
+            if ($date < $first || $date > $last || $slots->isEmpty()) {
+                $out[$date] = 'closed';
+
+                continue;
+            }
+            $free = $slots->filter(function ($slot) use ($date, $tz, $busy) {
+                [$s, $e] = self::range($slot, $date, $tz);
+
+                return $s->isFuture() && ! $busy->contains(fn ($r) => $r[0]->lt($e) && $r[1]->gt($s));
+            })->count();
+            $out[$date] = $free === 0 ? 'full' : ($free === $slots->count() ? 'free' : 'part');
+        }
+
+        return $out;
+    }
+
+    /**
      * The bill for this slot on this date.
      *
      * @return array{price: float, gst_percent: float, gst: float, fee: float, total: float, deposit: float, pay_now: float, later: float, full_now: bool, balance_due_on: ?string, taxes_known: bool, collects_gst: bool}
      */
-    public static function quote(Hall $hall, HallSlot $slot, string $date): array
+    public static function quote(Hall $hall, HallSlot $slot, string $date, int $days = 1): array
     {
         $scope = self::scope($hall);
-        $price = round((float) $slot->price, 2);
+        $days = max(1, $days);
+        // Several days: the slot price for each day. The GST band follows the price of one day.
+        $price = round((float) $slot->price * $days, 2);
         $collect = HallSettings::on('hall.platform_collects_gst', $scope);
-        $percent = HallSettings::gstPercentFor($price);
+        $percent = HallSettings::gstPercentFor(round((float) $slot->price, 2));
         // GST rounded to the rupee (CGST Act s.170), so the hall page and the payment show one number.
         $gst = $collect && $percent !== null ? round($price * $percent / 100) : 0.0;
         $fee = round((float) (HallSettings::get('hall.booking_fee', $scope) ?? 0), 2);
@@ -143,6 +212,8 @@ class HallBookingService
         $payNow = $fullNow ? round($total + $deposit, 2) : $advance;
 
         return [
+            'days' => $days,
+            'per_day' => round((float) $slot->price, 2),
             'advance' => $advance,
             'price' => $price,
             'gst_percent' => (float) ($percent ?? 0),
@@ -160,7 +231,7 @@ class HallBookingService
     }
 
     /**
-     * @param  array{occasion?: ?string, guests?: ?int, notes?: ?string}  $extra
+     * @param  array{occasion?: ?string, guests?: ?int, notes?: ?string, days?: ?int}  $extra
      *
      * @throws \RuntimeException with a customer-facing reason
      */
@@ -185,20 +256,28 @@ class HallBookingService
         if (! preg_match('/^\d{4}-\d{2}-\d{2}$/', $date) || $date < $first || $date > $last) {
             throw new \RuntimeException('Choose a date between '.Carbon::parse($first)->format('j M Y').' and '.Carbon::parse($last)->format('j M Y').'.');
         }
-        $quote = self::quote($hall, $slot, $date);
+        $days = (int) ($extra['days'] ?? 1);
+        if ($days < 1 || $days > self::maxDays($hall)) {
+            throw new \RuntimeException('Choose from 1 to '.self::maxDays($hall).' days.');
+        }
+        $lastDate = Carbon::parse($date)->addDays($days - 1)->toDateString();
+        if ($lastDate > $last) {
+            throw new \RuntimeException('The last day must be on or before '.Carbon::parse($last)->format('j M Y').'.');
+        }
+        $quote = self::quote($hall, $slot, $date, $days);
         if (! $quote['taxes_known']) {
             throw new \RuntimeException('Booking opens soon for this hall.');
         }
-        [$start, $end] = self::range($slot, $date, self::tz($hall));
+        [$start, $end] = self::span($slot, $date, $days, self::tz($hall));
         if ($start->isPast()) {
             throw new \RuntimeException('This slot has already started. Choose another date.');
         }
 
-        $booking = DB::transaction(function () use ($customer, $hall, $slot, $date, $method, $name, $phone, $extra, $quote, $scope, $start, $end) {
+        $booking = DB::transaction(function () use ($customer, $hall, $slot, $date, $days, $lastDate, $method, $name, $phone, $extra, $quote, $scope, $start, $end) {
             // One booking at a time per hall: two customers never take the same time.
             Hall::whereKey($hall->id)->lockForUpdate()->first();
-            if (! self::isFree($hall, $slot, $date)) {
-                throw new \RuntimeException('This slot was just taken. Please choose another date or slot.');
+            if (! self::isFree($hall, $slot, $date, null, $days)) {
+                throw new \RuntimeException($days > 1 ? 'One of these days was just taken. Please choose other dates or a slot.' : 'This slot was just taken. Please choose another date or slot.');
             }
 
             $booking = HallBooking::create([
@@ -209,6 +288,8 @@ class HallBookingService
                 'franchise_id' => $hall->franchise_id,
                 'zone_id' => $hall->zone_id,
                 'event_date' => $date,
+                'days' => $days,
+                'last_date' => $lastDate,
                 'slot_name' => $slot->name,
                 'starts_at' => $start,
                 'ends_at' => $end,
@@ -309,7 +390,7 @@ class HallBookingService
             if ($locked->payment_expires_at?->isPast()) {
                 Hall::whereKey($locked->hall_id)->lockForUpdate()->first();
                 $slot = HallSlot::find($locked->hall_slot_id);
-                if (! $slot || ! self::isFree($locked->hall()->first(), $slot, $locked->event_date->toDateString(), $locked->id)) {
+                if (! $slot || ! self::isFree($locked->hall()->first(), $slot, $locked->event_date->toDateString(), $locked->id, max(1, (int) $locked->days))) {
                     $locked->forceFill(['status' => 'expired'])->save();
 
                     return 'ended';

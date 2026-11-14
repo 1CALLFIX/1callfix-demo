@@ -40,7 +40,7 @@ class HallBookingNotification extends Notification
         $symbol = Setting::get('locale.currency_symbol', '₹');
         $b = $this->booking;
         $hall = $b->hall?->name ?? 'the hall';
-        $when = $b->event_date?->format('D, j M Y').' ('.$b->slot_name.')';
+        $when = $b->dateLabel().' ('.$b->slot_name.')';
         $money = $symbol.number_format($this->amount ?? 0, 2);
         $tz = app(\App\Services\TimezoneResolver::class)->timezoneFor($b->hall?->franchise);
         $by = $b->accept_by?->copy()->setTimezone($tz)->format('g:i A');

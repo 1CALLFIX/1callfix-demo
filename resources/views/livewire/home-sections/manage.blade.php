@@ -135,6 +135,17 @@
                             <img src="{{ $d['image'] }}" alt="" class="h-14 w-14 rounded object-contain bg-gray-50">
                             <p class="text-sm font-semibold">{{ $d['title'] }}</p>
                         </div>
+                        <div class="mt-3 grid grid-cols-2 gap-2" data-testid="door-words-{{ $door }}">
+                            <label class="block text-xs text-gray-500">Name (English)
+                                <input type="text" maxlength="40" wire:model="doorWords.{{ $door }}.title_en" class="mt-0.5 w-full border rounded px-2 py-1 text-sm text-gray-900"></label>
+                            <label class="block text-xs text-gray-500">Name (Telugu)
+                                <input type="text" maxlength="40" wire:model="doorWords.{{ $door }}.title_te" class="mt-0.5 w-full border rounded px-2 py-1 text-sm text-gray-900"></label>
+                            <label class="block text-xs text-gray-500">Line (English)
+                                <input type="text" maxlength="80" wire:model="doorWords.{{ $door }}.line_en" class="mt-0.5 w-full border rounded px-2 py-1 text-sm text-gray-900"></label>
+                            <label class="block text-xs text-gray-500">Line (Telugu)
+                                <input type="text" maxlength="80" wire:model="doorWords.{{ $door }}.line_te" class="mt-0.5 w-full border rounded px-2 py-1 text-sm text-gray-900"></label>
+                        </div>
+                        @foreach (['title_en', 'title_te', 'line_en', 'line_te'] as $f) @error('doorWords.'.$door.'.'.$f) <p class="text-xs text-red-600 mt-1">{{ $message }}</p> @enderror @endforeach
                         <label class="mt-3 flex items-center gap-2 text-sm"><input type="checkbox" wire:model="doorShow.{{ $door }}"> Show this door</label>
                         <label class="mt-2 block text-xs text-gray-500" for="hs-order-{{ $door }}">Order (1 = first)</label>
                         <input id="hs-order-{{ $door }}" type="number" min="1" max="99" wire:model="doorOrder.{{ $door }}" class="w-24 border rounded px-2 py-1 text-sm">

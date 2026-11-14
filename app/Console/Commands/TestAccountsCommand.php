@@ -502,9 +502,14 @@ class TestAccountsCommand extends Command
                 'hall_type' => $kind, 'about' => "Test {$kind} for walk-throughs. Seats {$seats}.\nNot a real hall.",
                 'address_line' => 'Test address, '.$zone->name, 'contact_phone' => $user->phone,
                 'seating_capacity' => $seats, 'floating_capacity' => $standing, 'is_ac' => $ac, 'parking_cars' => $parking, 'rooms' => $rooms,
-                'amenities' => ['Generator / power backup', 'Dining hall', 'Stage', 'Outside caterers allowed'],
+                // Owner 2026-11-14: facilities in their sections (one paid), what may come from outside, tapped rules.
+                'amenities' => ['Car parking', 'VIP cars can drive up to the entrance', "Bride's room", "Groom's room", 'Grand entry for the bride and groom',
+                    'Stage', 'Dining hall', 'Kitchen', 'Generator / power backup', 'Fire extinguishers', 'First aid kit', 'Lift'],
+                'facility_charges' => ['Generator / power backup' => 1500],
+                'outside_policy' => ['Outside food' => 'yes', 'Outside caterers / cooks' => 'yes', 'Vessels and utensils from outside' => 'fee', 'Outside decorators' => 'no'],
+                'rule_list' => ['Music and loudspeakers till 10 PM', 'No fireworks inside the hall', 'No smoking inside'],
                 'cover_image' => $photo($cover), 'photos' => array_map($photo, $photos),
-                'rules' => 'Music till 10 PM. No fireworks inside. Test hall only.', 'deposit_amount' => $deposit,
+                'rules' => 'Test hall only.', 'deposit_amount' => $deposit,
                 'status' => 'approved', 'submitted_at' => now(), 'approved_at' => now(), 'rejection_reason' => null,
                 'is_active' => true, 'pending_changes' => null, 'pending_requested_at' => null, 'pending_rejection' => null,
             ])->save();

@@ -79,7 +79,7 @@
                                         <option value="0">Off</option>
                                     </select>
                                 @elseif ($meta['type'] === 'text')
-                                    <textarea rows="4" wire:model.live.debounce.600ms="inputs.{{ $meta['field'] }}" placeholder="Not configured"
+                                    <textarea rows="{{ max(4, min(14, substr_count((string) ($inputs[$meta['field']] ?? ''), "\n") + 2)) }}" wire:model.live.debounce.600ms="inputs.{{ $meta['field'] }}" placeholder="{{ $scopeType === 'global' ? 'Empty = the built-in list' : 'Blank = same as Global' }}"
                                               class="w-full border rounded px-2 py-2"></textarea>
                                 @elseif ($meta['type'] === 'choice')
                                     <select wire:model.live="inputs.{{ $meta['field'] }}" class="w-full border rounded px-2 py-2">

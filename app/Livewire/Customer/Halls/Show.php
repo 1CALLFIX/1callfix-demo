@@ -56,12 +56,43 @@ class Show extends Component
                 : 'https://www.google.com/maps/search/?api=1&query='.urlencode($hall->name.', '.$hall->address_line),
             'refundLine' => HallBookingService::refundLine($hall),
             'advance' => (int) HallSettings::get('hall.advance_percent', HallBookingService::scope($hall)),
+            'maxDays' => HallBookingService::maxDays($hall),
+            'facilityGroups' => self::facilityGroups($hall, $symbol),
+            'outside' => collect((array) ($hall->outside_policy ?? []))->filter(fn ($a) => in_array($a, ['yes', 'fee', 'no'], true)),
             'schema' => $this->schema($hall),
         ])->layout('components.layouts.customer', [
             'title' => $hall->name.' · '.$this->hallCity->name,
             'metaDescription' => \Illuminate\Support\Str::limit(trim($hall->name.', '.$hall->hall_type.', '.$hall->seating_capacity.' seats. '.$hall->about), 155),
             'indexable' => true,
         ]);
+    }
+
+    /**
+     * The hall's ticked facilities in the Super Admin's sections, each free or paid (with its price when given).
+     *
+     * @return list<array{title: string, items: list<array{name: string, paid: bool, price: ?string}>}>
+     */
+    public static function facilityGroups(Hall $hall, string $symbol): array
+    {
+        $ticked = array_values(array_unique((array) ($hall->amenities ?? [])));
+        $charges = (array) ($hall->facility_charges ?? []);
+        $row = fn (string $name) => ['name' => $name, 'paid' => array_key_exists($name, $charges),
+            'price' => ! empty($charges[$name]) ? $symbol.number_format((float) $charges[$name]) : null];
+        $out = [];
+        $placed = [];
+        foreach (HallSettings::amenityGroups() as $g) {
+            $items = array_values(array_intersect($g['items'], $ticked));
+            if ($items !== []) {
+                $out[] = ['title' => $g['title'], 'items' => array_map($row, $items)];
+                $placed = array_merge($placed, $items);
+            }
+        }
+        $rest = array_values(array_diff($ticked, $placed));
+        if ($rest !== []) {
+            $out[] = ['title' => $out === [] ? '' : SiteText::get('hall.show.more_facilities'), 'items' => array_map($row, $rest)];
+        }
+
+        return $out;
     }
 
     /** schema.org EventVenue for search engines. */

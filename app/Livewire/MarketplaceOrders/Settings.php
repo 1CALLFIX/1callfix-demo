@@ -90,7 +90,11 @@ class Settings extends Component
 
         foreach ($this->keysHere() as $key) {
             $row = Setting::where('scope_type', $type)->where('scope_id', $id)->where('key', $key)->value('value');
-            $this->inputs[$this->registry()::field($key)] = $row === null ? '' : (string) $row;
+            $meta = $this->registry()::REGISTRY[$key];
+            // Owner 2026-11-14: a list (facilities, kinds, rules) shows what customers see today, so Super Admin edits
+            // the real list instead of an empty "Not configured" box. Saving it unchanged stores nothing.
+            $prefill = $row === null && $type === 'global' && ($meta['type'] ?? '') === 'text' && ($meta['default'] ?? null) !== null;
+            $this->inputs[$this->registry()::field($key)] = $prefill ? (string) $meta['default'] : ($row === null ? '' : (string) $row);
         }
     }
 
@@ -124,11 +128,25 @@ class Settings extends Component
 
         $changed = 0;
         foreach ($this->keysHere() as $key) {
+            $meta = $this->registry()::REGISTRY[$key];
+            $input = $this->inputs[$this->registry()::field($key)] ?? null;
+            if ($target[0] === 'global' && ($meta['type'] ?? '') === 'text' && ($meta['default'] ?? null) !== null
+                && self::sameList((string) $input, (string) $meta['default'])
+                && Setting::where('scope_type', 'global')->whereNull('scope_id')->where('key', $key)->doesntExist()) {
+                continue; // the built-in list, shown but not changed
+            }
             $changed += SettingsAuditor::put(auth()->user(), $key, $this->inputs[$this->registry()::field($key)] ?? null, $target[0], $target[1]) ? 1 : 0;
         }
 
         $this->loadInputs();
         $this->flash($changed ? "Saved — {$changed} change(s) audit-logged." : 'No changes to save.', 'success');
+    }
+
+    private static function sameList(string $a, string $b): bool
+    {
+        $norm = fn (string $v) => implode("\n", array_map('trim', preg_split('/\R/', trim($v))));
+
+        return $norm($a) === $norm($b);
     }
 
     private function flash(string $message, string $type): void

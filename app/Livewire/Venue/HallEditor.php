@@ -44,6 +44,19 @@ class HallEditor extends Component
     /** @var list<string> */
     public array $amenities = [];
     public string $rules = '';
+    /** Rules tapped from Hall Settings' list. @var list<string> */
+    public array $ruleList = [];
+    /**
+     * Owner 2026-11-14: per ticked facility, paid or free and its price; per outside service, yes / fee / no. Keyed by
+     * self::key($name) (names have spaces, slashes and dots, which a Livewire path cannot carry).
+     *
+     * @var array<string, bool>
+     */
+    public array $paid = [];
+    /** @var array<string, string> */
+    public array $paidPrice = [];
+    /** @var array<string, string> 'yes' | 'fee' | 'no' | '' */
+    public array $outside = [];
     public string $deposit = '';
     public string $gstNumber = '';
 
@@ -78,6 +91,14 @@ class HallEditor extends Component
             $this->rooms = $hall->rooms !== null ? (string) $hall->rooms : '';
             $this->amenities = array_values((array) ($hall->amenities ?? []));
             $this->rules = (string) $hall->rules;
+            $this->ruleList = array_values((array) ($hall->rule_list ?? []));
+            foreach ((array) ($hall->facility_charges ?? []) as $name => $price) {
+                $this->paid[self::key($name)] = true;
+                $this->paidPrice[self::key($name)] = $price ? (string) (float) $price : '';
+            }
+            foreach ((array) ($hall->outside_policy ?? []) as $name => $answer) {
+                $this->outside[self::key($name)] = (string) $answer;
+            }
             $this->deposit = $hall->deposit_amount !== null ? (string) (float) $hall->deposit_amount : '';
             $this->gstNumber = (string) $hall->gst_number;
             $this->photos = array_values((array) ($v('photos') ?? []));
@@ -155,7 +176,12 @@ class HallEditor extends Component
             'parking' => ['nullable', 'integer', 'min:0', 'max:10000'],
             'rooms' => ['nullable', 'integer', 'min:0', 'max:200'],
             'amenities' => ['array'],
-            'amenities.*' => [Rule::in(HallSettings::lines('hall.amenities'))],
+            // A facility the Super Admin later took off the list stays valid on a hall that already has it.
+            'amenities.*' => [Rule::in(array_merge(HallSettings::amenityList(), (array) ($this->hall()?->amenities ?? [])))],
+            'ruleList' => ['array'],
+            'ruleList.*' => [Rule::in(array_merge(HallSettings::ruleOptions(), (array) ($this->hall()?->rule_list ?? [])))],
+            'paidPrice.*' => ['nullable', 'numeric', 'min:0', 'max:1000000'],
+            'outside.*' => ['nullable', Rule::in(['yes', 'fee', 'no'])],
             'rules' => ['nullable', 'string', 'max:3000'],
             'deposit' => ['nullable', 'numeric', 'min:0', 'max:1000000'],
             'gstNumber' => ['nullable', 'string', 'regex:/^[0-9]{2}[A-Z0-9]{13}$/'],
@@ -187,6 +213,7 @@ class HallEditor extends Component
             'hallSlots.*.price.required' => 'Enter the price for this slot.',
             'hallSlots.*.price.min' => 'The lowest price is ₹1.',
             'newPhotos.max' => 'Up to '.Hall::MAX_PHOTOS.' photos.',
+            'paidPrice.*.numeric' => 'Type the price in rupees, or leave it empty.',
         ];
     }
 
@@ -234,6 +261,9 @@ class HallEditor extends Component
             'rooms' => $this->rooms !== '' ? (int) $this->rooms : null,
             'amenities' => array_values(array_unique($this->amenities)),
             'rules' => trim($this->rules) ?: null,
+            'rule_list' => array_values(array_unique($this->ruleList)) ?: null,
+            'facility_charges' => $this->facilityCharges() ?: null,
+            'outside_policy' => $this->outsidePolicy() ?: null,
             'deposit_amount' => $this->deposit !== '' && (float) $this->deposit > 0 ? round((float) $this->deposit, 2) : null,
             'gst_number' => filled($this->gstNumber) ? strtoupper(trim($this->gstNumber)) : null,
         ];
@@ -302,6 +332,40 @@ class HallEditor extends Component
         $this->notice = $waiting ? 'Saved. Prices and slots changed now; the new name, address, photos or description show once we check them (customers see the old ones meanwhile).' : 'Saved.';
 
         return $hall;
+    }
+
+    public static function key(string $name): string
+    {
+        return 'k'.substr(md5($name), 0, 10);
+    }
+
+    /** @return array<string, float|int> facility => price (0 = paid, price not given); free facilities are not listed */
+    private function facilityCharges(): array
+    {
+        $out = [];
+        foreach (array_unique($this->amenities) as $name) {
+            $k = self::key($name);
+            if (! empty($this->paid[$k])) {
+                $price = trim((string) ($this->paidPrice[$k] ?? ''));
+                $out[$name] = $price !== '' && (float) $price > 0 ? round((float) $price, 2) : 0;
+            }
+        }
+
+        return $out;
+    }
+
+    /** @return array<string, string> outside service => yes | fee | no (unanswered ones are left out) */
+    private function outsidePolicy(): array
+    {
+        $out = [];
+        foreach (array_unique(array_merge(HallSettings::outsideOptions(), array_keys((array) ($this->hall()?->outside_policy ?? [])))) as $name) {
+            $answer = (string) ($this->outside[self::key($name)] ?? '');
+            if (in_array($answer, ['yes', 'fee', 'no'], true)) {
+                $out[$name] = $answer;
+            }
+        }
+
+        return $out;
     }
 
     private static function same(mixed $a, mixed $b): bool
@@ -396,6 +460,18 @@ class HallEditor extends Component
         $this->redirectRoute('venue.dashboard', navigate: true);
     }
 
+    /** Facilities this hall has that are no longer on the Super Admin's list go into a last "More" section. */
+    private static function withExtras(array $groups, array $ticked): array
+    {
+        $listed = array_merge(...array_map(fn ($g) => $g['items'], $groups) ?: [[]]);
+        $extra = array_values(array_diff($ticked, $listed));
+        if ($extra !== []) {
+            $groups[] = ['title' => \App\Support\SiteText::get('hall.show.more_facilities'), 'items' => $extra];
+        }
+
+        return $groups;
+    }
+
     public function render()
     {
         $hall = $this->hall();
@@ -404,7 +480,9 @@ class HallEditor extends Component
             'hall' => $hall,
             'editable' => $hall === null || $hall->status !== 'in_review',
             'types' => HallSettings::lines('hall.types'),
-            'amenityList' => HallSettings::lines('hall.amenities'),
+            'amenityGroups' => self::withExtras(HallSettings::amenityGroups(), $this->amenities),
+            'ruleOptions' => array_values(array_unique(array_merge(HallSettings::ruleOptions(), $this->ruleList))),
+            'outsideOptions' => array_values(array_unique(array_merge(HallSettings::outsideOptions(), array_keys((array) ($hall?->outside_policy ?? []))))),
             'canDelete' => $hall?->status === 'draft' && $this->halls()->count() > 1,
         ])->layout('components.layouts.venue', ['title' => $hall ? $hall->name : 'Add a hall']);
     }

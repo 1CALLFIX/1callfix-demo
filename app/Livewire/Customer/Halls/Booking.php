@@ -100,7 +100,9 @@ class Booking extends Component
         return view('livewire.customer.halls.booking', [
             'booking' => $booking,
             'hall' => $hall,
-            'when' => $booking->event_date->format('l, j F Y').' · '.$booking->slot_name.' ('.$booking->starts_at->copy()->setTimezone($tz)->format('g:i A').' – '.$booking->ends_at->copy()->setTimezone($tz)->format('g:i A').')',
+            'when' => (int) $booking->days > 1
+                ? $booking->dateLabel('D, j M Y').' · '.$booking->slot_name.' (from '.$booking->starts_at->copy()->setTimezone($tz)->format('g:i A, j M').' to '.$booking->ends_at->copy()->setTimezone($tz)->format('g:i A, j M').')'
+                : $booking->event_date->format('l, j F Y').' · '.$booking->slot_name.' ('.$booking->starts_at->copy()->setTimezone($tz)->format('g:i A').' – '.$booking->ends_at->copy()->setTimezone($tz)->format('g:i A').')',
             'holdUntil' => $booking->payment_expires_at?->copy()->setTimezone($tz)->format('g:i A'),
             'acceptBy' => $booking->accept_by?->copy()->setTimezone($tz)->format('D, j M · g:i A'),
             'money' => fn (float $v) => $symbol.number_format($v, 2),

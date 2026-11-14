@@ -204,24 +204,90 @@
         {{-- 5. Facilities, about, rules --}}
         <section class="space-y-4 rounded-2xl border-2 border-teal-100 bg-white p-4 sm:p-6">
             <div class="flex items-center gap-3"><span class="{{ $step('bg-teal-600') }}">5</span><h2 class="text-lg font-semibold">Facilities and details</h2></div>
+            @php
+                $tones = [['bg-sky-50 border-sky-100', 'text-sky-800', 'has-[:checked]:border-sky-600 has-[:checked]:bg-sky-600'],
+                    ['bg-pink-50 border-pink-100', 'text-pink-800', 'has-[:checked]:border-pink-600 has-[:checked]:bg-pink-600'],
+                    ['bg-amber-50 border-amber-100', 'text-amber-800', 'has-[:checked]:border-amber-600 has-[:checked]:bg-amber-600'],
+                    ['bg-emerald-50 border-emerald-100', 'text-emerald-800', 'has-[:checked]:border-emerald-600 has-[:checked]:bg-emerald-600'],
+                    ['bg-violet-50 border-violet-100', 'text-violet-800', 'has-[:checked]:border-violet-600 has-[:checked]:bg-violet-600'],
+                    ['bg-teal-50 border-teal-100', 'text-teal-800', 'has-[:checked]:border-teal-600 has-[:checked]:bg-teal-600']];
+            @endphp
             <div>
                 <p class="text-sm font-medium text-slate-900">Tap what your hall has</p>
-                <div class="mt-2 flex flex-wrap gap-2">
-                    @foreach ($amenityList as $a)
-                        <label class="{{ $chip }} border-slate-200 bg-white text-slate-700 has-[:checked]:border-teal-600 has-[:checked]:bg-teal-600 has-[:checked]:text-white">
-                            <input type="checkbox" wire:model="amenities" value="{{ $a }}" class="sr-only"> {{ $a }}
-                        </label>
+                <p class="text-xs text-slate-500">Everything is free unless you mark it Paid below.</p>
+                <div class="mt-2 space-y-3">
+                    @foreach ($amenityGroups as $gi => $g)
+                        @php [$box, $head, $on] = $tones[$gi % count($tones)]; @endphp
+                        <div class="rounded-xl border p-3 {{ $box }}" wire:key="fac-{{ $gi }}">
+                            @if ($g['title'] !== '') <p class="text-sm font-semibold {{ $head }}">{{ $g['title'] }}</p> @endif
+                            <div class="mt-2 flex flex-wrap gap-2">
+                                @foreach ($g['items'] as $a)
+                                    <label class="{{ $chip }} border-slate-200 bg-white text-slate-700 {{ $on }} has-[:checked]:text-white">
+                                        <input type="checkbox" wire:model.live="amenities" value="{{ $a }}" class="sr-only"> {{ $a }}
+                                    </label>
+                                @endforeach
+                            </div>
+                        </div>
                     @endforeach
                 </div>
             </div>
+            @if ($amenities !== [])
+                <div class="rounded-xl border border-slate-200 p-3" data-testid="facility-charges">
+                    <p class="text-sm font-medium text-slate-900">Free or paid?</p>
+                    <p class="text-xs text-slate-500">Tap Paid for anything the customer pays extra for. The price is optional.</p>
+                    <ul class="mt-2 divide-y divide-slate-100">
+                        @foreach (array_values(array_unique($amenities)) as $a)
+                            @php $k = \App\Livewire\Venue\HallEditor::key($a); @endphp
+                            <li class="flex flex-wrap items-center justify-between gap-2 py-2" wire:key="charge-{{ $k }}">
+                                <span class="text-sm text-slate-800">{{ $a }}</span>
+                                <span class="flex items-center gap-2">
+                                    <button type="button" wire:click="$set('paid.{{ $k }}', false)" @class(['min-h-11 rounded-full border-2 px-4 text-sm font-semibold', 'border-emerald-600 bg-emerald-600 text-white' => empty($paid[$k]), 'border-slate-200 bg-white text-slate-600' => ! empty($paid[$k])])>Free</button>
+                                    <button type="button" wire:click="$set('paid.{{ $k }}', true)" @class(['min-h-11 rounded-full border-2 px-4 text-sm font-semibold', 'border-amber-500 bg-amber-500 text-white' => ! empty($paid[$k]), 'border-slate-200 bg-white text-slate-600' => empty($paid[$k])])>Paid</button>
+                                    @if (! empty($paid[$k]))
+                                        <input type="text" inputmode="decimal" wire:model="paidPrice.{{ $k }}" placeholder="₹ price (optional)" class="min-h-11 w-36 rounded-xl border border-slate-300 px-3 text-sm">
+                                    @endif
+                                </span>
+                                @error('paidPrice.'.$k) <p class="w-full text-sm text-red-700">{{ $message }}</p> @enderror
+                            </li>
+                        @endforeach
+                    </ul>
+                </div>
+            @endif
+            @if ($outsideOptions !== [])
+                <div class="rounded-xl border border-orange-100 bg-orange-50 p-3" data-testid="outside-policy">
+                    <p class="text-sm font-semibold text-orange-900">Can customers bring these from outside?</p>
+                    <p class="text-xs text-orange-800">Customers see your answers before they book.</p>
+                    <ul class="mt-2 space-y-2">
+                        @foreach ($outsideOptions as $o)
+                            @php $k = \App\Livewire\Venue\HallEditor::key($o); $ans = $outside[$k] ?? ''; @endphp
+                            <li class="rounded-lg bg-white p-2" wire:key="out-{{ $k }}">
+                                <p class="text-sm font-medium text-slate-800">{{ $o }}</p>
+                                <div class="mt-1.5 flex flex-wrap gap-2">
+                                    @foreach (['yes' => ['Allowed', 'border-emerald-600 bg-emerald-600'], 'fee' => ['Allowed with a fee', 'border-amber-500 bg-amber-500'], 'no' => ['Not allowed', 'border-red-600 bg-red-600']] as $v => [$label, $onCls])
+                                        <button type="button" wire:click="$set('outside.{{ $k }}', '{{ $ans === $v ? '' : $v }}')" @class(['min-h-11 rounded-full border-2 px-4 text-sm font-semibold', $onCls.' text-white' => $ans === $v, 'border-slate-200 bg-white text-slate-600' => $ans !== $v])>{{ $label }}</button>
+                                    @endforeach
+                                </div>
+                            </li>
+                        @endforeach
+                    </ul>
+                </div>
+            @endif
             <div>
                 <label for="h-about" class="block text-sm font-medium text-slate-900">About the hall <span class="font-normal text-slate-500">(a few lines)</span></label>
                 <textarea id="h-about" wire:model="about" rows="3" placeholder="Good for weddings and receptions. Dining for 300. Near the bus stand." class="mt-1.5 block w-full rounded-xl border border-slate-300 px-3 py-2.5 text-base"></textarea>
                 @error('about') <p class="mt-1.5 text-sm text-red-700">{{ $message }}</p> @enderror
             </div>
             <div>
-                <label for="h-rules" class="block text-sm font-medium text-slate-900">Hall rules <span class="font-normal text-slate-500">(optional)</span></label>
-                <textarea id="h-rules" wire:model="rules" rows="2" placeholder="e.g. Music till 10 PM. No fireworks inside." class="mt-1.5 block w-full rounded-xl border border-slate-300 px-3 py-2.5 text-base"></textarea>
+                <p class="text-sm font-medium text-slate-900">Hall rules <span class="font-normal text-slate-500">(tap the ones you follow)</span></p>
+                <div class="mt-2 flex flex-wrap gap-2" data-testid="rule-chips">
+                    @foreach ($ruleOptions as $r)
+                        <label class="{{ $chip }} border-slate-200 bg-white text-slate-700 has-[:checked]:border-rose-600 has-[:checked]:bg-rose-600 has-[:checked]:text-white">
+                            <input type="checkbox" wire:model="ruleList" value="{{ $r }}" class="sr-only"> {{ $r }}
+                        </label>
+                    @endforeach
+                </div>
+                <label for="h-rules" class="mt-3 block text-sm font-medium text-slate-900">Anything else? <span class="font-normal text-slate-500">(optional, your own words)</span></label>
+                <textarea id="h-rules" wire:model="rules" rows="2" placeholder="e.g. Band and baraat only on the road side." class="mt-1.5 block w-full rounded-xl border border-slate-300 px-3 py-2.5 text-base"></textarea>
                 @error('rules') <p class="mt-1.5 text-sm text-red-700">{{ $message }}</p> @enderror
             </div>
             <div>

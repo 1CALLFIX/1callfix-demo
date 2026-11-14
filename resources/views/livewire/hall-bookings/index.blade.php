@@ -22,7 +22,7 @@
                     <x-ui.sno :rows="$bookings" :loop="$loop" />
                     <td class="px-4 py-2 font-mono text-xs">{{ $b->code }}<div class="font-sans text-gray-500">{{ $b->created_at->copy()->setTimezone($tz)->format('j M, g:i A') }}</div></td>
                     <td class="px-4 py-2">{{ $b->hall?->name }}</td>
-                    <td class="px-4 py-2">{{ $b->event_date->format('j M Y') }}<div class="text-xs text-gray-500">{{ $b->slot_name }}</div></td>
+                    <td class="px-4 py-2">{{ $b->dateLabel('j M Y') }}<div class="text-xs text-gray-500">{{ $b->slot_name }}</div></td>
                     <td class="px-4 py-2">{{ $b->customer_name }}<div class="text-xs text-gray-500">{{ $b->customer_phone }}</div></td>
                     <td class="px-4 py-2">₹{{ number_format((float) $b->paid_amount) }} / ₹{{ number_format((float) $b->total) }}
                         @if ((float) $b->refunded_amount > 0) <div class="text-xs text-red-700">refunded ₹{{ number_format((float) $b->refunded_amount) }}</div> @endif</td>

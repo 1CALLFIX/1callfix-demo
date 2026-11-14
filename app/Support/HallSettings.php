@@ -25,9 +25,28 @@ class HallSettings extends MarketplaceSettings
             'help' => 'One per line. Customers filter by them.',
         ],
         'hall.amenities' => [
-            'group' => 'Joining', 'label' => 'Facilities an owner can tick', 'type' => 'text', 'global' => true,
-            'default' => "Generator / power backup\nDining hall\nKitchen\nStage\nBride and groom rooms\nDecoration allowed\nOutside caterers allowed\nOutside decorators allowed\nLift\nWheelchair access\nSound system\nValet parking",
-            'help' => 'One per line, shown as ticks on the hall page.',
+            'group' => 'Facilities and rules', 'label' => 'Facilities an owner can tick', 'type' => 'text', 'global' => true,
+            'default' => "Parking and arrival:\nCar parking\nTwo-wheeler parking\nValet parking\nVIP cars can drive up to the entrance\nBride and groom:\nBride's room\nGroom's room\nGrand entry for the bride and groom\nStage\nMandap\nSeparate entry for the couple\nFood:\nDining hall\nKitchen\nUtensils provided\nVeg and non-veg allowed\nDrinking water (RO)\nComfort:\nGenerator / power backup\nAC rooms for guests\nWashrooms (separate for ladies and gents)\nGuest rooms to stay\nSound system\nProjector and screen\nWi-Fi\nDecoration:\nDecoration allowed\nFlower decoration available\nLighting\nSafety:\nFire extinguishers\nFire exits marked\nFire safety certificate (Fire NOC)\nEmergency lights\nFirst aid kit\nSecurity guard\nCCTV\nEasy to reach:\nLift\nWheelchair access\nRamp\nOn the main road\nNear the bus stand",
+            'help' => 'One per line. The owner marks each ticked facility Free or Paid (with a price if they like). A line ending with ":" is a heading (Parking and arrival:, Bride and groom:, …); the facilities under it are shown together, each section in its own colour, to owners and on the hall page.',
+        ],
+        'hall.outside_options' => [
+            'group' => 'Facilities and rules', 'label' => 'What customers may bring from outside (owner answers each)', 'type' => 'text', 'global' => true,
+            'default' => "Outside food
+Outside caterers / cooks
+Vessels and utensils from outside
+Outside decorators
+Outside flowers
+Outside tent / shamiana
+Outside sound / DJ
+Outside photographers
+Outside generator
+Outside priest / pandit",
+            'help' => 'One per line. For each, the owner taps Allowed, Allowed with a fee, or Not allowed. Customers see the answers on the hall page before they book (some halls do not allow outside food, caterers or vessels).',
+        ],
+        'hall.rule_options' => [
+            'group' => 'Facilities and rules', 'label' => 'Hall rules an owner can tick', 'type' => 'text', 'global' => true,
+            'default' => "Music and loudspeakers till 10 PM\nNo fireworks inside the hall\nNo alcohol\nNo smoking inside\nVegetarian food only\nShoes off on the stage\nDecoration removed within 4 hours after the event\nGuests must leave by the slot's end time\nPets not allowed\nChildren to be looked after by parents\nDamage to the hall is paid from the deposit",
+            'help' => 'One per line. Owners tap the rules their hall follows and can add their own words. Shown on the hall page before booking.',
         ],
         // ── booking ──
         'hall.advance_percent' => [
@@ -41,6 +60,10 @@ class HallSettings extends MarketplaceSettings
         'hall.owner_accept_hours' => [
             'group' => 'Booking', 'label' => 'Owner must accept within', 'type' => 'int', 'unit' => 'hours', 'min' => 1, 'max' => 24,
             'default' => '2', 'help' => 'The hall owner accepts or declines each paid booking. Not answered in time = declined and refunded in full.',
+        ],
+        'hall.max_days' => [
+            'group' => 'Booking', 'label' => 'Days a customer can book in one go', 'type' => 'int', 'unit' => 'days', 'min' => 1, 'max' => 7,
+            'default' => '3', 'help' => 'For a 2-day or 3-day wedding: the customer picks the first day and how many days, pays one bill (the slot price for each day). The hall is held from the slot start on the first day to the slot end on the last day. 1 = one day only.',
         ],
         'hall.min_days_ahead' => [
             'group' => 'Booking', 'label' => 'Book at least this far ahead', 'type' => 'int', 'unit' => 'days', 'min' => 0, 'max' => 30,
@@ -95,6 +118,60 @@ class HallSettings extends MarketplaceSettings
             'help' => 'On (default): GST is added to the customer\'s bill and paid by 1CallFix as the booking platform. Off: each hall pays its own GST. Confirm with your CA.',
         ],
     ];
+
+    /**
+     * Facilities in their sections: a line ending with ":" starts a section.
+     *
+     * @return list<array{title: string, items: list<string>}>
+     */
+    public static function amenityGroups(): array
+    {
+        return self::groupedLines('hall.amenities');
+    }
+
+    /** @return list<string> every facility, without the headings */
+    public static function amenityList(): array
+    {
+        return array_values(array_merge(...array_map(fn ($g) => $g['items'], self::amenityGroups()) ?: [[]]));
+    }
+
+    /** @return list<string> */
+    public static function outsideOptions(): array
+    {
+        return self::lines('hall.outside_options');
+    }
+
+    /** @return list<string> */
+    public static function ruleOptions(): array
+    {
+        return self::lines('hall.rule_options');
+    }
+
+    /** @return list<array{title: string, items: list<string>}> */
+    private static function groupedLines(string $key): array
+    {
+        $groups = [];
+        $i = -1;
+        foreach (preg_split('/\R/', (string) self::get($key)) as $line) {
+            $line = trim($line);
+            if ($line === '') {
+                continue;
+            }
+            if (str_ends_with($line, ':')) {
+                $groups[++$i] = ['title' => rtrim(mb_substr($line, 0, -1)), 'items' => []];
+
+                continue;
+            }
+            if ($i < 0) {
+                $groups[++$i] = ['title' => '', 'items' => []];
+            }
+            if (! in_array($line, $groups[$i]['items'], true)) {
+                $groups[$i]['items'][] = $line;
+            }
+        }
+
+        return array_values(array_filter($groups, fn ($g) => $g['items'] !== []));
+    }
 
     public static function recruitingOwners(): bool
     {

@@ -107,4 +107,25 @@ class HomeDoorsTest extends TestCase
         $this->actingAs($this->makeUserWithNoPermissions())->get(route('admin.home-sections'))->assertForbidden();
         $this->actingAs($this->makeSuperAdmin())->get(route('admin.home-sections'))->assertOk()->assertSee('Homepage sections');
     }
+
+    public function test_the_super_admin_renames_a_door_in_english_and_telugu(): void
+    {
+        $this->actingAs($this->makeSuperAdmin());
+        Livewire::test(Manage::class)
+            ->assertSet('doorWords.services.title_en', 'Services')
+            ->set('doorWords.services.title_en', 'Home services')->set('doorWords.services.line_en', 'Fixed by trusted pros')
+            ->set('doorWords.services.title_te', 'ఇంటి సేవలు')
+            ->call('save')->assertHasNoErrors();
+
+        $this->assertSame('Home services', SiteText::get('home.door.services.title'));
+        $this->assertSame('Fixed by trusted pros', SiteText::get('home.door.services.line'));
+        $this->assertSame('ఇంటి సేవలు', SiteText::saved('home.door.services.title', 'te'));
+        auth()->logout();
+        $this->get('/')->assertOk()->assertSee('Home services');
+
+        // Back to the built-in words: blank saves nothing.
+        $this->actingAs($this->makeSuperAdmin());
+        Livewire::test(Manage::class)->set('doorWords.services.title_en', '')->call('save');
+        $this->assertSame('Services', SiteText::get('home.door.services.title'));
+    }
 }

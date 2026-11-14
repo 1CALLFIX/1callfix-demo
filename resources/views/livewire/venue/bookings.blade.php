@@ -11,7 +11,7 @@
                 <article class="space-y-3 rounded-2xl border-2 border-amber-300 bg-white p-4" data-testid="venue-booking-waiting">
                     <div class="flex flex-wrap items-start justify-between gap-2">
                         <div>
-                            <p class="font-semibold">{{ $b->event_date->format('D, j M Y') }} · {{ $b->slot_name }}</p>
+                            <p class="font-semibold">{{ $b->dateLabel() }} · {{ $b->slot_name }}</p>
                             <p class="text-sm text-slate-600">{{ $b->customer_name }} · <a href="tel:{{ $b->customer_phone }}" class="underline">{{ $b->customer_phone }}</a></p>
                             <p class="text-sm text-slate-600">{{ collect([$b->occasion, $b->guests ? $b->guests.' guests' : null, $many ? $b->hall?->name : null])->filter()->implode(' · ') }}</p>
                             @if ($b->notes) <p class="mt-1 text-sm text-slate-500">"{{ $b->notes }}"</p> @endif
@@ -52,7 +52,7 @@
             <li class="space-y-3 rounded-2xl border border-slate-200 bg-white p-4 text-sm" data-testid="venue-booking">
                 <div class="flex items-start justify-between gap-3">
                     <div>
-                        <p class="font-semibold">{{ $b->event_date->format('D, j M Y') }} · {{ $b->slot_name }}</p>
+                        <p class="font-semibold">{{ $b->dateLabel() }} · {{ $b->slot_name }}</p>
                         <p class="text-slate-600">{{ $b->customer_name }} · <a href="tel:{{ $b->customer_phone }}" class="underline">{{ $b->customer_phone }}</a></p>
                         <p class="text-slate-500">{{ collect([$b->occasion, $b->guests ? $b->guests.' guests' : null, $many ? $b->hall?->name : null])->filter()->implode(' · ') }}</p>
                     </div>

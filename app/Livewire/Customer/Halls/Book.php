@@ -25,6 +25,8 @@ class Book extends Component
 
     public string $slotId = '';
     public string $date = '';
+    /** Owner 2026-11-14: days in a row (a 2-day wedding), up to Hall Settings' hall.max_days. */
+    public string $days = '1';
     public string $occasion = '';
     public string $guests = '';
     public string $name = '';
@@ -39,6 +41,7 @@ class Book extends Component
         $this->slotId = (string) (int) request()->query('slot', $hall->slots->where('is_active', true)->first()?->id);
         $date = (string) request()->query('date', '');
         $this->date = preg_match('/^\d{4}-\d{2}-\d{2}$/', $date) ? $date : HallBookingService::dateWindow($hall)[0];
+        $this->days = (string) max(1, min(HallBookingService::maxDays($hall), (int) request()->query('days', 1)));
         $user = auth()->user();
         $this->name = (string) $user->name;
         $this->phone = (string) $user->phone;
@@ -82,7 +85,7 @@ class Book extends Component
 
         try {
             $booking = $halls->book(auth()->user(), $hall, $slot, $this->date, $method === 'wallet' ? 'wallet' : 'online', $this->name, $this->phone,
-                ['occasion' => $this->occasion, 'guests' => $this->guests !== '' ? (int) $this->guests : null, 'notes' => $this->notes]);
+                ['days' => $this->dayCount($hall), 'occasion' => $this->occasion, 'guests' => $this->guests !== '' ? (int) $this->guests : null, 'notes' => $this->notes]);
         } catch (\RuntimeException $e) {
             $this->error = $e->getMessage();
 
@@ -106,14 +109,21 @@ class Book extends Component
         return null;
     }
 
+    private function dayCount(Hall $hall): int
+    {
+        return max(1, min(HallBookingService::maxDays($hall), (int) $this->days));
+    }
+
     public function render()
     {
         $hall = $this->hall();
         $slot = $this->slot($hall);
+        $days = $this->dayCount($hall);
         [$first, $last] = HallBookingService::dateWindow($hall);
-        $dateOk = preg_match('/^\d{4}-\d{2}-\d{2}$/', $this->date) === 1 && $this->date >= $first && $this->date <= $last;
-        $free = $slot && $dateOk && HallBookingService::isFree($hall, $slot, $this->date);
-        $quote = $slot && $dateOk ? HallBookingService::quote($hall, $slot, $this->date) : null;
+        $dateOk = preg_match('/^\d{4}-\d{2}-\d{2}$/', $this->date) === 1 && $this->date >= $first
+            && Carbon::parse($this->date)->addDays($days - 1)->toDateString() <= $last;
+        $free = $slot && $dateOk && HallBookingService::isFree($hall, $slot, $this->date, null, $days);
+        $quote = $slot && $dateOk ? HallBookingService::quote($hall, $slot, $this->date, $days) : null;
         $symbol = Setting::get('locale.currency_symbol', '₹');
         $money = fn (float $v) => $symbol.number_format($v, 2);
         $walletOn = Setting::get('payment.wallet_enabled', null, array_filter(['zone_id' => $hall->zone_id, 'franchise_id' => $hall->franchise_id])) === '1';
@@ -123,6 +133,8 @@ class Book extends Component
             'hall' => $hall,
             'hallSlots' => $hall->slots->where('is_active', true)->values(),
             'chosenSlot' => $slot,
+            'maxDays' => HallBookingService::maxDays($hall),
+            'lastDay' => $dateOk ? Carbon::parse($this->date)->addDays($days - 1)->format('D, j M Y') : null,
             'first' => $first,
             'last' => $last,
             'dateOk' => $dateOk,

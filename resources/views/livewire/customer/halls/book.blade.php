@@ -16,6 +16,21 @@
                 @foreach ($hallSlots as $s) <option value="{{ $s->id }}">{{ $s->name }} · {{ $s->timeLabel() }}</option> @endforeach
             </select>
         </label>
+        @if ($maxDays > 1)
+            <div data-testid="hall-days">
+                <p class="text-sm font-medium text-slate-700">{{ $t('hall.book.days') }}</p>
+                <div class="mt-1.5 flex flex-wrap gap-2">
+                    @for ($n = 1; $n <= $maxDays; $n++)
+                        <button type="button" wire:click="$set('days', '{{ $n }}')" @class(['min-h-11 rounded-full border px-4 text-sm font-semibold',
+                            'border-blue-600 bg-blue-600 text-white' => (int) $days === $n, 'border-slate-300 bg-white text-slate-700' => (int) $days !== $n])>
+                            {{ $n === 1 ? $t('hall.book.one_day') : $t('hall.book.n_days', ['n' => $n]) }}</button>
+                    @endfor
+                </div>
+                @if ((int) $days > 1 && $lastDay)
+                    <p class="mt-1.5 text-xs text-slate-600">{{ $t('hall.book.span', ['first' => \Illuminate\Support\Carbon::parse($date)->format('D, j M'), 'last' => $lastDay]) }}</p>
+                @endif
+            </div>
+        @endif
         @if (! $dateOk)
             <p class="text-sm text-red-700">{{ $t('hall.book.date_range', ['first' => \Illuminate\Support\Carbon::parse($first)->format('j M Y'), 'last' => \Illuminate\Support\Carbon::parse($last)->format('j M Y')]) }}</p>
         @elseif ($chosenSlot && $free)
@@ -27,7 +42,7 @@
 
     @if ($quote)
         <div class="mt-4 space-y-2 rounded-2xl border border-slate-200 bg-white p-4 text-sm" data-testid="hall-bill">
-            <div class="flex justify-between gap-3"><span>{{ $t('hall.book.price', ['slot' => $chosenSlot->name]) }}</span><span>{{ $money($quote['price']) }}</span></div>
+            <div class="flex justify-between gap-3"><span>{{ $t('hall.book.price', ['slot' => $chosenSlot->name]) }}@if ($quote['days'] > 1) <span class="text-slate-500">({{ $money($quote['per_day']) }} × {{ $quote['days'] }})</span>@endif</span><span>{{ $money($quote['price']) }}</span></div>
             @if ($quote['gst'] > 0) <div class="flex justify-between gap-3 text-slate-600"><span>{{ $t('hall.book.gst') }}</span><span>{{ $money($quote['gst']) }}</span></div> @endif
             @if ($quote['fee'] > 0) <div class="flex justify-between gap-3 text-slate-600"><span>{{ $t('hall.book.fee') }}</span><span>{{ $money($quote['fee']) }}</span></div> @endif
             <div class="flex justify-between gap-3 border-t pt-2 font-semibold"><span>{{ $t('hall.book.total') }}</span><span>{{ $money($quote['total']) }}</span></div>

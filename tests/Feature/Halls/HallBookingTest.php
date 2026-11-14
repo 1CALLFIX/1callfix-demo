@@ -578,4 +578,81 @@ class HallBookingTest extends TestCase
         $this->artisan('refunds:escalate-hall-damage')->assertSuccessful();
         $this->assertSame(3, $claim->fresh()->escalation_level, 'Franchise → HQ → Super Admin after 2 × 4 hours.');
     }
+
+    // ── several days, availability, facilities (owner 2026-11-14) ──
+
+    public function test_a_two_day_booking_charges_each_day_and_holds_the_hall_for_both(): void
+    {
+        $q = HallBookingService::quote($this->hall, $this->fullDay, $this->day(60), 2);
+        $this->assertSame(120000.0, $q['price']);
+        $this->assertSame(60000.0, $q['per_day']);
+
+        $booking = app(HallBookingService::class)->book($this->customer, $this->hall->fresh(), $this->fullDay, $this->day(60), 'online', 'Asha', '9876543210', ['days' => 2]);
+        $this->assertSame(2, $booking->days);
+        $this->assertSame($this->day(61), $booking->last_date->toDateString());
+        $this->assertSame(120000.0, (float) $booking->hall_price);
+        $this->assertStringContainsString('(2 days)', $booking->dateLabel());
+
+        // Both days are held; the day after is free.
+        $this->assertFalse(HallBookingService::isFree($this->hall, $this->morning, $this->day(61)));
+        $this->assertFalse(HallBookingService::isFree($this->hall, $this->fullDay, $this->day(59), null, 2));
+        $this->assertTrue(HallBookingService::isFree($this->hall, $this->morning, $this->day(62)));
+    }
+
+    public function test_several_days_are_refused_when_one_day_is_taken_or_over_the_limit(): void
+    {
+        HallBlockedDate::create(['hall_id' => $this->hall->id, 'date' => $this->day(41)]);
+        try {
+            app(HallBookingService::class)->book($this->customer, $this->hall->fresh(), $this->fullDay, $this->day(40), 'online', 'Asha', '9876543210', ['days' => 2]);
+            $this->fail('A blocked second day must stop the booking.');
+        } catch (\RuntimeException $e) {
+            $this->assertStringContainsString('just taken', $e->getMessage());
+        }
+
+        Setting::set('hall.max_days', '1');
+        $this->expectExceptionMessage('Choose from 1 to 1 days.');
+        app(HallBookingService::class)->book($this->customer, $this->hall->fresh(), $this->fullDay, $this->day(50), 'online', 'Asha', '9876543210', ['days' => 2]);
+    }
+
+    public function test_the_book_page_offers_day_chips_and_bills_each_day(): void
+    {
+        Livewire::actingAs($this->customer)->withQueryParams(['hall' => $this->hall->id, 'slot' => $this->morning->id, 'date' => $this->day(30)])
+            ->test(Book::class)->assertSee('How many days?')->assertSee('3 days')
+            ->set('days', '2')->assertSee('× 2')->assertSee('₹70,000.00')->call('pay', 'online');
+        $this->assertSame(2, HallBooking::firstOrFail()->days);
+    }
+
+    public function test_availability_shows_free_some_and_booked_days(): void
+    {
+        $this->capture($this->book($this->morning, $this->day(20)));
+        $this->capture($this->book($this->fullDay, $this->day(21)));
+        $states = HallBookingService::availability($this->hall->fresh(), $this->day(19), 4);
+
+        $this->assertSame('free', $states[$this->day(19)]);
+        $this->assertSame('part', $states[$this->day(20)], 'Morning taken, evening still free.');
+        $this->assertSame('full', $states[$this->day(21)]);
+        $this->assertSame('closed', HallBookingService::availability($this->hall->fresh(), $this->day(0), 1)[$this->day(0)], 'Before the first bookable day.');
+
+        Livewire::withoutLazyLoading()->test(\App\Livewire\Customer\Halls\Availability::class, ['hallId' => $this->hall->id, 'citySlug' => $this->city->slug])
+            ->assertSee('Availability')
+            ->set('month', \Illuminate\Support\Carbon::parse($this->day(21))->startOfMonth()->toDateString())
+            ->assertSee('data-state="full"', false)->assertSee('date='.$this->day(22), false);
+    }
+
+    public function test_hall_page_shows_every_photo_facility_sections_free_or_paid_outside_answers_and_rules(): void
+    {
+        $this->hall->update([
+            'photos' => ['https://example.com/1.jpg', 'https://example.com/2.jpg', 'https://example.com/3.jpg'],
+            'amenities' => ['Car parking', 'Fire extinguishers', 'Generator / power backup', 'Old facility'],
+            'facility_charges' => ['Generator / power backup' => 1500],
+            'outside_policy' => ['Outside food' => 'no', 'Vessels and utensils from outside' => 'fee'],
+            'rule_list' => ['No smoking inside'],
+        ]);
+        $this->get(route('customer.halls.show', [$this->city->slug, 'sri-lakshmi-function-hall']))->assertOk()
+            ->assertSee('See all 4 photos')->assertSee('data-testid="hall-thumbs"', false)->assertSee('https://example.com/3.jpg')
+            ->assertSeeInOrder(['Parking and arrival', 'Car parking', 'Safety', 'Fire extinguishers'])
+            ->assertSee('Paid · ₹1,500')->assertSee('Old facility')
+            ->assertSeeInOrder(['Bringing things from outside', 'Outside food', 'Not allowed', 'Vessels and utensils from outside', 'Allowed with a fee'])
+            ->assertSee('No smoking inside')->assertSee('Book up to 3 days in a row');
+    }
 }

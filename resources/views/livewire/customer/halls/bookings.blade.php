@@ -12,7 +12,7 @@
                     </div>
                     <div class="min-w-0 flex-1">
                         <p class="truncate font-semibold">{{ $b->hall?->name }}</p>
-                        <p class="text-sm text-slate-600">{{ $b->event_date->format('D, j M Y') }} · {{ $b->slot_name }}</p>
+                        <p class="text-sm text-slate-600">{{ $b->dateLabel() }} · {{ $b->slot_name }}</p>
                         <p class="text-xs text-slate-500">{{ $t('hall.status.'.$b->status) }} · {{ $b->code }}</p>
                     </div>
                 </a>
