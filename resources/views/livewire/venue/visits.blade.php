@@ -1,6 +1,6 @@
 <div class="space-y-4">
     <h1 class="text-2xl font-bold tracking-tight">Visits</h1>
-    <p class="text-sm text-slate-600">People who want to see your home. Accept to share the address and your number.</p>
+    <p class="text-sm text-slate-600">People who want to see your property. Accept to share the address and your number.</p>
 
     <div class="flex gap-2 overflow-x-auto" role="tablist">
         @foreach (['new' => 'New ('.$counts['new'].')', 'accepted' => 'Accepted ('.$counts['accepted'].')', 'past' => 'Past'] as $key => $label)

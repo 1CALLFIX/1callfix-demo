@@ -102,7 +102,7 @@ final class PartnerPageSettings
         'hotel' => ['Hotel or stay host', 'List your hotel, homestay or guest house for travellers.'],
         'rental' => ['Vehicle or equipment owner', 'Rent out cars, bikes, generators or machinery once rentals open in your city.'],
         'halls' => ['Function hall owner', 'List your function hall, banquet hall or lawn for weddings, receptions and parties. Bookings paid online.'],
-        'homes' => ['House owner', 'Let your house, flat, room or PG by the month. Free to list; tenants ask to visit and you choose.'],
+        'homes' => ['Property owner', 'Let your flat, house, room, PG, shop, office or building by the month. Free to list; tenants ask to visit and you choose.'],
         'events' => ['Event organiser', 'Sell tickets for your party, concert, workshop or fest. Paid online, entry by QR code.'],
         'commerce' => ['Seller or shop', 'Sell your products to customers near you.'],
     ];

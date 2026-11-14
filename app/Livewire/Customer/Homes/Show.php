@@ -11,7 +11,7 @@ use App\Support\SiteText;
 use Livewire\Component;
 
 /**
- * Houses for rent — /{city}/homes/{home}: every photo (♡ Like + Share), rent, deposit, maintenance, size, floor, facing,
+ * Property for rent — /{city}/homes/{home}: every photo (♡ Like + Share), rent, deposit, maintenance, size, floor, facing,
  * furnishing, when it is ready, who can rent, facilities in their Rental Settings sections, house rules, about, the
  * area and landmark (the exact address only after the owner accepts a visit). The contact panel (ask for a visit, see
  * the owner's number) loads on its own request, so this page stays public and cacheable.
@@ -69,7 +69,7 @@ class Show extends Component
                 [$t('homes.show.rent'), $money($home->rent).' '.$t('homes.show.per_month'), 'bg-emerald-50 text-emerald-900'],
                 $home->deposit ? [$t('homes.show.deposit'), $money($home->deposit), 'bg-sky-50 text-sky-900'] : null,
                 [$t('homes.show.maintenance'), $home->maintenance ? $money($home->maintenance) : $t('homes.show.included'), 'bg-violet-50 text-violet-900'],
-                [$t('homes.show.size'), $home->size, 'bg-amber-50 text-amber-900'],
+                $home->size ? [$t('homes.show.size'), $home->size, 'bg-amber-50 text-amber-900'] : null,
                 $home->area ? [$t('homes.show.area'), number_format($home->area).' '.$unit, 'bg-pink-50 text-pink-900'] : null,
                 $home->floor ? [$t('homes.show.floor'), $home->floor, 'bg-teal-50 text-teal-900'] : null,
                 $home->facing ? [$t('homes.show.facing'), $home->facing, 'bg-orange-50 text-orange-900'] : null,

@@ -82,7 +82,7 @@ class AdminSidebarTest extends TestCase
             'admin.mismatch-refunds.index', 'admin.refund-controls.index', 'admin.payment-gateways.index', 'admin.notifications.index',
             'admin.cms.index', 'admin.parcel-orders.dashboard', 'admin.parcel-orders.index', 'admin.parcel-orders.settings',
             // Owner 2026-11-14: nightly property stays are retired (Hotels covers stays); admin.properties.index and
-            // admin.property-reservations.index left the menu for "Houses for rent" (their pages still open by link).
+            // admin.property-reservations.index left the menu for "Property for rent" (their pages still open by link).
             'admin.parcel-packs.index', 'admin.taxi-rides.index', 'admin.homes.index',
             'admin.vehicles.index', 'admin.equipment.index', 'admin.rental-reservations.index', 'admin.accommodations.index',
             'admin.hotel-reservations.index', 'admin.stores.index', 'admin.marketplace-categories.index', 'admin.products.index',

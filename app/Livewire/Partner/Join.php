@@ -173,7 +173,7 @@ class Join extends Component
             $links[] = ['label' => 'Add your slots, prices and photos, then send your hall for review', 'url' => route('venue.dashboard')];
         }
         if ($u->holdsPartnerRole('homes')) {
-            $links[] = ['label' => 'Add rent, photos and facilities, then send your home for review', 'url' => route('venue.dashboard')];
+            $links[] = ['label' => 'Add rent, photos and facilities, then send your property for review', 'url' => route('venue.dashboard')];
         }
         if ($u->holdsPartnerRole('events')) {
             $links[] = ['label' => 'Create your first event and its tickets', 'url' => route('organiser.events')];

@@ -245,7 +245,7 @@ class Register extends Component
         return $this->partnerRole === 'halls';
     }
 
-    /** Houses for rent (2026-11-14): a house owner (a HouseListing as a draft until sent for review). */
+    /** Property for rent (2026-11-14): a property owner (a HouseListing as a draft until sent for review). */
     public function isHomeOwner(): bool
     {
         return $this->partnerRole === 'homes';
@@ -539,7 +539,7 @@ class Register extends Component
             'skills.max' => 'Choose up to '.SiteControls::servicesMax().' services.',
             'terms.accepted' => 'Please accept the partner terms to continue.',
             'password.confirmed' => 'The two passwords do not match.',
-            'address.required' => $this->isHomeOwner() ? 'Enter the address of the home you want to let.' : ($this->isHallOwner() ? 'Enter your hall address.' : ($this->isOrganiser() ? 'Enter your office or home address.' : ($this->isHotel() ? 'Enter your hotel address.' : ($this->isRestaurant() ? 'Enter your restaurant address.' : ($this->isSeller() ? 'Enter your shop address.' : 'Enter your work address.'))))),
+            'address.required' => $this->isHomeOwner() ? 'Enter the address of the property.' : ($this->isHallOwner() ? 'Enter your hall address.' : ($this->isOrganiser() ? 'Enter your office or home address.' : ($this->isHotel() ? 'Enter your hotel address.' : ($this->isRestaurant() ? 'Enter your restaurant address.' : ($this->isSeller() ? 'Enter your shop address.' : 'Enter your work address.'))))),
             'storeName.required' => $this->isHallOwner() ? 'Enter your hall name.' : ($this->isOrganiser() ? 'Enter your organiser or company name.' : ($this->isHotel() ? 'Enter your hotel name.' : ($this->isRestaurant() ? 'Enter your restaurant name.' : 'Enter your shop name.'))),
             'hotelType.required' => 'Choose the kind of stay you run.',
             'hotelType.in' => 'Choose the kind of stay you run.',
@@ -835,6 +835,6 @@ class Register extends Component
             'docsAtSignup' => SiteControls::documentsAtSignup($this->partnerRole),
             'serviceCategories' => $servicesStep === 'hidden' ? collect() : $this->offerableCategories(),
         ])
-            ->layout('components.layouts.provider', ['title' => $this->isRider() ? 'Become a delivery rider' : ($this->isHomeOwner() ? 'List your home for rent' : ($this->isHallOwner() ? 'List your function hall' : ($this->isOrganiser() ? 'Sell tickets for your events' : ($this->isHotel() ? 'List your hotel' : ($this->isRestaurant() ? 'Add your restaurant' : ($this->isSeller() ? 'Open your shop' : 'Become a partner'))))))]);
+            ->layout('components.layouts.provider', ['title' => $this->isRider() ? 'Become a delivery rider' : ($this->isHomeOwner() ? 'List your property for rent' : ($this->isHallOwner() ? 'List your function hall' : ($this->isOrganiser() ? 'Sell tickets for your events' : ($this->isHotel() ? 'List your hotel' : ($this->isRestaurant() ? 'Add your restaurant' : ($this->isSeller() ? 'Open your shop' : 'Become a partner'))))))]);
     }
 }

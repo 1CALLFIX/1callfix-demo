@@ -32,7 +32,7 @@ class Dashboard extends Component
         $min = (int) \App\Support\HomeSettings::get('homes.min_photos', $home->scope());
 
         return [
-            ['label' => 'Kind of home, size, furnishing and who you rent to', 'done' => filled($home->home_type) && filled($home->size) && filled($home->furnishing) && ! empty($home->tenants)],
+            ['label' => 'Kind of property, size, furnishing and who you rent to', 'done' => filled($home->home_type) && (filled($home->size) || \App\Support\HomeSettings::isCommercial($home->home_type, $home->scope())) && filled($home->furnishing) && ! empty($home->tenants)],
             ['label' => 'Rent per month and when it is ready', 'done' => (float) $home->rent > 0 && $home->available_from !== null],
             ['label' => 'Area and address', 'done' => $home->zone_id !== null && filled($home->address_line)],
             ['label' => "Main photo and at least {$min} more", 'done' => $home->cover_image !== null && count((array) $home->photos) >= $min],

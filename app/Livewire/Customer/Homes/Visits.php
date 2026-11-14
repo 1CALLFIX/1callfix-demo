@@ -8,7 +8,7 @@ use App\Support\SiteText;
 use Livewire\Component;
 
 /**
- * Houses for rent — My home visits (signed in): each visit asked for, with where it stands. Once the owner accepts:
+ * Property for rent — My home visits (signed in): each visit asked for, with where it stands. Once the owner accepts:
  * the exact address, directions and the owner's number. Cancel while waiting or accepted.
  */
 class Visits extends Component

@@ -7,7 +7,7 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 /**
- * Houses for rent (owner 2026-11-14): a flat, house, portion, room or PG an owner lets by the month. Owned by a
+ * Property for rent (owner 2026-11-14): a flat, house, portion, room or PG an owner lets by the month. Owned by a
  * Provider account (the one partner sign-in, documents and approval every partner uses).
  *
  * Status: draft → in_review → approved | rejected ("Needs changes", editable again). Once approved, rent, deposit,

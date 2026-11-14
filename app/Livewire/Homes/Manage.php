@@ -13,7 +13,7 @@ use Livewire\Component;
 use Livewire\WithPagination;
 
 /**
- * Admin → Rental → Houses for rent (owner 2026-11-14). The team approves every home before customers see it, and every
+ * Admin → Rental → Property for rent (owner 2026-11-14). The team approves every home before customers see it, and every
  * change to a live home's photos, description, landmark or address. Approve / Send back (with a reason the owner sees)
  * / Feature / Switch off. A "Visits" tab shows visit requests (read only). Row scope: `homes.manage` on the home's own
  * zone / franchise / city / country.
@@ -33,7 +33,7 @@ class Manage extends Component
 
     public function mount(): void
     {
-        abort_unless(auth()->user()->hasPermissionAnywhere('homes.manage'), 403, 'You do not have permission to manage houses for rent.');
+        abort_unless(auth()->user()->hasPermissionAnywhere('homes.manage'), 403, 'You do not have permission to manage property for rent.');
     }
 
     public function updatingStatusFilter(): void
@@ -160,6 +160,6 @@ class Manage extends Component
                 ->orderByRaw("status = 'in_review' desc")->latest('id')->paginate(20);
         }
 
-        return view('livewire.homes.manage', $data)->layout('layouts.admin', ['title' => 'Houses for rent']);
+        return view('livewire.homes.manage', $data)->layout('layouts.admin', ['title' => 'Property for rent']);
     }
 }

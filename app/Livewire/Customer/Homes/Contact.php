@@ -12,7 +12,7 @@ use Livewire\Attributes\Locked;
 use Livewire\Component;
 
 /**
- * Houses for rent — the home page's contact panel, loaded on its own request (the page itself is cached): the rent,
+ * Property for rent — the home page's contact panel, loaded on its own request (the page itself is cached): the rent,
  * "Ask for a visit" (tap a day and a time from Rental Settings, who you are, a short message) and "Show owner's
  * number" when Rental Settings allows it. Signed out: one button to sign in and come back.
  */
@@ -111,7 +111,7 @@ class Contact extends Component
             'deposit' => $home->deposit ? $symbol.number_format((float) $home->deposit) : null,
             'days' => $days,
             'slots' => HomeSettings::listIn('homes.visit_slots', $scope),
-            'tenantChoices' => (array) ($home->tenants ?: HomeSettings::listIn('homes.tenants', $scope)),
+            'tenantChoices' => (array) ($home->tenants ?: HomeSettings::listIn(HomeSettings::isCommercial($home->home_type, $scope) ? 'homes.business_tenants' : 'homes.tenants', $scope)),
             'phoneAllowed' => HomeSettings::on('homes.show_owner_phone', $scope),
             'openVisit' => $open,
             'own' => $user && $home->provider?->user_id === $user->id,

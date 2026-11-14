@@ -13,7 +13,7 @@ use Livewire\Attributes\Url;
 use Livewire\Component;
 
 /**
- * Houses for rent — /{city}/homes: every home for rent in the city. Tap filters (kind, size, budget, furnishing, who can
+ * Property for rent — /{city}/homes: every home for rent in the city. Tap filters (kind, size, budget, furnishing, who can
  * rent, area) come from Rental Settings for this city, so each city shows its own sizes and budget steps. Featured
  * first, then the newest; or cheapest first.
  */
@@ -91,10 +91,10 @@ class Home extends Component
             'city' => $city,
             'homes' => $homes,
             'cards' => $homes->mapWithKeys(fn (HouseListing $h) => [$h->id => self::card($h, $city->slug)]),
-            'types' => HomeSettings::listIn('homes.types', $scope),
+            'types' => HomeSettings::allTypes($scope),
             'sizes' => HomeSettings::listIn('homes.sizes', $scope),
             'furnishings' => HomeSettings::listIn('homes.furnishing', $scope),
-            'tenantChoices' => HomeSettings::listIn('homes.tenants', $scope),
+            'tenantChoices' => array_values(array_unique(array_merge(HomeSettings::listIn('homes.tenants', $scope), HomeSettings::listIn('homes.business_tenants', $scope)))),
             'budgets' => collect(HomeSettings::numbersIn('homes.budget_steps', $scope))->mapWithKeys(fn ($b) => [(string) $b => SiteText::get('homes.filter.up_to', ['price' => $symbol.number_format($b)])])->all(),
             'areas' => Zone::whereIn('id', $areaIds)->orderBy('name')->pluck('name', 'id'),
             'filtered' => ($this->type.$this->size.$this->budget.$this->furnishing.$this->tenant.$this->area) !== '',

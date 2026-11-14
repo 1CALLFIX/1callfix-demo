@@ -4,7 +4,7 @@ namespace App\Support;
 
 /**
  * Admin → Rental Settings: which kinds of rental are offered (RentalKinds), then every Function hall setting
- * (HallSettings) and every Houses for rent setting (HomeSettings). One page, one audit log, same scopes (global → franchise → zone) as Shop / Hotel / Event Settings.
+ * (HallSettings) and every Property for rent setting (HomeSettings). One page, one audit log, same scopes (global → franchise → zone) as Shop / Hotel / Event Settings.
  */
 class RentalSettings extends HallSettings
 {
@@ -14,7 +14,7 @@ class RentalSettings extends HallSettings
             'help' => 'Halls for weddings, receptions and parties. Customers see it where Rental is on (Admin → Modules) and this is on.',
         ],
         'rental.kind.properties' => [
-            'group' => 'Rental kinds', 'label' => 'Houses for rent (monthly)', 'type' => 'switch', 'default' => '1',
+            'group' => 'Rental kinds', 'label' => 'Property for rent (monthly)', 'type' => 'switch', 'default' => '1',
             'help' => 'Flats, houses, portions, rooms and PGs let by the month. Nightly stays are Hotels.',
         ],
         'rental.kind.vehicles' => [

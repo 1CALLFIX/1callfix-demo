@@ -156,15 +156,18 @@ class HomeEditor extends Component
         $scope = $this->scope();
         $home = $this->home();
 
+        $business = HomeSettings::isCommercial($this->homeType, $scope);
+
         return [
-            'homeType' => ['required', Rule::in($this->choices('homes.types', [(string) $home?->home_type]))],
-            'size' => ['required', Rule::in($this->choices('homes.sizes', [(string) $home?->size]))],
+            'homeType' => ['required', Rule::in(array_merge($this->choices('homes.types', [(string) $home?->home_type]), HomeSettings::listIn('homes.commercial_types', $scope)))],
+            // A business kind (shop, office...) has no BHK size.
+            'size' => [$business ? 'nullable' : 'required', Rule::in($this->choices('homes.sizes', [(string) $home?->size]))],
             'area' => ['nullable', 'integer', 'min:10', 'max:1000000'],
             'floor' => ['nullable', Rule::in($this->choices('homes.floors', [(string) $home?->floor]))],
             'facing' => ['nullable', Rule::in($this->choices('homes.facing', [(string) $home?->facing]))],
             'furnishing' => ['required', Rule::in($this->choices('homes.furnishing', [(string) $home?->furnishing]))],
             'tenants' => ['required', 'array', 'min:1'],
-            'tenants.*' => [Rule::in($this->choices('homes.tenants', (array) ($home?->tenants ?? [])))],
+            'tenants.*' => [Rule::in($this->choices($business ? 'homes.business_tenants' : 'homes.tenants', (array) ($home?->tenants ?? [])))],
             'rent' => ['required', 'numeric', 'min:'.(int) HomeSettings::get('homes.min_rent', $scope), 'max:'.(int) HomeSettings::get('homes.max_rent', $scope)],
             'deposit' => ['nullable', 'numeric', 'min:0', 'max:100000000'],
             'maintenance' => ['nullable', 'numeric', 'min:0', 'max:1000000'],
@@ -208,7 +211,7 @@ class HomeEditor extends Component
         $this->reset('notice');
         $existing = $this->home();
         if ($existing?->status === 'in_review') {
-            $this->addError('home', 'We are checking this home. You can change it again once we reply.');
+            $this->addError('home', 'We are checking this property. You can change it again once we reply.');
 
             return null;
         }
@@ -236,10 +239,11 @@ class HomeEditor extends Component
             'lng' => $this->lng !== '' ? round((float) $this->lng, 7) : null,
             'photos' => array_values($photos),
         ] + ($cover ? ['cover_image' => $cover] : []);
+        $size = HomeSettings::isCommercial($this->homeType, $this->scope()) ? null : ($this->size ?: null);
         $now = [
-            'title' => HouseListing::makeTitle($this->size, $this->homeType, $zone?->name),
+            'title' => HouseListing::makeTitle($size, $this->homeType, $zone?->name),
             'home_type' => $this->homeType,
-            'size' => $this->size,
+            'size' => $size,
             'area' => $this->area !== '' ? (int) $this->area : null,
             'floor' => $this->floor ?: null,
             'facing' => $this->facing ?: null,
@@ -334,8 +338,9 @@ class HomeEditor extends Component
     public static function submitProblems(HouseListing $home): array
     {
         $problems = [];
-        if (! filled($home->home_type) || ! filled($home->size) || ! filled($home->furnishing)) {
-            $problems[] = 'Tap the kind of home, its size and furnishing.';
+        $business = HomeSettings::isCommercial($home->home_type, $home->scope());
+        if (! filled($home->home_type) || (! $business && ! filled($home->size)) || ! filled($home->furnishing)) {
+            $problems[] = $business ? 'Tap the kind of property and furnishing.' : 'Tap the kind of property, its size and furnishing.';
         }
         if (! $home->rent || (float) $home->rent <= 0) {
             $problems[] = 'Enter the rent per month.';
@@ -354,7 +359,7 @@ class HomeEditor extends Component
         return $problems;
     }
 
-    /** Approved homes: rented (hidden), still available (shown again for another period), switch off / on. */
+    /** Approved listings: rented (hidden), still available (shown again for another period), switch off / on. */
     public function markRented(): void
     {
         $home = $this->home();
@@ -374,7 +379,7 @@ class HomeEditor extends Component
         }
         $home->update(['rented_at' => null, 'is_active' => true, 'expires_at' => now()->addDays((int) HomeSettings::get('homes.listing_days', $home->scope()))]);
         ActivityLogger::logModel(auth()->user(), $home, 'Home shown again: still available (Rental portal)');
-        $this->notice = 'Customers see your home again until '.$home->expires_at->format('j M Y').'.';
+        $this->notice = 'Customers see your property again until '.$home->expires_at->format('j M Y').'.';
     }
 
     public function withdrawChanges(): void
@@ -398,12 +403,14 @@ class HomeEditor extends Component
         return view('livewire.venue.home-editor', [
             'home' => $home,
             'editable' => $home === null || $home->status !== 'in_review',
-            'types' => $this->choices('homes.types', [$this->homeType]),
+            'types' => array_values(array_diff($this->choices('homes.types', [$this->homeType]), HomeSettings::listIn('homes.commercial_types', $scope))),
+            'businessTypes' => HomeSettings::listIn('homes.commercial_types', $scope),
+            'business' => HomeSettings::isCommercial($this->homeType, $scope),
             'sizes' => $this->choices('homes.sizes', [$this->size]),
             'floors' => $this->choices('homes.floors', [$this->floor]),
             'facings' => $this->choices('homes.facing', [$this->facing]),
             'furnishings' => $this->choices('homes.furnishing', [$this->furnishing]),
-            'tenantChoices' => $this->choices('homes.tenants', $this->tenants),
+            'tenantChoices' => $this->choices(HomeSettings::isCommercial($this->homeType, $scope) ? 'homes.business_tenants' : 'homes.tenants', $this->tenants),
             'ruleChoices' => $this->choices('homes.rules', $this->ruleList),
             'amenityGroups' => HomeSettings::amenityGroups($scope),
             'depositMonths' => HomeSettings::numbersIn('homes.deposit_months', $scope),

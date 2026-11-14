@@ -223,8 +223,8 @@ Route::middleware(['auth', \App\Http\Middleware\EnsureAccountNotSuspended::class
     // Function halls R2 (2026-11-13): book a hall, the booking page, My hall bookings.
     Route::get('/halls/book', \App\Livewire\Customer\Halls\Book::class)->name('customer.halls.book');
     Route::get('/halls/bookings', \App\Livewire\Customer\Halls\Bookings::class)->name('customer.halls.bookings');
-    // Houses for rent (2026-11-14): My home visits.
-    Route::get('/homes/visits', \App\Livewire\Customer\Homes\Visits::class)->name('customer.homes.visits');
+    // Property for rent (2026-11-14): My home visits.
+    Route::get('/property/visits', \App\Livewire\Customer\Homes\Visits::class)->name('customer.homes.visits');
     Route::get('/halls/bookings/{code}', \App\Livewire\Customer\Halls\Booking::class)->where('code', '[A-Za-z0-9-]+')->name('customer.halls.booking');
 
     // E-commerce Phase 2: the shop bag, checkout (one shop per order) and the customer's shop orders. Browsing is
@@ -369,7 +369,7 @@ Route::middleware(['auth', \App\Http\Middleware\EnsureIsHallOwner::class, \App\H
         Route::get('/halls/{hallId}', \App\Livewire\Venue\HallEditor::class)->whereNumber('hallId')->name('venue.halls.edit');
         Route::get('/dates', \App\Livewire\Venue\Dates::class)->name('venue.dates');
         Route::get('/bookings', \App\Livewire\Venue\Bookings::class)->name('venue.bookings');
-        // Houses for rent (2026-11-14): the same Rental portal.
+        // Property for rent (2026-11-14): the same Rental portal.
         Route::get('/homes/new', \App\Livewire\Venue\HomeEditor::class)->name('venue.homes.create');
         Route::get('/homes/{listingId}', \App\Livewire\Venue\HomeEditor::class)->whereNumber('listingId')->name('venue.homes.edit');
         Route::get('/visits', \App\Livewire\Venue\Visits::class)->name('venue.visits');
@@ -481,9 +481,9 @@ Route::get('/{city}/events', \App\Livewire\Customer\Events\Home::class)->where('
 Route::get('/{city}/events/{eventSlug}', \App\Livewire\Customer\Events\Show::class)->where(['city' => $cityPattern, 'eventSlug' => '[A-Za-z0-9_-]+'])->middleware('page.cache')->name('customer.events.show');
 // One Rental (2026-11-14): /{city}/rentals, every kind of rental live in the city (Rental Settings).
 Route::get('/{city}/rentals', \App\Livewire\Customer\Rentals\Home::class)->where('city', $cityPattern)->middleware('page.cache')->name('customer.rentals.home');
-// Houses for rent (2026-11-14): /{city}/homes and /{city}/homes/{home}. 404 while Rental or "Houses for rent" is off there.
-Route::get('/{city}/homes', \App\Livewire\Customer\Homes\Home::class)->where('city', $cityPattern)->middleware('page.cache')->name('customer.homes.home');
-Route::get('/{city}/homes/{homeSlug}', \App\Livewire\Customer\Homes\Show::class)->where(['city' => $cityPattern, 'homeSlug' => '[A-Za-z0-9_-]+'])->middleware('page.cache')->name('customer.homes.show');
+// Property for rent (2026-11-14): /{city}/homes and /{city}/homes/{home}. 404 while Rental or "Property for rent" is off there.
+Route::get('/{city}/property', \App\Livewire\Customer\Homes\Home::class)->where('city', $cityPattern)->middleware('page.cache')->name('customer.homes.home');
+Route::get('/{city}/property/{homeSlug}', \App\Livewire\Customer\Homes\Show::class)->where(['city' => $cityPattern, 'homeSlug' => '[A-Za-z0-9_-]+'])->middleware('page.cache')->name('customer.homes.show');
 // Function halls R2 (2026-11-13): /{city}/halls and /{city}/halls/{hall}. 404 while Function Halls is off for that city.
 Route::get('/{city}/halls', \App\Livewire\Customer\Halls\Home::class)->where('city', $cityPattern)->middleware('page.cache')->name('customer.halls.home');
 Route::get('/{city}/halls/{hallSlug}', \App\Livewire\Customer\Halls\Show::class)->where(['city' => $cityPattern, 'hallSlug' => '[A-Za-z0-9_-]+'])->middleware('page.cache')->name('customer.halls.show');

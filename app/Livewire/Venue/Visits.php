@@ -10,7 +10,7 @@ use Livewire\Attributes\Url;
 use Livewire\Component;
 
 /**
- * Rental portal → Visits (houses for rent): people who want to see the owner's homes. New requests first with a big
+ * Rental portal → Visits (property for rent): people who want to see the owner's homes. New requests first with a big
  * Accept (optional note, e.g. "come at 5 PM") and Say no (tap a reason or type one). Accepted visits show the
  * customer's name and number. Never another owner's request (404).
  */

@@ -11,7 +11,7 @@ use App\Services\ActivityLogger;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Houses for rent (owner 2026-11-14) — a house owner joins through /partners → the one partner sign-up (mobile code,
+ * Property for rent (owner 2026-11-14) — a property owner joins through /partners → the one partner sign-up (mobile code,
  * documents, admin approval), like a hall owner. Result: the existing Provider account tier plus one HouseListing as a
  * draft for the address given. The owner taps rent, size, facilities and adds photos in the Rental portal, then sends
  * it for review. Starting points: a new number, a customer account, or an account that is already a partner (a hall
@@ -75,7 +75,7 @@ class RegisterHomeOwnerAction
                 'is_active' => false,
             ]);
 
-            ActivityLogger::logModel($provider->user, $listing, 'House owner applied (partner sign-up); home is a draft until sent for review', array_filter([
+            ActivityLogger::logModel($provider->user, $listing, 'Property owner applied (partner sign-up); home is a draft until sent for review', array_filter([
                 'address' => $registration['address'] ?? null,
                 'out_of_coverage' => ($registration['out_of_coverage'] ?? false) ?: null,
             ]));

@@ -4,7 +4,7 @@
 
 @php
     $platformName = \App\Models\Setting::get('branding.platform_name', '1CallFix');
-    // One Rental portal (2026-11-14): function halls and houses for rent, same app-style bottom bar as the hotel and
+    // One Rental portal (2026-11-14): function halls and property for rent, same app-style bottom bar as the hotel and
     // organiser portals. Each section shows only for what this owner lists.
     $u = auth()->user();
     $hasHalls = (bool) $u?->holdsPartnerRole('halls');

@@ -74,8 +74,8 @@ class TestAccountsCommand extends Command
         'organiser' => ['Test Organiser', 'provider', null, null, '6000000113'],
         // Function halls R1 (2026-11-13): a hall owner is a provider account that owns an approved Hall (partner sign-in → /venue).
         'hall' => ['Test Hall Owner', 'provider', null, null, '6000000114'],
-        // Houses for rent (2026-11-14): a house owner is a provider account that owns approved HouseListings (→ /venue Rental portal).
-        'homeowner' => ['Test House Owner', 'provider', null, null, '6000000115'],
+        // Property for rent (2026-11-14): a property owner is a provider account that owns approved HouseListings (→ /venue Rental portal).
+        'homeowner' => ['Test Property Owner', 'provider', null, null, '6000000115'],
     ];
 
     /** A placeholder FSSAI number for the test restaurant only (hidden from the public like every test shop). */
@@ -243,7 +243,7 @@ class TestAccountsCommand extends Command
                     ]);
                 }
 
-                return [$key, $email, $roleSlug ? "{$roleSlug} @ {$scopeType} #{$scopeIds[$scopeType]}" : ($key === 'rider' ? 'parcel + shop rider (approved)' : ($key === 'seller' ? 'seller, shop approved' : ($key === 'restaurant' ? 'restaurant, approved' : ($key === 'hotel' ? 'hotel, approved' : ($key === 'organiser' ? 'event organiser, approved, 1 event in review' : ($key === 'hall' ? 'one approved test hall of every kind' : ($key === 'homeowner' ? 'four approved test homes for rent' : $userRole)))))))];
+                return [$key, $email, $roleSlug ? "{$roleSlug} @ {$scopeType} #{$scopeIds[$scopeType]}" : ($key === 'rider' ? 'parcel + shop rider (approved)' : ($key === 'seller' ? 'seller, shop approved' : ($key === 'restaurant' ? 'restaurant, approved' : ($key === 'hotel' ? 'hotel, approved' : ($key === 'organiser' ? 'event organiser, approved, 1 event in review' : ($key === 'hall' ? 'one approved test hall of every kind' : ($key === 'homeowner' ? 'five approved test properties for rent (4 homes + a shop)' : $userRole)))))))];
             });
         }
 
@@ -526,7 +526,7 @@ class TestAccountsCommand extends Command
     }
 
     /**
-     * Houses for rent: the test house owner with four approved, live test homes (flat, house, room, PG), each with its own
+     * Property for rent: the test property owner with four approved, live test homes (flat, house, room, PG), each with its own
      * photos, rent, deposit, facilities and rules, so the whole walk-through (browse, filter, ask to visit, owner accepts)
      * can be done. Re-running create resets them; other homes are left alone.
      */
@@ -540,6 +540,9 @@ class TestAccountsCommand extends Command
             'photo-1522708323590-d24dbb6b0267', ['photo-1505693416388-ac5ce068fe85', 'photo-1556912173-3bb406ef7e77', 'photo-1584622781564-1d987f7333c1']],
         ['1 BHK', 'PG / hostel', 6500, 1, 'Fully furnished', ['Bachelor women', 'Working professionals'],
             'photo-1555854877-bab0e564b8d5', ['photo-1540518614846-7eded433c457', 'photo-1556909172-54557c7e4fb7', 'photo-1600566752355-35792bedcfea']],
+        // Owner 2026-11-14: shops, offices and buildings too (a business kind: no BHK size).
+        [null, 'Shop', 25000, 3, 'Unfurnished', ['Retail shop', 'Any business'],
+            'photo-1441986300917-64674bd600d8', ['photo-1604719312566-8912e9227c6a', 'photo-1556740758-90de374c12ad', 'photo-1534452203293-494d7ddbf7e0']],
     ];
 
     private function makeTestHomes(User $user, Franchise $franchise, Zone $zone): void
@@ -555,8 +558,8 @@ class TestAccountsCommand extends Command
             $home->fill([
                 'franchise_id' => $franchise->id, 'zone_id' => $zone->id, 'title' => $title,
                 'slug' => $home->slug ?: \App\Models\HouseListing::uniqueSlug($title),
-                'area' => ['1 RK' => 180, '1 BHK' => 550, '2 BHK' => 1050, '3 BHK' => 1600][$size] ?? null,
-                'floor' => $kind === 'Independent house' ? 'Whole building' : '1st floor', 'facing' => 'East',
+                'area' => ['1 RK' => 180, '1 BHK' => 550, '2 BHK' => 1050, '3 BHK' => 1600][$size ?? ''] ?? 350,
+                'floor' => $kind === 'Independent house' ? 'Whole building' : ($kind === 'Shop' ? 'Ground floor' : '1st floor'), 'facing' => 'East',
                 'furnishing' => $furnishing, 'tenants' => $tenants,
                 'rent' => $rent, 'deposit' => $rent * $months, 'maintenance' => $kind === 'Flat / apartment' ? 1500 : null,
                 'available_from' => now()->toDateString(),

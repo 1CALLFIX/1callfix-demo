@@ -670,7 +670,7 @@ class HallBookingTest extends TestCase
     public function test_switching_function_halls_off_in_rental_settings_hides_and_stops_them(): void
     {
         Setting::set('rental.kind.halls', '0');
-        $this->get(route('customer.rentals.home', $this->city->slug))->assertOk()->assertDontSee('data-kind="halls"', false); // Houses for rent is still on
+        $this->get(route('customer.rentals.home', $this->city->slug))->assertOk()->assertDontSee('data-kind="halls"', false); // Property for rent is still on
         Setting::set('rental.kind.properties', '0');
         $this->get(route('customer.rentals.home', $this->city->slug))->assertNotFound();
         $this->get(route('customer.halls.home', $this->city->slug))->assertNotFound();

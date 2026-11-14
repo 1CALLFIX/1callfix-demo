@@ -5,7 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Str;
 
-/** Houses for rent: a customer asks to see a home on a day and time; the owner accepts or declines. */
+/** Property for rent: a customer asks to see a home on a day and time; the owner accepts or declines. */
 class HouseVisit extends Model
 {
     public const STATUS_LABELS = [

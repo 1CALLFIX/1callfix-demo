@@ -5,7 +5,7 @@ namespace App\Console\Commands;
 use App\Services\Homes\HouseListingService;
 use Illuminate\Console\Command;
 
-/** Houses for rent — daily: visit requests the owner did not answer by the visit day close as "No reply in time". */
+/** Property for rent — daily: visit requests the owner did not answer by the visit day close as "No reply in time". */
 class HomesTidy extends Command
 {
     protected $signature = 'homes:tidy';

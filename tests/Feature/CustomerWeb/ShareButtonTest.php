@@ -23,7 +23,7 @@ class ShareButtonTest extends TestCase
         'membership/account', 'parcel/index', 'parcel/show',
         'shop/bag', 'shop/checkout', 'shop/order-show', 'shop/orders',
         'hotels/book', 'hotels/booking',
-        'events/book', 'events/order', 'events/tickets', 'halls/book', 'halls/booking', 'halls/bookings', 'homes/visits',
+        'events/book', 'events/order', 'events/tickets', 'halls/book', 'halls/booking', 'halls/bookings', 'homes/visits', 'property/visits',
         'checkout', 'home', 'search',
     ];
 

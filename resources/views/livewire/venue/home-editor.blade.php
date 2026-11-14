@@ -1,5 +1,5 @@
 <?php
-    // Houses for rent (owner 2026-11-14): six numbered, coloured steps; taps from Rental Settings lists for this area;
+    // Property for rent (owner 2026-11-14): six numbered, coloured steps; taps from Rental Settings lists for this area;
     // the owner types only the rent, the size, a landmark and the address. One big Save bar at the bottom.
     $inp = 'mt-1.5 block min-h-12 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-base focus:outline focus:outline-2 focus:outline-blue-600';
     $chip = 'inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-full border-2 px-4 text-sm font-medium transition';
@@ -16,7 +16,7 @@
     <a href="{{ route('venue.dashboard') }}" wire:navigate class="text-sm text-slate-600 hover:text-slate-900">&larr; Home</a>
 
     <div class="flex flex-wrap items-center justify-between gap-2">
-        <h1 class="text-2xl font-bold tracking-tight">{{ $home ? $home->title : 'Add your home for rent' }}</h1>
+        <h1 class="text-2xl font-bold tracking-tight">{{ $home ? $home->title : 'Add your property for rent' }}</h1>
         @if ($home)
             <span @class(['rounded-full px-3 py-1 text-sm font-semibold',
                 'bg-emerald-100 text-emerald-800' => $home->status === 'approved', 'bg-amber-100 text-amber-800' => $home->status === 'in_review',
@@ -30,7 +30,7 @@
             <p class="mt-1">{{ $home->rejection_reason }}</p>
         </div>
     @elseif ($home?->status === 'in_review')
-        <div role="status" class="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">⏳ We are checking your home. You can change it again once we reply, usually within a day.</div>
+        <div role="status" class="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">⏳ We are checking your property. You can change it again once we reply, usually within a day.</div>
     @elseif ($home?->status === 'approved')
         <div class="space-y-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900" data-testid="home-live-box">
             @if ($home->rented_at)
@@ -38,11 +38,11 @@
             @elseif ($home->expires_at && $home->expires_at->isPast())
                 <p>⏰ Hidden since {{ $home->expires_at->format('j M Y') }}. Is it still free? Tap "Still available".</p>
             @else
-                <p>✅ Customers see your home{{ $home->expires_at ? ' until '.$home->expires_at->format('j M Y') : '' }}. Rent and details change at once; new photos, description or address show after we check them.</p>
+                <p>✅ Customers see your property{{ $home->expires_at ? ' until '.$home->expires_at->format('j M Y') : '' }}. Rent and details change at once; new photos, description or address show after we check them.</p>
             @endif
             <div class="flex flex-wrap gap-2">
                 @if (! $home->rented_at)
-                    <button type="button" wire:click="markRented" wire:confirm="Mark this home as rented? Customers will stop seeing it." class="min-h-11 rounded-xl border border-emerald-300 bg-white px-4 font-semibold text-emerald-800" data-testid="home-rented">🔑 Rented out</button>
+                    <button type="button" wire:click="markRented" wire:confirm="Mark this property as rented? Customers will stop seeing it." class="min-h-11 rounded-xl border border-emerald-300 bg-white px-4 font-semibold text-emerald-800" data-testid="home-rented">🔑 Rented out</button>
                 @endif
                 <button type="button" wire:click="stillAvailable" class="min-h-11 rounded-xl bg-emerald-600 px-4 font-semibold text-white" data-testid="home-available">{{ $home->rented_at ? 'Available again' : 'Still available' }}</button>
             </div>
@@ -63,19 +63,30 @@
     <fieldset @disabled(! $editable) class="space-y-5">
         {{-- 1. The home --}}
         <section class="space-y-4 rounded-2xl border-2 border-blue-100 bg-white p-4 sm:p-6">
-            <div class="flex items-center gap-3"><span class="{{ $step('bg-blue-600') }}">1</span><h2 class="text-lg font-semibold">Your home</h2></div>
+            <div class="flex items-center gap-3"><span class="{{ $step('bg-blue-600') }}">1</span><h2 class="text-lg font-semibold">Your property</h2></div>
             <div>
-                <p class="text-sm font-medium text-slate-900">What kind of home?</p>
-                <div class="mt-2 flex flex-wrap gap-2" role="radiogroup" aria-label="Kind of home">
+                <p class="text-sm font-medium text-slate-900">What kind of property?</p>
+                <p class="mt-2 text-xs font-semibold uppercase tracking-wide text-blue-700">🏠 To live in</p>
+                <div class="mt-1.5 flex flex-wrap gap-2" role="radiogroup" aria-label="Home to live in">
                     @foreach ($types as $t)
                         <label class="{{ $chip }} border-slate-200 bg-white text-slate-700 has-[:checked]:border-blue-600 has-[:checked]:bg-blue-600 has-[:checked]:text-white">
-                            <input type="radio" wire:model="homeType" value="{{ $t }}" class="sr-only"> {{ $t }}
+                            <input type="radio" wire:model.live="homeType" value="{{ $t }}" class="sr-only"> {{ $t }}
                         </label>
                     @endforeach
                 </div>
+                @if ($businessTypes !== [])
+                    <p class="mt-3 text-xs font-semibold uppercase tracking-wide text-orange-700">🏪 For business</p>
+                    <div class="mt-1.5 flex flex-wrap gap-2" role="radiogroup" aria-label="For business" data-testid="business-kinds">
+                        @foreach ($businessTypes as $t)
+                            <label class="{{ $chip }} border-slate-200 bg-white text-slate-700 has-[:checked]:border-orange-500 has-[:checked]:bg-orange-500 has-[:checked]:text-white">
+                                <input type="radio" wire:model.live="homeType" value="{{ $t }}" class="sr-only"> {{ $t }}
+                            </label>
+                        @endforeach
+                    </div>
+                @endif
                 {!! $err('homeType') !!}
             </div>
-            <div>
+            <div @class(['hidden' => $business])>
                 <p class="text-sm font-medium text-slate-900">Size</p>
                 <div class="mt-2 flex flex-wrap gap-2" role="radiogroup" aria-label="Size">
                     @foreach ($sizes as $t)
@@ -122,7 +133,7 @@
                 </div>
             @endif
             <div>
-                <label for="hm-area" class="block text-sm font-medium text-slate-900">Size of the home <span class="font-normal text-slate-500">({{ $areaUnit }}, optional)</span></label>
+                <label for="hm-area" class="block text-sm font-medium text-slate-900">Floor area <span class="font-normal text-slate-500">({{ $areaUnit }}, optional)</span></label>
                 <input id="hm-area" type="number" inputmode="numeric" min="10" wire:model="area" class="{{ $inp }} max-w-xs">
                 {!! $err('area') !!}
             </div>
@@ -216,7 +227,7 @@
         {{-- 5. Facilities and rules --}}
         <section class="space-y-4 rounded-2xl border-2 border-teal-100 bg-white p-4 sm:p-6">
             <div class="flex items-center gap-3"><span class="{{ $step('bg-teal-600') }}">5</span><h2 class="text-lg font-semibold">Facilities and rules</h2></div>
-            <p class="text-sm font-medium text-slate-900">Tap what your home has</p>
+            <p class="text-sm font-medium text-slate-900">Tap what your property has</p>
             <div class="space-y-3">
                 @foreach ($amenityGroups as $gi => $g)
                     @php [$box, $head, $on] = $tones[$gi % count($tones)]; @endphp
@@ -243,7 +254,7 @@
                 </div>
             </div>
             <div>
-                <label for="hm-about" class="block text-sm font-medium text-slate-900">About the home <span class="font-normal text-slate-500">(a few lines, optional)</span></label>
+                <label for="hm-about" class="block text-sm font-medium text-slate-900">About the property <span class="font-normal text-slate-500">(a few lines, optional)</span></label>
                 <textarea id="hm-about" wire:model="about" rows="3" placeholder="Quiet street, 5 minutes to the bus stand. Water all day." class="mt-1.5 block w-full rounded-xl border border-slate-300 px-3 py-2.5 text-base"></textarea>
                 {!! $err('about') !!}
             </div>
@@ -255,7 +266,7 @@
             <div>
                 <p class="text-sm font-medium text-slate-900">Main photo</p>
                 <?php $coverUrl = \App\Models\HouseListing::imageUrl($home?->pending_changes['cover_image'] ?? $home?->cover_image); ?>
-                @if ($coverUrl) <img src="{{ $coverUrl }}" alt="Home cover" class="mt-2 aspect-[3/2] w-full max-w-md rounded-2xl object-cover"> @endif
+                @if ($coverUrl) <img src="{{ $coverUrl }}" alt="Property cover" class="mt-2 aspect-[3/2] w-full max-w-md rounded-2xl object-cover"> @endif
                 <label class="mt-2 flex min-h-14 cursor-pointer items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-fuchsia-300 bg-fuchsia-50 px-4 text-sm font-semibold text-fuchsia-800">
                     📷 {{ $coverUrl ? 'Change main photo' : 'Add main photo' }}
                     <input type="file" accept="image/jpeg,image/png,image/webp" wire:model="cover" aria-label="Main photo" class="sr-only">
@@ -265,12 +276,12 @@
                 {!! $err('cover') !!}
             </div>
             <div>
-                <p class="text-sm font-medium text-slate-900">More photos <span class="font-normal text-slate-500">(rooms, kitchen, bathroom, outside{{ $minPhotos > 0 ? ': at least '.$minPhotos : '' }})</span></p>
+                <p class="text-sm font-medium text-slate-900">More photos <span class="font-normal text-slate-500">(rooms, kitchen, bathroom, front, outside{{ $minPhotos > 0 ? ': at least '.$minPhotos : '' }})</span></p>
                 @if ($photos !== [])
                     <ul class="mt-2 grid grid-cols-3 gap-2 sm:grid-cols-5">
                         @foreach ($photos as $i => $p)
                             <li class="relative" wire:key="hphoto-{{ $i }}-{{ md5($p) }}">
-                                <img src="{{ \App\Models\HouseListing::imageUrl($p) }}" alt="Home photo {{ $i + 1 }}" class="aspect-square w-full rounded-xl object-cover">
+                                <img src="{{ \App\Models\HouseListing::imageUrl($p) }}" alt="Property photo {{ $i + 1 }}" class="aspect-square w-full rounded-xl object-cover">
                                 <button type="button" wire:click="removePhoto({{ $i }})" class="absolute right-1 top-1 grid h-9 w-9 place-items-center rounded-full bg-white/90 text-red-700 shadow" aria-label="Remove photo {{ $i + 1 }}">&times;</button>
                             </li>
                         @endforeach

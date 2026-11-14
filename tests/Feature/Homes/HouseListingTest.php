@@ -30,8 +30,8 @@ use Tests\Feature\Support\LiveCity;
 use Tests\TestCase;
 
 /**
- * Houses for rent (owner 2026-11-14: "monthly house rent is meant ... each and every page with customizable options
- * controlled by superadmin ... multi terrain, multi city, multi climatic conditions"). A house owner joins through
+ * Property for rent (owner 2026-11-14: "monthly house rent is meant ... each and every page with customizable options
+ * controlled by superadmin ... multi terrain, multi city, multi climatic conditions"). A property owner joins through
  * /partners, finishes the home in the Rental portal and sends it for review; the team approves it; customers in the
  * city browse with tap filters, ask to visit or see the owner's number; the owner accepts and the customer gets the
  * address. Every list is a Rental Setting that a franchise or zone can change.
@@ -110,7 +110,7 @@ class HouseListingTest extends TestCase
         $this->assertNotNull(\App\Support\RentalSettings::validate('homes.deposit_months', "2\nten"));
         Livewire::actingAs($this->makeUserWithNoPermissions())->test(RentalSettingsPage::class)->assertForbidden();
         Livewire::actingAs($this->makeSuperAdmin())->test(RentalSettingsPage::class)->assertOk()
-            ->assertSee('Houses for rent (monthly)')->assertSee('Facilities an owner can tick')->assertSee('Budget buttons for customers')
+            ->assertSee('Property for rent (monthly)')->assertSee('Facilities an owner can tick')->assertSee('Budget buttons for customers')
             ->set('scopeType', 'franchise')->set('scopeFranchiseId', $this->franchise->id)
             ->assertSee('Start from this list and change it here')
             ->call('useInherited', 'homes__sizes')->assertSet('inputs.homes__sizes', HomeSettings::REGISTRY['homes.sizes']['default']);
@@ -121,7 +121,7 @@ class HouseListingTest extends TestCase
     public function test_partner_card_hands_off_only_when_super_admin_takes_house_owners(): void
     {
         $card = fn () => collect(PartnerPageData::roles())->firstWhere('code', 'homes');
-        $this->assertSame('House owner', $card()['label']);
+        $this->assertSame('Property owner', $card()['label']);
         $this->assertSame('Rental', $card()['module']);
         Setting::set('homes.recruiting_owners', '0');
         app(ModuleActivationService::class)->setActive(Modules::RENTAL, 'franchise', $this->franchise->id, false);
@@ -129,7 +129,7 @@ class HouseListingTest extends TestCase
         Setting::set('homes.recruiting_owners', '1');
         $this->assertTrue($card()['hands_off']);
         Setting::set('rental.kind.properties', '0');
-        $this->assertNull($card(), 'Houses for rent off: no House owner card.');
+        $this->assertNull($card(), 'Property for rent off: no Property owner card.');
     }
 
     public function test_owner_signs_up_finishes_the_home_and_sends_it_for_review(): void
@@ -139,7 +139,7 @@ class HouseListingTest extends TestCase
         $owner = $home->provider->user;
         $this->assertTrue($owner->holdsPartnerRole('homes'));
         $this->assertFalse($owner->canApplyAsPartner('homes'));
-        $this->actingAs($owner)->get(route('venue.dashboard'))->assertOk()->assertSee('Houses for rent')->assertSee('Finish your home and send for review');
+        $this->actingAs($owner)->get(route('venue.dashboard'))->assertOk()->assertSee('Property for rent')->assertSee('Finish your property and send for review');
         $this->actingAs($this->customer)->get(route('venue.dashboard'))->assertForbidden();
 
         // Missing photos: kept as a draft with the reason.
@@ -154,6 +154,29 @@ class HouseListingTest extends TestCase
         $this->assertSame('2-bhk-flat-apartment-for-rent-in-nellore-zone', $home->slug);
         $this->assertSame(24000.0, (float) $home->deposit);
         $this->assertSame(['Family'], $home->tenants);
+    }
+
+    /** Owner 2026-11-14: "property for rent ... shops, offices, buildings also". */
+    public function test_a_shop_or_office_needs_no_bhk_size_and_uses_the_business_tenant_list(): void
+    {
+        Storage::fake('public');
+        $home = $this->draft();
+        $page = Livewire::actingAs($home->provider->user)->test(HomeEditor::class, ['listingId' => $home->id])
+            ->assertSee('For business')->assertSee('Office space');
+        $this->photos($page)->set('homeType', 'Shop')->set('furnishing', 'Unfurnished')->set('tenants', ['Family'])
+            ->set('rent', '25000')->set('zoneId', (string) $this->zone->id)->set('addressLine', 'Main Bazaar, Nellore')
+            ->call('save')->assertHasErrors(['tenants.0']);
+        $page->assertSee('Retail shop')->set('tenants', ['Retail shop'])->call('submit')->assertHasNoErrors();
+
+        $home->refresh();
+        $this->assertSame('in_review', $home->status);
+        $this->assertNull($home->size);
+        $this->assertSame('Shop for rent in Nellore Zone', $home->title);
+
+        Livewire::actingAs($this->makeSuperAdmin())->test(HomesManage::class)->call('approve', $home->id);
+        $this->get(route('customer.homes.home', [$this->city->slug, 'type' => 'Shop']))->assertOk()->assertSee('Shop for rent in Nellore Zone');
+        $this->get(route('customer.homes.home', [$this->city->slug, 'for' => 'Retail shop']))->assertSee('Shop for rent in Nellore Zone');
+        $this->assertStringStartsWith(url('/'.$this->city->slug.'/property/'), route('customer.homes.show', [$this->city->slug, $home->slug]));
     }
 
     public function test_rent_out_of_the_settings_range_and_choices_not_on_the_list_are_refused(): void
@@ -209,7 +232,7 @@ class HouseListingTest extends TestCase
         $other->update(['size' => '3 BHK', 'rent' => 30000, 'title' => 'Big house', 'tenants' => ['Bachelor men']]);
 
         $this->get(route('customer.homes.home', $this->city->slug))->assertOk()
-            ->assertSee('Find a home to rent')->assertSee($home->title)->assertSee('Big house')->assertSee('Up to ₹15,000')->assertSee('₹12,000 / month');
+            ->assertSee('Find a property to rent')->assertSee($home->title)->assertSee('Big house')->assertSee('Up to ₹15,000')->assertSee('₹12,000 / month');
         $this->get(route('customer.homes.home', [$this->city->slug, 'budget' => 15000]))->assertSee($home->title)->assertDontSee('Big house');
         $this->get(route('customer.homes.home', [$this->city->slug, 'size' => '3 BHK']))->assertDontSee($home->title)->assertSee('Big house');
         $this->get(route('customer.homes.home', [$this->city->slug, 'for' => 'Family']))->assertSee($home->title)->assertDontSee('Big house');
@@ -298,7 +321,7 @@ class HouseListingTest extends TestCase
             $homes->requestVisit($home->provider->user, $home, $day, $slot, 'Ravi', '9876543210');
             $this->fail('Own home');
         } catch (\RuntimeException $e) {
-            $this->assertStringContainsString('your own home', $e->getMessage());
+            $this->assertStringContainsString('your own property', $e->getMessage());
         }
 
         $visit = $homes->requestVisit($this->customer, $home, $day, $slot, 'Asha', '9876543210');
@@ -375,19 +398,19 @@ class HouseListingTest extends TestCase
     }
 
     /** Owner rule 2026-10-26: every module ships with a test login for a real walk-through. */
-    public function test_test_accounts_make_a_house_owner_with_four_live_homes(): void
+    public function test_test_accounts_make_a_property_owner_with_four_homes_and_a_shop(): void
     {
         $this->artisan('test-accounts', ['action' => 'create', '--password' => 'test-pass-123', '--franchise' => $this->franchise->id])->assertSuccessful();
         $this->artisan('test-accounts', ['action' => 'create', '--password' => 'test-pass-123', '--franchise' => $this->franchise->id])->assertSuccessful();
 
         $owner = User::where('email', 'test.homeowner@1callfix.test')->firstOrFail();
         $homes = HouseListing::whereHas('provider', fn ($q) => $q->where('user_id', $owner->id))->get();
-        $this->assertCount(4, $homes, 'Running it twice never makes duplicates.');
+        $this->assertCount(5, $homes, 'Running it twice never makes duplicates.');
         foreach ($homes as $home) {
             $this->assertTrue($home->isLive());
             $this->assertSame([], HomeEditor::submitProblems($home), $home->title.' is complete.');
         }
-        $this->actingAs($owner)->get(route('venue.dashboard'))->assertOk()->assertSee('Houses for rent');
+        $this->actingAs($owner)->get(route('venue.dashboard'))->assertOk()->assertSee('Property for rent');
 
         $this->artisan('test-accounts', ['action' => 'disable'])->assertSuccessful();
         $this->assertSame(0, HouseListing::whereIn('id', $homes->pluck('id'))->where('is_active', true)->count());

@@ -16,9 +16,9 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Houses for rent (owner 2026-11-14) — who sees what, visit requests and the owner's number. No money moves here.
+ * Property for rent (owner 2026-11-14) — who sees what, visit requests and the owner's number. No money moves here.
  *
- * - A listing shows where Rental is on and "Houses for rent" is on (Rental Settings) for its area, approved, switched
+ * - A listing shows where Rental is on and "Property for rent" is on (Rental Settings) for its area, approved, switched
  *   on, not rented, not expired.
  * - Visits: a signed-in customer picks a day (today up to Rental Settings' days ahead) and a visit time; at most one
  *   open request per home and a daily limit. The owner accepts (optionally with a note, e.g. "come at 5 PM") or says
@@ -75,10 +75,10 @@ class HouseListingService
     {
         $scope = self::scope($listing);
         if (! self::visible($listing)) {
-            throw new \RuntimeException('This home is not taking visits right now.');
+            throw new \RuntimeException('This property is not taking visits right now.');
         }
         if ($listing->provider?->user_id === $customer->id) {
-            throw new \RuntimeException('This is your own home.');
+            throw new \RuntimeException('This is your own property.');
         }
         if (! in_array($slot, HomeSettings::listIn('homes.visit_slots', $scope), true)) {
             throw new \RuntimeException('Choose a visit time.');
@@ -91,7 +91,7 @@ class HouseListingService
         return DB::transaction(function () use ($customer, $listing, $date, $slot, $name, $phone, $tenantType, $message, $scope) {
             User::whereKey($customer->id)->lockForUpdate()->first();
             if (HouseVisit::where('customer_id', $customer->id)->where('house_listing_id', $listing->id)->whereIn('status', HouseVisit::OPEN)->exists()) {
-                throw new \RuntimeException('You already asked to see this home. Open My home visits.');
+                throw new \RuntimeException('You already asked to see this property. Open My property visits.');
             }
             $today = HouseVisit::where('customer_id', $customer->id)->where('created_at', '>=', now()->subDay())->count();
             if ($today >= (int) HomeSettings::get('homes.visits_per_day', $scope)) {
@@ -185,7 +185,7 @@ class HouseListingService
     public function revealPhone(User $customer, HouseListing $listing): string
     {
         if (! self::visible($listing)) {
-            throw new \RuntimeException('This home is not available right now.');
+            throw new \RuntimeException('This property is not available right now.');
         }
         $access = self::phoneAccess($customer, $listing);
         if ($access !== 'ok') {

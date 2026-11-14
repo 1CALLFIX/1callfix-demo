@@ -11,7 +11,7 @@
 
 <div class="mx-auto flex max-w-lg flex-col justify-center px-4 py-12 sm:py-16">
     <div class="text-center">
-        <h1 class="text-2xl font-bold tracking-tight sm:text-3xl">{{ $rider ? 'Become a '.$platformName.' delivery rider' : ($isHomeOwner ? 'Let your home on '.$platformName : ($isHallOwner ? 'List your function hall on '.$platformName : ($isOrganiser ? 'Sell your event tickets on '.$platformName : ($isHotel ? 'List your hotel on '.$platformName : ($seller ? ($isRestaurant ? 'Add your restaurant to ' : 'Open your shop on ').$platformName : 'Become a '.$platformName.' partner'))))) }}</h1>
+        <h1 class="text-2xl font-bold tracking-tight sm:text-3xl">{{ $rider ? 'Become a '.$platformName.' delivery rider' : ($isHomeOwner ? 'List your property on '.$platformName : ($isHallOwner ? 'List your function hall on '.$platformName : ($isOrganiser ? 'Sell your event tickets on '.$platformName : ($isHotel ? 'List your hotel on '.$platformName : ($seller ? ($isRestaurant ? 'Add your restaurant to ' : 'Open your shop on ').$platformName : 'Become a '.$platformName.' partner'))))) }}</h1>
         <p class="mt-2 text-sm text-slate-600">
             @if ($submitted)
                 Thanks — your application is in.
@@ -254,7 +254,7 @@
                 @endif
 
                 <div>
-                    <label for="pr-address" class="block text-sm font-medium text-slate-900">{{ $rider ? 'Where you live / start your day' : ($isHomeOwner ? 'Address of the home you want to let' : ($seller ? ucfirst($place).' address' : 'Work address')) }}</label>
+                    <label for="pr-address" class="block text-sm font-medium text-slate-900">{{ $rider ? 'Where you live / start your day' : ($isHomeOwner ? 'Address of the property' : ($seller ? ucfirst($place).' address' : 'Work address')) }}</label>
                     <textarea id="pr-address" rows="2" wire:model="address" placeholder="{{ $rider ? 'Area / street' : ($seller ? 'Shop number, street, area' : 'Area / street you work from') }}"
                               @class(['mt-1.5 block w-full rounded-lg border px-3 py-2.5 text-base shadow-sm focus:outline focus:outline-2 focus:outline-blue-600',
                                       'border-red-400' => $errors->has('address'), 'border-slate-300' => ! $errors->has('address')])></textarea>
@@ -338,7 +338,7 @@
 
     @unless ($submitted)
         <p class="mt-6 text-center text-sm text-slate-600">
-            {{ $rider ? 'Already a rider?' : ($isHomeOwner ? 'Home already listed?' : ($isHallOwner ? 'Hall already listed?' : ($isOrganiser ? 'Already selling with us?' : ($isHotel ? 'Already listed?' : ($seller ? ($isRestaurant ? 'Already on '.$platformName.'?' : 'Already a seller?') : 'Already a partner?'))))) }}
+            {{ $rider ? 'Already a rider?' : ($isHomeOwner ? 'Property already listed?' : ($isHallOwner ? 'Hall already listed?' : ($isOrganiser ? 'Already selling with us?' : ($isHotel ? 'Already listed?' : ($seller ? ($isRestaurant ? 'Already on '.$platformName.'?' : 'Already a seller?') : 'Already a partner?'))))) }}
             <a href="{{ route($signInRoute) }}" wire:navigate class="font-medium text-slate-900 underline underline-offset-2">Sign in</a>
         </p>
     @endunless

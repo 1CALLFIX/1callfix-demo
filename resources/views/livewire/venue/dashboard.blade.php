@@ -2,7 +2,7 @@
     <x-partner.join-banner class="mb-4" />
     <div>
         <h1 class="text-2xl font-bold tracking-tight">{{ $homes->isEmpty() && $halls->count() === 1 ? $halls->first()->name : 'Your rentals' }}</h1>
-        <p class="mt-1 text-sm text-slate-600">{{ collect([$halls->isNotEmpty() ? 'Function halls' : null, $homes->isNotEmpty() ? 'Houses for rent' : null])->filter()->implode(' · ') }} · {{ $partner->user?->name }}</p>
+        <p class="mt-1 text-sm text-slate-600">{{ collect([$halls->isNotEmpty() ? 'Function halls' : null, $homes->isNotEmpty() ? 'Property for rent' : null])->filter()->implode(' · ') }} · {{ $partner->user?->name }}</p>
     </div>
 
     @if ($halls->contains('status', 'approved') && ! $moduleLive)
@@ -63,11 +63,11 @@
         <a href="{{ route('venue.halls.create') }}" wire:navigate class="flex min-h-11 items-center justify-center rounded-xl border border-dashed border-slate-300 px-4 text-sm font-medium text-slate-700 hover:border-blue-400" data-testid="add-hall">+ Add another hall</a>
     @endif
 
-    {{-- Houses for rent (2026-11-14) --}}
+    {{-- Property for rent (2026-11-14) --}}
     @if ($homes->contains('status', 'approved') && ! $homesLive)
         <div class="rounded-2xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900" data-testid="homes-opening-soon">
             <p class="font-semibold">Approved</p>
-            <p class="mt-1">Houses for rent opens to customers in your city soon. Keep your rent and photos up to date.</p>
+            <p class="mt-1">Property for rent opens to customers in your city soon. Keep your rent and photos up to date.</p>
         </div>
     @endif
     @foreach ($homes as $home)
@@ -97,7 +97,7 @@
             @if ($home->status === 'rejected' && $home->rejection_reason)
                 <p role="alert" class="rounded-xl bg-red-50 px-3 py-2 text-sm text-red-800">{{ $home->rejection_reason }}</p>
             @elseif ($home->status === 'in_review')
-                <p role="status" class="rounded-xl bg-amber-50 px-3 py-2 text-sm text-amber-900">We are checking your home. You will see the result here, usually within a day.</p>
+                <p role="status" class="rounded-xl bg-amber-50 px-3 py-2 text-sm text-amber-900">We are checking your property. You will see the result here, usually within a day.</p>
             @endif
             @if ($home->status !== 'approved')
                 <ul class="space-y-2" aria-label="Before you go live">
@@ -111,11 +111,11 @@
                 </ul>
             @endif
             <a href="{{ route('venue.homes.edit', $home->id) }}" wire:navigate class="flex min-h-11 items-center justify-center rounded-xl {{ $home->isEditable() ? 'bg-blue-600 text-white hover:bg-blue-700' : 'border border-slate-300 text-slate-800 hover:bg-slate-50' }} px-4 text-sm font-semibold">
-                {{ $home->isEditable() ? 'Finish your home and send for review' : 'Open home, rent and photos' }}
+                {{ $home->isEditable() ? 'Finish your property and send for review' : 'Open property, rent and photos' }}
             </a>
         </section>
     @endforeach
     @if ($homes->isNotEmpty())
-        <a href="{{ route('venue.homes.create') }}" wire:navigate class="flex min-h-11 items-center justify-center rounded-xl border border-dashed border-slate-300 px-4 text-sm font-medium text-slate-700 hover:border-blue-400" data-testid="add-home">+ Add another home for rent</a>
+        <a href="{{ route('venue.homes.create') }}" wire:navigate class="flex min-h-11 items-center justify-center rounded-xl border border-dashed border-slate-300 px-4 text-sm font-medium text-slate-700 hover:border-blue-400" data-testid="add-home">+ Add another property for rent</a>
     @endif
 </div>

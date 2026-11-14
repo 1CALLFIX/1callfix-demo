@@ -91,7 +91,7 @@ class User extends Authenticatable
             'events' => ! \App\Models\EventOrganiser::query()->whereHas('provider', fn ($q) => $q->where('user_id', $this->id))->exists(),
             // Function halls R1: one hall through sign-up (more are added in the hall portal).
             'halls' => ! \App\Models\Hall::query()->whereHas('provider', fn ($q) => $q->where('user_id', $this->id))->exists(),
-            // Houses for rent (2026-11-14): the first home through sign-up (more are added in the Rental portal).
+            // Property for rent (2026-11-14): the first home through sign-up (more are added in the Rental portal).
             'homes' => ! \App\Models\HouseListing::query()->whereHas('provider', fn ($q) => $q->where('user_id', $this->id))->exists(),
             default => false,
         };

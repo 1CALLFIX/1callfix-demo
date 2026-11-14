@@ -62,7 +62,7 @@ class Index extends Component
         'rental' => 'Rentals',
         'events' => 'Event organisers',
         'halls' => 'Function halls',
-        'homes' => 'Houses for rent',
+        'homes' => 'Property for rent',
     ];
 
     /** Providers that run this kind of business. A service professional runs no store, stay or rental listing. */

@@ -8,7 +8,7 @@
 
     <div class="mb-4 flex flex-wrap items-center justify-between gap-2">
         <div>
-            <h1 class="mb-1 text-2xl font-bold">Houses for rent</h1>
+            <h1 class="mb-1 text-2xl font-bold">Property for rent</h1>
             <p class="text-sm text-gray-500">Monthly rent. Every home, and every change to a live home's photos, description, landmark or address, is checked by the team before customers see it.</p>
         </div>
         <a href="{{ route('admin.halls.settings') }}#set-houses-for-rent-choices" class="text-sm underline">Rental Settings →</a>
@@ -16,7 +16,7 @@
 
     @if (isset($home))
         <?php $fmt = fn ($v) => $v === null ? '—' : (is_array($v) ? count($v).' photos' : (string) $v); ?>
-        <x-ui.button variant="ghost" wire:click="backToList" class="mb-2">&larr; Back to homes</x-ui.button>
+        <x-ui.button variant="ghost" wire:click="backToList" class="mb-2">&larr; Back to listings</x-ui.button>
         <div class="mb-4 flex flex-wrap items-start justify-between gap-3">
             <div>
                 <h2 class="text-xl font-bold">{{ $home->title }} @if ($home->is_featured) <span class="text-sm text-amber-600">★</span> @endif</h2>
@@ -61,7 +61,7 @@
             </x-ui.card>
         @endif
 
-        @if ($home->coverUrl()) <img src="{{ $home->coverUrl() }}" alt="Home cover" class="mb-2 aspect-video w-full max-w-xl rounded-lg object-cover"> @endif
+        @if ($home->coverUrl()) <img src="{{ $home->coverUrl() }}" alt="Property cover" class="mb-2 aspect-video w-full max-w-xl rounded-lg object-cover"> @endif
         @if ($home->photoUrls())
             <div class="mb-4 flex flex-wrap gap-2">@foreach ($home->photoUrls() as $url) <img src="{{ $url }}" alt="" class="h-20 w-28 rounded object-cover" loading="lazy"> @endforeach</div>
         @endif
@@ -127,7 +127,7 @@
                             <td class="px-4 py-2 text-right"><x-ui.button variant="ghost" wire:click="view({{ $h->id }})">View</x-ui.button></td>
                         </tr>
                     @empty
-                        <tr><td colspan="6" class="px-4 py-6 text-center text-sm text-gray-500">No homes here.</td></tr>
+                        <tr><td colspan="6" class="px-4 py-6 text-center text-sm text-gray-500">Nothing here.</td></tr>
                     @endforelse
                 </tbody>
             </x-ui.table>

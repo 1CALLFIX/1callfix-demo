@@ -10,8 +10,8 @@ use App\Support\RentalKinds;
 use App\Support\Seo\CityModules;
 
 /**
- * Houses for rent — public pages live under the city (/{city}/homes, /{city}/homes/{home}), like halls. The city must be
- * live, Rental on and "Houses for rent" on in Rental Settings; an old city slug 301s with the query string kept.
+ * Property for rent — public pages live under the city (/{city}/homes, /{city}/homes/{home}), like halls. The city must be
+ * live, Rental on and "Property for rent" on in Rental Settings; an old city slug 301s with the query string kept.
  */
 trait InteractsWithHomeCity
 {
