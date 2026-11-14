@@ -157,8 +157,8 @@ class ContactAndFranchisePagesTest extends TestCase
     public function test_the_on_your_own_section_the_two_column_faq_and_the_live_business_count(): void
     {
         $html = $this->get('/franchise')->assertOk()->getContent();
-        $this->assertSame(4, substr_count($html, 'data-franchise-alone-card'));
-        foreach (['Home Repair &amp; Handyman', '₹15–20 Lakhs', '18–24 months', 'data-franchise-alone-total', '₹40–57 Lakhs', 'The risks of starting from scratch'] as $text) {
+        $this->assertSame(7, substr_count($html, 'data-franchise-alone-card'));
+        foreach (['Home Repair &amp; Handyman', '₹15–20 Lakhs', '18–24 months', 'Hotel &amp; Stay Booking', 'Rentals', 'Events &amp; Tickets', 'data-franchise-alone-total', '₹66–96 Lakhs', 'The risks of starting from scratch'] as $text) {
             $this->assertStringContainsString($text, $html);
         }
         $this->assertSame(2, substr_count($html, 'data-faq-column'));

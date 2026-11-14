@@ -20,8 +20,9 @@ Use with `docs/DEPLOY_RUNBOOK.md`.
   the middle. Phones (2 across) and tablets (3 across) as before.
 - /franchise numbers strip: "businesses live on one app" counts every live business (it counted four fixed ones).
 - /franchise: new section "What it costs to start each business on your own" (owner's figures): set-up cost, time
-  to profit and risks for Home Repair, Food Delivery, E-commerce and Parcel Delivery; a total line (₹40–57 Lakhs on
-  your own vs ₹5.5 Lakhs All-in-One); the five risks of starting from scratch; small print that these are estimates.
+  to profit and risks for Home Repair, Food Delivery, E-commerce and Parcel Delivery (owner's slides) plus Hotel &
+  Stay Booking, Rentals and Events & Tickets (owner asked for them; figures are estimates the owner confirmed by
+  deploying, editable); a total line (₹66–96 Lakhs on your own vs ₹5.5 Lakhs All-in-One); the five risks of starting from scratch; small print that these are estimates.
   All on Admin → Franchise page → "What it costs on your own".
 - /franchise: questions in two columns on a computer.
 - NOT added (owner's slides 7 and 10): the "franchise cost" column (₹20 Lakhs / ₹10 Lakhs, different from the plans
@@ -37,7 +38,7 @@ Use with `docs/DEPLOY_RUNBOOK.md`.
 ## Browser checks after deploy
 - Homepage on a computer: business cards include Function halls and Property for rent; every row full (or the short
   last row in the middle).
-- /franchise: numbers strip shows 7 businesses; "on your own" section with four cards and the total line; FAQ in
+- /franchise: numbers strip shows 7 businesses; "on your own" section with seven cards (4 + 3 in the middle) and the total line; FAQ in
   two columns.
 
 ## Admin settings to do after deploy (owner)

@@ -209,11 +209,13 @@
                     <h2 id="fr-alone" class="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">{{ $p['alone_title'] }}</h2>
                     @if ($p['alone_intro'])<p class="mt-3 text-base text-slate-600">{{ $p['alone_intro'] }}</p>@endif
                 </div>
-                @php $aloneLook = [['border-blue-500', 'from-blue-600 to-sky-500', 'text-blue-700'], ['border-rose-500', 'from-rose-600 to-red-500', 'text-rose-700'], ['border-emerald-500', 'from-emerald-600 to-teal-500', 'text-emerald-700'], ['border-violet-500', 'from-violet-600 to-indigo-500', 'text-violet-700'], ['border-amber-500', 'from-amber-500 to-orange-500', 'text-orange-700'], ['border-fuchsia-500', 'from-fuchsia-600 to-pink-500', 'text-fuchsia-700']]; @endphp
-                <ul class="mt-8 grid gap-4 sm:grid-cols-2 {{ [1 => 'lg:grid-cols-1', 2 => 'lg:grid-cols-2', 3 => 'lg:grid-cols-3', 4 => 'lg:grid-cols-4', 6 => 'lg:grid-cols-3'][count($p['alone'])] ?? 'lg:grid-cols-3' }}">
+                @php $aloneLook = [['border-blue-500', 'from-blue-600 to-sky-500', 'text-blue-700'], ['border-rose-500', 'from-rose-600 to-red-500', 'text-rose-700'], ['border-emerald-500', 'from-emerald-600 to-teal-500', 'text-emerald-700'], ['border-violet-500', 'from-violet-600 to-indigo-500', 'text-violet-700'], ['border-amber-500', 'from-amber-500 to-orange-500', 'text-orange-700'], ['border-fuchsia-500', 'from-fuchsia-600 to-pink-500', 'text-fuchsia-700'], ['border-sky-500', 'from-sky-600 to-cyan-500', 'text-sky-700']]; @endphp
+                {{-- Cards keep one size; a short last row sits in the middle (3 across for 3, 6 or 9 cards, otherwise 4). --}}
+                @php $aloneWide = in_array(count($p['alone']), [3, 5, 6, 9], true) ? 'lg:w-[calc((100%-2rem)/3)]' : 'lg:w-[calc((100%-3rem)/4)]'; @endphp
+                <ul class="mt-8 flex flex-wrap justify-center gap-4">
                     @foreach ($p['alone'] as $a)
                         @php [$edge, $grad, $ink] = $aloneLook[$loop->index % count($aloneLook)]; @endphp
-                        <li class="flex flex-col rounded-3xl border-t-4 {{ $edge }} bg-white p-5 shadow-sm ring-1 ring-slate-200" data-franchise-alone-card>
+                        <li class="flex w-full flex-col rounded-3xl border-t-4 {{ $edge }} bg-white p-5 shadow-sm ring-1 ring-slate-200 sm:w-[calc((100%-1rem)/2)] {{ $aloneWide }}" data-franchise-alone-card>
                             <span class="flex items-center gap-3">
                                 <span class="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-gradient-to-br {{ $grad }} text-white shadow"><x-icon :name="$a['icon']" class="h-6 w-6" /></span>
                                 <span class="text-base font-bold leading-tight text-slate-900">{{ $a['name'] }}</span>
