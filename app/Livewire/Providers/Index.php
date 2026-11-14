@@ -62,6 +62,7 @@ class Index extends Component
         'rental' => 'Rentals',
         'events' => 'Event organisers',
         'halls' => 'Function halls',
+        'homes' => 'Houses for rent',
     ];
 
     /** Providers that run this kind of business. A service professional runs no store, stay or rental listing. */
@@ -78,10 +79,12 @@ class Index extends Component
             'rental' => $query->where($rentals),
             'events' => $query->whereIn('id', $listings(\App\Models\EventOrganiser::class)),
             'halls' => $query->whereIn('id', $listings(\App\Models\Hall::class)),
+            'homes' => $query->whereIn('id', $listings(\App\Models\HouseListing::class)),
             'service' => $query->whereDoesntHave('stores')
                 ->whereNotIn('id', $listings(\App\Models\Accommodation::class))
                 ->whereNotIn('id', $listings(\App\Models\EventOrganiser::class))
                 ->whereNotIn('id', $listings(\App\Models\Hall::class))
+                ->whereNotIn('id', $listings(\App\Models\HouseListing::class))
                 ->whereNot($rentals),
             default => $query,
         };

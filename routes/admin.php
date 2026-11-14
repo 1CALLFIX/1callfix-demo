@@ -190,6 +190,8 @@ Route::middleware(['auth', \Illuminate\Session\Middleware\AuthenticateSession::c
         // Function halls R1 (owner 2026-11-13): approve halls and their changes; Hall Settings (Super Admin only).
         Route::get('/halls', \App\Livewire\Halls\Manage::class)->name('admin.halls.index');
         Route::get('/hall-settings', \App\Livewire\Halls\Settings::class)->name('admin.halls.settings');
+        // Houses for rent (2026-11-14): approve homes and their changes; visit requests.
+        Route::get('/houses-for-rent', \App\Livewire\Homes\Manage::class)->name('admin.homes.index');
         Route::get('/hall-bookings', \App\Livewire\HallBookings\Index::class)->name('admin.hall-bookings.index');
         Route::get('/hall-damage-claims', \App\Livewire\Halls\DamageClaims::class)->name('admin.hall-damage-claims.index');
         Route::get('/stores', StoresManage::class)->name('admin.stores.index');

@@ -649,7 +649,7 @@ class HallBookingTest extends TestCase
             'rule_list' => ['No smoking inside'],
         ]);
         $this->get(route('customer.halls.show', [$this->city->slug, 'sri-lakshmi-function-hall']))->assertOk()
-            ->assertSee('See all 4 photos')->assertSee('data-testid="hall-thumbs"', false)->assertSee('https://example.com/3.jpg')
+            ->assertSee('See all 4 photos')->assertSee('data-testid="photo-thumbs"', false)->assertSee('https://example.com/3.jpg')
             ->assertSeeInOrder(['Parking and arrival', 'Car parking', 'Safety', 'Fire extinguishers'])
             ->assertSee('Paid · ₹1,500')->assertSee('Old facility')
             ->assertSeeInOrder(['Bringing things from outside', 'Outside food', 'Not allowed', 'Vessels and utensils from outside', 'Allowed with a fee'])
@@ -670,6 +670,8 @@ class HallBookingTest extends TestCase
     public function test_switching_function_halls_off_in_rental_settings_hides_and_stops_them(): void
     {
         Setting::set('rental.kind.halls', '0');
+        $this->get(route('customer.rentals.home', $this->city->slug))->assertOk()->assertDontSee('data-kind="halls"', false); // Houses for rent is still on
+        Setting::set('rental.kind.properties', '0');
         $this->get(route('customer.rentals.home', $this->city->slug))->assertNotFound();
         $this->get(route('customer.halls.home', $this->city->slug))->assertNotFound();
         $this->assertFalse(HallBookingService::bookable($this->hall->fresh()));

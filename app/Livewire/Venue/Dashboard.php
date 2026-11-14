@@ -26,13 +26,30 @@ class Dashboard extends Component
         ];
     }
 
+    /** @return list<array{label: string, done: bool}> */
+    public static function homeChecklist(\App\Models\HouseListing $home): array
+    {
+        $min = (int) \App\Support\HomeSettings::get('homes.min_photos', $home->scope());
+
+        return [
+            ['label' => 'Kind of home, size, furnishing and who you rent to', 'done' => filled($home->home_type) && filled($home->size) && filled($home->furnishing) && ! empty($home->tenants)],
+            ['label' => 'Rent per month and when it is ready', 'done' => (float) $home->rent > 0 && $home->available_from !== null],
+            ['label' => 'Area and address', 'done' => $home->zone_id !== null && filled($home->address_line)],
+            ['label' => "Main photo and at least {$min} more", 'done' => $home->cover_image !== null && count((array) $home->photos) >= $min],
+        ];
+    }
+
     public function render()
     {
         $halls = $this->halls();
         $first = $halls->first();
 
+        $homes = \App\Models\HouseListing::with('franchise')->where('provider_id', $this->partner()->id)->orderBy('id')->get();
+
         return view('livewire.venue.dashboard', [
             'halls' => $halls,
+            'homes' => $homes,
+            'homesLive' => $homes->isNotEmpty() && \App\Support\RentalKinds::active(\App\Support\RentalKinds::PROPERTIES, $homes->first()->scope()),
             'partner' => $this->partner(),
             'moduleLive' => $first ? \App\Support\RentalKinds::active(\App\Support\RentalKinds::HALLS, $first->scope()) : false,
         ])->layout('components.layouts.venue', ['title' => 'Home']);

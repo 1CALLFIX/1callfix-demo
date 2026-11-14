@@ -20,7 +20,7 @@ final class RentalKinds
     /** kind => [label, default on] */
     public const KINDS = [
         self::HALLS => ['Function halls', true],
-        self::PROPERTIES => ['Properties (houses, villas, rooms)', true],
+        self::PROPERTIES => ['Houses for rent (monthly)', true],
         self::VEHICLES => ['Vehicles', false],
         self::EQUIPMENT => ['Equipment', false],
     ];

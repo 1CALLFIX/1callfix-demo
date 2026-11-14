@@ -58,6 +58,7 @@ class Show extends Component
             'event' => $event,
             'city' => $this->eventCity,
             'card' => Home::card($event, $this->eventCity->slug),
+            'photos' => array_values(array_unique(array_filter([$event->coverUrl(), ...$event->photoUrls()]))),
             'tickets' => $tickets,
             'onSale' => $onSale,
             'taxesKnown' => $tickets->every(fn ($t) => EventSettings::gstPercentFor((float) $t['type']->price) !== null),

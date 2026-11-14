@@ -144,6 +144,11 @@ ScheduleRunTracker::track(Schedule::command('halls:expire'), 'halls:expire')
     ->everyMinute()
     ->withoutOverlapping(5);
 
+// Houses for rent (2026-11-14) — visit requests not answered by the visit day close as "No reply in time".
+ScheduleRunTracker::track(Schedule::command('homes:tidy'), 'homes:tidy')
+    ->dailyAt('02:15')
+    ->withoutOverlapping(30);
+
 // Function halls R3 — balance reminders, unpaid-balance cancellations, owner payouts after the event, deposit returns.
 ScheduleRunTracker::track(Schedule::command('halls:after-events'), 'halls:after-events')
     ->hourly()

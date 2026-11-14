@@ -142,6 +142,22 @@ class Settings extends Component
         $this->flash($changed ? "Saved — {$changed} change(s) audit-logged." : 'No changes to save.', 'success');
     }
 
+    /** What this scope inherits when nothing is set here: the franchise's value for a zone, else the global one. */
+    private function inheritedScope(): array
+    {
+        return $this->scopeType === 'zone' && $this->scopeFranchiseId ? ['franchise_id' => $this->scopeFranchiseId] : [];
+    }
+
+    /** Owner 2026-11-14 (multi city / climate): start a franchise or zone list from the list it inherits, then edit. */
+    public function useInherited(string $field): void
+    {
+        foreach ($this->keysHere() as $key) {
+            if ($this->registry()::field($key) === $field && ($this->registry()::REGISTRY[$key]['type'] ?? '') === 'text') {
+                $this->inputs[$field] = (string) $this->registry()::get($key, $this->inheritedScope());
+            }
+        }
+    }
+
     private static function sameList(string $a, string $b): bool
     {
         $norm = fn (string $v) => implode("\n", array_map('trim', preg_split('/\R/', trim($v))));
@@ -163,6 +179,9 @@ class Settings extends Component
             'groups' => collect($this->registry()::REGISTRY)->only($keys)
                 ->map(fn ($m, $k) => $m + ['key' => $k, 'field' => $this->registry()::field($k)])->groupBy('group'),
             'pageTitle' => $this->pageTitle(),
+            'inherited' => $this->scopeType === 'global' ? [] : collect($keys)
+                ->filter(fn ($k) => ($this->registry()::REGISTRY[$k]['type'] ?? '') === 'text')
+                ->mapWithKeys(fn ($k) => [$this->registry()::field($k) => (string) $this->registry()::get($k, $this->inheritedScope())])->all(),
             'franchises' => Franchise::orderBy('name')->get(['id', 'name']),
             'zones' => $this->scopeFranchiseId ? Zone::where('franchise_id', $this->scopeFranchiseId)->orderBy('name')->get(['id', 'name']) : collect(),
         ])->layout('layouts.admin', ['title' => $this->pageTitle()]);

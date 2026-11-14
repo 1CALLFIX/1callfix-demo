@@ -8,19 +8,9 @@
         <span>{{ $hotel->name }}</span>
     </nav>
 
-    {{-- ── photos: swipe on a phone; ♡ Like + Share on the first ── --}}
-    <div class="relative mt-3 overflow-hidden rounded-2xl bg-slate-100" data-testid="hotel-gallery">
-        <div class="flex snap-x snap-mandatory overflow-x-auto">
-            @forelse ($photos as $i => $p)
-                <img src="{{ $p }}" alt="{{ $hotel->name }} photo {{ $i + 1 }}" class="aspect-[3/2] w-full shrink-0 snap-center object-cover sm:w-2/3" @if ($i > 0) loading="lazy" @endif>
-            @empty
-                <div class="aspect-[3/2] w-full"></div>
-            @endforelse
-        </div>
-        <x-customer.item-actions class="absolute right-3 top-3" :item="'hotel:'.$hotel->id" :title="$hotel->name" :image="$photos[0] ?? null" />
-        @if (count($photos) > 1)
-            <span class="absolute bottom-3 right-3 rounded-full bg-slate-900/70 px-2 py-0.5 text-xs font-semibold text-white">{{ count($photos) }} 📷</span>
-        @endif
+    {{-- ── photos (owner 2026-11-14: every photo can be seen): arrows, counter, tiles, full screen; ♡ Like + Share ── --}}
+    <div data-testid="hotel-gallery">
+        <x-customer.photo-gallery class="mt-3" :photos="$photos" :title="$hotel->name" :item="'hotel:'.$hotel->id" :cover="$photos[0] ?? null" />
     </div>
 
     <div class="mt-4 flex items-start justify-between gap-3">

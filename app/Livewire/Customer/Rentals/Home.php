@@ -22,7 +22,7 @@ use Livewire\Component;
 class Home extends Component
 {
     /** Kinds that have customer pages today, in the order they show. */
-    public const KINDS_WITH_PAGES = [RentalKinds::HALLS];
+    public const KINDS_WITH_PAGES = [RentalKinds::PROPERTIES, RentalKinds::HALLS];
 
     public City $rentalCity;
 
@@ -59,6 +59,7 @@ class Home extends Component
         foreach (self::liveKinds($city) as $kind) {
             $count += match ($kind) {
                 RentalKinds::HALLS => HallsHome::publicHallsIn($city)->count(),
+                RentalKinds::PROPERTIES => \App\Services\Homes\HouseListingService::publicIn($city)->count(),
                 default => 0,
             };
         }
@@ -71,6 +72,21 @@ class Home extends Component
         $city = $this->rentalCity;
         $sections = [];
         foreach (self::liveKinds($city) as $kind) {
+            if ($kind === RentalKinds::PROPERTIES) {
+                $query = \App\Services\Homes\HouseListingService::publicIn($city);
+                $homes = (clone $query)->with(['zone', 'franchise'])->orderByDesc('is_featured')->latest('approved_at')->limit(6)->get();
+                $sections[] = [
+                    'kind' => $kind, 'colour' => 'emerald', 'icon' => '🏠',
+                    'title' => SiteText::get('rental.kind.homes'), 'line' => SiteText::get('rental.kind.homes.line'),
+                    'url' => route('customer.homes.home', $city->slug), 'count' => (clone $query)->count(),
+                    'items' => $homes->map(function (\App\Models\HouseListing $h) use ($city) {
+                        $c = \App\Livewire\Customer\Homes\Home::card($h, $city->slug);
+
+                        return ['id' => 'home:'.$h->id, 'name' => $h->title, 'kind' => $c['what'], 'url' => $c['url'], 'cover' => $c['cover'],
+                            'seats' => $c['where'], 'ac' => $c['furnishing'], 'from' => $c['rent']];
+                    })->all(),
+                ];
+            }
             if ($kind === RentalKinds::HALLS) {
                 $query = HallsHome::publicHallsIn($city);
                 $halls = (clone $query)->with(['slots', 'franchise'])->orderByDesc('is_featured')->orderByDesc('seating_capacity')->limit(6)->get();

@@ -90,7 +90,7 @@ final class PartnerPageSettings
     public const COLORS = ['blue', 'green', 'amber', 'rose', 'violet', 'teal'];
 
     /** Role cards, in display order. `commerce` is the registry's code for sellers. */
-    public const ROLE_ORDER = ['service', 'parcel', 'food', 'grocery', 'pharmacy', 'taxi', 'hotel', 'halls', 'rental', 'events', 'commerce'];
+    public const ROLE_ORDER = ['service', 'parcel', 'food', 'grocery', 'pharmacy', 'taxi', 'hotel', 'halls', 'homes', 'rental', 'events', 'commerce'];
 
     public const ROLE_DEFAULTS = [
         'service' => ['Service professional', 'AC, electrical, plumbing, carpentry and appliance repair. Get jobs near you and work on your schedule.'],
@@ -102,6 +102,7 @@ final class PartnerPageSettings
         'hotel' => ['Hotel or stay host', 'List your hotel, homestay or guest house for travellers.'],
         'rental' => ['Vehicle or equipment owner', 'Rent out cars, bikes, generators or machinery once rentals open in your city.'],
         'halls' => ['Function hall owner', 'List your function hall, banquet hall or lawn for weddings, receptions and parties. Bookings paid online.'],
+        'homes' => ['House owner', 'Let your house, flat, room or PG by the month. Free to list; tenants ask to visit and you choose.'],
         'events' => ['Event organiser', 'Sell tickets for your party, concert, workshop or fest. Paid online, entry by QR code.'],
         'commerce' => ['Seller or shop', 'Sell your products to customers near you.'],
     ];
@@ -109,7 +110,7 @@ final class PartnerPageSettings
     /** Module name shown on each role card. */
     public const ROLE_MODULE_NAMES = [
         'service' => 'Home services', 'parcel' => 'Parcel delivery', 'food' => 'Food delivery', 'grocery' => 'Grocery',
-        'pharmacy' => 'Pharmacy', 'taxi' => 'Taxi', 'hotel' => 'Hotel booking', 'halls' => 'Rental', 'rental' => 'Rental', 'events' => 'Events', 'commerce' => 'Marketplace',
+        'pharmacy' => 'Pharmacy', 'taxi' => 'Taxi', 'hotel' => 'Hotel booking', 'halls' => 'Rental', 'homes' => 'Rental', 'rental' => 'Rental', 'events' => 'Events', 'commerce' => 'Marketplace',
     ];
 
     private const MAX_JSON_BYTES = 20000;

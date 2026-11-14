@@ -23,7 +23,7 @@ class ShareButtonTest extends TestCase
         'membership/account', 'parcel/index', 'parcel/show',
         'shop/bag', 'shop/checkout', 'shop/order-show', 'shop/orders',
         'hotels/book', 'hotels/booking',
-        'events/book', 'events/order', 'events/tickets', 'halls/book', 'halls/booking', 'halls/bookings',
+        'events/book', 'events/order', 'events/tickets', 'halls/book', 'halls/booking', 'halls/bookings', 'homes/visits',
         'checkout', 'home', 'search',
     ];
 
@@ -37,7 +37,7 @@ class ShareButtonTest extends TestCase
             if (! str_contains($html, '<h1') || $this->isPrivate($view)) {
                 continue;
             }
-            if (! str_contains($html, '<x-customer.share-button') && ! str_contains($html, '<x-customer.item-actions')) {
+            if (! str_contains($html, '<x-customer.share-button') && ! str_contains($html, '<x-customer.item-actions') && ! str_contains($html, '<x-customer.photo-gallery')) {
                 $missing[] = $view;
             }
         }

@@ -74,6 +74,8 @@ class TestAccountsCommand extends Command
         'organiser' => ['Test Organiser', 'provider', null, null, '6000000113'],
         // Function halls R1 (2026-11-13): a hall owner is a provider account that owns an approved Hall (partner sign-in → /venue).
         'hall' => ['Test Hall Owner', 'provider', null, null, '6000000114'],
+        // Houses for rent (2026-11-14): a house owner is a provider account that owns approved HouseListings (→ /venue Rental portal).
+        'homeowner' => ['Test House Owner', 'provider', null, null, '6000000115'],
     ];
 
     /** A placeholder FSSAI number for the test restaurant only (hidden from the public like every test shop). */
@@ -227,6 +229,8 @@ class TestAccountsCommand extends Command
                     $this->makeTestOrganiser($user, $franchise, $zone);
                 } elseif ($key === 'hall') {
                     $this->makeTestHall($user, $franchise, $zone);
+                } elseif ($key === 'homeowner') {
+                    $this->makeTestHomes($user, $franchise, $zone);
                 } elseif ($userRole === 'provider') {
                     Provider::updateOrCreate(['user_id' => $user->id], [
                         'franchise_id' => $franchise->id,
@@ -239,7 +243,7 @@ class TestAccountsCommand extends Command
                     ]);
                 }
 
-                return [$key, $email, $roleSlug ? "{$roleSlug} @ {$scopeType} #{$scopeIds[$scopeType]}" : ($key === 'rider' ? 'parcel + shop rider (approved)' : ($key === 'seller' ? 'seller, shop approved' : ($key === 'restaurant' ? 'restaurant, approved' : ($key === 'hotel' ? 'hotel, approved' : ($key === 'organiser' ? 'event organiser, approved, 1 event in review' : ($key === 'hall' ? 'one approved test hall of every kind' : $userRole))))))];
+                return [$key, $email, $roleSlug ? "{$roleSlug} @ {$scopeType} #{$scopeIds[$scopeType]}" : ($key === 'rider' ? 'parcel + shop rider (approved)' : ($key === 'seller' ? 'seller, shop approved' : ($key === 'restaurant' ? 'restaurant, approved' : ($key === 'hotel' ? 'hotel, approved' : ($key === 'organiser' ? 'event organiser, approved, 1 event in review' : ($key === 'hall' ? 'one approved test hall of every kind' : ($key === 'homeowner' ? 'four approved test homes for rent' : $userRole)))))))];
             });
         }
 
@@ -521,6 +525,55 @@ class TestAccountsCommand extends Command
         }
     }
 
+    /**
+     * Houses for rent: the test house owner with four approved, live test homes (flat, house, room, PG), each with its own
+     * photos, rent, deposit, facilities and rules, so the whole walk-through (browse, filter, ask to visit, owner accepts)
+     * can be done. Re-running create resets them; other homes are left alone.
+     */
+    public const TEST_HOMES = [
+        // size, kind, rent, deposit months, furnishing, tenants, cover, photos
+        ['2 BHK', 'Flat / apartment', 12000, 2, 'Semi-furnished', ['Family', 'Working professionals'],
+            'photo-1502672260266-1c1ef2d93688', ['photo-1505691938895-1758d7feb511', 'photo-1556909114-f6e7ad7d3136', 'photo-1552321554-5fefe8c9ef14']],
+        ['3 BHK', 'Independent house', 20000, 3, 'Unfurnished', ['Family'],
+            'photo-1568605114967-8130f3a36994', ['photo-1484154218962-a197022b5858', 'photo-1556911220-bff31c812dba', 'photo-1584622650111-993a426fbf0a']],
+        ['1 RK', 'Single room', 4500, 1, 'Fully furnished', ['Bachelor men', 'Students'],
+            'photo-1522708323590-d24dbb6b0267', ['photo-1505693416388-ac5ce068fe85', 'photo-1556912173-3bb406ef7e77', 'photo-1584622781564-1d987f7333c1']],
+        ['1 BHK', 'PG / hostel', 6500, 1, 'Fully furnished', ['Bachelor women', 'Working professionals'],
+            'photo-1555854877-bab0e564b8d5', ['photo-1540518614846-7eded433c457', 'photo-1556909172-54557c7e4fb7', 'photo-1600566752355-35792bedcfea']],
+    ];
+
+    private function makeTestHomes(User $user, Franchise $franchise, Zone $zone): void
+    {
+        $provider = Provider::updateOrCreate(['user_id' => $user->id], [
+            'franchise_id' => $franchise->id, 'zone_id' => $zone->id, 'provider_type' => 'independent',
+            'kyc_status' => 'approved', 'is_active' => true, 'is_online' => false, 'skills' => null,
+        ]);
+        $photo = fn (string $id) => self::UNSPLASH.$id.'?w=1600&q=80';
+        foreach (self::TEST_HOMES as [$size, $kind, $rent, $months, $furnishing, $tenants, $cover, $photos]) {
+            $title = \App\Models\HouseListing::makeTitle($size, $kind, $zone->name);
+            $home = \App\Models\HouseListing::firstOrNew(['provider_id' => $provider->id, 'home_type' => $kind, 'size' => $size]);
+            $home->fill([
+                'franchise_id' => $franchise->id, 'zone_id' => $zone->id, 'title' => $title,
+                'slug' => $home->slug ?: \App\Models\HouseListing::uniqueSlug($title),
+                'area' => ['1 RK' => 180, '1 BHK' => 550, '2 BHK' => 1050, '3 BHK' => 1600][$size] ?? null,
+                'floor' => $kind === 'Independent house' ? 'Whole building' : '1st floor', 'facing' => 'East',
+                'furnishing' => $furnishing, 'tenants' => $tenants,
+                'rent' => $rent, 'deposit' => $rent * $months, 'maintenance' => $kind === 'Flat / apartment' ? 1500 : null,
+                'available_from' => now()->toDateString(),
+                'landmark' => 'Test landmark, '.$zone->name, 'address_line' => 'Test address, '.$zone->name.'. Not a real home.',
+                'amenities' => ['24-hour water', 'Borewell', 'Power backup', 'Ceiling fans', 'Geyser / hot water', 'Cross ventilation',
+                    'Mosquito mesh on windows', 'Two-wheeler parking', 'CCTV', 'Bus stop', 'Market'],
+                'rule_list' => ['No smoking', 'Agreement for 11 months', 'One month notice to leave'],
+                'about' => "Test {$size} {$kind} for walk-throughs.\nNot a real home.",
+                'cover_image' => $photo($cover), 'photos' => array_map($photo, $photos),
+                'contact_phone' => $user->phone,
+                'status' => 'approved', 'submitted_at' => now(), 'approved_at' => now(), 'rejection_reason' => null,
+                'is_active' => true, 'rented_at' => null, 'expires_at' => now()->addDays(365),
+                'pending_changes' => null, 'pending_requested_at' => null, 'pending_rejection' => null,
+            ])->save();
+        }
+    }
+
     private function list(): int
     {
         $users = User::where('email', 'like', '%'.self::DOMAIN)->with('roleAssignments.role')->orderBy('id')->get();
@@ -544,6 +597,7 @@ class TestAccountsCommand extends Command
                 Accommodation::whereIn('provider_id', Provider::where('user_id', $user->id)->select('id'))->update(['is_active' => false]);
                 \App\Models\EventOrganiser::whereIn('provider_id', Provider::where('user_id', $user->id)->select('id'))->update(['is_active' => false]);
                 \App\Models\Hall::whereIn('provider_id', Provider::where('user_id', $user->id)->select('id'))->update(['is_active' => false]);
+                \App\Models\HouseListing::whereIn('provider_id', Provider::where('user_id', $user->id)->select('id'))->update(['is_active' => false]);
                 $user->forceFill(['status' => 'suspended'])->save();
                 $user->tokens()->delete();
             });

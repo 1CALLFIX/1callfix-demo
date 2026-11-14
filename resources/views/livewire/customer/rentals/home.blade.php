@@ -16,13 +16,15 @@
     <ul class="mt-5 grid gap-3 sm:grid-cols-2" data-testid="rental-kinds">
         @foreach ($sections as $s)
             <li>
-                <a href="{{ $s['url'] }}" wire:navigate class="flex min-h-24 items-center gap-4 rounded-2xl border-2 border-teal-100 bg-teal-50 p-4 transition hover:border-teal-400" data-kind="{{ $s['kind'] }}">
-                    <span class="grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-teal-600 text-3xl" aria-hidden="true">{{ $s['icon'] }}</span>
+                @php $c = ['teal' => ['border-teal-100 bg-teal-50 hover:border-teal-400', 'bg-teal-600', 'text-teal-900', 'text-teal-800'],
+                    'emerald' => ['border-emerald-100 bg-emerald-50 hover:border-emerald-400', 'bg-emerald-600', 'text-emerald-900', 'text-emerald-800']][$s['colour']] ?? ['border-slate-100 bg-slate-50', 'bg-slate-600', 'text-slate-900', 'text-slate-800']; @endphp
+                <a href="{{ $s['url'] }}" wire:navigate class="flex min-h-24 items-center gap-4 rounded-2xl border-2 p-4 transition {{ $c[0] }}" data-kind="{{ $s['kind'] }}">
+                    <span class="grid h-14 w-14 shrink-0 place-items-center rounded-2xl text-3xl {{ $c[1] }}" aria-hidden="true">{{ $s['icon'] }}</span>
                     <span class="flex-1">
-                        <span class="block text-lg font-semibold text-teal-900">{{ $s['title'] }}</span>
-                        <span class="block text-sm text-teal-800">{{ $s['line'] }}</span>
+                        <span class="block text-lg font-semibold {{ $c[2] }}">{{ $s['title'] }}</span>
+                        <span class="block text-sm {{ $c[3] }}">{{ $s['line'] }}</span>
                     </span>
-                    <span class="shrink-0 rounded-full bg-white px-3 py-1 text-sm font-semibold text-teal-800">{{ $s['count'] }}</span>
+                    <span class="shrink-0 rounded-full bg-white px-3 py-1 text-sm font-semibold {{ $c[3] }}">{{ $s['count'] }}</span>
                 </a>
             </li>
         @endforeach

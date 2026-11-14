@@ -19,6 +19,8 @@ trait PropertyRentalFixtureHelpers
     protected function enablePropertyRentalModuleForTests(): void
     {
         Module::where('code', Modules::RENTAL)->update(['is_implemented' => true]);
+        // Nightly stays are retired (2026-11-14); the old engine runs only behind this flag.
+        \App\Models\Setting::set('rental.legacy_nightly_stays', '1');
     }
 
     /** Renamed from activateCarRentalFor() 2026-08-17. */

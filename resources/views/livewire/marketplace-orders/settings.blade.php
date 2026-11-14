@@ -62,9 +62,17 @@
             <p class="mt-2 text-xs text-gray-500">A value set at a franchise / zone overrides the global one there; blank inherits.</p>
         </x-ui.card>
 
+        @if ($groups->count() > 5)
+            <nav class="flex flex-wrap gap-2 text-xs" aria-label="Jump to a section">
+                @foreach ($groups->keys() as $group)
+                    <a href="#set-{{ \Illuminate\Support\Str::slug($group) }}" class="rounded-full border border-gray-300 bg-white px-3 py-1.5 hover:border-blue-500">{{ $group }}</a>
+                @endforeach
+            </nav>
+        @endif
+
         <form wire:submit="save" class="space-y-4">
             @foreach ($groups as $group => $items)
-                <x-ui.card>
+                <x-ui.card :id="'set-'.\Illuminate\Support\Str::slug($group)" class="scroll-mt-20">
                     <h2 class="mb-3 text-sm font-semibold">{{ $group }}</h2>
                     <div class="grid gap-4 sm:grid-cols-2">
                         @foreach ($items as $meta)
@@ -81,6 +89,10 @@
                                 @elseif ($meta['type'] === 'text')
                                     <textarea rows="{{ max(4, min(14, substr_count((string) ($inputs[$meta['field']] ?? ''), "\n") + 2)) }}" wire:model.live.debounce.600ms="inputs.{{ $meta['field'] }}" placeholder="{{ $scopeType === 'global' ? 'Empty = the built-in list' : 'Blank = same as Global' }}"
                                               class="w-full border rounded px-2 py-2"></textarea>
+                                    @if ($scopeType !== 'global' && ($inputs[$meta['field']] ?? '') === '' && ($inherited[$meta['field']] ?? '') !== '')
+                                        <span class="mt-1 block rounded bg-gray-50 px-2 py-1 text-[11px] text-gray-600">Now: {{ \Illuminate\Support\Str::limit(str_replace(["\r\n", "\n"], ' · ', $inherited[$meta['field']]), 220) }}</span>
+                                        <button type="button" wire:click="useInherited('{{ $meta['field'] }}')" class="mt-1 text-xs font-medium text-blue-700 underline">Start from this list and change it here</button>
+                                    @endif
                                 @elseif ($meta['type'] === 'choice')
                                     <select wire:model.live="inputs.{{ $meta['field'] }}" class="w-full border rounded px-2 py-2">
                                         <option value="">{{ $scopeType === 'global' ? 'Default: '.$meta['options'][$meta['default']] : 'Inherit' }}</option>

@@ -4,19 +4,24 @@
 
 @php
     $platformName = \App\Models\Setting::get('branding.platform_name', '1CallFix');
-    // Function halls R1: the hall portal, same app-style bottom bar as the hotel and organiser portals.
-    $navItems = [
-        ['label' => 'Home', 'route' => 'venue.dashboard', 'icon' => 'home', 'also' => ['venue.halls.create', 'venue.halls.edit']],
-        ['label' => 'Bookings', 'route' => 'venue.bookings', 'icon' => 'clipboard', 'dot' => auth()->check() ? \App\Models\HallBooking::where('status', 'awaiting_owner')->whereHas('hall.provider', fn ($q) => $q->where('user_id', auth()->id()))->count() : 0],
-        ['label' => 'Dates', 'route' => 'venue.dates', 'icon' => 'clock'],
-    ];
+    // One Rental portal (2026-11-14): function halls and houses for rent, same app-style bottom bar as the hotel and
+    // organiser portals. Each section shows only for what this owner lists.
+    $u = auth()->user();
+    $hasHalls = (bool) $u?->holdsPartnerRole('halls');
+    $hasHomes = (bool) $u?->holdsPartnerRole('homes');
+    $navItems = array_values(array_filter([
+        ['label' => 'Home', 'route' => 'venue.dashboard', 'icon' => 'home', 'also' => ['venue.halls.create', 'venue.halls.edit', 'venue.homes.create', 'venue.homes.edit']],
+        $hasHomes ? ['label' => 'Visits', 'route' => 'venue.visits', 'icon' => 'users', 'dot' => \App\Models\HouseVisit::where('status', 'requested')->whereHas('listing.provider', fn ($q) => $q->where('user_id', $u->id))->count()] : null,
+        $hasHalls ? ['label' => 'Bookings', 'route' => 'venue.bookings', 'icon' => 'clipboard', 'dot' => \App\Models\HallBooking::where('status', 'awaiting_owner')->whereHas('hall.provider', fn ($q) => $q->where('user_id', $u->id))->count()] : null,
+        $hasHalls ? ['label' => 'Dates', 'route' => 'venue.dates', 'icon' => 'clock'] : null,
+    ]));
 @endphp
 <!DOCTYPE html>
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}" class="h-full">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-    <title>{{ $title ? $title.' · '.$platformName.' Halls' : $platformName.' Halls' }}</title>
+    <title>{{ $title ? $title.' · '.$platformName.' Rental' : $platformName.' Rental' }}</title>
     <meta name="robots" content="noindex, nofollow">
     <meta name="theme-color" content="#2563eb">
     <meta name="csrf-token" content="{{ csrf_token() }}">
@@ -36,7 +41,7 @@
         <header class="sticky top-0 z-30 border-b border-slate-200 bg-white/95 backdrop-blur">
             <div class="mx-auto flex max-w-5xl items-center justify-between gap-3 px-4 py-3 sm:px-6">
                 <a href="{{ route('venue.dashboard') }}" wire:navigate class="truncate text-base font-bold tracking-tight">
-                    {{ $platformName }} <span class="font-medium text-blue-600">Halls</span>
+                    {{ $platformName }} <span class="font-medium text-blue-600">Rental</span>
                 </a>
                 <form method="POST" action="{{ route('provider.logout') }}">
                     @csrf
@@ -55,7 +60,7 @@
     </main>
 
     @auth
-        <x-partner.bottom-nav :items="$navItems" label="Hall sections" />
+        <x-partner.bottom-nav :items="$navItems" label="Rental sections" />
     @endauth
 
     @livewireScripts

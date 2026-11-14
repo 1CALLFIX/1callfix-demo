@@ -9,10 +9,8 @@
         <span>{{ $event->title }}</span>
     </nav>
 
-    <div class="relative mt-3 overflow-hidden rounded-2xl bg-slate-100">
-        @if ($card['cover']) <img src="{{ $card['cover'] }}" alt="{{ $event->title }}" class="aspect-video w-full object-cover"> @else <div class="aspect-video w-full"></div> @endif
-        <x-customer.item-actions class="absolute right-3 top-3" :item="'event:'.$event->id" :title="$event->title" :image="$card['cover']" />
-    </div>
+    {{-- Owner 2026-11-14: every photo can be seen (same gallery as hotels, halls and homes). --}}
+    <x-customer.photo-gallery class="mt-3" :photos="$photos" :title="$event->title" :item="'event:'.$event->id" :cover="$card['cover']" />
 
     <div class="mt-5 grid gap-6 lg:grid-cols-3">
         <div class="space-y-5 lg:col-span-2">

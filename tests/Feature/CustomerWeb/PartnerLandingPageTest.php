@@ -46,13 +46,13 @@ class PartnerLandingPageTest extends TestCase
     {
         $html = $this->get(route('customer.partners'))->assertOk()->getContent();
 
-        foreach (['Service professional', 'Delivery rider', 'Restaurant partner', 'Grocery store', 'Pharmacy', 'Cab driver', 'Hotel or stay host', 'Event organiser', 'Function hall owner', 'Seller or shop'] as $label) {
+        foreach (['Service professional', 'Delivery rider', 'Restaurant partner', 'Grocery store', 'Pharmacy', 'Cab driver', 'Hotel or stay host', 'Event organiser', 'Function hall owner', 'House owner', 'Seller or shop'] as $label) {
             $this->assertStringContainsString($label, $html);
         }
-        $this->assertSame(11, substr_count($html, 'data-role="'), 'ten module cards (Vehicle or equipment owner hidden while Vehicles and Equipment are off in Rental Settings, 2026-11-14) + the franchise owner card (2026-11-07)');
+        $this->assertSame(12, substr_count($html, 'data-role="'), 'eleven module cards (+ House owner; Vehicle or equipment owner hidden while Vehicles and Equipment are off in Rental Settings, 2026-11-14) + the franchise owner card (2026-11-07)');
         $this->assertStringNotContainsString('Vehicle or equipment owner', $html);
         $this->assertSame(1, substr_count($html, '>Live<'));
-        $this->assertSame(9, substr_count($html, '>Opening soon<'));
+        $this->assertSame(10, substr_count($html, '>Opening soon<'));
     }
 
     public function test_a_card_follows_the_registry_answer_read_live(): void

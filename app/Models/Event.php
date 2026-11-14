@@ -64,6 +64,12 @@ class Event extends Model
         return $p === null ? null : (str_starts_with($p, 'http') ? $p : Storage::disk('public')->url($p));
     }
 
+    /** @return list<string> the event's other photos as links (owner 2026-11-14: every photo can be seen). */
+    public function photoUrls(): array
+    {
+        return array_values(array_filter(array_map(fn ($p) => ! is_string($p) || $p === '' ? null : (str_starts_with($p, 'http') ? $p : Storage::disk('public')->url($p)), (array) ($this->photos ?? []))));
+    }
+
     /** A clean, readable slug; -2, -3 only on a clash (public link rule). */
     public static function uniqueSlug(string $title, ?int $ignoreId = null): string
     {
