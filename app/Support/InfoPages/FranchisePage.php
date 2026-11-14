@@ -43,6 +43,32 @@ final class FranchisePage
         'biz_title' => ['"Every business" section heading (shows the businesses live on the app)', 80],
         'biz_intro' => ['"Every business" section line', 300],
         'biz_live' => ['"Every business" section: badge on each business', 20],
+        'note_service' => ['"Every business" card line: Service', 200],
+        'note_parcel' => ['"Every business" card line: Parcel Delivery', 200],
+        'note_rental' => ['"Every business" card line: Rental', 200],
+        'note_food' => ['"Every business" card line: Food Delivery', 200],
+        'note_grocery' => ['"Every business" card line: Grocery', 200],
+        'note_pharmacy' => ['"Every business" card line: Pharmacy', 200],
+        'note_commerce' => ['"Every business" card line: E-commerce', 200],
+        'note_taxi' => ['"Every business" card line: Taxi', 200],
+        'note_hotel' => ['"Every business" card line: Hotel / Stay', 200],
+        'note_events' => ['"Every business" card line: Events', 200],
+        'plans_title' => ['Franchise plans: heading', 80],
+        'plans_intro' => ['Franchise plans: line under the heading', 300],
+        'plans_badge' => ['Franchise plans: offer label (e.g. Founding partner offer)', 60],
+        'plans_note' => ['Franchise plans: offer small print', 300],
+        'plans_royalty_label' => ['Franchise plans: word for royalty', 30],
+        'plans_term_label' => ['Franchise plans: word for the term', 30],
+        'pick_title' => ['Business picker: heading', 80],
+        'pick_intro' => ['Business picker: line', 300],
+        'fee_all' => ['Business picker: fee for ALL businesses, in rupees (numbers only; empty = picker hidden)', 12],
+        'fee_two' => ['Business picker: fee for any TWO businesses, in rupees (numbers only)', 12],
+        'fee_addon' => ['Business picker: fee for each business added after two, in rupees (numbers only)', 12],
+        'fee_one' => ['Business picker: fee for ONE business on its own, in rupees (empty = "talk to our team")', 12],
+        'pick_one_note' => ['Business picker: shown for one business when it has no fee', 160],
+        'pick_result' => ['Business picker: label over the fee', 60],
+        'pay_title' => ['Payment steps heading', 80],
+        'areas_title' => ['Area table heading', 80],
         'compare_title' => ['Comparison table heading', 80],
         'compare_them' => ['Comparison table: left column heading', 40],
         'compare_us' => ['Comparison table: right column heading', 40],
@@ -80,6 +106,9 @@ final class FranchisePage
         'highlights' => ['Hero: tick lines', 4, ['text' => 80]],
         'stats' => ['Your own figures (value + label), shown beside the live numbers', 4, ['value' => 20, 'label' => 60]],
         'why' => ['"Why" tiles', 8, ['icon' => 20, 'title' => 80, 'text' => 260]],
+        'plans' => ['Franchise plans (name, old fee, offer fee, royalty, term, what it covers)', 4, ['name' => 60, 'was' => 30, 'price' => 30, 'royalty' => 20, 'validity' => 30, 'text' => 160]],
+        'payment' => ['Payment steps (title + text)', 4, ['title' => 60, 'text' => 200]],
+        'areas' => ['Area table (franchise type, city population, exclusive area)', 6, ['type' => 60, 'population' => 60, 'radius' => 60]],
         'compare' => ['Comparison rows (what / one-business franchise / 1CallFix franchise)', 8, ['label' => 60, 'them' => 120, 'us' => 160]],
         'support' => ['"What you get" lines', 10, ['text' => 140]],
         'invest' => ['Investment figures (label + value), e.g. "Investment" / "₹…"', 6, ['label' => 60, 'value' => 60]],
@@ -89,6 +118,9 @@ final class FranchisePage
         'stories' => ['Partner stories (only real ones)', 6, ['name' => 60, 'city' => 60, 'quote' => 400]],
         'faq' => ['Questions and answers', 15, ['q' => 160, 'a' => 800]],
     ];
+
+    /** List fields that may be left empty (e.g. an add-on plan has no royalty or term of its own). */
+    public const OPTIONAL_FIELDS = ['plans.was', 'plans.royalty', 'plans.validity', 'plans.text'];
 
     /** Switches: key => [admin label, default]. */
     public const SWITCHES = [
@@ -110,6 +142,32 @@ final class FranchisePage
             'biz_title' => 'Every business, one franchise',
             'biz_intro' => 'Most franchises give you one business. Yours runs every business live on the 1CallFix app in your city, from one login.',
             'biz_live' => 'Live',
+            'note_service' => 'Every home needs AC, plumbing, electrical and appliance work, every season, again and again.',
+            'note_parcel' => 'Shops, offices and families send things across town every day. Same-day delivery keeps growing.',
+            'note_rental' => 'Function halls, homes, vehicles and equipment: big bookings, with your share on every one.',
+            'note_food' => 'People order food online more every year, and local restaurants want those orders.',
+            'note_grocery' => 'Daily needs that every family buys every week.',
+            'note_pharmacy' => 'Medicines delivered home: a daily need for every family.',
+            'note_commerce' => 'Local shops get an online store, and your city shops from home.',
+            'note_taxi' => 'Rides across town, every day.',
+            'note_hotel' => 'Rooms for visitors, weddings and business trips into your city.',
+            'note_events' => 'Tickets for shows, concerts and local events, sold online.',
+            'plans_title' => 'Pick the franchise that fits you',
+            'plans_intro' => 'Run every business in your city, or start with the ones you know best and add more later.',
+            'plans_badge' => 'Founding partner offer',
+            'plans_note' => 'Offer valid for the first 10 franchise sign-ups only. Fees and royalty are confirmed in your written franchise agreement.',
+            'plans_royalty_label' => 'Royalty',
+            'plans_term_label' => 'Term',
+            'pick_title' => 'Build your own franchise',
+            'pick_intro' => 'Tap the businesses you want to run in your city. The fee updates as you pick.',
+            'fee_all' => '550000',
+            'fee_two' => '350000',
+            'fee_addon' => '100000',
+            'fee_one' => '',
+            'pick_one_note' => 'One business on its own: talk to our team for the fee.',
+            'pick_result' => 'Your franchise fee (launch offer)',
+            'pay_title' => 'Easy payment',
+            'areas_title' => 'Your area, only yours',
             'compare_title' => 'One business, or all of them?',
             'compare_them' => 'A one-business franchise',
             'compare_us' => '1CallFix franchise',
@@ -162,8 +220,26 @@ final class FranchisePage
                 ['text' => 'Online payments, invoices, refunds and payouts'],
                 ['text' => 'Your city\'s own pages on the website, found on Google'],
                 ['text' => 'A start code (OTP) on every job, so customers trust your partners'],
+                ['text' => 'Training for local service set-up and partner onboarding'],
+                ['text' => 'Marketing material: banners, brochures and WhatsApp creatives'],
+                ['text' => 'Franchise certificate and area rights'],
+                ['text' => 'One month of help hiring your city coordinator'],
             ],
             'invest' => [],
+            'plans' => [
+                ['name' => 'All-in-One City Franchise', 'was' => '₹20 Lakhs', 'price' => '₹5.5 Lakhs', 'royalty' => '8%', 'validity' => '3 years', 'text' => 'Every business on the app in your city'],
+                ['name' => 'Two-Business Franchise', 'was' => '₹10 Lakhs', 'price' => '₹3.5 Lakhs', 'royalty' => '8%', 'validity' => '3 years', 'text' => 'Choose any 2 businesses'],
+                ['name' => 'Add a business later', 'was' => '₹2–3 Lakhs', 'price' => '₹1 Lakh each', 'royalty' => '', 'validity' => '', 'text' => 'Add more businesses whenever you are ready'],
+            ],
+            'payment' => [
+                ['title' => 'Booking advance ₹50,000', 'text' => 'Locks your city rights.'],
+                ['title' => 'Balance in 20–25 days', 'text' => 'Pay the balance within 20–25 days after signing the Letter of Intent (LOI).'],
+                ['title' => 'Refund in 7 days', 'text' => 'Your advance is refundable within 7 days if the franchise is not allotted or approved.'],
+            ],
+            'areas' => [
+                ['type' => 'Area Franchise', 'population' => '3–5 lakh people', 'radius' => '10–15 km radius'],
+                ['type' => 'City Franchise', 'population' => '8–10 lakh people', 'radius' => '20–25 km radius'],
+            ],
             'compare' => [
                 ['label' => 'Businesses you run', 'them' => 'One', 'us' => 'Every business live on the app: services, food, shop, parcel, events, hotels and rentals'],
                 ['label' => 'Apps and website', 'them' => 'Often bought or built by you', 'us' => 'Customer, partner, rider, shop and restaurant apps, ready on day one'],
@@ -191,7 +267,8 @@ final class FranchisePage
             'faq' => [
                 ['q' => 'Who can apply?', 'a' => 'Anyone who wants to run a local business in their city and can build a small team. Business experience helps; we explain the rest.'],
                 ['q' => 'Do I need technical knowledge?', 'a' => 'No. 1CallFix runs the apps, website, payments and updates. You run your city from your admin login.'],
-                ['q' => 'How much does a franchise cost?', 'a' => 'It depends on the city. We share the investment and fees in writing on your call with our team, before you commit to anything.'],
+                ['q' => 'How much does a franchise cost?', 'a' => 'See the plans on this page: all businesses, any two, or add one later. You pay a ₹50,000 booking advance to lock your city and the balance within 20–25 days of signing the Letter of Intent. Final fees are written in your franchise agreement.'],
+                ['q' => 'Can I run only one or two businesses?', 'a' => 'Yes. Pick only the businesses you want; you pay only for those and can add more later. Your city is switched on for exactly the businesses in your agreement.'],
                 ['q' => 'How do I earn?', 'a' => 'You earn a share of every completed booking and order in your city. The exact share is written in your franchise agreement and you can see it live in your Franchise Earnings report.'],
                 ['q' => 'Which businesses can I run?', 'a' => 'The businesses live on 1CallFix in your city: home services first, then food delivery, shopping and parcel delivery as each one opens there.'],
                 ['q' => 'Is my city available?', 'a' => 'Apply with your city and our team will tell you. One franchise partner runs each city.'],
@@ -227,21 +304,46 @@ final class FranchisePage
         return self::enabled() && (string) Setting::get(self::ACCEPTING, '1') !== '0';
     }
 
+    /** Module => [homepage door (picture + words), fallback icon, colour when the door has no theme colour]. */
+    private const BIZ_LOOK = [
+        'service' => ['services', 'wrench', '#2563EB'], 'parcel' => ['parcel', 'map', '#7C3AED'], 'rental' => ['rentals', 'building', '#0D9488'],
+        'food' => ['food', 'sparkles', '#E23744'], 'grocery' => [null, 'shopping-bag', '#65A30D'], 'pharmacy' => [null, 'shield', '#0891B2'],
+        'commerce' => ['shop', 'shopping-bag', '#16A34A'], 'taxi' => [null, 'map-pin', '#CA8A04'], 'hotel' => ['hotels', 'building', '#0284C7'],
+        'events' => ['events', 'star', '#C026D3'],
+    ];
+
     /**
-     * The businesses live on the app anywhere (module switches), for the "Every business, one franchise" section.
-     * Only what customers can really use today; nothing switched off is shown.
+     * The businesses live on the app anywhere (module switches), for the hero tiles, "Every business, one franchise"
+     * and the business picker. Each one looks like its homepage "Explore" tile: the same picture (Super Admin's upload
+     * or our drawing), name, line and colour. Only what customers can really use today; nothing switched off is shown.
      *
-     * @return list<array{label: string, icon: string}>
+     * @return list<array{slug: string, label: string, title: string, line: string, note: string, image: ?string, icon: string, style: string}>
      */
     public static function liveBusinesses(): array
     {
-        $icons = ['service' => 'bolt', 'food' => 'sparkles', 'commerce' => 'building', 'parcel' => 'map-pin', 'events' => 'star',
-            'hotel' => 'building', 'rental' => 'clock', 'grocery' => 'squares', 'pharmacy' => 'shield', 'taxi' => 'map-pin'];
         try {
             $activation = app(ModuleActivationService::class);
+            $content = self::content();
 
             return collect(Modules::ALL)->filter(fn ($label, $slug) => $activation->isActiveAnywhere($slug))
-                ->map(fn ($label, $slug) => ['label' => $label, 'icon' => $icons[$slug] ?? 'squares'])->values()->all();
+                ->map(function ($label, $slug) use ($content) {
+                    [$door, $icon, $hex] = self::BIZ_LOOK[$slug] ?? [null, 'squares', '#2563EB'];
+                    $style = $door ? \App\Support\ModuleTheme::style($door) : '';
+                    if ($style === '') {
+                        $style = "--mod: {$hex}; --mod-soft: {$hex}1A; --mod-ink: color-mix(in srgb, {$hex} 80%, black);";
+                    }
+
+                    return [
+                        'slug' => $slug,
+                        'label' => $label,
+                        'title' => $door ? \App\Support\SiteText::get("home.door.{$door}.title") : $label,
+                        'line' => $door ? \App\Support\SiteText::get("home.door.{$door}.line") : '',
+                        'note' => (string) ($content['note_'.$slug] ?? ''),
+                        'image' => $door ? \App\Support\HomeDoors::imageUrl($door) : null,
+                        'icon' => $icon,
+                        'style' => $style,
+                    ];
+                })->values()->all();
         } catch (\Throwable $e) {
             report($e);
 
@@ -311,6 +413,12 @@ final class FranchisePage
         if ($share !== '' && (! is_numeric($share) || (float) $share <= 0 || (float) $share > 100)) {
             $errors['calc_share'] = 'Write a number between 0 and 100, like 10, or leave it empty to hide the calculator.';
         }
+        foreach (['fee_all', 'fee_two', 'fee_addon', 'fee_one'] as $fee) {
+            $v = trim((string) ($c[$fee] ?? ''));
+            if ($v !== '' && ! ctype_digit($v)) {
+                $errors[$fee] = 'Numbers only, in rupees, like 350000 (no ₹, commas or spaces).';
+            }
+        }
         foreach (['hero_title', 'cta_label'] as $required) {
             if (trim((string) ($c[$required] ?? '')) === '' && ! isset($errors[$required])) {
                 $errors[$required] = self::TEXT[$required][0].' is needed.';
@@ -337,6 +445,9 @@ final class FranchisePage
                         continue;
                     }
                     if ($v === '') {
+                        if (in_array("{$key}.{$field}", self::OPTIONAL_FIELDS, true)) {
+                            continue;
+                        }
                         $errors["{$key}.{$i}.{$field}"] = 'Fill this in, or remove the row.';
                     } elseif (mb_strlen($v) > $max) {
                         $errors["{$key}.{$i}.{$field}"] = "At most {$max} characters.";

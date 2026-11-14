@@ -9,9 +9,9 @@
     $wa = $p['show_contact'] ? C::whatsappHref() : null;
     $mail = $p['show_contact'] ? (C::get('franchise_email') ?: C::get('email')) : null;
     $talkUrl = $wa ?: $tel;
-    $doors = [
-        ['services', 'wrench'], ['food', 'sparkles'], ['shop', 'shopping-bag'], ['parcel', 'map'],
-    ];
+    // Business picker: shown only when the Super Admin set the all / two / add-on fees as plain numbers.
+    $fees = ['all' => $p['fee_all'], 'two' => $p['fee_two'], 'addon' => $p['fee_addon'], 'one' => $p['fee_one']];
+    $pickerOn = count($businesses) > 1 && ctype_digit((string) $fees['all']) && ctype_digit((string) $fees['two']) && ctype_digit((string) $fees['addon']);
     $schema = [];
     if ($p['faq']) {
         $schema[] = ['@context' => 'https://schema.org', '@type' => 'FAQPage', 'mainEntity' => array_map(fn ($f) => [
@@ -68,20 +68,36 @@
             <div class="relative">
                 @if ($heroUrl)
                     <img src="{{ $heroUrl }}" alt="" class="aspect-[4/3] w-full rounded-3xl object-cover shadow-2xl ring-1 ring-white/10" fetchpriority="high">
-                @else
-                    {{-- No picture uploaded: the multi-business idea itself, in each business's own colour. --}}
-                    <div class="rounded-3xl bg-white/5 p-5 shadow-2xl ring-1 ring-inset ring-white/10 backdrop-blur-sm sm:p-6" aria-hidden="true">
-                        <div class="grid grid-cols-2 gap-3 sm:gap-4">
-                            @foreach ($doors as [$m, $icon])
-                                <div class="rounded-2xl bg-white p-4 text-slate-900 shadow-lg" style="{{ \App\Support\ModuleTheme::style($m) }}">
-                                    <span class="flex h-11 w-11 items-center justify-center rounded-xl bg-[var(--mod-soft)] text-[var(--mod)]"><x-icon :name="$icon" class="h-6 w-6" /></span>
-                                    <p class="mt-3 text-base font-bold">{{ $st('home.door.'.$m.'.title') }}</p>
-                                    <p class="mt-0.5 text-xs text-slate-500">{{ $st('home.door.'.$m.'.line') }}</p>
-                                    <span class="mt-3 block h-1 w-10 rounded-full bg-[var(--mod)]"></span>
-                                </div>
-                            @endforeach
-                        </div>
+                @elseif ($businesses)
+                    {{-- No picture uploaded (owner 2026-11-14): every live business, as on the homepage "Explore" row, in two
+                         rows scrolling past each other. Stops for people who turned motion off. --}}
+                    <div class="fr-marquee relative overflow-hidden rounded-3xl bg-white/5 py-5 shadow-2xl ring-1 ring-inset ring-white/10 backdrop-blur-sm" aria-hidden="true" data-franchise-hero-tiles>
+                        @foreach ([0, 1] as $row)
+                            @php $rowBiz = $row ? array_reverse($businesses) : $businesses; @endphp
+                            <div @class(['flex w-max gap-3 px-1.5', 'fr-marquee-left' => ! $row, 'fr-marquee-right mt-3' => $row])>
+                                @foreach (array_merge($rowBiz, $rowBiz, count($rowBiz) < 5 ? $rowBiz : []) as $b)
+                                    <div class="flex w-36 shrink-0 flex-col items-center rounded-2xl bg-white p-3 text-center text-slate-900 shadow-lg sm:w-40" style="{{ $b['style'] }}">
+                                        <span class="grid aspect-square w-20 place-items-center overflow-hidden rounded-xl bg-[var(--mod-soft)] text-[var(--mod)]">
+                                            @if ($b['image'])<img src="{{ $b['image'] }}" alt="" class="h-full w-full object-contain" loading="eager" decoding="async">@else<x-icon :name="$b['icon']" class="h-9 w-9" />@endif
+                                        </span>
+                                        <span class="mt-2 text-sm font-bold">{{ $b['title'] }}</span>
+                                        <span class="mt-0.5 line-clamp-1 text-[11px] text-slate-500">{{ $b['line'] ?: $b['label'] }}</span>
+                                        <span class="mt-2 block h-1 w-10 rounded-full bg-[var(--mod)]"></span>
+                                    </div>
+                                @endforeach
+                            </div>
+                        @endforeach
+                        <div class="pointer-events-none absolute inset-y-0 left-0 w-10 bg-gradient-to-r from-blue-950/80 to-transparent"></div>
+                        <div class="pointer-events-none absolute inset-y-0 right-0 w-10 bg-gradient-to-l from-blue-900/80 to-transparent"></div>
                     </div>
+                    <style>
+                        @keyframes fr-left { from { transform: translateX(0) } to { transform: translateX(-50%) } }
+                        @keyframes fr-right { from { transform: translateX(-50%) } to { transform: translateX(0) } }
+                        .fr-marquee-left { animation: fr-left 38s linear infinite }
+                        .fr-marquee-right { animation: fr-right 42s linear infinite }
+                        .fr-marquee:hover .fr-marquee-left, .fr-marquee:hover .fr-marquee-right { animation-play-state: paused }
+                        @media (prefers-reduced-motion: reduce) { .fr-marquee-left, .fr-marquee-right { animation: none } }
+                    </style>
                 @endif
             </div>
         </div>
@@ -127,7 +143,9 @@
         </section>
     @endif
 
-    {{-- ============ Every business, one franchise (live from the module switches) ============ --}}
+    {{-- ============ Every business, one franchise (live from the module switches) ============
+         Owner 2026-11-14: each business drawn like its homepage "Explore" tile (same picture and colour), with a line on
+         why it grows (Super Admin words, note_<module>). Cards keep one size; a short last row sits in the middle. --}}
     @if (count($businesses) > 1 && $p['biz_title'])
         <section class="bg-gradient-to-br from-blue-950 via-indigo-900 to-blue-800 text-white" aria-labelledby="fr-biz" data-franchise-businesses>
             <div class="mx-auto max-w-7xl px-4 py-14 sm:px-6 lg:px-8">
@@ -135,14 +153,23 @@
                     <h2 id="fr-biz" class="text-2xl font-extrabold tracking-tight sm:text-3xl">{{ $p['biz_title'] }}</h2>
                     @if ($p['biz_intro'])<p class="mt-3 text-base text-blue-100">{{ $p['biz_intro'] }}</p>@endif
                 </div>
-                <ul class="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-3 {{ [2 => 'lg:grid-cols-2', 3 => 'lg:grid-cols-3', 4 => 'lg:grid-cols-4'][count($businesses)] ?? 'lg:grid-cols-5' }}">
+                <ul class="mt-8 flex flex-wrap justify-center gap-4">
                     @foreach ($businesses as $b)
-                        <li class="flex items-center gap-3 rounded-2xl bg-white/10 p-4 ring-1 ring-inset ring-white/15 backdrop-blur">
-                            <span class="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-amber-400 text-slate-900"><x-icon :name="$b['icon']" class="h-6 w-6" /></span>
-                            <span class="min-w-0">
-                                <span class="block truncate font-bold">{{ $b['label'] }}</span>
-                                <span class="mt-0.5 inline-flex items-center gap-1 text-xs font-semibold text-emerald-300"><span class="h-1.5 w-1.5 rounded-full bg-emerald-300"></span> {{ $p['biz_live'] }}</span>
-                            </span>
+                        <li class="w-full sm:w-[calc(50%-0.5rem)] lg:w-[calc(25%-0.75rem)]" data-franchise-business="{{ $b['slug'] }}">
+                            <div class="relative flex h-full gap-4 overflow-hidden rounded-3xl bg-white p-4 text-slate-900 shadow-xl transition hover:-translate-y-0.5 sm:flex-col sm:p-5" style="{{ $b['style'] }}">
+                                <span class="grid h-20 w-20 shrink-0 place-items-center overflow-hidden rounded-2xl bg-[var(--mod-soft)] text-[var(--mod)] sm:h-24 sm:w-24">
+                                    @if ($b['image'])<img src="{{ $b['image'] }}" alt="" class="h-full w-full object-contain" loading="lazy" decoding="async">@else<x-icon :name="$b['icon']" class="h-10 w-10" />@endif
+                                </span>
+                                <span class="min-w-0 pb-1">
+                                    <span class="flex flex-wrap items-center gap-2">
+                                        <span class="text-lg font-extrabold">{{ $b['title'] }}</span>
+                                        @if ($p['biz_live'])<span class="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-bold text-emerald-700 ring-1 ring-inset ring-emerald-200"><span class="h-1.5 w-1.5 rounded-full bg-emerald-500"></span>{{ $p['biz_live'] }}</span>@endif
+                                    </span>
+                                    @if ($b['line'])<span class="mt-0.5 block text-sm font-semibold text-[var(--mod-ink)]">{{ $b['line'] }}</span>@endif
+                                    @if ($b['note'])<span class="mt-2 block text-sm leading-relaxed text-slate-600">{{ $b['note'] }}</span>@endif
+                                </span>
+                                <span class="absolute inset-x-0 bottom-0 h-1.5 bg-[var(--mod)]" aria-hidden="true"></span>
+                            </div>
                         </li>
                     @endforeach
                 </ul>
@@ -170,6 +197,124 @@
                         </div>
                     @endforeach
                 </div>
+            </div>
+        </section>
+    @endif
+
+    {{-- ============ Plans, business picker, payment, areas (owner 2026-11-14: charge per business picked) ============ --}}
+    @if ($p['plans'] || $pickerOn)
+        <section class="bg-gradient-to-b from-amber-50 via-white to-white" aria-labelledby="fr-plans" data-franchise-plans>
+            <div class="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
+                <div class="mx-auto max-w-2xl text-center">
+                    @if ($p['plans_badge'])<p class="inline-flex items-center gap-1.5 rounded-full bg-rose-600 px-3 py-1 text-xs font-bold uppercase tracking-wider text-white"><x-icon name="sparkles" class="h-3.5 w-3.5" /> {{ $p['plans_badge'] }}</p>@endif
+                    <h2 id="fr-plans" class="mt-3 text-2xl font-extrabold tracking-tight text-slate-900 sm:text-3xl">{{ $p['plans_title'] }}</h2>
+                    @if ($p['plans_intro'])<p class="mt-3 text-base text-slate-600">{{ $p['plans_intro'] }}</p>@endif
+                </div>
+
+                @if ($p['plans'])
+                    @php $planLook = [['ring-amber-400 bg-gradient-to-br from-amber-400 to-orange-500', 'text-white', 'bg-white text-slate-900 hover:bg-amber-50'], ['ring-blue-200 bg-white', 'text-slate-900', 'bg-blue-600 text-white hover:bg-blue-700'], ['ring-emerald-200 bg-white', 'text-slate-900', 'bg-emerald-600 text-white hover:bg-emerald-700'], ['ring-violet-200 bg-white', 'text-slate-900', 'bg-violet-600 text-white hover:bg-violet-700']]; @endphp
+                    <ul class="mx-auto mt-10 grid max-w-6xl gap-5 {{ [1 => 'max-w-md', 2 => 'md:grid-cols-2', 3 => 'md:grid-cols-3'][count($p['plans'])] ?? 'md:grid-cols-2 lg:grid-cols-4' }}">
+                        @foreach ($p['plans'] as $plan)
+                            @php [$card, $ink, $btn] = $planLook[$loop->index % count($planLook)]; @endphp
+                            <li class="relative flex flex-col rounded-3xl p-6 shadow-lg ring-2 {{ $card }} {{ $ink }}" data-franchise-plan>
+                                <h3 class="text-lg font-extrabold">{{ $plan['name'] }}</h3>
+                                @if ($plan['text'])<p @class(['mt-1 text-sm', 'text-amber-50' => $loop->first, 'text-slate-500' => ! $loop->first])>{{ $plan['text'] }}</p>@endif
+                                <p class="mt-5 flex flex-wrap items-baseline gap-x-2">
+                                    <span class="text-4xl font-extrabold tracking-tight">{{ $plan['price'] }}</span>
+                                    @if ($plan['was'])<span @class(['text-base line-through', 'text-amber-100' => $loop->first, 'text-slate-400' => ! $loop->first])>{{ $plan['was'] }}</span>@endif
+                                </p>
+                                @if ($plan['royalty'] || $plan['validity'])
+                                    <dl class="mt-5 grid grid-cols-2 gap-2 text-sm">
+                                        @if ($plan['royalty'])<div @class(['rounded-xl px-3 py-2', 'bg-white/20' => $loop->first, 'bg-slate-50' => ! $loop->first])><dt class="text-xs opacity-80">{{ $p['plans_royalty_label'] }}</dt><dd class="font-bold">{{ $plan['royalty'] }}</dd></div>@endif
+                                        @if ($plan['validity'])<div @class(['rounded-xl px-3 py-2', 'bg-white/20' => $loop->first, 'bg-slate-50' => ! $loop->first])><dt class="text-xs opacity-80">{{ $p['plans_term_label'] }}</dt><dd class="font-bold">{{ $plan['validity'] }}</dd></div>@endif
+                                    </dl>
+                                @endif
+                                @if ($accepting)
+                                    <div class="mt-auto pt-6"><a href="{{ $applyUrl }}" class="inline-flex min-h-12 w-full items-center justify-center rounded-xl px-5 text-base font-bold shadow-sm transition {{ $btn }}">{{ $p['cta_label'] }}</a></div>
+                                @endif
+                            </li>
+                        @endforeach
+                    </ul>
+                    @if ($p['plans_note'])<p class="mx-auto mt-5 max-w-3xl text-center text-xs leading-relaxed text-slate-500">{{ $p['plans_note'] }}</p>@endif
+                @endif
+
+                {{-- Pick only the businesses you want: the fee follows the Super Admin's all / two / add-on / one fees. --}}
+                @if ($pickerOn)
+                    <div class="mx-auto mt-14 max-w-5xl rounded-3xl bg-slate-900 p-6 text-white shadow-2xl sm:p-10" data-franchise-picker
+                         x-data="{ picked: [], total: {{ count($businesses) }}, all: {{ (int) $fees['all'] }}, two: {{ (int) $fees['two'] }}, addon: {{ (int) $fees['addon'] }}, one: {{ ctype_digit((string) $fees['one']) ? (int) $fees['one'] : 0 }},
+                                  toggle(s) { this.picked = this.picked.includes(s) ? this.picked.filter(x => x !== s) : [...this.picked, s]; },
+                                  get fee() { const k = this.picked.length; if (! k) return null; if (k >= this.total) return this.all;
+                                              if (k === 1) return this.one || null; return Math.min(this.two + (k - 2) * this.addon, this.all); },
+                                  money(n) { return n >= 100000 ? '₹' + (Math.round(n / 10000) / 10).toString() + (n === 100000 ? ' Lakh' : ' Lakhs') : '₹' + n.toLocaleString('en-IN'); } }">
+                        <h3 class="text-2xl font-extrabold tracking-tight">{{ $p['pick_title'] }}</h3>
+                        @if ($p['pick_intro'])<p class="mt-2 text-sm text-slate-300">{{ $p['pick_intro'] }}</p>@endif
+                        <div class="mt-6 grid gap-6 lg:grid-cols-[1.6fr_1fr] lg:items-center">
+                            <ul class="grid grid-cols-2 gap-2.5 sm:grid-cols-3">
+                                @foreach ($businesses as $b)
+                                    <li>
+                                        <button type="button" @click="toggle(@js($b['slug']))" :aria-pressed="picked.includes(@js($b['slug'])).toString()" style="{{ $b['style'] }}"
+                                                :class="picked.includes(@js($b['slug'])) ? 'bg-white text-slate-900 ring-[var(--mod)] ring-4' : 'bg-white/10 text-white ring-white/15 hover:bg-white/15'"
+                                                class="flex min-h-14 w-full items-center gap-2.5 rounded-2xl p-2 text-left text-sm font-bold ring-1 ring-inset transition" data-pick="{{ $b['slug'] }}">
+                                            <span class="grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-xl bg-white text-[var(--mod)]">
+                                                @if ($b['image'])<img src="{{ $b['image'] }}" alt="" class="h-full w-full object-contain" loading="lazy">@else<x-icon :name="$b['icon']" class="h-6 w-6" />@endif
+                                            </span>
+                                            <span class="min-w-0 flex-1 truncate">{{ $b['title'] }}</span>
+                                            <span class="grid h-6 w-6 shrink-0 place-items-center rounded-full" :class="picked.includes(@js($b['slug'])) ? 'bg-emerald-500 text-white' : 'ring-2 ring-white/30'">
+                                                <svg x-show="picked.includes(@js($b['slug']))" style="display:none" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M16.7 5.3a1 1 0 010 1.4l-8 8a1 1 0 01-1.4 0l-4-4a1 1 0 111.4-1.4L8 12.6l7.3-7.3a1 1 0 011.4 0z" clip-rule="evenodd"/></svg>
+                                            </span>
+                                        </button>
+                                    </li>
+                                @endforeach
+                            </ul>
+                            <div class="rounded-2xl bg-white p-6 text-center text-slate-900" aria-live="polite">
+                                <p class="text-sm font-semibold text-slate-500">{{ $p['pick_result'] }}</p>
+                                <p class="mt-2 text-4xl font-extrabold tracking-tight text-blue-700" data-pick-fee>
+                                    <span x-show="fee" x-text="fee ? money(fee) : ''"></span>
+                                    <span x-show="! fee" class="text-2xl text-slate-300">—</span>
+                                </p>
+                                <p class="mt-1 text-xs text-slate-500" x-show="picked.length" x-text="picked.length + ' / ' + total"></p>
+                                <p class="mt-2 text-sm text-slate-600" x-show="picked.length === 1 && ! one" style="display:none">{{ $p['pick_one_note'] }}</p>
+                                @if ($accepting)
+                                    <a href="{{ $applyUrl }}" class="mt-4 inline-flex min-h-12 w-full items-center justify-center rounded-xl bg-amber-400 px-5 text-base font-bold text-slate-900 hover:bg-amber-300">{{ $p['cta_label'] }}</a>
+                                @endif
+                            </div>
+                        </div>
+                    </div>
+                @endif
+
+                @if ($p['payment'] || $p['areas'])
+                    <div class="mx-auto mt-14 grid max-w-6xl gap-6 lg:grid-cols-2">
+                        @if ($p['payment'])
+                            <div class="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-slate-200 sm:p-8" data-franchise-payment>
+                                <h3 class="flex items-center gap-2 text-xl font-bold text-slate-900"><x-icon name="wallet" class="h-6 w-6 text-emerald-600" /> {{ $p['pay_title'] }}</h3>
+                                <ol class="mt-5 space-y-4">
+                                    @foreach ($p['payment'] as $pay)
+                                        <li class="flex gap-3">
+                                            <span class="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-gradient-to-br {{ ['from-emerald-500 to-teal-500', 'from-blue-600 to-sky-500', 'from-amber-500 to-orange-500', 'from-fuchsia-600 to-pink-500'][$loop->index % 4] }} text-sm font-extrabold text-white">{{ $loop->iteration }}</span>
+                                            <span><span class="block font-bold text-slate-900">{{ $pay['title'] }}</span><span class="text-sm text-slate-600">{{ $pay['text'] }}</span></span>
+                                        </li>
+                                    @endforeach
+                                </ol>
+                            </div>
+                        @endif
+                        @if ($p['areas'])
+                            <div class="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-slate-200 sm:p-8" data-franchise-areas>
+                                <h3 class="flex items-center gap-2 text-xl font-bold text-slate-900"><x-icon name="map-pin" class="h-6 w-6 text-blue-600" /> {{ $p['areas_title'] }}</h3>
+                                <ul class="mt-5 space-y-3">
+                                    @foreach ($p['areas'] as $area)
+                                        <li class="grid grid-cols-[auto_1fr] items-center gap-3 rounded-2xl {{ ['bg-blue-50', 'bg-violet-50', 'bg-emerald-50', 'bg-amber-50'][$loop->index % 4] }} p-4">
+                                            <span class="grid h-11 w-11 place-items-center rounded-xl bg-white text-blue-700 shadow-sm"><x-icon name="building" class="h-6 w-6" /></span>
+                                            <span>
+                                                <span class="block font-bold text-slate-900">{{ $area['type'] }}</span>
+                                                <span class="text-sm text-slate-600">{{ $area['population'] }} · <span class="font-semibold text-slate-900">{{ $area['radius'] }}</span></span>
+                                            </span>
+                                        </li>
+                                    @endforeach
+                                </ul>
+                            </div>
+                        @endif
+                    </div>
+                @endif
             </div>
         </section>
     @endif

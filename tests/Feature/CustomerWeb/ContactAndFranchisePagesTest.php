@@ -82,6 +82,77 @@ class ContactAndFranchisePagesTest extends TestCase
         $this->assertArrayNotHasKey('calc_share', FranchisePage::validate(FranchisePage::defaults()));
     }
 
+    /** Owner 2026-11-14: fee plans, payment steps and area table from the owner's sales plan, all Super Admin words. */
+    public function test_plans_payment_and_areas_show_and_the_defaults_pass_the_admin_check(): void
+    {
+        $this->assertSame([], FranchisePage::validate(FranchisePage::defaults()), 'the shipped defaults can be saved as they are');
+
+        $html = $this->get('/franchise')->assertOk()->getContent();
+        $this->assertSame(3, substr_count($html, 'data-franchise-plan>'));
+        foreach (['₹5.5 Lakhs', '₹20 Lakhs', '₹3.5 Lakhs', '₹1 Lakh each', 'Booking advance ₹50,000', 'Area Franchise', '20–25 km radius', 'data-franchise-payment', 'data-franchise-areas'] as $text) {
+            $this->assertStringContainsString($text, $html);
+        }
+
+        Setting::set(FranchisePage::CONTENT, json_encode(['plans' => [], 'payment' => [], 'areas' => [], 'fee_all' => ''] + FranchisePage::defaults()));
+        $html = $this->get('/franchise')->assertOk()->getContent();
+        $this->assertStringNotContainsString('data-franchise-plans', $html, 'emptied by the Super Admin = not shown');
+    }
+
+    /** Owner 2026-11-14: a franchisee may take only some businesses and pays for those. */
+    public function test_the_business_picker_needs_two_live_businesses_and_number_fees(): void
+    {
+        $this->assertStringNotContainsString('data-franchise-picker', $this->get('/franchise')->getContent(), 'one live business: nothing to pick');
+
+        $activation = app(\App\Services\ModuleActivationService::class);
+        foreach (['parcel', 'food'] as $code) {
+            \App\Models\Module::where('code', $code)->update(['is_implemented' => true]);
+            $activation->setActive($code, 'franchise', 1, true);
+        }
+        $live = array_column(FranchisePage::liveBusinesses(), 'slug');
+        $this->assertContains('parcel', $live);
+
+        $html = $this->get('/franchise')->assertOk()->getContent();
+        $this->assertStringContainsString('data-franchise-picker', $html);
+        $this->assertStringContainsString('data-pick="parcel"', $html);
+        $this->assertStringContainsString('all: 550000, two: 350000, addon: 100000, one: 0', $html);
+        $this->assertStringContainsString('data-franchise-hero-tiles', $html);
+        $this->assertStringContainsString('door-parcel', $html, 'the homepage picture of each business');
+        $this->assertStringContainsString('data-franchise-business="food"', $html);
+
+        $this->assertArrayHasKey('fee_two', FranchisePage::validate(['fee_two' => '3.5 lakh'] + FranchisePage::defaults()));
+        Setting::set(FranchisePage::CONTENT, json_encode(['fee_all' => ''] + FranchisePage::defaults()));
+        $this->assertStringNotContainsString('data-franchise-picker', $this->get('/franchise')->getContent(), 'no fees set = no picker');
+    }
+
+    /** A page the Super Admin already saved gets the new plan lines added, and nothing they wrote is changed. */
+    public function test_the_plan_lines_migration_adds_to_saved_content_without_touching_admin_words(): void
+    {
+        $migration = require database_path('migrations/2026_11_17_100500_franchise_page_plan_lines.php');
+        $migration->up(); // nothing saved: nothing to do
+        $this->assertNull(Setting::get(FranchisePage::CONTENT));
+
+        $old = 'It depends on the city. We share the investment and fees in writing on your call with our team, before you commit to anything.';
+        Setting::set(FranchisePage::CONTENT, json_encode([
+            'support' => [['text' => 'My own line']],
+            'faq' => [['q' => 'How much does a franchise cost?', 'a' => $old], ['q' => 'Who can apply?', 'a' => 'My own answer']],
+        ] + FranchisePage::defaults()));
+        $migration->up();
+        $migration->up(); // running twice adds nothing twice
+
+        $p = FranchisePage::content();
+        $this->assertSame('My own line', $p['support'][0]['text']);
+        $this->assertCount(5, $p['support']);
+        $this->assertSame('Franchise certificate and area rights', $p['support'][3]['text']);
+        $this->assertStringContainsString('₹50,000', $p['faq'][0]['a']);
+        $this->assertSame('My own answer', $p['faq'][1]['a']);
+        $this->assertCount(3, $p['faq']);
+        $this->assertSame('Can I run only one or two businesses?', $p['faq'][2]['q']);
+
+        Setting::set(FranchisePage::CONTENT, json_encode(['faq' => [['q' => 'How much does a franchise cost?', 'a' => 'Ask us.']]] + FranchisePage::defaults()));
+        $migration->up();
+        $this->assertSame('Ask us.', FranchisePage::content()['faq'][0]['a'], 'an answer the Super Admin rewrote stays');
+    }
+
     public function test_only_live_businesses_are_listed(): void
     {
         $this->assertSame([], array_filter(FranchisePage::liveBusinesses(), fn ($b) => ! in_array($b['label'], \App\Support\Modules::ALL, true)));

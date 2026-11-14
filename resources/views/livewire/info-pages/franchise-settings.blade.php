@@ -7,7 +7,10 @@
         'Top of the page (hero)' => [['hero_badge', 'hero_title', 'hero_subtitle', 'cta_label', 'call_label'], ['highlights']],
         'Numbers strip' => [[], ['stats']],
         'Why a franchise' => [['why_title', 'why_intro'], ['why']],
-        'Every business (live list from the app) and comparison' => [['biz_title', 'biz_intro', 'biz_live', 'compare_title', 'compare_them', 'compare_us'], ['compare']],
+        'Every business (live list from the app) and comparison' => [['biz_title', 'biz_intro', 'biz_live', 'note_service', 'note_parcel', 'note_rental', 'note_food', 'note_grocery', 'note_pharmacy', 'note_commerce', 'note_taxi', 'note_hotel', 'note_events', 'compare_title', 'compare_them', 'compare_us'], ['compare']],
+        'Franchise plans and fees' => [['plans_title', 'plans_intro', 'plans_badge', 'plans_note', 'plans_royalty_label', 'plans_term_label'], ['plans']],
+        'Business picker (fee for the businesses a franchisee picks)' => [['pick_title', 'pick_intro', 'fee_all', 'fee_two', 'fee_addon', 'fee_one', 'pick_one_note', 'pick_result'], []],
+        'Payment steps and areas' => [['pay_title', 'areas_title'], ['payment', 'areas']],
         'Earnings calculator' => [['calc_title', 'calc_share', 'calc_orders', 'calc_value', 'calc_share_label', 'calc_result', 'calc_note'], []],
         'What you get' => [['support_title'], ['support']],
         'How you earn and investment' => [['earn_title', 'earn_text', 'invest_title', 'invest_note'], ['invest']],
@@ -103,7 +106,7 @@
                                         <div class="grid gap-2 {{ count($fields) > 1 ? 'sm:grid-cols-2' : '' }}">
                                             @foreach ($fields as $field => $fmax)
                                                 <div @class(['sm:col-span-2' => in_array($field, ['text', 'quote', 'a'], true) && count($fields) > 1])>
-                                                    <label class="block text-xs text-gray-500 mb-0.5" for="fp-{{ $list }}-{{ $i }}-{{ $field }}">{{ ['q' => 'Question', 'a' => 'Answer', 'text' => 'Text', 'title' => 'Title', 'icon' => 'Icon', 'value' => 'Value', 'label' => 'Label', 'name' => 'Name', 'city' => 'City', 'quote' => 'What they said', 'them' => 'One-business franchise', 'us' => '1CallFix franchise'][$field] ?? $field }}</label>
+                                                    <label class="block text-xs text-gray-500 mb-0.5" for="fp-{{ $list }}-{{ $i }}-{{ $field }}">{{ ['q' => 'Question', 'a' => 'Answer', 'text' => 'Text', 'title' => 'Title', 'icon' => 'Icon', 'value' => 'Value', 'label' => 'Label', 'name' => 'Name', 'city' => 'City', 'quote' => 'What they said', 'them' => 'One-business franchise', 'us' => '1CallFix franchise', 'was' => 'Old fee (shown struck out, optional)', 'price' => 'Offer fee', 'royalty' => 'Royalty (optional)', 'validity' => 'Term (optional)', 'type' => 'Franchise type', 'population' => 'City population', 'radius' => 'Exclusive area'][$field] ?? $field }}</label>
                                                     @if ($field === 'icon')
                                                         <select id="fp-{{ $list }}-{{ $i }}-{{ $field }}" wire:model="c.{{ $list }}.{{ $i }}.icon" class="{{ $input }}">
                                                             @foreach (F::ICONS as $icon)<option value="{{ $icon }}">{{ $icon }}</option>@endforeach
