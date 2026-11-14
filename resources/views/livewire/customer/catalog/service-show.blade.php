@@ -63,7 +63,24 @@
                         </p>
                     @endif
 
-                    <h1 class="mt-1 text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">{{ $service->name }}</h1>
+                    <h1 class="mt-1 text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">{{ $service->displayName() }}</h1>
+
+                    {{-- Service choices (owner 2026-11-14): each button is its own real service with its own price. --}}
+                    @if ($choices->isNotEmpty())
+                        <div class="mt-4" data-testid="service-choices">
+                            <p class="text-sm font-semibold text-slate-900">{{ \App\Support\SiteText::get('service.choose_type') }}</p>
+                            <div class="mt-2 flex flex-wrap gap-2">
+                                @foreach ($choices as $choice)
+                                    @php $isCurrent = $choice->id === $service->id; @endphp
+                                    <a href="{{ \App\Support\Seo\PublicUrl::service($choice) }}" wire:navigate
+                                       @if ($isCurrent) aria-current="true" @endif
+                                       class="inline-flex min-h-[44px] items-center rounded-full border px-4 py-2 text-sm font-semibold transition {{ $isCurrent ? 'border-blue-600 bg-blue-600 text-white' : 'border-slate-300 bg-white text-slate-700 hover:border-blue-400 hover:text-blue-700' }}">
+                                        {{ $choice->choice_label ?: $choice->name }}
+                                    </a>
+                                @endforeach
+                            </div>
+                        </div>
+                    @endif
 
                     <div class="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-slate-600">
                         <x-customer.rating :rating="$card['rating']" :count="$card['review_count']" />

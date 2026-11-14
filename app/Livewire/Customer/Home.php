@@ -188,7 +188,7 @@ class Home extends Component
             $tiles = $subs->count() >= 2
                 ? $subs->map(fn ($sub) => ['name' => $sub->name, 'url' => \App\Support\Seo\PublicUrl::category($category, null, ['sub' => $sub->id]),
                     'image' => $sub->image_url, 'tint' => $tint, 'new' => $isNew($sub)])->all()
-                : $this->cardsFrom($this->catalog()->services(['category_id' => $category->id]), $n)
+                : $this->cardsFrom($this->catalog()->services(['category_id' => $category->id, 'main_only' => true]), $n)
                     ->map(fn ($c) => ['name' => $c['name'], 'url' => $c['url'], 'image' => $c['image_url'], 'tint' => $tint, 'new' => $isNew($c['service'])])->all();
             if ($tiles === []) {
                 continue;
@@ -470,7 +470,7 @@ class Home extends Component
         return $categories->map(fn (ServiceCategory $category) => [
             'category' => $category,
             'cards' => $this->cardsFrom(
-                $this->catalog()->services(['category_id' => $category->id]),
+                $this->catalog()->services(['category_id' => $category->id, 'main_only' => true]),
                 self::COLLECTION_SERVICE_LIMIT,
             ),
         ]);

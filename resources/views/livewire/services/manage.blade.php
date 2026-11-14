@@ -589,6 +589,35 @@
                         </div>
                     </div>
 
+                    {{-- Service choices: show sibling services as one card with buttons (Split AC: General / Jet pump / ...).
+                         Each choice keeps its own price; this only groups how they are shown. --}}
+                    <div class="rounded-lg border border-blue-100 bg-blue-50/50 p-3">
+                        <p class="text-sm font-semibold text-gray-800">Show as a choice (optional)</p>
+                        <p class="text-[11px] text-gray-500 mt-0.5">Example: Split AC Service with buttons General / Jet pump / Chemical wash. Each button is its own service with its own price.</p>
+                        <div class="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-3">
+                            <div>
+                                <label class="block text-xs font-medium mb-1">Choice of</label>
+                                <select wire:model.live="editChoiceOf" class="w-full border rounded px-3 py-2 text-sm">
+                                    <option value="">None (this is a main service)</option>
+                                    @foreach ($this->choiceMainOptions as $main)
+                                        <option value="{{ $main->id }}">{{ $main->name }}</option>
+                                    @endforeach
+                                </select>
+                                @error('editChoiceOf') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
+                            </div>
+                            @if ($editChoiceOf === '')
+                                <div>
+                                    <label class="block text-xs font-medium mb-1">Group name on the card</label>
+                                    <input type="text" wire:model="editChoiceGroupName" placeholder="e.g. Split AC Service" class="w-full border rounded px-3 py-2 text-sm">
+                                </div>
+                            @endif
+                            <div>
+                                <label class="block text-xs font-medium mb-1">Button text</label>
+                                <input type="text" wire:model="editChoiceLabel" placeholder="e.g. Chemical wash" class="w-full border rounded px-3 py-2 text-sm">
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="flex flex-wrap gap-6 text-sm">
                         <label class="inline-flex items-center gap-2">
                             <input type="checkbox" wire:model="editLocationRequired" class="rounded"> Location Required

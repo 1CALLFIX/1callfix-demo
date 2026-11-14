@@ -91,7 +91,7 @@ class ServiceCatalogQuery
      *    "cleaning" (a category word) at least as often as an exact service
      *    title. See searchServices().
      *
-     * @param  array{category_id?:int|null, subcategory_id?:int|null, name_like?:string|null, keyword?:string|null}  $filters
+     * @param  array{category_id?:int|null, subcategory_id?:int|null, name_like?:string|null, keyword?:string|null, main_only?:bool}  $filters
      */
     public function services(array $filters = []): Builder
     {
@@ -105,6 +105,8 @@ class ServiceCatalogQuery
             ->when(QaRows::hiding(), fn ($q) => $q->where('name', 'not like', QaRows::LIKE))
             ->when(($filters['category_id'] ?? null) !== null, fn ($q) => $q->where('category_id', $filters['category_id']))
             ->when(($filters['subcategory_id'] ?? null) !== null, fn ($q) => $q->where('subcategory_id', $filters['subcategory_id']))
+            // Grouped choices (Split AC General / Jet / Foam ...) show as ONE card in lists: only the main service.
+            ->when(! empty($filters['main_only']), fn ($q) => $q->whereNull('choice_of'))
             // `name_like` is left UNESCAPED on purpose: that is byte-for-byte
             // what `GET /api/services?search=` has always done, and this class
             // exists to share the API's rule, not to quietly change it. The

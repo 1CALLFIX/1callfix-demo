@@ -144,7 +144,7 @@ class CatalogPresenter
 
         return [
             'service' => $service,
-            'name' => $service->name,
+            'name' => $service->displayName(),
             'description' => $service->description,
             'category' => $service->category,
             'subcategory' => $service->subcategory,

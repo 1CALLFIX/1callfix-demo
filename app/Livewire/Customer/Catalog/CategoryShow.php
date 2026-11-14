@@ -131,6 +131,8 @@ class CategoryShow extends Component
             'category_id' => $category->id,
             'subcategory_id' => $this->subcategory,
             'keyword' => $this->search,
+            // Grouped choices show as one card; a search still finds each choice by its own name.
+            'main_only' => trim((string) $this->search) === '',
         ]);
 
         $paginator = $this->applySort($query)

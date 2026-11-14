@@ -33,7 +33,10 @@ class Service extends Model
         'is_active',
         'location_required',
         'age_restriction',
-        'sort_order'
+        'sort_order',
+        'choice_of',
+        'choice_group_name',
+        'choice_label',
     ];
 
     protected $casts = [
@@ -91,6 +94,44 @@ class Service extends Model
 
     public function category() { return $this->belongsTo(ServiceCategory::class, 'category_id'); }
     public function subcategory() { return $this->belongsTo(ServiceSubcategory::class, 'subcategory_id'); }
+
+    /**
+     * Service choices (owner 2026-11-14): sibling services shown as ONE card with choice buttons, e.g. Split AC
+     * Service = General / Jet pump / Foam + jet pump / Chemical wash / Full service. Each choice stays a real
+     * service with its own price, coupons, partner job name and invoice; only the way they are shown is grouped.
+     * The main service has `choice_group_name` (the card title); the others point at it with `choice_of`.
+     */
+    public function choiceMain() { return $this->belongsTo(Service::class, 'choice_of'); }
+
+    public function choiceMembers() { return $this->hasMany(Service::class, 'choice_of'); }
+
+    /** The card / page title: the group name on a grouped service, otherwise the service's own name. */
+    public function displayName(): string
+    {
+        $main = $this->choice_of ? $this->choiceMain : $this;
+
+        return (string) (($main?->choice_group_name) ?: $this->name);
+    }
+
+    /**
+     * The active choices of this service's group, main first, then by price; empty when it is not grouped.
+     *
+     * @return \Illuminate\Support\Collection<int, Service>
+     */
+    public function choiceFamily(): \Illuminate\Support\Collection
+    {
+        $mainId = $this->choice_of ?: (filled($this->choice_group_name) ? $this->id : null);
+        if ($mainId === null) {
+            return collect();
+        }
+
+        $family = Service::query()->where('is_active', true)
+            ->where(fn ($q) => $q->whereKey($mainId)->orWhere('choice_of', $mainId))
+            ->orderByRaw('CASE WHEN id = ? THEN 0 ELSE 1 END', [$mainId])->orderBy('base_price')->orderBy('id')
+            ->get();
+
+        return $family->count() > 1 ? $family : collect();
+    }
     public function optionGroups() { return $this->hasMany(ServiceOptionGroup::class); }
     public function franchisePricing() { return $this->hasMany(FranchiseServicePricing::class); }
     public function bookings() { return $this->hasMany(Booking::class); }

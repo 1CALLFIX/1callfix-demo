@@ -320,6 +320,7 @@ class ServiceShow extends Component
             'availableProviderCount' => $this->availableProviderCount($service),
             'activeZone' => $this->location()->zone(),
             'related' => $this->related($service),
+            'choices' => $service->choiceFamily(),
             'currencySymbol' => $this->presenter()->currencySymbol(),
             'cityIntro' => $this->seoFor($service)['intro'],
         ])->layout('components.layouts.customer', [
@@ -532,7 +533,8 @@ class ServiceShow extends Component
     private function related(Service $service): Collection
     {
         return $this->cardsFrom(
-            $this->catalog()->services(['category_id' => $service->category_id])->whereKeyNot($service->id),
+            $this->catalog()->services(['category_id' => $service->category_id, 'main_only' => true])
+                ->whereKeyNot($service->choice_of ?: $service->id)->whereKeyNot($service->id),
             self::RELATED_LIMIT,
         );
     }

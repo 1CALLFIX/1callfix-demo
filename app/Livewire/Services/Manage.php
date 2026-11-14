@@ -78,6 +78,11 @@ class Manage extends Component
     public bool $editLocationRequired = true;
     public bool $editAgeRestriction = false;
 
+    /** Service choices: the main service this one is a choice of ('' = none), the group's card title, this button's text. */
+    public string $editChoiceOf = '';
+    public string $editChoiceGroupName = '';
+    public string $editChoiceLabel = '';
+
     // --- View details modal (read-only, the eye icon) ---
     public bool $showViewModal = false;
     public ?int $viewServiceId = null;
@@ -318,6 +323,9 @@ class Manage extends Component
         $this->editIsActive = $service->is_active;
         $this->editLocationRequired = $service->location_required;
         $this->editAgeRestriction = $service->age_restriction;
+        $this->editChoiceOf = $service->choice_of ? (string) $service->choice_of : '';
+        $this->editChoiceGroupName = (string) $service->choice_group_name;
+        $this->editChoiceLabel = (string) $service->choice_label;
 
         $this->resetValidation();
         // Edit is also reachable from the details modal's footer — make sure
@@ -514,6 +522,9 @@ class Manage extends Component
             'editPriceType' => ['required', 'in:fixed,hourly,quote_on_inspection'],
             'editDurationEstimateMins' => ['required', 'integer', 'min:1'],
             'editCoverImageFile' => ['nullable', 'image', 'mimes:png,jpg,jpeg', 'max:2048'],
+            'editChoiceOf' => ['nullable', 'integer', 'exists:services,id'],
+            'editChoiceGroupName' => ['nullable', 'string', 'max:120'],
+            'editChoiceLabel' => ['nullable', 'string', 'max:80'],
         ];
 
         if ($this->editDiscountPrice !== '') {
@@ -544,6 +555,12 @@ class Manage extends Component
 
         $service = Service::findOrFail($this->editServiceId);
 
+        if (($choiceProblem = $this->choiceProblem($service)) !== null) {
+            $this->addError('editChoiceOf', $choiceProblem);
+
+            return;
+        }
+
         if (! $this->applyEditSlug($service)) {
             return;
         }
@@ -572,11 +589,48 @@ class Manage extends Component
             'is_active' => $this->editIsActive,
             'location_required' => $this->editLocationRequired,
             'age_restriction' => $this->editAgeRestriction,
+            'choice_of' => $this->editChoiceOf !== '' ? (int) $this->editChoiceOf : null,
+            // A choice of another service shows under that service's group name, so it keeps none of its own.
+            'choice_group_name' => $this->editChoiceOf === '' && trim($this->editChoiceGroupName) !== '' ? trim($this->editChoiceGroupName) : null,
+            'choice_label' => trim($this->editChoiceLabel) !== '' ? trim($this->editChoiceLabel) : null,
         ]);
 
         $this->showEditModal = false;
         $this->editCoverImageFile = null;
         $this->flashMessage = 'Service updated.';
+    }
+
+    /** Why the picked "choice of" cannot be saved, or null when it can. */
+    private function choiceProblem(Service $service): ?string
+    {
+        if ($this->editChoiceOf === '') {
+            return null;
+        }
+        $main = Service::find((int) $this->editChoiceOf);
+        if (! $main || $main->id === $service->id) {
+            return 'Pick another service as the main one.';
+        }
+        if ($main->choice_of !== null) {
+            return '"'.$main->name.'" is itself a choice of another service. Pick the main service.';
+        }
+        if ($service->choiceMembers()->exists()) {
+            return 'Other services are choices of this one, so it cannot become a choice itself.';
+        }
+
+        return null;
+    }
+
+    /** Services this one can be a choice of: main services in the same subcategory (or category). */
+    public function getChoiceMainOptionsProperty(): \Illuminate\Support\Collection
+    {
+        if (! $this->editServiceId) {
+            return collect();
+        }
+
+        return Service::query()->whereNull('choice_of')->whereKeyNot($this->editServiceId)
+            ->when($this->editSubcategoryId !== '', fn ($q) => $q->where('subcategory_id', (int) $this->editSubcategoryId),
+                fn ($q) => $q->where('category_id', (int) $this->editCategoryId))
+            ->orderBy('name')->get(['id', 'name']);
     }
 
     public function closeEditModal(): void
