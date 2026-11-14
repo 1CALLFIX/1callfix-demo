@@ -153,6 +153,32 @@ class ContactAndFranchisePagesTest extends TestCase
         $this->assertSame('Ask us.', FranchisePage::content()['faq'][0]['a'], 'an answer the Super Admin rewrote stays');
     }
 
+    /** Owner 2026-11-14: what each business costs on your own, the FAQ in two columns, and the real business count. */
+    public function test_the_on_your_own_section_the_two_column_faq_and_the_live_business_count(): void
+    {
+        $html = $this->get('/franchise')->assertOk()->getContent();
+        $this->assertSame(4, substr_count($html, 'data-franchise-alone-card'));
+        foreach (['Home Repair &amp; Handyman', '₹15–20 Lakhs', '18–24 months', 'data-franchise-alone-total', '₹40–57 Lakhs', 'The risks of starting from scratch'] as $text) {
+            $this->assertStringContainsString($text, $html);
+        }
+        $this->assertSame(2, substr_count($html, 'data-faq-column'));
+
+        $activation = app(\App\Services\ModuleActivationService::class);
+        foreach (['parcel', 'food', 'hotel', 'events', 'commerce'] as $code) {
+            \App\Models\Module::where('code', $code)->update(['is_implemented' => true]);
+            $activation->setActive($code, 'franchise', 1, true);
+        }
+        $live = count(FranchisePage::liveBusinesses());
+        $this->assertGreaterThan(4, $live);
+        $stat = collect(FranchisePage::liveStats())->firstWhere('label', 'businesses live on one app');
+        $this->assertSame((string) $live, $stat['value'], 'the number counts every live business, not four fixed ones');
+
+        Setting::set(FranchisePage::CONTENT, json_encode(['alone' => [], 'faq' => [['q' => 'One?', 'a' => 'Yes.']]] + FranchisePage::defaults()));
+        $html = $this->get('/franchise')->assertOk()->getContent();
+        $this->assertStringNotContainsString('data-franchise-alone', $html);
+        $this->assertSame(1, substr_count($html, 'data-faq-column'));
+    }
+
     public function test_only_live_businesses_are_listed(): void
     {
         $this->assertSame([], array_filter(FranchisePage::liveBusinesses(), fn ($b) => ! in_array($b['label'], \App\Support\Modules::ALL, true)));

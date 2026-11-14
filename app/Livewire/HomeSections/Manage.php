@@ -132,6 +132,8 @@ class Manage extends Component
         $list['food'] = ['title' => \App\Support\SiteText::get('home.card.food.title'), 'index' => 0];
         $list['hotels'] = ['title' => \App\Support\SiteText::get('home.card.hotels.title'), 'index' => 0];
         $list['events'] = ['title' => \App\Support\SiteText::get('home.card.events.title', ['city' => 'your city']), 'index' => 0];
+        $list['halls'] = ['title' => \App\Support\SiteText::get('home.card.halls.title'), 'index' => 0];
+        $list['homes'] = ['title' => \App\Support\SiteText::get('home.card.homes.title'), 'index' => 0];
 
         return $list;
     }

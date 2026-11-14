@@ -2,7 +2,9 @@
     Business cards, the Amazon way (owner 2026-11-14: "follow the amazon style, they haven't wasted a single inch of
     space"). Every card is the same size: the heading is the one link to everything (no second "View all" / "More"),
     a short line under it, then a 2 x 2 photo grid. Fewer than four things fill the same square (1 = one big photo,
-    2 = two tall, 3 = one wide + two). Two cards across on a phone, three on a tablet, four on a computer.
+    2 = two tall, 3 = one wide + two). Two cards across on a phone, three on a tablet. On a computer the row length
+    follows the number of cards so no row ends half empty (6 or 9 cards = 3 across, 5 or 10 = 5 across, otherwise 4);
+    a short last row that cannot be avoided sits in the middle.
     Data, order and words: Home::moduleCards() + HomeCards + SiteText (all Super Admin).
 --}}
 @php
@@ -16,9 +18,13 @@
     // Each card its own colour, so the row is bright and easy to tell apart.
     $tints = ['from-blue-50 to-sky-100', 'from-amber-50 to-orange-100', 'from-emerald-50 to-teal-100', 'from-fuchsia-50 to-pink-100', 'from-violet-50 to-indigo-100', 'from-lime-50 to-green-100'];
     $accents = ['text-blue-700', 'text-orange-700', 'text-emerald-700', 'text-pink-700', 'text-indigo-700', 'text-green-700'];
+    // Row length on a computer (owner 2026-11-14: no empty slots). Gaps: 0.625rem on a phone, 1rem from sm up.
+    $total = count($cards);
+    $across = match (true) { $total % 4 === 0 => 4, $total % 3 === 0 => 3, $total % 5 === 0 => 5, default => 4 };
+    $wide = [3 => 'lg:w-[calc((100%-2rem)/3)]', 4 => 'lg:w-[calc((100%-3rem)/4)]', 5 => 'lg:w-[calc((100%-4rem)/5)]'][$across];
 @endphp
 <section aria-label="{{ \App\Support\SiteText::get('home.categories.sr') }}" class="mx-auto max-w-7xl px-3 py-4 sm:px-6 lg:px-8" data-testid="home-cards">
-    <div class="grid grid-cols-2 gap-2.5 sm:gap-4 md:grid-cols-3 lg:grid-cols-4">
+    <div class="flex flex-wrap justify-center gap-2.5 sm:gap-4" data-cards-across="{{ $across }}">
         @foreach ($cards as $i => $card)
             @php
                 $tiles = array_slice($card['tiles'], 0, 4);
@@ -26,7 +32,7 @@
                 $tint = $tints[$i % count($tints)];
                 $accent = $accents[$i % count($accents)];
             @endphp
-            <article class="flex min-w-0 flex-col rounded-2xl border border-slate-200 bg-white p-2.5 shadow-sm shadow-slate-900/5 transition hover:shadow-md sm:p-4"
+            <article class="flex w-[calc((100%-0.625rem)/2)] min-w-0 flex-col rounded-2xl sm:w-[calc((100%-1rem)/2)] md:w-[calc((100%-2rem)/3)] {{ $wide }} border border-slate-200 bg-white p-2.5 shadow-sm shadow-slate-900/5 transition hover:shadow-md sm:p-4"
                      aria-labelledby="card-{{ $card['key'] }}" data-card="{{ $card['key'] }}" wire:key="card-{{ $card['key'] }}">
                 <a href="{{ $card['url'] }}" wire:navigate
                    class="group flex min-h-11 items-start justify-between gap-2 rounded focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600">

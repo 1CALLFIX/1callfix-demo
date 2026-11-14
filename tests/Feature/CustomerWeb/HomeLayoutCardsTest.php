@@ -194,6 +194,44 @@ class HomeLayoutCardsTest extends TestCase
         $this->assertContains('hotels', $this->cardsOrder($html));
     }
 
+    /** Owner 2026-11-14: "the rentals both categories, function halls & property rentals" get a card each. */
+    public function test_function_halls_and_property_cards_show_where_rental_is_on(): void
+    {
+        \App\Models\Module::where('code', \App\Support\Modules::RENTAL)->update(['is_implemented' => true]);
+        $owner = \App\Models\Provider::create([
+            'user_id' => \App\Models\User::create(['uuid' => (string) Str::uuid(), 'name' => 'Owner', 'phone' => '9'.fake()->numerify('#########'), 'role' => 'provider', 'status' => 'active'])->id,
+            'franchise_id' => $this->franchise->id, 'zone_id' => $this->zone->id, 'provider_type' => 'independent', 'kyc_status' => 'approved', 'is_active' => true,
+        ]);
+        \App\Models\Hall::create(['provider_id' => $owner->id, 'franchise_id' => $this->franchise->id, 'zone_id' => $this->zone->id, 'name' => 'Sri Lakshmi Hall',
+            'slug' => 'sri-lakshmi-hall', 'status' => 'approved', 'is_active' => true]);
+        \App\Models\Hall::create(['provider_id' => $owner->id, 'franchise_id' => $this->franchise->id, 'zone_id' => $this->zone->id, 'name' => 'Waiting Hall',
+            'slug' => 'waiting-hall', 'status' => 'pending', 'is_active' => true]);
+        \App\Models\HouseListing::create(['provider_id' => $owner->id, 'franchise_id' => $this->franchise->id, 'zone_id' => $this->zone->id, 'title' => '2 BHK near the park',
+            'slug' => '2-bhk-near-the-park', 'home_type' => 'Flat', 'rent' => 9000, 'status' => 'approved', 'approved_at' => now(), 'is_active' => true]);
+
+        $order = $this->cardsOrder($this->get('/')->getContent());
+        $this->assertNotContains('halls', $order, 'Rental off: no card.');
+        $this->assertNotContains('homes', $order);
+
+        app(\App\Services\ModuleActivationService::class)->setActive(\App\Support\Modules::RENTAL, 'franchise', $this->franchise->id, true);
+        request()->attributes->replace([]);
+        $html = $this->get('/')->assertOk()->assertSee('Function halls')->assertSee('Sri Lakshmi Hall')->assertSee('/halls/sri-lakshmi-hall', false)
+            ->assertDontSee('Waiting Hall')->assertSee('1 hall to book')
+            ->assertSee('Property for rent')->assertSee('2 BHK near the park')->assertSee('/property/2-bhk-near-the-park', false)->assertSee('1 place for rent')->getContent();
+        $order = $this->cardsOrder($html);
+        $this->assertContains('halls', $order);
+        $this->assertContains('homes', $order);
+
+        // No half-empty row on a computer: the row length follows the number of cards.
+        $across = match (true) { count($order) % 4 === 0 => 4, count($order) % 3 === 0 => 3, count($order) % 5 === 0 => 5, default => 4 };
+        $this->assertStringContainsString('data-cards-across="'.$across.'"', $html);
+
+        Setting::set(\App\Support\HomeCards::showKey('halls'), '0');
+        \App\Support\HomeCards::forget();
+        request()->attributes->replace([]);
+        $this->assertNotContains('halls', $this->cardsOrder($this->get('/')->getContent()), 'The Super Admin can switch the card off.');
+    }
+
     /** Owner 2026-11-13: "show upcoming events with days and time counter in city just as hotels". */
     public function test_an_events_card_counts_down_to_upcoming_events_where_events_is_on(): void
     {

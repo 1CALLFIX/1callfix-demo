@@ -300,6 +300,35 @@ class Home extends Component
             }
         }
 
+        // Rentals (owner 2026-11-14: "the rentals both categories, function halls & property rentals"): one card for each
+        // kind live in the visitor's city, featured first, each with its photo.
+        if ($foodCity && \App\Support\Seo\CityModules::rentalKindLiveIn($foodCity, \App\Support\RentalKinds::HALLS) && \App\Support\HomeCards::cardShown('halls')) {
+            $query = \App\Livewire\Customer\Halls\Home::publicHallsIn($foodCity);
+            $halls = (clone $query)->orderByDesc('is_featured')->orderByDesc('seating_capacity')->limit($n)->get();
+            if ($halls->isNotEmpty()) {
+                $count = (clone $query)->count();
+                $home = route('customer.halls.home', $foodCity->slug);
+                $cards[] = ['key' => 'halls', 'order' => \App\Support\HomeCards::cardOrder('halls'), 'title' => $text('home.card.halls.title'),
+                    'url' => $home, 'line_url' => $home,
+                    'tiles' => $halls->map(fn ($h) => ['name' => $h->name, 'url' => route('customer.halls.show', [$foodCity->slug, $h->slug]),
+                        'image' => $h->coverUrl(), 'tint' => null, 'new' => $isNew($h)])->values()->all(),
+                    'line' => \App\Support\HomeCards::line('halls') ?? ($count === 1 ? $text('home.card.halls.live_one') : $text('home.card.halls.live', ['count' => $count]))];
+            }
+        }
+        if ($foodCity && \App\Support\Seo\CityModules::rentalKindLiveIn($foodCity, \App\Support\RentalKinds::PROPERTIES) && \App\Support\HomeCards::cardShown('homes')) {
+            $query = \App\Services\Homes\HouseListingService::publicIn($foodCity);
+            $homes = (clone $query)->orderByDesc('is_featured')->latest('approved_at')->limit($n)->get();
+            if ($homes->isNotEmpty()) {
+                $count = (clone $query)->count();
+                $home = route('customer.homes.home', $foodCity->slug);
+                $cards[] = ['key' => 'homes', 'order' => \App\Support\HomeCards::cardOrder('homes'), 'title' => $text('home.card.homes.title'),
+                    'url' => $home, 'line_url' => $home,
+                    'tiles' => $homes->map(fn ($h) => ['name' => $h->title, 'url' => route('customer.homes.show', [$foodCity->slug, $h->slug]),
+                        'image' => $h->coverUrl(), 'tint' => null, 'new' => $isNew($h)])->values()->all(),
+                    'line' => \App\Support\HomeCards::line('homes') ?? ($count === 1 ? $text('home.card.homes.live_one') : $text('home.card.homes.live', ['count' => $count]))];
+            }
+        }
+
         usort($cards, fn ($a, $b) => [$a['order'], $a['key']] <=> [$b['order'], $b['key']]);
 
         return $cards;

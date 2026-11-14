@@ -50,6 +50,8 @@ final class HomeCards
             'hotels' => 38, // Hotels (2026-11-12)
             'events' => 36, // Events (owner 2026-11-13: upcoming events with a countdown)
             'parcel' => 39,
+            'halls' => 40, // Rentals (2026-11-14): function halls
+            'homes' => 41, // Rentals (2026-11-14): property for rent
             default => ($index + 1) * 10,
         };
     }

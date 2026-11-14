@@ -69,6 +69,18 @@ final class FranchisePage
         'pick_result' => ['Business picker: label over the fee', 60],
         'pay_title' => ['Payment steps heading', 80],
         'areas_title' => ['Area table heading', 80],
+        'alone_title' => ['"On your own" section heading', 80],
+        'alone_intro' => ['"On your own" section line', 300],
+        'alone_cost_label' => ['"On your own": word over the set-up cost', 40],
+        'alone_time_label' => ['"On your own": word over the time to profit', 40],
+        'alone_risk_label' => ['"On your own": word over the risks', 40],
+        'alone_total_label' => ['"On your own": total line, left side label', 80],
+        'alone_total' => ['"On your own": total line, left side figure (empty = total line hidden)', 40],
+        'alone_us_label' => ['"On your own": total line, right side label', 80],
+        'alone_us' => ['"On your own": total line, right side figure', 40],
+        'alone_vs' => ['"On your own": total line, word in the middle', 10],
+        'alone_note' => ['"On your own": small print', 300],
+        'pitfalls_title' => ['"Starting from scratch" list heading', 80],
         'compare_title' => ['Comparison table heading', 80],
         'compare_them' => ['Comparison table: left column heading', 40],
         'compare_us' => ['Comparison table: right column heading', 40],
@@ -109,6 +121,8 @@ final class FranchisePage
         'plans' => ['Franchise plans (name, old fee, offer fee, royalty, term, what it covers)', 4, ['name' => 60, 'was' => 30, 'price' => 30, 'royalty' => 20, 'validity' => 30, 'text' => 160]],
         'payment' => ['Payment steps (title + text)', 4, ['title' => 60, 'text' => 200]],
         'areas' => ['Area table (franchise type, city population, exclusive area)', 6, ['type' => 60, 'population' => 60, 'radius' => 60]],
+        'alone' => ['"On your own" cards (business, set-up cost, time to profit, risks)', 6, ['icon' => 20, 'name' => 60, 'cost' => 40, 'time' => 40, 'risks' => 200]],
+        'pitfalls' => ['"Starting from scratch" risks (title + text)', 6, ['title' => 60, 'text' => 200]],
         'compare' => ['Comparison rows (what / one-business franchise / 1CallFix franchise)', 8, ['label' => 60, 'them' => 120, 'us' => 160]],
         'support' => ['"What you get" lines', 10, ['text' => 140]],
         'invest' => ['Investment figures (label + value), e.g. "Investment" / "₹…"', 6, ['label' => 60, 'value' => 60]],
@@ -168,6 +182,18 @@ final class FranchisePage
             'pick_result' => 'Your franchise fee (launch offer)',
             'pay_title' => 'Easy payment',
             'areas_title' => 'Your area, only yours',
+            'alone_title' => 'What it costs to start each business on your own',
+            'alone_intro' => 'Every business needs its own app, team, marketing and time. With a franchise, all of that is ready on day one.',
+            'alone_cost_label' => 'Set-up cost on your own',
+            'alone_time_label' => 'Time to profit',
+            'alone_risk_label' => 'Risks',
+            'alone_total_label' => 'All four on your own',
+            'alone_total' => '₹40–57 Lakhs',
+            'alone_us_label' => '1CallFix All-in-One franchise, every business',
+            'alone_us' => '₹5.5 Lakhs',
+            'alone_vs' => 'vs',
+            'alone_note' => 'Set-up costs and timelines are our estimates for a business started independently in an Indian city. They help you plan; they are not a promise of income.',
+            'pitfalls_title' => 'The risks of starting from scratch',
             'compare_title' => 'One business, or all of them?',
             'compare_them' => 'A one-business franchise',
             'compare_us' => '1CallFix franchise',
@@ -239,6 +265,19 @@ final class FranchisePage
             'areas' => [
                 ['type' => 'Area Franchise', 'population' => '3–5 lakh people', 'radius' => '10–15 km radius'],
                 ['type' => 'City Franchise', 'population' => '8–10 lakh people', 'radius' => '20–25 km radius'],
+            ],
+            'alone' => [
+                ['icon' => 'bolt', 'name' => 'Home Repair & Handyman', 'cost' => '₹7–10 Lakhs', 'time' => '18–24 months', 'risks' => 'Winning customer trust against competitors, high marketing cost for every new customer, hiring and keeping skilled professionals.'],
+                ['icon' => 'sparkles', 'name' => 'Food Delivery', 'cost' => '₹15–20 Lakhs', 'time' => '12–18 months', 'risks' => 'Heavy competition from the big apps, complicated delivery operations, customers who are hard to keep.'],
+                ['icon' => 'building', 'name' => 'E-commerce', 'cost' => '₹10–15 Lakhs', 'time' => '18–24 months', 'risks' => 'Cost of managing stock, the need for a strong online presence, delivery and logistics problems.'],
+                ['icon' => 'map-pin', 'name' => 'Parcel Delivery', 'cost' => '₹8–12 Lakhs', 'time' => '12–18 months', 'risks' => 'Depending on outside delivery services, high running costs, legal rules to follow.'],
+            ],
+            'pitfalls' => [
+                ['title' => 'High first investment', 'text' => 'Setting up several businesses one by one costs a lot.'],
+                ['title' => 'Competition', 'text' => 'Each business already has established players.'],
+                ['title' => 'Hard to run', 'text' => 'Different services need different teams and logistics.'],
+                ['title' => 'Slow to win customers', 'text' => 'Trust takes time and money to build.'],
+                ['title' => 'Slow to grow', 'text' => 'Without a brand and technology, growing is slow.'],
             ],
             'compare' => [
                 ['label' => 'Businesses you run', 'them' => 'One', 'us' => 'Every business live on the app: services, food, shop, parcel, events, hotels and rentals'],
@@ -370,9 +409,8 @@ final class FranchisePage
             if ($services > 0) {
                 $out[] = ['value' => number_format($services).'+', 'label' => 'services customers can book'];
             }
-            $activation = app(ModuleActivationService::class);
-            $live = collect([Modules::SERVICE, Modules::FOOD, Modules::COMMERCE, Modules::PARCEL])
-                ->filter(fn ($m) => $activation->isActiveAnywhere($m))->count();
+            // Every business live on the app, the same list the page shows (it was four fixed ones until 2026-11-14).
+            $live = count(self::liveBusinesses());
             // "1 business" undersells a multi-business app; the number shows once two or more are live.
             if ($live > 1) {
                 $out[] = ['value' => (string) $live, 'label' => 'businesses live on one app'];

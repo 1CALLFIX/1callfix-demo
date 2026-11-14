@@ -201,6 +201,63 @@
         </section>
     @endif
 
+    {{-- ============ What each business costs on your own (owner's figures 2026-11-14, all Super Admin words) ============ --}}
+    @if ($p['alone'])
+        <section class="bg-slate-50" aria-labelledby="fr-alone" data-franchise-alone>
+            <div class="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
+                <div class="max-w-2xl">
+                    <h2 id="fr-alone" class="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">{{ $p['alone_title'] }}</h2>
+                    @if ($p['alone_intro'])<p class="mt-3 text-base text-slate-600">{{ $p['alone_intro'] }}</p>@endif
+                </div>
+                @php $aloneLook = [['border-blue-500', 'from-blue-600 to-sky-500', 'text-blue-700'], ['border-rose-500', 'from-rose-600 to-red-500', 'text-rose-700'], ['border-emerald-500', 'from-emerald-600 to-teal-500', 'text-emerald-700'], ['border-violet-500', 'from-violet-600 to-indigo-500', 'text-violet-700'], ['border-amber-500', 'from-amber-500 to-orange-500', 'text-orange-700'], ['border-fuchsia-500', 'from-fuchsia-600 to-pink-500', 'text-fuchsia-700']]; @endphp
+                <ul class="mt-8 grid gap-4 sm:grid-cols-2 {{ [1 => 'lg:grid-cols-1', 2 => 'lg:grid-cols-2', 3 => 'lg:grid-cols-3', 4 => 'lg:grid-cols-4', 6 => 'lg:grid-cols-3'][count($p['alone'])] ?? 'lg:grid-cols-3' }}">
+                    @foreach ($p['alone'] as $a)
+                        @php [$edge, $grad, $ink] = $aloneLook[$loop->index % count($aloneLook)]; @endphp
+                        <li class="flex flex-col rounded-3xl border-t-4 {{ $edge }} bg-white p-5 shadow-sm ring-1 ring-slate-200" data-franchise-alone-card>
+                            <span class="flex items-center gap-3">
+                                <span class="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-gradient-to-br {{ $grad }} text-white shadow"><x-icon :name="$a['icon']" class="h-6 w-6" /></span>
+                                <span class="text-base font-bold leading-tight text-slate-900">{{ $a['name'] }}</span>
+                            </span>
+                            <span class="mt-4 text-xs font-semibold uppercase tracking-wide text-slate-500">{{ $p['alone_cost_label'] }}</span>
+                            <span class="text-2xl font-extrabold tracking-tight {{ $ink }}">{{ $a['cost'] }}</span>
+                            <span class="mt-3 inline-flex items-center gap-1.5 text-sm text-slate-700"><x-icon name="clock" class="h-4 w-4 text-slate-400" /> {{ $p['alone_time_label'] }}: <span class="font-bold text-slate-900">{{ $a['time'] }}</span></span>
+                            <span class="mt-3 border-t border-slate-100 pt-3 text-xs font-semibold uppercase tracking-wide text-slate-500">{{ $p['alone_risk_label'] }}</span>
+                            <span class="mt-1 text-sm leading-relaxed text-slate-600">{{ $a['risks'] }}</span>
+                        </li>
+                    @endforeach
+                </ul>
+
+                @if ($p['alone_total'] && $p['alone_us'])
+                    <div class="mt-6 grid overflow-hidden rounded-3xl shadow-lg sm:grid-cols-[1fr_auto_1fr]" data-franchise-alone-total>
+                        <div class="bg-white p-6 text-center ring-1 ring-inset ring-slate-200">
+                            <p class="text-sm font-semibold text-slate-500">{{ $p['alone_total_label'] }}</p>
+                            <p class="mt-1 text-3xl font-extrabold tracking-tight text-slate-400 line-through decoration-rose-500 decoration-2 sm:text-4xl">{{ $p['alone_total'] }}</p>
+                        </div>
+                        <div class="grid place-items-center bg-slate-900 px-5 py-2 text-sm font-extrabold uppercase tracking-widest text-amber-300">{{ $p['alone_vs'] }}</div>
+                        <div class="bg-gradient-to-br from-amber-400 to-orange-500 p-6 text-center text-white">
+                            <p class="text-sm font-semibold text-amber-50">{{ $p['alone_us_label'] }}</p>
+                            <p class="mt-1 text-3xl font-extrabold tracking-tight sm:text-4xl">{{ $p['alone_us'] }}</p>
+                        </div>
+                    </div>
+                @endif
+
+                @if ($p['pitfalls'])
+                    <h3 class="mt-12 text-xl font-bold text-slate-900">{{ $p['pitfalls_title'] }}</h3>
+                    <ol class="mt-4 grid gap-3 sm:grid-cols-2 {{ count($p['pitfalls']) === 5 ? 'lg:grid-cols-5' : 'lg:grid-cols-3' }}">
+                        @foreach ($p['pitfalls'] as $risk)
+                            <li class="rounded-2xl bg-white p-4 ring-1 ring-slate-200">
+                                <span class="grid h-8 w-8 place-items-center rounded-full bg-rose-100 text-sm font-extrabold text-rose-700">{{ $loop->iteration }}</span>
+                                <span class="mt-2 block text-sm font-bold text-slate-900">{{ $risk['title'] }}</span>
+                                <span class="mt-1 block text-sm text-slate-600">{{ $risk['text'] }}</span>
+                            </li>
+                        @endforeach
+                    </ol>
+                @endif
+                @if ($p['alone_note'])<p class="mt-6 text-xs leading-relaxed text-slate-500">{{ $p['alone_note'] }}</p>@endif
+            </div>
+        </section>
+    @endif
+
     {{-- ============ Plans, business picker, payment, areas (owner 2026-11-14: charge per business picked) ============ --}}
     @if ($p['plans'] || $pickerOn)
         <section class="bg-gradient-to-b from-amber-50 via-white to-white" aria-labelledby="fr-plans" data-franchise-plans>
@@ -455,17 +512,22 @@
 
     {{-- ============ FAQ ============ --}}
     @if ($p['faq'])
-        <section class="mx-auto max-w-3xl px-4 py-16 sm:px-6 lg:px-8" aria-labelledby="fr-faq">
+        {{-- Owner 2026-11-14: two columns side by side on a computer (one on a phone), so the page is not a long thin list. --}}
+        <section class="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8" aria-labelledby="fr-faq" data-franchise-faq>
             <h2 id="fr-faq" class="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">{{ $p['faq_title'] }}</h2>
-            <div class="mt-6 divide-y divide-slate-200 border-y border-slate-200">
-                @foreach ($p['faq'] as $f)
-                    <details class="group py-4">
-                        <summary class="flex min-h-11 cursor-pointer list-none items-center justify-between gap-4 text-left text-base font-medium text-slate-900">
-                            <span>{{ $f['q'] }}</span>
-                            <span aria-hidden="true" class="shrink-0 text-slate-400 transition group-open:rotate-180"><x-icon name="chevron-down" class="h-4 w-4" /></span>
-                        </summary>
-                        <p class="mt-3 text-sm leading-relaxed text-slate-600">{{ $f['a'] }}</p>
-                    </details>
+            <div class="mt-6 grid gap-x-10 md:grid-cols-2 md:items-start">
+                @foreach (array_chunk($p['faq'], (int) ceil(count($p['faq']) / 2)) as $column)
+                    <div @class(['divide-y divide-slate-200 border-slate-200', 'border-y' => $loop->first, 'border-b md:border-t' => ! $loop->first]) data-faq-column>
+                        @foreach ($column as $f)
+                            <details class="group py-4">
+                                <summary class="flex min-h-11 cursor-pointer list-none items-center justify-between gap-4 text-left text-base font-medium text-slate-900">
+                                    <span>{{ $f['q'] }}</span>
+                                    <span aria-hidden="true" class="shrink-0 text-slate-400 transition group-open:rotate-180"><x-icon name="chevron-down" class="h-4 w-4" /></span>
+                                </summary>
+                                <p class="mt-3 text-sm leading-relaxed text-slate-600">{{ $f['a'] }}</p>
+                            </details>
+                        @endforeach
+                    </div>
                 @endforeach
             </div>
         </section>
