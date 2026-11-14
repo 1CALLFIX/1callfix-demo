@@ -371,7 +371,9 @@ class ServiceShow extends Component
     {
         return $this->groupCache ??= ServiceOptionGroup::query()
             ->where('service_id', $this->serviceId)
-            ->with(['options' => fn ($q) => $q->where('is_active', true)->orderBy('sort_order')->orderBy('id')])
+            // Owner 2026-11-14: an option that changes the price is never shown —
+            // the booking never charged it. Priced variants are choice services.
+            ->with(['options' => fn ($q) => $q->where('is_active', true)->where('price_delta', 0)->orderBy('sort_order')->orderBy('id')])
             ->orderBy('sort_order')
             ->orderBy('id')
             ->get()

@@ -90,16 +90,31 @@ class ServiceDetailTest extends TestCase
 
     // ==================== Options ====================
 
-    public function test_option_groups_render_with_their_real_price_deltas(): void
+    /**
+     * Owner 2026-11-14: the booking never charged an option's price, so an option
+     * that changes the price is never shown (the money gap closed). Free options stay.
+     */
+    public function test_priced_options_are_hidden_and_free_options_show(): void
     {
         $service = $this->makeService($this->makeCategory(), ['base_price' => 500]);
-        $this->makeOptionGroup($service, ['1 AC' => 0, '2 ACs' => 450], required: true, name: 'Number of units');
+        $this->makeOptionGroup($service, ['Brand LG' => 0, 'Gas refill' => 1500], required: true, name: 'Your AC');
 
         Livewire::test(ServiceShow::class, ['service' => $service])
-            ->assertSee('Number of units')
-            ->assertSee('1 AC')
-            ->assertSee('2 ACs')
-            ->assertSee('450.00');
+            ->assertSee('Your AC')
+            ->assertSee('Brand LG')
+            ->assertDontSee('Gas refill')
+            ->assertViewHas('estimatedTotal', 500.0);
+    }
+
+    public function test_a_group_with_only_priced_options_is_not_shown(): void
+    {
+        $service = $this->makeService($this->makeCategory(), ['base_price' => 500]);
+        $this->makeOptionGroup($service, ['Gas refill' => 1500, 'Stabiliser' => 300], name: 'Paid extras');
+
+        Livewire::test(ServiceShow::class, ['service' => $service])
+            ->assertDontSee('Paid extras')
+            ->assertDontSee('Gas refill')
+            ->assertViewHas('estimatedTotal', 500.0);
     }
 
     public function test_a_required_single_choice_group_preselects_its_first_option(): void
@@ -117,14 +132,14 @@ class ServiceDetailTest extends TestCase
         // "Pick at least one of these" is a real choice; silently making it
         // for the customer would be worse than saying it is outstanding.
         $service = $this->makeService($this->makeCategory());
-        $this->makeOptionGroup($service, ['A' => 100, 'B' => 200], required: true, multiple: true, name: 'Extras');
+        $this->makeOptionGroup($service, ['A' => 0, 'B' => 0], required: true, multiple: true, name: 'Extras');
 
         Livewire::test(ServiceShow::class, ['service' => $service])
             ->assertSet('selected', [])
             ->assertSee('Choose Extras to complete this estimate');
     }
 
-    public function test_selecting_an_option_recomputes_the_estimate_on_the_server(): void
+    public function test_a_hidden_priced_option_cannot_be_selected_into_the_estimate(): void
     {
         $service = $this->makeService($this->makeCategory(), ['base_price' => 500]);
         $group = $this->makeOptionGroup($service, ['1 AC' => 0, '2 ACs' => 450], required: true);
@@ -133,23 +148,26 @@ class ServiceDetailTest extends TestCase
         Livewire::test(ServiceShow::class, ['service' => $service])
             ->assertViewHas('estimatedTotal', 500.0)
             ->call('selectOption', $group->id, $twoAcs->id)
-            ->assertViewHas('estimatedTotal', 950.0);
+            ->assertViewHas('estimatedTotal', 500.0)
+            ->set('selected', [$group->id => $twoAcs->id])
+            ->assertViewHas('estimatedTotal', 500.0);
     }
 
     public function test_a_multi_choice_group_toggles_options_in_and_out(): void
     {
         $service = $this->makeService($this->makeCategory(), ['base_price' => 500]);
-        $group = $this->makeOptionGroup($service, ['Coil clean' => 249, 'Deep rinse' => 199], multiple: true);
-        $coil = $group->options->firstWhere('name', 'Coil clean');
-        $rinse = $group->options->firstWhere('name', 'Deep rinse');
+        $group = $this->makeOptionGroup($service, ['Ground floor' => 0, 'Balcony unit' => 0], multiple: true);
+        $ground = $group->options->firstWhere('name', 'Ground floor');
+        $balcony = $group->options->firstWhere('name', 'Balcony unit');
 
         Livewire::test(ServiceShow::class, ['service' => $service])
-            ->call('toggleOption', $group->id, $coil->id)
-            ->assertViewHas('estimatedTotal', 749.0)
-            ->call('toggleOption', $group->id, $rinse->id)
-            ->assertViewHas('estimatedTotal', 948.0)
-            ->call('toggleOption', $group->id, $coil->id)
-            ->assertViewHas('estimatedTotal', 699.0);
+            ->call('toggleOption', $group->id, $ground->id)
+            ->assertSet('selected.'.$group->id, [$ground->id])
+            ->call('toggleOption', $group->id, $balcony->id)
+            ->assertSet('selected.'.$group->id, [$ground->id, $balcony->id])
+            ->call('toggleOption', $group->id, $ground->id)
+            ->assertSet('selected.'.$group->id, [$balcony->id])
+            ->assertViewHas('estimatedTotal', 500.0);
     }
 
     /**
@@ -189,7 +207,7 @@ class ServiceDetailTest extends TestCase
     public function test_an_inactive_option_is_not_offered(): void
     {
         $service = $this->makeService($this->makeCategory());
-        $group = $this->makeOptionGroup($service, ['Available' => 100, 'Withdrawn' => 200]);
+        $group = $this->makeOptionGroup($service, ['Available' => 0, 'Withdrawn' => 0]);
         ServiceOption::where('service_option_group_id', $group->id)->where('name', 'Withdrawn')->update(['is_active' => false]);
 
         Livewire::test(ServiceShow::class, ['service' => $service])
@@ -227,7 +245,7 @@ class ServiceDetailTest extends TestCase
         Livewire::test(ServiceShow::class, ['service' => $service])
             ->assertViewHas('estimatedTotal', 400.0)
             ->call('selectOption', $group->id, $upgrade->id)
-            ->assertViewHas('estimatedTotal', 500.0);
+            ->assertViewHas('estimatedTotal', 400.0);
     }
 
     public function test_a_quote_on_inspection_service_says_its_price_may_change(): void

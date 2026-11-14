@@ -700,7 +700,11 @@
                                     <tr class="border-t" wire:key="opt-{{ $option->id }}">
                                         <x-ui.sno :rows="$group->options" :loop="$loop" class="py-1.5 pr-2" />
                                         <td class="py-1.5 pr-2">{{ $option->name }}</td>
-                                        <td class="py-1.5 pr-2 text-gray-600">{{ $option->price_delta >= 0 ? '+' : '' }}{{ $currencySymbol }}{{ number_format($option->price_delta, 2) }}</td>
+                                        <td class="py-1.5 pr-2">
+                                            @if ((float) $option->price_delta != 0)
+                                                <span class="inline-block px-2 py-0.5 rounded-full bg-red-100 text-red-700 font-semibold" title="The booking never charged this price, so customers no longer see this option. Make it a choice instead: Edit the service, Show as a choice.">{{ $currencySymbol }}{{ number_format($option->price_delta, 0) }} · hidden from customers</span>
+                                            @endif
+                                        </td>
                                         <td class="py-1.5 pr-2">
                                             <button type="button" wire:click="toggleOptionActive({{ $option->id }})"
                                                     @class(['px-2 py-0.5 rounded border text-xs', 'text-green-700 border-green-300 bg-green-50' => $option->is_active, 'text-gray-400 border-gray-300' => ! $option->is_active])>
@@ -720,20 +724,15 @@
                         {{-- Inline "add option" row for this group --}}
                         <div class="flex flex-wrap items-end gap-2 pt-2 border-t">
                             <div class="flex-1 min-w-32">
-                                <input type="text" wire:model="newOptionName.{{ $group->id }}" placeholder="e.g. 1.5 Ton Split AC"
+                                <input type="text" wire:model="newOptionName.{{ $group->id }}" placeholder="e.g. LG"
                                        class="w-full border rounded px-2 py-1.5 text-xs">
                                 @error('newOptionName.'.$group->id) <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
-                            </div>
-                            <div class="w-28">
-                                <input type="number" step="0.01" wire:model="newOptionPriceDelta.{{ $group->id }}" placeholder="Price Δ"
-                                       class="w-full border rounded px-2 py-1.5 text-xs">
-                                @error('newOptionPriceDelta.'.$group->id) <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
                             </div>
                             <x-ui.button wire:click="addOption({{ $group->id }})" size="sm" variant="secondary">+ Add Option</x-ui.button>
                         </div>
                     </div>
                 @empty
-                    <p class="text-xs text-gray-400 text-center py-4">No option groups yet. Most services don't need any — add one above only if this service has priced variants or add-ons.</p>
+                    <p class="text-xs text-gray-400 text-center py-4">No option groups yet. Most services don't need any — add one only to ask a question that does not change the price (for example AC brand). Options never change the price: for a different price, use Show as a choice on another service.</p>
                 @endforelse
             </div>
 

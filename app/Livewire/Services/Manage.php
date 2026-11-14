@@ -467,12 +467,12 @@ class Manage extends Component
         }
 
         $name = trim((string) ($this->newOptionName[$groupId] ?? ''));
-        $priceDelta = $this->newOptionPriceDelta[$groupId] ?? '';
 
+        // Owner 2026-11-14: options never change the price (the booking never charged
+        // them). Anything that costs more is a choice ("Show as a choice") or its own service.
         $this->validate([
             'newOptionName.'.$groupId => ['required', 'string', 'max:255'],
-            'newOptionPriceDelta.'.$groupId => ['required', 'numeric'],
-        ], [], ['newOptionName.'.$groupId => 'option name', 'newOptionPriceDelta.'.$groupId => 'price delta']);
+        ], [], ['newOptionName.'.$groupId => 'option name']);
 
         if (! auth()->user()->hasPermission('services.manage')) {
             $this->addError('permission', 'You do not have permission to manage services.');
@@ -482,7 +482,7 @@ class Manage extends Component
         ServiceOption::create([
             'service_option_group_id' => $groupId,
             'name' => $name,
-            'price_delta' => $priceDelta,
+            'price_delta' => 0,
             'sort_order' => (int) ServiceOption::where('service_option_group_id', $groupId)->max('sort_order') + 1,
             'is_active' => true,
         ]);

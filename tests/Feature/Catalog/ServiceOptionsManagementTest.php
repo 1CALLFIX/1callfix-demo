@@ -99,7 +99,8 @@ class ServiceOptionsManagementTest extends TestCase
         ]);
     }
 
-    public function test_actor_can_add_a_priced_option_to_a_group(): void
+    /** Owner 2026-11-14: options never change the price (the booking never charged it), so a price sent anyway is ignored. */
+    public function test_an_added_option_never_carries_a_price(): void
     {
         $actor = $this->makeUserWithPermission('services.manage', 'global');
         $service = $this->makeService();
@@ -107,17 +108,17 @@ class ServiceOptionsManagementTest extends TestCase
 
         Livewire::actingAs($actor)->test(ServicesManage::class)
             ->call('openOptions', $service->id)
-            ->set("newOptionName.{$group->id}", '1.5 Ton Split AC')
+            ->set("newOptionName.{$group->id}", 'LG')
             ->set("newOptionPriceDelta.{$group->id}", '500')
             ->call('addOption', $group->id)
             ->assertHasNoErrors();
 
         $this->assertDatabaseHas('service_options', [
-            'service_option_group_id' => $group->id, 'name' => '1.5 Ton Split AC', 'price_delta' => 500, 'is_active' => true,
+            'service_option_group_id' => $group->id, 'name' => 'LG', 'price_delta' => 0, 'is_active' => true,
         ]);
     }
 
-    public function test_adding_an_option_requires_a_name_and_a_numeric_price_delta(): void
+    public function test_adding_an_option_requires_a_name(): void
     {
         $actor = $this->makeUserWithPermission('services.manage', 'global');
         $service = $this->makeService();
@@ -126,9 +127,8 @@ class ServiceOptionsManagementTest extends TestCase
         Livewire::actingAs($actor)->test(ServicesManage::class)
             ->call('openOptions', $service->id)
             ->set("newOptionName.{$group->id}", '')
-            ->set("newOptionPriceDelta.{$group->id}", 'not-a-number')
             ->call('addOption', $group->id)
-            ->assertHasErrors(["newOptionName.{$group->id}", "newOptionPriceDelta.{$group->id}"]);
+            ->assertHasErrors(["newOptionName.{$group->id}"]);
 
         $this->assertDatabaseCount('service_options', 0);
     }
