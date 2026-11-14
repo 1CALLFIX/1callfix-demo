@@ -34,7 +34,7 @@ trait InteractsWithHallCity
         }
 
         abort_unless(app(CityContext::class)->isLive($this->hallCity), 404);
-        abort_unless(CityModules::liveIn($this->hallCity, Modules::HALLS), 404);
+        abort_unless(CityModules::hallsLiveIn($this->hallCity), 404);
         app(CityContext::class)->enter($this->hallCity);
 
         return true;

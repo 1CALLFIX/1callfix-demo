@@ -71,14 +71,14 @@ class Modules
     public const COMMERCE = 'commerce';
     /** Events E1 (owner 2026-11-13): event ticket sales, its own module next to Rental. */
     public const EVENTS = 'events';
-    /** Function halls R1 (owner 2026-11-13): hall booking, shown under Rental. */
-    public const HALLS = 'halls';
 
     /** slug => display label, in rollout order */
     public const ALL = [
         'service' => 'Service',
         'parcel' => 'Parcel Delivery',
-        'rental' => 'Rental · Vehicles & equipment',
+        // One Rental (owner 2026-11-14): function halls, properties, vehicles and equipment under one switch; which
+        // kinds are offered is Rental Settings (RentalKinds).
+        'rental' => 'Rental',
         'food' => 'Food Delivery',
         'grocery' => 'Grocery',
         'pharmacy' => 'Pharmacy',
@@ -86,7 +86,6 @@ class Modules
         'taxi' => 'Taxi Booking',
         'hotel' => 'Hotel / Stay',
         'events' => 'Events',
-        'halls' => 'Rental · Function halls',
     ];
 
     public static function options(): array

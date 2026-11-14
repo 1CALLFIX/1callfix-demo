@@ -49,7 +49,8 @@ class CreatePropertyReservationAction
             'city_id' => $franchise->city_id,
             'country_id' => $franchise->country_id,
         ];
-        if (! $this->moduleActivation->isActive(Modules::RENTAL, $scope)) {
+        // One Rental (owner 2026-11-14): the Rental switch AND Properties on in Rental Settings.
+        if (! $this->moduleActivation->isActive(Modules::RENTAL, $scope) || ! \App\Support\RentalKinds::on(\App\Support\RentalKinds::PROPERTIES, array_filter($scope))) {
             throw new ModuleNotActiveException(Modules::RENTAL);
         }
 

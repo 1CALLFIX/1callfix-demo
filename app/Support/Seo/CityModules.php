@@ -19,10 +19,10 @@ use App\Support\Modules;
 final class CityModules
 {
     /** Second segments with a page today. */
-    public const LIVE_SEGMENTS = ['services', 'shop', 'parcel', 'food', 'hotels', 'events', 'halls'];
+    public const LIVE_SEGMENTS = ['services', 'shop', 'parcel', 'food', 'hotels', 'events', 'halls', 'rentals'];
 
     /** Reserved for businesses that do not have a public city page yet (owner list 2026-11-01). */
-    public const FUTURE_SEGMENTS = ['grocery', 'pharmacy', 'taxi', 'rentals'];
+    public const FUTURE_SEGMENTS = ['grocery', 'pharmacy', 'taxi'];
 
     /** @return list<string> */
     public static function segments(): array
@@ -65,10 +65,22 @@ final class CityModules
         return self::liveIn($city, Modules::EVENTS);
     }
 
-    /** Function halls R2 (2026-11-13): /{city}/halls. */
+    /** Function halls R2 (2026-11-13): /{city}/halls. One Rental (2026-11-14): Rental on and Function halls on. */
     public static function hallsLiveIn(City $city): bool
     {
-        return self::liveIn($city, Modules::HALLS);
+        return self::rentalKindLiveIn($city, \App\Support\RentalKinds::HALLS);
+    }
+
+    /** One Rental (owner 2026-11-14): Rental on in Modules and this kind on in Rental Settings, for some franchise of the city. */
+    public static function rentalKindLiveIn(City $city, string $kind): bool
+    {
+        foreach (Franchise::query()->where('city_id', $city->id)->where('status', 'active')->pluck('id') as $franchiseId) {
+            if (\App\Support\RentalKinds::active($kind, array_filter(['franchise_id' => $franchiseId, 'city_id' => $city->id, 'country_id' => $city->country_id]))) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     public static function foodLiveIn(City $city): bool

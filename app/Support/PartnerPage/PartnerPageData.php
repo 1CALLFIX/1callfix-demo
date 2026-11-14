@@ -27,6 +27,12 @@ final class PartnerPageData
     public static function roles(): array
     {
         $registry = Module::query()->whereIn('code', P::ROLE_ORDER)->get(['code'])->pluck('code')->all();
+        // One Rental (owner 2026-11-14): hall owners and vehicle / equipment owners both join Rental; each card follows
+        // its own kinds in Rental Settings. With Vehicles and Equipment both off, their card is not shown at all.
+        $rentalKinds = ['halls' => [\App\Support\RentalKinds::HALLS], 'rental' => [\App\Support\RentalKinds::VEHICLES, \App\Support\RentalKinds::EQUIPMENT]];
+        if (in_array('rental', $registry, true)) {
+            $registry[] = 'halls';
+        }
         $hidden = P::hiddenModules();
         $wording = P::roleWording();
         $activation = app(ModuleActivationService::class);
@@ -36,9 +42,13 @@ final class PartnerPageData
             if (! in_array($code, $registry, true) || in_array($code, $hidden, true)) {
                 continue;
             }
+            $kindsOn = isset($rentalKinds[$code]) && collect($rentalKinds[$code])->contains(fn ($k) => \App\Support\RentalKinds::on($k));
+            if (isset($rentalKinds[$code]) && ! $kindsOn) {
+                continue;
+            }
             // Owner 2026-11-07: modules are switched on per city/franchise (Nellore), never for the whole country, so
             // "live" = switched on in at least one place. The country-level check showed Food and Shop as "Opening soon".
-            $live = $activation->isActiveAnywhere($code);
+            $live = $activation->isActiveAnywhere(isset($rentalKinds[$code]) ? \App\Support\Modules::RENTAL : $code);
             $cards[] = [
                 'code' => $code,
                 'label' => $wording[$code]['label'],

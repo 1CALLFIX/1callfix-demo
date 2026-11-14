@@ -11,7 +11,7 @@
             <h1 class="mb-1 text-2xl font-bold">Function halls</h1>
             <p class="text-sm text-gray-500">Every hall, and every change to a live hall's name, address, photos or description, is checked by the team before customers see it.</p>
         </div>
-        <a href="{{ route('admin.halls.settings') }}" class="text-sm underline">Hall Settings →</a>
+        <a href="{{ route('admin.halls.settings') }}" class="text-sm underline">Rental Settings →</a>
     </div>
 
     @if (isset($hall))

@@ -34,7 +34,7 @@ class Dashboard extends Component
         return view('livewire.venue.dashboard', [
             'halls' => $halls,
             'partner' => $this->partner(),
-            'moduleLive' => $first ? app(ModuleActivationService::class)->isActive(Modules::HALLS, $first->scope()) : false,
+            'moduleLive' => $first ? \App\Support\RentalKinds::active(\App\Support\RentalKinds::HALLS, $first->scope()) : false,
         ])->layout('components.layouts.venue', ['title' => 'Home']);
     }
 }

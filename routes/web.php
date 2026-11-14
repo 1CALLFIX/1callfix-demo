@@ -473,6 +473,8 @@ Route::get('/{city}/hotels/{hotelSlug}', \App\Livewire\Customer\Hotels\Show::cla
 // Events E2 (2026-11-13): /{city}/events and /{city}/events/{event}. 404 while Events is off for that city.
 Route::get('/{city}/events', \App\Livewire\Customer\Events\Home::class)->where('city', $cityPattern)->middleware('page.cache')->name('customer.events.home');
 Route::get('/{city}/events/{eventSlug}', \App\Livewire\Customer\Events\Show::class)->where(['city' => $cityPattern, 'eventSlug' => '[A-Za-z0-9_-]+'])->middleware('page.cache')->name('customer.events.show');
+// One Rental (2026-11-14): /{city}/rentals, every kind of rental live in the city (Rental Settings).
+Route::get('/{city}/rentals', \App\Livewire\Customer\Rentals\Home::class)->where('city', $cityPattern)->middleware('page.cache')->name('customer.rentals.home');
 // Function halls R2 (2026-11-13): /{city}/halls and /{city}/halls/{hall}. 404 while Function Halls is off for that city.
 Route::get('/{city}/halls', \App\Livewire\Customer\Halls\Home::class)->where('city', $cityPattern)->middleware('page.cache')->name('customer.halls.home');
 Route::get('/{city}/halls/{hallSlug}', \App\Livewire\Customer\Halls\Show::class)->where(['city' => $cityPattern, 'hallSlug' => '[A-Za-z0-9_-]+'])->middleware('page.cache')->name('customer.halls.show');

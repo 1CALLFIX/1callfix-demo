@@ -17,6 +17,7 @@ use App\Services\TimezoneResolver;
 use App\Services\WalletService;
 use App\Support\HallSettings;
 use App\Support\Modules;
+use App\Support\RentalKinds;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
@@ -81,7 +82,7 @@ class HallBookingService
     /** Customers can book it: approved, switched on, and Function Halls on in its area. */
     public static function bookable(Hall $hall): bool
     {
-        return $hall->isLive() && app(ModuleActivationService::class)->isActive(Modules::HALLS, self::scope($hall));
+        return $hall->isLive() && RentalKinds::active(RentalKinds::HALLS, self::scope($hall));
     }
 
     /** Most days one booking may cover (Hall Settings, at least 1). */
@@ -239,8 +240,8 @@ class HallBookingService
     {
         $hall->loadMissing('franchise');
         $scope = self::scope($hall);
-        if (! app(ModuleActivationService::class)->isActive(Modules::HALLS, $scope)) {
-            throw new ModuleNotActiveException(Modules::HALLS);
+        if (! RentalKinds::active(RentalKinds::HALLS, $scope)) {
+            throw new ModuleNotActiveException(Modules::RENTAL);
         }
         if (! $hall->isLive()) {
             throw new \RuntimeException('This hall is not taking bookings right now.');

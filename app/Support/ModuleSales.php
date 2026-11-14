@@ -62,7 +62,11 @@ class ModuleSales
             'taxi' => ['label' => 'Taxi', 'colour' => 'amber', 'prelaunch' => true, 'sources' => [
                 ['model' => TaxiRide::class, 'permission' => 'taxi_rides.view', 'done' => ['trip_completed'], 'value' => 'COALESCE(price_final, price_quoted)', 'route' => 'admin.taxi-rides.index'],
             ]],
+            // One Rental (owner 2026-11-14): function hall bookings, vehicle / equipment and property reservations.
+            // Hall value = the hall's total (price + GST + fee), not the deposit.
             'rental' => ['label' => 'Rental', 'colour' => 'teal', 'prelaunch' => true, 'sources' => [
+                ['model' => \App\Models\HallBooking::class, 'permission' => 'halls.manage', 'done' => ['confirmed', 'completed'], 'value' => 'total', 'route' => 'admin.hall-bookings.index',
+                    'where' => fn ($q) => $q->where('payment_status', '!=', 'pending')],
                 ['model' => RentalReservation::class, 'permission' => 'rental_reservations.view', 'done' => ['returned', 'completed'], 'value' => 'COALESCE(price_final, price_quoted)', 'route' => 'admin.rental-reservations.index'],
                 ['model' => PropertyReservation::class, 'permission' => 'property_reservations.view', 'done' => ['completed'], 'value' => 'COALESCE(price_final, price_quoted)', 'route' => 'admin.property-reservations.index'],
             ]],
@@ -74,17 +78,12 @@ class ModuleSales
                 ['model' => \App\Models\EventOrder::class, 'permission' => 'events.manage', 'done' => ['confirmed'], 'value' => 'total', 'route' => 'admin.events.index',
                     'where' => fn ($q) => $q->where('payment_status', '!=', 'pending')],
             ]],
-            // Function halls R2: paid bookings; value = the hall's total (price + GST + fee), not the deposit.
-            'halls' => ['label' => 'Function halls', 'colour' => 'teal', 'prelaunch' => true, 'sources' => [
-                ['model' => \App\Models\HallBooking::class, 'permission' => 'halls.manage', 'done' => ['confirmed', 'completed'], 'value' => 'total', 'route' => 'admin.hall-bookings.index',
-                    'where' => fn ($q) => $q->where('payment_status', '!=', 'pending')],
-            ]],
         ];
     }
 
     /** Dashboard key => module code in Admin → Modules. */
     public const MODULE_CODES = ['service' => 'service', 'parcel' => 'parcel', 'shop' => 'commerce', 'food' => 'food',
-        'taxi' => 'taxi', 'rental' => 'rental', 'hotel' => 'hotel', 'events' => 'events', 'halls' => 'halls'];
+        'taxi' => 'taxi', 'rental' => 'rental', 'hotel' => 'hotel', 'events' => 'events'];
 
     /**
      * Owner 2026-11-09: the dashboard shows only modules that are built and switched on somewhere (Admin → Modules),

@@ -3,18 +3,18 @@
 namespace App\Livewire\Halls;
 
 use App\Livewire\MarketplaceOrders\Settings as ShopSettings;
-use App\Support\HallSettings;
+use App\Support\RentalSettings;
 
-/** Admin → Hall Settings: the Shop Settings page (same scopes, validation, audit log, Super Admin only) over HallSettings. */
+/** Admin → Rental Settings: the Shop Settings page (same scopes, validation, audit log, Super Admin only) over RentalSettings (rental kinds + every function hall setting). */
 class Settings extends ShopSettings
 {
     protected function registry(): string
     {
-        return HallSettings::class;
+        return RentalSettings::class;
     }
 
     protected function pageTitle(): string
     {
-        return 'Hall Settings';
+        return 'Rental Settings';
     }
 }

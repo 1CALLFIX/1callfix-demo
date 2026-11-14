@@ -54,7 +54,7 @@ class HallBookingTest extends TestCase
         $this->city = $this->liveCity('Nellore');
         $this->franchise = Franchise::where('city_id', $this->city->id)->firstOrFail();
         $zone = Zone::where('franchise_id', $this->franchise->id)->firstOrFail();
-        app(ModuleActivationService::class)->setActive(Modules::HALLS, 'franchise', $this->franchise->id, true);
+        app(ModuleActivationService::class)->setActive(Modules::RENTAL, 'franchise', $this->franchise->id, true);
 
         $this->owner = User::create(['uuid' => (string) Str::uuid(), 'name' => 'Ravi', 'phone' => '9'.fake()->numerify('#########'), 'role' => 'provider', 'status' => 'active']);
         $provider = \App\Models\Provider::create(['user_id' => $this->owner->id, 'franchise_id' => $this->franchise->id, 'zone_id' => $zone->id, 'provider_type' => 'independent', 'kyc_status' => 'approved', 'is_active' => true]);
@@ -249,7 +249,7 @@ class HallBookingTest extends TestCase
         $this->assertThrows(fn () => $this->book($this->fullDay, $this->day(30)), \RuntimeException::class, 'not taking bookings');
 
         $this->hall->update(['is_active' => true]);
-        app(ModuleActivationService::class)->setActive(Modules::HALLS, 'franchise', $this->franchise->id, false);
+        app(ModuleActivationService::class)->setActive(Modules::RENTAL, 'franchise', $this->franchise->id, false);
         $this->assertThrows(fn () => $this->book($this->fullDay, $this->day(30)), \App\Exceptions\ModuleNotActiveException::class);
         $this->assertSame(0, HallBooking::count());
     }
@@ -294,7 +294,7 @@ class HallBookingTest extends TestCase
 
     public function test_pages_are_hidden_while_halls_are_off_for_the_city(): void
     {
-        app(ModuleActivationService::class)->setActive(Modules::HALLS, 'franchise', $this->franchise->id, false);
+        app(ModuleActivationService::class)->setActive(Modules::RENTAL, 'franchise', $this->franchise->id, false);
         $this->get(route('customer.halls.home', $this->city->slug))->assertNotFound();
         $this->get(route('customer.halls.show', [$this->city->slug, 'sri-lakshmi-function-hall']))->assertNotFound();
     }
@@ -654,5 +654,26 @@ class HallBookingTest extends TestCase
             ->assertSee('Paid · ₹1,500')->assertSee('Old facility')
             ->assertSeeInOrder(['Bringing things from outside', 'Outside food', 'Not allowed', 'Vessels and utensils from outside', 'Allowed with a fee'])
             ->assertSee('No smoking inside')->assertSee('Book up to 3 days in a row');
+    }
+
+    // ── one Rental (owner 2026-11-14) ──
+
+    public function test_one_rentals_door_and_page_list_function_halls(): void
+    {
+        $this->get(route('customer.rentals.home', $this->city->slug))->assertOk()
+            ->assertSee('What do you want on rent?')->assertSee('data-kind="halls"', false)->assertSee('Sri Lakshmi Function Hall')
+            ->assertSee(route('customer.halls.home', $this->city->slug));
+        $this->assertSame(1, \App\Livewire\Customer\Rentals\Home::liveCountIn($this->city));
+        $this->get('/')->assertOk()->assertSee(route('customer.rentals.home', $this->city->slug))->assertSee('Rentals');
+    }
+
+    public function test_switching_function_halls_off_in_rental_settings_hides_and_stops_them(): void
+    {
+        Setting::set('rental.kind.halls', '0');
+        $this->get(route('customer.rentals.home', $this->city->slug))->assertNotFound();
+        $this->get(route('customer.halls.home', $this->city->slug))->assertNotFound();
+        $this->assertFalse(HallBookingService::bookable($this->hall->fresh()));
+        $this->expectException(\App\Exceptions\ModuleNotActiveException::class);
+        $this->book($this->fullDay, $this->day(30));
     }
 }

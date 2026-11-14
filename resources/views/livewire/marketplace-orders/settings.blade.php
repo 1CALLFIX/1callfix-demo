@@ -6,8 +6,8 @@
                 <p class="text-sm text-gray-500">Restaurant rules, kitchen timing and order acceptance for Food delivery. Order timings, rider pay, commission and tax are shared with the shop: set them on <a href="{{ route('admin.marketplace-orders.settings') }}" class="underline">Shop Settings</a>. Switch Food on or off per location on the <a href="{{ route('admin.modules.index') }}" class="underline">Modules</a> screen.</p>
             @elseif ($pageTitle === 'Hotel Settings')
                 <p class="text-sm text-gray-500">Hotel sign-ups, booking, payment, cancellation and GST rules for Hotels. Switch Hotels on or off per location on the <a href="{{ route('admin.modules.index') }}" class="underline">Modules</a> screen.</p>
-            @elseif ($pageTitle === 'Hall Settings')
-                <p class="text-sm text-gray-500">Function hall sign-ups, booking advance and balance, owner acceptance, commission, deposit, cancellation and GST rules. Every hall is approved by the team before customers see it. Switch Function Halls on or off per location on the <a href="{{ route('admin.modules.index') }}" class="underline">Modules</a> screen.</p>
+            @elseif ($pageTitle === 'Rental Settings')
+                <p class="text-sm text-gray-500">One place for all rental: which kinds you offer (Function halls, Properties, Vehicles, Equipment), then function hall sign-ups, facilities, rules, booking, money, cancellation and GST. Switch Rental on or off per location on the <a href="{{ route('admin.modules.index') }}" class="underline">Modules</a> screen; a kind shows to customers only where Rental is on and that kind is on.</p>
             @elseif ($pageTitle === 'Event Settings')
                 <p class="text-sm text-gray-500">Organiser sign-ups, ticket sales, commission, refunds and GST rules for Events. Every organiser and every event is approved by the team before tickets go on sale. Switch Events on or off per location on the <a href="{{ route('admin.modules.index') }}" class="underline">Modules</a> screen.</p>
             @else
@@ -18,7 +18,7 @@
             <a href="{{ route('admin.hotel-reservations.index') }}" class="text-sm underline">Hotel Reservations →</a>
         @elseif ($pageTitle === 'Event Settings')
             <a href="{{ route('admin.events.index') }}" class="text-sm underline">Events & organisers →</a>
-        @elseif ($pageTitle === 'Hall Settings')
+        @elseif ($pageTitle === 'Rental Settings')
             <a href="{{ route('admin.halls.index') }}" class="text-sm underline">Function halls →</a>
         @else
             <a href="{{ route('admin.marketplace-orders.index') }}" class="text-sm underline">Marketplace Orders →</a>

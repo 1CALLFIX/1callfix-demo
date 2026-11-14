@@ -20,6 +20,9 @@ trait RentalFixtureHelpers
     protected function enableRentalModuleForTests(): void
     {
         Module::where('code', Modules::RENTAL)->update(['is_implemented' => true]);
+        // One Rental (2026-11-14): Vehicles and Equipment are off by default in Rental Settings.
+        \App\Models\Setting::set('rental.kind.vehicles', '1');
+        \App\Models\Setting::set('rental.kind.equipment', '1');
     }
 
     protected function activateRentalFor($franchise): void

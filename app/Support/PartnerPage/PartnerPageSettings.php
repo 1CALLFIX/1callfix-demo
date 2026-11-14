@@ -109,7 +109,7 @@ final class PartnerPageSettings
     /** Module name shown on each role card. */
     public const ROLE_MODULE_NAMES = [
         'service' => 'Home services', 'parcel' => 'Parcel delivery', 'food' => 'Food delivery', 'grocery' => 'Grocery',
-        'pharmacy' => 'Pharmacy', 'taxi' => 'Taxi', 'hotel' => 'Hotel booking', 'halls' => 'Rental · Function halls', 'rental' => 'Rental · Vehicles & equipment', 'events' => 'Events', 'commerce' => 'Marketplace',
+        'pharmacy' => 'Pharmacy', 'taxi' => 'Taxi', 'hotel' => 'Hotel booking', 'halls' => 'Rental', 'rental' => 'Rental', 'events' => 'Events', 'commerce' => 'Marketplace',
     ];
 
     private const MAX_JSON_BYTES = 20000;
