@@ -243,7 +243,7 @@ class TestAccountsCommand extends Command
                     ]);
                 }
 
-                return [$key, $email, $roleSlug ? "{$roleSlug} @ {$scopeType} #{$scopeIds[$scopeType]}" : ($key === 'rider' ? 'parcel + shop rider (approved)' : ($key === 'seller' ? 'seller, shop approved' : ($key === 'restaurant' ? 'restaurant, approved' : ($key === 'hotel' ? 'hotel, approved' : ($key === 'organiser' ? 'event organiser, approved, 1 event in review' : ($key === 'hall' ? 'one approved test hall of every kind' : ($key === 'homeowner' ? 'five approved test properties for rent (4 homes + a shop)' : $userRole)))))))];
+                return [$key, $email, $roleSlug ? "{$roleSlug} @ {$scopeType} #{$scopeIds[$scopeType]}" : ($key === 'rider' ? 'parcel + shop rider (approved)' : ($key === 'seller' ? 'seller, shop approved' : ($key === 'restaurant' ? 'restaurant, approved' : ($key === 'hotel' ? 'hotel, approved' : ($key === 'organiser' ? 'event organiser, approved, 1 event in review' : ($key === 'hall' ? 'one approved test hall of every kind' : ($key === 'homeowner' ? 'one approved test property of every kind for rent' : $userRole)))))))];
             });
         }
 
@@ -526,23 +526,41 @@ class TestAccountsCommand extends Command
     }
 
     /**
-     * Property for rent: the test property owner with four approved, live test homes (flat, house, room, PG), each with its own
-     * photos, rent, deposit, facilities and rules, so the whole walk-through (browse, filter, ask to visit, owner accepts)
-     * can be done. Re-running create resets them; other homes are left alone.
+     * Property for rent: the test property owner with one approved, live test property of EVERY kind in Rental Settings
+     * (owner 2026-11-14: "a test property in each category with all the options filled"): every kind to live in and every
+     * kind for business, each with size, floor area, floor, facing, furnishing, who it is for, rent, deposit,
+     * maintenance, move-in date, landmark, address, map pin, facilities from every section that fits, rules, a
+     * description and its own photos. A kind the Super Admin adds later gets one too (with general details). Re-running
+     * create resets them; other listings are left alone.
      */
-    public const TEST_HOMES = [
-        // size, kind, rent, deposit months, furnishing, tenants, cover, photos
-        ['2 BHK', 'Flat / apartment', 12000, 2, 'Semi-furnished', ['Family', 'Working professionals'],
+    public const TEST_PROPERTIES = [
+        // kind => [size, area, floor, furnishing, tenants, rent, deposit months, maintenance, cover, photos]
+        'Flat / apartment' => ['2 BHK', 1050, '2nd floor', 'Semi-furnished', ['Family', 'Working professionals'], 12000, 2, 1500,
             'photo-1502672260266-1c1ef2d93688', ['photo-1505691938895-1758d7feb511', 'photo-1556909114-f6e7ad7d3136', 'photo-1552321554-5fefe8c9ef14']],
-        ['3 BHK', 'Independent house', 20000, 3, 'Unfurnished', ['Family'],
+        'Independent house' => ['3 BHK', 1600, 'Whole building', 'Unfurnished', ['Family'], 20000, 3, 0,
             'photo-1568605114967-8130f3a36994', ['photo-1484154218962-a197022b5858', 'photo-1556911220-bff31c812dba', 'photo-1584622650111-993a426fbf0a']],
-        ['1 RK', 'Single room', 4500, 1, 'Fully furnished', ['Bachelor men', 'Students'],
+        'Villa' => ['4 BHK', 2800, 'Whole building', 'Fully furnished', ['Family', 'Company lease'], 45000, 6, 3000,
+            'photo-1613490493576-7fde63acd811', ['photo-1600566752355-35792bedcfea', 'photo-1556911220-bff31c812dba', 'photo-1552321554-5fefe8c9ef14']],
+        'Portion of a house' => ['1 BHK', 600, '1st floor', 'Semi-furnished', ['Family', 'Working professionals'], 7000, 2, 0,
+            'photo-1484154218962-a197022b5858', ['photo-1505691938895-1758d7feb511', 'photo-1556912173-3bb406ef7e77', 'photo-1584622781564-1d987f7333c1']],
+        'Single room' => ['1 RK', 180, '1st floor', 'Fully furnished', ['Bachelor men', 'Students'], 4500, 1, 0,
             'photo-1522708323590-d24dbb6b0267', ['photo-1505693416388-ac5ce068fe85', 'photo-1556912173-3bb406ef7e77', 'photo-1584622781564-1d987f7333c1']],
-        ['1 BHK', 'PG / hostel', 6500, 1, 'Fully furnished', ['Bachelor women', 'Working professionals'],
+        'PG / hostel' => ['1 BHK', 300, '3rd floor', 'Fully furnished', ['Bachelor women', 'Working professionals', 'Students'], 6500, 1, 0,
             'photo-1555854877-bab0e564b8d5', ['photo-1540518614846-7eded433c457', 'photo-1556909172-54557c7e4fb7', 'photo-1600566752355-35792bedcfea']],
-        // Owner 2026-11-14: shops, offices and buildings too (a business kind: no BHK size).
-        [null, 'Shop', 25000, 3, 'Unfurnished', ['Retail shop', 'Any business'],
+        'Farmhouse' => ['3 BHK', 4500, 'Ground floor', 'Semi-furnished', ['Family', 'Company lease'], 30000, 3, 0,
+            'photo-1587271407850-8d438ca9fdf2', ['photo-1600566752355-35792bedcfea', 'photo-1484154218962-a197022b5858', 'photo-1556911220-bff31c812dba']],
+        'Shop' => [null, 350, 'Ground floor', 'Unfurnished', ['Retail shop', 'Any business'], 25000, 3, 1000,
             'photo-1441986300917-64674bd600d8', ['photo-1604719312566-8912e9227c6a', 'photo-1556740758-90de374c12ad', 'photo-1534452203293-494d7ddbf7e0']],
+        'Office space' => [null, 1200, '2nd floor', 'Fully furnished', ['Office', 'Any business'], 40000, 6, 2500,
+            'photo-1497366216548-37526070297c', ['photo-1534452203293-494d7ddbf7e0', 'photo-1556740758-90de374c12ad', 'photo-1604719312566-8912e9227c6a']],
+        'Showroom' => [null, 2200, 'Ground floor', 'Semi-furnished', ['Retail shop', 'Any business'], 80000, 6, 4000,
+            'photo-1604719312566-8912e9227c6a', ['photo-1441986300917-64674bd600d8', 'photo-1556740758-90de374c12ad', 'photo-1534452203293-494d7ddbf7e0']],
+        'Godown / warehouse' => [null, 5000, 'Ground floor', 'Unfurnished', ['Storage only', 'Any business'], 35000, 3, 0,
+            'photo-1586528116311-ad8dd3c8310d', ['photo-1556740758-90de374c12ad', 'photo-1534452203293-494d7ddbf7e0', 'photo-1604719312566-8912e9227c6a']],
+        'Whole building' => [null, 9000, 'Whole building', 'Unfurnished', ['Any business', 'Office', 'Clinic / hospital'], 150000, 10, 0,
+            'photo-1486406146926-c627a92ad1ab', ['photo-1497366216548-37526070297c', 'photo-1534452203293-494d7ddbf7e0', 'photo-1556740758-90de374c12ad']],
+        'Clinic / hospital space' => [null, 1500, '1st floor', 'Semi-furnished', ['Clinic / hospital'], 50000, 6, 2000,
+            'photo-1519494026892-80bbd2d6fd0d', ['photo-1497366216548-37526070297c', 'photo-1534452203293-494d7ddbf7e0', 'photo-1556740758-90de374c12ad']],
     ];
 
     private function makeTestHomes(User $user, Franchise $franchise, Zone $zone): void
@@ -551,23 +569,50 @@ class TestAccountsCommand extends Command
             'franchise_id' => $franchise->id, 'zone_id' => $zone->id, 'provider_type' => 'independent',
             'kyc_status' => 'approved', 'is_active' => true, 'is_online' => false, 'skills' => null,
         ]);
+        $scope = array_filter(['zone_id' => $zone->id, 'franchise_id' => $franchise->id, 'city_id' => $franchise->city_id, 'country_id' => $franchise->country_id]);
         $photo = fn (string $id) => self::UNSPLASH.$id.'?w=1600&q=80';
-        foreach (self::TEST_HOMES as [$size, $kind, $rent, $months, $furnishing, $tenants, $cover, $photos]) {
+        $settings = \App\Support\HomeSettings::class;
+        $pick = fn (array $wanted, string $key) => array_values(array_intersect($wanted, $settings::listIn($key, $scope)));
+        $facing = $settings::listIn('homes.facing', $scope);
+        $sizes = $settings::listIn('homes.sizes', $scope);
+        $furnishings = $settings::listIn('homes.furnishing', $scope);
+        $floors = $settings::listIn('homes.floors', $scope);
+
+        foreach ($settings::allTypes($scope) as $i => $kind) {
+            $business = $settings::isCommercial($kind, $scope);
+            [$size, $area, $floor, $furnishing, $tenants, $rent, $months, $maintenance, $cover, $photos] = self::TEST_PROPERTIES[$kind]
+                ?? ($business ? [null, 1000, 'Ground floor', 'Unfurnished', ['Any business'], 30000, 3, 1000, 'photo-1441986300917-64674bd600d8', ['photo-1604719312566-8912e9227c6a', 'photo-1556740758-90de374c12ad', 'photo-1534452203293-494d7ddbf7e0']]
+                    : ['2 BHK', 1000, '1st floor', 'Semi-furnished', ['Family'], 10000, 2, 1000, 'photo-1502672260266-1c1ef2d93688', ['photo-1505691938895-1758d7feb511', 'photo-1556909114-f6e7ad7d3136', 'photo-1552321554-5fefe8c9ef14']]);
+            // Only values on this city's lists, so every test property is valid for the editor too.
+            $size = $business ? null : (in_array($size, $sizes, true) ? $size : ($sizes[0] ?? null));
+            $furnishing = in_array($furnishing, $furnishings, true) ? $furnishing : ($furnishings[0] ?? $furnishing);
+            $floor = in_array($floor, $floors, true) ? $floor : ($floors[0] ?? null);
+            $tenants = $pick($tenants, $business ? 'homes.business_tenants' : 'homes.tenants') ?: array_slice($settings::listIn($business ? 'homes.business_tenants' : 'homes.tenants', $scope), 0, 1);
+            // Facilities: every section that fits this kind (homes skip "For business", business skips "Inside the home").
+            $amenities = [];
+            foreach ($settings::amenityGroups($scope) as $g) {
+                if (($business && $g['title'] === 'Inside the home') || (! $business && $g['title'] === 'For business')) {
+                    continue;
+                }
+                $amenities = array_merge($amenities, array_values(array_diff($g['items'], ['Room heater'])));
+            }
+            $rules = $pick($business ? ['No smoking', 'Agreement for 11 months', 'One month notice to leave']
+                : ['Non-veg allowed', 'No smoking', 'Guests allowed', 'Gate closes at 10 PM', 'Agreement for 11 months', 'One month notice to leave'], 'homes.rules');
+
             $title = \App\Models\HouseListing::makeTitle($size, $kind, $zone->name);
-            $home = \App\Models\HouseListing::firstOrNew(['provider_id' => $provider->id, 'home_type' => $kind, 'size' => $size]);
+            $home = \App\Models\HouseListing::firstOrNew(['provider_id' => $provider->id, 'home_type' => $kind]);
             $home->fill([
                 'franchise_id' => $franchise->id, 'zone_id' => $zone->id, 'title' => $title,
                 'slug' => $home->slug ?: \App\Models\HouseListing::uniqueSlug($title),
-                'area' => ['1 RK' => 180, '1 BHK' => 550, '2 BHK' => 1050, '3 BHK' => 1600][$size ?? ''] ?? 350,
-                'floor' => $kind === 'Independent house' ? 'Whole building' : ($kind === 'Shop' ? 'Ground floor' : '1st floor'), 'facing' => 'East',
+                'size' => $size, 'area' => $area, 'floor' => $floor, 'facing' => $facing[$i % max(1, count($facing))] ?? null,
                 'furnishing' => $furnishing, 'tenants' => $tenants,
-                'rent' => $rent, 'deposit' => $rent * $months, 'maintenance' => $kind === 'Flat / apartment' ? 1500 : null,
-                'available_from' => now()->toDateString(),
-                'landmark' => 'Test landmark, '.$zone->name, 'address_line' => 'Test address, '.$zone->name.'. Not a real home.',
-                'amenities' => ['24-hour water', 'Borewell', 'Power backup', 'Ceiling fans', 'Geyser / hot water', 'Cross ventilation',
-                    'Mosquito mesh on windows', 'Two-wheeler parking', 'CCTV', 'Bus stop', 'Market'],
-                'rule_list' => ['No smoking', 'Agreement for 11 months', 'One month notice to leave'],
-                'about' => "Test {$size} {$kind} for walk-throughs.\nNot a real home.",
+                'rent' => $rent, 'deposit' => $rent * $months, 'maintenance' => $maintenance ?: null,
+                'available_from' => now()->addDays($i % 3 === 0 ? 0 : 7 * ($i % 3))->toDateString(),
+                'landmark' => 'Near the test bus stop, '.$zone->name,
+                'address_line' => 'Door 1-'.($i + 1).', Test Street, '.$zone->name.'. Not a real property.',
+                'lat' => round(14.4426 + $i * 0.002, 7), 'lng' => round(79.9865 + $i * 0.002, 7),
+                'amenities' => $amenities, 'rule_list' => $rules ?: null,
+                'about' => "Test {$kind} for walk-throughs: every option is filled in so each part of the page can be checked.\nNot a real property.",
                 'cover_image' => $photo($cover), 'photos' => array_map($photo, $photos),
                 'contact_phone' => $user->phone,
                 'status' => 'approved', 'submitted_at' => now(), 'approved_at' => now(), 'rejection_reason' => null,

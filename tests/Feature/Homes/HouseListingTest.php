@@ -405,11 +405,26 @@ class HouseListingTest extends TestCase
 
         $owner = User::where('email', 'test.homeowner@1callfix.test')->firstOrFail();
         $homes = HouseListing::whereHas('provider', fn ($q) => $q->where('user_id', $owner->id))->get();
-        $this->assertCount(5, $homes, 'Running it twice never makes duplicates.');
+        // Owner 2026-11-14: "a test property in each category with all the options filled".
+        $this->assertCount(count(HomeSettings::allTypes()), $homes, 'One per kind; running it twice never makes duplicates.');
+        $this->assertEqualsCanonicalizing(HomeSettings::allTypes(), $homes->pluck('home_type')->all(), 'Every kind, to live in and for business, has one.');
         foreach ($homes as $home) {
             $this->assertTrue($home->isLive());
             $this->assertSame([], HomeEditor::submitProblems($home), $home->title.' is complete.');
+            foreach (['area', 'floor', 'facing', 'furnishing', 'tenants', 'rent', 'deposit', 'available_from', 'landmark', 'address_line', 'lat', 'lng', 'amenities', 'rule_list', 'about'] as $field) {
+                $this->assertNotEmpty($home->{$field}, "{$home->title}: {$field} is filled");
+            }
+            $this->assertCount(3, $home->photos);
+            $this->assertSame(HomeSettings::isCommercial($home->home_type), $home->size === null, $home->title.': BHK size only for homes to live in');
         }
+        $this->assertNotNull($homes->firstWhere('home_type', 'Flat / apartment')->maintenance);
+
+        // Each one opens on the customer page, and the owner's editor accepts it as it is (every value is on the lists).
+        foreach ($homes->take(3)->concat($homes->filter(fn ($h) => $h->size === null)->take(2)) as $home) {
+            $this->get(route('customer.homes.show', [$this->city->slug, $home->slug]))->assertOk()->assertSee($home->title);
+            Livewire::actingAs($owner)->test(HomeEditor::class, ['listingId' => $home->id])->call('save')->assertHasNoErrors();
+        }
+        auth()->logout();
         $this->actingAs($owner)->get(route('venue.dashboard'))->assertOk()->assertSee('Property for rent');
 
         $this->artisan('test-accounts', ['action' => 'disable'])->assertSuccessful();

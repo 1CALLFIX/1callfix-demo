@@ -42,7 +42,8 @@ Use with `docs/DEPLOY_RUNBOOK.md`. Goes out together with `2026-11-14-one-rental
 - `homes:tidy` (daily 02:15: visit requests not answered by the visit day close as "No reply in time")
 
 ## Test login and walk-through
-- `php artisan test-accounts create --password=...` adds `test.homeowner@1callfix.test` (Test Property Owner) with four
+- `php artisan test-accounts create --password=...` adds `test.homeowner@1callfix.test` (Test Property Owner) with one live
+  test property of EVERY kind (7 to live in, 6 for business), every option filled; earlier: four
   live test homes (2 BHK flat, 3 BHK house, 1 RK room, PG). `test-accounts disable` switches them off.
 - Customer: home → Rentals → Property for rent (also try kind "Shop") → filter "Up to ₹15,000" → open the 2 BHK → see all photos → Ask to see
   this home (tomorrow, Evening) → My property visits shows "Waiting for the owner".
