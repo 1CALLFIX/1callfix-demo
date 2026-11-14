@@ -618,6 +618,23 @@
                         </div>
                     </div>
 
+                    {{-- One-page sections (owner 2026-11-14, the Urban Company way): on the subcategory page (Split AC)
+                         services show under coloured headings, each with an Add button. --}}
+                    <div class="rounded-lg border border-emerald-100 bg-emerald-50/50 p-3">
+                        <p class="text-sm font-semibold text-gray-800">Section on the page (optional)</p>
+                        <p class="text-[11px] text-gray-500 mt-0.5">Example: on Split AC, "Service", "Repair &amp; gas", "Install &amp; move". Services with the same section show together, in the Reorder order.</p>
+                        <input type="text" wire:model="editPageSection" maxlength="60" placeholder="e.g. Repair & gas" class="mt-2 w-full border rounded px-3 py-2 text-sm">
+                        @error('editPageSection') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
+                        @if ($this->pageSectionSuggestions->isNotEmpty())
+                            <div class="mt-2 flex flex-wrap gap-2">
+                                @foreach ($this->pageSectionSuggestions as $suggestion)
+                                    <button type="button" wire:click="pickPageSection(@js($suggestion))"
+                                            class="min-h-[36px] rounded-full border border-emerald-300 bg-white px-3 text-xs font-semibold text-emerald-700 hover:bg-emerald-100">+ {{ $suggestion }}</button>
+                                @endforeach
+                            </div>
+                        @endif
+                    </div>
+
                     <div class="flex flex-wrap gap-6 text-sm">
                         <label class="inline-flex items-center gap-2">
                             <input type="checkbox" wire:model="editLocationRequired" class="rounded"> Location Required

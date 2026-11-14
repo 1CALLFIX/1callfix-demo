@@ -85,7 +85,7 @@ class AddToCartTest extends TestCase
         $customer = $this->makeCustomer();
         $service = $this->makeService($this->makeCategory());
         // A required multi-choice group is left unanswered by preselect.
-        $this->makeOptionGroup($service, ['Extra A' => 100, 'Extra B' => 150], required: true, multiple: true, name: 'Extras');
+        $this->makeOptionGroup($service, ['Ground floor' => 0, 'Balcony' => 0], required: true, multiple: true, name: 'Where is the AC');
 
         Livewire::actingAs($customer)->test(ServiceShow::class, ['service' => $service])
             ->call('addToCart')

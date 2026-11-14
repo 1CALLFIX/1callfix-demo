@@ -3,7 +3,12 @@
 namespace App\Livewire\Customer\Catalog;
 
 use App\Livewire\Customer\Concerns\ResolvesCatalogContext;
+use App\Models\Service;
+use App\Models\ServiceCartItem;
 use App\Models\ServiceCategory;
+use App\Models\ServiceOptionGroup;
+use App\Services\Customer\ServiceCartService;
+use App\Support\SiteText;
 use App\Support\Modules;
 use Illuminate\Support\Collection;
 use Livewire\Attributes\Locked;
@@ -72,6 +77,12 @@ class CategoryShow extends Component
 
     private const PER_PAGE = 12;
 
+    /** Most services one sectioned subcategory page shows (a subcategory is a handful; this only bounds a mistake). */
+    private const SECTION_LIMIT = 60;
+
+    /** "Added to your cart." after an Add on the sectioned page. */
+    public string $cartNotice = '';
+
     public function mount(ServiceCategory $category): void
     {
         abort_unless($category->is_active && $category->module === Modules::SERVICE, 404);
@@ -115,6 +126,133 @@ class CategoryShow extends Component
         $this->resetPage();
     }
 
+    // ===================== One page with sections (owner 2026-11-14) =====================
+    // The Urban Company way: open Split AC and every service shows under coloured section headings
+    // ("Service", "Repair & gas", "Install & move"), each with an Add button that puts that one real service,
+    // at its own price, straight into the services cart. Nothing here prices anything: the cart and checkout
+    // re-price every line exactly as before.
+
+    /** Add one of $serviceId to the cart. Only a service of THIS category + the chosen subcategory. */
+    public function addService(int $serviceId, ServiceCartService $cart): void
+    {
+        $this->cartNotice = '';
+        $this->resetErrorBag();
+
+        $service = $this->sectionService($serviceId);
+        if (! $service) {
+            return;
+        }
+
+        if (! auth()->check()) {
+            $intended = \App\Support\Seo\PublicUrl::category(ServiceCategory::findOrFail($this->categoryId)).'?sub='.$this->subcategory;
+            session()->put('customer.intended', parse_url($intended, PHP_URL_PATH).'?sub='.$this->subcategory);
+            $this->redirectRoute('customer.login', ['intended' => $intended]);
+
+            return;
+        }
+
+        // A question that must be answered first (e.g. AC brand) is asked on the service's own page.
+        if ($this->needsAnswersFirst($service)) {
+            $this->redirect(\App\Support\Seo\PublicUrl::service($service), navigate: true);
+
+            return;
+        }
+
+        try {
+            $cart->add(auth()->user(), $service, [], null, '', 1);
+        } catch (\RuntimeException $e) {
+            $this->addError('cart', $e->getMessage());
+
+            return;
+        }
+
+        $this->cartNotice = SiteText::get('service.section.added');
+        $this->dispatch('cart-updated');
+    }
+
+    /** Take one of $serviceId back out of the cart (the − on the stepper). */
+    public function removeOne(int $serviceId, ServiceCartService $cart): void
+    {
+        $this->cartNotice = '';
+        if (! auth()->check() || ! $this->sectionService($serviceId)) {
+            return;
+        }
+
+        $line = ServiceCartItem::where('user_id', auth()->id())->where('service_id', $serviceId)->latest('id')->first();
+        if ($line) {
+            $cart->updateQuantity($line, $line->quantity - 1);
+            $this->dispatch('cart-updated');
+        }
+    }
+
+    private function sectionService(int $serviceId): ?Service
+    {
+        if ($this->subcategory === null) {
+            return null;
+        }
+
+        return $this->catalog()->services(['category_id' => $this->categoryId, 'subcategory_id' => $this->subcategory])
+            ->whereKey($serviceId)->first();
+    }
+
+    private function needsAnswersFirst(Service $service): bool
+    {
+        return ServiceOptionGroup::where('service_id', $service->id)->where('is_required', true)
+            ->whereHas('options', fn ($q) => $q->where('is_active', true)->where('price_delta', 0))
+            ->exists();
+    }
+
+    /**
+     * The sections for the chosen subcategory, or null for the normal card grid. Only when a subcategory is picked,
+     * nothing is searched or sorted, and at least one of its services has a section.
+     *
+     * @return array{sections: array<int, array{name: string, items: array<int, array>}>, counts: array<int, int>, cartCount: int}|null
+     */
+    private function sectionedPage(int $categoryId): ?array
+    {
+        if ($this->subcategory === null || trim($this->search) !== '' || $this->sort !== 'recommended') {
+            return null;
+        }
+
+        $filters = ['category_id' => $categoryId, 'subcategory_id' => $this->subcategory];
+        $mains = $this->catalog()->services($filters + ['main_only' => true])
+            ->with(['category:id,name,slug', 'subcategory:id,name'])->limit(self::SECTION_LIMIT)->get();
+
+        if ($mains->whereNotNull('page_section')->isEmpty()) {
+            return null;
+        }
+
+        $groupedIds = $mains->filter(fn (Service $s) => filled($s->choice_group_name))->pluck('id');
+        $members = $groupedIds->isEmpty() ? collect() : $this->catalog()->services($filters)
+            ->whereIn('choice_of', $groupedIds)->with(['category:id,name,slug', 'subcategory:id,name'])->get();
+
+        $cards = $this->presenter()->cards($mains->concat($members))->keyBy(fn (array $card) => $card['service']->id);
+        $more = SiteText::get('service.section.more');
+
+        $sections = [];
+        foreach ($mains as $main) {
+            $name = trim((string) $main->page_section) ?: $more;
+            $choices = collect([$main])->concat($members->where('choice_of', $main->id)->sortBy([['base_price', 'asc'], ['id', 'asc']]))
+                ->map(fn (Service $s) => ['id' => $s->id, 'label' => $s->choice_label ?: $s->name, 'card' => $cards[$s->id]])
+                ->values()->all();
+
+            $sections[$name] ??= ['name' => $name, 'items' => []];
+            $sections[$name]['items'][] = ['card' => $cards[$main->id], 'choices' => count($choices) > 1 ? $choices : []];
+        }
+
+        $counts = auth()->check()
+            ? ServiceCartItem::where('user_id', auth()->id())->whereIn('service_id', $cards->keys())
+                ->selectRaw('service_id, SUM(quantity) as qty')->groupBy('service_id')->pluck('qty', 'service_id')
+                ->map(fn ($q) => (int) $q)->all()
+            : [];
+
+        return [
+            'sections' => array_values($sections),
+            'counts' => $counts,
+            'cartCount' => auth()->check() ? (int) ServiceCartItem::where('user_id', auth()->id())->sum('quantity') : 0,
+        ];
+    }
+
     public function render()
     {
         $category = ServiceCategory::findOrFail($this->categoryId);
@@ -147,6 +285,7 @@ class CategoryShow extends Component
             // flash-sale prices and ratings are batched per page rather than
             // across the whole category.
             'cards' => $this->presenter()->cards($paginator->getCollection()),
+            'sectioned' => $this->sectionedPage($category->id),
             'banners' => $this->bannersFor('mid', $category->id),
             'currencySymbol' => $this->presenter()->currencySymbol(),
             'hasFilters' => $this->search !== '' || $this->subcategory !== null || $this->sort !== 'recommended',

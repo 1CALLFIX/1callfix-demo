@@ -93,6 +93,60 @@
             </div>
         </div>
 
+        {{-- ================= One page with sections (owner 2026-11-14) =================
+             Split AC opens as coloured sections ("Service", "Repair & gas", "Install & move"), every item with a
+             big Add button, the Urban Company way. Only when the admin gave the subcategory's services a section. --}}
+        @if ($sectioned)
+            @php
+                $palette = [
+                    ['head' => 'bg-blue-50 text-blue-800 border-blue-200', 'dot' => 'bg-blue-600', 'btn' => 'bg-blue-600 hover:bg-blue-700'],
+                    ['head' => 'bg-amber-50 text-amber-800 border-amber-200', 'dot' => 'bg-amber-500', 'btn' => 'bg-amber-600 hover:bg-amber-700'],
+                    ['head' => 'bg-emerald-50 text-emerald-800 border-emerald-200', 'dot' => 'bg-emerald-600', 'btn' => 'bg-emerald-600 hover:bg-emerald-700'],
+                    ['head' => 'bg-violet-50 text-violet-800 border-violet-200', 'dot' => 'bg-violet-600', 'btn' => 'bg-violet-600 hover:bg-violet-700'],
+                    ['head' => 'bg-rose-50 text-rose-800 border-rose-200', 'dot' => 'bg-rose-600', 'btn' => 'bg-rose-600 hover:bg-rose-700'],
+                ];
+            @endphp
+
+            @if ($cartNotice !== '')
+                <p role="status" class="mt-6 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800">✓ {{ $cartNotice }}</p>
+            @endif
+            @error('cart')
+                <p role="alert" class="mt-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">{{ $message }}</p>
+            @enderror
+
+            <div class="mt-6 space-y-8" data-testid="service-sections">
+                @foreach ($sectioned['sections'] as $section)
+                    @php $colour = $palette[$loop->index % count($palette)]; @endphp
+                    <section aria-labelledby="section-{{ $loop->index }}">
+                        <h2 id="section-{{ $loop->index }}"
+                            class="flex items-center gap-2 rounded-xl border px-4 py-3 text-lg font-bold {{ $colour['head'] }}">
+                            <span class="flex h-7 w-7 items-center justify-center rounded-full text-sm font-bold text-white {{ $colour['dot'] }}">{{ $loop->iteration }}</span>
+                            {{ $section['name'] }}
+                        </h2>
+                        <div class="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-2">
+                            @foreach ($section['items'] as $item)
+                                <div wire:key="section-item-{{ $item['card']['service']->id }}">
+                                    <x-customer.section-item :item="$item" :counts="$sectioned['counts']"
+                                                             :currency-symbol="$currencySymbol" :accent="$colour['btn']" />
+                                </div>
+                            @endforeach
+                        </div>
+                    </section>
+                @endforeach
+            </div>
+
+            {{-- The cart bar stays at the bottom on phones (above the bottom menu) once something is in the cart. --}}
+            @if ($sectioned['cartCount'] > 0)
+                <div class="h-20"></div>
+                <div class="fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-40 px-4 lg:bottom-6" data-testid="section-cart-bar">
+                    <div class="mx-auto flex max-w-3xl items-center justify-between gap-3 rounded-2xl bg-slate-900 px-4 py-3 text-white shadow-xl">
+                        <span class="text-sm font-semibold">🛒 {{ \App\Support\SiteText::get('service.section.in_cart', ['count' => $sectioned['cartCount']]) }}</span>
+                        <a href="{{ route('customer.cart') }}" wire:navigate
+                           class="inline-flex min-h-[44px] items-center rounded-xl bg-white px-5 text-sm font-bold text-slate-900">{{ \App\Support\SiteText::get('service.section.view_cart') }} →</a>
+                    </div>
+                </div>
+            @endif
+        @else
         {{-- ============================ Results ============================ --}}
         <p role="status" aria-live="polite" class="mt-4 text-sm text-slate-600">
             <span wire:loading.remove wire:target="search,sort,subcategory,selectSubcategory,gotoPage,nextPage,previousPage">
@@ -131,6 +185,7 @@
                                       description="Services appear here once they are published from the admin panel." />
                 @endif
             </div>
+        @endif
         @endif
 
         {{-- A `mid`-slot banner targeted at THIS category, if one is sold. --}}

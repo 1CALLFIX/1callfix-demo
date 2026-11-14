@@ -83,6 +83,9 @@ class Manage extends Component
     public string $editChoiceGroupName = '';
     public string $editChoiceLabel = '';
 
+    /** One-page section this service shows under on its subcategory page ("Service", "Repair & gas", ...); '' = none. */
+    public string $editPageSection = '';
+
     // --- View details modal (read-only, the eye icon) ---
     public bool $showViewModal = false;
     public ?int $viewServiceId = null;
@@ -326,6 +329,7 @@ class Manage extends Component
         $this->editChoiceOf = $service->choice_of ? (string) $service->choice_of : '';
         $this->editChoiceGroupName = (string) $service->choice_group_name;
         $this->editChoiceLabel = (string) $service->choice_label;
+        $this->editPageSection = (string) $service->page_section;
 
         $this->resetValidation();
         // Edit is also reachable from the details modal's footer — make sure
@@ -525,6 +529,7 @@ class Manage extends Component
             'editChoiceOf' => ['nullable', 'integer', 'exists:services,id'],
             'editChoiceGroupName' => ['nullable', 'string', 'max:120'],
             'editChoiceLabel' => ['nullable', 'string', 'max:80'],
+            'editPageSection' => ['nullable', 'string', 'max:60'],
         ];
 
         if ($this->editDiscountPrice !== '') {
@@ -593,6 +598,7 @@ class Manage extends Component
             // A choice of another service shows under that service's group name, so it keeps none of its own.
             'choice_group_name' => $this->editChoiceOf === '' && trim($this->editChoiceGroupName) !== '' ? trim($this->editChoiceGroupName) : null,
             'choice_label' => trim($this->editChoiceLabel) !== '' ? trim($this->editChoiceLabel) : null,
+            'page_section' => trim($this->editPageSection) !== '' ? trim($this->editPageSection) : null,
         ]);
 
         $this->showEditModal = false;
@@ -618,6 +624,24 @@ class Manage extends Component
         }
 
         return null;
+    }
+
+    /** Section names already used in this service's subcategory (or category), to tap instead of type. */
+    public function getPageSectionSuggestionsProperty(): \Illuminate\Support\Collection
+    {
+        if (! $this->editServiceId) {
+            return collect();
+        }
+
+        return Service::query()->whereNotNull('page_section')
+            ->when($this->editSubcategoryId !== '', fn ($q) => $q->where('subcategory_id', (int) $this->editSubcategoryId),
+                fn ($q) => $q->where('category_id', (int) $this->editCategoryId))
+            ->distinct()->orderBy('page_section')->pluck('page_section');
+    }
+
+    public function pickPageSection(string $name): void
+    {
+        $this->editPageSection = mb_substr(trim($name), 0, 60);
     }
 
     /** Services this one can be a choice of: main services in the same subcategory (or category). */

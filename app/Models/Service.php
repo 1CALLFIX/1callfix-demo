@@ -37,6 +37,7 @@ class Service extends Model
         'choice_of',
         'choice_group_name',
         'choice_label',
+        'page_section',
     ];
 
     protected $casts = [
