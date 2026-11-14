@@ -160,6 +160,34 @@ class SubcategorySectionsTest extends TestCase
         $this->assertNull($repair->fresh()->page_section);
     }
 
+    /** Production had every sort number at 0, so the first migration's reshuffle changed nothing: the fix orders them. */
+    public function test_the_order_fix_shows_service_first_when_every_sort_number_is_the_same(): void
+    {
+        $category = $this->makeCategory(['name' => 'Appliance']);
+        $split = $this->makeSubcategory($category, ['name' => 'Split AC']);
+        $make = fn (string $name, array $extra = []) => $this->makeService($category,
+            ['subcategory_id' => $split->id, 'name' => $name, 'sort_order' => 0] + $extra);
+
+        $gasFull = $make('Split AC Gas Charging Full');
+        $general = $make('Split AC General Service', ['choice_group_name' => 'Split AC Service']);
+        $make('Split AC Chemical Wash', ['choice_of' => $general->id]);
+        $make('Split AC Install');
+        $make('Split AC Repair');
+        $other = $this->makeService($category, ['name' => 'Chimney Repair', 'sort_order' => 0]);
+
+        foreach (['2026_11_17_100100_ac_page_sections', '2026_11_17_100200_ac_section_order', '2026_11_17_100200_ac_section_order'] as $file) {
+            (require database_path("migrations/{$file}.php"))->up();
+        }
+
+        $this->assertSame(0, $general->fresh()->sort_order);
+        $this->assertSame(1, $gasFull->fresh()->sort_order);
+        $this->assertSame(0, $other->fresh()->sort_order); // nothing outside AC moves
+
+        Livewire::test(CategoryShow::class, ['category' => $category])
+            ->call('selectSubcategory', $split->id)
+            ->assertSeeInOrder(['Split AC Service', 'Split AC Gas Charging Full', 'Split AC Repair', 'Split AC Install']);
+    }
+
     public function test_the_data_migration_puts_the_ac_services_in_sections_and_orders_them(): void
     {
         $category = $this->makeCategory(['name' => 'Appliance']);
