@@ -138,6 +138,7 @@ class PageController extends Controller
         return view('customer.franchise', [
             'p' => \App\Support\InfoPages\FranchisePage::content(),
             'liveStats' => \App\Support\InfoPages\FranchisePage::liveStats(),
+            'businesses' => \App\Support\InfoPages\FranchisePage::liveBusinesses(),
             'heroUrl' => \App\Livewire\InfoPages\FranchiseSettings::heroImageUrl(),
         ]);
     }

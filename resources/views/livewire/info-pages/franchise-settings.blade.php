@@ -7,6 +7,8 @@
         'Top of the page (hero)' => [['hero_badge', 'hero_title', 'hero_subtitle', 'cta_label', 'call_label'], ['highlights']],
         'Numbers strip' => [[], ['stats']],
         'Why a franchise' => [['why_title', 'why_intro'], ['why']],
+        'Every business (live list from the app) and comparison' => [['biz_title', 'biz_intro', 'biz_live', 'compare_title', 'compare_them', 'compare_us'], ['compare']],
+        'Earnings calculator' => [['calc_title', 'calc_share', 'calc_orders', 'calc_value', 'calc_share_label', 'calc_result', 'calc_note'], []],
         'What you get' => [['support_title'], ['support']],
         'How you earn and investment' => [['earn_title', 'earn_text', 'invest_title', 'invest_note'], ['invest']],
         'Who we look for' => [['ideal_title'], ['ideal']],
@@ -101,7 +103,7 @@
                                         <div class="grid gap-2 {{ count($fields) > 1 ? 'sm:grid-cols-2' : '' }}">
                                             @foreach ($fields as $field => $fmax)
                                                 <div @class(['sm:col-span-2' => in_array($field, ['text', 'quote', 'a'], true) && count($fields) > 1])>
-                                                    <label class="block text-xs text-gray-500 mb-0.5" for="fp-{{ $list }}-{{ $i }}-{{ $field }}">{{ ['q' => 'Question', 'a' => 'Answer', 'text' => 'Text', 'title' => 'Title', 'icon' => 'Icon', 'value' => 'Value', 'label' => 'Label', 'name' => 'Name', 'city' => 'City', 'quote' => 'What they said'][$field] ?? $field }}</label>
+                                                    <label class="block text-xs text-gray-500 mb-0.5" for="fp-{{ $list }}-{{ $i }}-{{ $field }}">{{ ['q' => 'Question', 'a' => 'Answer', 'text' => 'Text', 'title' => 'Title', 'icon' => 'Icon', 'value' => 'Value', 'label' => 'Label', 'name' => 'Name', 'city' => 'City', 'quote' => 'What they said', 'them' => 'One-business franchise', 'us' => '1CallFix franchise'][$field] ?? $field }}</label>
                                                     @if ($field === 'icon')
                                                         <select id="fp-{{ $list }}-{{ $i }}-{{ $field }}" wire:model="c.{{ $list }}.{{ $i }}.icon" class="{{ $input }}">
                                                             @foreach (F::ICONS as $icon)<option value="{{ $icon }}">{{ $icon }}</option>@endforeach

@@ -27,8 +27,8 @@
 @if (! $page)
 {{-- Homepage (owner 2026-11-09: "the app section is very large"): one slim strip, the way Swiggy, Zomato, Flipkart and
      Urban Company invite to their app: logo, one line, the store badge, a QR on computers. The full version is /app. --}}
-<section data-testid="get-app" aria-labelledby="get-app-title" class="px-4 py-6 sm:px-6 lg:px-8">
-    <div class="mx-auto flex max-w-7xl flex-col gap-4 rounded-2xl bg-gradient-to-r from-blue-50 via-white to-indigo-50 px-5 py-5 ring-1 ring-blue-100 sm:px-8 md:flex-row md:items-center md:justify-between">
+<section data-testid="get-app" aria-labelledby="get-app-title" class="mx-auto max-w-7xl px-3 py-6 sm:px-6 lg:px-8">
+    <div class="flex flex-col gap-4 rounded-2xl bg-gradient-to-r from-blue-50 via-white to-indigo-50 px-4 py-4 ring-1 ring-blue-100 sm:px-6 lg:flex-row lg:items-center lg:justify-between">
         <div class="flex min-w-0 items-center gap-4">
             <span class="grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-white shadow-sm ring-1 ring-slate-200">
                 <x-customer.brand-mark img-class="h-10 w-10" name-class="hidden" />
@@ -47,6 +47,15 @@
                 @endunless
             </div>
         </div>
+        {{-- Owner 2026-11-14: the empty middle now shows what is inside the app. --}}
+        <ul class="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap lg:grid lg:flex-1 lg:grid-cols-2 lg:px-4 xl:flex xl:justify-center" data-testid="get-app-modules">
+            @foreach ($modules as $door => $label)
+                <li class="inline-flex items-center gap-2 rounded-full bg-white py-1 pl-1 pr-3 text-xs font-semibold text-slate-800 shadow-sm ring-1 ring-slate-200 sm:text-sm">
+                    <img src="{{ \App\Support\HomeDoors::imageUrl($door) }}" alt="" width="28" height="28" class="h-7 w-7 rounded-full bg-blue-50 p-0.5">
+                    {{ $label }}
+                </li>
+            @endforeach
+        </ul>
         <div class="flex shrink-0 flex-wrap items-center gap-3">
             <x-customer.play-badge />
             @if ($ios)

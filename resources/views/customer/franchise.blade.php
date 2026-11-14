@@ -109,14 +109,68 @@
                 @if ($p['why_intro'])<p class="mt-3 text-base text-slate-600">{{ $p['why_intro'] }}</p>@endif
             </div>
             <ul class="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                @php
+                    // Owner 2026-11-14: colourful, each tile its own colour.
+                    $whyLook = [['bg-blue-50 ring-blue-100', 'from-blue-600 to-sky-500', 'text-blue-800'], ['bg-emerald-50 ring-emerald-100', 'from-emerald-600 to-teal-500', 'text-emerald-800'],
+                        ['bg-amber-50 ring-amber-100', 'from-amber-500 to-orange-500', 'text-orange-800'], ['bg-fuchsia-50 ring-fuchsia-100', 'from-fuchsia-600 to-pink-500', 'text-fuchsia-800'],
+                        ['bg-violet-50 ring-violet-100', 'from-violet-600 to-indigo-500', 'text-violet-800'], ['bg-rose-50 ring-rose-100', 'from-rose-600 to-red-500', 'text-rose-800']];
+                @endphp
                 @foreach ($p['why'] as $w)
-                    <li class="cf-card p-6">
-                        <span class="flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-50 text-blue-700"><x-icon :name="$w['icon']" class="h-6 w-6" /></span>
-                        <h3 class="mt-4 text-lg font-semibold text-slate-900">{{ $w['title'] }}</h3>
+                    @php [$card, $grad, $ink] = $whyLook[$loop->index % count($whyLook)]; @endphp
+                    <li class="rounded-3xl p-6 ring-1 ring-inset {{ $card }} transition hover:-translate-y-0.5 hover:shadow-lg">
+                        <span class="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br {{ $grad }} text-white shadow-md"><x-icon :name="$w['icon']" class="h-6 w-6" /></span>
+                        <h3 class="mt-4 text-lg font-bold {{ $ink }}">{{ $w['title'] }}</h3>
                         <p class="mt-2 text-sm leading-relaxed text-slate-600">{{ $w['text'] }}</p>
                     </li>
                 @endforeach
             </ul>
+        </section>
+    @endif
+
+    {{-- ============ Every business, one franchise (live from the module switches) ============ --}}
+    @if (count($businesses) > 1 && $p['biz_title'])
+        <section class="bg-gradient-to-br from-blue-950 via-indigo-900 to-blue-800 text-white" aria-labelledby="fr-biz" data-franchise-businesses>
+            <div class="mx-auto max-w-7xl px-4 py-14 sm:px-6 lg:px-8">
+                <div class="max-w-2xl">
+                    <h2 id="fr-biz" class="text-2xl font-extrabold tracking-tight sm:text-3xl">{{ $p['biz_title'] }}</h2>
+                    @if ($p['biz_intro'])<p class="mt-3 text-base text-blue-100">{{ $p['biz_intro'] }}</p>@endif
+                </div>
+                <ul class="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-3 {{ [2 => 'lg:grid-cols-2', 3 => 'lg:grid-cols-3', 4 => 'lg:grid-cols-4'][count($businesses)] ?? 'lg:grid-cols-5' }}">
+                    @foreach ($businesses as $b)
+                        <li class="flex items-center gap-3 rounded-2xl bg-white/10 p-4 ring-1 ring-inset ring-white/15 backdrop-blur">
+                            <span class="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-amber-400 text-slate-900"><x-icon :name="$b['icon']" class="h-6 w-6" /></span>
+                            <span class="min-w-0">
+                                <span class="block truncate font-bold">{{ $b['label'] }}</span>
+                                <span class="mt-0.5 inline-flex items-center gap-1 text-xs font-semibold text-emerald-300"><span class="h-1.5 w-1.5 rounded-full bg-emerald-300"></span> {{ $p['biz_live'] }}</span>
+                            </span>
+                        </li>
+                    @endforeach
+                </ul>
+            </div>
+        </section>
+    @endif
+
+    {{-- ============ Comparison ============ --}}
+    @if ($p['compare'])
+        <section class="mx-auto max-w-5xl px-4 py-16 sm:px-6 lg:px-8" aria-labelledby="fr-compare" data-franchise-compare>
+            <h2 id="fr-compare" class="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">{{ $p['compare_title'] }}</h2>
+            <div class="mt-8 overflow-hidden rounded-3xl ring-1 ring-slate-200">
+                <div class="grid grid-cols-[1fr_1fr] sm:grid-cols-[0.8fr_1fr_1.3fr]">
+                    <div class="hidden bg-slate-50 p-4 sm:block"></div>
+                    <div class="bg-slate-100 p-4 text-sm font-bold text-slate-600">{{ $p['compare_them'] }}</div>
+                    <div class="bg-blue-600 p-4 text-sm font-bold text-white">{{ $p['compare_us'] }}</div>
+                    @foreach ($p['compare'] as $row)
+                        <div class="col-span-2 border-t border-slate-200 bg-slate-50 px-4 pt-3 text-xs font-bold uppercase tracking-wide text-slate-500 sm:col-span-1 sm:py-4 sm:text-sm sm:normal-case sm:tracking-normal sm:text-slate-900">{{ $row['label'] }}</div>
+                        <div class="flex items-start gap-2 bg-white p-4 text-sm text-slate-500 sm:border-t sm:border-slate-200">
+                            <span aria-hidden="true" class="mt-0.5 text-slate-400">–</span> {{ $row['them'] }}
+                        </div>
+                        <div class="flex items-start gap-2 bg-blue-50 p-4 text-sm font-semibold text-slate-900 sm:border-t sm:border-blue-100">
+                            <span class="mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full bg-emerald-500 text-white"><svg class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M16.7 5.3a1 1 0 010 1.4l-8 8a1 1 0 01-1.4 0l-4-4a1 1 0 111.4-1.4L8 12.6l7.3-7.3a1 1 0 011.4 0z" clip-rule="evenodd"/></svg></span>
+                            {{ $row['us'] }}
+                        </div>
+                    @endforeach
+                </div>
+            </div>
         </section>
     @endif
 
@@ -154,6 +208,38 @@
             </div>
         </div>
     </section>
+
+    {{-- ============ Earnings calculator (shown only when the Super Admin set the share %) ============ --}}
+    @if (is_numeric($p['calc_share']) && (float) $p['calc_share'] > 0)
+        <section class="mx-auto max-w-5xl px-4 pt-16 sm:px-6 lg:px-8" aria-labelledby="fr-calc" data-franchise-calc>
+            <div class="rounded-3xl bg-gradient-to-br from-emerald-50 via-white to-amber-50 p-6 ring-1 ring-emerald-100 sm:p-10"
+                 x-data="{ orders: 50, value: 600, share: {{ (float) $p['calc_share'] }},
+                          get monthly() { return Math.round(this.orders * 30 * this.value * this.share / 100); },
+                          money(n) { return '₹' + n.toLocaleString('en-IN'); } }">
+                <h2 id="fr-calc" class="flex items-center gap-2 text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl"><x-icon name="chart-bar" class="h-7 w-7 text-emerald-600" /> {{ $p['calc_title'] }}</h2>
+                <div class="mt-8 grid gap-8 lg:grid-cols-2 lg:items-center">
+                    <div class="space-y-6">
+                        <label class="block">
+                            <span class="flex items-baseline justify-between text-sm font-semibold text-slate-700">{{ $p['calc_orders'] }} <span class="text-lg font-bold text-slate-900" x-text="orders"></span></span>
+                            <input type="range" min="10" max="500" step="10" x-model.number="orders" class="mt-2 h-11 w-full accent-emerald-600">
+                        </label>
+                        <label class="block">
+                            <span class="flex items-baseline justify-between text-sm font-semibold text-slate-700">{{ $p['calc_value'] }} <span class="text-lg font-bold text-slate-900" x-text="money(value)"></span></span>
+                            <input type="range" min="100" max="3000" step="50" x-model.number="value" class="mt-2 h-11 w-full accent-emerald-600">
+                        </label>
+                        <p class="text-sm text-slate-600">{{ $p['calc_share_label'] }}: <span class="font-bold text-slate-900">{{ rtrim(rtrim(number_format((float) $p['calc_share'], 2), '0'), '.') }}%</span></p>
+                    </div>
+                    <div class="rounded-2xl bg-slate-900 p-6 text-center text-white shadow-xl">
+                        <p class="text-sm text-slate-300">{{ $p['calc_result'] }}</p>
+                        <p class="mt-2 text-4xl font-extrabold tracking-tight text-amber-300 sm:text-5xl" x-text="money(monthly)" data-calc-result></p>
+                        <p class="mt-2 text-xs text-slate-400"><span x-text="orders"></span> orders × 30 days × <span x-text="money(value)"></span></p>
+                        <a href="{{ $applyUrl }}" class="mt-5 inline-flex min-h-12 items-center rounded-xl bg-amber-400 px-6 text-base font-bold text-slate-900 hover:bg-amber-300">{{ $p['cta_label'] }}</a>
+                    </div>
+                </div>
+                @if ($p['calc_note'])<p class="mt-6 text-xs leading-relaxed text-slate-500">{{ $p['calc_note'] }}</p>@endif
+            </div>
+        </section>
+    @endif
 
     {{-- ============ Who we look for ============ --}}
     @if ($p['ideal'])
@@ -265,5 +351,17 @@
         </div>
         @if ($p['disclaimer'])<p class="mx-auto mt-6 max-w-3xl text-center text-xs leading-relaxed text-slate-500">{{ $p['disclaimer'] }}</p>@endif
     </section>
+
+    {{-- Phones (ease-of-use rule): Apply and WhatsApp / call stay at the bottom, above the menu bar. --}}
+    <div class="h-20 lg:hidden"></div>
+    <div class="fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-40 px-3 lg:hidden" data-franchise-bar>
+        <div class="mx-auto flex max-w-md gap-2 rounded-2xl bg-slate-900/95 p-2 shadow-xl backdrop-blur">
+            <a href="{{ $applyUrl }}" class="inline-flex min-h-12 flex-1 items-center justify-center rounded-xl bg-amber-400 px-4 text-base font-bold text-slate-900">{{ $p['cta_label'] }}</a>
+            @if ($talkUrl)
+                <a href="{{ $talkUrl }}" @if ($wa) target="_blank" rel="noopener" @endif aria-label="{{ $p['call_label'] ?: 'Talk to us' }}"
+                   class="inline-flex min-h-12 w-12 items-center justify-center rounded-xl {{ $wa ? 'bg-emerald-500' : 'bg-blue-600' }} text-white"><x-icon :name="$wa ? 'chat' : 'phone'" class="h-6 w-6" /></a>
+            @endif
+        </div>
+    </div>
 </div>
 </x-layouts.customer>

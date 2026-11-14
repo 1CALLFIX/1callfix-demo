@@ -389,20 +389,31 @@
          this system actually implements.
     --}}
     @case('trust')
-    <section aria-labelledby="trust-heading" class="border-y border-slate-200 bg-white">
-        <div class="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
-            <h2 id="trust-heading" class="text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">
+    {{-- Owner 2026-11-14 ("some what boring"): each promise its own colour, a big icon and a number, two across on a
+         phone (no sideways scrolling), four across on a computer. --}}
+    @php
+        $trustLook = [
+            ['shield', 'from-blue-600 to-sky-500', 'bg-blue-50 ring-blue-100', 'text-blue-700'],
+            ['banknotes', 'from-emerald-600 to-teal-500', 'bg-emerald-50 ring-emerald-100', 'text-emerald-700'],
+            ['clock', 'from-amber-500 to-orange-500', 'bg-amber-50 ring-amber-100', 'text-orange-700'],
+            ['chat', 'from-fuchsia-600 to-pink-500', 'bg-fuchsia-50 ring-fuchsia-100', 'text-fuchsia-700'],
+        ];
+    @endphp
+    <section aria-labelledby="trust-heading" class="bg-gradient-to-b from-white to-slate-50">
+        <div class="mx-auto max-w-7xl px-3 py-8 sm:px-6 sm:py-10 lg:px-8">
+            <h2 id="trust-heading" class="text-xl font-extrabold tracking-tight text-slate-900 sm:text-2xl">
                 {{ $t('home.trust.title', ['brand' => $platformName]) }}
             </h2>
-            <ul class="mt-8 flex snap-x gap-4 overflow-x-auto pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden lg:grid lg:grid-cols-4 lg:overflow-visible">
-                @foreach (['shield', 'banknotes', 'clock', 'chat'] as $n => $icon)
+            <ul class="mt-5 grid grid-cols-2 gap-2.5 sm:gap-4 lg:grid-cols-4" data-testid="trust-points">
+                @foreach ($trustLook as $n => [$icon, $grad, $card, $accent])
                     @php [$trustTitle, $trustBody] = [$t('home.trust.'.($n + 1).'.title'), $t('home.trust.'.($n + 1).'.body')]; @endphp
-                    <li class="w-[70%] shrink-0 snap-start rounded-2xl border border-slate-200 p-5 sm:w-[45%] lg:w-auto transition hover:border-blue-200 hover:shadow-md hover:shadow-blue-900/5">
-                        <span class="grid h-10 w-10 place-items-center rounded-xl bg-blue-50 text-blue-600">
-                            <x-icon :name="$icon" class="h-5 w-5" />
+                    <li class="relative overflow-hidden rounded-2xl p-3 ring-1 ring-inset {{ $card }} transition hover:-translate-y-0.5 hover:shadow-lg sm:p-5">
+                        <span aria-hidden="true" class="absolute right-3 top-1 text-5xl font-black {{ $accent }} opacity-10">{{ $n + 1 }}</span>
+                        <span class="grid h-11 w-11 place-items-center rounded-2xl bg-gradient-to-br {{ $grad }} text-white shadow-md sm:h-12 sm:w-12">
+                            <x-icon :name="$icon" class="h-6 w-6" />
                         </span>
-                        <h3 class="mt-3 text-sm font-semibold text-slate-900">{{ $trustTitle }}</h3>
-                        <p class="mt-1.5 text-sm leading-relaxed text-slate-600">{{ $trustBody }}</p>
+                        <h3 class="mt-3 text-sm font-bold {{ $accent }} sm:text-base">{{ $trustTitle }}</h3>
+                        <p class="mt-1 text-xs leading-relaxed text-slate-600 sm:text-sm">{{ $trustBody }}</p>
                     </li>
                 @endforeach
             </ul>

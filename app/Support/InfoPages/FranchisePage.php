@@ -40,6 +40,19 @@ final class FranchisePage
         'call_label' => ['"Talk to us" button (shown when Contact page has a phone or WhatsApp)', 40],
         'why_title' => ['"Why" section heading', 80],
         'why_intro' => ['"Why" section line', 300],
+        'biz_title' => ['"Every business" section heading (shows the businesses live on the app)', 80],
+        'biz_intro' => ['"Every business" section line', 300],
+        'biz_live' => ['"Every business" section: badge on each business', 20],
+        'compare_title' => ['Comparison table heading', 80],
+        'compare_them' => ['Comparison table: left column heading', 40],
+        'compare_us' => ['Comparison table: right column heading', 40],
+        'calc_title' => ['Earnings calculator heading', 80],
+        'calc_share' => ['Earnings calculator: your share of each order, in % (empty = calculator hidden)', 6],
+        'calc_orders' => ['Earnings calculator: orders slider label', 60],
+        'calc_value' => ['Earnings calculator: order value slider label', 60],
+        'calc_share_label' => ['Earnings calculator: share line label', 60],
+        'calc_result' => ['Earnings calculator: result heading', 80],
+        'calc_note' => ['Earnings calculator: small print under it', 300],
         'support_title' => ['"What you get" heading', 80],
         'earn_title' => ['"How you earn" heading', 80],
         'earn_text' => ['"How you earn" text', 600],
@@ -67,6 +80,7 @@ final class FranchisePage
         'highlights' => ['Hero: tick lines', 4, ['text' => 80]],
         'stats' => ['Your own figures (value + label), shown beside the live numbers', 4, ['value' => 20, 'label' => 60]],
         'why' => ['"Why" tiles', 8, ['icon' => 20, 'title' => 80, 'text' => 260]],
+        'compare' => ['Comparison rows (what / one-business franchise / 1CallFix franchise)', 8, ['label' => 60, 'them' => 120, 'us' => 160]],
         'support' => ['"What you get" lines', 10, ['text' => 140]],
         'invest' => ['Investment figures (label + value), e.g. "Investment" / "₹…"', 6, ['label' => 60, 'value' => 60]],
         'ideal' => ['"Who we look for" lines', 8, ['text' => 140]],
@@ -93,6 +107,19 @@ final class FranchisePage
             'call_label' => 'Talk to our team',
             'why_title' => 'Why a 1CallFix franchise',
             'why_intro' => 'You bring local know-how and a team. We bring the apps, the systems and the rules that keep customers and partners safe.',
+            'biz_title' => 'Every business, one franchise',
+            'biz_intro' => 'Most franchises give you one business. Yours runs every business live on the 1CallFix app in your city, from one login.',
+            'biz_live' => 'Live',
+            'compare_title' => 'One business, or all of them?',
+            'compare_them' => 'A one-business franchise',
+            'compare_us' => '1CallFix franchise',
+            'calc_title' => 'Work out your monthly share',
+            'calc_share' => '',
+            'calc_orders' => 'Orders a day in your city',
+            'calc_value' => 'Average order value',
+            'calc_share_label' => 'Your share of every completed order',
+            'calc_result' => 'Your share in a month (estimate)',
+            'calc_note' => 'An estimate to help you plan, not a promise of income. Your real share, fees and territory are written in your franchise agreement.',
             'support_title' => 'What you get from day one',
             'earn_title' => 'How you earn',
             'earn_text' => 'You earn a share of every completed booking and order in your city. Your share, fees and territory are written in your franchise agreement, and your earnings show live in your own Franchise Earnings report.',
@@ -137,6 +164,14 @@ final class FranchisePage
                 ['text' => 'A start code (OTP) on every job, so customers trust your partners'],
             ],
             'invest' => [],
+            'compare' => [
+                ['label' => 'Businesses you run', 'them' => 'One', 'us' => 'Every business live on the app: services, food, shop, parcel, events, hotels and rentals'],
+                ['label' => 'Apps and website', 'them' => 'Often bought or built by you', 'us' => 'Customer, partner, rider, shop and restaurant apps, ready on day one'],
+                ['label' => 'Online payments', 'them' => 'Set up on your own', 'us' => 'Through the 1CallFix gateway, with refunds and payouts by written rules'],
+                ['label' => 'Your earnings', 'them' => 'Worked out by hand', 'us' => 'Worked out by the system, shown live in your Franchise Earnings report'],
+                ['label' => 'Partner checks', 'them' => 'Your own process', 'us' => 'One sign-up with documents checked and approved before any work'],
+                ['label' => 'Your city on Google', 'them' => 'Build your own pages', 'us' => 'Your city\'s own pages on the 1CallFix website, ready'],
+            ],
             'ideal' => [
                 ['text' => 'You live in the city, or know it well'],
                 ['text' => 'You can build and lead a small local team'],
@@ -190,6 +225,28 @@ final class FranchisePage
     public static function accepting(): bool
     {
         return self::enabled() && (string) Setting::get(self::ACCEPTING, '1') !== '0';
+    }
+
+    /**
+     * The businesses live on the app anywhere (module switches), for the "Every business, one franchise" section.
+     * Only what customers can really use today; nothing switched off is shown.
+     *
+     * @return list<array{label: string, icon: string}>
+     */
+    public static function liveBusinesses(): array
+    {
+        $icons = ['service' => 'bolt', 'food' => 'sparkles', 'commerce' => 'building', 'parcel' => 'map-pin', 'events' => 'star',
+            'hotel' => 'building', 'rental' => 'clock', 'grocery' => 'squares', 'pharmacy' => 'shield', 'taxi' => 'map-pin'];
+        try {
+            $activation = app(ModuleActivationService::class);
+
+            return collect(Modules::ALL)->filter(fn ($label, $slug) => $activation->isActiveAnywhere($slug))
+                ->map(fn ($label, $slug) => ['label' => $label, 'icon' => $icons[$slug] ?? 'squares'])->values()->all();
+        } catch (\Throwable $e) {
+            report($e);
+
+            return [];
+        }
     }
 
     /** Where every "Apply" button goes: the one partner form, franchise card picked. */
@@ -249,6 +306,10 @@ final class FranchisePage
             } elseif ($placeholder($v)) {
                 $errors[$key] = "{$label}: remove the [ ] placeholder before publishing.";
             }
+        }
+        $share = trim((string) ($c['calc_share'] ?? ''));
+        if ($share !== '' && (! is_numeric($share) || (float) $share <= 0 || (float) $share > 100)) {
+            $errors['calc_share'] = 'Write a number between 0 and 100, like 10, or leave it empty to hide the calculator.';
         }
         foreach (['hero_title', 'cta_label'] as $required) {
             if (trim((string) ($c[$required] ?? '')) === '' && ! isset($errors[$required])) {

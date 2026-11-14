@@ -39,12 +39,14 @@
                 @endif
 
                 @if ($socialLinks->isNotEmpty())
-                    <ul class="mt-5 flex flex-wrap gap-2">
+                    <ul class="mt-5 flex flex-wrap gap-1.5" data-testid="footer-social">
                         @foreach ($socialLinks as $social)
                             <li>
                                 <a href="{{ $social['url'] }}"
                                    target="_blank" rel="noopener noreferrer"
-                                   class="grid h-10 w-10 place-items-center rounded-full border border-slate-300 text-slate-500 transition hover:border-blue-400 hover:bg-blue-50 hover:text-blue-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600">
+                                   @php $brand = ['facebook' => '#1877F2', 'instagram' => '#E4405F', 'linkedin' => '#0A66C2', 'youtube' => '#FF0000', 'whatsapp' => '#25D366', 'x' => '#000000', 'twitter' => '#1DA1F2', 'telegram' => '#26A5E4', 'pinterest' => '#BD081C'][strtolower((string) ($social['platform'] ?? $social['label']))] ?? '#2563EB'; @endphp
+                                   style="background-color: {{ $brand }}"
+                                   class="grid h-9 w-9 place-items-center rounded-full text-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600">
                                     <span class="sr-only">{{ $platformName }} on {{ $social['label'] }}</span>
                                     <svg aria-hidden="true" viewBox="0 0 24 24" fill="currentColor" class="h-4 w-4">
                                         <path d="{{ $social['path'] }}" />

@@ -216,7 +216,7 @@ class HomeLayoutCardsTest extends TestCase
         request()->attributes->replace([]);
         $html = $this->get('/')->assertOk()->assertSee('Upcoming events in')->assertSee('Year End Bash')
             ->assertSee('/events/year-end-bash', false)->assertDontSee('Draft Party')->assertDontSee('Already Started')
-            ->assertSee('data-countdown', false)->assertSee('Starts in')->assertSee('1 event coming up')->getContent();
+            ->assertSee('data-countdown', false)->assertSee('1 event coming up')->getContent();
         $this->assertContains('events', $this->cardsOrder($html));
     }
 

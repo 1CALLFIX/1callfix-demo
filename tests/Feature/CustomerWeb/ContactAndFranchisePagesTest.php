@@ -57,6 +57,36 @@ class ContactAndFranchisePagesTest extends TestCase
         $this->assertStringNotContainsString('data-franchise-talk', $html, 'no Talk button without a real phone or WhatsApp');
     }
 
+    /** Owner 2026-11-14: better than a one-business franchise page — comparison, live businesses, calculator, phone bar. */
+    public function test_the_comparison_table_and_phone_bar_show_and_the_calculator_waits_for_a_share(): void
+    {
+        $html = $this->get('/franchise')->assertOk()->getContent();
+
+        $this->assertStringContainsString('data-franchise-compare', $html);
+        $this->assertStringContainsString('One business, or all of them?', $html);
+        $this->assertStringContainsString('data-franchise-bar', $html);
+        $this->assertStringNotContainsString('data-franchise-calc', $html, 'no calculator until the Super Admin sets the share');
+
+        Setting::set(FranchisePage::CONTENT, json_encode(['calc_share' => '12.5'] + FranchisePage::defaults()));
+        $html = $this->get('/franchise')->assertOk()->getContent();
+        $this->assertStringContainsString('data-franchise-calc', $html);
+        $this->assertStringContainsString('12.5%', $html);
+        $this->assertStringContainsString('not a promise of income', $html);
+    }
+
+    public function test_the_calculator_share_must_be_a_real_percent(): void
+    {
+        $this->assertArrayHasKey('calc_share', FranchisePage::validate(['calc_share' => 'ten'] + FranchisePage::defaults()));
+        $this->assertArrayHasKey('calc_share', FranchisePage::validate(['calc_share' => '150'] + FranchisePage::defaults()));
+        $this->assertArrayNotHasKey('calc_share', FranchisePage::validate(['calc_share' => '10'] + FranchisePage::defaults()));
+        $this->assertArrayNotHasKey('calc_share', FranchisePage::validate(FranchisePage::defaults()));
+    }
+
+    public function test_only_live_businesses_are_listed(): void
+    {
+        $this->assertSame([], array_filter(FranchisePage::liveBusinesses(), fn ($b) => ! in_array($b['label'], \App\Support\Modules::ALL, true)));
+    }
+
     public function test_only_the_super_admin_can_open_and_save_the_franchise_page_screen(): void
     {
         $granted = $this->makeUserWithPermission('franchise_page.manage', 'global');
