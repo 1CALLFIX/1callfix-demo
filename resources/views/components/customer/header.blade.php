@@ -31,7 +31,7 @@
                  on the left, a divider, the search field and a round blue search button on the right.
                  On phones the location is a compact field next to the brand and search is the row below. --}}
             <div class="min-w-0 shrink sm:flex sm:flex-1 sm:justify-center">
-                <div class="flex min-w-0 items-center sm:w-full sm:max-w-lg sm:rounded-full sm:border sm:border-slate-200 sm:bg-white sm:py-1 sm:pl-1 sm:pr-1 sm:shadow-md sm:shadow-slate-900/5 sm:transition sm:duration-200 sm:focus-within:border-blue-400 sm:focus-within:shadow-lg sm:focus-within:shadow-blue-600/10 sm:hover:shadow-lg">
+                <div class="flex min-w-0 items-center sm:w-full sm:max-w-3xl sm:rounded-full sm:border sm:border-slate-200 sm:bg-white sm:py-1 sm:pl-1 sm:pr-1 sm:shadow-md sm:shadow-slate-900/5 sm:transition sm:duration-200 sm:focus-within:border-blue-400 sm:focus-within:shadow-lg sm:focus-within:shadow-blue-600/10 sm:hover:shadow-lg">
                     <div class="min-w-0 sm:flex-1 sm:basis-0">
                         <livewire:customer.location-picker />
                     </div>
@@ -89,11 +89,13 @@
                 @endif
 
                 {{-- Shop Phase A: visitors have a cart too (their shop items, kept in the session). --}}
-                <livewire:customer.cart-count />
+                {{-- Owner 2026-11-15: from `sm` up, Sign in then Cart sit at the far right end (Amazon / Flipkart
+                     pattern) and the search pill is wider. Phones keep their order. --}}
+                <div class="flex items-center sm:order-10"><livewire:customer.cart-count /></div>
 
                 @guest
                     <a href="{{ route('customer.login') }}"
-                       class="hidden sm:inline-flex min-h-11 items-center whitespace-nowrap rounded-md px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 hover:text-slate-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900">
+                       class="hidden sm:order-9 sm:inline-flex min-h-11 items-center whitespace-nowrap rounded-md px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 hover:text-slate-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900">
                         {{ $t('header.sign_in') }}
                     </a>
                 @endguest
