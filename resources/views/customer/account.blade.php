@@ -29,16 +29,12 @@
             </h2>
             <ul class="mt-4 divide-y divide-slate-200 border-y border-slate-200">
                 @php
+                    // Owner 2026-11-16: My Orders, Saved and Earnings live in the header menu and are NOT repeated here;
+                    // this page holds only what the menu does not.
                     $accountSections = [
-                        ['Your bookings', 'Track live jobs and revisit past ones.', route('customer.orders.index')],
-                        [\App\Support\SiteText::get('saved.title'), \App\Support\SiteText::get('saved.account_hint'), route('customer.saved')],
                         ['Saved addresses', 'Keep the places you book for most.', route('customer.addresses')],
                         ['Membership', 'Plan benefits, what you have used, renewal.', route('customer.membership.account')],
                     ];
-                    // EARN3 — one Earnings entry, only while an Earnings tab is on.
-                    if ($earningsRoute = \App\Support\CustomerEarningsNav::firstRoute(auth()->user())) {
-                        $accountSections[] = ['Earnings', 'Wallet, loyalty points and referrals.', route($earningsRoute)];
-                    }
                 @endphp
                 @foreach ($accountSections as [$sectionTitle, $sectionBody, $sectionUrl])
                     <li>

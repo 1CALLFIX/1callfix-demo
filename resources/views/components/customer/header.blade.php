@@ -91,92 +91,106 @@
                         @endauth
                     </button>
 
+                    {{-- Owner 2026-11-16: one structured account menu (Amazon / Flipkart pattern): a profile card, then
+                         labelled groups with an icon on every line. All orders (services, parcels, shop, food, hotels,
+                         halls, events) are ONE entry, "My Orders". Nothing here is repeated on the My account page. --}}
                     <div x-show="open" style="display:none" x-transition.origin.top.right role="menu"
-                         class="absolute right-0 top-full z-50 mt-2 max-h-[calc(100dvh-6rem)] w-64 overflow-y-auto rounded-2xl border border-slate-200 bg-white py-2 shadow-xl shadow-slate-900/10">
-                        @auth
-                            <div class="border-b border-slate-100 px-4 pb-3 pt-1">
-                                <p class="truncate text-sm font-semibold text-slate-900">{{ auth()->user()->name }}</p>
-                            </div>
-                        @endauth
-
+                         class="absolute right-0 top-full z-50 mt-2 max-h-[calc(100dvh-6rem)] w-72 overflow-y-auto rounded-2xl border border-slate-200 bg-white pb-2 shadow-xl shadow-slate-900/10">
                         @php
-                            $menu = [
-                                [$t('header.menu.services'), route('customer.services.index')],
-                                [$t('header.menu.categories'), \App\Support\Seo\PublicUrl::services()],
-                            ];
-                            // E-commerce Phase 2: the shop of the customer's current city, only where Commerce is on there.
                             $shopCity = app(\App\Services\Seo\CityContext::class)->current();
-                            if ($shopCity && \App\Livewire\Customer\Shop\Home::shopLiveIn($shopCity)) {
-                                $menu[] = [$t('header.menu.shop'), route('customer.shop.home', $shopCity->slug)];
-                            }
-                            if (auth()->check()) {
-                                $menu[] = [$t('header.menu.bookings'), route('customer.orders.index')];
-                                $menu[] = [$t('header.menu.saved'), route('customer.saved')];
-                                // Parcel: shown while parcel is on somewhere, or for anyone who already has parcels.
-                                if (app(\App\Services\ModuleActivationService::class)->isActiveAnywhere(\App\Support\Modules::PARCEL)
-                                    || \App\Models\ParcelOrder::where('customer_id', auth()->id())->exists()) {
-                                    $menu[] = [$t('header.menu.parcels'), route('customer.parcels.index')];
-                                }
-                                // Function halls R2: anyone who has booked a hall.
-                                if (\App\Models\HallBooking::where('customer_id', auth()->id())->exists()) {
-                                    $menu[] = [$t('header.menu.halls'), route('customer.halls.bookings')];
-                                }
-                                // Events E2: anyone who has bought tickets.
-                                if (\App\Models\EventOrder::where('customer_id', auth()->id())->exists()) {
-                                    $menu[] = [$t('header.menu.tickets'), route('customer.events.tickets')];
-                                }
-                                if (\App\Models\MarketplaceOrder::where('customer_id', auth()->id())->exists()) {
-                                    $menu[] = [$t('header.menu.shop_orders'), route('customer.shop.orders')];
-                                }
-                                if (auth()->user()->holdsPartnerRole('commerce')) {
-                                    $menu[] = [$t('header.menu.my_shop'), route('seller.dashboard')];
-                                }
-                                if (auth()->user()->fieldWorkerProfile?->hasCapability('parcel_rider')) {
-                                    $menu[] = [$t('header.menu.rider'), route('rider.dashboard')];
-                                }
-                                if ($earningsRoute = \App\Support\CustomerEarningsNav::firstRoute(auth()->user())) {
-                                    $menu[] = [$t('header.menu.earnings'), route($earningsRoute)];
-                                }
-                                if (auth()->user()->providerProfile) {
-                                    $menu[] = [$t('header.menu.partner_dashboard'), route('provider.dashboard')];
-                                }
-                                $menu[] = [$t('header.menu.account'), route('customer.account')];
-                            }
-                            if ($partnerCta) {
-                                $menu[] = [$partnerCta, route('customer.partners')];
-                            }
-                            $menu[] = [$t('header.menu.help'), route('customer.help')];
-                            // Inside the Android app only: rate it on the Play Store.
-                            if ($rateUrl = \App\Support\NativeApp::rateUrl('customer')) {
-                                $menu[] = [$t('app.rate'), $rateUrl];
-                            }
-                            if (! auth()->check()) {
-                                // Signed out: same tab switches, global scope only. The
-                                // target is auth-gated, so this routes via sign-in.
-                                $guestEarningsRoute = collect([
+                            $groups = [];
+
+                            // Earnings is a direct entry here only (not repeated on My account): signed in, the first tab that is on;
+                            // signed out, the same tab switches (global scope), which routes via sign-in.
+                            $earningsRoute = auth()->check()
+                                ? \App\Support\CustomerEarningsNav::firstRoute(auth()->user())
+                                : collect([
                                     'earnings.wallet_tab' => 'customer.earnings.wallet',
                                     'earnings.loyalty_tab' => 'customer.earnings.loyalty',
                                     'earnings.referral_tab' => 'customer.earnings.referrals',
                                 ])->first(fn ($route, $switch) => \App\Support\EarningsSettings::customerTabOn($switch, []));
-                                if ($guestEarningsRoute) {
-                                    array_splice($menu, 2, 0, [[$t('header.menu.earnings'), route($guestEarningsRoute)]]);
+
+                            if (auth()->check()) {
+                                $mine = [
+                                    [$t('header.menu.orders'), route('customer.orders.index'), 'shopping-bag'],
+                                    [$t('header.menu.saved'), route('customer.saved'), 'star'],
+                                ];
+                                if ($earningsRoute) {
+                                    $mine[] = [$t('header.menu.earnings'), route($earningsRoute), 'wallet'];
                                 }
-                                $menu[] = [$t('header.sign_in'), route('customer.login')];
+                                $mine[] = [$t('header.menu.account'), route('customer.account'), 'user'];
+                                $groups[] = [$t('header.menu.group_account'), $mine];
+
+                                // Only for people who run something on the app.
+                                $work = [];
+                                if (auth()->user()->holdsPartnerRole('commerce')) {
+                                    $work[] = [$t('header.menu.my_shop'), route('seller.dashboard'), 'building'];
+                                }
+                                if (auth()->user()->fieldWorkerProfile?->hasCapability('parcel_rider')) {
+                                    $work[] = [$t('header.menu.rider'), route('rider.dashboard'), 'activity'];
+                                }
+                                if (auth()->user()->providerProfile) {
+                                    $work[] = [$t('header.menu.partner_dashboard'), route('provider.dashboard'), 'wrench'];
+                                }
+                                if ($work) {
+                                    $groups[] = [$t('header.menu.group_work'), $work];
+                                }
+                            } else {
+                                $explore = [[$t('header.sign_in'), route('customer.login'), 'user']];
+                                if ($earningsRoute) {
+                                    $explore[] = [$t('header.menu.earnings'), route($earningsRoute), 'wallet'];
+                                }
+                                $groups[] = [$t('header.menu.group_account'), $explore];
                             }
-                            // Owner 2026-11-07: the footer's link columns are hidden on phones and in the apps, so they
-                            // live here instead ("More", phones only), minus any link the menu already has.
-                            $have = array_column($menu, 1);
-                            $more = collect(\App\Support\PartnerPage\FooterLinks::groups())->flatten(1)
+
+                            $more = [[$t('header.menu.categories'), \App\Support\Seo\PublicUrl::services(), 'squares']];
+                            if ($partnerCta) {
+                                $more[] = [$partnerCta, route('customer.partners'), 'megaphone'];
+                            }
+                            $more[] = [$t('header.menu.help'), route('customer.help'), 'chat'];
+                            // Inside the Android app only: rate it on the Play Store.
+                            if ($rateUrl = \App\Support\NativeApp::rateUrl('customer')) {
+                                $more[] = [$t('app.rate'), $rateUrl, 'star'];
+                            }
+                            $groups[] = [$t('header.menu.group_more'), $more];
+
+                            // The footer's link columns are hidden on phones and in the apps, so they live here ("More",
+                            // phones only), minus any link the menu already has.
+                            $have = collect($groups)->flatMap(fn ($g) => array_column($g[1], 1))->all();
+                            $footerLinks = collect(\App\Support\PartnerPage\FooterLinks::groups())->flatten(1)
                                 ->reject(fn ($l) => in_array($l['href'], $have, true))->unique('href')->values();
                         @endphp
-                        @foreach ($menu as [$label, $href])
-                            <a href="{{ $href }}" role="menuitem"
-                               class="block px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50 hover:text-slate-900">{{ $label }}</a>
+
+                        @auth
+                            {{-- Profile card --}}
+                            <div class="flex items-center gap-3 border-b border-slate-100 px-4 pb-3 pt-3">
+                                <span aria-hidden="true" class="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-blue-600 text-base font-semibold text-white">{{ \Illuminate\Support\Str::of(auth()->user()->name)->substr(0, 1)->upper() }}</span>
+                                <div class="min-w-0">
+                                    <p class="truncate text-sm font-semibold text-slate-900">{{ auth()->user()->name }}</p>
+                                    @if (auth()->user()->phone)
+                                        <p class="truncate text-xs text-slate-500">{{ auth()->user()->phone }}</p>
+                                    @endif
+                                </div>
+                            </div>
+                        @endauth
+
+                        @foreach ($groups as [$groupLabel, $groupItems])
+                            <div @class(['pt-2', 'mt-1 border-t border-slate-100' => ! $loop->first || auth()->check()])>
+                                <p class="px-4 pb-1 pt-1 text-[11px] font-semibold uppercase tracking-wide text-slate-400">{{ $groupLabel }}</p>
+                                @foreach ($groupItems as [$label, $href, $icon])
+                                    <a href="{{ $href }}" role="menuitem"
+                                       class="flex min-h-11 items-center gap-3 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 hover:text-slate-900 focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-blue-600">
+                                        <x-icon :name="$icon" class="h-5 w-5 shrink-0 text-slate-400" />
+                                        <span class="truncate">{{ $label }}</span>
+                                    </a>
+                                @endforeach
+                            </div>
                         @endforeach
-                        @if ($more->isNotEmpty())
+
+                        @if ($footerLinks->isNotEmpty())
                             <div class="mt-1 border-t border-slate-100 pt-1 sm:hidden" data-menu-more>
                                 <p class="px-4 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400">{{ $t('header.menu.more') }}</p>
-                                @foreach ($more as $l)
+                                @foreach ($footerLinks as $l)
                                     <a href="{{ $l['href'] }}" role="menuitem" class="block px-4 py-2 text-sm text-slate-600 transition hover:bg-slate-50 hover:text-slate-900">{{ $l['label'] }}</a>
                                 @endforeach
                             </div>
@@ -186,7 +200,10 @@
                             <form method="POST" action="{{ route('customer.logout') }}" class="mt-1 border-t border-slate-100 pt-1">
                                 @csrf
                                 <button type="submit" role="menuitem"
-                                        class="block w-full px-4 py-2.5 text-left text-sm font-medium text-slate-700 transition hover:bg-slate-50 hover:text-slate-900">{{ $t('header.menu.logout') }}</button>
+                                        class="flex min-h-11 w-full items-center gap-3 px-4 py-2 text-left text-sm font-medium text-slate-700 transition hover:bg-slate-50 hover:text-slate-900">
+                                    <x-icon name="logout" class="h-5 w-5 shrink-0 text-slate-400" />
+                                    {{ $t('header.menu.logout') }}
+                                </button>
                             </form>
                         @endauth
                     </div>
