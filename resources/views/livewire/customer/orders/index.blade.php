@@ -88,4 +88,9 @@
     @endforelse
 
     <div class="mt-5">{{ $orders->links() }}</div>
+
+    <p class="mt-6 rounded-xl bg-slate-50 px-4 py-3 text-center text-sm text-slate-600">
+        Need help with an order?
+        <a href="{{ route('customer.contact') }}" wire:navigate class="font-semibold text-blue-700 underline underline-offset-4">Contact us</a>
+    </p>
 </div>

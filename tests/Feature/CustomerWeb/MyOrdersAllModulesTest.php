@@ -85,4 +85,44 @@ class MyOrdersAllModulesTest extends TestCase
             ->assertSee('Weekly 10 pack')->assertSee('0 of 10 parcels left')->assertSee('Parcel packs')
             ->assertDontSee('Never paid pack');
     }
+
+    public function test_the_menu_offers_wallet_refer_coupons_contact_and_a_call_whatsapp_strip_and_rate_review_only_in_a_browser(): void
+    {
+        \App\Models\Setting::set('earnings.enabled', '1');
+        \App\Models\Setting::set('earnings.wallet_tab', '1');
+        \App\Models\Setting::set('earnings.referral_tab', '1');
+        \App\Models\Setting::set('referral.enabled', '1');
+        \App\Models\Setting::set(\App\Support\InfoPages\ContactDetails::key('phone'), '+91 98765 43210');
+        \App\Models\Setting::set(\App\Support\InfoPages\ContactDetails::key('whatsapp'), '919876543210');
+        \App\Models\Setting::set(\App\Services\Reviews\GoogleReviews::REVIEW_URL, 'https://g.page/r/abc123/review');
+        $this->actingAs($this->makeCustomer());
+
+        $menu = Blade::render('<x-customer.header />');
+        $this->assertStringContainsString(route('customer.earnings.wallet'), $menu);
+        $this->assertStringContainsString(route('customer.earnings.referrals'), $menu);
+        $this->assertStringContainsString(route('customer.offers'), $menu);
+        $this->assertStringContainsString(route('customer.contact'), $menu);
+        $this->assertStringContainsString('Refer a friend', $menu);
+        $this->assertStringContainsString('Coupons', $menu);
+        $this->assertStringContainsString('tel:+919876543210', $menu);
+        $this->assertStringContainsString('https://wa.me/919876543210', $menu);
+        $this->assertStringContainsString('Rate &amp; Review', $menu);
+        $this->assertStringContainsString('https://g.page/r/abc123/review', $menu);
+
+        // Inside the Android app the Google link is not shown (the Play Store rating is).
+        $this->withHeader('User-Agent', 'Mozilla/5.0 1CallFixApp/customer');
+        request()->headers->set('User-Agent', 'Mozilla/5.0 1CallFixApp/customer');
+        $inApp = Blade::render('<x-customer.header />');
+        $this->assertStringNotContainsString('https://g.page/r/abc123/review', $inApp);
+    }
+
+    public function test_the_call_strip_and_rate_review_are_hidden_while_nothing_is_set(): void
+    {
+        $this->actingAs($this->makeCustomer());
+
+        $menu = Blade::render('<x-customer.header />');
+        $this->assertStringNotContainsString('Need help?', $menu);
+        $this->assertStringNotContainsString('Rate &amp; Review', $menu);
+        $this->assertStringContainsString(route('customer.contact'), $menu);
+    }
 }

@@ -100,25 +100,27 @@
                             $shopCity = app(\App\Services\Seo\CityContext::class)->current();
                             $groups = [];
 
-                            // Earnings is a direct entry here only (not repeated on My account): signed in, the first tab that is on;
-                            // signed out, the same tab switches (global scope), which routes via sign-in.
-                            $earningsRoute = auth()->check()
-                                ? \App\Support\CustomerEarningsNav::firstRoute(auth()->user())
-                                : collect([
-                                    'earnings.wallet_tab' => 'customer.earnings.wallet',
-                                    'earnings.loyalty_tab' => 'customer.earnings.loyalty',
-                                    'earnings.referral_tab' => 'customer.earnings.referrals',
-                                ])->first(fn ($route, $switch) => \App\Support\EarningsSettings::customerTabOn($switch, []));
+                            // Earnings pages are direct entries here only (not repeated on My account): Wallet, Refer a friend and
+                            // Earnings (loyalty points), each only while its tab is on for this customer (Super Admin's switches).
+                            // Signed out: the same switches at global scope; the pages route via sign-in.
+                            $earnScope = auth()->check() ? array_filter(['franchise_id' => auth()->user()->franchise_id, 'zone_id' => auth()->user()->zone_id]) : [];
+                            $tabOn = fn (string $switch) => \App\Support\EarningsSettings::customerTabOn($switch, $earnScope);
+                            $walletItem = $tabOn('earnings.wallet_tab') ? [[$t('header.menu.wallet'), route('customer.earnings.wallet'), 'wallet']] : [];
+                            $couponItem = [[$t('header.menu.coupons'), route('customer.offers'), 'tag']];
+                            $earnItems = [];
+                            if ($tabOn('earnings.referral_tab')) {
+                                $earnItems[] = [$t('header.menu.refer'), route('customer.earnings.referrals'), 'users'];
+                            }
+                            if ($tabOn('earnings.loyalty_tab')) {
+                                $earnItems[] = [$t('header.menu.earnings'), route('customer.earnings.loyalty'), 'sparkles'];
+                            }
 
                             if (auth()->check()) {
-                                $mine = [
-                                    [$t('header.menu.orders'), route('customer.orders.index'), 'shopping-bag'],
-                                    [$t('header.menu.saved'), route('customer.saved'), 'star'],
-                                ];
-                                if ($earningsRoute) {
-                                    $mine[] = [$t('header.menu.earnings'), route($earningsRoute), 'wallet'];
-                                }
-                                $mine[] = [$t('header.menu.account'), route('customer.account'), 'user'];
+                                $mine = array_merge(
+                                    [[$t('header.menu.orders'), route('customer.orders.index'), 'shopping-bag'], [$t('header.menu.saved'), route('customer.saved'), 'star']],
+                                    $walletItem, $couponItem, $earnItems,
+                                    [[$t('header.menu.account'), route('customer.account'), 'user']],
+                                );
                                 $groups[] = [$t('header.menu.group_account'), $mine];
 
                                 // Only for people who run something on the app.
@@ -136,23 +138,28 @@
                                     $groups[] = [$t('header.menu.group_work'), $work];
                                 }
                             } else {
-                                $explore = [[$t('header.sign_in'), route('customer.login'), 'user']];
-                                if ($earningsRoute) {
-                                    $explore[] = [$t('header.menu.earnings'), route($earningsRoute), 'wallet'];
-                                }
-                                $groups[] = [$t('header.menu.group_account'), $explore];
+                                $groups[] = [$t('header.menu.group_account'), array_merge(
+                                    [[$t('header.sign_in'), route('customer.login'), 'user']], $walletItem, $couponItem, $earnItems,
+                                )];
                             }
 
                             $more = [[$t('header.menu.categories'), \App\Support\Seo\PublicUrl::services(), 'squares']];
                             if ($partnerCta) {
                                 $more[] = [$partnerCta, route('customer.partners'), 'megaphone'];
                             }
-                            $more[] = [$t('header.menu.help'), route('customer.help'), 'chat'];
-                            // Inside the Android app only: rate it on the Play Store.
-                            if ($rateUrl = \App\Support\NativeApp::rateUrl('customer')) {
-                                $more[] = [$t('app.rate'), $rateUrl, 'star'];
+                            // Rate & Review (owner 2026-11-16): in a browser, the Google review page set in Admin → Google reviews
+                            // (opens in a new tab); inside the Android app, the Play Store rating instead. Hidden while no link is set.
+                            if (! \App\Support\NativeApp::inApp() && ($reviewUrl = \App\Services\Reviews\GoogleReviews::reviewUrl())) {
+                                $more[] = [$t('header.menu.rate_review'), $reviewUrl, 'trophy', true];
                             }
+                            if ($rateUrl = \App\Support\NativeApp::rateUrl('customer')) {
+                                $more[] = [$t('app.rate'), $rateUrl, 'trophy'];
+                            }
+                            $more[] = [$t('header.menu.contact'), route('customer.contact'), 'phone'];
+                            $more[] = [$t('header.menu.help'), route('customer.help'), 'chat'];
                             $groups[] = [$t('header.menu.group_more'), $more];
+                            $callHref = \App\Support\InfoPages\ContactDetails::telHref();
+                            $waHref = \App\Support\InfoPages\ContactDetails::whatsappHref();
 
                             // The footer's link columns are hidden on phones and in the apps, so they live here ("More",
                             // phones only), minus any link the menu already has.
@@ -177,8 +184,9 @@
                         @foreach ($groups as [$groupLabel, $groupItems])
                             <div @class(['pt-2', 'mt-1 border-t border-slate-100' => ! $loop->first || auth()->check()])>
                                 <p class="px-4 pb-1 pt-1 text-[11px] font-semibold uppercase tracking-wide text-slate-400">{{ $groupLabel }}</p>
-                                @foreach ($groupItems as [$label, $href, $icon])
-                                    <a href="{{ $href }}" role="menuitem"
+                                @foreach ($groupItems as $groupItem)
+                                    @php [$label, $href, $icon] = $groupItem; $external = $groupItem[3] ?? false; @endphp
+                                    <a href="{{ $href }}" role="menuitem" @if ($external) target="_blank" rel="noopener nofollow" @endif
                                        class="flex min-h-11 items-center gap-3 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 hover:text-slate-900 focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-blue-600">
                                         <x-icon :name="$icon" class="h-5 w-5 shrink-0 text-slate-400" />
                                         <span class="truncate">{{ $label }}</span>
@@ -186,6 +194,27 @@
                                 @endforeach
                             </div>
                         @endforeach
+
+                        {{-- Need help? One tap to call or WhatsApp, with the numbers Super Admin sets on the Contact page. --}}
+                        @if ($callHref || $waHref)
+                            <div class="mt-1 border-t border-slate-100 px-4 pb-1 pt-3">
+                                <p class="pb-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400">{{ $t('header.menu.need_help') }}</p>
+                                <div class="flex gap-2">
+                                    @if ($callHref)
+                                        <a href="{{ $callHref }}" role="menuitem"
+                                           class="flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-blue-50 text-sm font-semibold text-blue-700 transition hover:bg-blue-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600">
+                                            <x-icon name="phone" class="h-5 w-5" />{{ $t('header.menu.call') }}
+                                        </a>
+                                    @endif
+                                    @if ($waHref)
+                                        <a href="{{ $waHref }}" target="_blank" rel="noopener nofollow" role="menuitem"
+                                           class="flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-emerald-50 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600">
+                                            <x-icon name="chat" class="h-5 w-5" />{{ $t('header.menu.whatsapp') }}
+                                        </a>
+                                    @endif
+                                </div>
+                            </div>
+                        @endif
 
                         @if ($footerLinks->isNotEmpty())
                             <div class="mt-1 border-t border-slate-100 pt-1 sm:hidden" data-menu-more>
