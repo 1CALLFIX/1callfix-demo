@@ -189,6 +189,39 @@ class CustomerLocationContext
         return true;
     }
 
+    /**
+     * The short "Area, City" the header box shows (owner 2026-11-16: "Mulapet, Nellore"), never the whole address:
+     * a picked place's own name plus the city (from its address, else the zone's city); else the zone name plus its city.
+     * Null when nothing is chosen.
+     */
+    public function shortPlace(): ?string
+    {
+        $zone = $this->zone();
+        if (! $zone) {
+            return null;
+        }
+        $city = $zone->franchise?->city?->name;
+        $parts = [];
+        $label = trim((string) $this->label());
+        if ($label !== '') {
+            $parts[] = trim(explode(',', $label)[0]);
+            // The city is the next address segment that is not the place itself, a pin code or a number.
+            foreach (array_slice(array_map('trim', explode(',', (string) $this->addressLine())), 0, 4) as $seg) {
+                if ($seg !== '' && ! preg_match('/\d/', $seg) && mb_strtolower($seg) !== mb_strtolower($parts[0]) && ! str_contains(mb_strtolower($parts[0]), mb_strtolower($seg))) {
+                    $city = $city ?: $seg;
+                    break;
+                }
+            }
+        } else {
+            $parts[] = $zone->name;
+        }
+        if ($city && mb_strtolower($city) !== mb_strtolower($parts[0])) {
+            $parts[] = $city;
+        }
+
+        return implode(', ', $parts);
+    }
+
     /** Bold headline text for the location bar — a picked place's short name, or null to fall back to the zone name. */
     public function label(): ?string
     {

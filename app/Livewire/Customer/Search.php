@@ -96,6 +96,7 @@ class Search extends Component
             'shopCity' => $shop['city'],
             'products' => $shop['products'],
             'shops' => $shop['shops'],
+            'moreGroups' => \App\Services\Customer\ShopSearch::moreGroups(app(\App\Services\Customer\ShopSearch::class)->more($hasQuery ? $term : '', 6)),
             'hotels' => $hotels['hotels'],
             'hotelCity' => $hotels['city'],
             'term' => $term,

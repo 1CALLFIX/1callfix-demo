@@ -246,6 +246,7 @@ class LocationPicker extends Component
 
         return view('livewire.customer.location-picker', [
             'activeZone' => $context->zone(),
+            'shortPlace' => $context->shortPlace(),
             'zones' => $this->matchingZones(),
             'recentAddresses' => $this->recentAddresses(),
             'googleMapsKey' => config('services.google_maps.key'),

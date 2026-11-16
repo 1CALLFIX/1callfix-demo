@@ -1,28 +1,22 @@
 <div data-has-zone="{{ $activeZone ? '1' : '' }}">
-    {{-- Trigger. Shows the active zone so the customer always knows what
-         context they are browsing in; falls back to a clear call to set one. --}}
+    {{-- Trigger. Owner 2026-11-16: its own box beside the search (Amazon / Flipkart pattern), never squeezed into it. It
+         shows the short "Area, City" (e.g. "Mulapet, Nellore"), stretches to fit long names like Visakhapatnam or
+         Thiruvananthapuram (up to 20rem; only then it cuts with …), and the full text is the tooltip. A tiny caption sits
+         above it from `md`. Phones keep the compact field. --}}
+    @php $place = $shortPlace ?? null; @endphp
     <button type="button"
             wire:click="openPicker"
             aria-haspopup="dialog"
             aria-expanded="{{ $open ? 'true' : 'false' }}"
-            {{-- max-w-[7rem] at the base breakpoint, not 9rem: a 360px-wide
-                 Android viewport (375 CSS px minus a 15px scrollbar) pushed
-                 the header row 9px past the edge with 9rem here. Measured
-                 across / /categories /services /offers /search and a service
-                 page at 360/375/390/768/1024/1280/1440. The zone name
-                 truncates a little sooner on the very narrowest phones, which
-                 is a far better outcome than the whole header scrolling
-                 sideways.
-
-                 lg:max-w-[9rem] for the same reason at the other end: from
-                 1024px the desktop primary nav appears (about 400px of it)
-                 and the row overflowed by 15px with 14rem here. This is the
-                 one item in the row that can give up width without anything
-                 being removed from the page. --}}
-            class="inline-flex h-10 w-full min-w-0 max-w-[8.5rem] items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-2.5 text-sm font-medium text-slate-700 shadow-sm transition hover:border-blue-400 hover:bg-blue-50/50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 sm:w-auto sm:max-w-[13rem] sm:px-2 sm:rounded-full sm:border-transparent sm:bg-transparent sm:shadow-none sm:hover:border-transparent sm:hover:bg-slate-100">
-        <x-icon name="map-pin" class="h-4 w-4 shrink-0 text-blue-600" />
-        <span class="truncate">{{ $activeZone?->name ?? \App\Support\SiteText::get('location.set') }}</span>
-        <x-icon name="chevron-down" class="ml-auto h-4 w-4 shrink-0 text-slate-400" />
+            @if ($place) title="{{ $place }}" @endif
+            data-location-trigger
+            class="group inline-flex h-10 w-full min-w-0 max-w-[10rem] items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-2.5 text-sm font-medium text-slate-700 shadow-sm transition hover:border-blue-400 hover:bg-blue-50/60 hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 sm:h-11 sm:w-auto sm:max-w-[20rem] sm:shrink-0 sm:rounded-xl sm:px-3">
+        <x-icon name="map-pin" class="h-5 w-5 shrink-0 text-blue-600 transition group-hover:scale-110" />
+        <span class="min-w-0 text-left leading-tight">
+            <span class="hidden text-[10px] font-medium uppercase tracking-wide text-slate-400 md:block">{{ \App\Support\SiteText::get('location.deliver_to') }}</span>
+            <span class="block truncate text-[13px] font-semibold text-slate-800 sm:text-sm">{{ $place ?? \App\Support\SiteText::get('location.set') }}</span>
+        </span>
+        <x-icon name="chevron-down" class="ml-auto h-4 w-4 shrink-0 text-slate-400 transition group-hover:text-blue-600" />
     </button>
 
     @if ($open)

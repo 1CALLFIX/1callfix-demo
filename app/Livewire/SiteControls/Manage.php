@@ -80,6 +80,8 @@ class Manage extends Component
     public bool $headerPartnerButton = true;
 
     public bool $voiceSearch = true;
+    public bool $headerBookButton = false;
+    public bool $headerMenuHover = true;
 
     public bool $appBanner = true;
     public string $appBannerDays = '14';
@@ -136,6 +138,8 @@ class Manage extends Component
         $this->reviewRedHours = (string) S::reviewRedHours();
         $this->headerPartnerButton = S::headerPartnerButton();
         $this->voiceSearch = S::voiceSearch();
+        $this->headerBookButton = S::headerBookButton();
+        $this->headerMenuHover = S::headerMenuHover();
         $this->appBanner = S::appBanner();
         $this->appBannerDays = (string) S::appBannerDays();
         $this->unpaidAttemptMinutes = (string) \App\Services\Payments\UnpaidAttemptService::minutes();
@@ -233,6 +237,8 @@ class Manage extends Component
             S::REVIEW_RED_HOURS => (string) (int) $this->reviewRedHours,
             S::HEADER_PARTNER_BUTTON => $bool($this->headerPartnerButton),
             S::VOICE_SEARCH => $bool($this->voiceSearch),
+            S::HEADER_BOOK_BUTTON => $bool($this->headerBookButton),
+            S::HEADER_MENU_HOVER => $bool($this->headerMenuHover),
             S::APP_BANNER => $bool($this->appBanner),
             S::APP_BANNER_DAYS => (string) (int) $this->appBannerDays,
             \App\Services\Payments\UnpaidAttemptService::MINUTES => (string) (int) $this->unpaidAttemptMinutes,

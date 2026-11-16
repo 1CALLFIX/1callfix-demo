@@ -30,14 +30,13 @@
             {{-- Location + search as ONE elevated pill from `sm` up (1CF-TOPBAR-POLISH-001): pin + area
                  on the left, a divider, the search field and a round blue search button on the right.
                  On phones the location is a compact field next to the brand and search is the row below. --}}
-            <div class="flex min-w-0 shrink items-center gap-1.5 sm:flex-1 sm:gap-2">
-                <div class="flex min-w-0 items-center sm:flex-1 sm:rounded-full sm:border sm:border-slate-200 sm:bg-white sm:py-1 sm:pl-1 sm:pr-1 sm:shadow-md sm:shadow-slate-900/5 sm:transition sm:duration-200 sm:focus-within:border-blue-400 sm:focus-within:shadow-lg sm:focus-within:shadow-blue-600/10 sm:hover:shadow-lg">
-                    {{-- Owner 2026-11-16: the location is only as wide as the city name (it shrinks to fit), and the
-                         search field takes every bit of room that is left. --}}
-                    <div class="min-w-0 sm:flex-none">
-                        <livewire:customer.location-picker />
-                    </div>
-                    <div aria-hidden="true" class="mx-1 hidden h-6 w-px shrink-0 bg-slate-200 sm:block"></div>
+            <div class="flex min-w-0 shrink items-center gap-1.5 sm:flex-1 sm:gap-3">
+                {{-- Owner 2026-11-16: the location is its OWN box (Amazon / Flipkart), as wide as its text needs, so the
+                     area and city ("Mulapet, Nellore") are always readable; the search pill takes all the room left. --}}
+                <div class="min-w-0 sm:shrink-0">
+                    <livewire:customer.location-picker />
+                </div>
+                <div class="flex min-w-0 items-center sm:flex-1 sm:rounded-full sm:border sm:border-slate-200 sm:bg-white sm:py-1 sm:pl-1 sm:pr-1 sm:shadow-md sm:shadow-slate-900/5 sm:transition sm:duration-200 sm:focus-within:border-blue-400 sm:focus-within:shadow-lg sm:focus-within:shadow-blue-600/10 sm:hover:border-blue-300 sm:hover:shadow-lg">
                     <div class="hidden min-w-0 flex-1 sm:block">
                         <livewire:customer.search-bar :compact="true" :pill="true" />
                     </div>
@@ -58,38 +57,46 @@
                      pattern) and the search pill is wider. Phones keep their order. --}}
                 <div class="flex items-center sm:order-10"><livewire:customer.cart-count /></div>
 
-                @guest
-                    <a href="{{ route('customer.login') }}"
-                       class="hidden sm:order-9 sm:inline-flex min-h-11 items-center whitespace-nowrap rounded-md px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 hover:text-slate-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900">
-                        {{ $t('header.sign_in') }}
-                    </a>
-                @endguest
-
                 @if ($partnerCta)
                     <a href="{{ route('customer.partners') }}"
-                       class="hidden md:inline-flex min-h-10 items-center whitespace-nowrap rounded-lg border border-blue-600 px-3 text-sm font-semibold text-blue-700 transition hover:bg-blue-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600">
+                       class="hidden md:inline-flex min-h-10 items-center whitespace-nowrap rounded-lg border border-blue-600 px-3 text-sm font-semibold text-blue-700 transition hover:-translate-y-0.5 hover:bg-blue-600 hover:text-white hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600">
                         {{ $partnerCta }}
                     </a>
                 @endif
 
-                {{-- Primary CTA, visible from `sm` up (it had been hidden below `xl`, and was
-                     dropped when the header was decluttered). Mobile keeps the bottom bar. --}}
-                <a href="{{ route('customer.services.index') }}"
-                   class="hidden sm:inline-flex min-h-10 items-center whitespace-nowrap rounded-lg bg-blue-600 px-4 text-sm font-semibold text-white shadow-sm shadow-blue-600/25 transition hover:bg-blue-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600">
-                    {{ $t('header.book_now') }}
-                </a>
+                {{-- "Book Now" only ever meant services; with shop, food, hotels, rentals and more it is off by default.
+                     Super Admin → Site controls → Website header turns it back on. --}}
+                @if (\App\Support\SiteControls::headerBookButton())
+                    <a href="{{ route('customer.services.index') }}"
+                       class="hidden sm:inline-flex min-h-10 items-center whitespace-nowrap rounded-lg bg-blue-600 px-4 text-sm font-semibold text-white shadow-sm shadow-blue-600/25 transition hover:-translate-y-0.5 hover:bg-blue-700 hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600">
+                        {{ $t('header.book_now') }}
+                    </a>
+                @endif
 
-                {{-- Menu: hamburger-style button opening a dropdown. Alpine ships
-                     with Livewire; closes on outside click, Escape and navigation. --}}
-                <div class="relative" x-data="{ open: false }" @keydown.escape.window="open = false" @click.outside="open = false">
-                    <button type="button" @click="open = !open" :aria-expanded="open.toString()" aria-haspopup="menu" aria-label="Open menu"
-                            class="inline-flex h-11 w-11 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-700 transition hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600">
+                {{-- ONE account control (Flipkart / Amazon): "Sign in ▾" (or the customer's name) from `sm` up, a round
+                     button on phones. Rest the mouse on it and the menu opens; move away and it closes. Tap/click and
+                     Escape work too, and phones only ever tap. Super Admin can turn the hover off (Site controls). --}}
+                @php $menuHover = \App\Support\SiteControls::headerMenuHover(); @endphp
+                <div class="relative sm:order-9" x-data="{ open: false, t: null,
+                        canHover() { return {{ $menuHover ? 'true' : 'false' }} && window.matchMedia('(hover: hover) and (min-width: 640px)').matches },
+                        enter() { if (this.canHover()) { clearTimeout(this.t); this.open = true } },
+                        leave() { if (this.canHover()) { clearTimeout(this.t); this.t = setTimeout(() => this.open = false, 180) } } }"
+                     @mouseenter="enter()" @mouseleave="leave()" @keydown.escape.window="open = false" @click.outside="open = false">
+                    <button type="button" @click="open = !open" :aria-expanded="open.toString()" aria-haspopup="menu" aria-label="Open menu" data-account-trigger
+                            class="group inline-flex h-11 w-11 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-700 transition hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 sm:w-auto sm:gap-2 sm:rounded-lg sm:border-transparent sm:bg-transparent sm:px-3 sm:text-sm sm:font-semibold">
                         @auth
-                            <span aria-hidden="true" class="text-sm font-semibold">{{ \Illuminate\Support\Str::of(auth()->user()->name)->substr(0, 1)->upper() }}</span>
+                            <span aria-hidden="true" class="grid h-8 w-8 place-items-center rounded-full bg-blue-600 text-sm font-semibold text-white sm:h-7 sm:w-7">{{ \Illuminate\Support\Str::of(auth()->user()->name)->substr(0, 1)->upper() }}</span>
+                            <span class="hidden max-w-[7rem] truncate sm:inline">{{ \Illuminate\Support\Str::of(auth()->user()->name)->before(' ') }}</span>
                         @else
-                            <svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" d="M4 7h16M4 12h16M4 17h16"/></svg>
+                            <svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 sm:hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" d="M4 7h16M4 12h16M4 17h16"/></svg>
+                            <x-icon name="user" class="hidden h-5 w-5 sm:block" />
+                            <span class="hidden whitespace-nowrap sm:inline">{{ $t('header.sign_in') }}</span>
                         @endauth
+                        <span class="hidden transition sm:block" :class="open ? 'rotate-180' : ''"><x-icon name="chevron-down" class="h-4 w-4 text-slate-400 group-hover:text-blue-600" /></span>
                     </button>
+
+                    {{-- Invisible bridge so the menu does not close while the mouse crosses the small gap. --}}
+                    <div x-show="open" style="display:none" aria-hidden="true" class="absolute right-0 top-full h-3 w-full"></div>
 
                     {{-- Owner 2026-11-16: one structured account menu (Amazon / Flipkart pattern): a profile card, then
                          labelled groups with an icon on every line. All orders (services, parcels, shop, food, hotels,
@@ -138,9 +145,8 @@
                                     $groups[] = [$t('header.menu.group_work'), $work];
                                 }
                             } else {
-                                $groups[] = [$t('header.menu.group_account'), array_merge(
-                                    [[$t('header.sign_in'), route('customer.login'), 'user']], $walletItem, $couponItem, $earnItems,
-                                )];
+                                // Signed out: Sign in is the big button at the top of the menu (below), not a repeated row.
+                                $groups[] = [$t('header.menu.group_account'), array_merge($walletItem, $couponItem, $earnItems)];
                             }
 
                             $more = [[$t('header.menu.categories'), \App\Support\Seo\PublicUrl::services(), 'squares']];
@@ -181,14 +187,28 @@
                             </div>
                         @endauth
 
+                        @guest
+                            {{-- Flipkart pattern: "New customer? Sign up" and one big Sign in button. --}}
+                            <div class="flex items-center justify-between gap-2 border-b border-slate-100 px-4 py-3">
+                                <span class="text-sm text-slate-600">{{ $t('header.new_customer') }}</span>
+                                <a href="{{ route('customer.signup') }}" role="menuitem" class="text-sm font-semibold text-blue-600 transition hover:text-blue-800 hover:underline">{{ $t('header.sign_up') }}</a>
+                            </div>
+                            <div class="px-4 pt-3">
+                                <a href="{{ route('customer.login') }}" role="menuitem"
+                                   class="flex min-h-11 items-center justify-center gap-2 rounded-xl bg-blue-600 text-sm font-semibold text-white shadow-sm shadow-blue-600/25 transition hover:-translate-y-0.5 hover:bg-blue-700 hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600">
+                                    <x-icon name="user" class="h-5 w-5" />{{ $t('header.sign_in') }}
+                                </a>
+                            </div>
+                        @endguest
+
                         @foreach ($groups as [$groupLabel, $groupItems])
-                            <div @class(['pt-2', 'mt-1 border-t border-slate-100' => ! $loop->first || auth()->check()])>
+                            <div class="mt-2 border-t border-slate-100 pt-2">
                                 <p class="px-4 pb-1 pt-1 text-[11px] font-semibold uppercase tracking-wide text-slate-400">{{ $groupLabel }}</p>
                                 @foreach ($groupItems as $groupItem)
                                     @php [$label, $href, $icon] = $groupItem; $external = $groupItem[3] ?? false; @endphp
                                     <a href="{{ $href }}" role="menuitem" @if ($external) target="_blank" rel="noopener nofollow" @endif
-                                       class="flex min-h-11 items-center gap-3 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 hover:text-slate-900 focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-blue-600">
-                                        <x-icon :name="$icon" class="h-5 w-5 shrink-0 text-slate-400" />
+                                       class="group/item flex min-h-11 items-center gap-3 border-l-4 border-transparent px-4 py-2 text-sm font-medium text-slate-700 transition hover:border-blue-500 hover:bg-blue-50 hover:pl-5 hover:text-blue-700 focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-blue-600">
+                                        <x-icon :name="$icon" class="h-5 w-5 shrink-0 text-slate-400 transition group-hover/item:scale-110 group-hover/item:text-blue-600" />
                                         <span class="truncate">{{ $label }}</span>
                                     </a>
                                 @endforeach

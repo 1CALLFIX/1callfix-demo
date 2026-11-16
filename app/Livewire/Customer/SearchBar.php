@@ -243,6 +243,7 @@ class SearchBar extends Component
             'shopCitySlug' => null,
             'matchedHotels' => collect(),
             'hotelCitySlug' => null,
+            'moreGroups' => [],
             'resultCount' => 0,
         ];
 
@@ -276,8 +277,10 @@ class SearchBar extends Component
 
         [$citySlug, $products, $shops] = $this->shopMatches($term);
         $hotels = app(\App\Services\Customer\ShopSearch::class)->hotels($term, 4);
+        $moreGroups = \App\Services\Customer\ShopSearch::moreGroups(app(\App\Services\Customer\ShopSearch::class)->more($term, 3));
 
         return array_merge($empty, [
+            'moreGroups' => $moreGroups,
             'matchedCategories' => $matchedCategories,
             'serviceGroups' => $this->groupByCategory($services),
             'matchedProducts' => $products,
@@ -285,7 +288,8 @@ class SearchBar extends Component
             'shopCitySlug' => $citySlug,
             'matchedHotels' => $hotels['hotels'],
             'hotelCitySlug' => $hotels['city'],
-            'resultCount' => $matchedCategories->count() + $services->count() + $products->count() + $shops->count() + $hotels['hotels']->count(),
+            'resultCount' => $matchedCategories->count() + $services->count() + $products->count() + $shops->count() + $hotels['hotels']->count()
+                + array_sum(array_map(fn ($g) => count($g['rows']), $moreGroups)),
         ]);
     }
 

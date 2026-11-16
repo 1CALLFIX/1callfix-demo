@@ -265,6 +265,25 @@
                             @endforeach
                         </div>
                     @endif
+
+                    {{-- Owner 2026-11-16: food, happenings in the city, function halls and homes for rent too. --}}
+                    @foreach ($moreGroups as $g)
+                        <div role="group" aria-labelledby="{{ $listId }}-h-{{ $g['key'] }}" data-testid="search-{{ $g['key'] }}">
+                            <p id="{{ $listId }}-h-{{ $g['key'] }}" class="px-4 pt-3 pb-1 text-xs font-semibold uppercase tracking-wide text-slate-400">{{ $g['label'] }}</p>
+                            @foreach ($g['rows'] as $row)
+                                @php $optId = $listId.'-opt-'.$optSeq++; @endphp
+                                <a href="{{ $row['url'] }}"
+                                   role="option" id="{{ $optId }}" data-search-option aria-selected="false" tabindex="-1"
+                                   class="flex min-h-12 items-center gap-3 px-4 py-2 text-left transition hover:bg-slate-50 data-[active=true]:bg-slate-100 focus-visible:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-blue-600">
+                                    <x-customer.result-icon :name="$row['name']" />
+                                    <span class="min-w-0 flex-1">
+                                        <span class="block truncate text-sm font-medium text-slate-900">{{ $row['name'] }}</span>
+                                        @if ($row['line'])<span class="block truncate text-xs text-slate-500">{{ $row['line'] }}</span>@endif
+                                    </span>
+                                </a>
+                            @endforeach
+                        </div>
+                    @endforeach
                 </div>
 
                 <a href="{{ route('customer.search', ['q' => trim($term)]) }}\"

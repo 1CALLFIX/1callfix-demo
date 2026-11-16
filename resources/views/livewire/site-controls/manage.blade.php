@@ -328,6 +328,22 @@
         </x-ui.card>
 
         <x-ui.card>
+            <h2 class="text-sm font-semibold mb-3">Website header: account menu and Book Now</h2>
+            <div class="grid gap-3">
+                <label class="flex items-center gap-2 text-sm">
+                    <input type="checkbox" wire:model="headerMenuHover"> Open the account menu when the mouse rests on it (computers; phones always tap)
+                </label>
+                <label class="flex items-center gap-2 text-sm">
+                    <input type="checkbox" wire:model="headerBookButton"> Show the blue "Book Now" button in the header
+                </label>
+            </div>
+            <p class="text-xs text-gray-500 mt-3">
+                "Book Now" only means services, and the app now has shop, food, hotels, rentals and more, so it is off by default. When on, it opens the services list.
+                Its words are in Website text → Header ("Blue button").
+            </p>
+        </x-ui.card>
+
+        <x-ui.card>
             <h2 class="text-sm font-semibold mb-3">Voice search</h2>
             <label class="flex items-center gap-2 text-sm">
                 <input type="checkbox" wire:model="voiceSearch"> Show a 🎤 mic button in the website search box

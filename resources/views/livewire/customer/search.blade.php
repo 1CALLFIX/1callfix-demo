@@ -186,7 +186,22 @@
                 </section>
             @endif
 
-            @if ($services->isEmpty() && $categories->isEmpty() && $subcategories->isEmpty() && $products->isEmpty() && $shops->isEmpty() && $hotels->isEmpty())
+            @foreach ($moreGroups as $g)
+                <section aria-labelledby="matched-{{ $g['key'] }}-heading" class="mt-8" data-testid="search-page-{{ $g['key'] }}">
+                    <h2 id="matched-{{ $g['key'] }}-heading" class="text-sm font-semibold text-slate-900">{{ $g['label'] }}</h2>
+                    <ul class="mt-3 space-y-2">
+                        @foreach ($g['rows'] as $row)
+                            <li><a href="{{ $row['url'] }}" wire:navigate
+                                   class="flex min-h-11 flex-col justify-center rounded-xl border border-slate-200 px-4 py-2 transition hover:border-blue-300 hover:bg-blue-50/50">
+                                    <span class="text-sm font-medium text-slate-900">{{ $row['name'] }}</span>
+                                    @if ($row['line'])<span class="text-xs text-slate-500">{{ $row['line'] }}</span>@endif
+                                </a></li>
+                        @endforeach
+                    </ul>
+                </section>
+            @endforeach
+
+            @if ($services->isEmpty() && $categories->isEmpty() && $subcategories->isEmpty() && $products->isEmpty() && $shops->isEmpty() && $hotels->isEmpty() && $moreGroups === [])
                 {{-- Genuine no-results: nothing matched in any group. --}}
                 <div class="mt-8 rounded-xl border border-slate-200">
                     <x-ui.empty-state icon="magnifying-glass"

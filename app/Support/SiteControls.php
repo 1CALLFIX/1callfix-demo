@@ -79,6 +79,11 @@ final class SiteControls
     public const HEADER_PARTNER_LABEL = 'header.partner_label';
     public const DEFAULT_HEADER_PARTNER_LABEL = 'Become a partner';
 
+    // Header (owner 2026-11-16): "Book Now" is off by default (it only means services; the app has many modules), and the
+    // account menu opens when the mouse rests on it (computers only; phones tap).
+    public const HEADER_BOOK_BUTTON = 'header.book_button';
+    public const HEADER_MENU_HOVER = 'header.menu_hover';
+
     // Voice search (owner 2026-11-07): a mic button in the search box on browsers that can listen (Chrome on Android).
     public const VOICE_SEARCH = 'search.voice';
 
@@ -261,6 +266,16 @@ final class SiteControls
     public static function headerPartnerButton(): bool
     {
         return self::flag(self::HEADER_PARTNER_BUTTON, true);
+    }
+
+    public static function headerBookButton(): bool
+    {
+        return self::flag(self::HEADER_BOOK_BUTTON, false);
+    }
+
+    public static function headerMenuHover(): bool
+    {
+        return self::flag(self::HEADER_MENU_HOVER, true);
     }
 
     public static function voiceSearch(): bool
