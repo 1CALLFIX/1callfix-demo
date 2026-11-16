@@ -16,7 +16,7 @@ Use with `docs/DEPLOY_RUNBOOK.md`.
   the language picker is an Amazon-style "EN ▾" dropdown right beside the search bar (the languages that are on in
   Admin → Languages; one form per language, same route as before).
 - Homepage hero banners (more than one live): tablets, laptops and large screens show several banners side by side
-  (about 2.4 / 2.6 / 3.3 across) with the next one peeking in; phones show one banner with the next peeking in from
+  (two banners split the row in half; three or more show about 2.4 / 2.6 / 3 across, the next one peeking in); phones show one banner with the next peeking in from
   the right. A single banner, the mid-page strip and category-page banners are unchanged. `carousel.js` now keeps
   every visible banner clickable and can reach the last banners.
 - **My Orders** (`/orders`): ONE list of everything the customer ordered or booked, from every module whether or not
