@@ -5,11 +5,15 @@
     $meta = [
         'service' => ['Services', 'wrench', 'bg-blue-100 text-blue-700'],
         'parcel'  => ['Parcels', 'activity', 'bg-amber-100 text-amber-700'],
+        'pack'    => ['Parcel packs', 'banknotes', 'bg-yellow-100 text-yellow-700'],
         'shop'    => ['Shop', 'shopping-bag', 'bg-emerald-100 text-emerald-700'],
         'food'    => ['Food', 'tag', 'bg-orange-100 text-orange-700'],
+        'grocery' => ['Grocery', 'shopping-cart', 'bg-lime-100 text-lime-700'],
+        'pharmacy' => ['Pharmacy', 'shield', 'bg-teal-100 text-teal-700'],
         'hotel'   => ['Hotels', 'building', 'bg-sky-100 text-sky-700'],
         'hall'    => ['Function halls', 'home', 'bg-rose-100 text-rose-700'],
         'event'   => ['Events', 'ticket', 'bg-violet-100 text-violet-700'],
+        'visit'   => ['Property visits', 'map-pin', 'bg-indigo-100 text-indigo-700'],
     ];
     $tones = [
         'active'    => ['bg-blue-50 text-blue-700 ring-blue-600/20', 'In progress'],
@@ -67,7 +71,9 @@
                 </div>
                 <div class="mt-2 flex items-center justify-between text-sm">
                     <span class="truncate text-slate-600">{{ $o['line'] }}</span>
-                    <span class="shrink-0 pl-3 font-medium text-slate-900">{{ $currencySymbol }}{{ number_format($o['amount'], 2) }}</span>
+                    @if ($o['amount'] !== null)
+                        <span class="shrink-0 pl-3 font-medium text-slate-900">{{ $currencySymbol }}{{ number_format($o['amount'], 2) }}</span>
+                    @endif
                 </div>
             </div>
         </a>

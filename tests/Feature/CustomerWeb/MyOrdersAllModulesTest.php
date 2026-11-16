@@ -3,6 +3,8 @@
 namespace Tests\Feature\CustomerWeb;
 
 use App\Livewire\Customer\Orders\Index as OrdersIndex;
+use App\Models\ParcelPack;
+use App\Models\ParcelPackPurchase;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Blade;
 use Livewire\Livewire;
@@ -68,5 +70,19 @@ class MyOrdersAllModulesTest extends TestCase
         // The page itself carries the header, so Earnings is there once (the menu) and not a second time as a row.
         $this->assertSame(1, substr_count($account, route('customer.earnings.wallet')));
         $this->assertStringContainsString(route('customer.addresses'), $account);
+    }
+
+    public function test_a_paid_parcel_pack_is_listed_with_its_credits_even_when_used_up_and_an_unpaid_one_is_not(): void
+    {
+        $me = $this->makeCustomer();
+        $pack = ParcelPack::create(['name' => 'Pack', 'parcel_count' => 10, 'max_km' => 5, 'price' => 499, 'validity_days' => 30]);
+        ParcelPackPurchase::create(['parcel_pack_id' => $pack->id, 'user_id' => $me->id, 'name' => 'Weekly 10 pack', 'parcels_total' => 10, 'parcels_used' => 10, 'max_km' => 5, 'validity_days' => 30,
+            'price_paid' => 499, 'status' => 'expired', 'payment_method' => 'online', 'paid_at' => now()->subDays(40)]);
+        ParcelPackPurchase::create(['parcel_pack_id' => $pack->id, 'user_id' => $me->id, 'name' => 'Never paid pack', 'parcels_total' => 5, 'parcels_used' => 0, 'max_km' => 5, 'validity_days' => 30,
+            'price_paid' => 299, 'status' => 'pending_payment', 'payment_method' => 'online']);
+
+        Livewire::actingAs($me)->test(OrdersIndex::class)
+            ->assertSee('Weekly 10 pack')->assertSee('0 of 10 parcels left')->assertSee('Parcel packs')
+            ->assertDontSee('Never paid pack');
     }
 }

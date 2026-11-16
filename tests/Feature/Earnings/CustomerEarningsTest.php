@@ -122,7 +122,9 @@ class CustomerEarningsTest extends TestCase
 
         $page = $this->actingAs($customer)->get(route('customer.account'));
         $page->assertSee(route('customer.earnings.loyalty'))->assertDontSee(route('customer.earnings.wallet'));
-        $this->assertSame(1, substr_count($page->getContent(), '>Earnings</p>'), 'exactly one Earnings entry on the account page');
+        // Owner 2026-11-16: Earnings is a direct entry in the header menu only, never repeated as a row on My account.
+        $this->assertSame(0, substr_count($page->getContent(), '>Earnings</p>'), 'no Earnings row on the account page');
+        $this->assertSame(1, substr_count($page->getContent(), route('customer.earnings.loyalty')), 'exactly one Earnings entry, in the menu');
     }
 
     public function test_only_enabled_tabs_are_listed_on_a_tab_page(): void

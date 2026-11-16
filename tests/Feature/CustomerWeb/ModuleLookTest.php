@@ -89,7 +89,8 @@ class ModuleLookTest extends TestCase
         $this->assertStringContainsString('data-service-card', $html);
         $this->assertGreaterThanOrEqual(1, substr_count($html, 'data-save-button'));
         // No link inside a link: the heart comes after the card's </a>.
-        $this->assertMatchesRegularExpression('#</a>\s*<a [^>]*data-save-button|</a>\s*<button[^>]*data-save-button|</a>\s*<a href="[^"]*login[^"]*"#s', $html);
+        // (Livewire puts <!--[if BLOCK]> marker comments between the card's link and the heart.)
+        $this->assertMatchesRegularExpression('#</a>\s*(?:<!--.*?-->\s*)*<a [^>]*data-save-button|</a>\s*(?:<!--.*?-->\s*)*<button[^>]*data-save-button#s', $html);
     }
 
     public function test_product_and_shop_cards_carry_a_heart(): void

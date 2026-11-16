@@ -6,8 +6,10 @@ use App\Models\Booking;
 use App\Models\EventOrder;
 use App\Models\HallBooking;
 use App\Models\HotelReservation;
+use App\Models\HouseVisit;
 use App\Models\MarketplaceOrder;
 use App\Models\ParcelOrder;
+use App\Models\ParcelPackPurchase;
 use App\Models\Setting;
 use App\Services\TimezoneResolver;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -31,7 +33,7 @@ class Index extends Component
     /** '' = all; otherwise active | completed | cancelled. */
     public string $filter = '';
 
-    /** '' = every module; otherwise service | parcel | shop | food | hotel | hall | event. */
+    /** '' = every module; otherwise service | parcel | pack | shop | food | grocery | pharmacy | hotel | hall | event | visit. */
     public string $kind = '';
 
     private const PER_SOURCE = 60;
@@ -100,12 +102,35 @@ class Index extends Component
 
         MarketplaceOrder::where('customer_id', $me)->booked()->with('store:id,name')->latest('id')->limit(self::PER_SOURCE)->get()
             ->each(function (MarketplaceOrder $o) use ($rows) {
-                $food = $o->module === 'food';
+                $kind = in_array($o->module, ['food', 'grocery', 'pharmacy'], true) ? $o->module : 'shop';
+                $word = ucfirst($kind);
                 $rows->push([
-                    'kind' => $food ? 'food' : 'shop', 'at' => $o->created_at, 'status' => $o->status,
-                    'title' => $o->store?->name ?? ($food ? 'Food order' : 'Shop order'), 'code' => $o->code,
-                    'line' => $food ? 'Food delivery' : 'Shop order',
+                    'kind' => $kind, 'at' => $o->created_at, 'status' => $o->status,
+                    'title' => $o->store?->name ?? $word.' order', 'code' => $o->code,
+                    'line' => $kind === 'food' ? 'Food delivery' : $word.' order',
                     'amount' => (float) ($o->price_final ?? $o->total_amount), 'href' => route('customer.shop.orders.show', $o),
+                ]);
+            });
+
+        // Prepaid parcel packs: every pack the customer paid for, active or used up (the Packs page shows only active ones).
+        ParcelPackPurchase::where('user_id', $me)->whereNotNull('paid_at')->latest('id')->limit(self::PER_SOURCE)->get()
+            ->each(function (ParcelPackPurchase $p) use ($rows) {
+                $rows->push([
+                    'kind' => 'pack', 'at' => $p->paid_at, 'status' => $p->status,
+                    'title' => $p->name ?: 'Parcel pack', 'code' => 'PACK-'.$p->id,
+                    'line' => max(0, (int) $p->parcels_total - (int) $p->parcels_used).' of '.$p->parcels_total.' parcels left',
+                    'amount' => (float) $p->price_paid, 'href' => route('customer.parcels.packs'),
+                ]);
+            });
+
+        // Property for rent: each visit the customer asked for (no money is taken, so no amount).
+        HouseVisit::where('customer_id', $me)->with('listing:id,title')->latest('id')->limit(self::PER_SOURCE)->get()
+            ->each(function (HouseVisit $v) use ($rows) {
+                $rows->push([
+                    'kind' => 'visit', 'at' => $v->created_at, 'status' => $v->status,
+                    'title' => $v->listing?->title ?? 'Property visit', 'code' => $v->code,
+                    'line' => ($v->visit_date ? $v->visit_date->format('D j M Y') : 'Visit').($v->slot ? ' · '.$v->slot : ''),
+                    'amount' => null, 'href' => route('customer.homes.visits'),
                 ]);
             });
 
@@ -151,7 +176,7 @@ class Index extends Component
         $all = $this->rows();
 
         // Module chips: only the kinds this customer actually has, in the order modules are launched.
-        $kinds = collect(['service', 'parcel', 'shop', 'food', 'hotel', 'hall', 'event'])
+        $kinds = collect(['service', 'parcel', 'pack', 'shop', 'food', 'grocery', 'pharmacy', 'hotel', 'hall', 'event', 'visit'])
             ->filter(fn ($k) => $all->contains('kind', $k))->values();
 
         $shown = $all
