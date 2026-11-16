@@ -30,16 +30,21 @@
             {{-- Location + search as ONE elevated pill from `sm` up (1CF-TOPBAR-POLISH-001): pin + area
                  on the left, a divider, the search field and a round blue search button on the right.
                  On phones the location is a compact field next to the brand and search is the row below. --}}
-            <div class="min-w-0 shrink sm:flex sm:flex-1 sm:justify-center">
-                <div class="flex min-w-0 items-center sm:w-full sm:max-w-3xl sm:rounded-full sm:border sm:border-slate-200 sm:bg-white sm:py-1 sm:pl-1 sm:pr-1 sm:shadow-md sm:shadow-slate-900/5 sm:transition sm:duration-200 sm:focus-within:border-blue-400 sm:focus-within:shadow-lg sm:focus-within:shadow-blue-600/10 sm:hover:shadow-lg">
-                    <div class="min-w-0 sm:flex-1 sm:basis-0">
+            <div class="flex min-w-0 shrink items-center gap-1.5 sm:flex-1 sm:gap-2">
+                <div class="flex min-w-0 items-center sm:flex-1 sm:rounded-full sm:border sm:border-slate-200 sm:bg-white sm:py-1 sm:pl-1 sm:pr-1 sm:shadow-md sm:shadow-slate-900/5 sm:transition sm:duration-200 sm:focus-within:border-blue-400 sm:focus-within:shadow-lg sm:focus-within:shadow-blue-600/10 sm:hover:shadow-lg">
+                    {{-- Owner 2026-11-16: the location is only as wide as the city name (it shrinks to fit), and the
+                         search field takes every bit of room that is left. --}}
+                    <div class="min-w-0 sm:flex-none">
                         <livewire:customer.location-picker />
                     </div>
                     <div aria-hidden="true" class="mx-1 hidden h-6 w-px shrink-0 bg-slate-200 sm:block"></div>
-                    <div class="hidden min-w-0 flex-1 basis-0 sm:block">
+                    <div class="hidden min-w-0 flex-1 sm:block">
                         <livewire:customer.search-bar :compact="true" :pill="true" />
                     </div>
                 </div>
+
+                {{-- Language beside the search bar (Amazon pattern). Admin → Languages decides which are on. --}}
+                <x-customer.language-menu />
             </div>
 
             {{-- Right cluster (1CF-HEADER-HAMBURGER-001): location, cart and ONE
@@ -47,46 +52,6 @@
                  dashboard / Log out all live inside the menu, so the bar
                  stays uncluttered like the reference marketplaces. --}}
             <div class="ml-auto flex min-w-0 items-center gap-1 sm:ml-0 sm:gap-2">
-
-                {{-- Languages are the Super Admin's (Admin → Languages): two on = one switch button, three or more = a small menu. --}}
-                @php
-                    $cfLanguages = \App\Support\Languages::active();
-                    $cfLocale = app()->getLocale();
-                    $cfLanguageLabel = fn (string $code) => match ($code) {
-                        'en' => $t('language.to_en'),
-                        'te' => $t('language.to_te'),
-                        default => $cfLanguages[$code]['name'] ?? $code,
-                    };
-                @endphp
-                @if (count($cfLanguages) === 2)
-                    @php $other = collect(array_keys($cfLanguages))->first(fn ($c) => $c !== $cfLocale) ?? 'en'; @endphp
-                    <form method="POST" action="{{ route('customer.language', $other) }}">
-                        @csrf
-                        <button type="submit" lang="{{ $other }}" data-testid="language-switch"
-                                class="inline-flex min-h-10 items-center whitespace-nowrap rounded-full border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600">
-                            {{ $cfLanguageLabel($other) }}
-                        </button>
-                    </form>
-                @elseif (count($cfLanguages) > 2)
-                    <details class="relative" data-testid="language-switch">
-                        <summary aria-label="{{ $t('language.choose') }}"
-                                 class="inline-flex min-h-10 cursor-pointer list-none items-center gap-1 whitespace-nowrap rounded-full border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 [&::-webkit-details-marker]:hidden">
-                            <span lang="{{ $cfLocale }}">{{ $cfLanguages[$cfLocale]['name'] ?? 'English' }}</span>
-                            <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.17l3.71-3.94a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd"/></svg>
-                        </summary>
-                        <div class="absolute end-0 z-50 mt-2 min-w-40 rounded-xl border border-slate-200 bg-white p-1 shadow-lg">
-                            @foreach ($cfLanguages as $code => $lang)
-                                <form method="POST" action="{{ route('customer.language', $code) }}">
-                                    @csrf
-                                    <button type="submit" lang="{{ $code }}" @if ($lang['rtl']) dir="rtl" @endif
-                                            @class(['flex w-full items-center rounded-lg px-3 py-2 text-start text-sm hover:bg-slate-50', 'font-semibold text-blue-700' => $code === $cfLocale, 'text-slate-700' => $code !== $cfLocale])>
-                                        {{ $lang['name'] }}
-                                    </button>
-                                </form>
-                            @endforeach
-                        </div>
-                    </details>
-                @endif
 
                 {{-- Shop Phase A: visitors have a cart too (their shop items, kept in the session). --}}
                 {{-- Owner 2026-11-15: from `sm` up, Sign in then Cart sit at the far right end (Amazon / Flipkart

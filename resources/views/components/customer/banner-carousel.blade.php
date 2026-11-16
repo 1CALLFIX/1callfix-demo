@@ -66,6 +66,9 @@
         $isHero = $variant === 'hero';
         $count = $banners->count();
         $multiple = $count > 1;
+        // Owner 2026-11-16 (Flipkart pattern): the homepage hero shows several banners side by side on tablets,
+        // laptops and large screens, and on a phone one banner with the next one peeking in from the right.
+        $peek = $isHero && $multiple;
     @endphp
 
     <section data-carousel
@@ -86,7 +89,7 @@
              two sources of truth for the same decision, and the JS could no
              longer opt out of it. --}}
         <div data-carousel-track
-             class="flex snap-x snap-mandatory gap-4 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+             @class(["flex snap-x snap-mandatory overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden", "gap-4" => ! $peek, "items-start gap-3 sm:gap-4 -mx-4 px-4 scroll-pl-4 sm:mx-0 sm:px-0 sm:scroll-pl-0" => $peek])>
             @foreach ($banners as $index => $banner)
                 @php
                     $position = $index + 1;
@@ -96,7 +99,7 @@
                      role="group"
                      aria-roledescription="slide"
                      aria-label="{{ $slideLabel }}"
-                     class="w-full shrink-0 snap-start">
+                     @class(["shrink-0 snap-start", "w-full" => ! $peek, "w-[85%] sm:w-[42%] lg:w-[38%] xl:w-[30%]" => $peek])>
                     @php
                         $inner = $banner->image_url;
 
@@ -146,7 +149,8 @@
                                      // banner at its own shape — never cropped or zoomed; "cover" is the old fixed-height crop.
                                      'block h-auto w-full' => $bannerWhole,
                                      'w-full object-cover' => ! $bannerWhole,
-                                     'h-40 sm:h-64 lg:h-[22rem]' => $isHero && ! $bannerWhole,
+                                     'h-40 sm:h-64 lg:h-[22rem]' => $isHero && ! $peek && ! $bannerWhole,
+                                     'h-40 sm:h-40 lg:h-48' => $peek && ! $bannerWhole,
                                      'h-36 sm:h-44 lg:h-52' => ! $isHero && ! $bannerWhole,
                                  ])>
                         @else
@@ -164,7 +168,8 @@
                             <div class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/75 via-black/35 to-transparent p-4 sm:p-6">
                                 <p @class([
                                     'font-bold text-white drop-shadow',
-                                    'text-lg sm:text-2xl lg:text-3xl' => $isHero,
+                                    'text-lg sm:text-2xl lg:text-3xl' => $isHero && ! $peek,
+                                    'text-base sm:text-lg' => $peek,
                                     'text-base sm:text-lg' => ! $isHero,
                                 ])>{{ $banner->title }}</p>
 

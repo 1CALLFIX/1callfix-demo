@@ -69,15 +69,25 @@ function initCarousel(root) {
     let pausedByUser = false;
     let timer = null;
 
+    // Where a slide starts inside the track. The track may carry left padding
+    // (the phone layout lets it bleed to the screen edge), so that is removed.
+    const slideLeft = (slide) => slide.offsetLeft - track.offsetLeft - (Number.parseFloat(getComputedStyle(track).paddingLeft) || 0);
+    const maxScroll = () => Math.max(0, track.scrollWidth - track.clientWidth);
+
     const currentIndex = () => {
         // Nearest slide to the current scroll position — correct whether we
-        // scrolled programmatically or the viewer swiped.
+        // scrolled programmatically or the viewer swiped. When several slides
+        // fit on screen the last ones can never reach the left edge, so
+        // sitting at the very end counts as the last slide.
         const position = track.scrollLeft;
+        if (slides.length > 1 && maxScroll() > 0 && position >= maxScroll() - 2) {
+            return slides.length - 1;
+        }
         let best = 0;
         let bestDistance = Infinity;
 
         slides.forEach((slide, index) => {
-            const distance = Math.abs(slide.offsetLeft - track.offsetLeft - position);
+            const distance = Math.abs(slideLeft(slide) - position);
             if (distance < bestDistance) {
                 bestDistance = distance;
                 best = index;
@@ -112,7 +122,7 @@ function initCarousel(root) {
      */
     const goTo = (index, smooth = true) => {
         const wrapped = (index + slides.length) % slides.length;
-        const left = slides[wrapped].offsetLeft - track.offsetLeft;
+        const left = Math.min(slideLeft(slides[wrapped]), maxScroll());
 
         window.clearTimeout(fallbackTimer);
 
@@ -149,10 +159,17 @@ function initCarousel(root) {
         // Off-screen slides stay in the DOM (scroll-snap row) but must not
         // count as visible content: hide them from assistive tech and
         // automated readers, and take their links out of the tab order.
+        // With several slides on screen at once (the hero on larger screens,
+        // and the peeking next slide on a phone) every slide the viewer can
+        // see stays live and clickable; only slides scrolled fully out of
+        // view are hidden.
+        const trackBox = track.getBoundingClientRect();
         slides.forEach((slide, i) => {
-            const isCurrent = i === index;
-            slide.setAttribute('aria-hidden', isCurrent ? 'false' : 'true');
-            slide.toggleAttribute('inert', !isCurrent);
+            const box = slide.getBoundingClientRect();
+            const overlap = Math.min(box.right, trackBox.right) - Math.max(box.left, trackBox.left);
+            const isShown = i === index || overlap > 24;
+            slide.setAttribute('aria-hidden', isShown ? 'false' : 'true');
+            slide.toggleAttribute('inert', !isShown);
         });
 
         dots.forEach((dot, i) => {
