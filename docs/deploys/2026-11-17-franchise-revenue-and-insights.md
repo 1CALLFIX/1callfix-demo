@@ -6,7 +6,7 @@ Use with `docs/DEPLOY_RUNBOOK.md`.
 |---|---|
 | Deploys | `main` at the commit that adds this file (`git log -1` in runbook step 1) |
 | Live before | `<hash currently on the server>` |
-| Full test suite | Related files 32/32 (revenue section 5, Franchises 3+, ContactAndFranchisePages, ShareButton: 27 passed together). Full suite NOT yet run on this machine (memory): run it before step 1. |
+| Full test suite | 4947/4948 passed (2026-11-17, run folder by folder); known failure only: NotificationCenterAuditTest::test_provider_status_shows_log_fallback_by_default (.env) |
 | Composer | no (`composer.lock` unchanged) |
 | Front-end build (steps 6–7) | no (Blade only, Alpine already bundled) |
 | Version | `VERSION` 2026.11.17 |
