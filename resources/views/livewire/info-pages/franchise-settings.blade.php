@@ -9,6 +9,7 @@
         'Why a franchise' => [['why_title', 'why_intro'], ['why']],
         'Every business (live list from the app) and comparison' => [['biz_title', 'biz_intro', 'biz_live', 'note_service', 'note_parcel', 'note_rental', 'note_food', 'note_grocery', 'note_pharmacy', 'note_commerce', 'note_taxi', 'note_hotel', 'note_events', 'compare_title', 'compare_them', 'compare_us'], ['compare']],
         'What it costs on your own' => [['alone_title', 'alone_intro', 'alone_cost_label', 'alone_time_label', 'alone_risk_label', 'alone_total_label', 'alone_total', 'alone_vs', 'alone_us_label', 'alone_us', 'alone_note', 'pitfalls_title'], ['alone', 'pitfalls']],
+        'Revenue potential (what a city can earn: rows, buttons, running cost)' => [['rev_title', 'rev_intro', 'rev_scen_low', 'rev_scen_low_pct', 'rev_scen_mid', 'rev_scen_mid_pct', 'rev_scen_high', 'rev_scen_high_pct', 'rev_total_label', 'rev_cost_label', 'rev_cost', 'rev_royalty_pct', 'rev_left_label', 'rev_note'], ['streams']],
         'Franchise plans and fees' => [['plans_title', 'plans_intro', 'plans_badge', 'plans_note', 'plans_royalty_label', 'plans_term_label'], ['plans']],
         'Business picker (fee for the businesses a franchisee picks)' => [['pick_title', 'pick_intro', 'fee_all', 'fee_two', 'fee_addon', 'fee_one', 'pick_one_note', 'pick_result'], []],
         'Payment steps and areas' => [['pay_title', 'areas_title'], ['payment', 'areas']],

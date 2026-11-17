@@ -260,6 +260,8 @@
         </section>
     @endif
 
+    @include('customer.franchise-revenue')
+
     {{-- ============ Plans, business picker, payment, areas (owner 2026-11-14: charge per business picked) ============ --}}
     @if ($p['plans'] || $pickerOn)
         <section class="bg-gradient-to-b from-amber-50 via-white to-white" aria-labelledby="fr-plans" data-franchise-plans>

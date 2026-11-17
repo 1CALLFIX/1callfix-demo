@@ -107,6 +107,14 @@ class RazorpayWebhookHandler
         });
 
         if (! $payment) {
+            // Listing fee (2026-11-17): its own table, not a Payment row (payments.purpose is not widened for it).
+            if ($fee = app(\App\Services\Homes\ListingFeeService::class)->handleCaptured((string) $razorpayOrderId, $razorpayPaymentId, $capturedAmount)) {
+                if ($fee['outcome'] === 'amount_mismatch') {
+                    Log::error('Razorpay webhook: listing fee amount does not match, NOT activated.', ['listing_fee_id' => $fee['fee']->id, 'gateway_order_id' => $razorpayOrderId, 'captured_paise' => $capturedAmount]);
+                }
+
+                return ['outcome' => $fee['outcome'], 'payment' => null];
+            }
             Log::warning("Razorpay webhook: no local payment found for order [{$razorpayOrderId}].");
 
             return ['outcome' => 'unmatched_order', 'payment' => null];

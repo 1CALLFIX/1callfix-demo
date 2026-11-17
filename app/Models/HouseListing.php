@@ -30,7 +30,7 @@ class HouseListing extends Model
         'provider_id', 'franchise_id', 'zone_id', 'title', 'slug', 'home_type', 'size', 'area', 'floor', 'facing', 'furnishing',
         'tenants', 'rent', 'deposit', 'maintenance', 'available_from', 'landmark', 'address_line', 'lat', 'lng', 'amenities',
         'rule_list', 'about', 'cover_image', 'photos', 'contact_phone', 'status', 'rejection_reason', 'submitted_at',
-        'approved_at', 'is_active', 'is_featured', 'rented_at', 'expires_at', 'pending_changes', 'pending_requested_at',
+        'approved_at', 'is_active', 'is_featured', 'featured_until', 'rented_at', 'expires_at', 'pending_changes', 'pending_requested_at',
         'pending_rejection',
     ];
 
@@ -50,6 +50,7 @@ class HouseListing extends Model
         'submitted_at' => 'datetime',
         'approved_at' => 'datetime',
         'rented_at' => 'datetime',
+        'featured_until' => 'datetime',
         'expires_at' => 'datetime',
         'pending_requested_at' => 'datetime',
     ];

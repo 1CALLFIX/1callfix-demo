@@ -63,6 +63,12 @@ final class WalletSourceLabel
             'regex' => '/^hall_booking:\d+:damage-claim-\d+$/',
             'like' => ['%:damage-claim-%'],
         ],
+        // Property listing fee (2026-11-17): an owner pays to show or feature a property, from the wallet.
+        'listing_fee' => [
+            'label' => 'Property listing fee',
+            'regex' => '/^listingfee:\d+$/',
+            'like' => ['listingfee:%'],
+        ],
         // Parcel Stage 2 (2026-10-31): a protection claim paid into the customer's wallet (approval model).
         'protection_payout' => [
             'label' => 'Parcel protection payout',
@@ -224,6 +230,7 @@ final class WalletSourceLabel
         ],
         'app/Services/Parcel/ParcelProtectionClaimService.php' => ['parcel_order:1:protection-claim-2'],
         'app/Services/Halls/HallDamageClaimService.php' => ['hall_booking:1:damage-claim-2'],
+        'app/Services/Homes/ListingFeeService.php' => ['listingfee:1'],
         'app/Services/Parcel/ParcelPackService.php' => ['parcel_pack_purchase:1:wallet-payment'],
         'app/Services/Parcel/FieldWorkerCashDueService.php' => [
             'rider-cash-due:1:settle:00000000-0000-0000-0000-000000000000',

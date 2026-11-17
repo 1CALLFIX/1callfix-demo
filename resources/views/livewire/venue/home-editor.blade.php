@@ -47,6 +47,66 @@
                 <button type="button" wire:click="stillAvailable" class="min-h-11 rounded-xl bg-emerald-600 px-4 font-semibold text-white" data-testid="home-available">{{ $home->rented_at ? 'Available again' : 'Still available' }}</button>
             </div>
         </div>
+        @if (($fee['on'] ?? false) || ($fee['featured'] ?? 0) > 0)
+            <div class="space-y-3 rounded-2xl border border-indigo-200 bg-indigo-50 p-4 text-sm text-indigo-900" data-testid="home-fee-box">
+                @if ($fee['on'])
+                    <p class="font-semibold">
+                        @if ($home->expires_at && $home->expires_at->isFuture())
+                            Your listing runs until {{ $home->expires_at->format('j M Y') }}. Add {{ $fee['listingDays'] }} more days for {{ $symbol }}{{ number_format($fee['listing']) }}.
+                        @else
+                            Show your property to customers for {{ $fee['listingDays'] }} days: {{ $symbol }}{{ number_format($fee['listing']) }}.
+                        @endif
+                    </p>
+                    <div class="flex flex-wrap gap-2">
+                        @if ($fee['online'])
+                            <button type="button" wire:click="payFee('listing', 'online')" wire:loading.attr="disabled" class="min-h-11 rounded-xl bg-indigo-600 px-4 font-semibold text-white" data-testid="fee-listing-online">Pay online</button>
+                        @endif
+                        <button type="button" wire:click="payFee('listing', 'wallet')" wire:loading.attr="disabled" class="min-h-11 rounded-xl border border-indigo-300 bg-white px-4 font-semibold text-indigo-800" data-testid="fee-listing-wallet">Pay from wallet ({{ $symbol }}{{ number_format($fee['wallet']) }})</button>
+                    </div>
+                @endif
+                @if ($fee['featured'] > 0 && $home->isLive())
+                    <p class="{{ $fee['on'] ? 'border-t border-indigo-200 pt-3 ' : '' }}font-semibold">
+                        @if ($home->is_featured && $home->featured_until && $home->featured_until->isFuture())
+                            Shown first until {{ $home->featured_until->format('j M Y') }}. Add {{ $fee['featuredDays'] }} more days for {{ $symbol }}{{ number_format($fee['featured']) }}.
+                        @else
+                            Show it first on the lists for {{ $fee['featuredDays'] }} days: {{ $symbol }}{{ number_format($fee['featured']) }}. Optional.
+                        @endif
+                    </p>
+                    <div class="flex flex-wrap gap-2">
+                        @if ($fee['online'])
+                            <button type="button" wire:click="payFee('featured', 'online')" wire:loading.attr="disabled" class="min-h-11 rounded-xl bg-amber-500 px-4 font-semibold text-white" data-testid="fee-featured-online">Pay online</button>
+                        @endif
+                        <button type="button" wire:click="payFee('featured', 'wallet')" wire:loading.attr="disabled" class="min-h-11 rounded-xl border border-amber-300 bg-white px-4 font-semibold text-amber-800" data-testid="fee-featured-wallet">Pay from wallet</button>
+                    </div>
+                @endif
+                @if ($fee['wallet'] < max($fee['listing'], $fee['featured']))
+                    <p class="text-xs">Wallet low? <a class="font-semibold underline" href="{{ route('customer.earnings.wallet') }}" target="_blank" rel="noopener">Add money to your wallet</a> (one minute), then come back.</p>
+                @endif
+            </div>
+            @if ($fee['online'])
+                @assets
+                <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+                @endassets
+                @script
+                <script>
+                    $wire.on('razorpay-open', (e) => {
+                        const o = e.order ?? e[0]?.order;
+                        if (!o || !window.Razorpay) return;
+                        new window.Razorpay({
+                            key: o.razorpay_key_id ?? o.key_id,
+                            order_id: o.razorpay_order_id,
+                            amount: o.amount,
+                            currency: o.currency,
+                            name: @js(\App\Models\Setting::get('branding.platform_name', '1CallFix')),
+                            prefill: @js(\App\Support\RazorpayPrefill::forCurrentUser()),
+                            description: 'Property listing fee',
+                            handler: () => window.location.reload(),
+                        }).open();
+                    });
+                </script>
+                @endscript
+            @endif
+        @endif
         @if ($home->pending_changes)
             <div role="status" class="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
                 <p>⏳ Your change ({{ collect(array_keys($home->pending_changes))->map(fn ($f) => ['about' => 'description', 'address_line' => 'address', 'landmark' => 'landmark', 'lat' => 'location', 'lng' => 'location', 'cover_image' => 'main photo', 'photos' => 'photos'][$f] ?? $f)->unique()->implode(', ') }}) is waiting for our check.</p>

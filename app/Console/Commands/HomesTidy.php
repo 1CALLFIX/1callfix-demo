@@ -15,6 +15,7 @@ class HomesTidy extends Command
     public function handle(HouseListingService $homes): int
     {
         $this->info('Closed '.$homes->tidy()['expired_requests'].' unanswered visit request(s).');
+        $this->info('Ended '.\App\Services\Homes\ListingFeeService::endLapsedFeatures().' paid feature(s) that ran out.');
 
         return self::SUCCESS;
     }

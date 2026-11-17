@@ -158,7 +158,7 @@ class ContactAndFranchisePagesTest extends TestCase
     {
         $html = $this->get('/franchise')->assertOk()->getContent();
         $this->assertSame(7, substr_count($html, 'data-franchise-alone-card'));
-        foreach (['Home Repair &amp; Handyman', '₹15–20 Lakhs', '18–24 months', 'Hotel &amp; Stay Booking', 'Rentals', 'Events &amp; Tickets', 'data-franchise-alone-total', '₹66–96 Lakhs', 'The risks of starting from scratch'] as $text) {
+        foreach (['Home services', '₹6–12 Lakhs', '₹75,000–2 L', 'Hotel booking', 'Rentals', 'Events &amp; tickets', 'data-franchise-alone-total', '₹30–59 Lakhs', 'The risks of starting from scratch'] as $text) {
             $this->assertStringContainsString($text, $html);
         }
         $this->assertSame(2, substr_count($html, 'data-faq-column'));

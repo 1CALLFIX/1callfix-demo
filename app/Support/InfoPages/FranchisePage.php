@@ -14,8 +14,10 @@ use App\Support\Modules;
  * ONE settings key (`franchise_page.content`, JSON, audit-logged by SettingsAuditor) edited on Admin → Website & Pages →
  * Franchise page, which only a Super Admin can open.
  *
- * Trust rules for the defaults: nothing invented. No investment amounts, returns, payback periods, franchise counts or
- * testimonials are shipped — those blocks stay hidden until the Super Admin fills them in. The "live numbers" strip is
+ * Trust rules for the defaults: nothing invented. No returns, payback periods, franchise counts or testimonials are
+ * shipped — those blocks stay hidden until the Super Admin fills them in. Exceptions the owner approved 2026-11-17: the
+ * "what it takes on your own" planning ranges and the "Revenue potential" model (illustrative orders x average order x
+ * commission, three scenario buttons, always labelled an estimate, every number editable by the Super Admin). The "live numbers" strip is
  * read from the database (services on sale, businesses live, approved partners) and a number that is 0 is not shown.
  *
  * Applying is NOT a second sign-up (owner rule: every partner joins through /partners): the page's buttons open the
@@ -81,6 +83,20 @@ final class FranchisePage
         'alone_vs' => ['"On your own": total line, word in the middle', 10],
         'alone_note' => ['"On your own": small print', 300],
         'pitfalls_title' => ['"Starting from scratch" list heading', 80],
+        'rev_title' => ['Revenue potential heading (the section shows only when it has rows)', 80],
+        'rev_intro' => ['Revenue potential line under the heading', 300],
+        'rev_scen_low' => ['Revenue potential: first button label (e.g. Just starting)', 30],
+        'rev_scen_low_pct' => ['Revenue potential: first button, % of the monthly orders below (empty = button hidden)', 4],
+        'rev_scen_mid' => ['Revenue potential: second button label (e.g. Growing)', 30],
+        'rev_scen_mid_pct' => ['Revenue potential: second button, % of the monthly orders below (empty = button hidden)', 4],
+        'rev_scen_high' => ['Revenue potential: third button label (e.g. Our target)', 30],
+        'rev_scen_high_pct' => ['Revenue potential: third button, % of the monthly orders below (empty = button hidden)', 4],
+        'rev_total_label' => ['Revenue potential: total line label', 80],
+        'rev_cost_label' => ['Revenue potential: running cost line label', 80],
+        'rev_cost' => ['Revenue potential: typical monthly running cost of a small local team, in rupees (empty = hidden)', 10],
+        'rev_royalty_pct' => ['Revenue potential: royalty in % of the earnings above, taken off in the result (empty = not shown; set it only when the royalty base is fixed in the agreement)', 5],
+        'rev_left_label' => ['Revenue potential: result line label', 80],
+        'rev_note' => ['Revenue potential: small print', 400],
         'compare_title' => ['Comparison table heading', 80],
         'compare_them' => ['Comparison table: left column heading', 40],
         'compare_us' => ['Comparison table: right column heading', 40],
@@ -123,6 +139,7 @@ final class FranchisePage
         'areas' => ['Area table (franchise type, city population, exclusive area)', 6, ['type' => 60, 'population' => 60, 'radius' => 60]],
         'alone' => ['"On your own" cards (business, set-up cost, time to profit, risks)', 10, ['icon' => 20, 'name' => 60, 'cost' => 40, 'time' => 40, 'risks' => 200]],
         'pitfalls' => ['"Starting from scratch" risks (title + text)', 6, ['title' => 60, 'text' => 200]],
+        'streams' => ['Revenue potential rows (business, orders a month, average order in rupees, our commission %, extra rupees per order)', 10, ['icon' => 20, 'name' => 60, 'orders' => 8, 'value' => 10, 'pct' => 6, 'extra' => 8]],
         'compare' => ['Comparison rows (what / one-business franchise / 1CallFix franchise)', 8, ['label' => 60, 'them' => 120, 'us' => 160]],
         'support' => ['"What you get" lines', 10, ['text' => 140]],
         'invest' => ['Investment figures (label + value), e.g. "Investment" / "₹…"', 6, ['label' => 60, 'value' => 60]],
@@ -134,12 +151,16 @@ final class FranchisePage
     ];
 
     /** List fields that may be left empty (e.g. an add-on plan has no royalty or term of its own). */
-    public const OPTIONAL_FIELDS = ['plans.was', 'plans.royalty', 'plans.validity', 'plans.text'];
+    public const OPTIONAL_FIELDS = ['plans.was', 'plans.royalty', 'plans.validity', 'plans.text', 'streams.extra'];
 
     /** Switches: key => [admin label, default]. */
     public const SWITCHES = [
         'show_live_stats' => ['Show live numbers from the app (services, businesses live, approved partners)', true],
         'show_contact' => ['Show phone / WhatsApp / email from the Contact page', true],
+        // Franchise owner's "Franchise Insights" dashboard (Finance menu): which blocks the owners see. Super Admin always sees all.
+        'insights_funnel' => ['Franchise dashboard: show the bookings block (placed, completed, cancelled, average job value)', true],
+        'insights_customers' => ['Franchise dashboard: show the customers block (active, new, repeat)', true],
+        'insights_services' => ['Franchise dashboard: show "top services" and the 14-day trend', true],
     ];
 
     /** @return array<string, mixed> */
@@ -182,17 +203,31 @@ final class FranchisePage
             'pick_result' => 'Your franchise fee (launch offer)',
             'pay_title' => 'Easy payment',
             'areas_title' => 'Your area, only yours',
-            'alone_title' => 'What it costs to start each business on your own',
-            'alone_intro' => 'Every business needs its own app, team, marketing and time. With a franchise, all of that is ready on day one.',
-            'alone_cost_label' => 'Set-up cost on your own',
-            'alone_time_label' => 'Time to profit',
+            'alone_title' => 'What it takes to start each business on your own',
+            'alone_intro' => 'Every business needs its own team, marketing and working money. With a franchise, the apps, brand and payments are ready on day one.',
+            'alone_cost_label' => 'Set-up on your own',
+            'alone_time_label' => 'Running cost a month',
             'alone_risk_label' => 'Risks',
-            'alone_total_label' => 'All seven on your own',
-            'alone_total' => '₹66–96 Lakhs',
-            'alone_us_label' => '1CallFix All-in-One franchise, every business',
+            'alone_total_label' => 'Seven separate businesses, each on its own',
+            'alone_total' => '₹30–59 Lakhs',
+            'alone_us_label' => '1CallFix All-in-One franchise fee, every business',
             'alone_us' => '₹5.5 Lakhs',
             'alone_vs' => 'vs',
-            'alone_note' => 'Set-up costs and timelines are our estimates for a business started independently in an Indian city. They help you plan; they are not a promise of income.',
+            'alone_note' => 'Planning estimates for a small independent operator in a Tier-2 or Tier-3 Indian city, with a modest working reserve and without buying property. They are not quotes and vary by city and size. The franchise fee does not include your own local running costs: see the revenue section below.',
+            'rev_title' => 'What your city can earn',
+            'rev_intro' => 'Eight ways to earn from one app. Tap a button to see a slower or faster start.',
+            'rev_scen_low' => 'Just starting',
+            'rev_scen_low_pct' => '40',
+            'rev_scen_mid' => 'Growing',
+            'rev_scen_mid_pct' => '70',
+            'rev_scen_high' => 'Our target',
+            'rev_scen_high_pct' => '100',
+            'rev_total_label' => 'Commission earned in your city, a month',
+            'rev_cost_label' => 'Typical running cost of a small local team',
+            'rev_cost' => '75000',
+            'rev_royalty_pct' => '8',
+            'rev_left_label' => 'Left after running costs, before tax',
+            'rev_note' => 'An example to help you plan, not a promise of income. Orders, order values and commission are our working assumptions for a mid-size city; your real results depend on demand, partners and your team. The royalty is a percentage of the total income your franchise earns (the commission above), not of order values. Your share and territory are written in your franchise agreement.',
             'pitfalls_title' => 'The risks of starting from scratch',
             'compare_title' => 'One business, or all of them?',
             'compare_them' => 'A one-business franchise',
@@ -266,14 +301,16 @@ final class FranchisePage
                 ['type' => 'Area Franchise', 'population' => '3–5 lakh people', 'radius' => '10–15 km radius'],
                 ['type' => 'City Franchise', 'population' => '8–10 lakh people', 'radius' => '20–25 km radius'],
             ],
-            'alone' => [
-                ['icon' => 'bolt', 'name' => 'Home Repair & Handyman', 'cost' => '₹7–10 Lakhs', 'time' => '18–24 months', 'risks' => 'Winning customer trust against competitors, high marketing cost for every new customer, hiring and keeping skilled professionals.'],
-                ['icon' => 'sparkles', 'name' => 'Food Delivery', 'cost' => '₹15–20 Lakhs', 'time' => '12–18 months', 'risks' => 'Heavy competition from the big apps, complicated delivery operations, customers who are hard to keep.'],
-                ['icon' => 'squares', 'name' => 'E-commerce', 'cost' => '₹10–15 Lakhs', 'time' => '18–24 months', 'risks' => 'Cost of managing stock, the need for a strong online presence, delivery and logistics problems.'],
-                ['icon' => 'map-pin', 'name' => 'Parcel Delivery', 'cost' => '₹8–12 Lakhs', 'time' => '12–18 months', 'risks' => 'Depending on outside delivery services, high running costs, legal rules to follow.'],
-                ['icon' => 'building', 'name' => 'Hotel & Stay Booking', 'cost' => '₹10–15 Lakhs', 'time' => '18–24 months', 'risks' => 'Big travel apps already own the customer, hotels must keep rooms and prices up to date, cancellations and refunds.'],
-                ['icon' => 'clock', 'name' => 'Rentals', 'cost' => '₹8–12 Lakhs', 'time' => '18–24 months', 'risks' => 'Getting hall and property owners to list, old or false listings, deposits and disputes.'],
-                ['icon' => 'star', 'name' => 'Events & Tickets', 'cost' => '₹8–12 Lakhs', 'time' => '12–18 months', 'risks' => 'Few events in some months, organisers who must trust your payouts, refunds when an event is cancelled.'],
+            'alone' => self::aloneDefaults(),
+            'streams' => [
+                ['icon' => 'bolt', 'name' => 'Home services', 'orders' => '100', 'value' => '1000', 'pct' => '25', 'extra' => ''],
+                ['icon' => 'sparkles', 'name' => 'Food delivery', 'orders' => '500', 'value' => '1000', 'pct' => '10', 'extra' => '15'],
+                ['icon' => 'squares', 'name' => 'Shopping', 'orders' => '300', 'value' => '1000', 'pct' => '10', 'extra' => '10'],
+                ['icon' => 'map-pin', 'name' => 'Local parcel', 'orders' => '200', 'value' => '50', 'pct' => '30', 'extra' => ''],
+                ['icon' => 'building', 'name' => 'Hotel booking', 'orders' => '100', 'value' => '2000', 'pct' => '15', 'extra' => ''],
+                ['icon' => 'star', 'name' => 'Function halls', 'orders' => '10', 'value' => '50000', 'pct' => '10', 'extra' => ''],
+                ['icon' => 'clock', 'name' => 'Property rentals', 'orders' => '8', 'value' => '10000', 'pct' => '10', 'extra' => ''],
+                ['icon' => 'chart-bar', 'name' => 'Events & tickets', 'orders' => '500', 'value' => '500', 'pct' => '10', 'extra' => ''],
             ],
             'pitfalls' => [
                 ['title' => 'High first investment', 'text' => 'Setting up several businesses one by one costs a lot.'],
@@ -319,7 +356,55 @@ final class FranchisePage
 
             'show_live_stats' => true,
             'show_contact' => true,
+            'insights_funnel' => true,
+            'insights_customers' => true,
+            'insights_services' => true,
         ];
+    }
+
+    /**
+     * "What it takes on your own" cards (owner 2026-11-17, planning ranges for a small operator in a Tier-2/3 city:
+     * set-up with a modest reserve, and the usual monthly running cost). The "time" field now holds the monthly cost.
+     *
+     * @return list<array<string, string>>
+     */
+    public static function aloneDefaults(): array
+    {
+        return [
+            ['icon' => 'bolt', 'name' => 'Home services', 'cost' => '₹4–8 Lakhs', 'time' => '₹60,000–1.5 L', 'risks' => 'Winning trust against local rivals, paying for every new customer, finding and keeping skilled technicians.'],
+            ['icon' => 'sparkles', 'name' => 'Food delivery', 'cost' => '₹6–12 Lakhs', 'time' => '₹75,000–2 L', 'risks' => 'Big apps already own the habit, riders and restaurants must both be kept happy, hard to keep customers.'],
+            ['icon' => 'squares', 'name' => 'Shopping', 'cost' => '₹5–10 Lakhs', 'time' => '₹60,000–1.5 L', 'risks' => 'Getting shops to list and keep stock updated, delivery problems, strong online rivals.'],
+            ['icon' => 'map-pin', 'name' => 'Parcel delivery', 'cost' => '₹3.5–7 Lakhs', 'time' => '₹60,000–1.5 L', 'risks' => 'Rider pay and fuel eat the margin, lost or damaged parcels, rules for vehicles and documents.'],
+            ['icon' => 'building', 'name' => 'Hotel booking', 'cost' => '₹5–10 Lakhs', 'time' => '₹50,000–1.25 L', 'risks' => 'Big travel apps own the customer, hotels must keep rooms and prices current, cancellations and refunds.'],
+            ['icon' => 'clock', 'name' => 'Rentals', 'cost' => '₹3–6 Lakhs', 'time' => '₹40,000–1 L', 'risks' => 'Getting owners to list, old or false listings, deposits and disputes.'],
+            ['icon' => 'star', 'name' => 'Events & tickets', 'cost' => '₹3–6 Lakhs', 'time' => '₹40,000–1 L', 'risks' => 'Few events in some months, organisers who must trust your payouts, refunds when an event is cancelled.'],
+        ];
+    }
+
+    /**
+     * The revenue-potential model: each row earns orders x (average order x commission % + extra per order) a month.
+     * Pure arithmetic over the Super Admin's own figures; nothing is read from or promised by the live business.
+     *
+     * @param  list<array<string, mixed>>  $streams
+     * @return array{rows: list<array<string, mixed>>, orders: float, gmv: float, earn: float}
+     */
+    public static function revenueModel(array $streams): array
+    {
+        $rows = [];
+        $orders = $gmv = $earn = 0.0;
+        foreach ($streams as $s) {
+            $o = (float) ($s['orders'] ?? 0);
+            $v = (float) ($s['value'] ?? 0);
+            $p = (float) ($s['pct'] ?? 0);
+            $x = (float) ($s['extra'] ?? 0);
+            $e = $o * ($v * $p / 100 + $x);
+            $rows[] = $s + ['earn' => round($e, 2)];
+            $orders += $o;
+            $gmv += $o * $v;
+            $earn += $e;
+        }
+
+        return ['rows' => $rows, 'orders' => $orders, 'gmv' => round($gmv, 2), 'earn' => round($earn, 2)];
     }
 
     /** The page content: the Super Admin's saved version over the defaults (a saved key wins, even an empty list). */
@@ -454,7 +539,13 @@ final class FranchisePage
         if ($share !== '' && (! is_numeric($share) || (float) $share <= 0 || (float) $share > 100)) {
             $errors['calc_share'] = 'Write a number between 0 and 100, like 10, or leave it empty to hide the calculator.';
         }
-        foreach (['fee_all', 'fee_two', 'fee_addon', 'fee_one'] as $fee) {
+        foreach (['rev_scen_low_pct', 'rev_scen_mid_pct', 'rev_scen_high_pct', 'rev_royalty_pct'] as $pct) {
+            $v = trim((string) ($c[$pct] ?? ''));
+            if ($v !== '' && (! is_numeric($v) || (float) $v <= 0 || (float) $v > 100)) {
+                $errors[$pct] = 'Write a number between 1 and 100, or leave it empty.';
+            }
+        }
+        foreach (['rev_cost', 'fee_all', 'fee_two', 'fee_addon', 'fee_one'] as $fee) {
             $v = trim((string) ($c[$fee] ?? ''));
             if ($v !== '' && ! ctype_digit($v)) {
                 $errors[$fee] = 'Numbers only, in rupees, like 350000 (no ₹, commas or spaces).';
@@ -490,6 +581,8 @@ final class FranchisePage
                             continue;
                         }
                         $errors["{$key}.{$i}.{$field}"] = 'Fill this in, or remove the row.';
+                    } elseif ($key === 'streams' && in_array($field, ['orders', 'value', 'pct', 'extra'], true) && (! is_numeric($v) || (float) $v < 0 || ($field === 'pct' && (float) $v > 100))) {
+                        $errors["{$key}.{$i}.{$field}"] = $field === 'pct' ? 'A number from 0 to 100.' : 'A number, 0 or more (no ₹ or commas).';
                     } elseif (mb_strlen($v) > $max) {
                         $errors["{$key}.{$i}.{$field}"] = "At most {$max} characters.";
                     } elseif ($placeholder($v)) {

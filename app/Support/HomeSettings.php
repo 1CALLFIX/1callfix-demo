@@ -99,6 +99,19 @@ class HomeSettings extends MarketplaceSettings
             'group' => 'Property for rent · Listing', 'label' => 'A listing stays up for', 'type' => 'int', 'unit' => 'days', 'min' => 7, 'max' => 365,
             'default' => '60', 'help' => 'Then it is hidden until the owner taps "Still available". Keeps rented homes off the list.',
         ],
+        // Owner 2026-11-17: "a listing fee is earned the moment someone lists". 0 = free (nothing changes until set).
+        'homes.listing_fee' => [
+            'group' => 'Property for rent · Listing fee', 'label' => 'Fee to show a property (each listing period)', 'type' => 'int', 'unit' => '₹', 'min' => 0, 'max' => 100000,
+            'default' => '0', 'help' => '0 = free. Above 0: after the team approves a property it goes live only when the owner pays this (online or from the wallet), and again to renew after the period above. Set it per city or zone.',
+        ],
+        'homes.featured_fee' => [
+            'group' => 'Property for rent · Listing fee', 'label' => 'Fee to feature a property (shown first)', 'type' => 'int', 'unit' => '₹', 'min' => 0, 'max' => 100000,
+            'default' => '0', 'help' => '0 = owners cannot buy this. Above 0: a live property can be shown first on the home and rental lists for the days below.',
+        ],
+        'homes.featured_days' => [
+            'group' => 'Property for rent · Listing fee', 'label' => 'A paid feature lasts', 'type' => 'int', 'unit' => 'days', 'min' => 1, 'max' => 365,
+            'default' => '15', 'help' => 'Then it goes back to the normal order.',
+        ],
         'homes.min_rent' => [
             'group' => 'Property for rent · Listing', 'label' => 'Lowest rent an owner can enter', 'type' => 'int', 'unit' => '₹ per month', 'min' => 0, 'max' => 100000,
             'default' => '1000', 'help' => 'Stops typing mistakes.',

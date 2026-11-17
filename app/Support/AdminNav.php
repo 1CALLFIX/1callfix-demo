@@ -187,6 +187,7 @@ class AdminNav
                     ['label' => 'Payouts', 'route' => 'admin.payouts.index', 'icon' => 'banknotes', 'permission' => 'payouts.manage'],
                     ['label' => 'Commissions', 'route' => 'admin.commissions.index', 'icon' => 'banknotes', 'permission' => 'commissions.view'],
                     ['label' => 'Franchise Earnings', 'route' => 'admin.franchise-earnings.index', 'icon' => 'banknotes', 'permission' => 'commissions.view'],
+                    ['label' => 'Franchise Insights', 'route' => 'admin.franchise-insights.index', 'icon' => 'chart-bar', 'permission' => 'commissions.view'],
                     ['label' => 'Mismatch Refunds', 'route' => 'admin.mismatch-refunds.index', 'icon' => 'banknotes', 'permission' => 'payments.refund_mismatch'],
                     // super_admin only (permission never seeded to a role).
                     ['label' => 'Refund Controls', 'route' => 'admin.refund-controls.index', 'icon' => 'shield', 'permission' => 'refund_controls.manage'],

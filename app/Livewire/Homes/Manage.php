@@ -79,9 +79,9 @@ class Manage extends Component
             return;
         }
         $home->update(['status' => 'approved', 'approved_at' => now(), 'rejection_reason' => null, 'is_active' => true, 'rented_at' => null,
-            'expires_at' => now()->addDays((int) HomeSettings::get('homes.listing_days', $home->scope()))]);
+            'expires_at' => \App\Services\Homes\ListingFeeService::required($home) ? now() : now()->addDays((int) HomeSettings::get('homes.listing_days', $home->scope()))]);
         ActivityLogger::logModel(auth()->user(), $home, 'Home for rent approved (admin)');
-        session()->flash('message', "{$home->title} approved.");
+        session()->flash('message', "{$home->title} approved.".(\App\Services\Homes\ListingFeeService::required($home) ? ' It goes live when the owner pays the listing fee.' : ''));
     }
 
     public function sendBack(int $id): void

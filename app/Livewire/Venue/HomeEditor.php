@@ -6,6 +6,8 @@ use App\Livewire\Venue\Concerns\InteractsWithHalls;
 use App\Models\HouseListing;
 use App\Models\Zone;
 use App\Services\ActivityLogger;
+use App\Services\Homes\ListingFeeService;
+use App\Services\WalletService;
 use App\Support\HomeSettings;
 use App\Support\ImageShrinker;
 use Illuminate\Support\Facades\DB;
@@ -377,9 +379,35 @@ class HomeEditor extends Component
         if ($home?->status !== 'approved') {
             return;
         }
-        $home->update(['rented_at' => null, 'is_active' => true, 'expires_at' => now()->addDays((int) HomeSettings::get('homes.listing_days', $home->scope()))]);
+        // Listing fee (2026-11-17): where a fee applies, a period that has run out is renewed by paying, not by a tap.
+        if (ListingFeeService::required($home) && ! ListingFeeService::hasValidPeriod($home)) {
+            $this->addError('home', 'Pay the listing fee below to show your property again.');
+
+            return;
+        }
+        $home->update(['rented_at' => null, 'is_active' => true] + (ListingFeeService::required($home) ? [] : ['expires_at' => now()->addDays((int) HomeSettings::get('homes.listing_days', $home->scope()))]));
         ActivityLogger::logModel(auth()->user(), $home, 'Home shown again: still available (Rental portal)');
         $this->notice = 'Customers see your property again until '.$home->expires_at->format('j M Y').'.';
+    }
+
+    /** Pay the listing fee or the feature fee, from the wallet ("wallet") or online ("online"). */
+    public function payFee(string $kind, string $method): void
+    {
+        $home = $this->home();
+        if ($home === null || ! in_array($method, ['wallet', 'online'], true)) {
+            return;
+        }
+        $fees = app(ListingFeeService::class);
+        try {
+            if ($method === 'wallet') {
+                $fees->payFromWallet(auth()->user(), $home, $kind);
+                $this->notice = $kind === 'featured' ? 'Done. Your property is shown first for now.' : 'Paid. Customers see your property until '.$home->fresh()->expires_at->format('j M Y').'.';
+            } else {
+                $this->dispatch('razorpay-open', order: $fees->startOnline(auth()->user(), $home, $kind))->self();
+            }
+        } catch (\RuntimeException $e) {
+            $this->addError('home', $e->getMessage());
+        }
     }
 
     public function withdrawChanges(): void
@@ -419,6 +447,15 @@ class HomeEditor extends Component
             'minPhotos' => (int) HomeSettings::get('homes.min_photos', $scope),
             'symbol' => \App\Models\Setting::get('locale.currency_symbol', '₹'),
             'rentValue' => $rent,
+            'fee' => $home && $home->status === 'approved' ? [
+                'on' => ListingFeeService::required($home),
+                'listing' => ListingFeeService::amount($home, 'listing'),
+                'listingDays' => ListingFeeService::days($home, 'listing'),
+                'featured' => ListingFeeService::amount($home, 'featured'),
+                'featuredDays' => ListingFeeService::days($home, 'featured'),
+                'wallet' => app(WalletService::class)->balance(auth()->user()),
+                'online' => app(ListingFeeService::class)->onlineAvailable($home),
+            ] : null,
         ])->layout('components.layouts.venue', ['title' => $home ? $home->title : 'Add a home for rent']);
     }
 }
