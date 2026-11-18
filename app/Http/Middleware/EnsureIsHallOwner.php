@@ -14,9 +14,9 @@ class EnsureIsHallOwner
 {
     public function handle(Request $request, Closure $next): Response
     {
-        // One Rental portal (2026-11-14): hall owners and property owners.
+        // One Rental portal (2026-11-14): hall owners, property owners and (2026-11-18) vehicle owners.
         $user = $request->user();
-        abort_unless($user !== null && ($user->holdsPartnerRole('halls') || $user->holdsPartnerRole('homes')), 403, 'This area is for 1CallFix rental partners.');
+        abort_unless($user !== null && ($user->holdsPartnerRole('halls') || $user->holdsPartnerRole('homes') || $user->holdsPartnerRole('vehicles')), 403, 'This area is for 1CallFix rental partners.');
 
         return $next($request);
     }

@@ -17,7 +17,8 @@
         @foreach ($sections as $s)
             <li>
                 @php $c = ['teal' => ['border-teal-100 bg-teal-50 hover:border-teal-400', 'bg-teal-600', 'text-teal-900', 'text-teal-800'],
-                    'emerald' => ['border-emerald-100 bg-emerald-50 hover:border-emerald-400', 'bg-emerald-600', 'text-emerald-900', 'text-emerald-800']][$s['colour']] ?? ['border-slate-100 bg-slate-50', 'bg-slate-600', 'text-slate-900', 'text-slate-800']; @endphp
+                    'emerald' => ['border-emerald-100 bg-emerald-50 hover:border-emerald-400', 'bg-emerald-600', 'text-emerald-900', 'text-emerald-800'],
+                    'sky' => ['border-sky-100 bg-sky-50 hover:border-sky-400', 'bg-sky-600', 'text-sky-900', 'text-sky-800']][$s['colour']] ?? ['border-slate-100 bg-slate-50', 'bg-slate-600', 'text-slate-900', 'text-slate-800']; @endphp
                 <a href="{{ $s['url'] }}" wire:navigate class="flex min-h-24 items-center gap-4 rounded-2xl border-2 p-4 transition {{ $c[0] }}" data-kind="{{ $s['kind'] }}">
                     <span class="grid h-14 w-14 shrink-0 place-items-center rounded-2xl text-3xl {{ $c[1] }}" aria-hidden="true">{{ $s['icon'] }}</span>
                     <span class="flex-1">

@@ -61,11 +61,16 @@ class ModuleLiveLabelsTest extends TestCase
         $this->assertSame('Rental', $names['rental']);
         $this->assertArrayNotHasKey('halls', $names->all());
 
-        // Function halls on by default; Vehicles and Equipment off, so their partner card is hidden until switched on.
+        // Function halls on by default; Vehicles and Equipment off, so their partner cards are hidden until switched on.
+        // Vehicles for rent (2026-11-18) have their own "Vehicle owner" card; the "rental" card is equipment only.
         $codes = fn () => collect(PartnerPageData::roles())->pluck('code')->all();
         $this->assertContains('halls', $codes());
+        $this->assertNotContains('vehicles', $codes());
         $this->assertNotContains('rental', $codes());
         \App\Models\Setting::set('rental.kind.vehicles', '1');
+        $this->assertContains('vehicles', $codes());
+        $this->assertNotContains('rental', $codes());
+        \App\Models\Setting::set('rental.kind.equipment', '1');
         $this->assertContains('rental', $codes());
         \App\Models\Setting::set('rental.kind.halls', '0');
         $this->assertNotContains('halls', $codes());

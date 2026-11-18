@@ -7,6 +7,7 @@ use App\Actions\RegisterProviderAction;
 use App\Actions\RegisterHotelAction;
 use App\Actions\RegisterHallAction;
 use App\Actions\RegisterHomeOwnerAction;
+use App\Actions\RegisterVehicleOwnerAction;
 use App\Actions\RegisterOrganiserAction;
 use App\Actions\RegisterSellerAction;
 use App\Contracts\FirebaseTokenVerifier;
@@ -152,7 +153,7 @@ class Register extends Component
     public string $partnerRole = 'service';
 
     /** Partner roles this page can finish. */
-    private const SIGNUP_ROLES = ['service', 'parcel', 'commerce', 'food', 'hotel', 'events', 'halls', 'homes'];
+    private const SIGNUP_ROLES = ['service', 'parcel', 'commerce', 'food', 'hotel', 'events', 'halls', 'homes', 'vehicles'];
 
     public function mount(): void
     {
@@ -192,7 +193,7 @@ class Register extends Component
     {
         if (! $user->canApplyAsPartner($this->partnerRole)) {
             $this->redirectRoute(
-                $this->isHotel() ? 'hotel.dashboard' : ($this->isOrganiser() ? 'organiser.dashboard' : ($this->isHallOwner() || $this->isHomeOwner() ? 'venue.dashboard' : ($this->isSeller() && ! $user->canApplyAsPartner($this->partnerRole) ? 'seller.dashboard'
+                $this->isHotel() ? 'hotel.dashboard' : ($this->isOrganiser() ? 'organiser.dashboard' : ($this->isHallOwner() || $this->isHomeOwner() || $this->isVehicleOwner() ? 'venue.dashboard' : ($this->isSeller() && ! $user->canApplyAsPartner($this->partnerRole) ? 'seller.dashboard'
                     : ($user->providerProfile()->exists() ? 'provider.dashboard'
                     : ($user->fieldWorkerProfile?->hasCapability('parcel_rider') ? 'rider.dashboard' : 'customer.home'))))),
                 navigate: true,
@@ -251,6 +252,12 @@ class Register extends Component
         return $this->partnerRole === 'homes';
     }
 
+    /** Vehicles for rent (2026-11-18): a vehicle owner (a VehicleListing as a draft until sent for review). */
+    public function isVehicleOwner(): bool
+    {
+        return $this->partnerRole === 'vehicles';
+    }
+
     /** The /partners card for this role still hands off to sign-up (it can close again, e.g. parcel prices cleared). */
     private function roleTakesSignUps(string $role): bool
     {
@@ -267,6 +274,7 @@ class Register extends Component
             $this->isOrganiser() => 'organiser',
             $this->isHallOwner() => 'hall',
             $this->isHomeOwner() => 'home',
+            $this->isVehicleOwner() => 'vehicle',
             $this->isRestaurant() => 'restaurant',
             $this->isSeller() => 'shop',
             default => 'provider',
@@ -493,7 +501,7 @@ class Register extends Component
 
     // ─────────────────────────── Finish ──────────────────────────────────
 
-    public function submitApplication(RegisterProviderAction $register, KycDocumentService $kyc, CreateParcelRiderAction $riders, RegisterSellerAction $sellers, RegisterHotelAction $hotels, RegisterOrganiserAction $organisers, RegisterHallAction $hallOwners, RegisterHomeOwnerAction $homeOwners): void
+    public function submitApplication(RegisterProviderAction $register, KycDocumentService $kyc, CreateParcelRiderAction $riders, RegisterSellerAction $sellers, RegisterHotelAction $hotels, RegisterOrganiserAction $organisers, RegisterHallAction $hallOwners, RegisterHomeOwnerAction $homeOwners, RegisterVehicleOwnerAction $vehicleOwners): void
     {
         $this->reset('error', 'status');
 
@@ -539,7 +547,7 @@ class Register extends Component
             'skills.max' => 'Choose up to '.SiteControls::servicesMax().' services.',
             'terms.accepted' => 'Please accept the partner terms to continue.',
             'password.confirmed' => 'The two passwords do not match.',
-            'address.required' => $this->isHomeOwner() ? 'Enter the address of the property.' : ($this->isHallOwner() ? 'Enter your hall address.' : ($this->isOrganiser() ? 'Enter your office or home address.' : ($this->isHotel() ? 'Enter your hotel address.' : ($this->isRestaurant() ? 'Enter your restaurant address.' : ($this->isSeller() ? 'Enter your shop address.' : 'Enter your work address.'))))),
+            'address.required' => $this->isVehicleOwner() ? 'Enter the area where the vehicle is parked.' : ($this->isHomeOwner() ? 'Enter the address of the property.' : ($this->isHallOwner() ? 'Enter your hall address.' : ($this->isOrganiser() ? 'Enter your office or home address.' : ($this->isHotel() ? 'Enter your hotel address.' : ($this->isRestaurant() ? 'Enter your restaurant address.' : ($this->isSeller() ? 'Enter your shop address.' : 'Enter your work address.')))))),
             'storeName.required' => $this->isHallOwner() ? 'Enter your hall name.' : ($this->isOrganiser() ? 'Enter your organiser or company name.' : ($this->isHotel() ? 'Enter your hotel name.' : ($this->isRestaurant() ? 'Enter your restaurant name.' : 'Enter your shop name.'))),
             'hotelType.required' => 'Choose the kind of stay you run.',
             'hotelType.in' => 'Choose the kind of stay you run.',
@@ -550,7 +558,7 @@ class Register extends Component
         // Only real, active, customer-visible categories count — the array is client-editable state.
         // "Required" never blocks when no category is published yet — there would be nothing to tick.
         // A delivery rider offers no service categories: the step does not apply.
-        $offerable = (SiteControls::servicesStep() === 'hidden' || $this->isRider() || $this->isSeller() || $this->isHotel() || $this->isOrganiser() || $this->isHallOwner() || $this->isHomeOwner()) ? collect() : $this->offerableCategories();
+        $offerable = (SiteControls::servicesStep() === 'hidden' || $this->isRider() || $this->isSeller() || $this->isHotel() || $this->isOrganiser() || $this->isHallOwner() || $this->isHomeOwner() || $this->isVehicleOwner()) ? collect() : $this->offerableCategories();
         $skillIds = $offerable->whereIn('id', array_map('intval', $this->skills))->pluck('id')->values()->all();
         if (SiteControls::servicesStep() === 'required' && $offerable->isNotEmpty() && $skillIds === []) {
             $this->addError('skills', 'Choose at least one service you offer.');
@@ -612,7 +620,28 @@ class Register extends Component
             if ($existing === null && $this->existingUserId !== null) {
                 throw new AccountAlreadyExistsException('mobile number');
             }
-            if ($this->isHomeOwner()) {
+            if ($this->isVehicleOwner()) {
+                DB::transaction(function () use ($vehicleOwners, $kyc, $zone, $requirements, $existing, &$providerId) {
+                    $listing = $vehicleOwners->execute(
+                        zone: $zone,
+                        existing: $existing,
+                        registration: ['address' => $this->address, 'lat' => $this->lat, 'lng' => $this->lng, 'out_of_coverage' => $this->outOfCoverage],
+                        name: $this->name,
+                        nationalPhone: PhoneNumber::national($this->verifiedPhoneE164),
+                        email: filled($this->email) ? $this->email : null,
+                        plainPassword: filled($this->password) ? $this->password : null,
+                    );
+                    $provider = $listing->provider;
+                    $providerId = $provider->id;
+
+                    foreach ($requirements as $req) {
+                        $file = $this->documents[$req->document_type] ?? null;
+                        if ($file) {
+                            $kyc->upload($provider, $req->document_type, $file, $provider->user, 'self');
+                        }
+                    }
+                });
+            } elseif ($this->isHomeOwner()) {
                 DB::transaction(function () use ($homeOwners, $kyc, $zone, $requirements, $existing, &$providerId) {
                     $listing = $homeOwners->execute(
                         zone: $zone,
@@ -816,7 +845,7 @@ class Register extends Component
     {
         $requirements = app(KycDocumentService::class)->requirementsFor($this->documentsFor(), $this->resolvedCountryId());
 
-        $servicesStep = ($this->isRider() || $this->isSeller() || $this->isHotel() || $this->isOrganiser() || $this->isHallOwner() || $this->isHomeOwner()) ? 'hidden' : SiteControls::servicesStep();
+        $servicesStep = ($this->isRider() || $this->isSeller() || $this->isHotel() || $this->isOrganiser() || $this->isHallOwner() || $this->isHomeOwner() || $this->isVehicleOwner()) ? 'hidden' : SiteControls::servicesStep();
 
         return view('livewire.provider.auth.register', [
             'requirements' => $requirements,
@@ -827,6 +856,7 @@ class Register extends Component
             'isOrganiser' => $this->isOrganiser(),
             'isHallOwner' => $this->isHallOwner(),
             'isHomeOwner' => $this->isHomeOwner(),
+            'isVehicleOwner' => $this->isVehicleOwner(),
             'hotelTypes' => $this->isHotel() ? RegisterHotelAction::joinableTypes() : collect(),
             'fssaiRequired' => $this->isRestaurant() && \App\Support\FoodSettings::on('food.fssai_at_signup'),
             'servicesStep' => $servicesStep,
@@ -835,6 +865,6 @@ class Register extends Component
             'docsAtSignup' => SiteControls::documentsAtSignup($this->partnerRole),
             'serviceCategories' => $servicesStep === 'hidden' ? collect() : $this->offerableCategories(),
         ])
-            ->layout('components.layouts.provider', ['title' => $this->isRider() ? 'Become a delivery rider' : ($this->isHomeOwner() ? 'List your property for rent' : ($this->isHallOwner() ? 'List your function hall' : ($this->isOrganiser() ? 'Sell tickets for your events' : ($this->isHotel() ? 'List your hotel' : ($this->isRestaurant() ? 'Add your restaurant' : ($this->isSeller() ? 'Open your shop' : 'Become a partner'))))))]);
+            ->layout('components.layouts.provider', ['title' => $this->isRider() ? 'Become a delivery rider' : ($this->isVehicleOwner() ? 'List your vehicle for rent' : ($this->isHomeOwner() ? 'List your property for rent' : ($this->isHallOwner() ? 'List your function hall' : ($this->isOrganiser() ? 'Sell tickets for your events' : ($this->isHotel() ? 'List your hotel' : ($this->isRestaurant() ? 'Add your restaurant' : ($this->isSeller() ? 'Open your shop' : 'Become a partner')))))))]);
     }
 }

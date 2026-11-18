@@ -90,7 +90,7 @@ final class PartnerPageSettings
     public const COLORS = ['blue', 'green', 'amber', 'rose', 'violet', 'teal'];
 
     /** Role cards, in display order. `commerce` is the registry's code for sellers. */
-    public const ROLE_ORDER = ['service', 'parcel', 'food', 'grocery', 'pharmacy', 'taxi', 'hotel', 'halls', 'homes', 'rental', 'events', 'commerce'];
+    public const ROLE_ORDER = ['service', 'parcel', 'food', 'grocery', 'pharmacy', 'taxi', 'hotel', 'halls', 'homes', 'vehicles', 'rental', 'events', 'commerce'];
 
     public const ROLE_DEFAULTS = [
         'service' => ['Service professional', 'AC, electrical, plumbing, carpentry and appliance repair. Get jobs near you and work on your schedule.'],
@@ -100,9 +100,11 @@ final class PartnerPageSettings
         'pharmacy' => ['Pharmacy', 'List health products and medicines for nearby customers.'],
         'taxi' => ['Cab driver', 'Drive with your own vehicle once rides open in your city.'],
         'hotel' => ['Hotel or stay host', 'List your hotel, homestay or guest house for travellers.'],
-        'rental' => ['Vehicle or equipment owner', 'Rent out cars, bikes, generators or machinery once rentals open in your city.'],
+        // Vehicles for rent (2026-11-18) have their own card; this one is equipment only.
+        'rental' => ['Equipment owner', 'Rent out generators, tents, sound systems or machinery once equipment rental opens in your city.'],
         'halls' => ['Function hall owner', 'List your function hall, banquet hall or lawn for weddings, receptions and parties. Bookings paid online.'],
         'homes' => ['Property owner', 'Let your flat, house, room, PG, shop, office or building by the month. Free to list; tenants ask to visit and you choose.'],
+        'vehicles' => ['Vehicle owner', 'Rent out your car, bike, auto, van, truck or tractor by the day. Customers near you call you directly.'],
         'events' => ['Event organiser', 'Sell tickets for your party, concert, workshop or fest. Paid online, entry by QR code.'],
         'commerce' => ['Seller or shop', 'Sell your products to customers near you.'],
     ];
@@ -110,7 +112,7 @@ final class PartnerPageSettings
     /** Module name shown on each role card. */
     public const ROLE_MODULE_NAMES = [
         'service' => 'Home services', 'parcel' => 'Parcel delivery', 'food' => 'Food delivery', 'grocery' => 'Grocery',
-        'pharmacy' => 'Pharmacy', 'taxi' => 'Taxi', 'hotel' => 'Hotel booking', 'halls' => 'Rental', 'homes' => 'Rental', 'rental' => 'Rental', 'events' => 'Events', 'commerce' => 'Marketplace',
+        'pharmacy' => 'Pharmacy', 'taxi' => 'Taxi', 'hotel' => 'Hotel booking', 'halls' => 'Rental', 'homes' => 'Rental', 'vehicles' => 'Rental', 'rental' => 'Rental', 'events' => 'Events', 'commerce' => 'Marketplace',
     ];
 
     private const MAX_JSON_BYTES = 20000;

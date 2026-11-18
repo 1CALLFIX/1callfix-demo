@@ -111,6 +111,8 @@ class AdminNav
                     ['label' => 'Rental Settings', 'route' => 'admin.halls.settings', 'icon' => 'gear', 'permission' => 'marketplace_settings.manage'],
                     // Property for rent (2026-11-14): monthly rent; the old nightly Properties screens are retired (Hotels covers stays).
                     ['label' => 'Property for rent', 'route' => 'admin.homes.index', 'icon' => 'home', 'permission' => 'homes.manage'],
+                    // Vehicles for rent (2026-11-18, OLX-style): owner-listed vehicles. "Vehicles" below is the old admin catalog.
+                    ['label' => 'Vehicles for rent', 'route' => 'admin.vehicle-listings.index', 'icon' => 'map-pin', 'permission' => 'vehicle_listings.manage'],
                     ['label' => 'Rental Reservations', 'route' => 'admin.rental-reservations.index', 'icon' => 'clipboard', 'permission' => 'rental_reservations.view'],
                     ['label' => 'Vehicles', 'route' => 'admin.vehicles.index', 'icon' => 'building', 'permission' => 'vehicles.manage'],
                     ['label' => 'Equipment', 'route' => 'admin.equipment.index', 'icon' => 'wrench', 'permission' => 'equipment.manage'],

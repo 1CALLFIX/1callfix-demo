@@ -373,6 +373,9 @@ Route::middleware(['auth', \App\Http\Middleware\EnsureIsHallOwner::class, \App\H
         Route::get('/homes/new', \App\Livewire\Venue\HomeEditor::class)->name('venue.homes.create');
         Route::get('/homes/{listingId}', \App\Livewire\Venue\HomeEditor::class)->whereNumber('listingId')->name('venue.homes.edit');
         Route::get('/visits', \App\Livewire\Venue\Visits::class)->name('venue.visits');
+        // Vehicles for rent (2026-11-18, OLX-style): the same Rental portal.
+        Route::get('/vehicles/new', \App\Livewire\Venue\VehicleEditor::class)->name('venue.vehicles.create');
+        Route::get('/vehicles/{listingId}', \App\Livewire\Venue\VehicleEditor::class)->whereNumber('listingId')->name('venue.vehicles.edit');
     });
 
 /*
@@ -484,6 +487,9 @@ Route::get('/{city}/rentals', \App\Livewire\Customer\Rentals\Home::class)->where
 // Property for rent (2026-11-14): /{city}/homes and /{city}/homes/{home}. 404 while Rental or "Property for rent" is off there.
 Route::get('/{city}/property', \App\Livewire\Customer\Homes\Home::class)->where('city', $cityPattern)->middleware('page.cache')->name('customer.homes.home');
 Route::get('/{city}/property/{homeSlug}', \App\Livewire\Customer\Homes\Show::class)->where(['city' => $cityPattern, 'homeSlug' => '[A-Za-z0-9_-]+'])->middleware('page.cache')->name('customer.homes.show');
+// Vehicles for rent (2026-11-18, OLX-style): /{city}/vehicles and /{city}/vehicles/{vehicle}. 404 while Rental or "Vehicles" is off there.
+Route::get('/{city}/vehicles', \App\Livewire\Customer\Vehicles\Home::class)->where('city', $cityPattern)->middleware('page.cache')->name('customer.vehicles.home');
+Route::get('/{city}/vehicles/{vehicleSlug}', \App\Livewire\Customer\Vehicles\Show::class)->where(['city' => $cityPattern, 'vehicleSlug' => '[A-Za-z0-9_-]+'])->middleware('page.cache')->name('customer.vehicles.show');
 // Function halls R2 (2026-11-13): /{city}/halls and /{city}/halls/{hall}. 404 while Function Halls is off for that city.
 Route::get('/{city}/halls', \App\Livewire\Customer\Halls\Home::class)->where('city', $cityPattern)->middleware('page.cache')->name('customer.halls.home');
 Route::get('/{city}/halls/{hallSlug}', \App\Livewire\Customer\Halls\Show::class)->where(['city' => $cityPattern, 'hallSlug' => '[A-Za-z0-9_-]+'])->middleware('page.cache')->name('customer.halls.show');

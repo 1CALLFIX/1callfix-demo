@@ -29,10 +29,12 @@ final class PartnerPageData
         $registry = Module::query()->whereIn('code', P::ROLE_ORDER)->get(['code'])->pluck('code')->all();
         // One Rental (owner 2026-11-14): hall owners and vehicle / equipment owners both join Rental; each card follows
         // its own kinds in Rental Settings. With Vehicles and Equipment both off, their card is not shown at all.
-        $rentalKinds = ['halls' => [\App\Support\RentalKinds::HALLS], 'homes' => [\App\Support\RentalKinds::PROPERTIES], 'rental' => [\App\Support\RentalKinds::VEHICLES, \App\Support\RentalKinds::EQUIPMENT]];
+        $rentalKinds = ['halls' => [\App\Support\RentalKinds::HALLS], 'homes' => [\App\Support\RentalKinds::PROPERTIES],
+            'vehicles' => [\App\Support\RentalKinds::VEHICLES], 'rental' => [\App\Support\RentalKinds::EQUIPMENT]];
         if (in_array('rental', $registry, true)) {
             $registry[] = 'halls';
             $registry[] = 'homes';
+            $registry[] = 'vehicles';
         }
         $hidden = P::hiddenModules();
         $wording = P::roleWording();
@@ -65,7 +67,8 @@ final class PartnerPageData
                     || ($code === 'hotel' && \App\Support\HotelSettings::recruitingHotels())
                     || ($code === 'events' && \App\Support\EventSettings::recruitingOrganisers())
                     || ($code === 'halls' && \App\Support\HallSettings::recruitingOwners())
-                    || ($code === 'homes' && \App\Support\HomeSettings::recruitingOwners()),
+                    || ($code === 'homes' && \App\Support\HomeSettings::recruitingOwners())
+                    || ($code === 'vehicles' && \App\Support\VehicleListingSettings::recruitingOwners()),
                 'enquiry' => false,
             ];
         }

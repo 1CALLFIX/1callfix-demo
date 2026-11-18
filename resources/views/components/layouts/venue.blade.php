@@ -4,13 +4,13 @@
 
 @php
     $platformName = \App\Models\Setting::get('branding.platform_name', '1CallFix');
-    // One Rental portal (2026-11-14): function halls and property for rent, same app-style bottom bar as the hotel and
+    // One Rental portal (2026-11-14): function halls, property and (2026-11-18) vehicles for rent, same app-style bottom bar as the hotel and
     // organiser portals. Each section shows only for what this owner lists.
     $u = auth()->user();
     $hasHalls = (bool) $u?->holdsPartnerRole('halls');
     $hasHomes = (bool) $u?->holdsPartnerRole('homes');
     $navItems = array_values(array_filter([
-        ['label' => 'Home', 'route' => 'venue.dashboard', 'icon' => 'home', 'also' => ['venue.halls.create', 'venue.halls.edit', 'venue.homes.create', 'venue.homes.edit']],
+        ['label' => 'Home', 'route' => 'venue.dashboard', 'icon' => 'home', 'also' => ['venue.halls.create', 'venue.halls.edit', 'venue.homes.create', 'venue.homes.edit', 'venue.vehicles.create', 'venue.vehicles.edit']],
         $hasHomes ? ['label' => 'Visits', 'route' => 'venue.visits', 'icon' => 'users', 'dot' => \App\Models\HouseVisit::where('status', 'requested')->whereHas('listing.provider', fn ($q) => $q->where('user_id', $u->id))->count()] : null,
         $hasHalls ? ['label' => 'Bookings', 'route' => 'venue.bookings', 'icon' => 'clipboard', 'dot' => \App\Models\HallBooking::where('status', 'awaiting_owner')->whereHas('hall.provider', fn ($q) => $q->where('user_id', $u->id))->count()] : null,
         $hasHalls ? ['label' => 'Dates', 'route' => 'venue.dates', 'icon' => 'clock'] : null,

@@ -93,6 +93,8 @@ class User extends Authenticatable
             'halls' => ! \App\Models\Hall::query()->whereHas('provider', fn ($q) => $q->where('user_id', $this->id))->exists(),
             // Property for rent (2026-11-14): the first home through sign-up (more are added in the Rental portal).
             'homes' => ! \App\Models\HouseListing::query()->whereHas('provider', fn ($q) => $q->where('user_id', $this->id))->exists(),
+            // Vehicles for rent (2026-11-18): the first vehicle through sign-up (more are added in the Rental portal).
+            'vehicles' => ! \App\Models\VehicleListing::query()->whereHas('provider', fn ($q) => $q->where('user_id', $this->id))->exists(),
             default => false,
         };
     }
@@ -109,7 +111,8 @@ class User extends Authenticatable
                 || (! $p->stores()->exists() && ! \App\Models\Accommodation::where('provider_id', $p->id)->exists()
                     && ! \App\Models\EventOrganiser::where('provider_id', $p->id)->exists()
                     && ! \App\Models\Hall::where('provider_id', $p->id)->exists()
-                    && ! \App\Models\HouseListing::where('provider_id', $p->id)->exists())),
+                    && ! \App\Models\HouseListing::where('provider_id', $p->id)->exists()
+                    && ! \App\Models\VehicleListing::where('provider_id', $p->id)->exists())),
             'parcel' => (bool) $this->fieldWorkerProfile?->hasCapability('parcel_rider'),
             'commerce' => (bool) $this->providerProfile?->stores()->exists(),
             'food' => (bool) $this->providerProfile?->stores()->where('module', \App\Support\Modules::FOOD)->exists(),
@@ -117,6 +120,7 @@ class User extends Authenticatable
             'events' => $this->providerProfile !== null && \App\Models\EventOrganiser::where('provider_id', $this->providerProfile->id)->exists(),
             'halls' => $this->providerProfile !== null && \App\Models\Hall::where('provider_id', $this->providerProfile->id)->exists(),
             'homes' => $this->providerProfile !== null && \App\Models\HouseListing::where('provider_id', $this->providerProfile->id)->exists(),
+            'vehicles' => $this->providerProfile !== null && \App\Models\VehicleListing::where('provider_id', $this->providerProfile->id)->exists(),
             default => false,
         };
     }
@@ -131,7 +135,8 @@ class User extends Authenticatable
             || (\App\Support\HotelSettings::recruitingHotels() && $this->canApplyAsPartner('hotel'))
             || (\App\Support\EventSettings::recruitingOrganisers() && $this->canApplyAsPartner('events'))
             || (\App\Support\HallSettings::recruitingOwners() && $this->canApplyAsPartner('halls'))
-            || (\App\Support\HomeSettings::recruitingOwners() && $this->canApplyAsPartner('homes'));
+            || (\App\Support\HomeSettings::recruitingOwners() && $this->canApplyAsPartner('homes'))
+            || (\App\Support\VehicleListingSettings::recruitingOwners() && $this->canApplyAsPartner('vehicles'));
     }
     public function addresses() { return $this->hasMany(Address::class); }
     public function bookings() { return $this->hasMany(Booking::class, 'customer_id'); }

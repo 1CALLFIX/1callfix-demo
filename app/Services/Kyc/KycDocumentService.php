@@ -146,7 +146,14 @@ class KycDocumentService
         if (\App\Models\Hall::where('provider_id', $subject->id)->exists()) {
             $types[] = 'hall';
         }
-        $modules = $subject->stores()->pluck('module')->unique();
+        // Property and vehicles for rent: their own lists (owner documents, RC book), not the service-provider list.
+        if (\App\Models\HouseListing::where('provider_id', $subject->id)->exists()) {
+            $types[] = 'home';
+        }
+        if (\App\Models\VehicleListing::where('provider_id', $subject->id)->exists()) {
+            $types[] = 'vehicle';
+        }
+        $modules =$subject->stores()->pluck('module')->unique();
         if ($modules->contains(\App\Support\Modules::FOOD)) {
             $types[] = 'restaurant';
         }

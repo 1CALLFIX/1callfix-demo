@@ -1,8 +1,8 @@
 <div class="space-y-5">
     <x-partner.join-banner class="mb-4" />
     <div>
-        <h1 class="text-2xl font-bold tracking-tight">{{ $homes->isEmpty() && $halls->count() === 1 ? $halls->first()->name : 'Your rentals' }}</h1>
-        <p class="mt-1 text-sm text-slate-600">{{ collect([$halls->isNotEmpty() ? 'Function halls' : null, $homes->isNotEmpty() ? 'Property for rent' : null])->filter()->implode(' · ') }} · {{ $partner->user?->name }}</p>
+        <h1 class="text-2xl font-bold tracking-tight">{{ $homes->isEmpty() && $vehicles->isEmpty() && $halls->count() === 1 ? $halls->first()->name : 'Your rentals' }}</h1>
+        <p class="mt-1 text-sm text-slate-600">{{ collect([$halls->isNotEmpty() ? 'Function halls' : null, $homes->isNotEmpty() ? 'Property for rent' : null, $vehicles->isNotEmpty() ? 'Vehicles for rent' : null])->filter()->implode(' · ') }} · {{ $partner->user?->name }}</p>
     </div>
 
     @if ($halls->contains('status', 'approved') && ! $moduleLive)
@@ -117,5 +117,61 @@
     @endforeach
     @if ($homes->isNotEmpty())
         <a href="{{ route('venue.homes.create') }}" wire:navigate class="flex min-h-11 items-center justify-center rounded-xl border border-dashed border-slate-300 px-4 text-sm font-medium text-slate-700 hover:border-blue-400" data-testid="add-home">+ Add another property for rent</a>
+    @endif
+
+    {{-- Vehicles for rent (2026-11-18, OLX-style) --}}
+    @if ($vehicles->contains('status', 'approved') && ! $vehiclesLive)
+        <div class="rounded-2xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900" data-testid="vehicles-opening-soon">
+            <p class="font-semibold">Approved</p>
+            <p class="mt-1">Vehicles for rent open to customers in your city soon. Keep your price and photos up to date.</p>
+        </div>
+    @endif
+    @foreach ($vehicles as $vehicle)
+        <?php
+            $checklist = \App\Livewire\Venue\Dashboard::vehicleChecklist($vehicle);
+            $tone = ['approved' => 'border-emerald-200 bg-emerald-50 text-emerald-900', 'in_review' => 'border-amber-200 bg-amber-50 text-amber-900', 'rejected' => 'border-red-200 bg-red-50 text-red-800'][$vehicle->status] ?? 'border-slate-200 bg-white text-slate-800';
+        ?>
+        <section class="space-y-3 rounded-2xl border border-slate-200 bg-white p-4" data-testid="venue-vehicle">
+            <div class="flex gap-3">
+                <div class="h-16 w-24 shrink-0 overflow-hidden rounded-lg bg-slate-100">
+                    @if ($vehicle->coverUrl()) <img src="{{ $vehicle->coverUrl() }}" alt="" class="h-full w-full object-cover" loading="lazy"> @endif
+                </div>
+                <div class="min-w-0 flex-1">
+                    <p class="truncate font-semibold">🚗 {{ $vehicle->title }}</p>
+                    <p class="truncate text-sm text-slate-600">@if ($vehicle->price_day) ₹{{ number_format((float) $vehicle->price_day) }} / day @else Price not added yet @endif</p>
+                    <p class="mt-1 flex flex-wrap gap-2 text-xs">
+                        <span class="rounded-full border px-2 py-0.5 font-medium {{ $tone }}">{{ $vehicle->statusLabel() }}</span>
+                        @if ($vehicle->status === 'approved')
+                            @if (! $vehicle->is_active) <span class="rounded-full bg-slate-100 px-2 py-0.5 font-medium text-slate-600">Hidden</span>
+                            @elseif (! $vehicle->isLive()) <span class="rounded-full bg-amber-100 px-2 py-0.5 font-medium text-amber-800">Hidden: tap Available again</span>
+                            @else <span class="rounded-full bg-emerald-100 px-2 py-0.5 font-medium text-emerald-800">Customers see it</span> @endif
+                        @endif
+                        @if ($vehicle->pending_changes) <span class="rounded-full bg-amber-100 px-2 py-0.5 font-medium text-amber-800">Change waiting</span> @endif
+                    </p>
+                </div>
+            </div>
+            @if ($vehicle->status === 'rejected' && $vehicle->rejection_reason)
+                <p role="alert" class="rounded-xl bg-red-50 px-3 py-2 text-sm text-red-800">{{ $vehicle->rejection_reason }}</p>
+            @elseif ($vehicle->status === 'in_review')
+                <p role="status" class="rounded-xl bg-amber-50 px-3 py-2 text-sm text-amber-900">We are checking your vehicle. You will see the result here, usually within a day.</p>
+            @endif
+            @if ($vehicle->status !== 'approved')
+                <ul class="space-y-2" aria-label="Before you go live">
+                    @foreach ($checklist as $item)
+                        <li class="flex items-center gap-3 text-sm">
+                            <span @class(['grid h-6 w-6 shrink-0 place-items-center rounded-full text-xs font-bold',
+                                'bg-emerald-600 text-white' => $item['done'], 'border border-slate-300 text-transparent' => ! $item['done']])>&check;</span>
+                            <span @class(['text-slate-500 line-through' => $item['done']])>{{ $item['label'] }}</span>
+                        </li>
+                    @endforeach
+                </ul>
+            @endif
+            <a href="{{ route('venue.vehicles.edit', $vehicle->id) }}" wire:navigate class="flex min-h-11 items-center justify-center rounded-xl {{ $vehicle->isEditable() ? 'bg-blue-600 text-white hover:bg-blue-700' : 'border border-slate-300 text-slate-800 hover:bg-slate-50' }} px-4 text-sm font-semibold">
+                {{ $vehicle->isEditable() ? 'Finish your vehicle and send for review' : 'Open vehicle, price and photos' }}
+            </a>
+        </section>
+    @endforeach
+    @if ($vehicles->isNotEmpty())
+        <a href="{{ route('venue.vehicles.create') }}" wire:navigate class="flex min-h-11 items-center justify-center rounded-xl border border-dashed border-slate-300 px-4 text-sm font-medium text-slate-700 hover:border-blue-400" data-testid="add-vehicle">+ Add another vehicle for rent</a>
     @endif
 </div>

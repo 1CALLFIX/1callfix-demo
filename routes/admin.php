@@ -193,6 +193,8 @@ Route::middleware(['auth', \Illuminate\Session\Middleware\AuthenticateSession::c
         Route::get('/hall-settings', \App\Livewire\Halls\Settings::class)->name('admin.halls.settings');
         // Property for rent (2026-11-14): approve homes and their changes; visit requests.
         Route::get('/houses-for-rent', \App\Livewire\Homes\Manage::class)->name('admin.homes.index');
+        // Vehicles for rent (2026-11-18, OLX-style): approve owner vehicles and their changes.
+        Route::get('/vehicles-for-rent', \App\Livewire\VehicleListings\Manage::class)->name('admin.vehicle-listings.index');
         Route::get('/hall-bookings', \App\Livewire\HallBookings\Index::class)->name('admin.hall-bookings.index');
         Route::get('/hall-damage-claims', \App\Livewire\Halls\DamageClaims::class)->name('admin.hall-damage-claims.index');
         Route::get('/stores', StoresManage::class)->name('admin.stores.index');

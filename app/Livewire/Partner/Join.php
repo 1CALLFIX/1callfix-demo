@@ -114,7 +114,7 @@ class Join extends Component
         $this->reset('notice', 'error');
         $u = auth()->user();
         $role = match (true) {
-            $u->holdsPartnerRole('hotel') => 'hotel', $u->holdsPartnerRole('events') => 'events', $u->holdsPartnerRole('halls') => 'halls', $u->holdsPartnerRole('homes') => 'homes', $u->holdsPartnerRole('food') => 'food', $u->holdsPartnerRole('commerce') => 'commerce',
+            $u->holdsPartnerRole('hotel') => 'hotel', $u->holdsPartnerRole('events') => 'events', $u->holdsPartnerRole('halls') => 'halls', $u->holdsPartnerRole('homes') => 'homes', $u->holdsPartnerRole('vehicles') => 'vehicles', $u->holdsPartnerRole('food') => 'food', $u->holdsPartnerRole('commerce') => 'commerce',
             $u->holdsPartnerRole('parcel') && ! $u->providerProfile()->exists() => 'parcel', default => 'service',
         };
         $phone = \App\Support\PhoneNumber::national((string) $u->phone);
@@ -147,6 +147,9 @@ class Join extends Component
         if ($u->holdsPartnerRole('homes')) {
             $done[] = \App\Models\HouseListing::where('provider_id', $p?->id)->whereIn('status', ['in_review', 'approved'])->exists();
         }
+        if ($u->holdsPartnerRole('vehicles')) {
+            $done[] = \App\Models\VehicleListing::where('provider_id', $p?->id)->whereIn('status', ['in_review', 'approved'])->exists();
+        }
         if ($u->holdsPartnerRole('events')) {
             $done[] = \App\Models\Event::whereHas('organiser', fn ($q) => $q->where('provider_id', $p?->id))->whereHas('ticketTypes')->exists();
         }
@@ -171,6 +174,9 @@ class Join extends Component
         }
         if ($u->holdsPartnerRole('halls')) {
             $links[] = ['label' => 'Add your slots, prices and photos, then send your hall for review', 'url' => route('venue.dashboard')];
+        }
+        if ($u->holdsPartnerRole('vehicles')) {
+            $links[] = ['label' => 'Add the price, photos and features, then send your vehicle for review', 'url' => route('venue.dashboard')];
         }
         if ($u->holdsPartnerRole('homes')) {
             $links[] = ['label' => 'Add rent, photos and facilities, then send your property for review', 'url' => route('venue.dashboard')];
@@ -219,7 +225,7 @@ class Join extends Component
         return match (true) {
             $u->holdsPartnerRole('hotel') && ! $u->holdsPartnerRole('service') => 'components.layouts.hotel',
             $u->holdsPartnerRole('events') && ! $u->holdsPartnerRole('service') && ! $u->holdsPartnerRole('commerce') => 'components.layouts.organiser',
-            ($u->holdsPartnerRole('halls') || $u->holdsPartnerRole('homes')) && ! $u->holdsPartnerRole('service') && ! $u->holdsPartnerRole('commerce') => 'components.layouts.venue',
+            ($u->holdsPartnerRole('halls') || $u->holdsPartnerRole('homes') || $u->holdsPartnerRole('vehicles')) && ! $u->holdsPartnerRole('service') && ! $u->holdsPartnerRole('commerce') => 'components.layouts.venue',
             $u->holdsPartnerRole('commerce') && ! $u->holdsPartnerRole('service') => 'components.layouts.seller',
             $u->holdsPartnerRole('parcel') && ! $u->providerProfile()->exists() => 'components.layouts.rider',
             default => 'components.layouts.provider',

@@ -39,17 +39,33 @@ class Dashboard extends Component
         ];
     }
 
+    /** @return list<array{label: string, done: bool}> */
+    public static function vehicleChecklist(\App\Models\VehicleListing $vehicle): array
+    {
+        $min = (int) \App\Support\VehicleListingSettings::get('vehicles.min_photos', $vehicle->scope());
+
+        return [
+            ['label' => 'Kind of vehicle, fuel and how you rent it', 'done' => filled($vehicle->vehicle_kind) && filled($vehicle->fuel) && ! empty($vehicle->driver_options)],
+            ['label' => 'Price per day', 'done' => (float) $vehicle->price_day > 0],
+            ['label' => 'Area and pickup address', 'done' => $vehicle->zone_id !== null && filled($vehicle->address_line)],
+            ['label' => "Main photo and at least {$min} more", 'done' => $vehicle->cover_image !== null && count((array) $vehicle->photos) >= $min],
+        ];
+    }
+
     public function render()
     {
         $halls = $this->halls();
         $first = $halls->first();
 
         $homes = \App\Models\HouseListing::with('franchise')->where('provider_id', $this->partner()->id)->orderBy('id')->get();
+        $vehicles = \App\Models\VehicleListing::with('franchise')->where('provider_id', $this->partner()->id)->orderBy('id')->get();
 
         return view('livewire.venue.dashboard', [
             'halls' => $halls,
             'homes' => $homes,
             'homesLive' => $homes->isNotEmpty() && \App\Support\RentalKinds::active(\App\Support\RentalKinds::PROPERTIES, $homes->first()->scope()),
+            'vehicles' => $vehicles,
+            'vehiclesLive' => $vehicles->isNotEmpty() && \App\Support\RentalKinds::active(\App\Support\RentalKinds::VEHICLES, $vehicles->first()->scope()),
             'partner' => $this->partner(),
             'moduleLive' => $first ? \App\Support\RentalKinds::active(\App\Support\RentalKinds::HALLS, $first->scope()) : false,
         ])->layout('components.layouts.venue', ['title' => 'Home']);

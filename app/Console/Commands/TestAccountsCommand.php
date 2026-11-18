@@ -76,6 +76,8 @@ class TestAccountsCommand extends Command
         'hall' => ['Test Hall Owner', 'provider', null, null, '6000000114'],
         // Property for rent (2026-11-14): a property owner is a provider account that owns approved HouseListings (→ /venue Rental portal).
         'homeowner' => ['Test Property Owner', 'provider', null, null, '6000000115'],
+        // Vehicles for rent (2026-11-18, OLX-style): a vehicle owner is a provider account that owns approved VehicleListings (→ /venue Rental portal).
+        'vehicleowner' => ['Test Vehicle Owner', 'provider', null, null, '6000000116'],
     ];
 
     /** A placeholder FSSAI number for the test restaurant only (hidden from the public like every test shop). */
@@ -231,6 +233,8 @@ class TestAccountsCommand extends Command
                     $this->makeTestHall($user, $franchise, $zone);
                 } elseif ($key === 'homeowner') {
                     $this->makeTestHomes($user, $franchise, $zone);
+                } elseif ($key === 'vehicleowner') {
+                    $this->makeTestVehicles($user, $franchise, $zone);
                 } elseif ($userRole === 'provider') {
                     Provider::updateOrCreate(['user_id' => $user->id], [
                         'franchise_id' => $franchise->id,
@@ -243,7 +247,7 @@ class TestAccountsCommand extends Command
                     ]);
                 }
 
-                return [$key, $email, $roleSlug ? "{$roleSlug} @ {$scopeType} #{$scopeIds[$scopeType]}" : ($key === 'rider' ? 'parcel + shop rider (approved)' : ($key === 'seller' ? 'seller, shop approved' : ($key === 'restaurant' ? 'restaurant, approved' : ($key === 'hotel' ? 'hotel, approved' : ($key === 'organiser' ? 'event organiser, approved, 1 event in review' : ($key === 'hall' ? 'one approved test hall of every kind' : ($key === 'homeowner' ? 'one approved test property of every kind for rent' : $userRole)))))))];
+                return [$key, $email, $roleSlug ? "{$roleSlug} @ {$scopeType} #{$scopeIds[$scopeType]}" : ($key === 'rider' ? 'parcel + shop rider (approved)' : ($key === 'seller' ? 'seller, shop approved' : ($key === 'restaurant' ? 'restaurant, approved' : ($key === 'hotel' ? 'hotel, approved' : ($key === 'organiser' ? 'event organiser, approved, 1 event in review' : ($key === 'hall' ? 'one approved test hall of every kind' : ($key === 'homeowner' ? 'one approved test property of every kind for rent' : ($key === 'vehicleowner' ? 'one approved test vehicle of every kind for rent' : $userRole))))))))];
             });
         }
 
@@ -622,6 +626,73 @@ class TestAccountsCommand extends Command
         }
     }
 
+    /**
+     * The test vehicle owner's vehicles (Vehicles for rent, 2026-11-18): one approved, live vehicle of every kind on the
+     * Rental Settings list, each with company, model, year, fuel, gears, seats, self-drive / with driver, prices, deposit,
+     * free km, landmark, pickup address, map pin, every feature, rules, a description and photos. A kind the Super Admin
+     * adds later gets one too (with general details). Re-running create resets them; other listings are left alone.
+     */
+    public const TEST_VEHICLES = [
+        // kind => [make, model, year, fuel, gears, seats, driver options, per day, per hour, deposit, free km]
+        'Car' => ['Maruti Suzuki', 'Swift', 2022, 'Petrol', 'Manual', 5, ['Self-drive', 'With driver'], 1800, 250, 5000, 250],
+        'SUV / jeep' => ['Mahindra', 'Scorpio', 2021, 'Diesel', 'Manual', 7, ['With driver'], 3500, 400, 10000, 300],
+        'Bike / scooter' => ['Honda', 'Activa', 2023, 'Petrol', 'Automatic', 2, ['Self-drive'], 400, 80, 2000, 100],
+        'Auto rickshaw' => ['Bajaj', 'RE', 2020, 'CNG', 'Manual', 4, ['With driver'], 1200, 200, 0, null],
+        'Van / tempo traveller' => ['Force', 'Traveller', 2021, 'Diesel', 'Manual', 12, ['With driver'], 5500, 0, 10000, 300],
+        'Mini truck' => ['Tata', 'Ace', 2022, 'Diesel', 'Manual', 2, ['With driver'], 2500, 300, 5000, 150],
+        'Truck / lorry' => ['Ashok Leyland', 'Dost', 2020, 'Diesel', 'Manual', 3, ['With driver'], 6000, 0, 15000, 250],
+        'Tractor' => ['Mahindra', '575 DI', 2019, 'Diesel', 'Manual', 1, ['With driver'], 2000, 600, 0, null],
+        'Bus' => ['Tata', 'Starbus', 2019, 'Diesel', 'Manual', 40, ['With driver'], 12000, 0, 20000, 300],
+    ];
+
+    /** cover + three photos for every test vehicle (test only, clearly labelled "Not a real vehicle"). */
+    private const TEST_VEHICLE_PHOTOS = ['photo-1549317661-bd32c8ce0db2', 'photo-1503376780353-7e6692767b70', 'photo-1494976388531-d1058494cdd8', 'photo-1492144534655-ae79c964c9d7'];
+
+    private function makeTestVehicles(User $user, Franchise $franchise, Zone $zone): void
+    {
+        $provider = Provider::updateOrCreate(['user_id' => $user->id], [
+            'franchise_id' => $franchise->id, 'zone_id' => $zone->id, 'provider_type' => 'independent',
+            'kyc_status' => 'approved', 'is_active' => true, 'is_online' => false, 'skills' => null,
+        ]);
+        $scope = array_filter(['zone_id' => $zone->id, 'franchise_id' => $franchise->id, 'city_id' => $franchise->city_id, 'country_id' => $franchise->country_id]);
+        $settings = \App\Support\VehicleListingSettings::class;
+        $photos = array_map(fn (string $id) => self::UNSPLASH.$id.'?w=1600&q=80', self::TEST_VEHICLE_PHOTOS);
+        $fuels = $settings::listIn('vehicles.fuels', $scope);
+        $gears = $settings::listIn('vehicles.transmissions', $scope);
+        $hows = $settings::listIn('vehicles.driver_options', $scope);
+        $min = (int) $settings::get('vehicles.min_price_day', $scope);
+        $max = (int) $settings::get('vehicles.max_price_day', $scope);
+
+        foreach ($settings::listIn('vehicles.kinds', $scope) as $i => $kind) {
+            [$make, $model, $year, $fuel, $gear, $seats, $how, $day, $hour, $deposit, $km] = self::TEST_VEHICLES[$kind]
+                ?? ['Test', 'Model', 2021, 'Diesel', 'Manual', 4, ['With driver'], 2000, 0, 5000, 200];
+            // Only values on this city's lists, so every test vehicle is valid for the editor too.
+            $fuel = in_array($fuel, $fuels, true) ? $fuel : ($fuels[0] ?? $fuel);
+            $gear = in_array($gear, $gears, true) ? $gear : ($gears[0] ?? null);
+            $how = array_values(array_intersect($how, $hows)) ?: array_slice($hows, 0, 1);
+            $day = min(max($day, $min), $max);
+            $title = \App\Models\VehicleListing::makeTitle($kind, $make, $model, $zone->name);
+            $vehicle = \App\Models\VehicleListing::firstOrNew(['provider_id' => $provider->id, 'vehicle_kind' => $kind]);
+            $vehicle->fill([
+                'franchise_id' => $franchise->id, 'zone_id' => $zone->id, 'title' => $title,
+                'slug' => $vehicle->slug ?: \App\Models\VehicleListing::uniqueSlug($title),
+                'make' => $make, 'model' => $model, 'year' => $year, 'fuel' => $fuel, 'transmission' => $gear, 'seats' => $seats,
+                'driver_options' => $how, 'price_day' => $day, 'price_hour' => $hour ?: null, 'deposit' => $deposit ?: null, 'km_per_day' => $km,
+                'features' => $settings::listIn('vehicles.features', $scope) ?: null,
+                'rule_list' => array_slice($settings::listIn('vehicles.rules', $scope), 0, 4) ?: null,
+                'about' => "Test {$kind} for walk-throughs: every option is filled in so each part of the page can be checked.\nNot a real vehicle.",
+                'landmark' => 'Near the test bus stop, '.$zone->name,
+                'address_line' => 'Door 2-'.($i + 1).', Test Street, '.$zone->name.'. Not a real vehicle.',
+                'lat' => round(14.4426 + $i * 0.002, 7), 'lng' => round(79.9865 - $i * 0.002, 7),
+                'cover_image' => $photos[$i % count($photos)], 'photos' => array_values(array_diff($photos, [$photos[$i % count($photos)]])),
+                'contact_phone' => $user->phone,
+                'status' => 'approved', 'submitted_at' => now(), 'approved_at' => now(), 'rejection_reason' => null,
+                'is_active' => true, 'expires_at' => now()->addDays(365),
+                'pending_changes' => null, 'pending_requested_at' => null, 'pending_rejection' => null,
+            ])->save();
+        }
+    }
+
     private function list(): int
     {
         $users = User::where('email', 'like', '%'.self::DOMAIN)->with('roleAssignments.role')->orderBy('id')->get();
@@ -646,6 +717,7 @@ class TestAccountsCommand extends Command
                 \App\Models\EventOrganiser::whereIn('provider_id', Provider::where('user_id', $user->id)->select('id'))->update(['is_active' => false]);
                 \App\Models\Hall::whereIn('provider_id', Provider::where('user_id', $user->id)->select('id'))->update(['is_active' => false]);
                 \App\Models\HouseListing::whereIn('provider_id', Provider::where('user_id', $user->id)->select('id'))->update(['is_active' => false]);
+                \App\Models\VehicleListing::whereIn('provider_id', Provider::where('user_id', $user->id)->select('id'))->update(['is_active' => false]);
                 $user->forceFill(['status' => 'suspended'])->save();
                 $user->tokens()->delete();
             });

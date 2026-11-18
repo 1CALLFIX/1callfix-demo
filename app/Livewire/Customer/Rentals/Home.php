@@ -22,7 +22,7 @@ use Livewire\Component;
 class Home extends Component
 {
     /** Kinds that have customer pages today, in the order they show. */
-    public const KINDS_WITH_PAGES = [RentalKinds::PROPERTIES, RentalKinds::HALLS];
+    public const KINDS_WITH_PAGES = [RentalKinds::PROPERTIES, RentalKinds::VEHICLES, RentalKinds::HALLS];
 
     public City $rentalCity;
 
@@ -60,6 +60,7 @@ class Home extends Component
             $count += match ($kind) {
                 RentalKinds::HALLS => HallsHome::publicHallsIn($city)->count(),
                 RentalKinds::PROPERTIES => \App\Services\Homes\HouseListingService::publicIn($city)->count(),
+                RentalKinds::VEHICLES => \App\Services\Vehicles\VehicleListingService::publicIn($city)->count(),
                 default => 0,
             };
         }
@@ -84,6 +85,21 @@ class Home extends Component
 
                         return ['id' => 'home:'.$h->id, 'name' => $h->title, 'kind' => $c['what'], 'url' => $c['url'], 'cover' => $c['cover'],
                             'seats' => $c['where'], 'ac' => $c['furnishing'], 'from' => $c['rent']];
+                    })->all(),
+                ];
+            }
+            if ($kind === RentalKinds::VEHICLES) {
+                $query = \App\Services\Vehicles\VehicleListingService::publicIn($city);
+                $vehicles = (clone $query)->with(['zone', 'franchise'])->orderByDesc('is_featured')->latest('approved_at')->limit(6)->get();
+                $sections[] = [
+                    'kind' => $kind, 'colour' => 'sky', 'icon' => '🚗',
+                    'title' => SiteText::get('rental.kind.vehicles'), 'line' => SiteText::get('rental.kind.vehicles.line'),
+                    'url' => route('customer.vehicles.home', $city->slug), 'count' => (clone $query)->count(),
+                    'items' => $vehicles->map(function (\App\Models\VehicleListing $v) use ($city) {
+                        $c = \App\Livewire\Customer\Vehicles\Home::card($v, $city->slug);
+
+                        return ['id' => 'vehicle:'.$v->id, 'name' => $v->title, 'kind' => $c['what'], 'url' => $c['url'], 'cover' => $c['cover'],
+                            'seats' => $c['where'], 'ac' => $c['how'], 'from' => $c['price']];
                     })->all(),
                 ];
             }
