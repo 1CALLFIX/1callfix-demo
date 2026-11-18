@@ -494,6 +494,9 @@ Route::get('/{city}/property/{homeSlug}', \App\Livewire\Customer\Homes\Show::cla
 // Vehicles for rent (2026-11-18, OLX-style): /{city}/vehicles and /{city}/vehicles/{vehicle}. 404 while Rental or "Vehicles" is off there.
 Route::get('/{city}/vehicles', \App\Livewire\Customer\Vehicles\Home::class)->where('city', $cityPattern)->middleware('page.cache')->name('customer.vehicles.home');
 Route::get('/{city}/vehicles/{vehicleSlug}', \App\Livewire\Customer\Vehicles\Show::class)->where(['city' => $cityPattern, 'vehicleSlug' => '[A-Za-z0-9_-]+'])->middleware('page.cache')->name('customer.vehicles.show');
+// Rent anything (owner decision 2026-11-18, OLX-style): /{city}/rent and /{city}/rent/{item}. 404 unless on in some zone of the city.
+Route::get('/{city}/rent', \App\Livewire\Customer\RentItems\Home::class)->where('city', $cityPattern)->middleware('page.cache')->name('customer.rent.home');
+Route::get('/{city}/rent/{itemSlug}', \App\Livewire\Customer\RentItems\Show::class)->where(['city' => $cityPattern, 'itemSlug' => '[A-Za-z0-9_-]+'])->middleware('page.cache')->name('customer.rent.show');
 // Function halls R2 (2026-11-13): /{city}/halls and /{city}/halls/{hall}. 404 while Function Halls is off for that city.
 Route::get('/{city}/halls', \App\Livewire\Customer\Halls\Home::class)->where('city', $cityPattern)->middleware('page.cache')->name('customer.halls.home');
 Route::get('/{city}/halls/{hallSlug}', \App\Livewire\Customer\Halls\Show::class)->where(['city' => $cityPattern, 'hallSlug' => '[A-Za-z0-9_-]+'])->middleware('page.cache')->name('customer.halls.show');

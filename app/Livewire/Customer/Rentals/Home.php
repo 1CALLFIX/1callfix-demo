@@ -22,7 +22,7 @@ use Livewire\Component;
 class Home extends Component
 {
     /** Kinds that have customer pages today, in the order they show. */
-    public const KINDS_WITH_PAGES = [RentalKinds::PROPERTIES, RentalKinds::VEHICLES, RentalKinds::HALLS];
+    public const KINDS_WITH_PAGES = [RentalKinds::PROPERTIES, RentalKinds::VEHICLES, RentalKinds::HALLS, RentalKinds::ITEMS];
 
     public City $rentalCity;
 
@@ -61,6 +61,7 @@ class Home extends Component
                 RentalKinds::HALLS => HallsHome::publicHallsIn($city)->count(),
                 RentalKinds::PROPERTIES => \App\Services\Homes\HouseListingService::publicIn($city)->count(),
                 RentalKinds::VEHICLES => \App\Services\Vehicles\VehicleListingService::publicIn($city)->count(),
+                RentalKinds::ITEMS => \App\Services\RentalItems\RentalItemService::publicIn($city)->count(),
                 default => 0,
             };
         }
@@ -100,6 +101,21 @@ class Home extends Component
 
                         return ['id' => 'vehicle:'.$v->id, 'name' => $v->title, 'kind' => $c['what'], 'url' => $c['url'], 'cover' => $c['cover'],
                             'seats' => $c['where'], 'ac' => $c['how'], 'from' => $c['price']];
+                    })->all(),
+                ];
+            }
+            if ($kind === RentalKinds::ITEMS) {
+                $query = \App\Services\RentalItems\RentalItemService::publicIn($city);
+                $rentItems = (clone $query)->with(['zone', 'franchise'])->orderByDesc('is_featured')->latest('approved_at')->limit(6)->get();
+                $sections[] = [
+                    'kind' => $kind, 'colour' => 'violet', 'icon' => '📦',
+                    'title' => SiteText::get('rental.kind.items'), 'line' => SiteText::get('rental.kind.items.line'),
+                    'url' => route('customer.rent.home', $city->slug), 'count' => (clone $query)->count(),
+                    'items' => $rentItems->map(function (\App\Models\RentalItem $i) use ($city) {
+                        $c = \App\Livewire\Customer\RentItems\Home::card($i, $city->slug);
+
+                        return ['id' => 'rentitem:'.$i->id, 'name' => $i->name, 'kind' => $c['what'], 'url' => $c['url'], 'cover' => $c['cover'],
+                            'seats' => $c['where'], 'ac' => $i->can_deliver ? SiteText::get('items.filter.deliver') : null, 'from' => $c['price']];
                     })->all(),
                 ];
             }

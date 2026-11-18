@@ -195,6 +195,8 @@ Route::middleware(['auth', \Illuminate\Session\Middleware\AuthenticateSession::c
         Route::get('/houses-for-rent', \App\Livewire\Homes\Manage::class)->name('admin.homes.index');
         // Vehicles for rent (2026-11-18, OLX-style): approve owner vehicles and their changes.
         Route::get('/vehicles-for-rent', \App\Livewire\VehicleListings\Manage::class)->name('admin.vehicle-listings.index');
+        // Rent anything (owner decision 2026-11-18, OLX-style): approve posted items, handle reports.
+        Route::get('/rent-anything', \App\Livewire\RentalItems\Manage::class)->name('admin.rental-items.index');
         Route::get('/hall-bookings', \App\Livewire\HallBookings\Index::class)->name('admin.hall-bookings.index');
         Route::get('/hall-damage-claims', \App\Livewire\Halls\DamageClaims::class)->name('admin.hall-damage-claims.index');
         Route::get('/stores', StoresManage::class)->name('admin.stores.index');

@@ -113,6 +113,8 @@ class AdminNav
                     ['label' => 'Property for rent', 'route' => 'admin.homes.index', 'icon' => 'home', 'permission' => 'homes.manage'],
                     // Vehicles for rent (2026-11-18, OLX-style): owner-listed vehicles. "Vehicles" below is the old admin catalog.
                     ['label' => 'Vehicles for rent', 'route' => 'admin.vehicle-listings.index', 'icon' => 'map-pin', 'permission' => 'vehicle_listings.manage'],
+                    // Rent anything (owner decision 2026-11-18, OLX-style): items people post; approve and handle reports.
+                    ['label' => 'Rent anything', 'route' => 'admin.rental-items.index', 'icon' => 'tag', 'permission' => 'rental_items.manage'],
                     ['label' => 'Rental Reservations', 'route' => 'admin.rental-reservations.index', 'icon' => 'clipboard', 'permission' => 'rental_reservations.view'],
                     ['label' => 'Vehicles', 'route' => 'admin.vehicles.index', 'icon' => 'building', 'permission' => 'vehicles.manage'],
                     ['label' => 'Equipment', 'route' => 'admin.equipment.index', 'icon' => 'wrench', 'permission' => 'equipment.manage'],

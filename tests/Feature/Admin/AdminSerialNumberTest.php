@@ -99,7 +99,7 @@ class AdminSerialNumberTest extends TestCase
         }
         // 60 list tables (2026-11-03: the dashboard's Recent module orders) + 19 sub-tables (one of them header-less)
         // + 2 (2026-11-13, Events E1): Admin → Events, the events and the organisers lists.
-        $this->assertSame(85, $headers); // + Function halls (R1), + Hall bookings (R2), 2026-11-13; + Property for rent, + visit requests (2026-11-14); + Vehicles for rent (2026-11-18)
-        $this->assertSame(86, $cells);
+        $this->assertSame(86, $headers); // + Function halls (R1), + Hall bookings (R2), 2026-11-13; + Property for rent, + visit requests (2026-11-14); + Vehicles for rent (2026-11-18); + Rent anything (2026-11-18)
+        $this->assertSame(87, $cells);
     }
 }
