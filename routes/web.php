@@ -187,6 +187,10 @@ Route::middleware(['auth', \App\Http\Middleware\EnsureAccountNotSuspended::class
 
     // ♡ Like / Save (owner 2026-11-07): the heart beside Share, and the list on Account → Saved.
     Route::get('/account/saved', \App\Livewire\Customer\Account\Saved::class)->name('customer.saved');
+    // Rent anything (owner decision 2026-11-18): a person's own posted items; private pages (no Share).
+    Route::get('/account/rent-out', \App\Livewire\Customer\Account\RentItems::class)->name('customer.rent-items');
+    Route::get('/account/rent-out/new', \App\Livewire\Customer\Account\RentItemEditor::class)->name('customer.rent-items.create');
+    Route::get('/account/rent-out/{item}', \App\Livewire\Customer\Account\RentItemEditor::class)->whereNumber('item')->name('customer.rent-items.edit');
     Route::post('/saved/toggle', [\App\Http\Controllers\Customer\SavedItemController::class, 'toggle'])->name('customer.saved.toggle');
 
     // REF 1CF-PROMPT-20260925-EARN3 — Earnings: Wallet / Loyalty / Referrals.

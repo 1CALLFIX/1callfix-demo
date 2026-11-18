@@ -205,6 +205,121 @@ class RentalItemService
         });
     }
 
+    /**
+     * Areas a person can post in: zones of active franchises where Rental and "Rent anything" are on, with the franchise
+     * loaded (its city_id names the city). Zone by zone, like the customer pages.
+     *
+     * @return \Illuminate\Support\Collection<int, \App\Models\Zone>
+     */
+    public static function postingZones()
+    {
+        return \App\Models\Zone::query()->with('franchise')
+            ->whereHas('franchise', fn ($q) => $q->where('status', 'active'))->orderBy('name')->get()
+            ->filter(fn (\App\Models\Zone $z) => RentalKinds::active(RentalKinds::ITEMS, array_filter([
+                'zone_id' => $z->id, 'franchise_id' => $z->franchise_id,
+                'city_id' => $z->franchise?->city_id, 'country_id' => $z->franchise?->country_id,
+            ])))->values();
+    }
+
+    /** Fields of an approved item that change at once; anything else sends it back for a quick check. */
+    public const CHANGE_AT_ONCE = ['price', 'price_unit', 'deposit', 'can_deliver'];
+
+    /**
+     * Owner saves an item (new or existing). A draft or sent-back item just saves. An approved item keeps price changes
+     * at once; a change to its name, kind, photos, description or area sends it back to the team (hidden meanwhile).
+     *
+     * @return array{0: RentalItem, 1: bool} the item, and whether it went back for review
+     */
+    public function save(User $owner, ?RentalItem $item, array $fields): array
+    {
+        if ($item !== null && $item->user_id !== $owner->id) {
+            throw new \RuntimeException('This is not your item.');
+        }
+        if ($item?->status === 'in_review') {
+            throw new \RuntimeException('We are checking this item. You can change it once we reply.');
+        }
+        $zone = \App\Models\Zone::with('franchise')->find($fields['zone_id'] ?? null);
+        $fields['franchise_id'] = $zone?->franchise_id;
+        $fields['title'] = RentalItem::makeTitle((string) $fields['name'], $zone?->name);
+
+        return DB::transaction(function () use ($owner, $item, $fields) {
+            if ($item === null) {
+                if ($reason = self::cannotPostReason($owner, $this->scopeOf($fields))) {
+                    throw new \RuntimeException($reason);
+                }
+
+                return [RentalItem::create($fields + ['user_id' => $owner->id, 'slug' => RentalItem::uniqueSlug($fields['title'])]), false];
+            }
+            if ($item->status === 'approved') {
+                $reviewChange = false;
+                foreach (array_diff_key($fields, array_flip(array_merge(self::CHANGE_AT_ONCE, ['franchise_id', 'title']))) as $field => $value) {
+                    if (! self::same($item->getAttribute($field), $value)) {
+                        $reviewChange = true;
+                    }
+                }
+                if (! $reviewChange) {
+                    $item->update(array_intersect_key($fields, array_flip(self::CHANGE_AT_ONCE)));
+
+                    return [$item->fresh(), false];
+                }
+                // The public link stays the same (old links never break); it shows again once the team approves.
+                $item->update(array_diff_key($fields, ['title' => 1]) + ['status' => 'in_review', 'submitted_at' => now()]);
+
+                return [$item->fresh(), true];
+            }
+            if ($item->title !== $fields['title']) {
+                $fields['slug'] = RentalItem::uniqueSlug($fields['title'], $item->id);
+            }
+            $item->update($fields);
+
+            return [$item->fresh(), false];
+        });
+    }
+
+    private function scopeOf(array $fields): array
+    {
+        $franchise = isset($fields['franchise_id']) ? \App\Models\Franchise::find($fields['franchise_id']) : null;
+
+        return array_filter(['zone_id' => $fields['zone_id'] ?? null, 'franchise_id' => $franchise?->id, 'city_id' => $franchise?->city_id, 'country_id' => $franchise?->country_id]);
+    }
+
+    private static function same(mixed $a, mixed $b): bool
+    {
+        if (is_array($a) || is_array($b)) {
+            return array_values((array) $a) === array_values((array) $b);
+        }
+        if (is_numeric($a) && is_numeric($b)) {
+            return (float) $a === (float) $b;
+        }
+
+        return (string) $a === (string) $b;
+    }
+
+    /** Owner: "Not available now" / "Available again" on an approved item. */
+    public function setAvailable(User $owner, RentalItem $item, bool $available): RentalItem
+    {
+        if ($item->user_id !== $owner->id || $item->status !== 'approved') {
+            throw new \RuntimeException('Only your approved items can be switched on or off.');
+        }
+        $item->update(['is_active' => $available]);
+
+        return $item->fresh();
+    }
+
+    /** Owner renews an approved item that ran out (or is about to): another listing period, counted from now. */
+    public function renew(User $owner, RentalItem $item): RentalItem
+    {
+        if ($item->user_id !== $owner->id || $item->status !== 'approved') {
+            throw new \RuntimeException('Only your approved items can be renewed.');
+        }
+        if ($item->isExpired() && ($reason = self::cannotPostReason($owner, $item->scope(), $item->id))) {
+            throw new \RuntimeException($reason);
+        }
+        $item->update(['expires_at' => now()->addDays((int) RentalItemSettings::get('items.listing_days', $item->scope())), 'is_active' => true]);
+
+        return $item->fresh();
+    }
+
     /** May this customer see the owner's number now? 'ok' | 'off' | 'limit'. An item already seen stays visible. */
     public static function phoneAccess(User $customer, RentalItem $item): string
     {
