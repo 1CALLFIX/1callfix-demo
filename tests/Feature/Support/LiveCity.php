@@ -40,6 +40,27 @@ trait LiveCity
         return $city;
     }
 
+    /** One more active franchise in an existing city (a city can have several franchises, one per area). */
+    protected function extraFranchise(City $city, string $name): Franchise
+    {
+        return Franchise::create([
+            'name' => $name, 'slug' => \Illuminate\Support\Str::slug($name), 'city' => $city->name,
+            'country_id' => $city->country_id, 'city_id' => $city->id,
+            'commission_model' => 'revenue_share', 'commission_value' => 10, 'platform_fee_percent' => 5,
+            'status' => 'active',
+        ]);
+    }
+
+    /** One more active zone of a franchise. */
+    protected function extraZone(Franchise $franchise, string $name): Zone
+    {
+        return Zone::create([
+            'franchise_id' => $franchise->id, 'name' => $name,
+            'boundary_polygon' => [['lat' => 1, 'lng' => 1], ['lat' => 2, 'lng' => 2], ['lat' => 3, 'lng' => 3]],
+            'is_active' => true, 'default_dispatch_radius_km' => 8,
+        ]);
+    }
+
     /** An approved, active provider of the city's franchise holding these category ids (makes pages "real" for indexing). */
     protected function providerFor(City $city, array $categoryIds): \App\Models\Provider
     {

@@ -246,6 +246,25 @@ class HouseListingTest extends TestCase
         $this->get(route('customer.rentals.home', $this->city->slug))->assertOk()->assertSee('data-kind="properties"', false)->assertSee($home->title);
     }
 
+    /** 2026-11-18: property switched off for one zone of a city hides only that zone's homes (list, page, count). */
+    public function test_property_switched_off_for_one_zone_hides_only_that_zones_homes(): void
+    {
+        $zoneB = $this->extraZone($this->franchise, 'Nellore East');
+        $mine = $this->liveHome(['title' => 'Home in zone A']);
+        $other = $this->liveHome(['title' => 'Home in zone B', 'zone_id' => $zoneB->id]);
+
+        Setting::set('rental.kind.properties', '0', 'zone', $zoneB->id);
+        $this->get(route('customer.homes.home', $this->city->slug))->assertOk()->assertSee('Home in zone A')->assertDontSee('Home in zone B');
+        $this->get(route('customer.homes.show', [$this->city->slug, $mine->slug]))->assertOk();
+        $this->get(route('customer.homes.show', [$this->city->slug, $other->slug]))->assertNotFound();
+        $this->assertSame(1, HouseListingService::publicIn($this->city)->count());
+
+        // Off for the franchise, on for zone B only: the city page stays open with just zone B's home.
+        Setting::set('rental.kind.properties', '0', 'franchise', $this->franchise->id);
+        Setting::set('rental.kind.properties', '1', 'zone', $zoneB->id);
+        $this->get(route('customer.homes.home', $this->city->slug))->assertOk()->assertDontSee('Home in zone A')->assertSee('Home in zone B');
+    }
+
     public function test_pages_are_hidden_while_rental_or_houses_for_rent_is_off(): void
     {
         $home = $this->liveHome();

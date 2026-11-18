@@ -55,6 +55,7 @@ class HouseListingService
         $query = HouseListing::query()->where('status', 'approved')->where('is_active', true)->whereNull('rented_at')
             ->where(fn ($q) => $q->whereNull('expires_at')->orWhere('expires_at', '>', now()))
             ->whereHas('franchise', fn ($q) => $q->where('city_id', $city->id));
+        \App\Support\Seo\CityModules::whereRentalKindOn($query, $city, \App\Support\RentalKinds::PROPERTIES);
         if (\App\Support\MarketplaceSettings::on('marketplace.hide_test_shops') && ! \App\Models\Store::isTestViewer(auth()->user())) {
             $query->whereDoesntHave('provider.user', fn ($q) => $q->where('email', 'like', '%'.\App\Console\Commands\TestAccountsCommand::DOMAIN));
         }

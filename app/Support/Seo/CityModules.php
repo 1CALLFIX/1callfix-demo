@@ -71,16 +71,54 @@ final class CityModules
         return self::rentalKindLiveIn($city, \App\Support\RentalKinds::HALLS);
     }
 
-    /** One Rental (owner 2026-11-14): Rental on in Modules and this kind on in Rental Settings, for some franchise of the city. */
+    /**
+     * One Rental (owner 2026-11-14): Rental on in Modules and this kind on in Rental Settings, for some franchise OR
+     * some zone of the city (2026-11-18: a switch set for one zone only counts too).
+     */
     public static function rentalKindLiveIn(City $city, string $kind): bool
     {
+        $scopes = self::rentalKindScopesIn($city, $kind);
+
+        return $scopes['zones'] !== [] || $scopes['franchises'] !== [];
+    }
+
+    /**
+     * Where this rental kind is on in the city (2026-11-18). `zones`: every zone of an active franchise where it is on
+     * (zone → franchise → city → country → global, the same chain a listing's own page and "Show owner's number" use).
+     * `franchises`: active franchises where it is on at franchise level, for listings that have no zone.
+     *
+     * @return array{zones: list<int>, franchises: list<int>}
+     */
+    public static function rentalKindScopesIn(City $city, string $kind): array
+    {
+        $zones = [];
+        $franchises = [];
         foreach (Franchise::query()->where('city_id', $city->id)->where('status', 'active')->pluck('id') as $franchiseId) {
-            if (\App\Support\RentalKinds::active($kind, array_filter(['franchise_id' => $franchiseId, 'city_id' => $city->id, 'country_id' => $city->country_id]))) {
-                return true;
+            $scope = array_filter(['franchise_id' => $franchiseId, 'city_id' => $city->id, 'country_id' => $city->country_id]);
+            if (\App\Support\RentalKinds::active($kind, $scope)) {
+                $franchises[] = (int) $franchiseId;
+            }
+            foreach (\App\Models\Zone::query()->where('franchise_id', $franchiseId)->pluck('id') as $zoneId) {
+                if (\App\Support\RentalKinds::active($kind, ['zone_id' => $zoneId] + $scope)) {
+                    $zones[] = (int) $zoneId;
+                }
             }
         }
 
-        return false;
+        return ['zones' => $zones, 'franchises' => $franchises];
+    }
+
+    /**
+     * Keep only listings whose own zone (or, with no zone, own franchise) has this rental kind on (2026-11-18). Before
+     * this a city page listed every approved listing of the city once ANY franchise had the kind on.
+     */
+    public static function whereRentalKindOn(\Illuminate\Database\Eloquent\Builder $query, City $city, string $kind): \Illuminate\Database\Eloquent\Builder
+    {
+        $scopes = self::rentalKindScopesIn($city, $kind);
+        $model = $query->getModel();
+
+        return $query->where(fn ($q) => $q->whereIn($model->qualifyColumn('zone_id'), $scopes['zones'])
+            ->orWhere(fn ($q) => $q->whereNull($model->qualifyColumn('zone_id'))->whereIn($model->qualifyColumn('franchise_id'), $scopes['franchises'])));
     }
 
     public static function foodLiveIn(City $city): bool

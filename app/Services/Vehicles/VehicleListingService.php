@@ -42,6 +42,7 @@ class VehicleListingService
         $query = VehicleListing::query()->where('status', 'approved')->where('is_active', true)
             ->where(fn ($q) => $q->whereNull('expires_at')->orWhere('expires_at', '>', now()))
             ->whereHas('franchise', fn ($q) => $q->where('city_id', $city->id));
+        \App\Support\Seo\CityModules::whereRentalKindOn($query, $city, RentalKinds::VEHICLES);
         if (\App\Support\MarketplaceSettings::on('marketplace.hide_test_shops') && ! \App\Models\Store::isTestViewer(auth()->user())) {
             $query->whereDoesntHave('provider.user', fn ($q) => $q->where('email', 'like', '%'.\App\Console\Commands\TestAccountsCommand::DOMAIN));
         }
