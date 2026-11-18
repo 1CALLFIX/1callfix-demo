@@ -7,17 +7,20 @@ use App\Models\HouseListing;
 use App\Models\ListingFee;
 use App\Models\Setting;
 use App\Models\User;
+use App\Models\VehicleListing;
 use App\Services\ActivityLogger;
 use App\Services\WalletService;
 use App\Support\HomeSettings;
+use App\Support\VehicleListingSettings;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 /**
- * Listing fee for property (owner 2026-11-17). The owner pays to show a property ("listing") or to show it first
- * ("featured"), either online through the HQ gateway (Razorpay) or from their wallet. The fee is set per city / zone in
- * Rental Settings; 0 means free and nothing changes. This is a charge, not a benefit, so the online-only benefits rule is
- * not involved; it is not a manual money action either (no person moves, waives or adjusts it).
+ * Listing fee for property (owner 2026-11-17) and vehicles for rent (2026-11-18): one engine, each listing type with its
+ * own settings (homes.* / vehicles.*). The owner pays to show a listing ("listing") or to show it first ("featured"),
+ * either online through the HQ gateway (Razorpay) or from their wallet. The fee is set per city / zone in Rental
+ * Settings; 0 means free and nothing changes. This is a charge, not a benefit, so the online-only benefits rule is not
+ * involved; it is not a manual money action either (no person moves, waives or adjusts it).
  *
  * - Paying for "listing" sets the live period (expires_at) from the later of now and the current end, so renewing early
  *   loses no days. Paying for "featured" sets is_featured with featured_until, and `homes:tidy` ends it.
@@ -27,71 +30,88 @@ use Illuminate\Support\Str;
  */
 class ListingFeeService
 {
-    public const TYPE = 'house';
+    /** listing_fees.listing_type => [model, settings class, settings prefix] */
+    public const TYPES = [
+        'house' => [HouseListing::class, HomeSettings::class, 'homes'],
+        'vehicle' => [VehicleListing::class, VehicleListingSettings::class, 'vehicles'],
+    ];
 
     public function __construct(private WalletService $wallet, private PaymentGateway $gateway)
     {
     }
 
-    public static function amount(HouseListing $home, string $kind): int
+    public static function typeOf(HouseListing|VehicleListing $listing): string
     {
-        $key = $kind === 'featured' ? 'homes.featured_fee' : 'homes.listing_fee';
-
-        return max(0, (int) HomeSettings::get($key, $home->scope()));
+        return $listing instanceof VehicleListing ? 'vehicle' : 'house';
     }
 
-    public static function days(HouseListing $home, string $kind): int
+    private static function setting(HouseListing|VehicleListing $listing, string $name): ?string
     {
-        $key = $kind === 'featured' ? 'homes.featured_days' : 'homes.listing_days';
+        [, $settings, $prefix] = self::TYPES[self::typeOf($listing)];
 
-        return max(1, (int) HomeSettings::get($key, $home->scope()));
+        return $settings::get($prefix.'.'.$name, $listing->scope());
+    }
+
+    public static function amount(HouseListing|VehicleListing $listing, string $kind): int
+    {
+        return max(0, (int) self::setting($listing, $kind === 'featured' ? 'featured_fee' : 'listing_fee'));
+    }
+
+    public static function days(HouseListing|VehicleListing $listing, string $kind): int
+    {
+        return max(1, (int) self::setting($listing, $kind === 'featured' ? 'featured_days' : 'listing_days'));
     }
 
     /** A fee applies to this listing's area: approval alone does not put it live. */
-    public static function required(HouseListing $home): bool
+    public static function required(HouseListing|VehicleListing $listing): bool
     {
-        return self::amount($home, 'listing') > 0;
+        return self::amount($listing, 'listing') > 0;
     }
 
-    /** Approved, owner has paid before or it is free: the "Pay to show" step does not block it. */
-    public static function hasValidPeriod(HouseListing $home): bool
+    /** The listing has a paid (or free) period running now. */
+    public static function hasValidPeriod(HouseListing|VehicleListing $listing): bool
     {
-        return $home->expires_at !== null && $home->expires_at->isFuture();
+        return $listing->expires_at !== null && $listing->expires_at->isFuture();
     }
 
-    public function onlineAvailable(HouseListing $home): bool
+    public function onlineAvailable(HouseListing|VehicleListing $listing): bool
     {
-        return Setting::get('payment.online_enabled', '1', $home->scope()) === '1' && $this->gateway->isConfigured();
+        return Setting::get('payment.online_enabled', '1', $listing->scope()) === '1' && $this->gateway->isConfigured();
+    }
+
+    private static function noun(HouseListing|VehicleListing $listing): string
+    {
+        return self::typeOf($listing) === 'vehicle' ? 'vehicle' : 'property';
     }
 
     /** @throws \RuntimeException with an owner-facing reason */
-    private function check(User $owner, HouseListing $home, string $kind): int
+    private function check(User $owner, HouseListing|VehicleListing $listing, string $kind): int
     {
         if (! in_array($kind, ['listing', 'featured'], true)) {
             throw new \RuntimeException('Choose what to pay for.');
         }
-        $home->loadMissing('provider');
-        if ($home->provider?->user_id !== $owner->id) {
-            throw new \RuntimeException('This is not your property.');
+        $listing->loadMissing('provider');
+        if ($listing->provider?->user_id !== $owner->id) {
+            throw new \RuntimeException('This is not your '.self::noun($listing).'.');
         }
-        if ($home->status !== 'approved') {
-            throw new \RuntimeException('You can pay once the team has approved the property.');
+        if ($listing->status !== 'approved') {
+            throw new \RuntimeException('You can pay once the team has approved the '.self::noun($listing).'.');
         }
-        $amount = self::amount($home, $kind);
+        $amount = self::amount($listing, $kind);
         if ($amount <= 0) {
             throw new \RuntimeException($kind === 'featured' ? 'Featuring is not on for your area.' : 'There is no fee to pay.');
         }
-        if ($kind === 'featured' && ! $home->isLive()) {
-            throw new \RuntimeException('Only a live property can be featured. Pay to show it first.');
+        if ($kind === 'featured' && ! $listing->isLive()) {
+            throw new \RuntimeException('Only a live '.self::noun($listing).' can be featured. Pay to show it first.');
         }
 
         return $amount;
     }
 
     /** Pay from the owner's wallet: one debit, then activate. @throws \RuntimeException */
-    public function payFromWallet(User $owner, HouseListing $home, string $kind): ListingFee
+    public function payFromWallet(User $owner, HouseListing|VehicleListing $listing, string $kind): ListingFee
     {
-        $amount = $this->check($owner, $home, $kind);
+        $amount = $this->check($owner, $listing, $kind);
         if ($this->wallet->isFrozen($owner)) {
             throw new \RuntimeException('Your wallet is on hold. Please pay online or contact us.');
         }
@@ -99,12 +119,12 @@ class ListingFeeService
             throw new \RuntimeException('Your wallet has less than ₹'.number_format($amount).'. Add money first, or pay online.');
         }
 
-        return DB::transaction(function () use ($owner, $home, $kind, $amount) {
+        return DB::transaction(function () use ($owner, $listing, $kind, $amount) {
             $fee = ListingFee::create([
-                'listing_type' => self::TYPE, 'listing_id' => $home->id, 'user_id' => $owner->id, 'franchise_id' => $home->franchise_id,
-                'kind' => $kind, 'amount' => $amount, 'days' => self::days($home, $kind), 'method' => 'wallet', 'status' => 'pending',
+                'listing_type' => self::typeOf($listing), 'listing_id' => $listing->id, 'user_id' => $owner->id, 'franchise_id' => $listing->franchise_id,
+                'kind' => $kind, 'amount' => $amount, 'days' => self::days($listing, $kind), 'method' => 'wallet', 'status' => 'pending',
             ]);
-            $this->wallet->debit($owner, (float) $amount, $kind === 'featured' ? 'Feature a property' : 'Property listing fee', 'listingfee:'.$fee->id);
+            $this->wallet->debit($owner, (float) $amount, ($kind === 'featured' ? 'Feature a ' : 'Listing fee: ').self::noun($listing), 'listingfee:'.$fee->id);
             $this->markPaid($fee);
 
             return $fee->fresh();
@@ -112,16 +132,16 @@ class ListingFeeService
     }
 
     /** Start an online payment: returns the Razorpay order for the browser checkout. @throws \RuntimeException */
-    public function startOnline(User $owner, HouseListing $home, string $kind): array
+    public function startOnline(User $owner, HouseListing|VehicleListing $listing, string $kind): array
     {
-        $amount = $this->check($owner, $home, $kind);
-        if (! $this->onlineAvailable($home)) {
+        $amount = $this->check($owner, $listing, $kind);
+        if (! $this->onlineAvailable($listing)) {
             throw new \RuntimeException('Online payment is not available right now. Try your wallet.');
         }
         $order = $this->gateway->createRawOrder((float) $amount, 'listing-'.Str::random(8), ['user_id' => $owner->id, 'purpose' => 'listing_fee', 'kind' => $kind]);
         ListingFee::create([
-            'listing_type' => self::TYPE, 'listing_id' => $home->id, 'user_id' => $owner->id, 'franchise_id' => $home->franchise_id,
-            'kind' => $kind, 'amount' => $amount, 'days' => self::days($home, $kind), 'method' => 'online', 'status' => 'pending',
+            'listing_type' => self::typeOf($listing), 'listing_id' => $listing->id, 'user_id' => $owner->id, 'franchise_id' => $listing->franchise_id,
+            'kind' => $kind, 'amount' => $amount, 'days' => self::days($listing, $kind), 'method' => 'online', 'status' => 'pending',
             'gateway' => $this->gateway->identifier(), 'gateway_order_id' => $order['razorpay_order_id'],
         ]);
 
@@ -167,24 +187,30 @@ class ListingFeeService
         }
         $fee->update(['status' => 'paid', 'paid_at' => now()]);
 
-        $home = HouseListing::find($fee->listing_id);
-        if (! $home) {
+        $model = self::TYPES[$fee->listing_type][0] ?? HouseListing::class;
+        $listing = $model::find($fee->listing_id);
+        if (! $listing) {
             return;
         }
         if ($fee->kind === 'featured') {
-            $from = $home->featured_until && $home->featured_until->isFuture() ? $home->featured_until : now();
-            $home->update(['is_featured' => true, 'featured_until' => $from->copy()->addDays($fee->days)]);
+            $from = $listing->featured_until && $listing->featured_until->isFuture() ? $listing->featured_until : now();
+            $listing->update(['is_featured' => true, 'featured_until' => $from->copy()->addDays($fee->days)]);
         } else {
-            $from = $home->expires_at && $home->expires_at->isFuture() ? $home->expires_at : now();
-            $home->update(['is_active' => true, 'expires_at' => $from->copy()->addDays($fee->days)]);
+            $from = $listing->expires_at && $listing->expires_at->isFuture() ? $listing->expires_at : now();
+            $listing->update(['is_active' => true, 'expires_at' => $from->copy()->addDays($fee->days)]);
         }
-        ActivityLogger::logModel($fee->user, $home, 'Listing fee paid: '.$fee->kind.' ₹'.number_format((float) $fee->amount).' ('.$fee->method.')');
+        ActivityLogger::logModel($fee->user, $listing, 'Listing fee paid: '.$fee->kind.' ₹'.number_format((float) $fee->amount).' ('.$fee->method.')');
     }
 
-    /** Paid features that have run out go back to the normal order. Called by homes:tidy. */
+    /** Paid features that have run out go back to the normal order (every listing type). Called by homes:tidy. */
     public static function endLapsedFeatures(): int
     {
-        return HouseListing::where('is_featured', true)->whereNotNull('featured_until')->where('featured_until', '<=', now())
-            ->update(['is_featured' => false, 'featured_until' => null]);
+        $ended = 0;
+        foreach (self::TYPES as [$model]) {
+            $ended += $model::where('is_featured', true)->whereNotNull('featured_until')->where('featured_until', '<=', now())
+                ->update(['is_featured' => false, 'featured_until' => null]);
+        }
+
+        return $ended;
     }
 }

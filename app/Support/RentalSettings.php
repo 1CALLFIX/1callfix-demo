@@ -25,7 +25,7 @@ class RentalSettings extends HallSettings
             'group' => 'Rental kinds', 'label' => 'Equipment', 'type' => 'switch', 'default' => '0',
             'help' => 'Generators, tents, sound systems and other equipment. Off by default: turn on only where you offer them.',
         ],
-    ] + HallSettings::REGISTRY + HomeSettings::REGISTRY;
+    ] + HallSettings::REGISTRY + HomeSettings::REGISTRY + VehicleListingSettings::REGISTRY;
 
     public static function validate(string $key, mixed $value): ?string
     {
