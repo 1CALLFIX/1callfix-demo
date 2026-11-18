@@ -255,49 +255,66 @@ class VehicleListingTest extends TestCase
     }
 
     /**
-     * 2026-11-18: one city, two franchises, three zones. Vehicles switched on for ONE zone opens the city pages, and
-     * the list, the vehicle page, the count and the owner's number all follow each vehicle's own zone / franchise.
+     * 2026-11-18, the owner's model: one city, one zone per franchise. Nellore has Azam Enterprises (zone Nellore East)
+     * and Alif Traders (zone Nellore West). Each franchise's Vehicles switch decides only its own zone's vehicles: the
+     * city list, the vehicle page, the count and the owner's number all follow it.
      */
-    public function test_a_city_with_several_franchises_and_zones_shows_only_vehicles_where_vehicles_is_on(): void
+    public function test_each_franchise_of_a_city_decides_vehicles_for_its_own_zone_only(): void
     {
-        $zoneA2 = $this->extraZone($this->franchise, 'Nellore East');
-        $franchiseB = $this->extraFranchise($this->city, 'Nellore South Franchise');
-        $zoneB = $this->extraZone($franchiseB, 'Nellore South');
-        app(ModuleActivationService::class)->setActive(Modules::RENTAL, 'franchise', $franchiseB->id, true);
+        $azam = tap($this->franchise)->update(['name' => 'Azam Enterprises']);
+        $east = tap($this->zone)->update(['name' => 'Nellore East']);
+        $alif = $this->extraFranchise($this->city, 'Alif Traders');
+        $west = $this->extraZone($alif, 'Nellore West');
+        app(ModuleActivationService::class)->setActive(Modules::RENTAL, 'franchise', $alif->id, true);
 
-        $a1 = $this->liveVehicle(['title' => 'Zone A1 car']);
-        $a2 = $this->liveVehicle(['title' => 'Zone A2 car', 'zone_id' => $zoneA2->id]);
-        $b = $this->liveVehicle(['title' => 'Franchise B car', 'zone_id' => $zoneB->id, 'franchise_id' => $franchiseB->id]);
+        $azamCar = $this->liveVehicle(['title' => 'Azam East car']);
+        $alifCar = $this->liveVehicle(['title' => 'Alif West car', 'zone_id' => $west->id, 'franchise_id' => $alif->id]);
         $list = fn () => $this->get(route('customer.vehicles.home', $this->city->slug));
         $page = fn ($v) => $this->get(route('customer.vehicles.show', [$this->city->slug, $v->slug]));
 
-        // On for zone A1 only.
+        // Off by default; Azam switches Vehicles on for its franchise. Alif's vehicle must not show.
         Setting::set('rental.kind.vehicles', '0');
-        Setting::set('rental.kind.vehicles', '1', 'zone', $this->zone->id);
-        $list()->assertOk()->assertSee('Zone A1 car')->assertDontSee('Zone A2 car')->assertDontSee('Franchise B car');
-        $page($a1)->assertOk();
-        $page($a2)->assertNotFound();
-        $page($b)->assertNotFound();
+        Setting::set('rental.kind.vehicles', '1', 'franchise', $azam->id);
+        $list()->assertOk()->assertSee('Azam East car')->assertDontSee('Alif West car');
+        $page($azamCar)->assertOk();
+        $page($alifCar)->assertNotFound();
         $this->assertSame(1, \App\Livewire\Customer\Rentals\Home::liveCountIn($this->city));
         $this->get(route('customer.rentals.home', $this->city->slug))->assertOk()->assertSee('data-kind="vehicles"', false);
-        Livewire::actingAs($this->customer)->withoutLazyLoading()->test(Contact::class, ['listingId' => $a1->id])
-            ->call('showPhone')->assertSee($a1->provider->user->phone);
+        Livewire::actingAs($this->customer)->withoutLazyLoading()->test(Contact::class, ['listingId' => $azamCar->id])
+            ->call('showPhone')->assertSee($azamCar->provider->user->phone);
 
-        // Franchise B switches it on: its zone inherits it; zone A2 stays off.
-        Setting::set('rental.kind.vehicles', '1', 'franchise', $franchiseB->id);
-        $list()->assertSee('Zone A1 car')->assertSee('Franchise B car')->assertDontSee('Zone A2 car');
-        $page($b)->assertOk();
+        // Alif switches it on for its zone (Nellore West): both show.
+        Setting::set('rental.kind.vehicles', '1', 'zone', $west->id);
+        $list()->assertSee('Azam East car')->assertSee('Alif West car');
+        $page($alifCar)->assertOk();
+        $this->assertSame(2, \App\Livewire\Customer\Rentals\Home::liveCountIn($this->city));
 
-        // Franchise A on, but zone A1 switched off: a zone's own "off" wins.
-        Setting::set('rental.kind.vehicles', '1', 'franchise', $this->franchise->id);
-        Setting::set('rental.kind.vehicles', '0', 'zone', $this->zone->id);
-        $list()->assertDontSee('Zone A1 car')->assertSee('Zone A2 car')->assertSee('Franchise B car');
-        $page($a1)->assertNotFound();
+        // A zone's own "Off" wins over its franchise's "On".
+        Setting::set('rental.kind.vehicles', '0', 'zone', $east->id);
+        $list()->assertDontSee('Azam East car')->assertSee('Alif West car');
+        $page($azamCar)->assertNotFound();
 
-        // Off everywhere: the city pages close.
-        Setting::set('rental.kind.vehicles', '0', 'franchise', $this->franchise->id);
-        Setting::set('rental.kind.vehicles', '0', 'franchise', $franchiseB->id);
+        // Off for both: the city pages close.
+        Setting::set('rental.kind.vehicles', '0', 'zone', $west->id);
         $list()->assertNotFound();
+        $this->get(route('customer.rentals.home', $this->city->slug))->assertDontSee('data-kind="vehicles"', false);
+    }
+
+    /**
+     * The admin flow (owner 2026-11-18): a franchise is created first, then its zone (Zones screen, franchise required).
+     * Between the two steps the new franchise has no zone: switching Vehicles on for it opens nothing yet; once its zone
+     * exists the zone inherits the franchise's switch and the city pages open.
+     */
+    public function test_a_new_franchise_opens_vehicles_only_once_its_zone_is_added(): void
+    {
+        Setting::set('rental.kind.vehicles', '0');
+        $alif = $this->extraFranchise($this->city, 'Alif Traders');
+        app(ModuleActivationService::class)->setActive(Modules::RENTAL, 'franchise', $alif->id, true);
+        Setting::set('rental.kind.vehicles', '1', 'franchise', $alif->id);
+        $this->get(route('customer.vehicles.home', $this->city->slug))->assertNotFound();
+
+        $this->extraZone($alif, 'Nellore West');
+        $this->get(route('customer.vehicles.home', $this->city->slug))->assertOk();
     }
 
     public function test_pages_are_hidden_while_rental_or_vehicles_is_off(): void

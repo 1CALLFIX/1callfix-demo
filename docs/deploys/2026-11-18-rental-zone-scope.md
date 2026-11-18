@@ -6,7 +6,7 @@ Use with `docs/DEPLOY_RUNBOOK.md`.
 |---|---|
 | Deploys | `main` at the commit that adds this file (`git log -1` in runbook step 1) |
 | Live before | `a064cbe` (2026-11-18 vehicles release) |
-| Full test suite | 4962/4963 passed (2026-11-18, one full run); known failure only: NotificationCenterAuditTest::test_provider_status_shows_log_fallback_by_default (.env) |
+| Full test suite | 4962/4963 passed (2026-11-18, full run on the final code); known failure only: NotificationCenterAuditTest::test_provider_status_shows_log_fallback_by_default (.env). One test added after that run (new franchise, then its zone): Vehicles + Homes + Halls folders 90/90 |
 | Composer | no (`composer.lock` unchanged) |
 | Front-end build (steps 6–7) | no (PHP only; no new classes in views) |
 | Version | `VERSION` 2026.11.18.2 |
@@ -16,15 +16,19 @@ Use with `docs/DEPLOY_RUNBOOK.md`.
   Vehicles) can be set per franchise or per zone, but the customer city pages only looked at franchises, and their
   lists showed every approved listing of the city once any one franchise had the kind on.
 - Now (`CityModules::rentalKindScopesIn` / `whereRentalKindOn`):
-  - A city's Rentals, Vehicles, Property and Function halls pages open when the kind is on for **any franchise or any
-    zone** of the city (a zone-only switch now counts).
   - The lists, the item pages, the counts and the Rentals page show only items whose **own zone** (or, with no zone,
     own franchise) has the kind on: zone → franchise → city → global, the same chain "Show owner's number" already used.
+  - A city's Rentals, Vehicles, Property and Function halls pages open only when the kind is on in **at least one
+    zone** of the city (a zone-only switch counts; a franchise switch counts through its zone). A franchise with no
+    zone yet, or whose zone is switched off, opens nothing.
   - A zone's own "Off" wins over its franchise's "On".
-- Example: city with franchises A (zones A1, A2) and B (zone B1), Vehicles on for zone A1 only → `/city/vehicles`
-  opens with A1's vehicles only; A2's and B1's vehicle pages are 404.
-- Tests: `VehicleListingTest::test_a_city_with_several_franchises_and_zones_shows_only_vehicles_where_vehicles_is_on`,
-  `HouseListingTest::test_property_switched_off_for_one_zone_hides_only_that_zones_homes` (both fail without the fix).
+- Example, the owner's model (one zone per franchise): Nellore with Azam Enterprises (zone Nellore East) and Alif
+  Traders (zone Nellore West). Azam switches Vehicles on, Alif does not → `/nellore/vehicles` lists only Azam's
+  vehicles, and Alif's vehicle pages are 404. Before this release Alif's vehicles were listed too, and their
+  "Show owner's number" failed.
+- Tests: `VehicleListingTest::test_each_franchise_of_a_city_decides_vehicles_for_its_own_zone_only`, `VehicleListingTest::test_a_new_franchise_opens_vehicles_only_once_its_zone_is_added` (admin flow: franchise first, then its zone),
+  `HouseListingTest::test_a_franchise_switching_property_off_hides_only_its_own_zones_homes` (both fail on the code
+  before this release).
 
 ## Step 5 — migrations that must be pending (exactly these)
 - none

@@ -77,17 +77,18 @@ final class CityModules
      */
     public static function rentalKindLiveIn(City $city, string $kind): bool
     {
-        $scopes = self::rentalKindScopesIn($city, $kind);
-
-        return $scopes['zones'] !== [] || $scopes['franchises'] !== [];
+        return self::rentalKindScopesIn($city, $kind)['live'];
     }
 
     /**
      * Where this rental kind is on in the city (2026-11-18). `zones`: every zone of an active franchise where it is on
      * (zone → franchise → city → country → global, the same chain a listing's own page and "Show owner's number" use).
-     * `franchises`: active franchises where it is on at franchise level, for listings that have no zone.
+     * `franchises`: active franchises where it is on at franchise level, only for a listing whose zone was deleted
+     * (zone_id is nulled on delete). `live`: the city pages open only when the kind is on in at least one zone. Every
+     * franchise works through its zone(s) (owner 2026-11-18: one zone per franchise), so a franchise with no zone yet,
+     * or whose zones are all switched off, opens nothing.
      *
-     * @return array{zones: list<int>, franchises: list<int>}
+     * @return array{zones: list<int>, franchises: list<int>, live: bool}
      */
     public static function rentalKindScopesIn(City $city, string $kind): array
     {
@@ -105,7 +106,7 @@ final class CityModules
             }
         }
 
-        return ['zones' => $zones, 'franchises' => $franchises];
+        return ['zones' => $zones, 'franchises' => $franchises, 'live' => $zones !== []];
     }
 
     /**
