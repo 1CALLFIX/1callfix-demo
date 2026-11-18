@@ -16,6 +16,7 @@ final class RentalKinds
     public const PROPERTIES = 'properties';
     public const VEHICLES = 'vehicles';
     public const EQUIPMENT = 'equipment';
+    public const ITEMS = 'items';
 
     /** kind => [label, default on] */
     public const KINDS = [
@@ -23,6 +24,7 @@ final class RentalKinds
         self::PROPERTIES => ['Property for rent (monthly)', true],
         self::VEHICLES => ['Vehicles', false],
         self::EQUIPMENT => ['Equipment', false],
+        self::ITEMS => ['Rent anything (items people post)', false],
     ];
 
     public static function key(string $kind): string

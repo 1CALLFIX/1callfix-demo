@@ -25,7 +25,11 @@ class RentalSettings extends HallSettings
             'group' => 'Rental kinds', 'label' => 'Equipment', 'type' => 'switch', 'default' => '0',
             'help' => 'Generators, tents, sound systems and other equipment. Off by default: turn on only where you offer them.',
         ],
-    ] + HallSettings::REGISTRY + HomeSettings::REGISTRY + VehicleListingSettings::REGISTRY;
+        'rental.kind.items' => [
+            'group' => 'Rental kinds', 'label' => 'Rent anything (items people post)', 'type' => 'switch', 'default' => '0',
+            'help' => 'OLX-style: anyone with a verified mobile number posts things they rent out (camera, speaker, furniture, tools). Your team approves each post. Off by default: turn on zone by zone.',
+        ],
+    ] + HallSettings::REGISTRY + HomeSettings::REGISTRY + VehicleListingSettings::REGISTRY + RentalItemSettings::REGISTRY;
 
     public static function validate(string $key, mixed $value): ?string
     {
