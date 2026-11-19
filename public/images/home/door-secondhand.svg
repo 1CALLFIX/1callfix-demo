@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" role="img" aria-label="Second-hand">
+  <!-- 1CallFix's own drawing (2026-11-19): default Second-hand door on the homepage (a tag passed on, round arrows). -->
+  <rect x="6" y="6" width="108" height="108" rx="26" fill="#FEF3C7"/>
+  <path d="M34 36h30l26 26-28 28-28-26z" fill="#F59E0B"/>
+  <circle cx="46" cy="48" r="5" fill="#FEF3C7"/>
+  <path d="M58 64a10 10 0 0 1 17-5" fill="none" stroke="#FFFFFF" stroke-width="5" stroke-linecap="round"/>
+  <path d="M77 54v6h-6" fill="none" stroke="#FFFFFF" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M74 70a10 10 0 0 1-17 5" fill="none" stroke="#92400E" stroke-width="5" stroke-linecap="round"/>
+  <path d="M55 80v-6h6" fill="none" stroke="#92400E" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

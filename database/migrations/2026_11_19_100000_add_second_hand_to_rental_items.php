@@ -22,10 +22,15 @@ return new class extends Migration
             $table->timestamp('sold_at')->nullable()->after('expires_at');
             $table->index(['deal', 'status', 'is_active']);
         });
+        // The same permission now checks both kinds of post (Admin → People's posts); say so on the Roles screen.
+        \Illuminate\Support\Facades\DB::table('permissions')->where('slug', 'rental_items.manage')
+            ->update(['label' => "People's posts (rent and second-hand): approve, handle reports, switch off", 'updated_at' => now()]);
     }
 
     public function down(): void
     {
+        \Illuminate\Support\Facades\DB::table('permissions')->where('slug', 'rental_items.manage')
+            ->update(['label' => 'Rent anything: approve posted items, handle reports, switch an item off', 'updated_at' => now()]);
         Schema::table('rental_items', function (Blueprint $table) {
             $table->dropIndex(['deal', 'status', 'is_active']);
             $table->dropColumn(['deal', 'negotiable', 'has_bill', 'sold_at']);

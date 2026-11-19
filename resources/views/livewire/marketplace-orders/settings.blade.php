@@ -7,7 +7,7 @@
             @elseif ($pageTitle === 'Hotel Settings')
                 <p class="text-sm text-gray-500">Hotel sign-ups, booking, payment, cancellation and GST rules for Hotels. Switch Hotels on or off per location on the <a href="{{ route('admin.modules.index') }}" class="underline">Modules</a> screen.</p>
             @elseif ($pageTitle === 'Rental Settings')
-                <p class="text-sm text-gray-500">One place for all rental: which kinds you offer (Function halls, Property for rent, Vehicles, Equipment, Rent anything), then the settings for each kind. Switch Rental on or off per location on the <a href="{{ route('admin.modules.index') }}" class="underline">Modules</a> screen; a kind shows to customers only where Rental is on and that kind is on.</p>
+                <p class="text-sm text-gray-500">One place for all rental: which kinds you offer (Function halls, Property for rent, Vehicles, Equipment, Rent anything), then the settings for each kind, and Second-hand (used things people sell; its own switch per zone, not tied to Rental). Switch Rental on or off per location on the <a href="{{ route('admin.modules.index') }}" class="underline">Modules</a> screen; a kind shows to customers only where Rental is on and that kind is on.</p>
             @elseif ($pageTitle === 'Event Settings')
                 <p class="text-sm text-gray-500">Organiser sign-ups, ticket sales, commission, refunds and GST rules for Events. Every organiser and every event is approved by the team before tickets go on sale. Switch Events on or off per location on the <a href="{{ route('admin.modules.index') }}" class="underline">Modules</a> screen.</p>
             @else

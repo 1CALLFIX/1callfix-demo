@@ -1,8 +1,9 @@
-<?php $t = fn ($k, $r = []) => \App\Support\SiteText::get($k, $r); ?>
+<?php $t = fn ($k, $r = []) => \App\Support\PostTypes::text($deal, preg_replace('/^items\./', '', $k), $r); // Rent anything + Second-hand (2026-11-19) ?>
 <div class="space-y-3">
     <div class="space-y-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm" data-testid="rent-contact">
         <div>
             <p class="text-2xl font-bold text-violet-700">{{ $price }}</p>
+            @if ($negotiable) <p class="text-sm font-medium text-violet-800" data-testid="rent-negotiable">{{ $t('show.negotiable') }}</p> @endif
             @if ($deposit) <p class="text-sm text-slate-600">{{ $t('items.show.deposit') }}: {{ $deposit }}</p> @endif
         </div>
 

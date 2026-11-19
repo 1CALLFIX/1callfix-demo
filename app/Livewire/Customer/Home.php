@@ -127,6 +127,10 @@ class Home extends Component
         if ($city && \App\Livewire\Customer\Rentals\Home::liveIn($city)) {
             $live['rentals'] = ['url' => route('customer.rentals.home', $city->slug), 'count' => \App\Livewire\Customer\Rentals\Home::liveCountIn($city)];
         }
+        // Second-hand (2026-11-19): its own door where it is on in some zone of the city; the count is real posts up now.
+        if ($city && \App\Support\Seo\CityModules::secondHandLiveIn($city)) {
+            $live['secondhand'] = ['url' => route('customer.secondhand.home', $city->slug), 'count' => \App\Services\RentalItems\RentalItemService::publicIn($city, \App\Support\PostTypes::SELL)->count()];
+        }
         if ($city && \App\Support\Seo\CityModules::eventsLiveIn($city)) {
             $live['events'] = ['url' => route('customer.events.home', $city->slug), 'count' => \App\Livewire\Customer\Events\Home::publicEventsIn($city)->count()];
         }

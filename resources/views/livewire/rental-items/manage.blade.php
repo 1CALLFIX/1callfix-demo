@@ -1,3 +1,8 @@
+<?php
+    // People's posts (2026-11-19): Rent anything + Second-hand in one queue. Price words per kind of post.
+    $priceOf = fn ($p) => '₹'.number_format((float) $p->price).($p->isSale() ? ($p->negotiable ? ' · can be discussed' : '') : ' / '.mb_strtolower((string) $p->price_unit));
+    $typeBadge = fn ($p) => $p->isSale() ? '<span class="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-800">Second-hand</span>' : '<span class="rounded-full bg-violet-100 px-2 py-0.5 text-xs font-semibold text-violet-800">For rent</span>';
+?>
 <div>
     @if (session('message'))
         <div class="mb-4 rounded bg-green-50 px-4 py-2 text-sm text-green-700" data-flash>{{ session('message') }}</div>
@@ -8,18 +13,18 @@
 
     <div class="mb-4 flex flex-wrap items-center justify-between gap-2">
         <div>
-            <h1 class="mb-1 text-2xl font-bold">Rent anything</h1>
-            <p class="text-sm text-gray-500">People post things they rent out (camera, speaker, furniture, tools); customers call the owner. Check every post before customers see it, and every report. Oldest first.</p>
+            <h1 class="mb-1 text-2xl font-bold">People's posts</h1>
+            <p class="text-sm text-gray-500">People post things they rent out (camera, speaker, tools) and used things they sell (second-hand); customers call the owner. Check every post before customers see it, and every report. Oldest first.</p>
         </div>
         @if (\App\Support\SuperAdminGate::allows(auth()->user())) <a href="{{ route('admin.halls.settings') }}#set-rent-anything-choices" class="text-sm underline">Rental Settings →</a> @endif
     </div>
 
     @if (isset($item))
-        <x-ui.button variant="ghost" wire:click="backToList" class="mb-2">&larr; Back to items</x-ui.button>
+        <x-ui.button variant="ghost" wire:click="backToList" class="mb-2">&larr; Back to posts</x-ui.button>
         <div class="mb-4 flex flex-wrap items-start justify-between gap-3">
             <div>
-                <h2 class="text-xl font-bold">{{ $item->title }} @if ($item->is_featured) <span class="text-sm text-amber-600">★</span> @endif</h2>
-                <p class="text-sm text-gray-500">₹{{ number_format((float) $item->price) }} per {{ mb_strtolower((string) $item->price_unit) }} · deposit {{ $item->deposit ? '₹'.number_format((float) $item->deposit) : '—' }} · {{ $item->can_deliver ? 'can deliver' : 'pickup only' }}</p>
+                <h2 class="text-xl font-bold">{!! $typeBadge($item) !!} {{ $item->title }} @if ($item->is_featured) <span class="text-sm text-amber-600">★</span> @endif</h2>
+                <p class="text-sm text-gray-500">{{ $priceOf($item) }}@unless ($item->isSale()) · deposit {{ $item->deposit ? '₹'.number_format((float) $item->deposit) : '—' }}@endunless · {{ $item->can_deliver ? 'can deliver' : 'pickup only' }}@if ($item->isSale()) · {{ $item->has_bill ? '🧾 bill available' : 'no bill' }}@endif</p>
                 <p class="text-sm text-gray-500">{{ $item->category }} · {{ $item->condition ?? '—' }}</p>
                 <p class="text-sm text-gray-500">{{ $item->zone?->name }} · {{ $item->landmark ?? '—' }} · {{ $item->franchise?->name }}</p>
                 <p class="text-sm text-gray-500">Owner: {{ $item->user?->name }} · {{ $item->user?->phone }} · sent {{ $item->submitted_at?->diffForHumans() ?? '—' }}</p>
@@ -27,6 +32,7 @@
             <div class="flex flex-col items-end gap-1">
                 <x-ui.badge size="lg">{{ $item->statusLabel() }}</x-ui.badge>
                 @if ($item->hidden_for_reports_at) <span class="text-xs font-semibold text-red-700">Hidden by reports</span>
+                @elseif ($item->isSold()) <span class="text-xs text-gray-600">Sold {{ $item->sold_at->format('j M') }}</span>
                 @elseif ($item->status === 'approved') <span class="text-xs text-gray-600">{{ $item->isLive() ? 'Customers see it until '.$item->expires_at?->format('j M') : ($item->is_active ? 'Ran out' : 'Switched off') }}</span> @endif
             </div>
         </div>
@@ -61,12 +67,13 @@
             @if (in_array($item->status, ['in_review', 'approved'], true))
                 <x-ui.button variant="danger" wire:click="sendBack({{ $item->id }})" wire:confirm="Send this item back to the owner? Customers stop seeing it until approved again.">Send back for changes</x-ui.button>
             @endif
-            @if ($item->status === 'approved')
+            @if ($item->status === 'approved' && ! $item->isSold())
                 <x-ui.button variant="secondary" wire:click="toggleActive({{ $item->id }})">{{ $item->is_active ? 'Switch off' : 'Switch on' }}</x-ui.button>
                 <x-ui.button variant="secondary" wire:click="toggleFeatured({{ $item->id }})">{{ $item->is_featured ? 'Remove from featured' : 'Feature it' }}</x-ui.button>
             @endif
         </div>
     @else
+        <x-ui.filter-tabs class="mb-2" :tabs="\App\Livewire\RentalItems\Manage::TYPES" :active="$typeFilter" model="typeFilter" />
         <x-ui.filter-tabs class="mb-3" :tabs="collect(\App\Livewire\RentalItems\Manage::TABS)->map(fn ($l, $k) => $l.($k === 'in_review' && $inReview ? ' ('.$inReview.')' : '').($k === 'reported' && $reported ? ' ('.$reported.')' : ''))->all()" :active="$statusFilter" model="statusFilter" />
         <x-ui.table>
             <x-slot:footer>{{ $items->links() }}</x-slot:footer>
@@ -77,9 +84,9 @@
                 @forelse ($items as $i)
                     <tr class="border-t" data-testid="item-row">
                         <x-ui.sno :rows="$items" :loop="$loop" />
-                        <td class="px-4 py-2"><div class="font-medium">{{ $i->name }} @if ($i->is_featured) <span class="text-xs text-amber-600">★</span> @endif</div><div class="text-xs text-gray-500">{{ $i->category }} · {{ $i->zone?->name }} · {{ $i->franchise?->name }}</div></td>
+                        <td class="px-4 py-2"><div class="font-medium">{!! $typeBadge($i) !!} {{ $i->name }} @if ($i->is_featured) <span class="text-xs text-amber-600">★</span> @endif</div><div class="text-xs text-gray-500">{{ $i->category }} · {{ $i->zone?->name }} · {{ $i->franchise?->name }}</div></td>
                         <td class="px-4 py-2">{{ $i->user?->name }}<div class="text-xs text-gray-500">{{ $i->user?->phone }}</div></td>
-                        <td class="px-4 py-2">₹{{ number_format((float) $i->price) }} / {{ mb_strtolower((string) $i->price_unit) }}</td>
+                        <td class="px-4 py-2">{{ $priceOf($i) }}</td>
                         <td class="px-4 py-2 text-xs text-gray-600">{{ $i->status === 'in_review' ? $i->submitted_at?->diffForHumans(null, true) : '—' }}</td>
                         <td class="px-4 py-2">
                             <x-ui.badge>{{ $i->statusLabel() }}</x-ui.badge>

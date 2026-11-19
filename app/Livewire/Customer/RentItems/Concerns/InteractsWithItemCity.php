@@ -6,12 +6,11 @@ use App\Models\City;
 use App\Models\Franchise;
 use App\Services\Seo\CityContext;
 use App\Services\Slug\SlugManager;
-use App\Support\RentalKinds;
 use App\Support\Seo\CityModules;
 
 /**
  * Rent anything (owner decision 2026-11-18): public pages live under the city (/{city}/rent, /{city}/rent/{item}).
- * The city must be live, and Rental and "Rent anything" on in at least one of its zones; an old city slug 301s with the query string kept.
+ * The city must be live, and this kind of post on in at least one of its zones (Second-hand too, /{city}/second-hand); an old city slug 301s with the query string kept.
  */
 trait InteractsWithItemCity
 {
@@ -32,7 +31,8 @@ trait InteractsWithItemCity
         }
 
         abort_unless(app(CityContext::class)->isLive($this->itemCity), 404);
-        abort_unless(CityModules::rentalKindLiveIn($this->itemCity, RentalKinds::ITEMS), 404);
+        // Rent anything: Rental + "Rent anything" on; Second-hand: its own switch (2026-11-19). In at least one zone.
+        abort_unless(CityModules::postTypeScopesIn($this->itemCity, $this->deal)['live'], 404);
         app(CityContext::class)->enter($this->itemCity);
 
         return true;

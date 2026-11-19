@@ -33,6 +33,7 @@ final class HomeDoors
         'hotels' => [5, 'images/home/door-hotels.svg'], // Hotels (2026-11-12)
         'events' => [6, 'images/home/door-events.svg'], // Events E2 (2026-11-13)
         'rentals' => [7, 'images/home/door-halls.svg'], // One Rental (2026-11-14): halls, properties, vehicles, equipment
+        'secondhand' => [8, 'images/home/door-secondhand.svg'], // Second-hand (2026-11-19): used things people near you post
     ];
 
     public static function show(): bool

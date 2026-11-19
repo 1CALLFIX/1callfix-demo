@@ -1,5 +1,7 @@
 <?php
-    $t = fn ($k, $r = []) => \App\Support\SiteText::get($k, $r);
+    // Rent anything and Second-hand ($deal, 2026-11-19) share this page; words come from PostTypes::text.
+    $t = fn ($k, $r = []) => \App\Support\PostTypes::text($deal, preg_replace('/^items\./', '', $k), $r);
+    $sale = $deal === \App\Support\PostTypes::SELL;
     $chip = 'inline-flex min-h-11 shrink-0 items-center rounded-full border px-4 text-sm font-medium transition';
     $on = 'border-violet-600 bg-violet-600 text-white';
     $off = 'border-slate-300 bg-white text-slate-700 hover:border-violet-400';
@@ -12,7 +14,9 @@
 <div class="mx-auto max-w-5xl px-4 py-6 sm:px-6">
     <nav aria-label="Breadcrumb" class="text-xs text-slate-500">
         <a href="{{ route('customer.city.show', $city->slug) }}" wire:navigate class="hover:underline">{{ $city->name }}</a> ›
-        <a href="{{ route('customer.rentals.home', $city->slug) }}" wire:navigate class="hover:underline">{{ $t('rental.crumb') }}</a> ›
+        @unless ($sale)
+        <a href="{{ route('customer.rentals.home', $city->slug) }}" wire:navigate class="hover:underline">{{ \App\Support\SiteText::get('rental.crumb') }}</a> ›
+        @endunless
         <span>{{ $t('items.crumb') }}</span>
     </nav>
     <div class="mt-2 flex items-start justify-between gap-3">
@@ -22,7 +26,7 @@
         </div>
         <x-customer.share-button :title="$t('items.meta.title', ['city' => $city->name])" />
     </div>
-    <a href="{{ route('customer.rent-items.create') }}" class="mt-3 inline-flex min-h-11 items-center gap-2 rounded-full bg-violet-50 px-4 text-sm font-semibold text-violet-800 ring-1 ring-violet-200 hover:bg-violet-100" data-testid="rent-post">➕ {{ $t('items.home.post') }}</a>
+    <a href="{{ route($createRoute) }}" class="mt-3 inline-flex min-h-11 items-center gap-2 rounded-full bg-violet-50 px-4 text-sm font-semibold text-violet-800 ring-1 ring-violet-200 hover:bg-violet-100" data-testid="rent-post">➕ {{ $t('items.home.post') }}</a>
 
     <div class="mt-4 space-y-3 rounded-2xl border border-violet-100 bg-violet-50/50 p-3" data-testid="rent-filters">
         @foreach ($rows as [$label, $model, $options])
@@ -40,7 +44,7 @@
         <div class="flex flex-wrap items-center gap-2">
             <button type="button" wire:click="$set('deliver', @js($deliver === '1' ? '' : '1'))" @class([$chip, $on => $deliver === '1', $off => $deliver !== '1'])>{{ $t('items.filter.deliver') }}</button>
             <button type="button" wire:click="$set('sort', @js($sort === 'cheap' ? '' : 'cheap'))" @class([$chip, $on => $sort === 'cheap', $off => $sort !== 'cheap'])>{{ $t('items.filter.cheapest') }}</button>
-            @if ($filtered) <button type="button" wire:click="clearFilters" class="min-h-11 px-2 text-sm font-medium text-slate-600 underline">{{ $t('homes.filter.clear') }}</button> @endif
+            @if ($filtered) <button type="button" wire:click="clearFilters" class="min-h-11 px-2 text-sm font-medium text-slate-600 underline">{{ \App\Support\SiteText::get('homes.filter.clear') }}</button> @endif
         </div>
     </div>
 
@@ -66,7 +70,7 @@
             <li class="col-span-2 rounded-2xl border border-dashed border-slate-300 bg-white p-8 text-center text-sm text-slate-600 lg:col-span-3">
                 {{ $filtered ? $t('items.home.none_filtered') : $t('items.home.empty') }}
                 @unless ($filtered)
-                    <p class="mt-4"><a href="{{ route('customer.rent-items.create') }}" class="inline-flex min-h-11 items-center gap-2 rounded-full bg-violet-600 px-5 font-semibold text-white hover:bg-violet-700" data-testid="rent-post-empty">➕ {{ $t('items.home.post') }}</a></p>
+                    <p class="mt-4"><a href="{{ route($createRoute) }}" class="inline-flex min-h-11 items-center gap-2 rounded-full bg-violet-600 px-5 font-semibold text-white hover:bg-violet-700" data-testid="rent-post-empty">➕ {{ $t('items.home.post') }}</a></p>
                 @endunless
             </li>
         @endforelse

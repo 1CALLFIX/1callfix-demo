@@ -501,6 +501,15 @@ Route::get('/{city}/vehicles/{vehicleSlug}', \App\Livewire\Customer\Vehicles\Sho
 // Rent anything (owner decision 2026-11-18, OLX-style): /{city}/rent and /{city}/rent/{item}. 404 unless on in some zone of the city.
 Route::get('/{city}/rent', \App\Livewire\Customer\RentItems\Home::class)->where('city', $cityPattern)->middleware('page.cache')->name('customer.rent.home');
 Route::get('/{city}/rent/{itemSlug}', \App\Livewire\Customer\RentItems\Show::class)->where(['city' => $cityPattern, 'itemSlug' => '[A-Za-z0-9_-]+'])->middleware('page.cache')->name('customer.rent.show');
+// Second-hand (owner 2026-11-19): /{city}/second-hand and /{city}/second-hand/{item}, used things people near you sell.
+// 404 unless Second-hand is on in some zone of the city. /{city}/used(/...) 301s here with the query string kept.
+Route::get('/{city}/second-hand', \App\Livewire\Customer\SecondHand\Home::class)->where('city', $cityPattern)->middleware('page.cache')->name('customer.secondhand.home');
+Route::get('/{city}/second-hand/{itemSlug}', \App\Livewire\Customer\SecondHand\Show::class)->where(['city' => $cityPattern, 'itemSlug' => '[A-Za-z0-9_-]+'])->middleware('page.cache')->name('customer.secondhand.show');
+Route::get('/{city}/used/{itemSlug?}', function (\Illuminate\Http\Request $request, string $city, ?string $itemSlug = null) {
+    $query = $request->getQueryString();
+
+    return redirect()->to(url('/'.$city.'/second-hand'.($itemSlug ? '/'.$itemSlug : '')).($query ? '?'.$query : ''), 301);
+})->where(['city' => $cityPattern, 'itemSlug' => '[A-Za-z0-9_-]+'])->name('customer.secondhand.used');
 // Function halls R2 (2026-11-13): /{city}/halls and /{city}/halls/{hall}. 404 while Function Halls is off for that city.
 Route::get('/{city}/halls', \App\Livewire\Customer\Halls\Home::class)->where('city', $cityPattern)->middleware('page.cache')->name('customer.halls.home');
 Route::get('/{city}/halls/{hallSlug}', \App\Livewire\Customer\Halls\Show::class)->where(['city' => $cityPattern, 'hallSlug' => '[A-Za-z0-9_-]+'])->middleware('page.cache')->name('customer.halls.show');

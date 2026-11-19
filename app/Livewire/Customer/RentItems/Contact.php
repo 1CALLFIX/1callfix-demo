@@ -8,6 +8,7 @@ use App\Models\RentalItemReport;
 use App\Services\RentalItems\RentalItemService;
 use App\Support\PhoneNumber;
 use App\Support\RentalItemSettings;
+use App\Support\PostTypes;
 use App\Support\SiteText;
 use Livewire\Attributes\Lazy;
 use Livewire\Attributes\Locked;
@@ -74,7 +75,7 @@ class Contact extends Component
             ['reason.required' => 'Tap what is wrong.', 'reason.in' => 'Tap what is wrong.']);
         try {
             $items->report(auth()->user(), $this->item(), $this->reason, $this->note);
-            $this->reported = SiteText::get('items.report.thanks');
+            $this->reported = PostTypes::text(PostTypes::valid($this->item()->deal), 'report.thanks');
             $this->reset('reporting', 'reason', 'note');
         } catch (\RuntimeException $e) {
             $this->error = $e->getMessage();
@@ -86,15 +87,18 @@ class Contact extends Component
         $item = $this->item();
         $user = auth()->user();
         $digits = $this->ownerPhone ? preg_replace('/\D/', '', PhoneNumber::e164($this->ownerPhone)) : null;
-        $path = '/'.ltrim((string) parse_url(route('customer.rent.show', [(string) $item->franchise?->city?->slug, $item->slug]), PHP_URL_PATH), '/');
+        $deal = PostTypes::valid($item->deal);
+        $path = '/'.ltrim((string) parse_url(PostTypes::url($item, (string) $item->franchise?->city?->slug), PHP_URL_PATH), '/');
 
         return view('livewire.customer.rent-items.contact', [
             'item' => $item,
+            'deal' => $deal,
+            'negotiable' => $item->isSale() && $item->negotiable,
             'price' => Home::card($item, (string) $item->franchise?->city?->slug)['price'],
-            'deposit' => $item->deposit ? '₹'.number_format((float) $item->deposit) : null,
+            'deposit' => ! $item->isSale() && $item->deposit ? '₹'.number_format((float) $item->deposit) : null,
             'phoneAllowed' => RentalItemSettings::on('items.show_owner_phone', $item->scope()),
             'own' => $user && $item->user_id === $user->id,
-            'whatsapp' => $digits ? 'https://wa.me/'.$digits.'?text='.rawurlencode(SiteText::get('items.contact.whatsapp_text', ['title' => $item->title])) : null,
+            'whatsapp' => $digits ? 'https://wa.me/'.$digits.'?text='.rawurlencode(PostTypes::text($deal, 'contact.whatsapp_text', ['title' => $item->title])) : null,
             'signInUrl' => route('customer.login', ['intended' => $path]),
             'reasons' => RentalItemReport::REASONS,
             'alreadyReported' => $user && RentalItemReport::where('rental_item_id', $item->id)->where('user_id', $user->id)->exists(),

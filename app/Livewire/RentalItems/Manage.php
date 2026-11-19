@@ -11,7 +11,8 @@ use Livewire\Component;
 use Livewire\WithPagination;
 
 /**
- * Admin → Rental → Rent anything (owner decision 2026-11-18, OLX-style). The franchise team approves every posted item
+ * Admin → Rental → People's posts (Rent anything, owner decision 2026-11-18, OLX-style; Second-hand added 2026-11-19,
+ * one queue with a For rent / Second-hand tab, same permission and franchise scope). The franchise team approves every posted item
  * before customers see it, and handles reports: "Item is fine" puts a hidden item back up; "Agree, send back" returns
  * it to the owner with the reason. Approve / Send back / Feature / Switch off. Row scope: `rental_items.manage` on the
  * item's own zone / franchise / city / country, so a franchise team sees only its own zone's items.
@@ -21,6 +22,12 @@ class Manage extends Component
     use WithPagination;
 
     public const TABS = ['in_review' => 'Waiting for review', 'reported' => 'Reported', 'approved' => 'Approved', 'rejected' => 'Needs changes', '' => 'All'];
+
+    /** Second-hand (2026-11-19): which kind of post. */
+    public const TYPES = ['' => 'All posts', 'rent' => 'For rent', 'sell' => 'Second-hand'];
+
+    #[Url(as: 'type')]
+    public string $typeFilter = '';
 
     #[Url(as: 'status')]
     public string $statusFilter = 'in_review';
@@ -35,7 +42,7 @@ class Manage extends Component
 
     public function mount(): void
     {
-        abort_unless(auth()->user()->hasPermissionAnywhere(self::PERMISSION), 403, 'You do not have permission to manage rent anything items.');
+        abort_unless(auth()->user()->hasPermissionAnywhere(self::PERMISSION), 403, 'You do not have permission to manage posted items (rent and second-hand).');
     }
 
     public function updatingStatusFilter(): void
@@ -44,9 +51,15 @@ class Manage extends Component
         $this->reset('selectedId', 'reason');
     }
 
+    public function updatingTypeFilter(): void
+    {
+        $this->updatingStatusFilter();
+    }
+
     private function items()
     {
-        return app(AuthorizationService::class)->scopeQuery(RentalItem::query(), auth()->user(), self::PERMISSION, self::COLUMNS);
+        return app(AuthorizationService::class)->scopeQuery(RentalItem::query(), auth()->user(), self::PERMISSION, self::COLUMNS)
+            ->when(in_array($this->typeFilter, \App\Support\PostTypes::ALL, true), fn ($q) => $q->where('deal', $this->typeFilter));
     }
 
     private function find(int $id): RentalItem
@@ -90,41 +103,41 @@ class Manage extends Component
 
     public function approve(int $id): void
     {
-        $this->run($id, 'Rent anything item approved (admin)', fn (RentalItem $i) => app(RentalItemService::class)->approve(auth()->user(), $i), 'Approved. Customers see it now.');
+        $this->run($id, 'Posted item approved (admin)', fn (RentalItem $i) => app(RentalItemService::class)->approve(auth()->user(), $i), 'Approved. Customers see it now.');
     }
 
     public function sendBack(int $id): void
     {
         $this->needReason('Tell the owner what to change.');
-        $this->run($id, 'Rent anything item sent back (admin)', fn (RentalItem $i) => app(RentalItemService::class)->sendBack(auth()->user(), $i, $this->reason), 'Sent back to the owner with your reason.');
+        $this->run($id, 'Posted item sent back (admin)', fn (RentalItem $i) => app(RentalItemService::class)->sendBack(auth()->user(), $i, $this->reason), 'Sent back to the owner with your reason.');
     }
 
     public function dismissReports(int $id): void
     {
-        $this->run($id, 'Rent anything reports dismissed (admin)', fn (RentalItem $i) => app(RentalItemService::class)->dismissReports(auth()->user(), $i), 'Reports closed. The item is up again.');
+        $this->run($id, 'Posted item reports dismissed (admin)', fn (RentalItem $i) => app(RentalItemService::class)->dismissReports(auth()->user(), $i), 'Reports closed. The item is up again.');
     }
 
     public function upholdReports(int $id): void
     {
         $this->needReason('Tell the owner why it was taken down.');
-        $this->run($id, 'Rent anything reports upheld (admin)', fn (RentalItem $i) => app(RentalItemService::class)->upholdReports(auth()->user(), $i, $this->reason), 'Taken down and sent back to the owner with your reason.');
+        $this->run($id, 'Posted item reports upheld (admin)', fn (RentalItem $i) => app(RentalItemService::class)->upholdReports(auth()->user(), $i, $this->reason), 'Taken down and sent back to the owner with your reason.');
     }
 
     public function toggleActive(int $id): void
     {
         $item = $this->find($id);
-        if ($item->status !== 'approved') {
+        if ($item->status !== 'approved' || $item->isSold()) {
             return;
         }
         $item->update(['is_active' => ! $item->is_active]);
-        ActivityLogger::logModel(auth()->user(), $item, $item->is_active ? 'Rent anything item switched on (admin)' : 'Rent anything item switched off (admin)');
+        ActivityLogger::logModel(auth()->user(), $item, $item->is_active ? 'Posted item switched on (admin)' : 'Posted item switched off (admin)');
     }
 
     public function toggleFeatured(int $id): void
     {
         $item = $this->find($id);
         $item->update(['is_featured' => ! $item->is_featured]);
-        ActivityLogger::logModel(auth()->user(), $item, $item->is_featured ? 'Rent anything item featured (admin)' : 'Rent anything item no longer featured (admin)');
+        ActivityLogger::logModel(auth()->user(), $item, $item->is_featured ? 'Posted item featured (admin)' : 'Posted item no longer featured (admin)');
     }
 
     public function render()
@@ -142,6 +155,6 @@ class Manage extends Component
                 ->orderByRaw("status = 'in_review' desc")->oldest('submitted_at')->latest('id')->paginate(20);
         }
 
-        return view('livewire.rental-items.manage', $data)->layout('layouts.admin', ['title' => 'Rent anything']);
+        return view('livewire.rental-items.manage', $data)->layout('layouts.admin', ['title' => "People's posts"]);
     }
 }

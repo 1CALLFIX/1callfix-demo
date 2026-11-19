@@ -195,6 +195,23 @@ class SitemapController extends Controller
             }
         }
 
+        // People's posts (2026-11-19): /{city}/rent and /{city}/second-hand with each real (never a test) post that is up,
+        // once that kind is on in some zone of the city. Sold Second-hand pages stay up but are not listed (noindex).
+        foreach ([\App\Support\PostTypes::RENT => 'rent', \App\Support\PostTypes::SELL => 'second-hand'] as $deal => $segment) {
+            if (! \App\Support\Seo\CityModules::postTypeScopesIn($city, $deal)['live']) {
+                continue;
+            }
+            $posts = \App\Services\RentalItems\RentalItemService::publicIn($city, $deal)
+                ->whereDoesntHave('user', fn ($q) => $q->where('email', 'like', '%'.\App\Console\Commands\TestAccountsCommand::DOMAIN))
+                ->get(['slug', 'updated_at']);
+            if ($posts->isNotEmpty()) {
+                $add($this->abs('/'.$city->slug.'/'.$segment), null, '0.8');
+                foreach ($posts as $post) {
+                    $add($this->abs('/'.$city->slug.'/'.$segment.'/'.$post->slug), $post->updated_at, '0.6');
+                }
+            }
+        }
+
         // Events E2 (2026-11-13): /{city}/events and each real (never a test) event not over yet, once Events is on.
         if (\App\Support\Seo\CityModules::eventsLiveIn($city)) {
             $events = \App\Models\Event::query()->where('status', 'approved')->where('ends_at', '>', now())
