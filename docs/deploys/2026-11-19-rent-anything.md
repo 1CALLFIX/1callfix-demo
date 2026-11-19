@@ -9,7 +9,7 @@ Use with `docs/DEPLOY_RUNBOOK.md`.
 | Full test suite | 4988/4989 passed (2026-11-19, `feature/rent-anything` with Stage 4); re-run on `main` at step 1; known failure only: NotificationCenterAuditTest::test_provider_status_shows_log_fallback_by_default (.env) |
 | Composer | no (`composer.lock` unchanged) |
 | Front-end build (steps 6–7) | yes (new customer and admin screens) |
-| Version | `VERSION` bumped to `2026.11.19` at release |
+| Version | `VERSION` 2026.11.19 |
 
 ## What's in it
 - Owner decision 2026-11-18: anyone with a verified mobile number can post things they rent out (camera, speaker,
