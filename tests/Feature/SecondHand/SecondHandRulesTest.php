@@ -19,8 +19,8 @@ use Tests\TestCase;
 
 /**
  * Second-hand (owner 2026-11-19), Stage 1: people sell used things on the People's posts engine. Its own switch per
- * zone (not the Rental module), its own kinds / banned list / price range / limit, "I have the bill" for phones and
- * laptops, "Mark as sold". Rent anything posts and Second-hand posts never mix.
+ * zone (not the Rental module), its own kinds / banned list / price range / limit, "I have the bill" optional (needed only
+ * for kinds Super Admin lists), "Mark as sold". Rent anything posts and Second-hand posts never mix.
  */
 class SecondHandRulesTest extends TestCase
 {
@@ -117,6 +117,13 @@ class SecondHandRulesTest extends TestCase
         $scooter = $this->posted($owner, ['name' => 'Honda Activa scooter', 'category' => 'Other']);
         $this->expectRefusal(fn () => $this->service->submit($owner, $scooter), 'cannot be sold here');
 
+        // Owner 2026-11-19: the bill is not mandatory by default ...
+        $free = $this->posted($owner, ['name' => 'Samsung M31', 'category' => 'Mobiles and tablets', 'price' => 6000]);
+        $this->assertSame('in_review', $this->service->submit($owner, $free)->status);
+        $this->assertFalse($free->fresh()->has_bill);
+
+        // ... Super Admin can make it needed for chosen kinds.
+        Setting::set('secondhand.bill_kinds', 'Mobiles and tablets');
         $phone = $this->posted($owner, ['name' => 'Redmi Note 12', 'category' => 'Mobiles and tablets', 'price' => 7000]);
         $this->expectRefusal(fn () => $this->service->submit($owner, $phone), 'I have the bill');
         $phone->update(['has_bill' => true]);

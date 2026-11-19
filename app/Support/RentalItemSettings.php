@@ -88,9 +88,9 @@ class RentalItemSettings extends MarketplaceSettings
             'help' => 'One per line. People tap one.',
         ],
         'secondhand.bill_kinds' => [
-            'group' => 'Second-hand · Switch and choices', 'label' => 'Kinds that need "I have the bill"', 'type' => 'text',
-            'default' => "Mobiles and tablets\nLaptops and computers",
-            'help' => 'One per line. For these kinds the person must tick "I have the bill" before sending (keeps stolen phones out). Customers see "🧾 Bill available".',
+            'group' => 'Second-hand · Switch and choices', 'label' => 'Kinds that must have the bill (optional)', 'type' => 'text',
+            'default' => null,
+            'help' => 'Leave empty and the bill is never required (owner 2026-11-19): "I have the bill" is an optional tick, and customers see "🧾 Bill available" when it is ticked. Add a kind here (one per line, e.g. Mobiles and tablets) only if stolen things become a problem; for those kinds the tick is then needed before sending.',
         ],
         'secondhand.banned' => [
             'group' => 'Second-hand · Switch and choices', 'label' => 'Things that cannot be sold', 'type' => 'text',

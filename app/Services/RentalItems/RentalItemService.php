@@ -338,7 +338,7 @@ class RentalItemService
         return $item->fresh();
     }
 
-    /** Second-hand: this kind (e.g. Mobiles and tablets) needs "I have the bill" ticked before it is sent. */
+    /** Second-hand: this kind needs "I have the bill" ticked before it is sent (only kinds Super Admin lists; none by default, owner 2026-11-19). */
     public static function needsBill(RentalItem $item): bool
     {
         return $item->isSale() && in_array((string) $item->category, RentalItemSettings::listIn('secondhand.bill_kinds', $item->scope()), true);

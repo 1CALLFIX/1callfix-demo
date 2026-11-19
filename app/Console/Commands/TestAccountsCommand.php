@@ -87,7 +87,7 @@ class TestAccountsCommand extends Command
 
     /**
      * Second-hand test posts: name => [kind, condition, price, price can be discussed, bill, can deliver, photos]. Two,
-     * so the owner still has free slots under the default 5 to try posting (a phone shows the bill rule).
+     * so the owner still has free slots under the default 5 to try posting (the phone shows "Bill available").
      */
     private const TEST_SECONDHAND_ITEMS = [
         'Test sofa set' => ['Furniture', 'Good', 6500, true, false, true, ['photo-1555041469-a586c61ea9bc', 'photo-1538688525198-9b88f6f53126', 'photo-1493663284031-b7e3aefcae8e']],

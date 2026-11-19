@@ -6,7 +6,7 @@ Use with `docs/DEPLOY_RUNBOOK.md`.
 |---|---|
 | Deploys | `main` at the commit that adds this file (`git log -1` in runbook step 1) |
 | Live before | `0948eb9` (2026-11-19.2 settings cache) |
-| Full test suite | 5012/5013 passed (2026-11-19, final code on `feature/second-hand`); known failure only: NotificationCenterAuditTest::test_provider_status_shows_log_fallback_by_default (.env) |
+| Full test suite | 5013/5014 passed (2026-11-19, final code on `feature/second-hand`, bill optional); known failure only: NotificationCenterAuditTest::test_provider_status_shows_log_fallback_by_default (.env) |
 | Composer | no (`composer.lock` unchanged) |
 | Front-end build (steps 6–7) | yes (new classes on the Second-hand screens and the queue) |
 | Version | `VERSION` 2026.11.19.3 |
@@ -22,8 +22,8 @@ Use with `docs/DEPLOY_RUNBOOK.md`.
 ## What's in it
 - Same engine as Rent anything (`rental_items.deal` = rent | sell). Off everywhere until switched on per zone.
 - **People posting** (Account → "Second-hand: post your used things"): the same 4 tap-first steps; one price with
-  "🤝 Price can be discussed"; "🧾 I have the bill" (required for Mobiles and tablets, Laptops and computers: keeps
-  stolen phones out); no per-day price, no deposit. Up to 5 up at a time (separate from Rent anything's 3).
+  "🤝 Price can be discussed"; "🧾 I have the bill" (optional, owner 2026-11-19: never required unless Super Admin lists
+  a kind in "Kinds that must have the bill"; customers see "Bill available" when ticked); no per-day price, no deposit. Up to 5 up at a time (separate from Rent anything's 3).
   "✅ Mark as sold": leaves every list, frees a slot, the page stays up saying "Sold" (not indexed, schema SoldOut).
 - **Customers**: `/{city}/second-hand` with tap filters (kind, area, can deliver, cheapest first); item page with
   photos, ♡ Like, Share, "Price can be discussed", "Bill available", schema UsedCondition; contact panel (owner's
@@ -34,8 +34,8 @@ Use with `docs/DEPLOY_RUNBOOK.md`.
 - **Team**: Admin → Rental → **People's posts** (was "Rent anything"): tabs All posts / For rent / Second-hand,
   type badge on each row, same approve / send back / reports / switch off / feature, same franchise scope. The
   `rental_items.manage` permission label now says "People's posts (rent and second-hand)...".
-- **Settings** (Rental Settings, Second-hand sections): switch per zone, kinds, conditions, kinds that need the
-  bill, banned list (adds Replica, First copy, Stolen, Motorcycle, Scooter, Scooty: vehicles need papers
+- **Settings** (Rental Settings, Second-hand sections): switch per zone, kinds, conditions, kinds that must have
+  the bill (empty by default = optional for everything), banned list (adds Replica, First copy, Stolen, Motorcycle, Scooter, Scooty: vehicles need papers
   transferred), limit 5, ₹50–₹2,00,000. Photos, days up, reports and the owner's number are shared with Rent anything.
 - Contact only: no payment runs through 1CallFix, so no benefit or money-approval rule applies.
 
@@ -58,8 +58,8 @@ Rollback count for `migrate:rollback --step=`: 1
 1. Super Admin: Rental Settings → Applies to Zone → franchise → zone → "Second-hand (people sell used things)" **On** → Save.
    (Not tied to Admin → Modules → Rental.)
 2. `/<city>` shows the **Second-hand** door; `/<city>/second-hand` lists the two test posts; `/<city>/used` lands there.
-3. `test.customer`: Account → "Second-hand: post your used things" → post a phone without ticking the bill → refused
-   with "please tick I have the bill" → tick it → Sent, "Waiting for review".
+3. `test.customer`: Account → "Second-hand: post your used things" → post a phone without ticking the bill → the tick
+   says "Optional" → Sent, "Waiting for review". (Bill is not mandatory; owner 2026-11-19.)
 4. `test.franchise`: Rental → **People's posts** → Second-hand tab → View → Approve.
 5. `test.customer` on a `test.secondhand` post: Show owner's number → Call / WhatsApp; Report.
 6. `test.customer`: Account → Second-hand → Mark as sold → the item page says "Sold" and it leaves the list.

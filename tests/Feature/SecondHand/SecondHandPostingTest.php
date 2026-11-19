@@ -21,8 +21,8 @@ use Tests\TestCase;
 
 /**
  * Second-hand (owner 2026-11-19), Stage 2: Account → Second-hand: post your used things. The same four tap-first
- * steps as Rent anything, with one price and "Price can be discussed", "I have the bill" (needed for phones and
- * laptops), no per-day price and no deposit; "Mark as sold" on the list.
+ * steps as Rent anything, with one price and "Price can be discussed", "I have the bill" (optional; needed only for
+ * kinds Super Admin lists), no per-day price and no deposit; "Mark as sold" on the list.
  */
 class SecondHandPostingTest extends TestCase
 {
@@ -88,8 +88,17 @@ class SecondHandPostingTest extends TestCase
             ->assertSee('can be discussed')->assertSee('1 of 5 used things');
     }
 
-    public function test_a_phone_needs_the_bill_ticked_before_sending(): void
+    public function test_the_bill_is_optional_by_default(): void
     {
+        $this->filled(Livewire::actingAs($this->me)->test(SecondHandEditor::class), 'Redmi Note 12', 'Mobiles and tablets')
+            ->assertSee('I have the bill')->assertSee('Optional. Buyers trust things with a bill more.')->assertDontSee('Needed for')
+            ->call('submit')->assertHasNoErrors()->assertRedirect(route('customer.secondhand-items'));
+        $this->assertFalse(RentalItem::firstOrFail()->has_bill);
+    }
+
+    public function test_a_phone_needs_the_bill_ticked_when_super_admin_lists_the_kind(): void
+    {
+        Setting::set('secondhand.bill_kinds', "Mobiles and tablets\nLaptops and computers");
         $page = $this->filled(Livewire::actingAs($this->me)->test(SecondHandEditor::class), 'Redmi Note 12', 'Mobiles and tablets')
             ->assertSee('Needed for Mobiles and tablets')->call('submit')->assertHasErrors('item');
         $this->assertStringContainsString('I have the bill', (string) $page->errors()->first('item'));
