@@ -71,7 +71,7 @@ class Home extends Component
             ->when($this->kind !== '', fn ($q) => $q->where('category', $this->kind))
             ->when(ctype_digit($this->area), fn ($q) => $q->where('zone_id', (int) $this->area))
             ->when($this->deliver === '1', fn ($q) => $q->where('can_deliver', true))
-            ->when($this->sort === 'cheap', fn ($q) => $q->orderBy('price'), fn ($q) => $q->orderByDesc('is_featured')->latest('approved_at'))
+            ->when($this->sort === 'cheap', fn ($q) => $q->orderBy('price'), fn ($q) => RentalItem::orderPaidFirst($q)->latest('approved_at'))
             ->limit(60)->get();
         $areaIds = (clone $base)->distinct()->pluck('zone_id')->filter();
         $brand = Setting::get('branding.platform_name', '1CallFix');
@@ -86,6 +86,8 @@ class Home extends Component
             'kinds' => RentalItemSettings::listIn(PostTypes::key($this->deal, 'categories'), $scope),
             'areas' => Zone::whereIn('id', $areaIds)->orderBy('name')->pluck('name', 'id'),
             'filtered' => ($this->kind.$this->area.$this->deliver) !== '',
+            // Paid packs (2026-11-19): the Boosted row at the top, only on the unfiltered page.
+            'boosted' => ($this->kind.$this->area.$this->deliver) === '' ? \App\Services\RentalItems\PostPackService::boostedIn($city, $this->deal) : collect(),
         ])->layout('components.layouts.customer', [
             'title' => $t('meta.title', ['city' => $city->name]),
             'metaDescription' => $t('meta.description', ['city' => $city->name, 'brand' => $brand]),

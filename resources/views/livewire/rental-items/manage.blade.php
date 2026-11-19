@@ -19,11 +19,19 @@
         @if (\App\Support\SuperAdminGate::allows(auth()->user())) <a href="{{ route('admin.halls.settings') }}#set-rent-anything-choices" class="text-sm underline">Rental Settings →</a> @endif
     </div>
 
+    @if ($packMoney['count'] > 0)
+        <div class="mb-4 flex flex-wrap gap-x-6 gap-y-1 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900" data-testid="pack-money">
+            <span>🚀 Packs bought this month: <strong>{{ $packMoney['count'] }}</strong></span>
+            <span>Money (held by HQ): <strong>₹{{ number_format($packMoney['total']) }}</strong></span>
+            <span>Franchise share: <strong>₹{{ number_format($packMoney['share'], 2) }}</strong></span>
+        </div>
+    @endif
+
     @if (isset($item))
         <x-ui.button variant="ghost" wire:click="backToList" class="mb-2">&larr; Back to posts</x-ui.button>
         <div class="mb-4 flex flex-wrap items-start justify-between gap-3">
             <div>
-                <h2 class="text-xl font-bold">{!! $typeBadge($item) !!} {{ $item->title }} @if ($item->is_featured) <span class="text-sm text-amber-600">★</span> @endif</h2>
+                <h2 class="text-xl font-bold">{!! $typeBadge($item) !!} {{ $item->title }} @if ($item->isBoostedNow()) <span class="rounded-full bg-orange-100 px-2 py-0.5 text-xs font-semibold text-orange-800">🚀 Boosted until {{ $item->boosted_until->format('j M') }}</span> @elseif ($item->isFeaturedNow()) <span class="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-800">⭐ Featured{{ $item->featured_until ? ' until '.$item->featured_until->format('j M') : '' }}</span> @endif</h2>
                 <p class="text-sm text-gray-500">{{ $priceOf($item) }}@unless ($item->isSale()) · deposit {{ $item->deposit ? '₹'.number_format((float) $item->deposit) : '—' }}@endunless · {{ $item->can_deliver ? 'can deliver' : 'pickup only' }}@if ($item->isSale()) · {{ $item->has_bill ? '🧾 bill available' : 'no bill' }}@endif</p>
                 <p class="text-sm text-gray-500">{{ $item->category }} · {{ $item->condition ?? '—' }}</p>
                 <p class="text-sm text-gray-500">{{ $item->zone?->name }} · {{ $item->landmark ?? '—' }} · {{ $item->franchise?->name }}</p>
@@ -84,7 +92,7 @@
                 @forelse ($items as $i)
                     <tr class="border-t" data-testid="item-row">
                         <x-ui.sno :rows="$items" :loop="$loop" />
-                        <td class="px-4 py-2"><div class="font-medium">{!! $typeBadge($i) !!} {{ $i->name }} @if ($i->is_featured) <span class="text-xs text-amber-600">★</span> @endif</div><div class="text-xs text-gray-500">{{ $i->category }} · {{ $i->zone?->name }} · {{ $i->franchise?->name }}</div></td>
+                        <td class="px-4 py-2"><div class="font-medium">{!! $typeBadge($i) !!} {{ $i->name }} @if ($i->isBoostedNow()) <span class="text-xs" title="Boosted until {{ $i->boosted_until->format('j M') }}">🚀</span> @elseif ($i->isFeaturedNow()) <span class="text-xs text-amber-600" title="Featured">★</span> @endif</div><div class="text-xs text-gray-500">{{ $i->category }} · {{ $i->zone?->name }} · {{ $i->franchise?->name }}</div></td>
                         <td class="px-4 py-2">{{ $i->user?->name }}<div class="text-xs text-gray-500">{{ $i->user?->phone }}</div></td>
                         <td class="px-4 py-2">{{ $priceOf($i) }}</td>
                         <td class="px-4 py-2 text-xs text-gray-600">{{ $i->status === 'in_review' ? $i->submitted_at?->diffForHumans(null, true) : '—' }}</td>

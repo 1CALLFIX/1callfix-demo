@@ -27,7 +27,7 @@ class RentalItem extends Model
     protected $fillable = [
         'user_id', 'franchise_id', 'zone_id', 'deal', 'negotiable', 'has_bill', 'sold_at', 'name', 'title', 'slug', 'category', 'condition', 'price', 'price_unit',
         'deposit', 'can_deliver', 'about', 'landmark', 'cover_image', 'photos', 'status', 'rejection_reason',
-        'submitted_at', 'approved_at', 'approved_by', 'is_active', 'is_featured', 'featured_until', 'expires_at',
+        'submitted_at', 'approved_at', 'approved_by', 'is_active', 'is_featured', 'featured_until', 'boosted_until', 'expires_at',
         'open_reports', 'hidden_for_reports_at',
     ];
 
@@ -45,6 +45,7 @@ class RentalItem extends Model
         'submitted_at' => 'datetime',
         'approved_at' => 'datetime',
         'featured_until' => 'datetime',
+        'boosted_until' => 'datetime',
         'expires_at' => 'datetime',
         'hidden_for_reports_at' => 'datetime',
     ];
@@ -76,6 +77,27 @@ class RentalItem extends Model
     public function isSale(): bool
     {
         return $this->deal === \App\Support\PostTypes::SELL;
+    }
+
+    /** Shown with the "Featured" tag and first on the list now (paid pack, or set by the team with no end date). */
+    public function isFeaturedNow(): bool
+    {
+        return $this->is_featured && ($this->featured_until === null || $this->featured_until->isFuture());
+    }
+
+    /** In the "Boosted" row at the top of its page now (paid Boost pack). */
+    public function isBoostedNow(): bool
+    {
+        return $this->boosted_until !== null && $this->boosted_until->isFuture();
+    }
+
+    /** Order a query: Boosted first, then Featured, each only while it runs. */
+    public static function orderPaidFirst($query)
+    {
+        $now = now()->toDateTimeString();
+
+        return $query->orderByRaw('case when boosted_until is not null and boosted_until > ? then 1 else 0 end desc', [$now])
+            ->orderByRaw('case when is_featured = 1 and (featured_until is null or featured_until > ?) then 1 else 0 end desc', [$now]);
     }
 
     public function isSold(): bool

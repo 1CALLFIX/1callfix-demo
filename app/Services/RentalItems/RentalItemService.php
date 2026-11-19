@@ -354,7 +354,7 @@ class RentalItemService
             throw new \RuntimeException('Only your approved second-hand things can be marked sold.');
         }
         if (! $item->isSold()) {
-            $item->update(['sold_at' => now(), 'is_active' => false, 'is_featured' => false]);
+            $item->update(['sold_at' => now(), 'is_active' => false, 'is_featured' => false, 'featured_until' => null, 'boosted_until' => null]);
         }
 
         return $item->fresh();

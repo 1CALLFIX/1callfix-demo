@@ -140,11 +140,25 @@ class Manage extends Component
         ActivityLogger::logModel(auth()->user(), $item, $item->is_featured ? 'Posted item featured (admin)' : 'Posted item no longer featured (admin)');
     }
 
+    /**
+     * Paid packs (2026-11-19): pack money taken this month in this person's area, and the franchise's share of it
+     * (fixed on each fee when bought). Featured used from a bulk pack is not money and is not counted again.
+     */
+    private function packMoney(): array
+    {
+        $fees = app(AuthorizationService::class)->scopeQuery(\App\Models\ListingFee::query(), auth()->user(), self::PERMISSION, ['franchise_id' => 'franchise_id', 'city_id' => 'franchise.city_id', 'country_id' => 'franchise.country_id'])
+            ->where('listing_type', \App\Services\RentalItems\PostPackService::TYPE)->where('status', 'paid')->where('method', '!=', 'credit')
+            ->where('paid_at', '>=', now()->startOfMonth());
+
+        return ['count' => (clone $fees)->count(), 'total' => (float) (clone $fees)->sum('amount'), 'share' => (float) (clone $fees)->sum('franchise_share')];
+    }
+
     public function render()
     {
         $data = [
             'inReview' => $this->items()->where('status', 'in_review')->count(),
             'reported' => $this->items()->where('open_reports', '>', 0)->count(),
+            'packMoney' => $this->packMoney(),
         ];
         if ($this->selectedId) {
             $data['item'] = $this->items()->with(['user', 'franchise', 'zone', 'reports.user'])->findOrFail($this->selectedId);

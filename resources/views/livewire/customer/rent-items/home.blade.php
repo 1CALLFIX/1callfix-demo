@@ -50,6 +50,28 @@
         </div>
     </div>
 
+    @if ($boosted->isNotEmpty())
+        {{-- Paid packs (2026-11-19): Boosted posts, a big swipeable card each, at the top of the page. --}}
+        <section class="mt-5 rounded-2xl bg-gradient-to-r from-amber-50 to-orange-50 p-3 ring-1 ring-amber-200" data-testid="boosted-row">
+            <h2 class="px-1 text-sm font-bold text-amber-900">{{ $t('items.home.boosted') }}</h2>
+            <ul class="mt-2 flex snap-x gap-3 overflow-x-auto pb-1">
+                @foreach ($boosted as $b)
+                    <?php $bc = \App\Livewire\Customer\RentItems\Home::card($b, $city->slug); ?>
+                    <li class="w-64 shrink-0 snap-start sm:w-72" wire:key="boosted-{{ $b->id }}">
+                        <a href="{{ $bc['url'] }}" wire:navigate class="flex h-full gap-3 rounded-xl bg-white p-2 shadow-sm ring-1 ring-amber-200 hover:shadow-md" data-testid="boosted-card">
+                            <span class="h-24 w-24 shrink-0 overflow-hidden rounded-lg bg-slate-100">@if ($bc['cover']) <img src="{{ $bc['cover'] }}" alt="{{ $b->title }}" class="h-full w-full object-cover" loading="lazy"> @endif</span>
+                            <span class="min-w-0 py-1">
+                                <span class="block truncate font-semibold text-slate-900">{{ $b->name }}</span>
+                                @if ($bc['price']) <span class="mt-1 inline-block rounded-full bg-violet-600 px-2.5 py-0.5 text-sm font-bold text-white">{{ $bc['price'] }}</span> @endif
+                                @if ($bc['where']) <span class="mt-1 block truncate text-xs text-slate-500">📍 {{ $bc['where'] }}</span> @endif
+                            </span>
+                        </a>
+                    </li>
+                @endforeach
+            </ul>
+        </section>
+    @endif
+
     <ul class="mt-5 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3" data-testid="rent-cards" wire:loading.class="opacity-60">
         @forelse ($items as $i)
             <?php $c = $cards[$i->id]; ?>
@@ -57,6 +79,7 @@
                 <a href="{{ $c['url'] }}" wire:navigate class="flex h-full flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition hover:shadow-md">
                     <div class="relative aspect-square w-full bg-slate-100 sm:aspect-[3/2]">
                         @if ($c['cover']) <img src="{{ $c['cover'] }}" alt="{{ $i->title }}" class="h-full w-full object-cover" loading="lazy"> @endif
+                        @if ($i->isFeaturedNow()) <span class="absolute left-2 top-2 rounded-full bg-amber-400 px-2.5 py-0.5 text-xs font-bold text-amber-950 shadow" data-testid="post-featured-tag">{{ $t('items.card.featured') }}</span> @endif
                         @if ($c['price']) <span class="absolute bottom-2 left-2 rounded-full bg-violet-600 px-3 py-1 text-sm font-bold text-white shadow">{{ $c['price'] }}</span> @endif
                     </div>
                     <div class="flex flex-1 flex-col gap-1 p-3 sm:p-4">

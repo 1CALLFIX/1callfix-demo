@@ -1088,6 +1088,9 @@ final class SiteText
         'items.filter.area' => ['rental', 'Item filter: area heading', 'Area', 'ప్రాంతం'],
         'items.filter.cheapest' => ['rental', 'Item filter: cheapest first', 'Cheapest first', 'తక్కువ ధర ముందు'],
         'items.filter.deliver' => ['rental', 'Item filter: owner can deliver', '🚚 Can deliver', '🚚 డెలివరీ చేస్తారు'],
+        // Paid packs (owner 2026-11-19): the tag on a Featured post and the Boosted row's heading, rent and second-hand.
+        'items.card.featured' => ['rental', 'Post card: Featured tag (paid pack)', '⭐ Featured', '⭐ ఫీచర్డ్'],
+        'items.home.boosted' => ['rental', 'Rent / Second-hand page: Boosted row heading', '🚀 Boosted near you', '🚀 మీ దగ్గర బూస్ట్ చేసినవి'],
         'items.show.price' => ['rental', 'Item page: price', 'Price', 'ధర'],
         'items.show.deposit' => ['rental', 'Item page: deposit', 'Deposit', 'డిపాజిట్'],
         'items.show.condition' => ['rental', 'Item page: condition', 'Condition', 'స్థితి'],

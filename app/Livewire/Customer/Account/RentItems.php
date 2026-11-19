@@ -3,7 +3,9 @@
 namespace App\Livewire\Customer\Account;
 
 use App\Models\RentalItem;
+use App\Services\RentalItems\PostPackService;
 use App\Services\RentalItems\RentalItemService;
+use App\Services\WalletService;
 use App\Support\PostTypes;
 use App\Support\RentalItemSettings;
 use Livewire\Component;
@@ -13,6 +15,10 @@ use Livewire\Component;
  * status badge each, one big "+ Rent out something" button, and one-tap "Not available now" / "Available again" /
  * "Renew" on approved items. Account → Second-hand (SecondHandItems, 2026-11-19) is the same page for used things
  * people sell, with "Mark as sold" instead of "Not available now".
+ *
+ * Paid packs (owner 2026-11-19): a live post shows "🚀 Get more calls" when any pack is on in its area. It opens the
+ * pack cards (Featured, Boost, two bulk packs); the person taps one, then pays online or from the wallet. Featured
+ * posts left from a bulk pack are used with one tap, no payment.
  */
 class RentItems extends Component
 {
@@ -20,6 +26,11 @@ class RentItems extends Component
     protected string $deal = PostTypes::RENT;
 
     public string $notice = '';
+
+    /** The post whose pack cards are open, and the pack tapped. */
+    public ?int $packFor = null;
+
+    public string $pack = '';
 
     public function mount(): void
     {
@@ -63,6 +74,66 @@ class RentItems extends Component
         $this->run(fn () => app(RentalItemService::class)->markSold(auth()->user(), $this->mine($id)), 'Marked sold. Well done! It no longer shows to customers.');
     }
 
+    public function openPacks(int $id): void
+    {
+        $this->mine($id);
+        $this->packFor = $id;
+        $this->pack = '';
+        $this->resetErrorBag();
+    }
+
+    public function closePacks(): void
+    {
+        $this->reset('packFor', 'pack');
+    }
+
+    public function pickPack(string $pack): void
+    {
+        $this->pack = in_array($pack, PostPackService::PACKS, true) ? $pack : '';
+    }
+
+    /** Pay for the tapped pack: "online" (Razorpay) or "wallet". */
+    public function payPack(string $method): void
+    {
+        if ($this->packFor === null || $this->pack === '' || ! in_array($method, ['online', 'wallet'], true)) {
+            return;
+        }
+        $item = $this->mine($this->packFor);
+        $packs = app(PostPackService::class);
+        $this->resetErrorBag();
+        try {
+            if ($method === 'wallet') {
+                $packs->payFromWallet(auth()->user(), $item, $this->pack);
+                $this->notice = self::startedLine($item->fresh(), $this->pack);
+                $this->closePacks();
+            } else {
+                $this->dispatch('razorpay-open', order: $packs->startOnline(auth()->user(), $item, $this->pack))->self();
+            }
+        } catch (\RuntimeException $e) {
+            $this->addError('packs', $e->getMessage());
+        }
+    }
+
+    /** Feature this post with one Featured left from a bulk pack. */
+    public function useCredit(int $id): void
+    {
+        $this->resetErrorBag();
+        try {
+            app(PostPackService::class)->useCredit(auth()->user(), $this->mine($id));
+            $this->notice = self::startedLine($this->mine($id), PostPackService::FEATURED);
+            $this->closePacks();
+        } catch (\RuntimeException $e) {
+            $this->addError('packs', $e->getMessage());
+        }
+    }
+
+    private static function startedLine(RentalItem $item, string $pack): string
+    {
+        return $pack === PostPackService::BOOST
+            ? 'Boosted! Your post is in the Boosted row until '.$item->boosted_until?->format('j M').'.'
+            : 'Featured! Your post shows first with a Featured tag until '.$item->featured_until?->format('j M').'.';
+    }
+
     private function run(callable $action, string $done): void
     {
         $this->resetErrorBag();
@@ -88,6 +159,13 @@ class RentItems extends Component
             'sale' => $sale,
             'createRoute' => PostTypes::route($this->deal, 'create'),
             'editRoute' => PostTypes::route($this->deal, 'edit'),
+            'packsOn' => fn (RentalItem $i) => $i->isLive() && PostPackService::anyOn($i),
+            'packItem' => $packItem = $this->packFor ? RentalItem::where('user_id', $user->id)->find($this->packFor) : null,
+            'offer' => $packItem ? PostPackService::offer($packItem) : [],
+            'credits' => PostPackService::creditsLeft($user),
+            'creditsUntil' => PostPackService::creditsUntil($user),
+            'wallet' => $packItem ? app(WalletService::class)->balance($user) : 0,
+            'online' => $packItem ? app(PostPackService::class)->onlineAvailable($packItem) : false,
         ])->layout('components.layouts.customer', ['title' => $sale ? 'Your second-hand posts' : 'Rent out your things']);
     }
 }

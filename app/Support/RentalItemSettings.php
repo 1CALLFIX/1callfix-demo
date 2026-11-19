@@ -109,6 +109,61 @@ class RentalItemSettings extends MarketplaceSettings
             'group' => 'Second-hand · Posting', 'label' => 'Highest price a person can enter', 'type' => 'int', 'unit' => '₹', 'min' => 10, 'max' => 10000000,
             'default' => '200000', 'help' => 'Stops typing mistakes.',
         ],
+
+        // ── Paid packs (owner 2026-11-19): the same packs for rent and second-hand posts. Price 0 = that pack is off.
+        // Posting itself stays free. Paid online (Razorpay) or from the person's wallet; HQ holds the money. ──
+        'packs.featured_fee' => [
+            'group' => 'Posts · Paid packs', 'label' => '⭐ Featured: price', 'type' => 'int', 'unit' => '₹', 'min' => 0, 'max' => 100000,
+            'default' => '0', 'help' => 'Top of the list with a "Featured" tag. 0 = off.',
+        ],
+        'packs.featured_days' => [
+            'group' => 'Posts · Paid packs', 'label' => '⭐ Featured: days', 'type' => 'int', 'unit' => 'days', 'min' => 1, 'max' => 90, 'default' => '7',
+            'help' => 'How long a post stays Featured. Also used for each Featured from a bulk pack.',
+        ],
+        'packs.featured_normal_fee' => [
+            'group' => 'Posts · Paid packs', 'label' => '⭐ Featured: normal price (optional)', 'type' => 'int', 'unit' => '₹', 'min' => 0, 'max' => 100000,
+            'default' => '0', 'help' => 'Only during a real offer: shown crossed out next to the price. Leave 0 for no crossed-out price.',
+        ],
+        'packs.boost_fee' => [
+            'group' => 'Posts · Paid packs', 'label' => '🚀 Boost: price', 'type' => 'int', 'unit' => '₹', 'min' => 0, 'max' => 100000,
+            'default' => '0', 'help' => 'Everything in Featured, plus a big card in the "Boosted" row at the top of the page. 0 = off.',
+        ],
+        'packs.boost_days' => [
+            'group' => 'Posts · Paid packs', 'label' => '🚀 Boost: days', 'type' => 'int', 'unit' => 'days', 'min' => 1, 'max' => 90, 'default' => '7',
+            'help' => 'How long a post stays in the Boosted row (and Featured).',
+        ],
+        'packs.boost_normal_fee' => [
+            'group' => 'Posts · Paid packs', 'label' => '🚀 Boost: normal price (optional)', 'type' => 'int', 'unit' => '₹', 'min' => 0, 'max' => 100000,
+            'default' => '0', 'help' => 'Only during a real offer. Leave 0 for no crossed-out price.',
+        ],
+        'packs.boost_spots' => [
+            'group' => 'Posts · Paid packs', 'label' => '🚀 Boost: spots per city at one time', 'type' => 'int', 'unit' => 'posts', 'min' => 1, 'max' => 20,
+            'default' => '3', 'help' => 'Counted separately for rent and for second-hand. When all are taken, Boost shows when the next spot frees up.',
+        ],
+        'packs.bulk_small_count' => [
+            'group' => 'Posts · Paid packs', 'label' => '📦 Small bulk pack: Featured posts in it', 'type' => 'int', 'unit' => 'posts', 'min' => 2, 'max' => 100, 'default' => '5',
+            'help' => 'The pack card shows the saving against buying Featured one by one.',
+        ],
+        'packs.bulk_small_fee' => [
+            'group' => 'Posts · Paid packs', 'label' => '📦 Small bulk pack: price', 'type' => 'int', 'unit' => '₹', 'min' => 0, 'max' => 1000000,
+            'default' => '0', 'help' => 'One Featured is used on the post it is bought from; the rest on any of the person\'s posts later. 0 = off.',
+        ],
+        'packs.bulk_large_count' => [
+            'group' => 'Posts · Paid packs', 'label' => '📦 Big bulk pack: Featured posts in it', 'type' => 'int', 'unit' => 'posts', 'min' => 2, 'max' => 500, 'default' => '10',
+            'help' => 'Best for shops and people with many things to sell.',
+        ],
+        'packs.bulk_large_fee' => [
+            'group' => 'Posts · Paid packs', 'label' => '📦 Big bulk pack: price', 'type' => 'int', 'unit' => '₹', 'min' => 0, 'max' => 1000000,
+            'default' => '0', 'help' => '0 = off.',
+        ],
+        'packs.bulk_valid_days' => [
+            'group' => 'Posts · Paid packs', 'label' => '📦 Bulk packs: use within', 'type' => 'int', 'unit' => 'days', 'min' => 7, 'max' => 365,
+            'default' => '60', 'help' => 'Featured posts not used by then run out.',
+        ],
+        'packs.franchise_share_percent' => [
+            'group' => 'Posts · Paid packs', 'label' => 'Franchise share of pack money', 'type' => 'int', 'unit' => '%', 'min' => 0, 'max' => 100,
+            'default' => '0', 'help' => 'Worked out on each pack bought in the franchise\'s area and shown on People\'s posts. HQ holds the money; the franchise never handles it.',
+        ],
     ];
 
     /** A list setting in this scope (each city / zone may have its own). @return list<string> */

@@ -187,6 +187,13 @@ class ListingFeeService
         }
         $fee->update(['status' => 'paid', 'paid_at' => now()]);
 
+        // Paid packs for people's posts (2026-11-19): Featured, Boost and bulk packs start in their own service.
+        if ($fee->listing_type === \App\Services\RentalItems\PostPackService::TYPE) {
+            app(\App\Services\RentalItems\PostPackService::class)->activate($fee);
+
+            return;
+        }
+
         $model = self::TYPES[$fee->listing_type][0] ?? HouseListing::class;
         $listing = $model::find($fee->listing_id);
         if (! $listing) {
@@ -211,6 +218,6 @@ class ListingFeeService
                 ->update(['is_featured' => false, 'featured_until' => null]);
         }
 
-        return $ended;
+        return $ended + \App\Services\RentalItems\PostPackService::endLapsed();
     }
 }
