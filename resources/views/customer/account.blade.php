@@ -36,8 +36,12 @@
                         ['Membership', 'Plan benefits, what you have used, renewal.', route('customer.membership.account')],
                     ];
                     // Rent anything (owner decision 2026-11-18): only where posting is open, or for someone who already posted.
-                    if (\App\Services\RentalItems\RentalItemService::postingZones()->isNotEmpty() || \App\Models\RentalItem::where('user_id', $user->id)->exists()) {
+                    if (\App\Services\RentalItems\RentalItemService::postingZones()->isNotEmpty() || \App\Models\RentalItem::where('user_id', $user->id)->where('deal', 'rent')->exists()) {
                         $accountSections[] = ['Rent out your things', 'Camera, speaker, furniture, tools: post them and earn. No commission.', route('customer.rent-items')];
+                    }
+                    // Second-hand (owner 2026-11-19): the same rule, for used things people sell.
+                    if (\App\Services\RentalItems\RentalItemService::postingZones('sell')->isNotEmpty() || \App\Models\RentalItem::where('user_id', $user->id)->where('deal', 'sell')->exists()) {
+                        $accountSections[] = ['Second-hand: post your used things', 'Furniture, fridge, phone, cycle: turn them into money. No commission.', route('customer.secondhand-items')];
                     }
                 @endphp
                 @foreach ($accountSections as [$sectionTitle, $sectionBody, $sectionUrl])

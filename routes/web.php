@@ -191,6 +191,10 @@ Route::middleware(['auth', \App\Http\Middleware\EnsureAccountNotSuspended::class
     Route::get('/account/rent-out', \App\Livewire\Customer\Account\RentItems::class)->name('customer.rent-items');
     Route::get('/account/rent-out/new', \App\Livewire\Customer\Account\RentItemEditor::class)->name('customer.rent-items.create');
     Route::get('/account/rent-out/{item}', \App\Livewire\Customer\Account\RentItemEditor::class)->whereNumber('item')->name('customer.rent-items.edit');
+    // Second-hand (owner 2026-11-19): a person's own used things posted for sale; private pages (no Share).
+    Route::get('/account/second-hand', \App\Livewire\Customer\Account\SecondHandItems::class)->name('customer.secondhand-items');
+    Route::get('/account/second-hand/new', \App\Livewire\Customer\Account\SecondHandEditor::class)->name('customer.secondhand-items.create');
+    Route::get('/account/second-hand/{item}', \App\Livewire\Customer\Account\SecondHandEditor::class)->whereNumber('item')->name('customer.secondhand-items.edit');
     Route::post('/saved/toggle', [\App\Http\Controllers\Customer\SavedItemController::class, 'toggle'])->name('customer.saved.toggle');
 
     // REF 1CF-PROMPT-20260925-EARN3 — Earnings: Wallet / Loyalty / Referrals.

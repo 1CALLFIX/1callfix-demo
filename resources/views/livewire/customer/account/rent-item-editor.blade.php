@@ -1,6 +1,7 @@
 <?php
     // Rent anything (owner decision 2026-11-18): four numbered, coloured steps; taps from Rental Settings lists for the
     // picked area; the person types only the name, the price and (optionally) a few words. One Send / Save bar.
+    // Second-hand ($sale, 2026-11-19): one price + "Price can be discussed", "I have the bill", no per-day price, no deposit.
     $inp = 'mt-1.5 block min-h-12 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-base focus:outline focus:outline-2 focus:outline-blue-600';
     $chip = 'inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-full border-2 px-4 text-sm font-medium transition';
     $step = fn ($colour) => 'grid h-9 w-9 shrink-0 place-items-center rounded-full text-base font-bold text-white '.$colour;
@@ -8,10 +9,10 @@
 ?>
 <div class="mb-bottom-nav">
 <div class="mx-auto max-w-3xl space-y-5 px-4 py-8 pb-40 sm:px-6">
-    <a href="{{ route('customer.rent-items') }}" wire:navigate class="text-sm text-slate-600 hover:text-slate-900">&larr; Your items</a>
+    <a href="{{ route($mineRoute) }}" wire:navigate class="text-sm text-slate-600 hover:text-slate-900">&larr; {{ $sale ? 'Your second-hand posts' : 'Your items' }}</a>
 
     <div class="flex flex-wrap items-center justify-between gap-2">
-        <h1 class="text-2xl font-bold tracking-tight text-slate-900">{{ $item ? $item->name : 'Rent out something' }}</h1>
+        <h1 class="text-2xl font-bold tracking-tight text-slate-900">{{ $item ? $item->name : ($sale ? 'Post a used thing' : 'Rent out something') }}</h1>
         @if ($item)
             <span @class(['rounded-full px-3 py-1 text-sm font-semibold',
                 'bg-emerald-100 text-emerald-800' => $item->status === 'approved', 'bg-amber-100 text-amber-800' => $item->status === 'in_review',
@@ -19,7 +20,7 @@
         @endif
     </div>
     @if (! $item)
-        <p class="text-sm text-slate-600">Camera, speaker, party lights, furniture, tools... Post it in 4 quick steps. We check every post, then people near you can call or WhatsApp you. No commission.</p>
+        <p class="text-sm text-slate-600">{{ $sale ? 'Furniture, fridge, phone, cycle...' : 'Camera, speaker, party lights, furniture, tools...' }} Post it in 4 quick steps. We check every post, then people near you can call or WhatsApp you. No commission.</p>
     @endif
 
     @if ($blocked)
@@ -36,7 +37,7 @@
     @elseif ($item?->status === 'in_review')
         <div role="status" class="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">⏳ We are checking your item. You can change it again once we reply, usually within a day.</div>
     @elseif ($item?->status === 'approved')
-        <div role="status" class="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">✅ Price, deposit and delivery change at once. A new name, kind, photo, description or area is checked by us first.</div>
+        <div role="status" class="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">✅ {{ $sale ? 'Price, "can be discussed" and delivery change' : 'Price, deposit and delivery change' }} at once. A new name, kind, photo, description or area is checked by us first.</div>
     @endif
 
     @error('item') <div role="alert" class="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700" data-testid="item-error">{{ $message }}</div> @enderror
@@ -90,7 +91,7 @@
         <section class="space-y-4 rounded-2xl border-2 border-blue-100 bg-white p-4 sm:p-6">
             <div class="flex items-center gap-3"><span class="{{ $step('bg-blue-600') }}">2</span><h2 class="text-lg font-semibold">What is it?</h2></div>
             <div>
-                <label for="it-name" class="block text-sm font-medium text-slate-900">Name <span class="font-normal text-slate-500">(e.g. Sony camera, JBL party speaker, 6-seater dining table)</span></label>
+                <label for="it-name" class="block text-sm font-medium text-slate-900">Name <span class="font-normal text-slate-500">({{ $sale ? 'e.g. Godrej almirah, Samsung fridge, Hero cycle' : 'e.g. Sony camera, JBL party speaker, 6-seater dining table' }})</span></label>
                 <input id="it-name" type="text" wire:model="name" maxlength="80" class="{{ $inp }}" data-testid="item-name">
                 {!! $err('name') !!}
             </div>
@@ -105,6 +106,18 @@
                 </div>
                 {!! $err('category') !!}
             </div>
+            @if ($sale)
+                <div>
+                    <label class="flex min-h-11 cursor-pointer items-center gap-3 text-sm font-medium text-slate-900">
+                        <input type="checkbox" wire:model="hasBill" class="h-5 w-5 rounded border-slate-300 text-blue-600" data-testid="item-bill"> 🧾 I have the bill
+                    </label>
+                    @if ($billKinds !== [] && in_array($category, $billKinds, true))
+                        <p class="text-sm text-blue-800">Needed for {{ $category }}. It keeps stolen things out.</p>
+                    @else
+                        <p class="text-xs text-slate-500">Optional. Buyers trust things with a bill more.</p>
+                    @endif
+                </div>
+            @endif
             @if ($conditions !== [])
                 <div>
                     <p class="text-sm font-medium text-slate-900">Condition <span class="font-normal text-slate-500">(optional)</span></p>
@@ -118,7 +131,7 @@
                 </div>
             @endif
             <div>
-                <label for="it-about" class="block text-sm font-medium text-slate-900">A few words <span class="font-normal text-slate-500">(optional: what comes with it, rules)</span></label>
+                <label for="it-about" class="block text-sm font-medium text-slate-900">A few words <span class="font-normal text-slate-500">({{ $sale ? 'optional: how old it is, what comes with it' : 'optional: what comes with it, rules' }})</span></label>
                 <textarea id="it-about" wire:model="about" rows="3" maxlength="2000" class="{{ $inp }}"></textarea>
                 {!! $err('about') !!}
             </div>
@@ -132,6 +145,11 @@
                     <label for="it-price" class="block text-sm font-medium text-slate-900">Your price ({{ $symbol }})</label>
                     <input id="it-price" type="number" inputmode="decimal" min="0" wire:model="price" class="{{ $inp }} max-w-[10rem]" data-testid="item-price">
                 </div>
+                @if ($sale)
+                    <label class="{{ $chip }} border-slate-200 bg-white text-slate-700 has-[:checked]:border-emerald-600 has-[:checked]:bg-emerald-600 has-[:checked]:text-white">
+                        <input type="checkbox" wire:model="negotiable" class="sr-only" data-testid="item-negotiable"> 🤝 Price can be discussed
+                    </label>
+                @else
                 <div class="flex flex-wrap gap-2" role="radiogroup" aria-label="Price is per">
                     @foreach ($units as $u)
                         <label class="{{ $chip }} border-slate-200 bg-white text-slate-700 has-[:checked]:border-emerald-600 has-[:checked]:bg-emerald-600 has-[:checked]:text-white">
@@ -139,14 +157,17 @@
                         </label>
                     @endforeach
                 </div>
+                @endif
             </div>
             {!! $err('price') !!}
             {!! $err('priceUnit') !!}
+            @unless ($sale)
             <div>
                 <label for="it-deposit" class="block text-sm font-medium text-slate-900">Deposit ({{ $symbol }}) <span class="font-normal text-slate-500">(optional, returned when the item comes back)</span></label>
                 <input id="it-deposit" type="number" inputmode="decimal" min="0" wire:model="deposit" class="{{ $inp }} max-w-[10rem]">
                 {!! $err('deposit') !!}
             </div>
+            @endunless
             <label class="flex min-h-11 cursor-pointer items-center gap-3 text-sm font-medium text-slate-900">
                 <input type="checkbox" wire:model="canDeliver" class="h-5 w-5 rounded border-slate-300 text-emerald-600"> 🚚 I can deliver it
             </label>
@@ -169,7 +190,7 @@
                 <input id="it-landmark" type="text" wire:model="landmark" maxlength="160" class="{{ $inp }}">
                 {!! $err('landmark') !!}
             </div>
-            <p class="rounded-xl bg-slate-50 px-3 py-2 text-xs text-slate-600">🛡️ Your number is shown only to signed-in people who tap "Show owner's number". Meet in a safe place and check the deposit before you hand over.</p>
+            <p class="rounded-xl bg-slate-50 px-3 py-2 text-xs text-slate-600">🛡️ Your number is shown only to signed-in people who tap "Show owner's number". {{ $sale ? 'Meet in a safe place. Never ask for or send money before the buyer has seen the thing.' : 'Meet in a safe place and check the deposit before you hand over.' }}</p>
         </section>
     </fieldset>
 

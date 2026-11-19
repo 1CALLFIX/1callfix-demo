@@ -6,6 +6,7 @@ use App\Models\RentalItem;
 use App\Services\ActivityLogger;
 use App\Services\RentalItems\RentalItemService;
 use App\Support\ImageShrinker;
+use App\Support\PostTypes;
 use App\Support\RentalItemSettings;
 use Illuminate\Validation\Rule;
 use Livewire\Attributes\Locked;
@@ -16,10 +17,15 @@ use Livewire\WithFileUploads;
  * Account → Rent out your things → post / change an item (Rent anything, owner decision 2026-11-18). Four numbered,
  * coloured steps: photos, what it is, price, where. The person types only the name, the price and (optionally) a few
  * words about it; everything else is a tap. One Send / Save bar at the bottom. The team approves before customers see it.
+ * Second-hand (SecondHandEditor, 2026-11-19) is the same editor for used things people sell: one price with
+ * "Price can be discussed", "I have the bill", no per-day price and no deposit.
  */
 class RentItemEditor extends Component
 {
     use WithFileUploads;
+
+    /** Which kind of post this editor makes (PostTypes). */
+    protected string $deal = PostTypes::RENT;
 
     #[Locked]
     public ?int $itemId = null;
@@ -31,6 +37,8 @@ class RentItemEditor extends Component
     public string $priceUnit = '';
     public string $deposit = '';
     public bool $canDeliver = false;
+    public bool $negotiable = false;
+    public bool $hasBill = false;
     public string $about = '';
     public string $zoneId = '';
     public string $landmark = '';
@@ -55,6 +63,8 @@ class RentItemEditor extends Component
             $this->priceUnit = (string) $existing->price_unit;
             $this->deposit = $existing->deposit !== null ? rtrim(rtrim((string) $existing->deposit, '0'), '.') : '';
             $this->canDeliver = (bool) $existing->can_deliver;
+            $this->negotiable = (bool) $existing->negotiable;
+            $this->hasBill = (bool) $existing->has_bill;
             $this->about = (string) $existing->about;
             $this->zoneId = (string) $existing->zone_id;
             $this->landmark = (string) $existing->landmark;
@@ -62,16 +72,29 @@ class RentItemEditor extends Component
 
             return;
         }
-        $zones = RentalItemService::postingZones();
+        $zones = RentalItemService::postingZones($this->deal);
         if ($zones->count() === 1) {
             $this->zoneId = (string) $zones->first()->id;
         }
-        $this->priceUnit = $this->choices('items.price_units')[0] ?? '';
+        if (! $this->sale()) {
+            $this->priceUnit = $this->choices('items.price_units')[0] ?? '';
+        }
     }
 
     private function item(): ?RentalItem
     {
-        return $this->itemId ? RentalItem::where('user_id', auth()->id())->find($this->itemId) : null;
+        return $this->itemId ? RentalItem::where('user_id', auth()->id())->where('deal', $this->deal)->find($this->itemId) : null;
+    }
+
+    private function sale(): bool
+    {
+        return $this->deal === PostTypes::SELL;
+    }
+
+    /** The settings key for this kind of post (Second-hand has its own kinds, prices, ...). */
+    private function key(string $name): string
+    {
+        return PostTypes::key($this->deal, $name);
     }
 
     private function scope(): array
@@ -105,13 +128,13 @@ class RentItemEditor extends Component
 
         return [
             'name' => ['required', 'string', 'min:3', 'max:80'],
-            'category' => ['required', Rule::in($this->choices('items.categories', [(string) $item?->category]))],
-            'condition' => ['nullable', Rule::in($this->choices('items.conditions', [(string) $item?->condition]))],
-            'price' => ['required', 'numeric', 'min:'.(int) RentalItemSettings::get('items.min_price', $scope), 'max:'.(int) RentalItemSettings::get('items.max_price', $scope)],
-            'priceUnit' => ['required', Rule::in($this->choices('items.price_units', [(string) $item?->price_unit]))],
+            'category' => ['required', Rule::in($this->choices($this->key('categories'), [(string) $item?->category]))],
+            'condition' => ['nullable', Rule::in($this->choices($this->key('conditions'), [(string) $item?->condition]))],
+            'price' => ['required', 'numeric', 'min:'.(int) RentalItemSettings::get($this->key('min_price'), $scope), 'max:'.(int) RentalItemSettings::get($this->key('max_price'), $scope)],
+            'priceUnit' => $this->sale() ? ['nullable'] : ['required', Rule::in($this->choices('items.price_units', [(string) $item?->price_unit]))],
             'deposit' => ['nullable', 'numeric', 'min:0', 'max:10000000'],
             'about' => ['nullable', 'string', 'max:2000'],
-            'zoneId' => ['required', Rule::in(RentalItemService::postingZones()->pluck('id')->push($item?->zone_id)->filter()->map(fn ($id) => (string) $id)->all())],
+            'zoneId' => ['required', Rule::in(RentalItemService::postingZones($this->deal)->pluck('id')->push($item?->zone_id)->filter()->map(fn ($id) => (string) $id)->all())],
             'landmark' => ['nullable', 'string', 'max:160'],
             'cover' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:8192'],
             'newPhotos' => ['array', 'max:'.RentalItem::MAX_PHOTOS],
@@ -122,8 +145,8 @@ class RentItemEditor extends Component
     private function messages(): array
     {
         return [
-            'name.required' => 'Write what you rent out, e.g. "Sony camera" or "JBL party speaker".',
-            'name.min' => 'Write what you rent out, e.g. "Sony camera".',
+            'name.required' => $this->sale() ? 'Write what you are selling, e.g. "Godrej almirah" or "Samsung fridge".' : 'Write what you rent out, e.g. "Sony camera" or "JBL party speaker".',
+            'name.min' => $this->sale() ? 'Write what you are selling, e.g. "Godrej almirah".' : 'Write what you rent out, e.g. "Sony camera".',
             'category.required' => 'Tap what kind of item it is.',
             'category.in' => 'Tap what kind of item it is.',
             'price.required' => 'Enter your price.',
@@ -147,20 +170,23 @@ class RentItemEditor extends Component
             return null;
         }
         $existing = $this->item();
-        $folder = 'rent-items/'.auth()->id();
+        $folder = ($this->sale() ? 'second-hand/' : 'rent-items/').auth()->id();
         $photos = $this->photos;
         foreach ($this->newPhotos as $file) {
             $photos[] = ImageShrinker::store($file, $folder, 'item_photo');
         }
         $text = fn (string $v) => trim($v) !== '' ? trim($v) : null;
         $fields = [
+            'deal' => $this->deal,
             'name' => trim(preg_replace('/\s+/', ' ', $this->name)),
             'category' => $this->category,
             'condition' => $this->condition ?: null,
             'price' => round((float) $this->price, 2),
-            'price_unit' => $this->priceUnit,
-            'deposit' => $this->deposit !== '' && (float) $this->deposit > 0 ? round((float) $this->deposit, 2) : null,
+            'price_unit' => $this->sale() ? null : $this->priceUnit,
+            'deposit' => ! $this->sale() && $this->deposit !== '' && (float) $this->deposit > 0 ? round((float) $this->deposit, 2) : null,
             'can_deliver' => $this->canDeliver,
+            'negotiable' => $this->sale() && $this->negotiable,
+            'has_bill' => $this->sale() && $this->hasBill,
             'about' => $text($this->about),
             'zone_id' => (int) $this->zoneId,
             'landmark' => $text($this->landmark),
@@ -181,7 +207,8 @@ class RentItemEditor extends Component
         }
 
         $this->reset('cover', 'newPhotos');
-        ActivityLogger::logModel(auth()->user(), $item, $existing ? 'Rent anything item updated' : 'Rent anything item added');
+        $what = $this->sale() ? 'Second-hand post' : 'Rent anything item';
+        ActivityLogger::logModel(auth()->user(), $item, $existing ? $what.' updated' : $what.' added');
         $this->itemId = $item->id;
         $this->photos = array_values((array) $item->photos);
         $this->notice = $backToReview
@@ -205,8 +232,8 @@ class RentItemEditor extends Component
 
             return;
         }
-        session()->flash('rent-items.notice', 'Sent! We will check "'.$item->name.'" and put it up, usually within a day.');
-        $this->redirectRoute('customer.rent-items', navigate: true);
+        session()->flash(RentItems::noticeKeyFor($this->deal), 'Sent! We will check "'.$item->name.'" and put it up, usually within a day.');
+        $this->redirectRoute(PostTypes::route($this->deal, 'mine'), navigate: true);
     }
 
     public function render()
@@ -217,13 +244,16 @@ class RentItemEditor extends Component
         return view('livewire.customer.account.rent-item-editor', [
             'item' => $item,
             'editable' => $item === null || $item->isEditable() || $item->status === 'approved',
-            'blocked' => $item === null ? RentalItemService::cannotPostReason(auth()->user(), $scope) : null,
-            'zones' => RentalItemService::postingZones(),
-            'categories' => $this->choices('items.categories', [(string) $item?->category]),
-            'conditions' => $this->choices('items.conditions', [(string) $item?->condition]),
+            'blocked' => $item === null ? RentalItemService::cannotPostReason(auth()->user(), $scope, null, $this->deal) : null,
+            'zones' => RentalItemService::postingZones($this->deal),
+            'categories' => $this->choices($this->key('categories'), [(string) $item?->category]),
+            'conditions' => $this->choices($this->key('conditions'), [(string) $item?->condition]),
+            'billKinds' => $this->sale() ? RentalItemSettings::listIn('secondhand.bill_kinds', $scope) : [],
+            'sale' => $this->sale(),
+            'mineRoute' => PostTypes::route($this->deal, 'mine'),
             'units' => $this->choices('items.price_units', [(string) $item?->price_unit]),
             'minPhotos' => (int) RentalItemSettings::get('items.min_photos', $scope),
             'symbol' => '₹',
-        ])->layout('components.layouts.customer', ['title' => $item ? 'Change '.$item->name : 'Rent out something']);
+        ])->layout('components.layouts.customer', ['title' => $item ? 'Change '.$item->name : ($this->sale() ? 'Post a used thing' : 'Rent out something')]);
     }
 }
