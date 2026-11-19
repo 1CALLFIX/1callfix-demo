@@ -81,6 +81,17 @@ class TestAccountsCommand extends Command
         // Rent anything (2026-11-19, OLX-style): anyone with a verified mobile posts, so the renter is a plain customer
         // who owns approved RentalItems (Account → Rent out your things); test.customer browses and calls them.
         'renter' => ['Test Renter', 'customer', null, null, '6000000117'],
+        // Second-hand (2026-11-19): a plain customer who posts used things for sale (Account → Second-hand).
+        'secondhand' => ['Test Second-hand Owner', 'customer', null, null, '6000000118'],
+    ];
+
+    /**
+     * Second-hand test posts: name => [kind, condition, price, price can be discussed, bill, can deliver, photos]. Two,
+     * so the owner still has free slots under the default 5 to try posting (a phone shows the bill rule).
+     */
+    private const TEST_SECONDHAND_ITEMS = [
+        'Test sofa set' => ['Furniture', 'Good', 6500, true, false, true, ['photo-1555041469-a586c61ea9bc', 'photo-1538688525198-9b88f6f53126', 'photo-1493663284031-b7e3aefcae8e']],
+        'Test Redmi phone' => ['Mobiles and tablets', 'Like new', 7000, false, true, false, ['photo-1511707171634-5f897ff02aa9', 'photo-1598327105666-5b89351aff97', 'photo-1592899677977-9c10ca588bbd']],
     ];
 
     /**
@@ -249,6 +260,8 @@ class TestAccountsCommand extends Command
                     $this->makeTestVehicles($user, $franchise, $zone);
                 } elseif ($key === 'renter') {
                     $this->makeTestRentItems($user, $franchise, $zone);
+                } elseif ($key === 'secondhand') {
+                    $this->makeTestSecondHand($user, $franchise, $zone);
                 } elseif ($userRole === 'provider') {
                     Provider::updateOrCreate(['user_id' => $user->id], [
                         'franchise_id' => $franchise->id,
@@ -261,7 +274,7 @@ class TestAccountsCommand extends Command
                     ]);
                 }
 
-                return [$key, $email, $roleSlug ? "{$roleSlug} @ {$scopeType} #{$scopeIds[$scopeType]}" : ($key === 'rider' ? 'parcel + shop rider (approved)' : ($key === 'seller' ? 'seller, shop approved' : ($key === 'restaurant' ? 'restaurant, approved' : ($key === 'hotel' ? 'hotel, approved' : ($key === 'organiser' ? 'event organiser, approved, 1 event in review' : ($key === 'hall' ? 'one approved test hall of every kind' : ($key === 'homeowner' ? 'one approved test property of every kind for rent' : ($key === 'vehicleowner' ? 'one approved test vehicle of every kind for rent' : ($key === 'renter' ? 'customer with '.count(self::TEST_RENT_ITEMS).' approved Rent anything items' : $userRole)))))))))];
+                return [$key, $email, $roleSlug ? "{$roleSlug} @ {$scopeType} #{$scopeIds[$scopeType]}" : ($key === 'rider' ? 'parcel + shop rider (approved)' : ($key === 'seller' ? 'seller, shop approved' : ($key === 'restaurant' ? 'restaurant, approved' : ($key === 'hotel' ? 'hotel, approved' : ($key === 'organiser' ? 'event organiser, approved, 1 event in review' : ($key === 'hall' ? 'one approved test hall of every kind' : ($key === 'homeowner' ? 'one approved test property of every kind for rent' : ($key === 'vehicleowner' ? 'one approved test vehicle of every kind for rent' : ($key === 'renter' ? 'customer with '.count(self::TEST_RENT_ITEMS).' approved Rent anything items' : ($key === 'secondhand' ? 'customer with '.count(self::TEST_SECONDHAND_ITEMS).' approved Second-hand posts' : $userRole))))))))))];
             });
         }
 
@@ -735,6 +748,37 @@ class TestAccountsCommand extends Command
                 'cover_image' => $photos[0], 'photos' => array_slice($photos, 1),
                 'status' => 'approved', 'submitted_at' => now(), 'approved_at' => now(), 'rejection_reason' => null,
                 'is_active' => true, 'expires_at' => now()->addDays(365), 'open_reports' => 0, 'hidden_for_reports_at' => null,
+            ])->save();
+        }
+    }
+
+    private function makeTestSecondHand(User $user, Franchise $franchise, Zone $zone): void
+    {
+        $scope = array_filter(['zone_id' => $zone->id, 'franchise_id' => $franchise->id, 'city_id' => $franchise->city_id, 'country_id' => $franchise->country_id]);
+        $settings = \App\Support\RentalItemSettings::class;
+        $kinds = $settings::listIn('secondhand.categories', $scope);
+        $conditions = $settings::listIn('secondhand.conditions', $scope);
+        $min = (int) $settings::get('secondhand.min_price', $scope);
+        $max = (int) $settings::get('secondhand.max_price', $scope);
+
+        foreach (self::TEST_SECONDHAND_ITEMS as $name => [$kind, $condition, $price, $negotiable, $bill, $deliver, $photoIds]) {
+            // Only values on this city's lists, so every test post is valid for the owner's editor too.
+            $kind = in_array($kind, $kinds, true) ? $kind : ($kinds[0] ?? $kind);
+            $condition = in_array($condition, $conditions, true) ? $condition : null;
+            $photos = array_map(fn (string $id) => self::UNSPLASH.$id.'?w=1600&q=80', $photoIds);
+            $title = \App\Models\RentalItem::makeTitle($name, $zone->name, \App\Support\PostTypes::SELL);
+            $item = \App\Models\RentalItem::firstOrNew(['user_id' => $user->id, 'name' => $name]);
+            $item->fill([
+                'deal' => \App\Support\PostTypes::SELL, 'franchise_id' => $franchise->id, 'zone_id' => $zone->id, 'title' => $title,
+                'slug' => $item->slug ?: \App\Models\RentalItem::uniqueSlug($title),
+                'category' => $kind, 'condition' => $condition, 'price' => min(max($price, $min), $max), 'price_unit' => null,
+                'deposit' => null, 'negotiable' => $negotiable, 'has_bill' => $bill, 'can_deliver' => $deliver,
+                'about' => "{$name} for walk-throughs: call the owner, WhatsApp, Report and Mark as sold can all be tried on it.
+Not a real item.",
+                'landmark' => 'Near the test bus stop, '.$zone->name,
+                'cover_image' => $photos[0], 'photos' => array_slice($photos, 1),
+                'status' => 'approved', 'submitted_at' => now(), 'approved_at' => now(), 'rejection_reason' => null,
+                'is_active' => true, 'expires_at' => now()->addDays(365), 'sold_at' => null, 'open_reports' => 0, 'hidden_for_reports_at' => null,
             ])->save();
         }
     }

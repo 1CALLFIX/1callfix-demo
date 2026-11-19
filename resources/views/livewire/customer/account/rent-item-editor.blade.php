@@ -100,7 +100,7 @@
                 <div class="mt-2 flex flex-wrap gap-2" role="radiogroup" aria-label="Kind of item" data-testid="item-categories">
                     @foreach ($categories as $c)
                         <label class="{{ $chip }} border-slate-200 bg-white text-slate-700 has-[:checked]:border-blue-600 has-[:checked]:bg-blue-600 has-[:checked]:text-white">
-                            <input type="radio" wire:model="category" value="{{ $c }}" class="sr-only"> {{ $c }}
+                            <input type="radio" wire:model{{ $sale ? ".live" : "" }}="category" value="{{ $c }}" class="sr-only"> {{ $c }}
                         </label>
                     @endforeach
                 </div>

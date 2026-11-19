@@ -167,6 +167,31 @@ class SecondHandPagesTest extends TestCase
         $this->assertSame('in_review', $rent->fresh()->status);
     }
 
+    /** Owner rule 2026-10-26: every module ships with a test login for a real walk-through. */
+    public function test_test_accounts_make_a_second_hand_owner_with_live_posts_and_disable_switches_them_off(): void
+    {
+        $this->artisan('test-accounts', ['action' => 'create', '--password' => 'test-pass-123', '--franchise' => $this->franchise->id])->assertSuccessful();
+        $this->artisan('test-accounts', ['action' => 'create', '--password' => 'test-pass-123', '--franchise' => $this->franchise->id])->assertSuccessful();
+
+        $owner = User::where('email', 'test.secondhand@1callfix.test')->firstOrFail();
+        $this->assertSame('customer', $owner->role);
+        $this->assertNotNull($owner->phone_verified_at, 'Posting needs a verified mobile.');
+        $posts = RentalItem::where('user_id', $owner->id)->get();
+        $this->assertCount(2, $posts, 'Running it twice never makes duplicates.');
+        foreach ($posts as $post) {
+            $this->assertSame(PostTypes::SELL, $post->deal);
+            $this->assertTrue(RentalItemService::visible($post), $post->title.' is up.');
+            $this->get(route('customer.secondhand.show', [$this->city->slug, $post->slug]))->assertOk()->assertSee($post->title);
+            Livewire::actingAs($owner)->test(\App\Livewire\Customer\Account\SecondHandEditor::class, ['item' => $post->id])->call('save')->assertHasNoErrors();
+        }
+        $this->assertTrue($posts->firstWhere('name', 'Test Redmi phone')->has_bill, 'The phone shows the bill rule.');
+        $this->assertNull(RentalItemService::cannotPostReason($owner, [], null, PostTypes::SELL), 'Free slots left to try posting.');
+
+        $this->artisan('test-accounts', ['action' => 'disable'])->assertSuccessful();
+        $this->assertSame(0, RentalItem::where('user_id', $owner->id)->where('is_active', true)->count());
+        $this->get(route('customer.secondhand.home', $this->city->slug))->assertDontSee('Test sofa set');
+    }
+
     private function crumbOf(string $html): string
     {
         return preg_match('#<nav aria-label="Breadcrumb"[^>]*>(.*?)</nav>#s', $html, $m) ? strtolower(strip_tags($m[1])) : '';
