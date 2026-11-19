@@ -42,11 +42,11 @@ class RentalItemSettings extends MarketplaceSettings
         ],
         'items.min_photos' => [
             'group' => 'Rent anything · Posting', 'label' => 'Photos needed before sending for review', 'type' => 'int', 'unit' => 'photos (plus the cover)', 'min' => 0, 'max' => 8,
-            'default' => '1', 'help' => 'Real photos of the item get far more calls.',
+            'default' => '1', 'help' => 'Real photos of the item get far more calls. Same for Second-hand.',
         ],
         'items.listing_days' => [
             'group' => 'Rent anything · Posting', 'label' => 'A post stays up for', 'type' => 'int', 'unit' => 'days', 'min' => 7, 'max' => 365,
-            'default' => '30', 'help' => 'Then it is hidden until the person renews it.',
+            'default' => '30', 'help' => 'Then it is hidden until the person renews it. Same for Second-hand.',
         ],
         'items.min_price' => [
             'group' => 'Rent anything · Posting', 'label' => 'Lowest price a person can enter', 'type' => 'int', 'unit' => '₹', 'min' => 0, 'max' => 100000,
@@ -59,16 +59,55 @@ class RentalItemSettings extends MarketplaceSettings
         // ── safety ──
         'items.reports_to_hide' => [
             'group' => 'Rent anything · Safety', 'label' => 'Reports that hide an item until the team checks it', 'type' => 'int', 'unit' => 'reports', 'min' => 1, 'max' => 20,
-            'default' => '3', 'help' => 'Each person can report an item once.',
+            'default' => '3', 'help' => 'Each person can report an item once. Same for Second-hand.',
         ],
         // ── contact ──
         'items.show_owner_phone' => [
             'group' => 'Rent anything · Contact', 'label' => 'Signed-in customers can see the owner\'s number', 'type' => 'switch', 'default' => '1',
-            'help' => 'Off: the item page shows no number.',
+            'help' => 'Off: the item page shows no number. Same for Second-hand.',
         ],
         'items.phone_views_per_day' => [
             'group' => 'Rent anything · Contact', 'label' => 'Owner numbers a customer can see per day', 'type' => 'int', 'unit' => 'items', 'min' => 1, 'max' => 100,
-            'default' => '10', 'help' => 'Stops people collecting numbers.',
+            'default' => '10', 'help' => 'Stops people collecting numbers. Same for Second-hand.',
+        ],
+
+        // ── Second-hand (owner 2026-11-19): people sell used things on the same engine. Photos, days up, reports and
+        // the owner's number use the Rent anything settings above; only these differ. ──
+        'secondhand.enabled' => [
+            'group' => 'Second-hand · Switch and choices', 'label' => 'Second-hand (people sell used things)', 'type' => 'switch', 'default' => '0',
+            'help' => 'Off by default: turn on zone by zone. Anyone with a verified mobile number posts used things for sale; your team approves each post. Contact only: no payment runs through us.',
+        ],
+        'secondhand.categories' => [
+            'group' => 'Second-hand · Switch and choices', 'label' => 'Kinds of used thing', 'type' => 'text',
+            'default' => "Furniture\nHome appliances\nMobiles and tablets\nLaptops and computers\nTV and electronics\nKitchen items\nBicycles\nSports and fitness\nBaby and kids\nBooks\nTools\nOther",
+            'help' => 'One per line. People tap one when posting; customers filter by them. Vehicles are not sold here (they need papers transferred).',
+        ],
+        'secondhand.conditions' => [
+            'group' => 'Second-hand · Switch and choices', 'label' => 'Condition', 'type' => 'text',
+            'default' => "Like new\nGood\nUsed\nNeeds repair",
+            'help' => 'One per line. People tap one.',
+        ],
+        'secondhand.bill_kinds' => [
+            'group' => 'Second-hand · Switch and choices', 'label' => 'Kinds that need "I have the bill"', 'type' => 'text',
+            'default' => "Mobiles and tablets\nLaptops and computers",
+            'help' => 'One per line. For these kinds the person must tick "I have the bill" before sending (keeps stolen phones out). Customers see "🧾 Bill available".',
+        ],
+        'secondhand.banned' => [
+            'group' => 'Second-hand · Switch and choices', 'label' => 'Things that cannot be sold', 'type' => 'text',
+            'default' => "Gun\nPistol\nRifle\nAmmunition\nExplosive\nFirecracker\nSword\nKnife\nDrug\nGanja\nAlcohol\nLiquor\nCigarette\nMedicine\nInjection\nPoison\nAnimal\nHuman\nCurrency\nFake\nReplica\nFirst copy\nStolen\nMotorcycle\nScooter\nScooty",
+            'help' => 'One word or phrase per line. A post whose name, kind or description has one of these is refused with a polite message.',
+        ],
+        'secondhand.max_live_per_person' => [
+            'group' => 'Second-hand · Posting', 'label' => 'Used things one person can have up at a time', 'type' => 'int', 'unit' => 'items', 'min' => 1, 'max' => 100,
+            'default' => '5', 'help' => 'Counts things waiting for review and things that are up (sold ones do not count).',
+        ],
+        'secondhand.min_price' => [
+            'group' => 'Second-hand · Posting', 'label' => 'Lowest price a person can enter', 'type' => 'int', 'unit' => '₹', 'min' => 0, 'max' => 100000,
+            'default' => '50', 'help' => 'Stops typing mistakes.',
+        ],
+        'secondhand.max_price' => [
+            'group' => 'Second-hand · Posting', 'label' => 'Highest price a person can enter', 'type' => 'int', 'unit' => '₹', 'min' => 10, 'max' => 10000000,
+            'default' => '200000', 'help' => 'Stops typing mistakes.',
         ],
     ];
 

@@ -7,6 +7,7 @@ use App\Models\RentalItem;
 use App\Models\RentalItemContactView;
 use App\Models\RentalItemReport;
 use App\Models\User;
+use App\Support\PostTypes;
 use App\Support\RentalItemSettings;
 use App\Support\RentalKinds;
 use Illuminate\Support\Facades\DB;
@@ -28,7 +29,7 @@ class RentalItemService
     {
         $item->loadMissing('franchise');
 
-        return RentalKinds::active(RentalKinds::ITEMS, $item->scope());
+        return PostTypes::onIn(PostTypes::valid($item->deal), $item->scope());
     }
 
     public static function visible(RentalItem $item): bool
@@ -36,13 +37,18 @@ class RentalItemService
         return $item->isLive() && self::kindOn($item);
     }
 
-    /** Live items in this city whose own zone has "Rent anything" on (test owners hidden by the shop rule). */
-    public static function publicIn(City $city)
+    /**
+     * Live posts of this type in this city whose own zone has it on (test owners hidden by the shop rule). With
+     * $withSold, sold Second-hand posts too: their page stays up saying "Sold" (links never break), never in lists.
+     */
+    public static function publicIn(City $city, string $deal = PostTypes::RENT, bool $withSold = false)
     {
-        $query = RentalItem::query()->where('status', 'approved')->where('is_active', true)->whereNull('hidden_for_reports_at')
-            ->where(fn ($q) => $q->whereNull('expires_at')->orWhere('expires_at', '>', now()))
+        $query = RentalItem::query()->where('deal', PostTypes::valid($deal))->where('status', 'approved')->whereNull('hidden_for_reports_at')
+            ->where(fn ($q) => $q->where(fn ($live) => $live->where('is_active', true)->whereNull('sold_at')
+                ->where(fn ($e) => $e->whereNull('expires_at')->orWhere('expires_at', '>', now())))
+                ->when($withSold, fn ($or) => $or->orWhereNotNull('sold_at')))
             ->whereHas('franchise', fn ($q) => $q->where('city_id', $city->id));
-        \App\Support\Seo\CityModules::whereRentalKindOn($query, $city, RentalKinds::ITEMS);
+        \App\Support\Seo\CityModules::wherePostTypeOn($query, $city, PostTypes::valid($deal));
         if (\App\Support\MarketplaceSettings::on('marketplace.hide_test_shops') && ! \App\Models\Store::isTestViewer(auth()->user())) {
             $query->whereDoesntHave('user', fn ($q) => $q->where('email', 'like', '%'.\App\Console\Commands\TestAccountsCommand::DOMAIN));
         }
@@ -51,14 +57,14 @@ class RentalItemService
     }
 
     /** Items of this person that count toward their limit (waiting for review or up). */
-    public static function liveCount(User $user, ?int $exceptId = null): int
+    public static function liveCount(User $user, ?int $exceptId = null, string $deal = PostTypes::RENT): int
     {
-        return RentalItem::where('user_id', $user->id)->when($exceptId, fn ($q) => $q->whereKeyNot($exceptId))->get()
+        return RentalItem::where('user_id', $user->id)->where('deal', PostTypes::valid($deal))->when($exceptId, fn ($q) => $q->whereKeyNot($exceptId))->get()
             ->filter(fn (RentalItem $i) => $i->countsTowardLimit())->count();
     }
 
     /** Null when this person may post (another) item here, else a plain reason to show them. */
-    public static function cannotPostReason(User $user, array $scope = [], ?int $exceptId = null): ?string
+    public static function cannotPostReason(User $user, array $scope = [], ?int $exceptId = null, string $deal = PostTypes::RENT): ?string
     {
         if ($user->phone === null || $user->phone === '' || $user->phone_verified_at === null) {
             return 'Please verify your mobile number first. It keeps everyone safe.';
@@ -66,18 +72,20 @@ class RentalItemService
         if ($user->status !== 'active') {
             return 'Your account cannot post items right now. Please contact us.';
         }
-        $max = (int) RentalItemSettings::get('items.max_live_per_person', $scope);
-        if (self::liveCount($user, $exceptId) >= $max) {
-            return "You can have {$max} items up at a time. Take one down to post another.";
+        $max = (int) RentalItemSettings::get(PostTypes::key($deal, 'max_live_per_person'), $scope);
+        if (self::liveCount($user, $exceptId, $deal) >= $max) {
+            return $deal === PostTypes::SELL
+                ? "You can have {$max} used things up at a time. Mark one as sold to post another."
+                : "You can have {$max} items up at a time. Take one down to post another.";
         }
 
         return null;
     }
 
     /** The first banned word or phrase found in this text (whole words, any case), or null. */
-    public static function bannedWordIn(string $text, array $scope = []): ?string
+    public static function bannedWordIn(string $text, array $scope = [], string $deal = PostTypes::RENT): ?string
     {
-        foreach (RentalItemSettings::listIn('items.banned', $scope) as $word) {
+        foreach (RentalItemSettings::listIn(PostTypes::key($deal, 'banned'), $scope) as $word) {
             if (preg_match('/(?<![\p{L}\p{N}])'.preg_quote($word, '/').'(?![\p{L}\p{N}])/iu', $text)) {
                 return $word;
             }
@@ -100,14 +108,18 @@ class RentalItemService
             throw new \RuntimeException('This item is already with the team.');
         }
         $scope = $item->scope();
-        if ($reason = self::cannotPostReason($owner, $scope, $item->id)) {
+        $deal = PostTypes::valid($item->deal);
+        if ($reason = self::cannotPostReason($owner, $scope, $item->id, $deal)) {
             throw new \RuntimeException($reason);
         }
-        if ($word = self::bannedWordIn(implode(' ', [$item->name, $item->category, $item->about]), $scope)) {
-            throw new \RuntimeException("Sorry, \"{$word}\" cannot be rented out here.");
+        if ($word = self::bannedWordIn(implode(' ', [$item->name, $item->category, $item->about]), $scope, $deal)) {
+            throw new \RuntimeException($deal === PostTypes::SELL ? "Sorry, \"{$word}\" cannot be sold here." : "Sorry, \"{$word}\" cannot be rented out here.");
         }
-        $min = (int) RentalItemSettings::get('items.min_price', $scope);
-        $max = (int) RentalItemSettings::get('items.max_price', $scope);
+        if ($deal === PostTypes::SELL && self::needsBill($item) && ! $item->has_bill) {
+            throw new \RuntimeException("For {$item->category}, please tick \"I have the bill\". It keeps stolen things out.");
+        }
+        $min = (int) RentalItemSettings::get(PostTypes::key($deal, 'min_price'), $scope);
+        $max = (int) RentalItemSettings::get(PostTypes::key($deal, 'max_price'), $scope);
         if ($item->price === null || (float) $item->price < $min || (float) $item->price > $max) {
             throw new \RuntimeException("Please enter a price between ₹{$min} and ₹{$max}.");
         }
@@ -211,18 +223,18 @@ class RentalItemService
      *
      * @return \Illuminate\Support\Collection<int, \App\Models\Zone>
      */
-    public static function postingZones()
+    public static function postingZones(string $deal = PostTypes::RENT)
     {
         return \App\Models\Zone::query()->with('franchise')
             ->whereHas('franchise', fn ($q) => $q->where('status', 'active'))->orderBy('name')->get()
-            ->filter(fn (\App\Models\Zone $z) => RentalKinds::active(RentalKinds::ITEMS, array_filter([
+            ->filter(fn (\App\Models\Zone $z) => PostTypes::onIn(PostTypes::valid($deal), array_filter([
                 'zone_id' => $z->id, 'franchise_id' => $z->franchise_id,
                 'city_id' => $z->franchise?->city_id, 'country_id' => $z->franchise?->country_id,
             ])))->values();
     }
 
     /** Fields of an approved item that change at once; anything else sends it back for a quick check. */
-    public const CHANGE_AT_ONCE = ['price', 'price_unit', 'deposit', 'can_deliver'];
+    public const CHANGE_AT_ONCE = ['price', 'price_unit', 'deposit', 'can_deliver', 'negotiable'];
 
     /**
      * Owner saves an item (new or existing). A draft or sent-back item just saves. An approved item keeps price changes
@@ -238,13 +250,19 @@ class RentalItemService
         if ($item?->status === 'in_review') {
             throw new \RuntimeException('We are checking this item. You can change it once we reply.');
         }
+        if ($item?->isSold()) {
+            throw new \RuntimeException('This thing is sold. Post it again if you have another one.');
+        }
+        // The type of post is chosen once, when it is made (its link depends on it).
+        $deal = $item !== null ? PostTypes::valid($item->deal) : PostTypes::valid($fields['deal'] ?? null);
+        $fields['deal'] = $deal;
         $zone = \App\Models\Zone::with('franchise')->find($fields['zone_id'] ?? null);
         $fields['franchise_id'] = $zone?->franchise_id;
-        $fields['title'] = RentalItem::makeTitle((string) $fields['name'], $zone?->name);
+        $fields['title'] = RentalItem::makeTitle((string) $fields['name'], $zone?->name, $deal);
 
         return DB::transaction(function () use ($owner, $item, $fields) {
             if ($item === null) {
-                if ($reason = self::cannotPostReason($owner, $this->scopeOf($fields))) {
+                if ($reason = self::cannotPostReason($owner, $this->scopeOf($fields), null, $fields['deal'])) {
                     throw new \RuntimeException($reason);
                 }
 
@@ -252,7 +270,7 @@ class RentalItemService
             }
             if ($item->status === 'approved') {
                 $reviewChange = false;
-                foreach (array_diff_key($fields, array_flip(array_merge(self::CHANGE_AT_ONCE, ['franchise_id', 'title']))) as $field => $value) {
+                foreach (array_diff_key($fields, array_flip(array_merge(self::CHANGE_AT_ONCE, ['franchise_id', 'title', 'deal']))) as $field => $value) {
                     if (! self::same($item->getAttribute($field), $value)) {
                         $reviewChange = true;
                     }
@@ -298,7 +316,7 @@ class RentalItemService
     /** Owner: "Not available now" / "Available again" on an approved item. */
     public function setAvailable(User $owner, RentalItem $item, bool $available): RentalItem
     {
-        if ($item->user_id !== $owner->id || $item->status !== 'approved') {
+        if ($item->user_id !== $owner->id || $item->status !== 'approved' || $item->isSold()) {
             throw new \RuntimeException('Only your approved items can be switched on or off.');
         }
         $item->update(['is_active' => $available]);
@@ -309,13 +327,35 @@ class RentalItemService
     /** Owner renews an approved item that ran out (or is about to): another listing period, counted from now. */
     public function renew(User $owner, RentalItem $item): RentalItem
     {
-        if ($item->user_id !== $owner->id || $item->status !== 'approved') {
+        if ($item->user_id !== $owner->id || $item->status !== 'approved' || $item->isSold()) {
             throw new \RuntimeException('Only your approved items can be renewed.');
         }
-        if ($item->isExpired() && ($reason = self::cannotPostReason($owner, $item->scope(), $item->id))) {
+        if ($item->isExpired() && ($reason = self::cannotPostReason($owner, $item->scope(), $item->id, PostTypes::valid($item->deal)))) {
             throw new \RuntimeException($reason);
         }
         $item->update(['expires_at' => now()->addDays((int) RentalItemSettings::get('items.listing_days', $item->scope())), 'is_active' => true]);
+
+        return $item->fresh();
+    }
+
+    /** Second-hand: this kind (e.g. Mobiles and tablets) needs "I have the bill" ticked before it is sent. */
+    public static function needsBill(RentalItem $item): bool
+    {
+        return $item->isSale() && in_array((string) $item->category, RentalItemSettings::listIn('secondhand.bill_kinds', $item->scope()), true);
+    }
+
+    /**
+     * Second-hand: the owner marks an approved post sold. It leaves every list and stops counting toward their limit;
+     * its page stays up saying "Sold" (links never break). There is no undo: a new one is a new post.
+     */
+    public function markSold(User $owner, RentalItem $item): RentalItem
+    {
+        if ($item->user_id !== $owner->id || ! $item->isSale() || $item->status !== 'approved') {
+            throw new \RuntimeException('Only your approved second-hand things can be marked sold.');
+        }
+        if (! $item->isSold()) {
+            $item->update(['sold_at' => now(), 'is_active' => false, 'is_featured' => false]);
+        }
 
         return $item->fresh();
     }

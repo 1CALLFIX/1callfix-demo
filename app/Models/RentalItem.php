@@ -22,10 +22,10 @@ class RentalItem extends Model
 
     public const MAX_PHOTOS = 8;
 
-    protected $attributes = ['status' => 'draft', 'is_active' => false, 'is_featured' => false, 'can_deliver' => false, 'open_reports' => 0];
+    protected $attributes = ['deal' => 'rent', 'negotiable' => false, 'has_bill' => false, 'status' => 'draft', 'is_active' => false, 'is_featured' => false, 'can_deliver' => false, 'open_reports' => 0];
 
     protected $fillable = [
-        'user_id', 'franchise_id', 'zone_id', 'name', 'title', 'slug', 'category', 'condition', 'price', 'price_unit',
+        'user_id', 'franchise_id', 'zone_id', 'deal', 'negotiable', 'has_bill', 'sold_at', 'name', 'title', 'slug', 'category', 'condition', 'price', 'price_unit',
         'deposit', 'can_deliver', 'about', 'landmark', 'cover_image', 'photos', 'status', 'rejection_reason',
         'submitted_at', 'approved_at', 'approved_by', 'is_active', 'is_featured', 'featured_until', 'expires_at',
         'open_reports', 'hidden_for_reports_at',
@@ -34,6 +34,9 @@ class RentalItem extends Model
     protected $casts = [
         'photos' => 'array',
         'can_deliver' => 'boolean',
+        'negotiable' => 'boolean',
+        'has_bill' => 'boolean',
+        'sold_at' => 'datetime',
         'is_active' => 'boolean',
         'is_featured' => 'boolean',
         'price' => 'decimal:2',
@@ -56,17 +59,28 @@ class RentalItem extends Model
         return in_array($this->status, ['draft', 'rejected'], true);
     }
 
-    /** Customers see it: approved, switched on, not expired, not hidden by reports. */
+    /** Customers see it: approved, switched on, not expired, not hidden by reports, not sold. */
     public function isLive(): bool
     {
         return $this->status === 'approved' && $this->is_active && $this->hidden_for_reports_at === null
-            && ($this->expires_at === null || $this->expires_at->isFuture());
+            && $this->sold_at === null && ($this->expires_at === null || $this->expires_at->isFuture());
     }
 
-    /** Counts toward the owner's limit of items: everything not a draft and not sent back. */
+    /** Counts toward the owner's limit of items: everything not a draft, not sent back and not sold. */
     public function countsTowardLimit(): bool
     {
-        return in_array($this->status, ['in_review', 'approved'], true) && ! $this->isExpired();
+        return in_array($this->status, ['in_review', 'approved'], true) && ! $this->isExpired() && $this->sold_at === null;
+    }
+
+    /** Second-hand (2026-11-19): a used thing for sale, not for rent. */
+    public function isSale(): bool
+    {
+        return $this->deal === \App\Support\PostTypes::SELL;
+    }
+
+    public function isSold(): bool
+    {
+        return $this->sold_at !== null;
     }
 
     public function isExpired(): bool
@@ -76,6 +90,10 @@ class RentalItem extends Model
 
     public function statusLabel(): string
     {
+        if ($this->isSold()) {
+            return 'Sold';
+        }
+
         return self::STATUS_LABELS[$this->status] ?? Str::headline((string) $this->status);
     }
 
@@ -104,10 +122,19 @@ class RentalItem extends Model
         ]);
     }
 
-    /** "Sony A7 camera for rent in Magunta Layout": the owner types only the name; the rest is made for them. */
-    public static function makeTitle(string $name, ?string $area): string
+    /**
+     * "Sony A7 camera for rent in Magunta Layout" / "Second-hand Godrej almirah in Magunta Layout": the owner types only
+     * the name; the rest is made for them. A name that already starts with "used", "old" or "second hand" does not
+     * say it twice.
+     */
+    public static function makeTitle(string $name, ?string $area, string $deal = \App\Support\PostTypes::RENT): string
     {
         $name = trim(preg_replace('/\s+/', ' ', $name)) ?: 'Item';
+        if ($deal === \App\Support\PostTypes::SELL) {
+            $name = trim(preg_replace('/^(second[\s-]*hand|used|old|pre[\s-]*owned)\s+/i', '', $name)) ?: $name;
+
+            return Str::limit('Second-hand '.$name.($area ? ' in '.$area : ''), 150, '');
+        }
 
         return Str::limit(Str::ucfirst($name).' for rent'.($area ? ' in '.$area : ''), 150, '');
     }

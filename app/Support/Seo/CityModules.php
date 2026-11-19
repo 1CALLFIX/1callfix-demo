@@ -19,7 +19,10 @@ use App\Support\Modules;
 final class CityModules
 {
     /** Second segments with a page today. */
-    public const LIVE_SEGMENTS = ['services', 'shop', 'parcel', 'food', 'hotels', 'events', 'halls', 'rentals', 'property', 'vehicles', 'rent'];
+    public const LIVE_SEGMENTS = ['services', 'shop', 'parcel', 'food', 'hotels', 'events', 'halls', 'rentals', 'property', 'vehicles', 'rent', 'second-hand'];
+
+    /** Other words people type for a live page: 301 to it, query string kept (Second-hand 2026-11-19: /used). */
+    public const ALIAS_SEGMENTS = ['used' => 'second-hand'];
 
     /** Reserved for businesses that do not have a public city page yet (owner list 2026-11-01). */
     public const FUTURE_SEGMENTS = ['grocery', 'pharmacy', 'taxi'];
@@ -27,7 +30,7 @@ final class CityModules
     /** @return list<string> */
     public static function segments(): array
     {
-        return array_merge(self::LIVE_SEGMENTS, self::FUTURE_SEGMENTS);
+        return array_merge(self::LIVE_SEGMENTS, array_keys(self::ALIAS_SEGMENTS), self::FUTURE_SEGMENTS);
     }
 
     public static function liveIn(City $city, string $module): bool
@@ -92,15 +95,43 @@ final class CityModules
      */
     public static function rentalKindScopesIn(City $city, string $kind): array
     {
+        return self::scopesIn($city, fn (array $scope) => \App\Support\RentalKinds::active($kind, $scope));
+    }
+
+    /**
+     * Where a type of people's post is on in the city (2026-11-19): rent = "Rent anything" (a rental kind), sell =
+     * Second-hand (its own switch). Same zone-by-zone rule as the rental kinds.
+     *
+     * @return array{zones: list<int>, franchises: list<int>, live: bool}
+     */
+    public static function postTypeScopesIn(City $city, string $deal): array
+    {
+        return self::scopesIn($city, fn (array $scope) => \App\Support\PostTypes::onIn($deal, $scope));
+    }
+
+    /** Second-hand (2026-11-19): /{city}/second-hand opens when it is on in at least one zone of the city. */
+    public static function secondHandLiveIn(City $city): bool
+    {
+        return self::postTypeScopesIn($city, \App\Support\PostTypes::SELL)['live'];
+    }
+
+    /**
+     * The zones (and franchises) of the city's active franchises where $on(scope) is true; `live` once any zone is.
+     *
+     * @param  callable(array): bool  $on
+     * @return array{zones: list<int>, franchises: list<int>, live: bool}
+     */
+    private static function scopesIn(City $city, callable $on): array
+    {
         $zones = [];
         $franchises = [];
         foreach (Franchise::query()->where('city_id', $city->id)->where('status', 'active')->pluck('id') as $franchiseId) {
             $scope = array_filter(['franchise_id' => $franchiseId, 'city_id' => $city->id, 'country_id' => $city->country_id]);
-            if (\App\Support\RentalKinds::active($kind, $scope)) {
+            if ($on($scope)) {
                 $franchises[] = (int) $franchiseId;
             }
             foreach (\App\Models\Zone::query()->where('franchise_id', $franchiseId)->pluck('id') as $zoneId) {
-                if (\App\Support\RentalKinds::active($kind, ['zone_id' => $zoneId] + $scope)) {
+                if ($on(['zone_id' => $zoneId] + $scope)) {
                     $zones[] = (int) $zoneId;
                 }
             }
@@ -115,7 +146,18 @@ final class CityModules
      */
     public static function whereRentalKindOn(\Illuminate\Database\Eloquent\Builder $query, City $city, string $kind): \Illuminate\Database\Eloquent\Builder
     {
-        $scopes = self::rentalKindScopesIn($city, $kind);
+        return self::whereScopes($query, self::rentalKindScopesIn($city, $kind));
+    }
+
+    /** The same filter for a type of people's post (2026-11-19). */
+    public static function wherePostTypeOn(\Illuminate\Database\Eloquent\Builder $query, City $city, string $deal): \Illuminate\Database\Eloquent\Builder
+    {
+        return self::whereScopes($query, self::postTypeScopesIn($city, $deal));
+    }
+
+    /** @param  array{zones: list<int>, franchises: list<int>}  $scopes */
+    private static function whereScopes(\Illuminate\Database\Eloquent\Builder $query, array $scopes): \Illuminate\Database\Eloquent\Builder
+    {
         $model = $query->getModel();
 
         return $query->where(fn ($q) => $q->whereIn($model->qualifyColumn('zone_id'), $scopes['zones'])
