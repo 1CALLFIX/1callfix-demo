@@ -158,6 +158,9 @@ class PropertyRentalApiTest extends TestCase
         $this->makeProperty($franchise, $zone);
         $this->makeProperty($franchise, $zone);
 
+        // Settings are cached once read (also "not set", 2026-11-19): one uncounted request warms them, so both counts
+        // measure only what grows with the properties.
+        $this->getJson('/api/properties?check_in='.now()->addDays(4)->toDateString().'&check_out='.now()->addDays(5)->toDateString())->assertOk();
         DB::enableQueryLog();
         DB::flushQueryLog();
         $this->getJson('/api/properties?check_in='.now()->addDays(4)->toDateString().'&check_out='.now()->addDays(5)->toDateString())->assertOk();

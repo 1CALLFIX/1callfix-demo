@@ -30,6 +30,22 @@ class Setting extends Model
     private const SCOPE_ORDER = ['zone', 'franchise', 'module', 'city', 'country'];
 
     /**
+     * Any row saved or deleted through the model (set(), clear(), updateOrCreate, save, delete) forgets its cached
+     * value, so the cached "not set" from get() can never hide a value written another way (2026-11-19). A
+     * query-builder mass update / DB::table insert skips this: use set() / clear(), or clear the cache (deploy step 8).
+     */
+    protected static function booted(): void
+    {
+        // Returns nothing on purpose: a model-event listener that returns false stops the listeners after it (the
+        // sitemap and page-cache observers), and forget() returns false when the key was not cached.
+        $forget = function (self $s): void {
+            cache()->forget("setting:{$s->scope_type}:{$s->scope_id}:{$s->key}");
+        };
+        static::saved($forget);
+        static::deleted($forget);
+    }
+
+    /**
      * Global → Country → City → Zone → Module → Franchise cascade (master
      * doc §14). Every existing call site uses the two-argument form
      * (no `$scope`), which resolves to global only — identical behaviour to
@@ -53,9 +69,13 @@ class Setting extends Model
         $chain[] = ['global', null];
 
         foreach ($chain as [$scopeType, $scopeId]) {
-            $value = cache()->rememberForever("setting:{$scopeType}:{$scopeId}:{$key}", fn () =>
-                static::where('scope_type', $scopeType)->where('scope_id', $scopeId)->where('key', $key)->value('value')
-            );
+            // Wrapped in ['v' => ...] so "not set" is cached too (2026-11-19): rememberForever treats a cached null as a
+            // miss, so every unset key cost a DB read plus a cache write on every lookup (hundreds per page, 30 s locally).
+            // A bare string is an entry cached before this change. set() and clear() forget the key as before.
+            $cached = cache()->rememberForever("setting:{$scopeType}:{$scopeId}:{$key}", fn () => [
+                'v' => static::where('scope_type', $scopeType)->where('scope_id', $scopeId)->where('key', $key)->value('value'),
+            ]);
+            $value = is_array($cached) ? ($cached['v'] ?? null) : $cached;
 
             if ($value !== null) {
                 return $value;

@@ -54,6 +54,9 @@ class ParcelOrdersPerformanceTest extends TestCase
     {
         // The platform timezone is looked up once and memoised; warm it so it is not counted in only the first render.
         app(\App\Services\TimezoneResolver::class)->platformTimezone();
+        // Settings are cached once read (also "not set", 2026-11-19): one uncounted render warms them, so both counts
+        // measure only what grows with the rows.
+        $callback();
         DB::enableQueryLog();
         DB::flushQueryLog();
 
