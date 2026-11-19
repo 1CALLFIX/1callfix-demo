@@ -63,9 +63,10 @@ final class WalletSourceLabel
             'regex' => '/^hall_booking:\d+:damage-claim-\d+$/',
             'like' => ['%:damage-claim-%'],
         ],
-        // Property listing fee (2026-11-17): an owner pays to show or feature a property, from the wallet.
+        // Listing fee (2026-11-17): an owner pays to show or feature a property or vehicle, from the wallet; also a
+        // paid pack for a rent / second-hand post (PostPackService, 2026-11-19). Same listing_fees row, same ref.
         'listing_fee' => [
-            'label' => 'Property listing fee',
+            'label' => 'Listing fee or post pack',
             'regex' => '/^listingfee:\d+$/',
             'like' => ['listingfee:%'],
         ],
@@ -246,6 +247,7 @@ final class WalletSourceLabel
             'dispute-debt:1:settle:00000000-0000-0000-0000-000000000000',
         ],
         'app/Services/PerformanceCampaignService.php' => ['perf_campaign:1:participant:2'],
+        'app/Services/RentalItems/PostPackService.php' => ['listingfee:1'],
         'app/Services/TipService.php' => [
             'tip:1:00000000-0000-0000-0000-000000000000:debit',
             'tip:1:00000000-0000-0000-0000-000000000000:credit',

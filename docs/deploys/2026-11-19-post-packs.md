@@ -5,8 +5,8 @@ Use with `docs/DEPLOY_RUNBOOK.md`.
 | | |
 |---|---|
 | Deploys | `main` at the commit that adds this file (`git log -1` in runbook step 1) |
-| Live before | 2026.11.19.3 (Second-hand). If .3 is not live yet, deploy both together: step 5 then expects both migrations. |
-| Full test suite | to run before the push (runbook step 1). Affected folders green 2026-11-19: 1285/1285 (packs, second-hand, rent, homes, vehicles, payments, settings, customer web, banners, halls, UI, console, admin) and 1861/1861 for the banners commit |
+| Live before | `3875ef8` (2026.11.19.3 Second-hand, checked on the server 2026-11-19) |
+| Full test suite | 5028/5029 passed (2026-11-19, final code); known failure only: NotificationCenterAuditTest::test_provider_status_shows_log_fallback_by_default (.env). The first full run also caught the pack wallet debit missing from WalletSourceLabel::WRITERS; fixed (label now "Listing fee or post pack") |
 | Composer | no (`composer.lock` unchanged) |
 | Front-end build (steps 6–7) | yes (new classes: pack cards, Featured tag, Boosted row, banner slots) |
 | Version | `VERSION` 2026.11.19.4 |
@@ -40,9 +40,8 @@ Use with `docs/DEPLOY_RUNBOOK.md`.
 ## Step 5 — migrations that must be pending (exactly these)
 - `2026_11_19_200000_add_post_packs` (rental_items.boosted_until; listing_fees.franchise_share, credits,
   credits_used, credits_until; additive only)
-- plus `2026_11_19_100000_add_second_hand_to_rental_items` only if 2026.11.19.3 is not live yet.
 
-Rollback count for `migrate:rollback --step=`: 1 (2 if deployed together with .3)
+Rollback count for `migrate:rollback --step=`: 1
 
 ## Step 10 — scheduled commands that must be listed
 - none new (`homes:tidy` already listed)
