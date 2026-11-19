@@ -23,7 +23,26 @@ class Banner extends Model
      */
     public const PLACEMENTS = [
         'top' => 'Top — home hero carousel',
-        'mid' => 'Mid — between modules',
+        'mid' => 'Mid — between modules (and Services pages)',
+        // Business pages (owner 2026-11-19): one slot at the top of each "Explore 1CallFix" door's own page.
+        'page_parcel' => 'Parcel page — top',
+        'page_shop' => 'Shop page — top',
+        'page_food' => 'Food page — top',
+        'page_hotels' => 'Hotels page — top',
+        'page_events' => 'Events page — top',
+        'page_rentals' => 'Rental pages — top (halls, rent anything)',
+        'page_secondhand' => 'Second-hand page — top',
+    ];
+
+    /** Business page slot => the module its page belongs to (so a module-targeted banner shows there too). */
+    public const PAGE_MODULES = [
+        'page_parcel' => 'parcel',
+        'page_shop' => 'commerce',
+        'page_food' => 'food',
+        'page_hotels' => 'hotel',
+        'page_events' => 'events',
+        'page_rentals' => 'rental',
+        'page_secondhand' => 'rental',
     ];
 
     /**
@@ -208,7 +227,35 @@ class Banner extends Model
     /** Short form for narrow table cells. */
     public function getPlacementShortAttribute(): string
     {
-        return $this->placement === 'top' ? 'Top' : 'Mid';
+        return match (true) {
+            $this->placement === 'top' => 'Top',
+            $this->placement === 'mid' => 'Mid',
+            default => trim(\Illuminate\Support\Str::before(self::PLACEMENTS[$this->placement] ?? $this->placement, '—')),
+        };
+    }
+
+    /**
+     * Banners for a business page's top slot (Banner::PLACEMENTS page_*). The viewer's area counts only when it is
+     * in this page's city, so a Nellore franchise banner never shows on another city's page. Pages are kept per zone
+     * by the page cache, so this is safe to cache with the page.
+     *
+     * @return \Illuminate\Support\Collection<int, self>
+     */
+    public static function forPage(string $placement, ?City $city = null)
+    {
+        if (! isset(self::PAGE_MODULES[$placement])) {
+            return collect();
+        }
+        $zone = app(\App\Services\Customer\CustomerLocationContext::class)->zone();
+        if ($zone && $city && (int) $zone->franchise?->city_id !== (int) $city->id) {
+            $zone = null;
+        }
+
+        return self::forSlot($placement, array_filter([
+            'franchise_id' => $zone?->franchise_id,
+            'zone_id' => $zone?->id,
+            'module' => self::PAGE_MODULES[$placement],
+        ], fn ($v) => $v !== null))->get();
     }
 
     /**

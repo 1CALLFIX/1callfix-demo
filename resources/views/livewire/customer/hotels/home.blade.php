@@ -16,6 +16,8 @@
         <x-customer.share-button :title="$t('hotel.meta.title', ['city' => $city->name])" />
     </div>
 
+    <x-customer.page-banners placement="page_hotels" :city="$city" />
+
     {{-- ── near me, map (step 3); the words come from the top-bar search (one search) ── --}}
     <div class="mt-5 flex flex-wrap items-center gap-2" x-data="{ locating: false, denied: false }">
         @if (trim($q) !== '')

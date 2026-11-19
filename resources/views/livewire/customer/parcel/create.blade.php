@@ -29,6 +29,8 @@
         </div>
     </div>
 
+    <x-customer.page-banners placement="page_parcel" />
+
     @if ($browsingZoneKnown && ! $activeHere)
         <div class="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
             Parcel delivery may not be available in the area you are browsing. Choose your pickup point below and we'll tell you if we pick up from there.

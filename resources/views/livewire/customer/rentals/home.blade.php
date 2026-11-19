@@ -12,6 +12,8 @@
         <x-customer.share-button :title="$t('rental.meta.title', ['city' => $city->name])" />
     </div>
 
+    <x-customer.page-banners placement="page_rentals" :city="$city" />
+
     {{-- One big coloured tile per kind live here. --}}
     <ul class="mt-5 grid gap-3 sm:grid-cols-2" data-testid="rental-kinds">
         @foreach ($sections as $s)

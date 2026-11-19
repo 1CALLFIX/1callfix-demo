@@ -20,6 +20,8 @@
             </label>
         </header>
 
+        <x-customer.page-banners placement="page_food" :city="$city" />
+
         <nav aria-label="{{ $t('food.home.filters') }}" class="mt-4 flex gap-2 overflow-x-auto pb-1">
             <button type="button" wire:click="$toggle('vegOnly')" aria-pressed="{{ $vegOnly ? 'true' : 'false' }}"
                     @class(['inline-flex shrink-0 items-center gap-1.5 rounded-full border px-4 py-2 text-sm font-medium',

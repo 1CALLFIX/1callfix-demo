@@ -20,6 +20,8 @@
             </label>
         </header>
 
+        <x-customer.page-banners placement="page_shop" :city="$city" />
+
         @if ($cartMessage)
             <p role="status" class="mt-4 rounded-lg bg-amber-50 px-4 py-2.5 text-sm text-amber-900">{{ $cartMessage }}</p>
         @endif

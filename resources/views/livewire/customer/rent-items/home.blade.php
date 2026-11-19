@@ -26,6 +26,8 @@
         </div>
         <x-customer.share-button :title="$t('items.meta.title', ['city' => $city->name])" />
     </div>
+
+    <x-customer.page-banners :placement="$sale ? 'page_secondhand' : 'page_rentals'" :city="$city" />
     <a href="{{ route($createRoute) }}" class="mt-3 inline-flex min-h-11 items-center gap-2 rounded-full bg-violet-50 px-4 text-sm font-semibold text-violet-800 ring-1 ring-violet-200 hover:bg-violet-100" data-testid="rent-post">➕ {{ $t('items.home.post') }}</a>
 
     <div class="mt-4 space-y-3 rounded-2xl border border-violet-100 bg-violet-50/50 p-3" data-testid="rent-filters">

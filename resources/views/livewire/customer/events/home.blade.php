@@ -15,6 +15,8 @@
         <x-customer.share-button :title="$t('event.meta.title', ['city' => $city->name])" />
     </div>
 
+    <x-customer.page-banners placement="page_events" :city="$city" />
+
     @if ($kinds->count() > 1)
         <div class="relative mt-4 flex gap-2 overflow-x-auto pb-1" role="group" aria-label="Kind of event">
             <button type="button" wire:click="$set('kind', '')" @class([$chip, 'border-blue-600 bg-blue-600 text-white' => $kind === '', 'border-slate-300 bg-white text-slate-700' => $kind !== ''])>{{ $t('event.crumb') }}</button>
