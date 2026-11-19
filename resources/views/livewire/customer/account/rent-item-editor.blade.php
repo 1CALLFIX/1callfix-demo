@@ -58,7 +58,7 @@
                     📷 {{ $coverUrl || $cover ? 'Change main photo' : 'Add main photo' }}
                     <input type="file" accept="image/jpeg,image/png,image/webp" wire:model="cover" aria-label="Main photo" class="sr-only">
                 </label>
-                <x-ui.image-size use="hall_photo" />
+                <x-ui.image-size use="item_photo" />
                 <p wire:loading wire:target="cover" class="mt-1 text-sm text-slate-500">Uploading…</p>
                 {!! $err('cover') !!}
             </div>
@@ -78,7 +78,7 @@
                     🖼️ Add photos
                     <input type="file" multiple accept="image/jpeg,image/png,image/webp" wire:model="newPhotos" aria-label="Add photos" class="sr-only">
                 </label>
-                <x-ui.image-size use="hall_photo" />
+                <x-ui.image-size use="item_photo" />
                 @if ($newPhotos !== []) <p class="mt-1 text-sm text-fuchsia-800">{{ count($newPhotos) }} new photo(s) ready. They are added when you save.</p> @endif
                 <p wire:loading wire:target="newPhotos" class="mt-1 text-sm text-slate-500">Uploading…</p>
                 {!! $err('newPhotos') !!}

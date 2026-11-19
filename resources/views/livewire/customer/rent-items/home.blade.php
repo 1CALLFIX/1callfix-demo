@@ -65,6 +65,9 @@
         @empty
             <li class="col-span-2 rounded-2xl border border-dashed border-slate-300 bg-white p-8 text-center text-sm text-slate-600 lg:col-span-3">
                 {{ $filtered ? $t('items.home.none_filtered') : $t('items.home.empty') }}
+                @unless ($filtered)
+                    <p class="mt-4"><a href="{{ route('customer.rent-items.create') }}" class="inline-flex min-h-11 items-center gap-2 rounded-full bg-violet-600 px-5 font-semibold text-white hover:bg-violet-700" data-testid="rent-post-empty">➕ {{ $t('items.home.post') }}</a></p>
+                @endunless
             </li>
         @endforelse
     </ul>

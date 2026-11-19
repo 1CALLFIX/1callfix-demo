@@ -11,7 +11,7 @@
             <h1 class="mb-1 text-2xl font-bold">Rent anything</h1>
             <p class="text-sm text-gray-500">People post things they rent out (camera, speaker, furniture, tools); customers call the owner. Check every post before customers see it, and every report. Oldest first.</p>
         </div>
-        <a href="{{ route('admin.halls.settings') }}#set-rent-anything-choices" class="text-sm underline">Rental Settings →</a>
+        @if (\App\Support\SuperAdminGate::allows(auth()->user())) <a href="{{ route('admin.halls.settings') }}#set-rent-anything-choices" class="text-sm underline">Rental Settings →</a> @endif
     </div>
 
     @if (isset($item))

@@ -150,7 +150,7 @@ class RentItemEditor extends Component
         $folder = 'rent-items/'.auth()->id();
         $photos = $this->photos;
         foreach ($this->newPhotos as $file) {
-            $photos[] = ImageShrinker::store($file, $folder, 'hall_photo');
+            $photos[] = ImageShrinker::store($file, $folder, 'item_photo');
         }
         $text = fn (string $v) => trim($v) !== '' ? trim($v) : null;
         $fields = [
@@ -167,7 +167,7 @@ class RentItemEditor extends Component
             'photos' => array_values($photos),
         ];
         if ($this->cover) {
-            $fields['cover_image'] = ImageShrinker::store($this->cover, $folder, 'hall_photo');
+            $fields['cover_image'] = ImageShrinker::store($this->cover, $folder, 'item_photo');
         } elseif ($existing === null) {
             $fields['cover_image'] = null;
         }

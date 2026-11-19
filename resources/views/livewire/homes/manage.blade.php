@@ -11,7 +11,7 @@
             <h1 class="mb-1 text-2xl font-bold">Property for rent</h1>
             <p class="text-sm text-gray-500">Monthly rent. Every home, and every change to a live home's photos, description, landmark or address, is checked by the team before customers see it.</p>
         </div>
-        <a href="{{ route('admin.halls.settings') }}#set-houses-for-rent-choices" class="text-sm underline">Rental Settings →</a>
+        @if (\App\Support\SuperAdminGate::allows(auth()->user())) <a href="{{ route('admin.halls.settings') }}#set-houses-for-rent-choices" class="text-sm underline">Rental Settings →</a> @endif
     </div>
 
     @if (isset($home))

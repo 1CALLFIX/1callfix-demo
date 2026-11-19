@@ -78,6 +78,18 @@ class TestAccountsCommand extends Command
         'homeowner' => ['Test Property Owner', 'provider', null, null, '6000000115'],
         // Vehicles for rent (2026-11-18, OLX-style): a vehicle owner is a provider account that owns approved VehicleListings (→ /venue Rental portal).
         'vehicleowner' => ['Test Vehicle Owner', 'provider', null, null, '6000000116'],
+        // Rent anything (2026-11-19, OLX-style): anyone with a verified mobile posts, so the renter is a plain customer
+        // who owns approved RentalItems (Account → Rent out your things); test.customer browses and calls them.
+        'renter' => ['Test Renter', 'customer', null, null, '6000000117'],
+    ];
+
+    /**
+     * Rent anything test items: name => [kind, condition, price, per, deposit, can deliver, photos]. Two, so the renter
+     * still has one free slot under the default "3 items up at a time" to try posting a new one.
+     */
+    private const TEST_RENT_ITEMS = [
+        'Test Sony camera' => ['Electronics and cameras', 'Like new', 800, 'Day', 5000, false, ['photo-1516035069371-29a1b244cc32', 'photo-1502920917128-1aa500764cbd', 'photo-1492691527719-9d1e07e534b4']],
+        'Test party lights set' => ['Sound and lights', 'Good', 1500, 'Event', null, true, ['photo-1514525253161-7a46d19cd819', 'photo-1492684223066-81342ee5ff30', 'photo-1470229722913-7c0e2dbbafd3']],
     ];
 
     /** A placeholder FSSAI number for the test restaurant only (hidden from the public like every test shop). */
@@ -235,6 +247,8 @@ class TestAccountsCommand extends Command
                     $this->makeTestHomes($user, $franchise, $zone);
                 } elseif ($key === 'vehicleowner') {
                     $this->makeTestVehicles($user, $franchise, $zone);
+                } elseif ($key === 'renter') {
+                    $this->makeTestRentItems($user, $franchise, $zone);
                 } elseif ($userRole === 'provider') {
                     Provider::updateOrCreate(['user_id' => $user->id], [
                         'franchise_id' => $franchise->id,
@@ -247,7 +261,7 @@ class TestAccountsCommand extends Command
                     ]);
                 }
 
-                return [$key, $email, $roleSlug ? "{$roleSlug} @ {$scopeType} #{$scopeIds[$scopeType]}" : ($key === 'rider' ? 'parcel + shop rider (approved)' : ($key === 'seller' ? 'seller, shop approved' : ($key === 'restaurant' ? 'restaurant, approved' : ($key === 'hotel' ? 'hotel, approved' : ($key === 'organiser' ? 'event organiser, approved, 1 event in review' : ($key === 'hall' ? 'one approved test hall of every kind' : ($key === 'homeowner' ? 'one approved test property of every kind for rent' : ($key === 'vehicleowner' ? 'one approved test vehicle of every kind for rent' : $userRole))))))))];
+                return [$key, $email, $roleSlug ? "{$roleSlug} @ {$scopeType} #{$scopeIds[$scopeType]}" : ($key === 'rider' ? 'parcel + shop rider (approved)' : ($key === 'seller' ? 'seller, shop approved' : ($key === 'restaurant' ? 'restaurant, approved' : ($key === 'hotel' ? 'hotel, approved' : ($key === 'organiser' ? 'event organiser, approved, 1 event in review' : ($key === 'hall' ? 'one approved test hall of every kind' : ($key === 'homeowner' ? 'one approved test property of every kind for rent' : ($key === 'vehicleowner' ? 'one approved test vehicle of every kind for rent' : ($key === 'renter' ? 'customer with '.count(self::TEST_RENT_ITEMS).' approved Rent anything items' : $userRole)))))))))];
             });
         }
 
@@ -693,6 +707,38 @@ class TestAccountsCommand extends Command
         }
     }
 
+    private function makeTestRentItems(User $user, Franchise $franchise, Zone $zone): void
+    {
+        $scope = array_filter(['zone_id' => $zone->id, 'franchise_id' => $franchise->id, 'city_id' => $franchise->city_id, 'country_id' => $franchise->country_id]);
+        $settings = \App\Support\RentalItemSettings::class;
+        $kinds = $settings::listIn('items.categories', $scope);
+        $units = $settings::listIn('items.price_units', $scope);
+        $conditions = $settings::listIn('items.conditions', $scope);
+        $min = (int) $settings::get('items.min_price', $scope);
+        $max = (int) $settings::get('items.max_price', $scope);
+
+        foreach (self::TEST_RENT_ITEMS as $name => [$kind, $condition, $price, $unit, $deposit, $deliver, $photoIds]) {
+            // Only values on this city's lists, so every test item is valid for the owner's editor too.
+            $kind = in_array($kind, $kinds, true) ? $kind : ($kinds[0] ?? $kind);
+            $unit = in_array($unit, $units, true) ? $unit : ($units[0] ?? $unit);
+            $condition = in_array($condition, $conditions, true) ? $condition : null;
+            $photos = array_map(fn (string $id) => self::UNSPLASH.$id.'?w=1600&q=80', $photoIds);
+            $title = \App\Models\RentalItem::makeTitle($name, $zone->name);
+            $item = \App\Models\RentalItem::firstOrNew(['user_id' => $user->id, 'name' => $name]);
+            $item->fill([
+                'franchise_id' => $franchise->id, 'zone_id' => $zone->id, 'title' => $title,
+                'slug' => $item->slug ?: \App\Models\RentalItem::uniqueSlug($title),
+                'category' => $kind, 'condition' => $condition, 'price' => min(max($price, $min), $max), 'price_unit' => $unit,
+                'deposit' => $deposit, 'can_deliver' => $deliver,
+                'about' => "{$name} for walk-throughs: call the owner, WhatsApp and Report can all be tried on it.\nNot a real item.",
+                'landmark' => 'Near the test bus stop, '.$zone->name,
+                'cover_image' => $photos[0], 'photos' => array_slice($photos, 1),
+                'status' => 'approved', 'submitted_at' => now(), 'approved_at' => now(), 'rejection_reason' => null,
+                'is_active' => true, 'expires_at' => now()->addDays(365), 'open_reports' => 0, 'hidden_for_reports_at' => null,
+            ])->save();
+        }
+    }
+
     private function list(): int
     {
         $users = User::where('email', 'like', '%'.self::DOMAIN)->with('roleAssignments.role')->orderBy('id')->get();
@@ -718,6 +764,7 @@ class TestAccountsCommand extends Command
                 \App\Models\Hall::whereIn('provider_id', Provider::where('user_id', $user->id)->select('id'))->update(['is_active' => false]);
                 \App\Models\HouseListing::whereIn('provider_id', Provider::where('user_id', $user->id)->select('id'))->update(['is_active' => false]);
                 \App\Models\VehicleListing::whereIn('provider_id', Provider::where('user_id', $user->id)->select('id'))->update(['is_active' => false]);
+                \App\Models\RentalItem::where('user_id', $user->id)->update(['is_active' => false]);
                 $user->forceFill(['status' => 'suspended'])->save();
                 $user->tokens()->delete();
             });

@@ -87,6 +87,50 @@ class RentItemPagesTest extends TestCase
         $this->assertNotNull($table);
     }
 
+    /** Owner rule 2026-10-26: every module ships with a test login for a real walk-through. */
+    public function test_test_accounts_make_a_renter_with_live_items_and_disable_switches_them_off(): void
+    {
+        $this->artisan('test-accounts', ['action' => 'create', '--password' => 'test-pass-123', '--franchise' => $this->franchise->id])->assertSuccessful();
+        $this->artisan('test-accounts', ['action' => 'create', '--password' => 'test-pass-123', '--franchise' => $this->franchise->id])->assertSuccessful();
+
+        $renter = User::where('email', 'test.renter@1callfix.test')->firstOrFail();
+        $this->assertSame('customer', $renter->role);
+        $this->assertNotNull($renter->phone_verified_at, 'Posting needs a verified mobile.');
+        $this->assertTrue(\Illuminate\Support\Facades\Hash::check('test-pass-123', $renter->password), 'Signs in with the one test password.');
+
+        $items = RentalItem::where('user_id', $renter->id)->get();
+        $this->assertCount(2, $items, 'Running it twice never makes duplicates, and leaves one free slot to post.');
+        foreach ($items as $item) {
+            $this->assertTrue($item->isLive(), $item->title.' is up.');
+            $this->assertSame($this->zone->id, $item->zone_id);
+            $this->get(route('customer.rent.show', [$this->city->slug, $item->slug]))->assertOk()->assertSee($item->title);
+            // The owner's editor accepts it as it is (every value is on the lists).
+            Livewire::actingAs($renter)->test(\App\Livewire\Customer\Account\RentItemEditor::class, ['item' => $item->id])->call('save')->assertHasNoErrors();
+        }
+        $this->get(route('customer.rent.home', $this->city->slug))->assertSee('Test Sony camera')->assertSee('Test party lights set');
+
+        // test.customer (someone else) sees the renter's number from the contact panel.
+        $customer = User::where('email', 'test.customer@1callfix.test')->firstOrFail();
+        Livewire::actingAs($customer)->test(Contact::class, ['itemId' => $items->first()->id])->call('showPhone')->assertSee($renter->phone);
+
+        $this->artisan('test-accounts', ['action' => 'disable'])->assertSuccessful();
+        $this->assertSame(0, RentalItem::where('user_id', $renter->id)->where('is_active', true)->count());
+        $this->assertSame('suspended', $renter->fresh()->status);
+        $this->get(route('customer.rent.home', $this->city->slug))->assertDontSee('Test Sony camera');
+    }
+
+    /** Walk-through 2026-11-19: an empty city page offers the post button; only Super Admin sees the settings link. */
+    public function test_empty_page_offers_posting_and_settings_link_is_for_super_admin_only(): void
+    {
+        $this->get(route('customer.rent.home', $this->city->slug))->assertOk()->assertSee('data-testid="rent-post-empty"', false);
+        $this->item();
+        $this->get(route('customer.rent.home', $this->city->slug))->assertDontSee('data-testid="rent-post-empty"', false);
+
+        $team = $this->makeUserWithPermission('rental_items.manage', 'franchise', $this->franchise->id);
+        Livewire::actingAs($team)->test(Manage::class)->assertDontSee('Rental Settings →');
+        Livewire::actingAs($this->makeSuperAdmin())->test(Manage::class)->assertSee('Rental Settings →');
+    }
+
     public function test_pages_close_where_rent_anything_is_off(): void
     {
         $item = $this->item();

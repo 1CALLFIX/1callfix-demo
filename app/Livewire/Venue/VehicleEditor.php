@@ -217,10 +217,10 @@ class VehicleEditor extends Component
 
         $partner = $this->partner();
         $folder = 'vehicles/'.($existing?->id ?? 'new-'.$partner->id);
-        $cover = $this->cover ? ImageShrinker::store($this->cover, $folder, 'hall_photo') : null;
+        $cover = $this->cover ? ImageShrinker::store($this->cover, $folder, 'vehicle_photo') : null;
         $photos = $this->photos;
         foreach ($this->newPhotos as $file) {
-            $photos[] = ImageShrinker::store($file, $folder, 'hall_photo');
+            $photos[] = ImageShrinker::store($file, $folder, 'vehicle_photo');
         }
         $zone = Zone::find((int) $this->zoneId);
         $text = fn (string $v) => trim($v) !== '' ? trim($v) : null;

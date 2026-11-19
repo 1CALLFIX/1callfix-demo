@@ -11,7 +11,7 @@
             <h1 class="mb-1 text-2xl font-bold">Vehicles for rent</h1>
             <p class="text-sm text-gray-500">Owners list their car, bike, auto, van, truck or tractor; customers call the owner. Every vehicle, and every change to a live vehicle's photos, description, landmark or pickup address, is checked by the team before customers see it.</p>
         </div>
-        <a href="{{ route('admin.halls.settings') }}#set-vehicles-for-rent-choices" class="text-sm underline">Rental Settings →</a>
+        @if (\App\Support\SuperAdminGate::allows(auth()->user())) <a href="{{ route('admin.halls.settings') }}#set-vehicles-for-rent-choices" class="text-sm underline">Rental Settings →</a> @endif
     </div>
 
     @if (isset($vehicle))

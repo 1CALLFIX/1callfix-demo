@@ -32,6 +32,10 @@ final class ImageSizes
         'hotel_photo' => [1600, 1067, '3:2 wide', 'JPG, PNG or WebP', 8, 'Real photos in daylight: the front, reception, and each room with the bed made. No text or logos on the photo.'],
         // Function halls R1: the hall, stage, dining area, rooms; a swipeable gallery on the hall page.
         'hall_photo' => [1600, 1067, '3:2 wide', 'JPG, PNG or WebP', 8, 'Real photos in daylight: the hall from the entrance, the stage, the dining area and the rooms. No text or logos on the photo.'],
+        // Property for rent, Vehicles for rent, Rent anything (2026-11-19): same gallery size as halls, their own tip.
+        'home_photo' => [1600, 1067, '3:2 wide', 'JPG, PNG or WebP', 8, 'Real photos in daylight: the front, the hall, the kitchen, each bedroom and the bathroom. No text or logos on the photo.'],
+        'vehicle_photo' => [1600, 1067, '3:2 wide', 'JPG, PNG or WebP', 8, 'Real photos in daylight: the front, one side, the inside and the dashboard. No text or logos on the photo.'],
+        'item_photo' => [1600, 1067, '3:2 wide', 'JPG, PNG or WebP', 8, 'Real photos of the item itself in good light, from the front and the sides. No text or logos on the photo.'],
         // Events E1: the event poster / cover, wide on the event page and in lists.
         'event_cover' => [1600, 900, '16:9 wide', 'JPG, PNG or WebP', 8, 'Your event poster or a photo of the venue. Keep text large and in the middle.'],
         'organiser_logo' => [512, 512, 'square', 'JPG, PNG or WebP', 2, null],

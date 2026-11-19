@@ -226,10 +226,10 @@ class HomeEditor extends Component
 
         $partner = $this->partner();
         $folder = 'homes/'.($existing?->id ?? 'new-'.$partner->id);
-        $cover = $this->cover ? ImageShrinker::store($this->cover, $folder, 'hall_photo') : null;
+        $cover = $this->cover ? ImageShrinker::store($this->cover, $folder, 'home_photo') : null;
         $photos = $this->photos;
         foreach ($this->newPhotos as $file) {
-            $photos[] = ImageShrinker::store($file, $folder, 'hall_photo');
+            $photos[] = ImageShrinker::store($file, $folder, 'home_photo');
         }
         $zone = Zone::find((int) $this->zoneId);
 
