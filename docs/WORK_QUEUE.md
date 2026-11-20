@@ -205,5 +205,7 @@ front-end build.
 
 - `schedule:run` cron runs every minute on prod (owner-confirmed 2026-10-03).
 - Prod has 0 Prime Silver subscribers (owner, 2026-10-03).
-- Full suite takes ~17 min and can be killed for memory; run it in directory chunks. The one known
-  failing test is `NotificationCenterAuditTest::test_provider_status_shows_log_fallback_by_default`.
+- Full suite: `php artisan test --parallel` (about 3 min). No known failures since 2026-11-20: the old
+  `NotificationCenterAuditTest::test_provider_status_shows_log_fallback_by_default` failure came from the local .env
+  (`PUSH_DRIVER=fcm`); phpunit.xml now forces the log-only push / SMS / WhatsApp senders, so tests never send real
+  messages. Any failure now is a real one.

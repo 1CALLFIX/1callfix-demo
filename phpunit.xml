@@ -50,6 +50,10 @@
         <env name="TELESCOPE_ENABLED" value="false"/>
         <env name="NIGHTWATCH_ENABLED" value="false"/>
         <!-- Never let a developer's local .env payment keys leak into tests. -->
+        <!-- Tests never send real pushes / SMS / WhatsApp, whatever the local .env says (owner 2026-11-20). -->
+        <env name="PUSH_DRIVER" value="log" force="true"/>
+        <env name="SMS_DRIVER" value="log" force="true"/>
+        <env name="WHATSAPP_DRIVER" value="log" force="true"/>
         <env name="RAZORPAY_KEY_ID" value="" force="true"/>
         <env name="RAZORPAY_KEY_SECRET" value="" force="true"/>
         <env name="RAZORPAY_WEBHOOK_SECRET" value="" force="true"/>
