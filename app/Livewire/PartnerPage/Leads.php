@@ -118,9 +118,28 @@ class Leads extends Component
         return Modules::ALL + ['franchise' => 'Franchise owner'];
     }
 
+    /**
+     * Owner 2026-11-20: a partner who tapped "Help me join" must be easy to find and call. Open requests (still "new")
+     * sit at the top, newest first, with when they asked (consent_at is stamped on every request).
+     */
+    public function callbacks()
+    {
+        return PartnerLead::query()->where('source', 'help_me_join')->where('status', PartnerLead::STATUS_NEW)
+            ->orderByDesc('consent_at')->limit(50)->get();
+    }
+
+    /** tel: and wa.me targets for a stored national number. */
+    public static function dialable(string $phone): array
+    {
+        $e164 = \App\Support\PhoneNumber::e164($phone);
+
+        return ['tel' => $e164, 'wa' => 'https://wa.me/'.ltrim($e164, '+')];
+    }
+
     public function render()
     {
         return view('livewire.partner-page.leads', [
+            'callbacks' => $this->callbacks(),
             'leads' => $this->baseQuery()->paginate(self::PER_PAGE),
             'statuses' => PartnerLead::STATUSES,
             'roles' => self::roleNames(),

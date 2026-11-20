@@ -115,7 +115,7 @@ class Join extends Component
         $u = auth()->user();
         $role = match (true) {
             $u->holdsPartnerRole('hotel') => 'hotel', $u->holdsPartnerRole('events') => 'events', $u->holdsPartnerRole('halls') => 'halls', $u->holdsPartnerRole('homes') => 'homes', $u->holdsPartnerRole('vehicles') => 'vehicles', $u->holdsPartnerRole('food') => 'food', $u->holdsPartnerRole('commerce') => 'commerce',
-            $u->holdsPartnerRole('parcel') && ! $u->providerProfile()->exists() => 'parcel', default => 'service',
+            default => $this->joiningAsRider() ? 'parcel' : 'service',
         };
         $phone = \App\Support\PhoneNumber::national((string) $u->phone);
         $recent = \App\Models\PartnerLead::where('phone', $phone)->where('role', $role)->where('source', 'help_me_join')
@@ -130,6 +130,23 @@ class Join extends Component
             $lead->forceFill(['status' => \App\Models\PartnerLead::STATUS_NEW, 'source' => 'help_me_join'])->save();
         }
         $this->helpNotice = 'Thank you. Our team will call you on '.$u->phone.' to help you go live.';
+    }
+
+    /**
+     * Owner 2026-11-20: a service partner turning into a delivery rider asked for a call and it was filed as "Service".
+     * The call is about what the person is joining now: the one still waiting for approval, else the newest.
+     */
+    private function joiningAsRider(): bool
+    {
+        $rider = $this->rider();
+        $provider = $this->provider();
+        if (! $rider || ! $provider) {
+            return (bool) $rider;
+        }
+        $riderWaiting = $rider->kyc_status !== 'approved';
+        $providerWaiting = $provider->kyc_status !== 'approved';
+
+        return $riderWaiting !== $providerWaiting ? $riderWaiting : $rider->created_at >= $provider->created_at;
     }
 
     /** "3. Set up" is done once customers would see something: a room with a price, a product or dish, or services. */

@@ -97,7 +97,7 @@ class Login extends Component
 
         $this->clearThrottle('login', $this->identifier);
 
-        Auth::guard('web')->login($user);
+        Auth::guard('web')->login($user, \App\Support\NativeApp::inApp());
         session()->regenerate();
 
         $this->redirectAfterLogin();
@@ -152,7 +152,7 @@ class Login extends Component
             }
 
             $accounts->linkFirebaseIdentity($linked, $identity);
-            Auth::guard('web')->login($linked);
+            Auth::guard('web')->login($linked, \App\Support\NativeApp::inApp());
             session()->regenerate();
             $this->redirectAfterLogin();
 

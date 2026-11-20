@@ -96,7 +96,7 @@ class Login extends Component
 
         $this->clearThrottle('seller-login', $this->signInKey());
 
-        Auth::guard('web')->login($user);
+        Auth::guard('web')->login($user, \App\Support\NativeApp::inApp());
         session()->regenerate();
 
         $this->redirectRoute('seller.dashboard', navigate: true);

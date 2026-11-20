@@ -334,7 +334,7 @@ class Signup extends Component
         $this->clearThrottle('signup-phone', $this->phone);
         session()->forget(self::REFERRAL_SESSION_KEY);
 
-        Auth::guard('web')->login($user);
+        Auth::guard('web')->login($user, \App\Support\NativeApp::inApp());
         session()->regenerate();
 
         $this->redirectAfterLogin();

@@ -128,7 +128,7 @@ class Login extends Component
 
         $this->clearThrottle('provider-login', $this->signInKey());
 
-        Auth::guard('web')->login($user);
+        Auth::guard('web')->login($user, \App\Support\NativeApp::inApp());
         session()->regenerate();
 
         // E-commerce Phase 1: a shop-only seller is a provider account too; their home is the seller portal.

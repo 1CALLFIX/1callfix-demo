@@ -92,7 +92,7 @@ class GoogleAuth extends Component
                 return;
             }
 
-            Auth::guard('web')->login($linked);
+            Auth::guard('web')->login($linked, \App\Support\NativeApp::inApp());
             session()->regenerate();
             session()->forget('auth.google');
             $this->redirectAfterLogin();
@@ -236,7 +236,7 @@ class GoogleAuth extends Component
         session()->forget('auth.google');
         $this->clearThrottle('google-phone', $this->lockedPhoneE164 ?: request()->ip());
 
-        Auth::guard('web')->login($user);
+        Auth::guard('web')->login($user, \App\Support\NativeApp::inApp());
         session()->regenerate();
 
         $this->redirectAfterLogin();

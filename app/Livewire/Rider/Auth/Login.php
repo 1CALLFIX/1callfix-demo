@@ -103,7 +103,7 @@ class Login extends Component
 
         $this->clearThrottle('rider-login', $this->signInKey());
 
-        Auth::guard('web')->login($user);
+        Auth::guard('web')->login($user, \App\Support\NativeApp::inApp());
         session()->regenerate();
 
         $this->redirectRoute('rider.dashboard', navigate: true);

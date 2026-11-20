@@ -815,7 +815,7 @@ class Register extends Component
         $this->reset('password', 'password_confirmation', 'documents');
         $joined = User::where('phone', PhoneNumber::national($this->verifiedPhoneE164))->first();
         if (! auth()->check() && $joined && $joined->status === 'active') {
-            \Illuminate\Support\Facades\Auth::guard('web')->login($joined);
+            \Illuminate\Support\Facades\Auth::guard('web')->login($joined, \App\Support\NativeApp::inApp());
             session()->regenerate();
         }
         // Partners part B: "Welcome — go live" (email / app message). A message that cannot be sent never stops the sign-up.

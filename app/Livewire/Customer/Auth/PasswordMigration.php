@@ -157,7 +157,7 @@ class PasswordMigration extends Component
 
         $this->clearThrottle('migrate', $this->targetPhoneE164);
 
-        Auth::guard('web')->login($user);
+        Auth::guard('web')->login($user, \App\Support\NativeApp::inApp());
         session()->regenerate();
 
         $this->redirectRoute('customer.home', navigate: true);
