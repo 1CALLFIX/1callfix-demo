@@ -231,6 +231,59 @@ class DispatchService
     }
 
     /**
+     * Owner 2026-11-20 — who to wake when a "book now" job finds nobody online (App\Services\Providers\OfflineWakeUp).
+     * The same rules as findScheduledCandidates() (zone, active, approved, standing, skill, not busy, radius by last
+     * known location, never-located providers at the radius edge, already-offered/declined excluded), checked for
+     * NOW, minus anyone already reachable the normal way (online with a fresh location).
+     */
+    public function findWakeUpCandidates(Booking $booking, int $limit = 20): Collection
+    {
+        $booking->loadMissing(['zone', 'address', 'service', 'franchise']);
+
+        if (!$booking->zone || !$booking->address || !$booking->service) {
+            return collect();
+        }
+
+        $radiusKm = $booking->zone->default_dispatch_radius_km ?? 8;
+        $categoryId = $booking->service->category_id;
+        $durationMinutes = (int) ($booking->service->duration_estimate_mins ?? 0);
+        $freshAfter = now()->subMinutes($this->locationStaleAfterMinutes());
+
+        $scope = array_filter([
+            'zone_id' => $booking->zone_id,
+            'franchise_id' => $booking->franchise_id,
+            'city_id' => $booking->franchise?->city_id,
+            'country_id' => $booking->franchise?->country_id,
+        ]);
+
+        $candidates = Provider::query()
+            ->where('zone_id', $booking->zone_id)
+            ->where('is_active', true)
+            ->where('kyc_status', 'approved')
+            ->whereNotIn('id', $this->excludedProviderIdsForBooking($booking, $scope))
+            ->where(fn ($q) => $q->where('is_online', false)
+                ->orWhereNull('location_updated_at')
+                ->orWhere('location_updated_at', '<=', $freshAfter))
+            ->get()
+            ->pipe(fn (Collection $providers) => app(ProviderStanding::class)->filterCanTakeNewWork($providers))
+            ->filter(fn (Provider $provider) => $this->hasSkill($provider, $categoryId))
+            ->filter(fn (Provider $provider) => $this->availability->isAvailableAt($provider, now(), $durationMinutes, $booking->id))
+            ->map(function (Provider $provider) use ($booking, $radiusKm) {
+                $hasLocation = $provider->current_lat !== null && $provider->current_lng !== null;
+
+                return [
+                    'provider' => $provider,
+                    'distance_km' => $hasLocation
+                        ? $this->haversineKm((float) $booking->address->lat, (float) $booking->address->lng, (float) $provider->current_lat, (float) $provider->current_lng)
+                        : $radiusKm,
+                ];
+            })
+            ->filter(fn ($c) => $c['distance_km'] <= $radiusKm);
+
+        return $candidates->sortBy('distance_km')->take($limit)->values();
+    }
+
+    /**
      * REF 1CF-DISPATCH-20260924 (finding D-02) — how many times each
      * provider has already been offered THIS booking. Feeds the round
      * offset in rankAndLimit(): without it every round re-ranked the same

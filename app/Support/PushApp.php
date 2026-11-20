@@ -21,6 +21,7 @@ final class PushApp
         'ProviderJobOfferNotification' => 'partner',
         'ProviderJobStatusNotification' => 'partner',
         'ProviderShiftReminderNotification' => 'partner',
+        'ProviderWakeUpNotification' => 'partner',
         'WorkAssignmentNotification' => 'partner',
         'PayoutStatusNotification' => 'partner',
         'KycNotification' => 'partner',

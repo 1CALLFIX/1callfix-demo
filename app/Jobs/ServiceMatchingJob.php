@@ -173,6 +173,11 @@ class ServiceMatchingJob implements ShouldQueue
             // forever and never exceed $maxRounds. Reproduced live: booking
             // #10 looped every offerTimeoutSeconds indefinitely once a
             // worker actually started consuming the queue.
+
+            // Owner 2026-11-20: nobody online — wake the offline providers who could take it (once per job, never
+            // at night). They are offered it the normal way on a later round once they go online.
+            rescue(fn () => app(\App\Services\Providers\OfflineWakeUp::class)->send($booking), null, report: true);
+
             self::dispatch($this->bookingId, $this->round + 1)
                 ->delay(now()->addSeconds($offerTimeoutSeconds));
             return;

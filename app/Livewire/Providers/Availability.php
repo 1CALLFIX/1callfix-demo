@@ -23,6 +23,11 @@ class Availability extends Component
     public string $graceMinutes = '15';
     public string $requiredMinPercent = '80';
 
+    /** Owner 2026-11-20: wake offline providers when a job finds nobody online (App\Services\Providers\OfflineWakeUp). */
+    public bool $wakeOn = true;
+    public string $quietFrom = '22:00';
+    public string $quietUntil = '07:00';
+
     public ?int $editingId = null;
     public string $shiftName = '';
     public string $shiftStart = '08:00';
@@ -42,6 +47,9 @@ class Availability extends Component
         $this->reminderMinutes = (string) S::reminderMinutes();
         $this->graceMinutes = (string) S::graceMinutes();
         $this->requiredMinPercent = (string) S::requiredMinPercent();
+        $this->wakeOn = \App\Services\Providers\OfflineWakeUp::enabled();
+        $this->quietFrom = \App\Services\Providers\OfflineWakeUp::quietFrom();
+        $this->quietUntil = \App\Services\Providers\OfflineWakeUp::quietUntil();
     }
 
     public function saveSettings(): void
@@ -54,7 +62,10 @@ class Availability extends Component
             'reminderMinutes' => ['required', 'integer', 'between:0,240'],
             'graceMinutes' => ['required', 'integer', 'between:0,240'],
             'requiredMinPercent' => ['required', 'integer', 'between:0,100'],
-        ], [], ['requiredMinPercent' => 'minimum % of providers', 'staleMinutes' => 'auto-offline minutes', 'reminderMinutes' => 'reminder minutes', 'graceMinutes' => 'grace minutes']);
+            'wakeOn' => ['boolean'],
+            'quietFrom' => ['required', 'date_format:H:i'],
+            'quietUntil' => ['required', 'date_format:H:i'],
+        ], [], ['quietFrom' => 'night starts', 'quietUntil' => 'night ends', 'requiredMinPercent' => 'minimum % of providers', 'staleMinutes' => 'auto-offline minutes', 'reminderMinutes' => 'reminder minutes', 'graceMinutes' => 'grace minutes']);
 
         // Safety check: switching INTO required mode needs active shifts and enough providers who have chosen one,
         // otherwise most providers would be locked out the moment it is saved.
@@ -80,6 +91,9 @@ class Availability extends Component
             S::MODE => $this->mode,
             S::REMINDER_MINUTES => (string) (int) $this->reminderMinutes,
             S::GRACE_MINUTES => (string) (int) $this->graceMinutes,
+            \App\Services\Providers\OfflineWakeUp::ENABLED => $this->wakeOn ? '1' : '0',
+            \App\Services\Providers\OfflineWakeUp::QUIET_FROM => $this->quietFrom,
+            \App\Services\Providers\OfflineWakeUp::QUIET_UNTIL => $this->quietUntil,
         ] as $key => $value) {
             $changed = SettingsAuditor::put($admin, $key, $value) || $changed;
         }

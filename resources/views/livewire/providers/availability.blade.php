@@ -53,6 +53,26 @@
                     @error('graceMinutes') <p class="text-xs text-red-600 mt-1">{{ $message }}</p> @enderror
                 </div>
             </div>
+            <div class="mt-4 rounded-xl border border-blue-200 bg-blue-50 p-4" data-testid="wake-offline">
+                <label class="flex items-center gap-3 text-sm font-semibold text-blue-900">
+                    <input type="checkbox" wire:model="wakeOn" class="h-5 w-5 rounded">
+                    🔔 Nobody online? Alert offline providers
+                </label>
+                <p class="text-xs text-blue-800 mt-1">When a "book now" job finds nobody online, up to 20 nearby approved providers with that skill who are offline get one loud push: "New job near you. Open the app and go online to take it." Once per job.</p>
+                <div class="mt-3 grid gap-4 sm:grid-cols-2">
+                    <div>
+                        <label class="block text-sm font-medium mb-1" for="av-qfrom">No alerts at night from</label>
+                        <input id="av-qfrom" type="time" wire:model="quietFrom" class="{{ $input }}">
+                        @error('quietFrom') <p class="text-xs text-red-600 mt-1">{{ $message }}</p> @enderror
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-1" for="av-quntil">until</label>
+                        <input id="av-quntil" type="time" wire:model="quietUntil" class="{{ $input }}">
+                        @error('quietUntil') <p class="text-xs text-red-600 mt-1">{{ $message }}</p> @enderror
+                    </div>
+                </div>
+                <p class="text-xs text-blue-800 mt-1">In each city's own time. The same time in both = alerts at any hour.</p>
+            </div>
             <div class="mt-4 md:w-1/2">
                 <label class="block text-sm font-medium mb-1" for="av-minpct">Required needs at least this % of providers to have chosen a shift</label>
                 <input id="av-minpct" type="number" min="0" max="100" wire:model="requiredMinPercent" class="{{ $input }}">
