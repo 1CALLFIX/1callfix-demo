@@ -157,6 +157,27 @@ class ReferralQualificationRulesTest extends TestCase
             ->assertOk()->assertJsonPath('referral_balance', 50);
     }
 
+    /** Owner 2026-11-20: the Referrals page states the minimum job value from Earnings Control, whatever it is set to. */
+    public function test_customer_referrals_page_shows_the_minimum_job_value_from_the_setting(): void
+    {
+        foreach (['earnings.enabled' => '1', 'earnings.referral_tab' => '1', 'referral.min_job_value' => '700'] as $k => $v) {
+            Setting::set($k, $v);
+        }
+        [$referrer] = $this->scenario('online', 'paid');
+
+        $this->actingAs($referrer)->get(route('customer.earnings.referrals'))->assertOk()
+            ->assertSee("Only your friend's service booking of ₹700 or more counts. A smaller booking doesn't use up the reward.", false)
+            ->assertSee('completes a service booking');
+
+        Setting::set('referral.min_job_value', '1250.50');
+        $this->actingAs($referrer)->get(route('customer.earnings.referrals'))->assertOk()
+            ->assertSee('service booking of ₹1,250.50 or more counts', false);
+
+        Setting::set('referral.min_job_value', '');
+        $this->actingAs($referrer)->get(route('customer.earnings.referrals'))->assertOk()
+            ->assertDontSee('or more counts', false);
+    }
+
     private function makeSuperAdmin(): \App\Models\User
     {
         return \App\Models\User::create([

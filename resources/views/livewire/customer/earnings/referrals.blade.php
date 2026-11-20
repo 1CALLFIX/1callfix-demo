@@ -53,8 +53,13 @@
         <p class="font-semibold text-slate-800">How referrals work</p>
         <ul class="mt-2 list-disc space-y-1 pl-5">
             @if ($rules['reward_type'] && ($rules['reward_amount'] !== null || $rules['reward_points'] !== null) && $rules['max_rewarded_referrals'] !== null)
-                <li>When a friend you refer completes a booking{{ $rules['online_only'] ? ' paid online (cash jobs do not count)' : ' and pays for it' }}{{ $rules['min_job_value'] !== null ? ' of at least '.$currencySymbol.number_format($rules['min_job_value'], 2) : '' }}, you get
+                <li>When a friend you refer completes a service booking{{ $rules['online_only'] ? ' paid online (cash jobs do not count)' : ' and pays for it' }}, you get
                     {{ $rules['reward_type'] === 'wallet' ? $currencySymbol.number_format($rules['reward_amount'], 2).' in your referral balance' : number_format($rules['reward_points']).' loyalty points' }}.</li>
+                {{-- Owner 2026-11-20: the minimum from Earnings Control → Referrals, in plain words. A smaller booking
+                     does not use up the referral (ReferralService::qualificationProblem leaves it pending). --}}
+                @if ($rules['min_job_value'] !== null && $rules['min_job_value'] > 0)
+                    <li class="font-semibold text-slate-800">Only your friend's service booking of {{ $currencySymbol }}{{ fmod((float) $rules['min_job_value'], 1.0) == 0.0 ? number_format($rules['min_job_value']) : number_format($rules['min_job_value'], 2) }} or more counts. A smaller booking doesn't use up the reward.</li>
+                @endif
                 <li>Up to {{ number_format($rules['max_rewarded_referrals']) }} rewarded referrals per customer.</li>
             @else
                 <li>Referral rewards are currently paused.</li>
