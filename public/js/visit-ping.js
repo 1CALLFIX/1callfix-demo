@@ -57,6 +57,13 @@
             data.append('vid', visitorId());
             data.append('p', location.pathname);
             data.append('t', (document.title || '').slice(0, 200));
+            // Which page this is, printed by the layout (<span hidden data-cf-page>); swapped on in-page navigation.
+            var page = document.querySelector('[data-cf-page]');
+            if (page) {
+                data.append('rn', page.getAttribute('data-cf-page') || '');
+                data.append('rc', page.getAttribute('data-cf-city') || '');
+                data.append('rs', page.getAttribute('data-cf-store') || '');
+            }
             if (kind === 'view') {
                 data.append('r', referrerHost());
                 firstView = false;

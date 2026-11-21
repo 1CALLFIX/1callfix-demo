@@ -139,6 +139,13 @@
     @endunless
 
     <main id="customer-main" tabindex="-1" class="min-w-0 flex-1 overflow-x-clip focus:outline-none">
+        {{-- Live Visitors: which page this is, read by public/js/visit-ping.js. Inside <main> so in-page navigation swaps it. --}}
+        @php
+            $cfRoute = request()->route();
+            $cfCity = $cfRoute?->parameter('city');
+            $cfStore = $cfRoute?->parameter('store');
+        @endphp
+        <span hidden data-cf-page="{{ $cfRoute?->getName() }}" data-cf-city="{{ is_string($cfCity) ? $cfCity : ($cfCity->slug ?? '') }}" data-cf-store="{{ is_object($cfStore) ? $cfStore->getKey() : (is_numeric($cfStore) ? $cfStore : '') }}"></span>
         {{ $slot }}
     </main>
 

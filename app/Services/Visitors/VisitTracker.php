@@ -67,17 +67,20 @@ class VisitTracker
             return 'staff';
         }
 
-        $route = $this->matchRoute($path);
-        if (! $route || ! str_starts_with((string) $route->getName(), 'customer.')) {
-            return 'not a customer page ('.($route?->getName() ?? $this->matchFailure ?? 'no route').')';
+        // The page names itself (hidden data-cf-page tag printed by the customer layout, sent as rn / rc / rs). Matching
+        // the address against the routes is only the fallback: on the live web server that lookup fell through to the
+        // CMS catch-all for every address (2026-11-21), while the same call worked from the command line.
+        [$routeName, $citySlug, $store] = $this->pageFromTag($request) ?? $this->pageFromPath($path);
+        if ($routeName === null || ! str_starts_with($routeName, 'customer.')) {
+            return 'not a customer page ('.($routeName ?? $this->matchFailure ?? 'no route').')';
         }
 
-        [$type, $module] = PageClassifier::classify($route->getName());
-        if ($route->getName() === 'customer.shop.checkout') {
-            $module = $this->storeModule($route->parameter('store')) ?? $module;
+        [$type, $module] = PageClassifier::classify($routeName);
+        if ($routeName === 'customer.shop.checkout') {
+            $module = $this->storeModule($store) ?? $module;
         }
 
-        $place = $this->place($route->parameter('city'));
+        $place = $this->place($citySlug);
         $title = $this->title((string) $request->input('t'));
         $channel = NativeApp::inApp() ? 'app' : 'web';
         $now = now();
@@ -100,7 +103,7 @@ class VisitTracker
 
             PageView::create([
                 'visitor_id' => $visitor, 'user_id' => $user?->id, 'page_type' => $type, 'module' => $module,
-                'route_name' => substr((string) $route->getName(), 0, 60), 'path' => $path, 'title' => $title,
+                'route_name' => substr($routeName, 0, 60), 'path' => $path, 'title' => $title,
                 'channel' => $channel, 'referrer_host' => $this->referrer((string) $request->input('r'), $request->getHost()),
                 'created_at' => $now,
             ] + $place);
@@ -120,16 +123,36 @@ class VisitTracker
 
     private ?string $matchFailure = null;
 
-    private function matchRoute(string $path): ?\Illuminate\Routing\Route
+    /**
+     * What the page said about itself: rn = its route name (must be a real customer route), rc = the {city} in its
+     * address, rs = the store on a shop checkout. Null when the page sent nothing (a page cached before this existed).
+     *
+     * @return array{0: string, 1: ?string, 2: mixed}|null
+     */
+    private function pageFromTag(Request $request): ?array
+    {
+        $name = (string) $request->input('rn');
+        if ($name === '' || strlen($name) > 80 || ! Route::has($name)) {
+            return null;
+        }
+        $city = (string) $request->input('rc');
+        $store = (string) $request->input('rs');
+
+        return [$name, preg_match('/^[A-Za-z0-9_-]{1,60}$/', $city) ? $city : null, ctype_digit($store) ? (int) $store : null];
+    }
+
+    /** @return array{0: ?string, 1: ?string, 2: mixed} */
+    private function pageFromPath(string $path): array
     {
         try {
             $route = Route::getRoutes()->match(Request::create($path, 'GET'));
+            $city = $route->parameter('city');
 
-            return $route->getName() ? $route : null;
+            return [$route->getName() ?: null, is_string($city) ? $city : null, $route->parameter('store')];
         } catch (HttpException $e) {
             $this->matchFailure = class_basename($e);
 
-            return null;
+            return [null, null, null];
         }
     }
 

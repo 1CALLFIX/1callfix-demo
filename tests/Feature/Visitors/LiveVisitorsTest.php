@@ -65,6 +65,17 @@ class LiveVisitorsTest extends TestCase
         $this->assertSame('/vtown/services/ac-repair', $presence->path);
     }
 
+    public function test_the_page_names_itself_and_a_made_up_name_is_ignored(): void
+    {
+        // The layout's hidden tag wins over the address (the live web server could not match addresses, 2026-11-21).
+        $this->ping(['vid' => $this->vid(), 'p' => '/vtown/services/ac-repair', 'rn' => 'customer.city.item', 'rc' => 'vtown', 'rs' => ''])->assertHeader('X-Visit', 'counted');
+        $this->assertSame(['item', 'service', $this->city->id], [PageView::sole()->page_type, PageView::sole()->module, PageView::sole()->city_id]);
+
+        $this->ping(['vid' => $this->vid(), 'p' => '/admin', 'rn' => 'admin.dashboard'])->assertHeader('X-Visit', 'not a customer page (admin.dashboard)');
+        $this->ping(['vid' => $this->vid(), 'p' => '/', 'rn' => 'customer.no-such-page'])->assertHeader('X-Visit', 'counted'); // unknown name: falls back to the address
+        $this->assertSame('home', PageView::latest('id')->first()->page_type);
+    }
+
     public function test_more_pages_count_up_the_visit_and_a_still_here_ping_only_moves_last_seen(): void
     {
         $vid = $this->vid();
@@ -221,7 +232,7 @@ class LiveVisitorsTest extends TestCase
 
     public function test_customer_pages_load_the_ping_script_and_the_menu_links_the_screen(): void
     {
-        $this->get('/')->assertOk()->assertSee('js/visit-ping.js', false)->assertSee(route('visit.ping'), false);
+        $this->get('/')->assertOk()->assertSee('js/visit-ping.js', false)->assertSee('data-cf-page="customer.home"', false)->assertSee(route('visit.ping'), false);
 
         $this->assertTrue(collect(\App\Support\AdminNav::groups()['overview']['items'])->contains('route', 'admin.live-visitors'));
     }
