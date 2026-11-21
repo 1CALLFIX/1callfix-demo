@@ -62,6 +62,43 @@ class BusinessPageBannersTest extends TestCase
         }
     }
 
+    public function test_a_homepage_banner_also_shows_on_the_module_page_it_links_to(): void
+    {
+        // Owner 2026-11-21: "show all banners on home page and their respective module pages".
+        $this->banner('page_secondhand', 'Second-hand page banner');
+        $this->banner('top', 'Great finds near you', ['link' => 'https://1callfix.com/nellore/second-hand']);
+        $this->banner('top', 'Hot food near you', ['link' => '/nellore/food']);
+        $this->banner('top', 'Old finds, switched off', ['link' => '/nellore/second-hand', 'is_active' => false]);
+
+        $this->get(route('customer.secondhand.home', $this->city->slug))->assertOk()
+            ->assertSeeInOrder(['Second-hand page banner', 'Great finds near you'])
+            ->assertDontSee('Hot food near you')->assertDontSee('Old finds, switched off');
+    }
+
+    public function test_the_services_page_has_its_own_slot_and_its_homepage_banners(): void
+    {
+        $this->banner('page_services', 'AC season sale');
+        $this->banner('top', 'Trusted pros at your doorstep', ['link' => 'https://1callfix.com/services']);
+        $this->banner('mid', 'Cleaning, plumbing and more', ['link' => '/services']);
+        $this->banner('top', 'Send anything across town', ['link' => '/nellore/parcel']);
+
+        $this->get(route('customer.city.services', $this->city->slug))->assertOk()
+            ->assertSee('data-testid="page-banners-page_services"', false)
+            ->assertSee('AC season sale')->assertSee('Trusted pros at your doorstep')->assertSee('Cleaning, plumbing and more')
+            ->assertDontSee('Send anything across town');
+    }
+
+    public function test_links_are_matched_to_their_page_only(): void
+    {
+        $this->assertTrue(Banner::linksToPage('https://1callfix.com/nellore/food', 'food'));
+        $this->assertTrue(Banner::linksToPage('/nellore/shop/cake-house', 'shop'));
+        $this->assertTrue(Banner::linksToPage('/services', 'services'));
+        $this->assertTrue(Banner::linksToPage('/parcel?x=1', 'parcel'));
+        $this->assertFalse(Banner::linksToPage('/nellore/food-court-offers', 'food'));
+        $this->assertFalse(Banner::linksToPage('/nellore', 'food'));
+        $this->assertFalse(Banner::linksToPage('', 'food'));
+    }
+
     public function test_second_hand_page_shows_its_own_banner_only(): void
     {
         $this->banner('page_secondhand', 'Diwali used-phone mela');

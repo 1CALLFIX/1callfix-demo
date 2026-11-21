@@ -16,6 +16,8 @@
             @endif
         </header>
 
+        <x-customer.page-banners placement="page_services" :city="$city" />
+
         <section class="mt-8" aria-label="Categories in {{ $city->name }}">
             <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
                 @foreach ($categories as $category)

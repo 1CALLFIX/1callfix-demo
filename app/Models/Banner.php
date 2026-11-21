@@ -22,9 +22,10 @@ class Banner extends Model
      * offer it — the admin screen builds its dropdowns and filters from this.
      */
     public const PLACEMENTS = [
-        'top' => 'Top — home hero carousel',
+        'top' => 'Top — home hero carousel (also on its module page when it links there)',
         'mid' => 'Mid — between modules (and Services pages)',
         // Business pages (owner 2026-11-19): one slot at the top of each "Explore 1CallFix" door's own page.
+        'page_services' => 'Services page — top',
         'page_parcel' => 'Parcel page — top',
         'page_shop' => 'Shop page — top',
         'page_food' => 'Food page — top',
@@ -36,6 +37,7 @@ class Banner extends Model
 
     /** Business page slot => the module its page belongs to (so a module-targeted banner shows there too). */
     public const PAGE_MODULES = [
+        'page_services' => 'service',
         'page_parcel' => 'parcel',
         'page_shop' => 'commerce',
         'page_food' => 'food',
@@ -253,11 +255,40 @@ class Banner extends Model
             $zone = null;
         }
 
-        return self::forSlot($placement, array_filter([
+        $context = array_filter([
             'franchise_id' => $zone?->franchise_id,
             'zone_id' => $zone?->id,
             'module' => self::PAGE_MODULES[$placement],
-        ], fn ($v) => $v !== null))->get();
+        ], fn ($v) => $v !== null);
+
+        // Owner 2026-11-21: "show all banners on the home page and their respective module pages". The page's own
+        // banners first, then every live homepage banner (top / mid, same area rules) whose link goes to this page.
+        $segment = self::PAGE_PATHS[$placement];
+        $fromHome = collect(['top', 'mid'])
+            ->flatMap(fn ($slot) => self::forSlot($slot, $context)->get())
+            ->filter(fn (self $b) => self::linksToPage((string) $b->link, $segment));
+
+        return self::forSlot($placement, $context)->get()->concat($fromHome)->unique('id')->values();
+    }
+
+    /** Business page slot => the address part of its page (/nellore/food, /services, ...). */
+    public const PAGE_PATHS = [
+        'page_services' => 'services',
+        'page_parcel' => 'parcel',
+        'page_shop' => 'shop',
+        'page_food' => 'food',
+        'page_hotels' => 'hotels',
+        'page_events' => 'events',
+        'page_rentals' => 'rentals',
+        'page_secondhand' => 'second-hand',
+    ];
+
+    /** True when $link (full URL or /path) opens that page or a page under it: /services, /nellore/food, /nellore/shop/x. */
+    public static function linksToPage(string $link, string $segment): bool
+    {
+        $path = (string) parse_url(trim($link), PHP_URL_PATH);
+
+        return $path !== '' && (bool) preg_match('#^/(?:[A-Za-z0-9_-]+/)?'.preg_quote($segment, '#').'(?:/|$)#', $path);
     }
 
     /**

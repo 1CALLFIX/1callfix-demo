@@ -26,6 +26,8 @@
             <img src="{{ $icon }}" alt="" width="160" height="160" class="h-32 w-32 shrink-0 self-center object-contain sm:h-40 sm:w-40">
         </header>
 
+        <x-customer.page-banners placement="page_parcel" :city="$city" />
+
         <x-customer.faq section="parcel" :city="$city" />
     </div>
 </div>
