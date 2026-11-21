@@ -73,6 +73,10 @@ use Illuminate\Support\Facades\Route;
 
 Route::get('/', CustomerHome::class)->middleware('page.cache')->name('customer.home');
 
+// Live Visitors (owner 2026-11-21): public/js/visit-ping.js on customer pages reports "page opened" and "still here".
+// CSRF-checked like any form (the token comes from the page); 120 a minute per address is far above one person.
+Route::post('/visit-ping', \App\Http\Controllers\VisitPingController::class)->middleware('throttle:120,1')->name('visit.ping');
+
 // The top-bar English / Telugu switch (shown only when the Super Admin has switched Telugu on).
 Route::post('/language/{locale}', \App\Http\Controllers\Customer\LanguageController::class)->name('customer.language');
 

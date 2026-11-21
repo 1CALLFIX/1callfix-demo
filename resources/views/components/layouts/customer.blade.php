@@ -151,6 +151,9 @@
     @endunless
 
     @livewireScripts
+    {{-- Live Visitors (2026-11-21): "page opened" / "still here" pings for Admin → Live Visitors. Plain file in
+         public/js (no build); the server ignores them while Super Admin has tracking switched off. --}}
+    <script src="{{ asset('js/visit-ping.js') }}?v={{ config('app.version') }}" data-url="{{ route('visit.ping') }}" defer data-navigate-once></script>
     {{-- Auth screens push the Firebase JS SDK bundle here so it loads only
          where phone-OTP / Google sign-in is actually used, not on every
          customer page. --}}

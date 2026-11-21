@@ -251,6 +251,11 @@ ScheduleRunTracker::track(Schedule::command('backups:check-offsite'), 'backups:c
     ->everyFifteenMinutes()
     ->withoutOverlapping(10);
 
+// Live Visitors (2026-11-21): page history kept config('visitors.keep_days') days (90), presence 2 days.
+ScheduleRunTracker::track(Schedule::command('visitors:prune'), 'visitors:prune')
+    ->dailyAt('04:10')
+    ->withoutOverlapping(30);
+
 // Google Play account deletion (2026-11-05): personal details of accounts closed 30+ days ago are erased.
 ScheduleRunTracker::track(Schedule::command('accounts:erase-closed'), 'accounts:erase-closed')
     ->dailyAt('03:30')

@@ -22,6 +22,8 @@ class AdminNav
                 'label' => 'Overview', 'collapsible' => false, 'icon' => null, 'colour' => 'slate',
                 'items' => [
                     ['label' => 'Dashboard', 'route' => 'admin.dashboard', 'icon' => 'home', 'permission' => 'dashboard.view'],
+                    // Owner 2026-11-21: who is online now, what they view and start to book.
+                    ['label' => 'Live Visitors', 'route' => 'admin.live-visitors', 'icon' => 'chart-bar', 'permission' => 'visitors.view'],
                 ],
             ],
             // Every person directory and partner sign-up under one umbrella.
