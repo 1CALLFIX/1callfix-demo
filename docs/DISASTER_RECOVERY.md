@@ -8,7 +8,9 @@ Copy-paste commands, same style as `docs/DEPLOY_RUNBOOK.md`. Paste **only the gr
 | App folder | `/home/1callfix.com/public_html` |
 | Off-site remote | `gdrive-crypt:superapp` (Google Drive, encrypted by rclone) |
 | Under it | `pos-gdrive:` (the POS Google login, copied from root) → Drive folder `1callfix-superapp-backups` |
-| Alerts | healthchecks.io `1callfix-superapp-hourly` + `-daily`, emails 1callfixs@gmail.com |
+| Alerts | healthchecks.io `1callfix-superapp-hourly` + `-daily`, emails the owner (also covers a dead server) |
+| In-app alert | `backups:check-offsite` every 15 min: email + push to Backup & Restore admins when the newest hourly copy on the Drive is over 150 min old or the daily over 28 h, with the cause (e.g. "Drive is full"); repeats every 6 h, then one "working again". Switch: Admin → Alert Emails → "Off-site backup late or failing" |
+| Drive space | The Drive shares 15 GB with that Google account's Gmail and Photos. Keep **at least 1–2 GB free**: the backups need ~500 MB steady. Full Drive = backups stop (29 Oct – 21 Nov 2026) |
 
 ## EMERGENCY: site down, VPS dead
 

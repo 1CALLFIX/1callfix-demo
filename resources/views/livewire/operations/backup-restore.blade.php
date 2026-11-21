@@ -18,7 +18,7 @@
                         @if ($catalogLoading)
                             Checking the off-site backups…
                         @elseif ($status['last_at'])
-                            Last copy: {{ $status['last_at']->format('d/m/Y, H:i') }} (server clock). {{ $status['copies'] }} copies kept.
+                            Last copy: {{ $status['last_at']->setTimezone(\App\Services\Backup\BackupCatalog::clockZone())->format('d/m/Y, H:i') }} (India time). {{ $status['copies'] }} copies kept.
                         @else
                             No backup found yet.
                         @endif

@@ -158,7 +158,7 @@ class BackupRestoreScreenTest extends TestCase
         $recent = CarbonImmutable::now()->subMinutes(10);
         $shell = Mockery::mock(BackupShell::class);
         $shell->shouldReceive('remoteTree')->once()->with('db')->andReturn([
-            'hourly' => ['1cal_api_hourly_'.$recent->format('Y-m-d_H-i-s').'.sql.gz', 'not-a-dump.txt'],
+            'hourly' => ['1cal_api_hourly_'.$recent->setTimezone(BackupCatalog::clockZone())->format('Y-m-d_H-i-s').'.sql.gz', 'not-a-dump.txt'],
             'daily' => ['1cal_api_2026-10-01_02-00-01.sql.gz'],
         ]);
         config(['backup.remote' => 'gdrive-crypt:superapp', 'backup.local_dir' => storage_path('framework/testing/no-backups-here')]);
@@ -190,7 +190,7 @@ class BackupRestoreScreenTest extends TestCase
     public function test_screen_opens_without_waiting_for_the_backup_list_then_loads_it(): void
     {
         $shell = Mockery::mock(BackupShell::class);
-        $shell->shouldReceive('remoteTree')->once()->andReturn(['hourly' => ['1cal_api_hourly_'.now()->subMinutes(5)->format('Y-m-d_H-i-s').'.sql.gz']]);
+        $shell->shouldReceive('remoteTree')->once()->andReturn(['hourly' => ['1cal_api_hourly_'.now()->subMinutes(5)->setTimezone(BackupCatalog::clockZone())->format('Y-m-d_H-i-s').'.sql.gz']]);
         $this->app->instance(BackupShell::class, $shell);
         config(['backup.remote' => 'gdrive-crypt:superapp', 'backup.local_dir' => storage_path('framework/testing/no-backups-here')]);
 

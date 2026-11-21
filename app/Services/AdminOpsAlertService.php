@@ -37,6 +37,7 @@ class AdminOpsAlertService
         'cancel_payout_failed' => 'Cancellation payout failed',
         'dispatch_job_failure' => 'Dispatch job failure',
         'parcel_refused' => 'Parcel refused at pickup by the rider',
+        'backup_failed' => 'Off-site backup late or failing (and when it works again)',
     ];
 
     public static function emailSettingKey(string $type): string
@@ -397,6 +398,56 @@ class AdminOpsAlertService
                     }
                 }
             });
+    }
+
+    /**
+     * Off-site backup late/failing ($event 'failing') or fixed ('recovered'), from backups:check-offsite. Goes to
+     * everyone who can open Backup & Restore (backups.restore; Super Admin always): email unless switched off on
+     * the Alert Emails screen (alerts.email.backup_failed), push to those who opted in to ops alerts.
+     *
+     * @param  list<string>  $problems
+     * @return int admins the alert was queued for
+     */
+    public function backupAlert(string $event, array $problems, ?string $reason = null): int
+    {
+        $emailOn = $this->emailEnabled('backup_failed');
+        $push = array_values(array_intersect(ChannelResolver::resolve([]), [PushChannel::class]));
+        $sent = 0;
+
+        User::query()
+            ->where('status', '!=', 'suspended')
+            ->where(fn ($q) => $q->where('role', 'super_admin')->orWhereHas('roleAssignments'))
+            ->chunkById(200, function ($admins) use ($event, $problems, $reason, $emailOn, $push, &$sent) {
+                foreach ($admins as $admin) {
+                    try {
+                        if (! $admin->hasPermissionAnywhere('backups.restore')) {
+                            continue;
+                        }
+
+                        $channels = [];
+                        if ($emailOn && trim((string) $admin->email) !== '') {
+                            $channels[] = 'mail';
+                        }
+                        if ($push && $admin->push_ops_alerts && $admin->fcm_token) {
+                            $channels = array_merge($channels, $push);
+                        }
+                        if ($channels === []) {
+                            continue;
+                        }
+
+                        $admin->notify(new \App\Notifications\BackupAlertNotification($event, $problems, $reason, $channels));
+                        $sent++;
+                    } catch (\Throwable $e) {
+                        Log::warning('AdminOpsAlertService: failed to queue backup alert.', [
+                            'event' => $event,
+                            'admin_id' => $admin->id,
+                            'error' => $e->getMessage(),
+                        ]);
+                    }
+                }
+            });
+
+        return $sent;
     }
 
     private function fanOut(string $event, Booking|Payment $subject): void

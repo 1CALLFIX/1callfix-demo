@@ -341,7 +341,7 @@ class CriticalAlertEmailTest extends TestCase
             $this->assertTrue($this->svc()->emailEnabled($type), $type);
         }
         $this->assertFalse($this->svc()->emailEnabled('booking_created'));
-        $this->assertCount(8, AdminOpsAlertService::EMAIL_TYPES); // A3 added dispute_refund_escalation, F1/F2 charge_waiver_escalation, parcel pickup safety parcel_refused
+        $this->assertCount(9, AdminOpsAlertService::EMAIL_TYPES); // A3 added dispute_refund_escalation, F1/F2 charge_waiver_escalation, parcel pickup safety parcel_refused, 2026-11-21 backup_failed
     }
 
     public function test_super_admin_toggles_a_type_and_it_is_audit_logged(): void

@@ -95,6 +95,32 @@ class BackupCatalog
         ];
     }
 
+    /**
+     * Newest copy that reached the Drive, per folder (local nightly dumps left out): what the failure alert watches.
+     * A local dump on the server says nothing about the off-site copy.
+     *
+     * @return array{hourly: ?CarbonImmutable, daily: ?CarbonImmutable, remote_error: ?string}
+     */
+    public function offsiteStatus(): array
+    {
+        $all = $this->all();
+        $newest = ['hourly' => null, 'daily' => null];
+
+        foreach ($all['backups'] as $backup) {
+            if (array_key_exists($backup['folder'], $newest) && $newest[$backup['folder']] === null) {
+                $newest[$backup['folder']] = $backup['at'];
+            }
+        }
+
+        return $newest + ['remote_error' => $all['remote_error']];
+    }
+
+    /** The zone of the server clock that names the backup files; times are shown to people in it. */
+    public static function clockZone(): string
+    {
+        return (string) (config('backup.clock_timezone') ?: config('app.timezone'));
+    }
+
     /** @return array{id: string, folder: string, file: string, at: CarbonImmutable, label: string} */
     public function find(string $id): array
     {
@@ -162,15 +188,17 @@ class BackupCatalog
             return null;
         }
 
-        $at = CarbonImmutable::createFromFormat('Y-m-d H:i:s', "{$m[1]} {$m[2]}:{$m[3]}:{$m[4]}");
+        // The name carries the server's clock (India time); 'at' is converted to the app's zone (UTC) so it compares
+        // correctly with now(). Read as UTC it sat 5.5 hours in the future and a failing backup still showed Healthy.
+        $local = CarbonImmutable::createFromFormat('Y-m-d H:i:s', "{$m[1]} {$m[2]}:{$m[3]}:{$m[4]}", self::clockZone());
         $kind = ['hourly' => 'hourly', 'daily' => 'daily', 'monthly' => 'monthly', 'local' => 'on this server'][$folder];
 
         return [
             'id' => $folder.'/'.$file,
             'folder' => $folder,
             'file' => $file,
-            'at' => $at,
-            'label' => $at->format('d/m/Y H:i').' ('.$kind.')',
+            'at' => $local->setTimezone(config('app.timezone')),
+            'label' => $local->format('d/m/Y H:i').' ('.$kind.')',
         ];
     }
 }

@@ -244,6 +244,13 @@ ScheduleRunTracker::track(Schedule::command('backups:refresh-catalog'), 'backups
     ->everyFiveMinutes()
     ->withoutOverlapping(10);
 
+// 2026-11-21 — off-site backup failure alert: email + push to Backup & Restore admins when copies stop reaching the
+// Drive (it failed unnoticed for three weeks when the Drive filled up), repeated every 6 h, plus one "working again".
+// Reads the cached list above; never runs a backup.
+ScheduleRunTracker::track(Schedule::command('backups:check-offsite'), 'backups:check-offsite')
+    ->everyFifteenMinutes()
+    ->withoutOverlapping(10);
+
 // Google Play account deletion (2026-11-05): personal details of accounts closed 30+ days ago are erased.
 ScheduleRunTracker::track(Schedule::command('accounts:erase-closed'), 'accounts:erase-closed')
     ->dailyAt('03:30')
