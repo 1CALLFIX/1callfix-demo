@@ -99,6 +99,15 @@ class LiveVisitorsTest extends TestCase
         $this->assertSame(1, VisitorPresence::findOrFail($vid)->pages);
     }
 
+    public function test_the_site_name_is_taken_off_the_title_whatever_the_separator(): void
+    {
+        foreach (['Home services in Nellore · 1CallFix', 'AC Repair – 1CallFix Nellore', 'Plumbing - Leak Repair | 1CallFix'] as $i => $title) {
+            $this->ping(['vid' => $this->vid(), 'p' => '/', 't' => $title]);
+        }
+
+        $this->assertSame(['Home services in Nellore', 'AC Repair', 'Plumbing - Leak Repair'], PageView::orderBy('id')->pluck('title')->all());
+    }
+
     public function test_the_customer_app_is_told_apart_from_the_website(): void
     {
         $vid = $this->vid();

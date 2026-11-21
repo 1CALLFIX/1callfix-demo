@@ -200,12 +200,14 @@ class VisitTracker
         return $found ? ($found->isRestaurant() ? 'food' : 'shop') : null;
     }
 
-    /** "AC Repair in Nellore | 1CallFix" → "AC Repair in Nellore". */
+    /** "AC Repair in Nellore | 1CallFix" / "Home services in Nellore · 1CallFix" → the part before the site name. */
     private function title(string $title): ?string
     {
         $title = trim(strip_tags($title));
-        if (($cut = mb_strrpos($title, ' | ')) !== false && $cut > 0) {
-            $title = mb_substr($title, 0, $cut);
+        $site = preg_quote((string) config('app.name', '1CallFix'), '/');
+        $stripped = preg_replace('/\s+[|·•–—-]\s+[^|·•–—-]*(?:'.$site.'|1\s?call\s?fix)[^|·•–—-]*$/iu', '', $title);
+        if (is_string($stripped) && trim($stripped) !== '') {
+            $title = trim($stripped);
         }
 
         return $title === '' ? null : mb_substr($title, 0, 150);
