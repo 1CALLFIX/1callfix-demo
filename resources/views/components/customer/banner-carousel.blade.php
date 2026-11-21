@@ -99,7 +99,9 @@
                      role="group"
                      aria-roledescription="slide"
                      aria-label="{{ $slideLabel }}"
-                     @class(["shrink-0 snap-start", "w-full" => ! $peek, "w-[85%] sm:w-[calc(50%-0.5rem)]" => $peek && $count === 2, "w-[85%] sm:w-[42%] lg:w-[38%] xl:w-[calc(33.333%-0.7rem)]" => $peek && $count >= 3])>
+                     @class(["shrink-0 snap-start", "w-full" => ! $peek, "w-[85%] sm:w-[calc(50%-0.5rem)]" => $peek && $count === 2, "w-[85%] sm:w-[42%]" => $peek && $count >= 3])>
+                    {{-- Owner 2026-11-21: on desktop 3 banners side by side were too small. 42% from tablet up shows two big
+                         banners and about a third of the next one ("2.3"), so people see there is more to swipe. --}}
                     @php
                         $inner = $banner->image_url;
 

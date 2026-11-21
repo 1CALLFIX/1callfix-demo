@@ -37,6 +37,21 @@ class BannerCarouselIntervalTest extends TestCase
             ->assertSee('data-carousel-interval="3500"', false);
     }
 
+    public function test_desktop_hero_shows_two_big_banners_and_a_third_peeking(): void
+    {
+        // Owner 2026-11-21: three side by side on desktop were too small; 42% from tablet up = "2.3 banners".
+        $banners = collect([
+            $this->makeBanner('top', ['title' => 'A']),
+            $this->makeBanner('top', ['title' => 'B']),
+            $this->makeBanner('top', ['title' => 'C']),
+        ]);
+
+        $this->blade('<x-customer.banner-carousel :banners="$banners" id="hero" variant="hero" />', compact('banners'))
+            ->assertSee('w-[85%] sm:w-[42%]', false)
+            ->assertDontSee('lg:w-[38%]', false)
+            ->assertDontSee('xl:w-[calc(33.333%', false);
+    }
+
     public function test_a_banner_without_a_link_falls_back_to_the_services_page(): void
     {
         $banners = collect([$this->makeBanner('top', ['title' => 'No link', 'link' => null])]);
