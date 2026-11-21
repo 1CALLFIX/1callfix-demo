@@ -23,8 +23,8 @@ class SitemapInvalidationObserver
 
     private function bump(Model $model): void
     {
-        // Settings change constantly; only SEO and branding keys affect the sitemap.
-        if ($model instanceof \App\Models\Setting && ! preg_match('/^(seo|branding)\./', (string) $model->key)) {
+        // Settings change constantly; only SEO, branding and the Careers page switch affect the sitemap.
+        if ($model instanceof \App\Models\Setting && ! preg_match('/^(seo|branding|careers)\./', (string) $model->key)) {
             return;
         }
 

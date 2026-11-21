@@ -112,6 +112,10 @@ Route::middleware(['auth', \Illuminate\Session\Middleware\AuthenticateSession::c
         // Owner 2026-11-07: Super Admin only, checked against the role in each component.
         Route::get('/franchise-page', \App\Livewire\InfoPages\FranchiseSettings::class)->name('admin.franchise-page');
         Route::get('/contact-page', \App\Livewire\InfoPages\ContactSettings::class)->name('admin.contact-page');
+        // Careers page (owner 2026-11-21): the jobs and the applications. Permission careers.manage, checked in each.
+        Route::get('/careers', \App\Livewire\Careers\Openings::class)->name('admin.careers.openings');
+        Route::get('/job-applications', \App\Livewire\Careers\Applications::class)->name('admin.careers.applications');
+        Route::get('/job-applications/{application}/cv', [\App\Http\Controllers\Admin\JobApplicationCvController::class, 'show'])->name('admin.careers.cv');
         Route::get('/franchises', FranchisesManage::class)->name('admin.franchises.index');
         Route::get('/franchises/{franchiseId}/pricing', FranchisePricingManage::class)->name('admin.franchises.pricing');
         Route::get('/zones', ZonesManage::class)->name('admin.zones.index');

@@ -89,6 +89,10 @@ final class FooterLinks
             if (\App\Support\InfoPages\FranchisePage::enabled() && ! in_array(route('customer.franchise'), $have, true)) {
                 $columns['For professionals'][] = ['label' => 'Franchise', 'href' => route('customer.franchise')];
             }
+            // Careers page (owner 2026-11-21).
+            if (\App\Support\InfoPages\CareersPage::enabled() && ! in_array(route('customer.careers'), $have, true)) {
+                $columns['Company'][] = ['label' => 'Careers', 'href' => route('customer.careers')];
+            }
         } catch (\Throwable) {
             // the settings store is down: the footer still renders the rest
         }

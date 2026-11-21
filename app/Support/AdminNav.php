@@ -36,6 +36,7 @@ class AdminNav
                     ['label' => 'Partners', 'route' => 'admin.partners.index', 'icon' => 'users', 'permission' => ['workers.view', 'providers.view']],
                     ['label' => 'KYC Support Requests', 'route' => 'admin.kyc.support-requests.index', 'icon' => 'shield', 'permission' => ['kyc.support_requests.create', 'kyc.support_requests.decide']],
                     ['label' => 'Partner leads', 'route' => 'admin.partner-leads.index', 'icon' => 'users', 'permission' => 'partner_page.manage'],
+                    ['label' => 'Job applications', 'route' => 'admin.careers.applications', 'icon' => 'clipboard', 'permission' => 'careers.manage'],
                 ],
             ],
             // ---- Modules: each one's orders, catalogue, money and settings together ----
@@ -179,6 +180,7 @@ class AdminNav
                     // super_admin only (permission never seeded to a role; each screen also checks the role itself).
                     ['label' => 'Franchise page', 'route' => 'admin.franchise-page', 'icon' => 'building', 'permission' => 'franchise_page.manage'],
                     ['label' => 'Contact page', 'route' => 'admin.contact-page', 'icon' => 'phone', 'permission' => 'contact_page.manage'],
+                    ['label' => 'Careers page', 'route' => 'admin.careers.openings', 'icon' => 'building', 'permission' => 'careers.manage'],
                     ['label' => 'Website / CMS', 'route' => 'admin.cms.index', 'icon' => 'document', 'permission' => 'cms.manage'],
                     ['label' => 'Search & Social', 'route' => 'admin.seo.settings', 'icon' => 'magnifying-glass', 'permission' => 'seo.manage_global'],
                     ['label' => 'City Page Content', 'route' => 'admin.seo.city-content', 'icon' => 'map', 'permission' => 'seo.edit_city_content'],

@@ -433,6 +433,10 @@ Route::get('/contact', [PageController::class, 'contact'])->name('customer.conta
 Route::get('/franchise', [PageController::class, 'franchise'])->middleware('page.cache')->name('customer.franchise');
 Route::permanentRedirect('/contact-us', '/contact');
 Route::permanentRedirect('/franchise-enquiry', '/franchise');
+// Careers page (owner 2026-11-21): open jobs, one page per job with its application form. /jobs 301s here.
+Route::get('/careers', [\App\Http\Controllers\Customer\CareersController::class, 'index'])->middleware('page.cache')->name('customer.careers');
+Route::get('/careers/{slug}', [\App\Http\Controllers\Customer\CareersController::class, 'show'])->where('slug', '[a-z0-9-]+')->middleware('page.cache')->name('customer.careers.show');
+Route::get('/jobs/{slug?}', [\App\Http\Controllers\Customer\CareersController::class, 'moved'])->where('slug', '[a-z0-9-]+');
 Route::get('/sitemap.xml', [\App\Http\Controllers\Customer\SitemapController::class, 'index'])->name('customer.sitemap');
 Route::get('/sitemap-static.xml', [\App\Http\Controllers\Customer\SitemapController::class, 'static'])->name('customer.sitemap.static');
 Route::get('/sitemap-{city}.xml', [\App\Http\Controllers\Customer\SitemapController::class, 'city'])->where('city', '[a-z0-9-]+')->name('customer.sitemap.city');

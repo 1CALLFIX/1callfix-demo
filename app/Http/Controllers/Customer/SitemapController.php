@@ -102,6 +102,13 @@ class SitemapController extends Controller
         if (\App\Support\InfoPages\FranchisePage::enabled()) {
             $add($this->abs(route('customer.franchise', [], false)), null, '0.6');
         }
+        // Careers page (owner 2026-11-21) and every open job.
+        if (\App\Support\InfoPages\CareersPage::enabled()) {
+            $add($this->abs(route('customer.careers', [], false)), null, '0.5');
+            foreach (\App\Models\JobOpening::query()->open()->get(['slug', 'updated_at']) as $job) {
+                $add($this->abs(route('customer.careers.show', $job->slug, false)), $job->updated_at, '0.5');
+            }
+        }
 
         $pages = ContentPage::query()->where('is_active', true)->get(['slug', 'updated_at']);
         $hasPrivacy = $pages->contains(fn ($p) => in_array($p->slug, ['privacy', 'privacy-policy'], true));

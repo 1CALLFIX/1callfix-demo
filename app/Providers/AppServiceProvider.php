@@ -160,6 +160,7 @@ class AppServiceProvider extends ServiceProvider
             \App\Models\Banner::class, \App\Models\Faq::class, \App\Models\FlashSale::class, \App\Models\Module::class,
             \App\Models\Store::class, \App\Models\Product::class, \App\Models\ProductVariant::class,
             \App\Models\SocialMediaLink::class, \App\Models\Zone::class, \App\Models\Franchise::class,
+            \App\Models\JobOpening::class,
         ] as $model) {
             $model::observe(\App\Observers\PageCacheObserver::class);
         }
@@ -168,7 +169,7 @@ class AppServiceProvider extends ServiceProvider
         foreach ([
             \App\Models\Setting::class, \App\Models\City::class, \App\Models\ServiceCategory::class,
             \App\Models\ServiceSubcategory::class, \App\Models\Service::class, \App\Models\ContentPage::class,
-            \App\Models\CityPageContent::class,
+            \App\Models\CityPageContent::class, \App\Models\JobOpening::class,
         ] as $model) {
             $model::observe(\App\Observers\SitemapInvalidationObserver::class);
         }

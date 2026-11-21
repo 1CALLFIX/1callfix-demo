@@ -70,15 +70,15 @@ class CmsRootPagesTest extends TestCase
         $this->assertDatabaseMissing('content_pages', ['slug' => 'services']);
 
         Livewire::actingAs($admin)->test(Manage::class)
-            ->set('pageSlug', 'careers')->set('pageTitle', 'Careers')->set('pageContent', 'Call us.')
+            ->set('pageSlug', 'our-story')->set('pageTitle', 'Our story')->set('pageContent', 'Call us.')
             ->set('pageShowInFooter', true)->set('pageFooterOrder', 3)->set('pageMetaDescription', 'Reach 1CallFix support.')
             ->call('savePage')
             ->assertHasNoErrors();
 
         $this->assertDatabaseHas('content_pages', [
-            'slug' => 'careers', 'show_in_footer' => 1, 'footer_order' => 3, 'meta_description' => 'Reach 1CallFix support.',
+            'slug' => 'our-story', 'show_in_footer' => 1, 'footer_order' => 3, 'meta_description' => 'Reach 1CallFix support.',
         ]);
-        $this->get('/careers')->assertOk()->assertSeeText('Call us.');
+        $this->get('/our-story')->assertOk()->assertSeeText('Call us.');
     }
 
     public function test_editing_an_existing_page_that_sits_on_a_site_owned_address_still_works(): void
