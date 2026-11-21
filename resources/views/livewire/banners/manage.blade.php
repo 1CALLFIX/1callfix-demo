@@ -154,6 +154,10 @@
                 <input type="checkbox" wire:model="isActive" class="rounded"> Active
             </label>
 
+            <label class="inline-flex items-center gap-2 text-sm h-[38px]" title="Tick when the picture already has its own headline: the title is then not printed over it.">
+                <input type="checkbox" wire:model="textOnImage" class="rounded" data-testid="banner-text-on-image"> Words are on the picture
+            </label>
+
             <x-ui.button wire:click="save" class="h-[38px] px-6 ml-auto">+ Add</x-ui.button>
         </div>
 
@@ -643,6 +647,11 @@
 
                     <label class="inline-flex items-center gap-2 text-sm">
                         <input type="checkbox" wire:model="editIsActive" class="rounded"> Active
+                    </label>
+
+                    <label class="inline-flex items-center gap-2 text-sm ml-6">
+                        <input type="checkbox" wire:model="editTextOnImage" class="rounded"> Words are on the picture
+                        <span class="text-xs text-gray-400">(the title is not printed over it)</span>
                     </label>
                 </div>
 

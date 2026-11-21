@@ -164,7 +164,8 @@
                             ])></div>
                         @endif
 
-                        @if ($banner->title)
+                        {{-- Owner 2026-11-21: a picture that carries its own headline (text_on_image) gets no title printed over it. --}}
+                        @if ($banner->title && ! $banner->text_on_image)
                             <div class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/75 via-black/35 to-transparent p-4 sm:p-6">
                                 <p @class([
                                     'font-bold text-white drop-shadow',

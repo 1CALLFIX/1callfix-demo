@@ -74,11 +74,11 @@ class ContentController extends Controller
         ], fn ($v) => $v !== null);
 
         $banners = Banner::forSlot($validated['placement'], $context)
-            ->get(['id', 'title', 'image', 'link', 'placement']);
+            ->get(['id', 'title', 'text_on_image', 'image', 'link', 'placement']);
 
         return response()->json([
             'banners' => $banners->map(fn (Banner $b) => [
-                'id' => $b->id, 'title' => $b->title, 'image_url' => $b->image_url, 'link' => $b->link,
+                'id' => $b->id, 'title' => $b->title, 'text_on_image' => (bool) $b->text_on_image, 'image_url' => $b->image_url, 'link' => $b->link,
             ]),
         ]);
     }

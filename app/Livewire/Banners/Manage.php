@@ -60,6 +60,8 @@ class Manage extends Component
     public string $advertiserContact = '';
     public string $pricePaid = '';
     public bool $isActive = true;
+    /** The picture carries its own words: don't print the title over it (owner 2026-11-21). */
+    public bool $textOnImage = false;
 
     // --- Edit modal ---
     public bool $showEditModal = false;
@@ -79,6 +81,7 @@ class Manage extends Component
     public string $editAdvertiserContact = '';
     public string $editPricePaid = '';
     public bool $editIsActive = true;
+    public bool $editTextOnImage = false;
 
     // --- View details modal ---
     public bool $showViewModal = false;
@@ -271,6 +274,7 @@ class Manage extends Component
             // rather than 0 so "free" and "unsold" stay distinguishable.
             'price_paid' => $this->pricePaid !== '' ? $this->pricePaid : null,
             'is_active' => $this->isActive,
+            'text_on_image' => $this->textOnImage,
             'sort_order' => (int) Banner::max('sort_order') + 1,
         ]);
 
@@ -278,7 +282,7 @@ class Manage extends Component
         // run of banners for the same slot and target is the common case.
         $this->reset([
             'title', 'imageFile', 'link', 'startsAt', 'expiresAt',
-            'advertiserName', 'advertiserContact', 'pricePaid', 'isActive',
+            'advertiserName', 'advertiserContact', 'pricePaid', 'isActive', 'textOnImage',
         ]);
         $this->isActive = true;
         $this->flashMessage = 'Banner created.';
@@ -395,6 +399,7 @@ class Manage extends Component
         $this->editAdvertiserContact = $banner->advertiser_contact ?? '';
         $this->editPricePaid = $banner->price_paid !== null ? (string) $banner->price_paid : '';
         $this->editIsActive = $banner->is_active;
+        $this->editTextOnImage = (bool) $banner->text_on_image;
 
         $this->resetValidation();
         $this->showViewModal = false;
@@ -436,6 +441,7 @@ class Manage extends Component
             'advertiser_contact' => $this->editAdvertiserContact ?: null,
             'price_paid' => $this->editPricePaid !== '' ? $this->editPricePaid : null,
             'is_active' => $this->editIsActive,
+            'text_on_image' => $this->editTextOnImage,
         ]);
 
         $this->showEditModal = false;

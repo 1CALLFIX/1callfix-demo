@@ -60,6 +60,7 @@ class Banner extends Model
         'placement',
         'category_id',
         'title',
+        'text_on_image',
         'image',
         'link',
         'starts_at',
@@ -75,6 +76,7 @@ class Banner extends Model
         'starts_at' => 'datetime',
         'expires_at' => 'datetime',
         'is_active' => 'boolean',
+        'text_on_image' => 'boolean',
     ];
 
     public function franchise() { return $this->belongsTo(Franchise::class); }
