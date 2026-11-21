@@ -69,7 +69,7 @@ class VisitTracker
 
         $route = $this->matchRoute($path);
         if (! $route || ! str_starts_with((string) $route->getName(), 'customer.')) {
-            return 'not a customer page';
+            return 'not a customer page ('.($route?->getName() ?? $this->matchFailure ?? 'no route').')';
         }
 
         [$type, $module] = PageClassifier::classify($route->getName());
@@ -118,13 +118,17 @@ class VisitTracker
         return null;
     }
 
+    private ?string $matchFailure = null;
+
     private function matchRoute(string $path): ?\Illuminate\Routing\Route
     {
         try {
             $route = Route::getRoutes()->match(Request::create($path, 'GET'));
 
             return $route->getName() ? $route : null;
-        } catch (HttpException) {
+        } catch (HttpException $e) {
+            $this->matchFailure = class_basename($e);
+
             return null;
         }
     }
