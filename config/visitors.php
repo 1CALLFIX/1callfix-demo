@@ -4,6 +4,9 @@
 
 return [
 
+    // Seconds between 'still here' pings from an open page. Raise to 120 if the server gets busy (then set online_minutes to 5).
+    'beat_seconds' => (int) env('VISITORS_BEAT_SECONDS', 60),
+
     // "Online now" = a ping in the last N minutes. An open page pings once a minute.
     'online_minutes' => (int) env('VISITORS_ONLINE_MINUTES', 3),
 

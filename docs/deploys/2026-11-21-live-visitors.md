@@ -1,4 +1,4 @@
-# Release 2026-11-21.4 — Live Visitors
+# Release 2026-11-21.4 — Live Visitors + popularity line on item pages
 
 Use with `docs/DEPLOY_RUNBOOK.md`.
 
@@ -6,7 +6,7 @@ Use with `docs/DEPLOY_RUNBOOK.md`.
 |---|---|
 | Deploys | `main` at the commit that adds this file (`git log -1` in runbook step 1) |
 | Live before | `82c74c4` (2026.11.21.3 backup failure alert) |
-| Full test suite | 5096/5096 passed (2026-11-21, final code), no known failures |
+| Full test suite | 5104/5104 passed (2026-11-21, final code incl. popularity line), no known failures |
 | Composer | no (`composer.lock` unchanged) |
 | Front-end build (steps 6–7) | no. The ping script is a plain file in git (`public/js/visit-ping.js`); the admin screen uses the admin layout's Tailwind CDN |
 | Version | `VERSION` 2026.11.21.4 |
@@ -24,6 +24,16 @@ Owner 2026-11-21: "how many users are online on our app, what they are checking 
   Dashboard); **looking → booking funnel per module**; **most viewed** items; **came from** (Google, Facebook, ...).
 - Super Admin: **Tracking on/off** button on the screen (setting `visitors.tracking`, audited; on by default).
 
+### Popularity line under item photos (owner 2026-11-21, the Amazon / OLX pattern)
+- `<x-customer.popularity>` under the photo of services, shops, products, restaurants, and (through the photo gallery)
+  hotels, halls, property, vehicles, rent-anything and events: **👁 "19 people viewed this in the past hour"** (else "in
+  the past 24 hours") and **🔥 "50+ booked / bought / orders in the past month"** (services, products, shops, restaurants).
+- **Real numbers only** (India's 2023 dark-pattern guidelines ban false urgency): distinct visitors from page_views;
+  real orders (Dashboard booked() scopes, never cancelled, never unpaid attempts); orders rounded **down** (10+, 50+, 1K+).
+- **Off until Super Admin taps a minimum** on Live Visitors → "Show customers how popular an item is" (people 3/5/10/20,
+  orders 5/10/25/50, or Off; settings `popularity.views_min`, `popularity.orders_min`, audited). Wording is in Website
+  text & language → "Popularity line" (English + Telugu). Cached 60 s per item. No new CSS classes (no build).
+
 ### How it counts
 - `public/js/visit-ping.js` on every customer page (`components/layouts/customer`) sends "page opened" and, once a
   minute while the page is in view, "still here" to `POST /visit-ping` (CSRF-checked, 120/min per address).
@@ -33,6 +43,8 @@ Owner 2026-11-21: "how many users are online on our app, what they are checking 
 - Row scope: `visitors.view` (new), given to every role that has `dashboard.view`; a franchise team sees its own
   city / area only. Names and phones need `customers.view`.
 - History older than 90 days is deleted daily (`visitors:prune`, 04:10).
+- Load: one small request per page opened plus one per open page per minute (`VISITORS_BEAT_SECONDS`; raise to 120
+  and `VISITORS_ONLINE_MINUTES` to 5 if the server gets busy). Super Admin can switch tracking off at once.
 
 ## Step 5 — migrations that must be pending (exactly these)
 - `2026_11_21_400000_create_visitor_tracking_tables` (new tables `page_views`, `visitor_presence`; no existing table touched)
@@ -47,6 +59,7 @@ Rollback count for `migrate:rollback --step=`: 2
 - Open the live site on a phone (not signed in as staff), open a service page.
 - Admin → Live Visitors: "Online now" shows 1, the line shows the page you opened; Most viewed lists it.
 - Open a booking page: it appears under "About to book".
+- With the views minimum at 3: open one service page from 3 browsers; within a minute the page shows "👁 3 people viewed this in the past hour".
 
 ## Admin settings to do after deploy (owner)
 - None required. Privacy page: consider one line saying the site counts page visits to improve the service.

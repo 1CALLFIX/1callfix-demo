@@ -35,6 +35,26 @@
         <div class="mb-4 rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-800">Visitor tracking is switched off. The numbers below stop at the moment it was switched off.</div>
     @endunless
 
+    @if ($isSuperAdmin)
+        {{-- Popularity line on item pages (owner 2026-11-21, Amazon / OLX pattern). Real counts only. --}}
+        <div class="mb-6 rounded-2xl bg-gradient-to-r from-orange-50 to-amber-50 p-4 ring-1 ring-orange-200" data-popularity-settings>
+            <h2 class="font-semibold text-orange-900">🔥 Show customers how popular an item is</h2>
+            <p class="mb-3 text-sm text-orange-800">Under the photo of each service, shop, product, restaurant, hotel, hall and rental, like Amazon and OLX. Real numbers only; a line shows once its count reaches the number you tap.</p>
+            @foreach (['views' => ['👁 "19 people viewed this in the past hour"', 'Show when at least'], 'orders' => ['🔥 "50+ booked in the past month"', 'Show when at least']] as $which => [$example, $lead])
+                <div class="mb-2 flex flex-wrap items-center gap-2">
+                    <span class="min-w-[16rem] text-sm font-medium text-gray-800">{{ $example }}</span>
+                    @foreach ($popularityChoices[$which] as $choice)
+                        <button type="button" wire:click="setPopularity('{{ $which }}', {{ $choice }})" data-popularity-chip="{{ $which }}-{{ $choice }}"
+                                class="min-h-[44px] min-w-[44px] rounded-full px-4 text-sm font-semibold {{ $popularity[$which] === $choice ? ($choice === 0 ? 'bg-gray-700 text-white' : 'bg-orange-600 text-white') : 'bg-white text-gray-700 ring-1 ring-gray-300 hover:bg-orange-100' }}">
+                            {{ $choice === 0 ? 'Off' : $choice.'+ '.($which === 'views' ? 'people' : 'orders') }}
+                        </button>
+                    @endforeach
+                </div>
+            @endforeach
+            <p class="mt-1 text-xs text-orange-800">Orders show rounded down (10+, 50+, 100+, 1K+). Rentals, hotels and events show views only for now.</p>
+        </div>
+    @endif
+
     {{-- 1. Right now --}}
     <h2 class="mb-2 flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-emerald-700"><span class="relative flex h-2.5 w-2.5"><span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75"></span><span class="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500"></span></span> Right now</h2>
     <div class="mb-6 grid grid-cols-2 gap-3 md:grid-cols-5">

@@ -11,6 +11,8 @@
     var script = document.currentScript;
     var url = script && script.getAttribute('data-url');
     if (!url || !navigator.sendBeacon || !window.FormData) return;
+    // Seconds between 'still here' pings (config visitors.beat_seconds); slower = lighter on the server.
+    var beatMs = Math.max(30, parseInt(script.getAttribute('data-beat'), 10) || 60) * 1000;
 
     function newId() {
         var bytes = new Uint8Array(16);
@@ -82,7 +84,7 @@
 
     setInterval(function () {
         if (document.visibilityState === 'visible') send('beat');
-    }, 60000);
+    }, beatMs);
     document.addEventListener('visibilitychange', function () {
         if (document.visibilityState === 'visible') send('beat');
     });

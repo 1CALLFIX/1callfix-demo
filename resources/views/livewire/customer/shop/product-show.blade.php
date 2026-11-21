@@ -57,6 +57,7 @@
                         @endforeach
                     </div>
                 @endif
+                <x-customer.popularity :item="'product:'.$product->id" />
             </div>
 
             <div>

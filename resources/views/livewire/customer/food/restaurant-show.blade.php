@@ -29,6 +29,7 @@
                 <div class="min-w-0 flex-1">
                     <h1 class="text-2xl font-bold tracking-tight text-slate-900">{{ $store->name }}</h1>
                     @if ($card['cuisines'])<p class="text-sm text-slate-600">{{ $card['cuisines'] }}</p>@endif
+                    <x-customer.popularity :item="'store:'.$store->id" />
                     @if ($store->address_line)<p class="text-xs text-slate-500">{{ $store->address_line }}</p>@endif
                 </div>
                 @if ($card['rating'] || ! $store->cover_url)

@@ -59,10 +59,17 @@ final class SiteText
         'faq' => 'Questions on city pages (Google can show these)',
         'get_app' => 'Get the app section (homepage, /app page, footer)',
         'careers' => 'Careers page',
+        'popularity' => 'Popularity line under item photos (people viewing, orders)',
     ];
 
     /** @var array<string, array{0: string, 1: string, 2: string, 3: string}> */
     public const TEXTS = [
+        // Popularity line under item photos (owner 2026-11-21, Amazon / OLX pattern). Real counts only.
+        'popularity.viewed_hour' => ['popularity', 'People who viewed this item in the past hour (:n)', ':n people viewed this in the past hour', 'గత గంటలో :n మంది దీన్ని చూశారు'],
+        'popularity.viewed_day' => ['popularity', 'People who viewed this item in the past 24 hours (:n)', ':n people viewed this in the past 24 hours', 'గత 24 గంటల్లో :n మంది దీన్ని చూశారు'],
+        'popularity.booked' => ['popularity', 'Service bookings in the past month (:n, e.g. 50+)', ':n booked in the past month', 'గత నెలలో :n బుకింగ్‌లు'],
+        'popularity.bought' => ['popularity', 'Product bought in the past month (:n, e.g. 50+)', ':n bought in the past month', 'గత నెలలో :n మంది కొన్నారు'],
+        'popularity.ordered' => ['popularity', 'Shop or restaurant orders in the past month (:n, e.g. 50+)', ':n orders in the past month', 'గత నెలలో :n ఆర్డర్లు'],
         // Share button on every service, product, shop, restaurant and dish (owner 2026-11-06).
         'share.button' => ['share', 'Share button', 'Share', 'షేర్ చేయండి'],
         'share.button_item' => ['share', 'Small share icon, read aloud (:name)', 'Share :name', ':name షేర్ చేయండి'],

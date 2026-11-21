@@ -33,6 +33,10 @@
                 @endforeach
             </ul>
         @endif
+        @if ($item)
+            {{-- Popularity line (owner 2026-11-21): real viewers, once Super Admin sets the minimum --}}
+            <x-customer.popularity :item="$item" />
+        @endif
         @if ($photos !== [])
             <div x-show="open" x-cloak x-transition.opacity class="fixed inset-0 z-50 overflow-y-auto bg-black/90 p-4" role="dialog" aria-modal="true" aria-label="{{ \App\Support\SiteText::get('hall.show.photos') }}">
                 <div class="mx-auto max-w-4xl">

@@ -43,6 +43,7 @@ return new class extends Migration
             $table->index(['visitor_id', 'created_at']);
             $table->index(['franchise_id', 'created_at']);
             $table->index(['city_id', 'created_at']);
+            $table->index(['path', 'created_at']); // "N people viewed this" under item photos (Popularity)
         });
 
         Schema::create('visitor_presence', function (Blueprint $table) {

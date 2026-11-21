@@ -56,6 +56,8 @@
                             @endforeach
                         </div>
                     @endif
+                    {{-- Popularity line (owner 2026-11-21): real bookings / viewers, once Super Admin sets the minimums --}}
+                    <x-customer.popularity :item="'service:'.$service->id" class="mb-3" />
 
                     @if ($service->category)
                         <p class="text-xs font-medium uppercase tracking-wide text-slate-500">

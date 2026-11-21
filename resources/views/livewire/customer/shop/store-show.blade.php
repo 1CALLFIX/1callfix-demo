@@ -19,6 +19,7 @@
                 <h1 class="text-2xl font-bold tracking-tight">{{ $store->name }}</h1>
                 <p class="text-sm text-slate-500">{{ $store->address_line }}</p>
                 @if ($store->description)<p class="mt-1 text-sm text-slate-700">{{ $store->description }}</p>@endif
+                <x-customer.popularity :item="'store:'.$store->id" />
                 <ul class="mt-3 flex flex-wrap gap-2 text-xs font-semibold">
                     <li @class(['rounded-full px-3 py-1', 'bg-emerald-50 text-emerald-700' => $store->is_open, 'bg-slate-100 text-slate-500' => ! $store->is_open])>{{ $store->is_open ? $t('shop.open_now') : $t('shop.closed_now') }}</li>
                     @if ($rating && $rating->n > 0)
