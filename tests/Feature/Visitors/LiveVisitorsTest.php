@@ -54,7 +54,7 @@ class LiveVisitorsTest extends TestCase
     {
         $vid = $this->vid();
 
-        $this->ping(['vid' => $vid, 'p' => '/vtown/services/ac-repair', 't' => 'AC Repair in Vtown | 1CallFix', 'r' => 'www.google.com'])->assertNoContent();
+        $this->ping(['vid' => $vid, 'p' => '/vtown/services/ac-repair', 't' => 'AC Repair in Vtown | 1CallFix', 'r' => 'www.google.com'])->assertNoContent()->assertHeader('X-Visit', 'counted');
 
         $view = PageView::sole();
         $this->assertSame(['item', 'service', 'customer.city.item', 'AC Repair in Vtown', 'web', 'www.google.com'],
@@ -99,7 +99,7 @@ class LiveVisitorsTest extends TestCase
 
     public function test_bots_staff_partner_apps_admin_pages_bad_ids_and_switched_off_tracking_are_not_counted(): void
     {
-        $this->ping(['vid' => $this->vid(), 'p' => '/'], 'Mozilla/5.0 (compatible; Googlebot/2.1)');
+        $this->ping(['vid' => $this->vid(), 'p' => '/'], 'Mozilla/5.0 (compatible; Googlebot/2.1)')->assertHeader('X-Visit', 'bot');
         $this->ping(['vid' => $this->vid(), 'p' => '/'], self::BROWSER.' HeadlessChrome/131.0');
         $this->ping(['vid' => $this->vid(), 'p' => '/'], self::BROWSER.' 1CallFixApp/partner');
         $this->ping(['vid' => $this->vid(), 'p' => '/admin/dashboard']);
