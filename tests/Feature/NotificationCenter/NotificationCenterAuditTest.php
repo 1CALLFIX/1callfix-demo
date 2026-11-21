@@ -33,6 +33,13 @@ class NotificationCenterAuditTest extends TestCase
     use RefreshDatabase;
     use RbacTestHelpers;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+        // The "Invite to the new 1CallFix app" template seeded by 2026_11_21_500100 is not part of these CRUD counts.
+        NotificationTemplate::query()->delete();
+    }
+
     // ============================== Templates CRUD ==============================
 
     public function test_template_create_denied_without_permission(): void

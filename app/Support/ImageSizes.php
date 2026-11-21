@@ -38,6 +38,8 @@ final class ImageSizes
         'item_photo' => [1600, 1067, '3:2 wide', 'JPG, PNG or WebP', 8, 'Real photos of the item itself in good light, from the front and the sides. No text or logos on the photo.'],
         // Events E1: the event poster / cover, wide on the event page and in lists.
         'event_cover' => [1600, 900, '16:9 wide', 'JPG, PNG or WebP', 8, 'Your event poster or a photo of the venue. Keep text large and in the middle.'],
+        // Digital Marketing (2026-11-21): one picture for Facebook, Instagram, Google Business and WhatsApp Status.
+        'social_post' => [1080, 1080, 'square', 'JPG, PNG or WebP', 8, 'Square works on Instagram, Facebook and Google alike. Keep words large and in the middle.'],
         'organiser_logo' => [512, 512, 'square', 'JPG, PNG or WebP', 2, null],
         'evidence_photo' => [null, null, null, 'a clear phone photo or PDF', 4, null],
         'safety_photo' => [null, null, null, 'a clear phone photo', 8, null],

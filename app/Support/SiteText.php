@@ -60,10 +60,17 @@ final class SiteText
         'get_app' => 'Get the app section (homepage, /app page, footer)',
         'careers' => 'Careers page',
         'popularity' => 'Popularity line under item photos (people viewing, orders)',
+        'unsubscribe' => 'Unsubscribe page (app invitation emails)',
     ];
 
     /** @var array<string, array{0: string, 1: string, 2: string, 3: string}> */
     public const TEXTS = [
+        // Unsubscribe page for app invitation emails to imported contacts (owner 2026-11-21).
+        'unsubscribe.title' => ['unsubscribe', 'Page heading', 'Stop 1CallFix emails', '1CallFix ఇమెయిల్స్ ఆపండి'],
+        'unsubscribe.ask' => ['unsubscribe', 'Question above the button', 'We will not email you invitations again. You can still use 1CallFix any time.', 'మేము మీకు ఇకపై ఆహ్వాన ఇమెయిల్స్ పంపము. 1CallFix ను మీరు ఎప్పుడైనా వాడవచ్చు.'],
+        'unsubscribe.button' => ['unsubscribe', 'Button', 'Stop the emails', 'ఇమెయిల్స్ ఆపండి'],
+        'unsubscribe.done' => ['unsubscribe', 'After unsubscribing', 'Done. You will not get these emails again.', 'పూర్తయింది. మీకు ఈ ఇమెయిల్స్ ఇక రావు.'],
+        'unsubscribe.home' => ['unsubscribe', 'Link back to the site', 'Go to 1CallFix', '1CallFix కు వెళ్ళండి'],
         // Popularity line under item photos (owner 2026-11-21, Amazon / OLX pattern). Real counts only.
         'popularity.viewed_hour' => ['popularity', 'People who viewed this item in the past hour (:n)', ':n people viewed this in the past hour', 'గత గంటలో :n మంది దీన్ని చూశారు'],
         'popularity.viewed_day' => ['popularity', 'People who viewed this item in the past 24 hours (:n)', ':n people viewed this in the past 24 hours', 'గత 24 గంటల్లో :n మంది దీన్ని చూశారు'],

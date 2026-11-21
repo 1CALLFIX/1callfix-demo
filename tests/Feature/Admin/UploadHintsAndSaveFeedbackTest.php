@@ -65,6 +65,7 @@ class UploadHintsAndSaveFeedbackTest extends TestCase
             'home_photo' => ['Venue/HomeEditor.php', "'newPhotos.*'"],
             'vehicle_photo' => ['Venue/VehicleEditor.php', "'newPhotos.*'"],
             'item_photo' => ['Customer/Account/RentItemEditor.php', "'newPhotos.*'"],
+            'social_post' => ['Marketing/SocialPosts.php', "'upload'"],
         ];
         $this->assertEqualsCanonicalizing(array_keys(ImageSizes::USES), array_keys($where), 'every size has a checked limit');
 

@@ -145,6 +145,9 @@ class AdminNav
             'marketing' => [
                 'label' => 'Marketing & Offers', 'collapsible' => true, 'icon' => 'megaphone', 'colour' => 'pink',
                 'items' => [
+                    // Owner 2026-11-21: daily posts for Facebook / Instagram / Google / WhatsApp, and inviting old customers.
+                    ['label' => 'Social posts', 'route' => 'admin.marketing.posts', 'icon' => 'megaphone', 'permission' => 'marketing.posts.manage'],
+                    ['label' => 'Contacts & app invites', 'route' => 'admin.marketing.contacts', 'icon' => 'users', 'permission' => 'marketing.contacts.manage'],
                     ['label' => 'Coupons', 'route' => 'admin.coupons.index', 'icon' => 'ticket', 'permission' => 'coupons.view'],
                     ['label' => 'Flash Sales', 'route' => 'admin.flash-sales.index', 'icon' => 'bolt', 'permission' => 'flash_sales.view'],
                     ['label' => 'Banners', 'route' => 'admin.banners.index', 'icon' => 'megaphone', 'permission' => 'banners.manage'],

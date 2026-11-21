@@ -251,6 +251,12 @@ ScheduleRunTracker::track(Schedule::command('backups:check-offsite'), 'backups:c
     ->everyFifteenMinutes()
     ->withoutOverlapping(10);
 
+// Digital Marketing (2026-11-21): skip posts for switched-off modules, morning "posts ready" reminder at the owner's
+// time (default 09:30) and an 18:00 nudge, once a day each; daily "Joined" match for imported contacts. Never posts.
+ScheduleRunTracker::track(Schedule::command('marketing:posts-due'), 'marketing:posts-due')
+    ->everyFifteenMinutes()
+    ->withoutOverlapping(10);
+
 // Live Visitors (2026-11-21): page history kept config('visitors.keep_days') days (90), presence 2 days.
 ScheduleRunTracker::track(Schedule::command('visitors:prune'), 'visitors:prune')
     ->dailyAt('04:10')

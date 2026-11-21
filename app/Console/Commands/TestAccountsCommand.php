@@ -83,6 +83,9 @@ class TestAccountsCommand extends Command
         'renter' => ['Test Renter', 'customer', null, null, '6000000117'],
         // Second-hand (2026-11-19): a plain customer who posts used things for sale (Account → Second-hand).
         'secondhand' => ['Test Second-hand Owner', 'customer', null, null, '6000000118'],
+        // Digital Marketing (2026-11-21): the Marketing role for the city (Social posts, Contacts & app invites, Banners,
+        // Live Visitors), the access the City Operations & Marketing hire gets.
+        'marketing' => ['Test Marketing', 'support', 'marketing', 'city', '6000000119'],
     ];
 
     /**

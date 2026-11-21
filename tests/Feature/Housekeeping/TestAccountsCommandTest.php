@@ -31,7 +31,7 @@ class TestAccountsCommandTest extends TestCase
         $this->artisan('test-accounts', ['action' => 'create', '--password' => self::PASSWORD, '--franchise' => $franchise->id])->assertSuccessful();
         $this->artisan('test-accounts', ['action' => 'create', '--password' => self::PASSWORD, '--franchise' => $franchise->id])->assertSuccessful();
 
-        $this->assertSame(18, User::where('email', 'like', '%@1callfix.test')->count()); // + test.organiser (Events E1), + test.hall (Function halls R1), + test.homeowner (Property for rent), + test.vehicleowner (Vehicles for rent), + test.renter (Rent anything), + test.secondhand (Second-hand)
+        $this->assertSame(19, User::where('email', 'like', '%@1callfix.test')->count()); // + test.marketing (Digital Marketing), + test.organiser (Events E1), + test.hall (Function halls R1), + test.homeowner (Property for rent), + test.vehicleowner (Vehicles for rent), + test.renter (Rent anything), + test.secondhand (Second-hand)
         $operator = User::where('email', 'test.operator@1callfix.test')->first();
         $this->assertSame(1, RoleAssignment::where('user_id', $operator->id)->count());
         $this->assertTrue($operator->hasPermission('bookings.reassign', ['franchise_id' => $franchise->id]));

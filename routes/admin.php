@@ -112,6 +112,10 @@ Route::middleware(['auth', \Illuminate\Session\Middleware\AuthenticateSession::c
         // Owner 2026-11-07: Super Admin only, checked against the role in each component.
         Route::get('/franchise-page', \App\Livewire\InfoPages\FranchiseSettings::class)->name('admin.franchise-page');
         Route::get('/contact-page', \App\Livewire\InfoPages\ContactSettings::class)->name('admin.contact-page');
+        // Digital Marketing (owner 2026-11-21): social posts and contacts / app invites. marketing.posts.manage and
+        // marketing.contacts.manage, checked in each component.
+        Route::get('/marketing/posts', \App\Livewire\Marketing\SocialPosts::class)->name('admin.marketing.posts');
+        Route::get('/marketing/contacts', \App\Livewire\Marketing\Contacts::class)->name('admin.marketing.contacts');
         // Live Visitors (owner 2026-11-21): who is online, what they view and start to book. visitors.view, checked in the component.
         Route::get('/live-visitors', \App\Livewire\Insights\LiveVisitors::class)->name('admin.live-visitors');
         // Careers page (owner 2026-11-21): the jobs and the applications. Permission careers.manage, checked in each.

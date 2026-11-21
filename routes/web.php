@@ -77,6 +77,10 @@ Route::get('/', CustomerHome::class)->middleware('page.cache')->name('customer.h
 // CSRF-checked like any form (the token comes from the page); 120 a minute per address is far above one person.
 Route::post('/visit-ping', \App\Http\Controllers\VisitPingController::class)->middleware('throttle:120,1')->name('visit.ping');
 
+// Digital Marketing (owner 2026-11-21): stop app invitation emails. The link shows a button; the button records it.
+Route::get('/unsubscribe/{token}', [\App\Http\Controllers\MarketingUnsubscribeController::class, 'show'])->where('token', '[A-Za-z0-9]{20,64}')->middleware('throttle:30,1')->name('marketing.unsubscribe');
+Route::post('/unsubscribe/{token}', [\App\Http\Controllers\MarketingUnsubscribeController::class, 'store'])->where('token', '[A-Za-z0-9]{20,64}')->middleware('throttle:30,1')->name('marketing.unsubscribe.store');
+
 // The top-bar English / Telugu switch (shown only when the Super Admin has switched Telugu on).
 Route::post('/language/{locale}', \App\Http\Controllers\Customer\LanguageController::class)->name('customer.language');
 
