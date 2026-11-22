@@ -184,7 +184,7 @@ final class PartnerFaq
             foreach ($bizOpen as $code) {
                 $type = self::ROLE_DOCS[$code] ?? null;
                 if ($type && ($d = self::docsAnswer($type))) {
-                    $out[] = self::item('shops', 'What does a '.mb_strtolower($label($code)).' need?', $d);
+                    $out[] = self::item('shops', 'What does '.(preg_match('/^[aeiou]/i', $label($code)) ? 'an ' : 'a ').mb_strtolower($label($code)).' need?', $d);
                 }
             }
             $out[] = self::item('shops', 'Can one account run more than one business?', 'Yes. One partner account can run a restaurant, a shop, a hotel or listings together. '

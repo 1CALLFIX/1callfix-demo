@@ -11,7 +11,7 @@ Use with `docs/DEPLOY_RUNBOOK.md`.
 | Migrations | none |
 | Front-end build (steps 6–7) | no (the partner page's styles live in its own view) |
 | Scheduled commands | none new |
-| Version | `VERSION` 2026.11.22.7 |
+| Version | `VERSION` 2026.11.22.7 (2026.11.22.8: "an event organiser", not "a event organiser") |
 
 ## What's in it
 Owner 2026-11-22: "check thoroughly and add more practical and required questions and also add the faq's with realtime

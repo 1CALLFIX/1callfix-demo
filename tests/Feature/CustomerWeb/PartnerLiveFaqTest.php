@@ -75,6 +75,9 @@ class PartnerLiveFaqTest extends TestCase
         $this->assertMatchesRegularExpression('/Apply now: Restaurant partner and Seller or shop\./', $faq['Which businesses can join now?']);
         $this->assertStringContainsString('FSSAI licence or registration', $faq['What does a restaurant partner need?']);
         $this->assertArrayHasKey('What does a seller or shop need?', $faq);
+
+        $this->openModule('events');
+        $this->assertArrayHasKey('What does an event organiser need?', $this->faq(), 'an, not a, before a vowel');
         $this->assertArrayNotHasKey('What does a grocery store need?', $faq, 'a waitlisted business gets no document answer yet');
     }
 
