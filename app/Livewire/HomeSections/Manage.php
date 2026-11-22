@@ -41,6 +41,12 @@ class Manage extends Component
 
     public string $promiseTe = '';
 
+    /** Homepage "Get the app" strip, middle: slogan or business names (owner 2026-11-22). */
+    public string $getAppMiddle = 'slogan';
+
+    /** @var array<string, string> slogan1_en, slogan1_te, slogan2_en, slogan2_te */
+    public array $slogan = [];
+
     public bool $newAutoscroll = true;
 
     /** @var array<string, bool> */
@@ -87,6 +93,12 @@ class Manage extends Component
         $this->promiseEn = SiteText::saved('home.promise', 'en') ?? SiteText::TEXTS['home.promise'][2];
         $this->promiseTe = SiteText::saved('home.promise', 'te') ?? SiteText::TEXTS['home.promise'][3];
         $this->newAutoscroll = HomeLayout::newAutoscroll();
+        $this->getAppMiddle = HomeLayout::getAppMiddle();
+        foreach (['slogan1', 'slogan2'] as $line) {
+            foreach (['en' => 2, 'te' => 3] as $locale => $i) {
+                $this->slogan[$line.'_'.$locale] = SiteText::saved('get_app.'.$line, $locale) ?? SiteText::TEXTS['get_app.'.$line][$i];
+            }
+        }
         foreach (array_keys(HomeDoors::DOORS) as $door) {
             $this->doorShow[$door] = HomeDoors::doorShown($door);
             $this->doorOrder[$door] = (string) HomeDoors::doorOrder($door);
@@ -176,13 +188,15 @@ class Manage extends Component
             'cardLineOther.*.*' => ['nullable', 'string', 'max:120'],
             'promiseEn' => ['nullable', 'string', 'max:300'],
             'promiseTe' => ['nullable', 'string', 'max:300'],
+            'getAppMiddle' => ['required', 'in:'.implode(',', array_keys(HomeLayout::GET_APP_MIDDLES))],
+            'slogan.*' => ['nullable', 'string', 'max:80'],
             'doorWords.*.title_en' => ['nullable', 'string', 'max:40'],
             'doorWords.*.title_te' => ['nullable', 'string', 'max:40'],
             'doorWords.*.line_en' => ['nullable', 'string', 'max:80'],
             'doorWords.*.line_te' => ['nullable', 'string', 'max:80'],
         ], [], [
             'doorWords.*.title_en' => 'name', 'doorWords.*.title_te' => 'name', 'doorWords.*.line_en' => 'line', 'doorWords.*.line_te' => 'line',
-            'promiseEn' => 'English line', 'promiseTe' => 'Telugu line',
+            'promiseEn' => 'English line', 'promiseTe' => 'Telugu line', 'slogan.*' => 'slogan line', 'getAppMiddle' => 'middle of the app strip',
             'doorOrder.*' => 'order', 'doorImage.*' => 'picture', 'cardOrder.*' => 'order',
             'cardLineEn.*' => 'English line', 'cardLineTe.*' => 'Telugu line', 'cardLineOther.*.*' => 'line',
             'cardIcons' => 'icons per card', 'cardCategoryLimit' => 'category cards', 'cardNewDays' => '"New" days',
@@ -208,11 +222,20 @@ class Manage extends Component
             HomeDoors::LIVE_INFO => $bool($this->liveInfo),
             HomeDoors::SHOW_PROMISE => $bool($this->showPromise),
             HomeLayout::NEW_AUTOSCROLL => $bool($this->newAutoscroll),
+            HomeLayout::GET_APP_MIDDLE => $this->getAppMiddle,
         ];
         // The line is saved as Website text: blank or the built-in words = no saved copy (the built-in words show).
         foreach (['en' => [$this->promiseEn, 2], 'te' => [$this->promiseTe, 3]] as $locale => [$line, $i]) {
             $line = trim($line);
             $values[SiteText::settingKey('home.promise', $locale)] = $line === '' || $line === SiteText::TEXTS['home.promise'][$i] ? null : $line;
+        }
+        // Slogan lines: Website text, blank or the built-in words = no saved copy.
+        foreach (['slogan1', 'slogan2'] as $line) {
+            foreach (['en' => 2, 'te' => 3] as $locale => $i) {
+                $key = 'get_app.'.$line;
+                $word = trim((string) ($this->slogan[$line.'_'.$locale] ?? ''));
+                $values[SiteText::settingKey($key, $locale)] = $word === '' || $word === SiteText::TEXTS[$key][$i] ? null : $word;
+            }
         }
         foreach (array_keys(HomeDoors::DOORS) as $door) {
             $values["home.door.{$door}.show"] = $bool((bool) ($this->doorShow[$door] ?? true));
@@ -285,6 +308,7 @@ class Manage extends Component
         HomeDoors::forget();
         HomeLayout::forget();
         HomeCards::forget();
+        SiteText::forget();
     }
 
     /** Languages added on Admin → Languages (beyond English and Telugu, which have their own columns). */

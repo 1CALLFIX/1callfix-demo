@@ -20,6 +20,21 @@ final class HomeLayout
     /** Owner 2026-11-05: "New & noteworthy" drifts left and right on its own. Super Admin switch, on by default. */
     public const NEW_AUTOSCROLL = 'home.new.autoscroll';
 
+    /**
+     * Owner 2026-11-22: the middle of the homepage "Get the app" strip shows a slogan (two lines, Website text
+     * get_app.slogan1 / slogan2) or the business names. Admin → Homepage sections.
+     */
+    public const GET_APP_MIDDLE = 'home.get_app.middle';
+
+    public const GET_APP_MIDDLES = ['slogan' => 'Slogan', 'businesses' => 'Business names'];
+
+    public static function getAppMiddle(): string
+    {
+        $v = (string) self::raw(self::GET_APP_MIDDLE);
+
+        return array_key_exists($v, self::GET_APP_MIDDLES) ? $v : 'slogan';
+    }
+
     /** Homepage membership box (owner 2026-11-07), Admin → Homepage & sign-up. */
     public const MEMBERSHIP_BENEFITS = 'home.membership_benefits';
     public const MEMBERSHIP_SHOW_WORTH = 'home.membership_show_worth';

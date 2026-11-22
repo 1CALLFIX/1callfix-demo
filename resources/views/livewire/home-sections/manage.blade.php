@@ -43,6 +43,33 @@
         </x-ui.card>
 
         <x-ui.card>
+            <h2 class="text-sm font-semibold mb-1">📲 Get the app strip: the middle</h2>
+            <p class="text-xs text-gray-500 mb-3">The strip near the bottom of the homepage (logo, Google Play button, QR code). Tap what shows in its middle, then Save.</p>
+            <div class="flex flex-wrap gap-2" role="radiogroup" aria-label="Middle of the Get the app strip">
+                @foreach (\App\Support\HomeLayout::GET_APP_MIDDLES as $key => $label)
+                    <label class="cursor-pointer">
+                        <input type="radio" wire:model.live="getAppMiddle" value="{{ $key }}" class="sr-only peer" data-testid="get-app-middle-{{ $key }}">
+                        <span class="inline-flex min-h-[44px] items-center rounded-full border-2 px-4 text-sm font-semibold border-gray-200 bg-white text-gray-700 peer-checked:border-indigo-600 peer-checked:bg-indigo-600 peer-checked:text-white peer-focus-visible:ring-2 peer-focus-visible:ring-indigo-400">{{ $key === 'slogan' ? '💬 ' : '🏷️ ' }}{{ $label }}</span>
+                    </label>
+                @endforeach
+            </div>
+            @if ($getAppMiddle === 'slogan')
+                <div class="mt-4 grid gap-3 md:grid-cols-2" data-testid="slogan-fields">
+                    <label class="block text-sm"><span class="font-medium">First line (English)</span>
+                        <input type="text" maxlength="80" wire:model="slogan.slogan1_en" class="mt-1 w-full rounded border border-gray-300 px-2 py-2 text-sm"></label>
+                    <label class="block text-sm"><span class="font-medium">First line (Telugu)</span>
+                        <input type="text" maxlength="80" wire:model="slogan.slogan1_te" class="mt-1 w-full rounded border border-gray-300 px-2 py-2 text-sm"></label>
+                    <label class="block text-sm"><span class="font-medium">Big second line (English)</span>
+                        <input type="text" maxlength="80" wire:model="slogan.slogan2_en" class="mt-1 w-full rounded border border-gray-300 px-2 py-2 text-sm"></label>
+                    <label class="block text-sm"><span class="font-medium">Big second line (Telugu)</span>
+                        <input type="text" maxlength="80" wire:model="slogan.slogan2_te" class="mt-1 w-full rounded border border-gray-300 px-2 py-2 text-sm"></label>
+                    @error('slogan.*') <p class="text-xs text-red-600 md:col-span-2">{{ $message }}</p> @enderror
+                    <p class="text-xs text-gray-500 md:col-span-2">Short and catchy works best (up to 80 letters a line). Empty = our built-in words. Also in Website text &amp; language (Get the app section).</p>
+                </div>
+            @endif
+        </x-ui.card>
+
+        <x-ui.card>
             <h2 class="text-sm font-semibold mb-1">Business cards</h2>
             <p class="text-xs text-gray-500 mb-3">
                 One card per business: a heading, "View all", a row of icons and one offer line with "More". Category cards use

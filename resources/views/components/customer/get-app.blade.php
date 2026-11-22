@@ -47,7 +47,23 @@
                 @endunless
             </div>
         </div>
-        {{-- Owner 2026-11-14: the empty middle now shows what is inside the app. --}}
+        {{-- Owner 2026-11-22: a slogan in the middle (Admin → Homepage sections), or (2026-11-14) the business names.
+             Styled inline so it needs no front-end build. --}}
+        @if (\App\Support\HomeLayout::getAppMiddle() === 'slogan')
+        <style>
+            .cf-slogan{min-width:0}
+            .cf-slogan .l1{font-size:.95rem;font-weight:600;line-height:1.35;color:#334155}
+            .cf-slogan .l2{margin-top:.15rem;font-size:1.45rem;font-weight:800;line-height:1.15;letter-spacing:-.01em;
+                background:linear-gradient(90deg,#1d4ed8,#7c3aed 55%,#ea580c);-webkit-background-clip:text;background-clip:text;color:transparent}
+            .cf-slogan p{text-wrap:balance}
+            @media (min-width:1024px){.cf-slogan{flex:1 1 15rem;padding:0 .75rem;text-align:center}.cf-slogan .l1{font-size:.9rem}.cf-slogan .l2{font-size:1.3rem}}
+            @media (min-width:1280px){.cf-slogan .l1{font-size:1.05rem}.cf-slogan .l2{font-size:1.75rem}}
+        </style>
+        <div class="cf-slogan" data-testid="get-app-slogan">
+            <p class="l1">{{ $t('get_app.slogan1') }}</p>
+            <p class="l2">{{ $t('get_app.slogan2') }}</p>
+        </div>
+        @else
         <ul class="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap lg:grid lg:flex-1 lg:grid-cols-2 lg:px-4 xl:flex xl:justify-center" data-testid="get-app-modules">
             @foreach ($modules as $door => $label)
                 <li class="inline-flex items-center gap-2 rounded-full bg-white py-1 pl-1 pr-3 text-xs font-semibold text-slate-800 shadow-sm ring-1 ring-slate-200 sm:text-sm">
@@ -56,6 +72,7 @@
                 </li>
             @endforeach
         </ul>
+        @endif
         <div class="flex shrink-0 flex-wrap items-center gap-3">
             <x-customer.play-badge />
             @if ($ios)

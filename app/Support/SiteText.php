@@ -161,6 +161,10 @@ final class SiteText
         'get_app.food' => ['get_app', 'Business name: food', 'Food delivery', 'ఫుడ్ డెలివరీ'],
         'get_app.parcel' => ['get_app', 'Business name: parcel', 'Parcel delivery', 'పార్సిల్ డెలివరీ'],
         'get_app.shop' => ['get_app', 'Business name: shop', 'Local shopping', 'స్థానిక షాపింగ్'],
+        // Owner 2026-11-22: the homepage app strip can show a slogan in the middle instead of the business names
+        // (Admin → Homepage sections → "Get the app strip").
+        'get_app.slogan1' => ['get_app', 'Homepage strip: slogan, first line', 'Why search here and there? Just 1CallFix!', 'అక్కడా ఇక్కడా ఎందుకు వెతకడం? 1CallFix ఉందిగా!'],
+        'get_app.slogan2' => ['get_app', 'Homepage strip: slogan, second (big) line', 'One call… does it all.', 'ఒక్క కాల్… అన్నీ చేసేస్తుంది.'],
         'get_app.point1' => ['get_app', 'Benefit 1', 'Live tracking on the map', 'మ్యాప్‌లో లైవ్ ట్రాకింగ్'],
         'get_app.point2' => ['get_app', 'Benefit 2', 'Instant updates, even when the app is closed', 'యాప్ మూసి ఉన్నా వెంటనే అప్‌డేట్లు'],
         'get_app.point3' => ['get_app', 'Benefit 3', 'Safe online payment with UPI and cards', 'UPI మరియు కార్డులతో సురక్షిత ఆన్‌లైన్ చెల్లింపు'],
