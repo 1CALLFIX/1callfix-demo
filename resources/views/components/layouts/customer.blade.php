@@ -165,5 +165,6 @@
          where phone-OTP / Google sign-in is actually used, not on every
          customer page. --}}
     @stack('scripts')
+    <x-app-update />
 </body>
 </html>

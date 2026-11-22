@@ -158,5 +158,6 @@
     <script data-navigate-once src="{{ asset('js/admin-save-feedback.js') }}?v={{ @filemtime(public_path('js/admin-save-feedback.js')) }}"></script>
 
     @stack('scripts')
+    <x-app-update />
 </body>
 </html>

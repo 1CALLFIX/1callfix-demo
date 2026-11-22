@@ -47,10 +47,9 @@ use App\Support\SuperAdminGate;
 // ShouldBroadcast, but BROADCAST_CONNECTION is "log", not a connected
 // realtime service).
 //
-// Everything else renders as a greyed-out "coming soon" panel via
-// PLACEHOLDER_TABS, each with a one-line reason grounded in this
-// codebase's actual state, not a guess — shipping controls that configure
-// nothing violates the project's own Definition of Done.
+// The former "coming soon" placeholders (owner 2026-11-22) are gone: App Upgrade is a real tab, Dynamic Links
+// folded into Mobile Apps (the /app download link), and the rest are HUB_TABS signposts to the screens that
+// were built for them since. Shipping controls that configure nothing still violates the Definition of Done.
 //
 // Refund/Cancellation graduated to a real tab once the four cancellation
 // business rules (timer reference point, paid-booking refund behaviour,
@@ -108,16 +107,88 @@ class Manage extends Component
 {
     use WithFileUploads;
 
-    public const PLACEHOLDER_TABS = [
-        'mobile_apps' => ['label' => 'Mobile Apps', 'note' => 'Country picker, app links, upgrade prompts — no mobile apps exist yet (M6/M7 haven\'t started).'],
-        'vendor' => ['label' => 'Vendor / Provider', 'note' => 'Provider self-registration rules, KYC requirements, verified badges — the Providers screen already covers approve/reject; broader policy config isn\'t built yet. No self-registration route exists (confirmed by audit) since there\'s no provider-facing app yet.'],
-        'customer' => ['label' => 'Customer', 'note' => 'Registration rules, profile requirements, per-customer limits — no generalized customer-config surface exists yet (no customer-facing app to register through).'],
-        'ui_home_screen' => ['label' => 'UI / Home Screen', 'note' => 'Banner position/vendor layout/widget visibility — there\'s no customer-facing home screen yet to configure (M6 not started).'],
-        'dynamic_links' => ['label' => 'Dynamic Links', 'note' => 'iOS/Android deep-link scheme, package names, SHA256 — meaningless without a mobile app to link into.'],
-        'in_app_support' => ['label' => 'In-App Support', 'note' => 'Support widget/link config for a mobile app that doesn\'t exist yet.'],
-        'app_upgrade' => ['label' => 'App Upgrade', 'note' => 'Independent version gating per app (customer/partner/rider) — queued: the force-update contract (Setting-driven min version + API endpoint) is real backend work regardless of app status, just not built yet.'],
-        'advanced_system' => ['label' => 'Advanced / System', 'note' => 'Feature flags, queue behaviour, cache rules — no admin-facing surface for any of this exists yet.'],
+    /**
+     * Owner 2026-11-22: no more "(soon)" tabs. App Upgrade is a real setting (below). The other tabs are signposts:
+     * their settings were built since as their own screens, so each tab says in plain words what lives where and
+     * opens it. A link shows only to someone whose role can open that screen. 'tab' links switch tabs here.
+     *
+     * @var array<string, array{label: string, intro: string, links: list<array{0: string, 1: string, 2: array{route?: string, tab?: string}, 3: string|list<string>|null}>}>
+     */
+    public const HUB_TABS = [
+        'mobile_apps' => ['label' => 'Mobile Apps', 'intro' => 'Our three Android apps open the website inside the app, so every change on the website shows in the apps straight away, with no app update.', 'links' => [
+            ['App download links', 'The Play Store (Android) and App Store (iPhone) links used on the website, posters and invitations.', ['route' => 'admin.partner-page.settings'], 'partner_page.manage'],
+            ['App Upgrade', 'Ask or make older app versions update from the Play Store.', ['tab' => 'app_upgrade'], null],
+            ['Notifications', 'Push notification channels (and email / SMS).', ['tab' => 'notifications'], null],
+            ['Notification Center', 'Send a message or offer to customers\' phones.', ['route' => 'admin.notifications.index'], 'notification.view'],
+        ]],
+        'vendor' => ['label' => 'Vendor / Provider', 'intro' => 'How partners (service pros, shops, restaurants, riders, hotels, halls, organisers) join, get checked and get paid.', 'links' => [
+            ['Partner page', 'The "Join as a partner" page: what it says, the sign-up form, support numbers.', ['route' => 'admin.partner-page.settings'], 'partner_page.manage'],
+            ['Partner documents', 'Which documents each kind of partner uploads.', ['route' => 'admin.partner-documents'], 'site_controls.manage'],
+            ['KYC', 'ID check rules: video, file sizes, payout hold until verified.', ['tab' => 'kyc'], null],
+            ['Providers', 'Approve, reject or pause service pros.', ['route' => 'admin.providers.index'], 'providers.view'],
+            ['Partners', 'Every partner in one list.', ['route' => 'admin.partners.index'], ['workers.view', 'providers.view']],
+            ['Partner leads', 'People who asked to join from the Partner page.', ['route' => 'admin.partner-leads.index'], 'partner_page.manage'],
+            ['Availability & Shifts', 'When service pros take jobs.', ['route' => 'admin.providers.availability'], 'provider_availability.manage'],
+            ['Commission Defaults', 'The platform\'s share of each job.', ['tab' => 'commission'], null],
+            ['Shop settings', 'Rules for shops and their orders.', ['route' => 'admin.marketplace-orders.settings'], 'marketplace_settings.manage'],
+            ['Food settings', 'Rules for restaurants and food orders.', ['route' => 'admin.food.settings'], 'marketplace_settings.manage'],
+            ['Parcel settings', 'Rules for riders and parcel orders.', ['route' => 'admin.parcel-orders.settings'], 'parcel_settings.manage'],
+        ]],
+        'customer' => ['label' => 'Customer', 'intro' => 'How customers sign up and sign in, what they get, and their accounts.', 'links' => [
+            ['Homepage & sign-up', 'Sign-up attempt limits and the homepage opener.', ['route' => 'admin.site-controls'], 'site_controls.manage'],
+            ['Security / OTP', 'OTP length, expiry, resend wait and tries.', ['tab' => 'security'], null],
+            ['Wallet', 'Top-up limits and wallet rules.', ['tab' => 'wallet'], null],
+            ['Loyalty / Referral', 'Points and referral rewards.', ['tab' => 'loyalty'], null],
+            ['Customers', 'Find a customer, see their bookings and orders.', ['route' => 'admin.customers.index'], 'customers.view'],
+            ['Account deletions', 'Requests to delete an account.', ['route' => 'admin.account-deletions'], 'users.directory.view'],
+            ['Plans & Memberships', 'Prime and other plans.', ['route' => 'admin.plans.index'], 'plans.view'],
+        ]],
+        'ui_home_screen' => ['label' => 'UI / Home Screen', 'intro' => 'The app\'s home screen is the website\'s homepage, so these screens change both at once.', 'links' => [
+            ['Homepage sections', 'Which sections show, and in what order.', ['route' => 'admin.home-sections'], 'site_controls.manage'],
+            ['Banners', 'Homepage and module page banners.', ['route' => 'admin.banners.index'], 'banners.manage'],
+            ['Home Spotlight', 'Featured items on the homepage.', ['route' => 'admin.home-spotlight.index'], 'banners.manage'],
+            ['Search Box', 'Search box hints and popular searches.', ['route' => 'admin.search-box.index'], 'banners.manage'],
+            ['Homepage & sign-up', 'Homepage opener, picture style, parcel card.', ['route' => 'admin.site-controls'], 'site_controls.manage'],
+            ['Website text & language', 'Every word on the website and apps, in English and Telugu.', ['route' => 'admin.site-text'], 'site_controls.manage'],
+            ['Platform / Branding', 'Logo, name beside the logo, social links.', ['tab' => 'branding'], null],
+        ]],
+        'in_app_support' => ['label' => 'In-App Support', 'intro' => 'How customers and partners reach us from the website and the apps.', 'links' => [
+            ['Contact page', 'Phone, WhatsApp, email and working hours shown to customers.', ['route' => 'admin.contact-page'], 'contact_page.manage'],
+            ['Chat', 'Answer customer and partner chats.', ['route' => 'admin.chat.index'], 'chat.view'],
+            ['Partner page', 'Support numbers shown to partners.', ['route' => 'admin.partner-page.settings'], 'partner_page.manage'],
+            ['Website / CMS', 'Help pages and FAQs.', ['route' => 'admin.cms.index'], 'cms.manage'],
+        ]],
+        'advanced_system' => ['label' => 'Advanced / System', 'intro' => 'Switches and health checks for the whole platform.', 'links' => [
+            ['Modules (on / off)', 'Switch a module on or off, per city or area.', ['route' => 'admin.modules.index'], 'modules.manage'],
+            ['Roles & Permissions', 'Who can do what.', ['route' => 'admin.roles.index'], 'roles.manage'],
+            ['Operations', 'Stuck bookings, queue and system health.', ['route' => 'admin.operations.index'], 'operations.view'],
+            ['Backup & Restore', 'Database backups, on the server and off-site.', ['route' => 'admin.operations.backup-restore'], 'backups.restore'],
+            ['Alert Emails', 'Who gets the urgent alert emails.', ['route' => 'admin.alert-emails.index'], 'alert_emails.manage'],
+            ['Security Headers', 'Browser security rules for the website.', ['route' => 'admin.security.headers'], 'security_headers.manage'],
+            ['General / System', 'Maintenance mode.', ['tab' => 'general_system'], null],
+        ]],
     ];
+
+    /** Hub links this user may open (Super Admin: all). */
+    public static function hubLinks(string $tab, ?\App\Models\User $user): array
+    {
+        return array_values(array_filter(self::HUB_TABS[$tab]['links'] ?? [], function (array $link) use ($user) {
+            if ($link[3] === null) {
+                return true;
+            }
+            foreach ((array) $link[3] as $permission) {
+                if ($user?->hasPermissionAnywhere($permission)) {
+                    return true;
+                }
+            }
+
+            return false;
+        }));
+    }
+
+    // --- App Upgrade (global, Super Admin) ---
+    /** @var array<string, array{latest: string, mode: string}> */
+    public array $appUpgrade = [];
 
     public string $activeTab = 'dispatch';
 
@@ -413,6 +484,11 @@ class Manage extends Component
 
     private function loadFields(): void
     {
+        foreach (array_keys(\App\Support\AppUpgrade::APPS) as $app) {
+            $c = \App\Support\AppUpgrade::forApp($app);
+            $this->appUpgrade[$app] = ['latest' => (string) ($c['latest'] ?? ''), 'mode' => $c['mode']];
+        }
+
         $scope = $this->scopeReady() ? $this->scopeContext() : [];
 
         $this->dispatchOfferBatchSize = (string) Setting::get('dispatch.offer_batch_size', '5', $scope);
@@ -1354,6 +1430,40 @@ class Manage extends Component
         $this->put('plan.grace_period_days', $this->subscriptionsGracePeriodDays, 'global', null);
 
         $this->flashMessage = 'Subscription settings saved (global — read without a scope by RenewalService).';
+    }
+
+    /**
+     * App Upgrade (owner 2026-11-22). Global and Super Admin only: "Must update" locks every phone on an older build
+     * out of that app until it updates, so a wrong number here affects everyone. Consumer: public/js/app-update.js,
+     * through <x-app-update /> in the customer, partner and rider layouts.
+     */
+    public function saveAppUpgrade(): void
+    {
+        if (! SuperAdminGate::allows(auth()->user())) {
+            $this->addError('permission', 'Only the Super Admin can change App Upgrade.');
+
+            return;
+        }
+
+        $rules = [];
+        $names = [];
+        foreach (\App\Support\AppUpgrade::APPS as $app => [$label]) {
+            $rules["appUpgrade.{$app}.mode"] = ['required', 'in:'.implode(',', \App\Support\AppUpgrade::MODES)];
+            $rules["appUpgrade.{$app}.latest"] = ['nullable', 'integer', 'min:1', 'max:2100000000', "required_unless:appUpgrade.{$app}.mode,off"];
+            $names["appUpgrade.{$app}.latest"] = "{$label}: newest version code";
+            $names["appUpgrade.{$app}.mode"] = "{$label}: what to do";
+        }
+        $this->validate($rules, [
+            'required_unless' => 'Type the newest version code from Play Console first.',
+        ], $names);
+
+        foreach (array_keys(\App\Support\AppUpgrade::APPS) as $app) {
+            $latest = trim((string) ($this->appUpgrade[$app]['latest'] ?? ''));
+            $this->put(\App\Support\AppUpgrade::latestKey($app), $latest === '' ? null : (string) (int) $latest, 'global', null);
+            $this->put(\App\Support\AppUpgrade::modeKey($app), $this->appUpgrade[$app]['mode'], 'global', null);
+        }
+
+        $this->flashMessage = 'App Upgrade saved. Phones on an older version see it the next time they open the app.';
     }
 
     public function render()

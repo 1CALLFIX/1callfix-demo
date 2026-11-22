@@ -42,7 +42,7 @@ class SettingsManageTest extends TestCase
 
     public function test_subscriptions_membership_placeholder_no_longer_exists(): void
     {
-        $this->assertArrayNotHasKey('subscriptions_membership', Manage::PLACEHOLDER_TABS);
+        $this->assertArrayNotHasKey('subscriptions_membership', Manage::HUB_TABS);
     }
 
     public function test_save_kyc_writes_real_consumer_keys(): void

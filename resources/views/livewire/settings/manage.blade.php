@@ -20,8 +20,15 @@
         'maps' => 'Maps',
         'websocket' => 'Websocket',
         'website_cms' => 'Website / CMS',
+        'mobile_apps' => 'Mobile Apps',
+        'app_upgrade' => 'App Upgrade',
+        'vendor' => 'Vendor / Provider',
+        'customer' => 'Customer',
+        'ui_home_screen' => 'UI / Home Screen',
+        'in_app_support' => 'In-App Support',
+        'advanced_system' => 'Advanced / System',
     ];
-    $placeholder = \App\Livewire\Settings\Manage::PLACEHOLDER_TABS[$activeTab] ?? null;
+    $hub = \App\Livewire\Settings\Manage::HUB_TABS[$activeTab] ?? null;
     $scoped = $scopeType !== 'global';
 @endphp
 
@@ -92,9 +99,7 @@
         @endif
     </x-ui.card>
 
-    {{-- Tab bar — real tabs first, then placeholders (greyed, "soon" tag),
-         so the full eventual shape of a mature settings hub is visible
-         without pretending any of them do something they don't. --}}
+    {{-- Tab bar. No "(soon)" tabs since 2026-11-22: signpost tabs open the screens that hold those settings. --}}
     <div class="flex items-center gap-1 border-b mb-6 flex-wrap">
         @foreach ($realTabs as $key => $label)
             <button type="button" wire:click="$set('activeTab', '{{ $key }}')"
@@ -103,14 +108,6 @@
                         'border-slate-900 text-slate-900 font-medium' => $activeTab === $key,
                         'border-transparent text-gray-500 hover:text-gray-800' => $activeTab !== $key,
                     ])>{{ $label }}</button>
-        @endforeach
-        @foreach (\App\Livewire\Settings\Manage::PLACEHOLDER_TABS as $key => $tab)
-            <button type="button" wire:click="$set('activeTab', '{{ $key }}')"
-                    @class([
-                        'px-4 py-2 text-sm border-b-2 -mb-px whitespace-nowrap',
-                        'border-slate-900 text-slate-500 font-medium' => $activeTab === $key,
-                        'border-transparent text-gray-400 hover:text-gray-600' => $activeTab !== $key,
-                    ])>{{ $tab['label'] }} <span class="text-[10px]">(soon)</span></button>
         @endforeach
     </div>
 
@@ -1060,14 +1057,120 @@
                 <x-ui.button href="{{ route('admin.cms.index') }}">Open Website / CMS →</x-ui.button>
             </div>
 
-        {{-- Not built yet — no inputs, since nothing in the app reads a
-             setting here. Named honestly, with the reason, rather than
-             hidden or faked. --}}
-        @elseif ($placeholder)
-            <div class="opacity-60 py-6 text-center">
-                <p class="text-sm font-medium text-gray-500">{{ $placeholder['label'] }} <span class="text-xs font-normal">(coming soon)</span></p>
-                <p class="text-xs text-gray-400 mt-2 max-w-md mx-auto">{{ $placeholder['note'] }}</p>
+        {{-- App Upgrade (owner 2026-11-22): global, Super Admin only. Read by public/js/app-update.js inside the apps. --}}
+        @elseif ($activeTab === 'app_upgrade')
+            <p class="text-sm text-gray-600 mb-1">When you publish a new version of an app on the Play Store, type its <b>version code</b> here and choose what phones with an older version see.</p>
+            <p class="text-xs text-gray-400 mb-4">Version code: Play Console → the app → Test and release → Production → Releases → the number in brackets, e.g. “2.0.1 (94)” → type 94. This is the same everywhere (no city scope).</p>
+            @if (! \App\Support\SuperAdminGate::allows(auth()->user()))
+                <p class="rounded-lg bg-amber-50 text-amber-800 text-sm p-3 mb-4">Only the Super Admin can change this.</p>
+            @endif
+            <div class="space-y-4">
+                @foreach (\App\Support\AppUpgrade::APPS as $app => [$appLabel, $colour])
+                    <div wire:key="upgrade-{{ $app }}" class="rounded-2xl border-2 border-{{ $colour }}-200 bg-{{ $colour }}-50/40 p-4" data-testid="app-upgrade-{{ $app }}">
+                        <p class="font-semibold text-{{ $colour }}-800">{{ $appLabel }}</p>
+                        <label class="block text-sm font-medium mt-3" for="upgrade-latest-{{ $app }}">Newest version code on the Play Store</label>
+                        <input id="upgrade-latest-{{ $app }}" type="number" inputmode="numeric" min="1" wire:model="appUpgrade.{{ $app }}.latest" placeholder="e.g. 94"
+                               class="mt-1 w-40 min-h-11 rounded-lg border-gray-300 text-sm">
+                        @error('appUpgrade.'.$app.'.latest') <p class="text-sm text-red-600 mt-1">{{ $message }}</p> @enderror
+                        <p class="block text-sm font-medium mt-3">Phones with an older version</p>
+                        <div class="mt-1 flex flex-wrap gap-2">
+                            @foreach (['off' => ['Do nothing', 'slate'], 'ask' => ['Ask to update (with a Later button)', 'blue'], 'must' => ['Must update to continue', 'red']] as $mode => [$modeLabel, $modeColour])
+                                <button type="button" wire:click="$set('appUpgrade.{{ $app }}.mode', '{{ $mode }}')"
+                                        @class(['min-h-11 rounded-full border px-4 text-sm font-medium',
+                                            "bg-{$modeColour}-600 border-{$modeColour}-600 text-white" => ($appUpgrade[$app]['mode'] ?? 'off') === $mode,
+                                            'bg-white border-gray-300 text-gray-700 hover:bg-gray-50' => ($appUpgrade[$app]['mode'] ?? 'off') !== $mode])>{{ $modeLabel }}</button>
+                            @endforeach
+                        </div>
+                        @if (($appUpgrade[$app]['mode'] ?? 'off') === 'must')
+                            <p class="mt-3 rounded-lg bg-red-50 text-red-800 text-sm p-3">Only after the new version is live on the Play Store. A number higher than what is on the Play Store locks everyone out of this app.</p>
+                        @endif
+                    </div>
+                @endforeach
             </div>
+            <p class="text-xs text-gray-400 mt-3">Phones whose version cannot be read, and the website in a browser, are never asked. The wording is in Website text &amp; language → “Update the app screen”.</p>
+            <div class="mt-4">
+                <x-ui.button wire:click="saveAppUpgrade">Save App Upgrade</x-ui.button>
+            </div>
+
+        {{-- Signpost tabs (owner 2026-11-22): their settings live on their own screens. --}}
+        @elseif ($hub)
+            <p class="text-sm text-gray-600 mb-4">{{ $hub['intro'] }}</p>
+
+            @if ($activeTab === 'mobile_apps')
+                <div class="grid gap-3 sm:grid-cols-3 mb-5">
+                    @foreach (\App\Support\AppUpgrade::APPS as $app => [$appLabel, $colour])
+                        <a href="https://play.google.com/store/apps/details?id={{ \App\Support\NativeApp::PACKAGES[$app] }}" target="_blank" rel="noopener"
+                           class="block rounded-2xl border-2 border-{{ $colour }}-200 bg-{{ $colour }}-50/40 p-3 hover:border-{{ $colour }}-400">
+                            <p class="font-semibold text-{{ $colour }}-800 text-sm">{{ \Illuminate\Support\Str::before($appLabel, ' (') }}</p>
+                            <p class="text-xs text-gray-500 mt-1">{{ \App\Support\NativeApp::PACKAGES[$app] }}</p>
+                            <p class="text-xs font-medium text-{{ $colour }}-700 mt-2">Open on Play Store →</p>
+                        </a>
+                    @endforeach
+                </div>
+                <div class="rounded-2xl bg-slate-50 p-4 mb-5" x-data="{ copied: false }">
+                    <p class="text-sm font-semibold">The one link to share the app</p>
+                    <p class="text-xs text-gray-500 mt-1">Put it on posters, QR codes and WhatsApp. Android phones go straight to the Play Store; everyone else sees the “Get the app” page.</p>
+                    @php $shareLink = url(\App\Support\AppLinks::SHORT_PATH).'?go=1'; @endphp
+                    <div class="mt-2 flex flex-wrap items-center gap-2">
+                        <code class="rounded bg-white border px-2 py-1 text-sm">{{ $shareLink }}</code>
+                        <button type="button" class="min-h-11 rounded-lg bg-slate-900 px-4 text-sm font-medium text-white"
+                                x-on:click="navigator.clipboard.writeText(@js($shareLink)); copied = true; setTimeout(() => copied = false, 2000)"
+                                x-text="copied ? 'Copied ✓' : 'Copy link'">Copy link</button>
+                    </div>
+                    <p class="text-xs text-gray-500 mt-2">Android link now: {{ \App\Support\AppLinks::android() }} · iPhone link: {{ \App\Support\AppLinks::ios() ?? 'none (iPhone visitors get “Add to Home Screen” steps)' }}</p>
+                </div>
+            @elseif ($activeTab === 'in_app_support')
+                @php $contactDetails = ['phone' => 'Phone', 'whatsapp' => 'WhatsApp', 'email' => 'Email', 'hours' => 'Working hours']; @endphp
+                <dl class="grid gap-2 sm:grid-cols-2 mb-5">
+                    @foreach ($contactDetails as $field => $fieldLabel)
+                        @php $value = \App\Support\InfoPages\ContactDetails::get($field); @endphp
+                        <div class="rounded-xl bg-slate-50 p-3">
+                            <dt class="text-xs text-gray-500">{{ $fieldLabel }}</dt>
+                            <dd @class(['text-sm font-medium', 'text-gray-900' => $value, 'text-amber-700' => ! $value])>{{ $value ?: 'Not set (not shown to customers)' }}</dd>
+                        </div>
+                    @endforeach
+                </dl>
+            @elseif ($activeTab === 'advanced_system')
+                @php
+                    $systemStatus = [
+                        'Version' => [config('app.version') ?: '—', true],
+                        'Mode' => [app()->environment('production') ? 'Live (production)' : app()->environment(), true],
+                        'Error details shown to visitors' => [config('app.debug') ? 'On — switch off on the live site' : 'Off', ! config('app.debug')],
+                        'Background jobs (queue)' => [config('queue.default'), config('queue.default') !== 'sync'],
+                        'Page cache (fast pages)' => [\App\Support\PageCache::enabled() ? 'On' : 'Off', \App\Support\PageCache::enabled()],
+                    ];
+                @endphp
+                <dl class="grid gap-2 sm:grid-cols-2 mb-5">
+                    @foreach ($systemStatus as $statusLabel => [$statusValue, $ok])
+                        <div class="rounded-xl bg-slate-50 p-3">
+                            <dt class="text-xs text-gray-500">{{ $statusLabel }}</dt>
+                            <dd @class(['text-sm font-medium', 'text-emerald-700' => $ok, 'text-amber-700' => ! $ok])>{{ $statusValue }}</dd>
+                        </div>
+                    @endforeach
+                </dl>
+            @endif
+
+            @php $hubLinks = \App\Livewire\Settings\Manage::hubLinks($activeTab, auth()->user()); @endphp
+            <div class="grid gap-2 sm:grid-cols-2" data-testid="settings-hub-{{ $activeTab }}">
+                @foreach ($hubLinks as [$linkLabel, $linkNote, $target])
+                    @if (isset($target['tab']))
+                        <button type="button" wire:click="$set('activeTab', '{{ $target['tab'] }}')"
+                                class="text-left rounded-xl border border-gray-200 p-3 min-h-11 hover:border-slate-400 hover:bg-slate-50">
+                            <span class="block text-sm font-semibold text-slate-900">{{ $linkLabel }} →</span>
+                            <span class="block text-xs text-gray-500 mt-0.5">{{ $linkNote }}</span>
+                        </button>
+                    @else
+                        <a href="{{ route($target['route']) }}" wire:navigate
+                           class="block rounded-xl border border-gray-200 p-3 min-h-11 hover:border-slate-400 hover:bg-slate-50">
+                            <span class="block text-sm font-semibold text-slate-900">{{ $linkLabel }} →</span>
+                            <span class="block text-xs text-gray-500 mt-0.5">{{ $linkNote }}</span>
+                        </a>
+                    @endif
+                @endforeach
+            </div>
+            @if ($hubLinks === [])
+                <p class="text-sm text-gray-500">Your role cannot open any of these screens. Ask the Super Admin.</p>
+            @endif
         @endif
     </x-ui.card>
 </div>

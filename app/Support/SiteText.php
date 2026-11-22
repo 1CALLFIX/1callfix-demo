@@ -61,10 +61,17 @@ final class SiteText
         'careers' => 'Careers page',
         'popularity' => 'Popularity line under item photos (people viewing, orders)',
         'unsubscribe' => 'Unsubscribe page (app invitation emails)',
+        'app_update' => 'Update the app screen (Android apps, Settings → App Upgrade)',
     ];
 
     /** @var array<string, array{0: string, 1: string, 2: string, 3: string}> */
     public const TEXTS = [
+        // App Upgrade (owner 2026-11-22): shown inside the Android apps when an older build should update.
+        'app_update.ask_title' => ['app_update', 'Heading when updating is optional', 'A new version of the app is ready', 'యాప్ కొత్త వెర్షన్ సిద్ధంగా ఉంది'],
+        'app_update.must_title' => ['app_update', 'Heading when updating is required', 'Please update the app to continue', 'కొనసాగించడానికి దయచేసి యాప్‌ను అప్‌డేట్ చేయండి'],
+        'app_update.body' => ['app_update', 'Text under the heading', 'Update from the Play Store to get the latest features and fixes. It takes less than a minute.', 'తాజా ఫీచర్లు, సవరణల కోసం Play Store నుండి అప్‌డేట్ చేయండి. ఒక్క నిమిషం కూడా పట్టదు.'],
+        'app_update.update' => ['app_update', 'Update button', 'Update now', 'ఇప్పుడే అప్‌డేట్ చేయండి'],
+        'app_update.later' => ['app_update', 'Later button (optional update only)', 'Later', 'తర్వాత'],
         // Unsubscribe page for app invitation emails to imported contacts (owner 2026-11-21).
         'unsubscribe.title' => ['unsubscribe', 'Page heading', 'Stop 1CallFix emails', '1CallFix ఇమెయిల్స్ ఆపండి'],
         'unsubscribe.ask' => ['unsubscribe', 'Question above the button', 'We will not email you invitations again. You can still use 1CallFix any time.', 'మేము మీకు ఇకపై ఆహ్వాన ఇమెయిల్స్ పంపము. 1CallFix ను మీరు ఎప్పుడైనా వాడవచ్చు.'],
