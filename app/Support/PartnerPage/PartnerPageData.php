@@ -94,8 +94,11 @@ final class PartnerPageData
     /** @return array<string, mixed> */
     public static function build(): array
     {
+        $roles = self::roles();
+        // Live answers first (read from the app at render time), then the admin's own questions.
+        $faq = array_merge(P::on('show.live_faq') ? PartnerFaq::live($roles) : [], P::faq());
         $faqByTab = [];
-        foreach (P::faq() as $item) {
+        foreach ($faq as $item) {
             $faqByTab[$item['tab']][] = $item;
         }
         $tabs = [];
@@ -117,11 +120,12 @@ final class PartnerPageData
             'heroSubtitle' => P::text('hero.subtitle'),
             'heroCta' => P::text('hero.cta_label'),
             'band' => P::on('show.nellore_band') ? P::text('nellore_band.text') : null,
-            'roles' => self::roles(),
+            'roles' => $roles,
             'steps' => P::on('show.steps') ? P::steps() : [],
             'needs' => P::lines('needs'),
             'benefits' => P::on('show.benefits') ? P::benefits() : [],
             'faqTabs' => P::on('show.faq') ? $tabs : [],
+            'faqHasLive' => P::on('show.faq') && collect($tabs)->flatMap(fn ($t) => $t['items'])->contains(fn ($i) => ! empty($i['live'])),
             'claims' => collect(P::CLAIM_TEXT)->filter(fn ($text, $key) => P::on($key))->mapWithKeys(fn ($text, $key) => [substr($key, 7) => $text])->all(),
             'commission' => P::commissionLine(),
             'payoutTiming' => P::text('payout_timing'),

@@ -111,7 +111,12 @@ body:has(.pp) footer{margin-bottom:0}
 .pp .q button{width:100%;display:flex;align-items:center;justify-content:space-between;gap:18px;padding:22px 24px;min-height:44px;background:transparent;border:0;border-radius:20px;text-align:left;cursor:pointer;font:inherit;font-weight:700;font-size:18px;line-height:1.35;color:var(--ink)}
 .pp .q button svg{flex:0 0 auto;transition:transform .2s}
 .pp .q button[aria-expanded="true"] svg{transform:rotate(45deg)}
-.pp .q p{padding:0 24px 24px;font-size:17px;line-height:1.6;color:var(--muted)}
+.pp .q .ans{padding:0 24px 24px;font-size:17px;line-height:1.6;color:var(--muted)}
+.pp .q .ans p{white-space:pre-line}
+.pp .q .ans a{display:inline-flex;align-items:center;gap:6px;min-height:44px;margin-top:6px;font-weight:700;color:var(--ink)}
+.pp .livetag{flex:0 0 auto;white-space:nowrap;display:inline-flex;align-items:center;gap:6px;margin-bottom:8px;padding:3px 10px;border-radius:999px;background:#DDF6EC;color:#0B5D3F;font-size:12px;font-weight:800;letter-spacing:.04em;text-transform:uppercase}
+.pp .livetag i{width:7px;height:7px;border-radius:50%;background:#14A46C}
+.pp .livenote{margin-top:14px;display:flex;align-items:center;gap:8px;font-size:15px;color:var(--soft)}
 .pp .join{background:var(--navy);color:#fff}
 .pp .join-grid{display:flex;flex-wrap:wrap;gap:48px 72px;align-items:flex-start}
 .pp .join-l{flex:1 1 420px;min-width:0}
@@ -297,6 +302,7 @@ body:has(.pp) footer{margin-bottom:0}
                 <div class="faq-l">
                     <h2 class="h2" id="faq-heading">Every question, one place</h2>
                     <p class="lead" style="color:var(--muted)">Pick your group to see the answers that matter to you.</p>
+                    @if ($faqHasLive) <p class="livenote"><span class="livetag" style="margin:0"><i aria-hidden="true"></i>Live data</span>answers update by themselves from our current settings.</p> @endif
                     <div class="tabs" role="group" aria-label="Question groups">
                         @foreach ($faqTabs as $key => $group)
                             <button type="button" class="tab" id="faq-tab-{{ $key }}" x-on:click="tab = '{{ $key }}'; open = ''"
@@ -314,7 +320,11 @@ body:has(.pp) footer{margin-bottom:0}
                                     <span>{{ $item['q'] }}</span>
                                     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
                                 </button>
-                                <p id="faq-a-{{ $qid }}" x-show="open === '{{ $qid }}'" @if (! ($key === $firstTab && $n === 0)) x-cloak @endif>{{ $item['a'] }}</p>
+                                <div class="ans" id="faq-a-{{ $qid }}" x-show="open === '{{ $qid }}'" @if (! ($key === $firstTab && $n === 0)) x-cloak @endif>
+                                    @if (! empty($item['live'])) <span class="livetag" data-faq-live><i aria-hidden="true"></i>Live data</span> @endif
+                                    <p>{{ $item['a'] }}</p>
+                                    @if (filled($item['href'] ?? null) && filled($item['link'] ?? null)) <a href="{{ $item['href'] }}">{{ $item['link'] }} {!! $arrow !!}</a> @endif
+                                </div>
                             </div>
                         @endforeach
                     @endforeach

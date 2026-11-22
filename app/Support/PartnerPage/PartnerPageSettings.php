@@ -64,6 +64,8 @@ final class PartnerPageSettings
         'show.steps' => ['Show the steps', true],
         'show.benefits' => ['Show the benefit tiles', true],
         'show.faq' => ['Show the FAQ', true],
+        // Owner 2026-11-22: FAQ answers read live from the app (roles open, cities, documents, charges): PartnerFaq.
+        'show.live_faq' => ['Show live answers in the FAQ (roles open now, cities, documents, charges)', true],
         'claims.joining_free' => ['Claim: "Joining is free."', false],
         'claims.company_accounts' => ['Claim: company accounts are supported', false],
         'claims.whatsapp_updates' => ['Claim: updates on WhatsApp', false],
@@ -84,7 +86,7 @@ final class PartnerPageSettings
         'everyone' => 'Everyone',
         'service' => 'Service professionals',
         'riders' => 'Riders and drivers',
-        'shops' => 'Shops and restaurants',
+        'shops' => 'Shops, stays and owners',
     ];
 
     public const COLORS = ['blue', 'green', 'amber', 'rose', 'violet', 'teal'];
@@ -499,7 +501,8 @@ final class PartnerPageSettings
             ['title' => 'Apply', 'body' => 'Choose your role and enter your name and mobile number on this page.'],
             ['title' => 'Verify', 'body' => 'On the sign-up page, confirm your mobile with a one-time code, then upload the ID and proof documents we ask for. Our team checks every application.'],
             ['title' => 'Get approved', 'body' => 'Our team reviews your documents. Your KYC status shows on your partner dashboard when you sign in.'],
-            ['title' => 'Go online', 'body' => 'Open the 1CallFix Partner app, go online, and start receiving job offers near you.'],
+            // 2026-11-22: not every partner "goes online" for job offers; hotels, shops and owners add listings instead.
+            ['title' => 'Start working', 'body' => 'Sign in to your partner dashboard. Professionals and riders go online to get job offers near you; restaurants, shops, hotels and owners add their menu, products, rooms or listings.'],
         ];
     }
 
@@ -514,18 +517,20 @@ final class PartnerPageSettings
         ];
     }
 
+    /**
+     * The admin's own questions (stored under partner_page.faq replace these). Facts that change — which roles are open,
+     * cities, documents, charges, payouts — are live answers (PartnerFaq), never typed here, so they cannot go stale
+     * (2026-11-22: the old riders / shops answers still said "not open yet" after those roles opened).
+     */
     public static function defaultFaq(): array
     {
         return [
-            ['tab' => 'everyone', 'q' => 'What documents do I need?', 'a' => 'The sign-up page asks for the ID and proof documents set up for providers, and our team checks them before you can take jobs. The exact list appears during sign-up.'],
-            ['tab' => 'everyone', 'q' => 'How long does approval take?', 'a' => 'Our team reviews each application. Your KYC status shows on your partner dashboard when you sign in.'],
             ['tab' => 'everyone', 'q' => 'Can I choose my own hours?', 'a' => 'Yes. You go online when you want to receive jobs and offline when you do not. You can accept or reject any offer.'],
-            ['tab' => 'everyone', 'q' => 'How do I get paid?', 'a' => 'Your earnings for each completed job and your wallet balance show in the app. Request a payout to your verified bank or UPI account.'],
-            ['tab' => 'everyone', 'q' => 'Which cities can I work in?', 'a' => '1CallFix is starting in Nellore. More cities open as local franchises launch. Choose your city in the form, or join the waitlist for yours.'],
+            ['tab' => 'everyone', 'q' => 'Do I need a smartphone?', 'a' => 'Yes, a phone with internet and a number that can receive a one-time code. You sign up, upload documents and see your partner dashboard from your phone.'],
+            ['tab' => 'everyone', 'q' => 'Can I apply for more than one role?', 'a' => 'Yes. Send one application per role from the form below, with the same mobile number.'],
             ['tab' => 'service', 'q' => 'How does a job start and finish?', 'a' => 'The customer shares a one-time code to start the job and another to finish it. You enter each in the app.'],
-            ['tab' => 'riders', 'q' => 'What do riders and drivers need?', 'a' => 'These roles are not open yet. Apply on this page to join the waitlist; we will tell you what is needed when yours opens.'],
-            ['tab' => 'riders', 'q' => 'When will rider and driver roles open?', 'a' => 'Each module opens city by city. Join the waitlist and we will message you when yours opens.'],
-            ['tab' => 'shops', 'q' => 'What do shops and restaurants need?', 'a' => 'These roles are not open yet. Apply on this page to join the waitlist; we will tell you what is needed when yours opens.'],
+            ['tab' => 'service', 'q' => 'Can I add extra work or parts during a job?', 'a' => 'Yes. Add the extra work and its price in the app while the job is in progress. The job pauses until the customer approves it, and you do the extra work only after they say yes.'],
+            ['tab' => 'service', 'q' => 'Can I cancel a job I accepted?', 'a' => 'Yes, before you arrive, from the job screen. The customer is not charged, and your reliability score goes down, so cancel only when you must.'],
         ];
     }
 }

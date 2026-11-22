@@ -141,8 +141,10 @@ class PartnerLandingPageTest extends TestCase
     public function test_the_faq_is_tabbed_and_empty_tabs_are_dropped(): void
     {
         $this->get(route('customer.partners'))->assertOk()
-            ->assertSeeText('Everyone')->assertSeeText('Service professionals')->assertSeeText('Riders and drivers')->assertSeeText('Shops and restaurants');
+            ->assertSeeText('Everyone')->assertSeeText('Service professionals')->assertSeeText('Riders and drivers')->assertSeeText('Shops, stays and owners');
 
+        // Admin questions only (live answers off): a tab with no question is dropped.
+        Setting::set(P::key('show.live_faq'), '0');
         Setting::set(P::key('faq'), json_encode([['tab' => 'service', 'q' => 'Only question?', 'a' => 'Yes.']]));
         $this->get(route('customer.partners'))->assertOk()->assertSeeText('Only question?')->assertDontSeeText('Riders and drivers');
     }
@@ -168,8 +170,10 @@ class PartnerLandingPageTest extends TestCase
         $this->assertStringNotContainsString('You are notified when your KYC', $text);
         $this->assertStringContainsString('Your KYC status shows on your partner dashboard when you sign in', strip_tags($this->get(route('customer.partners'))->getContent()));
 
+        // 'driving licence' left this list 2026-11-22: the rider document list is now read live from Admin → KYC documents
+        // (PartnerFaq), so it says exactly what the sign-up asks for (optional there) and is no longer an unbacked claim.
         foreach (['well-paid', 'on-time', 'on time', 'itemised', 'settlements', 'tracked end to end', 'Your earnings go to the account you add',
-            'pharmacy licence', 'driving licence', 'Skill proof', 'Vehicle papers', 'Prices set up front', 'paid on time'] as $banned) {
+            'pharmacy licence', 'Skill proof', 'Vehicle papers', 'Prices set up front', 'paid on time'] as $banned) {
             $this->assertStringNotContainsStringIgnoringCase($banned, $text, $banned);
         }
     }
