@@ -36,6 +36,8 @@ class Manage extends Component
     public bool $liveInfo = true;
     public bool $showPromise = true;
 
+    public bool $doorsSticky = true;
+
     /** The line under the doors heading (Website text `home.promise`), editable here too. */
     public string $promiseEn = '';
 
@@ -90,6 +92,7 @@ class Manage extends Component
         $this->show = HomeDoors::show();
         $this->liveInfo = HomeDoors::liveInfo();
         $this->showPromise = HomeDoors::showPromise();
+        $this->doorsSticky = HomeDoors::sticky();
         $this->promiseEn = SiteText::saved('home.promise', 'en') ?? SiteText::TEXTS['home.promise'][2];
         $this->promiseTe = SiteText::saved('home.promise', 'te') ?? SiteText::TEXTS['home.promise'][3];
         $this->newAutoscroll = HomeLayout::newAutoscroll();
@@ -221,6 +224,7 @@ class Manage extends Component
             HomeDoors::SHOW => $bool($this->show),
             HomeDoors::LIVE_INFO => $bool($this->liveInfo),
             HomeDoors::SHOW_PROMISE => $bool($this->showPromise),
+            HomeDoors::STICKY => $bool($this->doorsSticky),
             HomeLayout::NEW_AUTOSCROLL => $bool($this->newAutoscroll),
             HomeLayout::GET_APP_MIDDLE => $this->getAppMiddle,
         ];

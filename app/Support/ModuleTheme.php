@@ -18,6 +18,10 @@ class ModuleTheme
         'shop' => '#16A34A',     // green
         'parcel' => '#7C3AED',   // purple
         'hotels' => '#0284C7',   // sky blue (Hotels 2026-11-12)
+        // Owner 2026-11-22: own colours for the newer businesses too (homepage doors and the businesses bar).
+        'events' => '#DB2777',   // pink
+        'rentals' => '#D97706',  // amber
+        'secondhand' => '#0D9488', // teal
     ];
 
     public static function key(string $module): string

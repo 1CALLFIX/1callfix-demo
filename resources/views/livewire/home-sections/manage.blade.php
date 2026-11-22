@@ -144,6 +144,8 @@
                 <label class="flex items-start gap-2 text-sm"><input type="checkbox" wire:model="showPromise" class="mt-0.5"> <span>Show the line under the heading</span></label>
                 <label class="flex items-start gap-2 text-sm md:col-span-2"><input type="checkbox" wire:model="liveInfo" class="mt-0.5">
                     <span>Live numbers on the doors (services listed, shops open now, parcel price). Real numbers only; a zero shows the plain line.</span></label>
+                <label class="flex items-start gap-2 text-sm md:col-span-2"><input type="checkbox" wire:model="doorsSticky" class="mt-0.5" data-testid="doors-sticky">
+                    <span>📌 Keep a slim bar of the businesses under the top bar once a visitor scrolls past the doors (like Flipkart), so they can switch business from anywhere on the homepage</span></label>
             </div>
             <div class="mt-4 grid gap-4 md:grid-cols-2">
                 <label class="block text-sm"><span class="font-medium">Line under the heading (English)</span>

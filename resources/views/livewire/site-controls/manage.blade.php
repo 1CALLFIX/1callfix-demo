@@ -110,7 +110,7 @@
             <h2 class="text-sm font-semibold mb-1">Module colours</h2>
             <p class="text-xs text-gray-500 mb-3">Each business has its own colour: the strip under the header on its pages, its card on the homepage and its small buttons. 1CallFix blue stays on the main buttons.</p>
             <div class="grid gap-4 sm:grid-cols-2 md:grid-cols-4">
-                @foreach (['services' => 'Services', 'food' => 'Food', 'shop' => 'Shop', 'parcel' => 'Parcel'] as $m => $label)
+                @foreach (['services' => 'Services', 'food' => 'Food', 'shop' => 'Shop', 'parcel' => 'Parcel', 'hotels' => 'Hotels', 'events' => 'Events', 'rentals' => 'Rentals', 'secondhand' => 'Second-hand'] as $m => $label)
                     <div>
                         <label class="block text-sm font-medium mb-1" for="sc-mod-{{ $m }}">{{ $label }}</label>
                         <div class="flex items-center gap-2">

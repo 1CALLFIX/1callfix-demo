@@ -21,6 +21,9 @@ final class HomeDoors
     public const LIVE_INFO = 'home.doors.live_info';
     public const SHOW_PROMISE = 'home.doors.show_promise';
 
+    /** Owner 2026-11-22 (the Flipkart pattern): once the doors scroll away, a slim bar of the same businesses stays under the top bar. */
+    public const STICKY = 'home.doors.sticky';
+
     /** top = first thing under the top bar; after_categories = under the category icons. */
     public const POSITIONS = ['top', 'after_categories'];
 
@@ -56,6 +59,11 @@ final class HomeDoors
     public static function showPromise(): bool
     {
         return self::flag(self::SHOW_PROMISE, true);
+    }
+
+    public static function sticky(): bool
+    {
+        return self::flag(self::STICKY, true);
     }
 
     public static function doorShown(string $door): bool
