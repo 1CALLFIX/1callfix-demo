@@ -150,17 +150,30 @@
                 <div class="rounded-xl bg-emerald-50 p-3">
                     <p class="mb-2 text-sm font-bold text-emerald-800">5 · When</p>
                     <div class="flex flex-wrap items-center gap-2">
-                        <button type="button" wire:click="pickDay('today')" class="min-h-[44px] rounded-full bg-white px-4 text-sm font-semibold ring-1 ring-emerald-300">Today</button>
-                        <button type="button" wire:click="pickDay('tomorrow')" class="min-h-[44px] rounded-full bg-white px-4 text-sm font-semibold ring-1 ring-emerald-300">Tomorrow</button>
-                        <input type="date" wire:model="day" class="min-h-[44px] rounded-lg border px-3 text-sm" aria-label="Day">
-                        <input type="time" wire:model="time" class="min-h-[44px] rounded-lg border px-3 text-sm" aria-label="Time">
+                        @php($todayDate = now($zone)->toDateString())
+                        @foreach (['today' => [$todayDate, 'Today'], 'tomorrow' => [now($zone)->addDay()->toDateString(), 'Tomorrow']] as $which => [$date, $dayLabel])
+                            <button type="button" wire:click="pickDay('{{ $which }}')" @class(['min-h-[44px] rounded-full px-4 text-sm font-semibold',
+                                'bg-emerald-600 text-white' => $day === $date, 'bg-white ring-1 ring-emerald-300' => $day !== $date])>{{ $day === $date ? '✓ ' : '' }}{{ $dayLabel }}</button>
+                        @endforeach
+                        <input type="date" wire:model.live="day" class="min-h-[44px] rounded-lg border px-3 text-sm" aria-label="Day">
                     </div>
+                    <div class="mt-2 flex flex-wrap items-center gap-2" data-time-chips>
+                        @foreach (\App\Livewire\Marketing\SocialPosts::TIME_CHIPS as $t => $timeLabel)
+                            <button type="button" wire:click="pickTime('{{ $t }}')" @class(['min-h-[44px] rounded-full px-4 text-sm font-semibold',
+                                'bg-emerald-600 text-white' => $time === $t, 'bg-white ring-1 ring-emerald-300' => $time !== $t])>{{ $timeLabel }}</button>
+                        @endforeach
+                        <label class="flex items-center gap-1 text-sm text-gray-600">or <input type="time" wire:model.live="time" class="min-h-[44px] rounded-lg border px-3 text-sm" aria-label="Time"></label>
+                    </div>
+                    @if ($isHq)<p class="mt-2 text-xs text-gray-600">Want it out right away? Press <b>🚀 Post now</b> below.</p>@endif
                     @error('day') <p class="mt-1 text-sm text-red-600">{{ $message }}</p> @enderror
                 </div>
             </div>
             <div class="sticky bottom-0 flex flex-wrap justify-end gap-2 rounded-b-2xl border-t bg-white px-4 py-3">
                 <button type="button" wire:click="save(false)" class="min-h-[44px] rounded-xl bg-gray-100 px-5 font-semibold text-gray-800 hover:bg-gray-200">Save as draft</button>
                 <button type="button" wire:click="save(true)" class="min-h-[44px] rounded-xl bg-blue-600 px-6 font-semibold text-white hover:bg-blue-700" data-schedule>📅 Schedule</button>
+                @if ($isHq)
+                    <button type="button" wire:click="save(true, true)" wire:loading.attr="disabled" wire:confirm="Post this everywhere now?" class="min-h-[44px] rounded-xl bg-emerald-600 px-6 font-semibold text-white hover:bg-emerald-700" data-post-now>🚀 Post now</button>
+                @endif
             </div>
         </div>
     @endif

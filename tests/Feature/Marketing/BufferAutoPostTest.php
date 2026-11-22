@@ -299,6 +299,46 @@ class BufferAutoPostTest extends TestCase
         $this->assertStringContainsString('Connect Buffer below', (string) app(PostingRoutes::class)->missing('google_business'));
     }
 
+    public function test_post_now_sends_it_at_once_to_every_place_that_posts_by_itself(): void
+    {
+        $this->connectBuffer();
+        Setting::set(PostingRoutes::PREFIX.'google_business', 'buffer');
+        Setting::set(PostingRoutes::PREFIX.'facebook', 'buffer');
+
+        Livewire::actingAs($this->makeSuperAdmin())->test(SocialPosts::class)
+            ->call('newPost')->assertSee('Post now')
+            ->set('title', 'Diwali offer')->set('captionEn', 'Book today')->set('platforms', ['facebook', 'google_business', 'whatsapp'])
+            ->call('save', true, true)->assertHasNoErrors()
+            ->assertSee('Going out now on Facebook, Google Business')->assertSee('Tap Share under Today for WhatsApp Status.');
+
+        $post = SocialPost::sole();
+        $this->assertSame('scheduled', $post->status);
+        $this->assertTrue($post->scheduled_for->diffInMinutes(now(), true) < 2, 'scheduled for this minute');
+        $this->assertSame(['ch-fb', 'ch-gbp'], array_column($this->created, 'channelId'));
+
+        $this->artisan('marketing:posts-due')->assertSuccessful();
+        $this->assertCount(2, $this->created, 'the schedule does not post it a second time');
+    }
+
+    public function test_post_now_is_for_hq_only_and_time_chips_set_the_time(): void
+    {
+        $staff = $this->makeUserWithPermission('marketing.posts.manage', 'franchise', $this->makeFranchise()->id);
+        Livewire::actingAs($staff)->test(SocialPosts::class)->call('newPost')->assertDontSee('data-post-now', false)
+            ->call('pickTime', '18:00')->assertSet('time', '18:00')
+            ->call('save', true, true)->assertForbidden();
+    }
+
+    public function test_a_time_already_gone_today_says_it_goes_out_in_a_few_minutes(): void
+    {
+        $zone = \App\Services\Marketing\SocialPostPlanner::zone();
+        $this->travelTo(\Carbon\CarbonImmutable::parse('today 15:30', $zone));
+
+        Livewire::actingAs($this->makeSuperAdmin())->test(SocialPosts::class)
+            ->call('newPost')->call('pickDay', 'today')->call('pickTime', '10:00')
+            ->set('title', 'Morning post')->set('captionEn', 'Hello')->set('platforms', ['facebook'])
+            ->call('save', true)->assertHasNoErrors()->assertSee('goes out in the next few minutes');
+    }
+
     public function test_x_text_is_cut_to_fit_and_keeps_the_link_whole(): void
     {
         $post = new SocialPost(['caption_en' => str_repeat('Fast AC repair in Nellore. ', 30), 'link_url' => '/nellore/services']);

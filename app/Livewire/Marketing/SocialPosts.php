@@ -238,10 +238,30 @@ class SocialPosts extends Component
             : array_values(array_merge($this->platforms, [$platform]));
     }
 
-    public function save(bool $schedule): void
+    /** Tap chips for the time (owner 2026-11-22: "we can add post time like today morning 10 am"). */
+    public const TIME_CHIPS = ['10:00' => '🌅 Morning 10 AM', '12:00' => '☀️ Noon 12 PM', '18:00' => '🌇 Evening 6 PM', '20:00' => '🌙 Night 8 PM'];
+
+    public function pickTime(string $time): void
+    {
+        abort_unless(isset(self::TIME_CHIPS[$time]), 422);
+        $this->time = $time;
+    }
+
+    /**
+     * Save the post. $schedule = Schedule (or HQ approval), else a draft. $postNow (HQ, owner 2026-11-22: "there is no
+     * option as Post Now") = scheduled for this minute and sent at once to every place that posts by itself; the rest
+     * (WhatsApp Status, places set to By hand) show under Today with their Share button.
+     */
+    public function save(bool $schedule, bool $postNow = false): void
     {
         $this->authorizeView();
         $user = auth()->user();
+        if ($postNow) {
+            abort_unless($this->isHq(), 403, 'A franchise post goes out after HQ approves it.');
+            $schedule = true;
+            $local = CarbonImmutable::now(SocialPostPlanner::zone());
+            [$this->day, $this->time] = [$local->toDateString(), $local->format('H:i')];
+        }
         // A Buffer-only place (LinkedIn, X, Threads) whose channel went away is dropped, not an error.
         $this->platforms = array_values(array_intersect($this->platforms, app(PostingRoutes::class)->editorPlatforms()));
         $this->validate([
@@ -308,14 +328,48 @@ class SocialPosts extends Component
         ActivityLogger::logModel($user, $post, $schedule ? ($post->status === 'approval' ? 'Social post sent to HQ for approval' : 'Social post scheduled') : 'Social post saved as draft', ['scheduled_for' => $when?->toIso8601String()]);
 
         $this->resetEditor();
+        if ($postNow) {
+            $this->postEverywhereNow($post);
+
+            return;
+        }
         if ($post->status === 'approval') {
             $this->flash('Sent to HQ for approval. Once approved it goes out on '.$when->setTimezone(SocialPostPlanner::zone())->format('D j M, h:i A').'.');
+
+            return;
+        }
+        if ($schedule && $when->lte(now())) {
+            $this->flash('That time has already passed today, so it goes out in the next few minutes.');
 
             return;
         }
         $this->flash($schedule
             ? 'Scheduled for '.$when->setTimezone(SocialPostPlanner::zone())->format('D j M, h:i A').'. On the day it shows under Today with a Share button.'
             : 'Saved as a draft.');
+    }
+
+    /** Post now: every place that posts by itself goes out this moment, once each (AutoPoster claims each row). */
+    private function postEverywhereNow(SocialPost $post): void
+    {
+        $auto = app(PostingRoutes::class)->autoPlatforms();
+        $done = [];
+        $failed = [];
+        foreach ($post->platforms ?? [] as $platform) {
+            if (! in_array($platform, $auto, true)) {
+                continue;
+            }
+            $label = SocialPost::PLATFORMS[$platform][0] ?? $platform;
+            $outcome = app(AutoPoster::class)->publishOne($post, $platform, auth()->id());
+            $outcome === true ? $done[] = $label : $failed[] = $label.': '.$outcome;
+        }
+        $byHand = array_map(fn ($p) => SocialPost::PLATFORMS[$p][0] ?? $p, array_values(array_diff($post->platforms ?? [], $auto)));
+
+        $parts = array_filter([
+            $done ? 'Going out now on '.implode(', ', $done).' (✓ shows under Today once live).' : null,
+            $byHand ? 'Tap Share under Today for '.implode(', ', $byHand).'.' : null,
+            $failed ? 'Could not post on '.implode('; ', $failed) : null,
+        ]);
+        $this->flash(implode(' ', $parts) ?: 'Saved.', $failed ? 'error' : 'success');
     }
 
     /** @return array{franchise_id: ?int, city_id: ?int, country_id: ?int} */
