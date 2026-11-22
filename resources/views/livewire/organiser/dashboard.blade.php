@@ -61,4 +61,5 @@
     </div>
 
     <a href="{{ route('organiser.events.create') }}" wire:navigate class="flex min-h-12 items-center justify-center rounded-xl bg-blue-600 px-4 font-semibold text-white hover:bg-blue-700" data-testid="new-event">+ Create an event</a>
+    <x-partner.share-my-business />
 </div>

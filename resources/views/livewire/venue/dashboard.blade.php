@@ -174,4 +174,5 @@
     @if ($vehicles->isNotEmpty())
         <a href="{{ route('venue.vehicles.create') }}" wire:navigate class="flex min-h-11 items-center justify-center rounded-xl border border-dashed border-slate-300 px-4 text-sm font-medium text-slate-700 hover:border-blue-400" data-testid="add-vehicle">+ Add another vehicle for rent</a>
     @endif
+    <x-partner.share-my-business />
 </div>

@@ -116,4 +116,5 @@
             </ul>
         </x-ui.card>
     @endif
+    <x-partner.share-my-business />
 </div>

@@ -10,6 +10,7 @@ use App\Models\SocialPostDelivery;
 use App\Services\ActivityLogger;
 use App\Services\AuthorizationService;
 use App\Services\Marketing\AutoPoster;
+use App\Services\Marketing\ItemPost;
 use App\Services\Marketing\MetaGraph;
 use App\Services\Marketing\ModuleGate;
 use App\Services\Marketing\PostIdeas;
@@ -79,6 +80,30 @@ class SocialPosts extends Component
     public function mount(): void
     {
         $this->authorizeView();
+
+        // 📣 on any item photo (2026-11-22): open the editor with that item's picture, words and link filled in.
+        if (is_string($ticket = request()->query('item')) && $ticket !== '') {
+            $item = ItemPost::fromTicket($ticket);
+            if (! $item) {
+                $this->flash('That item link has expired. Tap 📣 on the item again.', 'error');
+
+                return;
+            }
+            $this->newPost();
+            $this->title = $item['title'];
+            $this->captionEn = $item['caption'];
+            $this->imagePath = (string) $item['image'];
+            $this->linkUrl = $item['link'];
+            $this->module = (string) $item['module'];
+            $this->cityId = $item['city_id'] ?? $this->cityId;
+            $this->flash('Post ready from "'.$item['title'].'". Check the words, pick the day, then tap Schedule.');
+        }
+    }
+
+    /** HQ = Super Admin or a whole-company (global) marketing grant. Everyone else's posts wait for HQ's approval. */
+    private function isHq(): bool
+    {
+        return app(AuthorizationService::class)->can(auth()->user(), 'marketing.posts.manage', []);
     }
 
     private function authorizeView(): void
@@ -261,7 +286,7 @@ class SocialPosts extends Component
             'title' => $this->title, 'caption_en' => $this->captionEn, 'caption_te' => $this->captionTe ?: null,
             'hashtags' => $this->hashtags ?: null, 'image_path' => $image, 'link_url' => $this->linkUrl ?: null,
             'module' => $this->module ?: null, 'city_id' => $this->cityId, 'platforms' => array_values($this->platforms),
-            'scheduled_for' => $when, 'status' => $schedule ? 'scheduled' : 'draft', 'skip_reason' => null,
+            'scheduled_for' => $when, 'status' => $schedule ? ($this->isHq() ? 'scheduled' : 'approval') : 'draft', 'skip_reason' => null,
         ] + $place;
 
         if ($this->editId) {
@@ -270,9 +295,14 @@ class SocialPosts extends Component
         } else {
             $post = SocialPost::create($data + ['source' => 'manual', 'created_by' => $user->id]);
         }
-        ActivityLogger::logModel($user, $post, $schedule ? 'Social post scheduled' : 'Social post saved as draft', ['scheduled_for' => $when?->toIso8601String()]);
+        ActivityLogger::logModel($user, $post, $schedule ? ($post->status === 'approval' ? 'Social post sent to HQ for approval' : 'Social post scheduled') : 'Social post saved as draft', ['scheduled_for' => $when?->toIso8601String()]);
 
         $this->resetEditor();
+        if ($post->status === 'approval') {
+            $this->flash('Sent to HQ for approval. Once approved it goes out on '.$when->setTimezone(SocialPostPlanner::zone())->format('D j M, h:i A').'.');
+
+            return;
+        }
         $this->flash($schedule
             ? 'Scheduled for '.$when->setTimezone(SocialPostPlanner::zone())->format('D j M, h:i A').'. On the day it shows under Today with a Share button.'
             : 'Saved as a draft.');
@@ -288,6 +318,47 @@ class SocialPosts extends Component
         $franchises = Franchise::where('city_id', $cityId)->limit(2)->pluck('id');
 
         return ['franchise_id' => $franchises->count() === 1 ? $franchises->first() : null, 'city_id' => $cityId, 'country_id' => $city?->country_id];
+    }
+
+    // ---------------------------------------------------------------- HQ approval (franchise / city posts)
+
+    /** Owner 2026-11-22: a franchise's post goes on the main 1CallFix pages only after HQ approves it. */
+    public function approve(int $postId): void
+    {
+        abort_unless($this->isHq(), 403);
+        $post = $this->find($postId);
+        if ($post->status !== 'approval') {
+            return;
+        }
+        if ($reason = app(ModuleGate::class)->offReason($post->module, $post->city_id)) {
+            $this->flash($reason.'. Send it back instead.', 'error');
+
+            return;
+        }
+        // Approved after its time: it goes out at the next run instead of being lost.
+        $when = $post->scheduled_for && $post->scheduled_for->isPast() ? now() : $post->scheduled_for;
+        $post->forceFill(['status' => 'scheduled', 'scheduled_for' => $when, 'skip_reason' => null])->save();
+        ActivityLogger::logModel(auth()->user(), $post, 'Social post approved by HQ');
+        $this->flash('Approved: "'.$post->title.'" goes out on '.$when->setTimezone(SocialPostPlanner::zone())->format('D j M, h:i A').'.');
+    }
+
+    /** @var array<int, string> HQ's note per post when sending it back */
+    public array $sendBackNotes = [];
+
+    public function sendBack(int $postId): void
+    {
+        abort_unless($this->isHq(), 403);
+        $post = $this->find($postId);
+        $note = trim((string) ($this->sendBackNotes[$postId] ?? ''));
+        if ($note === '') {
+            $this->flash('Write a short note for the team: what to change.', 'error');
+
+            return;
+        }
+        $post->forceFill(['status' => 'draft', 'skip_reason' => \Illuminate\Support\Str::limit('HQ: '.$note, 200, '')])->save();
+        ActivityLogger::logModel(auth()->user(), $post, 'Social post sent back by HQ', ['note' => $note]);
+        unset($this->sendBackNotes[$postId]);
+        $this->flash('Sent back with your note.');
     }
 
     // ---------------------------------------------------------------- sharing
@@ -443,6 +514,9 @@ class SocialPosts extends Component
             'cities' => $cities,
             'isSuperAdmin' => auth()->user()->role === 'super_admin',
             'autoPlatforms' => app(MetaGraph::class)->autoPlatforms(),
+            'isHq' => $this->isHq(),
+            'awaiting' => $this->posts()->where('status', 'approval')->with('city')->orderBy('scheduled_for')->get(),
+            'sentBack' => $this->isHq() ? collect() : $this->posts()->where('status', 'draft')->where('skip_reason', 'like', 'HQ:%')->latest()->limit(10)->get(),
             'defaultPlatforms' => SocialPostPlanner::platforms(),
             'reminderTime' => SocialPostPlanner::reminderTime(),
             'postTime' => SocialPostPlanner::postTime(),

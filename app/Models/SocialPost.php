@@ -19,7 +19,7 @@ class SocialPost extends Model
         'whatsapp' => ['WhatsApp Status', 'bg-green-600 text-white', 'https://web.whatsapp.com/'],
     ];
 
-    public const STATUSES = ['draft' => 'Draft', 'scheduled' => 'Scheduled', 'posted' => 'Posted', 'skipped' => 'Skipped'];
+    public const STATUSES = ['draft' => 'Draft', 'approval' => 'Waiting for HQ approval', 'scheduled' => 'Scheduled', 'posted' => 'Posted', 'skipped' => 'Skipped'];
 
     protected $fillable = [
         'title', 'caption_en', 'caption_te', 'hashtags', 'image_path', 'link_url', 'module', 'franchise_id', 'city_id',

@@ -56,13 +56,24 @@
         var text = button.getAttribute('data-share-text') || '';
         var image = button.getAttribute('data-share-image') || '';
         var open = button.getAttribute('data-share-open') || '';
+        var done = button.getAttribute('data-share-done') || 'Shared ✓ — now tap Done ✓';
+
+        // Inside our Android apps (2026-11-22): the phone's own share sheet through @capacitor/share. Words + link;
+        // WhatsApp and Facebook show the page's picture from the link by themselves.
+        var capShare = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Share;
+        if (capShare && typeof capShare.share === 'function') {
+            copy(text).then(function () {
+                return capShare.share({ text: text, dialogTitle: 'Share' });
+            }).then(function () { note(button, done); }).catch(function () {});
+            return;
+        }
 
         copy(text).then(function () { return picture(image); }).then(function (file) {
             var files = file ? [file] : [];
             if (isPhone && navigator.share) {
                 var data = files.length && navigator.canShare && navigator.canShare({ files: files }) ? { files: files, text: text } : { text: text };
                 return navigator.share(data).then(function () {
-                    note(button, 'Shared ✓ — now tap Done ✓');
+                    note(button, done);
                 }).catch(function (err) {
                     if (!err || err.name !== 'AbortError') note(button, 'Caption copied — paste it in the app');
                 });

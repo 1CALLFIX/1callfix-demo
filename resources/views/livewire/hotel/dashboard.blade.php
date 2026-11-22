@@ -78,4 +78,5 @@
             <p class="mt-2 text-sm text-slate-600">No reviews yet. Guests can review after they check out.</p>
         @endforelse
     </div>
+    <x-partner.share-my-business />
 </div>

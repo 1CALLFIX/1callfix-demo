@@ -6,7 +6,7 @@
         $modColour = ['service' => 'bg-blue-100 text-blue-800', 'parcel' => 'bg-orange-100 text-orange-800', 'shop' => 'bg-violet-100 text-violet-800',
             'food' => 'bg-rose-100 text-rose-800', 'rental' => 'bg-teal-100 text-teal-800', 'hotel' => 'bg-cyan-100 text-cyan-800',
             'events' => 'bg-fuchsia-100 text-fuchsia-800', 'listings' => 'bg-lime-100 text-lime-800', 'taxi' => 'bg-amber-100 text-amber-800'];
-        $statusColour = ['draft' => 'bg-gray-100 text-gray-700', 'scheduled' => 'bg-blue-100 text-blue-800', 'posted' => 'bg-green-100 text-green-800', 'skipped' => 'bg-amber-100 text-amber-800'];
+        $statusColour = ['draft' => 'bg-gray-100 text-gray-700', 'approval' => 'bg-purple-100 text-purple-800', 'scheduled' => 'bg-blue-100 text-blue-800', 'posted' => 'bg-green-100 text-green-800', 'skipped' => 'bg-amber-100 text-amber-800'];
         $statuses = \App\Models\SocialPost::STATUSES;
     @endphp
 
@@ -24,6 +24,40 @@
 
     @if ($flashMessage)
         <div @class(['mb-4 rounded-xl px-4 py-3 text-sm', 'bg-green-50 text-green-800' => $flashType === 'success', 'bg-red-50 text-red-700' => $flashType === 'error', 'bg-blue-50 text-blue-800' => $flashType === 'info'])>{{ $flashMessage }}</div>
+    @endif
+
+    {{-- HQ approval (owner 2026-11-22): franchise / city posts go on the main 1CallFix pages only after HQ approves. --}}
+    @if ($isHq && $awaiting->isNotEmpty())
+        <div class="mb-6 rounded-2xl bg-purple-50 p-4 ring-2 ring-purple-200" data-awaiting-approval>
+            <h2 class="mb-3 font-semibold text-purple-900">⏳ Waiting for your approval ({{ $awaiting->count() }})</h2>
+            <div class="space-y-3">
+                @foreach ($awaiting as $p)
+                    <div class="flex flex-col gap-3 rounded-xl bg-white p-3 ring-1 ring-purple-100 md:flex-row" wire:key="await-{{ $p->id }}">
+                        @if ($p->imageUrl())<img src="{{ url($p->imageUrl()) }}" alt="" class="h-32 w-full rounded-lg object-cover md:w-44">@endif
+                        <div class="min-w-0 flex-1">
+                            <p class="font-semibold">{{ $p->title }} <span class="text-xs font-normal text-gray-500">· {{ $p->city?->name ?? 'All cities' }} · {{ $p->scheduled_for?->setTimezone($zone)->format('D j M, h:i A') }}</span></p>
+                            <p class="mt-1 whitespace-pre-line text-sm text-gray-700">{{ \Illuminate\Support\Str::limit($p->caption_en, 300) }}</p>
+                            <div class="mt-2 flex flex-wrap items-center gap-2">
+                                <button type="button" wire:click="approve({{ $p->id }})" class="min-h-[44px] rounded-xl bg-green-600 px-5 text-sm font-semibold text-white hover:bg-green-700" data-approve="{{ $p->id }}">✓ Approve</button>
+                                <button type="button" wire:click="edit({{ $p->id }})" class="min-h-[44px] rounded-xl bg-blue-50 px-4 text-sm font-semibold text-blue-700">✏️ Edit</button>
+                                <input type="text" wire:model="sendBackNotes.{{ $p->id }}" placeholder="What to change (to send back)" class="min-h-[44px] min-w-[12rem] flex-1 rounded-lg border px-2 text-sm">
+                                <button type="button" wire:click="sendBack({{ $p->id }})" class="min-h-[44px] rounded-xl bg-white px-4 text-sm text-gray-700 ring-1 ring-gray-300">↩ Send back</button>
+                            </div>
+                        </div>
+                    </div>
+                @endforeach
+            </div>
+        </div>
+    @elseif (! $isHq && ($awaiting->isNotEmpty() || $sentBack->isNotEmpty()))
+        <div class="mb-6 rounded-2xl bg-purple-50 p-4 ring-1 ring-purple-200" data-my-approvals>
+            <p class="text-sm text-purple-900">Your posts go on the main 1CallFix pages after HQ approves them.</p>
+            @foreach ($awaiting as $p)
+                <p class="mt-1 text-sm">⏳ <b>{{ $p->title }}</b>: waiting for HQ approval</p>
+            @endforeach
+            @foreach ($sentBack as $p)
+                <p class="mt-1 text-sm">↩ <b>{{ $p->title }}</b>: {{ $p->skip_reason }} <button type="button" wire:click="edit({{ $p->id }})" class="ml-1 text-blue-700 underline">Open</button></p>
+            @endforeach
+        </div>
     @endif
 
     {{-- Ready-made ideas --}}

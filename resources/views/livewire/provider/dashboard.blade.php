@@ -187,4 +187,5 @@
 
     <a href="{{ route('provider.jobs.index') }}" wire:navigate
        class="mt-6 inline-flex text-sm font-medium text-blue-600 hover:underline">View job offers →</a>
+    <x-partner.share-my-business />
 </div>

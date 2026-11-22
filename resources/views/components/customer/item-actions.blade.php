@@ -3,4 +3,5 @@
 <div {{ $attributes->merge(['class' => 'flex items-center gap-2']) }} data-item-actions>
     <x-customer.save-button :item="$item" :title="$title" :image="$image" :hash="$hash" :small="$small" />
     <x-customer.share-button round :title="$title" :hash="$hash" :small="$small" />
+    <x-customer.post-button :item="$item" :title="$title" :image="$image" :hash="$hash" :small="$small" />
 </div>
