@@ -22,6 +22,22 @@
                             <button type="button" wire:click="undoDone({{ $post->id }}, '{{ $platform }}')" class="text-xs font-normal text-green-700 underline">undo</button>
                         </div>
                     @else
+                        @php($delivery = $post->deliveries->firstWhere('platform', $platform))
+                        @if (in_array($platform, $autoPlatforms, true))
+                            {{-- Connected: goes out by itself at its time; Post now / Try again for the impatient or a failure. --}}
+                            <div class="mb-1 rounded-xl p-2 text-sm {{ $delivery?->status === 'failed' ? 'bg-red-50 text-red-800 ring-1 ring-red-200' : 'bg-blue-50 text-blue-900' }}" data-auto="{{ $platform }}">
+                                @if ($delivery?->status === 'failed')
+                                    <p class="font-semibold">⚠️ Could not post on {{ $label }}</p>
+                                    <p class="text-xs">{{ $delivery->error }}</p>
+                                @elseif ($delivery?->status === 'posting')
+                                    <p class="font-semibold">⏳ Posting on {{ $label }}…</p>
+                                @else
+                                    <p class="font-semibold">🤖 Posts by itself on {{ $label }} at {{ $post->scheduled_for?->setTimezone($zone)->format('g:i A') }}</p>
+                                @endif
+                                <button type="button" wire:click="postNow({{ $post->id }}, '{{ $platform }}')" wire:loading.attr="disabled" wire:confirm="Post this on {{ $label }} now?"
+                                        class="mt-1 min-h-[40px] rounded-lg bg-white px-3 text-xs font-semibold ring-1 ring-current">{{ $delivery?->status === 'failed' ? 'Try again' : 'Post now' }}</button>
+                            </div>
+                        @endif
                         <div class="rounded-xl bg-gray-50 p-2 ring-1 ring-gray-200">
                             <div class="flex gap-2">
                                 <button type="button" class="min-h-[44px] flex-1 rounded-xl px-3 text-sm font-semibold {{ $colour }}"

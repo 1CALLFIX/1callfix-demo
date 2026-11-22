@@ -116,6 +116,9 @@ Route::middleware(['auth', \Illuminate\Session\Middleware\AuthenticateSession::c
         // marketing.contacts.manage, checked in each component.
         Route::get('/marketing/posts', \App\Livewire\Marketing\SocialPosts::class)->name('admin.marketing.posts');
         Route::get('/marketing/contacts', \App\Livewire\Marketing\Contacts::class)->name('admin.marketing.contacts');
+        // Automatic Facebook / Instagram posting (2026-11-22): the Super Admin approves once on Facebook.
+        Route::get('/marketing/meta/connect', [\App\Http\Controllers\Admin\MetaConnectController::class, 'connect'])->name('admin.marketing.meta.connect');
+        Route::get('/marketing/meta/callback', [\App\Http\Controllers\Admin\MetaConnectController::class, 'callback'])->name('admin.marketing.meta.callback');
         // Live Visitors (owner 2026-11-21): who is online, what they view and start to book. visitors.view, checked in the component.
         Route::get('/live-visitors', \App\Livewire\Insights\LiveVisitors::class)->name('admin.live-visitors');
         // Careers page (owner 2026-11-21): the jobs and the applications. Permission careers.manage, checked in each.

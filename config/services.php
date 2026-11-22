@@ -220,4 +220,10 @@ return [
         'driver' => env('WHATSAPP_DRIVER', 'log'), // log (no real provider configured yet)
     ],
 
+    // Automatic Facebook / Instagram posting (Social posts, 2026-11-22). App ID and secret are typed by the Super Admin
+    // in the admin (stored encrypted), not here; only the Graph API version lives in config.
+    'meta' => [
+        'graph_version' => env('META_GRAPH_VERSION', 'v27.0'),
+    ],
+
 ];

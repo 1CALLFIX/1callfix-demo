@@ -194,7 +194,8 @@
                     @endforeach
                 </div>
             @endforeach
-            <p class="mt-2 text-xs text-gray-500">Automatic posting (no tap needed) comes once Meta (Facebook, Instagram) and Google approve 1CallFix's business apps. Until then each post is one tap per place.</p>
+            <p class="mt-2 text-xs text-gray-500">Facebook and Instagram can post by themselves once connected (below). Google Business waits for Google's approval; WhatsApp Status is always one tap.</p>
         </div>
+        <livewire:marketing.meta-connect />
     @endif
 </div>

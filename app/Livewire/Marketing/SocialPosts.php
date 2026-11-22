@@ -9,6 +9,8 @@ use App\Models\SocialPost;
 use App\Models\SocialPostDelivery;
 use App\Services\ActivityLogger;
 use App\Services\AuthorizationService;
+use App\Services\Marketing\AutoPoster;
+use App\Services\Marketing\MetaGraph;
 use App\Services\Marketing\ModuleGate;
 use App\Services\Marketing\PostIdeas;
 use App\Services\Marketing\SocialPostPlanner;
@@ -312,6 +314,26 @@ class SocialPosts extends Component
         $this->flash('Marked as posted on '.SocialPost::PLATFORMS[$platform][0].'.');
     }
 
+    /** Facebook / Instagram once connected (2026-11-22): post a scheduled post now, or try a failed one again. */
+    public function postNow(int $postId, string $platform): void
+    {
+        $post = $this->find($postId);
+        abort_unless(in_array($platform, $post->platforms ?? [], true) && in_array($platform, app(MetaGraph::class)->autoPlatforms(), true), 422);
+        if ($post->status !== 'scheduled') {
+            $this->flash('Only a scheduled post can be posted. Schedule it first.', 'error');
+
+            return;
+        }
+        if ($reason = app(ModuleGate::class)->offReason($post->module, $post->city_id)) {
+            $this->flash($reason.'. This post is not posted.', 'error');
+
+            return;
+        }
+        $outcome = app(AutoPoster::class)->publishOne($post, $platform, auth()->id());
+        $label = SocialPost::PLATFORMS[$platform][0];
+        $outcome === true ? $this->flash('Posted on '.$label.'.') : $this->flash('Could not post on '.$label.': '.$outcome, 'error');
+    }
+
     public function undoDone(int $postId, string $platform): void
     {
         $post = $this->find($postId);
@@ -420,6 +442,7 @@ class SocialPosts extends Component
             'moduleLabels' => array_intersect_key(PageClassifier::MODULE_LABELS, ModuleGate::CODES),
             'cities' => $cities,
             'isSuperAdmin' => auth()->user()->role === 'super_admin',
+            'autoPlatforms' => app(MetaGraph::class)->autoPlatforms(),
             'defaultPlatforms' => SocialPostPlanner::platforms(),
             'reminderTime' => SocialPostPlanner::reminderTime(),
             'postTime' => SocialPostPlanner::postTime(),
