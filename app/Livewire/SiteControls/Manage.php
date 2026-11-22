@@ -30,6 +30,8 @@ class Manage extends Component
     public string $iconSize = 'medium';
 
     public string $imageFit = 'contain';
+    public string $bannerSizeComputer = 'two_peek';
+    public string $bannerSizePhone = 'peek';
     public bool $imageBorder = true;
     public bool $imageGloss = true;
 
@@ -104,6 +106,8 @@ class Manage extends Component
         $this->columnsDesktop = (string) S::columnsDesktop();
         $this->iconSize = S::iconSize();
         $this->imageFit = S::imageFit();
+        $this->bannerSizeComputer = S::bannerSizeComputer();
+        $this->bannerSizePhone = S::bannerSizePhone();
         $this->imageBorder = S::imageBorder();
         $this->imageGloss = S::imageGloss();
         $this->parcelPosition = S::parcelPosition();
@@ -157,6 +161,8 @@ class Manage extends Component
             'iconSize' => ['required', 'in:'.implode(',', S::ICON_SIZES)],
             'columnsDesktop' => ['required', 'integer', 'between:4,12'],
             'imageFit' => ['required', 'in:'.implode(',', S::FITS)],
+            'bannerSizeComputer' => ['required', 'in:'.implode(',', array_keys(S::BANNER_SIZES_COMPUTER))],
+            'bannerSizePhone' => ['required', 'in:'.implode(',', array_keys(S::BANNER_SIZES_PHONE))],
             'parcelPosition' => ['required', 'in:'.implode(',', S::PARCEL_POSITIONS)],
             'parcelTitle' => ['required', 'string', 'max:40'],
             'parcelSubtitle' => ['required', 'string', 'max:80'],
@@ -209,6 +215,8 @@ class Manage extends Component
             S::HOME_COLUMNS_DESKTOP => (string) (int) $this->columnsDesktop,
             S::HOME_ICON_SIZE => $this->iconSize,
             S::IMAGE_FIT => $this->imageFit,
+            S::BANNER_SIZE_COMPUTER => $this->bannerSizeComputer,
+            S::BANNER_SIZE_PHONE => $this->bannerSizePhone,
             S::IMAGE_BORDER => $bool($this->imageBorder),
             S::IMAGE_GLOSS => $bool($this->imageGloss),
             S::PARCEL_POSITION => $this->parcelPosition,

@@ -48,6 +48,24 @@ final class SiteControls
     public const IMAGE_BORDER = 'images.border';
     public const IMAGE_GLOSS = 'images.gloss';
 
+    // Homepage top banners (owner 2026-11-22: "the banners look very small … give super admin control"). How many sit
+    // side by side decides their size: a banner keeps its own shape, so a wider banner is a taller one.
+    public const BANNER_SIZE_COMPUTER = 'home.banners.size_computer';
+    public const BANNER_SIZE_PHONE = 'home.banners.size_phone';
+    /** key => [label for Super Admin, slide width from tablets up]. Default two_peek = the 2026-11-21 layout. */
+    public const BANNER_SIZES_COMPUTER = [
+        'big' => ['Big: 1 banner, the next one peeking', '88%'],
+        'large' => ['Large: 1½ banners', '64%'],
+        'two' => ['Medium: 2 banners', 'calc(50% - 0.5rem)'],
+        'two_peek' => ['Small: 2 banners and a peek', '42%'],
+        'three' => ['Smallest: 3 banners', 'calc(33.333% - 0.667rem)'],
+    ];
+    /** key => [label, slide width on phones]. Default peek = today's phone layout. */
+    public const BANNER_SIZES_PHONE = [
+        'full' => ['Full width: 1 banner', '100%'],
+        'peek' => ['1 banner, the next one peeking', '85%'],
+    ];
+
     // Provider sign-up: services step
     public const SIGNUP_SERVICES = 'provider_signup.services_step';
     public const SIGNUP_SERVICES_MAX = 'provider_signup.services_max';
@@ -198,6 +216,36 @@ final class SiteControls
     public static function frameClasses(): string
     {
         return trim((self::imageBorder() ? 'cf-img-border ' : '').(self::imageGloss() ? 'cf-img-gloss' : ''));
+    }
+
+    public static function bannerSizeComputer(): string
+    {
+        $v = (string) self::raw(self::BANNER_SIZE_COMPUTER);
+
+        return isset(self::BANNER_SIZES_COMPUTER[$v]) ? $v : 'two_peek';
+    }
+
+    public static function bannerSizePhone(): string
+    {
+        $v = (string) self::raw(self::BANNER_SIZE_PHONE);
+
+        return isset(self::BANNER_SIZES_PHONE[$v]) ? $v : 'peek';
+    }
+
+    /**
+     * Slide widths for the homepage top banners with `$count` banners: ['phone' => css width, 'wide' => css width from
+     * 640 px up]. Two banners never show a third-banner gap: the "and a peek" / "3" choices show the two side by side.
+     *
+     * @return array{phone: string, wide: string}
+     */
+    public static function bannerWidths(int $count): array
+    {
+        $computer = self::bannerSizeComputer();
+        if ($count === 2 && in_array($computer, ['two_peek', 'three'], true)) {
+            $computer = 'two';
+        }
+
+        return ['phone' => self::BANNER_SIZES_PHONE[self::bannerSizePhone()][1], 'wide' => self::BANNER_SIZES_COMPUTER[$computer][1]];
     }
 
     /** Where the parcel card sits on the homepage. Default after_banner, where it has been since parcel launched. */

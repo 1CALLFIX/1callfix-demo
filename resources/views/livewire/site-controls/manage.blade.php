@@ -59,6 +59,36 @@
         </x-ui.card>
 
         <x-ui.card>
+            <h2 class="text-sm font-semibold mb-1">🖼️ Homepage top banners: size</h2>
+            <p class="text-xs text-gray-500 mb-3">A banner keeps its own shape, so fewer banners side by side means bigger, taller banners. Tap a size, then Save.</p>
+            <div class="space-y-4">
+                <div>
+                    <p class="text-sm font-medium mb-2">💻 On computers and tablets</p>
+                    <div class="flex flex-wrap gap-2" role="radiogroup" aria-label="Banner size on computers and tablets">
+                        @foreach (\App\Support\SiteControls::BANNER_SIZES_COMPUTER as $key => [$label])
+                            <label class="cursor-pointer">
+                                <input type="radio" wire:model.live="bannerSizeComputer" value="{{ $key }}" class="sr-only peer" data-testid="banner-size-computer-{{ $key }}">
+                                <span class="inline-flex min-h-[44px] items-center rounded-full border-2 px-4 text-sm font-semibold border-gray-200 bg-white text-gray-700 peer-checked:border-blue-600 peer-checked:bg-blue-600 peer-checked:text-white peer-focus-visible:ring-2 peer-focus-visible:ring-blue-400">{{ $label }}@if ($key === 'two_peek') <span class="ml-1 font-normal opacity-80">(until now)</span>@endif</span>
+                            </label>
+                        @endforeach
+                    </div>
+                </div>
+                <div>
+                    <p class="text-sm font-medium mb-2">📱 On phones</p>
+                    <div class="flex flex-wrap gap-2" role="radiogroup" aria-label="Banner size on phones">
+                        @foreach (\App\Support\SiteControls::BANNER_SIZES_PHONE as $key => [$label])
+                            <label class="cursor-pointer">
+                                <input type="radio" wire:model.live="bannerSizePhone" value="{{ $key }}" class="sr-only peer" data-testid="banner-size-phone-{{ $key }}">
+                                <span class="inline-flex min-h-[44px] items-center rounded-full border-2 px-4 text-sm font-semibold border-gray-200 bg-white text-gray-700 peer-checked:border-emerald-600 peer-checked:bg-emerald-600 peer-checked:text-white peer-focus-visible:ring-2 peer-focus-visible:ring-emerald-400">{{ $label }}@if ($key === 'peek') <span class="ml-1 font-normal opacity-80">(until now)</span>@endif</span>
+                            </label>
+                        @endforeach
+                    </div>
+                </div>
+                <p class="text-xs text-gray-500">The banners are 3 times as wide as they are tall, so on a phone a full-width banner is still a strip. For taller banners on phones, upload taller pictures (for example 1600 × 800) in Banners.</p>
+            </div>
+        </x-ui.card>
+
+        <x-ui.card>
             <h2 class="text-sm font-semibold mb-3">Pictures</h2>
             <div class="grid gap-4 md:grid-cols-2">
                 <div>

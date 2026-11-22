@@ -71,7 +71,16 @@
         $peek = $isHero && $multiple;
     @endphp
 
+    @if ($peek)
+        {{-- Owner 2026-11-22: Super Admin sets the size (Homepage & sign-up → Homepage top banners: size). Inline, so no front-end build. --}}
+        @php
+            $bannerWidths = \App\Support\SiteControls::bannerWidths($count);
+            $sizeKey = 'cf-banners-'.substr(md5($id.$label), 0, 8);
+        @endphp
+        <style>[data-banner-size="{{ $sizeKey }}"] [data-carousel-slide]{width:{{ $bannerWidths['phone'] }}}@media (min-width:640px){[data-banner-size="{{ $sizeKey }}"] [data-carousel-slide]{width:{{ $bannerWidths['wide'] }}}}</style>
+    @endif
     <section data-carousel
+             @if ($peek) data-banner-size="{{ $sizeKey }}" @endif
              data-carousel-autoplay="{{ $autoplay && $multiple ? 'true' : 'false' }}"
              @if (filled($interval)) data-carousel-interval="{{ (int) $interval }}" @endif
              aria-roledescription="carousel"
@@ -100,6 +109,7 @@
                      aria-roledescription="slide"
                      aria-label="{{ $slideLabel }}"
                      @class(["shrink-0 snap-start", "w-full" => ! $peek, "w-[85%] sm:w-[calc(50%-0.5rem)]" => $peek && $count === 2, "w-[85%] sm:w-[42%]" => $peek && $count >= 3])>
+                    {{-- The classes above are the fallback; the <style> above the section sets the Super Admin's size. --}}
                     {{-- Owner 2026-11-21: on desktop 3 banners side by side were too small. 42% from tablet up shows two big
                          banners and about a third of the next one ("2.3"), so people see there is more to swipe. --}}
                     @php
