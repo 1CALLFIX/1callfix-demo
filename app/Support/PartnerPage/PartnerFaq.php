@@ -123,7 +123,9 @@ final class PartnerFaq
         // ---------------------------------------------------------------- service professionals
         if (isset($byCode['service'])) {
             $cats = ServiceCategory::query()->whereNull('parent_id')->where('is_active', true)->where('module', 'service')
-                ->where('name', 'not like', QaRows::LIKE)->orderBy('sort_order')->orderBy('name')->limit(20)->pluck('name')->all();
+                ->where('name', 'not like', QaRows::LIKE)
+                // Only categories a customer can really book (an empty category is not work on offer).
+                ->whereHas('services', fn ($q) => $q->where('is_active', true))->orderBy('sort_order')->orderBy('name')->limit(20)->pluck('name')->all();
             if ($cats !== []) {
                 $out[] = self::item('service', 'Which services can I offer?', 'Customers book these services today: '.self::sentence($cats).'. '
                     .'You pick your skills when you sign up, and job offers match them.');
