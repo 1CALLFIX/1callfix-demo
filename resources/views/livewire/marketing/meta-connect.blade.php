@@ -1,7 +1,7 @@
 {{-- Connect Facebook & Instagram (owner 2026-11-22): Super Admin only, three numbered steps. --}}
 <div class="mb-6 rounded-2xl bg-white p-4 ring-2 ring-blue-200" data-meta-connect>
     <div class="mb-3 flex flex-wrap items-center gap-2">
-        <h2 class="font-semibold text-blue-900">🔗 Post automatically to Facebook &amp; Instagram</h2>
+        <h2 class="font-semibold text-blue-900">🔗 Direct: our own Facebook &amp; Instagram connection</h2>
         @if ($connected)
             <span class="rounded-full bg-green-100 px-3 py-0.5 text-xs font-semibold text-green-800">Connected</span>
         @elseif ($broken)
@@ -65,13 +65,5 @@
         </div>
     </div>
 
-    {{-- 3 · On / off --}}
-    <div class="rounded-xl bg-emerald-50/60 p-3">
-        <p class="text-sm font-semibold text-emerald-900">3 · Automatic posting</p>
-        <div class="mt-1 flex flex-wrap items-center gap-2">
-            <button type="button" wire:click="toggleAutopost" @class(['min-h-11 rounded-full px-4 text-sm font-semibold',
-                'bg-emerald-600 text-white' => $autopost, 'bg-white text-gray-700 ring-1 ring-gray-300' => ! $autopost])>{{ $autopost ? '✓ On' : 'Off' }}</button>
-            <span class="text-xs text-gray-600">On: scheduled posts go out on Facebook and Instagram at their time by themselves. Google Business and WhatsApp Status stay one tap.</span>
-        </div>
-    </div>
+    <p class="text-xs text-gray-600">Whether Facebook and Instagram post through this connection, through Buffer or by hand is chosen in <b>🚦 How each place posts</b> above.</p>
 </div>

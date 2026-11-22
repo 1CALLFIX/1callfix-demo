@@ -140,7 +140,7 @@
                 <div class="rounded-xl bg-pink-50 p-3">
                     <p class="mb-2 text-sm font-bold text-pink-800">4 · Where to post</p>
                     <div class="flex flex-wrap gap-2">
-                        @foreach ($platformMeta as $key => [$label, $colour])
+                        @foreach (array_intersect_key($platformMeta, array_flip($editorPlatforms)) as $key => [$label, $colour])
                             <button type="button" wire:click="togglePlatform('{{ $key }}')" class="min-h-[44px] rounded-full px-4 text-sm font-semibold {{ in_array($key, $platforms, true) ? $colour : 'bg-white text-gray-600 ring-1 ring-gray-300' }}">{{ in_array($key, $platforms, true) ? '✓ ' : '' }}{{ $label }}</button>
                         @endforeach
                     </div>
@@ -216,7 +216,7 @@
             <h2 class="mb-3 font-semibold">⚙️ Settings</h2>
             <p class="mb-1 text-sm text-gray-700">Places you post (new posts start with these):</p>
             <div class="mb-3 flex flex-wrap gap-2">
-                @foreach ($platformMeta as $key => [$label, $colour])
+                @foreach (array_intersect_key($platformMeta, array_flip($editorPlatforms)) as $key => [$label, $colour])
                     <button type="button" wire:click="toggleDefaultPlatform('{{ $key }}')" class="min-h-[44px] rounded-full px-4 text-sm font-semibold {{ in_array($key, $defaultPlatforms, true) ? $colour : 'bg-white text-gray-600 ring-1 ring-gray-300' }}">{{ in_array($key, $defaultPlatforms, true) ? '✓ ' : '' }}{{ $label }}</button>
                 @endforeach
             </div>
@@ -228,8 +228,10 @@
                     @endforeach
                 </div>
             @endforeach
-            <p class="mt-2 text-xs text-gray-500">Facebook and Instagram can post by themselves once connected (below). Google Business waits for Google's approval; WhatsApp Status is always one tap.</p>
+            <p class="mt-2 text-xs text-gray-500">Choose below how each place posts: Direct (our Facebook connection), Buffer, or By hand. WhatsApp Status is always one tap.</p>
         </div>
+        <livewire:marketing.posting-routes />
+        <livewire:marketing.buffer-connect />
         <livewire:marketing.meta-connect />
     @endif
 </div>

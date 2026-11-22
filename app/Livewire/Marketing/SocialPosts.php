@@ -11,7 +11,7 @@ use App\Services\ActivityLogger;
 use App\Services\AuthorizationService;
 use App\Services\Marketing\AutoPoster;
 use App\Services\Marketing\ItemPost;
-use App\Services\Marketing\MetaGraph;
+use App\Services\Marketing\PostingRoutes;
 use App\Services\Marketing\ModuleGate;
 use App\Services\Marketing\PostIdeas;
 use App\Services\Marketing\SocialPostPlanner;
@@ -19,6 +19,7 @@ use App\Services\SettingsAuditor;
 use App\Services\Visitors\PageClassifier;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
+use Livewire\Attributes\On;
 use Livewire\Component;
 use Livewire\WithFileUploads;
 
@@ -241,6 +242,8 @@ class SocialPosts extends Component
     {
         $this->authorizeView();
         $user = auth()->user();
+        // A Buffer-only place (LinkedIn, X, Threads) whose channel went away is dropped, not an error.
+        $this->platforms = array_values(array_intersect($this->platforms, app(PostingRoutes::class)->editorPlatforms()));
         $this->validate([
             'title' => ['required', 'string', 'max:110'],
             'captionEn' => ['required', 'string', 'max:2000'],
@@ -250,7 +253,7 @@ class SocialPosts extends Component
             'module' => ['nullable', 'in:'.implode(',', array_keys(ModuleGate::CODES))],
             'cityId' => ['nullable', 'integer', 'exists:cities,id'],
             'platforms' => ['required', 'array', 'min:1'],
-            'platforms.*' => ['in:'.implode(',', array_keys(SocialPost::PLATFORMS))],
+            'platforms.*' => ['in:'.implode(',', app(PostingRoutes::class)->editorPlatforms())],
             'upload' => ['nullable', 'image', 'max:8192'],
             'day' => [$schedule ? 'required' : 'nullable', 'date_format:Y-m-d'],
             'time' => [$schedule ? 'required' : 'nullable', 'date_format:H:i'],
@@ -276,6 +279,13 @@ class SocialPosts extends Component
 
             return;
         }
+        // Instagram takes no post without a picture (owner 2026-11-22: a scheduled post failed on Instagram for this).
+        if ($schedule && in_array('instagram', $this->platforms, true) && ! $this->imagePath && ! $this->upload) {
+            $this->addError('upload', 'Instagram needs a picture. Add one, or untick Instagram.');
+
+            return;
+        }
+
 
         $image = $this->imagePath ?: null;
         if ($this->upload) {
@@ -375,7 +385,7 @@ class SocialPosts extends Component
         }
 
         SocialPostDelivery::updateOrCreate(['social_post_id' => $post->id, 'platform' => $platform],
-            ['status' => 'posted', 'posted_at' => now(), 'posted_by' => auth()->id(), 'post_url' => $url ?: null, 'error' => null]);
+            ['status' => 'posted', 'via' => 'manual', 'posted_at' => now(), 'posted_by' => auth()->id(), 'post_url' => $url ?: null, 'external_id' => null, 'error' => null]);
         $post->load('deliveries');
         if (collect($post->platforms)->every(fn ($p) => $post->isPostedOn($p))) {
             $post->forceFill(['status' => 'posted'])->save();
@@ -385,11 +395,11 @@ class SocialPosts extends Component
         $this->flash('Marked as posted on '.SocialPost::PLATFORMS[$platform][0].'.');
     }
 
-    /** Facebook / Instagram once connected (2026-11-22): post a scheduled post now, or try a failed one again. */
+    /** A platform that posts by itself (Direct or Buffer, 2026-11-22): post a scheduled post now, or try a failed one again. */
     public function postNow(int $postId, string $platform): void
     {
         $post = $this->find($postId);
-        abort_unless(in_array($platform, $post->platforms ?? [], true) && in_array($platform, app(MetaGraph::class)->autoPlatforms(), true), 422);
+        abort_unless(in_array($platform, $post->platforms ?? [], true) && in_array($platform, app(PostingRoutes::class)->autoPlatforms(), true), 422);
         if ($post->status !== 'scheduled') {
             $this->flash('Only a scheduled post can be posted. Schedule it first.', 'error');
 
@@ -405,9 +415,19 @@ class SocialPosts extends Component
         $outcome === true ? $this->flash('Posted on '.$label.'.') : $this->flash('Could not post on '.$label.': '.$outcome, 'error');
     }
 
+    /** How a place posts changed in the cards below: the share cards and editor follow. */
+    #[On('posting-routes-changed')]
+    public function refreshRoutes(): void {}
+
     public function undoDone(int $postId, string $platform): void
     {
         $post = $this->find($postId);
+        // A post that went out by itself is really on the platform: undoing it here would only post it a second time.
+        if (in_array(SocialPostDelivery::where('social_post_id', $post->id)->where('platform', $platform)->value('via'), ['direct', 'buffer'], true)) {
+            $this->flash('This went out by itself. Delete it on '.(SocialPost::PLATFORMS[$platform][0] ?? $platform).' if it should not be there.', 'error');
+
+            return;
+        }
         SocialPostDelivery::where('social_post_id', $post->id)->where('platform', $platform)->delete();
         if ($post->status === 'posted') {
             $post->forceFill(['status' => 'scheduled'])->save();
@@ -513,7 +533,8 @@ class SocialPosts extends Component
             'moduleLabels' => array_intersect_key(PageClassifier::MODULE_LABELS, ModuleGate::CODES),
             'cities' => $cities,
             'isSuperAdmin' => auth()->user()->role === 'super_admin',
-            'autoPlatforms' => app(MetaGraph::class)->autoPlatforms(),
+            'autoPlatforms' => app(PostingRoutes::class)->autoPlatforms(),
+            'editorPlatforms' => app(PostingRoutes::class)->editorPlatforms(),
             'isHq' => $this->isHq(),
             'awaiting' => $this->posts()->where('status', 'approval')->with('city')->orderBy('scheduled_for')->get(),
             'sentBack' => $this->isHq() ? collect() : $this->posts()->where('status', 'draft')->where('skip_reason', 'like', 'HQ:%')->latest()->limit(10)->get(),

@@ -9,6 +9,7 @@ use App\Notifications\Channels\PushChannel;
 use App\Notifications\MarketingPostsReady;
 use App\Notifications\Support\ChannelResolver;
 use App\Services\Marketing\AutoPoster;
+use App\Services\Marketing\PostingRoutes;
 use App\Services\Marketing\SocialPostPlanner;
 use Carbon\CarbonImmutable;
 use Illuminate\Console\Command;
@@ -21,8 +22,9 @@ use Illuminate\Support\Facades\Log;
  *  2. at the reminder time (Super Admin setting, default 09:30) the marketing team gets "N posts ready to share
  *     today" by email + push, and at 18:00 a nudge if some are still not shared; each once a day;
  *  3. once a day, contacts whose mobile has signed up are marked Joined;
- *  4. (2026-11-22) once Facebook is connected, posts whose time has come go out on Facebook / Instagram by themselves
- *     (AutoPoster: once per platform, never retried by itself). Google Business and WhatsApp stay one tap.
+ *  4. (2026-11-22) posts whose time has come go out by themselves on every platform set to Direct (our Facebook
+ *     connection) or Buffer (AutoPoster: once per platform, never retried by itself), and posts Buffer took are
+ *     checked until they are live. WhatsApp Status stays one tap.
  */
 class MarketingPostsDue extends Command
 {
@@ -34,6 +36,7 @@ class MarketingPostsDue extends Command
     {
         $skipped = $planner->skipSwitchedOff();
         $auto = $poster->publishDue();
+        $synced = $poster->syncBuffer();
         $now = CarbonImmutable::now(SocialPostPlanner::zone());
         $day = $now->toDateString();
 
@@ -41,9 +44,9 @@ class MarketingPostsDue extends Command
             MarketingContact::syncJoined();
         }
 
-        // Only what still needs a person: platforms that post by themselves (connected Facebook / Instagram) do not count,
+        // Only what still needs a person: platforms that post by themselves (Direct or Buffer) do not count,
         // unless their automatic post failed.
-        $autoPlatforms = app(\App\Services\Marketing\MetaGraph::class)->autoPlatforms();
+        $autoPlatforms = app(PostingRoutes::class)->autoPlatforms();
         $due = self::dueToday()->get()->filter(fn (SocialPost $p) => collect($p->platforms)->contains(fn ($pl) => ! $p->isPostedOn($pl)
             && (! in_array($pl, $autoPlatforms, true) || $p->deliveries->firstWhere('platform', $pl)?->status === 'failed')))->count();
         $sent = 0;
@@ -53,7 +56,7 @@ class MarketingPostsDue extends Command
             $sent = $this->remind($due, true);
         }
 
-        $this->info("Skipped {$skipped} post(s) for switched-off modules; posted {$auto['posted']} automatically ({$auto['failed']} failed); {$due} still to share today; reminded {$sent} person(s).");
+        $this->info("Skipped {$skipped} post(s) for switched-off modules; posted {$auto['posted']} automatically ({$auto['failed']} failed); Buffer confirmed {$synced['posted']} ({$synced['failed']} failed); {$due} still to share today; reminded {$sent} person(s).");
 
         return self::SUCCESS;
     }

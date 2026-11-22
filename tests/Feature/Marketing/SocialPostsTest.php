@@ -135,7 +135,8 @@ class SocialPostsTest extends TestCase
             ->set('title', 'Food fest')->set('captionEn', 'Order now')->set('module', 'food')->set('cityId', $city->id)
             ->set('day', $day)->set('time', '10:00')
             ->call('save', true)->assertHasErrors('module')
-            ->set('module', 'service')->call('save', true)->assertHasNoErrors()->assertSee('Scheduled for');
+            ->set('module', 'service')->call('save', true)->assertHasErrors('upload')   // Instagram is ticked: it needs a picture
+            ->set('imagePath', '/images/banner.png')->call('save', true)->assertHasNoErrors()->assertSee('Scheduled for');
 
         $post = SocialPost::sole();
         $this->assertSame('scheduled', $post->status);

@@ -17,7 +17,14 @@ class SocialPost extends Model
         'instagram' => ['Instagram', 'bg-pink-600 text-white', 'https://business.facebook.com/latest/composer'],
         'google_business' => ['Google Business', 'bg-emerald-600 text-white', 'https://business.google.com/'],
         'whatsapp' => ['WhatsApp Status', 'bg-green-600 text-white', 'https://web.whatsapp.com/'],
+        // Through Buffer only (2026-11-22): offered in the editor once a Buffer channel is set for them.
+        'linkedin' => ['LinkedIn', 'bg-sky-700 text-white', 'https://www.linkedin.com/feed/'],
+        'x' => ['X', 'bg-gray-900 text-white', 'https://x.com/compose/post'],
+        'threads' => ['Threads', 'bg-neutral-800 text-white', 'https://www.threads.net/'],
     ];
+
+    /** Shown in the editor even without Buffer. The rest appear once they post by themselves through Buffer. */
+    public const CORE_PLATFORMS = ['facebook', 'instagram', 'google_business', 'whatsapp'];
 
     public const STATUSES = ['draft' => 'Draft', 'approval' => 'Waiting for HQ approval', 'scheduled' => 'Scheduled', 'posted' => 'Posted', 'skipped' => 'Skipped'];
 

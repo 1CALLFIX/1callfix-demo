@@ -14,7 +14,8 @@ use Livewire\Component;
 /**
  * "Connect Facebook & Instagram" card on Admin → Marketing → Social posts (owner 2026-11-22). Super Admin only. Three
  * numbered steps: 1 the Meta app's ID + secret (the secret is write-only: stored encrypted, never shown again, never
- * logged), 2 Connect (approve once on Facebook), 3 automatic posting on / off.
+ * logged), 2 Connect (approve once on Facebook). Whether Facebook / Instagram use this connection, Buffer or the Share
+ * button is chosen in "How each place posts" (PostingRoutes, 2026-11-22).
  */
 class MetaConnect extends Component
 {
@@ -75,15 +76,7 @@ class MetaConnect extends Component
             'page' => $pages[$index]['name'], 'instagram' => $pages[$index]['ig_username'],
         ]);
         $this->message = 'Connected: '.$pages[$index]['name'].'.';
-    }
-
-    public function toggleAutopost(MetaGraph $meta): void
-    {
-        $this->authorizeIt();
-        $on = ! $meta->autopostOn();
-        Setting::set(MetaGraph::AUTOPOST, $on ? '1' : '0');
-        ActivityLogger::log(auth()->user(), 'setting', 0, 'Automatic posting switched '.($on ? 'on' : 'off'));
-        $this->message = $on ? 'Automatic posting is on.' : 'Automatic posting is off: posts wait for the Share button.';
+        $this->dispatch('posting-routes-changed');
     }
 
     public function disconnect(MetaGraph $meta): void
@@ -91,7 +84,8 @@ class MetaConnect extends Component
         $this->authorizeIt();
         $meta->disconnect();
         ActivityLogger::log(auth()->user(), 'setting', 0, 'Facebook Page disconnected from automatic posting');
-        $this->message = 'Disconnected. Posts go back to the Share button.';
+        $this->message = 'Disconnected. Places set to Direct wait for the Share button until Facebook is connected again.';
+        $this->dispatch('posting-routes-changed');
     }
 
     public function render(MetaGraph $meta)
@@ -105,7 +99,6 @@ class MetaConnect extends Component
             'pageName' => Setting::get(MetaGraph::PAGE_NAME),
             'igUsername' => Setting::get(MetaGraph::IG_USERNAME),
             'broken' => Setting::get(MetaGraph::BROKEN),
-            'autopost' => $meta->autopostOn(),
             'choices' => $stored ? array_map(fn ($p) => ['name' => $p['name'], 'ig' => $p['ig_username']], Crypt::decrypt($stored)) : [],
             'redirectUri' => $meta->redirectUri(),
             'flash' => session('meta_message'),

@@ -10,19 +10,21 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
 /**
- * Posts scheduled social posts to Facebook and Instagram by themselves once their time comes (owner 2026-11-22), via
- * marketing:posts-due every 15 minutes. Each post goes out at most once per platform: the delivery row is claimed
- * (pending → posting) before Facebook is called, and a failure is never retried by itself (a retried post could appear
- * twice); the screen shows the reason with a "Try again" button. Google Business and WhatsApp stay one tap.
+ * Posts scheduled social posts by themselves once their time comes (owner 2026-11-22), via marketing:posts-due every
+ * 5 minutes, on each platform the way the Super Admin chose (PostingRoutes: our own Facebook connection, or Buffer).
+ * Each post goes out at most once per platform: the delivery row is claimed (pending → posting) before anything is
+ * called, and a failure is never retried by itself (a retried post could appear twice); the screen shows the reason
+ * with a "Try again" button. A post handed to Buffer is "sent" until Buffer says it went live (or failed): syncBuffer()
+ * asks each run. WhatsApp Status stays one tap.
  */
 class AutoPoster
 {
-    public function __construct(private MetaGraph $meta) {}
+    public function __construct(private PostingRoutes $routes, private BufferApi $buffer) {}
 
     /** @return array{posted: int, failed: int} */
     public function publishDue(): array
     {
-        $platforms = $this->meta->autoPlatforms();
+        $platforms = $this->routes->autoPlatforms();
         $result = ['posted' => 0, 'failed' => 0];
         if ($platforms === []) {
             return $result;
@@ -35,7 +37,7 @@ class AutoPoster
                 foreach (array_intersect($post->platforms ?? [], $platforms) as $platform) {
                     $existing = $post->deliveries->firstWhere('platform', $platform);
                     if ($existing && $existing->status !== 'pending') {
-                        continue;   // posted, posting, failed (waits for Try again) or skipped
+                        continue;   // posted, posting, sent, failed (waits for Try again) or skipped
                     }
                     $outcome = $this->publishOne($post, $platform, null);
                     $outcome === true ? $result['posted']++ : $result['failed']++;
@@ -46,8 +48,8 @@ class AutoPoster
     }
 
     /**
-     * Claim and post one platform. True = posted, otherwise the reason. $by = the person who pressed Post now / Try
-     * again (null for the schedule).
+     * Claim and post one platform. True = posted (or handed to Buffer), otherwise the reason. $by = the person who
+     * pressed Post now / Try again (null for the schedule).
      */
     public function publishOne(SocialPost $post, string $platform, ?int $by): true|string
     {
@@ -61,27 +63,77 @@ class AutoPoster
             return 'Already being posted.';
         }
 
+        $via = $this->routes->route($platform);
         try {
-            $url = $this->meta->publish($post, $platform);
+            $out = $this->routes->publish($post, $platform);
         } catch (\Throwable $e) {
             $reason = Str::limit($e->getMessage(), 280);
-            SocialPostDelivery::whereKey($delivery->id)->update(['status' => 'failed', 'error' => $reason, 'updated_at' => now()]);
-            Log::warning('Social post could not be posted automatically.', ['post' => $post->id, 'platform' => $platform, 'error' => $reason]);
+            SocialPostDelivery::whereKey($delivery->id)->update(['status' => 'failed', 'via' => $via, 'error' => $reason, 'updated_at' => now()]);
+            Log::warning('Social post could not be posted automatically.', ['post' => $post->id, 'platform' => $platform, 'via' => $via, 'error' => $reason]);
 
             return $reason;
         }
 
         SocialPostDelivery::whereKey($delivery->id)->update([
-            'status' => 'posted', 'posted_at' => now(), 'posted_by' => $by, 'post_url' => $url ? Str::limit($url, 500, '') : null,
-            'error' => null, 'updated_at' => now(),
+            'status' => $out['status'], 'via' => $out['via'], 'external_id' => $out['external_id'],
+            'posted_at' => $out['status'] === 'posted' ? now() : null, 'posted_by' => $by,
+            'post_url' => $out['url'] ? Str::limit($out['url'], 500, '') : null, 'error' => null, 'updated_at' => now(),
         ]);
-        $post->load('deliveries');
-        if (collect($post->platforms)->every(fn ($p) => $post->isPostedOn($p))) {
-            $post->forceFill(['status' => 'posted'])->save();
-        }
+        $this->closeIfDone($post);
         $who = $by ? User::find($by) : null;
-        ActivityLogger::logModel($who, $post, 'Social post posted '.($who ? 'by Post now' : 'automatically').' on '.(SocialPost::PLATFORMS[$platform][0] ?? $platform), ['post_url' => $url]);
+        $label = SocialPost::PLATFORMS[$platform][0] ?? $platform;
+        ActivityLogger::logModel($who, $post, ($out['via'] === 'buffer' ? 'Social post sent through Buffer ' : 'Social post posted ')
+            .($who ? 'by Post now' : 'automatically').' on '.$label, ['post_url' => $out['url'], 'buffer_post' => $out['external_id']]);
 
         return true;
+    }
+
+    /**
+     * Ask Buffer about posts it took: live → posted with its address; error → failed with Buffer's reason (waits for
+     * Try again). Looks back 3 days; quiet when Buffer is not connected.
+     *
+     * @return array{posted: int, failed: int}
+     */
+    public function syncBuffer(): array
+    {
+        $result = ['posted' => 0, 'failed' => 0];
+        if (! $this->buffer->connected()) {
+            return $result;
+        }
+
+        SocialPostDelivery::query()->where('via', 'buffer')->where('status', 'sent')->whereNotNull('external_id')
+            ->where('updated_at', '>=', now()->subDays(3))->with('post.deliveries')->orderBy('id')->limit(30)->get()
+            ->each(function (SocialPostDelivery $d) use (&$result) {
+                try {
+                    $state = $this->buffer->status((string) $d->external_id);
+                } catch (\Throwable $e) {
+                    Log::info('Buffer post status not read.', ['delivery' => $d->id, 'error' => $e->getMessage()]);
+
+                    return;
+                }
+                if ($state['status'] === 'sent') {
+                    $d->forceFill(['status' => 'posted', 'posted_at' => now(), 'post_url' => $state['url'] ? Str::limit($state['url'], 500, '') : null])->save();
+                    $this->closeIfDone($d->post);
+                    $result['posted']++;
+                } elseif ($state['status'] === 'error') {
+                    $reason = Str::limit('Buffer could not post it: '.($state['error'] ?: 'no reason given'), 280);
+                    $d->forceFill(['status' => 'failed', 'error' => $reason])->save();
+                    Log::warning('Social post failed at Buffer.', ['post' => $d->social_post_id, 'platform' => $d->platform, 'error' => $reason]);
+                    $result['failed']++;
+                }
+            });
+
+        return $result;
+    }
+
+    private function closeIfDone(?SocialPost $post): void
+    {
+        if (! $post) {
+            return;
+        }
+        $post->load('deliveries');
+        if ($post->status === 'scheduled' && collect($post->platforms)->every(fn ($p) => $post->isPostedOn($p))) {
+            $post->forceFill(['status' => 'posted'])->save();
+        }
     }
 }

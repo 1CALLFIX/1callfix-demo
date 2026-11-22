@@ -17,14 +17,24 @@
                 @foreach ($post->platforms ?? [] as $platform)
                     @php([$label, $colour, $openUrl] = $platformMeta[$platform] ?? [$platform, 'bg-gray-600 text-white', null])
                     @if ($post->isPostedOn($platform))
-                        <div class="flex min-h-[44px] items-center justify-between rounded-xl bg-green-50 px-3 text-sm font-semibold text-green-800">
-                            <span>✓ Posted on {{ $label }}</span>
-                            <button type="button" wire:click="undoDone({{ $post->id }}, '{{ $platform }}')" class="text-xs font-normal text-green-700 underline">undo</button>
+                        @php($done = $post->deliveries->firstWhere('platform', $platform))
+                        <div class="flex min-h-[44px] items-center justify-between gap-2 rounded-xl bg-green-50 px-3 text-sm font-semibold text-green-800">
+                            <span>✓ Posted on {{ $label }}@if ($done?->via === 'buffer') <span class="text-xs font-normal">via Buffer</span>@endif
+                                @if ($done?->post_url)<a href="{{ $done->post_url }}" target="_blank" rel="noopener" class="ml-1 text-xs font-normal underline">see it</a>@endif</span>
+                            @unless (in_array($done?->via, ['direct', 'buffer'], true))
+                                <button type="button" wire:click="undoDone({{ $post->id }}, '{{ $platform }}')" class="text-xs font-normal text-green-700 underline">undo</button>
+                            @endunless
                         </div>
                     @else
                         @php($delivery = $post->deliveries->firstWhere('platform', $platform))
-                        @if (in_array($platform, $autoPlatforms, true))
-                            {{-- Connected: goes out by itself at its time; Post now / Try again for the impatient or a failure. --}}
+                        @if ($delivery?->status === 'sent')
+                            {{-- Buffer took it: it goes live in a minute or two; the schedule checks and marks it posted. --}}
+                            <div class="mb-1 rounded-xl bg-violet-50 p-2 text-sm text-violet-900" data-auto="{{ $platform }}">
+                                <p class="font-semibold">📨 Sent to Buffer: goes live on {{ $label }} shortly</p>
+                                <p class="text-xs">Marked ✓ Posted by itself once Buffer confirms.</p>
+                            </div>
+                        @elseif (in_array($platform, $autoPlatforms, true))
+                            {{-- Posts by itself (Direct or Buffer) at its time; Post now / Try again for the impatient or a failure. --}}
                             <div class="mb-1 rounded-xl p-2 text-sm {{ $delivery?->status === 'failed' ? 'bg-red-50 text-red-800 ring-1 ring-red-200' : 'bg-blue-50 text-blue-900' }}" data-auto="{{ $platform }}">
                                 @if ($delivery?->status === 'failed')
                                     <p class="font-semibold">⚠️ Could not post on {{ $label }}</p>
@@ -38,6 +48,7 @@
                                         class="mt-1 min-h-[40px] rounded-lg bg-white px-3 text-xs font-semibold ring-1 ring-current">{{ $delivery?->status === 'failed' ? 'Try again' : 'Post now' }}</button>
                             </div>
                         @endif
+                        @if ($delivery?->status !== 'sent')
                         <div class="rounded-xl bg-gray-50 p-2 ring-1 ring-gray-200">
                             <div class="flex gap-2">
                                 <button type="button" class="min-h-[44px] flex-1 rounded-xl px-3 text-sm font-semibold {{ $colour }}"
@@ -48,6 +59,7 @@
                             </div>
                             <input type="url" wire:model="postUrls.{{ $post->id }}-{{ $platform }}" placeholder="Post link (optional)" class="mt-2 min-h-[40px] w-full rounded-lg border px-2 text-xs">
                         </div>
+                        @endif
                     @endif
                 @endforeach
             </div>
