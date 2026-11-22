@@ -154,7 +154,10 @@ class PartnerLiveFaqTest extends TestCase
         $this->assertStringContainsString('Parcels up to 10 kg', $faq['What kind of parcels will I deliver?']);
         $this->assertStringContainsString('within 15 km', $faq['What kind of parcels will I deliver?']);
         $this->assertStringContainsString('Government ID proof', $faq['What documents does a delivery rider need?']);
-        $this->assertStringStartsWith('Rides are not open in any city yet.', $faq['When will cab driver jobs open?']);
+        $this->assertStringStartsWith('Cab rides are opening soon.', $faq['Can I join as a cab driver?']);
+        $this->assertArrayNotHasKey('When will cab driver jobs open?', $faq, 'no question promising a date');
+        // Points to delivery rider work exactly when that role is really open (same live answer as its own question).
+        $this->assertSame(str_starts_with($faq['Are delivery rider jobs open?'], 'Yes.'), str_contains($faq['Can I join as a cab driver?'], 'Want to earn now? Delivery rider jobs are open'));
     }
 
     public function test_the_switch_turns_the_live_answers_off(): void

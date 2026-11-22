@@ -166,7 +166,9 @@ final class PartnerFaq
         if (isset($byCode['taxi'])) {
             $out[] = $open('taxi')
                 ? self::item('riders', 'Are cab driver jobs open?', 'Yes. Pick "'.$label('taxi').'" in the form below to start.')
-                : self::item('riders', 'When will cab driver jobs open?', 'Rides are not open in any city yet. Pick "'.$label('taxi').'" in the form below to join the waitlist; we will contact you on your mobile when rides open in your city.');
+                // Owner 2026-11-22: no date we cannot give, no dead end; point a driver who wants work now to an open role.
+                : self::item('riders', 'Can I join as a cab driver?', 'Cab rides are opening soon. Pick "'.$label('taxi').'" in the form below to join the waitlist, and we will call you on your mobile as soon as rides start in your city.'
+                    .($open('parcel') ? ' Want to earn now? '.$label('parcel').' jobs are open'.$where.'.' : ''));
         }
 
         // ---------------------------------------------------------------- shops, stays and owners

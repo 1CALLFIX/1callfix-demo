@@ -59,3 +59,10 @@ Blank on live, so their answers stay general until set (Admin → Partner page):
 1. Commission range (lowest / highest %) or each role's terms line.
 2. Payout timing note and approval time note.
 3. Partner support numbers (none set; the page shows no help line).
+
+## 2026.11.22.10 — cab driver answer
+Owner 2026-11-22 ("please check and fix When will cab driver jobs open?"). Taxi is not built for customers yet
+(`is_implemented` false, on nowhere), so the fact was right but the question promised a date and the answer was a dead
+end. Now "Can I join as a cab driver?": "Cab rides are opening soon. Pick "Cab driver"… we will call you on your mobile
+as soon as rides start in your city." plus "Want to earn now? Delivery rider jobs are open in <live cities>." only while
+rider sign-ups are open. No migrations, no build. Full suite 5171 of 5171.
