@@ -24,6 +24,11 @@ class MetaConnectController extends Controller
     public function connect(Request $request, MetaGraph $meta): RedirectResponse
     {
         abort_unless(SuperAdminGate::allows($request->user()), 403, 'Only the Super Admin can connect Facebook.');
+        // Opened on http:// or www.: move to the main address first, so the return address Facebook gets matches the
+        // one saved in the Meta app and the login + state survive the round trip (same host both ways).
+        if ($request->root() !== MetaGraph::mainRoot()) {
+            return redirect()->away(MetaGraph::mainRoot().route('admin.marketing.meta.connect', [], false));
+        }
         if (! $meta->hasApp()) {
             return redirect()->route('admin.marketing.posts')->with('meta_message', 'Type the Meta app ID and secret first.');
         }

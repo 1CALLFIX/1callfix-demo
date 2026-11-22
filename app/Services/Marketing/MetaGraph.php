@@ -95,9 +95,19 @@ class MetaGraph
         return Setting::get(self::IG_ID) ? ['facebook', 'instagram'] : ['facebook'];
     }
 
+    /**
+     * Always the site's main address (APP_URL, https, no www), whatever address the Super Admin opened the admin on:
+     * Facebook only accepts the exact return address saved in the Meta app, and the site also answers on http:// and
+     * www. (owner 2026-11-22: "URL Blocked").
+     */
     public function redirectUri(): string
     {
-        return route('admin.marketing.meta.callback');
+        return self::mainRoot().route('admin.marketing.meta.callback', [], false);
+    }
+
+    public static function mainRoot(): string
+    {
+        return rtrim((string) config('app.url'), '/');
     }
 
     public function loginUrl(string $state): string

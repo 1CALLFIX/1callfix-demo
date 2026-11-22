@@ -130,6 +130,25 @@ class MetaAutoPostTest extends TestCase
         Http::assertSent(fn (Request $r) => str_contains($r->url(), 'fb_exchange_token=SHORT'));
     }
 
+    public function test_connect_always_uses_the_main_address_even_from_http_or_www(): void
+    {
+        config(['app.url' => 'https://1callfix.com']);
+        Setting::set(MetaGraph::APP_ID, '445952729385294');
+        Setting::set(MetaGraph::APP_SECRET, Crypt::encryptString(self::SECRET));
+        $admin = $this->makeSuperAdmin();
+
+        $this->assertSame('https://1callfix.com/admin/marketing/meta/callback', app(MetaGraph::class)->redirectUri());
+
+        foreach (['http://1callfix.com', 'https://www.1callfix.com', 'http://www.1callfix.com'] as $other) {
+            $this->actingAs($admin)->get($other.'/admin/marketing/meta/connect')
+                ->assertRedirect('https://1callfix.com/admin/marketing/meta/connect');
+        }
+
+        $location = $this->actingAs($admin)->get('https://1callfix.com/admin/marketing/meta/connect')->headers->get('Location');
+        parse_str((string) parse_url((string) $location, PHP_URL_QUERY), $q);
+        $this->assertSame('https://1callfix.com/admin/marketing/meta/callback', $q['redirect_uri'] ?? null);
+    }
+
     public function test_only_the_super_admin_can_connect(): void
     {
         $staff = $this->makeUserWithPermission('marketing.posts.manage', 'global');

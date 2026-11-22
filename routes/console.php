@@ -252,9 +252,12 @@ ScheduleRunTracker::track(Schedule::command('backups:check-offsite'), 'backups:c
     ->withoutOverlapping(10);
 
 // Digital Marketing (2026-11-21): skip posts for switched-off modules, morning "posts ready" reminder at the owner's
-// time (default 09:30) and an 18:00 nudge, once a day each; daily "Joined" match for imported contacts. Never posts.
+// time (default 09:30) and an 18:00 nudge, once a day each; daily "Joined" match for imported contacts. Once Facebook
+// is connected it also posts the due Facebook / Instagram posts (2026-11-22.2); every 5 minutes so a post goes out
+// at most 5 minutes after its time (owner 2026-11-22: "scheduled at 11:18 but nothing was posted"). Reminders stay
+// once a day (Cache::add guards).
 ScheduleRunTracker::track(Schedule::command('marketing:posts-due'), 'marketing:posts-due')
-    ->everyFifteenMinutes()
+    ->everyFiveMinutes()
     ->withoutOverlapping(10);
 
 // Live Visitors (2026-11-21): page history kept config('visitors.keep_days') days (90), presence 2 days.
