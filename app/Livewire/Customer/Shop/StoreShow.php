@@ -45,6 +45,7 @@ class StoreShow extends Component
     {
         $base = Product::where('store_id', $this->store->id)->where('is_active', true)->where('is_approved', true);
         $term = trim($this->search);
+        $rating = Review::whereHas('marketplaceOrder', fn ($q) => $q->where('store_id', $this->store->id))->selectRaw('avg(rating) as avg, count(*) as n')->first();
 
         return view('livewire.customer.shop.store-show', [
             'products' => (clone $base)
@@ -53,7 +54,7 @@ class StoreShow extends Component
                 ->with('store:id,name,slug,is_open')->orderByRaw('stock > 0 desc')->orderBy('name')->paginate(30),
             'categories' => MarketplaceCategory::whereIn('id', (clone $base)->whereNotNull('marketplace_category_id')->distinct()->pluck('marketplace_category_id'))
                 ->orderBy('position')->orderBy('name')->get(['id', 'name']),
-            'rating' => Review::whereHas('marketplaceOrder', fn ($q) => $q->where('store_id', $this->store->id))->selectRaw('avg(rating) as avg, count(*) as n')->first(),
+            'rating' => $rating,
             'inCart' => $this->cartQuantities(),
             'city' => $this->shopCity,
             'currencySymbol' => Setting::get('locale.currency_symbol', '₹'),
@@ -63,6 +64,40 @@ class StoreShow extends Component
             'ogImage' => $this->store->logo_url,
             // City URL architecture: never a test shop or an empty one.
             'indexable' => app(\App\Services\Seo\CityPages::class)->storeIndexable($this->store),
+            'schema' => [$this->schema($rating)],
         ]);
+    }
+
+    /**
+     * Owner 2026-11-23: Google's "local shop" card for the shop page (restaurants and hotels already had theirs), built
+     * from what the shop already filled in, so no SEO fields for owners. Real data only: the rating only when there are
+     * real reviews (the same ones the page shows), hours only when saved. The shop's phone is never published.
+     *
+     * @return array<string, mixed>
+     */
+    private function schema($rating): array
+    {
+        $days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+        $hours = $this->store->hours()->get()->map(fn ($h) => [
+            '@type' => 'OpeningHoursSpecification', 'dayOfWeek' => $days[$h->day] ?? null,
+            'opens' => substr((string) $h->opens_at, 0, 5), 'closes' => substr((string) $h->closes_at, 0, 5),
+        ])->filter(fn ($h) => $h['dayOfWeek'] !== null)->values()->all();
+        $lat = is_numeric($this->store->lat) ? (float) $this->store->lat : null;
+        $lng = is_numeric($this->store->lng) ? (float) $this->store->lng : null;
+
+        return array_filter([
+            '@context' => 'https://schema.org', '@type' => 'Store', 'name' => $this->store->name,
+            'url' => url()->current(),
+            'image' => $this->store->logo_url ? \App\Support\Seo::absoluteUrl($this->store->logo_url) : null,
+            'description' => $this->store->description ? \Illuminate\Support\Str::limit(strip_tags((string) $this->store->description), 300) : null,
+            'address' => array_filter([
+                '@type' => 'PostalAddress', 'streetAddress' => trim((string) $this->store->address_line) ?: null,
+                'addressLocality' => $this->shopCity->name, 'addressCountry' => 'IN',
+            ]),
+            'geo' => $lat !== null && $lng !== null && ($lat != 0.0 || $lng != 0.0) ? ['@type' => 'GeoCoordinates', 'latitude' => $lat, 'longitude' => $lng] : null,
+            'openingHoursSpecification' => $hours ?: null,
+            'aggregateRating' => $rating && (int) $rating->n > 0
+                ? ['@type' => 'AggregateRating', 'ratingValue' => round((float) $rating->avg, 1), 'reviewCount' => (int) $rating->n] : null,
+        ], fn ($v) => $v !== null);
     }
 }
