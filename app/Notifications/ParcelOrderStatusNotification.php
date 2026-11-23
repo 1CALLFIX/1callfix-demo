@@ -7,6 +7,7 @@ use App\Models\Setting;
 use App\Services\Parcel\ParcelSettings;
 use App\Services\Parcel\ParcelWaitingCharge;
 use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 
@@ -23,8 +24,12 @@ use Illuminate\Notifications\Notification;
  * here, since Parcel's notification surface is smaller — $amount is only
  * ever set for the 'refunded' event, mirroring PaymentStatusNotification's
  * own optional-amount shape.
+ *
+ * Sent by the queue worker, after the database change commits (owner 2026-11-23): a mail / SMS server that is down
+ * or slow must never cancel a booking or stop a rider's pickup or delivery. Before this the email went out inside the
+ * booking's transaction, so a mail timeout rolled the order back and showed the customer a mail error.
  */
-class ParcelOrderStatusNotification extends Notification
+class ParcelOrderStatusNotification extends Notification implements ShouldQueue
 {
     use Queueable;
 
@@ -34,6 +39,7 @@ class ParcelOrderStatusNotification extends Notification
         private array $channels,
         private ?float $amount = null
     ) {
+        $this->afterCommit();
     }
 
     public function via($notifiable): array

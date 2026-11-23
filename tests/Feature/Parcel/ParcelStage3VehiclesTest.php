@@ -460,4 +460,50 @@ class ParcelStage3VehiclesTest extends TestCase
         $this->assertSame('AP 26 AB 4321', $rider->vehicle_number);
         $this->assertTrue(ActivityLog::where('description', 'Rider vehicle changed')->exists());
     }
+
+    // ═══════════════════════ mail outage (owner 2026-11-23) ═══════════════════════
+
+    /**
+     * A mail server that cannot be reached used to roll the booking back and show the customer "Connection to ...
+     * timed out". Parcel notifications now go to the queue after the booking commits, so the booking stands.
+     */
+    public function test_a_mail_server_that_is_down_does_not_stop_a_booking(): void
+    {
+        $w = $this->world();
+        $this->priceMiniTruck();
+        Setting::set('notifications.channels', 'mail,sms');
+        // The mail channel fails exactly as it did on the local copy: the mail server cannot be reached.
+        app(\Illuminate\Notifications\ChannelManager::class)->extend('mail', fn () => new class
+        {
+            public function send($notifiable, $notification): void
+            {
+                throw new \RuntimeException('Connection to "1CallFix.com:587" timed out.');
+            }
+        });
+
+        Livewire::actingAs($w['customer'])->test(Create::class)
+            ->set('dropMode', 'saved')->set('dropAddressId', $w['dropoff']->id)
+            ->set('vehicle', 'mini_truck')
+            ->set('recipientPhone', '9876543210')->set('paymentMethod', 'cash')->set('restrictedConfirmed', true)
+            ->call('submit')
+            ->assertSet('error', '');
+
+        $this->assertSame(1, ParcelOrder::count());
+        // The "order booked" message waits in the queue for the worker instead of being sent inside the booking.
+        Queue::assertPushed(\Illuminate\Notifications\SendQueuedNotifications::class,
+            fn ($job) => $job->notification instanceof \App\Notifications\ParcelOrderStatusNotification && $job->channels === ['mail']);
+    }
+
+    public function test_parcel_notifications_are_queued_after_commit(): void
+    {
+        $w = $this->world();
+        $order = $this->create($w);
+
+        $status = new \App\Notifications\ParcelOrderStatusNotification('created', $order, ['mail']);
+        $recipient = new \App\Notifications\ParcelRecipientNotification($order);
+        $this->assertInstanceOf(\Illuminate\Contracts\Queue\ShouldQueue::class, $status);
+        $this->assertInstanceOf(\Illuminate\Contracts\Queue\ShouldQueue::class, $recipient);
+        $this->assertTrue($status->afterCommit);
+        $this->assertTrue($recipient->afterCommit);
+    }
 }

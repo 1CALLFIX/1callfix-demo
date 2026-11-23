@@ -8,6 +8,7 @@ use App\Models\Setting;
 use App\Notifications\Channels\SmsChannel;
 use App\Notifications\Support\ChannelResolver;
 use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Notification;
 use Illuminate\Support\Facades\Notification as NotificationFacade;
 
@@ -17,14 +18,18 @@ use Illuminate\Support\Facades\Notification as NotificationFacade;
  * is one of the location's configured channels (ChannelResolver). It carries the delivery OTP the recipient
  * gives the rider; the sender sees the same OTP on their order page either way. Stage 1 (2026-10-25): it also
  * names the rider and their phone, so the recipient can call them.
+ *
+ * Sent by the queue worker after the database change commits (owner 2026-11-23), like ParcelOrderStatusNotification:
+ * an SMS gateway that is down or slow must never undo the rider's accept.
  */
-class ParcelRecipientNotification extends Notification
+class ParcelRecipientNotification extends Notification implements ShouldQueue
 {
     use Queueable;
 
     /** Stage 2: $stop = an extra drop point of a multi-drop order (its own recipient and code). */
     public function __construct(private ParcelOrder $order, private ?ParcelOrderStop $stop = null)
     {
+        $this->afterCommit();
     }
 
     public static function sendFor(ParcelOrder $order, ?ParcelOrderStop $stop = null): void

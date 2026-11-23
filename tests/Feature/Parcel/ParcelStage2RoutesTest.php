@@ -42,7 +42,8 @@ class ParcelStage2RoutesTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        Queue::fake();
+        // Only the rider search is held back; queued notifications (SMS to recipients) still run.
+        Queue::fake([\App\Jobs\ParcelDispatchJob::class]);
     }
 
     private function world(): array
