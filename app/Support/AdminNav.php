@@ -38,6 +38,7 @@ class AdminNav
                     ['label' => 'Partners', 'route' => 'admin.partners.index', 'icon' => 'users', 'permission' => ['workers.view', 'providers.view']],
                     ['label' => 'KYC Support Requests', 'route' => 'admin.kyc.support-requests.index', 'icon' => 'shield', 'permission' => ['kyc.support_requests.create', 'kyc.support_requests.decide']],
                     ['label' => 'Partner leads', 'route' => 'admin.partner-leads.index', 'icon' => 'users', 'permission' => 'partner_page.manage'],
+                    ['label' => 'Field associates', 'route' => 'admin.field-associates.index', 'icon' => 'users', 'permission' => 'field_associates.manage'],
                     ['label' => 'Job applications', 'route' => 'admin.careers.applications', 'icon' => 'clipboard', 'permission' => 'careers.manage'],
                 ],
             ],

@@ -49,6 +49,11 @@ return Application::configure(basePath: dirname(__DIR__))
                 return route('rider.login');
             }
 
+            // Field associates bookmark their page: after signing in they land back on it.
+            if ($request->is('account/field-work')) {
+                return route('customer.login', ['intended' => '/account/field-work']);
+            }
+
             return route('customer.login');
         });
 

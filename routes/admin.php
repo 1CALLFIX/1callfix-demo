@@ -108,6 +108,8 @@ Route::middleware(['auth', \Illuminate\Session\Middleware\AuthenticateSession::c
         Route::get('/security/headers', \App\Livewire\Security\Headers::class)->name('admin.security.headers');
         // REF 1CF-PARTNER-PAGE-001: the public /partners page's words and lists. Permission partner_page.manage, checked in the component.
         Route::get('/partner-leads', \App\Livewire\PartnerPage\Leads::class)->name('admin.partner-leads.index');
+        // Field associates (owner 2026-11-23): who signed up which shop, progress bars, monthly rewards sheet.
+        Route::get('/field-associates', \App\Livewire\FieldAssociates\Manage::class)->name('admin.field-associates.index');
         Route::get('/partner-page', \App\Livewire\PartnerPage\Settings::class)->name('admin.partner-page.settings');
         // Owner 2026-11-07: Super Admin only, checked against the role in each component.
         Route::get('/franchise-page', \App\Livewire\InfoPages\FranchiseSettings::class)->name('admin.franchise-page');

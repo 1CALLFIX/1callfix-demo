@@ -91,6 +91,9 @@ class CompleteMarketplaceOrderAction
 
         $this->commissionService->applyForMarketplaceOrder($order);
 
+        // Field associates: a shop's first real order earns its associate the "first order" reward (never blocks the order).
+        rescue(fn () => $order->store && app(\App\Services\FieldAssociates\FieldAssociateTracker::class)->syncStore($order->store));
+
         // The coupon's benefit is realised on completion.
         if ($usage = \App\Models\CouponUsage::where('marketplace_order_id', $order->id)->where('status', 'reserved')->first()) {
             app(\App\Services\Coupons\CouponService::class)->confirm($usage);

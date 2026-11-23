@@ -187,6 +187,8 @@ class Manage extends Component
 
         $store->update(['approval_status' => 'approved', 'approval_note' => null, 'approved_at' => now(), 'approved_by' => auth()->id(), 'is_active' => true]);
         ActivityLogger::logModel(auth()->user(), $store, 'Shop approved');
+        // Field associates: the "shop live" reward is written now, at today's amount (never blocks the approval).
+        rescue(fn () => app(\App\Services\FieldAssociates\FieldAssociateTracker::class)->syncStore($store));
         session()->flash('message', "{$store->name} approved. The seller can open it now.");
     }
 

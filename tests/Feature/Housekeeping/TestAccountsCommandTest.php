@@ -31,7 +31,7 @@ class TestAccountsCommandTest extends TestCase
         $this->artisan('test-accounts', ['action' => 'create', '--password' => self::PASSWORD, '--franchise' => $franchise->id])->assertSuccessful();
         $this->artisan('test-accounts', ['action' => 'create', '--password' => self::PASSWORD, '--franchise' => $franchise->id])->assertSuccessful();
 
-        $this->assertSame(20, User::where('email', 'like', '%@1callfix.test')->count()); // + test.truckdriver (Parcel Stage 3), + test.marketing (Digital Marketing), + test.organiser (Events E1), + test.hall (Function halls R1), + test.homeowner (Property for rent), + test.vehicleowner (Vehicles for rent), + test.renter (Rent anything), + test.secondhand (Second-hand)
+        $this->assertSame(21, User::where('email', 'like', '%@1callfix.test')->count()); // + test.associate (Field associates), + test.truckdriver (Parcel Stage 3), + test.marketing (Digital Marketing), + test.organiser (Events E1), + test.hall (Function halls R1), + test.homeowner (Property for rent), + test.vehicleowner (Vehicles for rent), + test.renter (Rent anything), + test.secondhand (Second-hand)
         $operator = User::where('email', 'test.operator@1callfix.test')->first();
         $this->assertSame(1, RoleAssignment::where('user_id', $operator->id)->count());
         $this->assertTrue($operator->hasPermission('bookings.reassign', ['franchise_id' => $franchise->id]));
@@ -111,6 +111,29 @@ class TestAccountsCommandTest extends TestCase
         $this->artisan('test-accounts', ['action' => 'disable'])->assertSuccessful();
         $this->assertFalse($driver->fresh()->is_active);
         $this->assertSame('suspended', $driver->user->fresh()->status);
+    }
+
+    /** Field associates (owner 2026-11-23): the associate login is credited with the test shop and restaurant, signs in, and disable pauses it. */
+    public function test_create_makes_a_field_associate_with_the_test_shops_who_can_sign_in_and_disable_turns_it_off(): void
+    {
+        [, , $franchise] = $this->makeFranchiseTree();
+        $this->artisan('test-accounts', ['action' => 'create', '--password' => self::PASSWORD, '--franchise' => $franchise->id])->assertSuccessful();
+        $this->artisan('test-accounts', ['action' => 'create', '--password' => self::PASSWORD, '--franchise' => $franchise->id])->assertSuccessful();
+
+        $associate = \App\Models\FieldAssociate::whereHas('user', fn ($q) => $q->where('email', 'test.associate@1callfix.test'))->sole();
+        $this->assertTrue($associate->is_active);
+        $this->assertSame(\App\Models\FieldAssociate::codeFor($associate->id), $associate->code);
+        $this->assertSame(['Test Restaurant', 'Test Shop'], $associate->stores()->orderBy('name')->pluck('name')->all());
+
+        Livewire::test(\App\Livewire\Customer\Auth\Login::class)->set('identifier', 'test.associate@1callfix.test')->set('password', self::PASSWORD)
+            ->call('login')->assertHasNoErrors();
+        $this->assertAuthenticatedAs($associate->user);
+        $this->get('/account/field-work')->assertOk()->assertSee($associate->code)->assertSee('Test Shop');
+
+        auth()->logout();
+        $this->artisan('test-accounts', ['action' => 'disable'])->assertSuccessful();
+        $this->assertFalse($associate->fresh()->is_active);
+        $this->assertSame('suspended', $associate->user->fresh()->status);
     }
 
     /** Thumb rule for E-commerce Phase 1: the seller login owns an approved, open shop with a product; disable shuts it. */

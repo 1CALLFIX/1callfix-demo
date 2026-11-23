@@ -195,6 +195,8 @@ Route::middleware(['auth', \App\Http\Middleware\EnsureAccountNotSuspended::class
 
     // ♡ Like / Save (owner 2026-11-07): the heart beside Share, and the list on Account → Saved.
     Route::get('/account/saved', \App\Livewire\Customer\Account\Saved::class)->name('customer.saved');
+    // Field associates (owner 2026-11-23): an associate's own shops, progress bars, rewards and QR. Private page.
+    Route::get('/account/field-work', \App\Livewire\Customer\Account\FieldWork::class)->name('customer.field-work');
     // Rent anything (owner decision 2026-11-18): a person's own posted items; private pages (no Share).
     Route::get('/account/rent-out', \App\Livewire\Customer\Account\RentItems::class)->name('customer.rent-items');
     Route::get('/account/rent-out/new', \App\Livewire\Customer\Account\RentItemEditor::class)->name('customer.rent-items.create');
@@ -463,6 +465,9 @@ Route::permanentRedirect('/account/delete', '/delete-account');
 // CMS slug can ever shadow them; ReservedSlugs reads the live route list, so none of these words can become a city,
 // category or service slug.
 Route::get('/partners', [PageController::class, 'partners'])->middleware('page.cache')->name('customer.partners');
+// Field associates (owner 2026-11-23): an associate's link / QR. Signs out whoever is signed in, remembers the associate,
+// opens /partners with "Seller or shop" picked; the shop that signs up next is credited to them.
+Route::get('/fa/{code}', \App\Http\Controllers\FieldAssociateLinkController::class)->middleware('throttle:30,1')->name('field-associate.start');
 // Start page of the 1CallFix Partner Android app (mobile/): signed-in partner → own app, else sign-in choices.
 Route::get('/app/partner', \App\Http\Controllers\Partner\PartnerAppStartController::class)->name('partner.app.start');
 foreach (['/coming-soon/partners', '/join', '/become-a-partner', '/work-with-us'] as $legacyPartnerPath) {

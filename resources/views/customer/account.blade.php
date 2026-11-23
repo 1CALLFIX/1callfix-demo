@@ -31,7 +31,12 @@
                 @php
                     // Owner 2026-11-16: My Orders, Saved and Earnings live in the header menu and are NOT repeated here;
                     // this page holds only what the menu does not.
-                    $accountSections = [
+                    $accountSections = [];
+                    // Field associates (owner 2026-11-23): an associate's shops, progress and rewards, first in the list.
+                    if (\App\Models\FieldAssociate::where('user_id', $user->id)->exists()) {
+                        $accountSections[] = ['🤝 My field work', 'Shops you added, how far each one has come, and your rewards.', route('customer.field-work')];
+                    }
+                    $accountSections = [...$accountSections,
                         ['Saved addresses', 'Keep the places you book for most.', route('customer.addresses')],
                         ['Membership', 'Plan benefits, what you have used, renewal.', route('customer.membership.account')],
                     ];

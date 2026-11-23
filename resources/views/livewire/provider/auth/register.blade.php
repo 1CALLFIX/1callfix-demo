@@ -46,6 +46,13 @@
                    class="inline-block font-medium text-blue-600 underline underline-offset-2">{{ $rider ? 'Go to rider sign in' : ($seller ? 'Go to seller sign in' : 'Back to partner sign in') }}</a>
             </div>
         @else
+            {{-- Field associates (owner 2026-11-23): the associate whose link / QR opened this sign-up gets the credit. --}}
+            @if ($fieldAssociateLabel !== '')
+                <div role="status" data-testid="field-associate-badge" class="mb-5 flex items-center gap-2 rounded-xl bg-emerald-50 px-3 py-2.5 text-sm text-emerald-900 ring-1 ring-emerald-200">
+                    <span aria-hidden="true">🤝</span>
+                    <span>Helped by field associate <span class="font-semibold">{{ $fieldAssociateLabel }}</span></span>
+                </div>
+            @endif
             @include('livewire.customer.auth._alerts')
 
             {{-- Persistent invisible-reCAPTCHA host — rendered once, step-independently,

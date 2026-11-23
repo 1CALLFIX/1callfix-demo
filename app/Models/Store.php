@@ -24,6 +24,8 @@ class Store extends Model
 
     protected $fillable = [
         'provider_id', 'franchise_id', 'zone_id', 'module',
+        // Field associates (owner 2026-11-23): who signed this shop up (set at sign-up, or by an admin).
+        'field_associate_id',
         'name', 'slug', 'description', 'logo', 'cover_image',
         'address_line', 'lat', 'lng', 'phone', 'gstin', 'pan',
         'is_open', 'is_active', 'prescription_required',
@@ -247,6 +249,7 @@ class Store extends Model
     public function addOnGroups() { return $this->hasMany(AddOnGroup::class)->orderBy('position')->orderBy('id'); }
 
     public function provider() { return $this->belongsTo(Provider::class); }
+    public function fieldAssociate() { return $this->belongsTo(FieldAssociate::class); }
     public function franchise() { return $this->belongsTo(Franchise::class); }
     public function zone() { return $this->belongsTo(Zone::class); }
     public function products() { return $this->hasMany(Product::class); }

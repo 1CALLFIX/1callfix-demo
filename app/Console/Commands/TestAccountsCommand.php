@@ -89,6 +89,9 @@ class TestAccountsCommand extends Command
         // Parcel Stage 3 (goods vehicles, 2026-11-23): a mini truck driver, a rider whose vehicle is a mini truck
         // (/rider/login), so a truck booking has someone to offer it to once Super Admin prices the mini truck.
         'truckdriver' => ['Test Truck Driver', 'provider', null, null, '6000000120'],
+        // Field associates (owner 2026-11-23): signs up shops; the Test Shop and Test Restaurant are credited to it, so
+        // Account → My field work shows progress bars and rewards straight away (/login, then Account).
+        'associate' => ['Test Field Associate', 'customer', null, null, '6000000121'],
     ];
 
     /**
@@ -280,6 +283,8 @@ class TestAccountsCommand extends Command
                     $this->makeTestRentItems($user, $franchise, $zone);
                 } elseif ($key === 'secondhand') {
                     $this->makeTestSecondHand($user, $franchise, $zone);
+                } elseif ($key === 'associate') {
+                    $this->makeTestAssociate($user, $franchise);
                 } elseif ($userRole === 'provider') {
                     Provider::updateOrCreate(['user_id' => $user->id], [
                         'franchise_id' => $franchise->id,
@@ -292,15 +297,29 @@ class TestAccountsCommand extends Command
                     ]);
                 }
 
-                return [$key, $email, $roleSlug ? "{$roleSlug} @ {$scopeType} #{$scopeIds[$scopeType]}" : ($key === 'rider' ? 'parcel + shop rider (approved)' : ($key === 'truckdriver' ? 'mini truck driver (approved, AP 26 TT 0001)' : ($key === 'seller' ? 'seller, shop approved' : ($key === 'restaurant' ? 'restaurant, approved' : ($key === 'hotel' ? 'hotel, approved' : ($key === 'organiser' ? 'event organiser, approved, 1 event in review' : ($key === 'hall' ? 'one approved test hall of every kind' : ($key === 'homeowner' ? 'one approved test property of every kind for rent' : ($key === 'vehicleowner' ? 'one approved test vehicle of every kind for rent' : ($key === 'renter' ? 'customer with '.count(self::TEST_RENT_ITEMS).' approved Rent anything items' : ($key === 'secondhand' ? 'customer with '.count(self::TEST_SECONDHAND_ITEMS).' approved Second-hand posts' : $userRole)))))))))))];
+                return [$key, $email, $roleSlug ? "{$roleSlug} @ {$scopeType} #{$scopeIds[$scopeType]}" : ($key === 'rider' ? 'parcel + shop rider (approved)' : ($key === 'truckdriver' ? 'mini truck driver (approved, AP 26 TT 0001)' : ($key === 'seller' ? 'seller, shop approved' : ($key === 'restaurant' ? 'restaurant, approved' : ($key === 'hotel' ? 'hotel, approved' : ($key === 'organiser' ? 'event organiser, approved, 1 event in review' : ($key === 'hall' ? 'one approved test hall of every kind' : ($key === 'homeowner' ? 'one approved test property of every kind for rent' : ($key === 'vehicleowner' ? 'one approved test vehicle of every kind for rent' : ($key === 'renter' ? 'customer with '.count(self::TEST_RENT_ITEMS).' approved Rent anything items' : ($key === 'secondhand' ? 'customer with '.count(self::TEST_SECONDHAND_ITEMS).' approved Second-hand posts' : ($key === 'associate' ? 'field associate, credited with the test shop and restaurant' : $userRole))))))))))))];
             });
         }
 
         $this->info("Test accounts for franchise #{$franchise->id} {$franchise->name}, zone #{$zone->id} {$zone->name}:");
         $this->table(['Account', 'Login email', 'Access'], $rows);
-        $this->line('Staff log in at /admin/login, the provider at /provider/login, the rider and the truck driver at /rider/login, the seller at /seller/login, the hotel at /provider/login (opens /hotel), the organiser at /provider/login (opens /organiser), the customer at /login.');
+        $this->line('Staff log in at /admin/login, the provider at /provider/login, the rider and the truck driver at /rider/login, the seller at /seller/login, the hotel at /provider/login (opens /hotel), the organiser at /provider/login (opens /organiser), the customer and the field associate at /login (Account → My field work).');
 
         return self::SUCCESS;
+    }
+
+    /** Field associates: the test associate, active, with the Test Shop and Test Restaurant credited to it. */
+    private function makeTestAssociate(User $user, Franchise $franchise): void
+    {
+        $associate = \App\Models\FieldAssociate::firstOrNew(['user_id' => $user->id]);
+        $associate->fill(['franchise_id' => $franchise->id, 'is_active' => true, 'code' => $associate->code ?: 'FA-'.Str::random(8)])->save();
+        if (str_starts_with($associate->code, 'FA-')) {
+            $associate->update(['code' => \App\Models\FieldAssociate::codeFor($associate->id)]);
+        }
+
+        $owners = User::whereIn('email', ['test.seller'.self::DOMAIN, 'test.restaurant'.self::DOMAIN])->pluck('id');
+        Store::whereIn('provider_id', Provider::whereIn('user_id', $owners)->select('id'))
+            ->update(['field_associate_id' => $associate->id]);
     }
 
     /** The test seller's shop: approved, active and open, with the TEST_SHOP_PRODUCTS, so real orders can be placed. */
@@ -827,6 +846,7 @@ Not a real item.",
                 \App\Models\HouseListing::whereIn('provider_id', Provider::where('user_id', $user->id)->select('id'))->update(['is_active' => false]);
                 \App\Models\VehicleListing::whereIn('provider_id', Provider::where('user_id', $user->id)->select('id'))->update(['is_active' => false]);
                 \App\Models\RentalItem::where('user_id', $user->id)->update(['is_active' => false]);
+                \App\Models\FieldAssociate::where('user_id', $user->id)->update(['is_active' => false]);
                 $user->forceFill(['status' => 'suspended'])->save();
                 $user->tokens()->delete();
             });

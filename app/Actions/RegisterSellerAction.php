@@ -42,11 +42,12 @@ class RegisterSellerAction
         ?string $plainPassword = null,
         string $module = Modules::COMMERCE,
         ?string $fssaiNumber = null,
+        ?int $fieldAssociateId = null,
     ): Store {
         // Food F5: a restaurant joins the same way; it is a Store with module 'food' and its FSSAI licence number.
         $module = $module === Modules::FOOD ? Modules::FOOD : Modules::COMMERCE;
 
-        return DB::transaction(function () use ($zone, $storeName, $existing, $registration, $name, $nationalPhone, $email, $plainPassword, $module, $fssaiNumber) {
+        return DB::transaction(function () use ($zone, $storeName, $existing, $registration, $name, $nationalPhone, $email, $plainPassword, $module, $fssaiNumber, $fieldAssociateId) {
             if ($existing !== null) {
                 $existing = User::whereKey($existing->id)->lockForUpdate()->first();
                 if (! $existing?->canApplyAsPartner($module)) {
@@ -67,8 +68,16 @@ class RegisterSellerAction
                 );
             }
 
+            // Field associates (owner 2026-11-23): credited to the associate whose link opened the sign-up, if still
+            // active, and never to an associate signing up their own shop.
+            $associate = $fieldAssociateId ? \App\Models\FieldAssociate::where('is_active', true)->find($fieldAssociateId) : null;
+            if ($associate && $associate->user_id === $provider->user_id) {
+                $associate = null;
+            }
+
             $store = Store::create([
                 'provider_id' => $provider->id,
+                'field_associate_id' => $associate?->id,
                 'franchise_id' => $zone->franchise_id,
                 'zone_id' => $zone->id,
                 'module' => $module,
@@ -89,6 +98,7 @@ class RegisterSellerAction
                 'store' => $storeName,
                 'address' => $registration['address'] ?? null,
                 'out_of_coverage' => ($registration['out_of_coverage'] ?? false) ?: null,
+                'field_associate' => $associate?->code,
             ]));
 
             return $store;

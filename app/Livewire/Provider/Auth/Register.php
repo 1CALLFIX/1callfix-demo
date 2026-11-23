@@ -161,6 +161,16 @@ class Register extends Component
     #[Locked]
     public string $partnerRole = 'service';
 
+    /**
+     * Field associates (owner 2026-11-23): the associate whose link / QR opened this sign-up (/fa/{code} puts the id in the
+     * session). Shops and restaurants only; the new store is credited to them. Read from the session, never the browser.
+     */
+    #[Locked]
+    public ?int $fieldAssociateId = null;
+
+    #[Locked]
+    public string $fieldAssociateLabel = '';
+
     /** Partner roles this page can finish. */
     private const SIGNUP_ROLES = ['service', 'parcel', 'commerce', 'food', 'hotel', 'events', 'halls', 'homes', 'vehicles'];
 
@@ -184,6 +194,14 @@ class Register extends Component
             if (preg_match('/^[a-z0-9-]{1,80}$/', $slug) === 1) {
                 $name = \App\Livewire\Partner\ApplyForm::citySlugColumnExists() ? \App\Models\City::query()->where('slug', $slug)->value('name') : null;
                 $this->address = (string) ($name ?? \Illuminate\Support\Str::headline($slug));
+            }
+        }
+
+        if ($this->isSeller() && ($associateId = session(\App\Http\Controllers\FieldAssociateLinkController::SESSION_KEY))) {
+            $associate = \App\Models\FieldAssociate::with('user:id,name')->where('is_active', true)->find((int) $associateId);
+            if ($associate) {
+                $this->fieldAssociateId = $associate->id;
+                $this->fieldAssociateLabel = trim(($associate->user?->name ?? '').' ('.$associate->code.')');
             }
         }
 
@@ -759,6 +777,7 @@ class Register extends Component
                         plainPassword: filled($this->password) ? $this->password : null,
                         module: $this->isRestaurant() ? \App\Support\Modules::FOOD : \App\Support\Modules::COMMERCE,
                         fssaiNumber: $this->isRestaurant() ? trim($this->fssaiNumber) : null,
+                        fieldAssociateId: $this->fieldAssociateId,
                     );
                     $provider = $store->provider;
                     $providerId = $provider->id;
@@ -820,6 +839,9 @@ class Register extends Component
 
             return;
         }
+
+        // Field associates: one link visit credits one shop; the next shop needs the associate's link again.
+        session()->forget(\App\Http\Controllers\FieldAssociateLinkController::SESSION_KEY);
 
         \App\Models\PartnerLead::markConverted($this->leadId, PhoneNumber::national($this->verifiedPhoneE164), $providerId, $this->partnerRole);
 
