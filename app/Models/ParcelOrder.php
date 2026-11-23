@@ -50,6 +50,7 @@ class ParcelOrder extends Model implements Orderable
         'scheduled_at',
         'dispatch_released_at',
         'vehicle_type',
+        'helpers',
         'distance_km',
         'status',
         'price_quoted',
@@ -90,6 +91,7 @@ class ParcelOrder extends Model implements Orderable
 
     protected $casts = [
         'picked_up_at' => 'datetime',
+        'helpers' => 'integer',
         'scheduled_at' => 'datetime',
         'dispatch_released_at' => 'datetime',
         'restricted_items_confirmed_at' => 'datetime',
@@ -211,6 +213,24 @@ class ParcelOrder extends Model implements Orderable
     public function collectsCashAtDelivery(): bool
     {
         return $this->payment_method === 'cash' && $this->cash_collect_at === 'drop';
+    }
+
+    /** Stage 3: a 3-wheeler / mini truck / pickup / truck booking rather than a two-wheeler parcel. */
+    public function isGoodsVehicle(): bool
+    {
+        return \App\Services\Parcel\ParcelSettings::isGoodsVehicle($this->vehicle_type);
+    }
+
+    /** Stage 3: what riders, the customer and admins see as the "kind" of order: "Small parcel" or "Mini truck · 2 helpers". */
+    public function loadSummary(): string
+    {
+        if (! $this->isGoodsVehicle()) {
+            return (\App\Services\Parcel\ParcelSettings::SIZES[$this->package_size] ?? ucfirst((string) $this->package_size)).' parcel';
+        }
+        $helpers = (int) $this->helpers;
+
+        return \App\Services\Parcel\ParcelSettings::vehicleLabel($this->vehicle_type)
+            .($helpers > 0 ? ' · '.($helpers === 1 ? '1 helper' : "{$helpers} helpers") : '');
     }
 
     /** Stage 1: the customer picked a pickup time instead of "Now". */

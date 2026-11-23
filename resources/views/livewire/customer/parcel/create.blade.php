@@ -2,7 +2,8 @@
      ParcelSettings server-side; the JS below only turns a map search or a GPS fix into setPickupPin() /
      setDropPin() calls. --}}
 @php
-    $fmt = fn ($n) => $currencySymbol.number_format((float) $n, 2);
+    // Stage 3: whole-rupee prices show without paise (₹572, not ₹572.00).
+    $fmt = fn ($n) => $currencySymbol.number_format((float) $n, fmod((float) $n, 1.0) == 0.0 ? 0 : 2);
     $hasPlaces = (bool) config('services.google_maps.key');
     $inputClass = 'mt-1 block min-h-11 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/30';
     $labelClass = 'block text-sm font-medium text-slate-700';
@@ -268,9 +269,65 @@
         <section class="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5" aria-labelledby="package-heading">
             <h2 id="package-heading" class="flex items-center gap-2 text-base font-semibold">
                 <span class="inline-flex h-6 w-6 items-center justify-center rounded-full bg-blue-600 text-xs font-bold text-white">3</span>
-                What are you sending?
+                {{ $goodsVehicle ? 'What are you moving?' : 'What are you sending?' }}
             </h2>
 
+            {{-- Stage 3 (goods vehicles, 2026-11-23): one card per vehicle priced here, each with its own colour and price.
+                 Only where a second vehicle is priced, so the page is unchanged until Super Admin prices one. --}}
+            @if (count($vehicleOptions) > 1)
+                @php
+                    $vehicleColours = [
+                        'blue' => 'border-blue-600 bg-blue-50 ring-blue-600',
+                        'amber' => 'border-amber-500 bg-amber-50 ring-amber-500',
+                        'emerald' => 'border-emerald-600 bg-emerald-50 ring-emerald-600',
+                        'violet' => 'border-violet-600 bg-violet-50 ring-violet-600',
+                        'rose' => 'border-rose-600 bg-rose-50 ring-rose-600',
+                    ];
+                @endphp
+                <fieldset class="mt-3" data-testid="vehicle-picker">
+                    <legend class="{{ $labelClass }}">Vehicle</legend>
+                    <div class="mt-1 grid grid-cols-2 gap-2 sm:grid-cols-3">
+                        @foreach ($vehicleOptions as $option)
+                            <label wire:key="vehicle-{{ $option['key'] }}" @class([
+                                'flex min-h-20 cursor-pointer flex-col rounded-xl border p-3 text-sm transition',
+                                $vehicleColours[$option['colour']].' ring-1' => $vehicle === $option['key'],
+                                'border-slate-200 bg-white hover:border-slate-300' => $vehicle !== $option['key'],
+                            ])>
+                                <input type="radio" wire:model.live="vehicle" value="{{ $option['key'] }}" class="sr-only">
+                                <span class="flex items-center justify-between gap-2">
+                                    <span class="text-2xl leading-none" aria-hidden="true">{{ $option['emoji'] }}</span>
+                                    @isset($vehiclePrices[$option['key']])
+                                        <span class="font-semibold tabular-nums text-slate-900">{{ $fmt($vehiclePrices[$option['key']]) }}</span>
+                                    @endisset
+                                </span>
+                                <span class="mt-1 font-semibold text-slate-900">{{ $option['label'] }}</span>
+                                <span class="text-xs text-slate-500">{{ $option['line'] }}</span>
+                            </label>
+                        @endforeach
+                    </div>
+                </fieldset>
+
+                {{-- Helpers for loading: three big chips, shown only where this vehicle's helper price is set. --}}
+                @if ($goodsVehicle && $helperFee !== null)
+                    <fieldset class="mt-3" data-testid="helpers-picker">
+                        <legend class="{{ $labelClass }}">Helpers for loading and unloading <span class="font-normal text-slate-400">(optional)</span></legend>
+                        <div class="mt-1 flex flex-wrap gap-2">
+                            @for ($n = 0; $n <= $helpersMax; $n++)
+                                <button type="button" wire:click="setHelpers({{ $n }})" @class([
+                                    'inline-flex min-h-11 items-center rounded-full border px-4 text-sm font-semibold transition',
+                                    'border-emerald-600 bg-emerald-50 text-emerald-800' => $helpers === $n,
+                                    'border-slate-200 text-slate-700 hover:border-slate-300' => $helpers !== $n,
+                                ])>
+                                    {{ $n === 0 ? 'No helper' : ($n === 1 ? '+ 1 helper' : "+ {$n} helpers") }}
+                                    @if ($n > 0)<span class="ml-1 font-normal text-slate-500">{{ $fmt($n * $helperFee) }}</span>@endif
+                                </button>
+                            @endfor
+                        </div>
+                    </fieldset>
+                @endif
+            @endif
+
+            @unless ($goodsVehicle)
             <fieldset class="mt-3">
                 <legend class="{{ $labelClass }}">Size</legend>
                 <div class="mt-1 grid grid-cols-3 gap-2">
@@ -287,6 +344,7 @@
                     @endforeach
                 </div>
             </fieldset>
+            @endunless
 
             {{-- Stage 1: what is inside — optional, one tap; shown to the rider. --}}
             <fieldset class="mt-3">
@@ -308,18 +366,18 @@
             <summary class="cursor-pointer text-sm font-medium text-slate-700">More details <span class="font-normal text-slate-400">(optional: weight, contents, note)</span></summary>
             <div class="mt-3 grid gap-3 sm:grid-cols-2">
                 <div>
-                    <label for="weight" class="{{ $labelClass }}">Approx. weight (kg)</label>
+                    <label for="weight" class="{{ $labelClass }}">{{ $goodsVehicle ? 'Approx. load (kg)' : 'Approx. weight (kg)' }}</label>
                     <input id="weight" type="number" step="0.1" min="0" inputmode="decimal" wire:model.live.debounce.500ms="packageWeightKg" class="{{ $inputClass }}">
                     @if ($maxWeight)<p class="mt-1 text-xs text-slate-500">Up to {{ rtrim(rtrim(number_format($maxWeight, 2), '0'), '.') }} kg.</p>@endif
                     @error('packageWeightKg') <p class="mt-1 text-xs text-rose-700">{{ $message }}</p> @enderror
                 </div>
                 <div>
                     <label for="description" class="{{ $labelClass }}">Describe it</label>
-                    <input id="description" type="text" wire:model.blur="packageDescription" maxlength="255" placeholder="e.g. documents, keys, lunch box" class="{{ $inputClass }}">
+                    <input id="description" type="text" wire:model.blur="packageDescription" maxlength="255" placeholder="{{ $goodsVehicle ? 'e.g. 1 fridge, 2 cots, 10 boxes' : 'e.g. documents, keys, lunch box' }}" class="{{ $inputClass }}">
                 </div>
             </div>
             <div class="mt-3">
-                <label for="note" class="{{ $labelClass }}">Note for the rider</label>
+                <label for="note" class="{{ $labelClass }}">{{ $goodsVehicle ? 'Note for the driver' : 'Note for the rider' }}</label>
                 <textarea id="note" rows="2" wire:model.blur="customerNote" maxlength="500" class="{{ $inputClass }}"></textarea>
             </div>
             </details>
@@ -327,7 +385,7 @@
             <div class="mt-3 rounded-lg border border-slate-200 p-3">
                 <label class="flex cursor-pointer items-start gap-3 text-sm">
                     <input type="checkbox" wire:model="restrictedConfirmed" class="mt-0.5 h-5 w-5 rounded border-slate-300 text-blue-600 focus:ring-blue-500">
-                    <span class="font-medium text-slate-800">My parcel has none of these items</span>
+                    <span class="font-medium text-slate-800">{{ $goodsVehicle ? 'My load has none of these items' : 'My parcel has none of these items' }}</span>
                 </label>
                 <ul class="mt-2 list-disc space-y-0.5 pl-11 text-xs text-slate-600">
                     @foreach ($restrictedItems as $item)
@@ -478,7 +536,7 @@
                 <div class="min-w-0 flex-1">
                     @if ($quote)
                         <p class="text-lg font-bold tabular-nums leading-tight">{{ $fmt($toPay ?? $quote['total']) }}</p>
-                        <p class="truncate text-xs text-slate-500">{{ rtrim(rtrim(number_format($quote['distance_km'], 1), '0'), '.') }} km · {{ $paymentMethod === 'cash' ? ($cashCollectAt === 'drop' ? 'Cash at drop' : 'Cash at pickup') : ($methods[$paymentMethod] ?? '') }}</p>
+                        <p class="truncate text-xs text-slate-500">@if ($goodsVehicle){{ \App\Services\Parcel\ParcelSettings::vehicleLabel($vehicle) }} · @endif{{ rtrim(rtrim(number_format($quote['distance_km'], 1), '0'), '.') }} km · {{ $paymentMethod === 'cash' ? ($cashCollectAt === 'drop' ? 'Cash at drop' : 'Cash at pickup') : ($methods[$paymentMethod] ?? '') }}</p>
                     @else
                         <p class="text-sm text-slate-500">{{ $quoteError ?: 'Choose where it goes' }}</p>
                     @endif

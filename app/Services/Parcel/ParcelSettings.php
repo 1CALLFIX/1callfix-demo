@@ -256,8 +256,172 @@ class ParcelSettings
         return null;
     }
 
-    /** Two-wheeler only for now (Stage 1); 3- and 4-wheelers come with their own rider pool later. */
-    public const VEHICLES = ['two_wheeler' => 'Two-wheeler'];
+    /**
+     * Stage 3 (owner go-ahead 2026-11-23, goods vehicles): what a customer can book. The two-wheeler uses the parcel
+     * prices above; every other vehicle has its own fare card (vehicleRegistry()) and is offered ONLY where its base
+     * fare and per-km rate are set, so nothing changes in a city until Super Admin prices a vehicle there. Each vehicle
+     * has its own rider pool (field_workers.vehicle_type); `capacity_kg` is the heaviest load unless the vehicle's own
+     * "Heaviest load" setting says otherwise (two-wheeler: parcel.max_weight_kg).
+     */
+    public const VEHICLES = [
+        'two_wheeler' => ['label' => 'Two-wheeler', 'line' => 'Documents, food and small parcels', 'capacity_kg' => null, 'emoji' => '🛵', 'colour' => 'blue'],
+        'three_wheeler' => ['label' => '3-wheeler', 'line' => 'Auto loader · up to 500 kg', 'capacity_kg' => 500, 'emoji' => '🛺', 'colour' => 'amber'],
+        'mini_truck' => ['label' => 'Mini truck', 'line' => '7 ft · up to 750 kg', 'capacity_kg' => 750, 'emoji' => '🚚', 'colour' => 'emerald'],
+        'pickup' => ['label' => 'Pickup truck', 'line' => '8 ft · up to 1,500 kg', 'capacity_kg' => 1500, 'emoji' => '🛻', 'colour' => 'violet'],
+        'truck' => ['label' => 'Truck', 'line' => '14 ft · up to 2,500 kg', 'capacity_kg' => 2500, 'emoji' => '🚛', 'colour' => 'rose'],
+    ];
+
+    /** Stage 3: most helpers (loading / unloading) one booking can ask for. */
+    public const HELPERS_MAX = 2;
+
+    /** Stage 3: what is inside, for a goods vehicle (the two-wheeler keeps CONTENTS). */
+    public const GOODS_CONTENTS = [
+        'furniture' => 'Furniture', 'appliances' => 'Appliances', 'house_shifting' => 'House shifting',
+        'shop_goods' => 'Shop goods', 'building_material' => 'Building material', 'groceries' => 'Groceries', 'other' => 'Other',
+    ];
+
+    public static function vehicleLabel(?string $vehicle): string
+    {
+        return self::VEHICLES[$vehicle ?: 'two_wheeler']['label'] ?? 'Two-wheeler';
+    }
+
+    public static function isGoodsVehicle(?string $vehicle): bool
+    {
+        return ($vehicle ?: 'two_wheeler') !== 'two_wheeler' && isset(self::VEHICLES[$vehicle]);
+    }
+
+    /** @return array<string, string> the contents chips for this vehicle */
+    public static function contentsFor(?string $vehicle): array
+    {
+        return self::isGoodsVehicle($vehicle) ? self::GOODS_CONTENTS : self::CONTENTS;
+    }
+
+    /** Any contents label, whichever list it came from (rider and admin screens). */
+    public static function contentsLabel(?string $key): ?string
+    {
+        return $key ? (self::CONTENTS[$key] ?? self::GOODS_CONTENTS[$key] ?? null) : null;
+    }
+
+    /** The setting key of one field on a goods vehicle's fare card, e.g. parcel.vehicle.mini_truck.base_fare. */
+    public static function vehicleKey(string $vehicle, string $field): string
+    {
+        return "parcel.vehicle.{$vehicle}.{$field}";
+    }
+
+    /**
+     * Stage 3: one fare card per goods vehicle, generated from VEHICLES so a new vehicle needs one line above.
+     * None of these is `required`: a blank fare card only means that vehicle is not offered (the parcel module
+     * itself still needs the two-wheeler prices).
+     */
+    public static function vehicleRegistry(): array
+    {
+        $out = [];
+        foreach (self::VEHICLES as $vehicle => $meta) {
+            if ($vehicle === 'two_wheeler') {
+                continue;
+            }
+            $group = 'Vehicle: '.$meta['label'];
+            $out[self::vehicleKey($vehicle, 'base_fare')] = [
+                'group' => $group, 'label' => 'Base fare', 'type' => 'decimal', 'unit' => '₹', 'required' => false, 'min' => 0,
+                'default' => null, 'help' => 'Covers the first "included distance" below. Blank = customers cannot book a '.$meta['label'].' here.',
+            ];
+            $out[self::vehicleKey($vehicle, 'base_km')] = [
+                'group' => $group, 'label' => 'Distance included in the base fare', 'type' => 'decimal', 'unit' => 'km', 'required' => false, 'min' => 0,
+                'default' => 0, 'help' => 'Blank = 0 (every km is charged at the per-km rate).',
+            ];
+            $out[self::vehicleKey($vehicle, 'per_km_rate')] = [
+                'group' => $group, 'label' => 'Rate per km after the included distance', 'type' => 'decimal', 'unit' => '₹/km', 'required' => false, 'min' => 0,
+                'default' => null, 'help' => 'Blank = customers cannot book a '.$meta['label'].' here.',
+            ];
+            $out[self::vehicleKey($vehicle, 'max_weight_kg')] = [
+                'group' => $group, 'label' => 'Heaviest load', 'type' => 'decimal', 'unit' => 'kg', 'required' => false, 'min' => 1,
+                'default' => $meta['capacity_kg'], 'help' => 'Blank = '.number_format($meta['capacity_kg']).' kg.',
+            ];
+            $out[self::vehicleKey($vehicle, 'max_distance_km')] = [
+                'group' => $group, 'label' => 'Longest trip', 'type' => 'decimal', 'unit' => 'km', 'required' => false, 'min' => 0.1,
+                'default' => null, 'help' => 'Blank = the same as "Longest delivery accepted" for parcels.',
+            ];
+            $out[self::vehicleKey($vehicle, 'helper_fee')] = [
+                'group' => $group, 'label' => 'Price per helper (loading and unloading)', 'type' => 'decimal', 'unit' => '₹', 'required' => false, 'min' => 0,
+                'default' => null, 'help' => 'The customer can ask for up to '.self::HELPERS_MAX.' helpers; the driver brings them and is paid with the trip. Blank = no helpers offered.',
+            ];
+            $out[self::vehicleKey($vehicle, 'free_loading_minutes')] = [
+                'group' => $group, 'label' => 'Free loading time at pickup', 'type' => 'int', 'unit' => 'minutes', 'required' => false, 'min' => 0, 'max' => 240,
+                'default' => null, 'help' => 'Replaces "Free waiting time at pickup" for this vehicle. The waiting charge itself must be on (Waiting charge group). Blank = the same free time as parcels.',
+            ];
+            $out[self::vehicleKey($vehicle, 'waiting_charge_per_block')] = [
+                'group' => $group, 'label' => 'Waiting charge per block', 'type' => 'decimal', 'unit' => '₹', 'required' => false, 'min' => 0,
+                'default' => null, 'help' => 'Replaces "Charge per block" for this vehicle. Blank = the same as parcels.',
+            ];
+        }
+
+        return $out;
+    }
+
+    /** Every Parcel setting: REGISTRY plus the goods vehicles' fare cards. */
+    public static function registry(): array
+    {
+        static $registry = null;
+
+        return $registry ??= self::REGISTRY + self::vehicleRegistry();
+    }
+
+    /** Stage 3: can this vehicle be booked here? Two-wheeler = parcel is priced; others = their own fare card is set. */
+    public static function vehicleAvailable(string $vehicle, array $scope = []): bool
+    {
+        if (! isset(self::VEHICLES[$vehicle]) || self::missingRequired($scope) !== []) {
+            return false;
+        }
+        if ($vehicle === 'two_wheeler') {
+            return true;
+        }
+
+        return self::get(self::vehicleKey($vehicle, 'base_fare'), $scope) !== null
+            && self::get(self::vehicleKey($vehicle, 'per_km_rate'), $scope) !== null;
+    }
+
+    /** @return list<string> the vehicles a customer can book here, two-wheeler first */
+    public static function availableVehicles(array $scope = []): array
+    {
+        return array_values(array_filter(array_keys(self::VEHICLES), fn ($v) => self::vehicleAvailable($v, $scope)));
+    }
+
+    /** Stage 3: helpers can be added to this vehicle here (its helper price is set). Never on a two-wheeler. */
+    public static function helpersAvailable(string $vehicle, array $scope = []): bool
+    {
+        return self::isGoodsVehicle($vehicle) && self::get(self::vehicleKey($vehicle, 'helper_fee'), $scope) !== null;
+    }
+
+    /** Heaviest load for this vehicle here. */
+    public static function maxWeightFor(string $vehicle, array $scope = []): ?float
+    {
+        $value = self::isGoodsVehicle($vehicle) ? self::get(self::vehicleKey($vehicle, 'max_weight_kg'), $scope) : self::get('parcel.max_weight_kg', $scope);
+
+        return $value !== null ? (float) $value : null;
+    }
+
+    /** Longest trip for this vehicle here (its own limit, else the parcel limit). */
+    public static function maxDistanceFor(string $vehicle, array $scope = []): ?float
+    {
+        $own = self::isGoodsVehicle($vehicle) ? self::get(self::vehicleKey($vehicle, 'max_distance_km'), $scope) : null;
+        $value = $own ?? self::get('parcel.max_distance_km', $scope);
+
+        return $value !== null ? (float) $value : null;
+    }
+
+    /** @return list<array{key: string, label: string, line: string, emoji: string, colour: string, max_weight_kg: ?float, helper_fee: ?float}> */
+    public static function vehicleOptions(array $scope = []): array
+    {
+        return array_map(fn ($v) => [
+            'key' => $v,
+            'label' => self::VEHICLES[$v]['label'],
+            'line' => self::VEHICLES[$v]['line'],
+            'emoji' => self::VEHICLES[$v]['emoji'],
+            'colour' => self::VEHICLES[$v]['colour'],
+            'max_weight_kg' => self::maxWeightFor($v, $scope),
+            'helper_fee' => self::helpersAvailable($v, $scope) ? (float) self::get(self::vehicleKey($v, 'helper_fee'), $scope) : null,
+        ], self::availableVehicles($scope));
+    }
 
     public const DELIVERY_TYPES = ['now' => 'Now', 'scheduled' => 'Schedule'];
 
@@ -311,7 +475,7 @@ class ParcelSettings
     /** Effective value in this scope; unset → the registry default (null for a required key). */
     public static function get(string $key, array $scope = []): int|float|null
     {
-        $meta = self::REGISTRY[$key];
+        $meta = self::registry()[$key];
         $raw = Setting::get($key, null, $scope);
         $value = ($raw === null || $raw === '') ? $meta['default'] : $raw;
 
@@ -334,7 +498,7 @@ class ParcelSettings
     /** @return string|null an error message, or null when valid. null/'' clears the key. */
     public static function validate(string $key, mixed $value): ?string
     {
-        $meta = self::REGISTRY[$key] ?? null;
+        $meta = self::registry()[$key] ?? null;
         if (! $meta) {
             return "Unknown setting {$key}.";
         }

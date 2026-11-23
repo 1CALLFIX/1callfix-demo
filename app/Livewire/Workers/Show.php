@@ -21,6 +21,10 @@ class Show extends Component
     public string $flashType = 'success';
 
     public string $newCapabilityType = 'service_technician';
+
+    /** Parcel Stage 3 (goods vehicles): the vehicle this rider drives and its number plate (riders only get orders for their vehicle). */
+    public string $vehicleType = 'two_wheeler';
+    public string $vehicleNumber = '';
     public ?int $newCapabilityServiceCategoryId = null;
 
     /** workers.view was seeded (2026_08_11_047000) but never checked on this detail screen (only approve/reject were gated, via canReview()'s workers.review_kyc) -- see Commissions\Index's identical fix for the full reasoning. */
@@ -40,6 +44,35 @@ class Show extends Component
         abort_if(! $fieldWorker, 404);
 
         $this->fieldWorker = $fieldWorker;
+        $this->vehicleType = $fieldWorker->vehicle_type ?: 'two_wheeler';
+        $this->vehicleNumber = (string) $fieldWorker->vehicle_number;
+    }
+
+    /** Stage 3: correct the rider's vehicle (e.g. they switched from a bike to a mini truck); audit-logged. */
+    public function saveVehicle(): void
+    {
+        if (! $this->canReview()) {
+            $this->flashType = 'error';
+            $this->flashMessage = 'You do not have permission to change this worker.';
+
+            return;
+        }
+        $this->validate([
+            'vehicleType' => ['required', 'in:'.implode(',', array_keys(\App\Services\Parcel\ParcelSettings::VEHICLES))],
+            'vehicleNumber' => [\App\Services\Parcel\ParcelSettings::isGoodsVehicle($this->vehicleType) ? 'required' : 'nullable', 'string', 'max:20', 'regex:/^[A-Za-z0-9 \-]{4,20}$/'],
+        ], ['vehicleNumber.required' => 'A goods vehicle needs its number plate.', 'vehicleNumber.regex' => 'Enter the number plate as written, e.g. AP 26 TA 1234.']);
+
+        $before = ['vehicle_type' => $this->fieldWorker->vehicle_type, 'vehicle_number' => $this->fieldWorker->vehicle_number];
+        $this->fieldWorker->forceFill([
+            'vehicle_type' => $this->vehicleType,
+            'vehicle_number' => \App\Actions\CreateParcelRiderAction::normalisePlate($this->vehicleNumber),
+        ])->save();
+        \App\Services\ActivityLogger::logModel(auth()->user(), $this->fieldWorker, 'Rider vehicle changed', [
+            'before' => $before, 'after' => ['vehicle_type' => $this->fieldWorker->vehicle_type, 'vehicle_number' => $this->fieldWorker->vehicle_number],
+        ]);
+        $this->vehicleNumber = (string) $this->fieldWorker->vehicle_number;
+        $this->flashType = 'success';
+        $this->flashMessage = 'Vehicle saved.';
     }
 
     public function workerTypeOptions(): array

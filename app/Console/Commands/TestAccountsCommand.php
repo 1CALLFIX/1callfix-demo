@@ -86,6 +86,9 @@ class TestAccountsCommand extends Command
         // Digital Marketing (2026-11-21): the Marketing role for the city (Social posts, Contacts & app invites, Banners,
         // Live Visitors), the access the City Operations & Marketing hire gets.
         'marketing' => ['Test Marketing', 'support', 'marketing', 'city', '6000000119'],
+        // Parcel Stage 3 (goods vehicles, 2026-11-23): a mini truck driver, a rider whose vehicle is a mini truck
+        // (/rider/login), so a truck booking has someone to offer it to once Super Admin prices the mini truck.
+        'truckdriver' => ['Test Truck Driver', 'provider', null, null, '6000000120'],
     ];
 
     /**
@@ -235,7 +238,19 @@ class TestAccountsCommand extends Command
                     RoleAssignment::create(['user_id' => $user->id, 'role_id' => $role->id, 'scope_type' => $scopeType, 'scope_id' => $scopeIds[$scopeType]]);
                 }
 
-                if ($key === 'rider') {
+                if ($key === 'truckdriver') {
+                    // Approved goods-vehicle driver: only mini truck bookings are offered to it (DispatchService).
+                    $worker = FieldWorker::updateOrCreate(['user_id' => $user->id], [
+                        'franchise_id' => $franchise->id,
+                        'zone_id' => $zone->id,
+                        'vehicle_type' => 'mini_truck',
+                        'vehicle_number' => 'AP 26 TT 0001',
+                        'kyc_status' => 'approved',
+                        'is_active' => true,
+                        'is_online' => false,
+                    ]);
+                    FieldWorkerCapability::firstOrCreate(['field_worker_id' => $worker->id, 'capability_type' => 'parcel_rider']);
+                } elseif ($key === 'rider') {
                     // Approved, so it counts as a ready rider and Admin → Modules can switch Parcel on.
                     $worker = FieldWorker::updateOrCreate(['user_id' => $user->id], [
                         'franchise_id' => $franchise->id,
@@ -277,13 +292,13 @@ class TestAccountsCommand extends Command
                     ]);
                 }
 
-                return [$key, $email, $roleSlug ? "{$roleSlug} @ {$scopeType} #{$scopeIds[$scopeType]}" : ($key === 'rider' ? 'parcel + shop rider (approved)' : ($key === 'seller' ? 'seller, shop approved' : ($key === 'restaurant' ? 'restaurant, approved' : ($key === 'hotel' ? 'hotel, approved' : ($key === 'organiser' ? 'event organiser, approved, 1 event in review' : ($key === 'hall' ? 'one approved test hall of every kind' : ($key === 'homeowner' ? 'one approved test property of every kind for rent' : ($key === 'vehicleowner' ? 'one approved test vehicle of every kind for rent' : ($key === 'renter' ? 'customer with '.count(self::TEST_RENT_ITEMS).' approved Rent anything items' : ($key === 'secondhand' ? 'customer with '.count(self::TEST_SECONDHAND_ITEMS).' approved Second-hand posts' : $userRole))))))))))];
+                return [$key, $email, $roleSlug ? "{$roleSlug} @ {$scopeType} #{$scopeIds[$scopeType]}" : ($key === 'rider' ? 'parcel + shop rider (approved)' : ($key === 'truckdriver' ? 'mini truck driver (approved, AP 26 TT 0001)' : ($key === 'seller' ? 'seller, shop approved' : ($key === 'restaurant' ? 'restaurant, approved' : ($key === 'hotel' ? 'hotel, approved' : ($key === 'organiser' ? 'event organiser, approved, 1 event in review' : ($key === 'hall' ? 'one approved test hall of every kind' : ($key === 'homeowner' ? 'one approved test property of every kind for rent' : ($key === 'vehicleowner' ? 'one approved test vehicle of every kind for rent' : ($key === 'renter' ? 'customer with '.count(self::TEST_RENT_ITEMS).' approved Rent anything items' : ($key === 'secondhand' ? 'customer with '.count(self::TEST_SECONDHAND_ITEMS).' approved Second-hand posts' : $userRole)))))))))))];
             });
         }
 
         $this->info("Test accounts for franchise #{$franchise->id} {$franchise->name}, zone #{$zone->id} {$zone->name}:");
         $this->table(['Account', 'Login email', 'Access'], $rows);
-        $this->line('Staff log in at /admin/login, the provider at /provider/login, the rider at /rider/login, the seller at /seller/login, the hotel at /provider/login (opens /hotel), the organiser at /provider/login (opens /organiser), the customer at /login.');
+        $this->line('Staff log in at /admin/login, the provider at /provider/login, the rider and the truck driver at /rider/login, the seller at /seller/login, the hotel at /provider/login (opens /hotel), the organiser at /provider/login (opens /organiser), the customer at /login.');
 
         return self::SUCCESS;
     }

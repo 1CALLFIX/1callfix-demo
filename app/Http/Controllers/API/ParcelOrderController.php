@@ -74,6 +74,8 @@ class ParcelOrderController extends Controller
                 'extra_stops' => CreateParcelOrderAction::normaliseStops($validated['extra_stops'] ?? [], $customer->id),
                 'return_trip' => (bool) ($validated['return_trip'] ?? false),
                 'declared_value' => $validated['declared_value'] ?? null,
+                'vehicle_type' => $validated['vehicle_type'] ?? 'two_wheeler',
+                'helpers' => (int) ($validated['helpers'] ?? 0),
             ], $scope);
         } catch (ParcelQuoteException|\RuntimeException $e) {
             return ApiResponse::error($e->getMessage(), 422);
@@ -86,6 +88,13 @@ class ParcelOrderController extends Controller
             'currency_code' => $pickup->franchise?->country?->currency_code,
             'package_size' => $validated['package_size'] ?? 'small',
             'package_size_options' => ['small', 'medium', 'large'],
+            // Stage 3: the vehicles priced here (two-wheeler first), each with its heaviest load and helper price
+            // (null = no helpers); the app shows cards only when there is more than one.
+            'vehicle_type' => $validated['vehicle_type'] ?? 'two_wheeler',
+            'helpers' => (int) ($validated['helpers'] ?? 0),
+            'helpers_max' => \App\Services\Parcel\ParcelSettings::HELPERS_MAX,
+            'vehicle_options' => \App\Services\Parcel\ParcelSettings::vehicleOptions($scope),
+            'goods_contents_options' => array_keys(\App\Services\Parcel\ParcelSettings::GOODS_CONTENTS),
             'delivery_type' => $validated['delivery_type'] ?? 'now',
             'schedule_available' => \App\Services\Parcel\ParcelSettings::scheduleAvailable($scope),
             'max_drop_points' => \App\Services\Parcel\ParcelSettings::maxDrops($scope),
@@ -95,7 +104,7 @@ class ParcelOrderController extends Controller
             'protection_max_cover' => \App\Services\Parcel\ParcelSettings::get('parcel.protection_max_cover', $scope),
             'cod_max_amount' => \App\Services\Parcel\ParcelSettings::get('parcel.cod_max_amount', $scope),
             'protection_fee' => $quote['protection_fee'] ?? 0,
-            'parcel_pack' => ($pack = app(\App\Services\Parcel\ParcelPackService::class)->usablePack($customer, $pickup->franchise_id)) ? [
+            'parcel_pack' => ! \App\Services\Parcel\ParcelSettings::isGoodsVehicle($validated['vehicle_type'] ?? null) && ($pack = app(\App\Services\Parcel\ParcelPackService::class)->usablePack($customer, $pickup->franchise_id)) ? [
                 'id' => $pack->id, 'name' => $pack->name, 'parcels_left' => $pack->remaining(),
                 'covers' => \App\Services\Parcel\ParcelPackService::coverFor($pack, $quote, $scope),
             ] : null,
@@ -146,6 +155,8 @@ class ParcelOrderController extends Controller
                 'package_description' => $validated['package_description'] ?? null,
                 'package_weight_kg' => $validated['package_weight_kg'] ?? null,
                 'package_size' => $validated['package_size'] ?? 'small',
+                'vehicle_type' => $validated['vehicle_type'] ?? 'two_wheeler',
+                'helpers' => (int) ($validated['helpers'] ?? 0),
                 'payment_method' => $paymentMethod,
                 'cash_collect_at' => $validated['cash_collect_at'] ?? 'pickup',
                 'customer_note' => $validated['customer_note'] ?? null,

@@ -376,7 +376,7 @@ class Dashboard extends Component
             'locationFresh' => $rider->location_updated_at && $rider->location_updated_at->gt(now()->subMinutes(max(1, (int) Setting::get('provider.location_stale_after_minutes', '30')))),
             'currencySymbol' => Setting::get('locale.currency_symbol', '₹'),
             'waiting' => $job ? ParcelWaitingCharge::compute($job) : null,
-            'contents' => ParcelSettings::CONTENTS,
+            'contents' => ParcelSettings::CONTENTS + ParcelSettings::GOODS_CONTENTS,
             'safetyConcernOptions' => ParcelSettings::SAFETY_CONCERNS,
             'safetyStageOptions' => ParcelSettings::SAFETY_PHOTO_STAGES,
             'refusalReasons' => ParcelSettings::REFUSAL_REASONS,

@@ -8,6 +8,8 @@
         'food' => ['Food', 'bg-orange-100 text-orange-800 ring-orange-200'],
         'shop' => ['Shop', 'bg-violet-100 text-violet-800 ring-violet-200'],
         'return' => ['Return pickup', 'bg-slate-200 text-slate-800 ring-slate-300'],
+        // Parcel Stage 3: a 3-wheeler / mini truck / pickup / truck booking.
+        'goods' => ['Goods trip', 'bg-emerald-100 text-emerald-800 ring-emerald-200'],
         default => ['Parcel', 'bg-blue-100 text-blue-800 ring-blue-200'],
     };
 @endphp

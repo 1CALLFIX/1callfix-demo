@@ -118,9 +118,13 @@
         <section class="mt-5 rounded-2xl border-2 border-blue-400 bg-white p-4 shadow-sm" aria-labelledby="job-heading" data-testid="current-job">
             <div class="flex items-start justify-between gap-3">
                 <div>
-                    <h2 id="job-heading" class="flex flex-wrap items-center gap-2 text-lg font-bold"><x-rider.kind kind="parcel" size="md" /> {{ $job->code }}</h2>
+                    <h2 id="job-heading" class="flex flex-wrap items-center gap-2 text-lg font-bold"><x-rider.kind :kind="$job->isGoodsVehicle() ? 'goods' : 'parcel'" size="md" /> {{ $job->code }}</h2>
+                    @if ($job->isGoodsVehicle() && $job->helpers > 0)
+                        {{-- Stage 3: the driver brings the helpers the customer paid for. --}}
+                        <p class="mt-1 inline-flex rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-bold text-emerald-800" data-testid="job-helpers">Bring {{ $job->helpers === 1 ? '1 helper' : $job->helpers.' helpers' }} for loading</p>
+                    @endif
                     <p class="text-sm text-slate-600">
-                        {{ ucfirst($job->package_size) }}
+                        {{ $job->isGoodsVehicle() ? \App\Services\Parcel\ParcelSettings::vehicleLabel($job->vehicle_type) : ucfirst($job->package_size) }}
                         @if ($job->package_weight_kg) · {{ rtrim(rtrim(number_format((float) $job->package_weight_kg, 2), '0'), '.') }} kg @endif
                         @if ($job->package_contents) · {{ $contents[$job->package_contents] ?? '' }} @endif
                         @if ($job->package_description) · {{ $job->package_description }} @endif
@@ -383,8 +387,8 @@
                 <div class="rounded-2xl border border-slate-300 bg-white p-4 shadow-sm" wire:key="offer-{{ $attempt->id }}" data-testid="offer-card">
                     <div class="flex items-start justify-between gap-3">
                         <div class="min-w-0">
-                            <x-rider.kind kind="parcel" />
-                            <p class="mt-2 font-semibold">{{ ucfirst($offer->package_size) }} parcel · {{ $offer->code }}</p>
+                            <x-rider.kind :kind="$offer->isGoodsVehicle() ? 'goods' : 'parcel'" />
+                            <p class="mt-2 font-semibold">{{ $offer->loadSummary() }} · {{ $offer->code }}</p>
                             <p class="text-sm text-slate-600">
                                 @if ($attempt->distance_km !== null){{ rtrim(rtrim(number_format((float) $attempt->distance_km, 1), '0'), '.') }} km to pickup · @endif
                                 @if ($offer->distance_km){{ rtrim(rtrim(number_format((float) $offer->distance_km, 1), '0'), '.') }} km trip @endif

@@ -1,5 +1,8 @@
 @php
-    $fmt = fn ($n) => $currencySymbol.number_format((float) $n, 2);
+    // Stage 3: whole-rupee prices show without paise (₹572, not ₹572.00).
+    $fmt = fn ($n) => $currencySymbol.number_format((float) $n, fmod((float) $n, 1.0) == 0.0 ? 0 : 2);
+    // Stage 3: a goods vehicle has a driver, not a rider.
+    $w = fn (string $s) => $order->isGoodsVehicle() ? str_replace(['rider', 'Rider'], ['driver', 'Driver'], $s) : $s;
     $steps = [
         'placed' => 'Booked',
         'searching' => 'Finding a rider',
@@ -26,6 +29,8 @@
         $order->status === 'delivered' => 'Delivered',
         default => ucfirst(str_replace('_', ' ', $order->status)),
     };
+    $steps = array_map($w, $steps);
+    $headline = $w($headline);
     $rider = $order->assignedWorker?->user;
     $tz = app(\App\Services\TimezoneResolver::class);
 @endphp
@@ -82,7 +87,7 @@
     {{-- Unpaid online order: nothing is sent to riders until this is paid. --}}
     @if ($order->isAwaitingOnlinePayment())
         <div class="mt-4 rounded-2xl border border-blue-200 bg-blue-50 p-4">
-            <p class="text-sm text-blue-900">Pay {{ $fmt($order->amountDue()) }} to send this parcel to a rider. Unpaid orders are cancelled automatically after a short while.</p>
+            <p class="text-sm text-blue-900">Pay {{ $fmt($order->amountDue()) }} to send this parcel to a {{ $w('rider') }}. Unpaid orders are cancelled automatically after a short while.</p>
             <button type="button" wire:click="pay" wire:loading.attr="disabled"
                     class="mt-3 inline-flex min-h-11 items-center rounded-xl bg-blue-600 px-5 text-sm font-semibold text-white hover:bg-blue-700">Pay now</button>
         </div>
@@ -107,14 +112,14 @@
                 <div class="rounded-2xl border border-slate-200 bg-white p-4">
                     <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Pickup code</p>
                     <p class="mt-1 text-3xl font-bold tracking-[0.3em] tabular-nums">{{ $order->pickup_otp }}</p>
-                    <p class="mt-1 text-xs text-slate-600">Give this to the rider when they collect the parcel.</p>
+                    <p class="mt-1 text-xs text-slate-600">Give this to the {{ $w('rider') }} when they collect the parcel.</p>
                 </div>
             @endif
             @unless ($order->drop_delivered_at)
                 <div class="rounded-2xl border border-slate-200 bg-white p-4">
                     <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">{{ $order->stops->isNotEmpty() ? 'Drop 1 code' : 'Delivery code' }}</p>
                     <p class="mt-1 text-3xl font-bold tracking-[0.3em] tabular-nums">{{ $order->delivery_otp }}</p>
-                    <p class="mt-1 text-xs text-slate-600">Share it with {{ $order->recipient_name ?: 'the recipient' }}. They give it to the rider on delivery.</p>
+                    <p class="mt-1 text-xs text-slate-600">Share it with {{ $order->recipient_name ?: 'the recipient' }}. They give it to the {{ $w('rider') }} on delivery.</p>
                 </div>
             @endunless
             {{-- Stage 2: one code per extra drop point, and the sender's own code for the return. --}}
@@ -129,7 +134,7 @@
                 <div class="rounded-2xl border border-amber-200 bg-amber-50 p-4">
                     <p class="text-xs font-semibold uppercase tracking-wide text-amber-800">Your return code</p>
                     <p class="mt-1 text-3xl font-bold tracking-[0.3em] tabular-nums">{{ $order->return_otp }}</p>
-                    <p class="mt-1 text-xs text-amber-900">Give it to the rider only when they bring the return back to you.</p>
+                    <p class="mt-1 text-xs text-amber-900">Give it to the {{ $w('rider') }} only when they bring the return back to you.</p>
                 </div>
             @endif
         </div>
@@ -139,8 +144,12 @@
     @if ($rider && $order->status !== 'cancelled')
         <div class="mt-5 flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white p-4">
             <div>
-                <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Your rider</p>
+                <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">{{ $order->isGoodsVehicle() ? 'Your driver' : 'Your rider' }}</p>
                 <p class="font-semibold">{{ $rider->name }}</p>
+                {{-- Stage 3: the number plate the driver gave, so the customer knows which vehicle to expect. --}}
+                @if ($order->assignedWorker?->vehicle_number)
+                    <p class="mt-0.5 inline-flex rounded border border-slate-300 bg-amber-50 px-1.5 font-mono text-xs font-bold tracking-wider text-slate-800" data-testid="vehicle-number">{{ $order->assignedWorker->vehicle_number }}</p>
+                @endif
             </div>
             @if ($rider->phone && $order->status !== 'delivered')
                 <a href="tel:{{ $rider->phone }}" class="inline-flex min-h-10 items-center rounded-lg border border-slate-300 px-4 text-sm font-medium hover:bg-slate-50">Call</a>
@@ -150,9 +159,9 @@
             <div class="mt-2 flex items-center justify-between gap-3 rounded-2xl bg-blue-50 px-4 py-3 text-sm text-blue-900">
                 <p>
                     @if ($riderAway['km'] !== null)
-                        Rider is <span class="font-semibold">{{ number_format($riderAway['km'], 1) }} km</span> from {{ $riderAway['to'] }}
+                        {{ $w('Rider') }} is <span class="font-semibold">{{ number_format($riderAway['km'], 1) }} km</span> from {{ $riderAway['to'] }}
                     @else
-                        Rider is on the way
+                        {{ $w('Rider') }} is on the way
                     @endif
                     <span class="block text-xs text-blue-700">Updated {{ $riderAway['ago'] }}</span>
                 </p>
@@ -170,10 +179,10 @@
 
     {{-- Stage 2: rate the rider after delivery. --}}
     @if ($myRating)
-        <p class="mt-5 rounded-2xl border border-slate-200 bg-white p-4 text-sm">You rated your rider <span class="font-semibold text-amber-600">{{ str_repeat('★', $myRating->rating) }}</span><span class="text-slate-300">{{ str_repeat('★', 5 - $myRating->rating) }}</span></p>
+        <p class="mt-5 rounded-2xl border border-slate-200 bg-white p-4 text-sm">You rated your {{ $w('rider') }} <span class="font-semibold text-amber-600">{{ str_repeat('★', $myRating->rating) }}</span><span class="text-slate-300">{{ str_repeat('★', 5 - $myRating->rating) }}</span></p>
     @elseif ($canRate)
         <div class="mt-5 rounded-2xl border border-slate-200 bg-white p-4 text-sm">
-            <p class="font-semibold">How was your rider?</p>
+            <p class="font-semibold">How was your {{ $w('rider') }}?</p>
             <div class="mt-2 flex gap-1" role="radiogroup" aria-label="Rating">
                 @for ($i = 1; $i <= 5; $i++)
                     <button type="button" wire:click="$set('stars', {{ $i }})" role="radio" aria-checked="{{ $stars === $i ? 'true' : 'false' }}" aria-label="{{ $i }} {{ $i === 1 ? 'star' : 'stars' }}"
@@ -221,15 +230,19 @@
                 <span class="mt-1 h-2.5 w-2.5 shrink-0 rounded-full bg-amber-500" aria-hidden="true"></span>
                 <div>
                     <p class="font-semibold">Back to you {!! $order->returned_at ? '<span class="font-normal text-emerald-700">· returned</span>' : '' !!}</p>
-                    <p class="text-slate-600">The rider brings the return back to the pickup point.</p>
+                    <p class="text-slate-600">The {{ $w('rider') }} brings the return back to the pickup point.</p>
                 </div>
             </div>
         @endif
         <p class="mt-3 border-t border-slate-100 pt-3 text-slate-600">
-            {{ \App\Services\Parcel\ParcelSettings::SIZES[$order->package_size] ?? ucfirst($order->package_size) }} package
+            @if ($order->isGoodsVehicle())
+                {{ \App\Services\Parcel\ParcelSettings::VEHICLES[$order->vehicle_type]['emoji'] ?? '' }} {{ $order->loadSummary() }}
+            @else
+                {{ \App\Services\Parcel\ParcelSettings::SIZES[$order->package_size] ?? ucfirst($order->package_size) }} package
+            @endif
             @if ($order->package_weight_kg) · {{ rtrim(rtrim(number_format((float) $order->package_weight_kg, 2), '0'), '.') }} kg @endif
             @if ($order->distance_km) · {{ rtrim(rtrim(number_format((float) $order->distance_km, 1), '0'), '.') }} km @endif
-            @if ($order->package_contents) · {{ \App\Services\Parcel\ParcelSettings::CONTENTS[$order->package_contents] ?? '' }} @endif
+            @if ($order->package_contents) · {{ \App\Services\Parcel\ParcelSettings::contentsLabel($order->package_contents) }} @endif
             @if ($order->package_description) · {{ $order->package_description }} @endif
         </p>
     </div>
@@ -245,16 +258,16 @@
                 <div class="flex justify-between gap-3 text-emerald-700"><dt>Paid by your parcel pack{{ $order->pack_credit_returned_at ? ' (credit given back)' : '' }}</dt><dd class="tabular-nums">−{{ $fmt($order->pack_covered) }}</dd></div>
             @endif
             @if ($order->waiting_charge)
-                <div class="flex justify-between gap-3 text-slate-600"><dt>Waiting at pickup ({{ $order->waiting_minutes }} min), paid to the rider</dt><dd class="tabular-nums">{{ $fmt($order->waiting_charge) }}</dd></div>
+                <div class="flex justify-between gap-3 text-slate-600"><dt>Waiting at pickup ({{ $order->waiting_minutes }} min), paid to the {{ $w('rider') }}</dt><dd class="tabular-nums">{{ $fmt($order->waiting_charge) }}</dd></div>
             @endif
         </dl>
         <p class="mt-2 text-slate-600">
             @php $atDrop = $order->collectsCashAtDelivery(); @endphp
             Payment: {{ ['online' => 'Online', 'wallet' => 'Wallet', 'pack' => 'Parcel pack', 'cash' => $atDrop ? 'Cash at drop' : 'Cash at pickup'][$order->payment_method] ?? $order->payment_method }}
-            · {{ ['pending' => $order->payment_method === 'cash' ? ($atDrop ? 'The recipient pays the rider at drop' : 'Pay the rider at pickup') : 'Not paid', 'paid' => $atDrop && $order->recipient_refused_at ? 'You paid the rider at the door' : 'Paid', 'refunded' => 'Refunded', 'partially_refunded' => 'Partly refunded'][$order->payment_status] ?? $order->payment_status }}
+            · {{ $w(['pending' => $order->payment_method === 'cash' ? ($atDrop ? 'The recipient pays the rider at drop' : 'Pay the rider at pickup') : 'Not paid', 'paid' => $atDrop && $order->recipient_refused_at ? 'You paid the rider at the door' : 'Paid', 'refunded' => 'Refunded', 'partially_refunded' => 'Partly refunded'][$order->payment_status] ?? $order->payment_status) }}
         </p>
         @if ($order->refused_at)
-            <p class="mt-2 rounded-lg bg-rose-50 p-2 text-rose-900">The rider could not take this parcel: {{ \App\Services\Parcel\ParcelSettings::REFUSAL_REASONS[$order->refusal_reason]['customer'] ?? 'the rider could not safely accept it' }}.</p>
+            <p class="mt-2 rounded-lg bg-rose-50 p-2 text-rose-900">{{ $w('The rider') }} could not take this parcel: {{ $w(\App\Services\Parcel\ParcelSettings::REFUSAL_REASONS[$order->refusal_reason]['customer'] ?? 'the rider could not safely accept it') }}.</p>
         @endif
         @if ($order->status === 'cancelled' && (float) $order->cancellation_fee > 0)
             <p class="mt-1 text-slate-600">{{ $order->refused_at ? 'Refusal fee' : 'Cancellation charge' }}: {{ $fmt($order->cancellation_fee) }}</p>
@@ -270,11 +283,11 @@
                 @if ($codDue?->cod_remitted_at)
                     Paid into your wallet on {{ $tz->format($codDue->cod_remitted_at, $order->franchise, 'j M, g:i A') }}.
                 @elseif ($order->cod_collected_at)
-                    The rider collected it. It is paid into your wallet once they hand it in.
+                    The {{ $w('rider') }} collected it. It is paid into your wallet once they hand it in.
                 @elseif ($order->status === 'cancelled')
                     Not collected (the order was cancelled).
                 @else
-                    The rider collects it from {{ $order->recipient_name ?: 'the recipient' }} at the drop.
+                    The {{ $w('rider') }} collects it from {{ $order->recipient_name ?: 'the recipient' }} at the drop.
                 @endif
             </p>
         </div>
@@ -338,7 +351,7 @@
                 <div class="rounded-2xl border border-rose-200 bg-rose-50 p-4">
                     <p class="text-sm text-rose-900">
                         @if ($cancelFee > 0)
-                            A rider is already assigned, so a cancellation charge of {{ $fmt($cancelFee) }} applies{{ $order->payment_status === 'paid' ? ' and is kept from your refund' : '' }}.
+                            A {{ $w('rider') }} is already assigned, so a cancellation charge of {{ $fmt($cancelFee) }} applies{{ $order->payment_status === 'paid' ? ' and is kept from your refund' : '' }}.
                         @else
                             No charge to cancel now.{{ $order->payment_status === 'paid' ? ' You get a full refund.' : '' }}
                         @endif

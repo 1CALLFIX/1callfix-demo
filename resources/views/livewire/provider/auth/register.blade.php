@@ -253,6 +253,38 @@
                     @endif
                 @endif
 
+                {{-- Parcel Stage 3 (goods vehicles, 2026-11-23): the vehicle the rider drives, one tap; number plate for a goods vehicle. --}}
+                @if ($rider)
+                    <fieldset data-testid="rider-vehicle">
+                        <legend class="block text-sm font-medium text-slate-900">Which vehicle do you drive?</legend>
+                        <div class="mt-1.5 grid grid-cols-2 gap-2 sm:grid-cols-3">
+                            @foreach (\App\Services\Parcel\ParcelSettings::VEHICLES as $key => $vehicle)
+                                <label wire:key="rider-vehicle-{{ $key }}" @class([
+                                    'flex min-h-14 cursor-pointer items-center gap-2 rounded-xl border px-3 py-2 text-sm transition',
+                                    'border-blue-600 bg-blue-50 font-semibold text-blue-900 ring-1 ring-blue-600' => $riderVehicle === $key,
+                                    'border-slate-300 bg-white text-slate-800 hover:border-slate-400' => $riderVehicle !== $key,
+                                ])>
+                                    <input type="radio" wire:model.live="riderVehicle" value="{{ $key }}" class="sr-only">
+                                    <span class="text-2xl leading-none" aria-hidden="true">{{ $vehicle['emoji'] }}</span>
+                                    <span>{{ $vehicle['label'] }}</span>
+                                </label>
+                            @endforeach
+                        </div>
+                        @error('riderVehicle') <p class="mt-1.5 text-sm text-red-700">{{ $message }}</p> @enderror
+                    </fieldset>
+                    <div>
+                        <label for="pr-vehicle-number" class="block text-sm font-medium text-slate-900">
+                            Number plate
+                            @unless (\App\Services\Parcel\ParcelSettings::isGoodsVehicle($riderVehicle))<span class="font-normal text-slate-500">(optional)</span>@endunless
+                        </label>
+                        <input id="pr-vehicle-number" type="text" wire:model="vehicleNumber" maxlength="20" autocapitalize="characters" placeholder="AP 26 TA 1234"
+                               @class(['mt-1.5 block min-h-11 w-full rounded-lg border px-3 py-2.5 text-base uppercase shadow-sm focus:outline focus:outline-2 focus:outline-blue-600',
+                                       'border-red-400' => $errors->has('vehicleNumber'), 'border-slate-300' => ! $errors->has('vehicleNumber')])>
+                        <p class="mt-1 text-xs text-slate-500">Customers see it so they know which vehicle is coming.</p>
+                        @error('vehicleNumber') <p class="mt-1.5 text-sm text-red-700">{{ $message }}</p> @enderror
+                    </div>
+                @endif
+
                 <div>
                     <label for="pr-address" class="block text-sm font-medium text-slate-900">{{ $rider ? 'Where you live / start your day' : ($isVehicleOwner ? 'Area where the vehicle is parked' : ($isHomeOwner ? 'Address of the property' : ($seller ? ucfirst($place).' address' : 'Work address'))) }}</label>
                     <textarea id="pr-address" rows="2" wire:model="address" placeholder="{{ $rider ? 'Area / street' : ($isVehicleOwner ? 'Area / street where it is parked' : ($seller ? 'Shop number, street, area' : 'Area / street you work from')) }}"

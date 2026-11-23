@@ -23,6 +23,8 @@ class ParcelReadiness
             ->where('is_active', true)
             ->where('kyc_status', 'approved')
             ->whereHas('capabilities', fn ($q) => $q->where('capability_type', 'parcel_rider'))
+            // Stage 3: parcel itself is the two-wheeler service; truck and auto drivers do not make it ready.
+            ->where(fn ($q) => $q->where('vehicle_type', 'two_wheeler')->orWhereNull('vehicle_type'))
             ->whereHas('user', fn ($q) => $q->where('status', '!=', 'suspended'))
             ->when($scopeLevel === 'zone', fn ($q) => $q->where('zone_id', $scopeId))
             ->when($scopeLevel === 'franchise', fn ($q) => $q->where('franchise_id', $scopeId))

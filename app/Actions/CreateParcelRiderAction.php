@@ -123,20 +123,33 @@ class CreateParcelRiderAction
 
     private function createApplicantProfile(User $user, Zone $zone, array $registration): FieldWorker
     {
+        // Stage 3 (goods vehicles): the vehicle the applicant drives and its number plate; riders are only offered
+        // orders for their own vehicle (DispatchService).
+        $vehicle = (string) ($registration['vehicle_type'] ?? '');
         $worker = FieldWorker::create([
             'user_id' => $user->id, 'franchise_id' => $zone->franchise_id, 'zone_id' => $zone->id,
             'kyc_status' => 'pending', 'is_active' => true, 'is_online' => false,
+            'vehicle_type' => isset(\App\Services\Parcel\ParcelSettings::VEHICLES[$vehicle]) ? $vehicle : 'two_wheeler',
+            'vehicle_number' => self::normalisePlate($registration['vehicle_number'] ?? null),
         ]);
         FieldWorkerCapability::create(['field_worker_id' => $worker->id, 'capability_type' => 'parcel_rider']);
 
         // field_workers has no registration-address columns; the typed address and pin go in the log so the
         // reviewing admin can see where the rider works (and move an out-of-coverage rider to the right zone).
         ActivityLogger::logModel($user, $worker, 'Parcel rider applied (partner sign-up); awaiting document review', array_filter([
-            'zone_id' => $zone->id, 'address' => $registration['address'] ?? null,
+            'zone_id' => $zone->id, 'vehicle_type' => $worker->vehicle_type, 'vehicle_number' => $worker->vehicle_number, 'address' => $registration['address'] ?? null,
             'lat' => $registration['lat'] ?? null, 'lng' => $registration['lng'] ?? null,
             'out_of_coverage' => ($registration['out_of_coverage'] ?? false) ?: null,
         ], fn ($v) => $v !== null));
 
         return $worker;
+    }
+
+    /** "ap26ta  1234" → "AP26TA 1234": upper case, single spaces; blank = null. */
+    public static function normalisePlate(?string $plate): ?string
+    {
+        $plate = strtoupper(trim(preg_replace('/\s+/', ' ', (string) $plate)));
+
+        return $plate !== '' ? mb_substr($plate, 0, 20) : null;
     }
 }

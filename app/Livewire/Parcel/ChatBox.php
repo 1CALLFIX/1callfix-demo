@@ -49,7 +49,7 @@ class ChatBox extends Component
             'messages' => $chat->thread($order, auth()->user()),
             'open' => $chat->isOpen($order),
             'me' => (int) auth()->id(),
-            'otherName' => $order->customer_id === auth()->id() ? 'Rider' : 'Sender',
+            'otherName' => $order->customer_id === auth()->id() ? ($order->isGoodsVehicle() ? 'Driver' : 'Rider') : 'Sender',
         ]);
     }
 }

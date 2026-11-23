@@ -26,6 +26,20 @@
                 <div class="flex justify-between"><dt class="text-gray-500">Phone</dt><dd>{{ $fieldWorker->user->phone ?? '—' }}</dd></div>
                 <div class="flex justify-between"><dt class="text-gray-500">Franchise / Zone</dt><dd>{{ $fieldWorker->franchise->name ?? '—' }} / {{ $fieldWorker->zone->name ?? '—' }}</dd></div>
                 <div class="flex justify-between"><dt class="text-gray-500">Applied</dt><dd>{{ app(\App\Services\TimezoneResolver::class)->format($fieldWorker->created_at, $fieldWorker->franchise, 'd M Y, h:i A') }}</dd></div>
+                {{-- Parcel Stage 3: the vehicle decides which orders this rider is offered. --}}
+                <div class="pt-2 border-t mt-2" data-testid="worker-vehicle">
+                    <dt class="text-gray-500 mb-1">Vehicle</dt>
+                    <dd class="flex flex-wrap items-start gap-2">
+                        <select wire:model.live="vehicleType" class="border rounded px-2 py-1.5 text-sm" aria-label="Vehicle">
+                            @foreach (\App\Services\Parcel\ParcelSettings::VEHICLES as $key => $vehicle)
+                                <option value="{{ $key }}">{{ $vehicle['emoji'] }} {{ $vehicle['label'] }}</option>
+                            @endforeach
+                        </select>
+                        <input type="text" wire:model="vehicleNumber" maxlength="20" placeholder="Number plate" class="w-36 border rounded px-2 py-1.5 text-sm uppercase" aria-label="Number plate">
+                        <x-ui.button size="sm" wire:click="saveVehicle">Save</x-ui.button>
+                    </dd>
+                    @error('vehicleNumber') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
+                </div>
                 <div class="flex justify-between items-center pt-2 border-t mt-2">
                     <dt class="text-gray-500">Active</dt>
                     <dd><x-ui.button size="sm" wire:click="toggleActive">{{ $fieldWorker->is_active ? 'Deactivate' : 'Activate' }}</x-ui.button></dd>

@@ -97,6 +97,15 @@ class Register extends Component
 
     public bool $terms = false;
 
+    /**
+     * Parcel Stage 3 (goods vehicles, 2026-11-23), delivery riders only: the vehicle they drive (a
+     * ParcelSettings::VEHICLES key, tapped as a chip) and its number plate (needed for a goods vehicle, shown to the
+     * customer). Drivers can join before their vehicle is priced in the city: they get offers once it is.
+     */
+    public string $riderVehicle = 'two_wheeler';
+
+    public string $vehicleNumber = '';
+
     /** Service category ids the applicant offers — saved to providers.skills (what dispatch matches on). */
     public array $skills = [];
 
@@ -534,6 +543,10 @@ class Register extends Component
             ...($this->isSeller() || $this->isHotel() || $this->isOrganiser() || $this->isHallOwner() ? ['storeName' => ['required', 'string', 'min:2', 'max:120']] : []),
             ...($this->isHotel() ? ['hotelType' => ['required', 'string', \Illuminate\Validation\Rule::in(RegisterHotelAction::joinableTypes()->pluck('slug')->all())]] : []),
             ...($this->isRestaurant() ? ['fssaiNumber' => [\App\Support\FoodSettings::on('food.fssai_at_signup') ? 'required' : 'nullable', 'regex:/^\d{14}$/']] : []),
+            ...($this->isRider() ? [
+                'riderVehicle' => ['required', \Illuminate\Validation\Rule::in(array_keys(\App\Services\Parcel\ParcelSettings::VEHICLES))],
+                'vehicleNumber' => [\App\Services\Parcel\ParcelSettings::isGoodsVehicle($this->riderVehicle) ? 'required' : 'nullable', 'string', 'max:20', 'regex:/^[A-Za-z0-9 \-]{4,20}$/'],
+            ] : []),
             'terms' => ['accepted'],
             'documents' => ['array'],
             'documents.*' => ['file', 'mimes:jpg,jpeg,png,pdf', 'max:10240'],
@@ -553,6 +566,10 @@ class Register extends Component
             'hotelType.in' => 'Choose the kind of stay you run.',
             'fssaiNumber.required' => 'Enter your FSSAI licence number. Food businesses need one by law.',
             'fssaiNumber.regex' => 'The FSSAI licence number is 14 digits.',
+            'riderVehicle.required' => 'Choose the vehicle you drive.',
+            'riderVehicle.in' => 'Choose the vehicle you drive.',
+            'vehicleNumber.required' => 'Enter the number on your vehicle\'s number plate.',
+            'vehicleNumber.regex' => 'Enter the number plate as it is written, e.g. AP 26 TA 1234.',
         ]);
 
         // Only real, active, customer-visible categories count — the array is client-editable state.
@@ -755,7 +772,8 @@ class Register extends Component
                 });
             } elseif ($this->isRider()) {
                 DB::transaction(function () use ($riders, $kyc, $zone, $requirements, $existing) {
-                    $registration = ['address' => $this->address, 'lat' => $this->lat, 'lng' => $this->lng, 'out_of_coverage' => $this->outOfCoverage];
+                    $registration = ['address' => $this->address, 'lat' => $this->lat, 'lng' => $this->lng, 'out_of_coverage' => $this->outOfCoverage,
+                        'vehicle_type' => $this->riderVehicle, 'vehicle_number' => $this->vehicleNumber];
                     $rider = $existing ? $riders->registerExistingCustomer($zone, $existing, $registration) : $riders->registerApplicant(
                         zone: $zone,
                         name: $this->name,

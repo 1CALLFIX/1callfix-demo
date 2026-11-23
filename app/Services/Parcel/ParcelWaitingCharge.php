@@ -30,11 +30,29 @@ class ParcelWaitingCharge
             return ['minutes' => $minutes, 'charge' => 0.0];
         }
 
-        $over = max(0, $minutes - (int) ParcelSettings::get('parcel.waiting_free_minutes', $scope));
-        $block = max(1, (int) ParcelSettings::get('parcel.waiting_block_minutes', $scope));
-        $blocks = (int) ceil($over / $block);
+        ['free' => $free, 'block' => $block, 'rate' => $rate] = self::terms($order, $scope);
+        $blocks = (int) ceil(max(0, $minutes - $free) / $block);
 
-        return ['minutes' => $minutes, 'charge' => round($blocks * (float) ParcelSettings::get('parcel.waiting_charge_per_block', $scope), 2)];
+        return ['minutes' => $minutes, 'charge' => round($blocks * $rate, 2)];
+    }
+
+    /**
+     * Free minutes, block length and charge per block for this order. Stage 3: a goods vehicle may have its own free
+     * loading time and rate; blank = the parcel values.
+     *
+     * @return array{free: int, block: int, rate: float}
+     */
+    public static function terms(ParcelOrder $order, ?array $scope = null): array
+    {
+        $scope ??= self::scope($order);
+        $free = (int) ParcelSettings::get('parcel.waiting_free_minutes', $scope);
+        $rate = (float) ParcelSettings::get('parcel.waiting_charge_per_block', $scope);
+        if (ParcelSettings::isGoodsVehicle($order->vehicle_type)) {
+            $free = (int) (ParcelSettings::get(ParcelSettings::vehicleKey($order->vehicle_type, 'free_loading_minutes'), $scope) ?? $free);
+            $rate = (float) (ParcelSettings::get(ParcelSettings::vehicleKey($order->vehicle_type, 'waiting_charge_per_block'), $scope) ?? $rate);
+        }
+
+        return ['free' => $free, 'block' => max(1, (int) ParcelSettings::get('parcel.waiting_block_minutes', $scope)), 'rate' => $rate];
     }
 
     public static function scope(ParcelOrder $order): array

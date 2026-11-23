@@ -167,6 +167,39 @@ class RiderPartnerSignupTest extends TestCase
         $this->assertSame(0, app(ParcelReadiness::class)->riderCount('franchise', $rider->franchise_id));
     }
 
+    /** Parcel Stage 3 (goods vehicles): a driver taps their vehicle and gives the number plate; it decides their offers. */
+    public function test_a_mini_truck_driver_signs_up_with_the_vehicle_and_number_plate(): void
+    {
+        $this->recruiting();
+        $phone = $this->randomPhone();
+
+        $this->signUpRider($phone)->assertSee('Which vehicle do you drive?')
+            ->set('riderVehicle', 'mini_truck')->set('vehicleNumber', '  ap26ta   1234 ')
+            ->call('submitApplication')->assertHasNoErrors()->assertSet('submitted', true);
+
+        $rider = FieldWorker::whereHas('user', fn ($q) => $q->where('phone', $phone))->sole();
+        $this->assertSame('mini_truck', $rider->vehicle_type);
+        $this->assertSame('AP26TA 1234', $rider->vehicle_number);
+        $this->assertTrue($rider->hasCapability('parcel_rider'));
+    }
+
+    public function test_a_goods_vehicle_needs_its_number_plate_and_a_two_wheeler_does_not(): void
+    {
+        $this->recruiting();
+
+        $this->signUpRider($this->randomPhone())->set('riderVehicle', 'truck')->set('vehicleNumber', '')
+            ->call('submitApplication')->assertHasErrors(['vehicleNumber' => 'required'])->assertSet('submitted', false);
+
+        $this->signUpRider($this->randomPhone())->set('riderVehicle', 'spaceship')
+            ->call('submitApplication')->assertHasErrors(['riderVehicle'])->assertSet('submitted', false);
+
+        $phone = $this->randomPhone();
+        $this->signUpRider($phone)->call('submitApplication')->assertHasNoErrors()->assertSet('submitted', true);
+        $rider = FieldWorker::whereHas('user', fn ($q) => $q->where('phone', $phone))->sole();
+        $this->assertSame('two_wheeler', $rider->vehicle_type);
+        $this->assertNull($rider->vehicle_number);
+    }
+
     public function test_required_rider_documents_are_enforced(): void
     {
         $this->recruiting();

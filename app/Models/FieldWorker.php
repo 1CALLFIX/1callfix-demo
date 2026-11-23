@@ -31,6 +31,7 @@ class FieldWorker extends Model
         'franchise_id',
         'zone_id',
         'vehicle_type',
+        'vehicle_number',
         'kyc_status',
         'is_online',
         'current_lat',

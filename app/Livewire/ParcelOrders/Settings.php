@@ -85,7 +85,7 @@ class Settings extends Component
         [$type, $id] = $this->scopeTarget() ?? ['global', null];
         $this->inputs = [];
 
-        foreach (ParcelSettings::REGISTRY as $key => $meta) {
+        foreach (ParcelSettings::registry() as $key => $meta) {
             $row = Setting::where('scope_type', $type)->where('scope_id', $id)->where('key', $key)->value('value');
             $this->inputs[ParcelSettings::field($key)] = $row === null ? '' : (string) $row;
         }
@@ -107,7 +107,7 @@ class Settings extends Component
         }
 
         $errors = 0;
-        foreach (ParcelSettings::REGISTRY as $key => $meta) {
+        foreach (ParcelSettings::registry() as $key => $meta) {
             $error = ParcelSettings::validate($key, $this->inputs[ParcelSettings::field($key)] ?? null);
             if ($error) {
                 $this->addError('inputs.'.ParcelSettings::field($key), $error);
@@ -127,7 +127,7 @@ class Settings extends Component
         }
 
         $changed = 0;
-        foreach (ParcelSettings::REGISTRY as $key => $meta) {
+        foreach (ParcelSettings::registry() as $key => $meta) {
             $changed += SettingsAuditor::put(auth()->user(), $key, $this->inputs[ParcelSettings::field($key)] ?? null, $target[0], $target[1]) ? 1 : 0;
         }
         $items = ParcelSettings::parseRestrictedItems($this->restrictedItemsText);
@@ -161,13 +161,13 @@ class Settings extends Component
             + max(0.0, $kg - (float) ParcelSettings::get('parcel.free_weight_kg', $scope)) * (float) ParcelSettings::get('parcel.per_kg_rate', $scope)
             + (float) ParcelSettings::get("parcel.size_surcharge_{$size}", $scope);
 
-        return ['ok' => true, 'total' => round($total, 2)];
+        return ['ok' => true, 'total' => round($total)]; // whole rupees, like ParcelPricing
     }
 
     public function render()
     {
         $data = [
-            'groups' => collect(ParcelSettings::REGISTRY)->map(fn ($m, $k) => $m + ['key' => $k, 'field' => ParcelSettings::field($k)])->groupBy('group'),
+            'groups' => collect(ParcelSettings::registry())->map(fn ($m, $k) => $m + ['key' => $k, 'field' => ParcelSettings::field($k)])->groupBy('group'),
             'franchises' => Franchise::orderBy('name')->get(['id', 'name']),
             'zones' => $this->scopeFranchiseId ? Zone::where('franchise_id', $this->scopeFranchiseId)->orderBy('name')->get(['id', 'name']) : collect(),
             'preview' => $this->preview(),

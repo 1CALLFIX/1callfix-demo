@@ -30,16 +30,30 @@ class ParcelPricing
      *
      * @throws ParcelQuoteException when pricing is not configured or the parcel is outside the limits
      */
-    public function quote(float $pickupLat, float $pickupLng, float $dropLat, float $dropLng, ?float $weightKg, string $size, array $scope, bool $scheduled = false, array $extraDrops = [], bool $returnTrip = false, ?float $declaredValue = null): array
+    public function quote(float $pickupLat, float $pickupLng, float $dropLat, float $dropLng, ?float $weightKg, string $size, array $scope, bool $scheduled = false, array $extraDrops = [], bool $returnTrip = false, ?float $declaredValue = null, string $vehicle = 'two_wheeler', int $helpers = 0): array
     {
         if (ParcelSettings::missingRequired($scope) !== []) {
             throw new ParcelQuoteException('Parcel delivery is not available here yet.');
+        }
+        // Stage 3 (goods vehicles): a vehicle other than the two-wheeler is priced from its own fare card and is
+        // refused where that card is blank. Helpers only where the vehicle's helper price is set.
+        if (! ParcelSettings::vehicleAvailable($vehicle, $scope)) {
+            throw new ParcelQuoteException(isset(ParcelSettings::VEHICLES[$vehicle])
+                ? 'A '.ParcelSettings::vehicleLabel($vehicle).' is not available here yet. Choose another vehicle.'
+                : 'Choose a vehicle.');
+        }
+        $goods = ParcelSettings::isGoodsVehicle($vehicle);
+        if ($helpers < 0 || $helpers > ParcelSettings::HELPERS_MAX) {
+            throw new ParcelQuoteException('You can ask for up to '.ParcelSettings::HELPERS_MAX.' helpers.');
+        }
+        if ($helpers > 0 && ! ParcelSettings::helpersAvailable($vehicle, $scope)) {
+            throw new ParcelQuoteException('Helpers are not available with this vehicle here.');
         }
         // Stage 1: a scheduled parcel has its own base fare (parcel.schedule_base_fare); unset = no scheduling here.
         if ($scheduled && ! ParcelSettings::scheduleAvailable($scope)) {
             throw new ParcelQuoteException('Scheduled delivery is not available here. Choose "Now".');
         }
-        if (! array_key_exists($size, ParcelSettings::SIZES)) {
+        if (! $goods && ! array_key_exists($size, ParcelSettings::SIZES)) {
             throw new ParcelQuoteException('Choose a package size.');
         }
 
@@ -62,13 +76,15 @@ class ParcelPricing
         }
 
         $factor = (float) ParcelSettings::get('parcel.road_distance_factor', $scope);
-        $maxDistance = (float) ParcelSettings::get('parcel.max_distance_km', $scope);
+        $maxDistance = (float) ParcelSettings::maxDistanceFor($vehicle, $scope);
         // The longest delivery accepted is how far any drop point may be from the pickup (the service radius).
         foreach (array_merge([[$dropLat, $dropLng]], $extraDrops) as $i => [$lat, $lng]) {
             $away = round($this->dispatch->haversineKm($pickupLat, $pickupLng, (float) $lat, (float) $lng) * $factor, 2);
             if ($away > $maxDistance) {
                 $which = $extraDrops === [] ? 'That drop point' : 'Drop '.($i + 1);
-                throw new ParcelQuoteException("{$which} is {$away} km away. We deliver parcels up to {$maxDistance} km.");
+                throw new ParcelQuoteException($goods
+                    ? "{$which} is {$away} km away. A ".ParcelSettings::vehicleLabel($vehicle)." goes up to {$maxDistance} km."
+                    : "{$which} is {$away} km away. We deliver parcels up to {$maxDistance} km.");
             }
         }
 
@@ -81,22 +97,39 @@ class ParcelPricing
         $distance = round($straight * $factor, 2);
 
         $weight = max(0.0, (float) ($weightKg ?? 0));
-        $maxWeight = (float) ParcelSettings::get('parcel.max_weight_kg', $scope);
+        $maxWeight = (float) ParcelSettings::maxWeightFor($vehicle, $scope);
         if ($weight > $maxWeight) {
-            throw new ParcelQuoteException("We accept parcels up to {$maxWeight} kg.");
+            throw new ParcelQuoteException($goods
+                ? 'A '.ParcelSettings::vehicleLabel($vehicle)." carries up to {$this->num($maxWeight)} kg. Choose a bigger vehicle."
+                : "We accept parcels up to {$maxWeight} kg.");
         }
 
-        $baseKm = (float) ParcelSettings::get('parcel.base_km', $scope);
-        $extraKm = max(0.0, $distance - $baseKm);
-        $extraKg = max(0.0, $weight - (float) ParcelSettings::get('parcel.free_weight_kg', $scope));
+        if ($goods) {
+            // A goods vehicle: its own base fare and per-km rate. The load is limited by the vehicle, not charged per kg
+            // or by package size; the scheduled two-wheeler fare does not apply.
+            $baseKm = (float) ParcelSettings::get(ParcelSettings::vehicleKey($vehicle, 'base_km'), $scope);
+            $extraKm = max(0.0, $distance - $baseKm);
+            $label = ParcelSettings::vehicleLabel($vehicle);
+            $lines = [
+                ['label' => $baseKm > 0 ? "{$label}, base fare (first {$this->num($baseKm)} km)" : "{$label}, base fare", 'amount' => (float) ParcelSettings::get(ParcelSettings::vehicleKey($vehicle, 'base_fare'), $scope)],
+                ['label' => "Distance ({$this->num(round($extraKm, 2))} km)", 'amount' => round($extraKm * (float) ParcelSettings::get(ParcelSettings::vehicleKey($vehicle, 'per_km_rate'), $scope), 2)],
+            ];
+            if ($helpers > 0) {
+                $lines[] = ['label' => $helpers === 1 ? '1 helper for loading' : "{$helpers} helpers for loading", 'amount' => round($helpers * (float) ParcelSettings::get(ParcelSettings::vehicleKey($vehicle, 'helper_fee'), $scope), 2)];
+            }
+        } else {
+            $baseKm = (float) ParcelSettings::get('parcel.base_km', $scope);
+            $extraKm = max(0.0, $distance - $baseKm);
+            $extraKg = max(0.0, $weight - (float) ParcelSettings::get('parcel.free_weight_kg', $scope));
 
-        $baseLabel = $scheduled ? 'Base fare, scheduled' : 'Base fare';
-        $lines = [
-            ['label' => $baseKm > 0 ? "{$baseLabel} (first {$this->num($baseKm)} km)" : $baseLabel, 'amount' => (float) ParcelSettings::get($scheduled ? 'parcel.schedule_base_fare' : 'parcel.base_fare', $scope)],
-            ['label' => "Distance ({$this->num(round($extraKm, 2))} km)", 'amount' => round($extraKm * (float) ParcelSettings::get('parcel.per_km_rate', $scope), 2)],
-            ['label' => "Weight ({$this->num(round($extraKg, 2))} kg over free limit)", 'amount' => round($extraKg * (float) ParcelSettings::get('parcel.per_kg_rate', $scope), 2)],
-            ['label' => ParcelSettings::SIZES[$size].' package', 'amount' => (float) ParcelSettings::get("parcel.size_surcharge_{$size}", $scope)],
-        ];
+            $baseLabel = $scheduled ? 'Base fare, scheduled' : 'Base fare';
+            $lines = [
+                ['label' => $baseKm > 0 ? "{$baseLabel} (first {$this->num($baseKm)} km)" : $baseLabel, 'amount' => (float) ParcelSettings::get($scheduled ? 'parcel.schedule_base_fare' : 'parcel.base_fare', $scope)],
+                ['label' => "Distance ({$this->num(round($extraKm, 2))} km)", 'amount' => round($extraKm * (float) ParcelSettings::get('parcel.per_km_rate', $scope), 2)],
+                ['label' => "Weight ({$this->num(round($extraKg, 2))} kg over free limit)", 'amount' => round($extraKg * (float) ParcelSettings::get('parcel.per_kg_rate', $scope), 2)],
+                ['label' => ParcelSettings::SIZES[$size].' package', 'amount' => (float) ParcelSettings::get("parcel.size_surcharge_{$size}", $scope)],
+            ];
+        }
         if ($extraDrops !== []) {
             $count = count($extraDrops);
             $lines[] = ['label' => $count === 1 ? '1 extra drop point' : "{$count} extra drop points", 'amount' => round($count * (float) ParcelSettings::get('parcel.extra_stop_fee', $scope), 2)];
@@ -109,8 +142,12 @@ class ParcelPricing
             $lines[] = ['label' => 'Return to sender ('.$this->num($percent).'%)', 'amount' => round(array_sum(array_column($lines, 'amount')) * $percent / 100, 2)];
         }
 
+        // Whole rupees (owner 2026-11-23, Stage 3): every line is rounded to the nearest rupee, so the customer sees
+        // ₹572, never ₹572.44, and the lines always add up to the total.
+        $lines = array_map(fn ($line) => ['label' => $line['label'], 'amount' => round($line['amount'])], $lines);
+
         // Protection is not part of the delivery price: it is added last and never shared with the rider.
-        $protectionFee = $declaredValue !== null ? ParcelSettings::protectionFee($declaredValue, $scope) : 0.0;
+        $protectionFee = $declaredValue !== null ? round(ParcelSettings::protectionFee($declaredValue, $scope)) : 0.0;
         if ($declaredValue !== null) {
             $lines[] = ['label' => 'Parcel protection (value '.$this->num($declaredValue).')', 'amount' => $protectionFee];
         }

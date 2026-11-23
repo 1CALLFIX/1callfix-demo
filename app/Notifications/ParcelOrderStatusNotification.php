@@ -77,10 +77,11 @@ class ParcelOrderStatusNotification extends Notification
             return '';
         }
         $symbol = Setting::get('locale.currency_symbol', '₹');
-        $rate = rtrim(rtrim(number_format((float) ParcelSettings::get('parcel.waiting_charge_per_block', $scope), 2, '.', ''), '0'), '.');
+        $terms = ParcelWaitingCharge::terms($this->order, $scope);
+        $rate = rtrim(rtrim(number_format($terms['rate'], 2, '.', ''), '0'), '.');
 
-        return ' The first '.ParcelSettings::get('parcel.waiting_free_minutes', $scope).' minutes of waiting are free, then '
-            .$symbol.$rate.' for every '.ParcelSettings::get('parcel.waiting_block_minutes', $scope).' minutes, paid to the rider.';
+        return ' The first '.$terms['free'].' minutes of waiting are free, then '
+            .$symbol.$rate.' for every '.$terms['block'].' minutes, paid to the rider.';
     }
 
     public function toMail($notifiable): MailMessage

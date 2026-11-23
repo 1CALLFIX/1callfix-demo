@@ -31,7 +31,7 @@ class TestAccountsCommandTest extends TestCase
         $this->artisan('test-accounts', ['action' => 'create', '--password' => self::PASSWORD, '--franchise' => $franchise->id])->assertSuccessful();
         $this->artisan('test-accounts', ['action' => 'create', '--password' => self::PASSWORD, '--franchise' => $franchise->id])->assertSuccessful();
 
-        $this->assertSame(19, User::where('email', 'like', '%@1callfix.test')->count()); // + test.marketing (Digital Marketing), + test.organiser (Events E1), + test.hall (Function halls R1), + test.homeowner (Property for rent), + test.vehicleowner (Vehicles for rent), + test.renter (Rent anything), + test.secondhand (Second-hand)
+        $this->assertSame(20, User::where('email', 'like', '%@1callfix.test')->count()); // + test.truckdriver (Parcel Stage 3), + test.marketing (Digital Marketing), + test.organiser (Events E1), + test.hall (Function halls R1), + test.homeowner (Property for rent), + test.vehicleowner (Vehicles for rent), + test.renter (Rent anything), + test.secondhand (Second-hand)
         $operator = User::where('email', 'test.operator@1callfix.test')->first();
         $this->assertSame(1, RoleAssignment::where('user_id', $operator->id)->count());
         $this->assertTrue($operator->hasPermission('bookings.reassign', ['franchise_id' => $franchise->id]));
@@ -86,6 +86,31 @@ class TestAccountsCommandTest extends TestCase
         $this->artisan('test-accounts', ['action' => 'disable'])->assertSuccessful();
         $this->assertFalse($rider->fresh()->is_active);
         $this->assertSame(0, app(\App\Services\Parcel\ParcelReadiness::class)->riderCount('franchise', $franchise->id));
+    }
+
+    /** Parcel Stage 3 (goods vehicles): the mini truck driver login is approved, signs in at /rider, and disable shuts it. */
+    public function test_create_makes_an_approved_mini_truck_driver_who_can_sign_in_and_disable_turns_it_off(): void
+    {
+        [, , $franchise] = $this->makeFranchiseTree();
+        $this->artisan('test-accounts', ['action' => 'create', '--password' => self::PASSWORD, '--franchise' => $franchise->id])->assertSuccessful();
+        $this->artisan('test-accounts', ['action' => 'create', '--password' => self::PASSWORD, '--franchise' => $franchise->id])->assertSuccessful();
+
+        $driver = FieldWorker::whereHas('user', fn ($q) => $q->where('email', 'test.truckdriver@1callfix.test'))->sole();
+        $this->assertSame('approved', $driver->kyc_status);
+        $this->assertTrue($driver->is_active);
+        $this->assertSame('mini_truck', $driver->vehicle_type);
+        $this->assertSame('AP 26 TT 0001', $driver->vehicle_number);
+        $this->assertTrue($driver->hasCapability('parcel_rider'));
+        $this->assertFalse($driver->hasCapability('commerce_delivery_rider'), 'a truck takes no shop deliveries');
+        $this->assertSame(1, app(\App\Services\Parcel\ParcelReadiness::class)->riderCount('franchise', $franchise->id), 'only the two-wheeler rider makes parcel ready');
+
+        Livewire::test(RiderLogin::class)->set('identifier', 'test.truckdriver@1callfix.test')->set('password', self::PASSWORD)
+            ->call('login')->assertRedirect(route('rider.dashboard'));
+
+        auth()->logout();
+        $this->artisan('test-accounts', ['action' => 'disable'])->assertSuccessful();
+        $this->assertFalse($driver->fresh()->is_active);
+        $this->assertSame('suspended', $driver->user->fresh()->status);
     }
 
     /** Thumb rule for E-commerce Phase 1: the seller login owns an approved, open shop with a product; disable shuts it. */

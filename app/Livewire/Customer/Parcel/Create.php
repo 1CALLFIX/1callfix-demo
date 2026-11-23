@@ -65,6 +65,13 @@ class Create extends Component
     public bool $cod = false;
     public string $codAmount = '';
 
+    /**
+     * Stage 3 (goods vehicles, 2026-11-23): the vehicle (ParcelSettings::VEHICLES key) and helpers for loading.
+     * The vehicle cards show only where a second vehicle is priced; until then this stays 'two_wheeler'.
+     */
+    public string $vehicle = 'two_wheeler';
+    public int $helpers = 0;
+
     // ── package ──
     public string $packageSize = 'small';
     public string $packageWeightKg = '';
@@ -113,6 +120,8 @@ class Create extends Component
         $last = ParcelOrder::where('customer_id', auth()->id())->latest('id')->first();
         if ($last) {
             $this->packageSize = $last->package_size ?: 'small';
+            $this->vehicle = isset(ParcelSettings::VEHICLES[$last->vehicle_type]) ? $last->vehicle_type : 'two_wheeler'; // dropped in render() if not offered
+            $this->helpers = (int) $last->helpers;
             $this->packageContents = (string) $last->package_contents;
             $this->paymentMethod = (string) $last->payment_method; // dropped in render() if not offered here
             $this->cashCollectAt = $last->cash_collect_at === 'drop' ? 'drop' : 'pickup';
@@ -132,6 +141,26 @@ class Create extends Component
             $this->paymentMethod = 'wallet';
             $this->cod = false;
         }
+    }
+
+    /** Stage 3: a different vehicle has its own contents chips and helper price; start those over. */
+    public function updatedVehicle(): void
+    {
+        if (! isset(ParcelSettings::VEHICLES[$this->vehicle])) {
+            $this->vehicle = 'two_wheeler';
+        }
+        if (! array_key_exists($this->packageContents, ParcelSettings::contentsFor($this->vehicle))) {
+            $this->packageContents = '';
+        }
+        if (! ParcelSettings::isGoodsVehicle($this->vehicle)) {
+            $this->helpers = 0;
+        }
+        $this->error = '';
+    }
+
+    public function setHelpers(int $count): void
+    {
+        $this->helpers = max(0, min(ParcelSettings::HELPERS_MAX, $count));
     }
 
     /** The signed-in owner's own active shop / restaurant with a map point (restaurant delivery service). */
@@ -298,7 +327,8 @@ class Create extends Component
 
             return;
         }
-        if ($this->usePack && $this->paymentMethod === 'cash' && app(\App\Services\Parcel\ParcelPackService::class)->usablePack(auth()->user(), $zone->franchise_id)) {
+        $usePack = $this->usePack && ! ParcelSettings::isGoodsVehicle($this->vehicle);
+        if ($usePack && $this->paymentMethod === 'cash' && app(\App\Services\Parcel\ParcelPackService::class)->usablePack(auth()->user(), $zone->franchise_id)) {
             $this->error = 'A parcel pack is a benefit: pay the rest online or from your wallet, not in cash.';
 
             return;
@@ -312,7 +342,7 @@ class Create extends Component
         }
 
         try {
-            $order = DB::transaction(function () use ($action, $pickup, $drop, $zone, $extraPoints) {
+            $order = DB::transaction(function () use ($action, $pickup, $drop, $zone, $extraPoints, $usePack) {
                 $stops = [];
                 foreach ($extraPoints as $point) {
                     $stopZone = $point['address']?->zone ?? app(CustomerLocationContext::class)->nearestCoveringZone($point['lat'], $point['lng']);
@@ -353,6 +383,8 @@ class Create extends Component
                     'package_description' => $this->packageDescription ?: null,
                     'package_weight_kg' => $this->packageWeightKg !== '' ? (float) $this->packageWeightKg : null,
                     'package_size' => $this->packageSize,
+                    'vehicle_type' => $this->vehicle,
+                    'helpers' => $this->helpers,
                     'package_contents' => $this->packageContents ?: null,
                     'restricted_items_confirmed' => $this->restrictedConfirmed,
                     'delivery_type' => $this->deliveryType,
@@ -364,7 +396,7 @@ class Create extends Component
                     'return_trip' => $this->returnTrip,
                     'declared_value' => $this->protect && is_numeric($this->declaredValue) ? (float) $this->declaredValue : null,
                     'cod_amount' => $this->cod && is_numeric($this->codAmount) ? (float) $this->codAmount : null,
-                    'parcel_pack_purchase_id' => $this->usePack ? app(\App\Services\Parcel\ParcelPackService::class)->usablePack(auth()->user(), $zone->franchise_id)?->id : null,
+                    'parcel_pack_purchase_id' => $usePack ? app(\App\Services\Parcel\ParcelPackService::class)->usablePack(auth()->user(), $zone->franchise_id)?->id : null,
                 ]);
             });
         } catch (ModuleNotActiveException) {
@@ -410,7 +442,9 @@ class Create extends Component
             'packageSize' => ['required', 'in:'.implode(',', array_keys(ParcelSettings::SIZES))],
             'packageWeightKg' => ['nullable', 'numeric', 'min:0', 'max:9999'],
             'packageDescription' => ['nullable', 'string', 'max:255'],
-            'packageContents' => ['nullable', 'in:'.implode(',', array_keys(ParcelSettings::CONTENTS))],
+            'packageContents' => ['nullable', 'in:'.implode(',', array_keys(ParcelSettings::contentsFor($this->vehicle)))],
+            'vehicle' => ['required', 'in:'.implode(',', array_keys(ParcelSettings::VEHICLES))],
+            'helpers' => ['integer', 'min:0', 'max:'.ParcelSettings::HELPERS_MAX],
             'restrictedConfirmed' => ['accepted'],
             'deliveryType' => ['required', 'in:now,scheduled'],
             'scheduledAt' => ['nullable', 'required_if:deliveryType,scheduled', 'string', 'max:20'],
@@ -505,6 +539,9 @@ class Create extends Component
         $protectionAvailable = false;
         $pack = null;
         $packCover = null;
+        $vehicleOptions = [];
+        $vehiclePrices = [];
+        $helperFee = null;
         // ?when=scheduled (homepage Parcel card) opens on "Schedule"; anything else falls back to "now".
         if (! in_array($this->deliveryType, ['now', 'scheduled'], true)) {
             $this->deliveryType = 'now';
@@ -517,9 +554,20 @@ class Create extends Component
             if (! $scheduleAvailable) {
                 $this->deliveryType = 'now';
             }
+            // Stage 3: the vehicles priced here; a vehicle that is not falls back to the two-wheeler.
+            $vehicleOptions = ParcelSettings::vehicleOptions($scope);
+            if (! in_array($this->vehicle, array_column($vehicleOptions, 'key'), true)) {
+                $this->vehicle = 'two_wheeler';
+                $this->updatedVehicle();
+            }
+            $helperFee = collect($vehicleOptions)->firstWhere('key', $this->vehicle)['helper_fee'] ?? null;
+            if ($helperFee === null) {
+                $this->helpers = 0;
+            }
+
             $methods = $this->paymentMethods($pickup['zone']);
-            // Stage 2: a parcel pack credit is a benefit — online / wallet only while it is used.
-            $pack = app(\App\Services\Parcel\ParcelPackService::class)->usablePack(auth()->user(), $pickup['zone']->franchise_id);
+            // Stage 2: a parcel pack credit is a benefit — online / wallet only while it is used. Two-wheeler only (Stage 3).
+            $pack = ParcelSettings::isGoodsVehicle($this->vehicle) ? null : app(\App\Services\Parcel\ParcelPackService::class)->usablePack(auth()->user(), $pickup['zone']->franchise_id);
             if ($pack && $this->usePack) {
                 unset($methods['cash']);
             }
@@ -554,12 +602,29 @@ class Create extends Component
                         array_map(fn ($p) => [$p['lat'], $p['lng']], $this->extraDropPoints()),
                         $this->returnTrip,
                         $this->protect && is_numeric($this->declaredValue) && (float) $this->declaredValue > 0 ? (float) $this->declaredValue : null,
+                        $this->vehicle,
+                        $this->helpers,
                     );
                     if ($pack && $this->usePack) {
                         $packCover = \App\Services\Parcel\ParcelPackService::coverFor($pack, $quote, $scope);
                     }
                 } catch (ParcelQuoteException $e) {
                     $quoteError = $e->getMessage();
+                }
+
+                // Stage 3: each vehicle card shows its own price for this trip (no helpers, no extras).
+                if (count($vehicleOptions) > 1) {
+                    foreach ($vehicleOptions as $option) {
+                        try {
+                            $vehiclePrices[$option['key']] = app(ParcelPricing::class)->quote(
+                                $pickup['lat'], $pickup['lng'], $drop['lat'], $drop['lng'], null,
+                                $option['key'] === 'two_wheeler' ? $this->packageSize : 'small', $scope,
+                                $this->deliveryType === 'scheduled' && $option['key'] === 'two_wheeler', [], false, null, $option['key'],
+                            )['total'];
+                        } catch (ParcelQuoteException) {
+                            // Too far for this vehicle here: the card shows no price.
+                        }
+                    }
                 }
             }
         } elseif ($pickup) {
@@ -573,7 +638,12 @@ class Create extends Component
             'recentRecipients' => $this->recentRecipients(),
             'savedAddresses' => $this->savedAddresses(),
             'sizes' => ParcelSettings::SIZES,
-            'contentsOptions' => ParcelSettings::CONTENTS,
+            'contentsOptions' => ParcelSettings::contentsFor($this->vehicle),
+            'goodsVehicle' => ParcelSettings::isGoodsVehicle($this->vehicle),
+            'vehicleOptions' => $vehicleOptions,
+            'vehiclePrices' => $vehiclePrices,
+            'helperFee' => $helperFee,
+            'helpersMax' => ParcelSettings::HELPERS_MAX,
             'restrictedItems' => ParcelSettings::restrictedItems($pickup && $pickup['zone'] ? $this->scopeFor($pickup['zone']) : []),
             'refusalFee' => ParcelSettings::get('parcel.refusal_fee', $pickup && $pickup['zone'] ? $this->scopeFor($pickup['zone']) : []),
             'scheduleAvailable' => $scheduleAvailable,
@@ -594,7 +664,7 @@ class Create extends Component
             'quoteError' => $quoteError,
             'methods' => $methods,
             'pickupZoneActive' => $pickupZoneActive,
-            'maxWeight' => $pickup && $pickup['zone'] ? ParcelSettings::get('parcel.max_weight_kg', $this->scopeFor($pickup['zone'])) : null,
+            'maxWeight' => $pickup && $pickup['zone'] ? ParcelSettings::maxWeightFor($this->vehicle, $this->scopeFor($pickup['zone'])) : null,
             'currencySymbol' => Setting::get('locale.currency_symbol', '₹'),
         ])->layout('components.layouts.customer', ['title' => 'Send a parcel']);
     }

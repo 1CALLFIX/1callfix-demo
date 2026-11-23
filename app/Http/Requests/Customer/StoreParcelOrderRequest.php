@@ -28,7 +28,10 @@ class StoreParcelOrderRequest extends CustomerApiRequest
             'recipient_phone' => ['required', 'string', 'regex:/^\+?[0-9]{10,15}$/'],
             // Stage 1 (2026-10-25): restricted-items confirmation (required), contents (optional), Now | Schedule.
             'restricted_items_confirmed' => ['accepted'],
-            'package_contents' => ['nullable', 'string', 'in:'.implode(',', array_keys(\App\Services\Parcel\ParcelSettings::CONTENTS))],
+            'package_contents' => ['nullable', 'string', 'in:'.implode(',', array_keys(\App\Services\Parcel\ParcelSettings::CONTENTS + \App\Services\Parcel\ParcelSettings::GOODS_CONTENTS))],
+            // Stage 3 (goods vehicles, 2026-11-23): omitted = two-wheeler, so older app builds keep working.
+            'vehicle_type' => ['nullable', 'string', 'in:'.implode(',', array_keys(\App\Services\Parcel\ParcelSettings::VEHICLES))],
+            'helpers' => ['nullable', 'integer', 'min:0', 'max:'.\App\Services\Parcel\ParcelSettings::HELPERS_MAX],
             'delivery_type' => ['nullable', 'string', 'in:now,scheduled'],
             // Stage 2 (2026-10-31): extra drop points (the customer's own saved addresses) and a return trip.
             'extra_stops' => ['nullable', 'array', 'max:9'],

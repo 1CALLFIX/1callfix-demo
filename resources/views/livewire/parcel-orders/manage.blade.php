@@ -51,7 +51,7 @@
 
         <x-ui.card class="mb-4">
             <h3 class="font-semibold mb-2">Package</h3>
-            <p class="text-sm text-gray-600">{{ $order->package_description ?: '—' }} &middot; {{ ucfirst($order->package_size) }}{{ $order->package_weight_kg ? ' · '.$order->package_weight_kg.' kg' : '' }}{{ $order->distance_km ? ' · '.$order->distance_km.' km' : '' }}</p>
+            <p class="text-sm text-gray-600">{{ $order->package_description ?: '—' }} &middot; {{ $order->loadSummary() }}{{ $order->package_weight_kg ? ' · '.$order->package_weight_kg.' kg' : '' }}{{ $order->distance_km ? ' · '.$order->distance_km.' km' : '' }}</p>
             @if ($order->isScheduled() || $order->package_contents || $order->waiting_charge)
                 <p class="text-sm text-gray-600">
                     @if ($order->isScheduled())<span class="font-semibold text-blue-700">Scheduled pickup {{ app(\App\Services\TimezoneResolver::class)->format($order->scheduled_at, $order->franchise, 'D j M, g:i A') }}</span>@endif

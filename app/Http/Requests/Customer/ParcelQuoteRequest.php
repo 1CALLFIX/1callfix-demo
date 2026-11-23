@@ -27,6 +27,9 @@ class ParcelQuoteRequest extends CustomerApiRequest
             'extra_stops.*.recipient_phone' => ['required', 'string', 'regex:/^\+?[0-9]{10,15}$/'],
             'return_trip' => ['nullable', 'boolean'],
             'declared_value' => ['nullable', 'numeric', 'min:1', 'max:10000000'],
+            // Stage 3 (goods vehicles, 2026-11-23): omitted = two-wheeler, so older app builds keep working.
+            'vehicle_type' => ['nullable', 'string', 'in:'.implode(',', array_keys(\App\Services\Parcel\ParcelSettings::VEHICLES))],
+            'helpers' => ['nullable', 'integer', 'min:0', 'max:'.\App\Services\Parcel\ParcelSettings::HELPERS_MAX],
         ];
     }
 }

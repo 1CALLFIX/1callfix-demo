@@ -40,7 +40,7 @@ class RiderOfferService
 
         return $offers->map(fn (DispatchAttempt $a) => [
             'id' => $a->dispatchable->id,
-            'service' => 'Parcel '.ucfirst((string) $a->dispatchable->package_size),
+            'service' => $a->dispatchable->loadSummary(), // Stage 3: "Small parcel" or "Mini truck · 2 helpers"
             'code' => $a->dispatchable->code,
             'price' => $symbol.number_format((float) $a->dispatchable->price_quoted, 2),
             'distance' => $a->distance_km !== null ? rtrim(rtrim(number_format((float) $a->distance_km, 1), '0'), '.').' km to pickup' : null,

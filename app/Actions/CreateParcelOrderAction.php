@@ -103,9 +103,19 @@ class CreateParcelOrderAction
         if (empty($data['restricted_items_confirmed'])) {
             throw new \RuntimeException('Confirm the parcel has none of the restricted items.');
         }
+        // Stage 3 (goods vehicles, 2026-11-23): the vehicle the customer chose (two-wheeler when not given, so every
+        // older client keeps working) and how many helpers come with it. ParcelPricing refuses a vehicle or helpers
+        // that are not priced here.
+        $vehicle = (string) ($data['vehicle_type'] ?? '') ?: 'two_wheeler';
+        if (! isset(ParcelSettings::VEHICLES[$vehicle])) {
+            throw new \RuntimeException('Choose a vehicle from the list.');
+        }
+        $data['vehicle_type'] = $vehicle;
+        $data['helpers'] = ParcelSettings::isGoodsVehicle($vehicle) ? max(0, (int) ($data['helpers'] ?? 0)) : 0;
+
         $contents = $data['package_contents'] ?? null;
-        if ($contents !== null && $contents !== '' && ! array_key_exists($contents, ParcelSettings::CONTENTS)) {
-            throw new \RuntimeException('Choose what is inside the parcel from the list.');
+        if ($contents !== null && $contents !== '' && ! array_key_exists($contents, ParcelSettings::contentsFor($vehicle))) {
+            throw new \RuntimeException(ParcelSettings::isGoodsVehicle($vehicle) ? 'Choose what you are moving from the list.' : 'Choose what is inside the parcel from the list.');
         }
 
         // Stage 2 (owner decisions 2026-10-31): extra drop points and a return trip. Each extra stop is one of the
@@ -139,6 +149,10 @@ class CreateParcelOrderAction
         if ($packId && $paymentMethod === 'cash') {
             throw new \RuntimeException('A parcel pack is a benefit: pay the rest online or from your wallet, not in cash.');
         }
+        // Stage 3: packs are sold as two-wheeler parcels; a goods vehicle is always paid in full.
+        if ($packId && ParcelSettings::isGoodsVehicle($vehicle)) {
+            throw new \RuntimeException('A parcel pack covers two-wheeler parcels only.');
+        }
 
         $deliveryType = ($data['delivery_type'] ?? 'now') === 'scheduled' ? 'scheduled' : 'now';
         $scheduledAt = $deliveryType === 'scheduled' ? self::scheduledPickupTime($data['scheduled_at'] ?? null, $scope) : null;
@@ -169,12 +183,14 @@ class CreateParcelOrderAction
                 'recipient_phone' => $data['recipient_phone'] ?? null,
                 'package_description' => $data['package_description'] ?? null,
                 'package_weight_kg' => $data['package_weight_kg'] ?? null,
-                'package_size' => $data['package_size'] ?? 'small',
+                // A goods vehicle has no package size (the vehicle is the size); 'large' keeps the old column valid.
+                'package_size' => ParcelSettings::isGoodsVehicle($data['vehicle_type']) ? 'large' : ($data['package_size'] ?? 'small'),
                 'package_contents' => $contents ?: null,
                 'restricted_items_confirmed_at' => now(),
                 'delivery_type' => $deliveryType,
                 'scheduled_at' => $scheduledAt,
-                'vehicle_type' => 'two_wheeler',
+                'vehicle_type' => $data['vehicle_type'],
+                'helpers' => $data['helpers'],
                 'distance_km' => $quote['distance_km'],
                 'status' => 'pending',
                 'price_quoted' => $quote['total'],
@@ -329,6 +345,8 @@ class CreateParcelOrderAction
             $extra,
             ! empty($data['return_trip']),
             isset($data['declared_value']) && $data['declared_value'] !== '' && $data['declared_value'] !== null ? (float) $data['declared_value'] : null,
+            (string) ($data['vehicle_type'] ?? '') ?: 'two_wheeler',
+            (int) ($data['helpers'] ?? 0),
         );
     }
 

@@ -126,7 +126,8 @@ class ParcelStage2RoutesTest extends TestCase
 
         $this->assertEqualsWithDelta($route, $quote['distance_km'], 0.01);
         $this->assertContains(['label' => '1 extra drop point', 'amount' => 15.0], $quote['lines']);
-        $this->assertEqualsWithDelta(40 + max(0, $quote['distance_km'] - 2) * 10 + 15, $quote['total'], 0.02);
+        // Whole rupees (2026-11-23): the distance line is rounded to the nearest rupee.
+        $this->assertEquals(40 + round(max(0, $quote['distance_km'] - 2) * 10) + 15, $quote['total']);
     }
 
     public function test_no_more_drops_than_the_setting_allows(): void

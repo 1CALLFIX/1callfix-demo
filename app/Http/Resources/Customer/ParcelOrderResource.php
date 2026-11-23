@@ -30,6 +30,8 @@ class ParcelOrderResource extends JsonResource
             'delivery_type' => $this->delivery_type ?? 'now',
             'scheduled_at' => $this->scheduled_at?->toIso8601String(),
             'vehicle_type' => $this->vehicle_type ?? 'two_wheeler',
+            'vehicle_label' => \App\Services\Parcel\ParcelSettings::vehicleLabel($this->vehicle_type),
+            'helpers' => (int) ($this->helpers ?? 0),
             'waiting_minutes' => $this->waiting_minutes,
             'waiting_charge' => $this->waiting_charge !== null ? (float) $this->waiting_charge : null,
             'price_quoted' => $this->price_quoted !== null ? (float) $this->price_quoted : null,
