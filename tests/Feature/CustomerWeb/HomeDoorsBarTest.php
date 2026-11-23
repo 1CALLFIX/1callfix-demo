@@ -61,9 +61,10 @@ class HomeDoorsBarTest extends TestCase
         $this->assertStringContainsString('style="display:none;--line:', $html, 'hidden until the visitor scrolls');
         $this->assertStringContainsString("document.querySelector('[data-testid=home-doors-grid]')", $html, 'shows by where the door grid is');
         $this->assertStringContainsString('data-testid="home-doors-grid"', $html);
-        $this->assertStringContainsString('--door-cols:3;--door-cols-phone:3', $html, 'every door fits, no sideways scrolling');
-        $this->assertMatchesRegularExpression('/<ul class="cf-doors [^"]*"/', $html);
-        $this->assertDoesNotMatchRegularExpression('/<ul class="cf-doors [^"]*overflow-x-auto/', $html, 'the door row never scrolls sideways');
+        // Owner 2026-11-23: one row of small icons; phones swipe it (no scroll bar shows), computers centre it.
+        $this->assertStringContainsString('<ul class="cf-doors" x-ref="row"', $html);
+        $this->assertStringContainsString('scrollbar-width:none', $html, 'no scroll bar shows');
+        $this->assertStringContainsString('.cf-doors-arrow[data-on]{display:flex}', $html, 'computers get arrows only when it overflows');
         [$doors, $bar] = $this->rows($html);
         $this->assertSame(['services', 'parcel', 'shop'], $doors);
         $this->assertSame($doors, $bar);

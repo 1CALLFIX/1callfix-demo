@@ -141,9 +141,13 @@
             <h2 class="text-sm font-semibold mb-3">"Explore 1CallFix" doors</h2>
             <div class="grid gap-4 md:grid-cols-2">
                 <label class="flex items-start gap-2 text-sm"><input type="checkbox" wire:model="show" class="mt-0.5"> <span>Show the doors row</span></label>
-                <label class="flex items-start gap-2 text-sm"><input type="checkbox" wire:model="showPromise" class="mt-0.5"> <span>Show the line under the heading</span></label>
+                <label class="flex items-start gap-2 text-sm"><input type="checkbox" wire:model="showPromise" class="mt-0.5"> <span>Show the line under the heading <span class="text-gray-500">(computers only: on phones the heading and line are skipped so the businesses sit right under the search bar)</span></span></label>
                 <label class="flex items-start gap-2 text-sm md:col-span-2"><input type="checkbox" wire:model="liveInfo" class="mt-0.5">
-                    <span>Live numbers on the doors (services listed, shops open now, parcel price). Real numbers only; a zero shows the plain line.</span></label>
+                    <span>Live number badge on the door pictures (services listed, shops open now, …). Real numbers only.</span></label>
+                <label class="flex flex-wrap items-center gap-2 text-sm md:col-span-2"><span>🔢 Show the number badge from</span>
+                    <input type="number" min="0" max="999" wire:model="doorBadgeFrom" class="w-20 rounded border-gray-300 text-sm" data-testid="door-badge-from">
+                    <span class="text-gray-500">up. 10 = small numbers like "1 shop" stay hidden at launch; 1 = always; 0 = never.</span>
+                    @error('doorBadgeFrom') <span class="w-full text-xs text-red-600">{{ $message }}</span> @enderror</label>
                 <label class="flex items-start gap-2 text-sm md:col-span-2"><input type="checkbox" wire:model="doorsSticky" class="mt-0.5" data-testid="doors-sticky">
                     <span>📌 Keep a slim bar of the businesses under the top bar once a visitor scrolls past the doors (like Flipkart), so they can switch business from anywhere on the homepage</span></label>
             </div>

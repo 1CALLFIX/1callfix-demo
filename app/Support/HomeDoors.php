@@ -24,6 +24,14 @@ final class HomeDoors
     /** Owner 2026-11-22 (the Flipkart pattern): once the doors scroll away, a slim bar of the same businesses stays under the top bar. */
     public const STICKY = 'home.doors.sticky';
 
+    /**
+     * Owner 2026-11-23: the live number sits as a small badge on the door picture instead of a line under the name,
+     * shown only from this number up (0 = never). "1 shop" on the first screen reads as an empty app at launch.
+     */
+    public const BADGE_FROM = 'home.doors.badge_from';
+
+    public const BADGE_FROM_DEFAULT = 10;
+
     /** top = first thing under the top bar; after_categories = under the category icons. */
     public const POSITIONS = ['top', 'after_categories'];
 
@@ -66,6 +74,21 @@ final class HomeDoors
         return self::flag(self::STICKY, true);
     }
 
+    public static function badgeFrom(): int
+    {
+        $v = self::raw(self::BADGE_FROM);
+
+        return is_numeric($v) ? max(0, min(999, (int) $v)) : self::BADGE_FROM_DEFAULT;
+    }
+
+    /** The number badge for a door's live count, or null when it should not show. */
+    public static function badge(?int $count): ?int
+    {
+        $from = self::badgeFrom();
+
+        return self::liveInfo() && $from > 0 && $count !== null && $count >= $from ? $count : null;
+    }
+
     public static function doorShown(string $door): bool
     {
         return self::flag("home.door.{$door}.show", true);
@@ -100,7 +123,7 @@ final class HomeDoors
      * business live here; a door not in $live (switched off in Modules) never shows.
      *
      * @param  array<string, array{url: string, count?: ?int, price?: ?string}>  $live
-     * @return list<array{key: string, url: string, title: string, line: string, image: string}>
+     * @return list<array{key: string, url: string, title: string, line: string, image: string, badge: ?int}>
      */
     public static function doors(array $live): array
     {
@@ -121,6 +144,7 @@ final class HomeDoors
             $doors[] = [
                 'key' => $door, 'url' => $info['url'], 'order' => self::doorOrder($door),
                 'title' => SiteText::get("home.door.{$door}.title"), 'line' => $line, 'image' => self::imageUrl($door),
+                'badge' => self::badge(isset($info['count']) ? (int) $info['count'] : null),
             ];
         }
         usort($doors, fn ($a, $b) => [$a['order'], $a['key']] <=> [$b['order'], $b['key']]);

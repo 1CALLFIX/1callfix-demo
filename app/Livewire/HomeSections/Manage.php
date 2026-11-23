@@ -38,6 +38,9 @@ class Manage extends Component
 
     public bool $doorsSticky = true;
 
+    /** Number badge on the door pictures from this number up; 0 = never (HomeDoors::BADGE_FROM). */
+    public string $doorBadgeFrom = '10';
+
     /** The line under the doors heading (Website text `home.promise`), editable here too. */
     public string $promiseEn = '';
 
@@ -93,6 +96,7 @@ class Manage extends Component
         $this->liveInfo = HomeDoors::liveInfo();
         $this->showPromise = HomeDoors::showPromise();
         $this->doorsSticky = HomeDoors::sticky();
+        $this->doorBadgeFrom = (string) HomeDoors::badgeFrom();
         $this->promiseEn = SiteText::saved('home.promise', 'en') ?? SiteText::TEXTS['home.promise'][2];
         $this->promiseTe = SiteText::saved('home.promise', 'te') ?? SiteText::TEXTS['home.promise'][3];
         $this->newAutoscroll = HomeLayout::newAutoscroll();
@@ -181,6 +185,7 @@ class Manage extends Component
             'order' => ['array'],
             'order.*' => ['in:'.implode(',', array_keys(HomeLayout::SECTIONS))],
             'doorOrder.*' => ['required', 'integer', 'between:1,99'],
+            'doorBadgeFrom' => ['required', 'integer', 'between:0,999'],
             'doorImage.*' => ['nullable', 'image', 'mimes:png,jpg,jpeg,webp', 'max:2048'],
             'cardIcons' => ['required', 'in:'.implode(',', HomeCards::ICON_CHOICES)],
             'cardCategoryLimit' => ['required', 'integer', 'between:0,20'],
@@ -200,7 +205,7 @@ class Manage extends Component
         ], [], [
             'doorWords.*.title_en' => 'name', 'doorWords.*.title_te' => 'name', 'doorWords.*.line_en' => 'line', 'doorWords.*.line_te' => 'line',
             'promiseEn' => 'English line', 'promiseTe' => 'Telugu line', 'slogan.*' => 'slogan line', 'getAppMiddle' => 'middle of the app strip',
-            'doorOrder.*' => 'order', 'doorImage.*' => 'picture', 'cardOrder.*' => 'order',
+            'doorOrder.*' => 'order', 'doorBadgeFrom' => 'number badge', 'doorImage.*' => 'picture', 'cardOrder.*' => 'order',
             'cardLineEn.*' => 'English line', 'cardLineTe.*' => 'Telugu line', 'cardLineOther.*.*' => 'line',
             'cardIcons' => 'icons per card', 'cardCategoryLimit' => 'category cards', 'cardNewDays' => '"New" days',
         ]);
@@ -225,6 +230,7 @@ class Manage extends Component
             HomeDoors::LIVE_INFO => $bool($this->liveInfo),
             HomeDoors::SHOW_PROMISE => $bool($this->showPromise),
             HomeDoors::STICKY => $bool($this->doorsSticky),
+            HomeDoors::BADGE_FROM => (string) (int) $this->doorBadgeFrom,
             HomeLayout::NEW_AUTOSCROLL => $bool($this->newAutoscroll),
             HomeLayout::GET_APP_MIDDLE => $this->getAppMiddle,
         ];

@@ -73,6 +73,38 @@ class HomeDoorsTest extends TestCase
         $this->get('/')->assertOk()->assertSee('Local shops, fast delivery')->assertDontSee('1 shop open now');
     }
 
+    /**
+     * Owner 2026-11-23: the live line leaves the screen (kept for screen readers); the number sits as a badge on the
+     * picture, only from the Super Admin's "from" number up (default 10, so "1 shop" never shows at launch).
+     */
+    public function test_the_live_number_is_a_badge_on_the_picture_from_the_admins_number_up(): void
+    {
+        $badges = function (): array {
+            preg_match_all('/data-door-badge="([a-z]+)">(\d+)</', $this->get('/')->assertOk()->getContent(), $m);
+
+            return array_combine($m[1], $m[2]);
+        };
+
+        $html = $this->get('/')->assertOk()->getContent();
+        $this->assertStringContainsString('<span class="sr-only">1 service to book</span>', $html, 'read out, not shown');
+        $this->assertStringContainsString('class="cf-explore-title', $html, 'heading kept for screen readers, hidden on phones');
+        $this->assertSame(10, HomeDoors::badgeFrom());
+        $this->assertSame([], $badges(), '1 is below 10: no badge');
+
+        $this->actingAs($this->makeSuperAdmin());
+        Livewire::test(Manage::class)->assertSet('doorBadgeFrom', '10')
+            ->set('doorBadgeFrom', '-1')->call('save')->assertHasErrors('doorBadgeFrom')
+            ->set('doorBadgeFrom', '1')->call('save')->assertHasNoErrors();
+        auth()->logout();
+        $this->assertSame(['services' => '1'], $badges());
+
+        Setting::set(HomeDoors::LIVE_INFO, '0');
+        $this->assertSame([], $badges(), 'live numbers off: no badge');
+        Setting::set(HomeDoors::LIVE_INFO, '1');
+        Setting::set(HomeDoors::BADGE_FROM, '0');
+        $this->assertSame([], $badges(), '0 = never');
+    }
+
     public function test_the_super_admin_orders_hides_moves_and_pictures_the_doors(): void
     {
         Storage::fake('public');
