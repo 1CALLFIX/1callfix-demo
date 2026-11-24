@@ -37,6 +37,11 @@ class PushChannel
         $data = method_exists($notification, 'pushLink')
             ? array_filter(['link' => $notification->pushLink($notifiable)])
             : [];
+        // In the Android apps the page must open on the app's own address (www), where the person is signed in.
+        // Browsers are fine as they are: the service worker already opens the link on its own address.
+        if (isset($data['link']) && \App\Support\PushApp::isAppToken($token)) {
+            $data['link'] = \App\Support\PushApp::appLink((string) $data['link']);
+        }
         // kind=offer: the Android apps ring it on their loud offers channel (mobile/.../PushService.java).
         if (method_exists($notification, 'pushKind')) {
             $data['kind'] = $notification->pushKind();

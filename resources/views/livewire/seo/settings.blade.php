@@ -114,6 +114,7 @@
                 <input type="checkbox" wire:model="redirectHost" class="mt-1 rounded border-gray-300">
                 <span>Redirect www., api. and http:// visits of public pages to <code>{{ $canonicalBase }}</code> (301, query kept).
                     <span class="block text-xs text-gray-500">Off by default. Never touches /api/*, webhooks, health checks, uploads or form posts, so the mobile API keeps working. Turning this on is your host-cutover decision.</span>
+                    <span class="block text-xs text-gray-500">The 1CallFix apps always stay on www.1callfix.com, where their users are signed in; this never moves them.</span>
                 </span>
             </label>
         </x-ui.card>

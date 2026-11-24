@@ -116,6 +116,28 @@ class RedirectAndIndexingSafetyTest extends TestCase
         $this->get(self::BASE.'/admin/login')->assertOk();
     }
 
+    /** Owner 2026-11-24: browsers go to 1callfix.com, the Android apps stay on www where they are signed in. */
+    public function test_the_android_apps_stay_on_www_whether_the_switch_is_on_or_off_and_browsers_follow_the_switch(): void
+    {
+        $app = ['User-Agent' => 'Mozilla/5.0 (Linux; Android 14; wv) AppleWebKit/537.36 Chrome/131 Mobile Safari/537.36 1CallFixApp/partner'];
+
+        foreach (['0', '1'] as $on) {
+            Setting::set(SeoSettings::REDIRECT_HOST, $on);
+            // A page of ours opened on the address without www goes back to www, path and query kept, never cached as permanent.
+            $this->withHeaders($app)->get(self::BASE.'/provider?from=push')->assertStatus(302)->assertRedirect('https://www.1callfix.com/provider?from=push');
+            $this->withHeaders($app)->get('https://www.1callfix.com/provider/login')->assertOk();
+            // Posts, Livewire and the API are left alone for the apps too.
+            $this->assertNotSame(302, $this->withHeaders($app)->post(self::BASE.'/livewire/update', [])->getStatusCode());
+            $this->assertNotSame(302, $this->withHeaders($app)->get(self::BASE.'/api/services')->getStatusCode());
+        }
+
+        // Browsers: with the switch on, www goes to the main address for good (301); with it off, nothing happens.
+        $this->flushHeaders();
+        $this->get('https://www.1callfix.com/provider/login')->assertStatus(301)->assertRedirect(self::BASE.'/provider/login');
+        Setting::set(SeoSettings::REDIRECT_HOST, '0');
+        $this->get('https://www.1callfix.com/provider/login')->assertOk();
+    }
+
     public function test_when_on_old_glover_web_paths_are_only_redirected_as_ordinary_get_pages_and_the_glover_mobile_api_is_untouched(): void
     {
         Setting::set(SeoSettings::REDIRECT_HOST, '1');

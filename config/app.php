@@ -64,6 +64,13 @@ return [
     'url' => env('APP_URL', 'http://localhost'),
 
     /*
+    | The address the three Android apps open (mobile/capacitor.config.json "server.url", with www). Sign-in cookies
+    | belong to one exact address, so a notification tapped in an app must open its page here, not on APP_URL
+    | (1callfix.com without www), or the app shows the sign-in page (owner report 2026-11-24). See PushApp::appLink().
+    */
+    'native_app_url' => env('NATIVE_APP_URL', 'https://www.1callfix.com'),
+
+    /*
     |--------------------------------------------------------------------------
     | Application Timezone
     |--------------------------------------------------------------------------

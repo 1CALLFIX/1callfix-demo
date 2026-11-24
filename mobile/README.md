@@ -78,7 +78,7 @@ the walk-through below, then promote the release to Production.
 ## Walk-through on a real phone
 - **Customer:** home page opens; sign in with mobile + password, with OTP, and with Google; allow notifications;
   tap the mic in the search box, allow the microphone, say "AC repair" (the words appear and suggestions open); book a service and pay with UPI (the UPI app opens and comes back); the call/WhatsApp buttons open the dialer
-  or WhatsApp; with the app closed, a booking update arrives as a notification and tapping it opens that page.
+  or WhatsApp; with the app closed, a booking update arrives as a notification and tapping it opens that page, still signed in.
 - **Rider** (test.rider): opens /rider; allow notifications and location; go online; lock the phone and place a
   test parcel. The offer must ring loudly. Tap it and accept.
 - **Partner:** test.provider opens /provider and test.restaurant opens /seller; job offer rings with the app

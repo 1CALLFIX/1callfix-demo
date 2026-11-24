@@ -69,6 +69,42 @@ final class PushApp
         UserPushToken::updateOrCreate(['user_id' => $user->id, 'app' => $app], ['token' => $token]);
     }
 
+    /** True for a token one of the Android apps saved (a browser's token lives only on users.fcm_token). */
+    public static function isAppToken(string $token): bool
+    {
+        return UserPushToken::where('token', $token)->exists();
+    }
+
+    /**
+     * The notification's page on the address the Android apps open (config app.native_app_url, www.1callfix.com).
+     * Links are built from APP_URL (1callfix.com, no www), and the sign-in cookie of the app's www address is not
+     * sent there, so tapping the notification opened the sign-in page (owner report 2026-11-24). Our own links,
+     * with or without www, or a bare path, move to the app's address; anyone else's link is left alone.
+     */
+    public static function appLink(string $link): string
+    {
+        $app = rtrim((string) config('app.native_app_url'), '/');
+        $appHost = self::bareHost(parse_url($app, PHP_URL_HOST));
+        $parts = parse_url($link);
+        if ($parts === false || $appHost === '') {
+            return $link;
+        }
+        $host = $parts['host'] ?? null;
+        $own = $host === null || in_array(self::bareHost($host), [$appHost, self::bareHost(parse_url((string) config('app.url'), PHP_URL_HOST))], true);
+        if (! $own) {
+            return $link;
+        }
+
+        return $app.'/'.ltrim($parts['path'] ?? '', '/')
+            .(isset($parts['query']) ? '?'.$parts['query'] : '')
+            .(isset($parts['fragment']) ? '#'.$parts['fragment'] : '');
+    }
+
+    private static function bareHost(?string $host): string
+    {
+        return preg_replace('/^www\./', '', strtolower((string) $host));
+    }
+
     /** A token FCM said is dead: remove it wherever it is stored. */
     public static function forget(string $token): void
     {

@@ -5,6 +5,7 @@ import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.SystemClock;
+import android.webkit.CookieManager;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebView;
 import android.widget.Toast;
@@ -115,6 +116,9 @@ public class MainActivity extends BridgeActivity {
     @Override
     public void onPause() {
         inForeground = false;
+        // The web view writes cookies to storage only now and then. Write them now, so a phone that closes the app
+        // in the background (a partner gone offline) keeps the sign-in and reopens signed in (owner report 2026-11-24).
+        CookieManager.getInstance().flush();
         super.onPause();
     }
 
@@ -129,14 +133,25 @@ public class MainActivity extends BridgeActivity {
         }
         intent.removeExtra(PushService.EXTRA_LINK);
 
-        String server = bridge.getServerUrl().replaceAll("/+$", "");
-        String url = link.startsWith("http") ? link : server + (link.startsWith("/") ? link : "/" + link);
-        String targetHost = Uri.parse(url).getHost();
-        String serverHost = stripWww(Uri.parse(server).getHost());
-        // Only ever open our own pages from a notification.
-        if (targetHost != null && stripWww(targetHost).equals(serverHost)) {
+        String url = onOwnAddress(link);
+        if (url != null) {
             bridge.getWebView().post(() -> bridge.getWebView().loadUrl(url));
         }
+    }
+
+    /**
+     * The notification's page on the exact address this app opens (www.1callfix.com), like the website's service
+     * worker does. Sign-in cookies belong to one exact address: the server builds links on 1callfix.com (no www),
+     * and opening that address showed the sign-in page (owner report 2026-11-24). A bare path is joined to the
+     * address only, never to the start page's path (/app/partner, /rider). Only ever our own pages; null otherwise.
+     */
+    private String onOwnAddress(String link) {
+        Uri server = Uri.parse(bridge.getServerUrl());
+        Uri target = Uri.parse(link.startsWith("http") ? link : "https://" + server.getHost() + (link.startsWith("/") ? link : "/" + link));
+        if (target.getHost() == null || !stripWww(target.getHost()).equals(stripWww(server.getHost()))) {
+            return null;
+        }
+        return target.buildUpon().scheme(server.getScheme()).encodedAuthority(server.getEncodedAuthority()).build().toString();
     }
 
     private static String stripWww(String host) {
