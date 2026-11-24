@@ -14,6 +14,7 @@ use App\Services\Marketing\ItemPost;
 use App\Services\Marketing\PostingRoutes;
 use App\Services\Marketing\ModuleGate;
 use App\Services\Marketing\PostIdeas;
+use App\Services\Marketing\ShortVideoPrompt;
 use App\Services\Marketing\SocialPostPlanner;
 use App\Services\SettingsAuditor;
 use App\Services\Visitors\PageClassifier;
@@ -549,6 +550,22 @@ class SocialPosts extends Component
         $this->flash($which === 'reminder' ? "The team is reminded at {$value} each day." : "New posts are planned for {$value}.");
     }
 
+    /** 🎬 YouTube Shorts prompts on or off for the whole team (Super Admin, 2026-11-24). */
+    public function setShorts(bool $on): void
+    {
+        $this->authorizeSettings();
+        SettingsAuditor::put(auth()->user(), ShortVideoPrompt::ENABLED_SETTING, $on ? '1' : '0');
+        $this->flash($on ? '🎬 YouTube Short prompts are on for the team.' : '🎬 YouTube Short prompts are switched off.');
+    }
+
+    public function setShortsPresenter(string $who): void
+    {
+        $this->authorizeSettings();
+        abort_unless(isset(ShortVideoPrompt::PRESENTERS[$who]), 422);
+        SettingsAuditor::put(auth()->user(), ShortVideoPrompt::PRESENTER_SETTING, $who);
+        $this->flash('Presenter for new Short prompts: '.ShortVideoPrompt::PRESENTERS[$who].'.');
+    }
+
     private function authorizeSettings(): void
     {
         abort_unless(auth()->user()?->role === 'super_admin', 403, 'Only Super Admin can change these settings.');
@@ -564,9 +581,9 @@ class SocialPosts extends Component
         $from = $today->addWeeks($this->week);
         $to = $from->addDays(13)->endOfDay();
 
-        $todayPosts = $this->posts()->whereIn('id', MarketingPostsDue::dueToday()->pluck('id'))->with('deliveries')->orderBy('scheduled_for')->get();
+        $todayPosts = $this->posts()->whereIn('id', MarketingPostsDue::dueToday()->pluck('id'))->with('deliveries', 'city:id,name')->orderBy('scheduled_for')->get();
         $missed = $this->posts()->where('status', 'scheduled')->whereBetween('scheduled_for', [$today->subDays(3)->utc(), $today->utc()])
-            ->with('deliveries')->orderBy('scheduled_for')->get();
+            ->with('deliveries', 'city:id,name')->orderBy('scheduled_for')->get();
         $upcoming = $this->posts()->whereBetween('scheduled_for', [$from->utc(), $to->utc()])->with('deliveries')->orderBy('scheduled_for')->get()
             ->groupBy(fn ($p) => $p->scheduled_for->setTimezone($zone)->toDateString());
         $unscheduled = $this->posts()->whereNull('scheduled_for')->where('status', 'draft')->latest()->limit(20)->get();
@@ -597,6 +614,9 @@ class SocialPosts extends Component
             'postTime' => SocialPostPlanner::postTime(),
             'zone' => $zone,
             'today' => $today,
+            'shortsOn' => ShortVideoPrompt::enabled(),
+            'shortsPresenter' => ShortVideoPrompt::presenterSetting(),
+            'ideaCity' => ($id = $this->defaultCityId()) ? City::whereKey($id)->value('name') : City::where('is_active', true)->orderBy('id')->value('name'),
         ])->layout('layouts.admin', ['title' => 'Social posts']);
     }
 }

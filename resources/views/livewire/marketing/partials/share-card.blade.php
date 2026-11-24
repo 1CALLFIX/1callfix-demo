@@ -67,6 +67,9 @@
                 <button type="button" wire:click="edit({{ $post->id }})" class="min-h-[44px] rounded-xl bg-blue-50 px-4 font-semibold text-blue-700">✏️ Edit</button>
                 <button type="button" wire:click="skip({{ $post->id }})" wire:confirm="Skip this post?" class="min-h-[44px] rounded-xl bg-gray-50 px-4 text-gray-600">Skip</button>
             </div>
+            @if ($shortsOn ?? false)
+                @include('livewire.marketing.partials.shorts-prompt', ['shorts' => \App\Services\Marketing\ShortVideoPrompt::forPost($post)])
+            @endif
         </div>
     </div>
 </div>

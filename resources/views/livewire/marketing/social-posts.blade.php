@@ -77,6 +77,9 @@
                             </p>
                             <p class="flex-1 text-sm text-gray-800">{{ $idea['caption_en'] }}</p>
                             <button type="button" wire:click="useIdea({{ $i }})" class="mt-2 min-h-[44px] rounded-xl bg-amber-500 px-4 font-semibold text-white hover:bg-amber-600">Use this</button>
+                            @if ($shortsOn)
+                                @include('livewire.marketing.partials.shorts-prompt', ['shorts' => \App\Services\Marketing\ShortVideoPrompt::forIdea($idea, $ideaCity)])
+                            @endif
                         </div>
                     </div>
                 @empty
@@ -232,6 +235,19 @@
                 @foreach (array_intersect_key($platformMeta, array_flip($editorPlatforms)) as $key => [$label, $colour])
                     <button type="button" wire:click="toggleDefaultPlatform('{{ $key }}')" class="min-h-[44px] rounded-full px-4 text-sm font-semibold {{ in_array($key, $defaultPlatforms, true) ? $colour : 'bg-white text-gray-600 ring-1 ring-gray-300' }}">{{ in_array($key, $defaultPlatforms, true) ? '✓ ' : '' }}{{ $label }}</button>
                 @endforeach
+            </div>
+            <div class="mb-3 rounded-xl bg-red-50 p-3 ring-1 ring-red-200" data-shorts-settings>
+                <p class="mb-2 text-sm font-semibold text-red-800">🎬 YouTube Short prompts <span class="font-normal text-red-700">(a 🎬 button on each post and idea: words to paste in YouTube's AI video, plus our ending in English and తెలుగు)</span></p>
+                <div class="mb-2 flex flex-wrap gap-2">
+                    <button type="button" wire:click="setShorts(true)" class="min-h-[44px] rounded-full px-4 text-sm font-semibold {{ $shortsOn ? 'bg-green-600 text-white' : 'bg-white ring-1 ring-gray-300' }}" data-shorts-on>{{ $shortsOn ? '✓ ' : '' }}On</button>
+                    <button type="button" wire:click="setShorts(false)" class="min-h-[44px] rounded-full px-4 text-sm font-semibold {{ ! $shortsOn ? 'bg-gray-800 text-white' : 'bg-white ring-1 ring-gray-300' }}" data-shorts-off>{{ ! $shortsOn ? '✓ ' : '' }}Off</button>
+                </div>
+                <div class="flex flex-wrap items-center gap-2">
+                    <span class="text-sm text-gray-700">Presenter:</span>
+                    @foreach (\App\Services\Marketing\ShortVideoPrompt::PRESENTERS as $who => $whoLabel)
+                        <button type="button" wire:click="setShortsPresenter('{{ $who }}')" class="min-h-[44px] rounded-full px-4 text-sm font-semibold {{ $shortsPresenter === $who ? 'bg-red-600 text-white' : 'bg-white ring-1 ring-gray-300' }}">{{ $whoLabel }}</button>
+                    @endforeach
+                </div>
             </div>
             @foreach (['post' => ['New posts go out at', ['09:00', '10:00', '12:00', '18:00', '19:30'], $postTime], 'reminder' => ['Remind the team at', ['08:00', '09:30', '11:00'], $reminderTime]] as $which => [$label, $choices, $current])
                 <div class="mb-2 flex flex-wrap items-center gap-2">
