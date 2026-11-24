@@ -269,3 +269,10 @@ ScheduleRunTracker::track(Schedule::command('visitors:prune'), 'visitors:prune')
 ScheduleRunTracker::track(Schedule::command('accounts:erase-closed'), 'accounts:erase-closed')
     ->dailyAt('03:30')
     ->withoutOverlapping(30);
+
+// Field associates release A (2026-11-24): rewards that became due (first order after the return window, 10 approved
+// products), refunded first orders cancelled, the month's bonus updated. 00:20 so the night's rewards land in the day
+// they became due.
+ScheduleRunTracker::track(Schedule::command('field-associates:sync'), 'field-associates:sync')
+    ->dailyAt('00:20')
+    ->withoutOverlapping(30);

@@ -15,6 +15,8 @@
         <p class="mt-2 text-sm text-slate-600">
             @if ($submitted)
                 Thanks — your application is in.
+            @elseif ($assisted)
+                You are signing up the owner's {{ $place }}. The code goes to the owner's phone; they read it out to you.
             @else
                 About 2 minutes: verify your mobile number and tell us about your business. Documents can
                 come later.
@@ -23,7 +25,30 @@
     </div>
 
     <x-ui.card class="mt-8 !p-6 sm:!p-8">
-        @if ($submitted)
+        @if ($submitted && $assisted)
+            {{-- Field associates release A: assisted sign-up done; the associate is still signed in. --}}
+            @php
+                $ownerDigits = preg_replace('/\D/', '', (string) $verifiedPhoneE164);
+                $ownerLink = route('customer.login', ['intended' => '/partner/join']);
+                $ownerText = "Your {$place} \"{$storeName}\" is signed up on {$platformName}. To go live, sign in with your mobile number (we send you a code) and upload your documents: {$ownerLink}";
+            @endphp
+            <div role="status" class="space-y-4 text-sm text-slate-700" data-testid="assisted-done">
+                <div class="flex items-start gap-2 rounded-xl bg-emerald-50 px-3 py-3 text-emerald-800">
+                    <span aria-hidden="true" class="text-lg">🎉</span>
+                    <span><span class="font-semibold">{{ $storeName }}</span> is signed up and added to you ({{ $fieldAssociateLabel }}).</span>
+                </div>
+                <ol class="space-y-1.5 rounded-xl bg-slate-50 p-3">
+                    <li><span class="font-semibold text-blue-700">1.</span> Send the owner their sign-in link.</li>
+                    <li><span class="font-semibold text-blue-700">2.</span> The owner signs in on their own phone with a code and uploads their own KYC documents.</li>
+                    <li><span class="font-semibold text-blue-700">3.</span> Help them add 10 {{ $isRestaurant ? 'menu items' : 'products' }}. Each step shows on your page.</li>
+                </ol>
+                <a href="https://wa.me/{{ $ownerDigits }}?text={{ rawurlencode($ownerText) }}" target="_blank" rel="noopener" class="flex min-h-12 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 text-base font-semibold text-white hover:bg-emerald-700" data-testid="assisted-whatsapp">📲 Send the owner their link on WhatsApp</a>
+                <div class="grid gap-2 sm:grid-cols-2">
+                    <a href="{{ route('customer.field-work') }}" class="flex min-h-12 items-center justify-center rounded-xl bg-blue-600 px-4 font-semibold text-white hover:bg-blue-700">← My field work</a>
+                    <a href="{{ route('customer.field-work.add', $isRestaurant ? 'restaurant' : 'shop') }}" class="flex min-h-12 items-center justify-center rounded-xl bg-slate-100 px-4 font-semibold text-slate-800 hover:bg-slate-200">➕ Sign up another</a>
+                </div>
+            </div>
+        @elseif ($submitted)
             <div role="status" class="space-y-4 text-sm text-slate-700">
                 <div class="flex items-start gap-2 rounded-lg bg-emerald-50 px-3 py-2.5 text-emerald-800">
                     <span aria-hidden="true" class="mt-px font-bold">&check;</span>
@@ -70,29 +95,33 @@
                 @if ($step === 'details' && $verifiedPhoneE164)
                     <div class="mt-1.5 flex items-center justify-between gap-3 rounded-lg bg-emerald-50 px-3 py-2.5 text-sm text-emerald-800">
                         <span><span aria-hidden="true" class="font-bold">&check;</span> Verified — {{ $verifiedPhoneE164 }}</span>
-                        @guest
+                        @unless ($lockPhone)
                             <button type="button" wire:click="changePhone"
                                     class="shrink-0 font-medium underline underline-offset-2 hover:text-emerald-900">Change</button>
-                        @endguest
+                        @endunless
                     </div>
                 @else
-                    <input id="pr-phone" type="tel" inputmode="tel" autocomplete="tel" autofocus wire:model="phone" @auth readonly @endauth
+                    <input id="pr-phone" type="tel" inputmode="tel" autocomplete="tel" autofocus wire:model="phone" @if ($lockPhone) readonly @endif
                            placeholder="e.g. 9876543210"
                            @class(['mt-1.5 block min-h-11 w-full rounded-lg border px-3 py-2.5 text-base shadow-sm focus:outline focus:outline-2 focus:outline-blue-600',
                                    'border-red-400' => $errors->has('phone'), 'border-slate-300' => ! $errors->has('phone')])>
                     @error('phone') <p class="mt-1.5 text-sm text-red-700">{{ $message }}</p> @enderror
-                    <p class="mt-1 text-xs text-slate-500">This becomes your {{ $rider ? 'rider' : ($seller ? 'seller' : 'partner') }} sign-in number.</p>
+                    @if ($assisted)
+                        <p class="mt-1 text-xs font-medium text-blue-800">The owner's own mobile, not yours. The code goes to the owner's phone; ask them to read it out.</p>
+                    @else
+                        <p class="mt-1 text-xs text-slate-500">This becomes your {{ $rider ? 'rider' : ($seller ? 'seller' : 'partner') }} sign-in number.</p>
+                    @endif
 
                     @if ($step === 'verify_phone')
                         <div class="mt-4">
                             @include('livewire.customer.auth._firebase-phone', ['resend' => 'requestPhoneCode'])
                         </div>
-                        @guest
+                        @unless ($lockPhone)
                             <button type="button" wire:click="changePhone"
                                     class="mt-3 text-sm font-medium text-slate-600 underline underline-offset-4 hover:text-slate-900">
                                 Change number
                             </button>
-                        @endguest
+                        @endunless
                     @else
                         <x-ui.button type="submit" size="lg" class="mt-3 w-full !min-h-11" wire:loading.attr="disabled" wire:target="requestPhoneCode">
                             <span wire:loading.remove wire:target="requestPhoneCode">Send verification code</span>
@@ -110,11 +139,17 @@
                 @if ($existingUserId)
                     {{-- D10: the number already has a customer account — the application joins it, so no new name,
                          email or password; the partner signs in with the account's existing password. --}}
+                    @if ($assisted)
+                    <div class="rounded-lg bg-blue-50 px-3 py-2.5 text-sm text-blue-900">
+                        <p>This number already has a {{ $platformName }} account: <span class="font-medium">{{ $existingUserName }}</span>. The {{ $place }} is added to it; the owner signs in as they always do.</p>
+                    </div>
+                    @else
                     <div class="rounded-lg bg-blue-50 px-3 py-2.5 text-sm text-blue-900">
                         <p>Applying with your {{ $platformName }} account <span class="font-medium">{{ $existingUserName }}</span>.
                             You’ll sign in with the same password you already use. Your bookings stay as they are.</p>
                         <a href="{{ route('customer.password.forgot', ['for' => $rider ? 'rider' : ($seller ? 'seller' : 'partner')]) }}" wire:navigate class="mt-1 inline-block font-medium underline underline-offset-2">Forgot your password?</a>
                     </div>
+                    @endif
                 @else
                 <div>
                     <label for="pr-name" class="block text-sm font-medium text-slate-900">Full name</label>
@@ -348,6 +383,10 @@
                         </div>
                     @endforeach
                 </fieldset>
+                @elseif ($assisted)
+                    <p class="rounded-lg bg-emerald-50 px-3 py-2.5 text-sm text-emerald-900" data-testid="docs-by-owner">
+                        🪪 No documents here. The owner signs in on their own phone and uploads their own KYC documents.
+                    </p>
                 @else
                     <p class="rounded-lg bg-emerald-50 px-3 py-2.5 text-sm text-emerald-900" data-testid="docs-later">
                         No documents needed to apply. After you join, upload them from your partner app when you are ready —
@@ -357,7 +396,7 @@
 
                 <label class="flex items-start gap-2 text-sm text-slate-700">
                     <input type="checkbox" wire:model="terms" class="mt-0.5 h-4 w-4 accent-blue-600">
-                    <span>I agree to the {{ $platformName }} partner terms and confirm my details are accurate.</span>
+                    <span>{{ $assisted ? 'The owner agrees to the '.$platformName.' partner terms and the details are correct.' : 'I agree to the '.$platformName.' partner terms and confirm my details are accurate.' }}</span>
                 </label>
                 @error('terms') <p class="-mt-2 text-sm text-red-700">{{ $message }}</p> @enderror
 
@@ -375,7 +414,7 @@
         @endif
     </x-ui.card>
 
-    @unless ($submitted)
+    @unless ($submitted || $assisted)
         <p class="mt-6 text-center text-sm text-slate-600">
             {{ $rider ? 'Already a rider?' : ($isVehicleOwner ? 'Vehicle already listed?' : ($isHomeOwner ? 'Property already listed?' : ($isHallOwner ? 'Hall already listed?' : ($isOrganiser ? 'Already selling with us?' : ($isHotel ? 'Already listed?' : ($seller ? ($isRestaurant ? 'Already on '.$platformName.'?' : 'Already a seller?') : 'Already a partner?')))))) }}
             <a href="{{ route($signInRoute) }}" wire:navigate class="font-medium text-slate-900 underline underline-offset-2">Sign in</a>

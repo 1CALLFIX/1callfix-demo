@@ -197,6 +197,8 @@ Route::middleware(['auth', \App\Http\Middleware\EnsureAccountNotSuspended::class
     Route::get('/account/saved', \App\Livewire\Customer\Account\Saved::class)->name('customer.saved');
     // Field associates (owner 2026-11-23): an associate's own shops, progress bars, rewards and QR. Private page.
     Route::get('/account/field-work', \App\Livewire\Customer\Account\FieldWork::class)->name('customer.field-work');
+    Route::get('/account/field-work/add/{kind}', \App\Http\Controllers\FieldAssociateAssistController::class)
+        ->whereIn('kind', ['shop', 'restaurant'])->middleware('throttle:30,1')->name('customer.field-work.add');
     // Rent anything (owner decision 2026-11-18): a person's own posted items; private pages (no Share).
     Route::get('/account/rent-out', \App\Livewire\Customer\Account\RentItems::class)->name('customer.rent-items');
     Route::get('/account/rent-out/new', \App\Livewire\Customer\Account\RentItemEditor::class)->name('customer.rent-items.create');

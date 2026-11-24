@@ -49,6 +49,22 @@ class FieldAssociate extends Model
         return route('field-associate.start', $this->code);
     }
 
+    public function bonuses(): HasMany
+    {
+        return $this->hasMany(FieldAssociateBonus::class);
+    }
+
+    /** A test login (@1callfix.test, `php artisan test-accounts`): never on the pay sheet, never mixed with real shops. */
+    public function isTest(): bool
+    {
+        return self::isTestUser($this->user);
+    }
+
+    public static function isTestUser(?User $user): bool
+    {
+        return $user !== null && str_ends_with(strtolower((string) $user->email), \App\Console\Commands\TestAccountsCommand::DOMAIN);
+    }
+
     public static function findActiveByCode(string $code): ?self
     {
         return self::query()->where('code', strtoupper(trim($code)))->where('is_active', true)->first();

@@ -1,11 +1,11 @@
-{{-- Admin → Field associates (owner 2026-11-23): add associates, their month at a glance, each one's shops with progress
-     bars, and the month's sheet to pay from. --}}
+{{-- Admin → Field associates (owner 2026-11-23, release A 2026-11-24): rewards, add associates, their month at a glance
+     (shops and restaurants apart), each one's shops with progress bars and credit history, and the month's sheet. --}}
 @php($money = fn (float $a) => \App\Services\FieldAssociates\FieldAssociateTracker::money($a))
 <div>
     <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div>
             <h1 class="text-xl font-semibold">🤝 Field associates</h1>
-            <p class="text-sm text-gray-500">People who visit shops and restaurants and sign them up. Each shop signed up with their link or QR is added to them.</p>
+            <p class="text-sm text-gray-500">People who visit shops and restaurants and sign them up. Each shop or restaurant signed up with their link, QR or on their phone is added to them.</p>
         </div>
         <x-ui.button variant="secondary" size="sm" wire:click="exportCsv" data-testid="fa-export">⬇ Download {{ $month->format('F') }} sheet</x-ui.button>
     </div>
@@ -17,26 +17,51 @@
     {{-- 1. Rewards (Super Admin) --}}
     @if ($canSetRewards)
         <section class="mb-5 rounded-2xl border-2 border-emerald-200 bg-emerald-50/60 p-4" data-testid="fa-rewards">
-            <h2 class="text-base font-bold text-emerald-900">💰 Rewards</h2>
+            <h2 class="text-base font-bold text-emerald-900">💰 Rewards (same for shops and restaurants)</h2>
             @unless ($rewardsSet)
                 <p class="mt-1 text-sm font-medium text-amber-800">Set the reward amounts before associates start. A reward is saved with the amount at the time it is earned.</p>
             @endunless
-            <form wire:submit="saveRewards" class="mt-3 grid gap-3 sm:grid-cols-4 sm:items-end">
-                <label class="block text-sm"><span class="font-medium text-gray-800">✅ When a shop goes live (KYC + shop approved)</span>
-                    <span class="mt-1 flex items-center rounded-lg border bg-white px-3"><span class="text-gray-500">₹</span><input type="number" min="0" step="1" wire:model="rewardShopLive" class="min-h-11 w-full border-0 px-2 focus:ring-0" data-testid="fa-reward-live"></span>
-                    @error('rewardShopLive') <span class="text-xs text-red-600">{{ $message }}</span> @enderror
-                </label>
-                <label class="block text-sm"><span class="font-medium text-gray-800">🎉 On the shop's first completed order</span>
-                    <span class="mt-1 flex items-center rounded-lg border bg-white px-3"><span class="text-gray-500">₹</span><input type="number" min="0" step="1" wire:model="rewardFirstOrder" class="min-h-11 w-full border-0 px-2 focus:ring-0" data-testid="fa-reward-first"></span>
-                    @error('rewardFirstOrder') <span class="text-xs text-red-600">{{ $message }}</span> @enderror
-                </label>
-                <label class="block text-sm"><span class="font-medium text-gray-800">🎯 Monthly target (shops live, 0 = none)</span>
-                    <input type="number" min="0" step="1" wire:model="monthlyTarget" class="mt-1 min-h-11 w-full rounded-lg border px-3" data-testid="fa-target">
-                    @error('monthlyTarget') <span class="text-xs text-red-600">{{ $message }}</span> @enderror
-                </label>
-                <button type="submit" class="min-h-11 rounded-xl bg-emerald-600 px-4 font-semibold text-white hover:bg-emerald-700">Save rewards</button>
+            <form wire:submit="saveRewards" class="mt-3 space-y-4">
+                <div class="grid gap-3 sm:grid-cols-3">
+                    @foreach ([
+                        ['rewardShopLive', '✅ Live (KYC + shop approved)', 'fa-reward-live'],
+                        ['rewardProducts', '🛍️ 10 products / menu items approved', 'fa-reward-products'],
+                        ['rewardFirstOrder', '🎉 First genuine order (completed + paid)', 'fa-reward-first'],
+                    ] as [$field, $label, $testid])
+                        <label class="block text-sm"><span class="font-medium text-gray-800">{{ $label }}</span>
+                            <span class="mt-1 flex items-center rounded-lg border bg-white px-3"><span class="text-gray-500">₹</span><input type="number" min="0" step="1" wire:model="{{ $field }}" class="min-h-11 w-full border-0 px-2 focus:ring-0" data-testid="{{ $testid }}"></span>
+                            @error($field) <span class="text-xs text-red-600">{{ $message }}</span> @enderror
+                        </label>
+                    @endforeach
+                </div>
+                <div class="grid gap-3 sm:grid-cols-2">
+                    <label class="block text-sm"><span class="font-medium text-gray-800">🧢 At most per shop or restaurant (0 = no limit)</span>
+                        <span class="mt-1 flex items-center rounded-lg border bg-white px-3"><span class="text-gray-500">₹</span><input type="number" min="0" step="1" wire:model="maxPerShop" class="min-h-11 w-full border-0 px-2 focus:ring-0" data-testid="fa-max"></span>
+                        @error('maxPerShop') <span class="text-xs text-red-600">{{ $message }}</span> @enderror
+                    </label>
+                    <label class="block text-sm"><span class="font-medium text-gray-800">🧾 First order counts from an order of (0 = any)</span>
+                        <span class="mt-1 flex items-center rounded-lg border bg-white px-3"><span class="text-gray-500">₹</span><input type="number" min="0" step="1" wire:model="firstOrderMin" class="min-h-11 w-full border-0 px-2 focus:ring-0" data-testid="fa-min-order"></span>
+                        @error('firstOrderMin') <span class="text-xs text-red-600">{{ $message }}</span> @enderror
+                    </label>
+                </div>
+                <fieldset class="rounded-xl bg-white/70 p-3 ring-1 ring-emerald-200">
+                    <legend class="px-1 text-sm font-semibold text-emerald-900">🏆 Monthly bonus (highest level reached, not added together)</legend>
+                    <p class="text-xs text-gray-600">Counts shops and restaurants that became live with 10 approved products in that month. Leave a row empty to skip it.</p>
+                    <div class="mt-2 grid gap-2 sm:grid-cols-2">
+                        @foreach ($bonusLevels as $i => $level)
+                            <div class="flex items-center gap-2 rounded-lg bg-amber-50 p-2 text-sm ring-1 ring-amber-200" wire:key="fa-level-{{ $i }}">
+                                <input type="number" min="1" step="1" wire:model="bonusLevels.{{ $i }}.shops" class="min-h-11 w-20 rounded-lg border px-2" aria-label="Level {{ $i + 1 }} shops" data-testid="fa-level-shops-{{ $i }}">
+                                <span class="text-gray-700">shops →</span>
+                                <span class="flex flex-1 items-center rounded-lg border bg-white px-2"><span class="text-gray-500">₹</span><input type="number" min="0" step="1" wire:model="bonusLevels.{{ $i }}.amount" class="min-h-11 w-full border-0 px-1 focus:ring-0" aria-label="Level {{ $i + 1 }} bonus" data-testid="fa-level-amount-{{ $i }}"></span>
+                            </div>
+                            @error("bonusLevels.$i.shops") <p class="text-xs text-red-600 sm:col-span-2">{{ $message }}</p> @enderror
+                            @error("bonusLevels.$i.amount") <p class="text-xs text-red-600 sm:col-span-2">{{ $message }}</p> @enderror
+                        @endforeach
+                    </div>
+                </fieldset>
+                <button type="submit" class="min-h-11 w-full rounded-xl bg-emerald-600 px-4 font-semibold text-white hover:bg-emerald-700 sm:w-auto">Save rewards</button>
             </form>
-            <p class="mt-2 text-xs text-emerald-900/80">The first order counts only when a real customer completes it, never the shop owner or the associate. Rewards are paid outside the app from the monthly sheet.</p>
+            <p class="mt-2 text-xs text-emerald-900/80">A first order counts only when a real customer completes and pays it, never the shop owner, the associate or a test login, and one customer counts for only one of an associate's shops. It is added {{ $holdDays }} days after the order (after the return window); a refunded order cancels it. Rewards are paid outside the app: the sheet shows what was earned, not what is approved or paid.</p>
         </section>
     @endif
 
@@ -80,27 +105,32 @@
         <ul class="space-y-3">
             @foreach ($associates as $a)
                 @php($t = $totals[$a->id])
-                @php($pct = $target > 0 ? min(100, (int) round($t['live'] / $target * 100)) : null)
+                @php($goal = \App\Services\FieldAssociates\FieldAssociateTracker::goal($t['complete']))
                 <li class="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-gray-200" wire:key="fa-{{ $a->id }}" data-testid="fa-row-{{ $a->code }}">
                     <div class="flex flex-wrap items-center gap-3">
                         <span class="rounded-lg bg-slate-900 px-2 py-1 font-mono text-xs font-bold text-white">{{ $a->code }}</span>
                         <div class="min-w-[10rem] flex-1">
-                            <p class="font-semibold text-gray-900">{{ $a->user?->name }} @unless ($a->is_active)<span class="ml-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-800">Paused</span>@endunless</p>
+                            <p class="font-semibold text-gray-900">{{ $a->user?->name }}
+                                @unless ($a->is_active)<span class="ml-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-800">Paused</span>@endunless
+                                @if ($a->isTest())<span class="ml-1 rounded-full bg-slate-200 px-2 py-0.5 text-xs font-semibold text-slate-700" title="Test login: never on the pay sheet">Test</span>@endif
+                            </p>
                             <p class="text-sm text-gray-500">{{ $a->user?->phone }}@if ($a->franchise) · {{ $a->franchise->name }}@endif</p>
                         </div>
                         <dl class="flex flex-wrap gap-2 text-center text-sm">
-                            <div class="rounded-xl bg-slate-50 px-3 py-1.5"><dt class="text-xs text-gray-500">Signed up</dt><dd class="font-bold">{{ $t['signed_up'] }}</dd></div>
-                            <div class="rounded-xl bg-emerald-50 px-3 py-1.5"><dt class="text-xs text-emerald-700">Live ✅</dt><dd class="font-bold text-emerald-800" data-testid="fa-row-live">{{ $t['live'] }}</dd></div>
+                            <div class="rounded-xl bg-slate-50 px-3 py-1.5"><dt class="text-xs text-gray-500">Signed up</dt><dd class="font-bold">{{ $t['signed_up'] }} <span class="text-xs font-medium text-gray-500">🏪{{ $t['signed_up_shops'] }} 🍽️{{ $t['signed_up_restaurants'] }}</span></dd></div>
+                            <div class="rounded-xl bg-emerald-50 px-3 py-1.5"><dt class="text-xs text-emerald-700">Live ✅</dt><dd class="font-bold text-emerald-800" data-testid="fa-row-live">{{ $t['live'] }} <span class="text-xs font-medium">🏪{{ $t['live_shops'] }} 🍽️{{ $t['live_restaurants'] }}</span></dd></div>
+                            <div class="rounded-xl bg-blue-50 px-3 py-1.5"><dt class="text-xs text-blue-700">10 products 🛍️</dt><dd class="font-bold text-blue-800">{{ $t['products'] }}</dd></div>
                             <div class="rounded-xl bg-violet-50 px-3 py-1.5"><dt class="text-xs text-violet-700">First orders 🎉</dt><dd class="font-bold text-violet-800">{{ $t['first_orders'] }}</dd></div>
-                            <div class="rounded-xl bg-emerald-600 px-3 py-1.5 text-white"><dt class="text-xs text-white/80">To pay</dt><dd class="font-bold" data-testid="fa-row-earned">{{ $money($t['earned']) }}</dd></div>
+                            <div class="rounded-xl bg-amber-50 px-3 py-1.5"><dt class="text-xs text-amber-700">Bonus 🏆</dt><dd class="font-bold text-amber-800" data-testid="fa-row-bonus">{{ $money($t['bonus']) }}</dd></div>
+                            <div class="rounded-xl bg-emerald-600 px-3 py-1.5 text-white"><dt class="text-xs text-white/80">Earned</dt><dd class="font-bold" data-testid="fa-row-earned">{{ $money($t['earned']) }}</dd></div>
                         </dl>
                     </div>
-                    @if ($pct !== null)
+                    @if ($goal)
                         <div class="mt-3 flex items-center gap-2">
-                            <div class="h-2.5 flex-1 overflow-hidden rounded-full bg-slate-100" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ $pct }}" aria-label="{{ $a->code }} target {{ $pct }}%">
-                                <div class="h-full rounded-full {{ $pct >= 100 ? 'bg-emerald-500' : 'bg-blue-500' }}" style="width: {{ max(2, $pct) }}%"></div>
+                            <div class="h-2.5 flex-1 overflow-hidden rounded-full bg-slate-100" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ $goal['percent'] }}" aria-label="{{ $a->code }}: {{ $goal['text'] }}">
+                                <div class="h-full rounded-full {{ $goal['percent'] >= 100 ? 'bg-emerald-500' : 'bg-blue-500' }}" style="width: {{ max(2, $goal['percent']) }}%"></div>
                             </div>
-                            <span class="text-xs font-semibold text-gray-600">{{ $t['live'] }} / {{ $target }}</span>
+                            <span class="text-xs font-semibold text-gray-600">{{ $goal['text'] }}</span>
                         </div>
                     @endif
                     <div class="mt-3 flex flex-wrap gap-2">
@@ -111,8 +141,8 @@
                     @if ($open?->id === $a->id)
                         <div class="mt-4 border-t pt-4">
                             @if ($assignable->isNotEmpty())
-                                <form wire:submit="assignStore" class="mb-4 flex flex-wrap items-end gap-2 rounded-xl bg-slate-50 p-3">
-                                    <label class="block flex-1 text-sm"><span class="font-medium text-gray-800">Forgot the link? Add a shop they signed up (last 60 days)</span>
+                                <form wire:submit="assignStore" class="mb-4 grid gap-2 rounded-xl bg-slate-50 p-3 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
+                                    <label class="block text-sm"><span class="font-medium text-gray-800">Forgot the link? Add a shop they signed up (last 60 days)</span>
                                         <select wire:model="assignStoreId" class="mt-1 min-h-11 w-full rounded-lg border px-3" data-testid="fa-assign-select">
                                             <option value="">Choose a shop…</option>
                                             @foreach ($assignable as $s)
@@ -120,6 +150,10 @@
                                             @endforeach
                                         </select>
                                         @error('assignStoreId') <span class="text-xs text-red-600">{{ $message }}</span> @enderror
+                                    </label>
+                                    <label class="block text-sm"><span class="font-medium text-gray-800">Why?</span>
+                                        <input type="text" wire:model="assignReason" placeholder="e.g. Owner says Ravi visited on 12 Dec" class="mt-1 min-h-11 w-full rounded-lg border px-3" data-testid="fa-assign-reason">
+                                        @error('assignReason') <span class="text-xs text-red-600">{{ $message }}</span> @enderror
                                     </label>
                                     <button type="submit" class="min-h-11 rounded-xl bg-slate-900 px-4 text-sm font-semibold text-white" data-testid="fa-assign">Add to {{ $a->code }}</button>
                                 </form>
@@ -129,8 +163,44 @@
                             @else
                                 <ul class="grid gap-3 lg:grid-cols-2">
                                     @foreach ($openShops as $row)
-                                        <x-field-associate.shop-progress :row="$row" wire:key="fa-open-shop-{{ $row['store']->id }}">
-                                            <button type="button" wire:click="removeStore({{ $row['store']->id }})" wire:confirm="Remove {{ $row['store']->name }} from {{ $a->code }}? Its rewards are removed too." class="mt-2 text-xs font-medium text-red-600 underline underline-offset-2">Not theirs? Remove</button>
+                                        @php($sid = $row['store']->id)
+                                        <x-field-associate.shop-progress :row="$row" wire:key="fa-open-shop-{{ $sid }}">
+                                            @if ($row['history']->isNotEmpty())
+                                                <details class="mt-2 text-xs text-slate-600">
+                                                    <summary class="cursor-pointer font-medium text-slate-700">Credit history ({{ $row['history']->count() }})</summary>
+                                                    <ul class="mt-1 space-y-1" data-testid="fa-history">
+                                                        @foreach ($row['history'] as $h)
+                                                            <li>{{ $h->created_at?->format('j M Y, g:i a') }}: {{ $h->from?->code ?? '—' }} → {{ $h->to?->code ?? 'nobody' }} · {{ $h->changedBy?->name ?? 'system' }} · “{{ $h->reason }}”</li>
+                                                        @endforeach
+                                                    </ul>
+                                                </details>
+                                            @endif
+                                            @if ($changeStoreId === $sid)
+                                                <form wire:submit="saveChange" class="mt-3 space-y-2 rounded-xl bg-amber-50 p-3 ring-1 ring-amber-200" data-testid="fa-change-form">
+                                                    <div class="flex flex-wrap gap-2 text-sm">
+                                                        <label class="flex min-h-10 items-center gap-2 rounded-lg bg-white px-3 ring-1 ring-slate-200"><input type="radio" value="move" wire:model.live="changeAction"> Move to another associate</label>
+                                                        <label class="flex min-h-10 items-center gap-2 rounded-lg bg-white px-3 ring-1 ring-slate-200"><input type="radio" value="remove" wire:model.live="changeAction"> Remove (nobody signed it up)</label>
+                                                    </div>
+                                                    @if ($changeAction === 'move')
+                                                        <select wire:model="moveToId" class="min-h-11 w-full rounded-lg border px-3" data-testid="fa-move-to">
+                                                            <option value="">Who really signed it up?</option>
+                                                            @foreach ($moveTargets as $m)
+                                                                <option value="{{ $m->id }}">{{ $m->code }} · {{ $m->user?->name }}</option>
+                                                            @endforeach
+                                                        </select>
+                                                        @error('moveToId') <p class="text-xs text-red-600">{{ $message }}</p> @enderror
+                                                    @endif
+                                                    <input type="text" wire:model="changeReason" placeholder="Why? (kept in the history)" class="min-h-11 w-full rounded-lg border px-3" data-testid="fa-change-reason">
+                                                    @error('changeReason') <p class="text-xs text-red-600">{{ $message }}</p> @enderror
+                                                    <p class="text-xs text-amber-900">{{ $changeAction === 'move' ? 'Its rewards move with it.' : 'Its rewards are removed.' }}</p>
+                                                    <div class="flex gap-2">
+                                                        <button type="submit" class="min-h-11 flex-1 rounded-xl bg-amber-600 px-4 text-sm font-semibold text-white hover:bg-amber-700" data-testid="fa-change-save">Save</button>
+                                                        <button type="button" wire:click="cancelChange" class="min-h-11 rounded-xl bg-white px-4 text-sm font-semibold text-slate-700 ring-1 ring-slate-200">Cancel</button>
+                                                    </div>
+                                                </form>
+                                            @else
+                                                <button type="button" wire:click="startChange({{ $sid }})" class="mt-2 min-h-10 text-xs font-medium text-amber-700 underline underline-offset-2" data-testid="fa-change-{{ $sid }}">Not theirs? Move or remove</button>
+                                            @endif
                                         </x-field-associate.shop-progress>
                                     @endforeach
                                 </ul>

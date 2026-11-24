@@ -62,6 +62,22 @@ class Product extends Model
             : \Illuminate\Support\Facades\Storage::disk('public')->url($path);
     }
 
+    /**
+     * Field associates (release A, 2026-11-24): the 10th approved product or menu item of a shop an associate signed up
+     * earns their "10 products" reward on the spot (the daily sync and the pages catch anything missed).
+     */
+    protected static function booted(): void
+    {
+        static::saved(function (Product $product) {
+            if ($product->is_approved && $product->is_active && ($product->wasRecentlyCreated || $product->wasChanged(['is_approved', 'is_active']))) {
+                $store = Store::query()->whereKey($product->store_id)->whereNotNull('field_associate_id')->whereNotNull('approved_at')->first();
+                if ($store) {
+                    rescue(fn () => app(\App\Services\FieldAssociates\FieldAssociateTracker::class)->syncStore($store));
+                }
+            }
+        });
+    }
+
     public function store() { return $this->belongsTo(Store::class); }
     public function category() { return $this->belongsTo(MarketplaceCategory::class, 'marketplace_category_id'); }
     public function variants() { return $this->hasMany(ProductVariant::class); }

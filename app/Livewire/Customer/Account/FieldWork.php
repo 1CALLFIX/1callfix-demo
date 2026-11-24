@@ -8,10 +8,10 @@ use Illuminate\Support\Carbon;
 use Livewire\Component;
 
 /**
- * Account → My field work (field associates, owner 2026-11-23). A field associate's own page, made for a phone at
- * a shop counter: the month's target bar and rewards on top, one big QR + "Share link" to sign up a new shop, then
- * every shop they added with a coloured 5-step progress bar and what to do next. Read-only: rewards are paid outside
- * the app from the office's monthly report.
+ * Account → My field work (field associates, owner 2026-11-23, release A 2026-11-24). A field associate's own page,
+ * made for a phone at a shop counter: the month's bonus bar and rewards on top, "Sign up a shop / restaurant now" on
+ * this phone (the associate stays signed in) or the owner scans the QR, then every shop they added with a coloured
+ * 5-step progress bar and what to do next. Read-only: rewards are paid outside the app after the office checks them.
  */
 class FieldWork extends Component
 {
@@ -41,14 +41,18 @@ class FieldWork extends Component
         $shops = $tracker->shops($associate);
         $month = Carbon::now()->startOfMonth()->subMonthsNoOverflow($this->monthsAgo);
 
+        $stats = $tracker->month($associate, $month);
+
         return view('livewire.customer.account.field-work', [
             'associate' => $associate,
             'shops' => $shops,
             'month' => $month,
-            'stats' => $tracker->month($associate, $month),
-            'target' => FieldAssociateTracker::monthlyTarget(),
+            'stats' => $stats,
+            'goal' => FieldAssociateTracker::goal($stats['complete']),
             'rewardLive' => FieldAssociateTracker::rewardShopLive(),
+            'rewardProducts' => FieldAssociateTracker::rewardProducts(),
             'rewardFirst' => FieldAssociateTracker::rewardFirstOrder(),
+            'bonusLevels' => FieldAssociateTracker::bonusLevels(),
         ])->layout('components.layouts.customer', ['title' => 'My field work']);
     }
 }

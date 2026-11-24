@@ -57,6 +57,8 @@ class FieldAssociatesTest extends TestCase
         $zone->update(['center_lat' => 14.44, 'center_lng' => 79.98]);
         $this->activateMarketplaceModuleFor($franchise);
         $this->w = ['franchise' => $franchise, 'zone' => $zone->fresh()];
+        // Early in a month, so a first order's waiting days never cross into the next month mid-test.
+        $this->travelTo(now()->startOfMonth()->addDay()->setTime(10, 0));
     }
 
     private function associate(string $name = 'Ravi Kumar', ?int $franchiseId = null): FieldAssociate
@@ -81,7 +83,7 @@ class FieldAssociatesTest extends TestCase
 
     private function completedOrder(Store $store, User $customer): MarketplaceOrder
     {
-        app(CartService::class)->add($customer, $store->products()->first(), 1);
+        app(CartService::class)->add($customer, $store->products()->where('is_approved', true)->first(), 1);
         $order = app(CreateMarketplaceOrderAction::class)->execute(['store_id' => $store->id, 'customer_id' => $customer->id, 'order_type' => 'pickup', 'payment_method' => 'cash']);
         foreach (['accepted', 'preparing', 'ready'] as $to) {
             app(\App\Actions\AdvanceMarketplaceOrderAction::class)->execute($order->id, $to);
@@ -90,11 +92,42 @@ class FieldAssociatesTest extends TestCase
         return app(CompleteMarketplaceOrderAction::class)->execute($order->id, null, $order->fresh()->delivery_otp, $store->provider->user);
     }
 
-    private function setRewards(float $live, float $first, int $target = 0): void
+    /** Amounts for a test; no per-shop limit, no minimum order and no bonus unless given. */
+    private function setRewards(float $live, float $first, int $target = 0, float $products = 0, float $max = 0, float $minOrder = 0, array $levels = []): void
     {
         Setting::set(FieldAssociateTracker::REWARD_SHOP_LIVE, (string) $live);
+        Setting::set(FieldAssociateTracker::REWARD_PRODUCTS, (string) $products);
         Setting::set(FieldAssociateTracker::REWARD_FIRST_ORDER, (string) $first);
+        Setting::set(FieldAssociateTracker::MAX_PER_SHOP, (string) $max);
+        Setting::set(FieldAssociateTracker::FIRST_ORDER_MIN, (string) $minOrder);
+        Setting::set(FieldAssociateTracker::BONUS_LEVELS, json_encode($levels));
         Setting::set(FieldAssociateTracker::MONTHLY_TARGET, (string) $target);
+    }
+
+    /** A credited shop that is live (KYC + shop approved) with $products approved products. */
+    private function liveShop(FieldAssociate $a, int $products = 10): Store
+    {
+        $store = $this->creditedShop($a);
+        $store->provider->update(['kyc_status' => 'approved']);
+        $store->update(['approval_status' => 'approved', 'approved_at' => now(), 'is_active' => true, 'is_open' => true]);
+        for ($i = 0; $i < $products; $i++) {
+            $this->makeProduct($store, ['price' => 150, 'stock' => 20]);
+        }
+
+        return $store->fresh();
+    }
+
+    /** Past the return window, then the daily sync. */
+    private function afterReturnWindow(): void
+    {
+        $this->travel(FieldAssociateTracker::holdDays())->days();
+        app(FieldAssociateTracker::class)->syncAll();
+    }
+
+    private function testLogin(string $key): User
+    {
+        return User::create(['uuid' => (string) Str::uuid(), 'name' => 'Test '.$key, 'email' => "test.{$key}@1callfix.test",
+            'phone' => '6'.fake()->unique()->numerify('#########'), 'role' => 'customer', 'status' => 'active']);
     }
 
     // ── The link / QR ───────────────────────────────────────────────────
@@ -173,44 +206,60 @@ class FieldAssociatesTest extends TestCase
 
     public function test_the_progress_bar_and_rewards_follow_the_shop_from_sign_up_to_its_first_real_order(): void
     {
-        $this->setRewards(200, 300);
+        $this->setRewards(200, 300, products: 25);
         $a = $this->associate();
         $store = $this->creditedShop($a);
         $tracker = app(FieldAssociateTracker::class);
         $progress = fn () => $tracker->shops($a->fresh())->first()['progress'];
 
         $this->assertSame(20, $progress()['percent']);
-        $this->assertSame('Next: add products', $progress()['next']);
+        $this->assertSame('Next: add 10 products (0 approved so far)', $progress()['next']);
 
+        // Products waiting for approval do not count; 10 approved ones do.
+        $this->makeProduct($store, ['is_approved' => false]);
+        for ($i = 0; $i < 9; $i++) {
+            $this->makeProduct($store, ['price' => 150, 'stock' => 10]);
+        }
+        $this->assertSame('Next: add 10 products (9 approved so far)', $progress()['next']);
         $this->makeProduct($store, ['price' => 150, 'stock' => 10]);
         $this->assertSame(40, $progress()['percent']);
-        $this->assertSame('Next: KYC approval by the office', $progress()['next']);
+        $this->assertSame('Next: the owner uploads their KYC, then the office approves it', $progress()['next']);
+        $this->assertFalse(FieldAssociateReward::where('kind', 'products')->exists(), 'products pay only once the shop is live');
 
         $store->provider->update(['kyc_status' => 'approved']);
         $this->assertSame(60, $progress()['percent']);
 
         Livewire::actingAs($this->makeSuperAdmin())->test(StoresManage::class)->call('approveStore', $store->id);
-        $live = FieldAssociateReward::where('store_id', $store->id)->where('kind', 'shop_live')->sole();
-        $this->assertEquals(200, $live->amount);
+        $this->assertEquals(200, FieldAssociateReward::where('store_id', $store->id)->where('kind', 'shop_live')->sole()->amount);
+        $this->assertEquals(25, FieldAssociateReward::where('store_id', $store->id)->where('kind', 'products')->sole()->amount);
         $this->assertSame(80, $progress()['percent']);
-        $this->assertSame('Next: first order from a customer', $progress()['next']);
+        $this->assertStringStartsWith('Next: first order from a customer', $progress()['next']);
 
         // The shop owner's own order and the associate's own order never count as the first order.
         $this->completedOrder($store->fresh(), $store->provider->user);
         $this->completedOrder($store->fresh(), $a->user);
+        $this->afterReturnWindow();
         $this->assertFalse(FieldAssociateReward::where('store_id', $store->id)->where('kind', 'first_order')->exists());
 
-        $this->completedOrder($store->fresh(), $this->makeCustomer());
-        $this->assertEquals(300, FieldAssociateReward::where('store_id', $store->id)->where('kind', 'first_order')->sole()->amount);
+        // A real customer's order pays only after the return window.
+        $customer = $this->makeCustomer();
+        $order = $this->completedOrder($store->fresh(), $customer);
+        $this->assertFalse(FieldAssociateReward::where('kind', 'first_order')->exists(), 'waits for the return window');
+        $this->afterReturnWindow();
+        $first = FieldAssociateReward::where('store_id', $store->id)->where('kind', 'first_order')->sole();
+        $this->assertEquals(300, $first->amount);
+        $this->assertSame([$order->id, $customer->id], [$first->order_id, $first->customer_id]);
         $this->assertSame(100, $progress()['percent']);
         $this->assertSame('All done 🎉', $progress()['next']);
 
         $month = $tracker->month($a, now());
-        $this->assertSame(['signed_up' => 1, 'live' => 1, 'live_amount' => 200.0, 'first_orders' => 1, 'first_order_amount' => 300.0, 'earned' => 500.0], $month);
+        $this->assertSame([1, 1, 0, 1, 200.0, 1, 25.0, 1, 300.0, 525.0], [$month['signed_up'], $month['signed_up_shops'], $month['signed_up_restaurants'],
+            $month['live_shops'], $month['live_amount'], $month['products'], $month['products_amount'], $month['first_orders'], $month['first_order_amount'], $month['earned']]);
 
         // A second order never pays again.
         $this->completedOrder($store->fresh(), $this->makeCustomer());
-        $this->assertSame(2, FieldAssociateReward::where('store_id', $store->id)->count());
+        $this->afterReturnWindow();
+        $this->assertSame(3, FieldAssociateReward::where('store_id', $store->id)->count());
     }
 
     public function test_a_reward_keeps_the_amount_it_was_earned_at_when_the_amount_changes_later(): void
@@ -246,11 +295,22 @@ class FieldAssociatesTest extends TestCase
     {
         $admin = $this->makeSuperAdmin();
 
+        // The owner's plan is there from the start (migration), and Super Admin changes it.
+        $this->assertSame([50.0, 50.0, 100.0, 200.0, 100.0], [FieldAssociateTracker::rewardShopLive(), FieldAssociateTracker::rewardProducts(),
+            FieldAssociateTracker::rewardFirstOrder(), FieldAssociateTracker::maxPerShop(), FieldAssociateTracker::firstOrderMin()]);
+        $this->assertSame([[10, 500.0], [20, 1000.0], [30, 1500.0], [40, 2500.0]], FieldAssociateTracker::bonusLevels());
+
         Livewire::actingAs($admin)->test(Manage::class)
-            ->set('rewardShopLive', '150')->set('rewardFirstOrder', '250')->set('monthlyTarget', '20')->call('saveRewards')->assertHasNoErrors();
-        $this->assertSame(150.0, FieldAssociateTracker::rewardShopLive());
-        $this->assertSame(250.0, FieldAssociateTracker::rewardFirstOrder());
-        $this->assertSame(20, FieldAssociateTracker::monthlyTarget());
+            ->assertSet('bonusLevels.1', ['shops' => '20', 'amount' => '1000'])->assertSet('bonusLevels.3', ['shops' => '40', 'amount' => '2500'])
+            ->set('rewardShopLive', '30')->set('rewardProducts', '20')->set('rewardFirstOrder', '60')->set('maxPerShop', '110')->set('firstOrderMin', '150')
+            ->set('bonusLevels.2', ['shops' => '', 'amount' => ''])->set('bonusLevels.0', ['shops' => '12', 'amount' => '600'])
+            ->call('saveRewards')->assertHasNoErrors();
+        $this->assertSame([30.0, 20.0, 60.0, 110.0, 150.0], [FieldAssociateTracker::rewardShopLive(), FieldAssociateTracker::rewardProducts(),
+            FieldAssociateTracker::rewardFirstOrder(), FieldAssociateTracker::maxPerShop(), FieldAssociateTracker::firstOrderMin()]);
+        $this->assertSame([[12, 600.0], [20, 1000.0], [40, 2500.0]], FieldAssociateTracker::bonusLevels());
+
+        // A half-filled level is refused.
+        Livewire::actingAs($admin)->test(Manage::class)->set('bonusLevels.3', ['shops' => '50', 'amount' => ''])->call('saveRewards')->assertHasErrors('bonusLevels.3.amount');
 
         $c = Livewire::actingAs($admin)->test(Manage::class)
             ->set('name', 'Suresh')->set('phone', '98765 43210')->set('franchiseId', $this->w['franchise']->id)->call('addAssociate')->assertHasNoErrors();
@@ -298,13 +358,18 @@ class FieldAssociatesTest extends TestCase
         $c = Livewire::actingAs($admin)->test(Manage::class)->call('toggleActive', $a->id);
         $this->assertFalse($a->fresh()->is_active);
 
-        $c->call('open', $a->id)->set('assignStoreId', $forgot->id)->call('assignStore')->assertHasNoErrors();
+        // A reason is required.
+        $c->call('open', $a->id)->set('assignStoreId', $forgot->id)->call('assignStore')->assertHasErrors('assignReason');
+        $c->set('assignReason', 'Owner says Ravi visited')->call('assignStore')->assertHasNoErrors();
         $this->assertSame($a->id, $forgot->fresh()->field_associate_id);
         $this->assertSame(1, FieldAssociateReward::where('store_id', $forgot->id)->count());
 
-        $c->call('removeStore', $forgot->id);
+        $c->call('startChange', $forgot->id, 'remove')->call('saveChange')->assertHasErrors('changeReason');
+        $c->set('changeReason', 'Signed up by the office')->call('saveChange')->assertHasNoErrors();
         $this->assertNull($forgot->fresh()->field_associate_id);
         $this->assertSame(0, FieldAssociateReward::count());
+        $this->assertSame(['Owner says Ravi visited', 'Signed up by the office'],
+            \App\Models\FieldAssociateCreditChange::where('store_id', $forgot->id)->orderBy('id')->pluck('reason')->all());
     }
 
     public function test_the_month_sheet_downloads_with_what_to_pay(): void
@@ -323,14 +388,15 @@ class FieldAssociatesTest extends TestCase
 
     public function test_the_associate_sees_their_code_qr_target_and_shops(): void
     {
-        $this->setRewards(200, 300, 10);
+        $this->setRewards(200, 300, products: 25, levels: [[10, 500], [20, 1000]]);
         $a = $this->associate();
-        $store = $this->creditedShop($a);
-        $store->update(['approval_status' => 'approved', 'approved_at' => now(), 'is_active' => true]);
+        $store = $this->liveShop($a);
 
         $this->actingAs($a->user)->get('/account/field-work')->assertOk()
             ->assertSee($a->code)->assertSee($store->name)->assertSee('data-qr="'.$a->link().'"', false)
-            ->assertSee('1 of 10 done')->assertSee('₹200');
+            ->assertSee('1 of 10 shops for the ₹500 bonus')->assertSee('₹225')
+            ->assertSee(route('customer.field-work.add', 'shop'), false)->assertSee(route('customer.field-work.add', 'restaurant'), false)
+            ->assertDontSee('you will be signed out');
 
         Livewire::actingAs($a->user)->test(FieldWork::class)->call('showMonth', 1)->assertSet('monthsAgo', 1)->assertSee('₹0');
         $this->get('/account')->assertSee('My field work');
@@ -340,5 +406,181 @@ class FieldAssociatesTest extends TestCase
     {
         $this->get('/account/field-work')->assertRedirect(route('customer.login', ['intended' => '/account/field-work']));
         $this->actingAs($this->makeCustomer())->get('/account/field-work')->assertForbidden();
+    }
+
+    // ── Release A (owner's plan 2026-11-24) ─────────────────────────────
+
+    public function test_the_three_rewards_never_pass_the_per_shop_maximum(): void
+    {
+        $this->setRewards(60, 60, products: 60, max: 100);
+        $a = $this->associate();
+        $store = $this->liveShop($a);
+        app(FieldAssociateTracker::class)->syncAssociate($a);
+        $this->completedOrder($store, $this->makeCustomer());
+        $this->afterReturnWindow();
+
+        $this->assertSame(['first_order' => '0.00', 'products' => '40.00', 'shop_live' => '60.00'],
+            FieldAssociateReward::where('store_id', $store->id)->orderBy('kind')->pluck('amount', 'kind')->map(fn ($v) => number_format((float) $v, 2, '.', ''))->all());
+        $this->assertEquals(100, FieldAssociateReward::where('store_id', $store->id)->sum('amount'));
+    }
+
+    public function test_a_first_order_needs_the_minimum_value_and_a_customer_not_used_for_another_shop(): void
+    {
+        $this->setRewards(25, 50, minOrder: 1000);
+        $a = $this->associate();
+        $one = $this->liveShop($a, 1);
+        $two = $this->liveShop($a, 1);
+        $friend = $this->makeCustomer();
+
+        $this->completedOrder($one, $friend);
+        $this->afterReturnWindow();
+        $this->assertFalse(FieldAssociateReward::where('kind', 'first_order')->exists(), 'below the minimum order value');
+
+        $this->setRewards(25, 50);
+        $this->completedOrder($two, $friend);
+        $this->afterReturnWindow();
+        // The same friend counts for one of this associate's shops only.
+        $this->assertSame([$one->id], FieldAssociateReward::where('kind', 'first_order')->pluck('store_id')->all());
+
+        // A test login never makes a first order for a real associate; a new real customer does.
+        $this->completedOrder($two->fresh(), $this->testLogin('customer'));
+        $this->afterReturnWindow();
+        $this->assertSame(1, FieldAssociateReward::where('kind', 'first_order')->count());
+        $this->completedOrder($two->fresh(), $this->makeCustomer());
+        $this->afterReturnWindow();
+        $this->assertSame(2, FieldAssociateReward::where('kind', 'first_order')->count());
+    }
+
+    public function test_a_refunded_first_order_cancels_its_reward_and_the_next_genuine_order_earns_it(): void
+    {
+        $this->setRewards(25, 50);
+        $a = $this->associate();
+        $store = $this->liveShop($a, 1);
+        $order = $this->completedOrder($store, $this->makeCustomer());
+        $this->afterReturnWindow();
+        $this->assertSame($order->id, FieldAssociateReward::where('kind', 'first_order')->sole()->order_id);
+
+        $order->forceFill(['payment_status' => 'refunded'])->save();
+        app(FieldAssociateTracker::class)->syncAll();
+        $this->assertFalse(FieldAssociateReward::where('kind', 'first_order')->exists());
+
+        $next = $this->completedOrder($store->fresh(), $this->makeCustomer());
+        $this->afterReturnWindow();
+        $this->assertSame($next->id, FieldAssociateReward::where('kind', 'first_order')->sole()->order_id);
+    }
+
+    public function test_the_monthly_bonus_is_the_highest_level_reached_and_restaurants_are_counted_apart(): void
+    {
+        $this->setRewards(25, 50, products: 25, levels: [[2, 500], [3, 1000], [4, 2500]]); // like 10 / 20 / 40 shops
+        $a = $this->associate();
+        $tracker = app(FieldAssociateTracker::class);
+
+        $this->liveShop($a);
+        $this->liveShop($a, 5); // live, but not 10 products: not counted for the bonus
+        $tracker->syncAssociate($a);
+        $this->assertSame(0.0, $tracker->month($a, now())['bonus']);
+
+        $this->liveShop($a)->update(['module' => \App\Support\Modules::FOOD]);
+        $tracker->syncAssociate($a);
+        $this->assertEquals(500, \App\Models\FieldAssociateBonus::where('field_associate_id', $a->id)->sole()->amount);
+
+        $this->liveShop($a);
+        $tracker->syncAssociate($a);
+        $month = $tracker->month($a, now());
+        $this->assertSame([1000.0, 3, 3, 1, 4], [$month['bonus'], $month['complete'], $month['live_shops'], $month['live_restaurants'], $month['live']]);
+        $this->assertSame(4 * 25 + 3 * 25 + 1000.0, $month['earned'], 'highest level only, not 500 + 1000');
+        $this->assertSame(1, \App\Models\FieldAssociateBonus::count());
+        $this->assertSame('3 of 4 shops for the ₹2,500 bonus', FieldAssociateTracker::goal(3)['text']);
+
+        // The fourth level (the owner's 40 shops) replaces the third: 2,500, not 500 + 1,000 + 2,500.
+        $this->liveShop($a);
+        $tracker->syncAssociate($a);
+        $month = $tracker->month($a, now());
+        $this->assertSame([2500.0, 4, 4], [$month['bonus'], $month['bonus_level'], $month['complete']]);
+        $this->assertEquals(2500, \App\Models\FieldAssociateBonus::sole()->amount);
+        $this->assertStringContainsString('Top bonus reached', FieldAssociateTracker::goal(4)['text']);
+    }
+
+    public function test_test_shops_and_real_associates_never_mix(): void
+    {
+        $this->setRewards(25, 50);
+        $real = $this->associate();
+        $testShop = $this->liveShop($real, 0);
+        $testShop->provider->user->update(['email' => 'test.seller@1callfix.test']);
+        app(FieldAssociateTracker::class)->syncAll();
+        $this->assertFalse(FieldAssociateReward::where('store_id', $testShop->id)->exists());
+
+        // The test associate with a test shop still earns, so the walk-through works; the sheet leaves it out.
+        $testAssociate = FieldAssociate::create(['user_id' => $this->testLogin('associate')->id, 'franchise_id' => $this->w['franchise']->id, 'code' => 'FA900', 'is_active' => true]);
+        $testShop->update(['field_associate_id' => $testAssociate->id]);
+        app(FieldAssociateTracker::class)->syncAll();
+        $this->assertTrue(FieldAssociateReward::where('store_id', $testShop->id)->where('field_associate_id', $testAssociate->id)->exists());
+        Livewire::actingAs($this->makeSuperAdmin())->test(Manage::class)->assertSeeHtml('title="Test login: never on the pay sheet"');
+    }
+
+    public function test_admin_moves_a_shop_to_the_associate_who_really_signed_it_up_with_its_rewards_and_history(): void
+    {
+        $this->setRewards(25, 50, products: 25);
+        $ravi = $this->associate('Ravi');
+        $sita = $this->associate('Sita');
+        $store = $this->liveShop($ravi);
+        app(FieldAssociateTracker::class)->syncAssociate($ravi);
+
+        Livewire::actingAs($this->makeSuperAdmin())->test(Manage::class)->call('open', $ravi->id)
+            ->call('startChange', $store->id)->set('moveToId', $sita->id)->call('saveChange')->assertHasErrors('changeReason')
+            ->set('changeReason', 'Owner confirmed Sita visited')->call('saveChange')->assertHasNoErrors()
+            ->assertSet('changeStoreId', null);
+
+        $this->assertSame($sita->id, $store->fresh()->field_associate_id);
+        $this->assertSame([$sita->id], FieldAssociateReward::where('store_id', $store->id)->pluck('field_associate_id')->unique()->values()->all());
+        $change = \App\Models\FieldAssociateCreditChange::where('store_id', $store->id)->latest('id')->first();
+        $this->assertSame([$ravi->id, $sita->id, 'Owner confirmed Sita visited'], [$change->from_associate_id, $change->to_associate_id, $change->reason]);
+
+        // Rewards from an earlier month may already be paid: a city admin cannot move that shop, Super Admin can.
+        FieldAssociateReward::where('store_id', $store->id)->update(['earned_at' => now()->subMonthNoOverflow()]);
+        $cityAdmin = $this->makeUserWithPermission('field_associates.manage', 'franchise', $this->w['franchise']->id);
+        Livewire::actingAs($cityAdmin)->test(Manage::class)->call('open', $sita->id)
+            ->call('startChange', $store->id, 'remove')->set('changeReason', 'Not hers after all')->call('saveChange')->assertHasErrors('changeReason');
+        $this->assertSame($sita->id, $store->fresh()->field_associate_id);
+    }
+
+    public function test_the_associate_signs_up_a_shop_on_their_own_phone_and_stays_signed_in(): void
+    {
+        Setting::set('marketplace.recruiting_sellers', '1');
+        $a = $this->associate('Ravi Kumar');
+        $this->actingAs($a->user);
+
+        $this->get(route('customer.field-work.add', 'shop'))->assertRedirect(route('provider.register'))
+            ->assertSessionHas(\App\Http\Controllers\FieldAssociateAssistController::SESSION_KEY, ['associate_id' => $a->id, 'role' => 'commerce']);
+
+        $c = Livewire::test(Register::class)->assertSet('assisted', true)->assertSet('partnerRole', 'commerce')
+            ->assertSet('fieldAssociateLabel', "Ravi Kumar ({$a->code})")->assertSee('docs-by-owner', false)->assertDontSee('pr-password', false);
+
+        // The associate's own number is refused: the account must be the owner's.
+        $c->set('phone', $a->user->phone)->call('requestPhoneCode')->assertHasErrors('phone');
+
+        $c->set('phone', '9876500031')->call('requestPhoneCode')->assertHasNoErrors()
+            ->call('phoneTokenReceived', $this->firebase->issuePhoneToken($this->e164('9876500031')))
+            ->call('useCurrentLocationForNewAddress', 14.44, 79.98)
+            ->set('name', 'Lakshmi')->set('address', '12 Main Bazaar, Nellore')->set('storeName', 'Lakshmi Kirana')->set('terms', true)
+            ->call('submitApplication')->assertHasNoErrors()->assertSet('submitted', true)->assertSee('assisted-whatsapp', false);
+
+        $store = Store::with('provider.user')->where('name', 'Lakshmi Kirana')->sole();
+        $this->assertSame($a->id, $store->field_associate_id);
+        $this->assertSame('9876500031', $store->provider->user->phone, 'the account is the owner\'s');
+        $this->assertNull($store->provider->user->password, 'the owner signs in with a code and sets their own password');
+        $this->assertSame($a->user->id, auth()->id(), 'the associate stays signed in');
+        $this->assertStringContainsString('owner verified their own mobile', \App\Models\FieldAssociateCreditChange::where('store_id', $store->id)->sole()->reason);
+        $this->assertNull(session(\App\Http\Controllers\FieldAssociateAssistController::SESSION_KEY), 'one visit, one shop');
+    }
+
+    public function test_only_an_active_associate_can_use_assisted_sign_up(): void
+    {
+        $this->actingAs($this->makeCustomer())->get(route('customer.field-work.add', 'shop'))->assertForbidden();
+
+        $a = $this->associate();
+        $a->update(['is_active' => false]);
+        $this->actingAs($a->user)->get(route('customer.field-work.add', 'restaurant'))->assertRedirect(route('customer.field-work'))
+            ->assertSessionMissing(\App\Http\Controllers\FieldAssociateAssistController::SESSION_KEY);
     }
 }

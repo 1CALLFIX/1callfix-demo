@@ -43,11 +43,12 @@ class RegisterSellerAction
         string $module = Modules::COMMERCE,
         ?string $fssaiNumber = null,
         ?int $fieldAssociateId = null,
+        bool $assistedByAssociate = false,
     ): Store {
         // Food F5: a restaurant joins the same way; it is a Store with module 'food' and its FSSAI licence number.
         $module = $module === Modules::FOOD ? Modules::FOOD : Modules::COMMERCE;
 
-        return DB::transaction(function () use ($zone, $storeName, $existing, $registration, $name, $nationalPhone, $email, $plainPassword, $module, $fssaiNumber, $fieldAssociateId) {
+        return DB::transaction(function () use ($zone, $storeName, $existing, $registration, $name, $nationalPhone, $email, $plainPassword, $module, $fssaiNumber, $fieldAssociateId, $assistedByAssociate) {
             if ($existing !== null) {
                 $existing = User::whereKey($existing->id)->lockForUpdate()->first();
                 if (! $existing?->canApplyAsPartner($module)) {
@@ -100,6 +101,14 @@ class RegisterSellerAction
                 'out_of_coverage' => ($registration['out_of_coverage'] ?? false) ?: null,
                 'field_associate' => $associate?->code,
             ]));
+
+            // Field associates release A: every credit starts the shop's credit history (who, when, why).
+            if ($associate) {
+                \App\Models\FieldAssociateCreditChange::create([
+                    'store_id' => $store->id, 'from_associate_id' => null, 'to_associate_id' => $associate->id, 'changed_by' => $associate->user_id,
+                    'reason' => $assistedByAssociate ? 'Signed up by the associate on their phone; the owner verified their own mobile' : 'Signed up with the associate\'s link or QR',
+                ]);
+            }
 
             return $store;
         });

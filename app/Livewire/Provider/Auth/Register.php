@@ -171,11 +171,39 @@ class Register extends Component
     #[Locked]
     public string $fieldAssociateLabel = '';
 
+    /**
+     * Field associates release A (owner 2026-11-24): the signed-in associate signs up a shop or restaurant on their own
+     * phone ("Sign up a shop now", FieldAssociateAssistController) and stays signed in. The owner's own mobile gets the
+     * code, so the new account is the owner's; no password and no documents here: the owner signs in with a code and
+     * uploads their own KYC from their own phone. Set only in mount() from the server session.
+     */
+    #[Locked]
+    public bool $assisted = false;
+
     /** Partner roles this page can finish. */
     private const SIGNUP_ROLES = ['service', 'parcel', 'commerce', 'food', 'hotel', 'events', 'halls', 'homes', 'vehicles'];
 
     public function mount(): void
     {
+        if (is_array($assist = session(\App\Http\Controllers\FieldAssociateAssistController::SESSION_KEY)) && auth()->guard('web')->check()) {
+            $role = in_array($assist['role'] ?? null, ['commerce', 'food'], true) ? $assist['role'] : null;
+            $associate = $role ? \App\Models\FieldAssociate::with('user:id,name')->where('is_active', true)
+                ->where('user_id', auth()->id())->find((int) ($assist['associate_id'] ?? 0)) : null;
+            if ($associate && $this->roleTakesSignUps($role)) {
+                $this->assisted = true;
+                $this->partnerRole = $role;
+                $this->fieldAssociateId = $associate->id;
+                $this->fieldAssociateLabel = trim(($associate->user?->name ?? '').' ('.$associate->code.')');
+
+                return;
+            }
+            // Paused, not this user's, or that kind of business is not taking sign-ups: back to their page.
+            session()->forget(\App\Http\Controllers\FieldAssociateAssistController::SESSION_KEY);
+            $this->redirectRoute('customer.field-work', navigate: true);
+
+            return;
+        }
+
         $lead = session('partner_lead');
         if (is_array($lead) && in_array($lead['role'] ?? null, self::SIGNUP_ROLES, true) && is_int($lead['id'] ?? null)
             && $this->roleTakesSignUps($lead['role'])) {
@@ -236,7 +264,13 @@ class Register extends Component
     /** Signed in: the application is for this account, so the number is always the account's own. */
     private function signedInPhone(): ?string
     {
-        return auth()->guard('web')->check() ? (string) auth()->user()->phone : null;
+        return ! $this->assisted && auth()->guard('web')->check() ? (string) auth()->user()->phone : null;
+    }
+
+    /** Assisted sign-up: the number typed is the associate's own (it must be the owner's). */
+    private function isAssociatesOwnNumber(string $national): bool
+    {
+        return $this->assisted && PhoneNumber::national((string) auth()->user()?->phone) === $national;
     }
 
     public function isRider(): bool
@@ -332,8 +366,13 @@ class Register extends Component
         // here, before any SMS goes out, so an already-registered applicant
         // is told to sign in immediately. Same national-digit shape those
         // later checks use.
+        if ($this->isAssociatesOwnNumber(PhoneNumber::national($this->phone))) {
+            $this->addError('phone', 'Enter the owner\'s mobile number, not yours.');
+
+            return;
+        }
         if ($this->takenByAnotherPartner(PhoneNumber::national($this->phone))) {
-            $this->addError('phone', 'An account with this mobile number already exists. Please sign in instead.');
+            $this->addError('phone', $this->assisted ? 'This number already has a shop or partner account. The owner can sign in with it.' : 'An account with this mobile number already exists. Please sign in instead.');
 
             return;
         }
@@ -404,6 +443,12 @@ class Register extends Component
         $national = PhoneNumber::national($identity->phoneNumber);
         if (($own = $this->signedInPhone()) !== null && PhoneNumber::national($own) !== $national) {
             $this->error = 'Verify the mobile number of the account you are signed in with.';
+            $this->step = 'phone';
+
+            return;
+        }
+        if ($this->isAssociatesOwnNumber($national)) {
+            $this->error = 'Enter the owner\'s mobile number, not yours.';
             $this->step = 'phone';
 
             return;
@@ -554,7 +599,7 @@ class Register extends Component
         $this->validate([
             ...($existing ? [] : [
                 'name' => ['required', 'string', 'min:2', 'max:255'],
-                ...(SiteControls::askPasswordAtSignup() ? ['password' => ['required', 'string', 'min:8', 'max:255', 'confirmed']] : []),
+                ...(SiteControls::askPasswordAtSignup() && ! $this->assisted ? ['password' =>['required', 'string', 'min:8', 'max:255', 'confirmed']] : []),
                 'email' => ['nullable', 'email', 'max:255'],
             ]),
             'address' => ['required', 'string', 'min:6', 'max:500'],
@@ -599,7 +644,8 @@ class Register extends Component
             $this->addError('skills', 'Choose at least one service you offer.');
         }
 
-        foreach (SiteControls::documentsAtSignup($this->partnerRole) ? $requiredTypes : [] as $type) {
+        // Assisted sign-up: the owner uploads their own KYC later, from their own phone.
+        foreach (! $this->assisted && SiteControls::documentsAtSignup($this->partnerRole) ? $requiredTypes : [] as $type) {
             if (! isset($this->documents[$type])) {
                 $this->addError('documents.'.$type, 'This document is required.');
             }
@@ -774,10 +820,11 @@ class Register extends Component
                         name: $this->name,
                         nationalPhone: PhoneNumber::national($this->verifiedPhoneE164),
                         email: filled($this->email) ? $this->email : null,
-                        plainPassword: filled($this->password) ? $this->password : null,
+                        plainPassword: filled($this->password) && ! $this->assisted ? $this->password : null,
                         module: $this->isRestaurant() ? \App\Support\Modules::FOOD : \App\Support\Modules::COMMERCE,
                         fssaiNumber: $this->isRestaurant() ? trim($this->fssaiNumber) : null,
                         fieldAssociateId: $this->fieldAssociateId,
+                        assistedByAssociate: $this->assisted,
                     );
                     $provider = $store->provider;
                     $providerId = $provider->id;
@@ -841,7 +888,7 @@ class Register extends Component
         }
 
         // Field associates: one link visit credits one shop; the next shop needs the associate's link again.
-        session()->forget(\App\Http\Controllers\FieldAssociateLinkController::SESSION_KEY);
+        session()->forget([\App\Http\Controllers\FieldAssociateLinkController::SESSION_KEY, \App\Http\Controllers\FieldAssociateAssistController::SESSION_KEY]);
 
         \App\Models\PartnerLead::markConverted($this->leadId, PhoneNumber::national($this->verifiedPhoneE164), $providerId, $this->partnerRole);
 
@@ -854,7 +901,8 @@ class Register extends Component
         $this->submitted = true;
         $this->reset('password', 'password_confirmation', 'documents');
         $joined = User::where('phone', PhoneNumber::national($this->verifiedPhoneE164))->first();
-        if (! auth()->check() && $joined && $joined->status === 'active') {
+        // Assisted sign-up: the associate is signed in and stays signed in; the owner signs in later on their own phone.
+        if (! $this->assisted && ! auth()->check() && $joined && $joined->status === 'active') {
             \Illuminate\Support\Facades\Auth::guard('web')->login($joined, \App\Support\NativeApp::inApp());
             session()->regenerate();
         }
@@ -901,8 +949,9 @@ class Register extends Component
             'fssaiRequired' => $this->isRestaurant() && \App\Support\FoodSettings::on('food.fssai_at_signup'),
             'servicesStep' => $servicesStep,
             'servicesMax' => SiteControls::servicesMax(),
-            'askPassword' => SiteControls::askPasswordAtSignup(),
-            'docsAtSignup' => SiteControls::documentsAtSignup($this->partnerRole),
+            'askPassword' => SiteControls::askPasswordAtSignup() && ! $this->assisted,
+            'docsAtSignup' => SiteControls::documentsAtSignup($this->partnerRole) && ! $this->assisted,
+            'lockPhone' => auth()->guard('web')->check() && ! $this->assisted,
             'serviceCategories' => $servicesStep === 'hidden' ? collect() : $this->offerableCategories(),
         ])
             ->layout('components.layouts.provider', ['title' => $this->isRider() ? 'Become a delivery rider' : ($this->isVehicleOwner() ? 'List your vehicle for rent' : ($this->isHomeOwner() ? 'List your property for rent' : ($this->isHallOwner() ? 'List your function hall' : ($this->isOrganiser() ? 'Sell tickets for your events' : ($this->isHotel() ? 'List your hotel' : ($this->isRestaurant() ? 'Add your restaurant' : ($this->isSeller() ? 'Open your shop' : 'Become a partner')))))))]);
