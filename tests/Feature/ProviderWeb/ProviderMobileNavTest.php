@@ -74,6 +74,42 @@ class ProviderMobileNavTest extends TestCase
         $response->assertSee('wire:name="provider.online-toggle"', false);
     }
 
+    /** Owner 2026-11-25: past jobs are on the Jobs tab itself (New offers | Job history), not only under More. */
+    public function test_the_jobs_tab_links_to_job_history_and_history_keeps_the_jobs_tab_lit(): void
+    {
+        $user = $this->providerUser();
+
+        $offers = $this->actingAs($user)->get(route('provider.jobs.index'));
+        $offers->assertOk();
+        $offers->assertSee('data-testid="partner-jobs-tabs"', false);
+        $offers->assertSee(route('provider.history'), false);
+        $offers->assertSee('See your past jobs');
+
+        $history = $this->actingAs($user)->get(route('provider.history'));
+        $history->assertOk();
+        $history->assertSee('data-testid="partner-jobs-tabs"', false);
+        $history->assertSee(route('provider.jobs.index'), false);
+        // The bottom bar marks Jobs (not More) as the current tab on the history page.
+        $this->assertMatchesRegularExpression(
+            '#<a[^>]*href="'.preg_quote(route('provider.jobs.index'), '#').'"[^>]*aria-current="page"#s',
+            $history->getContent(),
+        );
+    }
+
+    /** History rows show the date, the amount and a coloured status badge. */
+    public function test_job_history_shows_amount_and_status_badge(): void
+    {
+        ['provider' => $provider, 'booking' => $booking] = $this->makeAssignedBookingScenario();
+        $booking->update(['status' => 'completed', 'price_quoted' => 499, 'completed_at' => now()]);
+
+        $response = $this->actingAs($provider->user)->get(route('provider.history'));
+
+        $response->assertOk();
+        $response->assertSee($booking->code);
+        $response->assertSee('₹499.00');
+        $response->assertSee('bg-emerald-100', false);
+    }
+
     public function test_sign_out_is_reachable_from_the_more_screen(): void
     {
         $response = $this->actingAs($this->providerUser())->get(route('provider.more'));

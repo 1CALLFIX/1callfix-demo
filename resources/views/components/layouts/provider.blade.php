@@ -26,9 +26,9 @@
     // the hamburger drawer. History, Activity, Shifts, wallet, bank accounts, mode switch and sign out are on More.
     $navItems = [
         ['label' => 'Home', 'route' => 'provider.dashboard', 'icon' => 'home'],
-        ['label' => 'Jobs', 'route' => 'provider.jobs.index', 'icon' => 'clipboard', 'also' => ['provider.jobs.show']],
+        ['label' => 'Jobs', 'route' => 'provider.jobs.index', 'icon' => 'clipboard', 'also' => ['provider.jobs.show', 'provider.history']],
         ['label' => 'Earnings', 'route' => 'provider.earnings', 'icon' => 'banknotes', 'also' => ['provider.payment-accounts', 'provider.request-payout']],
-        ['label' => 'More', 'route' => 'provider.more', 'icon' => 'squares', 'also' => ['provider.history', 'provider.activity', 'provider.shifts', 'provider.wallet']],
+        ['label' => 'More', 'route' => 'provider.more', 'icon' => 'squares', 'also' => ['provider.activity', 'provider.shifts', 'provider.wallet']],
     ];
 @endphp
 <!DOCTYPE html>

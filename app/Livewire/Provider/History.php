@@ -32,7 +32,8 @@ class History extends Component
         $provider = $this->provider();
 
         $query = Booking::where('provider_id', $provider->id)
-            ->with(['service:id,name', 'address:id,label'])
+            // franchise.country: TimezoneResolver shows each job's time in its own city's time zone, no N+1.
+            ->with(['service:id,name', 'address:id,label', 'franchise.country'])
             ->latest('id');
 
         if ($this->filter === 'active') {

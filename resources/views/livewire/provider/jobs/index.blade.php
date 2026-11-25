@@ -1,5 +1,7 @@
 <div wire:poll.4s>
-    <h1 class="text-xl font-bold tracking-tight">Job offers</h1>
+    <x-provider.jobs-tabs active="offers" :offers="$offers->count()" />
+
+    <h1 class="mt-4 text-xl font-bold tracking-tight">Job offers</h1>
 
     @if ($notice)
         <div role="status" class="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">{{ $notice }}</div>
@@ -85,6 +87,10 @@
         @empty
             <x-ui.card class="!p-6 text-center text-sm text-slate-500">
                 No live offers right now. This page refreshes on its own — keep it open and in the foreground.
+                <a href="{{ route('provider.history') }}" wire:navigate
+                   class="mx-auto mt-4 flex min-h-11 w-fit items-center rounded-xl bg-blue-50 px-4 font-semibold text-blue-700 hover:bg-blue-100">
+                    See your past jobs →
+                </a>
             </x-ui.card>
         @endforelse
     </div>
