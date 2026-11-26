@@ -197,13 +197,13 @@ class BusinessCertificateTest extends TestCase
 
     public function test_the_company_logo_is_on_the_certificate_the_stickers_and_the_id_card(): void
     {
-        // Owner 2026-11-26: "the company logo is completely missed". The admin-uploaded logo (Settings → Branding).
-        \Illuminate\Support\Facades\Storage::fake('public');
+        // Owner 2026-11-26: "the company logo is completely missed", then "replace that logo with the logo file on
+        // desktop": the round logo cut out of the owner's own file, inside the blue pill (partner/brand-pill).
         \Illuminate\Support\Facades\Storage::fake('local'); // the test partner's approved ID photo
-        $png = base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=');
-        \Illuminate\Support\Facades\Storage::disk('public')->put('branding/logo-256-test.png', $png);
-        \App\Models\Setting::set('branding.logo_display_path', 'branding/logo-256-test.png');
-        $logo = 'data:image/png;base64,'.base64_encode($png);
+        $file = public_path(\App\Services\BrandingAssetService::PILL_LOGO);
+        $this->assertFileExists($file);
+        $this->assertSame([240, 240], array_slice(getimagesize($file), 0, 2));
+        $logo = 'data:image/png;base64,'.base64_encode((string) file_get_contents($file));
         $this->makeCategoryAndService(); // the test partner's skills (as in PartnerIdCardTest)
         $this->testLogins();
 
@@ -215,11 +215,7 @@ class BusinessCertificateTest extends TestCase
         $provider = $this->login('test.provider');
         $html = $this->actingAs($provider)->get(route('provider.id-card'))->assertOk()->getContent();
         $this->assertSame(2, substr_count($html, 'src="'.$logo.'"'), 'ID card front and back');
-
-        // No logo uploaded: the cards still work, with the 1CallFix badge only.
-        \App\Models\Setting::set('branding.logo_display_path', '');
-        \App\Models\Setting::set('branding.logo_path', '');
-        $this->actingAs($provider)->get(route('provider.id-card'))->assertOk()->assertDontSee('data-brand-logo', false);
+        $this->assertSame(2, substr_count($html, 'data-brand-pill'), 'one pill design on both sides');
     }
 
     public function test_the_seller_more_menu_has_my_certificate(): void

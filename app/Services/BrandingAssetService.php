@@ -32,13 +32,23 @@ class BrandingAssetService
     private const ICON_SIZES = ['favicon_path' => 32, 'apple_touch_path' => 180];
 
     /**
+     * Owner 2026-11-26 ("replace that logo with the logo file on desktop"): the round logo cut out of the owner's own
+     * "1CallFix Logo.png" (its light-blue square background removed, 240 px, white middle), the one in the banners.
+     */
+    public const PILL_LOGO = 'images/brand/1callfix-logo-round.png';
+
+    /**
      * Owner 2026-11-26: the company logo inside the ID card, certificate and stickers ("the company logo is
-     * completely missed"). The admin-uploaded logo (its 256 px copy, sharp enough for print at card size) as a data
-     * URI, so the PDF maker (dompdf) needs no web request. null when no logo is uploaded.
+     * completely missed"), as a data URI so the PDF maker (dompdf) needs no web request: the owner's round logo
+     * (PILL_LOGO); without that file, the admin-uploaded logo (its 256 px copy). null when there is neither.
      */
     public function logoDataUri(): ?string
     {
         static $memo = [];
+        $own = public_path(self::PILL_LOGO);
+        if (is_file($own)) {
+            return $memo[$own] ??= 'data:image/png;base64,'.base64_encode((string) file_get_contents($own));
+        }
         $path = (string) Setting::get('branding.logo_display_path', '') ?: (string) Setting::get('branding.logo_path', '');
         if ($path === '') {
             return null;

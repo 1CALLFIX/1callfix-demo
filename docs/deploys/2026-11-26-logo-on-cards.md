@@ -18,7 +18,10 @@ Use with `docs/DEPLOY_RUNBOOK.md`.
   Settings → Branding; its 256 px copy) now sits before the "1CallFix" badge on the ID card front, the certificate and
   both door/counter stickers, and next to the partner ID on the ID card back. On the phone screens and in the PDFs.
   A new logo uploaded in admin shows on them automatically. No logo uploaded: the cards keep the badge only.
-- `BrandingAssetService::logoDataUri()` (data URI, so the PDF maker needs no web request).
+- Owner 2026-11-26 "replace that logo with the logo file on desktop": the round logo is cut out of the owner's own
+  "1CallFix Logo.png" (light-blue square background removed, 240 px) and committed as
+  `public/images/brand/1callfix-logo-round.png` (`BrandingAssetService::PILL_LOGO`); the admin logo is only the
+  fallback. `BrandingAssetService::logoDataUri()` (data URI, so the PDF maker needs no web request).
 
 ## Step 5 — migrations that must be pending (exactly these)
 - none
