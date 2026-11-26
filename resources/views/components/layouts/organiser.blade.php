@@ -8,7 +8,7 @@
     $navItems = [
         ['label' => 'Home', 'route' => 'organiser.dashboard', 'icon' => 'home'],
         ['label' => 'Events', 'route' => 'organiser.events', 'icon' => 'ticket'],
-        ['label' => 'Organiser', 'route' => 'organiser.details', 'icon' => 'squares'],
+        ['label' => 'Organiser', 'route' => 'organiser.details', 'icon' => 'squares', 'also' => ['organiser.certificate']],
     ];
 @endphp
 <!DOCTYPE html>

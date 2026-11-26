@@ -15,7 +15,7 @@
         ['label' => 'Orders', 'route' => 'seller.orders', 'icon' => 'clipboard'],
         ['label' => $isRestaurant ? 'Menu' : 'Products', 'route' => 'seller.products', 'icon' => 'tag', 'also' => ['seller.products.add-many', 'seller.products.choices']],
         ['label' => 'Earnings', 'route' => 'seller.earnings', 'icon' => 'banknotes', 'also' => ['seller.payment-accounts', 'seller.request-payout']],
-        ['label' => 'More', 'route' => 'seller.more', 'icon' => 'squares', 'also' => ['seller.shop', 'seller.add-ons']],
+        ['label' => 'More', 'route' => 'seller.more', 'icon' => 'squares', 'also' => ['seller.shop', 'seller.add-ons', 'seller.certificate']],
     ];
 @endphp
 <!DOCTYPE html>

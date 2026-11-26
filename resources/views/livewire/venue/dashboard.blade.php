@@ -5,6 +5,8 @@
         <p class="mt-1 text-sm text-slate-600">{{ collect([$halls->isNotEmpty() ? 'Function halls' : null, $homes->isNotEmpty() ? 'Property for rent' : null, $vehicles->isNotEmpty() ? 'Vehicles for rent' : null])->filter()->implode(' · ') }} · {{ $partner->user?->name }}</p>
     </div>
 
+    <x-partner.certificate-card app="venue" />
+
     @if ($halls->contains('status', 'approved') && ! $moduleLive)
         <div class="rounded-2xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900" data-testid="halls-opening-soon">
             <p class="font-semibold">Approved</p>

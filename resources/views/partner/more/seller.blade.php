@@ -17,6 +17,7 @@
         ]"
         :rows="array_values(array_filter([
             $isRestaurant ? ['Add-ons (extra cheese, sides...)', route('seller.add-ons'), 'plus'] : null,
+            ['My certificate', route('seller.certificate'), 'shield', 'Verified Partner, to print'],
             [$isRestaurant ? 'Add many dishes' : 'Add many products', route('seller.products.add-many'), 'document-text'],
             [$isRestaurant ? 'Problems with orders' : 'Returns', route('seller.orders', ['tab' => 'returns']), 'arrow-path'],
         ]))" />

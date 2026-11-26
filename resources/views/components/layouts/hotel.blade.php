@@ -11,7 +11,7 @@
             'dot' => auth()->check() ? \App\Models\HotelReservation::whereHas('accommodation.provider', fn ($q) => $q->where('user_id', auth()->id()))->where('status', 'pending')->where('payment_status', 'paid')->count() ?: null : null],
         ['label' => 'Rooms', 'route' => 'hotel.rooms', 'icon' => 'building'],
         ['label' => 'Calendar', 'route' => 'hotel.calendar', 'icon' => 'clock'],
-        ['label' => 'Hotel', 'route' => 'hotel.details', 'icon' => 'squares'],
+        ['label' => 'Hotel', 'route' => 'hotel.details', 'icon' => 'squares', 'also' => ['hotel.certificate']],
     ];
 @endphp
 <!DOCTYPE html>

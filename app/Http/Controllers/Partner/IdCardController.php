@@ -3,7 +3,9 @@
 namespace App\Http\Controllers\Partner;
 
 use App\Http\Controllers\Controller;
+use App\Models\BusinessCertificate;
 use App\Models\PartnerIdCard;
+use App\Services\Partners\CertificateService;
 use App\Services\Partners\IdCardService;
 use Barryvdh\DomPDF\Facade\Pdf;
 
@@ -13,7 +15,7 @@ use Barryvdh\DomPDF\Facade\Pdf;
  */
 class IdCardController extends Controller
 {
-    public function __construct(private IdCardService $cards)
+    public function __construct(private IdCardService $cards, private CertificateService $certificates)
     {
     }
 
@@ -44,6 +46,18 @@ class IdCardController extends Controller
     {
         $card = ctype_xdigit($token) && strlen($token) === 32 ? PartnerIdCard::where('token', $token)->first() : null;
         $holder = $card ? $this->cards->holderOf($card) : null;
+
+        // Owner 2026-11-26: a business's "Verified 1CallFix Partner" certificate uses the same check (one QR checker).
+        if (! $card && ctype_xdigit($token) && strlen($token) === 32) {
+            $certificate = BusinessCertificate::where('token', $token)->first();
+            $business = $certificate ? $this->certificates->businessOf($certificate) : null;
+            if ($business) {
+                return response()->view('partner.certificate.verify', [
+                    'status' => $this->certificates->status($certificate, $business),
+                    'c' => $this->certificates->data($certificate, $business),
+                ])->header('Cache-Control', 'no-store');
+            }
+        }
 
         if (! $card || ! $holder) {
             return response()->view('partner.id-card.verify', ['status' => 'invalid', 'c' => null], 404);

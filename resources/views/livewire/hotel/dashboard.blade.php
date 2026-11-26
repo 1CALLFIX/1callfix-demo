@@ -5,6 +5,8 @@
         <p class="mt-1 text-sm text-slate-600">{{ $hotel->accommodationType?->name }} · {{ $hotel->address_line }}</p>
     </div>
 
+    <x-partner.certificate-card app="hotel" />
+
     @if ($hotel->approval_status === 'pending')
         <div role="status" class="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900" data-testid="hotel-pending">
             <p class="font-semibold">Waiting for approval</p>

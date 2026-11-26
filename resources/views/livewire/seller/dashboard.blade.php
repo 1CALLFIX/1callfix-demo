@@ -26,6 +26,8 @@
         <div role="status" class="rounded-lg bg-blue-50 px-4 py-2.5 text-sm text-blue-900">{{ $notice }}</div>
     @endif
 
+    <x-partner.certificate-card app="seller" />
+
     @if ($store->isRestaurant())
         {{-- Food F1: the kitchen at a glance — FSSAI, opening hours, busy mode. --}}
         @if ($store->missingFssai())

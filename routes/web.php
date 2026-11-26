@@ -364,6 +364,9 @@ Route::middleware(['auth', \App\Http\Middleware\EnsureIsHotel::class, \App\Http\
         Route::get('/bookings', \App\Livewire\Hotel\Bookings::class)->name('hotel.bookings');
         Route::get('/rooms', \App\Livewire\Hotel\Rooms::class)->name('hotel.rooms');
         Route::get('/calendar', \App\Livewire\Hotel\Calendar::class)->name('hotel.calendar');
+        // Owner 2026-11-26: the Verified 1CallFix Partner certificate (App\Services\Partners\CertificateService).
+        Route::get('/certificate', \App\Livewire\Hotel\Certificate::class)->name('hotel.certificate');
+        Route::get('/certificate/{business}/print', [\App\Http\Controllers\Partner\CertificateController::class, 'pdf'])->whereNumber('business')->defaults('app', 'hotel')->name('hotel.certificate.print');
         Route::get('/details', \App\Livewire\Hotel\Details::class)->name('hotel.details');
     });
 
@@ -381,6 +384,9 @@ Route::middleware(['auth', \App\Http\Middleware\EnsureIsOrganiser::class, \App\H
         Route::get('/events/{eventId}', \App\Livewire\Organiser\EventEditor::class)->whereNumber('eventId')->name('organiser.events.edit');
         // Events E3: the gate scanner (camera or typed code).
         Route::get('/events/{eventId}/gate', \App\Livewire\Organiser\Gate::class)->whereNumber('eventId')->name('organiser.events.gate');
+        // Owner 2026-11-26: the Verified 1CallFix Partner certificate (App\Services\Partners\CertificateService).
+        Route::get('/certificate', \App\Livewire\Organiser\Certificate::class)->name('organiser.certificate');
+        Route::get('/certificate/{business}/print', [\App\Http\Controllers\Partner\CertificateController::class, 'pdf'])->whereNumber('business')->defaults('app', 'organiser')->name('organiser.certificate.print');
         Route::get('/details', \App\Livewire\Organiser\Details::class)->name('organiser.details');
     });
 
@@ -400,6 +406,9 @@ Route::middleware(['auth', \App\Http\Middleware\EnsureIsHallOwner::class, \App\H
         // Property for rent (2026-11-14): the same Rental portal.
         Route::get('/homes/new', \App\Livewire\Venue\HomeEditor::class)->name('venue.homes.create');
         Route::get('/homes/{listingId}', \App\Livewire\Venue\HomeEditor::class)->whereNumber('listingId')->name('venue.homes.edit');
+        // Owner 2026-11-26: the Verified 1CallFix Partner certificate (App\Services\Partners\CertificateService).
+        Route::get('/certificate', \App\Livewire\Venue\Certificate::class)->name('venue.certificate');
+        Route::get('/certificate/{business}/print', [\App\Http\Controllers\Partner\CertificateController::class, 'pdf'])->whereNumber('business')->defaults('app', 'venue')->name('venue.certificate.print');
         Route::get('/visits', \App\Livewire\Venue\Visits::class)->name('venue.visits');
         // Vehicles for rent (2026-11-18, OLX-style): the same Rental portal.
         Route::get('/vehicles/new', \App\Livewire\Venue\VehicleEditor::class)->name('venue.vehicles.create');
@@ -436,6 +445,9 @@ Route::middleware(['auth', \App\Http\Middleware\EnsureIsSeller::class, \App\Http
         Route::get('/earnings', \App\Livewire\Seller\Earnings::class)->name('seller.earnings');
         Route::get('/payment-accounts', \App\Livewire\Seller\PaymentAccounts::class)->name('seller.payment-accounts');
         Route::get('/request-payout', \App\Livewire\Seller\RequestPayout::class)->name('seller.request-payout');
+        // Owner 2026-11-26: the Verified 1CallFix Partner certificate (App\Services\Partners\CertificateService).
+        Route::get('/certificate', \App\Livewire\Seller\Certificate::class)->name('seller.certificate');
+        Route::get('/certificate/{business}/print', [\App\Http\Controllers\Partner\CertificateController::class, 'pdf'])->whereNumber('business')->defaults('app', 'seller')->name('seller.certificate.print');
         Route::view('/more', 'partner.more.seller')->name('seller.more'); // Partner apps 2026-11-04: the More tab
     });
 

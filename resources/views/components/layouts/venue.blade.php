@@ -10,7 +10,7 @@
     $hasHalls = (bool) $u?->holdsPartnerRole('halls');
     $hasHomes = (bool) $u?->holdsPartnerRole('homes');
     $navItems = array_values(array_filter([
-        ['label' => 'Home', 'route' => 'venue.dashboard', 'icon' => 'home', 'also' => ['venue.halls.create', 'venue.halls.edit', 'venue.homes.create', 'venue.homes.edit', 'venue.vehicles.create', 'venue.vehicles.edit']],
+        ['label' => 'Home', 'route' => 'venue.dashboard', 'icon' => 'home', 'also' => ['venue.halls.create', 'venue.halls.edit', 'venue.homes.create', 'venue.homes.edit', 'venue.vehicles.create', 'venue.vehicles.edit', 'venue.certificate']],
         $hasHomes ? ['label' => 'Visits', 'route' => 'venue.visits', 'icon' => 'users', 'dot' => \App\Models\HouseVisit::where('status', 'requested')->whereHas('listing.provider', fn ($q) => $q->where('user_id', $u->id))->count()] : null,
         $hasHalls ? ['label' => 'Bookings', 'route' => 'venue.bookings', 'icon' => 'clipboard', 'dot' => \App\Models\HallBooking::where('status', 'awaiting_owner')->whereHas('hall.provider', fn ($q) => $q->where('user_id', $u->id))->count()] : null,
         $hasHalls ? ['label' => 'Dates', 'route' => 'venue.dates', 'icon' => 'clock'] : null,
