@@ -12,7 +12,7 @@
 <table data-certificate-sticker="{{ $c['kind'] }}" style="width: 33em; height: 45em; border-collapse: separate; border-spacing: 0; background: #ffffff; border: 0.5em solid {{ $col }}; {{ $font }} color: #0f172a; font-size: {{ $fontSize }};" cellpadding="0" cellspacing="0">
     <tr>
         <td style="height: 6.5em; background: {{ $col }}; text-align: center; vertical-align: middle;">
-            @include('partner.brand-pill', ['logo' => $c['logo'] ?? null, 'size' => '1.8em'])
+            @include('partner.brand-pill', ['logo' => $c['logo'] ?? null, 'size' => '2.1em'])
         </td>
     </tr>
     <tr>

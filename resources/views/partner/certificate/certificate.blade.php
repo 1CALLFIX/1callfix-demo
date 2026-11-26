@@ -17,10 +17,10 @@
 <table style="width: 100%; height: 44.6em; border-collapse: separate; border-spacing: 0; background: #ffffff; border: 0.18em solid {{ $gold }};" cellpadding="0" cellspacing="0">
     {{-- Top: wordmark and the Verified Partner ribbon --}}
     <tr>
-        <td style="height: 6.4em; padding: 1.6em 2.4em 0 2.4em; vertical-align: top;">
+        <td style="height: 6.4em; padding: 0.7em 2.4em 0 2.4em; vertical-align: top;">
             <table style="width: 100%; border-collapse: collapse;" cellpadding="0" cellspacing="0"><tr>
                 <td style="vertical-align: middle;">
-                    @include('partner.brand-pill', ['logo' => $c['logo'] ?? null, 'size' => '1.65em'])
+                    @include('partner.brand-pill', ['logo' => $c['logo'] ?? null, 'size' => '1.95em'])
                 </td>
                 <td style="vertical-align: middle; text-align: right;">
                     <span style="display: inline-block; background: {{ $col }}; color: #ffffff; border-radius: 1em; padding: 0.45em 1.1em; font-weight: bold; font-size: 1.15em; letter-spacing: 0.08em;">{!! $tick !!} VERIFIED PARTNER</span>
