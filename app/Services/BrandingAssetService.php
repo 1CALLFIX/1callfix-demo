@@ -55,9 +55,81 @@ class BrandingAssetService
             default => null,
         };
 
-        return $memo[$path] = ($mime && $disk->exists($path))
-            ? 'data:'.$mime.';base64,'.base64_encode((string) $disk->get($path))
-            : null;
+        if (! $mime || ! $disk->exists($path)) {
+            return $memo[$path] = null;
+        }
+        $bytes = (string) $disk->get($path);
+        if ($mime === 'image/png') {
+            $bytes = $this->whiteInside($bytes);
+        }
+
+        return $memo[$path] = 'data:'.$mime.';base64,'.base64_encode($bytes);
+    }
+
+    /**
+     * Owner 2026-11-26 (the banners): the round logo sits on the blue pill with a WHITE middle. The uploaded logo's
+     * middle is see-through, so on blue it turned dark. When the middle is see-through and a dark ring closes it, paint
+     * a white disc under the logo, as big as the inside of the ring. Anything else is returned unchanged.
+     */
+    private function whiteInside(string $png): string
+    {
+        $img = @imagecreatefromstring($png);
+        if ($img === false) {
+            return $png;
+        }
+        // Trim the empty margin round the circle, so the circle fills the pill's height as in the banners.
+        imagesavealpha($img, true);
+        $trimmed = @imagecropauto($img, IMG_CROP_TRANSPARENT);
+        if ($trimmed !== false && (imagesx($trimmed) !== imagesx($img) || imagesy($trimmed) !== imagesy($img))) {
+            imagedestroy($img);
+            $img = $trimmed;
+            imagesavealpha($img, true);
+        }
+        $w = imagesx($img);
+        $h = imagesy($img);
+        $cx = intdiv($w, 2);
+        $cy = intdiv($h, 2);
+
+        // Walk left from the middle: see-through pixels, then the first solid dark pixel is the ring.
+        $hole = false;
+        $r = null;
+        for ($x = $cx; $x > 0; $x--) {
+            $c = imagecolorsforindex($img, imagecolorat($img, $x, $cy));
+            if ($c['alpha'] >= 100) {
+                $hole = true;
+
+                continue;
+            }
+            if ($hole && $c['alpha'] < 20 && ($c['red'] + $c['green'] + $c['blue']) < 180) {
+                $r = $cx - $x;
+                break;
+            }
+        }
+        if (! $hole || ! $r || $r < $w * 0.1) {
+            if ($img === $trimmed) { // trimmed only
+                ob_start();
+                imagepng($img);
+                $png = (string) ob_get_clean();
+            }
+            imagedestroy($img);
+
+            return $png;
+        }
+
+        $out = imagecreatetruecolor($w, $h);
+        imagealphablending($out, false);
+        imagesavealpha($out, true);
+        imagefill($out, 0, 0, imagecolorallocatealpha($out, 0, 0, 0, 127));
+        imagealphablending($out, true);
+        imagefilledellipse($out, $cx, $cy, 2 * $r + 2, 2 * $r + 2, imagecolorallocate($out, 255, 255, 255));
+        imagecopy($out, $img, 0, 0, 0, 0, $w, $h);
+        ob_start();
+        imagepng($out);
+        $bytes = (string) ob_get_clean();
+        imagedestroy($img);
+        imagedestroy($out);
+
+        return $bytes;
     }
 
     /**

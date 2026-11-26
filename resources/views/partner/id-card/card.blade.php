@@ -17,11 +17,8 @@
     <tr>
         <td colspan="2" style="background: {{ $colour }}; height: 4.2em; padding: 0 1.1em; border-radius: 0.85em 0.85em 0 0;">
             <table style="width: 100%; border-collapse: collapse;" cellpadding="0" cellspacing="0"><tr>
-                @if (! empty($c['logo']))
-                    <td style="width: 3.6em; vertical-align: middle;"><img src="{{ $c['logo'] }}" alt="1CallFix logo" data-brand-logo style="width: 3.2em; height: 3.2em; display: block;"></td>
-                @endif
                 <td style="vertical-align: middle;">
-                    <span style="display: inline-block; background: #133DA9; border-radius: 1em; padding: 0.3em 0.75em; font-weight: bold; font-size: 1.35em; letter-spacing: 0.01em;"><span style="color: #11C3F2;">1</span><span style="color: #ffffff;">Call</span><span style="color: #11C3F2;">Fix</span></span>
+                    @include('partner.brand-pill', ['logo' => $c['logo'] ?? null, 'size' => '1.1em'])
                 </td>
                 <td style="vertical-align: middle; text-align: right; color: #ffffff; font-weight: bold; font-size: 0.85em; letter-spacing: 0.08em;">{{ $kind }}</td>
             </tr></table>
@@ -76,15 +73,9 @@
                     </td>
                 </tr>
             </table>
-            <table style="margin-top: 0.6em; border-collapse: collapse;" cellpadding="0" cellspacing="0"><tr>
-                @if (! empty($c['logo']))
-                    <td style="width: 3.4em; vertical-align: middle;"><img src="{{ $c['logo'] }}" alt="1CallFix logo" data-brand-logo style="width: 3em; height: 3em; display: block;"></td>
-                @endif
-                <td style="vertical-align: middle;">
-                    <div style="font-size: 0.85em; font-weight: bold;">{{ $c['code'] }}</div>
-                    <div style="font-size: 0.85em; color: #334155;">1callfix.com</div>
-                </td>
-            </tr></table>
+            <div style="margin-top: 0.6em;">@include('partner.brand-pill', ['logo' => $c['logo'] ?? null, 'size' => '0.9em'])</div>
+            <div style="margin-top: 0.35em; font-size: 0.85em; font-weight: bold;">{{ $c['code'] }}</div>
+            <div style="font-size: 0.85em; color: #334155;">1callfix.com</div>
         </td>
     </tr>
     <tr>

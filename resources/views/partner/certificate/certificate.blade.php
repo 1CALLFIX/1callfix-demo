@@ -19,11 +19,8 @@
     <tr>
         <td style="height: 6.4em; padding: 1.6em 2.4em 0 2.4em; vertical-align: top;">
             <table style="width: 100%; border-collapse: collapse;" cellpadding="0" cellspacing="0"><tr>
-                @if (! empty($c['logo']))
-                    <td style="width: 5.4em; vertical-align: middle;"><img src="{{ $c['logo'] }}" alt="1CallFix logo" data-brand-logo style="width: 4.8em; height: 4.8em; display: block;"></td>
-                @endif
                 <td style="vertical-align: middle;">
-                    <span style="display: inline-block; background: #133DA9; border-radius: 1em; padding: 0.3em 0.8em; font-weight: bold; font-size: 2.1em;"><span style="color: #11C3F2;">1</span><span style="color: #ffffff;">Call</span><span style="color: #11C3F2;">Fix</span></span>
+                    @include('partner.brand-pill', ['logo' => $c['logo'] ?? null, 'size' => '1.65em'])
                 </td>
                 <td style="vertical-align: middle; text-align: right;">
                     <span style="display: inline-block; background: {{ $col }}; color: #ffffff; border-radius: 1em; padding: 0.45em 1.1em; font-weight: bold; font-size: 1.15em; letter-spacing: 0.08em;">{!! $tick !!} VERIFIED PARTNER</span>

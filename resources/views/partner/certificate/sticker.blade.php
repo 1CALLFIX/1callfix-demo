@@ -12,14 +12,7 @@
 <table data-certificate-sticker="{{ $c['kind'] }}" style="width: 33em; height: 45em; border-collapse: separate; border-spacing: 0; background: #ffffff; border: 0.5em solid {{ $col }}; {{ $font }} color: #0f172a; font-size: {{ $fontSize }};" cellpadding="0" cellspacing="0">
     <tr>
         <td style="height: 6.5em; background: {{ $col }}; text-align: center; vertical-align: middle;">
-            <table style="margin: 0 auto; border-collapse: collapse;" cellpadding="0" cellspacing="0"><tr>
-                @if (! empty($c['logo']))
-                    <td style="padding-right: 0.7em; vertical-align: middle;"><img src="{{ $c['logo'] }}" alt="1CallFix logo" data-brand-logo style="width: 5em; height: 5em; display: block;"></td>
-                @endif
-                <td style="vertical-align: middle;">
-                    <span style="display: inline-block; background: #133DA9; border-radius: 1em; padding: 0.3em 0.8em; font-weight: bold; font-size: 2.3em;"><span style="color: #11C3F2;">1</span><span style="color: #ffffff;">Call</span><span style="color: #11C3F2;">Fix</span></span>
-                </td>
-            </tr></table>
+            @include('partner.brand-pill', ['logo' => $c['logo'] ?? null, 'size' => '1.8em'])
         </td>
     </tr>
     <tr>

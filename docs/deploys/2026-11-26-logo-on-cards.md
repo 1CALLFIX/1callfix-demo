@@ -12,7 +12,9 @@ Use with `docs/DEPLOY_RUNBOOK.md`.
 | Version | `VERSION` file bumped to `2026.11.26.5` |
 
 ## What's in it
-- Owner 2026-11-26: "the company logo is completely missed". The round 1CallFix logo (the one uploaded in admin,
+- Owner 2026-11-26: "the company logo is completely missed", then "this is how we need the logo" (the banners):
+  one blue pill with a white edge, the round logo inside on the left (white middle, filling the pill height), then
+  "1CallFix" (`partner/brand-pill.blade.php`). The round 1CallFix logo (the one uploaded in admin,
   Settings → Branding; its 256 px copy) now sits before the "1CallFix" badge on the ID card front, the certificate and
   both door/counter stickers, and next to the partner ID on the ID card back. On the phone screens and in the PDFs.
   A new logo uploaded in admin shows on them automatically. No logo uploaded: the cards keep the badge only.
