@@ -5,10 +5,11 @@
         'active' => ['bg-emerald-600', '✅', 'Active 1CallFix partner', 'This person works with 1CallFix right now. Check the photo matches.'],
         'expired' => ['bg-amber-500', '⚠️', 'Card expired', 'This card is past its date. Ask the partner to show the new card in the 1CallFix app.'],
         'not_active' => ['bg-rose-600', '❌', 'Not active', 'This person is not working with 1CallFix right now. Do not let them start work; book through the app instead.'],
-        'invalid' => ['bg-rose-600', '❌', 'Not a valid card', 'This card is not valid any more (or never was). Do not let them start work; book through the app instead.'],
+        // Owner 2026-11-26: a fake or old QR could be from an ID card or a shop's certificate; one wording fits both.
+        'invalid' => ['bg-rose-600', '❌', 'Not a valid card or certificate', 'This 1CallFix ID card or certificate is not valid any more (or never was). Do not pay or let anyone start work outside the app: book or order only through the 1CallFix app.'],
     ][$status];
 @endphp
-<x-layouts.customer title="Check a 1CallFix ID card">
+<x-layouts.customer :title="$status === 'invalid' ? 'Check a 1CallFix ID card or certificate' : 'Check a 1CallFix ID card'">
     <div class="mx-auto max-w-md px-4 py-6">
         <div class="rounded-2xl {{ $look[0] }} p-5 text-center text-white" data-testid="verify-status" data-status="{{ $status }}">
             <div class="text-4xl" aria-hidden="true">{{ $look[1] }}</div>

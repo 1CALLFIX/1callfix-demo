@@ -1,14 +1,15 @@
 {{-- Join in 2 minutes (owner 2026-11-12): while a partner still has required documents to upload, every portal home
-     shows one line pointing to "Go live". Nothing shows once they are all in. --}}
+     shows one line pointing to "Go live". Nothing shows once they are all in, or once 1CallFix approved the partner
+     (owner 2026-11-26: an approved shop saw "so we can approve you" right above its Verified Partner certificate). --}}
 @php
     $user = auth()->user();
     $kyc = app(\App\Services\Kyc\KycDocumentService::class);
     $missing = 0;
     if ($user) {
-        if ($p = $user->providerProfile()->with('franchise')->first()) {
+        if (($p = $user->providerProfile()->with('franchise')->first()) && $p->kyc_status !== 'approved') {
             $missing += count($kyc->missingRequiredForSubmission($p, $p->franchise?->country_id));
         }
-        if (($fw = $user->fieldWorkerProfile()->with('franchise')->first()) && $fw->hasCapability('parcel_rider')) {
+        if (($fw = $user->fieldWorkerProfile()->with('franchise')->first()) && $fw->kyc_status !== 'approved' && $fw->hasCapability('parcel_rider')) {
             $missing += count($kyc->missingRequiredForSubmission($fw, $fw->franchise?->country_id));
         }
     }

@@ -169,6 +169,32 @@ class BusinessCertificateTest extends TestCase
         $this->assertSame(0, BusinessCertificate::count());
     }
 
+    public function test_an_approved_partner_never_sees_go_live_above_the_certificate(): void
+    {
+        $this->testLogins();
+
+        // Test logins are approved without documents (like a partner a franchise approved by hand).
+        foreach (self::LOGINS as $name => [$app]) {
+            $this->actingAs($this->login($name))->get(route($app.'.dashboard'))->assertOk()
+                ->assertSee('data-testid="certificate-card"', false)
+                ->assertDontSee('data-testid="join-banner"', false)
+                ->assertDontSee('so we can approve you');
+        }
+
+        // Still waiting for approval: the banner is back.
+        $user = $this->login('test.seller');
+        $user->providerProfile->update(['kyc_status' => 'pending']);
+        $this->actingAs($user)->get(route('seller.dashboard'))->assertOk()->assertSee('data-testid="join-banner"', false);
+    }
+
+    public function test_a_fake_certificate_qr_speaks_to_shop_customers_too(): void
+    {
+        $this->get(route('partner.verify', str_repeat('b', 32)))->assertNotFound()
+            ->assertSee('Not a valid card or certificate')
+            ->assertSee('book or order only through the 1CallFix app')
+            ->assertDontSee('Do not let them start work');
+    }
+
     public function test_the_seller_more_menu_has_my_certificate(): void
     {
         $this->testLogins();
