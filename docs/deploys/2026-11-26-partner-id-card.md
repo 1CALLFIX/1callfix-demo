@@ -6,7 +6,7 @@ Use with `docs/DEPLOY_RUNBOOK.md`.
 |---|---|
 | Deploys | `main` at the commit that adds this file (`git log -1` in runbook step 1) |
 | Live before | `ec4393c` |
-| Full test suite | passed 5,274 of 5,274; known failures only: none |
+| Full test suite | passed 5,277 of 5,277; known failures only: none |
 | Composer | composer.lock changed: **yes** — adds `chillerlan/php-qrcode` 5.0.0 (+ `chillerlan/php-settings-container`), the QR on the PDF card. Run `composer install --no-dev --optimize-autoloader` (step 4). Needs ext-gd: live has it. |
 | Front-end build (steps 6–7) | no — every class the new screens use is already in the live build (`app-CNS-_MDI.css`, checked 2026-11-26); the card itself uses inline styles |
 | Version | `VERSION` file bumped to `2026.11.26.2` |
@@ -26,13 +26,16 @@ Use with `docs/DEPLOY_RUNBOOK.md`.
 - Back of the card (owner 2026-11-26): **Blood Group** (e.g. O +ve, tapped from 8 chips) and **Emergency Contact
   No's** (one or two family numbers, each with a tapped "who": Father, Wife, Brother…), entered on My ID card after the
   photo is approved (the card and PDF wait for them; "Change blood group or numbers" later). A band at the bottom:
-  "This is the property of 1CallFix Solutions Pvt Ltd. If found, please return it to the company. Call +91 90146 09609"
+  "This is the property of 1CallFix Solutions Pvt Ltd. If found, please return it to the company. Call +91 9014 609 609"
   (name and number from the Contact page settings `contact.company` / `contact.phone`). Blood group and emergency
   numbers are printed on the card only, never on the public QR page.
 - The QR opens `/verify/{token}` (public, noindex): a big green "Active 1CallFix partner" with photo, name, work, ID,
   or red "Not active" (suspended, KYC withdrawn, account switched off), amber "Card expired", red "Not a valid
   card" (unknown or replaced). Checked live on every scan.
 - "I lost my card" and the yearly renewal make a new QR: the old card says "Not a valid card" at once.
+- Owner 2026-11-26: the company number is written the easy way everywhere it is shown, "+91 9014 609 609"
+  (Contact page call and WhatsApp, Franchise page, ID card, partner support numbers): `ContactDetails::pretty()`.
+  Links (tel:, wa.me) and search-engine data keep the plain digits; numbers with words or starting with 0 stay as typed.
 - test.provider, test.rider and test.truckdriver get an approved placeholder photo from `test-accounts create`.
 - Shops, restaurants, hotels and halls: a "Verified 1CallFix Partner" certificate / counter sticker is the next
   release (no person card for them).

@@ -37,6 +37,35 @@ final class ContactDetails
         return $v === '' ? null : $v;
     }
 
+    /**
+     * Owner 2026-11-26: the company number written so people remember it — "+91 9014 609 609" (4-3-3), everywhere
+     * it is shown (Contact page, Franchise page, ID card, support numbers). An Indian mobile with or without +91 (a
+     * number starting with 0 may be a landline such as 0861 2345678, so it stays as typed);
+     * anything else stays as typed. Links (tel:, wa.me) and search-engine data keep the plain digits.
+     */
+    public static function pretty(?string $phone): ?string
+    {
+        if ($phone === null || trim($phone) === '' || preg_match('/[^0-9+\-\s().]/', $phone)) {
+            return $phone === null ? null : trim($phone); // words in it ("Nellore office 98…"): leave it as typed
+        }
+        $digits = preg_replace('/\D/', '', $phone);
+        $local = match (true) {
+            strlen($digits) === 12 && str_starts_with($digits, '91') => substr($digits, 2),
+            strlen($digits) === 10 => $digits,
+            default => null,
+        };
+
+        return $local !== null && preg_match('/^[6-9]/', $local)
+            ? '+91 '.substr($local, 0, 4).' '.substr($local, 4, 3).' '.substr($local, 7)
+            : trim($phone);
+    }
+
+    /** The phone or WhatsApp number as shown to people ("+91 9014 609 609"). */
+    public static function shown(string $field): ?string
+    {
+        return self::pretty(self::get($field));
+    }
+
     /** tel: link, digits and a leading + only. */
     public static function telHref(): ?string
     {

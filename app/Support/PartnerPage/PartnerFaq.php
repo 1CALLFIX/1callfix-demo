@@ -110,7 +110,7 @@ final class PartnerFaq
                 .'Every completed job shows in your wallet with what you earned from it.', false);
         }
 
-        $phones = P::lines('support_phones');
+        $phones = array_map([\App\Support\InfoPages\ContactDetails::class, 'pretty'], P::lines('support_phones'));
         if ($phones !== []) {
             $out[] = self::item('everyone', 'Who can help me apply?', 'Call partner support on '.self::sentence($phones, 'or').'.');
         }

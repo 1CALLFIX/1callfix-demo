@@ -222,7 +222,7 @@ class PartnerIdCardTest extends TestCase
         $screen->assertSee('This is the property of', false);
         $screen->assertSee('1CallFix Solutions Pvt Ltd');
         $screen->assertSee('If found, please return it to the company.');
-        $screen->assertSee('Call +91 90146 09609');
+        $screen->assertSee('Call +91 9014 609 609');
 
         $pdf = $this->actingAs($user)->get(route('provider.id-card.print'));
         $pdf->assertOk();

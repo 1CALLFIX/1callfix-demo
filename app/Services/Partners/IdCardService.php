@@ -61,14 +61,6 @@ class IdCardService
         ]);
     }
 
-    /** "+919014609609" → "+91 90146 09609"; anything else as it was typed. */
-    public static function officePhoneText(?string $phone): ?string
-    {
-        $digits = preg_replace('/\D/', '', (string) $phone);
-
-        return strlen($digits) === 12 && str_starts_with($digits, '91') ? '+91 '.self::phoneText(substr($digits, 2)) : $phone;
-    }
-
     /** 9876543210 → "98765 43210" */
     public static function phoneText(string $digits): string
     {
@@ -196,7 +188,7 @@ class IdCardService
             'emergency' => array_map(fn ($c) => ['relation' => (string) ($c['relation'] ?? ''), 'phone' => self::phoneText((string) ($c['phone'] ?? ''))], (array) $card->emergency_contacts),
             // The Contact page settings (App\Support\InfoPages\ContactDetails): registered name and office number.
             'company' => \App\Support\InfoPages\ContactDetails::get('company') ?: '1CallFix',
-            'office_phone' => self::officePhoneText(\App\Support\InfoPages\ContactDetails::get('phone')),
+            'office_phone' => \App\Support\InfoPages\ContactDetails::shown('phone'), // "+91 9014 609 609"
         ];
 
         return $extra + [

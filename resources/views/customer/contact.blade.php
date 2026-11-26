@@ -34,13 +34,13 @@
                     @if ($tel)
                         <li><a href="{{ $tel }}" class="cf-card flex h-full items-center gap-3 p-4">
                             <span class="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-blue-50 text-blue-700"><x-icon name="phone" class="h-6 w-6" /></span>
-                            <span class="min-w-0"><span class="block text-sm font-semibold text-slate-900">{{ $t('contact.call') }}</span><span class="block truncate text-sm text-slate-600">{{ C::get('phone') }}</span></span>
+                            <span class="min-w-0"><span class="block text-sm font-semibold text-slate-900">{{ $t('contact.call') }}</span><span class="block truncate text-sm text-slate-600">{{ C::shown('phone') }}</span></span>
                         </a></li>
                     @endif
                     @if ($wa)
                         <li><a href="{{ $wa }}" target="_blank" rel="noopener" class="cf-card flex h-full items-center gap-3 p-4">
                             <span class="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-700"><x-icon name="chat" class="h-6 w-6" /></span>
-                            <span class="min-w-0"><span class="block text-sm font-semibold text-slate-900">{{ $t('contact.whatsapp') }}</span><span class="block truncate text-sm text-slate-600">{{ C::get('whatsapp') }}</span></span>
+                            <span class="min-w-0"><span class="block text-sm font-semibold text-slate-900">{{ $t('contact.whatsapp') }}</span><span class="block truncate text-sm text-slate-600">{{ C::shown('whatsapp') }}</span></span>
                         </a></li>
                     @endif
                     @if ($email)

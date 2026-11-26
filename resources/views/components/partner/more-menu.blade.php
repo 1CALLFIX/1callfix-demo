@@ -47,7 +47,7 @@
             <li>
                 <a href="tel:{{ preg_replace('/[^0-9+]/', '', $line) }}" class="flex min-h-14 items-center gap-3 px-4 hover:bg-slate-50">
                     <x-icon name="phone" class="h-5 w-5 shrink-0 text-slate-600" />
-                    <span class="flex-1 text-sm font-medium text-slate-800">Help: call {{ $line }}</span>
+                    <span class="flex-1 text-sm font-medium text-slate-800">Help: call {{ \App\Support\InfoPages\ContactDetails::pretty($line) }}</span>
                     <x-icon name="chevron-right" class="h-4 w-4 text-slate-400" />
                 </a>
             </li>

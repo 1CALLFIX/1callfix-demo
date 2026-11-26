@@ -143,7 +143,8 @@ class PartnerLiveFaqTest extends TestCase
         P::forgetCache();
         $faq = $this->faq();
         $this->assertStringContainsString('10 to 20 percent', $faq['How much commission does 1CallFix take?']);
-        $this->assertStringContainsString('+91 90000 00000', $faq['Who can help me apply?']);
+        // Owner 2026-11-26: support numbers are written the easy way (ContactDetails::pretty).
+        $this->assertStringContainsString('+91 9000 000 000', $faq['Who can help me apply?']);
     }
 
     public function test_rider_answers(): void

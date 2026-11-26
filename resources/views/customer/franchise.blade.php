@@ -552,7 +552,7 @@
                     @endif
                     @if ($tel || $wa || $mail)
                         <div class="flex flex-wrap gap-x-5 gap-y-2 text-sm text-blue-100" data-franchise-contact>
-                            @if ($tel)<a href="{{ $tel }}" class="inline-flex items-center gap-1.5 hover:text-white"><x-icon name="phone" class="h-4 w-4" />{{ C::get('phone') }}</a>@endif
+                            @if ($tel)<a href="{{ $tel }}" class="inline-flex items-center gap-1.5 hover:text-white"><x-icon name="phone" class="h-4 w-4" />{{ C::shown('phone') }}</a>@endif
                             @if ($wa)<a href="{{ $wa }}" target="_blank" rel="noopener" class="inline-flex items-center gap-1.5 hover:text-white"><x-icon name="chat" class="h-4 w-4" />WhatsApp</a>@endif
                             @if ($mail)<a href="mailto:{{ $mail }}" class="inline-flex items-center gap-1.5 hover:text-white"><x-icon name="document-text" class="h-4 w-4" />{{ $mail }}</a>@endif
                         </div>

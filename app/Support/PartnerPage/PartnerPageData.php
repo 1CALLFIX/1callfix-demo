@@ -108,7 +108,7 @@ final class PartnerPageData
             }
         }
 
-        $phones = array_map(fn ($line) => ['text' => $line, 'tel' => preg_replace('/[^0-9+]/', '', $line)], P::lines('support_phones'));
+        $phones = array_map(fn ($line) => ['text' => \App\Support\InfoPages\ContactDetails::pretty($line), 'tel' => preg_replace('/[^0-9+]/', '', $line)], P::lines('support_phones'));
 
         return [
             'heroTitle' => P::text('hero.title'),
