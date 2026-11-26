@@ -61,9 +61,10 @@
 
     @if ($partnerChrome)
         <header class="sticky top-0 z-30 border-b border-slate-200 bg-white/95 backdrop-blur">
+            <x-partner.app-badge app="partner" variant="strip" />
             <div class="mx-auto flex max-w-4xl items-center justify-between gap-3 px-4 py-3 sm:px-6">
                 <a href="{{ route('provider.dashboard') }}" wire:navigate class="truncate text-base font-bold tracking-tight">
-                    {{ $platformName }} <span class="font-medium text-blue-600">Partner</span>
+                    {{ $platformName }} <x-partner.app-badge app="partner" class="ml-1 align-middle" />
                 </a>
                 {{-- The home page has the big switch card; every other page keeps this small one. --}}
                 @unless (request()->routeIs('provider.dashboard'))

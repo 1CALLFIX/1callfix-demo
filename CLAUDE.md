@@ -153,6 +153,8 @@ easy to operate, user friendly, colourful and attractive. Never make a module co
   `<x-partner.tab>` row, one colour and icon per step, and past work is always the last tab, green 🕘
   (Job history / Completed / Past). A new partner app ships with it from day one and goes on
   `tests/Feature/Partners/PartnerTabsPatternTest.php`'s SCREENS list.
+  Each partner app also has its own colour and icon (`<x-partner.app-badge>`: header strip, badge, theme-color);
+  a new app gets its own entry there, so nobody mistakes one app for another.
 - Check every new screen against this rule before calling it done.
 
 ### THUMB RULE — EVERYTHING PUBLIC CAN BE SHARED

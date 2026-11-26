@@ -1,4 +1,4 @@
-# Release 2026-11-26 — One tab pattern in every partner app
+# Release 2026-11-26 — One pattern in every partner app: tabs and app colours
 
 Use with `docs/DEPLOY_RUNBOOK.md`.
 
@@ -6,7 +6,7 @@ Use with `docs/DEPLOY_RUNBOOK.md`.
 |---|---|
 | Deploys | `main` at the commit that adds this file (`git log -1` in runbook step 1) |
 | Live before | `b0434cd` |
-| Full test suite | passed 5,256 of 5,256; known failures only: none |
+| Full test suite | passed 5,258 of 5,258; known failures only: none |
 | Composer | composer.lock changed: no |
 | Front-end build (steps 6–7) | no — every class the shared tab uses is already in the live build (`app-CNS-_MDI.css`, checked 2026-11-26; orange uses `border-transparent` because `border-orange-500` is not in it) |
 | Version | `VERSION` file bumped to `2026.11.26.1` |
@@ -21,6 +21,12 @@ Use with `docs/DEPLOY_RUNBOOK.md`.
   ✅ Accepted, 🕘 Past). Tabs wrap to a second line instead of hiding off the edge of the phone.
 - `tests/Feature/Partners/PartnerTabsPatternTest.php` fails if a work screen goes back to a hand-made tab row.
 - CLAUDE.md ease-of-use rule: every future partner app uses the same pattern from day one.
+- Owner 2026-11-26: a partner switching from the Partner app to the Rider app saw the same screen ("You are
+  offline") and could not tell which app he was in; online is separate in each. Every partner app now has its own
+  colour and icon (`<x-partner.app-badge>`): a coloured strip along the top, a badge next to 1CallFix, and the phone
+  bar colour (theme-color). 🛠️ Partner blue, 🛵 Rider orange, 🏪 Shop green, 🍽️ Restaurant red, 🏨 Hotel violet,
+  🏠 Rental teal, 🎉 Events pink. The Partner and Rider online cards say "Service Partner app" / "Delivery Rider app".
+  `tests/Feature/Partners/PartnerAppIdentityTest.php` checks every test login sees only its own app.
 - Riders keep History in the bottom bar. Taxi drivers, fleet owners and vehicle rental owners have no work screen
   yet; they get this pattern when built.
 
@@ -36,6 +42,7 @@ Rollback count for `migrate:rollback --step=`: 0
 - test.provider: Jobs shows 🔔 New offers | 🕘 Job history.
 - test.seller / test.restaurant: Orders tabs big and coloured, 🕘 Completed opens past orders.
 - test.hotel: Bookings → 🕘 Past. test.hall: Bookings → 🕘 Past.
+- test.provider then test.rider: blue 🛠️ Partner vs orange 🛵 Rider header, and the app name on the online card.
 
 ## Admin settings to do after deploy (owner)
 - none

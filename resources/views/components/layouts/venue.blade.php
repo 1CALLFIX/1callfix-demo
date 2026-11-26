@@ -23,7 +23,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <title>{{ $title ? $title.' · '.$platformName.' Rental' : $platformName.' Rental' }}</title>
     <meta name="robots" content="noindex, nofollow">
-    <meta name="theme-color" content="#2563eb">
+    <meta name="theme-color" content="#0d9488">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     @auth<meta name="cf-signed-in" content="{{ auth()->id() }}">@endauth {{-- read by resources/js/native-app.js (Android apps only) --}}
     <link rel="manifest" href="{{ asset('manifest.webmanifest') }}">
@@ -39,9 +39,10 @@
 
     @auth
         <header class="sticky top-0 z-30 border-b border-slate-200 bg-white/95 backdrop-blur">
+            <x-partner.app-badge app="venue" variant="strip" />
             <div class="mx-auto flex max-w-5xl items-center justify-between gap-3 px-4 py-3 sm:px-6">
                 <a href="{{ route('venue.dashboard') }}" wire:navigate class="truncate text-base font-bold tracking-tight">
-                    {{ $platformName }} <span class="font-medium text-blue-600">Rental</span>
+                    {{ $platformName }} <x-partner.app-badge app="venue" class="ml-1 align-middle" />
                 </a>
                 <form method="POST" action="{{ route('provider.logout') }}">
                     @csrf

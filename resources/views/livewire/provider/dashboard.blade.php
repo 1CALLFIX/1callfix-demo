@@ -5,6 +5,8 @@
          data-testid="provider-switch-card">
         <div class="flex items-center justify-between gap-3">
             <div class="min-w-0">
+                {{-- Owner 2026-11-26: say which app this is; online here is for service jobs only, not deliveries. --}}
+                <x-partner.app-badge app="partner" variant="chip" />
                 <p class="text-sm font-medium opacity-90">Hi, {{ $provider->user?->name ?? 'there' }}</p>
                 <h1 class="text-xl font-bold tracking-tight">{{ $provider->is_online ? 'You are online' : 'You are offline' }}</h1>
                 @php $cfOnJob = \App\Actions\SetProviderOnlineStatusAction::onTheWayOrWorking($provider); @endphp

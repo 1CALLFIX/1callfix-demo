@@ -21,7 +21,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <title>{{ $title ? $title.' · '.$platformName.' Rider' : $platformName.' Rider' }}</title>
     <meta name="robots" content="noindex, nofollow">
-    <meta name="theme-color" content="#2563eb">
+    <meta name="theme-color" content="#f97316">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     @auth<meta name="cf-signed-in" content="{{ auth()->id() }}">@endauth {{-- read by resources/js/native-app.js (Android apps only) --}}
     <link rel="manifest" href="{{ asset('manifest.webmanifest') }}">
@@ -39,9 +39,10 @@
 
     @auth
         <header class="sticky top-0 z-30 border-b border-slate-200 bg-white/95 backdrop-blur">
+            <x-partner.app-badge app="rider" variant="strip" />
             <div class="mx-auto flex max-w-3xl items-center justify-between gap-3 px-4 py-3 sm:px-6">
                 <a href="{{ route('rider.dashboard') }}" wire:navigate class="truncate text-base font-bold tracking-tight">
-                    {{ $platformName }} <span class="font-medium text-blue-600">Rider</span>
+                    {{ $platformName }} <x-partner.app-badge app="rider" class="ml-1 align-middle" />
                 </a>
                 {{-- Partner apps 2026-11-04: sign out and mode switch live on the More tab; Home has its own big switch. --}}
                 @if ($riderNow && ! request()->routeIs('rider.dashboard'))

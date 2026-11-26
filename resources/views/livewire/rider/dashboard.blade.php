@@ -36,6 +36,8 @@
     <div @class(['flex items-center justify-between gap-3 rounded-2xl p-4',
         'bg-emerald-600 text-white' => $rider->is_online, 'bg-slate-800 text-white' => ! $rider->is_online])>
         <div class="min-w-0">
+            {{-- Owner 2026-11-26: say which app this is; online here is for deliveries only, not service jobs. --}}
+            <x-partner.app-badge app="rider" variant="chip" />
             <p class="text-sm font-medium opacity-90">Hi {{ \Illuminate\Support\Str::before($rider->user?->name ?? 'Rider', ' ') }}</p>
             <h1 class="text-xl font-bold tracking-tight">{{ $rider->is_online ? 'You are online' : 'You are offline' }}</h1>
             @if ($job || $shopJob || $returnJob)
