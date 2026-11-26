@@ -178,6 +178,7 @@ class CertificateService
             'public_qr' => $publicUrl ? $qr->qrDataUri($publicUrl) : null,
             'company' => ContactDetails::get('company') ?: '1CallFix',
             'office_phone' => ContactDetails::shown('phone'), // "+91 9014 609 609"
+            'logo' => app(\App\Services\BrandingAssetService::class)->logoDataUri(), // the company logo (admin upload)
         ];
     }
 

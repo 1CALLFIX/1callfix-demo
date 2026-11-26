@@ -32,6 +32,35 @@ class BrandingAssetService
     private const ICON_SIZES = ['favicon_path' => 32, 'apple_touch_path' => 180];
 
     /**
+     * Owner 2026-11-26: the company logo inside the ID card, certificate and stickers ("the company logo is
+     * completely missed"). The admin-uploaded logo (its 256 px copy, sharp enough for print at card size) as a data
+     * URI, so the PDF maker (dompdf) needs no web request. null when no logo is uploaded.
+     */
+    public function logoDataUri(): ?string
+    {
+        static $memo = [];
+        $path = (string) Setting::get('branding.logo_display_path', '') ?: (string) Setting::get('branding.logo_path', '');
+        if ($path === '') {
+            return null;
+        }
+        if (array_key_exists($path, $memo)) {
+            return $memo[$path];
+        }
+
+        $disk = Storage::disk(self::DISK);
+        $mime = match (strtolower(pathinfo($path, PATHINFO_EXTENSION))) {
+            'png' => 'image/png',
+            'jpg', 'jpeg' => 'image/jpeg',
+            'svg' => 'image/svg+xml',
+            default => null,
+        };
+
+        return $memo[$path] = ($mime && $disk->exists($path))
+            ? 'data:'.$mime.';base64,'.base64_encode((string) $disk->get($path))
+            : null;
+    }
+
+    /**
      * Store the upload and derive the icon files.
      *
      * @return array{logo_path:string,logo_display_path:string,favicon_path:string,apple_touch_path:string}

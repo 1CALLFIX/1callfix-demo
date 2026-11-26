@@ -192,6 +192,7 @@ class IdCardService
         ];
 
         return $extra + [
+            'logo' => app(\App\Services\BrandingAssetService::class)->logoDataUri(), // the company logo (admin upload)
             'app' => $holder instanceof FieldWorker ? 'rider' : 'partner',
             'name' => (string) ($holder->user?->name ?? ''),
             'code' => $this->code($holder),

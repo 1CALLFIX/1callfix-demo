@@ -195,6 +195,33 @@ class BusinessCertificateTest extends TestCase
             ->assertDontSee('Do not let them start work');
     }
 
+    public function test_the_company_logo_is_on_the_certificate_the_stickers_and_the_id_card(): void
+    {
+        // Owner 2026-11-26: "the company logo is completely missed". The admin-uploaded logo (Settings → Branding).
+        \Illuminate\Support\Facades\Storage::fake('public');
+        \Illuminate\Support\Facades\Storage::fake('local'); // the test partner's approved ID photo
+        $png = base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=');
+        \Illuminate\Support\Facades\Storage::disk('public')->put('branding/logo-256-test.png', $png);
+        \App\Models\Setting::set('branding.logo_display_path', 'branding/logo-256-test.png');
+        $logo = 'data:image/png;base64,'.base64_encode($png);
+        $this->makeCategoryAndService(); // the test partner's skills (as in PartnerIdCardTest)
+        $this->testLogins();
+
+        // Certificate + door sticker: the logo on both.
+        $html = $this->actingAs($this->login('test.restaurant'))->get(route('seller.certificate'))->assertOk()->getContent();
+        $this->assertSame(2, substr_count($html, 'src="'.$logo.'"'), 'certificate and sticker');
+
+        // ID card: front and back.
+        $provider = $this->login('test.provider');
+        $html = $this->actingAs($provider)->get(route('provider.id-card'))->assertOk()->getContent();
+        $this->assertSame(2, substr_count($html, 'src="'.$logo.'"'), 'ID card front and back');
+
+        // No logo uploaded: the cards still work, with the 1CallFix badge only.
+        \App\Models\Setting::set('branding.logo_display_path', '');
+        \App\Models\Setting::set('branding.logo_path', '');
+        $this->actingAs($provider)->get(route('provider.id-card'))->assertOk()->assertDontSee('data-brand-logo', false);
+    }
+
     public function test_the_seller_more_menu_has_my_certificate(): void
     {
         $this->testLogins();
