@@ -35,6 +35,46 @@ class IdCardService
 
     public const TYPES = ['provider', 'rider'];
 
+    /** Owner 2026-11-26: printed on the back of the card ("Blood Group: O +ve"). Stored => printed. */
+    public const BLOOD_GROUPS = [
+        'A+' => 'A +ve', 'A-' => 'A −ve', 'B+' => 'B +ve', 'B-' => 'B −ve',
+        'AB+' => 'AB +ve', 'AB-' => 'AB −ve', 'O+' => 'O +ve', 'O-' => 'O −ve',
+    ];
+
+    /** Who the emergency number belongs to: tapped, not typed. */
+    public const RELATIONS = ['Father', 'Mother', 'Wife', 'Husband', 'Son', 'Daughter', 'Brother', 'Sister', 'Friend'];
+
+    /** Blood group and at least one emergency number are needed before the card is shown and printed. */
+    public function detailsComplete(PartnerIdCard $card): bool
+    {
+        return isset(self::BLOOD_GROUPS[(string) $card->blood_group]) && ! empty($card->emergency_contacts);
+    }
+
+    /**
+     * @param  list<array{relation: string, phone: string}>  $contacts  already validated (10-digit Indian mobile)
+     */
+    public function saveDetails(PartnerIdCard $card, string $bloodGroup, array $contacts): void
+    {
+        $card->update([
+            'blood_group' => $bloodGroup,
+            'emergency_contacts' => array_values(array_map(fn ($c) => ['relation' => $c['relation'], 'phone' => $c['phone']], $contacts)),
+        ]);
+    }
+
+    /** "+919014609609" → "+91 90146 09609"; anything else as it was typed. */
+    public static function officePhoneText(?string $phone): ?string
+    {
+        $digits = preg_replace('/\D/', '', (string) $phone);
+
+        return strlen($digits) === 12 && str_starts_with($digits, '91') ? '+91 '.self::phoneText(substr($digits, 2)) : $phone;
+    }
+
+    /** 9876543210 → "98765 43210" */
+    public static function phoneText(string $digits): string
+    {
+        return strlen($digits) === 10 ? substr($digits, 0, 5).' '.substr($digits, 5) : $digits;
+    }
+
     /** The partner record behind one app's card for this account, or null when the account has no such role. */
     public function holder(User $user, string $type): Provider|FieldWorker|null
     {
@@ -143,15 +183,23 @@ class IdCardService
     }
 
     /**
-     * Everything one card shows, for the card screen, the PDF and the verify page.
+     * Everything one card shows, for the card screen, the PDF and the verify page. Blood group, emergency numbers and
+     * the "property of" line only with $private (the partner's own screen and PDF), never on the public verify page.
      *
-     * @return array{app: string, name: string, code: string, work: string, city: string, valid_until: string, photo: ?string, qr: string, url: string}
+     * @return array{app: string, name: string, code: string, work: string, city: string, valid_until: string, photo: ?string, qr: string, url: string, blood_group?: ?string, emergency?: list<array{relation: string, phone: string}>, company?: string, office_phone?: ?string}
      */
-    public function data(PartnerIdCard $card, Provider|FieldWorker $holder): array
+    public function data(PartnerIdCard $card, Provider|FieldWorker $holder, bool $private = false): array
     {
         $url = route('partner.verify', $card->token);
+        $extra = ! $private ? [] : [
+            'blood_group' => self::BLOOD_GROUPS[(string) $card->blood_group] ?? null,
+            'emergency' => array_map(fn ($c) => ['relation' => (string) ($c['relation'] ?? ''), 'phone' => self::phoneText((string) ($c['phone'] ?? ''))], (array) $card->emergency_contacts),
+            // The Contact page settings (App\Support\InfoPages\ContactDetails): registered name and office number.
+            'company' => \App\Support\InfoPages\ContactDetails::get('company') ?: '1CallFix',
+            'office_phone' => self::officePhoneText(\App\Support\InfoPages\ContactDetails::get('phone')),
+        ];
 
-        return [
+        return $extra + [
             'app' => $holder instanceof FieldWorker ? 'rider' : 'partner',
             'name' => (string) ($holder->user?->name ?? ''),
             'code' => $this->code($holder),

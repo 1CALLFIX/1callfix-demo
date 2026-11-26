@@ -26,9 +26,10 @@ class IdCardController extends Controller
         abort_unless($holder && $this->cards->state($holder) === 'ready', 404);
 
         $card = $this->cards->cardFor($user, $holder);
-        abort_if($this->cards->status($card, $holder) !== 'active', 404);
+        abort_if($this->cards->status($card, $holder) !== 'active' || ! $this->cards->detailsComplete($card), 404);
 
-        $c = $this->cards->data($card, $holder);
+        // The partner's own card: blood group, emergency numbers and the "property of" line on the back.
+        $c = $this->cards->data($card, $holder, private: true);
 
         return Pdf::loadView('partner.id-card.pdf', ['c' => $c])
             ->setPaper('a4')

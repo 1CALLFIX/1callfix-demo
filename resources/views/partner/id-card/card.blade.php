@@ -49,16 +49,38 @@
     </tr>
 </table>
 @else
+{{-- Back (owner 2026-11-26): QR, blood group, emergency contact numbers, and the "property of" line. --}}
 <table style="{{ $box }}" data-id-card="back" cellpadding="0" cellspacing="0">
     <tr>
-        <td style="width: 13em; height: 17.46em; padding: 1.2em 0 1.2em 1.2em; vertical-align: middle;">
-            <img src="{{ $c['qr'] }}" alt="QR code to check this card" style="width: 11.6em; height: 11.6em; display: block;">
+        <td style="width: 10.6em; height: 13.9em; padding: 1em 0 0.4em 1em; vertical-align: top;">
+            <img src="{{ $c['qr'] }}" alt="QR code to check this card" style="width: 9.6em; height: 9.6em; display: block;">
+            <div style="margin-top: 0.35em; width: 9.6em; text-align: center; font-size: 0.72em; font-weight: bold; color: {{ $colour }}; line-height: 1.25;">Scan to check this partner is genuine</div>
         </td>
-        <td style="padding: 1.2em 1.2em 1.2em 0.9em; vertical-align: middle;">
-            <div style="font-size: 1.25em; font-weight: bold; color: {{ $colour }}; line-height: 1.2;">Scan to check this partner is genuine</div>
-            <div style="margin-top: 0.6em; font-size: 0.88em; color: #334155; line-height: 1.4;">The page shows the photo and says Active or Not active right now.</div>
-            <div style="margin-top: 0.6em; font-size: 0.88em; color: #334155; line-height: 1.4;">This card belongs to 1CallFix. If found, please return it to us.</div>
-            <div style="margin-top: 0.7em; font-size: 1em; font-weight: bold;">{{ $c['code'] }} · 1callfix.com</div>
+        <td style="padding: 1em 1em 0.4em 0.7em; vertical-align: top;">
+            <table style="border-collapse: collapse; font-size: 0.92em;" cellpadding="0" cellspacing="0">
+                <tr>
+                    <td style="color: #64748b; padding: 0 0.6em 0.45em 0; vertical-align: top; white-space: nowrap;">Blood Group</td>
+                    <td style="padding-bottom: 0.45em; font-weight: bold; color: #dc2626; font-size: 1.25em; line-height: 1;" data-id-card-blood>{{ $c['blood_group'] ?? '—' }}</td>
+                </tr>
+                <tr>
+                    <td style="color: #64748b; padding: 0 0.6em 0 0; vertical-align: top; white-space: nowrap;">Emergency<br>Contact No's</td>
+                    <td style="font-weight: bold; line-height: 1.35;" data-id-card-emergency>
+                        @forelse ($c['emergency'] ?? [] as $e)
+                            <div>{{ $e['phone'] }} <span style="font-weight: normal; color: #475569;">({{ $e['relation'] }})</span></div>
+                        @empty
+                            —
+                        @endforelse
+                    </td>
+                </tr>
+            </table>
+            <div style="margin-top: 0.6em; font-size: 0.85em; font-weight: bold;">{{ $c['code'] }}</div>
+            <div style="font-size: 0.85em; color: #334155;">1callfix.com</div>
+        </td>
+    </tr>
+    <tr>
+        <td colspan="2" style="height: 4.3em; padding: 0.35em 1em; background: {{ $colour }}; color: #ffffff; border-radius: 0 0 0.85em 0.85em; font-size: 0.74em; line-height: 1.35; text-align: center;" data-id-card-property>
+            This is the property of <strong>{{ $c['company'] ?? '1CallFix' }}</strong>. If found, please return it to the company.
+            @if (! empty($c['office_phone']))<br>Call {{ $c['office_phone'] }}@endif
         </td>
     </tr>
 </table>

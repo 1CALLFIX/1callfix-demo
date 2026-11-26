@@ -11,9 +11,9 @@ use Illuminate\Database\Eloquent\Model;
  */
 class PartnerIdCard extends Model
 {
-    protected $fillable = ['user_id', 'holder_type', 'holder_id', 'token', 'issued_at', 'valid_until'];
+    protected $fillable = ['user_id', 'holder_type', 'holder_id', 'token', 'issued_at', 'valid_until', 'blood_group', 'emergency_contacts'];
 
-    protected $casts = ['issued_at' => 'datetime', 'valid_until' => 'datetime'];
+    protected $casts = ['issued_at' => 'datetime', 'valid_until' => 'datetime', 'emergency_contacts' => 'array'];
 
     public function user() { return $this->belongsTo(User::class); }
 

@@ -205,6 +205,82 @@ class PartnerIdCardTest extends TestCase
         $this->assertSame('pending', $user->providerProfile->currentDocuments()->where('type', IdCardService::PHOTO)->value('status'));
     }
 
+    /** Owner 2026-11-26: Blood Group, Emergency Contact No's and "property of" line on the back. */
+    public function test_the_back_shows_blood_group_emergency_numbers_and_the_property_line(): void
+    {
+        \App\Models\Setting::set('contact.company', '1CallFix Solutions Pvt Ltd');
+        \App\Models\Setting::set('contact.phone', '+919014609609');
+        $user = $this->testLogin('provider');
+
+        $screen = $this->actingAs($user)->get(route('provider.id-card'));
+        $screen->assertOk();
+        $screen->assertSee('Blood Group');
+        $screen->assertSee('O +ve');
+        $screen->assertSee('Emergency');
+        $screen->assertSee('90000 00001');
+        $screen->assertSee('(Brother)');
+        $screen->assertSee('This is the property of', false);
+        $screen->assertSee('1CallFix Solutions Pvt Ltd');
+        $screen->assertSee('If found, please return it to the company.');
+        $screen->assertSee('Call +91 90146 09609');
+
+        $pdf = $this->actingAs($user)->get(route('provider.id-card.print'));
+        $pdf->assertOk();
+    }
+
+    public function test_the_public_qr_page_never_shows_blood_group_or_emergency_numbers(): void
+    {
+        $user = $this->testLogin('provider');
+        $card = $this->cardOf($user, 'provider');
+
+        $page = $this->get(route('partner.verify', $card->token));
+
+        $page->assertOk();
+        $page->assertDontSee('O +ve');
+        $page->assertDontSee('90000 00001');
+        $page->assertDontSee('9000000001');
+        $page->assertDontSee('Brother');
+    }
+
+    public function test_the_card_waits_for_blood_group_and_an_emergency_number_then_saves_them(): void
+    {
+        $user = $this->testLogin('rider');
+        $card = $this->cardOf($user, 'rider');
+        $card->update(['blood_group' => null, 'emergency_contacts' => null]);
+
+        $this->actingAs($user)->get(route('rider.id-card'))->assertOk()
+            ->assertSee('data-testid="id-card-details"', false)->assertDontSee('data-testid="id-card"', false);
+        $this->actingAs($user)->get(route('rider.id-card.print'))->assertNotFound();
+
+        Livewire::actingAs($user)->test(\App\Livewire\Rider\IdCard::class)
+            ->call('saveDetails')
+            ->assertHasErrors(['bloodGroup', 'contacts.0.phone', 'contacts.0.relation'])
+            ->set('bloodGroup', 'B-')
+            ->set('contacts.0.phone', '12345')
+            ->set('contacts.0.relation', 'Wife')
+            ->call('saveDetails')
+            ->assertHasErrors(['contacts.0.phone'])
+            ->set('contacts.0.phone', '+91 98765-43210')
+            ->set('contacts.1.phone', '9123456789')
+            ->call('saveDetails')
+            ->assertHasErrors(['contacts.1.relation'])
+            ->set('contacts.1.relation', 'Father')
+            ->call('saveDetails')
+            ->assertHasNoErrors()
+            ->assertSee('B −ve')
+            ->assertSee('98765 43210')
+            ->assertSee('(Father)');
+
+        $card->refresh();
+        $this->assertSame('B-', $card->blood_group);
+        $this->assertSame([['relation' => 'Wife', 'phone' => '9876543210'], ['relation' => 'Father', 'phone' => '9123456789']], $card->emergency_contacts);
+        $this->actingAs($user)->get(route('rider.id-card.print'))->assertOk();
+
+        // A new card (lost card) keeps the details.
+        Livewire::actingAs($user)->test(\App\Livewire\Rider\IdCard::class)->call('newCard');
+        $this->assertSame('B-', $card->fresh()->blood_group);
+    }
+
     public function test_my_id_card_is_on_the_partner_and_rider_more_menus(): void
     {
         $user = $this->testLogin('provider');

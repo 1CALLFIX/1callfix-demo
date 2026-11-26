@@ -313,17 +313,29 @@ class TestAccountsCommand extends Command
         return self::SUCCESS;
     }
 
-    /** Field associates: the test associate, active, with the Test Shop and Test Restaurant credited to it. */
     /**
-     * Owner 2026-11-26: a plain placeholder face photo (initials on the app colour), approved, as the test partner's
-     * ID card photo (App\Services\Partners\IdCardService::PHOTO). Kept if one is already there.
+     * Owner 2026-11-26: a plain placeholder face photo on the app colour, approved, as the test partner's ID card photo
+     * (App\Services\Partners\IdCardService::PHOTO), and sample back-of-card details (O +ve, a dummy family number), so
+     * My ID card shows the card at once. Kept if already there.
      */
     private function giveTestIdCardPhoto(User $user): void
     {
         $holder = $user->fieldWorkerProfile()->first() ?? $user->providerProfile()->first();
-        if (! $holder || $holder->currentDocuments()->where('type', \App\Services\Partners\IdCardService::PHOTO)->exists()) {
+        if (! $holder) {
             return;
         }
+        if (! $holder->currentDocuments()->where('type', \App\Services\Partners\IdCardService::PHOTO)->exists()) {
+            $this->makeTestIdCardPhoto($user, $holder);
+        }
+        $cards = app(\App\Services\Partners\IdCardService::class);
+        $card = $cards->cardFor($user, $holder);
+        if (! $cards->detailsComplete($card)) {
+            $cards->saveDetails($card, 'O+', [['relation' => 'Brother', 'phone' => '9000000001']]);
+        }
+    }
+
+    private function makeTestIdCardPhoto(User $user, Provider|FieldWorker $holder): void
+    {
         $isRider = $holder instanceof FieldWorker;
         $image = imagecreatetruecolor(480, 600);
         imagefill($image, 0, 0, $isRider ? imagecolorallocate($image, 249, 115, 22) : imagecolorallocate($image, 37, 99, 235));
@@ -343,6 +355,7 @@ class TestAccountsCommand extends Command
         ]);
     }
 
+    /** Field associates: the test associate, active, with the Test Shop and Test Restaurant credited to it. */
     private function makeTestAssociate(User $user, Franchise $franchise): void
     {
         $associate = \App\Models\FieldAssociate::firstOrNew(['user_id' => $user->id]);

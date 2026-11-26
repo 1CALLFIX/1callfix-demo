@@ -26,6 +26,9 @@ return new class extends Migration
             $table->string('token', 64)->unique();
             $table->timestamp('issued_at');
             $table->timestamp('valid_until');
+            // Owner 2026-11-26: printed on the back of the card only (never on the public verify page).
+            $table->string('blood_group', 3)->nullable(); // A+ A- B+ B- AB+ AB- O+ O-
+            $table->json('emergency_contacts')->nullable(); // [{relation, phone}] — one or two family numbers
             $table->timestamps();
             $table->unique(['holder_type', 'holder_id']);
         });
