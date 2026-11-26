@@ -5,16 +5,11 @@
 <div class="space-y-4" @if ($active === 'accept' || ($counts['accept'] ?? 0) > 0) wire:poll.15s @endif>
     <h1 class="text-2xl font-bold tracking-tight">Bookings</h1>
 
-    <div class="flex gap-2 overflow-x-auto" role="tablist">
+    {{-- Owner 2026-11-26: big coloured tabs that wrap (Past never hides off the edge); 🕘 Past is past work. --}}
+    <div class="flex flex-wrap gap-2" role="tablist">
+        @php $look = ['accept' => ['amber', '⏳'], 'arriving' => ['blue', '🧳'], 'staying' => ['violet', '🛏️'], 'past' => ['emerald', '🕘']]; @endphp
         @foreach ($tabs as $code => $label)
-            <button type="button" role="tab" wire:click="$set('tab', '{{ $code }}')" aria-selected="{{ $active === $code ? 'true' : 'false' }}"
-                    @class(['inline-flex min-h-10 shrink-0 items-center gap-1 rounded-full border px-3 text-sm font-semibold',
-                            'border-blue-600 bg-blue-600 text-white' => $active === $code, 'border-slate-300 bg-white text-slate-700' => $active !== $code])>
-                {{ $label }}
-                @if (($counts[$code] ?? 0) > 0)
-                    <span @class(['rounded-full px-1.5 text-xs', 'bg-white text-blue-700' => $active === $code, 'bg-rose-600 text-white' => $active !== $code])>{{ $counts[$code] }}</span>
-                @endif
-            </button>
+            <x-partner.tab wire:click="$set('tab', '{{ $code }}')" :active="$active === $code" :color="$look[$code][0] ?? 'blue'" :icon="$look[$code][1] ?? null" :count="$counts[$code] ?? null">{{ $label }}</x-partner.tab>
         @endforeach
     </div>
 

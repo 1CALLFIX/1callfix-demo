@@ -2,10 +2,9 @@
     <h1 class="text-2xl font-bold tracking-tight">Visits</h1>
     <p class="text-sm text-slate-600">People who want to see your property. Accept to share the address and your number.</p>
 
-    <div class="flex gap-2 overflow-x-auto" role="tablist">
-        @foreach (['new' => 'New ('.$counts['new'].')', 'accepted' => 'Accepted ('.$counts['accepted'].')', 'past' => 'Past'] as $key => $label)
-            <button type="button" wire:click="$set('tab', '{{ $key }}')" role="tab" @class(['min-h-11 shrink-0 rounded-full px-4 text-sm font-semibold',
-                'bg-blue-600 text-white' => $tab === $key, 'border border-slate-300 bg-white text-slate-700' => $tab !== $key])>{{ $label }}</button>
+    <div class="flex flex-wrap gap-2" role="tablist">
+        @foreach (['new' => ['New', 'amber', '🆕', $counts['new']], 'accepted' => ['Accepted', 'blue', '✅', $counts['accepted']], 'past' => ['Past', 'emerald', '🕘', null]] as $key => [$label, $color, $icon, $count])
+            <x-partner.tab wire:click="$set('tab', '{{ $key }}')" :active="$tab === $key" :color="$color" :icon="$icon" :count="$count">{{ $label }}</x-partner.tab>
         @endforeach
     </div>
 

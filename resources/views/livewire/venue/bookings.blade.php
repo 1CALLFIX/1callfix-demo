@@ -41,9 +41,9 @@
         </section>
     @endif
 
-    <div class="flex gap-2">
-        @foreach (['upcoming' => 'Upcoming', 'past' => 'Past'] as $k => $label)
-            <button type="button" wire:click="$set('tab', '{{ $k }}')" @class(['min-h-10 rounded-full border px-4 text-sm font-medium', 'border-blue-600 bg-blue-600 text-white' => $tab === $k, 'border-slate-300 bg-white text-slate-700' => $tab !== $k])>{{ $label }}</button>
+    <div class="flex flex-wrap gap-2" role="tablist">
+        @foreach (['upcoming' => ['Upcoming', 'blue', '📅'], 'past' => ['Past', 'emerald', '🕘']] as $k => [$label, $color, $icon])
+            <x-partner.tab wire:click="$set('tab', '{{ $k }}')" :active="$tab === $k" :color="$color" :icon="$icon">{{ $label }}</x-partner.tab>
         @endforeach
     </div>
 

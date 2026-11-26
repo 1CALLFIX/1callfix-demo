@@ -4,11 +4,17 @@
 
     <div class="flex flex-wrap gap-2 text-sm" role="tablist">
         {{-- Owner 2026-11-09: one tab per step of the order. --}}
-        @foreach (['new' => 'New', 'cooking' => $isRestaurant ? 'Cooking' : 'Packing', 'ready' => 'Ready', 'handed' => 'Handed over', 'done' => 'Completed', 'cancelled' => 'Cancelled', 'returns' => $isRestaurant ? 'Problems' : 'Returns'] as $key => $label)
-            <button type="button" role="tab" wire:click="$set('tab', '{{ $key }}')" aria-selected="{{ $activeTab === $key ? 'true' : 'false' }}"
-                    @class(['rounded-lg px-3 py-1.5 font-medium', 'bg-slate-900 text-white' => $activeTab === $key, 'border border-slate-300 bg-white text-slate-700' => $activeTab !== $key])>
-                {{ $label }}@if (isset($counts[$key]) && $counts[$key] > 0) <span class="ml-1 rounded-full bg-amber-500 px-1.5 text-xs text-white">{{ $counts[$key] }}</span>@endif
-            </button>
+        {{-- Owner 2026-11-26: big coloured tabs, one colour and icon per step; 🕘 Completed is past work. --}}
+        @foreach ([
+            'new' => ['New', 'amber', '🆕'],
+            'cooking' => [$isRestaurant ? 'Cooking' : 'Packing', 'orange', $isRestaurant ? '🍳' : '📦'],
+            'ready' => ['Ready', 'blue', '🛎️'],
+            'handed' => ['Handed over', 'violet', '🛵'],
+            'done' => ['Completed', 'emerald', '🕘'],
+            'cancelled' => ['Cancelled', 'rose', '✖️'],
+            'returns' => [$isRestaurant ? 'Problems' : 'Returns', 'slate', $isRestaurant ? '⚠️' : '↩️'],
+        ] as $key => [$label, $color, $icon])
+            <x-partner.tab wire:click="$set('tab', '{{ $key }}')" :active="$activeTab === $key" :color="$color" :icon="$icon" :count="$counts[$key] ?? null">{{ $label }}</x-partner.tab>
         @endforeach
     </div>
 

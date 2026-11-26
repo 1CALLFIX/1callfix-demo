@@ -148,6 +148,11 @@ easy to operate, user friendly, colourful and attractive. Never make a module co
   a Save / Send bar that stays at the bottom on phones.
 - Colourful and friendly: each step or section has its own colour and icon; status shown as coloured badges.
 - Fewer options: a new setting or field needs a reason; extras are optional and say so.
+- One pattern in every partner app (owner 2026-11-26: "if all the apps follow the same pattern it is easier to
+  find any issue"): the work screen (Jobs, Orders, Bookings, Visits, and every future one) uses the shared
+  `<x-partner.tab>` row, one colour and icon per step, and past work is always the last tab, green 🕘
+  (Job history / Completed / Past). A new partner app ships with it from day one and goes on
+  `tests/Feature/Partners/PartnerTabsPatternTest.php`'s SCREENS list.
 - Check every new screen against this rule before calling it done.
 
 ### THUMB RULE — EVERYTHING PUBLIC CAN BE SHARED
