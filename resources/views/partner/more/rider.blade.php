@@ -16,5 +16,8 @@
             ['Cash dues', route('rider.earnings'), 'wallet', $dues > 0 ? $symbol.number_format($dues, 2) : null],
             ['Bank & UPI', route('rider.payment-accounts'), 'banknotes'],
             ['Get paid', route('rider.request-payout'), 'arrow-right'],
+        ]"
+        :rows="[
+            ['My ID card', route('rider.id-card'), 'user', 'Show or print'],
         ]" />
 </x-layouts.rider>

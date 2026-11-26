@@ -35,7 +35,8 @@
                     <ul class="mt-2 divide-y divide-slate-100">
                         @foreach ($g['rows'] as $row)
                             @php $doc = $row['doc']; $req = $row['req']; @endphp
-                            <li class="flex flex-wrap items-center justify-between gap-2 py-2.5">
+                            @php $isPhoto = $req->document_type === \App\Services\Partners\IdCardService::PHOTO; @endphp
+                            <li class="flex flex-wrap items-center justify-between gap-2 py-2.5" id="doc-{{ $g['key'] }}-{{ $req->document_type }}">
                                 <div class="min-w-0">
                                     <p class="text-sm font-medium text-slate-900">{{ $req->label }} @unless ($req->is_required)<span class="font-normal text-slate-500">(if you have it)</span>@endunless</p>
                                     @if ($doc)
@@ -47,7 +48,8 @@
                                     <label class="inline-flex min-h-11 cursor-pointer items-center rounded-lg border border-blue-600 px-3 text-sm font-semibold text-blue-700 hover:bg-blue-50">
                                         <span wire:loading.remove wire:target="files.{{ $g['key'] }}.{{ $req->document_type }}">{{ $doc ? 'Upload again' : 'Upload' }}</span>
                                         <span wire:loading wire:target="files.{{ $g['key'] }}.{{ $req->document_type }}">Uploading…</span>
-                                        <input type="file" accept=".jpg,.jpeg,.png,.pdf" capture="environment" wire:model="files.{{ $g['key'] }}.{{ $req->document_type }}" class="sr-only">
+                                        {{-- Owner 2026-11-26: the ID card photo is a selfie (front camera), a photo only. --}}
+                                        <input type="file" accept="{{ $isPhoto ? '.jpg,.jpeg,.png' : '.jpg,.jpeg,.png,.pdf' }}" capture="{{ $isPhoto ? 'user' : 'environment' }}" wire:model="files.{{ $g['key'] }}.{{ $req->document_type }}" class="sr-only">
                                     </label>
                                     <x-ui.image-size use="kyc_document" class="w-full text-xs text-slate-500" />
                                 @endif

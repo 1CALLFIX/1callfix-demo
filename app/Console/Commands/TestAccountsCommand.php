@@ -297,6 +297,11 @@ class TestAccountsCommand extends Command
                     ]);
                 }
 
+                // Owner 2026-11-26: an approved ID card photo, so My ID card can be walked through at once.
+                if (in_array($key, ['provider', 'rider', 'truckdriver'], true)) {
+                    $this->giveTestIdCardPhoto($user);
+                }
+
                 return [$key, $email, $roleSlug ? "{$roleSlug} @ {$scopeType} #{$scopeIds[$scopeType]}" : ($key === 'rider' ? 'parcel + shop rider (approved)' : ($key === 'truckdriver' ? 'mini truck driver (approved, AP 26 TT 0001)' : ($key === 'seller' ? 'seller, shop approved' : ($key === 'restaurant' ? 'restaurant, approved' : ($key === 'hotel' ? 'hotel, approved' : ($key === 'organiser' ? 'event organiser, approved, 1 event in review' : ($key === 'hall' ? 'one approved test hall of every kind' : ($key === 'homeowner' ? 'one approved test property of every kind for rent' : ($key === 'vehicleowner' ? 'one approved test vehicle of every kind for rent' : ($key === 'renter' ? 'customer with '.count(self::TEST_RENT_ITEMS).' approved Rent anything items' : ($key === 'secondhand' ? 'customer with '.count(self::TEST_SECONDHAND_ITEMS).' approved Second-hand posts' : ($key === 'associate' ? 'field associate, credited with the test shop and restaurant' : $userRole))))))))))))];
             });
         }
@@ -309,6 +314,35 @@ class TestAccountsCommand extends Command
     }
 
     /** Field associates: the test associate, active, with the Test Shop and Test Restaurant credited to it. */
+    /**
+     * Owner 2026-11-26: a plain placeholder face photo (initials on the app colour), approved, as the test partner's
+     * ID card photo (App\Services\Partners\IdCardService::PHOTO). Kept if one is already there.
+     */
+    private function giveTestIdCardPhoto(User $user): void
+    {
+        $holder = $user->fieldWorkerProfile()->first() ?? $user->providerProfile()->first();
+        if (! $holder || $holder->currentDocuments()->where('type', \App\Services\Partners\IdCardService::PHOTO)->exists()) {
+            return;
+        }
+        $isRider = $holder instanceof FieldWorker;
+        $image = imagecreatetruecolor(480, 600);
+        imagefill($image, 0, 0, $isRider ? imagecolorallocate($image, 249, 115, 22) : imagecolorallocate($image, 37, 99, 235));
+        $white = imagecolorallocate($image, 255, 255, 255);
+        imagefilledellipse($image, 240, 230, 220, 240, $white);
+        imagefilledellipse($image, 240, 560, 400, 300, $white);
+        ob_start();
+        imagejpeg($image, null, 85);
+        $path = 'kyc/'.($isRider ? 'field-workers' : 'providers')."/{$holder->id}/".\App\Services\Partners\IdCardService::PHOTO.'/test-photo.jpg';
+        \Illuminate\Support\Facades\Storage::disk('local')->put($path, (string) ob_get_clean());
+
+        $holder->documents()->create([
+            'type' => \App\Services\Partners\IdCardService::PHOTO, 'disk_path' => $path, 'original_filename' => 'test-photo.jpg',
+            'mime_type' => 'image/jpeg', 'size_bytes' => \Illuminate\Support\Facades\Storage::disk('local')->size($path),
+            'status' => 'approved', 'is_current' => true, 'uploaded_by' => $user->id, 'upload_source' => 'admin',
+            'reviewed_at' => now(),
+        ]);
+    }
+
     private function makeTestAssociate(User $user, Franchise $franchise): void
     {
         $associate = \App\Models\FieldAssociate::firstOrNew(['user_id' => $user->id]);

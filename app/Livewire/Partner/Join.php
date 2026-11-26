@@ -59,7 +59,9 @@ class Join extends Component
 
             return;
         }
-        $this->validate(["files.$who.$type" => ['file', 'mimes:jpg,jpeg,png,pdf', 'max:10240']], [], ["files.$who.$type" => 'document']);
+        // Owner 2026-11-26: the ID card photo goes on a card, so a picture only (no PDF).
+        $mimes = $type === \App\Services\Partners\IdCardService::PHOTO ? 'mimes:jpg,jpeg,png' : 'mimes:jpg,jpeg,png,pdf';
+        $this->validate(["files.$who.$type" => ['file', $mimes, 'max:10240']], [], ["files.$who.$type" => $type === \App\Services\Partners\IdCardService::PHOTO ? 'photo' : 'document']);
         $missingBefore = count($kyc->missingRequiredForSubmission($subject, $subject->franchise?->country_id));
         try {
             $kyc->upload($subject, $type, $this->files[$who][$type], auth()->user(), 'self');

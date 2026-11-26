@@ -291,6 +291,8 @@ Route::middleware('guest')->group(function () {
 Route::get('/provider/register', ProviderRegister::class)->name('provider.register');
 // Join in 2 minutes (owner 2026-11-12): "Finish joining" — the one checklist (documents, set-up, approval) for every partner.
 Route::get('/partner/join', \App\Livewire\Partner\Join::class)->middleware(['auth', \App\Http\Middleware\EnsureAccountNotSuspended::class])->name('partner.join');
+// Owner 2026-11-26: what a 1CallFix ID card's QR opens — a live check, Active or Not active (public, never indexed).
+Route::get('/verify/{token}', [\App\Http\Controllers\Partner\IdCardController::class, 'verify'])->where('token', '[A-Za-z0-9]{1,64}')->middleware('throttle:60,1')->name('partner.verify');
 
 Route::post('/provider/logout', function () {
     Auth::guard('web')->logout();
@@ -313,6 +315,9 @@ Route::middleware(['auth', \App\Http\Middleware\EnsureIsProvider::class, \App\Ht
         Route::get('/history', ProviderHistory::class)->name('provider.history');
         Route::get('/activity', ProviderActivity::class)->name('provider.activity');
         Route::get('/shifts', ProviderShifts::class)->name('provider.shifts');
+        // Owner 2026-11-26: the 1CallFix ID card (App\Services\Partners\IdCardService).
+        Route::get('/id-card', \App\Livewire\Provider\IdCard::class)->name('provider.id-card');
+        Route::get('/id-card/print', [\App\Http\Controllers\Partner\IdCardController::class, 'pdf'])->defaults('type', 'provider')->name('provider.id-card.print');
         Route::view('/more', 'partner.more.provider')->name('provider.more'); // Partner apps 2026-11-04: the More tab
     });
 
@@ -341,6 +346,9 @@ Route::middleware(['auth', \App\Http\Middleware\EnsureIsParcelRider::class, \App
         Route::get('/earnings', \App\Livewire\Rider\Earnings::class)->name('rider.earnings');
         Route::get('/payment-accounts', \App\Livewire\Rider\PaymentAccounts::class)->name('rider.payment-accounts');
         Route::get('/request-payout', \App\Livewire\Rider\RequestPayout::class)->name('rider.request-payout');
+        // Owner 2026-11-26: the 1CallFix ID card (App\Services\Partners\IdCardService).
+        Route::get('/id-card', \App\Livewire\Rider\IdCard::class)->name('rider.id-card');
+        Route::get('/id-card/print', [\App\Http\Controllers\Partner\IdCardController::class, 'pdf'])->defaults('type', 'rider')->name('rider.id-card.print');
         Route::view('/more', 'partner.more.rider')->name('rider.more'); // Partner apps 2026-11-04: the More tab
     });
 

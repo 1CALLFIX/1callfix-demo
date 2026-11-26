@@ -15,6 +15,7 @@
             ['Get paid', route('provider.request-payout'), 'arrow-right'],
         ]"
         :rows="array_values(array_filter([
+            ['My ID card', route('provider.id-card'), 'user', 'Show or print'],
             ['Job history', route('provider.history'), 'clock'],
             ['Activity', route('provider.activity'), 'activity'],
             \App\Services\Providers\ShiftSchedule::mode() !== 'off' ? ['My shifts', route('provider.shifts'), 'clock'] : null,
