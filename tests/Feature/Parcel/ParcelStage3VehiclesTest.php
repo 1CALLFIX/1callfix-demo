@@ -328,9 +328,11 @@ class ParcelStage3VehiclesTest extends TestCase
 
         Livewire::actingAs($w['customer'])->test(Create::class)
             ->set('dropMode', 'saved')->set('dropAddressId', $w['dropoff']->id)
-            ->assertSee('data-testid="vehicle-picker"', false)
+            // 1CallMove (2026-11-27): the vehicle is picked with the big "Book a truck" button.
+            ->assertSee('data-testid="move-choices"', false)
             ->assertSee('Mini truck')
-            ->set('vehicle', 'mini_truck')
+            ->call('choose', 'truck')
+            ->assertSet('vehicle', 'mini_truck')
             ->assertSee('What are you moving?')
             ->assertSee('Helpers for loading and unloading')
             ->assertDontSee('Envelope / hand')

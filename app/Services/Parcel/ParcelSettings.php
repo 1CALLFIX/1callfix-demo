@@ -423,6 +423,59 @@ class ParcelSettings
         ], self::availableVehicles($scope));
     }
 
+    /** 1CallMove (owner 2026-11-27): the truck sizes, smallest first. One "Book a truck" button covers them all. */
+    public const TRUCKS = ['mini_truck', 'pickup', 'truck'];
+
+    /** 1CallMove: the big buttons at the top of the booking page, in this order. */
+    public const MOVE_CHOICES = ['parcel', 'three_wheeler', 'truck', 'shift'];
+
+    /** At least one goods vehicle (3-wheeler or a truck) can be booked here. */
+    public static function goodsVehiclesLive(array $scope = []): bool
+    {
+        return array_filter(self::availableVehicles($scope), fn ($v) => self::isGoodsVehicle($v)) !== [];
+    }
+
+    /**
+     * 1CallMove (owner 2026-11-27): the big buttons the booking page opens with, built from the vehicles priced here,
+     * so a button never promises a vehicle that cannot be booked. Only parcels live = no buttons at all (one button
+     * alone would be an extra tap). Each button => the vehicle it starts with:
+     * parcel = two-wheeler; three_wheeler = 3-wheeler; truck = the smallest truck priced (the truck cards inside
+     * switch size); shift (house shifting) = the smallest truck priced, else the 3-wheeler.
+     *
+     * @return array<string, string> choice => vehicle
+     */
+    public static function moveChoices(array $scope = []): array
+    {
+        $available = self::availableVehicles($scope);
+        if (! self::goodsVehiclesLive($scope)) {
+            return [];
+        }
+        $trucks = array_values(array_intersect(self::TRUCKS, $available));
+        $threeWheeler = in_array('three_wheeler', $available, true);
+
+        return array_filter([
+            'parcel' => in_array('two_wheeler', $available, true) ? 'two_wheeler' : null,
+            'three_wheeler' => $threeWheeler ? 'three_wheeler' : null,
+            'truck' => $trucks[0] ?? null,
+            'shift' => $trucks[0] ?? ($threeWheeler ? 'three_wheeler' : null),
+        ]);
+    }
+
+    /** Which button a vehicle (and what is inside) belongs to; house shifting on a goods vehicle = "shift". */
+    public static function moveChoiceFor(?string $vehicle, ?string $contents): string
+    {
+        $vehicle = $vehicle ?: 'two_wheeler';
+        if (self::isGoodsVehicle($vehicle) && $contents === 'house_shifting') {
+            return 'shift';
+        }
+
+        return match (true) {
+            $vehicle === 'three_wheeler' => 'three_wheeler',
+            in_array($vehicle, self::TRUCKS, true) => 'truck',
+            default => 'parcel',
+        };
+    }
+
     public const DELIVERY_TYPES = ['now' => 'Now', 'scheduled' => 'Schedule'];
 
     /** Scheduled delivery is offered only where its own base fare is set. */

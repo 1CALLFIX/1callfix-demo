@@ -160,4 +160,25 @@ class HomeDoorsTest extends TestCase
         Livewire::test(Manage::class)->set('doorWords.services.title_en', '')->call('save');
         $this->assertSame('Services', SiteText::get('home.door.services.title'));
     }
+    /**
+     * 1CallMove (owner 2026-11-27): the Parcel door says "Transport" with the box + truck picture only once a 3-wheeler or
+     * truck can be booked in the area, in the sticky bar too; an uploaded picture still wins.
+     */
+    public function test_the_parcel_door_becomes_transport_once_a_truck_can_be_booked(): void
+    {
+        $this->activateParcelFor($this->franchise);
+        $this->get("/")->assertOk()->assertSee(">Parcel<", false)->assertDontSee("Transport")->assertDontSee("door-move.svg");
+
+        Setting::set(\App\Services\Parcel\ParcelSettings::vehicleKey("mini_truck", "base_fare"), "300");
+        $this->get("/")->assertOk()->assertDontSee("Transport", false); // half a fare card is not enough
+
+        Setting::set(\App\Services\Parcel\ParcelSettings::vehicleKey("mini_truck", "per_km_rate"), "25");
+        $html = $this->get("/")->assertOk()->assertSee("door-move.svg")->getContent();
+        $this->assertSame(2, substr_count($html, ">Transport<"), "the door and the sticky bar");
+        $this->assertSame(["services", "parcel"], $this->doorsOrder($html));
+
+        Storage::fake("public");
+        Setting::set(HomeDoors::imageKey("parcel"), "home/doors/own.png");
+        $this->get("/")->assertOk()->assertSee("home/doors/own.png")->assertDontSee("door-move.svg");
+    }
 }

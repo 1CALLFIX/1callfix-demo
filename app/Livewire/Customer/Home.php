@@ -69,7 +69,7 @@ class Home extends Component
             'parcelActive' => $parcelActive,
             // "from ₹…" on the parcel card: the browsed area's Parcel Settings base fare; null (unset) hides it.
             'parcelFrom' => $parcelFrom = $parcelActive ? \App\Services\Parcel\ParcelSettings::get('parcel.base_fare', $parcelScope) : null,
-            'doors' => $this->doors($parcelActive, $parcelFrom),
+            'doors' => $this->doors($parcelActive, $parcelFrom, $parcelScope),
             'cards' => \App\Support\HomeLayout::shown('module_cards') ? $this->moduleCards($parcelActive, $parcelFrom, $parcelScope) : [],
             'sections' => $sections = \App\Support\HomeLayout::visible(),
             'shop' => $shop = $this->shopRows($sections),
@@ -101,7 +101,7 @@ class Home extends Component
      *
      * @return list<array>
      */
-    private function doors(bool $parcelActive, $parcelFrom): array
+    private function doors(bool $parcelActive, $parcelFrom, array $parcelScope = []): array
     {
         if (! \App\Support\HomeDoors::show()) {
             return [];
@@ -109,7 +109,9 @@ class Home extends Component
         $live = ['services' => ['url' => \App\Support\Seo\PublicUrl::services(), 'count' => $this->catalog()->services()->count()]];
         if ($parcelActive) {
             $live['parcel'] = ['url' => route('customer.parcels.create'),
-                'price' => is_numeric($parcelFrom) && (float) $parcelFrom > 0 ? $this->presenter()->currencySymbol().rtrim(rtrim(number_format((float) $parcelFrom, 2), '0'), '.') : null];
+                'price' => is_numeric($parcelFrom) && (float) $parcelFrom > 0 ? $this->presenter()->currencySymbol().rtrim(rtrim(number_format((float) $parcelFrom, 2), '0'), '.') : null,
+                // 1CallMove (owner 2026-11-27): "Transport" once a 3-wheeler or truck can be booked in this area.
+                'move' => \App\Services\Parcel\ParcelSettings::goodsVehiclesLive($parcelScope)];
         }
         if ($city = $this->shopCity()) {
             $live['shop'] = ['url' => route('customer.shop.home', $city->slug), 'count' => $this->shopsOpen($city)];

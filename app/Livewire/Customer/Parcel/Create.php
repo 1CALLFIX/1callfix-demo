@@ -72,6 +72,13 @@ class Create extends Component
     public string $vehicle = 'two_wheeler';
     public int $helpers = 0;
 
+    /**
+     * 1CallMove (owner 2026-11-27): the big button the customer tapped (ParcelSettings::MOVE_CHOICES). ?want=shift
+     * (or parcel / three_wheeler / truck) opens the page on that button, e.g. from a banner.
+     */
+    #[\Livewire\Attributes\Url(as: 'want', except: '')]
+    public string $want = '';
+
     // ── package ──
     public string $packageSize = 'small';
     public string $packageWeightKg = '';
@@ -141,6 +148,48 @@ class Create extends Component
             $this->paymentMethod = 'wallet';
             $this->cod = false;
         }
+
+        if ($this->want !== '') {
+            $this->forStoreId === null ? $this->choose($this->want) : $this->want = '';
+        }
+    }
+
+    /**
+     * 1CallMove: one tap on a big button picks the vehicle. "Shift house" also picks "House shifting" and asks for
+     * the most helpers (dropped in render() where this vehicle has no helper price). A button not offered here is ignored.
+     */
+    public function choose(string $choice): void
+    {
+        $scope = $this->choiceScope();
+        $choices = ParcelSettings::moveChoices($scope);
+        if (! isset($choices[$choice])) {
+            $this->want = '';
+
+            return;
+        }
+        $this->want = $choice;
+        // A truck size already chosen stays when switching between "Book a truck" and "Shift house".
+        $keep = in_array($choice, ['truck', 'shift'], true) && in_array($this->vehicle, ParcelSettings::TRUCKS, true)
+            && in_array($this->vehicle, ParcelSettings::availableVehicles($scope), true);
+        if (! $keep) {
+            $this->vehicle = $choices[$choice];
+        }
+        $this->updatedVehicle();
+        if ($choice === 'shift') {
+            $this->packageContents = 'house_shifting';
+            $this->helpers = ParcelSettings::HELPERS_MAX;
+        } elseif ($this->packageContents === 'house_shifting') {
+            $this->packageContents = '';
+        }
+    }
+
+    /** The buttons follow the pickup point's area once it is known, else the area the customer is browsing. */
+    private function choiceScope(): array
+    {
+        $pickup = $this->pickupPoint();
+        $zone = $pickup['zone'] ?? app(CustomerLocationContext::class)->zone();
+
+        return $zone ? $this->scopeFor($zone) : [];
     }
 
     /** Stage 3: a different vehicle has its own contents chips and helper price; start those over. */
@@ -631,7 +680,35 @@ class Create extends Component
             $pickupZoneActive = false;
         }
 
+        // 1CallMove (owner 2026-11-27): the big buttons, only once a goods vehicle is priced here. The lit button follows
+        // the vehicle actually chosen (it may have fallen back to the two-wheeler above).
+        $choiceScope = $this->choiceScope();
+        $moveChoices = $this->forStoreId === null ? ParcelSettings::moveChoices($choiceScope) : [];
+        $moveChoice = ParcelSettings::moveChoiceFor($this->vehicle, $this->packageContents);
+        if ($moveChoices !== [] && ! isset($moveChoices[$moveChoice])) {
+            $moveChoice = (string) array_key_first($moveChoices);
+        }
+        // Inside "Book a truck" / "Shift house" the cards switch truck size; elsewhere the button already chose the vehicle.
+        $vehicleCards = $moveChoices === []
+            ? $vehicleOptions
+            : (in_array($this->vehicle, ParcelSettings::TRUCKS, true)
+                ? array_values(array_filter($vehicleOptions, fn ($o) => in_array($o['key'], ParcelSettings::TRUCKS, true)))
+                : []);
+        $moveLines = [];
+        foreach ($moveChoices as $choice => $choiceVehicle) {
+            $moveLines[$choice] = match ($choice) {
+                'truck' => implode(' · ', array_map(fn ($v) => ParcelSettings::vehicleLabel($v),
+                    array_values(array_intersect(ParcelSettings::TRUCKS, ParcelSettings::availableVehicles($choiceScope))))),
+                'shift' => \App\Support\SiteText::get('move.choice.shift.line'),
+                default => ParcelSettings::VEHICLES[$choiceVehicle]['line'],
+            };
+        }
+
         return view('livewire.customer.parcel.create', [
+            'moveChoices' => $moveChoices,
+            'moveChoice' => $moveChoice,
+            'moveLines' => $moveLines,
+            'vehicleCards' => $vehicleCards,
             'blockedFromParcel' => auth()->user()?->parcel_blocked_at !== null,
             'activeHere' => $activeHere,
             'browsingZoneKnown' => $browsingZone !== null,
@@ -666,6 +743,8 @@ class Create extends Component
             'pickupZoneActive' => $pickupZoneActive,
             'maxWeight' => $pickup && $pickup['zone'] ? ParcelSettings::maxWeightFor($this->vehicle, $this->scopeFor($pickup['zone'])) : null,
             'currencySymbol' => Setting::get('locale.currency_symbol', '₹'),
-        ])->layout('components.layouts.customer', ['title' => 'Send a parcel']);
+        ])->layout('components.layouts.customer', ['title' => $moveChoices !== []
+            ? \App\Support\SiteText::get('move.brand').' — '.\App\Support\SiteText::get('move.tagline')
+            : 'Send a parcel']);
     }
 }

@@ -18,6 +18,26 @@
             <a href="{{ route('customer.earnings.wallet') }}" wire:navigate class="mt-2 inline-flex min-h-11 items-center font-semibold underline">Add money to your balance →</a>
         </div>
     @endif
+    @if ($moveChoices !== [])
+    {{-- 1CallMove (owner 2026-11-27): once a goods vehicle is priced here the page says "Transport · by 1CallFix" (one brand, owner 2026-11-27: no sub-brands), words in SiteText (move.*). --}}
+    @php $moveBrand = \App\Support\SiteText::get('move.brand'); @endphp
+    <div class="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#0D3FAD] via-[#0D3FAD] to-blue-600 px-5 pb-5 pt-5 text-white sm:px-8" data-testid="move-header">
+        <img src="{{ asset('images/home/door-move.svg') }}" alt="" aria-hidden="true" decoding="async"
+             class="pointer-events-none absolute -right-2 bottom-2 h-24 w-24 rounded-3xl object-contain opacity-95 sm:right-6 sm:h-28 sm:w-28">
+        <div class="relative max-w-[68%]">
+            <h1 class="text-3xl font-black tracking-tight sm:text-4xl">
+                @if (str_starts_with($moveBrand, '1Call'))
+                    <span class="text-[#13A4F3]">1</span>Call<span class="text-[#13A4F3]">{{ substr($moveBrand, 5) }}</span>
+                @else
+                    {{ $moveBrand }}
+                @endif
+            </h1>
+            <p class="mt-0.5 text-xs font-semibold uppercase tracking-widest text-blue-100">{{ \App\Support\SiteText::get('move.by', ['brand' => \App\Models\Setting::get('branding.platform_name', '1CallFix')]) }}</p>
+            <p class="mt-2 text-base font-bold">{{ \App\Support\SiteText::get('move.tagline') }}</p>
+            <x-customer.share-button :title="$moveBrand.' — '.\App\Support\SiteText::get('move.tagline')" class="mt-3" />
+        </div>
+    </div>
+    @else
     {{-- Picture header (owner 2026-10-26): same picture and subtitle as the homepage parcel card (Admin → Homepage & sign-up). --}}
     <div class="relative overflow-hidden rounded-3xl bg-gradient-to-b from-blue-100 to-blue-50 px-5 pb-5 pt-5 sm:px-8">
         <img src="{{ \App\Support\SiteControls::parcelImageUrl() }}" alt="" aria-hidden="true" decoding="async"
@@ -29,6 +49,7 @@
             <p class="mt-1 text-sm text-slate-600">{{ \App\Support\SiteControls::parcelPageIntro() }}</p>
         </div>
     </div>
+    @endif
 
     <x-customer.page-banners placement="page_parcel" />
 
@@ -46,6 +67,38 @@
         {{-- Admin blocked this customer from sending parcels (Admin → Customers → Send parcels: Block). --}}
         <div class="mt-4 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800" role="alert">Sending parcels is not available on your account. Please contact support.</div>
     @else
+    @if ($moveChoices !== [])
+        {{-- 1CallMove (owner 2026-11-27): the big buttons, only for what can be booked here; one tap picks the vehicle. --}}
+        @php
+            $moveLook = [
+                'parcel' => ['📦', 'border-blue-600 bg-blue-50 ring-blue-600', 'bg-blue-600'],
+                'three_wheeler' => ['🛺', 'border-amber-500 bg-amber-50 ring-amber-500', 'bg-amber-500'],
+                'truck' => ['🚚', 'border-emerald-600 bg-emerald-50 ring-emerald-600', 'bg-emerald-600'],
+                'shift' => ['🏠', 'border-violet-600 bg-violet-50 ring-violet-600', 'bg-violet-600'],
+            ];
+        @endphp
+        <section class="mt-4" aria-labelledby="move-ask" data-testid="move-choices">
+            <h2 id="move-ask" class="text-base font-bold text-slate-900">{{ \App\Support\SiteText::get('move.ask') }}</h2>
+            <div @class(['mt-2 grid gap-2', 'grid-cols-2 sm:grid-cols-4' => count($moveChoices) === 4, 'grid-cols-3' => count($moveChoices) === 3, 'grid-cols-2' => count($moveChoices) === 2])>
+                @foreach ($moveChoices as $choice => $choiceVehicle)
+                    @php [$emoji, $on, $dot] = $moveLook[$choice]; $chosen = $moveChoice === $choice; @endphp
+                    <button type="button" wire:click="choose('{{ $choice }}')" wire:key="move-{{ $choice }}" data-move="{{ $choice }}" aria-pressed="{{ $chosen ? 'true' : 'false' }}"
+                            @class(['relative flex min-h-24 flex-col items-start rounded-2xl border-2 p-3 text-left transition', $on.' ring-1' => $chosen, 'border-slate-200 bg-white hover:border-slate-300' => ! $chosen])>
+                        <span class="flex w-full items-start justify-between gap-1">
+                            <span class="text-3xl leading-none" aria-hidden="true">{{ $emoji }}</span>
+                            @if ($chosen)<span class="inline-flex h-5 w-5 items-center justify-center rounded-full {{ $dot }} text-xs font-bold text-white" aria-hidden="true">✓</span>@endif
+                        </span>
+                        <span class="mt-2 text-sm font-bold leading-tight text-slate-900">{{ \App\Support\SiteText::get("move.choice.{$choice}") }}</span>
+                        <span class="mt-0.5 text-xs leading-snug text-slate-500">{{ $moveLines[$choice] ?? '' }}</span>
+                        @if ($choice !== 'shift' && isset($vehiclePrices[$choiceVehicle]))
+                            <span class="mt-1 text-xs font-semibold tabular-nums text-slate-700">{{ $fmt($vehiclePrices[$choiceVehicle]) }}</span>
+                        @endif
+                    </button>
+                @endforeach
+            </div>
+        </section>
+    @endif
+
     {{-- One tap: drop point + recipient of a recent parcel. With the default pickup, Book is the next tap. --}}
     @if ($recentRecipients->isNotEmpty())
         <div class="mt-4">
@@ -274,7 +327,7 @@
 
             {{-- Stage 3 (goods vehicles, 2026-11-23): one card per vehicle priced here, each with its own colour and price.
                  Only where a second vehicle is priced, so the page is unchanged until Super Admin prices one. --}}
-            @if (count($vehicleOptions) > 1)
+            @if (count($vehicleCards) > 1)
                 @php
                     $vehicleColours = [
                         'blue' => 'border-blue-600 bg-blue-50 ring-blue-600',
@@ -285,9 +338,9 @@
                     ];
                 @endphp
                 <fieldset class="mt-3" data-testid="vehicle-picker">
-                    <legend class="{{ $labelClass }}">Vehicle</legend>
+                    <legend class="{{ $labelClass }}">{{ $moveChoices !== [] ? 'Truck size' : 'Vehicle' }}</legend>
                     <div class="mt-1 grid grid-cols-2 gap-2 sm:grid-cols-3">
-                        @foreach ($vehicleOptions as $option)
+                        @foreach ($vehicleCards as $option)
                             <label wire:key="vehicle-{{ $option['key'] }}" @class([
                                 'flex min-h-20 cursor-pointer flex-col rounded-xl border p-3 text-sm transition',
                                 $vehicleColours[$option['colour']].' ring-1' => $vehicle === $option['key'],
@@ -306,6 +359,7 @@
                         @endforeach
                     </div>
                 </fieldset>
+            @endif
 
                 {{-- Helpers for loading: three big chips, shown only where this vehicle's helper price is set. --}}
                 @if ($goodsVehicle && $helperFee !== null)
@@ -325,7 +379,6 @@
                         </div>
                     </fieldset>
                 @endif
-            @endif
 
             @unless ($goodsVehicle)
             <fieldset class="mt-3">

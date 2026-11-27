@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" role="img" aria-label="Transport">
+  <!-- 1CallFix's own drawing (2026-11-27): the Parcel door once a 3-wheeler or truck can be booked (1CallMove): a parcel on a mini truck. -->
+  <rect x="6" y="6" width="108" height="108" rx="26" fill="#DBEAFE"/>
+  <rect x="8" y="56" width="10" height="4.5" rx="2.25" fill="#2563EB" opacity=".55"/>
+  <rect x="11" y="66" width="7" height="4.5" rx="2.25" fill="#2563EB" opacity=".35"/>
+  <!-- parcel on the load bed -->
+  <path d="M33 33 L39 27 L63 27 L57 33 Z" fill="#E8B873"/>
+  <rect x="33" y="33" width="24" height="17" fill="#D6A15C"/>
+  <path d="M57 33 L63 27 L63 44 L57 50 Z" fill="#C48A45"/>
+  <rect x="43" y="33" width="4.5" height="17" fill="#FACC15"/>
+  <path d="M45 27 L49.5 27 L43.5 33 L43 33 Z" fill="#FACC15"/>
+  <!-- truck -->
+  <rect x="22" y="50" width="52" height="30" rx="4" fill="#2563EB"/>
+  <path d="M74 58 H90 L102 70 V80 H74 Z" fill="#1D4ED8"/>
+  <path d="M78 62 H88.5 L96 70 H78 Z" fill="#BFDBFE"/>
+  <rect x="98" y="73" width="5" height="4" rx="1.5" fill="#FACC15"/>
+  <circle cx="38" cy="84" r="8.5" fill="#0F172A"/>
+  <circle cx="38" cy="84" r="3.2" fill="#CBD5E1"/>
+  <circle cx="88" cy="84" r="8.5" fill="#0F172A"/>
+  <circle cx="88" cy="84" r="3.2" fill="#CBD5E1"/>
+</svg>

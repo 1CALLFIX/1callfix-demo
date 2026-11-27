@@ -47,6 +47,9 @@ final class HomeDoors
         'secondhand' => [8, 'images/home/door-secondhand.svg'], // Second-hand (2026-11-19): used things people near you post
     ];
 
+    /** 1CallMove (2026-11-27): the Parcel door's built-in picture once a 3-wheeler or truck can be booked (box + truck). */
+    public const MOVE_IMAGE = 'images/home/door-move.svg';
+
     public static function show(): bool
     {
         return self::flag(self::SHOW, true);
@@ -133,7 +136,10 @@ final class HomeDoors
                 continue;
             }
             $info = $live[$door];
-            $line = SiteText::get("home.door.{$door}.line");
+            // 1CallMove (owner 2026-11-27): a 3-wheeler or truck can be booked here, so the Parcel door says "Transport"
+            // with the box + truck picture (an uploaded picture still wins). Only parcels = "Parcel", as before.
+            $words = ! empty($info['move']) ? "home.door.{$door}.move_" : "home.door.{$door}.";
+            $line = SiteText::get($words.'line');
             if (self::liveInfo()) {
                 if (($info['count'] ?? 0) > 0) {
                     $line = SiteText::get($info['count'] === 1 ? "home.door.{$door}.live_one" : "home.door.{$door}.live", ['count' => $info['count']]);
@@ -143,7 +149,8 @@ final class HomeDoors
             }
             $doors[] = [
                 'key' => $door, 'url' => $info['url'], 'order' => self::doorOrder($door),
-                'title' => SiteText::get("home.door.{$door}.title"), 'line' => $line, 'image' => self::imageUrl($door),
+                'title' => SiteText::get($words.'title'), 'line' => $line,
+                'image' => ! empty($info['move']) && ! self::hasUpload($door) ? asset(self::MOVE_IMAGE) : self::imageUrl($door),
                 'badge' => self::badge(isset($info['count']) ? (int) $info['count'] : null),
             ];
         }
